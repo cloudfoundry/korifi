@@ -1,0 +1,6 @@
+domain: cloudfoundry.org
+layout:
+- go.kubebuilder.io/v3
+projectName: cf-k8s-controllers
+repo: cloudfoundry.org/cf-k8s-controllers
+version: "3"
