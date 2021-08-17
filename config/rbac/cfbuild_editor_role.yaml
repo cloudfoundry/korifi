@@ -1,0 +1,24 @@
+# permissions for end users to edit cfbuilds.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cfbuild-editor-role
+rules:
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds/status
+  verbs:
+  - get

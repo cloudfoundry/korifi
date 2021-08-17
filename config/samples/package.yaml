@@ -1,0 +1,18 @@
+---
+# Defines the CFPackage for “Bits/SourceBased” packages
+apiVersion: workloads.cloudfoundry.org/v1alpha1
+kind: CFPackage
+metadata:
+  # apps.cloudfoundry.org/ labels are all managed by a mutating webhook
+  labels:
+    apps.cloudfoundry.org/appGuid: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
+  name: ac85ad52-f52f-48e3-8c99-5e7badbe79c5
+spec:
+  type: bits
+  appRef:
+    name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a # Enforced via a Validating Webhook to reject empty or non-valid appRefs/appGUID
+  source: # keeping this source block above registry gives us flexibility to support other kpack source types: https://github.com/pivotal/kpack/blob/main/docs/image.md#source-configuration
+    registry:
+      image: gcr.io/cf-relint-greengrass/cf-crd-staging-spike/packages/ac85ad52-f52f-48e3-8c99-5e7badbe79c5:latest
+      imagePullSecrets:
+        - name: app-registry-credentials
