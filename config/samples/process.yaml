@@ -11,8 +11,6 @@ metadata:
   name: 99dcda7d-1fa1-4a91-b437-fbdba20et56y
 spec:
   appRef:
-    apiVersion: workloads.cloudfoundry.org/v1alpha1
-    kind: CFApp
     name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
   command: bundle exec rackup config.ru -p $PORT -o 0.0.0.0
   diskQuotaMB: 512

@@ -11,17 +11,15 @@ metadata:
 spec:
   type: buildpack
   appRef:
-    apiVersion: workloads.cloudfoundry.org/v1alpha1
-    kind: CFApp
     name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
   buildRef:
-    apiVersion: workloads.cloudfoundry.org/v1alpha1
-    kind: CFBuild
     name: 1591ee05-e208-4cf3-a662-1c2da42f20a7
   ports: [80, 443] # spec.ports is the set of ports exposed on the Processes of the Droplet
   processTypes:
-    web: bundle exec rackup config.ru -p $PORT -o 0.0.0.0
-    worker: bundle exec rackup config.ru
+    - type: web
+      command: bundle exec rackup config.ru -p $PORT -o 0.0.0.0
+    - type: worker
+      command: bundle exec rackup config.ru
   registry:
     image: gcr.io/cf-relint-greengrass/cf-crd-staging-spike/buildpack/14dcda7d-1fa1-4a91-b437-fbdba20e8c5a@sha256:17ef1315d87bb57657ee14f387394f56d6f4429151262d731a31e92e5497ad35
     imagePullSecrets:

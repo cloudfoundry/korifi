@@ -35,10 +35,15 @@ type CFDropletSpec struct {
 	Registry Registry `json:"registry"`
 
 	// Specifies the process types and associated start commands for the Droplet
-	ProcessTypes map[string]string `json:"processTypes"`
+	ProcessTypes []ProcessType `json:"processTypes"`
 
 	// Specifies the exposed ports for the application
 	Ports []int32 `json:"ports"`
+}
+
+type ProcessType struct{
+	Type string `json:"type"`
+	Command string `json:"command"`
 }
 
 // CFDropletStatus defines the observed state of CFDroplet

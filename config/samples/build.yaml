@@ -11,12 +11,8 @@ metadata:
   name: 1591ee05-e208-4cf3-a662-1c2da42f20a7
 spec:
   appRef:
-    apiVersion: workloads.cloudfoundry.org/v1alpha1
-    kind: CFApp
     name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
   packageRef:
-    apiVersion: workloads.cloudfoundry.org/v1alpha1
-    kind: CFPackage
     name: ac85ad52-f52f-48e3-8c99-5e7badbe79c5
   lifecycle:
     type: buildpack

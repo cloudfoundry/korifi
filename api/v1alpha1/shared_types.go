@@ -6,14 +6,8 @@ import (
 
 // ResourceReference defines a reference to an instance of a resource in Kubernetes
 type ResourceReference struct {
-	Kind       CFKind `json:"kind"`
-	APIVersion string `json:"apiVersion"`
 	Name       string `json:"name"`
 }
-
-// CFKind defines allowed value for Kind in ResourceReference
-// +kubebuilder:validation:Enum=CFApp;CFBuild;CFPackage;CFDroplet;CFProcess
-type CFKind string
 
 type Lifecycle struct {
 	// Specifies the CF Lifecycle type:
