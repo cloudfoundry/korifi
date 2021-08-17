@@ -85,6 +85,27 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CFApp")
 		os.Exit(1)
 	}
+	if err = (&controllers.CFPackageReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
+		os.Exit(1)
+	}
+	if err = (&controllers.CFDropletReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFDroplet")
+		os.Exit(1)
+	}
+	if err = (&controllers.CFProcessReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFProcess")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
