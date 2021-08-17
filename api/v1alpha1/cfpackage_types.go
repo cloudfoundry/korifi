@@ -32,7 +32,6 @@ type CFPackageSpec struct {
 
 	// Source contains the details for the source image(bits)
 	Source PackageSource `json:"source,omitempty"`
-
 }
 
 // PackageType used to enum the inputs to package.type

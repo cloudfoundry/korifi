@@ -20,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-
 // CFDropletSpec defines the desired state of CFDroplet
 type CFDropletSpec struct {
 	// Specifies the Lifecycle type of the droplet

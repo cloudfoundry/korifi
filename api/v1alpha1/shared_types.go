@@ -33,7 +33,7 @@ type LifecycleType string
 type LifecycleData struct {
 	// List of buildpacks used to build the app
 	Buildpacks []string `json:"buildpacks"`
-	Stack string `json:"stack"`
+	Stack      string   `json:"stack"`
 }
 
 // Registry is used by CFPackage and CFDroplet to identify Registry and secrets to access the image provided
@@ -43,5 +43,3 @@ type Registry struct {
 	// ImagePullSecrets specifies a list of secrets required to access the image
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
-
-
