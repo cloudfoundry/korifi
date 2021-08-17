@@ -37,7 +37,7 @@ spec:
             description: CFAppSpec defines the desired state of CFApp
             properties:
               currentDropletRef:
-                description: Specifies the Droplet info for the droplet that is currently
+                description: CurrentDropletRef provides reference to the droplet currently
                   assigned (active) for the app
                 properties:
                   apiVersion:
@@ -59,7 +59,7 @@ spec:
                 - name
                 type: object
               desiredState:
-                description: 'Specifies the current state of the app Valid values
+                description: 'Specifies the current state of the CFApp Allowed values
                   are: "STARTED": App is started "STOPPED": App is stopped'
                 enum:
                 - STOPPED
@@ -67,11 +67,10 @@ spec:
                 type: string
               envSecretName:
                 description: Name of a secret containing a map of multiple environment
-                  variables passed to every Process of the App
+                  variables passed to every CFProcess of the app
                 type: string
               lifecycle:
-                description: Specifies how to build droplets Container for listing
-                  builds and stacks
+                description: Lifecycle specifies how to build droplets
                 properties:
                   data:
                     description: Lifecycle data used to specify details for the Lifecycle
@@ -98,6 +97,7 @@ spec:
                 - type
                 type: object
               name:
+                description: Name defines the name of the app
                 type: string
             required:
             - desiredState
@@ -108,8 +108,7 @@ spec:
             description: CFAppStatus defines the observed state of CFApp
             properties:
               conditions:
-                description: INSERT ADDITIONAL STATUS FIELD - define observed state
-                  of cluster Contains the current status of the App
+                description: Conditions capture the current status of the App
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct

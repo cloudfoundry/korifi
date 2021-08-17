@@ -20,22 +20,32 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // CFDropletSpec defines the desired state of CFDroplet
 type CFDropletSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Specifies the Lifecycle type of the droplet
+	Type LifecycleType `json:"type"`
 
-	// Foo is an example field of CFDroplet. Edit cfdroplet_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Specifies the App associated with this Droplet
+	AppRef ResourceReference `json:"appRef"`
+
+	// Specifies the Build associated with this Droplet
+	BuildRef ResourceReference `json:"buildRef"`
+
+	// Specifies the Container registry image, and secrets to access
+	Registry Registry `json:"registry"`
+
+	// Specifies the process types and associated start commands for the Droplet
+	ProcessTypes map[string]string `json:"processTypes"`
+
+	// Specifies the exposed ports for the application
+	Ports []int32 `json:"ports"`
 }
 
 // CFDropletStatus defines the observed state of CFDroplet
 type CFDropletStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions capture the current status of the Droplet
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 //+kubebuilder:object:root=true

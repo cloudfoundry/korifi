@@ -1,7 +1,0 @@
-apiVersion: workloads.cloudfoundry.org/v1alpha1
-kind: CFPackage
-metadata:
-  name: cfpackage-sample
-spec:
-  # Add fields here
-  foo: bar

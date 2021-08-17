@@ -20,22 +20,64 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // CFProcessSpec defines the desired state of CFProcess
 type CFProcessSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Specifies the App that owns this process
+	AppRef ResourceReference `json:"appRef"`
 
-	// Foo is an example field of CFProcess. Edit cfprocess_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Specifies the name of the process in the App
+	ProcessType string `json:"processType"`
+
+	// Specifies the Command(k8s) ENTRYPOINT(Docker) of the Process
+	Command string `json:"command,omitempty"`
+
+	// Specifies the Liveness Probe (k8s) details of the Process
+	HealthCheck HealthCheck `json:"healthCheck"`
+
+	// Specifies the desired number of Process replicas to deploy
+	DesiredInstances int `json:"desiredInstances"`
+
+	// Specifies the Process memory limit
+	MemoryMB int64 `json:"memoryMB"`
+
+	// Specifies the Process disk limit
+	DiskQuotaMB int64 `json:"diskQuotaMB"`
+
+	// Specifies the Process ports to expose
+	Ports []int32 `json:"ports"`
+}
+
+type HealthCheck struct {
+	// Specifies the type of Health Check the App process will use
+	// Valid values are:
+	// "http": http health check
+	// "port": TCP health check
+	// "process" (default): checks if process for start command is still alive
+	Type HealthCheckType `json:"type"`
+
+	// Specifies the input parameters for the liveness probe/health check in kubernetes
+	Data HealthCheckData `json:"data"`
+}
+
+// HealthCheckType used to ensure illegal HealthCheckTypes are not passed
+// +kubebuilder:validation:Enum=http;port;process
+type HealthCheckType string
+
+// HealthCheckData used to pass through input parameters to liveness probe
+type HealthCheckData struct {
+	// HTTPEndpoint is only used by an "http" liveness probe
+	HTTPEndpoint string `json:"httpEndpoint,omitempty"`
+
+	InvocationTimeoutSeconds int64 `json:"invocationTimeoutSeconds"`
+	TimeoutSeconds           int64 `json:"timeoutSeconds"`
 }
 
 // CFProcessStatus defines the observed state of CFProcess
 type CFProcessStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// RunningInstances captures the actual number of Process replicas
+	RunningInstances int `json:"runningInstances"`
+	// Conditions capture the current status of the Process
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 //+kubebuilder:object:root=true

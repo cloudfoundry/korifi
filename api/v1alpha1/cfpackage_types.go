@@ -20,22 +20,34 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // CFPackageSpec defines the desired state of CFPackage
 type CFPackageSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Type specifies the package type
+	// Valid values are:
+	// "bits": package to upload source code
+	Type PackageType `json:"type"`
 
-	// Foo is an example field of CFPackage. Edit cfpackage_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// AppRef reference to the CFApp that owns this package
+	AppRef ResourceReference `json:"appRef"`
+
+	// Source contains the details for the source image(bits)
+	Source PackageSource `json:"source,omitempty"`
+
+}
+
+// PackageType used to enum the inputs to package.type
+// +kubebuilder:validation:Enum=bits
+type PackageType string
+
+type PackageSource struct {
+	// registry ( Source code is an OCI image in a registry that contains application source)
+	Registry Registry `json:"registry"`
 }
 
 // CFPackageStatus defines the observed state of CFPackage
 type CFPackageStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions capture the current status of the Package
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 //+kubebuilder:object:root=true
