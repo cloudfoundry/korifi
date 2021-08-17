@@ -20,22 +20,36 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // CFAppSpec defines the desired state of CFApp
 type CFAppSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of CFApp. Edit cfapp_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Name defines the name of the app
+	Name string `json:"name"`
+
+	// Specifies the current state of the CFApp
+	// Allowed values are:
+	// "STARTED": App is started
+	// "STOPPED": App is stopped
+	DesiredState DesiredState `json:"desiredState"`
+
+	// Lifecycle specifies how to build droplets
+	Lifecycle Lifecycle `json:"lifecycle"`
+
+	// Name of a secret containing a map of multiple environment variables passed to every CFProcess of the app
+	EnvSecretName string `json:"envSecretName,omitempty"`
+
+	// CurrentDropletRef provides reference to the droplet currently assigned (active) for the app
+	CurrentDropletRef ResourceReference `json:"currentDropletRef,omitempty"`
 }
+
+// DesiredState defines the desired state of CFApp.
+// +kubebuilder:validation:Enum=STOPPED;STARTED
+type DesiredState string
 
 // CFAppStatus defines the observed state of CFApp
 type CFAppStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions capture the current status of the App
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 //+kubebuilder:object:root=true
