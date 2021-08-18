@@ -8,6 +8,9 @@ on:
   push:
   # Don't want to push on PRs until we have a reason to and figure out to not clobber other images.
     branches: [ main ]
+    paths-ignore:
+    - '**/*.md'
+    - '**/.*'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
