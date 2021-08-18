@@ -6,8 +6,7 @@ name: CI
 on:
   # Triggers the workflow on push or pull request events but only for the main branch
   push:
-    branches: [ main ]
-  pull_request:
+  # Don't want to push on PRs until we have a reason to and figure out to not clobber other images.
     branches: [ main ]
 
   # Allows you to run this workflow manually from the Actions tab
