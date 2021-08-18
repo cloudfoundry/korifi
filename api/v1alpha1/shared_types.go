@@ -6,7 +6,7 @@ import (
 
 // ResourceReference defines a reference to an instance of a resource in Kubernetes
 type ResourceReference struct {
-	Name       string `json:"name"`
+	Name string `json:"name"`
 }
 
 type Lifecycle struct {

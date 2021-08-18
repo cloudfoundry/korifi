@@ -41,8 +41,8 @@ type CFDropletSpec struct {
 	Ports []int32 `json:"ports"`
 }
 
-type ProcessType struct{
-	Type string `json:"type"`
+type ProcessType struct {
+	Type    string `json:"type"`
 	Command string `json:"command"`
 }
 
