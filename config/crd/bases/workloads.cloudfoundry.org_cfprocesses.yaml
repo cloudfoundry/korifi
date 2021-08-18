@@ -35,22 +35,9 @@ spec:
               appRef:
                 description: Specifies the App that owns this process
                 properties:
-                  apiVersion:
-                    type: string
-                  kind:
-                    description: CFKind defines allowed value for Kind in ResourceReference
-                    enum:
-                    - CFApp
-                    - CFBuild
-                    - CFPackage
-                    - CFDroplet
-                    - CFProcess
-                    type: string
                   name:
                     type: string
                 required:
-                - apiVersion
-                - kind
                 - name
                 type: object
               command:
