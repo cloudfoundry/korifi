@@ -33,9 +33,6 @@ var _ = Describe("CFAppReconciler", func() {
 					DesiredState: "STOPPED",
 					Lifecycle: v1alpha1.Lifecycle{
 						Type: "buildpack",
-						Data: v1alpha1.LifecycleData{
-							Buildpacks: []string{}, // TODO: field can't be null - may want to change this
-						},
 					},
 				},
 			}
