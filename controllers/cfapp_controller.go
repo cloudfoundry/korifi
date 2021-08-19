@@ -18,11 +18,14 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
 )
@@ -31,6 +34,7 @@ import (
 type CFAppReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfapps,verbs=get;list;watch;create;update;patch;delete
@@ -47,10 +51,35 @@ type CFAppReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	var cfApp workloadsv1alpha1.CFApp
+	if err := r.Get(ctx, req.NamespacedName, &cfApp); err != nil {
+		r.Log.Error(err, "unable to fetch CFApp")
+		// we'll ignore not-found errors, since they can't be fixed by an immediate
+		// requeue (we'll need to wait for a new notification), and we can get them
+		// on deleted requests.
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-	// your logic here
+	// set the status.conditions "Running" and "Restarting" to false
+	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+		Type:    "Running",
+		Status:  metav1.ConditionFalse,
+		Reason:  "unimplemented",
+		Message: "",
+	})
+	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+		Type:    "Restarting",
+		Status:  metav1.ConditionFalse,
+		Reason:  "unimplemented",
+		Message: "",
+	})
 
+	// Update CF App Status Conditions based on local copy
+	if err := r.Status().Update(ctx, &cfApp); err != nil {
+		r.Log.Error(err, "unable to update CFApp status")
+		r.Log.Info(fmt.Sprintf("CFApps status: %+v", cfApp.Status))
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
 }
 
