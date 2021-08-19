@@ -1,99 +1,89 @@
-/*
-Copyright 2021.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controllers_test
 
 import (
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers"
+	. "github.com/onsi/gomega"
+	"github.com/sclevine/spec"
+	"k8s.io/client-go/kubernetes/scheme"
+	"os"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"testing"
-
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
+	"testing"
 )
 
-// These tests use Ginkgo (BDD-style Go testing framework). Refer to
-// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
+var (
+	suite spec.Suite
+	testEnv *envtest.Environment
+	k8sClient client.Client
+)
 
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
-
-func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Controller Suite",
-		[]Reporter{printer.NewlineReporter{}})
-}
-
-var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	By("bootstrapping test environment")
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: true,
+func Suite() spec.Suite {
+	if suite == nil {
+		suite = spec.New("Controllers")
 	}
 
-	cfg, err := testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
+	return suite
+}
 
-	err = workloadsv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	//+kubebuilder:scaffold:scheme
+func AddToTestSuite(desc string, f func(t *testing.T, when spec.G, it spec.S)) bool {
+	return Suite()(desc, f)
+}
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+func TestSuite(t *testing.T) {
+	Suite().Before(func(t *testing.T) {
+		g := NewWithT(t)
+		//logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+		logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
 
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
+		testEnv = &envtest.Environment{
+			CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
+			ErrorIfCRDPathMissing: true,
+		}
+
+		cfg, err := testEnv.Start()
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(cfg).NotTo(BeNil())
+
+		err = workloadsv1alpha1.AddToScheme(scheme.Scheme)
+		g.Expect(err).NotTo(HaveOccurred())
+		//+kubebuilder:scaffold:scheme
+
+		k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(k8sClient).NotTo(BeNil())
+
+		k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+			Scheme: scheme.Scheme,
+		})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		err = (&CFAppReconciler{
+			Client: k8sManager.GetClient(),
+			Scheme: k8sManager.GetScheme(),
+			Log: ctrl.Log.WithName("controllers").WithName("CFApp"),
+		}).SetupWithManager(k8sManager)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// TODO: Add the other reconcilers
+
+		go func() {
+			err = k8sManager.Start(ctrl.SetupSignalHandler())
+			g.Expect(err).ToNot(HaveOccurred())
+		}()
 	})
-	Expect(err).ToNot(HaveOccurred())
 
-	err = (&CFAppReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
-		Log: ctrl.Log.WithName("controllers").WithName("CFApp"),
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Suite().After(func(t *testing.T) {
+		g := NewWithT(t)
+		err := testEnv.Stop()
+		g.Expect(err).NotTo(HaveOccurred())
+	})
 
-	// TODO: Add the other reconcilers
-
-	go func() {
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
-		Expect(err).ToNot(HaveOccurred())
-	}()
-}, 60)
-
-var _ = AfterSuite(func() {
-	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
-})
+	suite.Run(t)
+}
