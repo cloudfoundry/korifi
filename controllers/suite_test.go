@@ -65,7 +65,7 @@ func TestSuite(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 
 		err = (&CFAppReconciler{
-			Client: k8sManager.GetClient(),
+			CFAppClient: &RealCFAppClient{Client: k8sManager.GetClient()},
 			Scheme: k8sManager.GetScheme(),
 			Log: ctrl.Log.WithName("controllers").WithName("CFApp"),
 		}).SetupWithManager(k8sManager)
