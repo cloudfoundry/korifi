@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"cloudfoundry.org/cf-k8s-api/apis"
+	"code.cloudfoundry.org/cf-k8s-api/apis"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"

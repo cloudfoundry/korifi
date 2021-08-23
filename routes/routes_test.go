@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"cloudfoundry.org/cf-k8s-api/routes"
+	"code.cloudfoundry.org/cf-k8s-api/routes"
 	"github.com/gorilla/mux"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"

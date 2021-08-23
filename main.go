@@ -1,15 +1,15 @@
 package main
 
 import (
-	"cloudfoundry.org/cf-k8s-api/apis"
-	"cloudfoundry.org/cf-k8s-api/routes"
+	"code.cloudfoundry.org/cf-k8s-api/apis"
+	"code.cloudfoundry.org/cf-k8s-api/routes"
 	"fmt"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"os"
 
-	. "cloudfoundry.org/cf-k8s-api/config"
+	. "code.cloudfoundry.org/cf-k8s-api/config"
 )
 const defaultConfigPath = "config.json"
 
