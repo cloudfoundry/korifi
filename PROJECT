@@ -2,7 +2,7 @@ domain: cloudfoundry.org
 layout:
 - go.kubebuilder.io/v3
 projectName: cf-k8s-controllers
-repo: cloudfoundry.org/cf-k8s-controllers
+repo: code.cloudfoundry.org/cf-k8s-controllers
 resources:
 - api:
     crdVersion: v1
@@ -11,7 +11,7 @@ resources:
   domain: cloudfoundry.org
   group: workloads
   kind: CFApp
-  path: cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -20,7 +20,7 @@ resources:
   domain: cloudfoundry.org
   group: workloads
   kind: CFPackage
-  path: cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -29,7 +29,7 @@ resources:
   domain: cloudfoundry.org
   group: workloads
   kind: CFDroplet
-  path: cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -38,7 +38,7 @@ resources:
   domain: cloudfoundry.org
   group: workloads
   kind: CFProcess
-  path: cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -48,6 +48,6 @@ resources:
   group: workloads
   kind: CFBuild
   plural: cfbuilds
-  path: cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
   version: v1alpha1
 version: "3"

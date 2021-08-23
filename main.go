@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	workloadsv1alpha1 "cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
-	"cloudfoundry.org/cf-k8s-controllers/controllers"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers"
 	//+kubebuilder:scaffold:imports
 )
 

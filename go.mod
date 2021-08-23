@@ -1,4 +1,4 @@
-module cloudfoundry.org/cf-k8s-controllers
+module code.cloudfoundry.org/cf-k8s-controllers
 
 go 1.16
 
