@@ -79,7 +79,7 @@ func main() {
 	}
 
 	if err = (&controllers.CFAppReconciler{
-		CFAppClient: &controllers.RealCFAppClient{Client: mgr.GetClient()},
+		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Log: ctrl.Log.WithName("controllers").WithName("CFApp"),
 	}).SetupWithManager(mgr); err != nil {
