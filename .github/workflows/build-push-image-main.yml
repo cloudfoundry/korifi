@@ -1,12 +1,11 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI
+name: 'Build and push image from main'
 
 # Controls when the workflow will run
 on:
   # Triggers the workflow on push or pull request events but only for the main branch
   push:
-  # Don't want to push on PRs until we have a reason to and figure out to not clobber other images.
     branches: [ main ]
     paths-ignore:
     - '**/*.md'
@@ -39,4 +38,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: relintdockerhubpushbot/cf-k8s-api:latest
+          tags: cloudfoundry/cf-k8s-api:latest
