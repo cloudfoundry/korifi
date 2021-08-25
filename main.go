@@ -81,6 +81,7 @@ func main() {
 	if err = (&controllers.CFAppReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("CFApp"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFApp")
 		os.Exit(1)

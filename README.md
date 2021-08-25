@@ -30,5 +30,18 @@ make install
 kubectl apply -f config/samples/. --recursive
 ```
 
+Running the unit tests
+```
+go test ./...
+```
 
+Running integration tests
+```
+# First time (pulls kube-apiserver and etcd for envtest):
+make test
+
+# Afterwards
+export KUBEBUILDER_ASSETS=~/workspace/cf-k8s-controllers/testbin/bin/
+go test ./... -tags=integration
+```
 

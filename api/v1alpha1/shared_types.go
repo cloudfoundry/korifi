@@ -26,7 +26,7 @@ type LifecycleType string
 // Shared by CFApp and CFBuild
 type LifecycleData struct {
 	// List of buildpacks used to build the app
-	Buildpacks []string `json:"buildpacks"`
+	Buildpacks []string `json:"buildpacks,omitempty"`
 	Stack      string   `json:"stack"`
 }
 

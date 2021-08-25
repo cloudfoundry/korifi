@@ -54,7 +54,6 @@ spec:
                       stack:
                         type: string
                     required:
-                    - buildpacks
                     - stack
                     type: object
                   type:
