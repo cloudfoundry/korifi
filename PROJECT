@@ -13,6 +13,10 @@ resources:
   kind: CFApp
   path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
