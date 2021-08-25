@@ -45,7 +45,7 @@ type CFRouteSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Host is optional, defaults to empty. For cf push default route, uses the name of the app.
-	Host string `json:"hostname,omitempty"`
+	Host string `json:"host,omitempty"`
 	// Path is optional, defaults to empty.
 	Path string `json:"path,omitempty"`
 	// Protocol is optional, defaults to http. Dependent on allow-listed protocols on domain.

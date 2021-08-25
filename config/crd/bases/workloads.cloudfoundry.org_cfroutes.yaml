@@ -64,7 +64,7 @@ spec:
                 required:
                 - name
                 type: object
-              hostname:
+              host:
                 description: Host is optional, defaults to empty. For cf push default route, uses the name of the app.
                 type: string
               path:
