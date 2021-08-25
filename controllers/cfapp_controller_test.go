@@ -1,66 +1,145 @@
+// +build !integration
+
 package controllers_test
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
 	"context"
+	"fmt"
+	"testing"
+
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
+	"github.com/sclevine/spec/report"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"testing"
-	"time"
+	"k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllersfakes"
 )
 
+const (
+	dummyCFAppName      = "dummy"
+	dummyCFAppNamespace = "default"
 
-var _ = AddToTestSuite("CFAppReconciler", testCFAppReconciler)
+	getErrorMessage          = "Get fails on purpose!"
+	statusUpdateErrorMessage = "Update fails on purpose!"
+)
+
+func TestReconcilers(t *testing.T) {
+	spec.Run(t, "object", testCFAppReconciler, spec.Report(report.Terminal{}))
+
+}
 
 func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
 
-	when("a new record is created", func() {
-		const (
-			cfAppGUID = "test-app-guid"
-			namespace = "default"
-		)
+	Expect := NewWithT(t).Expect
 
-		it("sets its status.conditions", func() {
-			ctx := context.Background()
-			cfApp := &v1alpha1.CFApp{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CFApp",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfAppGUID,
-					Namespace: namespace,
-				},
-				Spec: v1alpha1.CFAppSpec{
-					Name:         "test-app",
-					DesiredState: "STOPPED",
-					Lifecycle: v1alpha1.Lifecycle{
-						Type: "buildpack",
-					},
-				},
+	var (
+		fakeClient      *controllersfakes.FakeCFAppClient
+		cfAppReconciler *CFAppReconciler
+		ctx             context.Context
+		req             ctrl.Request
+	)
+	it.Before(func() {
+		// Create a mock CFAppClient
+		fakeClient = new(controllersfakes.FakeCFAppClient)
+		// configure a CFAppReconciler with the client
+		err := workloadsv1alpha1.AddToScheme(scheme.Scheme)
+		Expect(err).NotTo(HaveOccurred())
+		cfAppReconciler = &CFAppReconciler{
+			Client: fakeClient,
+			Scheme: scheme.Scheme,
+			Log:    zap.New(zap.WriteTo(it.Out()), zap.UseDevMode(true)),
+		}
+		// Set up a dummy request and context
+		ctx = context.Background()
+		req = ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: dummyCFAppNamespace,
+				Name:      dummyCFAppName,
+			},
+		}
+	})
+
+	// Add unit test for happy path!
+	when("The CFAppReconciler Reconcile function is called", func() {
+		var fakeStatusWriter *controllersfakes.FakeStatusWriter
+
+		it.Before(func() {
+			// Tell get to return a nice CFApp
+			// Configure the mock fakeClient.Get() to return the expected app
+			fakeClient.GetStub = func(ctx context.Context, name types.NamespacedName, object client.Object) error {
+				cast := object.(*workloadsv1alpha1.CFApp)
+				cast.ObjectMeta.Name = dummyCFAppName
+				cast.ObjectMeta.Namespace = dummyCFAppNamespace
+				return nil
 			}
-			g.Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+			// Configure mock status update to succeed
+			fakeStatusWriter = &controllersfakes.FakeStatusWriter{}
+			fakeClient.StatusReturns(fakeStatusWriter)
 
-			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespace}
-			createdCFApp := new(v1alpha1.CFApp)
+			// Have status validate inputs
+			// Have status return no error
+		})
 
-			g.Eventually(func() []metav1.Condition {
-				err := k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)
-				if err != nil {
-					return nil
-				}
-				return createdCFApp.Status.Conditions
-			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty())
+		it("returns an empty result and and nil", func() {
+			result, err := cfAppReconciler.Reconcile(ctx, req)
+			Expect(result).To(Equal(ctrl.Result{}))
+			Expect(err).NotTo(HaveOccurred())
 
-			runningConditionFalse := meta.IsStatusConditionFalse(createdCFApp.Status.Conditions, "Running")
-			g.Expect(runningConditionFalse).To(BeTrue())
+			// validate the inputs to Get
+			Expect(fakeClient.GetCallCount()).To(Equal(1))
+			_, testRequestNamespacedName, _ := fakeClient.GetArgsForCall(0)
+			Expect(testRequestNamespacedName.Namespace).To(Equal(dummyCFAppNamespace))
+			Expect(testRequestNamespacedName.Name).To(Equal(dummyCFAppName))
 
-			restartingConditionFalse := meta.IsStatusConditionFalse(createdCFApp.Status.Conditions, "Restarting")
-			g.Expect(restartingConditionFalse).To(BeTrue())
+			// validate the inputs to Status.Update
+			Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+			_, updatedCFApp, _ := fakeStatusWriter.UpdateArgsForCall(0)
+			cast, ok := updatedCFApp.(*workloadsv1alpha1.CFApp)
+			Expect(ok).To(BeTrue(), "Cast to workloadsv1alpha1.CFApp failed")
+			Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRunning)).To(BeTrue(), "Status Condition "+StatusConditionRunning+" was not False as expected")
+			Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRestarting)).To(BeTrue(), "Status Condition "+StatusConditionRestarting+" was not False as expected")
+		})
+	})
+
+	when("The CFAppReconciler is configured with an CFApp Client where Get() will fail", func() {
+		it.Before(func() {
+			// Configure the mock fakeClient.Get() to return an error
+			fakeClient.GetReturns(fmt.Errorf(getErrorMessage))
+
+		})
+
+		it("returns an error", func() {
+			_, err := cfAppReconciler.Reconcile(ctx, req)
+			Expect(err).To(MatchError(getErrorMessage))
+		})
+	})
+
+	when("The CFAppReconciler is configured with an CFApp Client where Status().Update() will fail", func() {
+
+		it.Before(func() {
+			// Configure the mock fakeClient.Get() to return the expected app
+			fakeClient.GetStub = func(ctx context.Context, name types.NamespacedName, object client.Object) error {
+				cast := object.(*workloadsv1alpha1.CFApp)
+				cast.ObjectMeta.Name = dummyCFAppName
+				cast.ObjectMeta.Namespace = dummyCFAppNamespace
+				return nil
+			}
+			// Configure mock status update to fail
+			fakeStatusWriter := &controllersfakes.FakeStatusWriter{}
+			fakeStatusWriter.UpdateReturns(fmt.Errorf(statusUpdateErrorMessage))
+			fakeClient.StatusReturns(fakeStatusWriter)
+		})
+
+		it("returns an error", func() {
+			_, err := cfAppReconciler.Reconcile(ctx, req)
+			Expect(err).To(MatchError(statusUpdateErrorMessage))
 		})
 	})
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/reconcilers"
 	"flag"
 	"os"
 
@@ -79,10 +78,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&reconcilers.CFAppReconciler{
+	if err = (&controllers.CFAppReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Log: ctrl.Log.WithName("controllers").WithName("CFApp"),
+		Log:    ctrl.Log.WithName("controllers").WithName("CFApp"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFApp")
 		os.Exit(1)

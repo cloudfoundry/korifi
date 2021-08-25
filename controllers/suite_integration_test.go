@@ -1,13 +1,15 @@
+// +build integration
+
 package controllers_test
 
 import (
-	//. "code.cloudfoundry.org/cf-k8s-controllers/controllers"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/reconcilers"
+	"os"
+	"path/filepath"
+
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"k8s.io/client-go/kubernetes/scheme"
-	"os"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -20,8 +22,8 @@ import (
 )
 
 var (
-	suite spec.Suite
-	testEnv *envtest.Environment
+	suite     spec.Suite
+	testEnv   *envtest.Environment
 	k8sClient client.Client
 )
 
@@ -64,11 +66,10 @@ func TestSuite(t *testing.T) {
 		})
 		g.Expect(err).ToNot(HaveOccurred())
 
-
 		err = (&CFAppReconciler{
 			Client: k8sManager.GetClient(),
 			Scheme: k8sManager.GetScheme(),
-			Log: ctrl.Log.WithName("controllers").WithName("CFApp"),
+			Log:    ctrl.Log.WithName("controllers").WithName("CFApp"),
 		}).SetupWithManager(k8sManager)
 		g.Expect(err).ToNot(HaveOccurred())
 
