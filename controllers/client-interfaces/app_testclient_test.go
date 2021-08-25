@@ -19,6 +19,10 @@ import (
 	"github.com/sclevine/spec/report"
 )
 
+type CFAppClient interface {
+	Get(ctx context.Context, key client.ObjectKey, obj client.Object) error
+	Status() client.StatusWriter
+}
 
 func TestAppClient(t *testing.T) {
 	spec.Run(t, "object", testAppClient, spec.Report(report.Terminal{}))
@@ -57,7 +61,7 @@ func testAppClient(t *testing.T, when spec.G, it spec.S) {
 
 		it("conforms to the CFAppClient interface", func() {
 			var i interface{} = k8sClient
-			_, ok := i.(client_interfaces.CFAppClient)
+			_, ok := i.(CFAppClient)
 			Expect(ok).To(BeTrue(), "Client did not cast to CFAppClient interface")
 		})
 
@@ -71,7 +75,7 @@ func testAppClient(t *testing.T, when spec.G, it spec.S) {
 		fakeCFAppClient := client_interfaces.ShellCFAppClient{}
 		it("conforms to the CFAppClient interface", func() {
 			var i interface{} = &fakeCFAppClient
-			_, ok := i.(client_interfaces.CFAppClient)
+			_, ok := i.(CFAppClient)
 			Expect(ok).To(BeTrue(), "Client did not cast to CFAppClient interface")
 		})
 	})

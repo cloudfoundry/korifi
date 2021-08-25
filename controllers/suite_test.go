@@ -1,7 +1,8 @@
 package controllers_test
 
 import (
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers"
+	//. "code.cloudfoundry.org/cf-k8s-controllers/controllers"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/reconcilers"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -58,11 +59,11 @@ func TestSuite(t *testing.T) {
 		k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(k8sClient).NotTo(BeNil())
-
 		k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 			Scheme: scheme.Scheme,
 		})
 		g.Expect(err).ToNot(HaveOccurred())
+
 
 		err = (&CFAppReconciler{
 			Client: k8sManager.GetClient(),

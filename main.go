@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/reconcilers"
 	"flag"
 	"os"
 
@@ -78,7 +79,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.CFAppReconciler{
+	if err = (&reconcilers.CFAppReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Log: ctrl.Log.WithName("controllers").WithName("CFApp"),

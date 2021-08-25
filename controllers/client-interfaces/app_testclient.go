@@ -6,11 +6,8 @@ import (
 
 )
 
+//
 
-type CFAppClient interface {
-	Get(ctx context.Context, key client.ObjectKey, obj client.Object) error
-	Status() client.StatusWriter
-}
 
 type ShellCFAppClient struct {
 	GetFunc func(ctx context.Context, key client.ObjectKey, obj client.Object) error
