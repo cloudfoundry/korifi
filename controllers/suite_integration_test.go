@@ -42,7 +42,6 @@ func AddToTestSuite(desc string, f func(t *testing.T, when spec.G, it spec.S)) b
 func TestSuite(t *testing.T) {
 	Suite().Before(func(t *testing.T) {
 		g := NewWithT(t)
-		//logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 		logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
 
 		testEnv = &envtest.Environment{
