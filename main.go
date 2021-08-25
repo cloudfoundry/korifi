@@ -114,7 +114,26 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
 		os.Exit(1)
 	}
+	if err = (&controllers.CFRouteReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
+		os.Exit(1)
+	}
+	if err = (&controllers.CFDomainReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
+
+	if err = (&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
+		os.Exit(1)
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
