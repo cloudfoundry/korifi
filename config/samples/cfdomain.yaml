@@ -1,0 +1,9 @@
+apiVersion: workloads.cloudfoundry.org/v1alpha1
+kind: CFDomain
+metadata:
+  name: 5b5032ab-7fc8-4da5-b853-821fd1879201
+  # workloads.cloudfoundry.org/ labels are all managed by a mutating webhook
+  labels:
+    workloads.cloudfoundry.org/domainGUID: 5b5032ab-7fc8-4da5-b853-821fd1879201
+spec:
+  name: cf-apps.io

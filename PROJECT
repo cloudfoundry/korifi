@@ -47,7 +47,25 @@ resources:
   domain: cloudfoundry.org
   group: workloads
   kind: CFBuild
+  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
   plural: cfbuilds
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloudfoundry.org
+  group: workloads
+  kind: CFRoute
+  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: false
+  controller: true
+  domain: cloudfoundry.org
+  group: workloads
+  kind: CFDomain
   path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
   version: v1alpha1
 version: "3"
