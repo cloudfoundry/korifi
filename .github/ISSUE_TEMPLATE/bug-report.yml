@@ -39,10 +39,11 @@ body:
   - type: textarea
     id: environment
     attributes:
+      label: Environment
       value: |
-        Revision of codebase
-        Kubernetes version (use `kubectl version`)
-        Cloud provider or hardware configuration
-        Others
+        Revision of codebase:
+        Kubernetes version (use `kubectl version`):
+        Cloud provider or hardware configuration:
+        Others:
     validations:
       required: true
