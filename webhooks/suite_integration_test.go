@@ -15,6 +15,7 @@ import (
 	. "code.cloudfoundry.org/cf-k8s-controllers/webhooks"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
+	v1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -34,7 +35,7 @@ var (
 
 func Suite() spec.Suite {
 	if suite == nil {
-		suite = spec.New("Controllers")
+		suite = spec.New("Webhook")
 	}
 
 	return suite
@@ -70,6 +71,9 @@ func TestSuite(t *testing.T) {
 		err = admissionv1beta1.AddToScheme(scheme)
 		g.Expect(err).NotTo(HaveOccurred())
 
+		err = v1.AddToScheme(scheme)
+		g.Expect(err).NotTo(HaveOccurred())
+
 		//+kubebuilder:scaffold:scheme
 
 		k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
@@ -87,6 +91,11 @@ func TestSuite(t *testing.T) {
 			MetricsBindAddress: "0",
 		})
 		g.Expect(err).NotTo(HaveOccurred())
+
+		err = (&v1alpha1.CFApp{}).SetupWebhookWithManager(mgr)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		fmt.Println(" ************** Is this running ***********************")
 
 		err = (&CFAppValidation{Client: mgr.GetClient()}).SetupWebhookWithManager(mgr)
 		g.Expect(err).NotTo(HaveOccurred())
