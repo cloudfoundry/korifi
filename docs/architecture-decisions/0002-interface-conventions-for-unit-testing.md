@@ -10,7 +10,7 @@ Accepted
 
 While writing the inital implementation for Kubernetes CR Controllers, we were uncertain how to separate Reconcilers from their clients for the purpose of unit testing.
 
-This led us to experiement with two approaches to mock a Kubernetes Client behind interfaces of varying complexity.
+This led us to experiment with two approaches to mock a Kubernetes Client behind interfaces of varying complexity.
 
 ### Option 1: 
 Use a wrapper interface to flatten interaction with the Kubernetes Client to a single interface
@@ -81,3 +81,6 @@ The cf-k8s-controllers Controllers will be implemented with a transparent interf
 
 * We will be able to use Kubernetes Clients in our Controller code transparently, which we hope will be easier for outside contributors to understand.
 * We will have to mock out additional interfaces like the `client.StatusWriter` when writing unit tests. This can be partially mitigated for future Controllers by writing a consolidated mock-setup package.
+* We will have to write custom mock/stub implementations for methods that write to a pointer input, such as `Get(ctx, key, obj)` which only returns an error, but writes the matched object to the provided pointer: `obj`. 
+  * This will get more complicated when interacting with clients that are expected to interact with multiple CR Kinds, as the `Get` and `List` methods are shared for all CR Kinds.
+    * Example from @kieron-dev: "Verifying those calls can be awkward. Call 1 might get a Foo CR, call2 a Bar CR, and then I'm interested in the call for a Quux CR. Do I introduce dependency on that call ordering by looking at parameters for call 3? It feels better to say when I asked for a Quux, these were the parameters. That's all creating tension with counterfeiter."
