@@ -34,9 +34,9 @@ Spec is a simple BDD test organizer for Go. It minimally extends the standard li
 * Con: the documentation is lacking
 
 Comparing the two, we had the following questions and concerns:
-* **Who are our users?**
-  * Likely K8s community users
-  * Only CF users would be likely to use our products
+* **Who are our contributors?**
+  * Existing CF users/contributors would be most likely to contribute initially
+  * Eventually members of the wider Kubernetes community
 * **Concern about Go 1.7+ subtest support in Ginkgo**
   * Mostly affects IDE though
 * **Ginkgo can be a blocker to community engagement as a library not as commonly used in the Go community**
