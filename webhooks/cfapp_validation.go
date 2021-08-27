@@ -4,6 +4,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
 	"context"
 	v1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -19,8 +20,18 @@ var cfapplog = logf.Log.WithName("cfapp-validate")
 //+kubebuilder:webhook:path=/validate-workloads-cloudfoundry-org-v1alpha1-cfapp,mutating=false,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cfapps,verbs=create;update,versions=v1alpha1,name=vcfapp.kb.io,admissionReviewVersions={v1,v1beta1}
 
 type CFAppValidation struct {
-	Client  client.Client
-	decoder *admission.Decoder
+	Client  CFAppClient
+	decoder CFAppDecoder
+}
+
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . CFAppClient
+type CFAppClient interface {
+	List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error
+}
+
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . CFAppDecoder
+type CFAppDecoder interface {
+	Decode(req admission.Request, into runtime.Object) error
 }
 
 func (v *CFAppValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -77,7 +88,7 @@ func (v *CFAppValidation) Handle(ctx context.Context, req admission.Request) adm
 }
 
 // InjectDecoder injects the decoder.
-func (v *CFAppValidation) InjectDecoder(d *admission.Decoder) error {
+func (v *CFAppValidation) InjectDecoder(d CFAppDecoder) error {
 	v.decoder = d
 	return nil
 }

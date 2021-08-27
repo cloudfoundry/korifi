@@ -1,3 +1,5 @@
+// +build integration
+
 package webhooks_test
 
 import (
@@ -122,6 +124,7 @@ func testCFAppValidation(t *testing.T, when spec.G, it spec.S) {
 
 	when("updating an existing CFApp record", func() {
 		cfApp := cfAppInstance(testAppGUID, namespace, testAppName)
+		anotherAppName := "another-test-app"
 
 		it.Before(func() {
 			g.Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
@@ -130,7 +133,7 @@ func testCFAppValidation(t *testing.T, when spec.G, it spec.S) {
 		it.After(func() {
 			g.Expect(k8sClient.Delete(ctx, cfApp)).To(Succeed())
 		})
-		when ("modifing desiredState", func() {
+		when("modifing desiredState", func() {
 
 			it("should succeed", func() {
 				cfAppUpdated := v1alpha1.CFApp{}
@@ -145,32 +148,31 @@ func testCFAppValidation(t *testing.T, when spec.G, it spec.S) {
 					Name:      cfAppUpdated.Name,
 				}
 				g.Expect(k8sClient.Get(context.Background(), namespacedName, &cfAppReturned)).To(Succeed())
-				g.Expect(cfAppReturned.Spec.DesiredState).To(Equal(v1alpha1.StoppedState))
+				g.Expect(cfAppReturned.Spec.DesiredState).To(Equal(v1alpha1.StartedState))
 			})
 		})
 
 		when("modifying spec.Name to match another CFApp spec.Name", func() {
-			anotherCFApp := cfAppInstance("another-test-app-guid", namespace, "another-test-app")
+			anotherCFApp := cfAppInstance("another-test-app-guid", namespace, anotherAppName)
 
 			it.Before(func() {
 				g.Expect(k8sClient.Create(ctx, anotherCFApp)).To(Succeed())
 			})
 
-			it("should succeed", func() {
+			it("should fail", func() {
 				cfAppUpdated := v1alpha1.CFApp{}
 				cfApp.DeepCopyInto(&cfAppUpdated)
-				cfAppUpdated.Spec.Name = "another-test-app"
+				cfAppUpdated.Spec.Name = anotherAppName
 
-				g.Expect(k8sClient.Update(context.Background(), &cfAppUpdated)).To(Succeed())
+				g.Expect(k8sClient.Update(context.Background(), &cfAppUpdated)).NotTo(Succeed())
 
 			})
 
 			it.After(func() {
 				g.Expect(k8sClient.Delete(ctx, anotherCFApp)).To(Succeed())
-				g.Expect(k8sClient.Delete(ctx, cfApp)).To(Succeed())
 			})
 		})
 
-
 	})
+
 }
