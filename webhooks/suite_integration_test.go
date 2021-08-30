@@ -1,5 +1,3 @@
-// +build integration
-
 package webhooks_test
 
 import (
@@ -29,10 +27,7 @@ import (
 
 var (
 	suite     spec.Suite
-	testEnv   *envtest.Environment
 	k8sClient client.Client
-	ctx       context.Context
-	cancel    context.CancelFunc
 )
 
 func Suite() spec.Suite {
@@ -48,13 +43,20 @@ func AddToTestSuite(desc string, f func(t *testing.T, when spec.G, it spec.S)) b
 }
 
 func TestSuite(t *testing.T) {
-	// BEFORE SUITE SETUP
 	g := NewWithT(t)
+
+	testEnv, cancel := beforeSuite(g)
+	defer afterSuite(g, testEnv, cancel)
+
+	suite.Run(t)
+}
+
+func beforeSuite(g *WithT) (*envtest.Environment, context.CancelFunc) {
 	logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
 
-	ctx, cancel = context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(context.TODO())
 
-	testEnv = &envtest.Environment{
+	testEnv := &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
@@ -97,7 +99,9 @@ func TestSuite(t *testing.T) {
 	err = (&v1alpha1.CFApp{}).SetupWebhookWithManager(mgr)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	err = (&CFAppValidation{Client: mgr.GetClient()}).SetupWebhookWithManager(mgr)
+	cfAppValidatingWebhook := &CFAppValidation{Client: mgr.GetClient()}
+
+	err = cfAppValidatingWebhook.SetupWebhookWithManager(mgr)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:webhook
@@ -120,12 +124,10 @@ func TestSuite(t *testing.T) {
 		conn.Close()
 		return nil
 	}).Should(Succeed())
+	return testEnv, cancel
+}
 
-	// AFTER SUITE SETUP
-	defer func() {
-		err := testEnv.Stop()
-		g.Expect(err).NotTo(HaveOccurred())
-	}()
-
-	suite.Run(t)
+func afterSuite(g *WithT, testEnv *envtest.Environment, cancel context.CancelFunc) {
+	cancel() // call the cancel function to stop the controller context
+	g.Expect(testEnv.Stop()).To(Succeed())
 }

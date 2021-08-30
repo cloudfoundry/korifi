@@ -1,5 +1,3 @@
-// +build integration
-
 package webhooks_test
 
 import (
@@ -14,10 +12,13 @@ import (
 )
 
 const (
-	testAppGUID = "test-app-guid"
-	testAppName = "test-app"
-	namespace   = "default"
-	kind        = "CFApp"
+	testAppGUID        = "test-app-guid"
+	anotherTestAppGUID = "another-test-app-guid"
+	testAppName        = "test-app"
+	anotherTestAppName = "another-test-app"
+	namespace          = "default"
+	anotherNSName      = "another"
+	kind               = "CFApp"
 )
 
 var _ = AddToTestSuite("CFAppReconciler", testCFAppValidation)
@@ -44,135 +45,135 @@ func cfAppInstance(cfAppGUID string, namespace string, name string) *v1alpha1.CF
 
 func testCFAppValidation(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
-	ctx := context.Background()
-	when("creating a new CFApp record", func() {
 
-		cfApp := cfAppInstance(testAppGUID, namespace, testAppName)
+	var ctx context.Context
+	it.Before(func() {
+		ctx = context.Background()
+	})
+
+	when("creating a new CFApp record", func() {
+		var cfApp *v1alpha1.CFApp
+
+		it.Before(func() {
+			cfApp = cfAppInstance(testAppGUID, namespace, testAppName)
+		})
 
 		when("no other CFApp exists", func() {
 			it("should succeed", func() {
 				g.Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
-			})
-			it.After(func() {
 				g.Expect(k8sClient.Delete(ctx, cfApp)).To(Succeed())
 			})
 		})
 
-		when("Another CFApp exists with a different name in the same namespace", func() {
-
-			anotherCFApp := cfAppInstance("another-test-app-guid", namespace, "another-test-app")
+		when("another CFApp exists with a different name in the same namespace", func() {
+			var anotherCFApp *v1alpha1.CFApp
 
 			it.Before(func() {
+				anotherCFApp = cfAppInstance(anotherTestAppGUID, namespace, anotherTestAppName)
 				g.Expect(k8sClient.Create(ctx, anotherCFApp)).To(Succeed())
+			})
+			it.After(func() {
+				g.Expect(k8sClient.Delete(ctx, anotherCFApp)).To(Succeed())
 			})
 
 			it("should succeed", func() {
 				g.Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
-			})
-
-			it.After(func() {
-				g.Expect(k8sClient.Delete(ctx, anotherCFApp)).To(Succeed())
 				g.Expect(k8sClient.Delete(ctx, cfApp)).To(Succeed())
 			})
+
 		})
 
-		when("Another CFApp exists with a same name in a different namespace", func() {
-
-			anotherNSName := "another"
-			anotherNS := &v1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: anotherNSName,
-				},
-			}
-
-			anotherCFApp := cfAppInstance("another-test-app-guid", anotherNSName, "another-test-app")
+		when("another CFApp exists with a same name in a different namespace", func() {
+			var (
+				anotherNS    *v1.Namespace
+				anotherCFApp *v1alpha1.CFApp
+			)
 
 			it.Before(func() {
+				anotherNS = &v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: anotherNSName,
+					},
+				}
+				anotherCFApp = cfAppInstance(anotherTestAppGUID, anotherNSName, testAppName)
 				g.Expect(k8sClient.Create(ctx, anotherNS)).To(Succeed())
 				g.Expect(k8sClient.Create(ctx, anotherCFApp)).To(Succeed())
 			})
-
-			it("should succeed", func() {
-				g.Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
-			})
-
 			it.After(func() {
 				g.Expect(k8sClient.Delete(ctx, anotherCFApp)).To(Succeed())
 				g.Expect(k8sClient.Delete(ctx, anotherNS)).To(Succeed())
+			})
+
+			it("should succeed", func() {
+				g.Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 				g.Expect(k8sClient.Delete(ctx, cfApp)).To(Succeed())
 			})
+
 		})
 
-		when("Another CFApp exists with a same name in the same namespace", func() {
-
-			anotherCFApp := cfAppInstance("another-test-app-guid", namespace, testAppName)
+		when("another CFApp exists with a same name in the same namespace", func() {
+			var anotherCFApp *v1alpha1.CFApp
 
 			it.Before(func() {
+				anotherCFApp = cfAppInstance(anotherTestAppGUID, namespace, testAppName)
 				g.Expect(k8sClient.Create(ctx, anotherCFApp)).To(Succeed())
+			})
+			it.After(func() {
+				g.Expect(k8sClient.Delete(ctx, anotherCFApp)).To(Succeed())
 			})
 
 			it("should fail", func() {
 				g.Expect(k8sClient.Create(ctx, cfApp)).NotTo(Succeed())
 			})
 
-			it.After(func() {
-				g.Expect(k8sClient.Delete(ctx, anotherCFApp)).To(Succeed())
-			})
 		})
 
 	})
 
 	when("updating an existing CFApp record", func() {
-		cfApp := cfAppInstance(testAppGUID, namespace, testAppName)
-		anotherAppName := "another-test-app"
+		var cfApp *v1alpha1.CFApp
 
 		it.Before(func() {
+			cfApp = cfAppInstance(testAppGUID, namespace, testAppName)
 			g.Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 		})
-
 		it.After(func() {
 			g.Expect(k8sClient.Delete(ctx, cfApp)).To(Succeed())
 		})
+
 		when("modifing desiredState", func() {
-
 			it("should succeed", func() {
-				cfAppUpdated := v1alpha1.CFApp{}
-				cfApp.DeepCopyInto(&cfAppUpdated)
-				cfAppUpdated.Spec.DesiredState = v1alpha1.StartedState
+				desiredStateValue := v1alpha1.StartedState
+				cfApp.Spec.DesiredState = desiredStateValue
 
-				g.Expect(k8sClient.Update(context.Background(), &cfAppUpdated)).To(Succeed())
+				g.Expect(k8sClient.Update(context.Background(), cfApp)).To(Succeed())
 
 				cfAppReturned := v1alpha1.CFApp{}
 				namespacedName := types.NamespacedName{
-					Namespace: cfAppUpdated.Namespace,
-					Name:      cfAppUpdated.Name,
+					Namespace: cfApp.Namespace,
+					Name:      cfApp.Name,
 				}
 				g.Expect(k8sClient.Get(context.Background(), namespacedName, &cfAppReturned)).To(Succeed())
-				g.Expect(cfAppReturned.Spec.DesiredState).To(Equal(v1alpha1.StartedState))
+				g.Expect(cfAppReturned.Spec.DesiredState).To(Equal(desiredStateValue))
 			})
 		})
 
 		when("modifying spec.Name to match another CFApp spec.Name", func() {
-			anotherCFApp := cfAppInstance("another-test-app-guid", namespace, anotherAppName)
+			var anotherCFApp *v1alpha1.CFApp
 
 			it.Before(func() {
+				anotherCFApp = cfAppInstance(anotherTestAppGUID, namespace, anotherTestAppName)
 				g.Expect(k8sClient.Create(ctx, anotherCFApp)).To(Succeed())
 			})
-
-			it("should fail", func() {
-				cfAppUpdated := v1alpha1.CFApp{}
-				cfApp.DeepCopyInto(&cfAppUpdated)
-				cfAppUpdated.Spec.Name = anotherAppName
-
-				g.Expect(k8sClient.Update(context.Background(), &cfAppUpdated)).NotTo(Succeed())
-
-			})
-
 			it.After(func() {
 				g.Expect(k8sClient.Delete(ctx, anotherCFApp)).To(Succeed())
 			})
+
+			it("should fail", func() {
+				cfApp.Spec.Name = anotherTestAppName
+
+				g.Expect(k8sClient.Update(context.Background(), cfApp)).NotTo(Succeed())
+			})
 		})
-
 	})
-
 }

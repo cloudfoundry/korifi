@@ -1,5 +1,3 @@
-// +build integration
-
 package controllers_test
 
 import (
@@ -15,9 +13,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = AddToTestSuite("CFAppReconciler", testCFAppReconciler)
+var _ = AddToTestSuite("CFAppReconciler", testCFAppReconcilerIntegration)
 
-func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
+func testCFAppReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
 	when("a new record is created", func() {
