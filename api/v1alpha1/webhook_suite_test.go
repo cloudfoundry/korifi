@@ -13,122 +13,130 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+// +build integration
 
-package v1alpha1
+package v1alpha1_test
 
 import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/sclevine/spec"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	//+kubebuilder:scaffold:imports
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-// These tests use Ginkgo (BDD-style Go testing framework). Refer to
-// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
+var (
+	suite     spec.Suite
+	testEnv   *envtest.Environment
+	k8sClient client.Client
+	ctx       context.Context
+	cancel    context.CancelFunc
+)
 
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
-var ctx context.Context
-var cancel context.CancelFunc
-
-func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Webhook Suite",
-		[]Reporter{printer.NewlineReporter{}})
-}
-
-var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	ctx, cancel = context.WithCancel(context.TODO())
-
-	By("bootstrapping test environment")
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: false,
-		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
-		},
+func Suite() spec.Suite {
+	if suite == nil {
+		suite = spec.New("Webhooks")
 	}
 
-	cfg, err := testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
+	return suite
+}
 
-	scheme := runtime.NewScheme()
-	err = AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
+func AddToTestSuite(desc string, f func(t *testing.T, when spec.G, it spec.S)) bool {
+	return Suite()(desc, f)
+}
 
-	err = admissionv1beta1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
+func TestSuite(t *testing.T) {
+	Suite().Before(func(t *testing.T) {
+		g := NewWithT(t)
+		logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
 
-	//+kubebuilder:scaffold:scheme
+		ctx, cancel = context.WithCancel(context.TODO())
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+		testEnv = &envtest.Environment{
+			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+			ErrorIfCRDPathMissing: false,
+			WebhookInstallOptions: envtest.WebhookInstallOptions{
+				Paths: []string{filepath.Join("..", "..", "config", "webhook")},
+			},
+		}
 
-	// start webhook server using Manager
-	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
+		cfg, err := testEnv.Start()
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(cfg).NotTo(BeNil())
+
+		scheme := runtime.NewScheme()
+		err = workloadsv1alpha1.AddToScheme(scheme)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		err = admissionv1beta1.AddToScheme(scheme)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		//+kubebuilder:scaffold:scheme
+
+		k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(k8sClient).NotTo(BeNil())
+
+		// start webhook server using Manager
+		webhookInstallOptions := &testEnv.WebhookInstallOptions
+		mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+			Scheme:             scheme,
+			Host:               webhookInstallOptions.LocalServingHost,
+			Port:               webhookInstallOptions.LocalServingPort,
+			CertDir:            webhookInstallOptions.LocalServingCertDir,
+			LeaderElection:     false,
+			MetricsBindAddress: "0",
+		})
+		g.Expect(err).NotTo(HaveOccurred())
+
+		err = (&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		//+kubebuilder:scaffold:webhook
+
+		go func() {
+			err = mgr.Start(ctx)
+			if err != nil {
+				g.Expect(err).NotTo(HaveOccurred())
+			}
+		}()
+
+		// wait for the webhook server to get ready
+		dialer := &net.Dialer{Timeout: time.Second}
+		addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
+		g.Eventually(func() error {
+			conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
+			if err != nil {
+				return err
+			}
+			conn.Close()
+			return nil
+		}).Should(Succeed())
+
 	})
-	Expect(err).NotTo(HaveOccurred())
 
-	err = (&CFApp{}).SetupWebhookWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
+	Suite().After(func(t *testing.T) {
+		cancel()
+		g := NewWithT(t)
+		err := testEnv.Stop()
+		g.Expect(err).NotTo(HaveOccurred())
+	})
 
-	//+kubebuilder:scaffold:webhook
-
-	go func() {
-		err = mgr.Start(ctx)
-		if err != nil {
-			Expect(err).NotTo(HaveOccurred())
-		}
-	}()
-
-	// wait for the webhook server to get ready
-	dialer := &net.Dialer{Timeout: time.Second}
-	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
-	Eventually(func() error {
-		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
-		if err != nil {
-			return err
-		}
-		conn.Close()
-		return nil
-	}).Should(Succeed())
-
-}, 60)
-
-var _ = AfterSuite(func() {
-	cancel()
-	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
-})
+	suite.Run(t)
+}
