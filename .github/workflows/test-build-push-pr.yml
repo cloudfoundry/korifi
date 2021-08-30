@@ -25,6 +25,8 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.17.0' # The Go version to download (if necessary) and use.
       
       - name: Run Unit Tests
         run: go test -v ./...
