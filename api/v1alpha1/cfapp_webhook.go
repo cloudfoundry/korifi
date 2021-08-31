@@ -25,6 +25,8 @@ import (
 // log is for logging in this package.
 var cfapplog = logf.Log.WithName("cfapp-resource")
 
+const cfAppLabelKey = "apps.cloudfoundry.org/appGuid"
+
 func (r *CFApp) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
@@ -40,6 +42,10 @@ var _ webhook.Defaulter = &CFApp{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *CFApp) Default() {
 	cfapplog.Info("default", "name", r.Name)
-
-	// TODO(user): fill in your defaulting logic.
+	appLabels := r.ObjectMeta.GetLabels()
+	if appLabels == nil {
+		appLabels = make(map[string]string)
+	}
+	appLabels[cfAppLabelKey] = r.Name
+	r.ObjectMeta.SetLabels(appLabels)
 }
