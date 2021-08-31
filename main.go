@@ -17,9 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks"
 	"flag"
 	"os"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -131,6 +131,12 @@ func main() {
 	//+kubebuilder:scaffold:builder
 
 	if err = (&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
+		os.Exit(1)
+	}
+	if err = (&webhooks.CFAppValidation{
+		Client: mgr.GetClient(),
+	}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
 		os.Exit(1)
 	}

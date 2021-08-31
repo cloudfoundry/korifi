@@ -1,16 +1,15 @@
-// +build integration
-
 package v1alpha1_test
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
 	"context"
+	"testing"
+	"time"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"testing"
-	"time"
 )
 
 var _ = AddToTestSuite("CFAppWebhook", integrationTestCFAppWebhook)
