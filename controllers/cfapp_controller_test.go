@@ -44,17 +44,14 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 		req             ctrl.Request
 	)
 	it.Before(func() {
-		// Create a mock CFAppClient
 		fakeClient = new(controllersfakes.FakeCFAppClient)
 		// configure a CFAppReconciler with the client
-		err := workloadsv1alpha1.AddToScheme(scheme.Scheme)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfAppReconciler = &CFAppReconciler{
 			Client: fakeClient,
 			Scheme: scheme.Scheme,
 			Log:    zap.New(zap.WriteTo(it.Out()), zap.UseDevMode(true)),
 		}
-		// Set up a dummy request and context
 		ctx = context.Background()
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{
@@ -64,7 +61,6 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 		}
 	})
 
-	// Add unit test for happy path!
 	when("The CFAppReconciler Reconcile function is called", func() {
 		var fakeStatusWriter *controllersfakes.FakeStatusWriter
 

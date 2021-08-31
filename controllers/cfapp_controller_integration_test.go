@@ -18,7 +18,7 @@ var _ = AddToTestSuite("CFAppReconciler", testCFAppReconcilerIntegration)
 func testCFAppReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
-	when("a new record is created", func() {
+	when("a new CFApp resource is created", func() {
 		const (
 			cfAppGUID = "test-app-guid"
 			namespace = "default"

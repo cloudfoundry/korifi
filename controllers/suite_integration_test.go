@@ -38,51 +38,54 @@ func AddToTestSuite(desc string, f func(t *testing.T, when spec.G, it spec.S)) b
 }
 
 func TestSuite(t *testing.T) {
-	Suite().Before(func(t *testing.T) {
-		g := NewWithT(t)
-		logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
+	g := NewWithT(t)
 
-		testEnv = &envtest.Environment{
-			CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
-			ErrorIfCRDPathMissing: true,
-		}
-
-		cfg, err := testEnv.Start()
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(cfg).NotTo(BeNil())
-
-		err = workloadsv1alpha1.AddToScheme(scheme.Scheme)
-		g.Expect(err).NotTo(HaveOccurred())
-		//+kubebuilder:scaffold:scheme
-
-		k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(k8sClient).NotTo(BeNil())
-		k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-			Scheme: scheme.Scheme,
-		})
-		g.Expect(err).ToNot(HaveOccurred())
-
-		err = (&CFAppReconciler{
-			Client: k8sManager.GetClient(),
-			Scheme: k8sManager.GetScheme(),
-			Log:    ctrl.Log.WithName("controllers").WithName("CFApp"),
-		}).SetupWithManager(k8sManager)
-		g.Expect(err).ToNot(HaveOccurred())
-
-		// TODO: Add the other reconcilers
-
-		go func() {
-			err = k8sManager.Start(ctrl.SetupSignalHandler())
-			g.Expect(err).ToNot(HaveOccurred())
-		}()
-	})
-
-	Suite().After(func(t *testing.T) {
-		g := NewWithT(t)
-		err := testEnv.Stop()
-		g.Expect(err).NotTo(HaveOccurred())
-	})
+	testEnv := beforeSuite(g)
+	defer afterSuite(g, testEnv)
 
 	suite.Run(t)
+}
+
+func afterSuite(g *WithT, testEnv *envtest.Environment) {
+	g.Expect(testEnv.Stop()).To(Succeed())
+}
+
+func beforeSuite(g *WithT) *envtest.Environment {
+	logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
+
+	testEnv = &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+	}
+
+	cfg, err := testEnv.Start()
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(cfg).NotTo(BeNil())
+
+	err = workloadsv1alpha1.AddToScheme(scheme.Scheme)
+	g.Expect(err).NotTo(HaveOccurred())
+	//+kubebuilder:scaffold:scheme
+
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(k8sClient).NotTo(BeNil())
+	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+	})
+	g.Expect(err).ToNot(HaveOccurred())
+
+	err = (&CFAppReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("CFApp"),
+	}).SetupWithManager(k8sManager)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	// TODO: Add the other reconcilers
+
+	go func() {
+		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		g.Expect(err).ToNot(HaveOccurred())
+	}()
+	return testEnv
 }
