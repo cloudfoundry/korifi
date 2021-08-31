@@ -72,11 +72,9 @@ func beforeSuite(g *WithT) (*envtest.Environment, context.CancelFunc) {
 	err = v1alpha1.AddToScheme(scheme)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	err = admissionv1beta1.AddToScheme(scheme)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
 
-	err = v1.AddToScheme(scheme)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(v1.AddToScheme(scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
 
@@ -96,13 +94,10 @@ func beforeSuite(g *WithT) (*envtest.Environment, context.CancelFunc) {
 	})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	err = (&v1alpha1.CFApp{}).SetupWebhookWithManager(mgr)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect((&v1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	cfAppValidatingWebhook := &CFAppValidation{Client: mgr.GetClient()}
-
-	err = cfAppValidatingWebhook.SetupWebhookWithManager(mgr)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook
 

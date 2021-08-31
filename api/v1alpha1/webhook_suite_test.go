@@ -1,5 +1,3 @@
-// +build integration
-
 /*
 
 Copyright 2021.
@@ -23,17 +21,20 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/sclevine/spec"
 	"net"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/sclevine/spec"
+
 	. "github.com/onsi/gomega"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+
 	//+kubebuilder:scaffold:imports
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -83,11 +84,9 @@ func TestSuite(t *testing.T) {
 		g.Expect(cfg).NotTo(BeNil())
 
 		scheme := runtime.NewScheme()
-		err = workloadsv1alpha1.AddToScheme(scheme)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(workloadsv1alpha1.AddToScheme(scheme)).To(Succeed())
 
-		err = admissionv1beta1.AddToScheme(scheme)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
 
 		//+kubebuilder:scaffold:scheme
 
@@ -107,8 +106,10 @@ func TestSuite(t *testing.T) {
 		})
 		g.Expect(err).NotTo(HaveOccurred())
 
-		err = (&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect((&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
+
+		cfAppValidatingWebhook := &webhooks.CFAppValidation{Client: mgr.GetClient()}
+		g.Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 		//+kubebuilder:scaffold:webhook
 
