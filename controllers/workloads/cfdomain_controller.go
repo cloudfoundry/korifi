@@ -24,29 +24,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 )
 
-// CFPackageReconciler reconciles a CFPackage object
-type CFPackageReconciler struct {
+// CFDomainReconciler reconciles a CFDomain object
+type CFDomainReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages/finalizers,verbs=update
+//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfdomains,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfdomains/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfdomains/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the CFPackage object against the actual cluster state, and then
+// the CFDomain object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
-func (r *CFPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *CFDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	// your logic here
@@ -55,8 +55,8 @@ func (r *CFPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *CFPackageReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CFDomainReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&workloadsv1alpha1.CFPackage{}).
+		For(&workloadsv1alpha1.CFDomain{}).
 		Complete(r)
 }

@@ -3,7 +3,7 @@ package v1alpha1_test
 import (
 	"testing"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"

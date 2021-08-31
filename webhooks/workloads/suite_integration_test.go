@@ -1,6 +1,7 @@
-package webhooks_test
+package workloads_test
 
 import (
+	. "code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -11,8 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/webhooks"
+	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	v1 "k8s.io/api/core/v1"
@@ -57,10 +57,10 @@ func beforeSuite(g *WithT) (*envtest.Environment, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	testEnv := &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "config", "webhook")},
+			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
 		},
 	}
 

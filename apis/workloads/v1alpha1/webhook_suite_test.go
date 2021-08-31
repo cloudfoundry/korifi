@@ -18,6 +18,7 @@ limitations under the License.
 package v1alpha1_test
 
 import (
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -31,8 +32,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/webhooks"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 
 	//+kubebuilder:scaffold:imports
@@ -72,10 +72,10 @@ func TestSuite(t *testing.T) {
 		ctx, cancel = context.WithCancel(context.TODO())
 
 		testEnv = &envtest.Environment{
-			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 			ErrorIfCRDPathMissing: false,
 			WebhookInstallOptions: envtest.WebhookInstallOptions{
-				Paths: []string{filepath.Join("..", "..", "config", "webhook")},
+				Paths: []string{filepath.Join("..", "..", "..", "config", "webhook")},
 			},
 		}
 
@@ -108,7 +108,7 @@ func TestSuite(t *testing.T) {
 
 		g.Expect((&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
-		cfAppValidatingWebhook := &webhooks.CFAppValidation{Client: mgr.GetClient()}
+		cfAppValidatingWebhook := &workloads.CFAppValidation{Client: mgr.GetClient()}
 		g.Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 		//+kubebuilder:scaffold:webhook

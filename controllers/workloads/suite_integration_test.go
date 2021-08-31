@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -14,7 +14,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	//+kubebuilder:scaffold:imports
 	"testing"
 )
@@ -54,7 +54,7 @@ func beforeSuite(g *WithT) *envtest.Environment {
 	logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 	}
 

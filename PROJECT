@@ -1,6 +1,7 @@
 domain: cloudfoundry.org
 layout:
 - go.kubebuilder.io/v3
+multigroup: true
 projectName: cf-k8s-controllers
 repo: code.cloudfoundry.org/cf-k8s-controllers
 resources:
@@ -11,7 +12,7 @@ resources:
   domain: cloudfoundry.org
   group: workloads
   kind: CFApp
-  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  path: code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -24,7 +25,7 @@ resources:
   domain: cloudfoundry.org
   group: workloads
   kind: CFPackage
-  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  path: code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -33,7 +34,7 @@ resources:
   domain: cloudfoundry.org
   group: workloads
   kind: CFDroplet
-  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  path: code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -42,7 +43,7 @@ resources:
   domain: cloudfoundry.org
   group: workloads
   kind: CFProcess
-  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  path: code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -51,7 +52,7 @@ resources:
   domain: cloudfoundry.org
   group: workloads
   kind: CFBuild
-  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  path: code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1
   plural: cfbuilds
   version: v1alpha1
 - api:
@@ -61,15 +62,14 @@ resources:
   domain: cloudfoundry.org
   group: workloads
   kind: CFRoute
-  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  path: code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
-    namespaced: false
   controller: true
   domain: cloudfoundry.org
   group: workloads
   kind: CFDomain
-  path: code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1
+  path: code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1
   version: v1alpha1
 version: "3"

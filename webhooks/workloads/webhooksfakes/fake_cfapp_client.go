@@ -2,10 +2,10 @@
 package webhooksfakes
 
 import (
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/webhooks"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -114,4 +114,4 @@ func (fake *FakeCFAppClient) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ webhooks.CFAppClient = new(FakeCFAppClient)
+var _ workloads.CFAppClient = new(FakeCFAppClient)

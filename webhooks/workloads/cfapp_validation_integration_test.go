@@ -1,7 +1,7 @@
-package webhooks_test
+package workloads_test
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"context"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"

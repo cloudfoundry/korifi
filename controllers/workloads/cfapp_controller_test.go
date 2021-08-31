@@ -15,9 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllersfakes"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/controllersfakes"
 )
 
 const (

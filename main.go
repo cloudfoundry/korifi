@@ -17,7 +17,8 @@ limitations under the License.
 package main
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/webhooks"
+	controllers "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 	"flag"
 	"os"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -31,8 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -134,7 +134,7 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
 		os.Exit(1)
 	}
-	if err = (&webhooks.CFAppValidation{
+	if err = (&workloads.CFAppValidation{
 		Client: mgr.GetClient(),
 	}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
