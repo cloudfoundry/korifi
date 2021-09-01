@@ -10,7 +10,7 @@ cd cf-k8s-controllers/
 ### Prerequisites
 To deploy cf-k8s-controller and run it in a cluster, you must first [install cert-manager](https://cert-manager.io/docs/installation/) 
 ```
-$ kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
+kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
 ```
 
 ### Build, Install and Deploy to K8s cluster

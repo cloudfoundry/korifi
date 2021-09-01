@@ -5,7 +5,7 @@ import (
 )
 
 // ResourceReference defines a reference to an instance of a resource in Kubernetes
-type ResourceReference struct {
+type ResourceReference struct { // TODO: replace this with k8s.io/api/core/v1.LocalObjectReference
 	Name string `json:"name"`
 }
 

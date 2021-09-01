@@ -7,6 +7,58 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfdomains
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfdomains/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfdomains/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
@@ -54,32 +106,6 @@ rules:
   - workloads.cloudfoundry.org
   resources:
   - cfbuilds/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfdomains
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfdomains/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfdomains/status
   verbs:
   - get
   - patch
@@ -158,32 +184,6 @@ rules:
   - workloads.cloudfoundry.org
   resources:
   - cfprocesses/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfroutes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfroutes/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfroutes/status
   verbs:
   - get
   - patch

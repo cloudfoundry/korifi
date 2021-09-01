@@ -17,10 +17,12 @@ limitations under the License.
 package main
 
 import (
-	controllers "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 	"flag"
 	"os"
+
+	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -32,7 +34,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	networkingcontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/networking"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -45,6 +49,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(workloadsv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -78,7 +83,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.CFAppReconciler{
+	if err = (&workloadscontrollers.CFAppReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Log:    ctrl.Log.WithName("controllers").WithName("CFApp"),
@@ -86,42 +91,42 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CFApp")
 		os.Exit(1)
 	}
-	if err = (&controllers.CFPackageReconciler{
+	if err = (&workloadscontrollers.CFPackageReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
 		os.Exit(1)
 	}
-	if err = (&controllers.CFDropletReconciler{
+	if err = (&workloadscontrollers.CFDropletReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFDroplet")
 		os.Exit(1)
 	}
-	if err = (&controllers.CFProcessReconciler{
+	if err = (&workloadscontrollers.CFProcessReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFProcess")
 		os.Exit(1)
 	}
-	if err = (&controllers.CFBuildReconciler{
+	if err = (&workloadscontrollers.CFBuildReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
 		os.Exit(1)
 	}
-	if err = (&controllers.CFRouteReconciler{
+	if err = (&networkingcontrollers.CFRouteReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
 		os.Exit(1)
 	}
-	if err = (&controllers.CFDomainReconciler{
+	if err = (&networkingcontrollers.CFDomainReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

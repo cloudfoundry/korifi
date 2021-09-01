@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,7 +30,7 @@ type Destination struct {
 	Port int `json:"port,omitempty"`
 	// App ref is required, part of the identity of a running process to which traffic may be routed
 	// We use a ref because the app must exist
-	AppRef ResourceReference `json:"appRef"`
+	AppRef v1.LocalObjectReference `json:"appRef"`
 	// Process type is required, part of the identity of a running process to which traffic may be routed
 	// We use process type instead of processRef because a process of the type may not exist at time of destination creation
 	ProcessType string `json:"processType"`
@@ -53,7 +54,7 @@ type CFRouteSpec struct {
 	// Port is optional, CF Routes only allow port info on TCP routes.
 	Port int `json:"port,omitempty"`
 	// Domain ref is required, provides base domain name and allowed protocol info.
-	DomainRef ResourceReference `json:"domainRef"`
+	DomainRef v1.LocalObjectReference `json:"domainRef"`
 	// Destinations are optional, a route can exist independently of being mapped to apps.
 	Destinations []Destination `json:"destinations,omitempty"`
 }
