@@ -29,7 +29,7 @@ jobs:
           go-version: '^1.17.0' # The Go version to download (if necessary) and use.
       
       - name: Run Unit Tests
-        run: go test -v ./...
+        run: make test
 
   # This workflow contains a single job called "build"
   build:

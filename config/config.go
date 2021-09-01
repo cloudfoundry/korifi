@@ -6,11 +6,11 @@ import (
 )
 
 type Config struct {
-	ServerURL string `json:"serverURL"`
-	ServerPort int `json:"serverPort"`
+	ServerURL  string `json:"serverURL"`
+	ServerPort int    `json:"serverPort"`
 }
 
-func LoadConfigFromPath(path string) (*Config,error) {
+func LoadConfigFromPath(path string) (*Config, error) {
 	var config Config
 	configFile, err := os.Open(path)
 	if err != nil {

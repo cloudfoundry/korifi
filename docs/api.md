@@ -6,9 +6,18 @@
 
 ### Root
 
-CF V3 API docs  [https://v3-apidocs.cloudfoundry.org/version/3.102.0/index.html#root](https://v3-apidocs.cloudfoundry.org/version/3.102.0/index.html#root)
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.102.0/index.html#root
 
 | Resource | Endpoint |
 |--|--|
 | Global API Root | GET / |
 | V3 API Root | GET /v3 |
+
+
+### Apps
+
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.102.0/index.html#apps
+
+| Resource | Endpoint |
+|--|--|
+| Get App | GET /v3/apps/<guid> |

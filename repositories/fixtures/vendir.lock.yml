@@ -1,0 +1,9 @@
+apiVersion: vendir.k14s.io/v1alpha1
+directories:
+- contents:
+  - git:
+      commitTitle: Fix go module to code.cloudfoundry.org/cf-k8s-controllers...
+      sha: 86b9fae497c6de03aafa7d623a1d74252a34e37f
+    path: cf-k8s-controllers
+  path: vendor
+kind: LockConfig

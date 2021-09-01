@@ -27,6 +27,7 @@ func initializeAPIRoutes() *routes.APIRoutes {
 	return &routes.APIRoutes{
 		RootV3Handler: emptyHandlerFunc,
 		RootHandler:   emptyHandlerFunc,
+		AppsHandler:   emptyHandlerFunc,
 	}
 }
 
@@ -61,6 +62,7 @@ func sendRequestToRouter(req *http.Request, router *mux.Router) *httptest.Respon
 func TestRouter(t *testing.T) {
 	spec.Run(t, "object", testRootRoute, spec.Report(report.Terminal{}))
 	spec.Run(t, "object", testRootV3Route, spec.Report(report.Terminal{}))
+	spec.Run(t, "object", testAppsGetRoute, spec.Report(report.Terminal{}))
 }
 func testRootRoute(t *testing.T, when spec.G, it spec.S) {
 	Expect := NewWithT(t).Expect
@@ -132,7 +134,6 @@ func testRootV3Route(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("the APIRouter RootV3Handler is initialized and no handler is provided", func() {
-
 		it("panics when RegisterRoutes is called", func() {
 			// This will "catch" the panic from RegisterRoutes
 			Expect(func() {
@@ -140,6 +141,48 @@ func testRootV3Route(t *testing.T, when spec.G, it spec.S) {
 				// create API routes
 				apiRoutes := initializeAPIRoutes()
 				apiRoutes.RootV3Handler = nil
+				// Call RegisterRoutes to register all the routes in APIRoutes
+				apiRoutes.RegisterRoutes(router)
+			}).To(PanicWith(RoutesPanicMessage), NoHandlerProvidedPanicFailureDescription)
+		})
+	})
+}
+
+func testAppsGetRoute(t *testing.T, when spec.G, it spec.S) {
+	Expect := NewWithT(t).Expect
+
+	when("the APIRouter AppsHandler is initialized and a mock handler is provided", func() {
+		var handlerCalled bool
+		var requestURL = "/v3/apps/test-app-guid"
+
+		it.Before(func() {
+			handlerCalled = false
+			router := mux.NewRouter()
+			// create API routes
+			apiRoutes := initializeAPIRoutes()
+			// This mock handler will be registered with the router by the APIRoutes
+			apiRoutes.AppsHandler = createMockHandlerFunc(&handlerCalled)
+			// Call RegisterRoutes to register all the routes in APIRoutes
+			apiRoutes.RegisterRoutes(router)
+			// Send a GET request to the requestURL
+			sendGetURLToRouter(requestURL, router)
+		})
+
+		it("calls the provided mock handler function when GET "+requestURL+" is requested", func() {
+			// make sure the provided mockHandlerFunction function was called
+			Expect(handlerCalled).To(BeTrue(), "Response body matches mockHandlerFunction response:")
+		})
+
+	})
+
+	when("the APIRouter AppsHandler is initialized and no handler is provided", func() {
+		it("panics when RegisterRoutes is called", func() {
+			// This will "catch" the panic from RegisterRoutes
+			Expect(func() {
+				router := mux.NewRouter()
+				// create API routes
+				apiRoutes := initializeAPIRoutes()
+				apiRoutes.AppsHandler = nil
 				// Call RegisterRoutes to register all the routes in APIRoutes
 				apiRoutes.RegisterRoutes(router)
 			}).To(PanicWith(RoutesPanicMessage), NoHandlerProvidedPanicFailureDescription)
