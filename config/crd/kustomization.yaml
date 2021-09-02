@@ -7,8 +7,8 @@ resources:
 - bases/workloads.cloudfoundry.org_cfdroplets.yaml
 - bases/workloads.cloudfoundry.org_cfprocesses.yaml
 - bases/workloads.cloudfoundry.org_cfbuilds.yaml
-- bases/workloads.cloudfoundry.org_cfroutes.yaml
-- bases/workloads.cloudfoundry.org_cfdomains.yaml
+- bases/networking.cloudfoundry.org_cfroutes.yaml
+- bases/networking.cloudfoundry.org_cfdomains.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
