@@ -59,6 +59,13 @@ func main() {
 		Logger:    ctrl.Log.WithName("AppHandler"),
 		K8sConfig: k8sClientConfig,
 	}
+	routeHandler := &apis.RouteHandler{
+		ServerURL:  config.ServerURL,
+		RouteRepo:  &repositories.RouteRepo{},
+		DomainRepo: &repositories.DomainRepo{},
+		Logger:     ctrl.Log.WithName("RouteHandler"),
+		K8sConfig:  k8sClientConfig,
+	}
 
 	router := mux.NewRouter()
 	// create API routes
@@ -67,6 +74,7 @@ func main() {
 		RootV3Handler: apiRootV3Handler.RootV3GetHandler,
 		RootHandler:   apiRootHandler.RootGetHandler,
 		AppsHandler:   appsHandler.AppsGetHandler,
+		RouteHandler:  routeHandler.RouteGetHandler,
 	}
 	// Call RegisterRoutes to register all the routes in APIRoutes
 	apiRoutes.RegisterRoutes(router)

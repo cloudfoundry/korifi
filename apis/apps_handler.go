@@ -32,19 +32,19 @@ func (h *AppHandler) AppsGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Instantiate config based on bearer token
 	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.AppRepo.ConfigureClient(h.K8sConfig)
+	appClient, err := h.AppRepo.ConfigureClient(h.K8sConfig)
 	if err != nil {
 		h.Logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	app, err := h.AppRepo.FetchApp(client, appGUID)
+	app, err := h.AppRepo.FetchApp(appClient, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
 			h.Logger.Info("App not found", "AppGUID", appGUID)
-			writeNotFoundErrorResponse(w)
+			writeNotFoundErrorResponse(w, "App")
 			return
 		default:
 			h.Logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
@@ -60,25 +60,5 @@ func (h *AppHandler) AppsGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write(responseBody)
-}
-
-func writeNotFoundErrorResponse(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusNotFound)
-	responseBody, err := json.Marshal(newNotFoundError("App"))
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.Write(responseBody)
-}
-
-func writeUnknownErrorResponse(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusInternalServerError)
-	responseBody, err := json.Marshal(newUnknownError())
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }

@@ -76,6 +76,7 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 		it("can fetch the AppRecord CR we're looking for", func() {
 			appRepo := repositories.AppRepo{}
 			client, err := appRepo.ConfigureClient(k8sConfig)
+			g.Expect(err).ToNot(HaveOccurred())
 
 			app, err := appRepo.FetchApp(client, cfAppGUID)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -152,6 +153,7 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 		it("returns an error", func() {
 			appRepo := repositories.AppRepo{}
 			client, err := appRepo.ConfigureClient(k8sConfig)
+			g.Expect(err).ToNot(HaveOccurred())
 
 			_, err = appRepo.FetchApp(client, cfAppGUID)
 			g.Expect(err).To(HaveOccurred())
@@ -163,6 +165,7 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 		it("returns an error", func() {
 			appRepo := repositories.AppRepo{}
 			client, err := appRepo.ConfigureClient(k8sConfig)
+			g.Expect(err).ToNot(HaveOccurred())
 
 			_, err = appRepo.FetchApp(client, "i don't exist")
 			g.Expect(err).To(HaveOccurred())

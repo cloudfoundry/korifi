@@ -1,7 +1,9 @@
 package apis
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenters"
 )
@@ -20,4 +22,23 @@ func newUnknownError() presenters.ErrorsResponse {
 		Detail: "An unknown error occurred.",
 		Code:   10001,
 	}}}
+}
+
+func writeNotFoundErrorResponse(w http.ResponseWriter, resourceName string) {
+	w.WriteHeader(http.StatusNotFound)
+	responseBody, err := json.Marshal(newNotFoundError(resourceName))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	_, _ = w.Write(responseBody)
+}
+
+func writeUnknownErrorResponse(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusInternalServerError)
+	responseBody, err := json.Marshal(newUnknownError())
+	if err != nil {
+		return
+	}
+	_, _ = w.Write(responseBody)
 }
