@@ -53,7 +53,7 @@ func main() {
 	apiRootHandler := &apis.RootHandler{
 		ServerURL: config.ServerURL,
 	}
-	appsHandler := &apis.AppHandler{
+	appHandler := &apis.AppHandler{
 		ServerURL: config.ServerURL,
 		AppRepo:   &repositories.AppRepo{},
 		Logger:    ctrl.Log.WithName("AppHandler"),
@@ -73,7 +73,7 @@ func main() {
 		//add API routes to handler
 		RootV3Handler: apiRootV3Handler.RootV3GetHandler,
 		RootHandler:   apiRootHandler.RootGetHandler,
-		AppsHandler:   appsHandler.AppsGetHandler,
+		AppHandler:    appHandler.AppGetHandler,
 		RouteHandler:  routeHandler.RouteGetHandler,
 	}
 	// Call RegisterRoutes to register all the routes in APIRoutes

@@ -65,12 +65,12 @@ var (
 	fetchDomainErr      error
 )
 
-func TestRoutes(t *testing.T) {
-	spec.Run(t, "RouteHandler", testRoutesHandler, spec.Report(report.Terminal{}))
+func TestRoute(t *testing.T) {
+	spec.Run(t, "RouteHandler", testRouteHandler, spec.Report(report.Terminal{}))
 }
 
-func testRoutesHandler(t *testing.T, when spec.G, it spec.S) {
-	Expect := NewWithT(t).Expect
+func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
+	g := NewWithT(t)
 
 	var (
 		rr *httptest.ResponseRecorder
@@ -96,10 +96,10 @@ func testRoutesHandler(t *testing.T, when spec.G, it spec.S) {
 			fetchDomainErr = nil
 
 			req, err := http.NewRequest("GET", "/v3/routes/test-route-guid", nil)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 
 			rr = httptest.NewRecorder()
-			routesHandler := apis.RouteHandler{
+			routeHandler := apis.RouteHandler{
 				ServerURL: defaultServerURL,
 				RouteRepo: &FakeRouteRepo{
 					FetchRouteFunc: func(_ client.Client, _ string) (repositories.RouteRecord, error) {
@@ -111,23 +111,23 @@ func testRoutesHandler(t *testing.T, when spec.G, it spec.S) {
 						return fetchDomainResponse, fetchDomainErr
 					},
 				},
-				Logger:    logf.Log.WithName("TestRoutesHandler"),
+				Logger:    logf.Log.WithName("TestRouteHandler"),
 				K8sConfig: &rest.Config{}, // required for k8s client (transitive dependency from route repo)
 			}
 
-			handler := http.HandlerFunc(routesHandler.RouteGetHandler)
+			handler := http.HandlerFunc(routeHandler.RouteGetHandler)
 
 			handler.ServeHTTP(rr, req)
 		})
 
 		it("returns status 200 OK", func() {
 			httpStatus := rr.Code
-			Expect(httpStatus).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+			g.Expect(httpStatus).Should(Equal(http.StatusOK), "Matching HTTP response code:")
 		})
 
 		it("returns Content-Type as JSON in header", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("returns the Route in the response", func() {
@@ -150,84 +150,22 @@ func testRoutesHandler(t *testing.T, when spec.G, it spec.S) {
 				},
 				Links: presenters.RouteLinks{
 					Self: presenters.Link{
-						HREF: "https://api.example.org/v3/routes/test-route-guid",
+						HREF: defaultServerURI("/v3/routes/test-route-guid"),
 					},
 					Space: presenters.Link{
-						HREF: "https://api.example.org/v3/spaces/test-space-guid",
+						HREF: defaultServerURI("/v3/spaces/test-space-guid"),
 					},
 					Domain: presenters.Link{
-						HREF: "https://api.example.org/v3/domains/test-domain-guid",
+						HREF: defaultServerURI("/v3/domains/test-domain-guid"),
 					},
 					Destinations: presenters.Link{
-						HREF: "https://api.example.org/v3/routes/test-route-guid/destinations",
+						HREF: defaultServerURI("/v3/routes/test-route-guid/destinations"),
 					},
 				},
-				/*Fill struct literal with data
-				"guid": "cbad697f-cac1-48f4-9017-ac08f39dfb31",
-				"protocol": "tcp",
-				"port": 6666,
-				"created_at": "2019-05-10T17:17:48Z",
-				"updated_at": "2019-05-10T17:17:48Z",
-				"host": "a-hostname",
-				"path": "/some_path",
-				"url": "a-hostname.a-domain.com/some_path",
-				"destinations": [
-				{
-				"route": {
-				"guid": "0a6636b5-7fc4-44d8-8752-0db3e40b35a5",
-				"process": {
-				"type": "web"
-				}
-				},
-				"weight": null,
-				"port": 8080
-				},
-				{
-				"route": {
-				"guid": "f61e59fa-2121-4217-8c7b-15bfd75baf25",
-				"process": {
-				"type": "web"
-				}
-				},
-				"weight": null,
-				"port": 8080
-				}
-				],
-				"metadata": {
-				"labels": { },
-				"annotations": { }
-				},
-				"relationships": {
-				"space": {
-				"data": {
-				"guid": "885a8cb3-c07b-4856-b448-eeb10bf36236"
-				}
-				},
-				"domain": {
-				"data": {
-				"guid": "0b5f3633-194c-42d2-9408-972366617e0e"
-				}
-				}
-				},
-				"links": {
-				"self": {
-				"href": "https://api.example.org/v3/routes/cbad697f-cac1-48f4-9017-ac08f39dfb31"
-				},
-				"space": {
-				"href": "https://api.example.org/v3/spaces/885a8cb3-c07b-4856-b448-eeb10bf36236"
-				},
-				"domain": {
-				"href": "https://api.example.org/v3/domains/0b5f3633-194c-42d2-9408-972366617e0e"
-				},
-				"destinations": {
-				"href": "https://api.example.org/v3/routes/cbad697f-cac1-48f4-9017-ac08f39dfb31/destinations"
-				}
-				}
-				}*/
 			})
 
-			Expect(err).NotTo(HaveOccurred())
-			Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 
 		// Test returns a 404
@@ -237,7 +175,7 @@ func testRoutesHandler(t *testing.T, when spec.G, it spec.S) {
 				fetchRouteErr = repositories.NotFoundError{Err: errors.New("not found")}
 
 				req, err := http.NewRequest("GET", "/v3/routes/my-route-guid", nil)
-				Expect(err).NotTo(HaveOccurred())
+				g.Expect(err).NotTo(HaveOccurred())
 
 				rr = httptest.NewRecorder()
 				apiHandler := apis.RouteHandler{
@@ -264,10 +202,10 @@ func testRoutesHandler(t *testing.T, when spec.G, it spec.S) {
 				}}})
 
 				httpStatus := rr.Code
-				Expect(httpStatus).Should(Equal(http.StatusNotFound), "Matching HTTP response code:")
+				g.Expect(httpStatus).Should(Equal(http.StatusNotFound), "Matching HTTP response code:")
 
-				Expect(err).NotTo(HaveOccurred())
-				Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 			})
 		})
 
@@ -288,7 +226,7 @@ func testRoutesHandler(t *testing.T, when spec.G, it spec.S) {
 				fetchDomainErr = repositories.NotFoundError{Err: errors.New("not found")}
 
 				req, err := http.NewRequest("GET", "/v3/routes/my-route-guid", nil)
-				Expect(err).NotTo(HaveOccurred())
+				g.Expect(err).NotTo(HaveOccurred())
 
 				rr = httptest.NewRecorder()
 				apiHandler := apis.RouteHandler{
@@ -320,10 +258,10 @@ func testRoutesHandler(t *testing.T, when spec.G, it spec.S) {
 				}}})
 
 				httpStatus := rr.Code
-				Expect(httpStatus).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
+				g.Expect(httpStatus).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
 
-				Expect(err).NotTo(HaveOccurred())
-				Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 			})
 		})
 
@@ -333,7 +271,7 @@ func testRoutesHandler(t *testing.T, when spec.G, it spec.S) {
 				fetchRouteErr = errors.New("unknown!")
 
 				req, err := http.NewRequest("GET", "/v3/routes/my-route-guid", nil)
-				Expect(err).NotTo(HaveOccurred())
+				g.Expect(err).NotTo(HaveOccurred())
 
 				rr = httptest.NewRecorder()
 				apiHandler := apis.RouteHandler{
@@ -360,10 +298,10 @@ func testRoutesHandler(t *testing.T, when spec.G, it spec.S) {
 				}}})
 
 				httpStatus := rr.Code
-				Expect(httpStatus).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
+				g.Expect(httpStatus).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
 
-				Expect(err).NotTo(HaveOccurred())
-				Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 			})
 		})
 	})
