@@ -1,6 +1,8 @@
 package apis
 
-import "net/http"
+import (
+	"net/http"
+)
 
 type RootHandler struct {
 	ServerURL string

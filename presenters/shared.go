@@ -1,6 +1,8 @@
 package presenters
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Lifecycle struct {
 	Data LifecycleData `json:"data"`

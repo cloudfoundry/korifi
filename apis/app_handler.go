@@ -24,7 +24,7 @@ type AppHandler struct {
 	K8sConfig *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
-func (h *AppHandler) AppsGetHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)

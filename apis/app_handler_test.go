@@ -45,18 +45,18 @@ func (f *FakeAppRepo) FetchApp(client client.Client, appGUID string) (repositori
 	return f.FetchAppFunc(client, appGUID)
 }
 
-func TestApps(t *testing.T) {
-	spec.Run(t, "object", testAppsGetHandler, spec.Report(report.Terminal{}))
+func TestApp(t *testing.T) {
+	spec.Run(t, "object", testAppGetHandler, spec.Report(report.Terminal{}))
 }
 
-func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
-	Expect := NewWithT(t).Expect
+func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
+	g := NewWithT(t)
 
 	var (
 		rr *httptest.ResponseRecorder
 	)
 
-	when("the GET /v3/apps/:guid  endpoint returns successfully", func() {
+	when("the GET /v3/apps/:guid endpoint returns successfully", func() {
 		it.Before(func() {
 			FetchAppResponseApp = repositories.AppRecord{
 				GUID:      "test-app-guid",
@@ -73,7 +73,7 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			FetchAppErr = nil
 
 			req, err := http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 
 			rr = httptest.NewRecorder()
 			apiHandler := apis.AppHandler{
@@ -87,19 +87,19 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 				K8sConfig: &rest.Config{},
 			}
 
-			handler := http.HandlerFunc(apiHandler.AppsGetHandler)
+			handler := http.HandlerFunc(apiHandler.AppGetHandler)
 
 			handler.ServeHTTP(rr, req)
 		})
 
 		it("returns status 200 OK", func() {
 			httpStatus := rr.Code
-			Expect(httpStatus).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+			g.Expect(httpStatus).Should(Equal(http.StatusOK), "Matching HTTP response code:")
 		})
 
 		it("returns Content-Type as JSON in header", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("returns the App in the response", func() {
@@ -122,33 +122,33 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 				},
 				Links: presenters.AppLinks{
 					Self: presenters.Link{
-						HREF: "https://api.example.org/v3/apps/test-app-guid",
+						HREF: defaultServerURI("/v3/apps/test-app-guid"),
 					},
 					Space: presenters.Link{
-						HREF: "https://api.example.org/v3/spaces/test-space-guid",
+						HREF: defaultServerURI("/v3/spaces/test-space-guid"),
 					},
 					Processes: presenters.Link{
-						HREF: "https://api.example.org/v3/apps/test-app-guid/processes",
+						HREF: defaultServerURI("/v3/apps/test-app-guid/processes"),
 					},
 					Packages: presenters.Link{
-						HREF: "https://api.example.org/v3/apps/test-app-guid/packages",
+						HREF: defaultServerURI("/v3/apps/test-app-guid/packages"),
 					},
 					EnvironmentVariables: presenters.Link{
-						HREF: "https://api.example.org/v3/apps/test-app-guid/environment_variables",
+						HREF: defaultServerURI("/v3/apps/test-app-guid/environment_variables"),
 					},
 					CurrentDroplet: presenters.Link{
-						HREF: "https://api.example.org/v3/apps/test-app-guid/droplets/current",
+						HREF: defaultServerURI("/v3/apps/test-app-guid/droplets/current"),
 					},
 					Droplets: presenters.Link{
-						HREF: "https://api.example.org/v3/apps/test-app-guid/droplets",
+						HREF: defaultServerURI("/v3/apps/test-app-guid/droplets"),
 					},
 					Tasks: presenters.Link{},
 					StartAction: presenters.Link{
-						HREF:   "https://api.example.org/v3/apps/test-app-guid/actions/start",
+						HREF:   defaultServerURI("/v3/apps/test-app-guid/actions/start"),
 						Method: "POST",
 					},
 					StopAction: presenters.Link{
-						HREF:   "https://api.example.org/v3/apps/test-app-guid/actions/stop",
+						HREF:   defaultServerURI("/v3/apps/test-app-guid/actions/stop"),
 						Method: "POST",
 					},
 					Revisions:         presenters.Link{},
@@ -157,8 +157,8 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 				},
 			})
 
-			Expect(err).NotTo(HaveOccurred())
-			Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 	})
 
@@ -168,7 +168,7 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			FetchAppErr = repositories.NotFoundError{Err: errors.New("not found")}
 
 			req, err := http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 
 			rr = httptest.NewRecorder()
 			apiHandler := apis.AppHandler{
@@ -182,7 +182,7 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 				K8sConfig: &rest.Config{},
 			}
 
-			handler := http.HandlerFunc(apiHandler.AppsGetHandler)
+			handler := http.HandlerFunc(apiHandler.AppGetHandler)
 
 			handler.ServeHTTP(rr, req)
 		})
@@ -195,10 +195,10 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			}}})
 
 			httpStatus := rr.Code
-			Expect(httpStatus).Should(Equal(http.StatusNotFound), "Matching HTTP response code:")
+			g.Expect(httpStatus).Should(Equal(http.StatusNotFound), "Matching HTTP response code:")
 
-			Expect(err).NotTo(HaveOccurred())
-			Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 	})
 
@@ -208,7 +208,7 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			FetchAppErr = errors.New("unknown!")
 
 			req, err := http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 
 			rr = httptest.NewRecorder()
 			apiHandler := apis.AppHandler{
@@ -222,7 +222,7 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 				K8sConfig: &rest.Config{},
 			}
 
-			handler := http.HandlerFunc(apiHandler.AppsGetHandler)
+			handler := http.HandlerFunc(apiHandler.AppGetHandler)
 
 			handler.ServeHTTP(rr, req)
 		})
@@ -235,10 +235,10 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			}}})
 
 			httpStatus := rr.Code
-			Expect(httpStatus).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
+			g.Expect(httpStatus).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
 
-			Expect(err).NotTo(HaveOccurred())
-			Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 	})
 
