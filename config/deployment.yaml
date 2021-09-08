@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: cf-k8s-api
+  name: cf-k8s-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cf-k8s-api
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: cf-k8s-api
+    spec:
+      serviceAccount: cf-admin-serviceaccount
+      containers:
+      - image: cloudfoundry/cf-k8s-api:latest
+        name: cf-k8s-api
+        ports:
+          - containerPort: 9000
+            name: web
+        resources: {}
+        env:
+        - name: CONFIG
+          value: "config/config.json"
+        volumeMounts:
+        - name: &configname config
+          mountPath: /config
+          readOnly: true
+      volumes:
+      - name: *configname
+        configMap:
+          name: cf-k8s-api-config

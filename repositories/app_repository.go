@@ -12,6 +12,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfapps,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfapps/status,verbs=get
+
 type AppRepo struct{}
 
 const (

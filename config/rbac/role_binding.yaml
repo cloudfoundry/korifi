@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cf-admin-clusterrolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cf-admin-clusterrole
+subjects:
+- kind: ServiceAccount
+  name: cf-admin-serviceaccount
+  namespace: default

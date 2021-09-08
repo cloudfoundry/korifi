@@ -45,3 +45,11 @@ To update these CRDs you'll need to install [vendir](https://carvel.dev/vendir/)
 ### Editing Local Configuration
 To specify a custom configuration file, set the `CONFIG` environment variable to its path when running the web server.
 Refer to the [default config](config.json) for the config file structure and options.
+
+## Regenerate kubernetes resources after making changes
+To regenerate the kubernetes resources under `./config`, run `go generate ./...`
+from the root of the project.
+
+## Deploying the app to your cluster
+You can deploy the app to your cluster by running `kubectl apply -f ./config -R`
+from the project root.
