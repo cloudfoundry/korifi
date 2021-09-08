@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/client-go/kubernetes/scheme"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -45,7 +45,7 @@ func (f *RouteRepo) ConfigureClient(config *rest.Config) (client.Client, error) 
 
 func (f *RouteRepo) FetchRoute(client client.Client, routeGUID string) (RouteRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
-	cfRouteList := &workloadsv1alpha1.CFRouteList{}
+	cfRouteList := &networkingv1alpha1.CFRouteList{}
 	err := client.List(context.Background(), cfRouteList)
 
 	if err != nil {
@@ -64,8 +64,8 @@ func (r RouteRecord) UpdateDomainRef(d DomainRecord) RouteRecord {
 	return r
 }
 
-func (f *RouteRepo) filterByRouteName(routeList []workloadsv1alpha1.CFRoute, name string) []workloadsv1alpha1.CFRoute {
-	var filtered []workloadsv1alpha1.CFRoute
+func (f *RouteRepo) filterByRouteName(routeList []networkingv1alpha1.CFRoute, name string) []networkingv1alpha1.CFRoute {
+	var filtered []networkingv1alpha1.CFRoute
 
 	for i, route := range routeList {
 		if route.Name == name {
@@ -76,7 +76,7 @@ func (f *RouteRepo) filterByRouteName(routeList []workloadsv1alpha1.CFRoute, nam
 	return filtered
 }
 
-func (f *RouteRepo) returnRoute(routeList []workloadsv1alpha1.CFRoute) (RouteRecord, error) {
+func (f *RouteRepo) returnRoute(routeList []networkingv1alpha1.CFRoute) (RouteRecord, error) {
 	if len(routeList) == 0 {
 		return RouteRecord{}, NotFoundError{Err: errors.New("not found")}
 	}
@@ -88,7 +88,7 @@ func (f *RouteRepo) returnRoute(routeList []workloadsv1alpha1.CFRoute) (RouteRec
 	return cfRouteToRouteRecord(routeList[0]), nil
 }
 
-func cfRouteToRouteRecord(cfRoute workloadsv1alpha1.CFRoute) RouteRecord {
+func cfRouteToRouteRecord(cfRoute networkingv1alpha1.CFRoute) RouteRecord {
 	return RouteRecord{
 		GUID:      cfRoute.Name,
 		SpaceGUID: cfRoute.Namespace,

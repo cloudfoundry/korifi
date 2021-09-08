@@ -9,7 +9,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
@@ -24,6 +25,7 @@ const defaultConfigPath = "config.json"
 
 func init() {
 	utilruntime.Must(workloadsv1alpha1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme.Scheme))
 }
 
 func main() {

@@ -5,7 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	. "github.com/onsi/gomega"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -60,6 +61,8 @@ func beforeSuite(g *WithT) *envtest.Environment {
 	g.Expect(k8sConfig).NotTo(BeNil())
 
 	err = workloadsv1alpha1.AddToScheme(scheme.Scheme)
+	g.Expect(err).NotTo(HaveOccurred())
+	err = networkingv1alpha1.AddToScheme(scheme.Scheme)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(k8sConfig, client.Options{Scheme: scheme.Scheme})

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -33,7 +33,7 @@ func (r *DomainRepo) ConfigureClient(config *rest.Config) (client.Client, error)
 }
 
 func (f *DomainRepo) FetchDomain(client client.Client, domainGUID string) (DomainRecord, error) {
-	cfDomainList := &workloadsv1alpha1.CFDomainList{}
+	cfDomainList := &networkingv1alpha1.CFDomainList{}
 	err := client.List(context.Background(), cfDomainList)
 
 	if err != nil {
@@ -46,8 +46,8 @@ func (f *DomainRepo) FetchDomain(client client.Client, domainGUID string) (Domai
 	return f.returnDomain(filteredDomainList)
 }
 
-func (f *DomainRepo) filterByDomainName(domainList []workloadsv1alpha1.CFDomain, name string) []workloadsv1alpha1.CFDomain {
-	filtered := []workloadsv1alpha1.CFDomain{}
+func (f *DomainRepo) filterByDomainName(domainList []networkingv1alpha1.CFDomain, name string) []networkingv1alpha1.CFDomain {
+	filtered := []networkingv1alpha1.CFDomain{}
 
 	for i, domain := range domainList {
 		if domain.Name == name {
@@ -58,7 +58,7 @@ func (f *DomainRepo) filterByDomainName(domainList []workloadsv1alpha1.CFDomain,
 	return filtered
 }
 
-func (f *DomainRepo) returnDomain(domainList []workloadsv1alpha1.CFDomain) (DomainRecord, error) {
+func (f *DomainRepo) returnDomain(domainList []networkingv1alpha1.CFDomain) (DomainRecord, error) {
 	if len(domainList) == 0 {
 		return DomainRecord{}, NotFoundError{Err: errors.New("not found")}
 	}
@@ -66,7 +66,7 @@ func (f *DomainRepo) returnDomain(domainList []workloadsv1alpha1.CFDomain) (Doma
 	return cfDomainToDomainRecord(domainList[0]), nil
 }
 
-func cfDomainToDomainRecord(cfDomain workloadsv1alpha1.CFDomain) DomainRecord {
+func cfDomainToDomainRecord(cfDomain networkingv1alpha1.CFDomain) DomainRecord {
 	return DomainRecord{
 		Name:      cfDomain.Spec.Name,
 		GUID:      cfDomain.Name,
