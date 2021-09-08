@@ -34,8 +34,7 @@ func TestReconcilers(t *testing.T) {
 }
 
 func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
-
-	Expect := NewWithT(t).Expect
+	g := NewWithT(t)
 
 	var (
 		fakeClient      *controllersfakes.FakeCFAppClient
@@ -43,10 +42,11 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 		ctx             context.Context
 		req             ctrl.Request
 	)
+
 	it.Before(func() {
 		fakeClient = new(controllersfakes.FakeCFAppClient)
 		// configure a CFAppReconciler with the client
-		Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		g.Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfAppReconciler = &CFAppReconciler{
 			Client: fakeClient,
 			Scheme: scheme.Scheme,
@@ -83,22 +83,22 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 
 		it("returns an empty result and and nil", func() {
 			result, err := cfAppReconciler.Reconcile(ctx, req)
-			Expect(result).To(Equal(ctrl.Result{}))
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(result).To(Equal(ctrl.Result{}))
+			g.Expect(err).NotTo(HaveOccurred())
 
 			// validate the inputs to Get
-			Expect(fakeClient.GetCallCount()).To(Equal(1))
+			g.Expect(fakeClient.GetCallCount()).To(Equal(1))
 			_, testRequestNamespacedName, _ := fakeClient.GetArgsForCall(0)
-			Expect(testRequestNamespacedName.Namespace).To(Equal(dummyCFAppNamespace))
-			Expect(testRequestNamespacedName.Name).To(Equal(dummyCFAppName))
+			g.Expect(testRequestNamespacedName.Namespace).To(Equal(dummyCFAppNamespace))
+			g.Expect(testRequestNamespacedName.Name).To(Equal(dummyCFAppName))
 
 			// validate the inputs to Status.Update
-			Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+			g.Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 			_, updatedCFApp, _ := fakeStatusWriter.UpdateArgsForCall(0)
 			cast, ok := updatedCFApp.(*workloadsv1alpha1.CFApp)
-			Expect(ok).To(BeTrue(), "Cast to workloadsv1alpha1.CFApp failed")
-			Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRunning)).To(BeTrue(), "Status Condition "+StatusConditionRunning+" was not False as expected")
-			Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRestarting)).To(BeTrue(), "Status Condition "+StatusConditionRestarting+" was not False as expected")
+			g.Expect(ok).To(BeTrue(), "Cast to workloadsv1alpha1.CFApp failed")
+			g.Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRunning)).To(BeTrue(), "Status Condition "+StatusConditionRunning+" was not False as expected")
+			g.Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRestarting)).To(BeTrue(), "Status Condition "+StatusConditionRestarting+" was not False as expected")
 		})
 	})
 
@@ -106,17 +106,15 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 		it.Before(func() {
 			// Configure the mock fakeClient.Get() to return an error
 			fakeClient.GetReturns(fmt.Errorf(getErrorMessage))
-
 		})
 
 		it("returns an error", func() {
 			_, err := cfAppReconciler.Reconcile(ctx, req)
-			Expect(err).To(MatchError(getErrorMessage))
+			g.Expect(err).To(MatchError(getErrorMessage))
 		})
 	})
 
 	when("The CFAppReconciler is configured with an CFApp Client where Status().Update() will fail", func() {
-
 		it.Before(func() {
 			// Configure the mock fakeClient.Get() to return the expected app
 			fakeClient.GetStub = func(ctx context.Context, name types.NamespacedName, object client.Object) error {
@@ -125,6 +123,7 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 				cast.ObjectMeta.Namespace = dummyCFAppNamespace
 				return nil
 			}
+
 			// Configure mock status update to fail
 			fakeStatusWriter := &controllersfakes.FakeStatusWriter{}
 			fakeStatusWriter.UpdateReturns(fmt.Errorf(statusUpdateErrorMessage))
@@ -133,7 +132,7 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 
 		it("returns an error", func() {
 			_, err := cfAppReconciler.Reconcile(ctx, req)
-			Expect(err).To(MatchError(statusUpdateErrorMessage))
+			g.Expect(err).To(MatchError(statusUpdateErrorMessage))
 		})
 	})
 }

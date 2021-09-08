@@ -1,10 +1,11 @@
 package workloads_test
 
 import (
+	"context"
+
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads/webhooksfakes"
-	"context"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
@@ -26,12 +27,14 @@ func TestUnitValidatingWebhooks(t *testing.T) {
 
 func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 	//logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
-	Expect := NewWithT(t).Expect
+	g := NewWithT(t)
+
 	const (
 		testAppGUID      = "test-app-guid"
 		testAppName      = "test-app"
 		testAppNamespace = "default"
 	)
+
 	var (
 		ctx           context.Context
 		fakeClient    *webhooksfakes.FakeCFAppClient
@@ -39,6 +42,7 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 		dummyCFApp    *workloadsv1alpha1.CFApp
 		createRequest admission.Request
 	)
+
 	it.Before(func() {
 		ctx = context.Background()
 
@@ -51,10 +55,10 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 
 		scheme := runtime.NewScheme()
 		err := workloadsv1alpha1.AddToScheme(scheme)
-		Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(HaveOccurred())
 
 		realDecoder, err = admission.NewDecoder(scheme)
-		Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(HaveOccurred())
 
 		dummyCFApp = &workloadsv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
@@ -66,8 +70,10 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 				DesiredState: workloadsv1alpha1.StoppedState,
 			},
 		}
+
 		cfAppJSON, err := json.Marshal(dummyCFApp)
-		Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(HaveOccurred())
+
 		createRequest = admission.Request{
 			AdmissionRequest: v1.AdmissionRequest{
 				Name:      testAppGUID,
@@ -78,7 +84,6 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 				},
 			},
 		}
-
 	})
 
 	when("CFAppValidation Handle is run", func() {
@@ -88,13 +93,14 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 			validatingWebhook = &CFAppValidation{
 				Client: fakeClient,
 			}
-			Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
+
+			g.Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
 		})
 
 		when("no other apps are present in the api and Handle is called", func() {
 			it("should return \"Allowed\"", func() {
 				response := validatingWebhook.Handle(ctx, createRequest)
-				Expect(response.Allowed).To(BeTrue())
+				g.Expect(response.Allowed).To(BeTrue())
 			})
 		})
 
@@ -102,6 +108,7 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				cfAppJSON, _ := json.Marshal(dummyCFApp)
 				badCFAppJSON := []byte("}" + string(cfAppJSON))
+
 				createRequest = admission.Request{
 					AdmissionRequest: v1.AdmissionRequest{
 						Name:      testAppGUID,
@@ -113,9 +120,10 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 					},
 				}
 			})
+
 			it("should return \"Allowed\" false", func() {
 				response := validatingWebhook.Handle(ctx, createRequest)
-				Expect(response.Allowed).To(BeFalse())
+				g.Expect(response.Allowed).To(BeFalse())
 			})
 		})
 
@@ -123,9 +131,10 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				fakeClient.ListReturns(errors.New("this fails on purpose"))
 			})
+
 			it("should return \"Allowed\" false", func() {
 				response := validatingWebhook.Handle(ctx, createRequest)
-				Expect(response.Allowed).To(BeFalse())
+				g.Expect(response.Allowed).To(BeFalse())
 			})
 		})
 	})

@@ -16,12 +16,14 @@ func TestAppWebhook(t *testing.T) {
 }
 
 func testCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
-	Expect := NewWithT(t).Expect
+	g := NewWithT(t)
+
 	const (
 		cfAppGUID     = "test-app-guid"
 		namespace     = "default"
 		cfAppLabelKey = "apps.cloudfoundry.org/appGuid"
 	)
+
 	when("there are no existing labels on the CFAPP record", func() {
 		it("should add a new label matching metadata.name", func() {
 			cfApp := &v1alpha1.CFApp{
@@ -43,7 +45,7 @@ func testCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			cfApp.Default()
-			Expect(cfApp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
+			g.Expect(cfApp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
 		})
 	})
 
@@ -71,7 +73,7 @@ func testCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			cfApp.Default()
-			Expect(cfApp.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "app-label"))
+			g.Expect(cfApp.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "app-label"))
 		})
 	})
 }

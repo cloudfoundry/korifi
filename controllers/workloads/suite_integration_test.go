@@ -3,6 +3,7 @@ package controllers_test
 import (
 	"os"
 	"path/filepath"
+	"testing"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
 	. "github.com/onsi/gomega"
@@ -16,13 +17,12 @@ import (
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	//+kubebuilder:scaffold:imports
-	"testing"
 )
 
 var (
+	k8sClient client.Client
 	suite     spec.Suite
 	testEnv   *envtest.Environment
-	k8sClient client.Client
 )
 
 func Suite() spec.Suite {
