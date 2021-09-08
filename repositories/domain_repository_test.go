@@ -1,7 +1,7 @@
 package repositories_test
 
 import (
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	"context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
@@ -17,28 +17,28 @@ var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec
 
 	when("multiple CFDomain resources exist", func() {
 		var (
-			cfDomain1 *workloadsv1alpha1.CFDomain
-			cfDomain2 *workloadsv1alpha1.CFDomain
+			cfDomain1 *networkingv1alpha1.CFDomain
+			cfDomain2 *networkingv1alpha1.CFDomain
 		)
 
 		it.Before(func() {
 			ctx := context.Background()
 
-			cfDomain1 = &workloadsv1alpha1.CFDomain{
+			cfDomain1 = &networkingv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "domain-id-1",
 				},
-				Spec: workloadsv1alpha1.CFDomainSpec{
+				Spec: networkingv1alpha1.CFDomainSpec{
 					Name: "my-domain-1",
 				},
 			}
 			g.Expect(k8sClient.Create(ctx, cfDomain1)).To(Succeed())
 
-			cfDomain2 = &workloadsv1alpha1.CFDomain{
+			cfDomain2 = &networkingv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "domain-id-2",
 				},
-				Spec: workloadsv1alpha1.CFDomainSpec{
+				Spec: networkingv1alpha1.CFDomainSpec{
 
 					Name: "my-domain-2",
 				},

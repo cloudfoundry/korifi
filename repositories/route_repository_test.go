@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -18,43 +18,43 @@ var _ = SuiteDescribe("Route API Shim", func(t *testing.T, when spec.G, it spec.
 
 	when("multiple CFRoute resources exist", func() {
 		var (
-			cfRoute1 *workloadsv1alpha1.CFRoute
-			cfRoute2 *workloadsv1alpha1.CFRoute
+			cfRoute1 *networkingv1alpha1.CFRoute
+			cfRoute2 *networkingv1alpha1.CFRoute
 		)
 
 		it.Before(func() {
 			ctx := context.Background()
 
-			cfRoute1 = &workloadsv1alpha1.CFRoute{
+			cfRoute1 = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "route-id-1",
 					Namespace: "default",
 				},
-				Spec: workloadsv1alpha1.CFRouteSpec{
+				Spec: networkingv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
 					Path:     "",
 					Protocol: "http",
-					DomainRef: workloadsv1alpha1.ResourceReference{
+					DomainRef: corev1.LocalObjectReference{
 						Name: "my-domain",
 					},
-					Destinations: []workloadsv1alpha1.Destination{},
+					Destinations: []networkingv1alpha1.Destination{},
 				},
 			}
 			g.Expect(k8sClient.Create(ctx, cfRoute1)).To(Succeed())
 
-			cfRoute2 = &workloadsv1alpha1.CFRoute{
+			cfRoute2 = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "route-id-2",
 					Namespace: "default",
 				},
-				Spec: workloadsv1alpha1.CFRouteSpec{
+				Spec: networkingv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-2",
 					Path:     "",
 					Protocol: "http",
-					DomainRef: workloadsv1alpha1.ResourceReference{
+					DomainRef: corev1.LocalObjectReference{
 						Name: "my-domain",
 					},
-					Destinations: []workloadsv1alpha1.Destination{},
+					Destinations: []networkingv1alpha1.Destination{},
 				},
 			}
 			g.Expect(k8sClient.Create(ctx, cfRoute2)).To(Succeed())
@@ -98,8 +98,8 @@ var _ = SuiteDescribe("Route API Shim", func(t *testing.T, when spec.G, it spec.
 
 	when("multiple CFRoute resources exist across namespaces with the same name", func() {
 		var (
-			cfRoute1            *workloadsv1alpha1.CFRoute
-			cfRoute2            *workloadsv1alpha1.CFRoute
+			cfRoute1            *networkingv1alpha1.CFRoute
+			cfRoute2            *networkingv1alpha1.CFRoute
 			nonDefaultNamespace *corev1.Namespace
 		)
 
@@ -109,36 +109,36 @@ var _ = SuiteDescribe("Route API Shim", func(t *testing.T, when spec.G, it spec.
 			nonDefaultNamespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "non-default-namespace"}}
 			g.Expect(k8sClient.Create(ctx, nonDefaultNamespace)).To(Succeed())
 
-			cfRoute1 = &workloadsv1alpha1.CFRoute{
+			cfRoute1 = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "non-unique-route-id",
 					Namespace: "default",
 				},
-				Spec: workloadsv1alpha1.CFRouteSpec{
+				Spec: networkingv1alpha1.CFRouteSpec{
 					Host:     "",
 					Path:     "",
 					Protocol: "http",
-					DomainRef: workloadsv1alpha1.ResourceReference{
+					DomainRef: corev1.LocalObjectReference{
 						Name: "my-domain",
 					},
-					Destinations: []workloadsv1alpha1.Destination{},
+					Destinations: []networkingv1alpha1.Destination{},
 				},
 			}
 			g.Expect(k8sClient.Create(ctx, cfRoute1)).To(Succeed())
 
-			cfRoute2 = &workloadsv1alpha1.CFRoute{
+			cfRoute2 = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "non-unique-route-id",
 					Namespace: "non-default-namespace",
 				},
-				Spec: workloadsv1alpha1.CFRouteSpec{
+				Spec: networkingv1alpha1.CFRouteSpec{
 					Host:     "",
 					Path:     "",
 					Protocol: "http",
-					DomainRef: workloadsv1alpha1.ResourceReference{
+					DomainRef: corev1.LocalObjectReference{
 						Name: "my-domain",
 					},
-					Destinations: []workloadsv1alpha1.Destination{},
+					Destinations: []networkingv1alpha1.Destination{},
 				},
 			}
 			g.Expect(k8sClient.Create(ctx, cfRoute2)).To(Succeed())

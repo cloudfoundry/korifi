@@ -13,7 +13,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/presenters"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
@@ -27,13 +27,13 @@ type FakeRouteRepo struct {
 }
 
 func (f *FakeRouteRepo) ConfigureClient(_ *rest.Config) (client.Client, error) {
-	err := workloadsv1alpha1.AddToScheme(scheme.Scheme)
+	err := networkingv1alpha1.AddToScheme(scheme.Scheme)
 	if err != nil {
 		return nil, err
 	}
 
 	fakeClientBuilder := &fake.ClientBuilder{}
-	return fakeClientBuilder.WithScheme(scheme.Scheme).WithObjects(&workloadsv1alpha1.CFRoute{}).Build(), nil
+	return fakeClientBuilder.WithScheme(scheme.Scheme).WithObjects(&networkingv1alpha1.CFRoute{}).Build(), nil
 }
 
 func (f *FakeRouteRepo) FetchRoute(client client.Client, routeGUID string) (repositories.RouteRecord, error) {
@@ -45,13 +45,13 @@ type FakeDomainRepo struct {
 }
 
 func (f *FakeDomainRepo) ConfigureClient(_ *rest.Config) (client.Client, error) {
-	err := workloadsv1alpha1.AddToScheme(scheme.Scheme)
+	err := networkingv1alpha1.AddToScheme(scheme.Scheme)
 	if err != nil {
 		return nil, err
 	}
 
 	fakeClientBuilder := &fake.ClientBuilder{}
-	return fakeClientBuilder.WithScheme(scheme.Scheme).WithObjects(&workloadsv1alpha1.CFRoute{}).Build(), nil
+	return fakeClientBuilder.WithScheme(scheme.Scheme).WithObjects(&networkingv1alpha1.CFRoute{}).Build(), nil
 }
 
 func (f *FakeDomainRepo) FetchDomain(client client.Client, domainGUID string) (repositories.DomainRecord, error) {

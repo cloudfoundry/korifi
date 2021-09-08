@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"

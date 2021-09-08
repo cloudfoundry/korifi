@@ -6,9 +6,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
-  name: cfroutes.workloads.cloudfoundry.org
+  name: cfroutes.networking.cloudfoundry.org
 spec:
-  group: workloads.cloudfoundry.org
+  group: networking.cloudfoundry.org
   names:
     kind: CFRoute
     listKind: CFRouteList
@@ -41,9 +41,8 @@ spec:
                       description: App ref is required, part of the identity of a running process to which traffic may be routed We use a ref because the app must exist
                       properties:
                         name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                           type: string
-                      required:
-                      - name
                       type: object
                     port:
                       description: Port is optional, defaults to ProcessModel::DEFAULT_HTTP_PORT
@@ -60,9 +59,8 @@ spec:
                 description: Domain ref is required, provides base domain name and allowed protocol info.
                 properties:
                   name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
-                required:
-                - name
                 type: object
               host:
                 description: Host is optional, defaults to empty. For cf push default route, uses the name of the app.
