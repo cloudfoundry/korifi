@@ -1,0 +1,10 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: cf-k8s-api-config
+data:
+  config.json: |-
+    {
+      "serverURL": "https://api.example.com",
+      "serverPort": 9000
+    }

@@ -28,6 +28,9 @@ test: fmt vet ## Run tests.
 run: fmt vet ## Run a controller from your host.
 	go run ./main.go
 
+generate: fmt vet
+	go generate ./...
+
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-get-tool
