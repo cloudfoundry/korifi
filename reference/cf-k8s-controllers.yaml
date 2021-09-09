@@ -1,0 +1,1678 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: cf-k8s-controllers-system
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    controller-gen.kubebuilder.io/version: v0.5.0
+  name: cfapps.workloads.cloudfoundry.org
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: cf-k8s-controllers-webhook-service
+          namespace: cf-k8s-controllers-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  group: workloads.cloudfoundry.org
+  names:
+    kind: CFApp
+    listKind: CFAppList
+    plural: cfapps
+    singular: cfapp
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CFApp is the Schema for the cfapps API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CFAppSpec defines the desired state of CFApp
+            properties:
+              currentDropletRef:
+                description: CurrentDropletRef provides reference to the droplet currently
+                  assigned (active) for the app
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+              desiredState:
+                description: 'Specifies the current state of the CFApp Allowed values
+                  are: "STARTED": App is started "STOPPED": App is stopped'
+                enum:
+                - STOPPED
+                - STARTED
+                type: string
+              envSecretName:
+                description: Name of a secret containing a map of multiple environment
+                  variables passed to every CFProcess of the app
+                type: string
+              lifecycle:
+                description: Lifecycle specifies how to build droplets
+                properties:
+                  data:
+                    description: Lifecycle data used to specify details for the Lifecycle
+                    properties:
+                      buildpacks:
+                        description: List of buildpacks used to build the app
+                        items:
+                          type: string
+                        type: array
+                      stack:
+                        type: string
+                    required:
+                    - stack
+                    type: object
+                  type:
+                    description: 'Specifies the CF Lifecycle type: Valid values are:
+                      "buildpack": stage the app using kpack'
+                    enum:
+                    - buildpack
+                    type: string
+                required:
+                - data
+                - type
+                type: object
+              name:
+                description: Name defines the name of the app
+                type: string
+            required:
+            - desiredState
+            - lifecycle
+            - name
+            type: object
+          status:
+            description: CFAppStatus defines the observed state of CFApp
+            properties:
+              conditions:
+                description: Conditions capture the current status of the App
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource. --- This struct is intended for direct
+                    use as an array at the field path .status.conditions.  For example,
+                    type FooStatus struct{     // Represents the observations of a
+                    foo's current state.     // Known .status.conditions.type are:
+                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
+                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
+                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
+                    \n     // other fields }"
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        --- Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+            required:
+            - conditions
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    controller-gen.kubebuilder.io/version: v0.5.0
+  name: cfbuilds.workloads.cloudfoundry.org
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: cf-k8s-controllers-webhook-service
+          namespace: cf-k8s-controllers-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  group: workloads.cloudfoundry.org
+  names:
+    kind: CFBuild
+    listKind: CFBuildList
+    plural: cfbuilds
+    singular: cfbuild
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CFBuild is the Schema for the cfbuilds API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CFBuildSpec defines the desired state of CFBuild
+            properties:
+              appRef:
+                description: Specifies the CFApp associated with this build
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+              lifecycle:
+                description: Specifies the buildpacks and stack for the build
+                properties:
+                  data:
+                    description: Lifecycle data used to specify details for the Lifecycle
+                    properties:
+                      buildpacks:
+                        description: List of buildpacks used to build the app
+                        items:
+                          type: string
+                        type: array
+                      stack:
+                        type: string
+                    required:
+                    - stack
+                    type: object
+                  type:
+                    description: 'Specifies the CF Lifecycle type: Valid values are:
+                      "buildpack": stage the app using kpack'
+                    enum:
+                    - buildpack
+                    type: string
+                required:
+                - data
+                - type
+                type: object
+              packageRef:
+                description: Specifies the CFPackage associated with this build
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - appRef
+            - lifecycle
+            - packageRef
+            type: object
+          status:
+            description: CFBuildStatus defines the observed state of CFBuild
+            properties:
+              conditions:
+                description: Conditions capture the current status of the Build
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource. --- This struct is intended for direct
+                    use as an array at the field path .status.conditions.  For example,
+                    type FooStatus struct{     // Represents the observations of a
+                    foo's current state.     // Known .status.conditions.type are:
+                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
+                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
+                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
+                    \n     // other fields }"
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        --- Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              dropletRef:
+                description: ResourceReference defines a reference to an instance
+                  of a resource in Kubernetes
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - conditions
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    controller-gen.kubebuilder.io/version: v0.5.0
+  name: cfdomains.networking.cloudfoundry.org
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: cf-k8s-controllers-webhook-service
+          namespace: cf-k8s-controllers-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  group: networking.cloudfoundry.org
+  names:
+    kind: CFDomain
+    listKind: CFDomainList
+    plural: cfdomains
+    singular: cfdomain
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CFDomain is the Schema for the cfdomains API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CFDomainSpec defines the desired state of CFDomain
+            properties:
+              name:
+                description: Domain name is required and conforms to RFC 1035
+                type: string
+            required:
+            - name
+            type: object
+          status:
+            description: CFDomainStatus defines the observed state of CFDomain
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    controller-gen.kubebuilder.io/version: v0.5.0
+  name: cfdroplets.workloads.cloudfoundry.org
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: cf-k8s-controllers-webhook-service
+          namespace: cf-k8s-controllers-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  group: workloads.cloudfoundry.org
+  names:
+    kind: CFDroplet
+    listKind: CFDropletList
+    plural: cfdroplets
+    singular: cfdroplet
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CFDroplet is the Schema for the cfdroplets API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CFDropletSpec defines the desired state of CFDroplet
+            properties:
+              appRef:
+                description: Specifies the App associated with this Droplet
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+              buildRef:
+                description: Specifies the Build associated with this Droplet
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+              ports:
+                description: Specifies the exposed ports for the application
+                items:
+                  format: int32
+                  type: integer
+                type: array
+              processTypes:
+                description: Specifies the process types and associated start commands
+                  for the Droplet
+                items:
+                  properties:
+                    command:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - command
+                  - type
+                  type: object
+                type: array
+              registry:
+                description: Specifies the Container registry image, and secrets to
+                  access
+                properties:
+                  image:
+                    description: Image specifies the location of the source image
+                    type: string
+                  imagePullSecrets:
+                    description: ImagePullSecrets specifies a list of secrets required
+                      to access the image
+                    items:
+                      description: LocalObjectReference contains enough information
+                        to let you locate the referenced object inside the same namespace.
+                      properties:
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            TODO: Add other useful fields. apiVersion, kind, uid?'
+                          type: string
+                      type: object
+                    type: array
+                required:
+                - image
+                type: object
+              type:
+                description: Specifies the Lifecycle type of the droplet
+                enum:
+                - buildpack
+                type: string
+            required:
+            - appRef
+            - buildRef
+            - ports
+            - processTypes
+            - registry
+            - type
+            type: object
+          status:
+            description: CFDropletStatus defines the observed state of CFDroplet
+            properties:
+              conditions:
+                description: Conditions capture the current status of the Droplet
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource. --- This struct is intended for direct
+                    use as an array at the field path .status.conditions.  For example,
+                    type FooStatus struct{     // Represents the observations of a
+                    foo's current state.     // Known .status.conditions.type are:
+                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
+                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
+                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
+                    \n     // other fields }"
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        --- Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+            required:
+            - conditions
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    controller-gen.kubebuilder.io/version: v0.5.0
+  name: cfpackages.workloads.cloudfoundry.org
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: cf-k8s-controllers-webhook-service
+          namespace: cf-k8s-controllers-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  group: workloads.cloudfoundry.org
+  names:
+    kind: CFPackage
+    listKind: CFPackageList
+    plural: cfpackages
+    singular: cfpackage
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CFPackage is the Schema for the cfpackages API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CFPackageSpec defines the desired state of CFPackage
+            properties:
+              appRef:
+                description: AppRef reference to the CFApp that owns this package
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+              source:
+                description: Source contains the details for the source image(bits)
+                properties:
+                  registry:
+                    description: registry ( Source code is an OCI image in a registry
+                      that contains application source)
+                    properties:
+                      image:
+                        description: Image specifies the location of the source image
+                        type: string
+                      imagePullSecrets:
+                        description: ImagePullSecrets specifies a list of secrets
+                          required to access the image
+                        items:
+                          description: LocalObjectReference contains enough information
+                            to let you locate the referenced object inside the same
+                            namespace.
+                          properties:
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                          type: object
+                        type: array
+                    required:
+                    - image
+                    type: object
+                required:
+                - registry
+                type: object
+              type:
+                description: 'Type specifies the package type Valid values are: "bits":
+                  package to upload source code'
+                enum:
+                - bits
+                type: string
+            required:
+            - appRef
+            - type
+            type: object
+          status:
+            description: CFPackageStatus defines the observed state of CFPackage
+            properties:
+              conditions:
+                description: Conditions capture the current status of the Package
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource. --- This struct is intended for direct
+                    use as an array at the field path .status.conditions.  For example,
+                    type FooStatus struct{     // Represents the observations of a
+                    foo's current state.     // Known .status.conditions.type are:
+                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
+                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
+                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
+                    \n     // other fields }"
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        --- Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+            required:
+            - conditions
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    controller-gen.kubebuilder.io/version: v0.5.0
+  name: cfprocesses.workloads.cloudfoundry.org
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: cf-k8s-controllers-webhook-service
+          namespace: cf-k8s-controllers-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  group: workloads.cloudfoundry.org
+  names:
+    kind: CFProcess
+    listKind: CFProcessList
+    plural: cfprocesses
+    singular: cfprocess
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CFProcess is the Schema for the cfprocesses API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CFProcessSpec defines the desired state of CFProcess
+            properties:
+              appRef:
+                description: Specifies the App that owns this process
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+              command:
+                description: Specifies the Command(k8s) ENTRYPOINT(Docker) of the
+                  Process
+                type: string
+              desiredInstances:
+                description: Specifies the desired number of Process replicas to deploy
+                type: integer
+              diskQuotaMB:
+                description: Specifies the Process disk limit
+                format: int64
+                type: integer
+              healthCheck:
+                description: Specifies the Liveness Probe (k8s) details of the Process
+                properties:
+                  data:
+                    description: Specifies the input parameters for the liveness probe/health
+                      check in kubernetes
+                    properties:
+                      httpEndpoint:
+                        description: HTTPEndpoint is only used by an "http" liveness
+                          probe
+                        type: string
+                      invocationTimeoutSeconds:
+                        format: int64
+                        type: integer
+                      timeoutSeconds:
+                        format: int64
+                        type: integer
+                    required:
+                    - invocationTimeoutSeconds
+                    - timeoutSeconds
+                    type: object
+                  type:
+                    description: 'Specifies the type of Health Check the App process
+                      will use Valid values are: "http": http health check "port":
+                      TCP health check "process" (default): checks if process for
+                      start command is still alive'
+                    enum:
+                    - http
+                    - port
+                    - process
+                    type: string
+                required:
+                - data
+                - type
+                type: object
+              memoryMB:
+                description: Specifies the Process memory limit
+                format: int64
+                type: integer
+              ports:
+                description: Specifies the Process ports to expose
+                items:
+                  format: int32
+                  type: integer
+                type: array
+              processType:
+                description: Specifies the name of the process in the App
+                type: string
+            required:
+            - appRef
+            - desiredInstances
+            - diskQuotaMB
+            - healthCheck
+            - memoryMB
+            - ports
+            - processType
+            type: object
+          status:
+            description: CFProcessStatus defines the observed state of CFProcess
+            properties:
+              conditions:
+                description: Conditions capture the current status of the Process
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource. --- This struct is intended for direct
+                    use as an array at the field path .status.conditions.  For example,
+                    type FooStatus struct{     // Represents the observations of a
+                    foo's current state.     // Known .status.conditions.type are:
+                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
+                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
+                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
+                    \n     // other fields }"
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        --- Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              runningInstances:
+                description: RunningInstances captures the actual number of Process
+                  replicas
+                type: integer
+            required:
+            - conditions
+            - runningInstances
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    controller-gen.kubebuilder.io/version: v0.5.0
+  name: cfroutes.networking.cloudfoundry.org
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: cf-k8s-controllers-webhook-service
+          namespace: cf-k8s-controllers-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  group: networking.cloudfoundry.org
+  names:
+    kind: CFRoute
+    listKind: CFRouteList
+    plural: cfroutes
+    singular: cfroute
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CFRoute is the Schema for the cfroutes API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CFRouteSpec defines the desired state of CFRoute
+            properties:
+              destinations:
+                description: Destinations are optional, a route can exist independently
+                  of being mapped to apps.
+                items:
+                  description: Destination defines a target for a CFRoute, does not
+                    carry meaning outside of a CF context
+                  properties:
+                    appRef:
+                      description: App ref is required, part of the identity of a
+                        running process to which traffic may be routed We use a ref
+                        because the app must exist
+                      properties:
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            TODO: Add other useful fields. apiVersion, kind, uid?'
+                          type: string
+                      type: object
+                    port:
+                      description: Port is optional, defaults to ProcessModel::DEFAULT_HTTP_PORT
+                      type: integer
+                    processType:
+                      description: Process type is required, part of the identity
+                        of a running process to which traffic may be routed We use
+                        process type instead of processRef because a process of the
+                        type may not exist at time of destination creation
+                      type: string
+                  required:
+                  - appRef
+                  - processType
+                  type: object
+                type: array
+              domainRef:
+                description: Domain ref is required, provides base domain name and
+                  allowed protocol info.
+                properties:
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
+                type: object
+              host:
+                description: Host is optional, defaults to empty. For cf push default
+                  route, uses the name of the app.
+                type: string
+              path:
+                description: Path is optional, defaults to empty.
+                type: string
+              port:
+                description: Port is optional, CF Routes only allow port info on TCP
+                  routes.
+                type: integer
+              protocol:
+                description: Protocol is optional, defaults to http. Dependent on
+                  allow-listed protocols on domain.
+                enum:
+                - http
+                - tcp
+                type: string
+            required:
+            - domainRef
+            type: object
+          status:
+            description: CFRouteStatus defines the observed state of CFRoute
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cf-k8s-controllers-controller-manager
+  namespace: cf-k8s-controllers-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cf-k8s-controllers-leader-election-role
+  namespace: cf-k8s-controllers-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: cf-k8s-controllers-manager-role
+rules:
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfdomains
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfdomains/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfdomains/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfapps/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfapps/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfdroplets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfdroplets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfdroplets/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfprocesses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfprocesses/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfprocesses/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cf-k8s-controllers-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cf-k8s-controllers-proxy-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cf-k8s-controllers-leader-election-rolebinding
+  namespace: cf-k8s-controllers-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cf-k8s-controllers-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: cf-k8s-controllers-controller-manager
+  namespace: cf-k8s-controllers-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cf-k8s-controllers-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cf-k8s-controllers-manager-role
+subjects:
+- kind: ServiceAccount
+  name: cf-k8s-controllers-controller-manager
+  namespace: cf-k8s-controllers-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cf-k8s-controllers-proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cf-k8s-controllers-proxy-role
+subjects:
+- kind: ServiceAccount
+  name: cf-k8s-controllers-controller-manager
+  namespace: cf-k8s-controllers-system
+---
+apiVersion: v1
+data:
+  controller_manager_config.yaml: |
+    apiVersion: controller-runtime.sigs.k8s.io/v1alpha1
+    kind: ControllerManagerConfig
+    health:
+      healthProbeBindAddress: :8081
+    metrics:
+      bindAddress: 127.0.0.1:8080
+    webhook:
+      port: 9443
+    leaderElection:
+      leaderElect: true
+      resourceName: 13c200ec.cloudfoundry.org
+kind: ConfigMap
+metadata:
+  name: cf-k8s-controllers-manager-config
+  namespace: cf-k8s-controllers-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: cf-k8s-controllers-controller-manager-metrics-service
+  namespace: cf-k8s-controllers-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cf-k8s-controllers-webhook-service
+  namespace: cf-k8s-controllers-system
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: cf-k8s-controllers-controller-manager
+  namespace: cf-k8s-controllers-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=127.0.0.1:8080
+        - --leader-elect
+        command:
+        - /manager
+        image: cloudfoundry/cf-k8s-controllers:latest
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 100m
+            memory: 30Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=10
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: cf-k8s-controllers-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cf-k8s-controllers-serving-cert
+  namespace: cf-k8s-controllers-system
+spec:
+  dnsNames:
+  - cf-k8s-controllers-webhook-service.cf-k8s-controllers-system.svc
+  - cf-k8s-controllers-webhook-service.cf-k8s-controllers-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: cf-k8s-controllers-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cf-k8s-controllers-selfsigned-issuer
+  namespace: cf-k8s-controllers-system
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+  name: cf-k8s-controllers-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: cf-k8s-controllers-webhook-service
+      namespace: cf-k8s-controllers-system
+      path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfapp
+  failurePolicy: Fail
+  name: mcfapp.kb.io
+  rules:
+  - apiGroups:
+    - workloads.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfapps
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+  name: cf-k8s-controllers-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: cf-k8s-controllers-webhook-service
+      namespace: cf-k8s-controllers-system
+      path: /validate-workloads-cloudfoundry-org-v1alpha1-cfapp
+  failurePolicy: Fail
+  name: vcfapp.kb.io
+  rules:
+  - apiGroups:
+    - workloads.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfapps
+  sideEffects: None
