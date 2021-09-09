@@ -47,7 +47,7 @@ To specify a custom configuration file, set the `CONFIG` environment variable to
 Refer to the [default config](config.json) for the config file structure and options.
 
 ## Regenerate kubernetes resources after making changes
-To regenerate the kubernetes resources under `./config`, run `go generate ./...`
+To regenerate the kubernetes resources under `./config`, run `make generate` or `go generate ./...`
 from the root of the project.
 
 ## Deploying the app to your cluster
