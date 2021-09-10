@@ -23,9 +23,6 @@ shell
 go run main.go
 ```
 
-### Deploying to a Cluster
-Support for deploying the Shim to a Kubernetes cluster is coming soon.
-
 ## Contributing
 
 ### Running Tests
@@ -44,12 +41,24 @@ To update these CRDs you'll need to install [vendir](https://carvel.dev/vendir/)
 
 ### Editing Local Configuration
 To specify a custom configuration file, set the `CONFIG` environment variable to its path when running the web server.
-Refer to the [default config](config.json) for the config file structure and options.
+Refer to the [default config](config/cf_k8s_api_config.yaml) for the config file structure and options.
 
 ## Regenerate kubernetes resources after making changes
 To regenerate the kubernetes resources under `./config`, run `make generate` or `go generate ./...`
 from the root of the project.
 
+## Generate reference yaml
+```
+make build-reference
+```
+
 ## Deploying the app to your cluster
-You can deploy the app to your cluster by running `kubectl apply -f ./config -R`
-from the project root.
+
+**Note** Supports ingress with only GKE
+
+### Using make
+You can deploy the app to your cluster by running `make deploy` from the project root.
+
+### Using Kubectl
+You can deploy the app to your cluster by running `kubectl apply -f reference/cf-k8s-api.yaml` from the project root.
+

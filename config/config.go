@@ -1,13 +1,13 @@
 package config
 
 import (
-	"encoding/json"
+	"gopkg.in/yaml.v3"
 	"os"
 )
 
 type Config struct {
-	ServerURL  string `json:"serverURL"`
-	ServerPort int    `json:"serverPort"`
+	ServerURL  string `yaml:"serverURL"`
+	ServerPort int    `yaml:"serverPort"`
 }
 
 func LoadConfigFromPath(path string) (*Config, error) {
@@ -17,7 +17,7 @@ func LoadConfigFromPath(path string) (*Config, error) {
 		return &config, err
 	}
 	defer configFile.Close()
-	decoder := json.NewDecoder(configFile)
+	decoder := yaml.NewDecoder(configFile)
 	err = decoder.Decode(&config)
 	return &config, err
 }

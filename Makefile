@@ -1,3 +1,6 @@
+# Image URL to use all building/pushing image targets
+IMG ?= cloudfoundry/cf-k8s-api:latest
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -30,6 +33,18 @@ run: fmt vet ## Run a controller from your host.
 
 generate: fmt vet
 	go generate ./...
+
+deploy: kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	cd config && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-api=${IMG}
+	$(KUSTOMIZE) build config | kubectl apply -f -
+
+build-reference: kustomize
+	cd config && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-api=${IMG}
+	$(KUSTOMIZE) build config -o reference/cf-k8s-api.yaml
+
+KUSTOMIZE = $(shell pwd)/bin/kustomize
+kustomize: ## Download kustomize locally if necessary.
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.2.0)
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
