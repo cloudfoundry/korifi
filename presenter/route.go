@@ -1,4 +1,4 @@
-package presenters
+package presenter
 
 import (
 	"fmt"
@@ -13,28 +13,36 @@ type RouteResponse struct {
 	Host          string             `json:"host"`
 	Path          string             `json:"path"`
 	URL           string             `json:"url"`
-	Destinations  []RouteDestination `json:"destinations"`
+	Destinations  []routeDestination `json:"destinations"`
 	Relationships Relationships      `json:"relationships"`
 	Metadata      Metadata           `json:"metadata"`
-	Links         RouteLinks         `json:"links"`
+	Links         routeLinks         `json:"links"`
 }
 
-type RouteDestination struct {
-	AppGUID     string `json:"app.guid"`
-	ProcessType string `json:"app.process.type"`
+type routeDestination struct {
+	App routeDestinationApp `json:"app"`
 }
 
-type RouteLinks struct {
+type routeDestinationApp struct {
+	AppGUID string                     `json:"guid"`
+	Process routeDestinationAppProcess `json:"process"`
+}
+
+type routeDestinationAppProcess struct {
+	Type string `json:"type"`
+}
+
+type routeLinks struct {
 	Self         Link `json:"self"`
 	Space        Link `json:"space"`
 	Domain       Link `json:"domain"`
 	Destinations Link `json:"destinations"`
 }
 
-func NewPresentedRoute(route repositories.RouteRecord, baseURL string) RouteResponse {
+func ForRoute(route repositories.RouteRecord, baseURL string) RouteResponse {
 	routeResponse := RouteResponse{
 		GUID:     route.GUID,
-		Protocol: string(route.Protocol),
+		Protocol: route.Protocol,
 		Host:     route.Host,
 		Path:     route.Path,
 		URL:      url(route),
@@ -50,7 +58,7 @@ func NewPresentedRoute(route repositories.RouteRecord, baseURL string) RouteResp
 			Labels:      map[string]string{},
 			Annotations: map[string]string{},
 		},
-		Links: RouteLinks{
+		Links: routeLinks{
 			Self: Link{
 				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/routes/%s", route.GUID)),
 			},

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-api/presenters"
+	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
@@ -51,7 +51,7 @@ func (h *RouteHandler) RouteGetHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	responseBody, err := json.Marshal(presenters.NewPresentedRoute(route, h.ServerURL))
+	responseBody, err := json.Marshal(presenter.ForRoute(route, h.ServerURL))
 	if err != nil {
 		panic(err)
 	}

@@ -13,7 +13,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
-	"code.cloudfoundry.org/cf-k8s-api/presenters"
+	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
@@ -86,57 +86,57 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns the App in the response", func() {
-			expectedBody, err := json.Marshal(presenters.AppResponse{
+			expectedBody, err := json.Marshal(presenter.AppResponse{
 				Name:  "test-app",
 				GUID:  "test-app-guid",
 				State: "STOPPED",
-				Relationships: presenters.Relationships{
-					"space": presenters.Relationship{
+				Relationships: presenter.Relationships{
+					"space": presenter.Relationship{
 						GUID: "test-space-guid",
 					},
 				},
-				Lifecycle: presenters.Lifecycle{Data: presenters.LifecycleData{
+				Lifecycle: presenter.Lifecycle{Data: presenter.LifecycleData{
 					Buildpacks: []string{},
 					Stack:      "",
 				}},
-				Metadata: presenters.Metadata{
-					Labels:      nil,
-					Annotations: nil,
+				Metadata: presenter.Metadata{
+					Labels:      map[string]string{},
+					Annotations: map[string]string{},
 				},
-				Links: presenters.AppLinks{
-					Self: presenters.Link{
+				Links: presenter.AppLinks{
+					Self: presenter.Link{
 						HREF: "https://api.example.org/v3/apps/test-app-guid",
 					},
-					Space: presenters.Link{
+					Space: presenter.Link{
 						HREF: "https://api.example.org/v3/spaces/test-space-guid",
 					},
-					Processes: presenters.Link{
+					Processes: presenter.Link{
 						HREF: "https://api.example.org/v3/apps/test-app-guid/processes",
 					},
-					Packages: presenters.Link{
+					Packages: presenter.Link{
 						HREF: "https://api.example.org/v3/apps/test-app-guid/packages",
 					},
-					EnvironmentVariables: presenters.Link{
+					EnvironmentVariables: presenter.Link{
 						HREF: "https://api.example.org/v3/apps/test-app-guid/environment_variables",
 					},
-					CurrentDroplet: presenters.Link{
+					CurrentDroplet: presenter.Link{
 						HREF: "https://api.example.org/v3/apps/test-app-guid/droplets/current",
 					},
-					Droplets: presenters.Link{
+					Droplets: presenter.Link{
 						HREF: "https://api.example.org/v3/apps/test-app-guid/droplets",
 					},
-					Tasks: presenters.Link{},
-					StartAction: presenters.Link{
+					Tasks: presenter.Link{},
+					StartAction: presenter.Link{
 						HREF:   "https://api.example.org/v3/apps/test-app-guid/actions/start",
 						Method: "POST",
 					},
-					StopAction: presenters.Link{
+					StopAction: presenter.Link{
 						HREF:   "https://api.example.org/v3/apps/test-app-guid/actions/stop",
 						Method: "POST",
 					},
-					Revisions:         presenters.Link{},
-					DeployedRevisions: presenters.Link{},
-					Features:          presenters.Link{},
+					Revisions:         presenter.Link{},
+					DeployedRevisions: presenter.Link{},
+					Features:          presenter.Link{},
 				},
 			})
 
@@ -170,7 +170,7 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a CF API formatted Error response", func() {
-			expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+			expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 				Title:  "App not found",
 				Detail: "CF-ResourceNotFound",
 				Code:   10010,
@@ -209,7 +209,7 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a CF API formatted Error response", func() {
-			expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+			expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 				Title:  "UnknownError",
 				Detail: "An unknown error occurred.",
 				Code:   10001,
@@ -288,7 +288,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Code).To(Equal(http.StatusBadRequest))
 			})
 			it("has the expected error response body", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "CF-MessageParseError",
 					Detail: "Request invalid due to parse error: invalid request body",
 					Code:   1001,
@@ -331,7 +331,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
 			})
 			it("has the expected error response body", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "CF-UnprocessableEntity",
 					Detail: "Name must be a string",
 					Code:   10008,
@@ -375,7 +375,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
 			})
 			it("has the expected error response body", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "CF-UnprocessableEntity",
 					Detail: "Environment_variables must be a map[string]string",
 					Code:   10008,
@@ -417,7 +417,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
 			})
 			it("has the expected error response body", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "CF-UnprocessableEntity",
 					Detail: "Name must be a string",
 					Code:   10008,
@@ -461,7 +461,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
 			})
 			it("has the expected error response body", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "CF-UnprocessableEntity",
 					Detail: "Type must be a string,Buildpacks must be a []string,Stack must be a string",
 					Code:   10008,
@@ -497,7 +497,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a CF API formatted Error response", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Detail: "Invalid space. Ensure that the space exists and you have access to it.",
 					Title:  "CF-UnprocessableEntity",
 					Code:   10008,
@@ -533,7 +533,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a CF API formatted Error response", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Detail: "App with the name 'test-app' already exists.",
 					Title:  "CF-UniquenessError",
 					Code:   10016,
@@ -611,57 +611,57 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("returns the \"created app\"(the mock response record) in the response", func() {
-					expectedBody, err := json.Marshal(presenters.AppResponse{
+					expectedBody, err := json.Marshal(presenter.AppResponse{
 						Name:  testAppName,
 						GUID:  testAppGUID,
 						State: "STOPPED",
-						Relationships: presenters.Relationships{
-							"space": presenters.Relationship{
+						Relationships: presenter.Relationships{
+							"space": presenter.Relationship{
 								GUID: testSpaceGUID,
 							},
 						},
-						Lifecycle: presenters.Lifecycle{Data: presenters.LifecycleData{
+						Lifecycle: presenter.Lifecycle{Data: presenter.LifecycleData{
 							Buildpacks: []string{},
 							Stack:      "",
 						}},
-						Metadata: presenters.Metadata{
-							Labels:      nil,
-							Annotations: nil,
+						Metadata: presenter.Metadata{
+							Labels:      map[string]string{},
+							Annotations: map[string]string{},
 						},
-						Links: presenters.AppLinks{
-							Self: presenters.Link{
+						Links: presenter.AppLinks{
+							Self: presenter.Link{
 								HREF: "https://api.example.org/v3/apps/" + testAppGUID,
 							},
-							Space: presenters.Link{
+							Space: presenter.Link{
 								HREF: "https://api.example.org/v3/spaces/" + testSpaceGUID,
 							},
-							Processes: presenters.Link{
+							Processes: presenter.Link{
 								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/processes",
 							},
-							Packages: presenters.Link{
+							Packages: presenter.Link{
 								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/packages",
 							},
-							EnvironmentVariables: presenters.Link{
+							EnvironmentVariables: presenter.Link{
 								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/environment_variables",
 							},
-							CurrentDroplet: presenters.Link{
+							CurrentDroplet: presenter.Link{
 								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/droplets/current",
 							},
-							Droplets: presenters.Link{
+							Droplets: presenter.Link{
 								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/droplets",
 							},
-							Tasks: presenters.Link{},
-							StartAction: presenters.Link{
+							Tasks: presenter.Link{},
+							StartAction: presenter.Link{
 								HREF:   "https://api.example.org/v3/apps/" + testAppGUID + "/actions/start",
 								Method: "POST",
 							},
-							StopAction: presenters.Link{
+							StopAction: presenter.Link{
 								HREF:   "https://api.example.org/v3/apps/" + testAppGUID + "/actions/stop",
 								Method: "POST",
 							},
-							Revisions:         presenters.Link{},
-							DeployedRevisions: presenters.Link{},
-							Features:          presenters.Link{},
+							Revisions:         presenter.Link{},
+							DeployedRevisions: presenter.Link{},
+							Features:          presenter.Link{},
 						},
 					})
 

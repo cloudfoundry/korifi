@@ -11,7 +11,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
-	"code.cloudfoundry.org/cf-k8s-api/presenters"
+	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	. "github.com/onsi/gomega"
@@ -131,40 +131,42 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns the Route in the response", func() {
-			expectedBody, err := json.Marshal(presenters.RouteResponse{
-				GUID:     "test-route-guid",
-				Protocol: "http",
-				Host:     "test-route-name",
-				URL:      "test-route-name.example.org",
-				Relationships: presenters.Relationships{
-					"space": presenters.Relationship{
-						GUID: "test-space-guid",
+			expectedBody := `{
+				"guid":     "test-route-guid",
+				"port": null,
+				"path": "",
+				"protocol": "http",
+				"host":     "test-route-name",
+				"url":      "test-route-name.example.org",
+				"destinations": null,
+				"relationships": {
+					"space": {
+						"guid": "test-space-guid"
 					},
-					"domain": presenters.Relationship{
-						GUID: "test-domain-guid",
-					},
+					"domain": {
+						"guid": "test-domain-guid"
+					}
 				},
-				Metadata: presenters.Metadata{
-					Labels:      map[string]string{},
-					Annotations: map[string]string{},
+				"metadata": {
+					"labels": {},
+					"annotations": {}
 				},
-				Links: presenters.RouteLinks{
-					Self: presenters.Link{
-						HREF: defaultServerURI("/v3/routes/test-route-guid"),
+				"links": {
+					"self":{
+						"href": "https://api.example.org/v3/routes/test-route-guid"
 					},
-					Space: presenters.Link{
-						HREF: defaultServerURI("/v3/spaces/test-space-guid"),
+					"space":{
+						"href": "https://api.example.org/v3/spaces/test-space-guid"
 					},
-					Domain: presenters.Link{
-						HREF: defaultServerURI("/v3/domains/test-domain-guid"),
+					"domain":{
+						"href": "https://api.example.org/v3/domains/test-domain-guid"
 					},
-					Destinations: presenters.Link{
-						HREF: defaultServerURI("/v3/routes/test-route-guid/destinations"),
-					},
-				},
-			})
+					"destinations":{
+						"href": "https://api.example.org/v3/routes/test-route-guid/destinations"
+					}
+				}
+			}`
 
-			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 
@@ -195,7 +197,7 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a CF API formatted Error response", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "Route not found",
 					Detail: "CF-ResourceNotFound",
 					Code:   10010,
@@ -251,7 +253,7 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a CF API formatted Error response", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "UnknownError",
 					Detail: "An unknown error occurred.",
 					Code:   10001,
@@ -291,7 +293,7 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a CF API formatted Error response", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "UnknownError",
 					Detail: "An unknown error occurred.",
 					Code:   10001,

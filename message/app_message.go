@@ -1,4 +1,4 @@
-package messages
+package message
 
 import (
 	"code.cloudfoundry.org/cf-k8s-api/repositories"

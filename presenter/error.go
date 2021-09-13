@@ -1,4 +1,4 @@
-package presenters
+package presenter
 
 type ErrorsResponse struct {
 	Errors []PresentedError `json:"errors"`

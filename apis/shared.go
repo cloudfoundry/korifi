@@ -4,19 +4,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/go-playground/validator/v10"
 	"net/http"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-api/presenters"
+	"github.com/go-playground/validator/v10"
+	ctrl "sigs.k8s.io/controller-runtime"
+
+	"code.cloudfoundry.org/cf-k8s-api/presenter"
 )
 
 var Logger = ctrl.Log.WithName("Shared Handler Functions")
 
 type requestMalformedError struct {
 	httpStatus    int
-	errorResponse presenters.ErrorsResponse
+	errorResponse presenter.ErrorsResponse
 }
 
 func (rme *requestMalformedError) Error() string {
@@ -66,40 +67,40 @@ func DecodePayload(r *http.Request, object interface{}) error {
 	return nil
 }
 
-func newNotFoundError(resourceName string) presenters.ErrorsResponse {
-	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+func newNotFoundError(resourceName string) presenter.ErrorsResponse {
+	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  fmt.Sprintf("%s not found", resourceName),
 		Detail: "CF-ResourceNotFound",
 		Code:   10010,
 	}}}
 }
 
-func newUnknownError() presenters.ErrorsResponse {
-	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+func newUnknownError() presenter.ErrorsResponse {
+	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "UnknownError",
 		Detail: "An unknown error occurred.",
 		Code:   10001,
 	}}}
 }
 
-func newMessageParseError() presenters.ErrorsResponse {
-	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+func newMessageParseError() presenter.ErrorsResponse {
+	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "CF-MessageParseError",
 		Detail: "Request invalid due to parse error: invalid request body",
 		Code:   1001,
 	}}}
 }
 
-func newUnprocessableEntityError(detail string) presenters.ErrorsResponse {
-	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+func newUnprocessableEntityError(detail string) presenter.ErrorsResponse {
+	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "CF-UnprocessableEntity",
 		Detail: detail,
 		Code:   10008,
 	}}}
 }
 
-func newUniquenessError(detail string) presenters.ErrorsResponse {
-	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+func newUniquenessError(detail string) presenter.ErrorsResponse {
+	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "CF-UniquenessError",
 		Detail: detail,
 		Code:   10016,

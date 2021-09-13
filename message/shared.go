@@ -1,4 +1,4 @@
-package messages
+package message
 
 type Lifecycle struct {
 	Type string        `json:"type" validate:"required"`

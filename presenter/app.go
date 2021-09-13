@@ -1,4 +1,4 @@
-package presenters
+package presenter
 
 import (
 	"fmt"
@@ -35,7 +35,7 @@ type AppLinks struct {
 	Features             Link `json:"features"`
 }
 
-func AppRecordToAppResponse(responseApp repositories.AppRecord, baseURL string) AppResponse {
+func ForApp(responseApp repositories.AppRecord, baseURL string) AppResponse {
 	return AppResponse{
 		Name:      responseApp.Name,
 		GUID:      responseApp.GUID,
@@ -52,8 +52,8 @@ func AppRecordToAppResponse(responseApp repositories.AppRecord, baseURL string) 
 			Stack:      responseApp.Lifecycle.Data.Stack,
 		}},
 		Metadata: Metadata{
-			Labels:      nil,
-			Annotations: nil,
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
 		},
 		Links: AppLinks{
 			Self: Link{

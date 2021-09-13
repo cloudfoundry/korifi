@@ -1,4 +1,4 @@
-package presenters
+package presenter
 
 import (
 	"fmt"
