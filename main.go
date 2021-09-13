@@ -27,7 +27,10 @@ func init() {
 }
 
 func main() {
-	configPath := os.Getenv("CONFIG")
+	configPath, found := os.LookupEnv("CONFIG")
+	if !found {
+		panic("CONFIG must be set")
+	}
 	config, err := LoadConfigFromPath(configPath)
 	if err != nil {
 		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
