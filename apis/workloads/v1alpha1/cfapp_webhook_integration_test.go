@@ -1,7 +1,6 @@
 package v1alpha1_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -18,12 +17,10 @@ func integrationTestCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 	when("a CFApp record is created", func() {
 		const (
-			cfAppGUID     = "test-app-guid"
-			namespace     = "default"
-			cfAppLabelKey = "apps.cloudfoundry.org/appGuid"
+			cfAppGUID = "test-app-guid"
+			namespace = "default"
 		)
 		it(" should add a metadata label on it and it matches metadata.name", func() {
-			ctx := context.Background()
 			//Creating a CFApp resource
 			cfApp := &v1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
@@ -56,7 +53,7 @@ func integrationTestCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 				return createdCFApp.ObjectMeta.Labels
 			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty())
 
-			g.Expect(createdCFApp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
+			g.Expect(createdCFApp.ObjectMeta.Labels).To(HaveKeyWithValue(v1alpha1.CFAppLabelKey, cfAppGUID))
 
 		})
 	})

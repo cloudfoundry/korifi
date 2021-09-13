@@ -32,8 +32,9 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 
 	//+kubebuilder:scaffold:imports
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,7 +55,7 @@ var (
 
 func Suite() spec.Suite {
 	if suite == nil {
-		suite = spec.New("Webhooks")
+		suite = spec.New("MutatingWebhooks")
 	}
 
 	return suite
@@ -88,8 +89,6 @@ func TestSuite(t *testing.T) {
 
 		g.Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
 
-		//+kubebuilder:scaffold:scheme
-
 		k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(k8sClient).NotTo(BeNil())
@@ -110,6 +109,8 @@ func TestSuite(t *testing.T) {
 
 		cfAppValidatingWebhook := &workloads.CFAppValidation{Client: mgr.GetClient()}
 		g.Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
+
+		g.Expect((&workloadsv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
 		//+kubebuilder:scaffold:webhook
 
