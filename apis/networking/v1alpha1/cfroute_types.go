@@ -51,8 +51,6 @@ type CFRouteSpec struct {
 	Path string `json:"path,omitempty"`
 	// Protocol is optional, defaults to http. Dependent on allow-listed protocols on domain.
 	Protocol Protocol `json:"protocol,omitempty"`
-	// Port is optional, CF Routes only allow port info on TCP routes.
-	Port int `json:"port,omitempty"`
 	// Domain ref is required, provides base domain name and allowed protocol info.
 	DomainRef v1.LocalObjectReference `json:"domainRef"`
 	// Destinations are optional, a route can exist independently of being mapped to apps.
