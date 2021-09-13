@@ -1,0 +1,18 @@
+configMapGenerator:
+- files:
+  - cf_k8s_api_config.yaml
+  name: cf-k8s-api-config
+
+resources:
+- rbac/role.yaml
+- rbac/role_binding.yaml
+- rbac/service_account.yaml
+- deployment.yaml
+- ingress.yaml
+- service.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: cloudfoundry/cf-k8s-api
+  newName: cloudfoundry/cf-k8s-api
+  newTag: latest

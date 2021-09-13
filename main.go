@@ -21,8 +21,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
-const defaultConfigPath = "config.json"
-
 func init() {
 	utilruntime.Must(workloadsv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme.Scheme))
@@ -30,10 +28,6 @@ func init() {
 
 func main() {
 	configPath := os.Getenv("CONFIG")
-	if configPath == "" {
-		configPath = defaultConfigPath
-	}
-
 	config, err := LoadConfigFromPath(configPath)
 	if err != nil {
 		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
