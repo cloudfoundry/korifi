@@ -73,10 +73,11 @@ func main() {
 	// create API routes
 	apiRoutes := routes.APIRoutes{
 		//add API routes to handler
-		RootV3Handler: apiRootV3Handler.RootV3GetHandler,
-		RootHandler:   apiRootHandler.RootGetHandler,
-		AppHandler:    appHandler.AppGetHandler,
-		RouteHandler:  routeHandler.RouteGetHandler,
+		RootV3Handler:     apiRootV3Handler.RootV3GetHandler,
+		RootHandler:       apiRootHandler.RootGetHandler,
+		AppHandler:        appHandler.AppGetHandler,
+		AppsCreateHandler: appHandler.AppCreateHandler,
+		RouteHandler:      routeHandler.RouteGetHandler,
 	}
 	// Call RegisterRoutes to register all the routes in APIRoutes
 	apiRoutes.RegisterRoutes(router)
