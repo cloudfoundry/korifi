@@ -16,18 +16,41 @@ Or
 ```
 kubectl apply -f dependencies/cert-manager.yaml
 ```
-
-## Using the Makefile
+---
+## Development workflow
 ### Build, Install and Deploy to K8s cluster
 Set the $IMG environment variable to a location you have push/pull access. For example 
 ```
-export IMG=relintdockerhubpushbot/cf-k8s-controllers:add-webhooks #Replace this with your image ref
+export IMG=foo/cf-k8s-controllers:bar #Replace this with your image ref
 make generate docker-build docker-push install deploy
 ```
+*This will generate the CRD bases, build and push an image with the repository and tag specified by the environment variable, install CRDs and deploy the controller manager. This should cover an entire development loop. Further fine grain instructions are below.*
 
-### Deploy CRDs to K8s in current Kubernetes context
+---
+## Using the Makefile
+### Set image respository and tag for controller manager
+```
+export IMG=foo/cf-k8s-controllers:bar #Replace this with your image ref
+```
+### Generate CRD bases
+```
+make generate
+```
+### Build Docker image
+```
+make docker-build
+```
+### Push Docker image
+```
+make docker-push
+```
+### Install CRDs to K8s in current Kubernetes context
 ```
 make install
+```
+### Deploy controller manager to K8s in current Kubernetes context
+```
+make deploy
 ```
 
 ### Generate reference yaml
@@ -35,14 +58,13 @@ Build reference yaml (with defaults) to be applied with kubectl
 ```
 make build-reference
 ```
-
+---
 ## Using kubectl
 Apply CRDs and controller-manager with reference defaults
 ```
 kubectl apply reference/cf-k8s-controllers.yaml
 ```
-
-
+---
 ## Sample Resources
 ### Apply sample instances of the resources
 ```
