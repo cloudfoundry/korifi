@@ -1,6 +1,7 @@
 package v1alpha1_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -20,6 +21,10 @@ func integrationTestCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 			cfAppGUID = "test-app-guid"
 			namespace = "default"
 		)
+		var ctx context.Context
+		it.Before(func() {
+			ctx = context.Background()
+		})
 		it(" should add a metadata label on it and it matches metadata.name", func() {
 			//Creating a CFApp resource
 			cfApp := &v1alpha1.CFApp{

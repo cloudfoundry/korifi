@@ -19,12 +19,14 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 	when("a CFApp record exists", func() {
 		var cfApp *v1alpha1.CFApp
 		const (
-			cfAppGUID     = "test-app-guid"
+			cfAppGUID     = "test-app-guid-2"
 			cfPackageGUID = "test-package-guid"
 			cfPackageType = "bits"
 			namespace     = "default"
 		)
+		var ctx context.Context
 		it.Before(func() {
+			ctx = context.Background()
 			cfApp = &v1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
@@ -35,14 +37,14 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 					Namespace: namespace,
 				},
 				Spec: v1alpha1.CFAppSpec{
-					Name:         "test-app",
+					Name:         "test-app-name-2",
 					DesiredState: "STOPPED",
 					Lifecycle: v1alpha1.Lifecycle{
 						Type: "buildpack",
 					},
 				},
 			}
-			g.Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+			g.Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 		})
 		when("a CFPackage record referencing the CFAPP is created", func() {
 			it.Before(func() {
@@ -62,7 +64,7 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 						},
 					},
 				}
-				g.Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
+				g.Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
 			})
 
 			it("should have CFAppGUID metadata label on it and its value should matches spec.appRef", func() {
@@ -71,7 +73,7 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 				createdCFPackage := new(v1alpha1.CFPackage)
 
 				g.Eventually(func() map[string]string {
-					err := k8sClient.Get(context.Background(), cfPackageLookupKey, createdCFPackage)
+					err := k8sClient.Get(ctx, cfPackageLookupKey, createdCFPackage)
 					if err != nil {
 						return nil
 					}
