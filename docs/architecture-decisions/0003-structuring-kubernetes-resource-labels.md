@@ -26,7 +26,11 @@ Referring to the [syntax documentation about labels](https://kubernetes.io/docs/
     
 ## Decision
 
+We have decided to use lower-case-kebabs for label-names and API Group as the prefix 
 
-
-## Consequences
+- AppGUID     : workloads.cloudfoundry.org/app-guid
+- Build GUID  : workloads.cloudfoundry.org/build-guid
+- Package GUID: workloads.cloudfoundry.org/package-guid
+- Process GUID: workloads.cloudfoundry.org/process-guid
+- Process Type: workloads.cloudfoundry.org/process-type
 
