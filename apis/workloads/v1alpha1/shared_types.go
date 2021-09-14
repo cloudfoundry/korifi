@@ -4,7 +4,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const CFAppLabelKey = "apps.cloudfoundry.org/cf-app-guid"
+const CFAppLabelKey = "workloads.cloudfoundry.org/cf-app-guid"
 
 // ResourceReference defines a reference to an instance of a resource in Kubernetes
 type ResourceReference struct { // TODO: replace this with k8s.io/api/core/v1.LocalObjectReference
