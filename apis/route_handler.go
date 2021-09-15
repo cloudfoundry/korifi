@@ -13,22 +13,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//counterfeiter:generate . CFRouteRepository
+
 type CFRouteRepository interface {
-	ConfigureClient(*rest.Config) (client.Client, error)
 	FetchRoute(client.Client, string) (repositories.RouteRecord, error)
 }
 
+//counterfeiter:generate . CFDomainRepository
+
 type CFDomainRepository interface {
-	ConfigureClient(*rest.Config) (client.Client, error)
 	FetchDomain(client.Client, string) (repositories.DomainRecord, error)
 }
 
 type RouteHandler struct {
-	ServerURL  string
-	RouteRepo  CFRouteRepository
-	DomainRepo CFDomainRepository
-	Logger     logr.Logger
-	K8sConfig  *rest.Config // TODO: this would be global for all requests, not what we want
+	ServerURL   string
+	RouteRepo   CFRouteRepository
+	DomainRepo  CFDomainRepository
+	BuildClient ClientBuilder
+	Logger      logr.Logger
+	K8sConfig   *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
 func (h *RouteHandler) RouteGetHandler(w http.ResponseWriter, r *http.Request) {
@@ -63,23 +66,17 @@ func (h *RouteHandler) RouteGetHandler(w http.ResponseWriter, r *http.Request) {
 func (h *RouteHandler) lookupRouteAndDomain(routeGUID string) (repositories.RouteRecord, error) {
 	// TODO: Instantiate config based on bearer token
 	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	routeClient, err := h.RouteRepo.ConfigureClient(h.K8sConfig)
+	client, err := h.BuildClient(h.K8sConfig)
 	if err != nil {
 		return repositories.RouteRecord{}, err
 	}
 
-	route, err := h.RouteRepo.FetchRoute(routeClient, routeGUID)
+	route, err := h.RouteRepo.FetchRoute(client, routeGUID)
 	if err != nil {
 		return repositories.RouteRecord{}, err
 	}
 
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	domainClient, err := h.DomainRepo.ConfigureClient(h.K8sConfig)
-	if err != nil {
-		return repositories.RouteRecord{}, err
-	}
-
-	domain, err := h.DomainRepo.FetchDomain(domainClient, route.DomainRef.GUID)
+	domain, err := h.DomainRepo.FetchDomain(client, route.DomainRef.GUID)
 	// We assume K8s controller will ensure valid data, so the only error case is due to eventually consistency.
 	// Return a generic retryable error.
 	if err != nil {

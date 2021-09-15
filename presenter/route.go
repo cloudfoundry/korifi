@@ -48,10 +48,14 @@ func ForRoute(route repositories.RouteRecord, baseURL string) RouteResponse {
 		URL:      url(route),
 		Relationships: Relationships{
 			"space": Relationship{
-				GUID: route.SpaceGUID,
+				Data: RelationshipData{
+					GUID: route.SpaceGUID,
+				},
 			},
 			"domain": Relationship{
-				GUID: route.DomainRef.GUID,
+				Data: RelationshipData{
+					GUID: route.DomainRef.GUID,
+				},
 			},
 		},
 		Metadata: Metadata{

@@ -15,8 +15,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -70,15 +68,6 @@ type AppEnvVarsRecord struct {
 	AppGUID              string
 	SpaceGUID            string
 	EnvironmentVariables map[string]string
-}
-
-// TODO: Make a general ConfigureClient function / config and client generating package
-func (f *AppRepo) ConfigureClient(config *rest.Config) (client.Client, error) {
-	client, err := client.New(config, client.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
 }
 
 func (f *AppRepo) FetchApp(client client.Client, ctx context.Context, appGUID string) (AppRecord, error) {

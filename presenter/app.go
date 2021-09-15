@@ -44,7 +44,9 @@ func ForApp(responseApp repositories.AppRecord, baseURL string) AppResponse {
 		UpdatedAt: responseApp.UpdatedAt,
 		Relationships: Relationships{
 			"space": Relationship{
-				GUID: responseApp.SpaceGUID,
+				Data: RelationshipData{
+					GUID: responseApp.SpaceGUID,
+				},
 			},
 		},
 		Lifecycle: Lifecycle{LifecycleData{

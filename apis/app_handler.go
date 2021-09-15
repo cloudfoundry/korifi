@@ -18,9 +18,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . CFAppRepository
+//counterfeiter:generate . CFAppRepository
 type CFAppRepository interface {
-	ConfigureClient(*rest.Config) (client.Client, error)
 	FetchApp(client.Client, context.Context, string) (repositories.AppRecord, error)
 	FetchNamespace(client.Client, context.Context, string) (repositories.SpaceRecord, error)
 	AppExists(client.Client, context.Context, string, string) (bool, error)
@@ -28,11 +27,15 @@ type CFAppRepository interface {
 	CreateApp(client.Client, context.Context, repositories.AppRecord) (repositories.AppRecord, error)
 }
 
+//counterfeiter:generate . ClientBuilder
+type ClientBuilder func(*rest.Config) (client.Client, error)
+
 type AppHandler struct {
-	ServerURL string
-	AppRepo   CFAppRepository
-	Logger    logr.Logger
-	K8sConfig *rest.Config // TODO: this would be global for all requests, not what we want
+	ServerURL   string
+	AppRepo     CFAppRepository
+	BuildClient ClientBuilder
+	Logger      logr.Logger
+	K8sConfig   *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
 func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +47,7 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Instantiate config based on bearer token
 	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.AppRepo.ConfigureClient(h.K8sConfig)
+	client, err := h.BuildClient(h.K8sConfig)
 	if err != nil {
 		h.Logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
@@ -94,7 +97,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Instantiate config based on bearer token
 	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.AppRepo.ConfigureClient(h.K8sConfig)
+	client, err := h.BuildClient(h.K8sConfig)
 	if err != nil {
 		h.Logger.Error(err, "Unable to create Kubernetes client")
 		writeUnknownErrorResponse(w)

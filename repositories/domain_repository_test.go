@@ -1,12 +1,13 @@
 package repositories_test
 
 import (
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	"context"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
@@ -47,12 +48,12 @@ var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec
 		})
 
 		it("fetches the CFDomain CR we're looking for", func() {
-			domainRepo := repositories.DomainRepo{}
-			domainClient, err := domainRepo.ConfigureClient(k8sConfig)
+			domainRepo := DomainRepo{}
+			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			domain := repositories.DomainRecord{}
-			domain, err = domainRepo.FetchDomain(domainClient, "domain-id-1")
+			domain := DomainRecord{}
+			domain, err = domainRepo.FetchDomain(client, "domain-id-1")
 			g.Expect(err).ToNot(HaveOccurred())
 
 			g.Expect(domain.GUID).To(Equal("domain-id-1"))
@@ -68,11 +69,11 @@ var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec
 
 	when("no CFDomain exists", func() {
 		it("returns an error", func() {
-			domainRepo := repositories.DomainRepo{}
-			domainClient, err := domainRepo.ConfigureClient(k8sConfig)
+			domainRepo := DomainRepo{}
+			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			_, err = domainRepo.FetchDomain(domainClient, "non-existent-domain-guid")
+			_, err = domainRepo.FetchDomain(client, "non-existent-domain-guid")
 			g.Expect(err).To(MatchError("not found"))
 		})
 	})

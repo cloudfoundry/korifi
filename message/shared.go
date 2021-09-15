@@ -11,14 +11,10 @@ type LifecycleData struct {
 }
 
 type Relationship struct {
-	Space Space `json:"space" validate:"required"`
+	Data RelationshipData `json:"data" validate:"required"`
 }
 
-type Space struct {
-	Data Data `json:"data" validate:"required"`
-}
-
-type Data struct {
+type RelationshipData struct {
 	GUID string `json:"guid" validate:"required"`
 }
 

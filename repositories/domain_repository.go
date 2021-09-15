@@ -6,9 +6,6 @@ import (
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -22,17 +19,6 @@ type DomainRecord struct {
 	GUID      string
 	CreatedAt string
 	UpdatedAt string
-}
-
-// TODO: Make a general ConfigureClient function / config and client generating package
-func (r *DomainRepo) ConfigureClient(config *rest.Config) (client.Client, error) {
-	domainClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return domainClient, nil
 }
 
 func (f *DomainRepo) FetchDomain(client client.Client, domainGUID string) (DomainRecord, error) {

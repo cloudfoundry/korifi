@@ -6,9 +6,6 @@ import (
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -35,15 +32,6 @@ type RouteRecord struct {
 	Destinations []Destination
 	CreatedAt    string
 	UpdatedAt    string
-}
-
-// TODO: Make a general ConfigureClient function / config and client generating package
-func (f *RouteRepo) ConfigureClient(config *rest.Config) (client.Client, error) {
-	routeClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		return nil, err
-	}
-	return routeClient, nil
 }
 
 func (f *RouteRepo) FetchRoute(client client.Client, routeGUID string) (RouteRecord, error) {

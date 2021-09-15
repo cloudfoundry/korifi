@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	. "code.cloudfoundry.org/cf-k8s-api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,12 +61,12 @@ var _ = SuiteDescribe("Route API Shim", func(t *testing.T, when spec.G, it spec.
 		})
 
 		it("fetches the CFRoute CR we're looking for", func() {
-			routeRepo := repositories.RouteRepo{}
-			routeClient, err := routeRepo.ConfigureClient(k8sConfig)
+			routeRepo := RouteRepo{}
+			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			route := repositories.RouteRecord{}
-			route, err = routeRepo.FetchRoute(routeClient, "route-id-1")
+			route := RouteRecord{}
+			route, err = routeRepo.FetchRoute(client, "route-id-1")
 			g.Expect(err).ToNot(HaveOccurred())
 
 			g.Expect(route.GUID).To(Equal("route-id-1"))
@@ -74,7 +74,7 @@ var _ = SuiteDescribe("Route API Shim", func(t *testing.T, when spec.G, it spec.
 			g.Expect(route.SpaceGUID).To(Equal("default"))
 			g.Expect(route.Path).To(Equal(""))
 			g.Expect(route.Protocol).To(Equal("http"))
-			g.Expect(route.Destinations).To(Equal([]repositories.Destination{}))
+			g.Expect(route.Destinations).To(Equal([]Destination{}))
 			g.Expect(route.DomainRef.GUID).To(Equal("my-domain"))
 		})
 
@@ -87,11 +87,11 @@ var _ = SuiteDescribe("Route API Shim", func(t *testing.T, when spec.G, it spec.
 
 	when("no CFRoute exists", func() {
 		it("returns an error", func() {
-			routeRepo := repositories.RouteRepo{}
-			routeClient, err := routeRepo.ConfigureClient(k8sConfig)
+			routeRepo := RouteRepo{}
+			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			_, err = routeRepo.FetchRoute(routeClient, "non-existent-route-guid")
+			_, err = routeRepo.FetchRoute(client, "non-existent-route-guid")
 			g.Expect(err).To(MatchError("not found"))
 		})
 	})
@@ -145,15 +145,15 @@ var _ = SuiteDescribe("Route API Shim", func(t *testing.T, when spec.G, it spec.
 		})
 
 		it("returns an error", func() {
-			routeRepo := repositories.RouteRepo{}
-			routeClient, err := routeRepo.ConfigureClient(k8sConfig)
+			routeRepo := RouteRepo{}
+			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// Looks like we can continue doing state-based setup for the time being
 			// Assumption: when unit testing, we can ignore webhooks that might turn the uniqueness constraint into a race condition
 			// If assumption is invalidated, we can implement the setup by mocking a fake client to return the non-unique ids
 
-			_, err = routeRepo.FetchRoute(routeClient, "non-unique-route-id")
+			_, err = routeRepo.FetchRoute(client, "non-unique-route-id")
 			g.Expect(err).To(MatchError("duplicate route GUID exists"))
 		})
 

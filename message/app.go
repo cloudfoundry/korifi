@@ -13,9 +13,13 @@ var (
 type AppCreateMessage struct {
 	Name                 string            `json:"name" validate:"required"`
 	EnvironmentVariables map[string]string `json:"environment_variables"`
-	Relationships        Relationship      `json:"relationships" validate:"required"`
+	Relationships        AppRelationships  `json:"relationships" validate:"required"`
 	Lifecycle            *Lifecycle        `json:"lifecycle"`
 	Metadata             Metadata          `json:"metadata"`
+}
+
+type AppRelationships struct {
+	Space Relationship `json:"space" validate:"required"`
 }
 
 func AppCreateMessageToAppRecord(requestApp AppCreateMessage) repositories.AppRecord {

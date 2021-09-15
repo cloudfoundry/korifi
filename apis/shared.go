@@ -13,6 +13,8 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 )
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
 var Logger = ctrl.Log.WithName("Shared Handler Functions")
 
 type requestMalformedError struct {

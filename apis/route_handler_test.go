@@ -3,66 +3,22 @@ package apis_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"code.cloudfoundry.org/cf-k8s-api/apis/apisfakes"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-type FakeRouteRepo struct {
-	FetchRouteFunc func(_ client.Client, _ string) (repositories.RouteRecord, error)
-}
-
-func (f *FakeRouteRepo) ConfigureClient(_ *rest.Config) (client.Client, error) {
-	err := networkingv1alpha1.AddToScheme(scheme.Scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	fakeClientBuilder := &fake.ClientBuilder{}
-	return fakeClientBuilder.WithScheme(scheme.Scheme).WithObjects(&networkingv1alpha1.CFRoute{}).Build(), nil
-}
-
-func (f *FakeRouteRepo) FetchRoute(client client.Client, routeGUID string) (repositories.RouteRecord, error) {
-	return f.FetchRouteFunc(client, routeGUID)
-}
-
-type FakeDomainRepo struct {
-	FetchDomainFunc func(_ client.Client, _ string) (repositories.DomainRecord, error)
-}
-
-func (f *FakeDomainRepo) ConfigureClient(_ *rest.Config) (client.Client, error) {
-	err := networkingv1alpha1.AddToScheme(scheme.Scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	fakeClientBuilder := &fake.ClientBuilder{}
-	return fakeClientBuilder.WithScheme(scheme.Scheme).WithObjects(&networkingv1alpha1.CFRoute{}).Build(), nil
-}
-
-func (f *FakeDomainRepo) FetchDomain(client client.Client, domainGUID string) (repositories.DomainRecord, error) {
-	return f.FetchDomainFunc(client, domainGUID)
-}
-
-var (
-	fetchRouteResponse  repositories.RouteRecord
-	fetchRouteErr       error
-	fetchDomainResponse repositories.DomainRecord
-	fetchDomainErr      error
 )
 
 func TestRoute(t *testing.T) {
@@ -73,51 +29,57 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
 	var (
-		rr *httptest.ResponseRecorder
+		rr            *httptest.ResponseRecorder
+		routeRepo     *apisfakes.FakeCFRouteRepository
+		domainRepo    *apisfakes.FakeCFDomainRepository
+		clientBuilder *apisfakes.FakeClientBuilder
+		routeHandler  *apis.RouteHandler
+		req           *http.Request
 	)
+
+	const (
+		expectedRouteGUID  = "test-route-guid"
+		expectedDomainGUID = "test-domain-guid"
+	)
+
+	it.Before(func() {
+		rr = httptest.NewRecorder()
+		routeRepo = new(apisfakes.FakeCFRouteRepository)
+		domainRepo = new(apisfakes.FakeCFDomainRepository)
+		clientBuilder = new(apisfakes.FakeClientBuilder)
+
+		routeRepo.FetchRouteReturns(repositories.RouteRecord{
+			GUID:      expectedRouteGUID,
+			SpaceGUID: "test-space-guid",
+			DomainRef: repositories.DomainRecord{
+				GUID: expectedDomainGUID,
+			},
+			Host:     "test-route-name",
+			Protocol: "http",
+		}, nil)
+
+		domainRepo.FetchDomainReturns(repositories.DomainRecord{
+			GUID: expectedDomainGUID,
+			Name: "example.org",
+		}, nil)
+
+		routeHandler = &apis.RouteHandler{
+			ServerURL:   defaultServerURL,
+			RouteRepo:   routeRepo,
+			DomainRepo:  domainRepo,
+			BuildClient: clientBuilder.Spy,
+			Logger:      logf.Log.WithName("TestRouteHandler"),
+			K8sConfig:   &rest.Config{}, // required for k8s client (transitive dependency from route repo)
+		}
+
+		var err error
+		req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s", expectedRouteGUID), nil)
+		g.Expect(err).NotTo(HaveOccurred())
+	})
 
 	when("the GET /v3/routes/:guid  endpoint returns successfully", func() {
 		it.Before(func() {
-			fetchRouteResponse = repositories.RouteRecord{
-				GUID:      "test-route-guid",
-				SpaceGUID: "test-space-guid",
-				DomainRef: repositories.DomainRecord{
-					GUID: "test-domain-guid",
-				},
-				Host:     "test-route-name",
-				Protocol: "http",
-			}
-			fetchRouteErr = nil
-
-			fetchDomainResponse = repositories.DomainRecord{
-				Name: "example.org",
-				GUID: "test-domain-guid",
-			}
-			fetchDomainErr = nil
-
-			req, err := http.NewRequest("GET", "/v3/routes/test-route-guid", nil)
-			g.Expect(err).NotTo(HaveOccurred())
-
-			rr = httptest.NewRecorder()
-			routeHandler := apis.RouteHandler{
-				ServerURL: defaultServerURL,
-				RouteRepo: &FakeRouteRepo{
-					FetchRouteFunc: func(_ client.Client, _ string) (repositories.RouteRecord, error) {
-						return fetchRouteResponse, fetchRouteErr
-					},
-				},
-				DomainRepo: &FakeDomainRepo{
-					FetchDomainFunc: func(_ client.Client, _ string) (repositories.DomainRecord, error) {
-						return fetchDomainResponse, fetchDomainErr
-					},
-				},
-				Logger:    logf.Log.WithName("TestRouteHandler"),
-				K8sConfig: &rest.Config{}, // required for k8s client (transitive dependency from route repo)
-			}
-
-			handler := http.HandlerFunc(routeHandler.RouteGetHandler)
-
-			handler.ServeHTTP(rr, req)
+			http.HandlerFunc(routeHandler.RouteGetHandler).ServeHTTP(rr, req)
 		})
 
 		it("returns status 200 OK", func() {
@@ -141,10 +103,14 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 				"destinations": null,
 				"relationships": {
 					"space": {
-						"guid": "test-space-guid"
+                        "data": {
+						    "guid": "test-space-guid"
+                        }
 					},
 					"domain": {
-						"guid": "test-domain-guid"
+                        "data": {
+						    "guid": "test-domain-guid"
+                        }
 					}
 				},
 				"metadata": {
@@ -170,141 +136,83 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 
-		// Test returns a 404
-		when("the route cannot be found", func() {
-			it.Before(func() {
-				fetchRouteResponse = repositories.RouteRecord{}
-				fetchRouteErr = repositories.NotFoundError{Err: errors.New("not found")}
+		// The path parsing logic that extracts the route GUID relies on integration
+		// with the mux router, which we don't use in test. We'll need to find a way to
+		// get this test passing eventually or move this test to an integration-style test
+		it.Pend("fetches the correct route and domain", func() {
+			g.Expect(routeRepo.FetchRouteCallCount()).To(Equal(1))
+			_, actualRouteGUID := routeRepo.FetchRouteArgsForCall(0)
+			g.Expect(actualRouteGUID).To(Equal(expectedRouteGUID))
 
-				req, err := http.NewRequest("GET", "/v3/routes/my-route-guid", nil)
-				g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(domainRepo.FetchDomainCallCount()).To(Equal(1))
+			_, actualDomainGUID := domainRepo.FetchDomainArgsForCall(0)
+			g.Expect(actualDomainGUID).To(Equal(expectedDomainGUID))
+		})
+	})
 
-				rr = httptest.NewRecorder()
-				apiHandler := apis.RouteHandler{
-					ServerURL: defaultServerURL,
-					RouteRepo: &FakeRouteRepo{
-						FetchRouteFunc: func(_ client.Client, _ string) (repositories.RouteRecord, error) {
-							return fetchRouteResponse, fetchRouteErr
-						},
-					},
-					Logger:    logf.Log.WithName("TestRouteHandler"),
-					K8sConfig: &rest.Config{},
-				}
+	when("the route cannot be found", func() {
+		it.Before(func() {
+			routeRepo.FetchRouteReturns(repositories.RouteRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
 
-				handler := http.HandlerFunc(apiHandler.RouteGetHandler)
-
-				handler.ServeHTTP(rr, req)
-			})
-
-			it("returns a CF API formatted Error response", func() {
-				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-					Title:  "Route not found",
-					Detail: "CF-ResourceNotFound",
-					Code:   10010,
-				}}})
-
-				httpStatus := rr.Code
-				g.Expect(httpStatus).Should(Equal(http.StatusNotFound), "Matching HTTP response code:")
-
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
-			})
+			http.HandlerFunc(routeHandler.RouteGetHandler).ServeHTTP(rr, req)
 		})
 
-		when("the route's domain cannot be found", func() {
-			it.Before(func() {
-				fetchRouteResponse = repositories.RouteRecord{
-					GUID:      "test-route-guid",
-					SpaceGUID: "test-space-guid",
-					DomainRef: repositories.DomainRecord{
-						GUID: "test-domain-guid",
-					},
-					Host:     "test-route-name",
-					Protocol: "http",
-				}
-				fetchRouteErr = nil
+		it("returns a CF API formatted Error response", func() {
+			expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+				Title:  "Route not found",
+				Detail: "CF-ResourceNotFound",
+				Code:   10010,
+			}}})
 
-				fetchDomainResponse = repositories.DomainRecord{}
-				fetchDomainErr = repositories.NotFoundError{Err: errors.New("not found")}
+			httpStatus := rr.Code
+			g.Expect(httpStatus).Should(Equal(http.StatusNotFound), "Matching HTTP response code:")
 
-				req, err := http.NewRequest("GET", "/v3/routes/my-route-guid", nil)
-				g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+		})
+	})
 
-				rr = httptest.NewRecorder()
-				apiHandler := apis.RouteHandler{
-					ServerURL: defaultServerURL,
-					RouteRepo: &FakeRouteRepo{
-						FetchRouteFunc: func(_ client.Client, _ string) (repositories.RouteRecord, error) {
-							return fetchRouteResponse, fetchRouteErr
-						},
-					},
-					DomainRepo: &FakeDomainRepo{
-						FetchDomainFunc: func(_ client.Client, _ string) (repositories.DomainRecord, error) {
-							return fetchDomainResponse, fetchDomainErr
-						},
-					},
-					Logger:    logf.Log.WithName("TestRouteHandler"),
-					K8sConfig: &rest.Config{},
-				}
+	when("the route's domain cannot be found", func() {
+		it.Before(func() {
+			domainRepo.FetchDomainReturns(repositories.DomainRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
 
-				handler := http.HandlerFunc(apiHandler.RouteGetHandler)
-
-				handler.ServeHTTP(rr, req)
-			})
-
-			it("returns a CF API formatted Error response", func() {
-				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-					Title:  "UnknownError",
-					Detail: "An unknown error occurred.",
-					Code:   10001,
-				}}})
-
-				httpStatus := rr.Code
-				g.Expect(httpStatus).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
-			})
+			http.HandlerFunc(routeHandler.RouteGetHandler).ServeHTTP(rr, req)
 		})
 
-		when("there is some other error fetching the route", func() {
-			it.Before(func() {
-				fetchRouteResponse = repositories.RouteRecord{}
-				fetchRouteErr = errors.New("unknown!")
+		it("returns a CF API formatted Error response", func() {
+			expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+				Title:  "UnknownError",
+				Detail: "An unknown error occurred.",
+				Code:   10001,
+			}}})
 
-				req, err := http.NewRequest("GET", "/v3/routes/my-route-guid", nil)
-				g.Expect(err).NotTo(HaveOccurred())
+			httpStatus := rr.Code
+			g.Expect(httpStatus).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
 
-				rr = httptest.NewRecorder()
-				apiHandler := apis.RouteHandler{
-					ServerURL: defaultServerURL,
-					RouteRepo: &FakeRouteRepo{
-						FetchRouteFunc: func(_ client.Client, _ string) (repositories.RouteRecord, error) {
-							return fetchRouteResponse, fetchRouteErr
-						},
-					},
-					Logger:    logf.Log.WithName("TestRouteHandler"),
-					K8sConfig: &rest.Config{},
-				}
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+		})
+	})
 
-				handler := http.HandlerFunc(apiHandler.RouteGetHandler)
+	when("there is some other error fetching the route", func() {
+		it.Before(func() {
+			routeRepo.FetchRouteReturns(repositories.RouteRecord{}, errors.New("unknown!"))
 
-				handler.ServeHTTP(rr, req)
-			})
+			http.HandlerFunc(routeHandler.RouteGetHandler).ServeHTTP(rr, req)
+		})
 
-			it("returns a CF API formatted Error response", func() {
-				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-					Title:  "UnknownError",
-					Detail: "An unknown error occurred.",
-					Code:   10001,
-				}}})
+		it("returns a CF API formatted Error response", func() {
+			expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+				Title:  "UnknownError",
+				Detail: "An unknown error occurred.",
+				Code:   10001,
+			}}})
 
-				httpStatus := rr.Code
-				g.Expect(httpStatus).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
+			httpStatus := rr.Code
+			g.Expect(httpStatus).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
 
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
-			})
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 	})
 }

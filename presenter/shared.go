@@ -16,6 +16,10 @@ type LifecycleData struct {
 type Relationships map[string]Relationship
 
 type Relationship struct {
+	Data RelationshipData `json:"data"`
+}
+
+type RelationshipData struct {
 	GUID string `json:"guid"`
 }
 

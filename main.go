@@ -53,17 +53,19 @@ func main() {
 		ServerURL: config.ServerURL,
 	}
 	appHandler := &apis.AppHandler{
-		ServerURL: config.ServerURL,
-		AppRepo:   &repositories.AppRepo{},
-		Logger:    ctrl.Log.WithName("AppHandler"),
-		K8sConfig: k8sClientConfig,
+		ServerURL:   config.ServerURL,
+		AppRepo:     &repositories.AppRepo{},
+		Logger:      ctrl.Log.WithName("AppHandler"),
+		K8sConfig:   k8sClientConfig,
+		BuildClient: repositories.BuildClient,
 	}
 	routeHandler := &apis.RouteHandler{
-		ServerURL:  config.ServerURL,
-		RouteRepo:  &repositories.RouteRepo{},
-		DomainRepo: &repositories.DomainRepo{},
-		Logger:     ctrl.Log.WithName("RouteHandler"),
-		K8sConfig:  k8sClientConfig,
+		ServerURL:   config.ServerURL,
+		RouteRepo:   &repositories.RouteRepo{},
+		DomainRepo:  &repositories.DomainRepo{},
+		Logger:      ctrl.Log.WithName("RouteHandler"),
+		K8sConfig:   k8sClientConfig,
+		BuildClient: repositories.BuildClient,
 	}
 
 	router := mux.NewRouter()

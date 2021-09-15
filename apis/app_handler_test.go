@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis/apisfakes"
@@ -63,11 +64,14 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			Expect(err).NotTo(HaveOccurred())
 
 			rr = httptest.NewRecorder()
+			clientBuilder := new(apisfakes.FakeClientBuilder)
+
 			apiHandler := apis.AppHandler{
-				ServerURL: defaultServerURL,
-				AppRepo:   fakeAppRepo,
-				Logger:    logf.Log.WithName(testAppHandlerLoggerName),
-				K8sConfig: &rest.Config{},
+				ServerURL:   defaultServerURL,
+				AppRepo:     fakeAppRepo,
+				Logger:      logf.Log.WithName(testAppHandlerLoggerName),
+				K8sConfig:   &rest.Config{},
+				BuildClient: clientBuilder.Spy,
 			}
 
 			handler := http.HandlerFunc(apiHandler.AppGetHandler)
@@ -92,7 +96,9 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 				State: "STOPPED",
 				Relationships: presenter.Relationships{
 					"space": presenter.Relationship{
-						GUID: "test-space-guid",
+						Data: presenter.RelationshipData{
+							GUID: "test-space-guid",
+						},
 					},
 				},
 				Lifecycle: presenter.Lifecycle{Data: presenter.LifecycleData{
@@ -157,11 +163,14 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			fakeAppRepo.FetchAppReturns(FetchAppResponseApp, FetchAppErr)
 
 			rr = httptest.NewRecorder()
+			clientBuilder := new(apisfakes.FakeClientBuilder)
+
 			apiHandler := apis.AppHandler{
-				ServerURL: defaultServerURL,
-				AppRepo:   fakeAppRepo,
-				Logger:    logf.Log.WithName(testAppHandlerLoggerName),
-				K8sConfig: &rest.Config{},
+				ServerURL:   defaultServerURL,
+				AppRepo:     fakeAppRepo,
+				Logger:      logf.Log.WithName(testAppHandlerLoggerName),
+				K8sConfig:   &rest.Config{},
+				BuildClient: clientBuilder.Spy,
 			}
 
 			handler := http.HandlerFunc(apiHandler.AppGetHandler)
@@ -196,11 +205,14 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			fakeAppRepo.FetchAppReturns(FetchAppResponseApp, FetchAppErr)
 
 			rr = httptest.NewRecorder()
+			clientBuilder := new(apisfakes.FakeClientBuilder)
+
 			apiHandler := apis.AppHandler{
-				ServerURL: defaultServerURL,
-				AppRepo:   fakeAppRepo,
-				Logger:    logf.Log.WithName(testAppHandlerLoggerName),
-				K8sConfig: &rest.Config{},
+				ServerURL:   defaultServerURL,
+				AppRepo:     fakeAppRepo,
+				Logger:      logf.Log.WithName(testAppHandlerLoggerName),
+				K8sConfig:   &rest.Config{},
+				BuildClient: clientBuilder.Spy,
 			}
 
 			handler := http.HandlerFunc(apiHandler.AppGetHandler)
@@ -301,18 +313,18 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 		when("the request body is invalid with invalid app name", func() {
 			it.Before(func() {
-				requestBody := []byte(`{
-										"name": 12345,
-										"relationships": {
-										  "space": {
-											"data": {
-											  "guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
-											}
-										  }
+				requestBody := `{
+									"name": 12345,
+									"relationships": {
+									  "space": {
+										"data": {
+										  "guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
 										}
-									  }`)
+									  }
+									}
+								  }`
 
-				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
+				req, err := http.NewRequest("POST", "/v3/apps", strings.NewReader(requestBody))
 				Expect(err).NotTo(HaveOccurred())
 
 				apiHandler := apis.AppHandler{
@@ -331,13 +343,15 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
 			})
 			it("has the expected error response body", func() {
-				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-					Title:  "CF-UnprocessableEntity",
-					Detail: "Name must be a string",
-					Code:   10008,
-				}}})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(rr.Body).To(MatchJSON(expectedBody))
+				Expect(rr.Body).To(MatchJSON(`{
+                  "errors": [
+                    {
+				      "title":  "CF-UnprocessableEntity",
+				   	  "detail": "Name must be a string",
+				 	  "code":   10008
+                    }
+                  ]
+				}`))
 			})
 
 		})
@@ -486,12 +500,16 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				fakeAppRepo.FetchNamespaceReturns(fetchNamespaceResponse, fetchNamespaceErr)
 
 				rr = httptest.NewRecorder()
+				clientBuilder := new(apisfakes.FakeClientBuilder)
+
 				apiHandler := apis.AppHandler{
-					ServerURL: defaultServerURL,
-					AppRepo:   fakeAppRepo,
-					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
-					K8sConfig: &rest.Config{},
+					ServerURL:   defaultServerURL,
+					AppRepo:     fakeAppRepo,
+					Logger:      logf.Log.WithName(testAppHandlerLoggerName),
+					K8sConfig:   &rest.Config{},
+					BuildClient: clientBuilder.Spy,
 				}
+
 				handler := http.HandlerFunc(apiHandler.AppCreateHandler)
 				handler.ServeHTTP(rr, req)
 			})
@@ -522,11 +540,14 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				fakeAppRepo.AppExistsReturns(true, nil)
 
 				rr = httptest.NewRecorder()
+				clientBuilder := new(apisfakes.FakeClientBuilder)
+
 				apiHandler := apis.AppHandler{
-					ServerURL: defaultServerURL,
-					AppRepo:   fakeAppRepo,
-					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
-					K8sConfig: &rest.Config{},
+					ServerURL:   defaultServerURL,
+					AppRepo:     fakeAppRepo,
+					Logger:      logf.Log.WithName(testAppHandlerLoggerName),
+					K8sConfig:   &rest.Config{},
+					BuildClient: clientBuilder.Spy,
 				}
 				handler := http.HandlerFunc(apiHandler.AppCreateHandler)
 				handler.ServeHTTP(rr, req)
@@ -580,11 +601,14 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					Expect(err).NotTo(HaveOccurred())
 
 					rr = httptest.NewRecorder()
+					clientBuilder := new(apisfakes.FakeClientBuilder)
+
 					apiHandler := apis.AppHandler{
-						ServerURL: defaultServerURL,
-						AppRepo:   fakeAppRepo,
-						Logger:    logf.Log.WithName(testAppHandlerLoggerName),
-						K8sConfig: &rest.Config{},
+						ServerURL:   defaultServerURL,
+						AppRepo:     fakeAppRepo,
+						Logger:      logf.Log.WithName(testAppHandlerLoggerName),
+						K8sConfig:   &rest.Config{},
+						BuildClient: clientBuilder.Spy,
 					}
 					handler := http.HandlerFunc(apiHandler.AppCreateHandler)
 					handler.ServeHTTP(rr, req)
@@ -617,7 +641,9 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 						State: "STOPPED",
 						Relationships: presenter.Relationships{
 							"space": presenter.Relationship{
-								GUID: testSpaceGUID,
+								Data: presenter.RelationshipData{
+									GUID: testSpaceGUID,
+								},
 							},
 						},
 						Lifecycle: presenter.Lifecycle{Data: presenter.LifecycleData{
@@ -694,11 +720,14 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 						fakeAppRepo.CreateAppEnvironmentVariablesReturns(CreateEnvVarsResponse, nil)
 
 						rr = httptest.NewRecorder()
+						clientBuilder := new(apisfakes.FakeClientBuilder)
+
 						apiHandler := apis.AppHandler{
-							ServerURL: defaultServerURL,
-							AppRepo:   fakeAppRepo,
-							Logger:    logf.Log.WithName(testAppHandlerLoggerName),
-							K8sConfig: &rest.Config{},
+							ServerURL:   defaultServerURL,
+							AppRepo:     fakeAppRepo,
+							Logger:      logf.Log.WithName(testAppHandlerLoggerName),
+							K8sConfig:   &rest.Config{},
+							BuildClient: clientBuilder.Spy,
 						}
 						handler := http.HandlerFunc(apiHandler.AppCreateHandler)
 						handler.ServeHTTP(rr, req)
@@ -722,11 +751,14 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					it.Before(func() {
 						fakeAppRepo.CreateAppEnvironmentVariablesReturns(repositories.AppEnvVarsRecord{}, errors.New("intentional error"))
 						rr = httptest.NewRecorder()
+						clientBuilder := new(apisfakes.FakeClientBuilder)
+
 						apiHandler := apis.AppHandler{
-							ServerURL: defaultServerURL,
-							AppRepo:   fakeAppRepo,
-							Logger:    logf.Log.WithName(testAppHandlerLoggerName),
-							K8sConfig: &rest.Config{},
+							ServerURL:   defaultServerURL,
+							AppRepo:     fakeAppRepo,
+							Logger:      logf.Log.WithName(testAppHandlerLoggerName),
+							K8sConfig:   &rest.Config{},
+							BuildClient: clientBuilder.Spy,
 						}
 						handler := http.HandlerFunc(apiHandler.AppCreateHandler)
 						handler.ServeHTTP(rr, req)
@@ -749,11 +781,14 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					Expect(err).NotTo(HaveOccurred())
 
 					rr = httptest.NewRecorder()
+					clientBuilder := new(apisfakes.FakeClientBuilder)
+
 					apiHandler := apis.AppHandler{
-						ServerURL: defaultServerURL,
-						AppRepo:   fakeAppRepo,
-						Logger:    logf.Log.WithName(testAppHandlerLoggerName),
-						K8sConfig: &rest.Config{},
+						ServerURL:   defaultServerURL,
+						AppRepo:     fakeAppRepo,
+						Logger:      logf.Log.WithName(testAppHandlerLoggerName),
+						K8sConfig:   &rest.Config{},
+						BuildClient: clientBuilder.Spy,
 					}
 					handler := http.HandlerFunc(apiHandler.AppCreateHandler)
 					handler.ServeHTTP(rr, req)
@@ -777,12 +812,16 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					Expect(err).NotTo(HaveOccurred())
 
 					rr = httptest.NewRecorder()
+					clientBuilder := new(apisfakes.FakeClientBuilder)
+
 					apiHandler := apis.AppHandler{
-						ServerURL: defaultServerURL,
-						AppRepo:   fakeAppRepo,
-						Logger:    logf.Log.WithName(testAppHandlerLoggerName),
-						K8sConfig: &rest.Config{},
+						ServerURL:   defaultServerURL,
+						AppRepo:     fakeAppRepo,
+						Logger:      logf.Log.WithName(testAppHandlerLoggerName),
+						K8sConfig:   &rest.Config{},
+						BuildClient: clientBuilder.Spy,
 					}
+
 					handler := http.HandlerFunc(apiHandler.AppCreateHandler)
 					handler.ServeHTTP(rr, req)
 				})

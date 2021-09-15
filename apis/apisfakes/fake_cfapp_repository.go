@@ -7,7 +7,6 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -26,19 +25,6 @@ type FakeCFAppRepository struct {
 	}
 	appExistsReturnsOnCall map[int]struct {
 		result1 bool
-		result2 error
-	}
-	ConfigureClientStub        func(*rest.Config) (client.Client, error)
-	configureClientMutex       sync.RWMutex
-	configureClientArgsForCall []struct {
-		arg1 *rest.Config
-	}
-	configureClientReturns struct {
-		result1 client.Client
-		result2 error
-	}
-	configureClientReturnsOnCall map[int]struct {
-		result1 client.Client
 		result2 error
 	}
 	CreateAppStub        func(client.Client, context.Context, repositories.AppRecord) (repositories.AppRecord, error)
@@ -168,70 +154,6 @@ func (fake *FakeCFAppRepository) AppExistsReturnsOnCall(i int, result1 bool, res
 	}
 	fake.appExistsReturnsOnCall[i] = struct {
 		result1 bool
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeCFAppRepository) ConfigureClient(arg1 *rest.Config) (client.Client, error) {
-	fake.configureClientMutex.Lock()
-	ret, specificReturn := fake.configureClientReturnsOnCall[len(fake.configureClientArgsForCall)]
-	fake.configureClientArgsForCall = append(fake.configureClientArgsForCall, struct {
-		arg1 *rest.Config
-	}{arg1})
-	stub := fake.ConfigureClientStub
-	fakeReturns := fake.configureClientReturns
-	fake.recordInvocation("ConfigureClient", []interface{}{arg1})
-	fake.configureClientMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeCFAppRepository) ConfigureClientCallCount() int {
-	fake.configureClientMutex.RLock()
-	defer fake.configureClientMutex.RUnlock()
-	return len(fake.configureClientArgsForCall)
-}
-
-func (fake *FakeCFAppRepository) ConfigureClientCalls(stub func(*rest.Config) (client.Client, error)) {
-	fake.configureClientMutex.Lock()
-	defer fake.configureClientMutex.Unlock()
-	fake.ConfigureClientStub = stub
-}
-
-func (fake *FakeCFAppRepository) ConfigureClientArgsForCall(i int) *rest.Config {
-	fake.configureClientMutex.RLock()
-	defer fake.configureClientMutex.RUnlock()
-	argsForCall := fake.configureClientArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *FakeCFAppRepository) ConfigureClientReturns(result1 client.Client, result2 error) {
-	fake.configureClientMutex.Lock()
-	defer fake.configureClientMutex.Unlock()
-	fake.ConfigureClientStub = nil
-	fake.configureClientReturns = struct {
-		result1 client.Client
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeCFAppRepository) ConfigureClientReturnsOnCall(i int, result1 client.Client, result2 error) {
-	fake.configureClientMutex.Lock()
-	defer fake.configureClientMutex.Unlock()
-	fake.ConfigureClientStub = nil
-	if fake.configureClientReturnsOnCall == nil {
-		fake.configureClientReturnsOnCall = make(map[int]struct {
-			result1 client.Client
-			result2 error
-		})
-	}
-	fake.configureClientReturnsOnCall[i] = struct {
-		result1 client.Client
 		result2 error
 	}{result1, result2}
 }
@@ -505,8 +427,6 @@ func (fake *FakeCFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.appExistsMutex.RLock()
 	defer fake.appExistsMutex.RUnlock()
-	fake.configureClientMutex.RLock()
-	defer fake.configureClientMutex.RUnlock()
 	fake.createAppMutex.RLock()
 	defer fake.createAppMutex.RUnlock()
 	fake.createAppEnvironmentVariablesMutex.RLock()

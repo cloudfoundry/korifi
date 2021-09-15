@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	. "code.cloudfoundry.org/cf-k8s-api/repositories"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 )
@@ -94,8 +94,8 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("can fetch the AppRecord CR we're looking for", func() {
-			appRepo := repositories.AppRepo{}
-			client, err := appRepo.ConfigureClient(k8sConfig)
+			appRepo := AppRepo{}
+			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			app, err := appRepo.FetchApp(client, testCtx, app2GUID)
@@ -103,10 +103,10 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 			g.Expect(app.GUID).To(Equal(app2GUID))
 			g.Expect(app.Name).To(Equal("test-app2"))
 			g.Expect(app.SpaceGUID).To(Equal(namespace))
-			g.Expect(app.State).To(Equal(repositories.DesiredState("STOPPED")))
+			g.Expect(app.State).To(Equal(DesiredState("STOPPED")))
 
-			expectedLifecycle := repositories.Lifecycle{
-				Data: repositories.LifecycleData{
+			expectedLifecycle := Lifecycle{
+				Data: LifecycleData{
 					Buildpacks: []string{"java"},
 					Stack:      "",
 				},
@@ -175,8 +175,8 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns an error", func() {
-			appRepo := repositories.AppRepo{}
-			client, err := appRepo.ConfigureClient(k8sConfig)
+			appRepo := AppRepo{}
+			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			_, err = appRepo.FetchApp(client, testCtx, testAppGUID)
@@ -187,8 +187,8 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 
 	when("no Apps exist", func() {
 		it("returns an error", func() {
-			appRepo := repositories.AppRepo{}
-			client, err := appRepo.ConfigureClient(k8sConfig)
+			appRepo := AppRepo{}
+			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			_, err = appRepo.FetchApp(client, testCtx, "i don't exist")
@@ -218,15 +218,15 @@ func intializeAppCR(appName string, appGUID string, spaceGUID string) workloadsv
 	}
 }
 
-func intializeAppRecord(appName string, appGUID string, spaceGUID string) repositories.AppRecord {
-	return repositories.AppRecord{
+func intializeAppRecord(appName string, appGUID string, spaceGUID string) AppRecord {
+	return AppRecord{
 		Name:      appName,
 		GUID:      appGUID,
 		SpaceGUID: spaceGUID,
 		State:     "STOPPED",
-		Lifecycle: repositories.Lifecycle{
+		Lifecycle: Lifecycle{
 			Type: "buildpack",
-			Data: repositories.LifecycleData{
+			Data: LifecycleData{
 				Buildpacks: []string{},
 				Stack:      "cflinuxfs3",
 			},
@@ -266,7 +266,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 		)
 		var (
 			testAppGUID    string
-			emptyAppRecord = repositories.AppRecord{}
+			emptyAppRecord = AppRecord{}
 			testCtx        context.Context
 		)
 		it.Before(func() {
@@ -277,8 +277,8 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 		when("space does not exist", func() {
 
 			it("returns an unauthorized or not found err", func() {
-				appRepo := repositories.AppRepo{}
-				client, err := appRepo.ConfigureClient(k8sConfig)
+				appRepo := AppRepo{}
+				client, err := BuildClient(k8sConfig)
 
 				_, err = appRepo.FetchNamespace(client, testCtx, "some-guid")
 				g.Expect(err).To(HaveOccurred())
@@ -289,14 +289,14 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 
 		when("app does not already exist", func() {
 			var (
-				appRepo   repositories.AppRepo
+				appRepo   AppRepo
 				client    client.Client
-				appRecord repositories.AppRecord
+				appRecord AppRecord
 			)
 
 			it.Before(func() {
-				appRepo = repositories.AppRepo{}
-				client, _ = appRepo.ConfigureClient(k8sConfig)
+				appRepo = AppRepo{}
+				client, _ = BuildClient(k8sConfig)
 				appRecord = intializeAppRecord(testAppName, testAppGUID, defaultNamespace)
 			})
 
@@ -326,7 +326,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 			when("an app is created with the repository", func() {
 				var (
 					beforeCreationTime time.Time
-					createdAppRecord   repositories.AppRecord
+					createdAppRecord   AppRecord
 				)
 				it.Before(func() {
 					beforeCtx := context.Background()
@@ -353,9 +353,9 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 
 				it("should return an AppRecord with CreatedAt and UpdatedAt fields that make sense", func() {
 					afterTestTime := time.Now().UTC().AddDate(0, 0, 1)
-					recordCreatedTime, err := time.Parse(repositories.TimestampFormat, createdAppRecord.CreatedAt)
+					recordCreatedTime, err := time.Parse(TimestampFormat, createdAppRecord.CreatedAt)
 					g.Expect(err).To(BeNil(), "There was an error converting the createAppRecord CreatedTime to string")
-					recordUpdatedTime, err := time.Parse(repositories.TimestampFormat, createdAppRecord.UpdatedAt)
+					recordUpdatedTime, err := time.Parse(TimestampFormat, createdAppRecord.UpdatedAt)
 					g.Expect(err).To(BeNil(), "There was an error converting the createAppRecord UpdatedTime to string")
 
 					g.Expect(recordCreatedTime.After(beforeCreationTime)).To(BeTrue(), "app record creation time was not after the expected creation time")
@@ -371,7 +371,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 		when("the app already exists", func() {
 			var (
 				appCR   workloadsv1alpha1.CFApp
-				appRepo repositories.AppRepo
+				appRepo AppRepo
 				client  client.Client
 			)
 
@@ -381,8 +381,8 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 
 				g.Expect(k8sClient.Create(beforeCtx, &appCR)).To(Succeed())
 
-				appRepo = repositories.AppRepo{}
-				client, _ = appRepo.ConfigureClient(k8sConfig)
+				appRepo = AppRepo{}
+				client, _ = BuildClient(k8sConfig)
 			})
 
 			it.After(func() {
@@ -426,21 +426,21 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 			testAppName = "test-app-name"
 		)
 		var (
-			appRepo                  repositories.AppRepo
+			appRepo                  AppRepo
 			client                   client.Client
 			testAppGUID              string
 			testAppEnvSecretName     string
-			testAppEnvSecret         repositories.AppEnvVarsRecord
-			returnedAppEnvVarsRecord repositories.AppEnvVarsRecord
+			testAppEnvSecret         AppEnvVarsRecord
+			returnedAppEnvVarsRecord AppEnvVarsRecord
 			returnedErr              error
 		)
 		it.Before(func() {
 			beforeCtx := context.Background()
-			appRepo = repositories.AppRepo{}
-			client, _ = appRepo.ConfigureClient(k8sConfig)
+			appRepo = AppRepo{}
+			client, _ = BuildClient(k8sConfig)
 			testAppGUID = generateAppGUID()
 			testAppEnvSecretName = generateAppEnvSecretName(testAppGUID)
-			testAppEnvSecret = repositories.AppEnvVarsRecord{
+			testAppEnvSecret = AppEnvVarsRecord{
 				AppGUID:              testAppGUID,
 				SpaceGUID:            defaultNamespace,
 				EnvironmentVariables: map[string]string{"foo": "foo", "bar": "bar"},
@@ -495,7 +495,7 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 				g.Expect(createdCFAppSecret.Name).To(Equal(testAppEnvSecretName))
 			})
 			it("has a label that matches the CFApp GUID", func() {
-				labelValue, exists := createdCFAppSecret.Labels[repositories.CFAppGUIDLabel]
+				labelValue, exists := createdCFAppSecret.Labels[CFAppGUIDLabel]
 				g.Expect(exists).To(BeTrue(), "label for envSecret AppGUID not found")
 				g.Expect(labelValue).To(Equal(testAppGUID))
 			})
@@ -510,7 +510,7 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 
 			returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateAppEnvironmentVariables(client, testCtx, testAppEnvSecret)
 			g.Expect(returnedUpdatedErr).ToNot(BeNil())
-			g.Expect(returnedUpdatedAppEnvVarsRecord).To(Equal(repositories.AppEnvVarsRecord{}))
+			g.Expect(returnedUpdatedAppEnvVarsRecord).To(Equal(AppEnvVarsRecord{}))
 		})
 
 	})
