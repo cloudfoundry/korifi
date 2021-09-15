@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/uuid"
-
 	"code.cloudfoundry.org/cf-k8s-api/message"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -156,8 +157,18 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	responseAppRecord, err := h.AppRepo.CreateApp(client, ctx, createAppRecord)
 	if err != nil {
-		h.Logger.Error(err, "Failed to create app", "App Name", appName)
-		writeUnknownErrorResponse(w)
+		switch errtype := err.(type) {
+		case *k8serrors.StatusError:
+			reason := errtype.Status().Reason
+			if reason == "CFApp with the same spec.name exists" {
+				errorDetail := fmt.Sprintf("App with the name '%s' already exists.", appName)
+				h.Logger.Error(err, errorDetail, "App Name", appName)
+				writeUniquenessError(w, errorDetail)
+			}
+		default:
+			h.Logger.Error(err, "Failed to create app", "App Name", appName)
+			writeUnknownErrorResponse(w)
+		}
 		return
 	}
 	responseBody, err := json.Marshal(presenter.ForApp(responseAppRecord, h.ServerURL))

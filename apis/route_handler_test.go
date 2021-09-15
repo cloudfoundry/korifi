@@ -7,16 +7,15 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
 	"code.cloudfoundry.org/cf-k8s-api/apis"
+	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 	"k8s.io/client-go/rest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func TestRoute(t *testing.T) {
@@ -75,7 +74,7 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 		g.Expect(err).NotTo(HaveOccurred())
 	})
 
-	when("the GET /v3/routes/:guid  endpoint returns successfully", func() {
+	when("the GET /v3/routes/:guid endpoint returns successfully", func() {
 		it.Before(func() {
 			http.HandlerFunc(routeHandler.RouteGetHandler).ServeHTTP(rr, req)
 		})
@@ -101,14 +100,14 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 				"destinations": null,
 				"relationships": {
 					"space": {
-                        "data": {
-						    "guid": "test-space-guid"
-                        }
+						"data": {
+							"guid": "test-space-guid"
+						}
 					},
 					"domain": {
-                        "data": {
-						    "guid": "test-domain-guid"
-                        }
+						"data": {
+							"guid": "test-domain-guid"
+						}
 					}
 				},
 				"metadata": {
@@ -155,20 +154,25 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 			http.HandlerFunc(routeHandler.RouteGetHandler).ServeHTTP(rr, req)
 		})
 
-		it("returns a CF API formatted Error response", func() {
-			httpStatus := rr.Code
-			g.Expect(httpStatus).Should(Equal(http.StatusNotFound), "Matching HTTP response code:")
+		it("returns status 404 NotFound", func() {
+			g.Expect(rr.Code).Should(Equal(http.StatusNotFound), "Matching HTTP response code:")
+		})
 
-			expectedBody := `{
+		it("returns Content-Type as JSON in header", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+		})
+
+		it("returns a CF API formatted Error response", func() {
+			g.Expect(rr.Body.String()).Should(MatchJSON(`{
 				"errors": [
 					{
 						"code": 10010,
 						"title": "CF-ResourceNotFound",
-						"detail": "Route not found"
+						"detail":"Route not found"
 					}
 				]
-            }`
-			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+			}`), "Response body matches response:")
 		})
 	})
 
@@ -179,19 +183,25 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 			http.HandlerFunc(routeHandler.RouteGetHandler).ServeHTTP(rr, req)
 		})
 
-		it("returns a CF API formatted Error response", func() {
+		it("returns status 500 InternalServerError", func() {
 			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
+		})
 
-			expectedBody := `{
+		it("returns Content-Type as JSON in header", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+		})
+
+		it("returns a CF API formatted Error response", func() {
+			g.Expect(rr.Body.String()).Should(MatchJSON(`{
 				"errors": [
 					{
-						"code": 10001,
 						"title": "UnknownError",
-						"detail": "An unknown error occurred."
+						"detail": "An unknown error occurred.",
+						"code": 10001
 					}
 				]
-            }`
-			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+			}`), "Response body matches response:")
 		})
 	})
 
@@ -202,19 +212,25 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 			http.HandlerFunc(routeHandler.RouteGetHandler).ServeHTTP(rr, req)
 		})
 
-		it("returns a CF API formatted Error response", func() {
+		it("returns status 500 InternalServerError", func() {
 			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
+		})
 
-			expectedBody := `{
+		it("returns Content-Type as JSON in header", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+		})
+
+		it("returns a CF API formatted Error response", func() {
+			g.Expect(rr.Body.String()).Should(MatchJSON(`{
 				"errors": [
 					{
-						"code": 10001,
 						"title": "UnknownError",
-						"detail": "An unknown error occurred."
+						"detail": "An unknown error occurred.",
+						"code": 10001
 					}
 				]
-            }`
-			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+			}`), "Response body matches response:")
 		})
 	})
 }
