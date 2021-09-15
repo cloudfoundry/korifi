@@ -7,8 +7,11 @@ import (
 	"net/http"
 	"strings"
 
+	"k8s.io/client-go/rest"
+
 	"github.com/go-playground/validator/v10"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 )
@@ -16,6 +19,9 @@ import (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 var Logger = ctrl.Log.WithName("Shared Handler Functions")
+
+//counterfeiter:generate -o fake -fake-name ClientBuilder . ClientBuilder
+type ClientBuilder func(*rest.Config) (client.Client, error)
 
 type requestMalformedError struct {
 	httpStatus    int

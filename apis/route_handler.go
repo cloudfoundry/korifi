@@ -13,13 +13,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//counterfeiter:generate . CFRouteRepository
+//counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository
 
 type CFRouteRepository interface {
 	FetchRoute(client.Client, string) (repositories.RouteRecord, error)
 }
 
-//counterfeiter:generate . CFDomainRepository
+//counterfeiter:generate -o fake -fake-name CFDomainRepository . CFDomainRepository
 
 type CFDomainRepository interface {
 	FetchDomain(client.Client, string) (repositories.DomainRecord, error)

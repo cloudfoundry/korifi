@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//counterfeiter:generate . CFAppRepository
+//counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
 type CFAppRepository interface {
 	FetchApp(client.Client, context.Context, string) (repositories.AppRecord, error)
 	FetchNamespace(client.Client, context.Context, string) (repositories.SpaceRecord, error)
@@ -26,9 +26,6 @@ type CFAppRepository interface {
 	CreateAppEnvironmentVariables(client.Client, context.Context, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
 	CreateApp(client.Client, context.Context, repositories.AppRecord) (repositories.AppRecord, error)
 }
-
-//counterfeiter:generate . ClientBuilder
-type ClientBuilder func(*rest.Config) (client.Client, error)
 
 type AppHandler struct {
 	ServerURL   string

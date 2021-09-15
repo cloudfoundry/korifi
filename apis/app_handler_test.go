@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"code.cloudfoundry.org/cf-k8s-api/apis/apisfakes"
+	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -57,14 +57,14 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			}
 			FetchAppErr = nil
 
-			fakeAppRepo := &apisfakes.FakeCFAppRepository{}
+			fakeAppRepo := &fake.CFAppRepository{}
 			fakeAppRepo.FetchAppReturns(FetchAppResponseApp, FetchAppErr)
 
 			req, err := http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			rr = httptest.NewRecorder()
-			clientBuilder := new(apisfakes.FakeClientBuilder)
+			clientBuilder := new(fake.ClientBuilder)
 
 			apiHandler := apis.AppHandler{
 				ServerURL:   defaultServerURL,
@@ -159,11 +159,11 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			req, err := http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			fakeAppRepo := &apisfakes.FakeCFAppRepository{}
+			fakeAppRepo := &fake.CFAppRepository{}
 			fakeAppRepo.FetchAppReturns(FetchAppResponseApp, FetchAppErr)
 
 			rr = httptest.NewRecorder()
-			clientBuilder := new(apisfakes.FakeClientBuilder)
+			clientBuilder := new(fake.ClientBuilder)
 
 			apiHandler := apis.AppHandler{
 				ServerURL:   defaultServerURL,
@@ -201,11 +201,11 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			req, err := http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			fakeAppRepo := &apisfakes.FakeCFAppRepository{}
+			fakeAppRepo := &fake.CFAppRepository{}
 			fakeAppRepo.FetchAppReturns(FetchAppResponseApp, FetchAppErr)
 
 			rr = httptest.NewRecorder()
-			clientBuilder := new(apisfakes.FakeClientBuilder)
+			clientBuilder := new(fake.ClientBuilder)
 
 			apiHandler := apis.AppHandler{
 				ServerURL:   defaultServerURL,
@@ -286,7 +286,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
-					AppRepo:   &apisfakes.FakeCFAppRepository{},
+					AppRepo:   &fake.CFAppRepository{},
 					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 					K8sConfig: &rest.Config{},
 				}
@@ -329,7 +329,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
-					AppRepo:   &apisfakes.FakeCFAppRepository{},
+					AppRepo:   &fake.CFAppRepository{},
 					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 					K8sConfig: &rest.Config{},
 				}
@@ -375,7 +375,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
-					AppRepo:   &apisfakes.FakeCFAppRepository{},
+					AppRepo:   &fake.CFAppRepository{},
 					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 					K8sConfig: &rest.Config{},
 				}
@@ -417,7 +417,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
-					AppRepo:   &apisfakes.FakeCFAppRepository{},
+					AppRepo:   &fake.CFAppRepository{},
 					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 					K8sConfig: &rest.Config{},
 				}
@@ -461,7 +461,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
-					AppRepo:   &apisfakes.FakeCFAppRepository{},
+					AppRepo:   &fake.CFAppRepository{},
 					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 					K8sConfig: &rest.Config{},
 				}
@@ -494,13 +494,13 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
 				Expect(err).NotTo(HaveOccurred())
 
-				fakeAppRepo := &apisfakes.FakeCFAppRepository{}
+				fakeAppRepo := &fake.CFAppRepository{}
 				fetchNamespaceResponse := repositories.SpaceRecord{}
 				fetchNamespaceErr := repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")}
 				fakeAppRepo.FetchNamespaceReturns(fetchNamespaceResponse, fetchNamespaceErr)
 
 				rr = httptest.NewRecorder()
-				clientBuilder := new(apisfakes.FakeClientBuilder)
+				clientBuilder := new(fake.ClientBuilder)
 
 				apiHandler := apis.AppHandler{
 					ServerURL:   defaultServerURL,
@@ -536,11 +536,11 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
 				Expect(err).NotTo(HaveOccurred())
 
-				fakeAppRepo := &apisfakes.FakeCFAppRepository{}
+				fakeAppRepo := &fake.CFAppRepository{}
 				fakeAppRepo.AppExistsReturns(true, nil)
 
 				rr = httptest.NewRecorder()
-				clientBuilder := new(apisfakes.FakeClientBuilder)
+				clientBuilder := new(fake.ClientBuilder)
 
 				apiHandler := apis.AppHandler{
 					ServerURL:   defaultServerURL,
@@ -569,10 +569,10 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("the namespace exists and app does not exist and", func() {
-			var fakeAppRepo *apisfakes.FakeCFAppRepository
+			var fakeAppRepo *fake.CFAppRepository
 
 			it.Before(func() {
-				fakeAppRepo = &apisfakes.FakeCFAppRepository{}
+				fakeAppRepo = &fake.CFAppRepository{}
 				fakeAppRepo.AppExistsReturns(false, nil)
 			})
 
@@ -601,7 +601,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					Expect(err).NotTo(HaveOccurred())
 
 					rr = httptest.NewRecorder()
-					clientBuilder := new(apisfakes.FakeClientBuilder)
+					clientBuilder := new(fake.ClientBuilder)
 
 					apiHandler := apis.AppHandler{
 						ServerURL:   defaultServerURL,
@@ -720,7 +720,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 						fakeAppRepo.CreateAppEnvironmentVariablesReturns(CreateEnvVarsResponse, nil)
 
 						rr = httptest.NewRecorder()
-						clientBuilder := new(apisfakes.FakeClientBuilder)
+						clientBuilder := new(fake.ClientBuilder)
 
 						apiHandler := apis.AppHandler{
 							ServerURL:   defaultServerURL,
@@ -751,7 +751,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					it.Before(func() {
 						fakeAppRepo.CreateAppEnvironmentVariablesReturns(repositories.AppEnvVarsRecord{}, errors.New("intentional error"))
 						rr = httptest.NewRecorder()
-						clientBuilder := new(apisfakes.FakeClientBuilder)
+						clientBuilder := new(fake.ClientBuilder)
 
 						apiHandler := apis.AppHandler{
 							ServerURL:   defaultServerURL,
@@ -781,7 +781,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					Expect(err).NotTo(HaveOccurred())
 
 					rr = httptest.NewRecorder()
-					clientBuilder := new(apisfakes.FakeClientBuilder)
+					clientBuilder := new(fake.ClientBuilder)
 
 					apiHandler := apis.AppHandler{
 						ServerURL:   defaultServerURL,
@@ -812,7 +812,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					Expect(err).NotTo(HaveOccurred())
 
 					rr = httptest.NewRecorder()
-					clientBuilder := new(apisfakes.FakeClientBuilder)
+					clientBuilder := new(fake.ClientBuilder)
 
 					apiHandler := apis.AppHandler{
 						ServerURL:   defaultServerURL,

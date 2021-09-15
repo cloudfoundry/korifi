@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"code.cloudfoundry.org/cf-k8s-api/apis/apisfakes"
+	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -30,9 +30,9 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 
 	var (
 		rr            *httptest.ResponseRecorder
-		routeRepo     *apisfakes.FakeCFRouteRepository
-		domainRepo    *apisfakes.FakeCFDomainRepository
-		clientBuilder *apisfakes.FakeClientBuilder
+		routeRepo     *fake.CFRouteRepository
+		domainRepo    *fake.CFDomainRepository
+		clientBuilder *fake.ClientBuilder
 		routeHandler  *apis.RouteHandler
 		req           *http.Request
 	)
@@ -44,9 +44,9 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 
 	it.Before(func() {
 		rr = httptest.NewRecorder()
-		routeRepo = new(apisfakes.FakeCFRouteRepository)
-		domainRepo = new(apisfakes.FakeCFDomainRepository)
-		clientBuilder = new(apisfakes.FakeClientBuilder)
+		routeRepo = new(fake.CFRouteRepository)
+		domainRepo = new(fake.CFDomainRepository)
+		clientBuilder = new(fake.ClientBuilder)
 
 		routeRepo.FetchRouteReturns(repositories.RouteRecord{
 			GUID:      expectedRouteGUID,
