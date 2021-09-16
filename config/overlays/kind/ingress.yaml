@@ -3,7 +3,7 @@ kind: Ingress
 metadata:
   name: cf-k8s-api-ingress
   annotations:
-    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.class: nginx
 spec:
   rules:
   - http:
@@ -13,5 +13,5 @@ spec:
             name: cf-k8s-api-svc
             port:
               name: web
-        path: /*
-        pathType: ImplementationSpecific
+        path: /
+        pathType: Prefix
