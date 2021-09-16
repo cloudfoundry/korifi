@@ -77,8 +77,8 @@ func DecodePayload(r *http.Request, object interface{}) error {
 
 func newNotFoundError(resourceName string) presenter.ErrorsResponse {
 	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  fmt.Sprintf("%s not found", resourceName),
-		Detail: "CF-ResourceNotFound",
+		Title:  "CF-ResourceNotFound",
+		Detail: fmt.Sprintf("%s not found", resourceName),
 		Code:   10010,
 	}}}
 }

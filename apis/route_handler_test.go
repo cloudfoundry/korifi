@@ -1,7 +1,6 @@
 package apis_test
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,7 +12,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
-	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
@@ -158,16 +156,18 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a CF API formatted Error response", func() {
-			expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-				Title:  "Route not found",
-				Detail: "CF-ResourceNotFound",
-				Code:   10010,
-			}}})
-
 			httpStatus := rr.Code
 			g.Expect(httpStatus).Should(Equal(http.StatusNotFound), "Matching HTTP response code:")
 
-			g.Expect(err).NotTo(HaveOccurred())
+			expectedBody := `{
+				"errors": [
+					{
+						"code": 10010,
+						"title": "CF-ResourceNotFound",
+						"detail": "Route not found"
+					}
+				]
+            }`
 			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 	})
@@ -180,16 +180,17 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a CF API formatted Error response", func() {
-			expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-				Title:  "UnknownError",
-				Detail: "An unknown error occurred.",
-				Code:   10001,
-			}}})
+			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
 
-			httpStatus := rr.Code
-			g.Expect(httpStatus).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-
-			g.Expect(err).NotTo(HaveOccurred())
+			expectedBody := `{
+				"errors": [
+					{
+						"code": 10001,
+						"title": "UnknownError",
+						"detail": "An unknown error occurred."
+					}
+				]
+            }`
 			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 	})
@@ -202,16 +203,17 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a CF API formatted Error response", func() {
-			expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-				Title:  "UnknownError",
-				Detail: "An unknown error occurred.",
-				Code:   10001,
-			}}})
+			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
 
-			httpStatus := rr.Code
-			g.Expect(httpStatus).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-
-			g.Expect(err).NotTo(HaveOccurred())
+			expectedBody := `{
+				"errors": [
+					{
+						"code": 10001,
+						"title": "UnknownError",
+						"detail": "An unknown error occurred."
+					}
+				]
+            }`
 			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 	})
