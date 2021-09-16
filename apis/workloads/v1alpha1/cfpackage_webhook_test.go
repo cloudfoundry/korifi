@@ -23,6 +23,7 @@ func testCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 		cfPackageGUID = "test-package-guid"
 		namespace     = "default"
 		cfPackageType = "bits"
+		cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"
 	)
 
 	when("there are no existing labels on the CFPackage record", func() {
@@ -45,7 +46,7 @@ func testCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			cfPackage.Default()
-			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue(v1alpha1.CFAppLabelKey, cfAppGUID))
+			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
 		})
 	})
 
@@ -73,7 +74,7 @@ func testCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 
 			cfPackage.Default()
 			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "app-label"))
-			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue(v1alpha1.CFAppLabelKey, cfAppGUID))
+			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
 		})
 	})
 }

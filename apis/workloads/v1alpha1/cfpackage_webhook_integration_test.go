@@ -23,6 +23,7 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 			cfPackageGUID = "test-package-guid"
 			cfPackageType = "bits"
 			namespace     = "default"
+			cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"
 		)
 		it.Before(func() {
 			cfApp = &v1alpha1.CFApp{
@@ -78,7 +79,7 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 					return createdCFPackage.ObjectMeta.Labels
 				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty())
 
-				g.Expect(createdCFPackage.ObjectMeta.Labels).To(HaveKeyWithValue(v1alpha1.CFAppLabelKey, cfAppGUID))
+				g.Expect(createdCFPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
 			})
 
 		})

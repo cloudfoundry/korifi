@@ -17,8 +17,9 @@ func integrationTestCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 	when("a CFApp record is created", func() {
 		const (
-			cfAppGUID = "test-app-guid"
-			namespace = "default"
+			cfAppGUID     = "test-app-guid"
+			namespace     = "default"
+			cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"
 		)
 		it(" should add a metadata label on it and it matches metadata.name", func() {
 			//Creating a CFApp resource
@@ -53,7 +54,7 @@ func integrationTestCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 				return createdCFApp.ObjectMeta.Labels
 			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty())
 
-			g.Expect(createdCFApp.ObjectMeta.Labels).To(HaveKeyWithValue(v1alpha1.CFAppLabelKey, cfAppGUID))
+			g.Expect(createdCFApp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
 
 		})
 	})
