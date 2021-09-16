@@ -5,6 +5,7 @@ import (
 )
 
 type Lifecycle struct {
+	Type string        `json:"type"`
 	Data LifecycleData `json:"data"`
 }
 

@@ -49,10 +49,12 @@ func ForApp(responseApp repositories.AppRecord, baseURL string) AppResponse {
 				},
 			},
 		},
-		Lifecycle: Lifecycle{LifecycleData{
-			Buildpacks: responseApp.Lifecycle.Data.Buildpacks,
-			Stack:      responseApp.Lifecycle.Data.Stack,
-		}},
+		Lifecycle: Lifecycle{
+			Type: responseApp.Lifecycle.Type,
+			Data: LifecycleData{
+				Buildpacks: responseApp.Lifecycle.Data.Buildpacks,
+				Stack:      responseApp.Lifecycle.Data.Stack,
+			}},
 		Metadata: Metadata{
 			Labels:      map[string]string{},
 			Annotations: map[string]string{},
@@ -79,7 +81,9 @@ func ForApp(responseApp repositories.AppRecord, baseURL string) AppResponse {
 			Droplets: Link{
 				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/droplets", responseApp.GUID)),
 			},
-			Tasks: Link{},
+			Tasks: Link{
+				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/tasks", responseApp.GUID)),
+			},
 			StartAction: Link{
 				HREF:   prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/actions/start", responseApp.GUID)),
 				Method: "POST",
@@ -88,9 +92,15 @@ func ForApp(responseApp repositories.AppRecord, baseURL string) AppResponse {
 				HREF:   prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/actions/stop", responseApp.GUID)),
 				Method: "POST",
 			},
-			Revisions:         Link{},
-			DeployedRevisions: Link{},
-			Features:          Link{},
+			Revisions: Link{
+				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/revisions", responseApp.GUID)),
+			},
+			DeployedRevisions: Link{
+				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/revisions/deployed", responseApp.GUID)),
+			},
+			Features: Link{
+				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/features", responseApp.GUID)),
+			},
 		},
 	}
 }
