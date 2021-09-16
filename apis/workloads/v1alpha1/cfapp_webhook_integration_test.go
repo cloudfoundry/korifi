@@ -1,7 +1,6 @@
 package v1alpha1_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -20,10 +19,9 @@ func integrationTestCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 		const (
 			cfAppGUID     = "test-app-guid"
 			namespace     = "default"
-			cfAppLabelKey = "apps.cloudfoundry.org/appGuid"
+			cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"
 		)
 		it(" should add a metadata label on it and it matches metadata.name", func() {
-			ctx := context.Background()
 			//Creating a CFApp resource
 			cfApp := &v1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{

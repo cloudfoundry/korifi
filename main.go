@@ -133,6 +133,10 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
 		os.Exit(1)
 	}
+	if err = (&workloadsv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err = (&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr); err != nil {

@@ -23,9 +23,9 @@ import (
 )
 
 // log is for logging in this package.
-var cfapplog = logf.Log.WithName("cfapp-resource")
+var cfpackagelog = logf.Log.WithName("cfpackage-resource")
 
-func (r *CFApp) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *CFPackage) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -33,17 +33,17 @@ func (r *CFApp) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-workloads-cloudfoundry-org-v1alpha1-cfapp,mutating=true,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cfapps,verbs=create;update,versions=v1alpha1,name=mcfapp.kb.io,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-workloads-cloudfoundry-org-v1alpha1-cfpackage,mutating=true,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cfpackages,verbs=create;update,versions=v1alpha1,name=mcfpackage.kb.io,admissionReviewVersions={v1,v1beta1}
 
-var _ webhook.Defaulter = &CFApp{}
+var _ webhook.Defaulter = &CFPackage{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *CFApp) Default() {
-	cfapplog.Info("Mutating CFApp webhook handler", "name", r.Name)
-	appLabels := r.ObjectMeta.GetLabels()
-	if appLabels == nil {
-		appLabels = make(map[string]string)
+func (r *CFPackage) Default() {
+	cfpackagelog.Info("Mutating CFPackage webhook handler", "name", r.Name)
+	packageLabels := r.ObjectMeta.GetLabels()
+	if packageLabels == nil {
+		packageLabels = make(map[string]string)
 	}
-	appLabels[cfAppLabelKey] = r.Name
-	r.ObjectMeta.SetLabels(appLabels)
+	packageLabels[cfAppLabelKey] = r.Spec.AppRef.Name
+	r.ObjectMeta.SetLabels(packageLabels)
 }
