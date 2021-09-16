@@ -1,6 +1,7 @@
 package v1alpha1_test
 
 import (
+	v1 "k8s.io/api/core/v1"
 	"testing"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
@@ -39,7 +40,7 @@ func testCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 				},
 				Spec: v1alpha1.CFPackageSpec{
 					Type: cfPackageType,
-					AppRef: v1alpha1.ResourceReference{
+					AppRef: v1.LocalObjectReference{
 						Name: cfAppGUID,
 					},
 				},
@@ -66,7 +67,7 @@ func testCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 				},
 				Spec: v1alpha1.CFPackageSpec{
 					Type: cfPackageType,
-					AppRef: v1alpha1.ResourceReference{
+					AppRef: v1.LocalObjectReference{
 						Name: cfAppGUID,
 					},
 				},

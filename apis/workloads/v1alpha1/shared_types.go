@@ -6,11 +6,6 @@ import (
 
 const cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"
 
-// ResourceReference defines a reference to an instance of a resource in Kubernetes
-type ResourceReference struct { // TODO: replace this with k8s.io/api/core/v1.LocalObjectReference
-	Name string `json:"name"`
-}
-
 type Lifecycle struct {
 	// Specifies the CF Lifecycle type:
 	// Valid values are:

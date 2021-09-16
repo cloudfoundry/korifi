@@ -17,22 +17,23 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CFBuildSpec defines the desired state of CFBuild
 type CFBuildSpec struct {
 	// Specifies the CFPackage associated with this build
-	PackageRef ResourceReference `json:"packageRef"`
+	PackageRef v1.LocalObjectReference `json:"packageRef"`
 	// Specifies the CFApp associated with this build
-	AppRef ResourceReference `json:"appRef"`
+	AppRef v1.LocalObjectReference `json:"appRef"`
 	// Specifies the buildpacks and stack for the build
 	Lifecycle Lifecycle `json:"lifecycle"`
 }
 
 // CFBuildStatus defines the observed state of CFBuild
 type CFBuildStatus struct {
-	DropletRef ResourceReference `json:"dropletRef,omitempty"`
+	DropletRef v1.LocalObjectReference `json:"dropletRef,omitempty"`
 	// Conditions capture the current status of the Build
 	Conditions []metav1.Condition `json:"conditions"`
 }

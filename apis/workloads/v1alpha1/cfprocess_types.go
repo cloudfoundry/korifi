@@ -17,13 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CFProcessSpec defines the desired state of CFProcess
 type CFProcessSpec struct {
 	// Specifies the App that owns this process
-	AppRef ResourceReference `json:"appRef"`
+	AppRef v1.LocalObjectReference `json:"appRef"`
 
 	// Specifies the name of the process in the App
 	ProcessType string `json:"processType"`

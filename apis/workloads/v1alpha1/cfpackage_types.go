@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,7 +29,7 @@ type CFPackageSpec struct {
 	Type PackageType `json:"type"`
 
 	// AppRef reference to the CFApp that owns this package
-	AppRef ResourceReference `json:"appRef"`
+	AppRef v1.LocalObjectReference `json:"appRef"`
 
 	// Source contains the details for the source image(bits)
 	Source PackageSource `json:"source,omitempty"`
