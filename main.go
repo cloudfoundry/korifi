@@ -11,7 +11,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
-	. "code.cloudfoundry.org/cf-k8s-api/config"
+	"code.cloudfoundry.org/cf-k8s-api/config"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"github.com/gorilla/mux"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -33,8 +33,7 @@ func main() {
 	if !found {
 		panic("CONFIG must be set")
 	}
-
-	config, err := LoadConfigFromPath(configPath)
+	config, err := config.LoadFromPath(configPath)
 	if err != nil {
 		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
 		panic(errorMessage)

@@ -10,7 +10,7 @@ type Config struct {
 	ServerPort int    `yaml:"serverPort"`
 }
 
-func LoadConfigFromPath(path string) (*Config, error) {
+func LoadFromPath(path string) (*Config, error) {
 	var config Config
 	configFile, err := os.Open(path)
 	if err != nil {
