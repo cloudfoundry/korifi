@@ -38,6 +38,9 @@ deploy: kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/c
 	cd config && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-api=${IMG}
 	$(KUSTOMIZE) build config | kubectl apply -f -
 
+undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config | kubectl delete -f -
+
 build-reference: kustomize
 	cd config && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-api=${IMG}
 	$(KUSTOMIZE) build config -o reference/cf-k8s-api.yaml

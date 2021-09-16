@@ -3,7 +3,7 @@ kind: Service
 metadata:
   labels:
     app: cf-k8s-api
-  name: cf-k8s-api-svc
+  name: svc
 spec:
   type: NodePort
   ports:
