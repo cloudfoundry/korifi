@@ -62,7 +62,7 @@ make build-reference
 ## Using kubectl
 Apply CRDs and controller-manager with reference defaults
 ```
-kubectl apply reference/cf-k8s-controllers.yaml
+kubectl apply -f reference/cf-k8s-controllers.yaml
 ```
 ---
 ## Sample Resources
