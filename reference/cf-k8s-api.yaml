@@ -1,0 +1,169 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cf-k8s-api-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cf-k8s-api-cf-admin-serviceaccount
+  namespace: cf-k8s-api-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: cf-k8s-api-cf-admin-clusterrole
+rules:
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfdomains
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfdomains/status
+  verbs:
+  - get
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes/status
+  verbs:
+  - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfapps/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cf-k8s-api-cf-admin-clusterrolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cf-k8s-api-cf-admin-clusterrole
+subjects:
+- kind: ServiceAccount
+  name: cf-k8s-api-cf-admin-serviceaccount
+  namespace: cf-k8s-api-system
+---
+apiVersion: v1
+data:
+  cf_k8s_api_config.yaml: |-
+    "serverURL": "https://api.example.org"
+    "serverPort": 9000
+kind: ConfigMap
+metadata:
+  name: cf-k8s-api-config-h2gm67bf87
+  namespace: cf-k8s-api-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: cf-k8s-api
+  name: cf-k8s-api-svc
+  namespace: cf-k8s-api-system
+spec:
+  ports:
+  - name: web
+    port: 9000
+    protocol: TCP
+    targetPort: web
+  selector:
+    app: cf-k8s-api
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: cf-k8s-api
+  name: cf-k8s-api-deployment
+  namespace: cf-k8s-api-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cf-k8s-api
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: cf-k8s-api
+    spec:
+      containers:
+      - env:
+        - name: CONFIG
+          value: /cf_k8s_api_config.yaml
+        image: cloudfoundry/cf-k8s-api:latest
+        name: cf-k8s-api
+        ports:
+        - containerPort: 9000
+          name: web
+        resources: {}
+        volumeMounts:
+        - mountPath: /cf_k8s_api_config.yaml
+          name: cf-k8s-api-config
+          readOnly: true
+          subPath: cf_k8s_api_config.yaml
+      serviceAccountName: cf-k8s-api-cf-admin-serviceaccount
+      volumes:
+      - configMap:
+          name: cf-k8s-api-config-h2gm67bf87
+        name: cf-k8s-api-config
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: gce
+  name: cf-k8s-api-cf-k8s-api-ingress
+  namespace: cf-k8s-api-system
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: cf-k8s-api-svc
+            port:
+              name: web
+        path: /*
+        pathType: ImplementationSpecific

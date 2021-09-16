@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   labels:
     app: cf-k8s-api
-  name: cf-k8s-api
+  name: deployment
 spec:
   replicas: 1
   selector:
@@ -15,7 +15,7 @@ spec:
       labels:
         app: cf-k8s-api
     spec:
-      serviceAccount: cf-admin-serviceaccount
+      serviceAccountName: cf-admin-serviceaccount
       containers:
       - image: cloudfoundry/cf-k8s-api:latest
         name: cf-k8s-api
