@@ -1664,6 +1664,27 @@ webhooks:
     resources:
     - cfpackages
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: cf-k8s-controllers-webhook-service
+      namespace: cf-k8s-controllers-system
+      path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfprocess
+  failurePolicy: Fail
+  name: mcfprocess.kb.io
+  rules:
+  - apiGroups:
+    - workloads.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfprocesses
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration

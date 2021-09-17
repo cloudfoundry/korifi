@@ -150,6 +150,11 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
 		os.Exit(1)
 	}
+
+	if err = (&workloadsv1alpha1.CFProcess{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFProcess")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err = (&workloads.CFAppValidation{
