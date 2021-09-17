@@ -44,6 +44,6 @@ func (r *CFApp) Default() {
 	if appLabels == nil {
 		appLabels = make(map[string]string)
 	}
-	appLabels[cfAppLabelKey] = r.Name
+	appLabels[cfAppGUIDLabelKey] = r.Name
 	r.ObjectMeta.SetLabels(appLabels)
 }

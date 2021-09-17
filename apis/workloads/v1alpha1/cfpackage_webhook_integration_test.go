@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,15 +18,17 @@ var _ = AddToTestSuite("CFPackageWebhook", integrationTestCFPackageWebhook)
 
 func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
+
 	when("a CFApp record exists", func() {
 		var cfApp *v1alpha1.CFApp
 		const (
-			cfAppGUID     = "test-app-guid"
-			cfPackageGUID = "test-package-guid"
-			cfPackageType = "bits"
-			namespace     = "default"
-			cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"
+			cfAppGUID         = "test-app-guid"
+			cfAppGUIDLabelKey = "workloads.cloudfoundry.org/app-guid"
+			cfPackageGUID     = "test-package-guid"
+			cfPackageType     = "bits"
+			namespace         = "default"
 		)
+
 		it.Before(func() {
 			cfApp = &v1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
@@ -46,6 +49,7 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 			g.Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 		})
+
 		when("a CFPackage record referencing the CFAPP is created", func() {
 			it.Before(func() {
 				cfPackage := &v1alpha1.CFPackage{
@@ -68,7 +72,6 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("should have CFAppGUID metadata label on it and its value should matches spec.appRef", func() {
-				//Fetching the created CFPackage resource
 				cfPackageLookupKey := types.NamespacedName{Name: cfPackageGUID, Namespace: namespace}
 				createdCFPackage := new(v1alpha1.CFPackage)
 
@@ -78,12 +81,10 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 						return nil
 					}
 					return createdCFPackage.ObjectMeta.Labels
-				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty())
+				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFPackage resource does not have any metadata.labels")
 
-				g.Expect(createdCFPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
+				g.Expect(createdCFPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
 			})
-
 		})
-
 	})
 }

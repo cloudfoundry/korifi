@@ -20,6 +20,9 @@ import (
 	"flag"
 	"os"
 
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	networkingcontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/networking"
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 
@@ -33,10 +36,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-	networkingcontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/networking"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -57,11 +56,13 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -91,27 +92,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CFApp")
 		os.Exit(1)
 	}
-	if err = (&workloadscontrollers.CFPackageReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
-		os.Exit(1)
-	}
-	if err = (&workloadscontrollers.CFDropletReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFDroplet")
-		os.Exit(1)
-	}
-	if err = (&workloadscontrollers.CFProcessReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFProcess")
-		os.Exit(1)
-	}
+
 	if err = (&workloadscontrollers.CFBuildReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -119,13 +100,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
 		os.Exit(1)
 	}
-	if err = (&networkingcontrollers.CFRouteReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
-		os.Exit(1)
-	}
+
 	if err = (&networkingcontrollers.CFDomainReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -133,16 +108,50 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
 		os.Exit(1)
 	}
+
+	if err = (&workloadscontrollers.CFDropletReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFDroplet")
+		os.Exit(1)
+	}
+
+	if err = (&workloadscontrollers.CFPackageReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
+		os.Exit(1)
+	}
+
+	if err = (&workloadscontrollers.CFProcessReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFProcess")
+		os.Exit(1)
+	}
+
+	if err = (&networkingcontrollers.CFRouteReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
+		os.Exit(1)
+	}
+
+	if err = (&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
+		os.Exit(1)
+	}
+
 	if err = (&workloadsv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
 
-	if err = (&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
-		os.Exit(1)
-	}
 	if err = (&workloads.CFAppValidation{
 		Client: mgr.GetClient(),
 	}).SetupWebhookWithManager(mgr); err != nil {
@@ -154,6 +163,7 @@ func main() {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
+
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)

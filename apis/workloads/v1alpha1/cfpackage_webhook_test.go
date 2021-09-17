@@ -5,26 +5,26 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestPackageWebhook(t *testing.T) {
+func TestCFPackageWebhook(t *testing.T) {
 	spec.Run(t, "CFPackage Webhook", testCFPackageWebhook, spec.Report(report.Terminal{}))
-
 }
 
 func testCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
 	const (
-		cfAppGUID     = "test-app-guid"
-		cfPackageGUID = "test-package-guid"
-		namespace     = "default"
-		cfPackageType = "bits"
-		cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"
+		cfAppGUID         = "test-app-guid"
+		cfAppGUIDLabelKey = "workloads.cloudfoundry.org/app-guid"
+		cfPackageGUID     = "test-package-guid"
+		cfPackageType     = "bits"
+		namespace         = "default"
 	)
 
 	when("there are no existing labels on the CFPackage record", func() {
@@ -47,7 +47,7 @@ func testCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			cfPackage.Default()
-			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
+			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
 		})
 	})
 
@@ -74,8 +74,8 @@ func testCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			cfPackage.Default()
+			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveLen(2))
 			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "app-label"))
-			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
 		})
 	})
 }
