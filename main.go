@@ -67,16 +67,25 @@ func main() {
 		K8sConfig:   k8sClientConfig,
 		BuildClient: repositories.BuildClient,
 	}
+	packageHandler := &apis.PackageHandler{
+		ServerURL:   config.ServerURL,
+		PackageRepo: &repositories.PackageRepo{},
+		AppRepo:     &repositories.AppRepo{},
+		K8sConfig:   k8sClientConfig,
+		Logger:      ctrl.Log.WithName("PackageHandler"),
+		BuildClient: repositories.BuildClient,
+	}
 
 	router := mux.NewRouter()
 	// create API routes
 	apiRoutes := routes.APIRoutes{
 		//add API routes to handler
-		RootV3Handler:    apiRootV3Handler.RootV3GetHandler,
-		RootHandler:      apiRootHandler.RootGetHandler,
-		AppCreateHandler: appHandler.AppCreateHandler,
-		AppGetHandler:    appHandler.AppGetHandler,
-		RouteGetHandler:  routeHandler.RouteGetHandler,
+		RootV3Handler:        apiRootV3Handler.RootV3GetHandler,
+		RootHandler:          apiRootHandler.RootGetHandler,
+		AppCreateHandler:     appHandler.AppCreateHandler,
+		AppGetHandler:        appHandler.AppGetHandler,
+		RouteGetHandler:      routeHandler.RouteGetHandler,
+		PackageCreateHandler: packageHandler.PackageCreateHandler,
 	}
 	// Call RegisterRoutes to register all the routes in APIRoutes
 	apiRoutes.RegisterRoutes(router)

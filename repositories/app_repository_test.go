@@ -19,11 +19,25 @@ import (
 	"github.com/sclevine/spec"
 )
 
-var _ = SuiteDescribe("API Shim App Get", testAppGet)
-var _ = SuiteDescribe("API Shim App Create", testAppCreate)
-var _ = SuiteDescribe("API Shim App Secret Create/Update", testEnvSecretCreate)
+var _ = SuiteDescribe("App Repository FetchApp", testFetchApp)
+var _ = SuiteDescribe("App Repository CreateApp", testCreateApp)
+var _ = SuiteDescribe("App Repository Secret Create/Update", testEnvSecretCreate)
+var _ = SuiteDescribe("App Repository Secret Create/Update", testEnvSecretCreate)
+var _ = SuiteDescribe("App Repository FetchNamespace", func(t *testing.T, when spec.G, it spec.S) {
+	g := NewWithT(t)
+	when("space does not exist", func() {
+		it("returns an unauthorized or not found err", func() {
+			appRepo := AppRepo{}
+			client, err := BuildClient(k8sConfig)
 
-func testAppGet(t *testing.T, when spec.G, it spec.S) {
+			_, err = appRepo.FetchNamespace(context.Background(), client, "some-guid")
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err).To(MatchError("Invalid space. Ensure that the space exists and you have access to it."))
+		})
+	})
+})
+
+func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
 	const (
@@ -46,8 +60,8 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 		)
 		it.Before(func() {
 			beforeCtx := context.Background()
-			app1GUID = generateAppGUID()
-			app2GUID = generateAppGUID()
+			app1GUID = generateGUID()
+			app2GUID = generateGUID()
 			cfApp1 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      app1GUID,
@@ -126,7 +140,7 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 
 		it.Before(func() {
 			beforeCtx := context.Background()
-			testAppGUID = generateAppGUID()
+			testAppGUID = generateGUID()
 			g.Expect(k8sClient.Create(beforeCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: otherNamespaceName}})).To(Succeed())
 
 			cfApp1 = &workloadsv1alpha1.CFApp{
@@ -198,7 +212,7 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 	})
 }
 
-func intializeAppCR(appName string, appGUID string, spaceGUID string) workloadsv1alpha1.CFApp {
+func initializeAppCR(appName string, appGUID string, spaceGUID string) workloadsv1alpha1.CFApp {
 	return workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
@@ -218,7 +232,7 @@ func intializeAppCR(appName string, appGUID string, spaceGUID string) workloadsv
 	}
 }
 
-func intializeAppRecord(appName string, appGUID string, spaceGUID string) AppRecord {
+func initializeAppRecord(appName string, appGUID string, spaceGUID string) AppRecord {
 	return AppRecord{
 		Name:      appName,
 		GUID:      appGUID,
@@ -234,7 +248,7 @@ func intializeAppRecord(appName string, appGUID string, spaceGUID string) AppRec
 	}
 }
 
-func generateAppGUID() string {
+func generateGUID() string {
 	newUUID, err := uuid.NewUUID()
 	if err != nil {
 		errorMessage := fmt.Sprintf("could not generate a UUID %v", err)
@@ -253,7 +267,7 @@ func cleanupApp(k8sClient client.Client, ctx context.Context, appGUID, appNamesp
 	return k8sClient.Delete(ctx, &app)
 }
 
-func testAppCreate(t *testing.T, when spec.G, it spec.S) {
+func testCreateApp(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
 	const (
@@ -270,7 +284,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 			testCtx        context.Context
 		)
 		it.Before(func() {
-			testAppGUID = generateAppGUID()
+			testAppGUID = generateGUID()
 			testCtx = context.Background()
 		})
 
@@ -296,14 +310,12 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 
 			it.Before(func() {
 				appRepo = AppRepo{}
-				client, _ = BuildClient(k8sConfig)
-				appRecord = intializeAppRecord(testAppName, testAppGUID, defaultNamespace)
-			})
 
-			it("returns false when checking if the App Exists", func() {
-				exists, err := appRepo.AppExists(testCtx, client, testAppGUID, defaultNamespace)
-				g.Expect(exists).To(BeFalse())
+				var err error
+				client, err = BuildClient(k8sConfig)
 				g.Expect(err).NotTo(HaveOccurred())
+
+				appRecord = initializeAppRecord(testAppName, testAppGUID, defaultNamespace)
 			})
 
 			it("should create a new app CR successfully", func() {
@@ -328,6 +340,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 					beforeCreationTime time.Time
 					createdAppRecord   AppRecord
 				)
+
 				it.Before(func() {
 					beforeCtx := context.Background()
 					beforeCreationTime = time.Now().UTC().AddDate(0, 0, -1)
@@ -336,6 +349,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 					createdAppRecord, err = appRepo.CreateApp(beforeCtx, client, appRecord)
 					g.Expect(err).To(BeNil())
 				})
+
 				it.After(func() {
 					afterCtx := context.Background()
 					g.Expect(cleanupApp(k8sClient, afterCtx, testAppGUID, defaultNamespace)).To(Succeed())
@@ -377,7 +391,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 
 			it.Before(func() {
 				beforeCtx := context.Background()
-				appCR = intializeAppCR(testAppName, testAppGUID, defaultNamespace)
+				appCR = initializeAppCR(testAppName, testAppGUID, defaultNamespace)
 
 				g.Expect(k8sClient.Create(beforeCtx, &appCR)).To(Succeed())
 
@@ -390,18 +404,8 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 				g.Expect(k8sClient.Delete(afterCtx, &appCR)).To(Succeed())
 			})
 
-			it("should eventually return true when AppExists is called", func() {
-				g.Eventually(func() bool {
-					exists, _ := appRepo.AppExists(testCtx, client, testAppGUID, defaultNamespace)
-					return exists
-				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
-				exists, err := appRepo.AppExists(testCtx, client, testAppGUID, defaultNamespace)
-				g.Expect(exists).To(BeTrue())
-				g.Expect(err).NotTo(HaveOccurred())
-			})
-
 			it("should error when trying to create the same app again", func() {
-				appRecord := intializeAppRecord(testAppName, testAppGUID, defaultNamespace)
+				appRecord := initializeAppRecord(testAppName, testAppGUID, defaultNamespace)
 				createdAppRecord, err := appRepo.CreateApp(testCtx, client, appRecord)
 				g.Expect(err).NotTo(BeNil())
 				g.Expect(createdAppRecord).To(Equal(emptyAppRecord))
@@ -438,7 +442,7 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 			beforeCtx := context.Background()
 			appRepo = AppRepo{}
 			client, _ = BuildClient(k8sConfig)
-			testAppGUID = generateAppGUID()
+			testAppGUID = generateGUID()
 			testAppEnvSecretName = generateAppEnvSecretName(testAppGUID)
 			testAppEnvSecret = AppEnvVarsRecord{
 				AppGUID:              testAppGUID,
@@ -461,6 +465,7 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 			g.Expect(client.Delete(afterCtx, &lookupSecretK8sResource)).To(Succeed(), "Could not clean up the created App Env Secret")
 		})
 
+		// this test appears flakey
 		it("returns a record matching the input and no error", func() {
 			g.Expect(returnedAppEnvVarsRecord.AppGUID).To(Equal(testAppEnvSecret.AppGUID))
 			g.Expect(returnedAppEnvVarsRecord.SpaceGUID).To(Equal(testAppEnvSecret.SpaceGUID))

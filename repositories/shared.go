@@ -68,5 +68,9 @@ func getTimeLastUpdatedTimestamp(metadata *metav1.ObjectMeta) (string, error) {
 		return "", errors.New("error, could not find a time in metadata.ManagedFields")
 	}
 
-	return latestTime.UTC().Format(TimestampFormat), nil
+	return formatTimestamp(*latestTime), nil
+}
+
+func formatTimestamp(time metav1.Time) string {
+	return time.UTC().Format(TimestampFormat)
 }
