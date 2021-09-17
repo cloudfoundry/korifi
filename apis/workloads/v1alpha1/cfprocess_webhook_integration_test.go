@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -28,7 +29,7 @@ func integrationTestCFProcessWebhook(t *testing.T, when spec.G, it spec.S) {
 			namespace             = "default"
 		)
 
-		it("should add a process-guid label to match metadata.name", func() {
+		it.Before(func() {
 			cfProcess := &v1alpha1.CFProcess{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFProcess",
@@ -39,10 +40,10 @@ func integrationTestCFProcessWebhook(t *testing.T, when spec.G, it spec.S) {
 					Namespace: namespace,
 				},
 				Spec: v1alpha1.CFProcessSpec{
-					AppRef: v1alpha1.ResourceReference{
-						Name: "",
+					AppRef: v1.LocalObjectReference{
+						Name: cfAppGUID,
 					},
-					ProcessType: "",
+					ProcessType: cfProcessType,
 					HealthCheck: v1alpha1.HealthCheck{
 						Type: "http",
 					},
@@ -50,7 +51,9 @@ func integrationTestCFProcessWebhook(t *testing.T, when spec.G, it spec.S) {
 				},
 			}
 			g.Expect(k8sClient.Create(ctx, cfProcess)).To(Succeed())
+		})
 
+		it("should add the appropriate labels", func() {
 			cfProcessLookupKey := types.NamespacedName{Name: cfProcessGUID, Namespace: namespace}
 			createdCFProcess := new(v1alpha1.CFProcess)
 
@@ -63,79 +66,7 @@ func integrationTestCFProcessWebhook(t *testing.T, when spec.G, it spec.S) {
 			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFProcess resource does not have any metadata.labels")
 
 			g.Expect(createdCFProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfProcessGUIDLabelKey, cfProcessGUID))
-		})
-
-		it("should add a process-type label to match spec.processType", func() {
-			cfProcess := &v1alpha1.CFProcess{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CFProcess",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfProcessGUID,
-					Namespace: namespace,
-				},
-				Spec: v1alpha1.CFProcessSpec{
-					AppRef: v1alpha1.ResourceReference{
-						Name: "",
-					},
-					ProcessType: cfProcessType,
-					HealthCheck: v1alpha1.HealthCheck{
-						Type: "http",
-					},
-					Ports: []int32{},
-				},
-			}
-			g.Expect(k8sClient.Create(ctx, cfProcess)).To(Succeed())
-
-			cfProcessLookupKey := types.NamespacedName{Name: cfProcessGUID, Namespace: namespace}
-			createdCFProcess := new(v1alpha1.CFProcess)
-
-			g.Eventually(func() map[string]string {
-				err := k8sClient.Get(ctx, cfProcessLookupKey, createdCFProcess)
-				if err != nil {
-					return nil
-				}
-				return createdCFProcess.ObjectMeta.Labels
-			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFProcess resource does not have any metadata.labels")
-
 			g.Expect(createdCFProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfProcessTypeLabelKey, cfProcessType))
-		})
-
-		it("should add an app-guid label to match spec.appRef.name", func() {
-			cfProcess := &v1alpha1.CFProcess{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CFProcess",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfProcessGUID,
-					Namespace: namespace,
-				},
-				Spec: v1alpha1.CFProcessSpec{
-					AppRef: v1alpha1.ResourceReference{
-						Name: cfAppGUID,
-					},
-					ProcessType: "",
-					HealthCheck: v1alpha1.HealthCheck{
-						Type: "http",
-					},
-					Ports: []int32{},
-				},
-			}
-			g.Expect(k8sClient.Create(ctx, cfProcess)).To(Succeed())
-
-			cfProcessLookupKey := types.NamespacedName{Name: cfProcessGUID, Namespace: namespace}
-			createdCFProcess := new(v1alpha1.CFProcess)
-
-			g.Eventually(func() map[string]string {
-				err := k8sClient.Get(ctx, cfProcessLookupKey, createdCFProcess)
-				if err != nil {
-					return nil
-				}
-				return createdCFProcess.ObjectMeta.Labels
-			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFProcess resource does not have any metadata.labels")
-
 			g.Expect(createdCFProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
 		})
 	})
