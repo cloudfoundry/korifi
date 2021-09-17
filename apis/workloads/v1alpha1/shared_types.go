@@ -4,7 +4,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"
+const (
+	cfAppGUIDLabelKey     = "workloads.cloudfoundry.org/app-guid"
+	cfProcessGUIDLabelKey = "workloads.cloudfoundry.org/process-guid"
+	cfProcessTypeLabelKey = "workloads.cloudfoundry.org/process-type"
+)
 
 type Lifecycle struct {
 	// Specifies the CF Lifecycle type:

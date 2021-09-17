@@ -2,12 +2,7 @@
 # Defines a CFProcess for a given app. Results in an Eirini LRP.
 apiVersion: workloads.cloudfoundry.org/v1alpha1
 kind: CFProcess
-metadata:
-  # apps.cloudfoundry.org/ labels are all managed by a mutating webhook based on appRef and its droplet
-  labels:
-    apps.cloudfoundry.org/appGuid: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
-    apps.cloudfoundry.org/processGuid: my-app
-    apps.cloudfoundry.org/processType: web
+metadata:  # workloads.cloudfoundry.org/ labels are all managed by a mutating webhook based on appRef and its droplet
   name: 99dcda7d-1fa1-4a91-b437-fbdba20et56y
 spec:
   appRef:

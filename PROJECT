@@ -48,6 +48,9 @@ resources:
   kind: CFProcess
   path: code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1
   version: v1alpha1
+  webhooks:
+    defaulting: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true

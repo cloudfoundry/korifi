@@ -44,6 +44,6 @@ func (r *CFPackage) Default() {
 	if packageLabels == nil {
 		packageLabels = make(map[string]string)
 	}
-	packageLabels[cfAppLabelKey] = r.Spec.AppRef.Name
+	packageLabels[cfAppGUIDLabelKey] = r.Spec.AppRef.Name
 	r.ObjectMeta.SetLabels(packageLabels)
 }

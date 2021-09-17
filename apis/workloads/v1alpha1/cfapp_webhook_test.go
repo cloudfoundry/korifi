@@ -4,15 +4,15 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestAppWebhook(t *testing.T) {
+func TestCFAppWebhook(t *testing.T) {
 	spec.Run(t, "CFApp Webhook", testCFAppWebhook, spec.Report(report.Terminal{}))
-
 }
 
 func testCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
@@ -20,8 +20,8 @@ func testCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 
 	const (
 		cfAppGUID     = "test-app-guid"
-		namespace     = "default"
 		cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"
+		namespace     = "default"
 	)
 
 	when("there are no existing labels on the CFAPP record", func() {
@@ -73,8 +73,8 @@ func testCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			cfApp.Default()
+			g.Expect(cfApp.ObjectMeta.Labels).To(HaveLen(2))
 			g.Expect(cfApp.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "app-label"))
-			g.Expect(cfApp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
 		})
 	})
 }

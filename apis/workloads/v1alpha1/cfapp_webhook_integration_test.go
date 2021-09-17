@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,14 +16,15 @@ var _ = AddToTestSuite("CFAppWebhook", integrationTestCFAppWebhook)
 
 func integrationTestCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
+
 	when("a CFApp record is created", func() {
 		const (
 			cfAppGUID     = "test-app-guid"
-			namespace     = "default"
 			cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"
+			namespace     = "default"
 		)
+
 		it(" should add a metadata label on it and it matches metadata.name", func() {
-			//Creating a CFApp resource
 			cfApp := &v1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
@@ -42,7 +44,6 @@ func integrationTestCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 			g.Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 
-			//Fetching the created CFApp resource
 			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespace}
 			createdCFApp := new(v1alpha1.CFApp)
 
@@ -52,11 +53,9 @@ func integrationTestCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 					return nil
 				}
 				return createdCFApp.ObjectMeta.Labels
-			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty())
+			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFApp resource does not have any metadata.labels")
 
 			g.Expect(createdCFApp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
-
 		})
 	})
-
 }
