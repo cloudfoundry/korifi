@@ -1146,10 +1146,6 @@ spec:
               path:
                 description: Path is optional, defaults to empty.
                 type: string
-              port:
-                description: Port is optional, CF Routes only allow port info on TCP
-                  routes.
-                type: integer
               protocol:
                 description: Protocol is optional, defaults to http. Dependent on
                   allow-listed protocols on domain.
@@ -1646,6 +1642,27 @@ webhooks:
     - UPDATE
     resources:
     - cfapps
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: cf-k8s-controllers-webhook-service
+      namespace: cf-k8s-controllers-system
+      path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfpackage
+  failurePolicy: Fail
+  name: mcfpackage.kb.io
+  rules:
+  - apiGroups:
+    - workloads.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfpackages
   sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
