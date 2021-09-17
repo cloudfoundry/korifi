@@ -7,6 +7,8 @@ import (
 
 //go:generate controller-gen rbac:roleName=cf-admin-clusterrole paths=./... output:rbac:artifacts:config=../config/rbac
 
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+
 type NotFoundError struct {
 	Err error
 }

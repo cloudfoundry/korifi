@@ -7,6 +7,14 @@ metadata:
   name: cf-admin-clusterrole
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - networking.cloudfoundry.org
   resources:
   - cfdomains
