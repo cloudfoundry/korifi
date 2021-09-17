@@ -36,17 +36,15 @@ spec:
                 description: Specifies the App associated with this Droplet
                 properties:
                   name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
-                required:
-                - name
                 type: object
               buildRef:
                 description: Specifies the Build associated with this Droplet
                 properties:
                   name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
-                required:
-                - name
                 type: object
               ports:
                 description: Specifies the exposed ports for the application

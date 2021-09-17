@@ -36,9 +36,8 @@ spec:
                 description: AppRef reference to the CFApp that owns this package
                 properties:
                   name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
-                required:
-                - name
                 type: object
               source:
                 description: Source contains the details for the source image(bits)

@@ -2,6 +2,7 @@ package v1alpha1_test
 
 import (
 	"context"
+	v1 "k8s.io/api/core/v1"
 	"testing"
 	"time"
 
@@ -58,7 +59,7 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 					},
 					Spec: v1alpha1.CFPackageSpec{
 						Type: cfPackageType,
-						AppRef: v1alpha1.ResourceReference{
+						AppRef: v1.LocalObjectReference{
 							Name: cfAppGUID,
 						},
 					},

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,10 +27,10 @@ type CFDropletSpec struct {
 	Type LifecycleType `json:"type"`
 
 	// Specifies the App associated with this Droplet
-	AppRef ResourceReference `json:"appRef"`
+	AppRef v1.LocalObjectReference `json:"appRef"`
 
 	// Specifies the Build associated with this Droplet
-	BuildRef ResourceReference `json:"buildRef"`
+	BuildRef v1.LocalObjectReference `json:"buildRef"`
 
 	// Specifies the Container registry image, and secrets to access
 	Registry Registry `json:"registry"`

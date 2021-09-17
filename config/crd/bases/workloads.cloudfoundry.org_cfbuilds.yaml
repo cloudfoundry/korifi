@@ -36,9 +36,8 @@ spec:
                 description: Specifies the CFApp associated with this build
                 properties:
                   name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
-                required:
-                - name
                 type: object
               lifecycle:
                 description: Specifies the buildpacks and stack for the build
@@ -69,9 +68,8 @@ spec:
                 description: Specifies the CFPackage associated with this build
                 properties:
                   name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
-                required:
-                - name
                 type: object
             required:
             - appRef
@@ -126,12 +124,11 @@ spec:
                   type: object
                 type: array
               dropletRef:
-                description: ResourceReference defines a reference to an instance of a resource in Kubernetes
+                description: LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.
                 properties:
                   name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
-                required:
-                - name
                 type: object
             required:
             - conditions
