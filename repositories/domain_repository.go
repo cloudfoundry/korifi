@@ -21,9 +21,9 @@ type DomainRecord struct {
 	UpdatedAt string
 }
 
-func (f *DomainRepo) FetchDomain(client client.Client, domainGUID string) (DomainRecord, error) {
+func (f *DomainRepo) FetchDomain(ctx context.Context, client client.Client, domainGUID string) (DomainRecord, error) {
 	cfDomainList := &networkingv1alpha1.CFDomainList{}
-	err := client.List(context.Background(), cfDomainList)
+	err := client.List(ctx, cfDomainList)
 
 	if err != nil {
 		return DomainRecord{}, err

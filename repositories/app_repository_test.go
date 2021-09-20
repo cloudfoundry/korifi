@@ -98,7 +98,7 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			app, err := appRepo.FetchApp(client, testCtx, app2GUID)
+			app, err := appRepo.FetchApp(testCtx, client, app2GUID)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(app.GUID).To(Equal(app2GUID))
 			g.Expect(app.Name).To(Equal("test-app2"))
@@ -179,7 +179,7 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			_, err = appRepo.FetchApp(client, testCtx, testAppGUID)
+			_, err = appRepo.FetchApp(testCtx, client, testAppGUID)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err).To(MatchError("duplicate apps exist"))
 		})
@@ -191,7 +191,7 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			_, err = appRepo.FetchApp(client, testCtx, "i don't exist")
+			_, err = appRepo.FetchApp(testCtx, client, "i don't exist")
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err).To(MatchError("not found"))
 		})
@@ -280,7 +280,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 				appRepo := AppRepo{}
 				client, err := BuildClient(k8sConfig)
 
-				_, err = appRepo.FetchNamespace(client, testCtx, "some-guid")
+				_, err = appRepo.FetchNamespace(testCtx, client, "some-guid")
 				g.Expect(err).To(HaveOccurred())
 				g.Expect(err).To(MatchError("Invalid space. Ensure that the space exists and you have access to it."))
 			})
@@ -301,13 +301,13 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns false when checking if the App Exists", func() {
-				exists, err := appRepo.AppExists(client, testCtx, testAppGUID, defaultNamespace)
+				exists, err := appRepo.AppExists(testCtx, client, testAppGUID, defaultNamespace)
 				g.Expect(exists).To(BeFalse())
 				g.Expect(err).NotTo(HaveOccurred())
 			})
 
 			it("should create a new app CR successfully", func() {
-				createdAppRecord, err := appRepo.CreateApp(client, testCtx, appRecord)
+				createdAppRecord, err := appRepo.CreateApp(testCtx, client, appRecord)
 				g.Expect(err).To(BeNil())
 				g.Expect(createdAppRecord).NotTo(BeNil())
 
@@ -333,7 +333,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 					beforeCreationTime = time.Now().UTC().AddDate(0, 0, -1)
 
 					var err error
-					createdAppRecord, err = appRepo.CreateApp(client, beforeCtx, appRecord)
+					createdAppRecord, err = appRepo.CreateApp(beforeCtx, client, appRecord)
 					g.Expect(err).To(BeNil())
 				})
 				it.After(func() {
@@ -392,17 +392,17 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 
 			it("should eventually return true when AppExists is called", func() {
 				g.Eventually(func() bool {
-					exists, _ := appRepo.AppExists(client, testCtx, testAppGUID, defaultNamespace)
+					exists, _ := appRepo.AppExists(testCtx, client, testAppGUID, defaultNamespace)
 					return exists
 				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
-				exists, err := appRepo.AppExists(client, testCtx, testAppGUID, defaultNamespace)
+				exists, err := appRepo.AppExists(testCtx, client, testAppGUID, defaultNamespace)
 				g.Expect(exists).To(BeTrue())
 				g.Expect(err).NotTo(HaveOccurred())
 			})
 
 			it("should error when trying to create the same app again", func() {
 				appRecord := intializeAppRecord(testAppName, testAppGUID, defaultNamespace)
-				createdAppRecord, err := appRepo.CreateApp(client, testCtx, appRecord)
+				createdAppRecord, err := appRepo.CreateApp(testCtx, client, appRecord)
 				g.Expect(err).NotTo(BeNil())
 				g.Expect(createdAppRecord).To(Equal(emptyAppRecord))
 			})
@@ -446,7 +446,7 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 				EnvironmentVariables: map[string]string{"foo": "foo", "bar": "bar"},
 			}
 
-			returnedAppEnvVarsRecord, returnedErr = appRepo.CreateAppEnvironmentVariables(client, beforeCtx, testAppEnvSecret)
+			returnedAppEnvVarsRecord, returnedErr = appRepo.CreateAppEnvironmentVariables(beforeCtx, client, testAppEnvSecret)
 
 		})
 
@@ -508,7 +508,7 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 			testCtx := context.Background()
 			testAppEnvSecret.EnvironmentVariables = map[string]string{"foo": "foo", "bar": "bar"}
 
-			returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateAppEnvironmentVariables(client, testCtx, testAppEnvSecret)
+			returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateAppEnvironmentVariables(testCtx, client, testAppEnvSecret)
 			g.Expect(returnedUpdatedErr).ToNot(BeNil())
 			g.Expect(returnedUpdatedAppEnvVarsRecord).To(Equal(AppEnvVarsRecord{}))
 		})

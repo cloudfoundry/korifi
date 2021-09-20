@@ -2,6 +2,7 @@
 package fake
 
 import (
+	"context"
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
@@ -10,11 +11,12 @@ import (
 )
 
 type CFDomainRepository struct {
-	FetchDomainStub        func(client.Client, string) (repositories.DomainRecord, error)
+	FetchDomainStub        func(context.Context, client.Client, string) (repositories.DomainRecord, error)
 	fetchDomainMutex       sync.RWMutex
 	fetchDomainArgsForCall []struct {
-		arg1 client.Client
-		arg2 string
+		arg1 context.Context
+		arg2 client.Client
+		arg3 string
 	}
 	fetchDomainReturns struct {
 		result1 repositories.DomainRecord
@@ -28,19 +30,20 @@ type CFDomainRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFDomainRepository) FetchDomain(arg1 client.Client, arg2 string) (repositories.DomainRecord, error) {
+func (fake *CFDomainRepository) FetchDomain(arg1 context.Context, arg2 client.Client, arg3 string) (repositories.DomainRecord, error) {
 	fake.fetchDomainMutex.Lock()
 	ret, specificReturn := fake.fetchDomainReturnsOnCall[len(fake.fetchDomainArgsForCall)]
 	fake.fetchDomainArgsForCall = append(fake.fetchDomainArgsForCall, struct {
-		arg1 client.Client
-		arg2 string
-	}{arg1, arg2})
+		arg1 context.Context
+		arg2 client.Client
+		arg3 string
+	}{arg1, arg2, arg3})
 	stub := fake.FetchDomainStub
 	fakeReturns := fake.fetchDomainReturns
-	fake.recordInvocation("FetchDomain", []interface{}{arg1, arg2})
+	fake.recordInvocation("FetchDomain", []interface{}{arg1, arg2, arg3})
 	fake.fetchDomainMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -54,17 +57,17 @@ func (fake *CFDomainRepository) FetchDomainCallCount() int {
 	return len(fake.fetchDomainArgsForCall)
 }
 
-func (fake *CFDomainRepository) FetchDomainCalls(stub func(client.Client, string) (repositories.DomainRecord, error)) {
+func (fake *CFDomainRepository) FetchDomainCalls(stub func(context.Context, client.Client, string) (repositories.DomainRecord, error)) {
 	fake.fetchDomainMutex.Lock()
 	defer fake.fetchDomainMutex.Unlock()
 	fake.FetchDomainStub = stub
 }
 
-func (fake *CFDomainRepository) FetchDomainArgsForCall(i int) (client.Client, string) {
+func (fake *CFDomainRepository) FetchDomainArgsForCall(i int) (context.Context, client.Client, string) {
 	fake.fetchDomainMutex.RLock()
 	defer fake.fetchDomainMutex.RUnlock()
 	argsForCall := fake.fetchDomainArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CFDomainRepository) FetchDomainReturns(result1 repositories.DomainRecord, result2 error) {

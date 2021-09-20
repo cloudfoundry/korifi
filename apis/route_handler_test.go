@@ -138,11 +138,11 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 		// get this test passing eventually or move this test to an integration-style test
 		it.Pend("fetches the correct route and domain", func() {
 			g.Expect(routeRepo.FetchRouteCallCount()).To(Equal(1))
-			_, actualRouteGUID := routeRepo.FetchRouteArgsForCall(0)
+			_, _, actualRouteGUID := routeRepo.FetchRouteArgsForCall(0)
 			g.Expect(actualRouteGUID).To(Equal(expectedRouteGUID))
 
 			g.Expect(domainRepo.FetchDomainCallCount()).To(Equal(1))
-			_, actualDomainGUID := domainRepo.FetchDomainArgsForCall(0)
+			_, _, actualDomainGUID := domainRepo.FetchDomainArgsForCall(0)
 			g.Expect(actualDomainGUID).To(Equal(expectedDomainGUID))
 		})
 	})

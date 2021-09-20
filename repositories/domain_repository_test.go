@@ -16,6 +16,12 @@ import (
 var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
+	var testCtx context.Context
+
+	it.Before(func() {
+		testCtx = context.Background()
+	})
+
 	when("multiple CFDomain resources exist", func() {
 		var (
 			cfDomain1 *networkingv1alpha1.CFDomain
@@ -23,7 +29,7 @@ var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec
 		)
 
 		it.Before(func() {
-			ctx := context.Background()
+			beforeCtx := context.Background()
 
 			cfDomain1 = &networkingv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
@@ -33,7 +39,7 @@ var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec
 					Name: "my-domain-1",
 				},
 			}
-			g.Expect(k8sClient.Create(ctx, cfDomain1)).To(Succeed())
+			g.Expect(k8sClient.Create(beforeCtx, cfDomain1)).To(Succeed())
 
 			cfDomain2 = &networkingv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
@@ -44,7 +50,7 @@ var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec
 					Name: "my-domain-2",
 				},
 			}
-			g.Expect(k8sClient.Create(ctx, cfDomain2)).To(Succeed())
+			g.Expect(k8sClient.Create(beforeCtx, cfDomain2)).To(Succeed())
 		})
 
 		it("fetches the CFDomain CR we're looking for", func() {
@@ -53,7 +59,7 @@ var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec
 			g.Expect(err).ToNot(HaveOccurred())
 
 			domain := DomainRecord{}
-			domain, err = domainRepo.FetchDomain(client, "domain-id-1")
+			domain, err = domainRepo.FetchDomain(testCtx, client, "domain-id-1")
 			g.Expect(err).ToNot(HaveOccurred())
 
 			g.Expect(domain.GUID).To(Equal("domain-id-1"))
@@ -61,9 +67,9 @@ var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec
 		})
 
 		it.After(func() {
-			ctx := context.Background()
-			g.Expect(k8sClient.Delete(ctx, cfDomain1)).To(Succeed())
-			g.Expect(k8sClient.Delete(ctx, cfDomain2)).To(Succeed())
+			afterCtx := context.Background()
+			g.Expect(k8sClient.Delete(afterCtx, cfDomain1)).To(Succeed())
+			g.Expect(k8sClient.Delete(afterCtx, cfDomain2)).To(Succeed())
 		})
 	})
 
@@ -73,7 +79,7 @@ var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec
 			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			_, err = domainRepo.FetchDomain(client, "non-existent-domain-guid")
+			_, err = domainRepo.FetchDomain(testCtx, client, "non-existent-domain-guid")
 			g.Expect(err).To(MatchError("not found"))
 		})
 	})
