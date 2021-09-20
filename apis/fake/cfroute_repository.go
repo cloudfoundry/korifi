@@ -2,6 +2,7 @@
 package fake
 
 import (
+	"context"
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
@@ -10,11 +11,12 @@ import (
 )
 
 type CFRouteRepository struct {
-	FetchRouteStub        func(client.Client, string) (repositories.RouteRecord, error)
+	FetchRouteStub        func(context.Context, client.Client, string) (repositories.RouteRecord, error)
 	fetchRouteMutex       sync.RWMutex
 	fetchRouteArgsForCall []struct {
-		arg1 client.Client
-		arg2 string
+		arg1 context.Context
+		arg2 client.Client
+		arg3 string
 	}
 	fetchRouteReturns struct {
 		result1 repositories.RouteRecord
@@ -28,19 +30,20 @@ type CFRouteRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFRouteRepository) FetchRoute(arg1 client.Client, arg2 string) (repositories.RouteRecord, error) {
+func (fake *CFRouteRepository) FetchRoute(arg1 context.Context, arg2 client.Client, arg3 string) (repositories.RouteRecord, error) {
 	fake.fetchRouteMutex.Lock()
 	ret, specificReturn := fake.fetchRouteReturnsOnCall[len(fake.fetchRouteArgsForCall)]
 	fake.fetchRouteArgsForCall = append(fake.fetchRouteArgsForCall, struct {
-		arg1 client.Client
-		arg2 string
-	}{arg1, arg2})
+		arg1 context.Context
+		arg2 client.Client
+		arg3 string
+	}{arg1, arg2, arg3})
 	stub := fake.FetchRouteStub
 	fakeReturns := fake.fetchRouteReturns
-	fake.recordInvocation("FetchRoute", []interface{}{arg1, arg2})
+	fake.recordInvocation("FetchRoute", []interface{}{arg1, arg2, arg3})
 	fake.fetchRouteMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -54,17 +57,17 @@ func (fake *CFRouteRepository) FetchRouteCallCount() int {
 	return len(fake.fetchRouteArgsForCall)
 }
 
-func (fake *CFRouteRepository) FetchRouteCalls(stub func(client.Client, string) (repositories.RouteRecord, error)) {
+func (fake *CFRouteRepository) FetchRouteCalls(stub func(context.Context, client.Client, string) (repositories.RouteRecord, error)) {
 	fake.fetchRouteMutex.Lock()
 	defer fake.fetchRouteMutex.Unlock()
 	fake.FetchRouteStub = stub
 }
 
-func (fake *CFRouteRepository) FetchRouteArgsForCall(i int) (client.Client, string) {
+func (fake *CFRouteRepository) FetchRouteArgsForCall(i int) (context.Context, client.Client, string) {
 	fake.fetchRouteMutex.RLock()
 	defer fake.fetchRouteMutex.RUnlock()
 	argsForCall := fake.fetchRouteArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CFRouteRepository) FetchRouteReturns(result1 repositories.RouteRecord, result2 error) {

@@ -70,7 +70,7 @@ type AppEnvVarsRecord struct {
 	EnvironmentVariables map[string]string
 }
 
-func (f *AppRepo) FetchApp(client client.Client, ctx context.Context, appGUID string) (AppRecord, error) {
+func (f *AppRepo) FetchApp(ctx context.Context, client client.Client, appGUID string) (AppRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	appList := &workloadsv1alpha1.CFAppList{}
 	err := client.List(ctx, appList)
@@ -92,7 +92,7 @@ func (f *AppRepo) getAppCR(client client.Client, ctx context.Context, appGUID st
 	return app, err
 }
 
-func (f *AppRepo) AppExists(client client.Client, ctx context.Context, appGUID string, namespace string) (bool, error) {
+func (f *AppRepo) AppExists(ctx context.Context, client client.Client, appGUID string, namespace string) (bool, error) {
 	_, err := f.getAppCR(client, ctx, appGUID, namespace)
 	if err != nil {
 		switch errtype := err.(type) {
@@ -108,7 +108,7 @@ func (f *AppRepo) AppExists(client client.Client, ctx context.Context, appGUID s
 	return true, nil
 }
 
-func (f *AppRepo) CreateApp(client client.Client, ctx context.Context, appRecord AppRecord) (AppRecord, error) {
+func (f *AppRepo) CreateApp(ctx context.Context, client client.Client, appRecord AppRecord) (AppRecord, error) {
 	cfApp := f.appRecordToCFApp(appRecord)
 	err := client.Create(ctx, &cfApp)
 	if err != nil {
@@ -186,7 +186,7 @@ func (f *AppRepo) filterAppsByName(apps []workloadsv1alpha1.CFApp, name string) 
 	return filtered
 }
 
-func (f *AppRepo) FetchNamespace(client client.Client, ctx context.Context, nsGUID string) (SpaceRecord, error) {
+func (f *AppRepo) FetchNamespace(ctx context.Context, client client.Client, nsGUID string) (SpaceRecord, error) {
 	namespace := &v1.Namespace{}
 	err := client.Get(ctx, types.NamespacedName{Name: nsGUID}, namespace)
 	if err != nil {
@@ -210,7 +210,7 @@ func (f *AppRepo) v1NamespaceToSpaceRecord(namespace *v1.Namespace) SpaceRecord 
 	}
 }
 
-func (f *AppRepo) CreateAppEnvironmentVariables(client client.Client, ctx context.Context, envVariables AppEnvVarsRecord) (AppEnvVarsRecord, error) {
+func (f *AppRepo) CreateAppEnvironmentVariables(ctx context.Context, client client.Client, envVariables AppEnvVarsRecord) (AppEnvVarsRecord, error) {
 	secretObj := f.appEnvVarsRecordToSecret(envVariables)
 	err := client.Create(ctx, &secretObj)
 	if err != nil {

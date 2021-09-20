@@ -34,10 +34,10 @@ type RouteRecord struct {
 	UpdatedAt    string
 }
 
-func (f *RouteRepo) FetchRoute(client client.Client, routeGUID string) (RouteRecord, error) {
+func (f *RouteRepo) FetchRoute(ctx context.Context, client client.Client, routeGUID string) (RouteRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
-	err := client.List(context.Background(), cfRouteList)
+	err := client.List(ctx, cfRouteList)
 
 	if err != nil {
 		return RouteRecord{}, err

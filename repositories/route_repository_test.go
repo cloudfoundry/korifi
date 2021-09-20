@@ -16,6 +16,12 @@ import (
 var _ = SuiteDescribe("Route API Shim", func(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
+	var testCtx context.Context
+
+	it.Before(func() {
+		testCtx = context.Background()
+	})
+
 	when("multiple CFRoute resources exist", func() {
 		var (
 			cfRoute1 *networkingv1alpha1.CFRoute
@@ -66,7 +72,7 @@ var _ = SuiteDescribe("Route API Shim", func(t *testing.T, when spec.G, it spec.
 			g.Expect(err).ToNot(HaveOccurred())
 
 			route := RouteRecord{}
-			route, err = routeRepo.FetchRoute(client, "route-id-1")
+			route, err = routeRepo.FetchRoute(testCtx, client, "route-id-1")
 			g.Expect(err).ToNot(HaveOccurred())
 
 			g.Expect(route.GUID).To(Equal("route-id-1"))
@@ -91,7 +97,7 @@ var _ = SuiteDescribe("Route API Shim", func(t *testing.T, when spec.G, it spec.
 			client, err := BuildClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			_, err = routeRepo.FetchRoute(client, "non-existent-route-guid")
+			_, err = routeRepo.FetchRoute(testCtx, client, "non-existent-route-guid")
 			g.Expect(err).To(MatchError("not found"))
 		})
 	})
@@ -153,15 +159,15 @@ var _ = SuiteDescribe("Route API Shim", func(t *testing.T, when spec.G, it spec.
 			// Assumption: when unit testing, we can ignore webhooks that might turn the uniqueness constraint into a race condition
 			// If assumption is invalidated, we can implement the setup by mocking a fake client to return the non-unique ids
 
-			_, err = routeRepo.FetchRoute(client, "non-unique-route-id")
+			_, err = routeRepo.FetchRoute(testCtx, client, "non-unique-route-id")
 			g.Expect(err).To(MatchError("duplicate route GUID exists"))
 		})
 
 		it.After(func() {
-			ctx := context.Background()
-			g.Expect(k8sClient.Delete(ctx, cfRoute1)).To(Succeed())
-			g.Expect(k8sClient.Delete(ctx, cfRoute2)).To(Succeed())
-			g.Expect(k8sClient.Delete(ctx, nonDefaultNamespace)).To(Succeed())
+			afterCtx := context.Background()
+			g.Expect(k8sClient.Delete(afterCtx, cfRoute1)).To(Succeed())
+			g.Expect(k8sClient.Delete(afterCtx, cfRoute2)).To(Succeed())
+			g.Expect(k8sClient.Delete(afterCtx, nonDefaultNamespace)).To(Succeed())
 		})
 	})
 })

@@ -21,11 +21,11 @@ import (
 
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
 type CFAppRepository interface {
-	FetchApp(client.Client, context.Context, string) (repositories.AppRecord, error)
-	FetchNamespace(client.Client, context.Context, string) (repositories.SpaceRecord, error)
-	AppExists(client.Client, context.Context, string, string) (bool, error)
-	CreateAppEnvironmentVariables(client.Client, context.Context, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
-	CreateApp(client.Client, context.Context, repositories.AppRecord) (repositories.AppRecord, error)
+	FetchApp(context.Context, client.Client, string) (repositories.AppRecord, error)
+	FetchNamespace(context.Context, client.Client, string) (repositories.SpaceRecord, error)
+	AppExists(context.Context, client.Client, string, string) (bool, error)
+	CreateAppEnvironmentVariables(context.Context, client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
+	CreateApp(context.Context, client.Client, repositories.AppRecord) (repositories.AppRecord, error)
 }
 
 type AppHandler struct {
@@ -52,7 +52,7 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app, err := h.AppRepo.FetchApp(client, ctx, appGUID)
+	app, err := h.AppRepo.FetchApp(ctx, client, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -103,7 +103,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	namespaceGUID := appCreateMessage.Relationships.Space.Data.GUID
-	_, err = h.AppRepo.FetchNamespace(client, ctx, namespaceGUID)
+	_, err = h.AppRepo.FetchNamespace(ctx, client, namespaceGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.PermissionDeniedOrNotFoundError:
@@ -118,7 +118,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	appName := appCreateMessage.Name
-	appExists, err := h.AppRepo.AppExists(client, ctx, appName, namespaceGUID)
+	appExists, err := h.AppRepo.AppExists(ctx, client, appName, namespaceGUID)
 	if err != nil {
 		h.Logger.Error(err, "Failed to fetch app from Kubernetes", "App Name", appName)
 		writeUnknownErrorResponse(w)
@@ -141,7 +141,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 			SpaceGUID:            namespaceGUID,
 			EnvironmentVariables: appCreateMessage.EnvironmentVariables,
 		}
-		responseAppEnvSecretRecord, err := h.AppRepo.CreateAppEnvironmentVariables(client, ctx, appEnvSecretRecord)
+		responseAppEnvSecretRecord, err := h.AppRepo.CreateAppEnvironmentVariables(ctx, client, appEnvSecretRecord)
 		if err != nil {
 			h.Logger.Error(err, "Failed to create app environment vars", "App Name", appName)
 			writeUnknownErrorResponse(w)
@@ -155,7 +155,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	createAppRecord.GUID = appGUID
 	createAppRecord.EnvSecretName = appEnvSecretName
 
-	responseAppRecord, err := h.AppRepo.CreateApp(client, ctx, createAppRecord)
+	responseAppRecord, err := h.AppRepo.CreateApp(ctx, client, createAppRecord)
 	if err != nil {
 		switch errtype := err.(type) {
 		case *k8serrors.StatusError:
