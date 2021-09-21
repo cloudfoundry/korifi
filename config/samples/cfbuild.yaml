@@ -3,15 +3,50 @@
 # Successful CF Builds automatically receive CF Droplets.
 apiVersion: workloads.cloudfoundry.org/v1alpha1
 kind: CFBuild
-metadata:
+metadata: #workloads.cloudfoundry.org/* labels are managed by a mutating webhook
+  #labels:
+  #  workloads.cloudfoundry.org/app-guid: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
+  #  workloads.cloudfoundry.org/package-guid: ac85ad52-f52f-48e3-8c99-5e7badbe79c5
   name: 1591ee05-e208-4cf3-a662-1c2da42f20a7
+  namespace: default
 spec:
   appRef:
     name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
   packageRef:
     name: ac85ad52-f52f-48e3-8c99-5e7badbe79c5
+  stagingMemoryMB: 1024
+  stagingDiskMB: 1024
   lifecycle:
     type: buildpack
     data:
       buildpacks: []
       stack: cflinuxfs3
+#status:
+#  conditions:
+#    - type: Succeeded
+#      status: "True"
+#      reason: Buildpack
+#      message: ""
+#    - type: Staging
+#      status: "False"
+#      reason: Succeeded
+#      message: ""
+#    - type: BuildReady
+#      status: "True"
+#      reason: Buildpack
+#      message: ""
+#    - type: DropletReady
+#      status: "True"
+#      reason: Buildpack
+#      message: ""
+#  droplet:
+#    ports: [80, 443] # spec.ports is the set of ports exposed on the Processes of the Droplet
+#    processTypes:
+#      - type: web
+#        command: bundle exec rackup config.ru -p $PORT -o 0.0.0.0
+#      - type: worker
+#        command: bundle exec rackup config.ru
+#    registry:
+#      image: gcr.io/buildpack/14dcda7d-1fa1-4a91-b437-fbdba20e8c5a@sha256:17ef1315d87bb57657ee14f387394f56d6f4429151262d731a31e92e5497ad35
+#      imagePullSecrets:
+#        - name: app-registry-credentials

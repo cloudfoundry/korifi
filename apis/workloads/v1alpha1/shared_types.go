@@ -32,7 +32,7 @@ type LifecycleData struct {
 	Stack      string   `json:"stack"`
 }
 
-// Registry is used by CFPackage and CFDroplet to identify Registry and secrets to access the image provided
+// Registry is used by CFPackage and CFBuild/Droplet to identify Registry and secrets to access the image provided
 type Registry struct {
 	// Image specifies the location of the source image
 	Image string `json:"image"`
