@@ -8,6 +8,8 @@ cd cf-k8s-controllers/
 ```
 
 ### Prerequisites
+
+### Install Cert-Manager
 To deploy cf-k8s-controller and run it in a cluster, you must first [install cert-manager](https://cert-manager.io/docs/installation/) 
 ```
 kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
@@ -16,8 +18,34 @@ Or
 ```
 kubectl apply -f dependencies/cert-manager.yaml
 ```
+
+### Install kpack
+
+Edit the file: `dependencies/kpack/cluster-builder.yaml` and set the `tag` field to be the registry location you want your ClusterBuilder image to be uploaded to.
+
+Run the commands below substituting the values for the Docker credentials to the registry where images will be uploaded to.
+```
+kubectl create secret docker-registry kpack-registry-credentials \
+    --docker-username="<DOCKER_USERNAME>" \
+    --docker-password="<DOCKER_PASSWORD>" \
+     --docker-server="<DOCKER_SERVER>" --namespace default
+
+kubectl apply -f dependencies/kpack/release-0.3.1.yaml
+kubectl apply -f dependencies/kpack/serviceaccount.yaml \
+    -f dependencies/kpack/stack.yaml \
+    -f dependencies/kpack/store.yaml \
+    -f dependencies/kpack/cluster-builder.yaml
+```
+
 ---
 ## Development workflow
+
+### Install cert-manager and kpack dependendcies with hack script
+```
+# modify kpack dependency files to point towards your registry
+hack/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
+```
+
 ### Build, Install and Deploy to K8s cluster
 Set the $IMG environment variable to a location you have push/pull access. For example 
 ```
