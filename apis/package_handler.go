@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"code.cloudfoundry.org/cf-k8s-api/message"
+	"code.cloudfoundry.org/cf-k8s-api/payloads"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 
@@ -29,7 +29,7 @@ const (
 
 type CFPackageRepository interface {
 	FetchPackage(context.Context, client.Client, string) (repositories.PackageRecord, error)
-	CreatePackage(context.Context, client.Client, repositories.PackageCreate) (repositories.PackageRecord, error)
+	CreatePackage(context.Context, client.Client, repositories.PackageCreateMessage) (repositories.PackageRecord, error)
 }
 
 type PackageHandler struct {
@@ -44,8 +44,8 @@ type PackageHandler struct {
 func (h PackageHandler) PackageCreateHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var m message.CreatePackageMessage
-	rme := DecodePayload(req, &m)
+	var payload payloads.PackageCreate
+	rme := DecodePayload(req, &payload)
 	if rme != nil {
 		writeErrorResponse(w, rme)
 		return
@@ -58,20 +58,20 @@ func (h PackageHandler) PackageCreateHandler(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	appRecord, err := h.AppRepo.FetchApp(req.Context(), client, m.Relationships.App.Data.GUID)
+	appRecord, err := h.AppRepo.FetchApp(req.Context(), client, payload.Relationships.App.Data.GUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
-			h.Logger.Info("App not found", "App GUID", m.Relationships.App.Data.GUID)
+			h.Logger.Info("App not found", "App GUID", payload.Relationships.App.Data.GUID)
 			writeUnprocessableEntityError(w, "App is invalid. Ensure it exists and you have access to it.")
 		default:
-			h.Logger.Info("Error finding App", "App GUID", m.Relationships.App.Data.GUID)
+			h.Logger.Info("Error finding App", "App GUID", payload.Relationships.App.Data.GUID)
 			writeUnknownErrorResponse(w)
 		}
 		return
 	}
 
-	record, err := h.PackageRepo.CreatePackage(req.Context(), client, m.ToRecord(appRecord.SpaceGUID)) // TODO: think of a better name than "Record"
+	record, err := h.PackageRepo.CreatePackage(req.Context(), client, payload.ToMessage(appRecord.SpaceGUID))
 	if err != nil {
 		h.Logger.Info("Error creating package with repository", err.Error())
 		writeUnknownErrorResponse(w)

@@ -10,7 +10,7 @@ RUN go mod download
 COPY main.go main.go
 COPY apis/ apis/
 COPY config/ config/
-COPY message/ message/
+COPY payloads/ payloads/
 COPY presenter/ presenter/
 COPY repositories/ repositories/
 

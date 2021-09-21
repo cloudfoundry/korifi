@@ -1,4 +1,4 @@
-package message
+package payloads
 
 import (
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -10,7 +10,7 @@ var (
 	defaultLifecycleStack = "cflinuxfs3"
 )
 
-type AppCreateMessage struct {
+type AppCreate struct {
 	Name                 string            `json:"name" validate:"required"`
 	EnvironmentVariables map[string]string `json:"environment_variables"`
 	Relationships        AppRelationships  `json:"relationships" validate:"required"`
@@ -22,24 +22,24 @@ type AppRelationships struct {
 	Space Relationship `json:"space" validate:"required"`
 }
 
-func AppCreateMessageToAppRecord(requestApp AppCreateMessage) repositories.AppRecord {
+func (p AppCreate) ToRecord() repositories.AppRecord {
 	lifecycleBlock := repositories.Lifecycle{
 		Type: defaultLifecycleType,
 		Data: repositories.LifecycleData{
 			Stack: defaultLifecycleStack,
 		},
 	}
-	if requestApp.Lifecycle != nil {
-		lifecycleBlock.Data.Stack = requestApp.Lifecycle.Data.Stack
-		lifecycleBlock.Data.Buildpacks = requestApp.Lifecycle.Data.Buildpacks
+	if p.Lifecycle != nil {
+		lifecycleBlock.Data.Stack = p.Lifecycle.Data.Stack
+		lifecycleBlock.Data.Buildpacks = p.Lifecycle.Data.Buildpacks
 	}
 
 	return repositories.AppRecord{
-		Name:        requestApp.Name,
+		Name:        p.Name,
 		GUID:        "",
-		SpaceGUID:   requestApp.Relationships.Space.Data.GUID,
-		Labels:      requestApp.Metadata.Labels,
-		Annotations: requestApp.Metadata.Annotations,
+		SpaceGUID:   p.Relationships.Space.Data.GUID,
+		Labels:      p.Metadata.Labels,
+		Annotations: p.Metadata.Annotations,
 		State:       repositories.StoppedState,
 		Lifecycle:   lifecycleBlock,
 		CreatedAt:   "",

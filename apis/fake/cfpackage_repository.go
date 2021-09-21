@@ -11,12 +11,12 @@ import (
 )
 
 type CFPackageRepository struct {
-	CreatePackageStub        func(context.Context, client.Client, repositories.PackageCreate) (repositories.PackageRecord, error)
+	CreatePackageStub        func(context.Context, client.Client, repositories.PackageCreateMessage) (repositories.PackageRecord, error)
 	createPackageMutex       sync.RWMutex
 	createPackageArgsForCall []struct {
 		arg1 context.Context
 		arg2 client.Client
-		arg3 repositories.PackageCreate
+		arg3 repositories.PackageCreateMessage
 	}
 	createPackageReturns struct {
 		result1 repositories.PackageRecord
@@ -45,13 +45,13 @@ type CFPackageRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFPackageRepository) CreatePackage(arg1 context.Context, arg2 client.Client, arg3 repositories.PackageCreate) (repositories.PackageRecord, error) {
+func (fake *CFPackageRepository) CreatePackage(arg1 context.Context, arg2 client.Client, arg3 repositories.PackageCreateMessage) (repositories.PackageRecord, error) {
 	fake.createPackageMutex.Lock()
 	ret, specificReturn := fake.createPackageReturnsOnCall[len(fake.createPackageArgsForCall)]
 	fake.createPackageArgsForCall = append(fake.createPackageArgsForCall, struct {
 		arg1 context.Context
 		arg2 client.Client
-		arg3 repositories.PackageCreate
+		arg3 repositories.PackageCreateMessage
 	}{arg1, arg2, arg3})
 	stub := fake.CreatePackageStub
 	fakeReturns := fake.createPackageReturns
@@ -72,13 +72,13 @@ func (fake *CFPackageRepository) CreatePackageCallCount() int {
 	return len(fake.createPackageArgsForCall)
 }
 
-func (fake *CFPackageRepository) CreatePackageCalls(stub func(context.Context, client.Client, repositories.PackageCreate) (repositories.PackageRecord, error)) {
+func (fake *CFPackageRepository) CreatePackageCalls(stub func(context.Context, client.Client, repositories.PackageCreateMessage) (repositories.PackageRecord, error)) {
 	fake.createPackageMutex.Lock()
 	defer fake.createPackageMutex.Unlock()
 	fake.CreatePackageStub = stub
 }
 
-func (fake *CFPackageRepository) CreatePackageArgsForCall(i int) (context.Context, client.Client, repositories.PackageCreate) {
+func (fake *CFPackageRepository) CreatePackageArgsForCall(i int) (context.Context, client.Client, repositories.PackageCreateMessage) {
 	fake.createPackageMutex.RLock()
 	defer fake.createPackageMutex.RUnlock()
 	argsForCall := fake.createPackageArgsForCall[i]
