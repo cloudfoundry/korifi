@@ -9,29 +9,32 @@ import (
 // Just contains the CF API Routes and maps them to handler functions
 
 const (
-	RootGetEndpoint       = "/"
-	RootV3GetEndpoint     = "/v3"
-	AppCreateEndpoint     = "/v3/apps"
-	AppGetEndpoint        = "/v3/apps/{guid}"
-	RouteGetEndpoint      = "/v3/routes/{guid}"
-	PackageCreateEndpoint = "/v3/packages"
+	RootGetEndpoint         = "/"
+	RootV3GetEndpoint       = "/v3"
+	ResourceMatchesEndpoint = "/v3/resource_matches"
+	AppCreateEndpoint       = "/v3/apps"
+	AppGetEndpoint          = "/v3/apps/{guid}"
+	RouteGetEndpoint        = "/v3/routes/{guid}"
+	PackageCreateEndpoint   = "/v3/packages"
 )
 
 type httpHandlerFunction func(w http.ResponseWriter, r *http.Request)
 
 type APIRoutes struct {
-	RootV3Handler        httpHandlerFunction
-	RootHandler          httpHandlerFunction
-	AppCreateHandler     httpHandlerFunction
-	AppGetHandler        httpHandlerFunction
-	RouteGetHandler      httpHandlerFunction
-	PackageCreateHandler httpHandlerFunction
+	RootV3Handler          httpHandlerFunction
+	RootHandler            httpHandlerFunction
+	ResourceMatchesHandler httpHandlerFunction
+	AppCreateHandler       httpHandlerFunction
+	AppGetHandler          httpHandlerFunction
+	RouteGetHandler        httpHandlerFunction
+	PackageCreateHandler   httpHandlerFunction
 }
 
 func (a *APIRoutes) RegisterRoutes(router *mux.Router) {
 	// Is this a useful check?
 	if a.RootV3Handler == nil ||
 		a.RootHandler == nil ||
+		a.ResourceMatchesHandler == nil ||
 		a.AppGetHandler == nil ||
 		a.AppCreateHandler == nil ||
 		a.RouteGetHandler == nil ||
@@ -41,6 +44,7 @@ func (a *APIRoutes) RegisterRoutes(router *mux.Router) {
 
 	router.HandleFunc(RootGetEndpoint, a.RootHandler).Methods("GET")
 	router.HandleFunc(RootV3GetEndpoint, a.RootV3Handler).Methods("GET")
+	router.HandleFunc(ResourceMatchesEndpoint, a.ResourceMatchesHandler).Methods("POST")
 	router.HandleFunc(AppCreateEndpoint, a.AppCreateHandler).Methods("POST")
 	router.HandleFunc(AppGetEndpoint, a.AppGetHandler).Methods("GET")
 	router.HandleFunc(RouteGetEndpoint, a.RouteGetHandler).Methods("GET")

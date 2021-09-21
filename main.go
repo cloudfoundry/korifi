@@ -52,6 +52,9 @@ func main() {
 	apiRootHandler := &apis.RootHandler{
 		ServerURL: config.ServerURL,
 	}
+	resourceMatchesHandler := &apis.ResourceMatchesHandler{
+		ServerURL: config.ServerURL,
+	}
 	appHandler := &apis.AppHandler{
 		ServerURL:   config.ServerURL,
 		AppRepo:     &repositories.AppRepo{},
@@ -80,12 +83,13 @@ func main() {
 	// create API routes
 	apiRoutes := routes.APIRoutes{
 		//add API routes to handler
-		RootV3Handler:        apiRootV3Handler.RootV3GetHandler,
-		RootHandler:          apiRootHandler.RootGetHandler,
-		AppCreateHandler:     appHandler.AppCreateHandler,
-		AppGetHandler:        appHandler.AppGetHandler,
-		RouteGetHandler:      routeHandler.RouteGetHandler,
-		PackageCreateHandler: packageHandler.PackageCreateHandler,
+		RootV3Handler:          apiRootV3Handler.RootV3GetHandler,
+		RootHandler:            apiRootHandler.RootGetHandler,
+		ResourceMatchesHandler: resourceMatchesHandler.ResourceMatchesPostHandler,
+		AppCreateHandler:       appHandler.AppCreateHandler,
+		AppGetHandler:          appHandler.AppGetHandler,
+		RouteGetHandler:        routeHandler.RouteGetHandler,
+		PackageCreateHandler:   packageHandler.PackageCreateHandler,
 	}
 	// Call RegisterRoutes to register all the routes in APIRoutes
 	apiRoutes.RegisterRoutes(router)

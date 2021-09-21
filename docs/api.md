@@ -6,17 +6,31 @@
 
 ### Root
 
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.102.0/index.html#root
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#root
 
 | Resource | Endpoint |
 |--|--|
 | Global API Root | GET / |
 | V3 API Root | GET /v3 |
 
+### Resource Matches
+
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#resource-matches
+
+| Resource | Endpoint |
+|--|--|
+| Create a Resource Match | POST /v3/resource_matches |
+
+#### [Create a Resource Match](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-resource-match)
+```bash
+curl "http://localhost:9000/v3/resource_matches" \
+  -X POST \
+  -d '{}'
+```
 
 ### Apps
 
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.102.0/index.html#apps
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 
 | Resource | Endpoint |
 |--|--|

@@ -21,7 +21,7 @@ import (
 var _ = SuiteDescribe("Package Repository CreatePackage", func(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
-	when.Focus("on the happy path", func() {
+	when("on the happy path", func() {
 		var (
 			packageRepo   *PackageRepo
 			client        client.Client
