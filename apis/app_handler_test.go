@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -15,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -278,9 +279,9 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			rr = httptest.NewRecorder()
 		})
 
-		when("the request body is invalid", func() {
+		when("the request body is invalid json", func() {
 			it.Before(func() {
-				makePostRequest(`{"description" : "Invalid Request"}`)
+				makePostRequest(`{`)
 			})
 
 			it("returns a status 400 Bad Request ", func() {
@@ -299,6 +300,33 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 							"title": "CF-MessageParseError",
 							"detail": "Request invalid due to parse error: invalid request body",
 							"code": 1001
+						}
+					]
+				}`), "Response body matches response:")
+			})
+		})
+
+		when("the request body does not validate", func() {
+			it.Before(func() {
+				makePostRequest(`{"description" : "Invalid Request"}`)
+			})
+
+			it("returns a status 422 Bad Request ", func() {
+				g.Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			})
+
+			it("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			it("has the expected error response body", func() {
+				g.Expect(rr.Body.String()).Should(MatchJSON(`{
+					"errors": [
+						{
+							"title": "CF-UnprocessableEntity",
+							"detail": "invalid request body: json: unknown field \"description\"",
+							"code": 10008
 						}
 					]
 				}`), "Response body matches response:")
@@ -333,7 +361,7 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					"errors": [
 						{
 							"code":   10008,
-				      "title": "CF-UnprocessableEntity",
+							"title": "CF-UnprocessableEntity",
 							"detail": "Name must be a string"
 						}
 					]
@@ -405,7 +433,7 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					"errors": [
 						{
 							"title": "CF-UnprocessableEntity",
-							"detail": "Name must be a string",
+							"detail": "Name is a required field",
 							"code": 10008
 						}
 					]
@@ -442,7 +470,7 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					"errors": [
 						{
 							"title": "CF-UnprocessableEntity",
-							"detail": "Type must be a string,Buildpacks must be a []string,Stack must be a string",
+							"detail": "Type is a required field,Buildpacks is a required field,Stack is a required field",
 							"code": 10008
 						}
 					]
@@ -481,37 +509,7 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("the app already exists", func() {
-			it.Before(func() {
-				appRepo.AppExistsReturns(true, nil)
-
-				requestBody := initializeCreateAppRequestBody(testAppName, testSpaceGUID, nil, nil, nil)
-				makePostRequest(requestBody)
-			})
-
-			it("returns a status 422 Unprocessable Entity", func() {
-				g.Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			it("returns a CF API formatted Error response", func() {
-				g.Expect(rr.Body.String()).Should(MatchJSON(`{
-					"errors": [
-						{
-							"title": "CF-UniquenessError",
-							"detail": "App with the name 'test-app' already exists.",
-							"code": 10016
-						}
-					]
-				}`), "Response body matches response:")
-			})
-		})
-
-		when("the app already exists, but AppExists returns false due to eventual consistency", func() {
+		when("the app already exists, but AppCreate returns false due to validating webhook rejection", func() {
 			it.Before(func() {
 				controllerError := new(k8serrors.StatusError)
 				controllerError.ErrStatus.Reason = "CFApp with the same spec.name exists"
@@ -543,11 +541,39 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("the namespace exists and app does not exist and", func() {
+		when("the app already exists, but CreateApp returns false due to a non webhook k8s error", func() {
 			it.Before(func() {
-				appRepo.AppExistsReturns(false, nil)
+				controllerError := new(k8serrors.StatusError)
+				controllerError.ErrStatus.Reason = "different k8s api error"
+				appRepo.CreateAppReturns(repositories.AppRecord{}, controllerError)
+
+				requestBody := initializeCreateAppRequestBody(testAppName, testSpaceGUID, nil, nil, nil)
+				makePostRequest(requestBody)
 			})
 
+			it("returns status 500 InternalServerError", func() {
+				g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
+			})
+
+			it("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			it("returns a CF API formatted Error response", func() {
+				g.Expect(rr.Body.String()).Should(MatchJSON(`{
+					"errors": [
+						{
+							"title": "UnknownError",
+							"detail": "An unknown error occurred.",
+							"code": 10001
+						}
+					]
+				}`), "Response body matches response:")
+			})
+		})
+
+		when("the namespace exists and app does not exist and", func() {
 			when("a plain POST test app request is sent without env vars or metadata", func() {
 				const testAppGUID = "test-app-guid"
 

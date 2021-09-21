@@ -2,6 +2,7 @@ package apis_test
 
 import (
 	"fmt"
+	"strings"
 )
 
 const (
@@ -9,6 +10,6 @@ const (
 	jsonHeader       = "application/json"
 )
 
-func defaultServerURI(path string) string {
-	return fmt.Sprintf("%s%s", defaultServerURL, path)
+func defaultServerURI(paths ...string) string {
+	return fmt.Sprintf("%s%s", defaultServerURL, strings.Join(paths, ""))
 }

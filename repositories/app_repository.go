@@ -78,34 +78,9 @@ func (f *AppRepo) FetchApp(ctx context.Context, client client.Client, appGUID st
 		return AppRecord{}, err
 	}
 	allApps := appList.Items
-	matches := f.filterAppsByName(allApps, appGUID)
+	matches := f.filterAppsByMetadataName(allApps, appGUID)
 
-	return f.returnApps(matches)
-}
-
-func (f *AppRepo) getAppCR(client client.Client, ctx context.Context, appGUID string, namespace string) (*workloadsv1alpha1.CFApp, error) {
-	app := &workloadsv1alpha1.CFApp{}
-	err := client.Get(ctx, types.NamespacedName{
-		Namespace: namespace,
-		Name:      appGUID,
-	}, app)
-	return app, err
-}
-
-func (f *AppRepo) AppExists(ctx context.Context, client client.Client, appGUID string, namespace string) (bool, error) {
-	_, err := f.getAppCR(client, ctx, appGUID, namespace)
-	if err != nil {
-		switch errtype := err.(type) {
-		case *k8serrors.StatusError:
-			reason := errtype.Status().Reason
-			if reason == metav1.StatusReasonNotFound {
-				return false, nil
-			}
-		default:
-			return true, err
-		}
-	}
-	return true, nil
+	return f.returnApp(matches)
 }
 
 func (f *AppRepo) CreateApp(ctx context.Context, client client.Client, appRecord AppRecord) (AppRecord, error) {
@@ -165,7 +140,7 @@ func (f *AppRepo) cfAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
 	}
 }
 
-func (f *AppRepo) returnApps(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
+func (f *AppRepo) returnApp(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
 	if len(apps) == 0 {
 		return AppRecord{}, NotFoundError{Err: errors.New("not found")}
 	}
@@ -176,10 +151,10 @@ func (f *AppRepo) returnApps(apps []workloadsv1alpha1.CFApp) (AppRecord, error) 
 	return f.cfAppToResponseApp(apps[0]), nil
 }
 
-func (f *AppRepo) filterAppsByName(apps []workloadsv1alpha1.CFApp, name string) []workloadsv1alpha1.CFApp {
-	filtered := []workloadsv1alpha1.CFApp{}
+func (f *AppRepo) filterAppsByMetadataName(apps []workloadsv1alpha1.CFApp, name string) []workloadsv1alpha1.CFApp {
+	var filtered []workloadsv1alpha1.CFApp
 	for i, app := range apps {
-		if app.Name == name {
+		if app.ObjectMeta.Name == name {
 			filtered = append(filtered, apps[i])
 		}
 	}

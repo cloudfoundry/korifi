@@ -23,7 +23,6 @@ import (
 type CFAppRepository interface {
 	FetchApp(context.Context, client.Client, string) (repositories.AppRecord, error)
 	FetchNamespace(context.Context, client.Client, string) (repositories.SpaceRecord, error)
-	AppExists(context.Context, client.Client, string, string) (bool, error)
 	CreateAppEnvironmentVariables(context.Context, client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, client.Client, repositories.AppRecord) (repositories.AppRecord, error)
 }
@@ -117,21 +116,6 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	appName := appCreateMessage.Name
-	appExists, err := h.AppRepo.AppExists(ctx, client, appName, namespaceGUID)
-	if err != nil {
-		h.Logger.Error(err, "Failed to fetch app from Kubernetes", "App Name", appName)
-		writeUnknownErrorResponse(w)
-		return
-	}
-
-	if appExists {
-		errorDetail := fmt.Sprintf("App with the name '%s' already exists.", appName)
-		h.Logger.Error(err, errorDetail, "App Name", appName)
-		writeUniquenessError(w, errorDetail)
-		return
-	}
-
 	appGUID := uuid.New().String()
 	var appEnvSecretName string
 
@@ -143,7 +127,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		responseAppEnvSecretRecord, err := h.AppRepo.CreateAppEnvironmentVariables(ctx, client, appEnvSecretRecord)
 		if err != nil {
-			h.Logger.Error(err, "Failed to create app environment vars", "App Name", appName)
+			h.Logger.Error(err, "Failed to create app environment vars", "App Name", appCreateMessage.Name)
 			writeUnknownErrorResponse(w)
 			return
 		}
@@ -157,23 +141,22 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	responseAppRecord, err := h.AppRepo.CreateApp(ctx, client, createAppRecord)
 	if err != nil {
-		switch errtype := err.(type) {
-		case *k8serrors.StatusError:
-			reason := errtype.Status().Reason
+		if errType, ok := err.(*k8serrors.StatusError); ok {
+			reason := errType.Status().Reason
 			if reason == "CFApp with the same spec.name exists" {
-				errorDetail := fmt.Sprintf("App with the name '%s' already exists.", appName)
-				h.Logger.Error(err, errorDetail, "App Name", appName)
+				errorDetail := fmt.Sprintf("App with the name '%s' already exists.", appCreateMessage.Name)
+				h.Logger.Error(err, errorDetail, "App Name", appCreateMessage.Name)
 				writeUniquenessError(w, errorDetail)
+				return
 			}
-		default:
-			h.Logger.Error(err, "Failed to create app", "App Name", appName)
-			writeUnknownErrorResponse(w)
 		}
+		h.Logger.Error(err, "Failed to create app", "App Name", appCreateMessage.Name)
+		writeUnknownErrorResponse(w)
 		return
 	}
 	responseBody, err := json.Marshal(presenter.ForApp(responseAppRecord, h.ServerURL))
 	if err != nil {
-		h.Logger.Error(err, "Failed to render response", "App Name", appName)
+		h.Logger.Error(err, "Failed to render response", "App Name", appCreateMessage.Name)
 		writeUnknownErrorResponse(w)
 		return
 	}

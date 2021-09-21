@@ -11,22 +11,6 @@ import (
 )
 
 type CFAppRepository struct {
-	AppExistsStub        func(context.Context, client.Client, string, string) (bool, error)
-	appExistsMutex       sync.RWMutex
-	appExistsArgsForCall []struct {
-		arg1 context.Context
-		arg2 client.Client
-		arg3 string
-		arg4 string
-	}
-	appExistsReturns struct {
-		result1 bool
-		result2 error
-	}
-	appExistsReturnsOnCall map[int]struct {
-		result1 bool
-		result2 error
-	}
 	CreateAppStub        func(context.Context, client.Client, repositories.AppRecord) (repositories.AppRecord, error)
 	createAppMutex       sync.RWMutex
 	createAppArgsForCall []struct {
@@ -89,73 +73,6 @@ type CFAppRepository struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
-}
-
-func (fake *CFAppRepository) AppExists(arg1 context.Context, arg2 client.Client, arg3 string, arg4 string) (bool, error) {
-	fake.appExistsMutex.Lock()
-	ret, specificReturn := fake.appExistsReturnsOnCall[len(fake.appExistsArgsForCall)]
-	fake.appExistsArgsForCall = append(fake.appExistsArgsForCall, struct {
-		arg1 context.Context
-		arg2 client.Client
-		arg3 string
-		arg4 string
-	}{arg1, arg2, arg3, arg4})
-	stub := fake.AppExistsStub
-	fakeReturns := fake.appExistsReturns
-	fake.recordInvocation("AppExists", []interface{}{arg1, arg2, arg3, arg4})
-	fake.appExistsMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *CFAppRepository) AppExistsCallCount() int {
-	fake.appExistsMutex.RLock()
-	defer fake.appExistsMutex.RUnlock()
-	return len(fake.appExistsArgsForCall)
-}
-
-func (fake *CFAppRepository) AppExistsCalls(stub func(context.Context, client.Client, string, string) (bool, error)) {
-	fake.appExistsMutex.Lock()
-	defer fake.appExistsMutex.Unlock()
-	fake.AppExistsStub = stub
-}
-
-func (fake *CFAppRepository) AppExistsArgsForCall(i int) (context.Context, client.Client, string, string) {
-	fake.appExistsMutex.RLock()
-	defer fake.appExistsMutex.RUnlock()
-	argsForCall := fake.appExistsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
-}
-
-func (fake *CFAppRepository) AppExistsReturns(result1 bool, result2 error) {
-	fake.appExistsMutex.Lock()
-	defer fake.appExistsMutex.Unlock()
-	fake.AppExistsStub = nil
-	fake.appExistsReturns = struct {
-		result1 bool
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFAppRepository) AppExistsReturnsOnCall(i int, result1 bool, result2 error) {
-	fake.appExistsMutex.Lock()
-	defer fake.appExistsMutex.Unlock()
-	fake.AppExistsStub = nil
-	if fake.appExistsReturnsOnCall == nil {
-		fake.appExistsReturnsOnCall = make(map[int]struct {
-			result1 bool
-			result2 error
-		})
-	}
-	fake.appExistsReturnsOnCall[i] = struct {
-		result1 bool
-		result2 error
-	}{result1, result2}
 }
 
 func (fake *CFAppRepository) CreateApp(arg1 context.Context, arg2 client.Client, arg3 repositories.AppRecord) (repositories.AppRecord, error) {
@@ -425,8 +342,6 @@ func (fake *CFAppRepository) FetchNamespaceReturnsOnCall(i int, result1 reposito
 func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.appExistsMutex.RLock()
-	defer fake.appExistsMutex.RUnlock()
 	fake.createAppMutex.RLock()
 	defer fake.createAppMutex.RUnlock()
 	fake.createAppEnvironmentVariablesMutex.RLock()

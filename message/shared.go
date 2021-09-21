@@ -11,7 +11,7 @@ type LifecycleData struct {
 }
 
 type Relationship struct {
-	Data RelationshipData `json:"data" validate:"required"`
+	Data *RelationshipData `json:"data" validate:"required"`
 }
 
 type RelationshipData struct {

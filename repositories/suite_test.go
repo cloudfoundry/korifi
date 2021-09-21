@@ -34,8 +34,8 @@ func Suite() spec.Suite {
 	return suite
 }
 
-func SuiteDescribe(desc string, f func(t *testing.T, when spec.G, it spec.S)) bool {
-	return Suite()(desc, f)
+func SuiteDescribe(desc string, f func(t *testing.T, when spec.G, it spec.S), options ...spec.Option) bool {
+	return Suite()(desc, f, options...)
 }
 
 func TestSuite(t *testing.T) {

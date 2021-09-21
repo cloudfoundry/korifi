@@ -9,21 +9,23 @@ import (
 // Just contains the CF API Routes and maps them to handler functions
 
 const (
-	RootGetEndpoint   = "/"
-	RootV3GetEndpoint = "/v3"
-	AppCreateEndpoint = "/v3/apps"
-	AppGetEndpoint    = "/v3/apps/{guid}"
-	RouteGetEndpoint  = "/v3/routes/{guid}"
+	RootGetEndpoint       = "/"
+	RootV3GetEndpoint     = "/v3"
+	AppCreateEndpoint     = "/v3/apps"
+	AppGetEndpoint        = "/v3/apps/{guid}"
+	RouteGetEndpoint      = "/v3/routes/{guid}"
+	PackageCreateEndpoint = "/v3/packages"
 )
 
 type httpHandlerFunction func(w http.ResponseWriter, r *http.Request)
 
 type APIRoutes struct {
-	RootV3Handler    httpHandlerFunction
-	RootHandler      httpHandlerFunction
-	AppCreateHandler httpHandlerFunction
-	AppGetHandler    httpHandlerFunction
-	RouteGetHandler  httpHandlerFunction
+	RootV3Handler        httpHandlerFunction
+	RootHandler          httpHandlerFunction
+	AppCreateHandler     httpHandlerFunction
+	AppGetHandler        httpHandlerFunction
+	RouteGetHandler      httpHandlerFunction
+	PackageCreateHandler httpHandlerFunction
 }
 
 func (a *APIRoutes) RegisterRoutes(router *mux.Router) {
@@ -32,7 +34,8 @@ func (a *APIRoutes) RegisterRoutes(router *mux.Router) {
 		a.RootHandler == nil ||
 		a.AppGetHandler == nil ||
 		a.AppCreateHandler == nil ||
-		a.RouteGetHandler == nil {
+		a.RouteGetHandler == nil ||
+		a.PackageCreateHandler == nil {
 		panic("APIRoutes: handler was nil")
 	}
 
@@ -41,4 +44,5 @@ func (a *APIRoutes) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc(AppCreateEndpoint, a.AppCreateHandler).Methods("POST")
 	router.HandleFunc(AppGetEndpoint, a.AppGetHandler).Methods("GET")
 	router.HandleFunc(RouteGetEndpoint, a.RouteGetHandler).Methods("GET")
+	router.HandleFunc(PackageCreateEndpoint, a.PackageCreateHandler).Methods("POST")
 }
