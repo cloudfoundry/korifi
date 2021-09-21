@@ -112,6 +112,8 @@ func TestSuite(t *testing.T) {
 
 		g.Expect((&workloadsv1alpha1.CFProcess{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
+		g.Expect((&workloadsv1alpha1.CFBuild{}).SetupWebhookWithManager(mgr)).To(Succeed())
+
 		//+kubebuilder:scaffold:webhook
 
 		go func() {

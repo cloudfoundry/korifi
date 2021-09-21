@@ -6,6 +6,7 @@ import (
 
 const (
 	cfAppGUIDLabelKey     = "workloads.cloudfoundry.org/app-guid"
+	cfPackageGUIDLabelKey = "workloads.cloudfoundry.org/package-guid"
 	cfProcessGUIDLabelKey = "workloads.cloudfoundry.org/process-guid"
 	cfProcessTypeLabelKey = "workloads.cloudfoundry.org/process-type"
 )
