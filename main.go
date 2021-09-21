@@ -109,14 +109,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&workloadscontrollers.CFDropletReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFDroplet")
-		os.Exit(1)
-	}
-
 	if err = (&workloadscontrollers.CFPackageReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),

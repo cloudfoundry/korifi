@@ -71,10 +71,18 @@ spec:
                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
                 type: object
+              stagingDiskMB:
+                description: Specifies the disk request for the staging image - Do we need this?
+                type: integer
+              stagingMemoryMB:
+                description: Specifies the memory request for the staging image
+                type: integer
             required:
             - appRef
             - lifecycle
             - packageRef
+            - stagingDiskMB
+            - stagingMemoryMB
             type: object
           status:
             description: CFBuildStatus defines the observed state of CFBuild
@@ -123,12 +131,52 @@ spec:
                   - type
                   type: object
                 type: array
-              dropletRef:
-                description: LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.
+              droplet:
+                description: BuildDropletStatus defines the observed state of the CFBuild's Droplet or runnable image
                 properties:
-                  name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
-                    type: string
+                  ports:
+                    description: Specifies the exposed ports for the application
+                    items:
+                      format: int32
+                      type: integer
+                    type: array
+                  processTypes:
+                    description: Specifies the process types and associated start commands for the Droplet
+                    items:
+                      description: ProcessType is a map of process names and associated start commands for the Droplet
+                      properties:
+                        command:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                      - command
+                      - type
+                      type: object
+                    type: array
+                  registry:
+                    description: Specifies the Container registry image, and secrets to access
+                    properties:
+                      image:
+                        description: Image specifies the location of the source image
+                        type: string
+                      imagePullSecrets:
+                        description: ImagePullSecrets specifies a list of secrets required to access the image
+                        items:
+                          description: LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.
+                          properties:
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                          type: object
+                        type: array
+                    required:
+                    - image
+                    type: object
+                required:
+                - ports
+                - processTypes
+                - registry
                 type: object
             required:
             - conditions

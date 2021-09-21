@@ -27,15 +27,39 @@ type CFBuildSpec struct {
 	PackageRef v1.LocalObjectReference `json:"packageRef"`
 	// Specifies the CFApp associated with this build
 	AppRef v1.LocalObjectReference `json:"appRef"`
+
+	// Specifies the memory request for the staging image
+	StagingMemoryMB int `json:"stagingMemoryMB"`
+	// Specifies the disk request for the staging image - Do we need this?
+	StagingDiskMB int `json:"stagingDiskMB"`
+
 	// Specifies the buildpacks and stack for the build
 	Lifecycle Lifecycle `json:"lifecycle"`
 }
 
 // CFBuildStatus defines the observed state of CFBuild
 type CFBuildStatus struct {
-	DropletRef v1.LocalObjectReference `json:"dropletRef,omitempty"`
+	BuildDropletStatus *BuildDropletStatus `json:"droplet,omitempty"`
 	// Conditions capture the current status of the Build
 	Conditions []metav1.Condition `json:"conditions"`
+}
+
+// BuildDropletStatus defines the observed state of the CFBuild's Droplet or runnable image
+type BuildDropletStatus struct {
+	// Specifies the Container registry image, and secrets to access
+	Registry Registry `json:"registry"`
+
+	// Specifies the process types and associated start commands for the Droplet
+	ProcessTypes []ProcessType `json:"processTypes"`
+
+	// Specifies the exposed ports for the application
+	Ports []int32 `json:"ports"`
+}
+
+// ProcessType is a map of process names and associated start commands for the Droplet
+type ProcessType struct {
+	Type    string `json:"type"`
+	Command string `json:"command"`
 }
 
 //+kubebuilder:object:root=true

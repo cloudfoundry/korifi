@@ -36,15 +36,6 @@ resources:
   controller: true
   domain: cloudfoundry.org
   group: workloads
-  kind: CFDroplet
-  path: code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: cloudfoundry.org
-  group: workloads
   kind: CFProcess
   path: code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1
   version: v1alpha1
