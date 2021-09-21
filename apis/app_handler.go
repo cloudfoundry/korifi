@@ -22,6 +22,7 @@ import (
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
 type CFAppRepository interface {
 	FetchApp(context.Context, client.Client, string) (repositories.AppRecord, error)
+	FetchAppList(context.Context, client.Client) ([]repositories.AppRecord, error)
 	FetchNamespace(context.Context, client.Client, string) (repositories.SpaceRecord, error)
 	CreateAppEnvironmentVariables(context.Context, client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, client.Client, repositories.AppRecord) (repositories.AppRecord, error)
@@ -157,6 +158,36 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	responseBody, err := json.Marshal(presenter.ForApp(responseAppRecord, h.ServerURL))
 	if err != nil {
 		h.Logger.Error(err, "Failed to render response", "App Name", appCreateMessage.Name)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	w.Write(responseBody)
+}
+
+func (h *AppHandler) AppListHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	// TODO: Instantiate config based on bearer token
+	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
+	client, err := h.BuildClient(h.K8sConfig)
+	if err != nil {
+		h.Logger.Error(err, "Unable to create Kubernetes client")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	appList, err := h.AppRepo.FetchAppList(ctx, client)
+	if err != nil {
+		h.Logger.Error(err, "Failed to fetch app(s) from Kubernetes")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	responseBody, err := json.Marshal(presenter.ForAppList(appList, h.ServerURL))
+	if err != nil {
+		h.Logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
 		return
 	}

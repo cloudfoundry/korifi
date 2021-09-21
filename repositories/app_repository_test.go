@@ -20,6 +20,7 @@ import (
 )
 
 var _ = SuiteDescribe("App Repository FetchApp", testFetchApp)
+var _ = SuiteDescribe("App Repository FetchAppList", testFetchAppList)
 var _ = SuiteDescribe("App Repository CreateApp", testCreateApp)
 var _ = SuiteDescribe("App Repository Secret Create/Update", testEnvSecretCreate)
 var _ = SuiteDescribe("App Repository Secret Create/Update", testEnvSecretCreate)
@@ -40,11 +41,7 @@ var _ = SuiteDescribe("App Repository FetchNamespace", func(t *testing.T, when s
 func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
-	const (
-		cfAppGUID = "test-app-guid"
-		namespace = "default"
-	)
-
+	const namespace = "default"
 	var testCtx context.Context
 
 	it.Before(func() {
@@ -208,6 +205,114 @@ func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 			_, err = appRepo.FetchApp(testCtx, client, "i don't exist")
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err).To(MatchError("not found"))
+		})
+	})
+
+	when("there is some other error fetching apps", func() {
+		it.Before(func() {
+		})
+
+		it("returns status 500 InternalServerError", func() {
+		})
+
+		it("returns Content-Type as JSON in header", func() {
+		})
+
+		it("returns a CF API formatted Error response", func() {
+		})
+	})
+}
+
+func testFetchAppList(t *testing.T, when spec.G, it spec.S) {
+	g := NewWithT(t)
+
+	var testCtx context.Context
+	const namespace = "default"
+
+	it.Before(func() {
+		testCtx = context.Background()
+	})
+
+	when("multiple Apps exist", func() {
+		var (
+			app1GUID string
+			app2GUID string
+			cfApp1   *workloadsv1alpha1.CFApp
+			cfApp2   *workloadsv1alpha1.CFApp
+		)
+		it.Before(func() {
+			beforeCtx := context.Background()
+			app1GUID = generateGUID()
+			app2GUID = generateGUID()
+			cfApp1 = &workloadsv1alpha1.CFApp{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      app1GUID,
+					Namespace: namespace,
+				},
+				Spec: workloadsv1alpha1.CFAppSpec{
+					Name:         "test-app1",
+					DesiredState: "STOPPED",
+					Lifecycle: workloadsv1alpha1.Lifecycle{
+						Type: "buildpack",
+						Data: workloadsv1alpha1.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				},
+			}
+			g.Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
+
+			cfApp2 = &workloadsv1alpha1.CFApp{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      app2GUID,
+					Namespace: namespace,
+				},
+				Spec: workloadsv1alpha1.CFAppSpec{
+					Name:         "test-app2",
+					DesiredState: "STOPPED",
+					Lifecycle: workloadsv1alpha1.Lifecycle{
+						Type: "buildpack",
+						Data: workloadsv1alpha1.LifecycleData{
+							Buildpacks: []string{"java"},
+							Stack:      "",
+						},
+					},
+				},
+			}
+			g.Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
+		})
+
+		it.After(func() {
+			afterCtx := context.Background()
+			g.Expect(k8sClient.Delete(afterCtx, cfApp1)).To(Succeed())
+			g.Expect(k8sClient.Delete(afterCtx, cfApp2)).To(Succeed())
+		})
+
+		// TODO: Update this test annotation to reflect proper filtering by caller permissions when that is available
+		it("returns all the AppRecord CRs", func() {
+			appRepo := AppRepo{}
+			client, err := BuildClient(k8sConfig)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			appList, err := appRepo.FetchAppList(testCtx, client)
+			g.Expect(err).NotTo(HaveOccurred())
+			// Expect response list to contain 2 particular apps, unordered
+			g.Expect(appList).To(HaveLen(2), "repository should return 2 app records")
+			// Assert on equality for each expected appRecord? Could just hardcode checks for each app?
+
+		})
+	})
+
+	when("no Apps exist", func() {
+		// This test setup may fail if we run tests in parallel that create app records
+		it("returns an error", func() {
+			appRepo := AppRepo{}
+			client, err := BuildClient(k8sConfig)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			_, err = appRepo.FetchAppList(testCtx, client)
+			g.Expect(err).NotTo(HaveOccurred())
 		})
 	})
 }

@@ -35,6 +35,11 @@ type AppLinks struct {
 	Features             Link `json:"features"`
 }
 
+type AppListResponse struct {
+	PaginationData PaginationData `json:"pagination"`
+	Resources      []AppResponse  `json:"resources"`
+}
+
 func ForApp(responseApp repositories.AppRecord, baseURL string) AppResponse {
 	return AppResponse{
 		Name:      responseApp.Name,
@@ -103,4 +108,27 @@ func ForApp(responseApp repositories.AppRecord, baseURL string) AppResponse {
 			},
 		},
 	}
+}
+
+func ForAppList(appRecordList []repositories.AppRecord, baseURL string) AppListResponse {
+	appResponses := make([]AppResponse, 0, len(appRecordList))
+	for _, app := range appRecordList {
+		appResponses = append(appResponses, ForApp(app, baseURL))
+	}
+
+	appListResponse := AppListResponse{
+		PaginationData: PaginationData{
+			TotalResults: len(appResponses),
+			TotalPages:   1,
+			First: PageRef{
+				HREF: prefixedLinkURL(baseURL, "v3/apps?page=1"),
+			},
+			Last: PageRef{
+				HREF: prefixedLinkURL(baseURL, "v3/apps?page=1"),
+			},
+		},
+		Resources: appResponses,
+	}
+
+	return appListResponse
 }

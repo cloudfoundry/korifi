@@ -24,6 +24,7 @@ import (
 func TestApp(t *testing.T) {
 	spec.Run(t, "AppGetHandler", testAppGetHandler, spec.Report(report.Terminal{}))
 	spec.Run(t, "AppCreateHandler", testAppCreateHandler, spec.Report(report.Terminal{}))
+	spec.Run(t, "AppListHandler", testAppListHandler, spec.Report(report.Terminal{}))
 }
 
 func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
@@ -792,4 +793,302 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 	})
+}
+
+func testAppListHandler(t *testing.T, when spec.G, it spec.S) {
+	g := NewWithT(t)
+
+	const (
+		testAppHandlerLoggerName = "TestAppHandler"
+	)
+
+	var (
+		rr         *httptest.ResponseRecorder
+		req        *http.Request
+		appRepo    *fake.CFAppRepository
+		apiHandler *AppHandler
+	)
+
+	it.Before(func() {
+		appRepo = new(fake.CFAppRepository)
+		appRepo.FetchAppsReturns([]repositories.AppRecord{
+			{
+				GUID:      "first-test-app-guid",
+				Name:      "first-test-app",
+				SpaceGUID: "test-space-guid",
+				State:     "STOPPED",
+				Lifecycle: repositories.Lifecycle{
+					Type: "buildpack",
+					Data: repositories.LifecycleData{
+						Buildpacks: []string{},
+						Stack:      "",
+					},
+				},
+			},
+			{
+				GUID:      "second-test-app-guid",
+				Name:      "second-test-app",
+				SpaceGUID: "test-space-guid",
+				State:     "STOPPED",
+				Lifecycle: repositories.Lifecycle{
+					Type: "buildpack",
+					Data: repositories.LifecycleData{
+						Buildpacks: []string{},
+						Stack:      "",
+					},
+				},
+			},
+		}, nil)
+
+		var err error
+		req, err = http.NewRequest("GET", "/v3/apps", nil)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		rr = httptest.NewRecorder()
+		clientBuilder := new(fake.ClientBuilder)
+
+		apiHandler = &AppHandler{
+			ServerURL:   defaultServerURL,
+			AppRepo:     appRepo,
+			Logger:      logf.Log.WithName(testAppHandlerLoggerName),
+			K8sConfig:   &rest.Config{},
+			BuildClient: clientBuilder.Spy,
+		}
+	})
+
+	when("the GET /v3/apps  endpoint returns successfully", func() {
+		it.Before(func() {
+			http.HandlerFunc(apiHandler.AppListHandler).ServeHTTP(rr, req)
+		})
+
+		it("returns status 200 OK", func() {
+			g.Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
+
+		it("returns Content-Type as JSON in header", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+		})
+
+		it("returns the Pagination Data and App Resources in the response", func() {
+			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				"pagination": {
+				  "total_results": 2,
+				  "total_pages": 1,
+				  "first": {
+					"href": "https://api.example.org/v3/apps?page=1"
+				  },
+				  "last": {
+					"href": "https://api.example.org/v3/apps?page=1"
+				  },
+				  "next": null,
+				  "previous": null
+				},
+				"resources": [
+					{
+						"guid": "first-test-app-guid",
+						"created_at": "",
+						"updated_at": "",
+						"name": "first-test-app",
+						"state": "STOPPED",
+						"lifecycle": {
+						  "type": "buildpack",
+						  "data": {
+							"buildpacks": [],
+							"stack": ""
+						  }
+						},
+						"relationships": {
+						  "space": {
+							"data": {
+							  "guid": "test-space-guid"
+							}
+						  }
+						},
+						"metadata": {
+						  "labels": {},
+						  "annotations": {}
+						},
+						"links": {
+						  "self": {
+							"href": "https://api.example.org/v3/apps/first-test-app-guid"
+						  },
+						  "environment_variables": {
+							"href": "https://api.example.org/v3/apps/first-test-app-guid/environment_variables"
+						  },
+						  "space": {
+							"href": "https://api.example.org/v3/spaces/test-space-guid"
+						  },
+						  "processes": {
+							"href": "https://api.example.org/v3/apps/first-test-app-guid/processes"
+						  },
+						  "packages": {
+							"href": "https://api.example.org/v3/apps/first-test-app-guid/packages"
+						  },
+						  "current_droplet": {
+							"href": "https://api.example.org/v3/apps/first-test-app-guid/droplets/current"
+						  },
+						  "droplets": {
+							"href": "https://api.example.org/v3/apps/first-test-app-guid/droplets"
+						  },
+						  "tasks": {
+							"href": "https://api.example.org/v3/apps/first-test-app-guid/tasks"
+						  },
+						  "start": {
+							"href": "https://api.example.org/v3/apps/first-test-app-guid/actions/start",
+							"method": "POST"
+						  },
+						  "stop": {
+							"href": "https://api.example.org/v3/apps/first-test-app-guid/actions/stop",
+							"method": "POST"
+						  },
+						  "revisions": {
+							"href": "https://api.example.org/v3/apps/first-test-app-guid/revisions"
+						  },
+						  "deployed_revisions": {
+							"href": "https://api.example.org/v3/apps/first-test-app-guid/revisions/deployed"
+						  },
+						  "features": {
+							"href": "https://api.example.org/v3/apps/first-test-app-guid/features"
+						  }
+						}
+					},
+					{
+						"guid": "second-test-app-guid",
+						"created_at": "",
+						"updated_at": "",
+						"name": "second-test-app",
+						"state": "STOPPED",
+						"lifecycle": {
+						  "type": "buildpack",
+						  "data": {
+							"buildpacks": [],
+							"stack": ""
+						  }
+						},
+						"relationships": {
+						  "space": {
+							"data": {
+							  "guid": "test-space-guid"
+							}
+						  }
+						},
+						"metadata": {
+						  "labels": {},
+						  "annotations": {}
+						},
+						"links": {
+						  "self": {
+							"href": "https://api.example.org/v3/apps/second-test-app-guid"
+						  },
+						  "environment_variables": {
+							"href": "https://api.example.org/v3/apps/second-test-app-guid/environment_variables"
+						  },
+						  "space": {
+							"href": "https://api.example.org/v3/spaces/test-space-guid"
+						  },
+						  "processes": {
+							"href": "https://api.example.org/v3/apps/second-test-app-guid/processes"
+						  },
+						  "packages": {
+							"href": "https://api.example.org/v3/apps/second-test-app-guid/packages"
+						  },
+						  "current_droplet": {
+							"href": "https://api.example.org/v3/apps/second-test-app-guid/droplets/current"
+						  },
+						  "droplets": {
+							"href": "https://api.example.org/v3/apps/second-test-app-guid/droplets"
+						  },
+						  "tasks": {
+							"href": "https://api.example.org/v3/apps/second-test-app-guid/tasks"
+						  },
+						  "start": {
+							"href": "https://api.example.org/v3/apps/second-test-app-guid/actions/start",
+							"method": "POST"
+						  },
+						  "stop": {
+							"href": "https://api.example.org/v3/apps/second-test-app-guid/actions/stop",
+							"method": "POST"
+						  },
+						  "revisions": {
+							"href": "https://api.example.org/v3/apps/second-test-app-guid/revisions"
+						  },
+						  "deployed_revisions": {
+							"href": "https://api.example.org/v3/apps/second-test-app-guid/revisions/deployed"
+						  },
+						  "features": {
+							"href": "https://api.example.org/v3/apps/second-test-app-guid/features"
+						  }
+						}
+					}
+				]
+			}`), "Response body matches response:")
+		})
+	})
+
+	when("no apps can be found", func() {
+
+		it.Before(func() {
+			appRepo.FetchAppsReturns([]repositories.AppRecord{}, nil)
+
+			http.HandlerFunc(apiHandler.AppListHandler).ServeHTTP(rr, req)
+		})
+
+		it("returns status 200 OK", func() {
+			g.Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
+
+		it("returns Content-Type as JSON in header", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+		})
+
+		it("returns a CF API formatted Error response", func() {
+			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				"pagination": {
+				  "total_results": 0,
+				  "total_pages": 1,
+				  "first": {
+					"href": "https://api.example.org/v3/apps?page=1"
+				  },
+				  "last": {
+					"href": "https://api.example.org/v3/apps?page=1"
+				  },
+				  "next": null,
+				  "previous": null
+				},
+				"resources": []
+			}`), "Response body matches response:")
+		})
+	})
+
+	when("there is some other error fetching apps", func() {
+		it.Before(func() {
+			appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+
+			http.HandlerFunc(apiHandler.AppGetHandler).ServeHTTP(rr, req)
+		})
+
+		it("returns status 500 InternalServerError", func() {
+			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
+		})
+
+		it("returns Content-Type as JSON in header", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+		})
+
+		it("returns a CF API formatted Error response", func() {
+			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				"errors": [
+					{
+						"title": "UnknownError",
+						"detail": "An unknown error occurred.",
+						"code": 10001
+					}
+				]
+			}`), "Response body matches response:")
+		})
+	})
+
 }

@@ -89,7 +89,25 @@ func (f *AppRepo) CreateApp(ctx context.Context, client client.Client, appRecord
 	if err != nil {
 		return AppRecord{}, err
 	}
-	return f.cfAppToResponseApp(cfApp), err
+	return f.cfAppToAppRecord(cfApp), err
+}
+
+func (f *AppRepo) FetchAppList(ctx context.Context, client client.Client) ([]AppRecord, error) {
+	// TODO: add checks for allowed namespaces with completion of initial auth work
+	// Currently we assume the client has full cluster access and naively returns all records
+	appList := &workloadsv1alpha1.CFAppList{}
+	err := client.List(ctx, appList)
+	if err != nil {
+		return []AppRecord{}, err
+	}
+	allApps := appList.Items
+
+	appRecordList := make([]AppRecord, 0, len(allApps))
+	for _, app := range allApps {
+		appRecordList = append(appRecordList, f.cfAppToAppRecord(app))
+	}
+
+	return appRecordList, nil
 }
 
 func (f *AppRepo) appRecordToCFApp(appRecord AppRecord) workloadsv1alpha1.CFApp {
@@ -119,7 +137,7 @@ func (f *AppRepo) appRecordToCFApp(appRecord AppRecord) workloadsv1alpha1.CFApp 
 	}
 }
 
-func (f *AppRepo) cfAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
+func (f *AppRepo) cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfApp.ObjectMeta)
 
 	return AppRecord{
@@ -148,7 +166,7 @@ func (f *AppRepo) returnApp(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
 		return AppRecord{}, errors.New("duplicate apps exist")
 	}
 
-	return f.cfAppToResponseApp(apps[0]), nil
+	return f.cfAppToAppRecord(apps[0]), nil
 }
 
 func (f *AppRepo) filterAppsByMetadataName(apps []workloadsv1alpha1.CFApp, name string) []workloadsv1alpha1.CFApp {

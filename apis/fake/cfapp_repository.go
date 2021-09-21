@@ -56,6 +56,20 @@ type CFAppRepository struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
+	FetchAppsStub        func(context.Context, client.Client) ([]repositories.AppRecord, error)
+	fetchAppsMutex       sync.RWMutex
+	fetchAppsArgsForCall []struct {
+		arg1 context.Context
+		arg2 client.Client
+	}
+	fetchAppsReturns struct {
+		result1 []repositories.AppRecord
+		result2 error
+	}
+	fetchAppsReturnsOnCall map[int]struct {
+		result1 []repositories.AppRecord
+		result2 error
+	}
 	FetchNamespaceStub        func(context.Context, client.Client, string) (repositories.SpaceRecord, error)
 	fetchNamespaceMutex       sync.RWMutex
 	fetchNamespaceArgsForCall []struct {
@@ -273,6 +287,71 @@ func (fake *CFAppRepository) FetchAppReturnsOnCall(i int, result1 repositories.A
 	}{result1, result2}
 }
 
+func (fake *CFAppRepository) FetchAppList(arg1 context.Context, arg2 client.Client) ([]repositories.AppRecord, error) {
+	fake.fetchAppsMutex.Lock()
+	ret, specificReturn := fake.fetchAppsReturnsOnCall[len(fake.fetchAppsArgsForCall)]
+	fake.fetchAppsArgsForCall = append(fake.fetchAppsArgsForCall, struct {
+		arg1 context.Context
+		arg2 client.Client
+	}{arg1, arg2})
+	stub := fake.FetchAppsStub
+	fakeReturns := fake.fetchAppsReturns
+	fake.recordInvocation("FetchAppList", []interface{}{arg1, arg2})
+	fake.fetchAppsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFAppRepository) FetchAppsCallCount() int {
+	fake.fetchAppsMutex.RLock()
+	defer fake.fetchAppsMutex.RUnlock()
+	return len(fake.fetchAppsArgsForCall)
+}
+
+func (fake *CFAppRepository) FetchAppsCalls(stub func(context.Context, client.Client) ([]repositories.AppRecord, error)) {
+	fake.fetchAppsMutex.Lock()
+	defer fake.fetchAppsMutex.Unlock()
+	fake.FetchAppsStub = stub
+}
+
+func (fake *CFAppRepository) FetchAppsArgsForCall(i int) (context.Context, client.Client) {
+	fake.fetchAppsMutex.RLock()
+	defer fake.fetchAppsMutex.RUnlock()
+	argsForCall := fake.fetchAppsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *CFAppRepository) FetchAppsReturns(result1 []repositories.AppRecord, result2 error) {
+	fake.fetchAppsMutex.Lock()
+	defer fake.fetchAppsMutex.Unlock()
+	fake.FetchAppsStub = nil
+	fake.fetchAppsReturns = struct {
+		result1 []repositories.AppRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) FetchAppsReturnsOnCall(i int, result1 []repositories.AppRecord, result2 error) {
+	fake.fetchAppsMutex.Lock()
+	defer fake.fetchAppsMutex.Unlock()
+	fake.FetchAppsStub = nil
+	if fake.fetchAppsReturnsOnCall == nil {
+		fake.fetchAppsReturnsOnCall = make(map[int]struct {
+			result1 []repositories.AppRecord
+			result2 error
+		})
+	}
+	fake.fetchAppsReturnsOnCall[i] = struct {
+		result1 []repositories.AppRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFAppRepository) FetchNamespace(arg1 context.Context, arg2 client.Client, arg3 string) (repositories.SpaceRecord, error) {
 	fake.fetchNamespaceMutex.Lock()
 	ret, specificReturn := fake.fetchNamespaceReturnsOnCall[len(fake.fetchNamespaceArgsForCall)]
@@ -348,6 +427,8 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.createAppEnvironmentVariablesMutex.RUnlock()
 	fake.fetchAppMutex.RLock()
 	defer fake.fetchAppMutex.RUnlock()
+	fake.fetchAppsMutex.RLock()
+	defer fake.fetchAppsMutex.RUnlock()
 	fake.fetchNamespaceMutex.RLock()
 	defer fake.fetchNamespaceMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
