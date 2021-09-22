@@ -34,6 +34,19 @@ type Link struct {
 	Method string `json:"method,omitempty"`
 }
 
+type PaginationData struct {
+	TotalResults int     `json:"total_results"`
+	TotalPages   int     `json:"total_pages"`
+	First        PageRef `json:"first"`
+	Last         PageRef `json:"last"`
+	Next         *int    `json:"next"`
+	Previous     *int    `json:"previous"`
+}
+
+type PageRef struct {
+	HREF string `json:"href"`
+}
+
 func prefixedLinkURL(baseURL, path string) string {
 	return fmt.Sprintf("%s/%s", baseURL, path)
 }
