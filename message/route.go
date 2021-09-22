@@ -25,12 +25,12 @@ type RouteRelationships struct {
 func RouteCreateMessageToRouteRecord(requestRoute RouteCreateMessage) repositories.RouteRecord {
 	return repositories.RouteRecord{
 		GUID:      "",
+		Host:      requestRoute.Host,
+		Path:      requestRoute.Path,
 		SpaceGUID: requestRoute.Relationships.Space.Data.GUID,
 		DomainRef: repositories.DomainRecord{
 			GUID: requestRoute.Relationships.Domain.Data.GUID,
 		},
-		Host:        requestRoute.Host,
-		Path:        requestRoute.Path,
 		Labels:      requestRoute.Metadata.Labels,
 		Annotations: requestRoute.Metadata.Annotations,
 		CreatedAt:   "",

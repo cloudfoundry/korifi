@@ -391,16 +391,6 @@ func testCreateApp(t *testing.T, when spec.G, it spec.S) {
 			testCtx = context.Background()
 		})
 
-		when("space does not exist", func() {
-			it("returns an unauthorized or not found err", func() {
-				appRepo := AppRepo{}
-				client, err := BuildClient(k8sConfig)
-
-				_, err = appRepo.FetchNamespace(testCtx, client, "some-guid")
-				g.Expect(err).To(MatchError("Resource not found or permission denied."))
-			})
-		})
-
 		when("app does not already exist", func() {
 			var (
 				appRepo   AppRepo
