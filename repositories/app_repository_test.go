@@ -6,23 +6,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"k8s.io/apimachinery/pkg/types"
-
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	. "code.cloudfoundry.org/cf-k8s-api/repositories"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+
+	"github.com/google/uuid"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = SuiteDescribe("App Repository FetchApp", testFetchApp)
 var _ = SuiteDescribe("App Repository FetchAppList", testFetchAppList)
 var _ = SuiteDescribe("App Repository CreateApp", testCreateApp)
-var _ = SuiteDescribe("App Repository Secret Create/Update", testEnvSecretCreate)
 var _ = SuiteDescribe("App Repository Secret Create/Update", testEnvSecretCreate)
 var _ = SuiteDescribe("App Repository FetchNamespace", func(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
@@ -33,7 +31,7 @@ var _ = SuiteDescribe("App Repository FetchNamespace", func(t *testing.T, when s
 
 			_, err = appRepo.FetchNamespace(context.Background(), client, "some-guid")
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err).To(MatchError("Invalid space. Ensure that the space exists and you have access to it."))
+			g.Expect(err).To(MatchError("Resource not found or permission denied."))
 		})
 	})
 })
@@ -394,16 +392,13 @@ func testCreateApp(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("space does not exist", func() {
-
 			it("returns an unauthorized or not found err", func() {
 				appRepo := AppRepo{}
 				client, err := BuildClient(k8sConfig)
 
 				_, err = appRepo.FetchNamespace(testCtx, client, "some-guid")
-				g.Expect(err).To(HaveOccurred())
-				g.Expect(err).To(MatchError("Invalid space. Ensure that the space exists and you have access to it."))
+				g.Expect(err).To(MatchError("Resource not found or permission denied."))
 			})
-
 		})
 
 		when("app does not already exist", func() {

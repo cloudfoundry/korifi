@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,7 +27,7 @@ type PermissionDeniedOrNotFoundError struct {
 }
 
 func (e PermissionDeniedOrNotFoundError) Error() string {
-	return "Invalid space. Ensure that the space exists and you have access to it."
+	return "Resource not found or permission denied."
 }
 
 func (e PermissionDeniedOrNotFoundError) Unwrap() error {
