@@ -1,0 +1,11 @@
+apiVersion: vendir.k14s.io/v1alpha1
+kind: Config
+directories:
+  - path: vendor
+    contents:
+      - path: kpack
+        git:
+          url: https://github.com/pivotal/kpack
+          ref: main
+        includePaths:
+          - config/image.yaml

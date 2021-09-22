@@ -7,6 +7,7 @@ import (
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
 	. "github.com/onsi/gomega"
+	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
 	"github.com/sclevine/spec"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -54,7 +55,7 @@ func beforeSuite(g *WithT) *envtest.Environment {
 	logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases"), filepath.Join("fixtures", "vendor", "kpack", "config")},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -64,6 +65,10 @@ func beforeSuite(g *WithT) *envtest.Environment {
 
 	err = workloadsv1alpha1.AddToScheme(scheme.Scheme)
 	g.Expect(err).NotTo(HaveOccurred())
+
+	err = buildv1alpha1.AddToScheme(scheme.Scheme)
+	g.Expect(err).NotTo(HaveOccurred())
+
 	//+kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})

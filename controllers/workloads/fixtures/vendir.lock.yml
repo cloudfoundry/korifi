@@ -1,0 +1,11 @@
+apiVersion: vendir.k14s.io/v1alpha1
+directories:
+- contents:
+  - git:
+      commitTitle: 'Merge pull request #828 from pivotal/nil-cache...'
+      sha: 1f5654bafa530f0d93ae51df0bdab5fadecb40ff
+      tags:
+      - v0.3.1-83-g1f5654b
+    path: kpack
+  path: vendor
+kind: LockConfig
