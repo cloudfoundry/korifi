@@ -7,16 +7,19 @@ import (
 )
 
 type RouteResponse struct {
-	GUID          string             `json:"guid"`
-	Protocol      string             `json:"protocol"`
-	Port          *int               `json:"port"`
-	Host          string             `json:"host"`
-	Path          string             `json:"path"`
-	URL           string             `json:"url"`
-	Destinations  []routeDestination `json:"destinations"`
-	Relationships Relationships      `json:"relationships"`
-	Metadata      Metadata           `json:"metadata"`
-	Links         routeLinks         `json:"links"`
+	GUID         string             `json:"guid"`
+	Protocol     string             `json:"protocol"`
+	Port         *int               `json:"port"`
+	Host         string             `json:"host"`
+	Path         string             `json:"path"`
+	URL          string             `json:"url"`
+	Destinations []routeDestination `json:"destinations"`
+
+	CreatedAt     string        `json:"created_at"`
+	UpdatedAt     string        `json:"updated_at"`
+	Relationships Relationships `json:"relationships"`
+	Metadata      Metadata      `json:"metadata"`
+	Links         routeLinks    `json:"links"`
 }
 
 type routeDestination struct {
@@ -40,12 +43,14 @@ type routeLinks struct {
 }
 
 func ForRoute(route repositories.RouteRecord, baseURL string) RouteResponse {
-	routeResponse := RouteResponse{
-		GUID:     route.GUID,
-		Protocol: route.Protocol,
-		Host:     route.Host,
-		Path:     route.Path,
-		URL:      url(route),
+	return RouteResponse{
+		GUID:      route.GUID,
+		Protocol:  route.Protocol,
+		Host:      route.Host,
+		Path:      route.Path,
+		URL:       url(route),
+		CreatedAt: route.CreatedAt,
+		UpdatedAt: route.UpdatedAt,
 		Relationships: Relationships{
 			"space": Relationship{
 				Data: RelationshipData{
@@ -77,8 +82,6 @@ func ForRoute(route repositories.RouteRecord, baseURL string) RouteResponse {
 			},
 		},
 	}
-
-	return routeResponse
 }
 
 func url(route repositories.RouteRecord) string {

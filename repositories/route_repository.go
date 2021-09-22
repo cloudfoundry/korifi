@@ -30,6 +30,8 @@ type RouteRecord struct {
 	Path         string
 	Protocol     string
 	Destinations []Destination
+	Labels       map[string]string
+	Annotations  map[string]string
 	CreatedAt    string
 	UpdatedAt    string
 }
@@ -88,9 +90,13 @@ func cfRouteToRouteRecord(cfRoute networkingv1alpha1.CFRoute) RouteRecord {
 		},
 		Host:         cfRoute.Spec.Host,
 		Path:         cfRoute.Spec.Path,
-		Protocol:     "http",
+		Protocol:     "http", // TODO: Create a mutating webhook to set this default on the CFRoute
 		Destinations: []Destination{},
 		CreatedAt:    "",
 		UpdatedAt:    "",
 	}
+}
+
+func (f *RouteRepo) CreateRoute(ctx context.Context, client client.Client, routeRecord RouteRecord) (RouteRecord, error) {
+	return RouteRecord{}, nil
 }

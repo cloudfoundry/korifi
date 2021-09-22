@@ -155,6 +155,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 		writeUnknownErrorResponse(w)
 		return
 	}
+
 	responseBody, err := json.Marshal(presenter.ForApp(responseAppRecord, h.ServerURL))
 	if err != nil {
 		h.Logger.Error(err, "Failed to render response", "App Name", appCreateMessage.Name)
