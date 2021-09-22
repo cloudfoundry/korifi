@@ -103,16 +103,9 @@ func (h *RouteHandler) RouteCreateHandler(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 
 	var routeCreateMessage message.RouteCreateMessage
-	err := DecodePayload(r, &routeCreateMessage)
-	if err != nil {
-		var rme *requestMalformedError
-		if errors.As(err, &rme) {
-			writeErrorResponse(w, rme)
-		} else {
-			// This should not be possible
-			h.Logger.Error(err, "Unknown internal server error")
-			writeUnknownErrorResponse(w)
-		}
+	rme := DecodePayload(r, &routeCreateMessage)
+	if rme != nil {
+		writeErrorResponse(w, rme)
 		return
 	}
 
