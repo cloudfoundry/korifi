@@ -2,6 +2,12 @@ package apis
 
 import (
 	"net/http"
+
+	"github.com/gorilla/mux"
+)
+
+const (
+	RootGetEndpoint = "/"
 )
 
 type RootHandler struct {
@@ -13,4 +19,8 @@ func (h *RootHandler) RootGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(body))
+}
+
+func (h *RootHandler) RegisterRoutes(router *mux.Router) {
+	router.Path(RootGetEndpoint).Methods("GET").HandlerFunc(h.RootGetHandler)
 }

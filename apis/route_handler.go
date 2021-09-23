@@ -17,6 +17,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	RouteGetEndpoint    = "/v3/routes/{guid}"
+	RouteCreateEndpoint = "/v3/routes"
+)
+
 //counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository
 
 type CFRouteRepository interface {
@@ -171,4 +176,9 @@ func (h *RouteHandler) RouteCreateHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Write(responseBody)
+}
+
+func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
+	router.Path(RouteGetEndpoint).Methods("GET").HandlerFunc(h.RouteGetHandler)
+	router.Path(RouteCreateEndpoint).Methods("POST").HandlerFunc(h.RouteCreateHandler)
 }

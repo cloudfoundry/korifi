@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gorilla/mux"
+
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 
 	. "github.com/onsi/gomega"
@@ -21,21 +23,22 @@ func testResourceMatchesHandler(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
 	var (
-		rr         *httptest.ResponseRecorder
-		apiHandler *ResourceMatchesHandler
+		rr     *httptest.ResponseRecorder
+		router *mux.Router
 	)
 
 	makePostRequest := func(body string) {
-		req, err := http.NewRequest("POST", "unused-path", strings.NewReader(body))
+		req, err := http.NewRequest("POST", "/v3/resource_matches", strings.NewReader(body))
 		g.Expect(err).NotTo(HaveOccurred())
 
-		handler := http.HandlerFunc(apiHandler.ResourceMatchesPostHandler)
-		handler.ServeHTTP(rr, req)
+		router.ServeHTTP(rr, req)
 	}
 
 	it.Before(func() {
 		rr = httptest.NewRecorder()
-		apiHandler = &ResourceMatchesHandler{}
+		router = mux.NewRouter()
+		apiHandler := &ResourceMatchesHandler{}
+		apiHandler.RegisterRoutes(router)
 	})
 
 	when("ResourceMatchesHandler is called", func() {

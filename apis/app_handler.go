@@ -18,6 +18,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	AppCreateEndpoint = "/v3/apps"
+	AppGetEndpoint    = "/v3/apps/{guid}"
+	AppListEndpoint   = "/v3/apps"
+)
+
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
 type CFAppRepository interface {
 	FetchApp(context.Context, client.Client, string) (repositories.AppRecord, error)
@@ -187,4 +193,10 @@ func (h *AppHandler) AppListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write(responseBody)
+}
+
+func (h *AppHandler) RegisterRoutes(router *mux.Router) {
+	router.Path(AppGetEndpoint).Methods("GET").HandlerFunc(h.AppGetHandler)
+	router.Path(AppListEndpoint).Methods("GET").HandlerFunc(h.AppListHandler)
+	router.Path(AppCreateEndpoint).Methods("POST").HandlerFunc(h.AppCreateHandler)
 }

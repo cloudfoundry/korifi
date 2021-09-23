@@ -13,7 +13,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/apis"
 	. "code.cloudfoundry.org/cf-k8s-api/config"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
-	"code.cloudfoundry.org/cf-k8s-api/routes"
 	"github.com/gorilla/mux"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -23,6 +22,10 @@ import (
 func init() {
 	utilruntime.Must(workloadsv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme.Scheme))
+}
+
+type APIHandler interface {
+	RegisterRoutes(router *mux.Router)
 }
 
 func main() {
@@ -45,63 +48,46 @@ func main() {
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
 
-	// Configure the RootV3 API Handler
-	apiRootV3Handler := &apis.RootV3Handler{
-		ServerURL: config.ServerURL,
-	}
-
-	apiRootHandler := &apis.RootHandler{
-		ServerURL: config.ServerURL,
-	}
-
-	resourceMatchesHandler := &apis.ResourceMatchesHandler{
-		ServerURL: config.ServerURL,
-	}
-
-	appHandler := &apis.AppHandler{
-		ServerURL:   config.ServerURL,
-		AppRepo:     &repositories.AppRepo{},
-		Logger:      ctrl.Log.WithName("AppHandler"),
-		K8sConfig:   k8sClientConfig,
-		BuildClient: repositories.BuildClient,
-	}
-
-	routeHandler := &apis.RouteHandler{
-		ServerURL:   config.ServerURL,
-		RouteRepo:   &repositories.RouteRepo{},
-		DomainRepo:  &repositories.DomainRepo{},
-		AppRepo:     &repositories.AppRepo{},
-		Logger:      ctrl.Log.WithName("RouteHandler"),
-		K8sConfig:   k8sClientConfig,
-		BuildClient: repositories.BuildClient,
-	}
-
-	packageHandler := &apis.PackageHandler{
-		ServerURL:   config.ServerURL,
-		PackageRepo: &repositories.PackageRepo{},
-		AppRepo:     &repositories.AppRepo{},
-		K8sConfig:   k8sClientConfig,
-		Logger:      ctrl.Log.WithName("PackageHandler"),
-		BuildClient: repositories.BuildClient,
+	handlers := []APIHandler{
+		&apis.RootV3Handler{
+			ServerURL: config.ServerURL,
+		},
+		&apis.RootHandler{
+			ServerURL: config.ServerURL,
+		},
+		&apis.ResourceMatchesHandler{
+			ServerURL: config.ServerURL,
+		},
+		&apis.AppHandler{
+			ServerURL:   config.ServerURL,
+			AppRepo:     &repositories.AppRepo{},
+			Logger:      ctrl.Log.WithName("AppHandler"),
+			K8sConfig:   k8sClientConfig,
+			BuildClient: repositories.BuildClient,
+		},
+		&apis.RouteHandler{
+			ServerURL:   config.ServerURL,
+			RouteRepo:   &repositories.RouteRepo{},
+			DomainRepo:  &repositories.DomainRepo{},
+			AppRepo:     &repositories.AppRepo{},
+			Logger:      ctrl.Log.WithName("RouteHandler"),
+			K8sConfig:   k8sClientConfig,
+			BuildClient: repositories.BuildClient,
+		},
+		&apis.PackageHandler{
+			ServerURL:   config.ServerURL,
+			PackageRepo: &repositories.PackageRepo{},
+			AppRepo:     &repositories.AppRepo{},
+			K8sConfig:   k8sClientConfig,
+			Logger:      ctrl.Log.WithName("PackageHandler"),
+			BuildClient: repositories.BuildClient,
+		},
 	}
 
 	router := mux.NewRouter()
-	// create API routes
-	apiRoutes := routes.APIRoutes{
-		// add API routes to handler
-		RootV3Handler:          apiRootV3Handler.RootV3GetHandler,
-		RootHandler:            apiRootHandler.RootGetHandler,
-		ResourceMatchesHandler: resourceMatchesHandler.ResourceMatchesPostHandler,
-		AppCreateHandler:       appHandler.AppCreateHandler,
-		AppGetHandler:          appHandler.AppGetHandler,
-		AppListHandler:         appHandler.AppListHandler,
-		RouteCreateHandler:     routeHandler.RouteCreateHandler,
-		RouteGetHandler:        routeHandler.RouteGetHandler,
-		PackageCreateHandler:   packageHandler.PackageCreateHandler,
+	for _, handler := range handlers {
+		handler.RegisterRoutes(router)
 	}
-
-	// Call RegisterRoutes to register all the routes in APIRoutes
-	apiRoutes.RegisterRoutes(router)
 
 	portString := fmt.Sprintf(":%v", config.ServerPort)
 	log.Fatal(http.ListenAndServe(portString, router))

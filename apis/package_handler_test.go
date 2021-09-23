@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gorilla/mux"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/sclevine/spec/report"
@@ -22,7 +24,7 @@ import (
 )
 
 func TestPackage(t *testing.T) {
-	spec.Run(t, "PackageCreateHandler", testPackageCreateHandler, spec.Report(report.Terminal{}))
+	spec.Run(t, "the POST /v3/packages endpoint", testPackageCreateHandler, spec.Report(report.Terminal{}))
 }
 
 func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
@@ -37,15 +39,14 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		packageRepo   *fake.CFPackageRepository
 		appRepo       *fake.CFAppRepository
 		clientBuilder *fake.ClientBuilder
-		apiHandler    *PackageHandler
+		router        *mux.Router
 	)
 
 	makePostRequest := func(body string) {
-		req, err := http.NewRequest("POST", "unused-path", strings.NewReader(body))
+		req, err := http.NewRequest("POST", "/v3/packages", strings.NewReader(body))
 		g.Expect(err).NotTo(HaveOccurred())
 
-		handler := http.HandlerFunc(apiHandler.PackageCreateHandler)
-		handler.ServeHTTP(rr, req)
+		router.ServeHTTP(rr, req)
 	}
 
 	itRespondsWithUnknownError := func() {
@@ -91,6 +92,7 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 	it.Before(func() {
 		rr = httptest.NewRecorder()
+		router = mux.NewRouter()
 
 		packageRepo = new(fake.CFPackageRepository)
 		packageRepo.CreatePackageReturns(repositories.PackageRecord{
@@ -109,7 +111,7 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 		clientBuilder = new(fake.ClientBuilder)
 
-		apiHandler = &PackageHandler{
+		apiHandler := &PackageHandler{
 			ServerURL:   defaultServerURL,
 			PackageRepo: packageRepo,
 			AppRepo:     appRepo,
@@ -117,9 +119,10 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			Logger:      logf.Log.WithName(testPackageHandlerLoggerName),
 			BuildClient: clientBuilder.Spy,
 		}
+		apiHandler.RegisterRoutes(router)
 	})
 
-	when("the POST /v3/packages succeeds", func() {
+	when("on the happy path", func() {
 		it.Before(func() {
 			makePostRequest(validBody)
 		})
