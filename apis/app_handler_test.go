@@ -809,7 +809,7 @@ func testAppListHandler(t *testing.T, when spec.G, it spec.S) {
 
 	it.Before(func() {
 		appRepo = new(fake.CFAppRepository)
-		appRepo.FetchAppsReturns([]repositories.AppRecord{
+		appRepo.FetchAppListReturns([]repositories.AppRecord{
 			{
 				GUID:      "first-test-app-guid",
 				Name:      "first-test-app",
@@ -1025,9 +1025,8 @@ func testAppListHandler(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("no apps can be found", func() {
-
 		it.Before(func() {
-			appRepo.FetchAppsReturns([]repositories.AppRecord{}, nil)
+			appRepo.FetchAppListReturns([]repositories.AppRecord{}, nil)
 
 			http.HandlerFunc(apiHandler.AppListHandler).ServeHTTP(rr, req)
 		})
@@ -1062,9 +1061,9 @@ func testAppListHandler(t *testing.T, when spec.G, it spec.S) {
 
 	when("there is some other error fetching apps", func() {
 		it.Before(func() {
-			appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+			appRepo.FetchAppListReturns([]repositories.AppRecord{}, errors.New("unknown!"))
 
-			http.HandlerFunc(apiHandler.AppGetHandler).ServeHTTP(rr, req)
+			http.HandlerFunc(apiHandler.AppListHandler).ServeHTTP(rr, req)
 		})
 
 		it("returns status 500 InternalServerError", func() {
@@ -1088,5 +1087,4 @@ func testAppListHandler(t *testing.T, when spec.G, it spec.S) {
 			}`), "Response body matches response:")
 		})
 	})
-
 }
