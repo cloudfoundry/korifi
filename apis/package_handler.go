@@ -3,7 +3,6 @@ package apis
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/go-logr/logr"
@@ -36,15 +35,9 @@ func (p PackageHandler) PackageCreateHandler(w http.ResponseWriter, req *http.Re
 	w.Header().Set("Content-Type", "application/json")
 
 	var m message.CreatePackageMessage
-	err := DecodePayload(req, &m)
-	if err != nil {
-		var rme *requestMalformedError
-		if errors.As(err, &rme) {
-			writeErrorResponse(w, rme)
-		} else {
-			p.Logger.Error(err, "Unknown internal server error")
-			writeUnknownErrorResponse(w)
-		}
+	rme := DecodePayload(req, &m)
+	if rme != nil {
+		writeErrorResponse(w, rme)
 		return
 	}
 

@@ -3,7 +3,6 @@ package apis
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -81,15 +80,9 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var appCreateMessage message.AppCreateMessage
-	err := DecodePayload(r, &appCreateMessage)
-	if err != nil {
-		var rme *requestMalformedError
-		if errors.As(err, &rme) {
-			writeErrorResponse(w, rme)
-		} else {
-			h.Logger.Error(err, "Unknown internal server error")
-			writeUnknownErrorResponse(w)
-		}
+	rme := DecodePayload(r, &appCreateMessage)
+	if rme != nil {
+		writeErrorResponse(w, rme)
 		return
 	}
 
@@ -155,6 +148,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 		writeUnknownErrorResponse(w)
 		return
 	}
+
 	responseBody, err := json.Marshal(presenter.ForApp(responseAppRecord, h.ServerURL))
 	if err != nil {
 		h.Logger.Error(err, "Failed to render response", "App Name", appCreateMessage.Name)

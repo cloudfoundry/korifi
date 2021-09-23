@@ -245,10 +245,8 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
 	const (
-		jsonHeader       = "application/json"
-		defaultServerURL = "https://api.example.org"
-		testAppName      = "test-app"
-		testSpaceGUID    = "test-space-guid"
+		testAppName   = "test-app"
+		testSpaceGUID = "test-space-guid"
 
 		testAppHandlerLoggerName = "TestAppHandler"
 	)

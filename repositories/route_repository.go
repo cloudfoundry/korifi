@@ -6,6 +6,8 @@ import (
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -30,6 +32,8 @@ type RouteRecord struct {
 	Path         string
 	Protocol     string
 	Destinations []Destination
+	Labels       map[string]string
+	Annotations  map[string]string
 	CreatedAt    string
 	UpdatedAt    string
 }
@@ -88,9 +92,57 @@ func cfRouteToRouteRecord(cfRoute networkingv1alpha1.CFRoute) RouteRecord {
 		},
 		Host:         cfRoute.Spec.Host,
 		Path:         cfRoute.Spec.Path,
-		Protocol:     "http",
+		Protocol:     "http", // TODO: Create a mutating webhook to set this default on the CFRoute
 		Destinations: []Destination{},
 		CreatedAt:    "",
 		UpdatedAt:    "",
+	}
+}
+
+func (f *RouteRepo) CreateRoute(ctx context.Context, client client.Client, routeRecord RouteRecord) (RouteRecord, error) {
+	cfRoute := f.routeRecordToCFRoute(routeRecord)
+	err := client.Create(ctx, &cfRoute)
+	if err != nil {
+		return RouteRecord{}, err
+	}
+
+	return f.cfRouteToResponseRoute(cfRoute), err
+}
+
+func (f *RouteRepo) routeRecordToCFRoute(routeRecord RouteRecord) networkingv1alpha1.CFRoute {
+	return networkingv1alpha1.CFRoute{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       Kind,
+			APIVersion: APIVersion,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        routeRecord.GUID,
+			Namespace:   routeRecord.SpaceGUID,
+			Labels:      routeRecord.Labels,
+			Annotations: routeRecord.Annotations,
+		},
+		Spec: networkingv1alpha1.CFRouteSpec{
+			Host: routeRecord.Host,
+			Path: routeRecord.Path,
+			DomainRef: v1.LocalObjectReference{
+				Name: routeRecord.DomainRef.GUID,
+			},
+		},
+	}
+}
+
+func (f *RouteRepo) cfRouteToResponseRoute(cfRoute networkingv1alpha1.CFRoute) RouteRecord {
+	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfRoute.ObjectMeta)
+
+	return RouteRecord{
+		GUID:      cfRoute.Name,
+		Host:      cfRoute.Spec.Host,
+		Path:      cfRoute.Spec.Path,
+		SpaceGUID: cfRoute.Namespace,
+		DomainRef: DomainRecord{
+			GUID: cfRoute.Spec.DomainRef.Name,
+		},
+		CreatedAt: cfRoute.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt: updatedAtTime,
 	}
 }
