@@ -46,9 +46,9 @@ func (r *CFProcess) Default() {
 		processLabels = make(map[string]string)
 	}
 
-	processLabels[cfProcessGUIDLabelKey] = r.Name
-	processLabels[cfProcessTypeLabelKey] = r.Spec.ProcessType
-	processLabels[cfAppGUIDLabelKey] = r.Spec.AppRef.Name
+	processLabels[CFProcessGUIDLabelKey] = r.Name
+	processLabels[CFProcessTypeLabelKey] = r.Spec.ProcessType
+	processLabels[CFAppGUIDLabelKey] = r.Spec.AppRef.Name
 
 	r.ObjectMeta.SetLabels(processLabels)
 }

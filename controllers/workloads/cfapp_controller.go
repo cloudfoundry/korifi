@@ -1,4 +1,4 @@
-package controllers
+package workloads
 
 import (
 	"context"
@@ -19,15 +19,9 @@ const (
 	StatusConditionRunning    = "Running"
 )
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . CFAppClient
-type CFAppClient interface {
-	Get(ctx context.Context, key client.ObjectKey, obj client.Object) error
-	Status() client.StatusWriter
-}
-
 // CFAppReconciler reconciles a CFApp object
 type CFAppReconciler struct {
-	Client CFAppClient
+	Client CFClient
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 }
@@ -48,7 +42,7 @@ type CFAppReconciler struct {
 func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var cfApp workloadsv1alpha1.CFApp
 	err := r.Client.Get(ctx, req.NamespacedName, &cfApp)
-	//cfApp, err := r.CFAppClient.Get(ctx, req.NamespacedName)
+	//cfApp, err := r.CFClient.Get(ctx, req.NamespacedName)
 	if err != nil {
 		r.Log.Error(err, "unable to fetch CFApp")
 		// we'll ignore not-found errors, since they can't be fixed by an immediate

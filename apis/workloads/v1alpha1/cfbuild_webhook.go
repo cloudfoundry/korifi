@@ -42,7 +42,7 @@ func (r *CFBuild) Default() {
 	if buildLabels == nil {
 		buildLabels = make(map[string]string)
 	}
-	buildLabels[cfAppGUIDLabelKey] = r.Spec.AppRef.Name
-	buildLabels[cfPackageGUIDLabelKey] = r.Spec.PackageRef.Name
+	buildLabels[CFAppGUIDLabelKey] = r.Spec.AppRef.Name
+	buildLabels[CFPackageGUIDLabelKey] = r.Spec.PackageRef.Name
 	r.SetLabels(buildLabels)
 }

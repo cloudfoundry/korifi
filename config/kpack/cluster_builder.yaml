@@ -1,10 +1,10 @@
 apiVersion: kpack.io/v1alpha1
 kind: ClusterBuilder
 metadata:
-  name: cf-default-builder
+  name: cf-kpack-cluster-builder
 spec:
   serviceAccountRef:
-    name: kpack-service-account
+    name: default-kpack-service-account
     namespace: default
   # Replace with real docker registry
   tag: gcr.io/cf-relint-greengrass/cf-crd-staging-spike/akira/builder

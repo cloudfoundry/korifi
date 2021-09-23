@@ -1,6 +1,7 @@
-package controllers_test
+package workloads_test
 
 import (
+	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
 	"os"
 	"path/filepath"
 	"testing"
@@ -55,19 +56,20 @@ func beforeSuite(g *WithT) *envtest.Environment {
 	logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases"), filepath.Join("fixtures", "vendor", "kpack", "config")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{filepath.Join("..", "..", "dependencies", "kpack-release-0.3.1.yaml")},
+		},
 	}
 
 	cfg, err := testEnv.Start()
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(cfg).NotTo(BeNil())
 
-	err = workloadsv1alpha1.AddToScheme(scheme.Scheme)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	err = buildv1alpha1.AddToScheme(scheme.Scheme)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(buildv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
 
@@ -83,6 +85,16 @@ func beforeSuite(g *WithT) *envtest.Environment {
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
 		Log:    ctrl.Log.WithName("controllers").WithName("CFApp"),
+	}).SetupWithManager(k8sManager)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	err = (&CFBuildReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("CFBuild"),
+		ControllerConfig: &cfconfig.ControllerConfig{
+			KpackImageTag: "image/registry/tag",
+		},
 	}).SetupWithManager(k8sManager)
 	g.Expect(err).ToNot(HaveOccurred())
 

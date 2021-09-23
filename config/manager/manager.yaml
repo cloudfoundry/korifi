@@ -52,5 +52,17 @@ spec:
           requests:
             cpu: 100m
             memory: 20Mi
+        env:
+        - name: CONFIG
+          value: "/cf_k8s_controllers_config.yaml"
+        volumeMounts:
+        - name: cf-k8s-controllers-config
+          mountPath: /cf_k8s_controllers_config.yaml
+          subPath: cf_k8s_controllers_config.yaml
+          readOnly: true
+      volumes:
+      - name: cf-k8s-controllers-config
+        configMap:
+          name: cf-k8s-controllers-config
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

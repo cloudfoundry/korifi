@@ -18,10 +18,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
 	networkingcontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/networking"
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
@@ -30,6 +32,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -46,9 +49,9 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(workloadsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(buildv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -84,6 +87,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	configPath, found := os.LookupEnv("CONFIG")
+	if !found {
+		panic("CONFIG must be set")
+	}
+
+	cfControllerConfig, err := cfconfig.LoadConfigFromPath(configPath)
+	if err != nil {
+		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
+		panic(errorMessage)
+	}
+
 	if err = (&workloadscontrollers.CFAppReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -94,8 +108,10 @@ func main() {
 	}
 
 	if err = (&workloadscontrollers.CFBuildReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Log:              ctrl.Log.WithName("controllers").WithName("CFBuild"),
+		ControllerConfig: cfControllerConfig,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
 		os.Exit(1)
