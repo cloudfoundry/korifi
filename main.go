@@ -6,9 +6,6 @@ import (
 	"net/http"
 	"os"
 
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -19,6 +16,8 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/routes"
 	"github.com/gorilla/mux"
 	"k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func init() {
@@ -31,6 +30,7 @@ func main() {
 	if !found {
 		panic("CONFIG must be set")
 	}
+
 	config, err := LoadConfigFromPath(configPath)
 	if err != nil {
 		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
@@ -49,12 +49,15 @@ func main() {
 	apiRootV3Handler := &apis.RootV3Handler{
 		ServerURL: config.ServerURL,
 	}
+
 	apiRootHandler := &apis.RootHandler{
 		ServerURL: config.ServerURL,
 	}
+
 	resourceMatchesHandler := &apis.ResourceMatchesHandler{
 		ServerURL: config.ServerURL,
 	}
+
 	appHandler := &apis.AppHandler{
 		ServerURL:   config.ServerURL,
 		AppRepo:     &repositories.AppRepo{},
@@ -62,14 +65,17 @@ func main() {
 		K8sConfig:   k8sClientConfig,
 		BuildClient: repositories.BuildClient,
 	}
+
 	routeHandler := &apis.RouteHandler{
 		ServerURL:   config.ServerURL,
 		RouteRepo:   &repositories.RouteRepo{},
 		DomainRepo:  &repositories.DomainRepo{},
+		AppRepo:     &repositories.AppRepo{},
 		Logger:      ctrl.Log.WithName("RouteHandler"),
 		K8sConfig:   k8sClientConfig,
 		BuildClient: repositories.BuildClient,
 	}
+
 	packageHandler := &apis.PackageHandler{
 		ServerURL:   config.ServerURL,
 		PackageRepo: &repositories.PackageRepo{},
@@ -82,15 +88,17 @@ func main() {
 	router := mux.NewRouter()
 	// create API routes
 	apiRoutes := routes.APIRoutes{
-		//add API routes to handler
+		// add API routes to handler
 		RootV3Handler:          apiRootV3Handler.RootV3GetHandler,
 		RootHandler:            apiRootHandler.RootGetHandler,
 		ResourceMatchesHandler: resourceMatchesHandler.ResourceMatchesPostHandler,
 		AppCreateHandler:       appHandler.AppCreateHandler,
 		AppGetHandler:          appHandler.AppGetHandler,
+		RouteCreateHandler:     routeHandler.RouteCreateHandler,
 		RouteGetHandler:        routeHandler.RouteGetHandler,
 		PackageCreateHandler:   packageHandler.PackageCreateHandler,
 	}
+
 	// Call RegisterRoutes to register all the routes in APIRoutes
 	apiRoutes.RegisterRoutes(router)
 
