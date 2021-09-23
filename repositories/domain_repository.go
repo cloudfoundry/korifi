@@ -5,6 +5,9 @@ import (
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -21,40 +24,24 @@ type DomainRecord struct {
 }
 
 func (f *DomainRepo) FetchDomain(ctx context.Context, client client.Client, domainGUID string) (DomainRecord, error) {
-	cfDomainList := &networkingv1alpha1.CFDomainList{}
-	err := client.List(ctx, cfDomainList)
-
+	domain := &networkingv1alpha1.CFDomain{}
+	err := client.Get(ctx, types.NamespacedName{Name: domainGUID}, domain)
 	if err != nil {
+		switch errtype := err.(type) {
+		case *k8serrors.StatusError:
+			reason := errtype.Status().Reason
+			if reason == metav1.StatusReasonNotFound || reason == metav1.StatusReasonUnauthorized {
+				return DomainRecord{}, PermissionDeniedOrNotFoundError{Err: err}
+			}
+		}
+
 		return DomainRecord{}, err
 	}
 
-	domainList := cfDomainList.Items
-	filteredDomainList := f.filterByDomainName(domainList, domainGUID)
-
-	return f.returnDomain(filteredDomainList)
+	return f.cfDomainToDomainRecord(domain), nil
 }
 
-func (f *DomainRepo) filterByDomainName(domainList []networkingv1alpha1.CFDomain, name string) []networkingv1alpha1.CFDomain {
-	filtered := []networkingv1alpha1.CFDomain{}
-
-	for i, domain := range domainList {
-		if domain.Name == name {
-			filtered = append(filtered, domainList[i])
-		}
-	}
-
-	return filtered
-}
-
-func (f *DomainRepo) returnDomain(domainList []networkingv1alpha1.CFDomain) (DomainRecord, error) {
-	if len(domainList) == 0 {
-		return DomainRecord{}, NotFoundError{}
-	}
-
-	return cfDomainToDomainRecord(domainList[0]), nil
-}
-
-func cfDomainToDomainRecord(cfDomain networkingv1alpha1.CFDomain) DomainRecord {
+func (f *DomainRepo) cfDomainToDomainRecord(cfDomain *networkingv1alpha1.CFDomain) DomainRecord {
 	return DomainRecord{
 		Name:      cfDomain.Spec.Name,
 		GUID:      cfDomain.Name,
