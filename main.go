@@ -94,6 +94,7 @@ func main() {
 		ResourceMatchesHandler: resourceMatchesHandler.ResourceMatchesPostHandler,
 		AppCreateHandler:       appHandler.AppCreateHandler,
 		AppGetHandler:          appHandler.AppGetHandler,
+		AppListHandler:         appHandler.AppListHandler,
 		RouteCreateHandler:     routeHandler.RouteCreateHandler,
 		RouteGetHandler:        routeHandler.RouteGetHandler,
 		PackageCreateHandler:   packageHandler.PackageCreateHandler,
