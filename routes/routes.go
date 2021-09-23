@@ -14,6 +14,7 @@ const (
 	ResourceMatchesEndpoint = "/v3/resource_matches"
 	AppCreateEndpoint       = "/v3/apps"
 	AppGetEndpoint          = "/v3/apps/{guid}"
+	AppListEndPoint         = "/v3/apps"
 	RouteCreateEndpoint     = "/v3/routes"
 	RouteGetEndpoint        = "/v3/routes/{guid}"
 	PackageCreateEndpoint   = "/v3/packages"
@@ -27,6 +28,7 @@ type APIRoutes struct {
 	ResourceMatchesHandler httpHandlerFunction
 	AppCreateHandler       httpHandlerFunction
 	AppGetHandler          httpHandlerFunction
+	AppListHandler         httpHandlerFunction
 	RouteCreateHandler     httpHandlerFunction
 	RouteGetHandler        httpHandlerFunction
 	PackageCreateHandler   httpHandlerFunction
@@ -38,6 +40,7 @@ func (a *APIRoutes) RegisterRoutes(router *mux.Router) {
 		a.RootHandler == nil ||
 		a.ResourceMatchesHandler == nil ||
 		a.AppGetHandler == nil ||
+		a.AppListHandler == nil ||
 		a.AppCreateHandler == nil ||
 		a.RouteCreateHandler == nil ||
 		a.RouteGetHandler == nil ||
@@ -50,6 +53,7 @@ func (a *APIRoutes) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc(ResourceMatchesEndpoint, a.ResourceMatchesHandler).Methods("POST")
 	router.HandleFunc(AppCreateEndpoint, a.AppCreateHandler).Methods("POST")
 	router.HandleFunc(AppGetEndpoint, a.AppGetHandler).Methods("GET")
+	router.HandleFunc(AppListEndPoint, a.AppListHandler).Methods("GET")
 	router.HandleFunc(RouteCreateEndpoint, a.RouteCreateHandler).Methods("POST")
 	router.HandleFunc(RouteGetEndpoint, a.RouteGetHandler).Methods("GET")
 	router.HandleFunc(PackageCreateEndpoint, a.PackageCreateHandler).Methods("POST")
