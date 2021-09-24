@@ -37,7 +37,7 @@ func testResourceMatchesHandler(t *testing.T, when spec.G, it spec.S) {
 	it.Before(func() {
 		rr = httptest.NewRecorder()
 		router = mux.NewRouter()
-		apiHandler := &ResourceMatchesHandler{}
+		apiHandler := NewResourceMatchesHandler("foo://my-server")
 		apiHandler.RegisterRoutes(router)
 	})
 

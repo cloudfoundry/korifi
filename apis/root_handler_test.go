@@ -29,9 +29,7 @@ func testRootAPI(t *testing.T, when spec.G, it spec.S) {
 		rr = httptest.NewRecorder()
 		router := mux.NewRouter()
 
-		apiHandler := apis.RootHandler{
-			ServerURL: defaultServerURL,
-		}
+		apiHandler := apis.NewRootHandler(defaultServerURL)
 		apiHandler.RegisterRoutes(router)
 
 		router.ServeHTTP(rr, req)

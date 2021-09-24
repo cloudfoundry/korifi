@@ -36,14 +36,29 @@ type CFAppRepository interface {
 }
 
 type AppHandler struct {
-	ServerURL   string
-	AppRepo     CFAppRepository
-	BuildClient ClientBuilder
-	Logger      logr.Logger
-	K8sConfig   *rest.Config // TODO: this would be global for all requests, not what we want
+	logger      logr.Logger
+	serverURL   string
+	appRepo     CFAppRepository
+	buildClient ClientBuilder
+	k8sConfig   *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
-func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
+func NewAppHandler(
+	logger logr.Logger,
+	serverURL string,
+	appRepo CFAppRepository,
+	buildClient ClientBuilder,
+	k8sConfig *rest.Config) *AppHandler {
+	return &AppHandler{
+		logger:      logger,
+		serverURL:   serverURL,
+		appRepo:     appRepo,
+		buildClient: buildClient,
+		k8sConfig:   k8sConfig,
+	}
+}
+
+func (h *AppHandler) appGetHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -52,30 +67,30 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Instantiate config based on bearer token
 	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.BuildClient(h.K8sConfig)
+	client, err := h.buildClient(h.k8sConfig)
 	if err != nil {
-		h.Logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
+		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	app, err := h.AppRepo.FetchApp(ctx, client, appGUID)
+	app, err := h.appRepo.FetchApp(ctx, client, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
-			h.Logger.Info("App not found", "AppGUID", appGUID)
+			h.logger.Info("App not found", "AppGUID", appGUID)
 			writeNotFoundErrorResponse(w, "App")
 			return
 		default:
-			h.Logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 			writeUnknownErrorResponse(w)
 			return
 		}
 	}
 
-	responseBody, err := json.Marshal(presenter.ForApp(app, h.ServerURL))
+	responseBody, err := json.Marshal(presenter.ForApp(app, h.serverURL))
 	if err != nil {
-		h.Logger.Error(err, "Failed to render response", "AppGUID", appGUID)
+		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
 		return
 	}
@@ -83,7 +98,7 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseBody)
 }
 
-func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -96,23 +111,24 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Instantiate config based on bearer token
 	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.BuildClient(h.K8sConfig)
+	client, err := h.buildClient(h.k8sConfig)
 	if err != nil {
-		h.Logger.Error(err, "Unable to create Kubernetes client")
+		h.logger.Error(err, "Unable to create Kubernetes client")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
 	namespaceGUID := payload.Relationships.Space.Data.GUID
-	_, err = h.AppRepo.FetchNamespace(ctx, client, namespaceGUID)
+	_, err = h.appRepo.FetchNamespace(ctx, client, namespaceGUID)
+
 	if err != nil {
 		switch err.(type) {
 		case repositories.PermissionDeniedOrNotFoundError:
-			h.Logger.Info("Namespace not found", "Namespace GUID", namespaceGUID)
+			h.logger.Info("Namespace not found", "Namespace GUID", namespaceGUID)
 			writeUnprocessableEntityError(w, "Invalid space. Ensure that the space exists and you have access to it.")
 			return
 		default:
-			h.Logger.Error(err, "Failed to fetch namespace from Kubernetes", "Namespace GUID", namespaceGUID)
+			h.logger.Error(err, "Failed to fetch namespace from Kubernetes", "Namespace GUID", namespaceGUID)
 			writeUnknownErrorResponse(w)
 			return
 		}
@@ -127,9 +143,9 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 			SpaceGUID:            namespaceGUID,
 			EnvironmentVariables: payload.EnvironmentVariables,
 		}
-		responseAppEnvSecretRecord, err := h.AppRepo.CreateAppEnvironmentVariables(ctx, client, appEnvSecretRecord)
+		responseAppEnvSecretRecord, err := h.appRepo.CreateAppEnvironmentVariables(ctx, client, appEnvSecretRecord)
 		if err != nil {
-			h.Logger.Error(err, "Failed to create app environment vars", "App Name", payload.Name)
+			h.logger.Error(err, "Failed to create app environment vars", "App Name", payload.Name)
 			writeUnknownErrorResponse(w)
 			return
 		}
@@ -141,7 +157,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	createAppRecord.GUID = appGUID
 	createAppRecord.EnvSecretName = appEnvSecretName
 
-	responseAppRecord, err := h.AppRepo.CreateApp(ctx, client, createAppRecord)
+	responseAppRecord, err := h.appRepo.CreateApp(ctx, client, createAppRecord)
 	if err != nil {
 		if statusError := new(k8serrors.StatusError); errors.As(err, &statusError) {
 			reason := statusError.Status().Reason
@@ -151,19 +167,19 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 			if *val == workloads.DuplicateAppError {
 				errorDetail := fmt.Sprintf("App with the name '%s' already exists.", payload.Name)
-				h.Logger.Error(err, errorDetail, "App Name", payload.Name)
+				h.logger.Error(err, errorDetail, "App Name", payload.Name)
 				writeUniquenessError(w, errorDetail)
 				return
 			}
 		}
-		h.Logger.Error(err, "Failed to create app", "App Name", payload.Name)
+		h.logger.Error(err, "Failed to create app", "App Name", payload.Name)
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForApp(responseAppRecord, h.ServerURL))
+	responseBody, err := json.Marshal(presenter.ForApp(responseAppRecord, h.serverURL))
 	if err != nil {
-		h.Logger.Error(err, "Failed to render response", "App Name", payload.Name)
+		h.logger.Error(err, "Failed to render response", "App Name", payload.Name)
 		writeUnknownErrorResponse(w)
 		return
 	}
@@ -171,29 +187,29 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseBody)
 }
 
-func (h *AppHandler) AppListHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	// TODO: Instantiate config based on bearer token
 	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.BuildClient(h.K8sConfig)
+	client, err := h.buildClient(h.k8sConfig)
 	if err != nil {
-		h.Logger.Error(err, "Unable to create Kubernetes client")
+		h.logger.Error(err, "Unable to create Kubernetes client")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	appList, err := h.AppRepo.FetchAppList(ctx, client)
+	appList, err := h.appRepo.FetchAppList(ctx, client)
 	if err != nil {
-		h.Logger.Error(err, "Failed to fetch app(s) from Kubernetes")
+		h.logger.Error(err, "Failed to fetch app(s) from Kubernetes")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForAppList(appList, h.ServerURL))
+	responseBody, err := json.Marshal(presenter.ForAppList(appList, h.serverURL))
 	if err != nil {
-		h.Logger.Error(err, "Failed to render response")
+		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
 		return
 	}
@@ -202,7 +218,7 @@ func (h *AppHandler) AppListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AppHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(AppGetEndpoint).Methods("GET").HandlerFunc(h.AppGetHandler)
-	router.Path(AppListEndpoint).Methods("GET").HandlerFunc(h.AppListHandler)
-	router.Path(AppCreateEndpoint).Methods("POST").HandlerFunc(h.AppCreateHandler)
+	router.Path(AppGetEndpoint).Methods("GET").HandlerFunc(h.appGetHandler)
+	router.Path(AppListEndpoint).Methods("GET").HandlerFunc(h.appListHandler)
+	router.Path(AppCreateEndpoint).Methods("POST").HandlerFunc(h.appCreateHandler)
 }

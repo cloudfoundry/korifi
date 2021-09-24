@@ -28,9 +28,7 @@ func testRootV3API(t *testing.T, when spec.G, it spec.S) {
 		rr = httptest.NewRecorder()
 		router := mux.NewRouter()
 
-		apiHandler := apis.RootV3Handler{
-			ServerURL: defaultServerURL,
-		}
+		apiHandler := apis.NewRootV3Handler(defaultServerURL)
 		apiHandler.RegisterRoutes(router)
 
 		router.ServeHTTP(rr, req)

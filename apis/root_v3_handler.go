@@ -11,14 +11,18 @@ const (
 )
 
 type RootV3Handler struct {
-	ServerURL string
+	serverURL string
 }
 
-func (h *RootV3Handler) RootV3GetHandler(w http.ResponseWriter, r *http.Request) {
+func NewRootV3Handler(serverURL string) *RootV3Handler {
+	return &RootV3Handler{serverURL: serverURL}
+}
+
+func (h *RootV3Handler) rootV3GetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"links":{"self":{"href":"` + h.ServerURL + `/v3"}}}`))
+	w.Write([]byte(`{"links":{"self":{"href":"` + h.serverURL + `/v3"}}}`))
 }
 
 func (h *RootV3Handler) RegisterRoutes(router *mux.Router) {
-	router.Path(RootV3GetEndpoint).Methods("GET").HandlerFunc(h.RootV3GetHandler)
+	router.Path(RootV3GetEndpoint).Methods("GET").HandlerFunc(h.rootV3GetHandler)
 }

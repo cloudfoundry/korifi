@@ -49,39 +49,33 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
 
 	handlers := []APIHandler{
-		&apis.RootV3Handler{
-			ServerURL: config.ServerURL,
-		},
-		&apis.RootHandler{
-			ServerURL: config.ServerURL,
-		},
-		&apis.ResourceMatchesHandler{
-			ServerURL: config.ServerURL,
-		},
-		&apis.AppHandler{
-			ServerURL:   config.ServerURL,
-			AppRepo:     &repositories.AppRepo{},
-			Logger:      ctrl.Log.WithName("AppHandler"),
-			K8sConfig:   k8sClientConfig,
-			BuildClient: repositories.BuildClient,
-		},
-		&apis.RouteHandler{
-			ServerURL:   config.ServerURL,
-			RouteRepo:   &repositories.RouteRepo{},
-			DomainRepo:  &repositories.DomainRepo{},
-			AppRepo:     &repositories.AppRepo{},
-			Logger:      ctrl.Log.WithName("RouteHandler"),
-			K8sConfig:   k8sClientConfig,
-			BuildClient: repositories.BuildClient,
-		},
-		&apis.PackageHandler{
-			ServerURL:   config.ServerURL,
-			PackageRepo: &repositories.PackageRepo{},
-			AppRepo:     &repositories.AppRepo{},
-			K8sConfig:   k8sClientConfig,
-			Logger:      ctrl.Log.WithName("PackageHandler"),
-			BuildClient: repositories.BuildClient,
-		},
+		apis.NewRootV3Handler(config.ServerURL),
+		apis.NewRootHandler(config.ServerURL),
+		apis.NewResourceMatchesHandler(config.ServerURL),
+		apis.NewAppHandler(
+			ctrl.Log.WithName("AppHandler"),
+			config.ServerURL,
+			&repositories.AppRepo{},
+			repositories.BuildClient,
+			k8sClientConfig,
+		),
+		apis.NewRouteHandler(
+			ctrl.Log.WithName("RouteHandler"),
+			config.ServerURL,
+			&repositories.RouteRepo{},
+			&repositories.DomainRepo{},
+			&repositories.AppRepo{},
+			repositories.BuildClient,
+			k8sClientConfig,
+		),
+		apis.NewPackageHandler(
+			ctrl.Log.WithName("PackageHandler"),
+			config.ServerURL,
+			&repositories.PackageRepo{},
+			&repositories.AppRepo{},
+			repositories.BuildClient,
+			k8sClientConfig,
+		),
 	}
 
 	router := mux.NewRouter()

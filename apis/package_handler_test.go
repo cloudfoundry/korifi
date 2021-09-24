@@ -91,14 +91,14 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 		clientBuilder = new(fake.ClientBuilder)
 
-		apiHandler := &PackageHandler{
-			ServerURL:   defaultServerURL,
-			PackageRepo: packageRepo,
-			AppRepo:     appRepo,
-			K8sConfig:   &rest.Config{},
-			Logger:      logf.Log.WithName(testPackageHandlerLoggerName),
-			BuildClient: clientBuilder.Spy,
-		}
+		apiHandler := NewPackageHandler(
+			logf.Log.WithName(testPackageHandlerLoggerName),
+			defaultServerURL,
+			packageRepo,
+			appRepo,
+			clientBuilder.Spy,
+			&rest.Config{},
+		)
 		apiHandler.RegisterRoutes(router)
 	})
 
@@ -422,14 +422,14 @@ func testPackageUploadHandler(t *testing.T, when spec.G, it spec.S) {
 		appRepo = new(fake.CFAppRepository)
 		clientBuilder = new(fake.ClientBuilder)
 
-		apiHandler := &PackageHandler{
-			ServerURL:   defaultServerURL,
-			PackageRepo: packageRepo,
-			AppRepo:     appRepo,
-			K8sConfig:   &rest.Config{},
-			Logger:      logf.Log.WithName(testPackageHandlerLoggerName),
-			BuildClient: clientBuilder.Spy,
-		}
+		apiHandler := NewPackageHandler(
+			logf.Log.WithName(testPackageHandlerLoggerName),
+			defaultServerURL,
+			packageRepo,
+			appRepo,
+			clientBuilder.Spy,
+			&rest.Config{})
+
 		apiHandler.RegisterRoutes(router)
 	})
 
