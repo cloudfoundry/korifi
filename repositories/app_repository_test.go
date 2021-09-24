@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	. "code.cloudfoundry.org/cf-k8s-api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+
+	. "code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/gomega"
@@ -39,14 +40,33 @@ var _ = SuiteDescribe("App Repository FetchNamespace", func(t *testing.T, when s
 func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
-	const namespace = "default"
-	var testCtx context.Context
+	var (
+		testCtx context.Context
+		appRepo *AppRepo
+		client  client.Client
+
+		namespace1 *corev1.Namespace
+		namespace2 *corev1.Namespace
+	)
 
 	it.Before(func() {
 		testCtx = context.Background()
+
+		appRepo = new(AppRepo)
+		var err error
+		client, err = BuildClient(k8sConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		namespace1Name := generateGUID()
+		namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace1Name}}
+		g.Expect(k8sClient.Create(context.Background(), namespace1)).To(Succeed())
+
+		namespace2Name := generateGUID()
+		namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
+		g.Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
 	})
 
-	when("multiple Apps exist", func() {
+	when("on the happy path", func() {
 		var (
 			app1GUID string
 			app2GUID string
@@ -54,13 +74,12 @@ func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 			cfApp2   *workloadsv1alpha1.CFApp
 		)
 		it.Before(func() {
-			beforeCtx := context.Background()
 			app1GUID = generateGUID()
 			app2GUID = generateGUID()
 			cfApp1 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      app1GUID,
-					Namespace: namespace,
+					Namespace: namespace1.Name,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
 					Name:         "test-app1",
@@ -74,12 +93,12 @@ func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			g.Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
+			g.Expect(k8sClient.Create(context.Background(), cfApp1)).To(Succeed())
 
 			cfApp2 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      app2GUID,
-					Namespace: namespace,
+					Namespace: namespace2.Name,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
 					Name:         "test-app2",
@@ -93,25 +112,20 @@ func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			g.Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
+			g.Expect(k8sClient.Create(context.Background(), cfApp2)).To(Succeed())
 		})
 
 		it.After(func() {
-			afterCtx := context.Background()
-			g.Expect(k8sClient.Delete(afterCtx, cfApp1)).To(Succeed())
-			g.Expect(k8sClient.Delete(afterCtx, cfApp2)).To(Succeed())
+			g.Expect(k8sClient.Delete(context.Background(), cfApp1)).To(Succeed())
+			g.Expect(k8sClient.Delete(context.Background(), cfApp2)).To(Succeed())
 		})
 
 		it("can fetch the AppRecord CR we're looking for", func() {
-			appRepo := AppRepo{}
-			client, err := BuildClient(k8sConfig)
-			g.Expect(err).ToNot(HaveOccurred())
-
 			app, err := appRepo.FetchApp(testCtx, client, app2GUID)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(app.GUID).To(Equal(app2GUID))
 			g.Expect(app.Name).To(Equal("test-app2"))
-			g.Expect(app.SpaceGUID).To(Equal(namespace))
+			g.Expect(app.SpaceGUID).To(Equal(namespace2.Name))
 			g.Expect(app.State).To(Equal(DesiredState("STOPPED")))
 
 			expectedLifecycle := Lifecycle{
@@ -124,9 +138,7 @@ func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
-	when("duplicate Apps exist across namespaces with the same name", func() {
-		const otherNamespaceName = "other-namespace"
-
+	when("duplicate Apps exist across namespaces with the same GUIDs", func() {
 		var (
 			testAppGUID string
 			cfApp1      *workloadsv1alpha1.CFApp
@@ -134,14 +146,12 @@ func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 		)
 
 		it.Before(func() {
-			beforeCtx := context.Background()
 			testAppGUID = generateGUID()
-			g.Expect(k8sClient.Create(beforeCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: otherNamespaceName}})).To(Succeed())
 
 			cfApp1 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testAppGUID,
-					Namespace: namespace,
+					Namespace: namespace1.Name,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
 					Name:         "test-app1",
@@ -155,12 +165,12 @@ func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			g.Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
+			g.Expect(k8sClient.Create(context.Background(), cfApp1)).To(Succeed())
 
 			cfApp2 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testAppGUID,
-					Namespace: otherNamespaceName,
+					Namespace: namespace2.Name,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
 					Name:         "test-app2",
@@ -174,21 +184,16 @@ func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			g.Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
+			g.Expect(k8sClient.Create(context.Background(), cfApp2)).To(Succeed())
 		})
 
 		it.After(func() {
-			afterCtx := context.Background()
-			g.Expect(k8sClient.Delete(afterCtx, cfApp1)).To(Succeed())
-			g.Expect(k8sClient.Delete(afterCtx, cfApp2)).To(Succeed())
+			g.Expect(k8sClient.Delete(context.Background(), cfApp1)).To(Succeed())
+			g.Expect(k8sClient.Delete(context.Background(), cfApp2)).To(Succeed())
 		})
 
 		it("returns an error", func() {
-			appRepo := AppRepo{}
-			client, err := BuildClient(k8sConfig)
-			g.Expect(err).ToNot(HaveOccurred())
-
-			_, err = appRepo.FetchApp(testCtx, client, testAppGUID)
+			_, err := appRepo.FetchApp(testCtx, client, testAppGUID)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err).To(MatchError("duplicate apps exist"))
 		})
@@ -196,27 +201,9 @@ func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 
 	when("no Apps exist", func() {
 		it("returns an error", func() {
-			appRepo := AppRepo{}
-			client, err := BuildClient(k8sConfig)
-			g.Expect(err).ToNot(HaveOccurred())
-
-			_, err = appRepo.FetchApp(testCtx, client, "i don't exist")
+			_, err := appRepo.FetchApp(testCtx, client, "i don't exist")
 			g.Expect(err).To(HaveOccurred())
-			g.Expect(err).To(MatchError("not found"))
-		})
-	})
-
-	when("there is some other error fetching apps", func() {
-		it.Before(func() {
-		})
-
-		it("returns status 500 InternalServerError", func() {
-		})
-
-		it("returns Content-Type as JSON in header", func() {
-		})
-
-		it("returns a CF API formatted Error response", func() {
+			g.Expect(err).To(MatchError(NotFoundError{}))
 		})
 	})
 }

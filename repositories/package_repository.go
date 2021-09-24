@@ -1,11 +1,12 @@
 package repositories
 
 import (
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"context"
+	"errors"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -39,6 +40,18 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, client client.Client, c
 	return r.cfPackageToPackageRecord(cfPackage), nil
 }
 
+func (r *PackageRepo) FetchPackage(ctx context.Context, client client.Client, guid string) (PackageRecord, error) {
+	packageList := &workloadsv1alpha1.CFPackageList{}
+	err := client.List(ctx, packageList)
+	if err != nil { // untested
+		return PackageRecord{}, err
+	}
+	allPackages := packageList.Items
+	matches := r.filterPackagesByMetadataName(allPackages, guid)
+
+	return r.returnPackage(matches)
+}
+
 func (r *PackageRepo) packageCreateToCFPackage(cp PackageCreate) workloadsv1alpha1.CFPackage {
 	guid := uuid.New().String()
 	return workloadsv1alpha1.CFPackage{
@@ -69,4 +82,25 @@ func (r *PackageRepo) cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPac
 		CreatedAt: formatTimestamp(cfPackage.CreationTimestamp),
 		UpdatedAt: updatedAtTime,
 	}
+}
+
+func (r *PackageRepo) filterPackagesByMetadataName(packages []workloadsv1alpha1.CFPackage, name string) []workloadsv1alpha1.CFPackage {
+	var filtered []workloadsv1alpha1.CFPackage
+	for i, app := range packages {
+		if app.ObjectMeta.Name == name {
+			filtered = append(filtered, packages[i])
+		}
+	}
+	return filtered
+}
+
+func (r *PackageRepo) returnPackage(apps []workloadsv1alpha1.CFPackage) (PackageRecord, error) {
+	if len(apps) == 0 {
+		return PackageRecord{}, NotFoundError{}
+	}
+	if len(apps) > 1 {
+		return PackageRecord{}, errors.New("duplicate packages exist")
+	}
+
+	return r.cfPackageToPackageRecord(apps[0]), nil
 }
