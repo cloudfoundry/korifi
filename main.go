@@ -50,7 +50,10 @@ func main() {
 
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
-		apis.NewRootHandler(config.ServerURL),
+		apis.NewRootHandler(
+			ctrl.Log.WithName("RootHandler"),
+			config.ServerURL,
+		),
 		apis.NewResourceMatchesHandler(config.ServerURL),
 		apis.NewAppHandler(
 			ctrl.Log.WithName("AppHandler"),

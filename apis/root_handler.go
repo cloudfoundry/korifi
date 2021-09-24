@@ -1,8 +1,11 @@
 package apis
 
 import (
+	"encoding/json"
 	"net/http"
 
+	"code.cloudfoundry.org/cf-k8s-api/presenter"
+	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 )
 
@@ -11,16 +14,21 @@ const (
 )
 
 type RootHandler struct {
+	logger    logr.Logger
 	serverURL string
 }
 
-func NewRootHandler(serverURL string) *RootHandler {
+func NewRootHandler(logger logr.Logger, serverURL string) *RootHandler {
 	return &RootHandler{serverURL: serverURL}
 }
 
 func (h *RootHandler) rootGetHandler(w http.ResponseWriter, r *http.Request) {
-	body := `{"links":{"self":{"href":"` + h.serverURL + `"},"bits_service":null,"cloud_controller_v2":null,"cloud_controller_v3":{"href":"` + h.serverURL + `/v3","meta":{"version":"3.90.0"}},"network_policy_v0":null,"network_policy_v1":null,"login":null,"uaa":null,"credhub":null,"routing":null,"logging":null,"log_cache":null,"log_stream":null,"app_ssh":null}}`
-
+	body, err := json.Marshal(presenter.GetRootResponse(h.serverURL))
+	if err != nil {
+		h.logger.Error(err, "Failed to render response")
+		writeUnknownErrorResponse(w)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(body))
 }
