@@ -108,7 +108,7 @@ func (h *RouteHandler) RouteCreateHandler(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 
 	var routeCreateMessage payloads.RouteCreate
-	rme := DecodePayload(r, &routeCreateMessage)
+	rme := DecodeAndValidatePayload(r, &routeCreateMessage)
 	if rme != nil {
 		writeErrorResponse(w, rme)
 		return

@@ -34,7 +34,7 @@ func (rme *requestMalformedError) Error() string {
 	return fmt.Sprintf("Error throwing an http %v", rme.httpStatus)
 }
 
-func DecodePayload(r *http.Request, object interface{}) *requestMalformedError {
+func DecodeAndValidatePayload(r *http.Request, object interface{}) *requestMalformedError {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	err := decoder.Decode(&object)
