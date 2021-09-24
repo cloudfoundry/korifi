@@ -38,12 +38,12 @@ func testRootAPI(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	it("returns status 200 OK", func() {
-		g.Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+		g.Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 	})
 
 	it("returns Content-Type as JSON in header", func() {
 		contentTypeHeader := rr.Header().Get("Content-Type")
-		g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+		g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 	})
 
 	it("has a non-empty body", func() {
@@ -52,6 +52,6 @@ func testRootAPI(t *testing.T, when spec.G, it spec.S) {
 
 	it("matches the expected response body format", func() {
 		expectedBody := `{"links":{"self":{"href":"` + defaultServerURL + `"},"bits_service":null,"cloud_controller_v2":null,"cloud_controller_v3":{"href":"` + defaultServerURL + `/v3","meta":{"version":"3.90.0"}},"network_policy_v0":null,"network_policy_v1":null,"login":null,"uaa":null,"credhub":null,"routing":null,"logging":null,"log_cache":null,"log_stream":null,"app_ssh":null}}`
-		g.Expect(rr.Body.String()).Should(Equal(expectedBody), "Response body matches RootV3GetHandler response:")
+		g.Expect(rr.Body.String()).To(Equal(expectedBody), "Response body matches RootV3GetHandler response:")
 	})
 }

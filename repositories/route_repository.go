@@ -73,7 +73,7 @@ func (f *RouteRepo) filterByRouteName(routeList []networkingv1alpha1.CFRoute, na
 
 func (f *RouteRepo) returnRoute(routeList []networkingv1alpha1.CFRoute) (RouteRecord, error) {
 	if len(routeList) == 0 {
-		return RouteRecord{}, NotFoundError{Err: errors.New("not found")}
+		return RouteRecord{}, NotFoundError{}
 	}
 
 	if len(routeList) > 1 {

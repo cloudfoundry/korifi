@@ -37,16 +37,16 @@ func testRootV3API(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	it("returns status 200 OK", func() {
-		g.Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+		g.Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 	})
 
 	it("returns Content-Type as JSON in header", func() {
 		contentTypeHeader := rr.Header().Get("Content-Type")
-		g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+		g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 	})
 
 	it("matches the expected response body format", func() {
 		expectedBody := `{"links":{"self":{"href":"` + defaultServerURL + `/v3"}}}`
-		g.Expect(rr.Body.String()).Should(Equal(expectedBody), "Response body matches RootV3GetHandler response:")
+		g.Expect(rr.Body.String()).To(Equal(expectedBody), "Response body matches RootV3GetHandler response:")
 	})
 }

@@ -160,7 +160,7 @@ func (f *AppRepo) cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 
 func (f *AppRepo) returnApp(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
 	if len(apps) == 0 {
-		return AppRecord{}, NotFoundError{Err: errors.New("not found")}
+		return AppRecord{}, NotFoundError{}
 	}
 	if len(apps) > 1 {
 		return AppRecord{}, errors.New("duplicate apps exist")

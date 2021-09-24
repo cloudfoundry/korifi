@@ -13,9 +13,10 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"code.cloudfoundry.org/cf-k8s-api/repositories"
 )
 
 const (
@@ -54,7 +55,6 @@ func (h PackageHandler) PackageCreateHandler(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	// check for app existence
 	appRecord, err := h.AppRepo.FetchApp(req.Context(), client, m.Relationships.App.Data.GUID)
 	if err != nil {
 		switch err.(type) {
@@ -75,10 +75,8 @@ func (h PackageHandler) PackageCreateHandler(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	// convert the Record into a user-facing form (Presenter)
 	res := presenter.ForPackage(record, h.ServerURL)
 	w.WriteHeader(http.StatusCreated)
-	// Send the API response as JSON
 	err = json.NewEncoder(w).Encode(res)
 	if err != nil { // untested
 		h.Logger.Info("Error encoding JSON response", err.Error())

@@ -7,20 +7,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gorilla/mux"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/sclevine/spec/report"
-
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
-
-	"k8s.io/client-go/rest"
-
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
+	"code.cloudfoundry.org/cf-k8s-api/repositories"
+
+	"github.com/gorilla/mux"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
+	"github.com/sclevine/spec/report"
+	"k8s.io/client-go/rest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	testPackageHandlerLoggerName = "TestPackageHandler"
 )
 
 func TestPackage(t *testing.T) {
@@ -29,10 +29,6 @@ func TestPackage(t *testing.T) {
 
 func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
-
-	const (
-		testPackageHandlerLoggerName = "TestPackageHandler"
-	)
 
 	var (
 		rr            *httptest.ResponseRecorder
@@ -49,31 +45,8 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		router.ServeHTTP(rr, req)
 	}
 
-	itRespondsWithUnknownError := func() {
-		it("returns status 500 InternalServerError", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-		})
-
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-		})
-
-		it("returns a CF API formatted Error response", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
-					"errors": [
-						{
-							"title": "UnknownError",
-							"detail": "An unknown error occurred.",
-							"code": 10001
-						}
-					]
-				}`), "Response body matches response:")
-		})
-	}
-
 	const (
-		packageGUID = "` + packageGUID + `"
+		packageGUID = "the-package-guid"
 		appGUID     = "the-app-guid"
 		spaceGUID   = "the-space-guid"
 		validBody   = `{
@@ -89,6 +62,8 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		createdAt = "1906-04-18T13:12:00Z"
 		updatedAt = "1906-04-18T13:12:01Z"
 	)
+
+	getRR := func() *httptest.ResponseRecorder { return rr }
 
 	it.Before(func() {
 		rr = httptest.NewRecorder()
@@ -231,7 +206,7 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			makePostRequest(validBody)
 		})
 
-		itRespondsWithUnknownError()
+		itRespondsWithUnknownError(it, g, getRR)
 
 		it("doesn't create a package", func() {
 			g.Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
@@ -257,16 +232,16 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a status 422 Unprocessable Entity", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
 		})
 
 		it("returns Content-Type as JSON in header", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).To(MatchJSON(`{
 					"errors": [
 						{
 							"code":   10008,
@@ -284,16 +259,16 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a status 422 Unprocessable Entity", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
 		})
 
 		it("returns Content-Type as JSON in header", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).To(MatchJSON(`{
 					"errors": [
 						{
 							"code":   10008,
@@ -320,16 +295,16 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a status 422 Unprocessable Entity", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
 		})
 
 		it("returns Content-Type as JSON in header", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).To(MatchJSON(`{
 					"errors": [
 						{
 							"code":   10008,
@@ -347,16 +322,16 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a status 400 Bad Request ", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+			g.Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
 		})
 
 		it("returns Content-Type as JSON in header", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).To(MatchJSON(`{
 					"errors": [
 						{
 							"title": "CF-MessageParseError",
@@ -374,26 +349,7 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			makePostRequest(validBody)
 		})
 
-		it("returns a status 500 Bad Request ", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-		})
-
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-		})
-
-		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
-				 "errors": [
-					  {
-						   "title": "UnknownError",
-						   "detail": "An unknown error occurred.",
-						   "code": 10001
-					  }
-				 ]
-			}`), "Response body matches response:")
-		})
+		itRespondsWithUnknownError(it, g, getRR)
 
 		it("doesn't create a Package", func() {
 			g.Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
@@ -406,25 +362,6 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			makePostRequest(validBody)
 		})
 
-		it("returns a status 500 Bad Request ", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-		})
-
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-		})
-
-		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
-				 "errors": [
-					  {
-						   "title": "UnknownError",
-						   "detail": "An unknown error occurred.",
-						   "code": 10001
-					  }
-				 ]
-			}`), "Response body matches response:")
-		})
+		itRespondsWithUnknownError(it, g, getRR)
 	})
 }

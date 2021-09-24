@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 
@@ -49,7 +48,7 @@ func (f *DomainRepo) filterByDomainName(domainList []networkingv1alpha1.CFDomain
 
 func (f *DomainRepo) returnDomain(domainList []networkingv1alpha1.CFDomain) (DomainRecord, error) {
 	if len(domainList) == 0 {
-		return DomainRecord{}, NotFoundError{Err: errors.New("not found")}
+		return DomainRecord{}, NotFoundError{}
 	}
 
 	return cfDomainToDomainRecord(domainList[0]), nil

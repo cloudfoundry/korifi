@@ -86,18 +86,20 @@ func testRouteGetHandler(t *testing.T, when spec.G, it spec.S) {
 		g.Expect(err).NotTo(HaveOccurred())
 	})
 
+	getRR := func() *httptest.ResponseRecorder { return rr }
+
 	when("on the happy path", func() {
 		it.Before(func() {
 			router.ServeHTTP(rr, req)
 		})
 
 		it("returns status 200 OK", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+			g.Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 		})
 
 		it("returns Content-Type as JSON in header", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("returns the Route in the response", func() {
@@ -143,7 +145,7 @@ func testRouteGetHandler(t *testing.T, when spec.G, it spec.S) {
 				}
 			}`
 
-			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+			g.Expect(rr.Body.String()).To(MatchJSON(expectedBody), "Response body matches response:")
 		})
 
 		it("fetches the correct route", func() {
@@ -166,26 +168,7 @@ func testRouteGetHandler(t *testing.T, when spec.G, it spec.S) {
 			router.ServeHTTP(rr, req)
 		})
 
-		it("returns status 404 NotFound", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusNotFound), "Matching HTTP response code:")
-		})
-
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-		})
-
-		it("returns a CF API formatted Error response", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
-				"errors": [
-					{
-						"code": 10010,
-						"title": "CF-ResourceNotFound",
-						"detail":"Route not found"
-					}
-				]
-			}`), "Response body matches response:")
-		})
+		itRespondsWithNotFound(it, g, "Route not found", getRR)
 	})
 
 	when("the route's domain cannot be found", func() {
@@ -195,26 +178,7 @@ func testRouteGetHandler(t *testing.T, when spec.G, it spec.S) {
 			router.ServeHTTP(rr, req)
 		})
 
-		it("returns status 500 InternalServerError", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-		})
-
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-		})
-
-		it("returns a CF API formatted Error response", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
-				"errors": [
-					{
-						"title": "UnknownError",
-						"detail": "An unknown error occurred.",
-						"code": 10001
-					}
-				]
-			}`), "Response body matches response:")
-		})
+		itRespondsWithUnknownError(it, g, getRR)
 	})
 
 	when("there is some other error fetching the route", func() {
@@ -224,26 +188,7 @@ func testRouteGetHandler(t *testing.T, when spec.G, it spec.S) {
 			router.ServeHTTP(rr, req)
 		})
 
-		it("returns status 500 InternalServerError", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-		})
-
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-		})
-
-		it("returns a CF API formatted Error response", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
-				"errors": [
-					{
-						"title": "UnknownError",
-						"detail": "An unknown error occurred.",
-						"code": 10001
-					}
-				]
-			}`), "Response body matches response:")
-		})
+		itRespondsWithUnknownError(it, g, getRR)
 	})
 }
 
@@ -268,6 +213,8 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		appRepo       *fake.CFAppRepository
 		clientBuilder *fake.ClientBuilder
 	)
+
+	getRR := func() *httptest.ResponseRecorder { return rr }
 
 	makePostRequest := func(requestBody string) {
 		req, err := http.NewRequest("POST", "/v3/routes", strings.NewReader(requestBody))
@@ -345,15 +292,15 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns status 200 OK", func() {
-				g.Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+				g.Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
 
 			it("returns Content-Type as JSON in header", func() {
-				g.Expect(rr.Header().Get("Content-Type")).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				g.Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
 			})
 
 			it("returns the \"created route\"(the mock response record) in the response", func() {
-				g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				g.Expect(rr.Body.String()).To(MatchJSON(`{
 					  "guid": "test-route-guid",
 					  "protocol": "http",
 					  "port": null,
@@ -441,15 +388,15 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a status 400 Bad Request ", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+			g.Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
 		})
 
 		it("returns Content-Type as JSON in header", func() {
-			g.Expect(rr.Header().Get("Content-Type")).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).To(MatchJSON(`{
 				 "errors": [
 					  {
 						  "title": "CF-MessageParseError",
@@ -467,15 +414,15 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a status 422 Unprocessable Entity", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
 		})
 
 		it("returns Content-Type as JSON in header", func() {
-			g.Expect(rr.Header().Get("Content-Type")).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).To(MatchJSON(`{
 				 "errors": [
 					  {
 						  "detail": "invalid request body: json: unknown field \"description\"",
@@ -502,15 +449,15 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a status 422 Unprocessable Entity", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
 		})
 
 		it("returns Content-Type as JSON in header", func() {
-			g.Expect(rr.Header().Get("Content-Type")).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).To(MatchJSON(`{
 				 "errors": [
 					  {
 						  "detail": "Host must be a string",
@@ -546,11 +493,11 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 		it("returns Content-Type as JSON in header", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).To(MatchJSON(`{
 				 "errors": [
 					  {
 						  "title": "CF-UnprocessableEntity",
@@ -582,11 +529,11 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 		it("returns Content-Type as JSON in header", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).To(MatchJSON(`{
 				 "errors": [
 					  {
 						  "title": "CF-UnprocessableEntity",
@@ -618,11 +565,11 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 		it("returns Content-Type as JSON in header", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).To(MatchJSON(`{
 				 "errors": [
 					  {
 						  "title": "CF-UnprocessableEntity",
@@ -642,25 +589,7 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			makePostRequest(requestBody)
 		})
 
-		it("returns a status 500 Internal Server Error ", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-		})
-
-		it("returns Content-Type as JSON in header", func() {
-			g.Expect(rr.Header().Get("Content-Type")).Should(Equal(jsonHeader), "Matching Content-Type header:")
-		})
-
-		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
-				 "errors": [
-					  {
-						  "title": "UnknownError",
-						  "detail": "An unknown error occurred.",
-						  "code": 10001
-					  }
-				 ]
-			 }`), "Response body matches response:")
-		})
+		itRespondsWithUnknownError(it, g, getRR)
 	})
 
 	when("the space does not exist", func() {
@@ -673,16 +602,16 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a status 422 Unprocessable Entity", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
 		})
 
 		it("returns Content-Type as JSON in header", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
 		it("returns a CF API formatted Error response", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).To(MatchJSON(`{
 				 "errors": [
 					  {
 						  "title": "CF-UnprocessableEntity",
@@ -703,25 +632,7 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			makePostRequest(requestBody)
 		})
 
-		it("returns a status 500 Internal Server Error ", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-		})
-
-		it("returns Content-Type as JSON in header", func() {
-			g.Expect(rr.Header().Get("Content-Type")).Should(Equal(jsonHeader), "Matching Content-Type header:")
-		})
-
-		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
-				 "errors": [
-					  {
-						  "title": "UnknownError",
-						  "detail": "An unknown error occurred.",
-						  "code": 10001
-					  }
-				 ]
-			 }`), "Response body matches response:")
-		})
+		itRespondsWithUnknownError(it, g, getRR)
 	})
 
 	when("the domain does not exist", func() {
@@ -772,25 +683,7 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			makePostRequest(requestBody)
 		})
 
-		it("returns a status 500 Internal Server Error ", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-		})
-
-		it("returns Content-Type as JSON in header", func() {
-			g.Expect(rr.Header().Get("Content-Type")).Should(Equal(jsonHeader), "Matching Content-Type header:")
-		})
-
-		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
-				 "errors": [
-					  {
-						  "title": "UnknownError",
-						  "detail": "An unknown error occurred.",
-						  "code": 10001
-					  }
-				 ]
-			 }`), "Response body matches response:")
-		})
+		itRespondsWithUnknownError(it, g, getRR)
 	})
 
 	when("CreateRoute returns an unknown error", func() {
@@ -811,25 +704,7 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			makePostRequest(requestBody)
 		})
 
-		it("returns a status 500 Internal Server Error ", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-		})
-
-		it("returns Content-Type as JSON in header", func() {
-			g.Expect(rr.Header().Get("Content-Type")).Should(Equal(jsonHeader), "Matching Content-Type header:")
-		})
-
-		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
-				 "errors": [
-					  {
-						  "title": "UnknownError",
-						  "detail": "An unknown error occurred.",
-						  "code": 10001
-					  }
-				 ]
-			 }`), "Response body matches response:")
-		})
+		itRespondsWithUnknownError(it, g, getRR)
 	})
 }
 
