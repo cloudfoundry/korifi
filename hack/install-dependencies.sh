@@ -64,6 +64,4 @@ echo "******************************"
 echo "Installed and configured Kpack"
 echo "******************************"
 
-
-
-
+kubectl apply -f dependencies/contour-1.18.1.yaml

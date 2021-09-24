@@ -37,10 +37,22 @@ kubectl apply -f dependencies/kpack/serviceaccount.yaml \
     -f dependencies/kpack/cluster-builder.yaml
 ```
 
+### Install Contour and Envoy
+
+To deploy cf-k8s-controller and run it in a cluster, you must first [install contour](https://projectcontour.io/getting-started/) 
+```
+kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
+```
+Or
+```
+kubectl apply -f dependencies/contour-1.18.1.yaml
+
+```
+
 ---
 ## Development workflow
 
-### Install cert-manager and kpack dependendcies with hack script
+### Install dependencies with hack script
 ```
 # modify kpack dependency files to point towards your registry
 hack/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
