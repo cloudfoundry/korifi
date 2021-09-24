@@ -4,13 +4,12 @@ import (
 	"context"
 	"testing"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	. "code.cloudfoundry.org/cf-k8s-api/repositories"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec.S) {
@@ -80,7 +79,7 @@ var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec
 			g.Expect(err).ToNot(HaveOccurred())
 
 			_, err = domainRepo.FetchDomain(testCtx, client, "non-existent-domain-guid")
-			g.Expect(err).To(MatchError("not found"))
+			g.Expect(err).To(MatchError("Resource not found or permission denied."))
 		})
 	})
 })
