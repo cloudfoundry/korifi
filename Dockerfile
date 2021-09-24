@@ -10,9 +10,8 @@ RUN go mod download
 COPY main.go main.go
 COPY apis/ apis/
 COPY config/ config/
-COPY routes/ routes/
-COPY presenter/ presenter/
 COPY message/ message/
+COPY presenter/ presenter/
 COPY repositories/ repositories/
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o cfapi main.go
