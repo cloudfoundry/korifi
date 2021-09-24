@@ -4,15 +4,9 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 )
 
-// TODO: Make these configurable
-var (
-// defaultLifecycleType  = "buildpack"
-// defaultLifecycleStack = "cflinuxfs3"
-)
-
 type RouteCreate struct {
-	Host          string             `json:"host" validate:"required"` // TODO: Remove required flag when we support private domains
-	Path          string             `json:"path"`
+	Host          string             `json:"host" validate:"hostname_rfc1123,required"` // TODO: Not required when we support private domains
+	Path          string             `json:"path" validate:"routepathstartswithslash"`
 	Relationships RouteRelationships `json:"relationships" validate:"required"`
 	Metadata      Metadata           `json:"metadata"`
 }
