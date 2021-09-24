@@ -28,7 +28,7 @@ func testCreatePackage(t *testing.T, when spec.G, it spec.S) {
 	var (
 		packageRepo   *PackageRepo
 		client        client.Client
-		packageCreate PackageCreate
+		packageCreate PackageCreateMessage
 		ctx           context.Context
 	)
 
@@ -44,7 +44,7 @@ func testCreatePackage(t *testing.T, when spec.G, it spec.S) {
 		client, err = BuildClient(k8sConfig)
 		g.Expect(err).NotTo(HaveOccurred())
 
-		packageCreate = PackageCreate{
+		packageCreate = PackageCreateMessage{
 			Type:      "bits",
 			AppGUID:   appGUID,
 			SpaceGUID: spaceGUID,

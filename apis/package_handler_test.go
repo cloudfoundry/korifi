@@ -123,7 +123,7 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		it("creates a CFPackage", func() {
 			g.Expect(packageRepo.CreatePackageCallCount()).To(Equal(1))
 			_, _, actualCreate := packageRepo.CreatePackageArgsForCall(0)
-			g.Expect(actualCreate).To(Equal(repositories.PackageCreate{
+			g.Expect(actualCreate).To(Equal(repositories.PackageCreateMessage{
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,

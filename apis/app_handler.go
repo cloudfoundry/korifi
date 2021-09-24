@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-api/message"
+	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
@@ -85,8 +85,8 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
-	var appCreateMessage message.AppCreateMessage
-	rme := DecodePayload(r, &appCreateMessage)
+	var payload payloads.AppCreate
+	rme := DecodePayload(r, &payload)
 	if rme != nil {
 		writeErrorResponse(w, rme)
 		return
@@ -101,7 +101,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	namespaceGUID := appCreateMessage.Relationships.Space.Data.GUID
+	namespaceGUID := payload.Relationships.Space.Data.GUID
 	_, err = h.AppRepo.FetchNamespace(ctx, client, namespaceGUID)
 	if err != nil {
 		switch err.(type) {
@@ -119,22 +119,22 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	appGUID := uuid.New().String()
 	var appEnvSecretName string
 
-	if len(appCreateMessage.EnvironmentVariables) > 0 {
+	if len(payload.EnvironmentVariables) > 0 {
 		appEnvSecretRecord := repositories.AppEnvVarsRecord{
 			AppGUID:              appGUID,
 			SpaceGUID:            namespaceGUID,
-			EnvironmentVariables: appCreateMessage.EnvironmentVariables,
+			EnvironmentVariables: payload.EnvironmentVariables,
 		}
 		responseAppEnvSecretRecord, err := h.AppRepo.CreateAppEnvironmentVariables(ctx, client, appEnvSecretRecord)
 		if err != nil {
-			h.Logger.Error(err, "Failed to create app environment vars", "App Name", appCreateMessage.Name)
+			h.Logger.Error(err, "Failed to create app environment vars", "App Name", payload.Name)
 			writeUnknownErrorResponse(w)
 			return
 		}
 		appEnvSecretName = responseAppEnvSecretRecord.Name
 	}
 
-	createAppRecord := message.AppCreateMessageToAppRecord(appCreateMessage)
+	createAppRecord := payload.ToRecord()
 	// Set GUID and EnvSecretName
 	createAppRecord.GUID = appGUID
 	createAppRecord.EnvSecretName = appEnvSecretName
@@ -144,20 +144,20 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 		if errType, ok := err.(*k8serrors.StatusError); ok {
 			reason := errType.Status().Reason
 			if reason == "CFApp with the same spec.name exists" {
-				errorDetail := fmt.Sprintf("App with the name '%s' already exists.", appCreateMessage.Name)
-				h.Logger.Error(err, errorDetail, "App Name", appCreateMessage.Name)
+				errorDetail := fmt.Sprintf("App with the name '%s' already exists.", payload.Name)
+				h.Logger.Error(err, errorDetail, "App Name", payload.Name)
 				writeUniquenessError(w, errorDetail)
 				return
 			}
 		}
-		h.Logger.Error(err, "Failed to create app", "App Name", appCreateMessage.Name)
+		h.Logger.Error(err, "Failed to create app", "App Name", payload.Name)
 		writeUnknownErrorResponse(w)
 		return
 	}
 
 	responseBody, err := json.Marshal(presenter.ForApp(responseAppRecord, h.ServerURL))
 	if err != nil {
-		h.Logger.Error(err, "Failed to render response", "App Name", appCreateMessage.Name)
+		h.Logger.Error(err, "Failed to render response", "App Name", payload.Name)
 		writeUnknownErrorResponse(w)
 		return
 	}

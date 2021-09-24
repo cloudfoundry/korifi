@@ -14,7 +14,7 @@ const (
 	kind = "CFPackage"
 )
 
-type PackageCreate struct {
+type PackageCreateMessage struct {
 	Type      string
 	AppGUID   string
 	SpaceGUID string
@@ -31,8 +31,8 @@ type PackageRecord struct {
 
 type PackageRepo struct{}
 
-func (r *PackageRepo) CreatePackage(ctx context.Context, client client.Client, cp PackageCreate) (PackageRecord, error) {
-	cfPackage := r.packageCreateToCFPackage(cp)
+func (r *PackageRepo) CreatePackage(ctx context.Context, client client.Client, message PackageCreateMessage) (PackageRecord, error) {
+	cfPackage := r.packageCreateToCFPackage(message)
 	err := client.Create(ctx, &cfPackage)
 	if err != nil {
 		return PackageRecord{}, err
@@ -52,7 +52,7 @@ func (r *PackageRepo) FetchPackage(ctx context.Context, client client.Client, gu
 	return r.returnPackage(matches)
 }
 
-func (r *PackageRepo) packageCreateToCFPackage(cp PackageCreate) workloadsv1alpha1.CFPackage {
+func (r *PackageRepo) packageCreateToCFPackage(message PackageCreateMessage) workloadsv1alpha1.CFPackage {
 	guid := uuid.New().String()
 	return workloadsv1alpha1.CFPackage{
 		TypeMeta: metav1.TypeMeta{
@@ -61,12 +61,12 @@ func (r *PackageRepo) packageCreateToCFPackage(cp PackageCreate) workloadsv1alph
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
-			Namespace: cp.SpaceGUID,
+			Namespace: message.SpaceGUID,
 		},
 		Spec: workloadsv1alpha1.CFPackageSpec{
-			Type: workloadsv1alpha1.PackageType(cp.Type),
+			Type: workloadsv1alpha1.PackageType(message.Type),
 			AppRef: workloadsv1alpha1.ResourceReference{
-				Name: cp.AppGUID,
+				Name: message.AppGUID,
 			},
 		},
 	}

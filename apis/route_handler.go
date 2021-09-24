@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-api/message"
+	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
@@ -107,7 +107,7 @@ func (h *RouteHandler) RouteCreateHandler(w http.ResponseWriter, r *http.Request
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
-	var routeCreateMessage message.RouteCreateMessage
+	var routeCreateMessage payloads.RouteCreate
 	rme := DecodePayload(r, &routeCreateMessage)
 	if rme != nil {
 		writeErrorResponse(w, rme)
@@ -155,7 +155,7 @@ func (h *RouteHandler) RouteCreateHandler(w http.ResponseWriter, r *http.Request
 
 	routeGUID := uuid.New().String()
 
-	createRouteRecord := message.RouteCreateMessageToRouteRecord(routeCreateMessage)
+	createRouteRecord := routeCreateMessage.ToRecord()
 	createRouteRecord.GUID = routeGUID
 
 	responseRouteRecord, err := h.RouteRepo.CreateRoute(ctx, client, createRouteRecord)
