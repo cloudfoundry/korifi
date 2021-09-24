@@ -1,6 +1,6 @@
 # CF K8s API Endpoint Documentation
 
-** This document captures api endpoints currently supported by the shim**
+**This document captures API endpoints currently supported by the shim**
 
 ## Resources
 
@@ -34,11 +34,12 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 
 | Resource | Endpoint |
 |--|--|
-| Get App | GET /v3/apps/<guid> |
-| Create App | POST /v3/apps 
+| List Apps | GET /v3/apps |
+| Get App | GET /v3/apps/\<guid> |
+| Create App | POST /v3/apps
 
 #### [Creating Apps](https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#the-app-object)
-Note : `namespace` needs to exist before creating the app.  
+Note : `namespace` needs to exist before creating the app.
 ```bash
 curl "http://localhost:9000/v3/apps" \
   -X POST \
@@ -56,4 +57,18 @@ curl "http://localhost:9000/v3/apps" \
 curl "http://localhost:9000/v3/packages" \
   -X POST \
   -d '{"type":"bits","relationships":{"app":{"data":{"guid":"<app-guid-goes-here>"}}}}'
+```
+
+### Routes
+
+| Resource | Endpoint |
+|--|--|
+| Get Route | GET /v3/routes/\<guid> |
+| Create Route | POST /v3/routes |
+
+#### [Creating Routes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-route)
+```bash
+curl "http://localhost:9000/v3/routes" \
+  -X POST \
+  -d '{"host": "hostname","path": "/path","relationships": {"domain": {"data": { "guid": "<domain-guid-goes-here>" }},"space": {"data": { "guid": "<namespace-name>" }}}}'
 ```

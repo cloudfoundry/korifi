@@ -34,7 +34,7 @@ func (rme *requestMalformedError) Error() string {
 	return fmt.Sprintf("Error throwing an http %v", rme.httpStatus)
 }
 
-func DecodePayload(r *http.Request, object interface{}) *requestMalformedError {
+func DecodeAndValidatePayload(r *http.Request, object interface{}) *requestMalformedError {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	err := decoder.Decode(&object)
@@ -64,6 +64,10 @@ func DecodePayload(r *http.Request, object interface{}) *requestMalformedError {
 	}
 
 	v := validator.New()
+
+	// Register custom validators
+	v.RegisterValidation("routepathstartswithslash", routePathStartsWithSlash)
+
 	trans := registerDefaultTranslator(v)
 
 	err = v.Struct(object)
@@ -177,4 +181,17 @@ func writeUniquenessError(w http.ResponseWriter, detail string) {
 		return
 	}
 	w.Write(responseBody)
+}
+
+// Custom field validators
+func routePathStartsWithSlash(fl validator.FieldLevel) bool {
+	if fl.Field().String() == "" {
+		return true
+	}
+
+	if fl.Field().String()[0:1] != "/" {
+		return false
+	}
+
+	return true
 }

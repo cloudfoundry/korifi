@@ -45,7 +45,7 @@ func (h PackageHandler) PackageCreateHandler(w http.ResponseWriter, req *http.Re
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.PackageCreate
-	rme := DecodePayload(req, &payload)
+	rme := DecodeAndValidatePayload(req, &payload)
 	if rme != nil {
 		writeErrorResponse(w, rme)
 		return

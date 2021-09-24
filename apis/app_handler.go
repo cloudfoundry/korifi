@@ -86,7 +86,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.AppCreate
-	rme := DecodePayload(r, &payload)
+	rme := DecodeAndValidatePayload(r, &payload)
 	if rme != nil {
 		writeErrorResponse(w, rme)
 		return
