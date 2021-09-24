@@ -74,7 +74,7 @@ func (f *AppRepo) FetchApp(ctx context.Context, client client.Client, appGUID st
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	appList := &workloadsv1alpha1.CFAppList{}
 	err := client.List(ctx, appList)
-	if err != nil {
+	if err != nil { // untested
 		return AppRecord{}, err
 	}
 	allApps := appList.Items

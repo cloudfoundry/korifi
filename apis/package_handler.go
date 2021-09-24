@@ -3,6 +3,7 @@ package apis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -21,11 +22,13 @@ import (
 
 const (
 	PackageCreateEndpoint = "/v3/packages"
+	PackageUploadEndpoint = "/v3/packages/{guid}/upload"
 )
 
 //counterfeiter:generate -o fake -fake-name CFPackageRepository . CFPackageRepository
 
 type CFPackageRepository interface {
+	FetchPackage(context.Context, client.Client, string) (repositories.PackageRecord, error)
 	CreatePackage(context.Context, client.Client, repositories.PackageCreate) (repositories.PackageRecord, error)
 }
 
@@ -85,6 +88,40 @@ func (h PackageHandler) PackageCreateHandler(w http.ResponseWriter, req *http.Re
 	}
 }
 
+func (h PackageHandler) PackageUploadHandler(w http.ResponseWriter, req *http.Request) {
+	packageGUID := mux.Vars(req)["guid"]
+
+	w.Header().Set("Content-Type", "application/json")
+
+	client, err := h.BuildClient(h.K8sConfig)
+	if err != nil {
+		h.Logger.Info("Error building k8s client", err.Error())
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	record, err := h.PackageRepo.FetchPackage(req.Context(), client, packageGUID)
+	if err != nil {
+		switch {
+		case errors.As(err, new(repositories.NotFoundError)):
+			writeNotFoundErrorResponse(w, "Package")
+		default:
+			h.Logger.Info("Error fetching package with repository", err.Error())
+			writeUnknownErrorResponse(w)
+		}
+		return
+	}
+
+	res := presenter.ForPackage(record, h.ServerURL)
+	err = json.NewEncoder(w).Encode(res)
+	if err != nil { // untested
+		h.Logger.Info("Error encoding JSON response", err.Error())
+		writeUnknownErrorResponse(w)
+		return
+	}
+}
+
 func (h *PackageHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(PackageCreateEndpoint).Methods("POST").HandlerFunc(h.PackageCreateHandler)
+	router.Path(PackageUploadEndpoint).Methods("POST").HandlerFunc(h.PackageUploadHandler)
 }
