@@ -64,16 +64,16 @@ func (v *CFAppValidation) Handle(ctx context.Context, req admission.Request) adm
 
 	if req.Operation == v1.Create {
 		if len(foundApps.Items) > 0 {
-			errMessage := "CFApp with the same spec.name exists"
-			cfapplog.Info(errMessage, "name", req.Name)
-			return admission.Denied(errMessage)
+			e := DuplicateAppError
+			cfapplog.Info(e.GetMessage(), "name", req.Name)
+			return admission.Denied(e.Marshal())
 		}
 	} else if req.Operation == v1.Update {
 		for _, foundCfApp := range foundApps.Items {
 			if foundCfApp.Name != cfApp.Name {
-				errMessage := "CFApp with the same spec.name exists"
-				cfapplog.Info(errMessage, "name", req.Name)
-				return admission.Denied(errMessage)
+				e := DuplicateAppError
+				cfapplog.Info(e.GetMessage(), "name", req.Name)
+				return admission.Denied(e.Marshal())
 			}
 		}
 	}
