@@ -68,3 +68,21 @@ rules:
   - cfapps/status
   verbs:
   - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages/status
+  verbs:
+  - get

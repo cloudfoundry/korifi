@@ -14,6 +14,9 @@ const (
 	kind = "CFPackage"
 )
 
+//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages/status,verbs=get
+
 type PackageCreateMessage struct {
 	Type      string
 	AppGUID   string
