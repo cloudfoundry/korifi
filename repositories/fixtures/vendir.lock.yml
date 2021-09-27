@@ -2,8 +2,8 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'Merge pull request #37 from cloudfoundry/code-cleanup...'
-      sha: 06cf18e889e64fd0d6edda85bf7367a2f5197e67
+      commitTitle: 'Merge pull request #61 from cloudfoundry/issue-59...'
+      sha: baa2416c14c0bf2493473d4c1b2f907361f2617a
     path: cf-k8s-controllers
   path: vendor
 kind: LockConfig

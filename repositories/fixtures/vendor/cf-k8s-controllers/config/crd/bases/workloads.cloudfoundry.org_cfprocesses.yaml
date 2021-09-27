@@ -36,9 +36,8 @@ spec:
                 description: Specifies the App that owns this process
                 properties:
                   name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
-                required:
-                - name
                 type: object
               command:
                 description: Specifies the Command(k8s) ENTRYPOINT(Docker) of the Process

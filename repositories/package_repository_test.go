@@ -153,7 +153,7 @@ func testFetchPackage(t *testing.T, when spec.G, it spec.S) {
 				},
 				Spec: workloadsv1alpha1.CFPackageSpec{
 					Type: "bits",
-					AppRef: workloadsv1alpha1.ResourceReference{
+					AppRef: corev1.LocalObjectReference{
 						Name: appGUID,
 					},
 				},
@@ -167,7 +167,7 @@ func testFetchPackage(t *testing.T, when spec.G, it spec.S) {
 				},
 				Spec: workloadsv1alpha1.CFPackageSpec{
 					Type: "bits",
-					AppRef: workloadsv1alpha1.ResourceReference{
+					AppRef: corev1.LocalObjectReference{
 						Name: appGUID,
 					},
 				},
@@ -214,7 +214,7 @@ func testFetchPackage(t *testing.T, when spec.G, it spec.S) {
 				},
 				Spec: workloadsv1alpha1.CFPackageSpec{
 					Type: "bits",
-					AppRef: workloadsv1alpha1.ResourceReference{
+					AppRef: corev1.LocalObjectReference{
 						Name: appGUID,
 					},
 				},
@@ -228,7 +228,7 @@ func testFetchPackage(t *testing.T, when spec.G, it spec.S) {
 				},
 				Spec: workloadsv1alpha1.CFPackageSpec{
 					Type: "bits",
-					AppRef: workloadsv1alpha1.ResourceReference{
+					AppRef: corev1.LocalObjectReference{
 						Name: appGUID,
 					},
 				},
