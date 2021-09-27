@@ -53,7 +53,7 @@ func (h PackageHandler) PackageCreateHandler(w http.ResponseWriter, req *http.Re
 
 	client, err := h.BuildClient(h.K8sConfig)
 	if err != nil {
-		h.Logger.Info("Error building k8s client", err.Error())
+		h.Logger.Info("Error building k8s client", "error", err.Error())
 		writeUnknownErrorResponse(w)
 		return
 	}
@@ -73,7 +73,7 @@ func (h PackageHandler) PackageCreateHandler(w http.ResponseWriter, req *http.Re
 
 	record, err := h.PackageRepo.CreatePackage(req.Context(), client, payload.ToMessage(appRecord.SpaceGUID))
 	if err != nil {
-		h.Logger.Info("Error creating package with repository", err.Error())
+		h.Logger.Info("Error creating package with repository", "error", err.Error())
 		writeUnknownErrorResponse(w)
 		return
 	}
@@ -82,7 +82,7 @@ func (h PackageHandler) PackageCreateHandler(w http.ResponseWriter, req *http.Re
 	w.WriteHeader(http.StatusCreated)
 	err = json.NewEncoder(w).Encode(res)
 	if err != nil { // untested
-		h.Logger.Info("Error encoding JSON response", err.Error())
+		h.Logger.Info("Error encoding JSON response", "error", err.Error())
 		writeUnknownErrorResponse(w)
 		return
 	}
@@ -95,7 +95,7 @@ func (h PackageHandler) PackageUploadHandler(w http.ResponseWriter, req *http.Re
 
 	client, err := h.BuildClient(h.K8sConfig)
 	if err != nil {
-		h.Logger.Info("Error building k8s client", err.Error())
+		h.Logger.Info("Error building k8s client", "error", err.Error())
 		writeUnknownErrorResponse(w)
 		return
 	}
@@ -106,7 +106,7 @@ func (h PackageHandler) PackageUploadHandler(w http.ResponseWriter, req *http.Re
 		case errors.As(err, new(repositories.NotFoundError)):
 			writeNotFoundErrorResponse(w, "Package")
 		default:
-			h.Logger.Info("Error fetching package with repository", err.Error())
+			h.Logger.Info("Error fetching package with repository", "error", err.Error())
 			writeUnknownErrorResponse(w)
 		}
 		return
@@ -115,7 +115,7 @@ func (h PackageHandler) PackageUploadHandler(w http.ResponseWriter, req *http.Re
 	res := presenter.ForPackage(record, h.ServerURL)
 	err = json.NewEncoder(w).Encode(res)
 	if err != nil { // untested
-		h.Logger.Info("Error encoding JSON response", err.Error())
+		h.Logger.Info("Error encoding JSON response", "error", err.Error())
 		writeUnknownErrorResponse(w)
 		return
 	}
