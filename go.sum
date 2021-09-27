@@ -39,6 +39,8 @@ cloud.google.com/go/storage v1.8.0/go.mod h1:Wv1Oy7z6Yz3DshWRJFhqM/UCfaWIRTdp0RX
 cloud.google.com/go/storage v1.10.0/go.mod h1:FLPqc6j+Ki4BU591ie1oL6qBQGu2Bl/tZ9ullr3+Kg0=
 code.cloudfoundry.org/cf-k8s-controllers v0.0.0-20210902233618-f822f3073471 h1:DO+8/MIMk9hGixJpDYBnoNF9sB05jHjxEo5kIktY0T4=
 code.cloudfoundry.org/cf-k8s-controllers v0.0.0-20210902233618-f822f3073471/go.mod h1:M4f90LhYf7bexEm3CVBONBjn9gzlX2urTCUD1Iy8Dg8=
+code.cloudfoundry.org/cf-k8s-controllers v0.0.0-20210927185152-baa2416c14c0 h1:znNM4Q7z25XH6lYzg0IkxzLaw8S0kH7Lqa0NVqQIKz0=
+code.cloudfoundry.org/cf-k8s-controllers v0.0.0-20210927185152-baa2416c14c0/go.mod h1:M4f90LhYf7bexEm3CVBONBjn9gzlX2urTCUD1Iy8Dg8=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78/go.mod h1:LmzpDX56iTiv29bbRTIsUNlaFfuhWRQBWjQdVyAevI8=
 github.com/Azure/go-autorest v14.2.0+incompatible h1:V5VMDjClD3GiElqLWO7mz2MxNAK/vTfRHdAubSIPRgs=

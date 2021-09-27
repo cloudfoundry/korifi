@@ -68,9 +68,6 @@ spec:
               path:
                 description: Path is optional, defaults to empty.
                 type: string
-              port:
-                description: Port is optional, CF Routes only allow port info on TCP routes.
-                type: integer
               protocol:
                 description: Protocol is optional, defaults to http. Dependent on allow-listed protocols on domain.
                 enum:
