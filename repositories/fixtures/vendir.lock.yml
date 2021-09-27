@@ -5,5 +5,11 @@ directories:
       commitTitle: 'Merge pull request #61 from cloudfoundry/issue-59...'
       sha: baa2416c14c0bf2493473d4c1b2f907361f2617a
     path: cf-k8s-controllers
+  - git:
+      commitTitle: 'Merge pull request #81 from joe2far/add-excluded-resource-names...'
+      sha: 334c3e8a06bc84db4bcb90a0b1df185b4fb36a82
+      tags:
+      - hnc-v0.8.0-rc1-66-g1ef9e8cd
+    path: hierarchical-namespaces
   path: vendor
 kind: LockConfig

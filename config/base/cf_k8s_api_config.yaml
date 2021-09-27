@@ -1,2 +1,3 @@
-"serverURL": "https://api.example.org"
-"serverPort": 9000
+serverURL: "https://api.example.org"
+serverPort: 9000
+rootNamespace: cf-k8s-api-system

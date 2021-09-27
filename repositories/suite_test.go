@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	. "github.com/onsi/gomega"
@@ -51,7 +53,10 @@ func beforeSuite(g *WithT) *envtest.Environment {
 	logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("fixtures", "vendor", "cf-k8s-controllers", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("fixtures", "vendor", "cf-k8s-controllers", "config", "crd", "bases"),
+			filepath.Join("fixtures", "vendor", "hierarchical-namespaces", "config", "crd", "bases"),
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -63,6 +68,8 @@ func beforeSuite(g *WithT) *envtest.Environment {
 	err = workloadsv1alpha1.AddToScheme(scheme.Scheme)
 	g.Expect(err).NotTo(HaveOccurred())
 	err = networkingv1alpha1.AddToScheme(scheme.Scheme)
+	g.Expect(err).NotTo(HaveOccurred())
+	err = hnsv1alpha2.AddToScheme(scheme.Scheme)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(k8sConfig, client.Options{Scheme: scheme.Scheme})

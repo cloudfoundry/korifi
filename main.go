@@ -6,22 +6,25 @@ import (
 	"net/http"
 	"os"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-
 	"code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/config"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+
 	"github.com/gorilla/mux"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 func init() {
 	utilruntime.Must(workloadsv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(hnsv1alpha2.AddToScheme(scheme.Scheme))
 }
 
 type APIHandler interface {
@@ -46,6 +49,11 @@ func main() {
 		Development: true,
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
+
+	privilegedClient, err := repositories.BuildClient(k8sClientConfig)
+	if err != nil {
+		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
+	}
 
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
@@ -74,6 +82,10 @@ func main() {
 			&repositories.AppRepo{},
 			repositories.BuildClient,
 			k8sClientConfig,
+		),
+		apis.NewOrgHandler(
+			repositories.NewOrgRepo(config.RootNamespace, privilegedClient),
+			config.ServerURL,
 		),
 	}
 
