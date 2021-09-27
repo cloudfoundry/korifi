@@ -42,7 +42,6 @@ type CFAppReconciler struct {
 func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var cfApp workloadsv1alpha1.CFApp
 	err := r.Client.Get(ctx, req.NamespacedName, &cfApp)
-	//cfApp, err := r.CFClient.Get(ctx, req.NamespacedName)
 	if err != nil {
 		r.Log.Error(err, "unable to fetch CFApp")
 		// we'll ignore not-found errors, since they can't be fixed by an immediate

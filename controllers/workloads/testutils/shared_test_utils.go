@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
@@ -18,6 +19,14 @@ func GenerateGUID() string {
 		panic(errorMessage)
 	}
 	return newUUID.String()
+}
+
+func InitializeK8sNamespace(name string) *corev1.Namespace {
+	return &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
 }
 
 func InitializeAppCR(appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp {
