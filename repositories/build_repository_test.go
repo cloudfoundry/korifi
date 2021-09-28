@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"testing"
 	"time"
 
@@ -61,6 +62,12 @@ func testFetchBuild(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("on the happy path", func() {
+
+		const (
+			StagingConditionType   = "Staging"
+			ReadyConditionType     = "Ready"
+			SucceededConditionType = "Succeeded"
+		)
 
 		var (
 			build1GUID string
@@ -128,19 +135,154 @@ func testFetchBuild(t *testing.T, when spec.G, it spec.S) {
 			g.Expect(k8sClient.Delete(context.Background(), build2)).To(Succeed())
 		})
 
-		it("can fetch the BuildRecord we're looking for", func() {
-			record, err := buildRepo.FetchBuild(testCtx, client, build2GUID)
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(record.GUID).To(Equal(build2GUID))
-			// TODO: fill me in!
+		when("fetching a build", func() {
+			var (
+				buildRecord *BuildRecord
+				fetchError  error
+			)
+			when("no status.Conditions are set", func() {
+				it.Before(func() {
+					returnedBuildRecord, err := buildRepo.FetchBuild(testCtx, client, build2GUID)
+					buildRecord = &returnedBuildRecord
+					fetchError = err
+				})
 
-			createdAt, err := time.Parse(time.RFC3339, record.CreatedAt)
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(createdAt).To(BeTemporally("~", time.Now(), time.Second))
+				it("succeeds", func() {
+					g.Expect(fetchError).NotTo(HaveOccurred())
+				})
 
-			updatedAt, err := time.Parse(time.RFC3339, record.CreatedAt)
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(updatedAt).To(BeTemporally("~", time.Now(), time.Second))
+				it("returns a record with a matching GUID", func() {
+					g.Expect(buildRecord.GUID).To(Equal(build2GUID))
+				})
+
+				it("returns a record with state \"STAGING\" and no StagingErrorMsg", func() {
+					g.Expect(buildRecord.State).To(Equal("STAGING"))
+					g.Expect(buildRecord.StagingErrorMsg).To(BeEmpty(), "record staging error message was supposed to be empty")
+				})
+
+				it("returns a record with no DropletGUID", func() {
+					g.Expect(buildRecord.DropletGUID).To(BeEmpty())
+				})
+
+				it("returns a record with a CreatedAt field from the CR", func() {
+					createdAt, err := time.Parse(time.RFC3339, buildRecord.CreatedAt)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(createdAt).To(BeTemporally("~", time.Now(), time.Second))
+				})
+
+				it("returns a record with a UpdatedAt field from the CR", func() {
+					updatedAt, err := time.Parse(time.RFC3339, buildRecord.UpdatedAt)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(updatedAt).To(BeTemporally("~", time.Now(), time.Second))
+				})
+
+				it("returns a record with a StagingMemoryMB field matching the CR", func() {
+					g.Expect(buildRecord.StagingMemoryMB).To(Equal(build2.Spec.StagingMemoryMB))
+				})
+
+				it("returns a record with a StagingDiskMB field matching the CR", func() {
+					g.Expect(buildRecord.StagingDiskMB).To(Equal(build2.Spec.StagingDiskMB))
+				})
+
+				it("returns a record with Lifecycle fields matching the CR", func() {
+					g.Expect(buildRecord.Lifecycle.Type).To(Equal(string(build2.Spec.Lifecycle.Type)), "returned record lifecycle.type did not match CR")
+					g.Expect(buildRecord.Lifecycle.Data.Buildpacks).To(Equal(build2.Spec.Lifecycle.Data.Buildpacks), "returned record lifecycle.data.buildpacks did not match CR")
+					g.Expect(buildRecord.Lifecycle.Data.Stack).To(Equal(build2.Spec.Lifecycle.Data.Stack), "returned record lifecycle.data.stack did not match CR")
+				})
+
+				it("returns a record with a PackageGUID field matching the CR", func() {
+					g.Expect(buildRecord.PackageGUID).To(Equal(build2.Spec.PackageRef.Name))
+				})
+
+				it("returns a record with an AppGUID field matching the CR", func() {
+					g.Expect(buildRecord.AppGUID).To(Equal(build2.Spec.AppRef.Name))
+				})
+			})
+
+			when("status.Conditions \"Staging\": False, \"Ready\": True, \"Succeeded\": True, are set", func() {
+				it.Before(func() {
+					meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
+						Type:    StagingConditionType,
+						Status:  metav1.ConditionFalse,
+						Reason:  "Unknown",
+						Message: "Unknown",
+					})
+					meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
+						Type:    SucceededConditionType,
+						Status:  metav1.ConditionTrue,
+						Reason:  "Unknown",
+						Message: "Unknown",
+					})
+					meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
+						Type:    ReadyConditionType,
+						Status:  metav1.ConditionTrue,
+						Reason:  "Unknown",
+						Message: "Unknown",
+					})
+					// Update Build Status Conditions based on changes made to local copy
+					g.Expect(k8sClient.Status().Update(testCtx, build2)).To(Succeed())
+				})
+
+				it("should eventually return a record with State: \"STAGED\", no StagingErrorMsg, and a DropletGUID that matches the BuildGUID", func() {
+					ctx := context.Background()
+					g.Eventually(func() string {
+
+						returnedBuildRecord, err := buildRepo.FetchBuild(ctx, client, build2GUID)
+						buildRecord = &returnedBuildRecord
+						fetchError = err
+						if err != nil {
+							return ""
+						}
+						return buildRecord.State
+					}, 10*time.Second, 250*time.Millisecond).Should(Equal("STAGED"), "the returned record State was not STAGED")
+					g.Expect(buildRecord.DropletGUID).To(Equal(build2.Name), " the returned dropletGUID did not match the buildGUID")
+					g.Expect(buildRecord.StagingErrorMsg).To(BeEmpty(), "record staging error message was supposed to be empty")
+				})
+			})
+
+			when("status.Conditions \"Staging\": False, \"Ready\": False, \"Succeeded\": False, are set", func() {
+				const (
+					StagingErrorMessage = "Staging failed for some reason"
+				)
+
+				it.Before(func() {
+					meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
+						Type:    StagingConditionType,
+						Status:  metav1.ConditionFalse,
+						Reason:  "StagingError",
+						Message: StagingErrorMessage,
+					})
+					meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
+						Type:    SucceededConditionType,
+						Status:  metav1.ConditionFalse,
+						Reason:  "Unknown",
+						Message: "Unknown",
+					})
+					meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
+						Type:    ReadyConditionType,
+						Status:  metav1.ConditionFalse,
+						Reason:  "Unknown",
+						Message: "Unknown",
+					})
+					// Update Build Status Conditions based on changes made to local copy
+					g.Expect(k8sClient.Status().Update(testCtx, build2)).To(Succeed())
+				})
+
+				it("should eventually return a record with State: \"FAILED\", no DropletGUID, and a Staging Error Message", func() {
+					ctx := context.Background()
+					g.Eventually(func() string {
+						returnedBuildRecord, err := buildRepo.FetchBuild(ctx, client, build2GUID)
+						buildRecord = &returnedBuildRecord
+						fetchError = err
+						if err != nil {
+							return ""
+						}
+						return buildRecord.State
+					}, 10*time.Second, 250*time.Millisecond).Should(Equal("FAILED"), "the returned record State was not FAILED")
+					g.Expect(buildRecord.DropletGUID).To(BeEmpty())
+					g.Expect(buildRecord.StagingErrorMsg).ToNot(BeEmpty(), "record staging error message was not supposed to be empty")
+				})
+			})
 		})
 	})
 

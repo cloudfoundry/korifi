@@ -71,7 +71,10 @@ func ForBuild(buildRecord repositories.BuildRecord, baseURL string) BuildRespons
 		toReturn.Links["droplet"] = Link{
 			HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/droplets/%s", buildRecord.DropletGUID)),
 		}
+	}
 
+	if buildRecord.StagingErrorMsg != "" {
+		toReturn.Error = &buildRecord.StagingErrorMsg
 	}
 
 	return toReturn

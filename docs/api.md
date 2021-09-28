@@ -59,6 +59,14 @@ curl "http://localhost:9000/v3/packages" \
   -d '{"type":"bits","relationships":{"app":{"data":{"guid":"<app-guid-goes-here>"}}}}'
 ```
 
+### Builds
+
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#builds
+
+| Resource | Endpoint |
+|--|--|
+| Get Build | GET /v3/builds/\<guid> |
+
 ### Routes
 
 | Resource | Endpoint |

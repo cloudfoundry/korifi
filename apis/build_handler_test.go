@@ -81,13 +81,13 @@ func testBuildGetHandler(t *testing.T, when spec.G, it spec.S) {
 		router = mux.NewRouter()
 		clientBuilder = new(fake.ClientBuilder)
 
-		buildHandler := &BuildHandler{
-			ServerURL:   defaultServerURL,
-			BuildRepo:   buildRepo,
-			Logger:      logf.Log.WithName(testBuildHandlerLoggerName),
-			K8sConfig:   &rest.Config{},
-			BuildClient: clientBuilder.Spy,
-		}
+		buildHandler := NewBuildHandler(
+			logf.Log.WithName(testBuildHandlerLoggerName),
+			defaultServerURL,
+			buildRepo,
+			clientBuilder.Spy,
+			&rest.Config{},
+		)
 		buildHandler.RegisterRoutes(router)
 	})
 
@@ -106,7 +106,7 @@ func testBuildGetHandler(t *testing.T, when spec.G, it spec.S) {
 				g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 			})
 
-			it("returns the App in the response", func() {
+			it("returns the Build in the response", func() {
 				g.Expect(rr.Body.String()).To(MatchJSON(`{
 					"guid": "`+buildGUID+`",
 					"created_at": "`+createdAt+`",
@@ -182,7 +182,7 @@ func testBuildGetHandler(t *testing.T, when spec.G, it spec.S) {
 				g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 			})
 
-			it("returns the App in the response", func() {
+			it("returns the Build in the response", func() {
 				g.Expect(rr.Body.String()).To(MatchJSON(`{
 					"guid": "`+buildGUID+`",
 					"created_at": "`+createdAt+`",
@@ -230,7 +230,85 @@ func testBuildGetHandler(t *testing.T, when spec.G, it spec.S) {
 				}`), "Response body matches response:")
 			})
 		})
+		when("build staging fails", func() {
+			const (
+				stagingErrorMsg = "StagingError: something went wrong during staging"
+			)
+			it.Before(func() {
+				buildRepo.FetchBuildReturns(repositories.BuildRecord{
+					GUID:            buildGUID,
+					State:           "FAILED",
+					CreatedAt:       createdAt,
+					UpdatedAt:       updatedAt,
+					StagingErrorMsg: stagingErrorMsg,
+					StagingMemoryMB: stagingMem,
+					StagingDiskMB:   stagingDisk,
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+					PackageGUID: packageGUID,
+					DropletGUID: "",
+					AppGUID:     appGUID,
+				}, nil)
+				router.ServeHTTP(rr, req)
+			})
 
+			it("returns status 200 OK", func() {
+				g.Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			it("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			it("returns the Build in the response", func() {
+				g.Expect(rr.Body.String()).To(MatchJSON(`{
+					"guid": "`+buildGUID+`",
+					"created_at": "`+createdAt+`",
+					"updated_at": "`+updatedAt+`",
+					"created_by": {},
+					"state": "FAILED",
+					"staging_memory_in_mb": `+fmt.Sprint(stagingMem)+`,
+					"staging_disk_in_mb": `+fmt.Sprint(stagingDisk)+`,
+					"error": "`+stagingErrorMsg+`",
+					"lifecycle": {
+						"type": "buildpack",
+						"data": {
+							"buildpacks": [],
+							"stack": ""
+						}
+					},
+					"package": {
+						"guid": "`+packageGUID+`"
+					},
+					"droplet": null,
+					"relationships": {
+						"app": {
+							"data": {
+								"guid": "`+appGUID+`"
+							}
+						}
+					},
+					"metadata": {
+						"labels": {},
+						"annotations": {}
+					},
+					"links": {
+						"self": {
+							"href": "`+defaultServerURI("/v3/builds/", buildGUID)+`"
+						},
+						"app": {
+							"href": "`+defaultServerURI("/v3/apps/", appGUID)+`"
+						}
+					}
+				}`), "Make sure there is no droplet and error is surfaced from record")
+			})
+		})
 	})
 
 	when("building the k8s client errors", func() {

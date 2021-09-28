@@ -24,11 +24,26 @@ type CFBuildRepository interface {
 }
 
 type BuildHandler struct {
-	ServerURL   string
-	BuildRepo   CFBuildRepository
-	BuildClient ClientBuilder
-	Logger      logr.Logger
-	K8sConfig   *rest.Config
+	serverURL   string
+	buildRepo   CFBuildRepository
+	buildClient ClientBuilder
+	logger      logr.Logger
+	k8sConfig   *rest.Config
+}
+
+func NewBuildHandler(
+	logger logr.Logger,
+	serverURL string,
+	buildRepo CFBuildRepository,
+	buildClient ClientBuilder,
+	k8sConfig *rest.Config) *BuildHandler {
+	return &BuildHandler{
+		logger:      logger,
+		serverURL:   serverURL,
+		buildRepo:   buildRepo,
+		buildClient: buildClient,
+		k8sConfig:   k8sConfig,
+	}
 }
 
 func (h *BuildHandler) BuildGetHandler(w http.ResponseWriter, r *http.Request) {
@@ -40,30 +55,30 @@ func (h *BuildHandler) BuildGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Instantiate config based on bearer token
 	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.BuildClient(h.K8sConfig)
+	client, err := h.buildClient(h.k8sConfig)
 	if err != nil {
-		h.Logger.Error(err, "Unable to create Kubernetes client", "BuildGUID", buildGUID)
+		h.logger.Error(err, "Unable to create Kubernetes client", "BuildGUID", buildGUID)
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	build, err := h.BuildRepo.FetchBuild(ctx, client, buildGUID)
+	build, err := h.buildRepo.FetchBuild(ctx, client, buildGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
-			h.Logger.Info("Build not found", "BuildGUID", buildGUID)
+			h.logger.Info("Build not found", "BuildGUID", buildGUID)
 			writeNotFoundErrorResponse(w, "Build")
 			return
 		default:
-			h.Logger.Error(err, "Failed to fetch build from Kubernetes", "BuildGUID", buildGUID)
+			h.logger.Error(err, "Failed to fetch build from Kubernetes", "BuildGUID", buildGUID)
 			writeUnknownErrorResponse(w)
 			return
 		}
 	}
 
-	responseBody, err := json.Marshal(presenter.ForBuild(build, h.ServerURL))
+	responseBody, err := json.Marshal(presenter.ForBuild(build, h.serverURL))
 	if err != nil {
-		h.Logger.Error(err, "Failed to render response", "BuildGUID", buildGUID)
+		h.logger.Error(err, "Failed to render response", "BuildGUID", buildGUID)
 		writeUnknownErrorResponse(w)
 		return
 	}

@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -74,4 +75,15 @@ func getTimeLastUpdatedTimestamp(metadata *metav1.ObjectMeta) (string, error) {
 
 func formatTimestamp(time metav1.Time) string {
 	return time.UTC().Format(TimestampFormat)
+}
+
+// getConditionValue is a helper function that retrieves the value of the provided conditionType, like "Succeeded" and returns the value: "True", "False", or "Unknown"
+// If the value is not present, returns Unknown
+func getConditionValue(conditions *[]metav1.Condition, conditionType string) metav1.ConditionStatus {
+	conditionStatusValue := metav1.ConditionUnknown
+	conditionStatus := meta.FindStatusCondition(*conditions, conditionType)
+	if conditionStatus != nil {
+		conditionStatusValue = conditionStatus.Status
+	}
+	return conditionStatusValue
 }

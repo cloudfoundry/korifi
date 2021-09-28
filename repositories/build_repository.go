@@ -1,10 +1,14 @@
 package repositories
 
 import (
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"context"
 	"errors"
+	"fmt"
+	"k8s.io/apimachinery/pkg/api/meta"
 
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -12,6 +16,10 @@ const (
 	BuildStateStaging = "STAGING"
 	BuildStateStaged  = "STAGED"
 	BuildStateFailed  = "FAILED"
+
+	StagingConditionType   = "Staging"
+	ReadyConditionType     = "Ready"
+	SucceededConditionType = "Succeeded"
 )
 
 type BuildRecord struct {
@@ -19,6 +27,7 @@ type BuildRecord struct {
 	State           string
 	CreatedAt       string
 	UpdatedAt       string
+	StagingErrorMsg string
 	StagingMemoryMB int
 	StagingDiskMB   int
 	Lifecycle       Lifecycle
@@ -59,21 +68,46 @@ func (b *BuildRepo) returnBuild(builds []workloadsv1alpha1.CFBuild) (BuildRecord
 func (b *BuildRepo) cfBuildToBuildRecord(cfBuild workloadsv1alpha1.CFBuild) BuildRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfBuild.ObjectMeta)
 
-	// TODO: Fill in more fields !!!
-
-	return BuildRecord{
-		GUID:        cfBuild.Name,
-		Labels:      cfBuild.Labels,
-		Annotations: cfBuild.Annotations,
+	toReturn := BuildRecord{
+		GUID:            cfBuild.Name,
+		State:           BuildStateStaging,
+		CreatedAt:       cfBuild.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt:       updatedAtTime,
+		StagingErrorMsg: "",
+		StagingMemoryMB: cfBuild.Spec.StagingMemoryMB,
+		StagingDiskMB:   cfBuild.Spec.StagingDiskMB,
 		Lifecycle: Lifecycle{
+			Type: string(cfBuild.Spec.Lifecycle.Type),
 			Data: LifecycleData{
-				Buildpacks: cfBuild.Spec.Lifecycle.Data.Buildpacks,
+				Buildpacks: []string{},
 				Stack:      cfBuild.Spec.Lifecycle.Data.Stack,
 			},
 		},
-		CreatedAt: cfBuild.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt: updatedAtTime,
+		PackageGUID: cfBuild.Spec.PackageRef.Name,
+		DropletGUID: "",
+		AppGUID:     cfBuild.Spec.AppRef.Name,
+		Labels:      cfBuild.Labels,
+		Annotations: cfBuild.Annotations,
 	}
+
+	if cfBuild.Spec.Lifecycle.Data.Buildpacks != nil {
+		toReturn.Lifecycle.Data.Buildpacks = cfBuild.Spec.Lifecycle.Data.Buildpacks
+	}
+
+	stagingStatus := getConditionValue(&cfBuild.Status.Conditions, StagingConditionType)
+	readyStatus := getConditionValue(&cfBuild.Status.Conditions, ReadyConditionType)
+	succeededStatus := getConditionValue(&cfBuild.Status.Conditions, SucceededConditionType)
+	// TODO: Consider moving this logic to CRDs repo in case Status Conditions change later?
+	if readyStatus == metav1.ConditionTrue && succeededStatus == metav1.ConditionTrue {
+		toReturn.State = BuildStateStaged
+		toReturn.DropletGUID = cfBuild.Name
+	} else if stagingStatus == metav1.ConditionFalse && succeededStatus == metav1.ConditionFalse {
+		toReturn.State = BuildStateFailed
+		conditionStatus := meta.FindStatusCondition(cfBuild.Status.Conditions, StagingConditionType)
+		toReturn.StagingErrorMsg = fmt.Sprintf("%v: %v", conditionStatus.Reason, conditionStatus.Message)
+	}
+
+	return toReturn
 }
 
 func (b *BuildRepo) filterBuildsByMetadataName(builds []workloadsv1alpha1.CFBuild, name string) []workloadsv1alpha1.CFBuild {
