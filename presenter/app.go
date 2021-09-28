@@ -59,7 +59,8 @@ func ForApp(responseApp repositories.AppRecord, baseURL string) AppResponse {
 			Data: LifecycleData{
 				Buildpacks: responseApp.Lifecycle.Data.Buildpacks,
 				Stack:      responseApp.Lifecycle.Data.Stack,
-			}},
+			},
+		},
 		Metadata: Metadata{
 			Labels:      map[string]string{},
 			Annotations: map[string]string{},
