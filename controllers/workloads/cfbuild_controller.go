@@ -14,28 +14,50 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package workloads
 
 import (
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
 	"context"
-
+	"github.com/go-logr/logr"
+	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
+)
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+const (
+	StagingConditionType      = "Staging"
+	ReadyConditionType        = "Ready"
+	SucceededConditionType    = "Succeeded"
+	clusterBuilderKind        = "ClusterBuilder"
+	clusterBuilderAPIVersion  = "kpack.io/v1alpha1"
+	kpackServiceAccountSuffix = "-kpack-service-account"
+	cfKpackClusterBuilderName = "cf-kpack-cluster-builder"
 )
 
 // CFBuildReconciler reconciles a CFBuild object
 type CFBuildReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
+	Client           CFClient
+	Scheme           *runtime.Scheme
+	Log              logr.Logger
+	ControllerConfig *cfconfig.ControllerConfig
 }
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds/finalizers,verbs=update
+
+//+kubebuilder:rbac:groups=kpack.io,resources=images,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=kpack.io,resources=images/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=kpack.io,resources=images/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -47,11 +69,134 @@ type CFBuildReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	var cfBuild workloadsv1alpha1.CFBuild
+	err := r.Client.Get(ctx, req.NamespacedName, &cfBuild)
+	if err != nil {
+		r.Log.Error(err, "Error when fetching CFBuild")
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-	// your logic here
+	var cfApp workloadsv1alpha1.CFApp
+	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.AppRef.Name, Namespace: cfBuild.Namespace}, &cfApp)
+	if err != nil {
+		r.Log.Error(err, "Error when fetching CFApp")
+		return ctrl.Result{}, err
+	}
+
+	var cfPackage workloadsv1alpha1.CFPackage
+	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, &cfPackage)
+	if err != nil {
+		r.Log.Error(err, "Error when fetching CFPackage")
+		return ctrl.Result{}, err
+	}
+
+	stagingStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, StagingConditionType)
+	readyStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, ReadyConditionType)
+	succeededStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, SucceededConditionType)
+
+	if stagingStatus == metav1.ConditionUnknown &&
+		readyStatus == metav1.ConditionUnknown &&
+		succeededStatus == metav1.ConditionUnknown {
+		err = r.createKpackImageAndUpdateStatus(ctx, &cfBuild, &cfApp, &cfPackage)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
+	serviceAccountName := cfBuild.Namespace + kpackServiceAccountSuffix
+	kpackImageTag := r.concatImageTagValue(r.ControllerConfig.KpackImageTag, cfBuild.Namespace, cfBuild.Name)
+	kpackImageName := cfBuild.Name
+	kpackImageNamespace := cfBuild.Namespace
+	desiredKpackImage := buildv1alpha1.Image{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kpackImageName,
+			Namespace: kpackImageNamespace,
+			Labels: map[string]string{
+				workloadsv1alpha1.CFBuildGUIDLabelKey: cfBuild.Name,
+				workloadsv1alpha1.CFAppGUIDLabelKey:   cfApp.Name,
+			},
+		},
+		Spec: buildv1alpha1.ImageSpec{
+			Tag: kpackImageTag,
+			Builder: corev1.ObjectReference{
+				Kind:       clusterBuilderKind,
+				Name:       cfKpackClusterBuilderName,
+				APIVersion: clusterBuilderAPIVersion,
+			},
+			ServiceAccount: serviceAccountName,
+			Source: buildv1alpha1.SourceConfig{
+				Registry: &buildv1alpha1.Registry{
+					Image:            cfPackage.Spec.Source.Registry.Image,
+					ImagePullSecrets: cfPackage.Spec.Source.Registry.ImagePullSecrets,
+				},
+			},
+		},
+	}
+
+	err := r.createKpackImageIfNotExists(ctx, desiredKpackImage)
+	if err != nil {
+		return err
+	}
+
+	// update and set "Staging" status to True
+	meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+		Type:    "Staging",
+		Status:  metav1.ConditionTrue,
+		Reason:  "kpack",
+		Message: "kpack",
+	})
+
+	// Update Build Status Conditions based on changes made to local copy
+	if err := r.Client.Status().Update(ctx, cfBuild); err != nil {
+		r.Log.Error(err, "Error when updating CFBuild status")
+		return err
+	}
+
+	return nil
+}
+
+func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, desiredKpackImage buildv1alpha1.Image) error {
+	foundKpackImage := buildv1alpha1.Image{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: desiredKpackImage.Name, Namespace: desiredKpackImage.Namespace}, &foundKpackImage)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			err = r.Client.Create(ctx, &desiredKpackImage)
+			if err != nil {
+				r.Log.Error(err, "Error when creating kpack image")
+				return err
+			}
+		}
+		r.Log.Error(err, "Error when checking if kpack image exists")
+		return err
+	}
+	return nil
+}
+
+func (r *CFBuildReconciler) concatImageTagValue(imageTagElements ...string) string {
+	return strings.Join(imageTagElements, "/")
+}
+
+// getConditionOrSetAsUnknown is a helper function that retrieves the value of the provided conditionType, like "Succeeded" and returns the value: "True", "False", or "Unknown"
+// If the value is not present, the pointer to the list of conditions provided to the function is used to add an entry to the list of Conditions with a value of "Unknown" and "Unknown" is returned
+func getConditionOrSetAsUnknown(conditions *[]metav1.Condition, conditionType string) metav1.ConditionStatus {
+	conditionStatus := meta.FindStatusCondition(*conditions, conditionType)
+	conditionStatusValue := metav1.ConditionUnknown
+	if conditionStatus != nil {
+		conditionStatusValue = conditionStatus.Status
+	} else {
+		// set local copy of CR condition to "unknown" because it had no value
+		meta.SetStatusCondition(conditions, metav1.Condition{
+			Type:    conditionType,
+			Status:  metav1.ConditionUnknown,
+			Reason:  "Unknown", // TODO: Think about this. Consumers of status will care?
+			Message: "Unknown",
+		})
+	}
+	return conditionStatusValue
 }
 
 // SetupWithManager sets up the controller with the Manager.

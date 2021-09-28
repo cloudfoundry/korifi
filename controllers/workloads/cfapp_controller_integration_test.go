@@ -1,4 +1,4 @@
-package controllers_test
+package workloads_test
 
 import (
 	"context"

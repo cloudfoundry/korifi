@@ -281,10 +281,19 @@ spec:
                       TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
                 type: object
+              stagingDiskMB:
+                description: Specifies the disk request for the staging image - Do
+                  we need this?
+                type: integer
+              stagingMemoryMB:
+                description: Specifies the memory request for the staging image
+                type: integer
             required:
             - appRef
             - lifecycle
             - packageRef
+            - stagingDiskMB
+            - stagingMemoryMB
             type: object
           status:
             description: CFBuildStatus defines the observed state of CFBuild
@@ -359,14 +368,60 @@ spec:
                   - type
                   type: object
                 type: array
-              dropletRef:
-                description: LocalObjectReference contains enough information to let
-                  you locate the referenced object inside the same namespace.
+              droplet:
+                description: BuildDropletStatus defines the observed state of the
+                  CFBuild's Droplet or runnable image
                 properties:
-                  name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
-                    type: string
+                  ports:
+                    description: Specifies the exposed ports for the application
+                    items:
+                      format: int32
+                      type: integer
+                    type: array
+                  processTypes:
+                    description: Specifies the process types and associated start
+                      commands for the Droplet
+                    items:
+                      description: ProcessType is a map of process names and associated
+                        start commands for the Droplet
+                      properties:
+                        command:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                      - command
+                      - type
+                      type: object
+                    type: array
+                  registry:
+                    description: Specifies the Container registry image, and secrets
+                      to access
+                    properties:
+                      image:
+                        description: Image specifies the location of the source image
+                        type: string
+                      imagePullSecrets:
+                        description: ImagePullSecrets specifies a list of secrets
+                          required to access the image
+                        items:
+                          description: LocalObjectReference contains enough information
+                            to let you locate the referenced object inside the same
+                            namespace.
+                          properties:
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                          type: object
+                        type: array
+                    required:
+                    - image
+                    type: object
+                required:
+                - ports
+                - processTypes
+                - registry
                 type: object
             required:
             - conditions
@@ -437,212 +492,6 @@ spec:
             type: object
           status:
             description: CFDomainStatus defines the observed state of CFDomain
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
-    controller-gen.kubebuilder.io/version: v0.5.0
-  name: cfdroplets.workloads.cloudfoundry.org
-spec:
-  conversion:
-    strategy: Webhook
-    webhook:
-      clientConfig:
-        service:
-          name: cf-k8s-controllers-webhook-service
-          namespace: cf-k8s-controllers-system
-          path: /convert
-      conversionReviewVersions:
-      - v1
-  group: workloads.cloudfoundry.org
-  names:
-    kind: CFDroplet
-    listKind: CFDropletList
-    plural: cfdroplets
-    singular: cfdroplet
-  scope: Namespaced
-  versions:
-  - name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: CFDroplet is the Schema for the cfdroplets API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: CFDropletSpec defines the desired state of CFDroplet
-            properties:
-              appRef:
-                description: Specifies the App associated with this Droplet
-                properties:
-                  name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
-                    type: string
-                type: object
-              buildRef:
-                description: Specifies the Build associated with this Droplet
-                properties:
-                  name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
-                    type: string
-                type: object
-              ports:
-                description: Specifies the exposed ports for the application
-                items:
-                  format: int32
-                  type: integer
-                type: array
-              processTypes:
-                description: Specifies the process types and associated start commands
-                  for the Droplet
-                items:
-                  properties:
-                    command:
-                      type: string
-                    type:
-                      type: string
-                  required:
-                  - command
-                  - type
-                  type: object
-                type: array
-              registry:
-                description: Specifies the Container registry image, and secrets to
-                  access
-                properties:
-                  image:
-                    description: Image specifies the location of the source image
-                    type: string
-                  imagePullSecrets:
-                    description: ImagePullSecrets specifies a list of secrets required
-                      to access the image
-                    items:
-                      description: LocalObjectReference contains enough information
-                        to let you locate the referenced object inside the same namespace.
-                      properties:
-                        name:
-                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            TODO: Add other useful fields. apiVersion, kind, uid?'
-                          type: string
-                      type: object
-                    type: array
-                required:
-                - image
-                type: object
-              type:
-                description: Specifies the Lifecycle type of the droplet
-                enum:
-                - buildpack
-                type: string
-            required:
-            - appRef
-            - buildRef
-            - ports
-            - processTypes
-            - registry
-            - type
-            type: object
-          status:
-            description: CFDropletStatus defines the observed state of CFDroplet
-            properties:
-              conditions:
-                description: Conditions capture the current status of the Droplet
-                items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource. --- This struct is intended for direct
-                    use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
-                  properties:
-                    lastTransitionTime:
-                      description: lastTransitionTime is the last time the condition
-                        transitioned from one status to another. This should be when
-                        the underlying condition changed.  If that is not known, then
-                        using the time when the API field changed is acceptable.
-                      format: date-time
-                      type: string
-                    message:
-                      description: message is a human readable message indicating
-                        details about the transition. This may be an empty string.
-                      maxLength: 32768
-                      type: string
-                    observedGeneration:
-                      description: observedGeneration represents the .metadata.generation
-                        that the condition was set based upon. For instance, if .metadata.generation
-                        is currently 12, but the .status.conditions[x].observedGeneration
-                        is 9, the condition is out of date with respect to the current
-                        state of the instance.
-                      format: int64
-                      minimum: 0
-                      type: integer
-                    reason:
-                      description: reason contains a programmatic identifier indicating
-                        the reason for the condition's last transition. Producers
-                        of specific condition types may define expected values and
-                        meanings for this field, and whether the values are considered
-                        a guaranteed API. The value should be a CamelCase string.
-                        This field may not be empty.
-                      maxLength: 1024
-                      minLength: 1
-                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                      type: string
-                    status:
-                      description: status of the condition, one of True, False, Unknown.
-                      enum:
-                      - "True"
-                      - "False"
-                      - Unknown
-                      type: string
-                    type:
-                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                        --- Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
-                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
-                      maxLength: 316
-                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
-                      type: string
-                  required:
-                  - lastTransitionTime
-                  - message
-                  - reason
-                  - status
-                  - type
-                  type: object
-                type: array
-            required:
-            - conditions
             type: object
         type: object
     served: true
@@ -1222,6 +1071,32 @@ metadata:
   name: cf-k8s-controllers-manager-role
 rules:
 - apiGroups:
+  - kpack.io
+  resources:
+  - images
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kpack.io
+  resources:
+  - images/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kpack.io
+  resources:
+  - images/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - networking.cloudfoundry.org
   resources:
   - cfdomains
@@ -1448,6 +1323,14 @@ subjects:
 ---
 apiVersion: v1
 data:
+  cf_k8s_controllers_config.yaml: '"kpackImageTag": "gcr.io/cf-relint-greengrass/cf-crd-staging-spike/"'
+kind: ConfigMap
+metadata:
+  name: cf-k8s-controllers-config
+  namespace: cf-k8s-controllers-system
+---
+apiVersion: v1
+data:
   controller_manager_config.yaml: |
     apiVersion: controller-runtime.sigs.k8s.io/v1alpha1
     kind: ControllerManagerConfig
@@ -1516,6 +1399,9 @@ spec:
         - --leader-elect
         command:
         - /manager
+        env:
+        - name: CONFIG
+          value: /cf_k8s_controllers_config.yaml
         image: cloudfoundry/cf-k8s-controllers:latest
         livenessProbe:
           httpGet:
@@ -1547,6 +1433,10 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
+        - mountPath: /cf_k8s_controllers_config.yaml
+          name: cf-k8s-controllers-config
+          readOnly: true
+          subPath: cf_k8s_controllers_config.yaml
       - args:
         - --secure-listen-address=0.0.0.0:8443
         - --upstream=http://127.0.0.1:8080/
@@ -1566,6 +1456,9 @@ spec:
         secret:
           defaultMode: 420
           secretName: webhook-server-cert
+      - configMap:
+          name: cf-k8s-controllers-config
+        name: cf-k8s-controllers-config
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate

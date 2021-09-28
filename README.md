@@ -21,7 +21,7 @@ kubectl apply -f dependencies/cert-manager.yaml
 
 ### Install kpack
 
-Edit the file: `dependencies/kpack/cluster-builder.yaml` and set the `tag` field to be the registry location you want your ClusterBuilder image to be uploaded to.
+Edit the file: `config/kpack/cluster_builder.yaml` and set the `tag` field to be the registry location you want your ClusterBuilder image to be uploaded to.
 
 Run the commands below substituting the values for the Docker credentials to the registry where images will be uploaded to.
 ```
@@ -31,10 +31,10 @@ kubectl create secret docker-registry kpack-registry-credentials \
      --docker-server="<DOCKER_SERVER>" --namespace default
 
 kubectl apply -f dependencies/kpack/release-0.3.1.yaml
-kubectl apply -f dependencies/kpack/serviceaccount.yaml \
-    -f dependencies/kpack/stack.yaml \
-    -f dependencies/kpack/store.yaml \
-    -f dependencies/kpack/cluster-builder.yaml
+kubectl apply -f config/kpack/service_account.yaml \
+    -f config/kpack/cluster_stack.yaml \
+    -f config/kpack/cluster_store.yaml \
+    -f config/kpack/cluster_builder.yaml
 ```
 
 ### Install Contour and Envoy
@@ -57,6 +57,10 @@ kubectl apply -f dependencies/contour-1.18.1.yaml
 # modify kpack dependency files to point towards your registry
 hack/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
 ```
+
+### Configure cf-k8s-controllers
+Configuration file for cf-k8s-controllers is at `config/cf/cf_k8s_controllers_k8s.yaml`
+Note: Edit this file and set the `kpackImageTag` field to be the registry location you want for storing the images. 
 
 ### Build, Install and Deploy to K8s cluster
 Set the $IMG environment variable to a location you have push/pull access. For example 

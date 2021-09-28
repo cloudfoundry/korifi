@@ -1,4 +1,4 @@
-package controllers_test
+package workloads_test
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/controllersfakes"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/fake"
 )
 
 const (
@@ -37,14 +37,14 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
 	var (
-		fakeClient      *controllersfakes.FakeCFAppClient
+		fakeClient      *fake.CFClient
 		cfAppReconciler *CFAppReconciler
 		ctx             context.Context
 		req             ctrl.Request
 	)
 
 	it.Before(func() {
-		fakeClient = new(controllersfakes.FakeCFAppClient)
+		fakeClient = new(fake.CFClient)
 		// configure a CFAppReconciler with the client
 		g.Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfAppReconciler = &CFAppReconciler{
@@ -62,7 +62,7 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("The CFAppReconciler Reconcile function is called", func() {
-		var fakeStatusWriter *controllersfakes.FakeStatusWriter
+		var fakeStatusWriter *fake.StatusWriter
 
 		it.Before(func() {
 			// Tell get to return a nice CFApp
@@ -74,7 +74,7 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 				return nil
 			}
 			// Configure mock status update to succeed
-			fakeStatusWriter = &controllersfakes.FakeStatusWriter{}
+			fakeStatusWriter = &fake.StatusWriter{}
 			fakeClient.StatusReturns(fakeStatusWriter)
 
 			// Have status validate inputs
@@ -125,7 +125,7 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			// Configure mock status update to fail
-			fakeStatusWriter := &controllersfakes.FakeStatusWriter{}
+			fakeStatusWriter := &fake.StatusWriter{}
 			fakeStatusWriter.UpdateReturns(fmt.Errorf(statusUpdateErrorMessage))
 			fakeClient.StatusReturns(fakeStatusWriter)
 		})
