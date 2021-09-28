@@ -40,6 +40,7 @@ func testRouteGetHandler(t *testing.T, when spec.G, it spec.S) {
 		rr            *httptest.ResponseRecorder
 		routeRepo     *fake.CFRouteRepository
 		domainRepo    *fake.CFDomainRepository
+		appRepo       *fake.CFAppRepository
 		clientBuilder *fake.ClientBuilder
 		req           *http.Request
 		router        *mux.Router
@@ -51,6 +52,7 @@ func testRouteGetHandler(t *testing.T, when spec.G, it spec.S) {
 
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
+		appRepo = new(fake.CFAppRepository)
 		clientBuilder = new(fake.ClientBuilder)
 
 		routeRepo.FetchRouteReturns(repositories.RouteRecord{
@@ -70,14 +72,15 @@ func testRouteGetHandler(t *testing.T, when spec.G, it spec.S) {
 			Name: "example.org",
 		}, nil)
 
-		routeHandler := &RouteHandler{
-			ServerURL:   defaultServerURL,
-			RouteRepo:   routeRepo,
-			DomainRepo:  domainRepo,
-			BuildClient: clientBuilder.Spy,
-			Logger:      logf.Log.WithName("TestRouteHandler"),
-			K8sConfig:   &rest.Config{}, // required for k8s client (transitive dependency from route repo)
-		}
+		routeHandler := NewRouteHandler(
+			logf.Log.WithName("TestRouteHandler"),
+			defaultServerURL,
+			routeRepo,
+			domainRepo,
+			appRepo,
+			clientBuilder.Spy,
+			&rest.Config{}, // required for k8s client (transitive dependency from route repo)
+		)
 		routeHandler.RegisterRoutes(router)
 
 		var err error
@@ -230,15 +233,15 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		appRepo = new(fake.CFAppRepository)
 		clientBuilder = new(fake.ClientBuilder)
 
-		apiHandler := &RouteHandler{
-			RouteRepo:   routeRepo,
-			DomainRepo:  domainRepo,
-			AppRepo:     appRepo,
-			BuildClient: clientBuilder.Spy,
-			K8sConfig:   &rest.Config{},
-			Logger:      logf.Log.WithName("TestRouteHandler"),
-			ServerURL:   defaultServerURL,
-		}
+		apiHandler := NewRouteHandler(
+			logf.Log.WithName("TestRouteHandler"),
+			defaultServerURL,
+			routeRepo,
+			domainRepo,
+			appRepo,
+			clientBuilder.Spy,
+			&rest.Config{}, // required for k8s client (transitive dependency from route repo)
+		)
 		apiHandler.RegisterRoutes(router)
 	})
 
@@ -343,9 +346,7 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("a POST test route request is sent with metadata labels", func() {
-			var (
-				testLabels map[string]string
-			)
+			var testLabels map[string]string
 
 			it.Before(func() {
 				testLabels = map[string]string{"label1": "foo", "label2": "bar"}
@@ -362,9 +363,7 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("a POST test route request is sent with metadata annotations", func() {
-			var (
-				testAnnotations map[string]string
-			)
+			var testAnnotations map[string]string
 
 			it.Before(func() {
 				testAnnotations = map[string]string{"annotation1": "foo", "annotation2": "bar"}

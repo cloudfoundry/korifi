@@ -74,13 +74,13 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 		router = mux.NewRouter()
 		clientBuilder := new(fake.ClientBuilder)
 
-		apiHandler := &AppHandler{
-			ServerURL:   defaultServerURL,
-			AppRepo:     appRepo,
-			Logger:      logf.Log.WithName(testAppHandlerLoggerName),
-			K8sConfig:   &rest.Config{},
-			BuildClient: clientBuilder.Spy,
-		}
+		apiHandler := NewAppHandler(
+			logf.Log.WithName(testAppHandlerLoggerName),
+			defaultServerURL,
+			appRepo,
+			clientBuilder.Spy,
+			&rest.Config{},
+		)
 		apiHandler.RegisterRoutes(router)
 	})
 
@@ -221,13 +221,13 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		router = mux.NewRouter()
 
 		appRepo = new(fake.CFAppRepository)
-		apiHandler := &AppHandler{
-			ServerURL:   defaultServerURL,
-			AppRepo:     appRepo,
-			Logger:      logf.Log.WithName(testAppHandlerLoggerName),
-			K8sConfig:   &rest.Config{},
-			BuildClient: new(fake.ClientBuilder).Spy,
-		}
+		apiHandler := NewAppHandler(
+			logf.Log.WithName(testAppHandlerLoggerName),
+			defaultServerURL,
+			appRepo,
+			new(fake.ClientBuilder).Spy,
+			&rest.Config{},
+		)
 		apiHandler.RegisterRoutes(router)
 	})
 
@@ -680,9 +680,7 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("a POST test app request is sent with metadata labels", func() {
-			var (
-				testLabels map[string]string
-			)
+			var testLabels map[string]string
 
 			it.Before(func() {
 				testLabels = map[string]string{"foo": "foo", "bar": "bar"}
@@ -699,9 +697,7 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("a POST test app request is sent with metadata annotations", func() {
-			var (
-				testAnnotations map[string]string
-			)
+			var testAnnotations map[string]string
 
 			it.Before(func() {
 				testAnnotations = map[string]string{"foo": "foo", "bar": "bar"}
@@ -795,13 +791,13 @@ func testAppListHandler(t *testing.T, when spec.G, it spec.S) {
 		router = mux.NewRouter()
 		clientBuilder := new(fake.ClientBuilder)
 
-		apiHandler := &AppHandler{
-			ServerURL:   defaultServerURL,
-			AppRepo:     appRepo,
-			Logger:      logf.Log.WithName(testAppHandlerLoggerName),
-			K8sConfig:   &rest.Config{},
-			BuildClient: clientBuilder.Spy,
-		}
+		apiHandler := NewAppHandler(
+			logf.Log.WithName(testAppHandlerLoggerName),
+			defaultServerURL,
+			appRepo,
+			clientBuilder.Spy,
+			&rest.Config{},
+		)
 		apiHandler.RegisterRoutes(router)
 	})
 
