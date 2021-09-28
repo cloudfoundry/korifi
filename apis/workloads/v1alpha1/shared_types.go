@@ -5,11 +5,14 @@ import (
 )
 
 const (
-	CFAppGUIDLabelKey     = "workloads.cloudfoundry.org/app-guid"
-	CFPackageGUIDLabelKey = "workloads.cloudfoundry.org/package-guid"
-	CFBuildGUIDLabelKey   = "workloads.cloudfoundry.org/build-guid"
-	CFProcessGUIDLabelKey = "workloads.cloudfoundry.org/process-guid"
-	CFProcessTypeLabelKey = "workloads.cloudfoundry.org/process-type"
+	CFAppGUIDLabelKey      = "workloads.cloudfoundry.org/app-guid"
+	CFPackageGUIDLabelKey  = "workloads.cloudfoundry.org/package-guid"
+	CFBuildGUIDLabelKey    = "workloads.cloudfoundry.org/build-guid"
+	CFProcessGUIDLabelKey  = "workloads.cloudfoundry.org/process-guid"
+	CFProcessTypeLabelKey  = "workloads.cloudfoundry.org/process-type"
+	StagingConditionType   = "Staging"
+	ReadyConditionType     = "Ready"
+	SucceededConditionType = "Succeeded"
 )
 
 type Lifecycle struct {

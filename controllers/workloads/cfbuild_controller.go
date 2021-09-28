@@ -17,9 +17,16 @@ limitations under the License.
 package workloads
 
 import (
+	"context"
+	"strings"
+
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
-	"context"
 	"github.com/go-logr/logr"
 	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,17 +37,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 const (
-	StagingConditionType      = "Staging"
-	ReadyConditionType        = "Ready"
-	SucceededConditionType    = "Succeeded"
-	clusterBuilderKind        = "ClusterBuilder"
-	clusterBuilderAPIVersion  = "kpack.io/v1alpha1"
-	kpackServiceAccountSuffix = "-kpack-service-account"
-	cfKpackClusterBuilderName = "cf-kpack-cluster-builder"
+	kpackSucceededConditionType = "Ready"
+	clusterBuilderKind          = "ClusterBuilder"
+	clusterBuilderAPIVersion    = "kpack.io/v1alpha1"
+	kpackServiceAccountSuffix   = "-kpack-service-account"
+	cfKpackClusterBuilderName   = "cf-kpack-cluster-builder"
 )
 
 // CFBuildReconciler reconciles a CFBuild object
@@ -90,25 +94,65 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	stagingStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, StagingConditionType)
-	readyStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, ReadyConditionType)
-	succeededStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, SucceededConditionType)
+	stagingStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType)
+	readyStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, workloadsv1alpha1.ReadyConditionType)
+	succeededStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType)
 
 	if stagingStatus == metav1.ConditionUnknown &&
 		readyStatus == metav1.ConditionUnknown &&
 		succeededStatus == metav1.ConditionUnknown {
+		// Scenario: CFBuild newly created and all status conditions are unknown, it
+		// Creates a KpackImage resource to trigger staging.
+		// Updates status on CFBuild -> sets staging to True.
 		err = r.createKpackImageAndUpdateStatus(ctx, &cfBuild, &cfApp, &cfPackage)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+	} else if stagingStatus == metav1.ConditionTrue &&
+		readyStatus == metav1.ConditionUnknown &&
+		succeededStatus == metav1.ConditionUnknown {
+		// Scenario: CFBuild reconciles when Type staging is True and Type ready is False, it
+		// Retrieves and Checks Kpack Image Status Condition for Type "Succeeded"
+		// If NotFound error - Ignore and return
+		// If Found, check Succeeded status condition
+		// If Succeeded is True - Update Status Conditions and Droplet fields on CFBuild
+		// If Succeeded is False - Update Status Conditions on CFBuild
+		var kpackImage buildv1alpha1.Image
+		err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Name, Namespace: cfBuild.Namespace}, &kpackImage)
+		if err != nil {
+			r.Log.Error(err, "Error when fetching Kpack Image")
+			//Ignore Image NotFound errors to account for eventual consistency
+			return ctrl.Result{}, client.IgnoreNotFound(err)
+		}
+		kpackSucceededStatusCondition := kpackImage.Status.GetCondition(kpackSucceededConditionType)
+		if kpackSucceededStatusCondition.IsFalse() {
+			// Set CFBuild status Conditions on local copy - Staging and Succeeded to False
+			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
+			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType, metav1.ConditionFalse, "kpack", "kpack")
+			if err := r.Client.Status().Update(ctx, &cfBuild); err != nil {
+				r.Log.Error(err, "Error when updating CFBuild status")
+				return ctrl.Result{}, err
+			}
+		} else if kpackSucceededStatusCondition.IsTrue() {
+			// Set CFBuild status Conditions on local copy- Staging to False and Succeeded to True
+			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
+			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType, metav1.ConditionTrue, "kpack", "kpack")
+			// Generate Droplet object using Kpack Image and set it on CFBuild local copy
+			cfBuild.Status.BuildDropletStatus = r.generateBuildDropletStatus(&kpackImage)
+			// Call Status().Update() tp push updates to the server
+			if err := r.Client.Status().Update(ctx, &cfBuild); err != nil {
+				r.Log.Error(err, "Error when updating CFBuild status")
+				return ctrl.Result{}, err
+			}
+		}
 	}
-
 	return ctrl.Result{}, nil
 }
 
 func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
 	serviceAccountName := cfBuild.Namespace + kpackServiceAccountSuffix
-	kpackImageTag := r.concatImageTagValue(r.ControllerConfig.KpackImageTag, cfBuild.Namespace, cfBuild.Name)
+	//TODO kpackImageTag := r.concatImageTagValue(r.ControllerConfig.KpackImageTag, cfBuild.Namespace, cfBuild.Name)
+	kpackImageTag := r.concatImageTagValue("gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta", cfBuild.Name)
 	kpackImageName := cfBuild.Name
 	kpackImageNamespace := cfBuild.Namespace
 	desiredKpackImage := buildv1alpha1.Image{
@@ -142,15 +186,10 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 		return err
 	}
 
-	// update and set "Staging" status to True
-	meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
-		Type:    "Staging",
-		Status:  metav1.ConditionTrue,
-		Reason:  "kpack",
-		Message: "kpack",
-	})
+	setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionTrue, "kpack", "kpack")
+	//setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.ReadyConditionType, metav1.ConditionFalse, "", "")
 
-	// Update Build Status Conditions based on changes made to local copy
+	// Update CFBuild record based on changes made to local copy
 	if err := r.Client.Status().Update(ctx, cfBuild); err != nil {
 		r.Log.Error(err, "Error when updating CFBuild status")
 		return err
@@ -160,7 +199,7 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 }
 
 func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, desiredKpackImage buildv1alpha1.Image) error {
-	foundKpackImage := buildv1alpha1.Image{}
+	var foundKpackImage buildv1alpha1.Image
 	err := r.Client.Get(ctx, types.NamespacedName{Name: desiredKpackImage.Name, Namespace: desiredKpackImage.Namespace}, &foundKpackImage)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -169,11 +208,31 @@ func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, des
 				r.Log.Error(err, "Error when creating kpack image")
 				return err
 			}
+		} else {
+			r.Log.Error(err, "Error when checking if kpack image exists")
+			return err
 		}
-		r.Log.Error(err, "Error when checking if kpack image exists")
-		return err
 	}
 	return nil
+}
+
+func (r *CFBuildReconciler) generateBuildDropletStatus(kpackImage *buildv1alpha1.Image) *workloadsv1alpha1.BuildDropletStatus {
+	return &workloadsv1alpha1.BuildDropletStatus{
+		Registry: workloadsv1alpha1.Registry{
+			Image: kpackImage.Status.LatestImage,
+			//TODO: has implications on security. revisit this after getting consensus.
+			ImagePullSecrets: kpackImage.Spec.Source.Registry.ImagePullSecrets,
+		},
+		// ProceesTypes & Ports are required fields. Hence, populating with dummy values
+		// Populating with real values will be handled in a future story
+		ProcessTypes: []workloadsv1alpha1.ProcessType{
+			{
+				Type:    "web",
+				Command: "my-command",
+			},
+		},
+		Ports: []int32{8080},
+	}
 }
 
 func (r *CFBuildReconciler) concatImageTagValue(imageTagElements ...string) string {
@@ -192,7 +251,7 @@ func getConditionOrSetAsUnknown(conditions *[]metav1.Condition, conditionType st
 		meta.SetStatusCondition(conditions, metav1.Condition{
 			Type:    conditionType,
 			Status:  metav1.ConditionUnknown,
-			Reason:  "Unknown", // TODO: Think about this. Consumers of status will care?
+			Reason:  "Unknown",
 			Message: "Unknown",
 		})
 	}
@@ -203,5 +262,16 @@ func getConditionOrSetAsUnknown(conditions *[]metav1.Condition, conditionType st
 func (r *CFBuildReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&workloadsv1alpha1.CFBuild{}).
+		Watches(
+			&source.Kind{Type: &buildv1alpha1.Image{}},
+			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+				var requests []reconcile.Request
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      obj.GetName(),
+						Namespace: obj.GetNamespace(),
+					}})
+				return requests
+			})).
 		Complete(r)
 }

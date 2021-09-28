@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	controllers "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -258,4 +258,4 @@ func (fake *CFClient) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ controllers.CFClient = new(CFClient)
+var _ workloads.CFClient = new(CFClient)

@@ -21,7 +21,7 @@ func GenerateGUID() string {
 	return newUUID.String()
 }
 
-func InitializeK8sNamespace(name string) *corev1.Namespace {
+func MockK8sNamespaceObject(name string) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -29,7 +29,7 @@ func InitializeK8sNamespace(name string) *corev1.Namespace {
 	}
 }
 
-func InitializeAppCR(appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp {
+func MockAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp {
 	return &workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
@@ -49,7 +49,7 @@ func InitializeAppCR(appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp 
 	}
 }
 
-func InitializePackageCR(packageGUID, namespaceGUID, appGUID string) *workloadsv1alpha1.CFPackage {
+func MockPackageCRObject(packageGUID, namespaceGUID, appGUID string) *workloadsv1alpha1.CFPackage {
 	return &workloadsv1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageGUID,
@@ -70,7 +70,7 @@ func InitializePackageCR(packageGUID, namespaceGUID, appGUID string) *workloadsv
 	}
 }
 
-func InitializeCFBuild(cfBuildGUID string, namespace string, cfPackageGUID string, cfAppGUID string) *workloadsv1alpha1.CFBuild {
+func MockCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID string, cfAppGUID string) *workloadsv1alpha1.CFBuild {
 	return &workloadsv1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfBuildGUID,
