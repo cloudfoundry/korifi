@@ -477,7 +477,7 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 	when("the app already exists, but AppCreate returns false due to validating webhook rejection", func() {
 		it.Before(func() {
 			controllerError := new(k8serrors.StatusError)
-			controllerError.ErrStatus.Reason = "CFApp with the same spec.name exists"
+			controllerError.ErrStatus.Reason = `{"code":1,"message":"CFApp with the same spec.name exists"}`
 			appRepo.CreateAppReturns(repositories.AppRecord{}, controllerError)
 
 			requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)

@@ -3,12 +3,14 @@ package apis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -141,9 +143,13 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	responseAppRecord, err := h.AppRepo.CreateApp(ctx, client, createAppRecord)
 	if err != nil {
-		if errType, ok := err.(*k8serrors.StatusError); ok {
-			reason := errType.Status().Reason
-			if reason == "CFApp with the same spec.name exists" {
+		if statusError := new(k8serrors.StatusError); errors.As(err, &statusError) {
+			reason := statusError.Status().Reason
+
+			val := new(workloads.ValidationErrorCode)
+			val.Unmarshall(string(reason))
+
+			if *val == workloads.DuplicateAppError {
 				errorDetail := fmt.Sprintf("App with the name '%s' already exists.", payload.Name)
 				h.Logger.Error(err, errorDetail, "App Name", payload.Name)
 				writeUniquenessError(w, errorDetail)
