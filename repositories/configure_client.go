@@ -7,9 +7,5 @@ import (
 )
 
 func BuildClient(config *rest.Config) (client.Client, error) {
-	c, err := client.New(config, client.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
+	return client.New(config, client.Options{Scheme: scheme.Scheme})
 }

@@ -1,14 +1,18 @@
 package apis_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gorilla/mux"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
+	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 )
@@ -29,7 +33,10 @@ func testRootAPI(t *testing.T, when spec.G, it spec.S) {
 		rr = httptest.NewRecorder()
 		router := mux.NewRouter()
 
-		apiHandler := apis.NewRootHandler(defaultServerURL)
+		apiHandler := apis.NewRootHandler(
+			logf.Log.WithName("TestRootHandler"),
+			defaultServerURL,
+		)
 		apiHandler.RegisterRoutes(router)
 
 		router.ServeHTTP(rr, req)
@@ -49,7 +56,32 @@ func testRootAPI(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	it("matches the expected response body format", func() {
-		expectedBody := `{"links":{"self":{"href":"` + defaultServerURL + `"},"bits_service":null,"cloud_controller_v2":null,"cloud_controller_v3":{"href":"` + defaultServerURL + `/v3","meta":{"version":"3.90.0"}},"network_policy_v0":null,"network_policy_v1":null,"login":null,"uaa":null,"credhub":null,"routing":null,"logging":null,"log_cache":null,"log_stream":null,"app_ssh":null}}`
-		g.Expect(rr.Body.String()).To(Equal(expectedBody), "Response body matches RootV3GetHandler response:")
+		var resp presenter.RootResponse
+		g.Expect(json.Unmarshal(rr.Body.Bytes(), &resp)).To(Succeed())
+
+		g.Expect(resp).To(gstruct.MatchAllFields(gstruct.Fields{
+			"Links": Equal(map[string]*presenter.APILink{
+				"self": {
+					Link: presenter.Link{HREF: defaultServerURL},
+				},
+				"bits_service":        nil,
+				"cloud_controller_v2": nil,
+				"cloud_controller_v3": {
+					Link: presenter.Link{HREF: defaultServerURL + "/v3"},
+					Meta: presenter.APILinkMeta{Version: "3.90.0"},
+				},
+				"network_policy_v0": nil,
+				"network_policy_v1": nil,
+				"login":             nil,
+				"uaa":               nil,
+				"credhub":           nil,
+				"routing":           nil,
+				"logging":           nil,
+				"log_cache":         nil,
+				"log_stream":        nil,
+				"app_ssh":           nil,
+			}),
+			"CFOnK8s": Equal(true),
+		}))
 	})
 }

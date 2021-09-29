@@ -13,6 +13,9 @@ We maintain our own set of [API Endpoint docs](docs/api.md) for tracking what is
 ### Dependencies
 This project relies on the controllers and CRDs of the [cf-k8s-controllers](https://github.com/cloudfoundry/cf-k8s-controllers) repo. Install it by following the instructions in its [README](https://github.com/cloudfoundry/cf-k8s-controllers/blob/main/README.md).
 
+It also requires the [hierarchical namespace controller](https://github.com/kubernetes-sigs/hierarchical-namespaces).
+To install this, ensure you have targeted the cluster, then run `make hnc-install`.
+
 ### Running Locally
 make
 ```make
