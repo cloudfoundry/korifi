@@ -27,13 +27,46 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '^1.17.0' # The Go version to download (if necessary) and use.
-
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - name: Run Unit Tests
         run: make test
 
+  e2e-tests:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: cf-k8s-api
+      - uses: actions/checkout@v2
+        with:
+          repository: cloudfoundry/cf-k8s-controllers
+          path: cf-k8s-controllers
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('cf-k8s-api/**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.17.0'
+      - name: Run End to End Tests
+        run: make test-e2e
+        working-directory: ./cf-k8s-api
+
   # This workflow contains a single job called "build"
   build:
-    needs: unit-tests
+    needs: e2e-tests
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
