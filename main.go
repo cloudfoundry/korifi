@@ -86,6 +86,13 @@ func main() {
 			repositories.BuildClient,
 			k8sClientConfig,
 		),
+		apis.NewBuildHandler(
+			ctrl.Log.WithName("BuildHandler"),
+			config.ServerURL,
+			&repositories.BuildRepo{},
+			repositories.BuildClient,
+			k8sClientConfig,
+    ),
 		apis.NewOrgHandler(
 			repositories.NewOrgRepo(config.RootNamespace, privilegedClient),
 			config.ServerURL,
