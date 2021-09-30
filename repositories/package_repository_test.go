@@ -75,11 +75,11 @@ func testCreatePackage(t *testing.T, when spec.G, it spec.S) {
 
 		createdAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
 		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(createdAt).To(BeTemporally("~", time.Now(), time.Second))
+		g.Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 
 		updatedAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
 		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(updatedAt).To(BeTemporally("~", time.Now(), time.Second))
+		g.Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 
 		packageNSName := types.NamespacedName{Name: packageGUID, Namespace: spaceGUID}
 		createdCFPackage := new(workloadsv1alpha1.CFPackage)
@@ -190,11 +190,11 @@ func testFetchPackage(t *testing.T, when spec.G, it spec.S) {
 
 			createdAt, err := time.Parse(time.RFC3339, record.CreatedAt)
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(createdAt).To(BeTemporally("~", time.Now(), time.Second))
+			g.Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 
 			updatedAt, err := time.Parse(time.RFC3339, record.CreatedAt)
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(updatedAt).To(BeTemporally("~", time.Now(), time.Second))
+			g.Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 		})
 	})
 

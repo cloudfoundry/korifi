@@ -2,10 +2,11 @@ package repositories_test
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/types"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/types"
 
 	. "code.cloudfoundry.org/cf-k8s-api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
@@ -169,13 +170,13 @@ func testFetchBuild(t *testing.T, when spec.G, it spec.S) {
 				it("returns a record with a CreatedAt field from the CR", func() {
 					createdAt, err := time.Parse(time.RFC3339, buildRecord.CreatedAt)
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(createdAt).To(BeTemporally("~", time.Now(), time.Second))
+					g.Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 				})
 
 				it("returns a record with a UpdatedAt field from the CR", func() {
 					updatedAt, err := time.Parse(time.RFC3339, buildRecord.UpdatedAt)
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(updatedAt).To(BeTemporally("~", time.Now(), time.Second))
+					g.Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 				})
 
 				it("returns a record with a StagingMemoryMB field matching the CR", func() {
@@ -201,22 +202,16 @@ func testFetchBuild(t *testing.T, when spec.G, it spec.S) {
 				})
 			})
 
-			when("status.Conditions \"Staging\": False, \"Ready\": True, \"Succeeded\": True, are set", func() {
+			when("status.Conditions \"Staging\": False, \"Succeeded\": True, is set", func() {
 				it.Before(func() {
 					meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
 						Type:    StagingConditionType,
 						Status:  metav1.ConditionFalse,
-						Reason:  "Unknown",
-						Message: "Unknown",
+						Reason:  "kpack",
+						Message: "kpack",
 					})
 					meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
 						Type:    SucceededConditionType,
-						Status:  metav1.ConditionTrue,
-						Reason:  "Unknown",
-						Message: "Unknown",
-					})
-					meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
-						Type:    ReadyConditionType,
 						Status:  metav1.ConditionTrue,
 						Reason:  "Unknown",
 						Message: "Unknown",
@@ -242,8 +237,9 @@ func testFetchBuild(t *testing.T, when spec.G, it spec.S) {
 				})
 			})
 
-			when("status.Conditions \"Staging\": False, \"Ready\": False, \"Succeeded\": False, are set", func() {
+			when("status.Conditions \"Staging\": False, \"Succeeded\": False, is set", func() {
 				const (
+					StagingError        = "StagingError"
 					StagingErrorMessage = "Staging failed for some reason"
 				)
 
@@ -251,20 +247,14 @@ func testFetchBuild(t *testing.T, when spec.G, it spec.S) {
 					meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
 						Type:    StagingConditionType,
 						Status:  metav1.ConditionFalse,
-						Reason:  "StagingError",
-						Message: StagingErrorMessage,
+						Reason:  "kpack",
+						Message: "kpack",
 					})
 					meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
 						Type:    SucceededConditionType,
 						Status:  metav1.ConditionFalse,
-						Reason:  "Unknown",
-						Message: "Unknown",
-					})
-					meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
-						Type:    ReadyConditionType,
-						Status:  metav1.ConditionFalse,
-						Reason:  "Unknown",
-						Message: "Unknown",
+						Reason:  "StagingError",
+						Message: StagingErrorMessage,
 					})
 					// Update Build Status Conditions based on changes made to local copy
 					g.Expect(k8sClient.Status().Update(testCtx, build2)).To(Succeed())
@@ -282,7 +272,7 @@ func testFetchBuild(t *testing.T, when spec.G, it spec.S) {
 						return buildRecord.State
 					}, 10*time.Second, 250*time.Millisecond).Should(Equal("FAILED"), "the returned record State was not FAILED")
 					g.Expect(buildRecord.DropletGUID).To(BeEmpty())
-					g.Expect(buildRecord.StagingErrorMsg).ToNot(BeEmpty(), "record staging error message was not supposed to be empty")
+					g.Expect(buildRecord.StagingErrorMsg).To(Equal(StagingError + ": " + StagingErrorMessage))
 				})
 			})
 		})
@@ -462,12 +452,12 @@ func testCreateBuild(t *testing.T, when spec.G, it spec.S) {
 			it("has a CreatedAt that makes sense", func() {
 				createdAt, err := time.Parse(time.RFC3339, buildCreateRecord.CreatedAt)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(createdAt).To(BeTemporally("~", time.Now(), time.Second))
+				g.Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 			})
 			it("has a UpdatedAt that makes sense", func() {
 				createdAt, err := time.Parse(time.RFC3339, buildCreateRecord.UpdatedAt)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(createdAt).To(BeTemporally("~", time.Now(), time.Second))
+				g.Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 			})
 			it("has an empty StagingErrorMsg", func() {
 				g.Expect(buildCreateRecord.StagingErrorMsg).To(BeEmpty())

@@ -94,7 +94,7 @@ func main() {
 			&repositories.PackageRepo{},
 			repositories.BuildClient,
 			k8sClientConfig,
-    ),
+		),
 		apis.NewOrgHandler(
 			repositories.NewOrgRepo(config.RootNamespace, privilegedClient),
 			config.ServerURL,

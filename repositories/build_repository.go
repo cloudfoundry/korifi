@@ -1,14 +1,15 @@
 package repositories
 
 import (
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"context"
 	"errors"
 	"fmt"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -19,7 +20,6 @@ const (
 	BuildStateFailed  = "FAILED"
 
 	StagingConditionType   = "Staging"
-	ReadyConditionType     = "Ready"
 	SucceededConditionType = "Succeeded"
 )
 
@@ -107,16 +107,17 @@ func (b *BuildRepo) cfBuildToBuildRecord(cfBuild workloadsv1alpha1.CFBuild) Buil
 	}
 
 	stagingStatus := getConditionValue(&cfBuild.Status.Conditions, StagingConditionType)
-	readyStatus := getConditionValue(&cfBuild.Status.Conditions, ReadyConditionType)
 	succeededStatus := getConditionValue(&cfBuild.Status.Conditions, SucceededConditionType)
 	// TODO: Consider moving this logic to CRDs repo in case Status Conditions change later?
-	if readyStatus == metav1.ConditionTrue && succeededStatus == metav1.ConditionTrue {
-		toReturn.State = BuildStateStaged
-		toReturn.DropletGUID = cfBuild.Name
-	} else if stagingStatus == metav1.ConditionFalse && succeededStatus == metav1.ConditionFalse {
-		toReturn.State = BuildStateFailed
-		conditionStatus := meta.FindStatusCondition(cfBuild.Status.Conditions, StagingConditionType)
-		toReturn.StagingErrorMsg = fmt.Sprintf("%v: %v", conditionStatus.Reason, conditionStatus.Message)
+	if stagingStatus == metav1.ConditionFalse {
+		if succeededStatus == metav1.ConditionTrue {
+			toReturn.State = BuildStateStaged
+			toReturn.DropletGUID = cfBuild.Name
+		} else if succeededStatus == metav1.ConditionFalse {
+			toReturn.State = BuildStateFailed
+			conditionStatus := meta.FindStatusCondition(cfBuild.Status.Conditions, SucceededConditionType)
+			toReturn.StagingErrorMsg = fmt.Sprintf("%v: %v", conditionStatus.Reason, conditionStatus.Message)
+		}
 	}
 
 	return toReturn

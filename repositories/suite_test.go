@@ -20,6 +20,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+const (
+	timeCheckThreshold = 3
+)
+
 var (
 	suite             spec.Suite
 	testEnv           *envtest.Environment
