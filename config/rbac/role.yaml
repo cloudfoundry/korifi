@@ -85,6 +85,30 @@ rules:
   - patch
   - update
 - apiGroups:
+  - projectcontour.io
+  resources:
+  - httpproxies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - projectcontour.io
+  resources:
+  - httpproxies/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - projectcontour.io
+  resources:
+  - httpproxies/status
+  verbs:
+  - get
+- apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
