@@ -95,11 +95,9 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	stagingStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType)
-	readyStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, workloadsv1alpha1.ReadyConditionType)
 	succeededStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType)
 
 	if stagingStatus == metav1.ConditionUnknown &&
-		readyStatus == metav1.ConditionUnknown &&
 		succeededStatus == metav1.ConditionUnknown {
 		// Scenario: CFBuild newly created and all status conditions are unknown, it
 		// Creates a KpackImage resource to trigger staging.
@@ -109,7 +107,6 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 	} else if stagingStatus == metav1.ConditionTrue &&
-		readyStatus == metav1.ConditionUnknown &&
 		succeededStatus == metav1.ConditionUnknown {
 		// Scenario: CFBuild reconciles when Type staging is True and Type ready is False, it
 		// Retrieves and Checks Kpack Image Status Condition for Type "Succeeded"
@@ -127,7 +124,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		kpackReadyStatusCondition := kpackImage.Status.GetCondition(kpackReadyConditionType)
 		if kpackReadyStatusCondition.IsFalse() {
 			// Set CFBuild status Conditions on local copy - Staging and Succeeded to False
-			failureStatusConditionMessage := r.concatinateStrings(":", kpackReadyStatusCondition.Reason, kpackReadyStatusCondition.Message)
+			failureStatusConditionMessage := r.concatenateStrings(":", kpackReadyStatusCondition.Reason, kpackReadyStatusCondition.Message)
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType, metav1.ConditionFalse, "kpack", failureStatusConditionMessage)
 			if err := r.Client.Status().Update(ctx, &cfBuild); err != nil {
@@ -152,7 +149,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
 	serviceAccountName := cfBuild.Namespace + kpackServiceAccountSuffix
-	kpackImageTag := r.concatinateStrings("/", r.ControllerConfig.KpackImageTag, cfBuild.Name)
+	kpackImageTag := r.concatenateStrings("/", r.ControllerConfig.KpackImageTag, cfBuild.Name)
 	kpackImageName := cfBuild.Name
 	kpackImageNamespace := cfBuild.Namespace
 	desiredKpackImage := buildv1alpha1.Image{
@@ -234,7 +231,7 @@ func (r *CFBuildReconciler) generateBuildDropletStatus(kpackImage *buildv1alpha1
 	}
 }
 
-func (r *CFBuildReconciler) concatinateStrings(separator string, text ...string) string {
+func (r *CFBuildReconciler) concatenateStrings(separator string, text ...string) string {
 	return strings.Join(text, separator)
 }
 

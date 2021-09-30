@@ -216,7 +216,6 @@ func testCFBuildReconciler(t *testing.T, when spec.G, it spec.S) {
 	when("CFBuild status conditions for Staging is True and others are unknown", func() {
 		it.Before(func() {
 			SetStatusCondition(&cfBuild.Status.Conditions, stagingConditionType, metav1.ConditionTrue)
-			SetStatusCondition(&cfBuild.Status.Conditions, readyConditionType, metav1.ConditionUnknown)
 			SetStatusCondition(&cfBuild.Status.Conditions, succeededConditionType, metav1.ConditionUnknown)
 		})
 		when("on the happy path", func() {
