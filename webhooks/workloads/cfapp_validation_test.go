@@ -2,10 +2,13 @@ package workloads_test
 
 import (
 	"context"
+	"errors"
+	"testing"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads/webhooksfakes"
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads/fake"
+
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
@@ -15,14 +18,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"errors"
-	"testing"
 )
 
 func TestUnitValidatingWebhooks(t *testing.T) {
 	spec.Run(t, "object", testCFAppValidatingWebhook, spec.Report(report.Terminal{}))
-
 }
 
 func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
@@ -37,7 +36,7 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 
 	var (
 		ctx           context.Context
-		fakeClient    *webhooksfakes.FakeCFAppClient
+		fakeClient    *fake.CFAppClient
 		realDecoder   *admission.Decoder
 		dummyCFApp    *workloadsv1alpha1.CFApp
 		createRequest admission.Request
@@ -46,7 +45,7 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 	it.Before(func() {
 		ctx = context.Background()
 
-		fakeClient = new(webhooksfakes.FakeCFAppClient)
+		fakeClient = new(fake.CFAppClient)
 		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
 			cast := list.(*workloadsv1alpha1.CFAppList)
 			cast.Items = []workloadsv1alpha1.CFApp{}
@@ -138,5 +137,4 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 	})
-
 }

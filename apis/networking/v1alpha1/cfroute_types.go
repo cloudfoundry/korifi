@@ -59,8 +59,8 @@ type CFRouteSpec struct {
 
 // CFRouteStatus defines the observed state of CFRoute
 type CFRouteStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions capture the current status of the Build
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 //+kubebuilder:object:root=true

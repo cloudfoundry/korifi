@@ -1,8 +1,9 @@
 package workloads
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"context"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	v1 "k8s.io/api/admission/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -10,6 +11,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
+
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 const specNameKey = "spec.name"
 
@@ -23,7 +26,7 @@ type CFAppValidation struct {
 	decoder *admission.Decoder
 }
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . CFAppClient
+//counterfeiter:generate -o fake -fake-name CFAppClient . CFAppClient
 type CFAppClient interface {
 	List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error
 }
