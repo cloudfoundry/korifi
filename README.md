@@ -30,7 +30,7 @@ kubectl create secret docker-registry image-registry-credentials \
     --docker-password="<DOCKER_PASSWORD>" \
      --docker-server="<DOCKER_SERVER>" --namespace default
 
-kubectl apply -f dependencies/kpack/release-0.3.1.yaml
+kubectl apply -f dependencies/kpack-release-0.3.1.yaml
 kubectl apply -f config/kpack/service_account.yaml \
     -f config/kpack/cluster_stack.yaml \
     -f config/kpack/cluster_store.yaml \
@@ -60,7 +60,8 @@ hack/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
 
 ### Configure cf-k8s-controllers
 Configuration file for cf-k8s-controllers is at `config/cf/cf_k8s_controllers_k8s.yaml`
-Note: Edit this file and set the `kpackImageTag` field to be the registry location you want for storing the images. 
+
+Note: Edit this file and set the `kpackImageTag` to be the registry location you want for storing the images. 
 
 ### Build, Install and Deploy to K8s cluster
 Set the $IMG environment variable to a location you have push/pull access. For example 
