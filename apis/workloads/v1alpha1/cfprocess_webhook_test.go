@@ -1,23 +1,15 @@
 package v1alpha1_test
 
 import (
-	"testing"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
-	"github.com/sclevine/spec/report"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestCFProcessWebhook(t *testing.T) {
-	spec.Run(t, "CFProcess Webhook", testCFProcessWebhook, spec.Report(report.Terminal{}))
-
-}
-
-func testCFProcessWebhook(t *testing.T, when spec.G, it spec.S) {
+var _ = Describe("CFProcessMutatingWebhook Unit Tests", func() {
 	const (
 		cfAppGUID             = "test-app-guid"
 		cfAppGUIDLabelKey     = "workloads.cloudfoundry.org/app-guid"
@@ -30,10 +22,8 @@ func testCFProcessWebhook(t *testing.T, when spec.G, it spec.S) {
 
 	var cfProcess *v1alpha1.CFProcess
 
-	g := NewWithT(t)
-
-	when("there are no existing labels on the CFProcess record", func() {
-		it.Before(func() {
+	When("there are no existing labels on the CFProcess record", func() {
+		BeforeEach(func() {
 			cfProcess = &v1alpha1.CFProcess{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFProcess",
@@ -52,17 +42,17 @@ func testCFProcessWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 		})
 
-		it("should add the appropriate labels", func() {
+		It("should add the appropriate labels", func() {
 			cfProcess.Default()
 
-			g.Expect(cfProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfProcessGUIDLabelKey, cfProcessGUID))
-			g.Expect(cfProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfProcessTypeLabelKey, cfProcessType))
-			g.Expect(cfProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
+			Expect(cfProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfProcessGUIDLabelKey, cfProcessGUID))
+			Expect(cfProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfProcessTypeLabelKey, cfProcessType))
+			Expect(cfProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
 		})
 	})
 
-	when("there are other existing labels on the CFProcess record", func() {
-		it.Before(func() {
+	When("there are other existing labels on the CFProcess record", func() {
+		BeforeEach(func() {
 			cfProcess = &v1alpha1.CFProcess{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFProcess",
@@ -79,11 +69,11 @@ func testCFProcessWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 		})
 
-		it("should preserve the other labels", func() {
+		It("should preserve the other labels", func() {
 			cfProcess.Default()
 
-			g.Expect(cfProcess.ObjectMeta.Labels).To(HaveLen(4), "CFProcess resource should have 4 labels")
-			g.Expect(cfProcess.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "process-label"))
+			Expect(cfProcess.ObjectMeta.Labels).To(HaveLen(4), "CFProcess resource should have 4 labels")
+			Expect(cfProcess.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "process-label"))
 		})
 	})
-}
+})

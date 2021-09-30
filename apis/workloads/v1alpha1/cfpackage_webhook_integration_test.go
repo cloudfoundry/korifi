@@ -2,34 +2,35 @@ package v1alpha1_test
 
 import (
 	"context"
-	v1 "k8s.io/api/core/v1"
-	"testing"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/testutils"
 
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = AddToTestSuite("CFPackageWebhook", integrationTestCFPackageWebhook)
-
-func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
-
-	when("a CFApp record exists", func() {
-		var cfApp *v1alpha1.CFApp
+var _ = Describe("CFPackageMutatingWebhook Integration Tests", func() {
+	When("a CFApp record exists", func() {
 		const (
-			cfAppGUID         = "test-app-guid"
 			cfAppGUIDLabelKey = "workloads.cloudfoundry.org/app-guid"
-			cfPackageGUID     = "test-package-guid"
 			cfPackageType     = "bits"
 			namespace         = "default"
 		)
 
-		it.Before(func() {
+		var (
+			cfApp         *v1alpha1.CFApp
+			cfAppGUID     string
+			cfPackageGUID string
+		)
+
+		BeforeEach(func() {
+			cfAppGUID = GenerateGUID()
+			cfPackageGUID = GenerateGUID()
 			cfApp = &v1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
@@ -47,11 +48,15 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			g.Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+			Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 		})
 
-		when("a CFPackage record referencing the CFAPP is created", func() {
-			it.Before(func() {
+		AfterEach(func() {
+			k8sClient.Delete(context.Background(), cfApp)
+		})
+
+		When("a CFPackage record referencing the CFAPP is created", func() {
+			BeforeEach(func() {
 				cfPackage := &v1alpha1.CFPackage{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "CFPackage",
@@ -68,14 +73,24 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 						},
 					},
 				}
-				g.Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
+				Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
 			})
 
-			it("should have CFAppGUID metadata label on it and its value should matches spec.appRef", func() {
+			AfterEach(func() {
+				cfPackage := &v1alpha1.CFPackage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      cfPackageGUID,
+						Namespace: namespace,
+					},
+				}
+				k8sClient.Delete(context.Background(), cfPackage)
+			})
+
+			It("should have CFAppGUID metadata label on it and its value should matches spec.appRef", func() {
 				cfPackageLookupKey := types.NamespacedName{Name: cfPackageGUID, Namespace: namespace}
 				createdCFPackage := new(v1alpha1.CFPackage)
 
-				g.Eventually(func() map[string]string {
+				Eventually(func() map[string]string {
 					err := k8sClient.Get(context.Background(), cfPackageLookupKey, createdCFPackage)
 					if err != nil {
 						return nil
@@ -83,8 +98,8 @@ func integrationTestCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 					return createdCFPackage.ObjectMeta.Labels
 				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFPackage resource does not have any metadata.labels")
 
-				g.Expect(createdCFPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
+				Expect(createdCFPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
 			})
 		})
 	})
-}
+})
