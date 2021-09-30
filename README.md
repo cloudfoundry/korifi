@@ -25,7 +25,7 @@ Edit the file: `config/kpack/cluster_builder.yaml` and set the `tag` field to be
 
 Run the commands below substituting the values for the Docker credentials to the registry where images will be uploaded to.
 ```
-kubectl create secret docker-registry kpack-registry-credentials \
+kubectl create secret docker-registry image-registry-credentials \
     --docker-username="<DOCKER_USERNAME>" \
     --docker-password="<DOCKER_PASSWORD>" \
      --docker-server="<DOCKER_SERVER>" --namespace default

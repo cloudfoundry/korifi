@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/testutils"
 	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
@@ -20,7 +22,10 @@ var _ = AddToTestSuite("CFBuildReconciler", testCFBuildReconcilerIntegration)
 
 func testCFBuildReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
-
+	const (
+		succeededConditionType  = "Succeeded"
+		kpackReadyConditionType = "Ready"
+	)
 	when("CFBuild status conditions are missing or unknown", func() {
 		var (
 			namespaceGUID    string
@@ -40,13 +45,13 @@ func testCFBuildReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 
 			beforeCtx := context.Background()
 
-			newNamespace = InitializeK8sNamespace(namespaceGUID)
+			newNamespace = MockK8sNamespaceObject(namespaceGUID)
 			g.Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
 
-			desiredCFApp = InitializeAppCR(cfAppGUID, namespaceGUID)
+			desiredCFApp = MockAppCRObject(cfAppGUID, namespaceGUID)
 			g.Expect(k8sClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
 
-			desiredCFPackage = InitializePackageCR(cfPackageGUID, namespaceGUID, cfAppGUID)
+			desiredCFPackage = MockPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
 			g.Expect(k8sClient.Create(beforeCtx, desiredCFPackage)).To(Succeed())
 
 			desiredCFBuild = &workloadsv1alpha1.CFBuild{
@@ -92,7 +97,7 @@ func testCFBuildReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 						err := k8sClient.Get(testCtx, kpackImageLookupKey, createdKpackImage)
 						return err == nil
 					}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not retrieve the kpack image")
-					kpackImageTag := "image/registry/tag/" + namespaceGUID + "/" + cfBuildGUID
+					kpackImageTag := "image/registry/tag" + "/" + cfBuildGUID
 					g.Expect(createdKpackImage.Spec.Tag).To(Equal(kpackImageTag))
 					g.Expect(k8sClient.Delete(testCtx, createdKpackImage)).To(Succeed())
 				})
@@ -138,7 +143,7 @@ func testCFBuildReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 						},
 					}
 					g.Expect(k8sClient.Create(beforeCtx, existingKpackImage)).To(Succeed())
-					newCFBuild = InitializeCFBuild(newCFBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
+					newCFBuild = MockCFBuildObject(newCFBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
 					g.Expect(k8sClient.Create(beforeCtx, newCFBuild)).To(Succeed())
 				})
 				it.After(func() {
@@ -158,6 +163,108 @@ func testCFBuildReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 						return createdCFBuild.Status.Conditions
 					}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFBuild status conditions were empty")
 				})
+			})
+		})
+	})
+	when("CFBuild status conditions for Staging is True and others are unknown", func() {
+		var (
+			namespaceGUID    string
+			cfAppGUID        string
+			cfPackageGUID    string
+			cfBuildGUID      string
+			newNamespace     *corev1.Namespace
+			desiredCFApp     *workloadsv1alpha1.CFApp
+			desiredCFPackage *workloadsv1alpha1.CFPackage
+			desiredCFBuild   *workloadsv1alpha1.CFBuild
+		)
+		it.Before(func() {
+			namespaceGUID = GenerateGUID()
+			cfAppGUID = GenerateGUID()
+			cfPackageGUID = GenerateGUID()
+			cfBuildGUID = GenerateGUID()
+
+			beforeCtx := context.Background()
+
+			newNamespace = MockK8sNamespaceObject(namespaceGUID)
+			g.Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
+
+			desiredCFApp = MockAppCRObject(cfAppGUID, namespaceGUID)
+			g.Expect(k8sClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
+
+			desiredCFPackage = MockPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
+			g.Expect(k8sClient.Create(beforeCtx, desiredCFPackage)).To(Succeed())
+
+			desiredCFBuild = MockCFBuildObject(cfBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
+			g.Expect(k8sClient.Create(beforeCtx, desiredCFBuild)).To(Succeed())
+		})
+		it.After(func() {
+			afterCtx := context.Background()
+			g.Expect(k8sClient.Delete(afterCtx, desiredCFApp)).To(Succeed())
+			g.Expect(k8sClient.Delete(afterCtx, desiredCFPackage)).To(Succeed())
+			g.Expect(k8sClient.Delete(afterCtx, desiredCFBuild)).To(Succeed())
+			g.Expect(k8sClient.Delete(afterCtx, newNamespace)).To(Succeed())
+		})
+
+		when("kpack image status condition for Type Succeeded is False", func() {
+			it.Before(func() {
+				testCtx := context.Background()
+				kpackImageLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
+				createdKpackImage := new(buildv1alpha1.Image)
+				g.Eventually(func() bool {
+					err := k8sClient.Get(testCtx, kpackImageLookupKey, createdKpackImage)
+					return err == nil
+				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not retrieve the kpack image")
+				setKpackImageStatus(createdKpackImage, kpackReadyConditionType, "False")
+				g.Expect(k8sClient.Status().Update(testCtx, createdKpackImage)).To(Succeed())
+			})
+			it("should eventually set the status condition for Type Succeeded on CFBuild to False", func() {
+				testCtx := context.Background()
+				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
+				createdCFBuild := new(workloadsv1alpha1.CFBuild)
+				g.Eventually(func() bool {
+					err := k8sClient.Get(testCtx, cfBuildLookupKey, createdCFBuild)
+					if err != nil {
+						return false
+					}
+					return meta.IsStatusConditionFalse(createdCFBuild.Status.Conditions, succeededConditionType)
+				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
+			})
+		})
+		when("kpack image status condition for Type Succeeded is True", func() {
+			it.Before(func() {
+				testCtx := context.Background()
+				kpackImageLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
+				createdKpackImage := new(buildv1alpha1.Image)
+				g.Eventually(func() bool {
+					err := k8sClient.Get(testCtx, kpackImageLookupKey, createdKpackImage)
+					return err == nil
+				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not retrieve the kpack image")
+				setKpackImageStatus(createdKpackImage, kpackReadyConditionType, "True")
+				g.Expect(k8sClient.Status().Update(testCtx, createdKpackImage)).To(Succeed())
+			})
+			it("should eventually set the status condition for Type Succeeded on CFBuild to True", func() {
+				testCtx := context.Background()
+				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
+				createdCFBuild := new(workloadsv1alpha1.CFBuild)
+				g.Eventually(func() bool {
+					err := k8sClient.Get(testCtx, cfBuildLookupKey, createdCFBuild)
+					if err != nil {
+						return false
+					}
+					return meta.IsStatusConditionTrue(createdCFBuild.Status.Conditions, succeededConditionType)
+				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
+			})
+			it("should eventually set BuildStatusDroplet object", func() {
+				testCtx := context.Background()
+				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
+				createdCFBuild := new(workloadsv1alpha1.CFBuild)
+				g.Eventually(func() *workloadsv1alpha1.BuildDropletStatus {
+					err := k8sClient.Get(testCtx, cfBuildLookupKey, createdCFBuild)
+					if err != nil {
+						return nil
+					}
+					return createdCFBuild.Status.BuildDropletStatus
+				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeNil(), "BuildStatusDroplet was nil on CFBuild")
 			})
 		})
 	})

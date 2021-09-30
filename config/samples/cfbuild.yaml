@@ -8,7 +8,6 @@ metadata: #workloads.cloudfoundry.org/* labels are managed by a mutating webhook
   #  workloads.cloudfoundry.org/app-guid: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
   #  workloads.cloudfoundry.org/package-guid: ac85ad52-f52f-48e3-8c99-5e7badbe79c5
   name: 1591ee05-e208-4cf3-a662-1c2da42f20a7
-  namespace: default
 spec:
   appRef:
     name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
