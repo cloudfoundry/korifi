@@ -2,7 +2,6 @@ package workloads_test
 
 import (
 	"context"
-	"testing"
 	"encoding/json"
 	"errors"
 
