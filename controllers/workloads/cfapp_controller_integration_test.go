@@ -2,29 +2,25 @@ package workloads_test
 
 import (
 	"context"
-	"testing"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = AddToTestSuite("CFAppReconciler", testCFAppReconcilerIntegration)
-
-func testCFAppReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
-
-	when("a new CFApp resource is created", func() {
+var _ = Describe("CFAppReconciler Integration Tests", func() {
+	When("a new CFApp resource is created", func() {
 		const (
 			cfAppGUID = "test-app-guid"
 			namespace = "default"
 		)
 
-		it("sets its status.conditions", func() {
+		It("sets its status.conditions", func() {
 			ctx := context.Background()
 			cfApp := &v1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
@@ -43,12 +39,12 @@ func testCFAppReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			g.Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 
 			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespace}
 			createdCFApp := new(v1alpha1.CFApp)
 
-			g.Eventually(func() []metav1.Condition {
+			Eventually(func() []metav1.Condition {
 				err := k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)
 				if err != nil {
 					return nil
@@ -57,10 +53,10 @@ func testCFAppReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty())
 
 			runningConditionFalse := meta.IsStatusConditionFalse(createdCFApp.Status.Conditions, "Running")
-			g.Expect(runningConditionFalse).To(BeTrue())
+			Expect(runningConditionFalse).To(BeTrue())
 
 			restartingConditionFalse := meta.IsStatusConditionFalse(createdCFApp.Status.Conditions, "Restarting")
-			g.Expect(restartingConditionFalse).To(BeTrue())
+			Expect(restartingConditionFalse).To(BeTrue())
 		})
 	})
-}
+})

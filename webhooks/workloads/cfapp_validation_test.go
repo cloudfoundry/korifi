@@ -2,32 +2,23 @@ package workloads_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"testing"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads/fake"
 
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
-	"github.com/sclevine/spec/report"
 	v1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/json"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-func TestUnitValidatingWebhooks(t *testing.T) {
-	spec.Run(t, "object", testCFAppValidatingWebhook, spec.Report(report.Terminal{}))
-}
-
-func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
-	//logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
-	g := NewWithT(t)
-
+var _ = Describe("CFAppValidatingWebhook Unit Tests", func() {
 	const (
 		testAppGUID      = "test-app-guid"
 		testAppName      = "test-app"
@@ -42,7 +33,7 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 		createRequest admission.Request
 	)
 
-	it.Before(func() {
+	BeforeEach(func() {
 		ctx = context.Background()
 
 		fakeClient = new(fake.CFAppClient)
@@ -54,10 +45,10 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 
 		scheme := runtime.NewScheme()
 		err := workloadsv1alpha1.AddToScheme(scheme)
-		g.Expect(err).NotTo(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		realDecoder, err = admission.NewDecoder(scheme)
-		g.Expect(err).NotTo(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		dummyCFApp = &workloadsv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
@@ -71,7 +62,7 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 		}
 
 		cfAppJSON, err := json.Marshal(dummyCFApp)
-		g.Expect(err).NotTo(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		createRequest = admission.Request{
 			AdmissionRequest: v1.AdmissionRequest{
@@ -85,26 +76,26 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 		}
 	})
 
-	when("CFAppValidation Handle is run", func() {
+	When("CFAppValidation Handle is run", func() {
 		var validatingWebhook *CFAppValidation
 
-		it.Before(func() {
+		BeforeEach(func() {
 			validatingWebhook = &CFAppValidation{
 				Client: fakeClient,
 			}
 
-			g.Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
+			Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
 		})
 
-		when("no other apps are present in the api and Handle is called", func() {
-			it("should return \"Allowed\"", func() {
+		When("no other apps are present in the api and Handle is called", func() {
+			It("should return \"Allowed\"", func() {
 				response := validatingWebhook.Handle(ctx, createRequest)
-				g.Expect(response.Allowed).To(BeTrue())
+				Expect(response.Allowed).To(BeTrue())
 			})
 		})
 
-		when("there is an issue decoding the request", func() {
-			it.Before(func() {
+		When("there is an issue decoding the request", func() {
+			BeforeEach(func() {
 				cfAppJSON, _ := json.Marshal(dummyCFApp)
 				badCFAppJSON := []byte("}" + string(cfAppJSON))
 
@@ -120,21 +111,21 @@ func testCFAppValidatingWebhook(t *testing.T, when spec.G, it spec.S) {
 				}
 			})
 
-			it("should return \"Allowed\" false", func() {
+			It("should return \"Allowed\" false", func() {
 				response := validatingWebhook.Handle(ctx, createRequest)
-				g.Expect(response.Allowed).To(BeFalse())
+				Expect(response.Allowed).To(BeFalse())
 			})
 		})
 
-		when("there is an issue listing the CFApps", func() {
-			it.Before(func() {
+		When("there is an issue listing the CFApps", func() {
+			BeforeEach(func() {
 				fakeClient.ListReturns(errors.New("this fails on purpose"))
 			})
 
-			it("should return \"Allowed\" false", func() {
+			It("should return \"Allowed\" false", func() {
 				response := validatingWebhook.Handle(ctx, createRequest)
-				g.Expect(response.Allowed).To(BeFalse())
+				Expect(response.Allowed).To(BeFalse())
 			})
 		})
 	})
-}
+})

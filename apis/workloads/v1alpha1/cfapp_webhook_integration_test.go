@@ -1,30 +1,32 @@
 package v1alpha1_test
 
 import (
-	"testing"
+	"context"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/testutils"
 
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = AddToTestSuite("CFAppWebhook", integrationTestCFAppWebhook)
-
-func integrationTestCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
-
-	when("a CFApp record is created", func() {
+var _ = Describe("CFBuildAppWebhook Integration Tests", func() {
+	When("a CFApp record is created", func() {
 		const (
-			cfAppGUID     = "test-app-guid"
 			cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"
 			namespace     = "default"
 		)
 
-		it(" should add a metadata label on it and it matches metadata.name", func() {
+		var (
+			cfAppGUID string
+		)
+
+		It(" should add a metadata label on it and it matches metadata.name", func() {
+			testCtx := context.Background()
+			cfAppGUID = GenerateGUID()
 			cfApp := &v1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
@@ -42,20 +44,21 @@ func integrationTestCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			g.Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+			Expect(k8sClient.Create(testCtx, cfApp)).To(Succeed())
 
 			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespace}
 			createdCFApp := new(v1alpha1.CFApp)
 
-			g.Eventually(func() map[string]string {
-				err := k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)
+			Eventually(func() map[string]string {
+				err := k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)
 				if err != nil {
 					return nil
 				}
 				return createdCFApp.ObjectMeta.Labels
 			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFApp resource does not have any metadata.labels")
 
-			g.Expect(createdCFApp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
+			Expect(createdCFApp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
+			k8sClient.Delete(testCtx, cfApp)
 		})
 	})
-}
+})

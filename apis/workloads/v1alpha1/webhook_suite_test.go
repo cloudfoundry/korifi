@@ -30,10 +30,8 @@ import (
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 
-	//+kubebuilder:scaffold:imports
-
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,108 +39,94 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	//+kubebuilder:scaffold:imports
 )
 
 var (
-	suite     spec.Suite
+	cancel    context.CancelFunc
 	testEnv   *envtest.Environment
 	k8sClient client.Client
-	ctx       context.Context
-	cancel    context.CancelFunc
 )
 
-func Suite() spec.Suite {
-	if suite == nil {
-		suite = spec.New("MutatingWebhooks")
+func TestWorkloadsValidatingWebhooks(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Workloads Mutating Webhooks Suite")
+}
+
+var _ = BeforeSuite(func() {
+	logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
+
+	ctx, cancelFunc := context.WithCancel(context.TODO())
+	cancel = cancelFunc
+
+	testEnv = &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: false,
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{filepath.Join("..", "..", "..", "config", "webhook")},
+		},
 	}
 
-	return suite
-}
+	cfg, err := testEnv.Start()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
 
-func AddToTestSuite(desc string, f func(t *testing.T, when spec.G, it spec.S)) bool {
-	return Suite()(desc, f)
-}
+	scheme := runtime.NewScheme()
+	Expect(workloadsv1alpha1.AddToScheme(scheme)).To(Succeed())
 
-func TestSuite(t *testing.T) {
-	Suite().Before(func(t *testing.T) {
-		g := NewWithT(t)
-		logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
+	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
 
-		ctx, cancel = context.WithCancel(context.TODO())
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(k8sClient).NotTo(BeNil())
 
-		testEnv = &envtest.Environment{
-			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
-			ErrorIfCRDPathMissing: false,
-			WebhookInstallOptions: envtest.WebhookInstallOptions{
-				Paths: []string{filepath.Join("..", "..", "..", "config", "webhook")},
-			},
+	// start webhook server using Manager
+	webhookInstallOptions := &testEnv.WebhookInstallOptions
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:             scheme,
+		Host:               webhookInstallOptions.LocalServingHost,
+		Port:               webhookInstallOptions.LocalServingPort,
+		CertDir:            webhookInstallOptions.LocalServingCertDir,
+		LeaderElection:     false,
+		MetricsBindAddress: "0",
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect((&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
+
+	cfAppValidatingWebhook := &workloads.CFAppValidation{Client: mgr.GetClient()}
+	Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
+
+	Expect((&workloadsv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr)).To(Succeed())
+
+	Expect((&workloadsv1alpha1.CFProcess{}).SetupWebhookWithManager(mgr)).To(Succeed())
+
+	Expect((&workloadsv1alpha1.CFBuild{}).SetupWebhookWithManager(mgr)).To(Succeed())
+
+	//+kubebuilder:scaffold:webhook
+
+	go func() {
+		err = mgr.Start(ctx)
+		if err != nil {
+			Expect(err).NotTo(HaveOccurred())
 		}
+	}()
 
-		cfg, err := testEnv.Start()
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(cfg).NotTo(BeNil())
+	// wait for the webhook server to get ready
+	dialer := &net.Dialer{Timeout: time.Second}
+	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
+	Eventually(func() error {
+		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
+		if err != nil {
+			return err
+		}
+		conn.Close()
+		return nil
+	}).Should(Succeed())
+})
 
-		scheme := runtime.NewScheme()
-		g.Expect(workloadsv1alpha1.AddToScheme(scheme)).To(Succeed())
-
-		g.Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
-
-		k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(k8sClient).NotTo(BeNil())
-
-		// start webhook server using Manager
-		webhookInstallOptions := &testEnv.WebhookInstallOptions
-		mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-			Scheme:             scheme,
-			Host:               webhookInstallOptions.LocalServingHost,
-			Port:               webhookInstallOptions.LocalServingPort,
-			CertDir:            webhookInstallOptions.LocalServingCertDir,
-			LeaderElection:     false,
-			MetricsBindAddress: "0",
-		})
-		g.Expect(err).NotTo(HaveOccurred())
-
-		g.Expect((&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
-
-		cfAppValidatingWebhook := &workloads.CFAppValidation{Client: mgr.GetClient()}
-		g.Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
-
-		g.Expect((&workloadsv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr)).To(Succeed())
-
-		g.Expect((&workloadsv1alpha1.CFProcess{}).SetupWebhookWithManager(mgr)).To(Succeed())
-
-		g.Expect((&workloadsv1alpha1.CFBuild{}).SetupWebhookWithManager(mgr)).To(Succeed())
-
-		//+kubebuilder:scaffold:webhook
-
-		go func() {
-			err = mgr.Start(ctx)
-			if err != nil {
-				g.Expect(err).NotTo(HaveOccurred())
-			}
-		}()
-
-		// wait for the webhook server to get ready
-		dialer := &net.Dialer{Timeout: time.Second}
-		addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
-		g.Eventually(func() error {
-			conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
-			if err != nil {
-				return err
-			}
-			conn.Close()
-			return nil
-		}).Should(Succeed())
-
-	})
-
-	Suite().After(func(t *testing.T) {
-		cancel()
-		g := NewWithT(t)
-		err := testEnv.Stop()
-		g.Expect(err).NotTo(HaveOccurred())
-	})
-
-	suite.Run(t)
-}
+var _ = AfterSuite(func() {
+	cancel()
+	err := testEnv.Stop()
+	Expect(err).NotTo(HaveOccurred())
+})

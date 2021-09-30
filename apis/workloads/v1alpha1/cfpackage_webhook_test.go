@@ -1,24 +1,15 @@
 package v1alpha1_test
 
 import (
-	v1 "k8s.io/api/core/v1"
-	"testing"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
-	"github.com/sclevine/spec/report"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestCFPackageWebhook(t *testing.T) {
-	spec.Run(t, "CFPackage Webhook", testCFPackageWebhook, spec.Report(report.Terminal{}))
-}
-
-func testCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
-
+var _ = Describe("CFPackageMutatingWebhook Unit Tests", func() {
 	const (
 		cfAppGUID         = "test-app-guid"
 		cfAppGUIDLabelKey = "workloads.cloudfoundry.org/app-guid"
@@ -27,8 +18,8 @@ func testCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 		namespace         = "default"
 	)
 
-	when("there are no existing labels on the CFPackage record", func() {
-		it("should add a new label matching spec.AppRef.name", func() {
+	When("there are no existing labels on the CFPackage record", func() {
+		It("should add a new label matching spec.AppRef.name", func() {
 			cfPackage := &v1alpha1.CFPackage{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFPackage",
@@ -47,12 +38,12 @@ func testCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			cfPackage.Default()
-			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
+			Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
 		})
 	})
 
-	when("there are other existing labels on the CFPackage record", func() {
-		it("should add a new label matching spec.AppRef.name and preserve the other labels", func() {
+	When("there are other existing labels on the CFPackage record", func() {
+		It("should add a new label matching spec.AppRef.name and preserve the other labels", func() {
 			cfPackage := &v1alpha1.CFPackage{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFPackage",
@@ -74,8 +65,8 @@ func testCFPackageWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			cfPackage.Default()
-			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveLen(2))
-			g.Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "app-label"))
+			Expect(cfPackage.ObjectMeta.Labels).To(HaveLen(2))
+			Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "app-label"))
 		})
 	})
-}
+})

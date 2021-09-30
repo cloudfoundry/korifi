@@ -1,31 +1,22 @@
 package v1alpha1_test
 
 import (
-	"testing"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
-	"github.com/sclevine/spec/report"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestCFAppWebhook(t *testing.T) {
-	spec.Run(t, "CFApp Webhook", testCFAppWebhook, spec.Report(report.Terminal{}))
-}
-
-func testCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
-
+var _ = Describe("CFBuildAppWebhook Unit Tests", func() {
 	const (
 		cfAppGUID     = "test-app-guid"
 		cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"
 		namespace     = "default"
 	)
 
-	when("there are no existing labels on the CFAPP record", func() {
-		it("should add a new label matching metadata.name", func() {
+	When("there are no existing labels on the CFAPP record", func() {
+		It("should add a new label matching metadata.name", func() {
 			cfApp := &v1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
@@ -45,12 +36,12 @@ func testCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			cfApp.Default()
-			g.Expect(cfApp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
+			Expect(cfApp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
 		})
 	})
 
-	when("there are other existing labels on the CFAPP record", func() {
-		it("should add a new label matching metadata.name and preserve the other labels", func() {
+	When("there are other existing labels on the CFAPP record", func() {
+		It("should add a new label matching metadata.name and preserve the other labels", func() {
 			cfApp := &v1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
@@ -73,8 +64,8 @@ func testCFAppWebhook(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			cfApp.Default()
-			g.Expect(cfApp.ObjectMeta.Labels).To(HaveLen(2))
-			g.Expect(cfApp.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "app-label"))
+			Expect(cfApp.ObjectMeta.Labels).To(HaveLen(2))
+			Expect(cfApp.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "app-label"))
 		})
 	})
-}
+})

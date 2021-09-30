@@ -3,21 +3,19 @@ package workloads_test
 import (
 	"context"
 	"fmt"
-	"testing"
 
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/fake"
+
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
-	"github.com/sclevine/spec/report"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/fake"
 )
 
 const (
@@ -28,14 +26,7 @@ const (
 	statusUpdateErrorMessage = "Update fails on purpose!"
 )
 
-func TestReconcilers(t *testing.T) {
-	spec.Run(t, "object", testCFAppReconciler, spec.Report(report.Terminal{}))
-
-}
-
-func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
-
+var _ = Describe("CFAppReconciler Unit Tests", func() {
 	var (
 		fakeClient      *fake.CFClient
 		cfAppReconciler *CFAppReconciler
@@ -43,14 +34,14 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 		req             ctrl.Request
 	)
 
-	it.Before(func() {
+	BeforeEach(func() {
 		fakeClient = new(fake.CFClient)
 		// configure a CFAppReconciler with the client
-		g.Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfAppReconciler = &CFAppReconciler{
 			Client: fakeClient,
 			Scheme: scheme.Scheme,
-			Log:    zap.New(zap.WriteTo(it.Out()), zap.UseDevMode(true)),
+			Log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
 		}
 		ctx = context.Background()
 		req = ctrl.Request{
@@ -61,10 +52,10 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 		}
 	})
 
-	when("The CFAppReconciler Reconcile function is called", func() {
+	When("The CFAppReconciler Reconcile function is called", func() {
 		var fakeStatusWriter *fake.StatusWriter
 
-		it.Before(func() {
+		BeforeEach(func() {
 			// Tell get to return a nice CFApp
 			// Configure the mock fakeClient.Get() to return the expected app
 			fakeClient.GetStub = func(ctx context.Context, name types.NamespacedName, object client.Object) error {
@@ -81,41 +72,41 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 			// Have status return no error
 		})
 
-		it("returns an empty result and and nil", func() {
+		It("returns an empty result and and nil", func() {
 			result, err := cfAppReconciler.Reconcile(ctx, req)
-			g.Expect(result).To(Equal(ctrl.Result{}))
-			g.Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
+			Expect(err).NotTo(HaveOccurred())
 
 			// validate the inputs to Get
-			g.Expect(fakeClient.GetCallCount()).To(Equal(1))
+			Expect(fakeClient.GetCallCount()).To(Equal(1))
 			_, testRequestNamespacedName, _ := fakeClient.GetArgsForCall(0)
-			g.Expect(testRequestNamespacedName.Namespace).To(Equal(dummyCFAppNamespace))
-			g.Expect(testRequestNamespacedName.Name).To(Equal(dummyCFAppName))
+			Expect(testRequestNamespacedName.Namespace).To(Equal(dummyCFAppNamespace))
+			Expect(testRequestNamespacedName.Name).To(Equal(dummyCFAppName))
 
 			// validate the inputs to Status.Update
-			g.Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+			Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 			_, updatedCFApp, _ := fakeStatusWriter.UpdateArgsForCall(0)
 			cast, ok := updatedCFApp.(*workloadsv1alpha1.CFApp)
-			g.Expect(ok).To(BeTrue(), "Cast to workloadsv1alpha1.CFApp failed")
-			g.Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRunning)).To(BeTrue(), "Status Condition "+StatusConditionRunning+" was not False as expected")
-			g.Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRestarting)).To(BeTrue(), "Status Condition "+StatusConditionRestarting+" was not False as expected")
+			Expect(ok).To(BeTrue(), "Cast to workloadsv1alpha1.CFApp failed")
+			Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRunning)).To(BeTrue(), "Status Condition "+StatusConditionRunning+" was not False as expected")
+			Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRestarting)).To(BeTrue(), "Status Condition "+StatusConditionRestarting+" was not False as expected")
 		})
 	})
 
-	when("The CFAppReconciler is configured with an CFApp Client where Get() will fail", func() {
-		it.Before(func() {
+	When("The CFAppReconciler is configured with an CFApp Client where Get() will fail", func() {
+		BeforeEach(func() {
 			// Configure the mock fakeClient.Get() to return an error
 			fakeClient.GetReturns(fmt.Errorf(getErrorMessage))
 		})
 
-		it("returns an error", func() {
+		It("returns an error", func() {
 			_, err := cfAppReconciler.Reconcile(ctx, req)
-			g.Expect(err).To(MatchError(getErrorMessage))
+			Expect(err).To(MatchError(getErrorMessage))
 		})
 	})
 
-	when("The CFAppReconciler is configured with an CFApp Client where Status().Update() will fail", func() {
-		it.Before(func() {
+	When("The CFAppReconciler is configured with an CFApp Client where Status().Update() will fail", func() {
+		BeforeEach(func() {
 			// Configure the mock fakeClient.Get() to return the expected app
 			fakeClient.GetStub = func(ctx context.Context, name types.NamespacedName, object client.Object) error {
 				cast := object.(*workloadsv1alpha1.CFApp)
@@ -130,9 +121,9 @@ func testCFAppReconciler(t *testing.T, when spec.G, it spec.S) {
 			fakeClient.StatusReturns(fakeStatusWriter)
 		})
 
-		it("returns an error", func() {
+		It("returns an error", func() {
 			_, err := cfAppReconciler.Reconcile(ctx, req)
-			g.Expect(err).To(MatchError(statusUpdateErrorMessage))
+			Expect(err).To(MatchError(statusUpdateErrorMessage))
 		})
 	})
-}
+})
