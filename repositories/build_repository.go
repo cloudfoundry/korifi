@@ -1,12 +1,13 @@
 package repositories
 
 import (
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,6 +22,17 @@ const (
 	ReadyConditionType     = "Ready"
 	SucceededConditionType = "Succeeded"
 )
+
+type BuildCreateMessage struct {
+	AppGUID         string
+	PackageGUID     string
+	SpaceGUID       string
+	StagingMemoryMB int
+	StagingDiskMB   int
+	Lifecycle       Lifecycle
+	Labels          map[string]string
+	Annotations     map[string]string
+}
 
 type BuildRecord struct {
 	GUID            string
@@ -118,4 +130,42 @@ func (b *BuildRepo) filterBuildsByMetadataName(builds []workloadsv1alpha1.CFBuil
 		}
 	}
 	return filtered
+}
+
+func (b *BuildRepo) CreateBuild(ctx context.Context, k8sClient client.Client, message BuildCreateMessage) (BuildRecord, error) {
+	cfBuild := b.buildCreateToCFBuild(message)
+	err := k8sClient.Create(ctx, &cfBuild)
+	if err != nil { // untested!!!
+		return BuildRecord{}, err
+	}
+	return b.cfBuildToBuildRecord(cfBuild), nil
+}
+
+func (b *BuildRepo) buildCreateToCFBuild(message BuildCreateMessage) workloadsv1alpha1.CFBuild {
+	guid := uuid.New().String()
+	return workloadsv1alpha1.CFBuild{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        guid,
+			Namespace:   message.SpaceGUID,
+			Labels:      message.Labels,
+			Annotations: message.Annotations,
+		},
+		Spec: workloadsv1alpha1.CFBuildSpec{
+			PackageRef: corev1.LocalObjectReference{
+				Name: message.PackageGUID,
+			},
+			AppRef: corev1.LocalObjectReference{
+				Name: message.AppGUID,
+			},
+			StagingMemoryMB: message.StagingMemoryMB,
+			StagingDiskMB:   message.StagingDiskMB,
+			Lifecycle: workloadsv1alpha1.Lifecycle{
+				Type: workloadsv1alpha1.LifecycleType(message.Lifecycle.Type),
+				Data: workloadsv1alpha1.LifecycleData{
+					Buildpacks: message.Lifecycle.Data.Buildpacks,
+					Stack:      message.Lifecycle.Data.Stack,
+				},
+			},
+		},
+	}
 }

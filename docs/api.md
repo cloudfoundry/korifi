@@ -66,6 +66,14 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#builds
 | Resource | Endpoint |
 |--|--|
 | Get Build | GET /v3/builds/\<guid> |
+| Create Build | POST /v3/builds|
+
+#### [Creating Builds](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-build)
+```bash
+curl "http://localhost:9000/v3/builds" \
+  -X POST \
+  -d '{"package":{"guid":"<package-guid-goes-here>"}}'
+```
 
 ### Routes
 

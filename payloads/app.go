@@ -1,14 +1,17 @@
 package payloads
 
 import (
+	"code.cloudfoundry.org/cf-k8s-api/config"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 )
 
-// TODO: Make these configurable
-var (
-	defaultLifecycleType  = "buildpack"
-	defaultLifecycleStack = "cflinuxfs3"
-)
+// DefaultLifecycleConfig is overwritten by main.go
+var DefaultLifecycleConfig = config.DefaultLifecycleConfig{
+	Type:            "buildpack",
+	Stack:           "cflinuxfs3",
+	StagingMemoryMB: 1024,
+	StagingDiskMB:   1024,
+}
 
 type AppCreate struct {
 	Name                 string            `json:"name" validate:"required"`
@@ -24,9 +27,9 @@ type AppRelationships struct {
 
 func (p AppCreate) ToRecord() repositories.AppRecord {
 	lifecycleBlock := repositories.Lifecycle{
-		Type: defaultLifecycleType,
+		Type: DefaultLifecycleConfig.Type,
 		Data: repositories.LifecycleData{
-			Stack: defaultLifecycleStack,
+			Stack: DefaultLifecycleConfig.Stack,
 		},
 	}
 	if p.Lifecycle != nil {

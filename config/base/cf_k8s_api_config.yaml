@@ -1,3 +1,8 @@
 serverURL: "https://api.example.org"
 serverPort: 9000
 rootNamespace: cf-k8s-api-system
+defaultLifecycleConfig:
+  type: buildpack
+  stack: cflinuxfs3
+  stagingMemoryMB: 1024
+  stagingDiskMB: 1024

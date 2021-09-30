@@ -11,6 +11,21 @@ import (
 )
 
 type CFBuildRepository struct {
+	CreateBuildStub        func(context.Context, client.Client, repositories.BuildCreateMessage) (repositories.BuildRecord, error)
+	createBuildMutex       sync.RWMutex
+	createBuildArgsForCall []struct {
+		arg1 context.Context
+		arg2 client.Client
+		arg3 repositories.BuildCreateMessage
+	}
+	createBuildReturns struct {
+		result1 repositories.BuildRecord
+		result2 error
+	}
+	createBuildReturnsOnCall map[int]struct {
+		result1 repositories.BuildRecord
+		result2 error
+	}
 	FetchBuildStub        func(context.Context, client.Client, string) (repositories.BuildRecord, error)
 	fetchBuildMutex       sync.RWMutex
 	fetchBuildArgsForCall []struct {
@@ -28,6 +43,72 @@ type CFBuildRepository struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *CFBuildRepository) CreateBuild(arg1 context.Context, arg2 client.Client, arg3 repositories.BuildCreateMessage) (repositories.BuildRecord, error) {
+	fake.createBuildMutex.Lock()
+	ret, specificReturn := fake.createBuildReturnsOnCall[len(fake.createBuildArgsForCall)]
+	fake.createBuildArgsForCall = append(fake.createBuildArgsForCall, struct {
+		arg1 context.Context
+		arg2 client.Client
+		arg3 repositories.BuildCreateMessage
+	}{arg1, arg2, arg3})
+	stub := fake.CreateBuildStub
+	fakeReturns := fake.createBuildReturns
+	fake.recordInvocation("CreateBuild", []interface{}{arg1, arg2, arg3})
+	fake.createBuildMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFBuildRepository) CreateBuildCallCount() int {
+	fake.createBuildMutex.RLock()
+	defer fake.createBuildMutex.RUnlock()
+	return len(fake.createBuildArgsForCall)
+}
+
+func (fake *CFBuildRepository) CreateBuildCalls(stub func(context.Context, client.Client, repositories.BuildCreateMessage) (repositories.BuildRecord, error)) {
+	fake.createBuildMutex.Lock()
+	defer fake.createBuildMutex.Unlock()
+	fake.CreateBuildStub = stub
+}
+
+func (fake *CFBuildRepository) CreateBuildArgsForCall(i int) (context.Context, client.Client, repositories.BuildCreateMessage) {
+	fake.createBuildMutex.RLock()
+	defer fake.createBuildMutex.RUnlock()
+	argsForCall := fake.createBuildArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFBuildRepository) CreateBuildReturns(result1 repositories.BuildRecord, result2 error) {
+	fake.createBuildMutex.Lock()
+	defer fake.createBuildMutex.Unlock()
+	fake.CreateBuildStub = nil
+	fake.createBuildReturns = struct {
+		result1 repositories.BuildRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFBuildRepository) CreateBuildReturnsOnCall(i int, result1 repositories.BuildRecord, result2 error) {
+	fake.createBuildMutex.Lock()
+	defer fake.createBuildMutex.Unlock()
+	fake.CreateBuildStub = nil
+	if fake.createBuildReturnsOnCall == nil {
+		fake.createBuildReturnsOnCall = make(map[int]struct {
+			result1 repositories.BuildRecord
+			result2 error
+		})
+	}
+	fake.createBuildReturnsOnCall[i] = struct {
+		result1 repositories.BuildRecord
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *CFBuildRepository) FetchBuild(arg1 context.Context, arg2 client.Client, arg3 string) (repositories.BuildRecord, error) {
@@ -99,6 +180,8 @@ func (fake *CFBuildRepository) FetchBuildReturnsOnCall(i int, result1 repositori
 func (fake *CFBuildRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.createBuildMutex.RLock()
+	defer fake.createBuildMutex.RUnlock()
 	fake.fetchBuildMutex.RLock()
 	defer fake.fetchBuildMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

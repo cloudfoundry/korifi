@@ -10,6 +10,16 @@ type Config struct {
 	ServerURL     string `yaml:"serverURL"`
 	ServerPort    int    `yaml:"serverPort"`
 	RootNamespace string `yaml:"rootNamespace"`
+
+	DefaultLifecycleConfig DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
+}
+
+// DefaultLifecycleConfig contains default values of the Lifecycle block of CFApps and Builds created by the Shim
+type DefaultLifecycleConfig struct {
+	Type            string `yaml:"type"`
+	Stack           string `yaml:"stack"`
+	StagingMemoryMB int    `yaml:"stagingMemoryMB"`
+	StagingDiskMB   int    `yaml:"stagingDiskMB"`
 }
 
 func LoadFromPath(path string) (*Config, error) {
