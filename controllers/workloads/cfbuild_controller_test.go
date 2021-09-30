@@ -39,11 +39,11 @@ func testCFBuildReconciler(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
 	const (
-		defaultNamespace            = "default"
-		stagingConditionType        = "Staging"
-		readyConditionType          = "Ready"
-		succeededConditionType      = "Succeeded"
-		kpackSucceededConditionType = "Ready"
+		defaultNamespace        = "default"
+		stagingConditionType    = "Staging"
+		readyConditionType      = "Ready"
+		succeededConditionType  = "Succeeded"
+		kpackReadyConditionType = "Ready"
 	)
 
 	var (
@@ -222,7 +222,7 @@ func testCFBuildReconciler(t *testing.T, when spec.G, it spec.S) {
 		when("on the happy path", func() {
 			it.Before(func() {
 				kpackImageError = nil
-				setKpackImageStatus(kpackImage, kpackSucceededConditionType, "True")
+				setKpackImageStatus(kpackImage, kpackReadyConditionType, "True")
 				reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 			})
 			it("does not return an error", func() {
@@ -275,7 +275,7 @@ func testCFBuildReconciler(t *testing.T, when spec.G, it spec.S) {
 			when("kpack image status conditions for Type Succeeded is UNKNOWN", func() {
 				it.Before(func() {
 					kpackImageError = nil
-					setKpackImageStatus(kpackImage, kpackSucceededConditionType, "Unknown")
+					setKpackImageStatus(kpackImage, kpackReadyConditionType, "Unknown")
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
 				it("does not return an error", func() {
@@ -289,7 +289,7 @@ func testCFBuildReconciler(t *testing.T, when spec.G, it spec.S) {
 			when("kpack image status conditions for Type Succeeded is FALSE", func() {
 				it.Before(func() {
 					kpackImageError = nil
-					setKpackImageStatus(kpackImage, kpackSucceededConditionType, "False")
+					setKpackImageStatus(kpackImage, kpackReadyConditionType, "False")
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
 				it("does not return an error", func() {
@@ -312,7 +312,7 @@ func testCFBuildReconciler(t *testing.T, when spec.G, it spec.S) {
 				when("update status conditions returns an error", func() {
 					it.Before(func() {
 						kpackImageError = nil
-						setKpackImageStatus(kpackImage, kpackSucceededConditionType, "True")
+						setKpackImageStatus(kpackImage, kpackReadyConditionType, "True")
 						fakeStatusWriter.UpdateReturns(errors.New("failing on purpose"))
 						reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 					})

@@ -23,8 +23,8 @@ var _ = AddToTestSuite("CFBuildReconciler", testCFBuildReconcilerIntegration)
 func testCFBuildReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 	const (
-		succeededConditionType      = "Succeeded"
-		kpackSucceededConditionType = "Ready"
+		succeededConditionType  = "Succeeded"
+		kpackReadyConditionType = "Ready"
 	)
 	when("CFBuild status conditions are missing or unknown", func() {
 		var (
@@ -214,7 +214,7 @@ func testCFBuildReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 					err := k8sClient.Get(testCtx, kpackImageLookupKey, createdKpackImage)
 					return err == nil
 				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not retrieve the kpack image")
-				setKpackImageStatus(createdKpackImage, kpackSucceededConditionType, "False")
+				setKpackImageStatus(createdKpackImage, kpackReadyConditionType, "False")
 				g.Expect(k8sClient.Status().Update(testCtx, createdKpackImage)).To(Succeed())
 			})
 			it("should eventually set the status condition for Type Succeeded on CFBuild to False", func() {
@@ -239,7 +239,7 @@ func testCFBuildReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 					err := k8sClient.Get(testCtx, kpackImageLookupKey, createdKpackImage)
 					return err == nil
 				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not retrieve the kpack image")
-				setKpackImageStatus(createdKpackImage, kpackSucceededConditionType, "True")
+				setKpackImageStatus(createdKpackImage, kpackReadyConditionType, "True")
 				g.Expect(k8sClient.Status().Update(testCtx, createdKpackImage)).To(Succeed())
 			})
 			it("should eventually set the status condition for Type Succeeded on CFBuild to True", func() {

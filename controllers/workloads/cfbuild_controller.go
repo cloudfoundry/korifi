@@ -40,11 +40,11 @@ import (
 )
 
 const (
-	kpackSucceededConditionType = "Ready"
-	clusterBuilderKind          = "ClusterBuilder"
-	clusterBuilderAPIVersion    = "kpack.io/v1alpha1"
-	kpackServiceAccountSuffix   = "-kpack-service-account"
-	cfKpackClusterBuilderName   = "cf-kpack-cluster-builder"
+	kpackReadyConditionType   = "Ready"
+	clusterBuilderKind        = "ClusterBuilder"
+	clusterBuilderAPIVersion  = "kpack.io/v1alpha1"
+	kpackServiceAccountSuffix = "-kpack-service-account"
+	cfKpackClusterBuilderName = "cf-kpack-cluster-builder"
 )
 
 // CFBuildReconciler reconciles a CFBuild object
@@ -124,7 +124,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			//Ignore Image NotFound errors to account for eventual consistency
 			return ctrl.Result{}, client.IgnoreNotFound(err)
 		}
-		kpackSucceededStatusCondition := kpackImage.Status.GetCondition(kpackSucceededConditionType)
+		kpackSucceededStatusCondition := kpackImage.Status.GetCondition(kpackReadyConditionType)
 		if kpackSucceededStatusCondition.IsFalse() {
 			// Set CFBuild status Conditions on local copy - Staging and Succeeded to False
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
