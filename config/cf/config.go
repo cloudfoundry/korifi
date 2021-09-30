@@ -1,12 +1,13 @@
 package cf
 
 import (
-	"gopkg.in/yaml.v3"
 	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
 type ControllerConfig struct {
-	KpackImageTag string `yaml:"kpack_image_tag"`
+	KpackImageTag string `yaml:"kpackImageTag"`
 }
 
 func LoadConfigFromPath(path string) (*ControllerConfig, error) {

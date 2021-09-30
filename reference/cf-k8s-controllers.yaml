@@ -1323,7 +1323,7 @@ subjects:
 ---
 apiVersion: v1
 data:
-  cf_k8s_controllers_config.yaml: '"kpackImageTag": "gcr.io/cf-relint-greengrass/cf-crd-staging-spike/"'
+  cf_k8s_controllers_config.yaml: 'kpackImageTag: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta'
 kind: ConfigMap
 metadata:
   name: cf-k8s-controllers-config

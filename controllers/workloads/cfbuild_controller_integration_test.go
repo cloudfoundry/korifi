@@ -97,8 +97,8 @@ func testCFBuildReconcilerIntegration(t *testing.T, when spec.G, it spec.S) {
 						err := k8sClient.Get(testCtx, kpackImageLookupKey, createdKpackImage)
 						return err == nil
 					}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not retrieve the kpack image")
-					//TODO kpackImageTag := "image/registry/tag/" + namespaceGUID + "/" + cfBuildGUID
-					//TODO g.Expect(createdKpackImage.Spec.Tag).To(Equal(kpackImageTag))
+					kpackImageTag := "image/registry/tag" + "/" + cfBuildGUID
+					g.Expect(createdKpackImage.Spec.Tag).To(Equal(kpackImageTag))
 					g.Expect(k8sClient.Delete(testCtx, createdKpackImage)).To(Succeed())
 				})
 				it("eventually sets the status conditions on CFBuild", func() {

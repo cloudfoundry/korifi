@@ -151,8 +151,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
 	serviceAccountName := cfBuild.Namespace + kpackServiceAccountSuffix
-	//TODO kpackImageTag := r.concatImageTagValue(r.ControllerConfig.KpackImageTag, cfBuild.Namespace, cfBuild.Name)
-	kpackImageTag := r.concatImageTagValue("gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta", cfBuild.Name)
+	kpackImageTag := r.generateImageTag(r.ControllerConfig.KpackImageTag, cfBuild.Name)
 	kpackImageName := cfBuild.Name
 	kpackImageNamespace := cfBuild.Namespace
 	desiredKpackImage := buildv1alpha1.Image{
@@ -187,7 +186,6 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 	}
 
 	setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionTrue, "kpack", "kpack")
-	//setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.ReadyConditionType, metav1.ConditionFalse, "", "")
 
 	// Update CFBuild record based on changes made to local copy
 	if err := r.Client.Status().Update(ctx, cfBuild); err != nil {
@@ -235,7 +233,7 @@ func (r *CFBuildReconciler) generateBuildDropletStatus(kpackImage *buildv1alpha1
 	}
 }
 
-func (r *CFBuildReconciler) concatImageTagValue(imageTagElements ...string) string {
+func (r *CFBuildReconciler) generateImageTag(imageTagElements ...string) string {
 	return strings.Join(imageTagElements, "/")
 }
 

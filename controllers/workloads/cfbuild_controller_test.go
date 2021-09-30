@@ -71,7 +71,6 @@ func testCFBuildReconciler(t *testing.T, when spec.G, it spec.S) {
 		reconcileErr    error
 	)
 
-	// Set up happy path
 	it.Before(func() {
 		fakeClient = new(fake.CFClient)
 
