@@ -2,12 +2,13 @@ package repositories
 
 import (
 	"errors"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-//go:generate controller-gen rbac:roleName=cf-admin-clusterrole paths=./... output:rbac:artifacts:config=../config/rbac
+//go:generate controller-gen rbac:roleName=cf-admin-clusterrole paths=./... output:rbac:artifacts:config=../config/base/rbac
 
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 
