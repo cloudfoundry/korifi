@@ -26,7 +26,7 @@ const (
 	statusUpdateErrorMessage = "Update fails on purpose!"
 )
 
-var _ = Describe("CFAppReconciler Unit Tests", func() {
+var _ = Describe("CFAppReconciler", func() {
 	var (
 		fakeClient      *fake.CFClient
 		cfAppReconciler *CFAppReconciler

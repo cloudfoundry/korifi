@@ -1,4 +1,4 @@
-package workloads_test
+package integration_test
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("CFAppValidatingWebhook Integration Tests", func() {
+var _ = Describe("CFAppValidatingWebhook", func() {
 	const (
 		testAppGUID        = "test-app-guid"
 		anotherTestAppGUID = "another-test-app-guid"

@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("CFWorkloadsWebhookValidationError Unit Tests", func() {
+var _ = Describe("CFWorkloadsWebhookValidationError", func() {
 	It("Marshals a payload", func() {
 		e := DuplicateAppError
 		Expect(e.Marshal()).To(Equal(`{"code":1,"message":"CFApp with the same spec.name exists"}`))

@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-var _ = Describe("CFAppValidatingWebhook Unit Tests", func() {
+var _ = Describe("CFAppValidatingWebhook", func() {
 	const (
 		testAppGUID      = "test-app-guid"
 		testAppName      = "test-app"
