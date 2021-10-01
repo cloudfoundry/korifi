@@ -1,4 +1,4 @@
-package workloads_test
+package integration_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/testutils"
 	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
+	"github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 
 	. "github.com/onsi/ginkgo"
@@ -16,7 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("CFBuildReconciler Integration Tests", func() {
+var _ = Describe("CFBuildReconciler", func() {
 	const (
 		succeededConditionType  = "Succeeded"
 		kpackReadyConditionType = "Ready"
@@ -264,3 +265,10 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 		})
 	})
 })
+
+func setKpackImageStatus(kpackImage *buildv1alpha1.Image, conditionType string, conditionStatus string) {
+	kpackImage.Status.Conditions = append(kpackImage.Status.Conditions, v1alpha1.Condition{
+		Type:   v1alpha1.ConditionType(conditionType),
+		Status: corev1.ConditionStatus(conditionStatus),
+	})
+}

@@ -1,4 +1,4 @@
-package workloads_test
+package integration_test
 
 import (
 	"os"
@@ -28,17 +28,17 @@ var (
 
 func TestWorkloadsControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Workloads Controllers Suite")
+	RunSpecs(t, "Workloads Controllers Integration Suite")
 }
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 		CRDInstallOptions: envtest.CRDInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "dependencies", "kpack-release-0.3.1.yaml")},
+			Paths: []string{filepath.Join("..", "..", "..", "dependencies", "kpack-release-0.3.1.yaml")},
 		},
 	}
 

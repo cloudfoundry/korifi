@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var _ = Describe("CFBuildReconciler Unit Tests", func() {
+var _ = Describe("CFBuildReconciler", func() {
 	const (
 		defaultNamespace        = "default"
 		stagingConditionType    = "Staging"

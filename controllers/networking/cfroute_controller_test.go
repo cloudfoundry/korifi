@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var _ = Describe("CFRouteReconciler Unit Tests", func() {
+var _ = Describe("CFRouteReconciler", func() {
 	const (
 		defaultNamespace          = "default"
 		proxyCreatedConditionType = "ProxyCreated"

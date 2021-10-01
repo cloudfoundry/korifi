@@ -1,4 +1,4 @@
-package workloads_test
+package integration_test
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("CFAppReconciler Integration Tests", func() {
+var _ = Describe("CFAppReconciler", func() {
 	When("a new CFApp resource is created", func() {
 		const (
 			cfAppGUID = "test-app-guid"

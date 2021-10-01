@@ -1,4 +1,21 @@
-package workloads_test
+/*
+
+Copyright 2021.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package integration_test
 
 import (
 	"context"
@@ -10,13 +27,12 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,9 +48,9 @@ var (
 	k8sClient client.Client
 )
 
-func TestWorkloadsValidatingWebhooks(t *testing.T) {
+func TestWorkloadsMutatingWebhooks(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Workloads Validating Webhooks Suite")
+	RunSpecs(t, "Workloads Mutating Webhooks Integration Test Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -44,10 +60,10 @@ var _ = BeforeSuite(func() {
 	cancel = cancelFunc
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: true,
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: false,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
+			Paths: []string{filepath.Join("..", "..", "..", "..", "config", "webhook")},
 		},
 	}
 
@@ -56,14 +72,9 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	scheme := runtime.NewScheme()
-	err = v1alpha1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(workloadsv1alpha1.AddToScheme(scheme)).To(Succeed())
 
 	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
-
-	Expect(v1.AddToScheme(scheme)).To(Succeed())
-
-	//+kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -81,10 +92,16 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	Expect((&v1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect((&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	cfAppValidatingWebhook := &CFAppValidation{Client: mgr.GetClient()}
+	cfAppValidatingWebhook := &workloads.CFAppValidation{Client: mgr.GetClient()}
 	Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
+
+	Expect((&workloadsv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr)).To(Succeed())
+
+	Expect((&workloadsv1alpha1.CFProcess{}).SetupWebhookWithManager(mgr)).To(Succeed())
+
+	Expect((&workloadsv1alpha1.CFBuild{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook
 
@@ -109,6 +126,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	cancel() // call the cancel function to stop the controller context
-	Expect(testEnv.Stop()).To(Succeed())
+	cancel()
+	err := testEnv.Stop()
+	Expect(err).NotTo(HaveOccurred())
 })
