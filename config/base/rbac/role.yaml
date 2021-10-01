@@ -71,6 +71,24 @@ rules:
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
+  - cfbuilds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds/status
+  verbs:
+  - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
   - cfpackages
   verbs:
   - create
@@ -86,9 +104,3 @@ rules:
   - cfpackages/status
   verbs:
   - get
-- apiGroups:
-  - hnc.x-k8s.io
-  resources:
-  - subnamespaceanchors
-  verbs:
-  - list
