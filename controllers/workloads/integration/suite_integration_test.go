@@ -1,6 +1,7 @@
 package integration_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -21,6 +22,7 @@ import (
 )
 
 var (
+	cancel    context.CancelFunc
 	testEnv   *envtest.Environment
 	k8sClient client.Client
 )
@@ -32,6 +34,9 @@ func TestWorkloadsControllers(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	ctx, cancelFunc := context.WithCancel(context.TODO())
+	cancel = cancelFunc
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
@@ -79,11 +84,12 @@ var _ = BeforeSuite(func() {
 	// TODO: Add the other reconcilers
 
 	go func() {
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred())
 	}()
 })
 
 var _ = AfterSuite(func() {
+	cancel()
 	Expect(testEnv.Stop()).To(Succeed())
 })
