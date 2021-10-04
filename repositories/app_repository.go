@@ -218,7 +218,7 @@ func (f *AppRepo) GenerateEnvSecretName(appGUID string) string {
 	return appGUID + "-env"
 }
 func (f *AppRepo) extractAppGUIDFromEnvSecretName(envSecretName string) string {
-	return strings.Trim(envSecretName, "-env")
+	return strings.TrimSuffix(envSecretName, "-env")
 }
 
 func (f *AppRepo) appEnvVarsRecordToSecret(envVars AppEnvVarsRecord) corev1.Secret {

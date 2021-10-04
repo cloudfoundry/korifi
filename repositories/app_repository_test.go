@@ -542,7 +542,6 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 			g.Expect(client.Delete(afterCtx, &lookupSecretK8sResource)).To(Succeed(), "Could not clean up the created App Env Secret")
 		})
 
-		// TODO: this test appears flakey
 		it("returns a record matching the input and no error", func() {
 			g.Expect(returnedAppEnvVarsRecord.AppGUID).To(Equal(testAppEnvSecret.AppGUID))
 			g.Expect(returnedAppEnvVarsRecord.SpaceGUID).To(Equal(testAppEnvSecret.SpaceGUID))
@@ -593,6 +592,16 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 			returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateAppEnvironmentVariables(testCtx, client, testAppEnvSecret)
 			g.Expect(returnedUpdatedErr).ToNot(BeNil())
 			g.Expect(returnedUpdatedAppEnvVarsRecord).To(Equal(AppEnvVarsRecord{}))
+		})
+
+		it("the App record GUID returned should equal the App GUID provided", func() {
+			testCtx := context.Background()
+			// Used a strings.Trim to remove characters, which cause the behavior in Issue #103
+			testAppEnvSecret.AppGUID = "estringtrimmedguid"
+
+			returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateAppEnvironmentVariables(testCtx, client, testAppEnvSecret)
+			g.Expect(returnedUpdatedErr).ToNot(HaveOccurred())
+			g.Expect(returnedUpdatedAppEnvVarsRecord.AppGUID).To(Equal(testAppEnvSecret.AppGUID), "Expected App GUID to match after transform")
 		})
 
 	})
