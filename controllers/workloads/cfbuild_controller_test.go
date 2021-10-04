@@ -67,11 +67,11 @@ var _ = Describe("CFBuildReconciler", func() {
 		cfBuildGUID = "cf-build-guid"
 		kpackImageGUID = cfBuildGUID
 
-		cfBuild = MockCFBuildObject(cfBuildGUID, defaultNamespace, cfPackageGUID, cfAppGUID)
+		cfBuild = BuildCFBuildObject(cfBuildGUID, defaultNamespace, cfPackageGUID, cfAppGUID)
 		cfBuildError = nil
-		cfApp = MockAppCRObject(cfAppGUID, defaultNamespace)
+		cfApp = BuildCFAppCRObject(cfAppGUID, defaultNamespace)
 		cfAppError = nil
-		cfPackage = MockPackageCRObject(cfPackageGUID, defaultNamespace, cfAppGUID)
+		cfPackage = BuildCFPackageCRObject(cfPackageGUID, defaultNamespace, cfAppGUID)
 		cfPackageError = nil
 		kpackImage = mockKpackImageObject(kpackImageGUID, defaultNamespace)
 		kpackImageError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)

@@ -5,13 +5,16 @@ import (
 	"path/filepath"
 	"testing"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/fake"
+
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
-	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
+	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,9 +25,11 @@ import (
 )
 
 var (
-	cancel    context.CancelFunc
-	testEnv   *envtest.Environment
-	k8sClient client.Client
+	cancel                  context.CancelFunc
+	testEnv                 *envtest.Environment
+	k8sClient               client.Client
+	cfBuildReconciler       *CFBuildReconciler
+	fakeImageProcessFetcher *fake.ImageProcessFetcher
 )
 
 func TestWorkloadsControllers(t *testing.T) {
@@ -71,14 +76,19 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&CFBuildReconciler{
+	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(registryAuthFetcherClient).NotTo(BeNil())
+	cfBuildReconciler = &CFBuildReconciler{
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
 		Log:    ctrl.Log.WithName("controllers").WithName("CFBuild"),
 		ControllerConfig: &cfconfig.ControllerConfig{
 			KpackImageTag: "image/registry/tag",
 		},
-	}).SetupWithManager(k8sManager)
+		RegistryAuthFetcher: NewRegistryAuthFetcher(registryAuthFetcherClient),
+	}
+	err = (cfBuildReconciler).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	// TODO: Add the other reconcilers
@@ -92,4 +102,9 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	cancel()
 	Expect(testEnv.Stop()).To(Succeed())
+})
+
+var _ = BeforeEach(func() {
+	fakeImageProcessFetcher = new(fake.ImageProcessFetcher)
+	cfBuildReconciler.ImageProcessFetcher = fakeImageProcessFetcher.Spy
 })

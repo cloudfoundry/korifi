@@ -18,11 +18,18 @@ package workloads
 
 import (
 	"context"
+	"fmt"
 	"strings"
+
+	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
+	"github.com/pivotal/kpack/pkg/registry"
+	k8sclient "k8s.io/client-go/kubernetes"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
+
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,12 +52,37 @@ const (
 	cfKpackClusterBuilderName = "cf-kpack-cluster-builder"
 )
 
+type RegistryAuthFetcher func(ctx context.Context, imagePullSecrets []corev1.LocalObjectReference, namespace string) (remote.Option, error)
+
+func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface) RegistryAuthFetcher {
+	return func(ctx context.Context, imagePullSecrets []corev1.LocalObjectReference, namespace string) (remote.Option, error) {
+		keychainFactory, err := k8sdockercreds.NewSecretKeychainFactory(privilegedK8sClient)
+		if err != nil {
+			return nil, fmt.Errorf("error in k8sdockercreds.NewSecretKeychainFactory: %w", err)
+		}
+		keychain, err := keychainFactory.KeychainForSecretRef(ctx, registry.SecretRef{
+			Namespace:        namespace,
+			ImagePullSecrets: imagePullSecrets,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", err)
+		}
+
+		return remote.WithAuthFromKeychain(keychain), nil
+	}
+}
+
+//counterfeiter:generate -o fake -fake-name ImageProcessFetcher . ImageProcessFetcher
+type ImageProcessFetcher func(imageRef string, credsOption remote.Option) ([]workloadsv1alpha1.ProcessType, []int32, error)
+
 // CFBuildReconciler reconciles a CFBuild object
 type CFBuildReconciler struct {
-	Client           CFClient
-	Scheme           *runtime.Scheme
-	Log              logr.Logger
-	ControllerConfig *cfconfig.ControllerConfig
+	Client              CFClient
+	Scheme              *runtime.Scheme
+	Log                 logr.Logger
+	ControllerConfig    *cfconfig.ControllerConfig
+	RegistryAuthFetcher RegistryAuthFetcher
+	ImageProcessFetcher ImageProcessFetcher
 }
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete

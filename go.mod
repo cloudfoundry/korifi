@@ -4,7 +4,9 @@ go 1.16
 
 require (
 	github.com/go-logr/logr v0.4.0
+	github.com/google/go-containerregistry v0.5.1
 	github.com/google/uuid v1.2.0
+	github.com/matt-royal/biloba v0.2.1
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.4.1
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0

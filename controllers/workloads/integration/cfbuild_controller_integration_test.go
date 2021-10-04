@@ -22,6 +22,7 @@ var _ = Describe("CFBuildReconciler", func() {
 		succeededConditionType  = "Succeeded"
 		kpackReadyConditionType = "Ready"
 	)
+
 	When("CFBuild status conditions are missing or unknown", func() {
 		var (
 			namespaceGUID    string
@@ -33,6 +34,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			desiredCFPackage *workloadsv1alpha1.CFPackage
 			desiredCFBuild   *workloadsv1alpha1.CFBuild
 		)
+
 		BeforeEach(func() {
 			namespaceGUID = GenerateGUID()
 			cfAppGUID = GenerateGUID()
@@ -41,13 +43,13 @@ var _ = Describe("CFBuildReconciler", func() {
 
 			beforeCtx := context.Background()
 
-			newNamespace = MockK8sNamespaceObject(namespaceGUID)
+			newNamespace = BuildNamespaceObject(namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
 
-			desiredCFApp = MockAppCRObject(cfAppGUID, namespaceGUID)
+			desiredCFApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
 
-			desiredCFPackage = MockPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
+			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
 			Expect(k8sClient.Create(beforeCtx, desiredCFPackage)).To(Succeed())
 
 			desiredCFBuild = &workloadsv1alpha1.CFBuild{
@@ -75,6 +77,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			}
 			Expect(k8sClient.Create(beforeCtx, desiredCFBuild)).To(Succeed())
 		})
+
 		AfterEach(func() {
 			afterCtx := context.Background()
 			Expect(k8sClient.Delete(afterCtx, desiredCFApp)).To(Succeed())
@@ -97,6 +100,7 @@ var _ = Describe("CFBuildReconciler", func() {
 					Expect(createdKpackImage.Spec.Tag).To(Equal(kpackImageTag))
 					Expect(k8sClient.Delete(testCtx, createdKpackImage)).To(Succeed())
 				})
+
 				It("eventually sets the status conditions on CFBuild", func() {
 					testCtx := context.Background()
 					cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
@@ -110,12 +114,14 @@ var _ = Describe("CFBuildReconciler", func() {
 					}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFBuild status conditions were empty")
 				})
 			})
+
 			When("kpack image with CFBuild GUID already exists", func() {
 				var (
 					newCFBuildGUID     string
 					existingKpackImage *buildv1alpha1.Image
 					newCFBuild         *workloadsv1alpha1.CFBuild
 				)
+
 				BeforeEach(func() {
 					beforeCtx := context.Background()
 					newCFBuildGUID = GenerateGUID()
@@ -139,14 +145,16 @@ var _ = Describe("CFBuildReconciler", func() {
 						},
 					}
 					Expect(k8sClient.Create(beforeCtx, existingKpackImage)).To(Succeed())
-					newCFBuild = MockCFBuildObject(newCFBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
+					newCFBuild = BuildCFBuildObject(newCFBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
 					Expect(k8sClient.Create(beforeCtx, newCFBuild)).To(Succeed())
 				})
+
 				AfterEach(func() {
 					afterCtx := context.Background()
 					Expect(k8sClient.Delete(afterCtx, existingKpackImage)).To(Succeed())
 					Expect(k8sClient.Delete(afterCtx, newCFBuild)).To(Succeed())
 				})
+
 				It("eventually sets the status conditions on CFBuild", func() {
 					testCtx := context.Background()
 					cfBuildLookupKey := types.NamespacedName{Name: newCFBuildGUID, Namespace: namespaceGUID}
@@ -162,6 +170,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			})
 		})
 	})
+
 	When("CFBuild status conditions for Staging is True and others are unknown", func() {
 		var (
 			namespaceGUID    string
@@ -173,6 +182,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			desiredCFPackage *workloadsv1alpha1.CFPackage
 			desiredCFBuild   *workloadsv1alpha1.CFBuild
 		)
+
 		BeforeEach(func() {
 			namespaceGUID = GenerateGUID()
 			cfAppGUID = GenerateGUID()
@@ -181,18 +191,19 @@ var _ = Describe("CFBuildReconciler", func() {
 
 			beforeCtx := context.Background()
 
-			newNamespace = MockK8sNamespaceObject(namespaceGUID)
+			newNamespace = BuildNamespaceObject(namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
 
-			desiredCFApp = MockAppCRObject(cfAppGUID, namespaceGUID)
+			desiredCFApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
 
-			desiredCFPackage = MockPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
+			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
 			Expect(k8sClient.Create(beforeCtx, desiredCFPackage)).To(Succeed())
 
-			desiredCFBuild = MockCFBuildObject(cfBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
+			desiredCFBuild = BuildCFBuildObject(cfBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
 			Expect(k8sClient.Create(beforeCtx, desiredCFBuild)).To(Succeed())
 		})
+
 		AfterEach(func() {
 			afterCtx := context.Background()
 			Expect(k8sClient.Delete(afterCtx, desiredCFApp)).To(Succeed())
@@ -213,6 +224,7 @@ var _ = Describe("CFBuildReconciler", func() {
 				setKpackImageStatus(createdKpackImage, kpackReadyConditionType, "False")
 				Expect(k8sClient.Status().Update(testCtx, createdKpackImage)).To(Succeed())
 			})
+
 			It("should eventually set the status condition for Type Succeeded on CFBuild to False", func() {
 				testCtx := context.Background()
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
@@ -226,9 +238,28 @@ var _ = Describe("CFBuildReconciler", func() {
 				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
 			})
 		})
-		When("kpack image status condition for Type Succeeded is True", func() {
+
+		When("kpack image has built successfully", func() {
+			const (
+				kpackBuildImageRef = "some-org/my-image@sha256:some-sha"
+			)
+
+			var (
+				returnedProcessTypes []workloadsv1alpha1.ProcessType
+				returnedPorts        []int32
+			)
+
 			BeforeEach(func() {
 				testCtx := context.Background()
+
+				returnedProcessTypes = []workloadsv1alpha1.ProcessType{{Type: "web", Command: "my-command"}, {Type: "db", Command: "my-command2"}}
+				returnedPorts = []int32{8080, 8443}
+				fakeImageProcessFetcher.Returns(
+					returnedProcessTypes,
+					returnedPorts,
+					nil,
+				)
+
 				kpackImageLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				createdKpackImage := new(buildv1alpha1.Image)
 				Eventually(func() bool {
@@ -236,8 +267,10 @@ var _ = Describe("CFBuildReconciler", func() {
 					return err == nil
 				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not retrieve the kpack image")
 				setKpackImageStatus(createdKpackImage, kpackReadyConditionType, "True")
+				createdKpackImage.Status.LatestImage = kpackBuildImageRef
 				Expect(k8sClient.Status().Update(testCtx, createdKpackImage)).To(Succeed())
 			})
+
 			It("should eventually set the status condition for Type Succeeded on CFBuild to True", func() {
 				testCtx := context.Background()
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
@@ -250,6 +283,7 @@ var _ = Describe("CFBuildReconciler", func() {
 					return meta.IsStatusConditionTrue(createdCFBuild.Status.Conditions, succeededConditionType)
 				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
 			})
+
 			It("should eventually set BuildStatusDroplet object", func() {
 				testCtx := context.Background()
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
@@ -261,6 +295,12 @@ var _ = Describe("CFBuildReconciler", func() {
 					}
 					return createdCFBuild.Status.BuildDropletStatus
 				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeNil(), "BuildStatusDroplet was nil on CFBuild")
+				Expect(fakeImageProcessFetcher.CallCount()).To(Equal(1), "Build Controller imageProcessFetcher was not called just once")
+				Expect(createdCFBuild.Status.BuildDropletStatus.Registry.Image).To(Equal(kpackBuildImageRef))
+				Expect(createdCFBuild.Status.BuildDropletStatus.Registry.ImagePullSecrets).To(Equal(desiredCFPackage.Spec.Source.Registry.ImagePullSecrets))
+				Expect(createdCFBuild.Status.BuildDropletStatus.ProcessTypes).To(Equal(returnedProcessTypes))
+				Expect(createdCFBuild.Status.BuildDropletStatus.Ports).To(Equal(returnedPorts))
+
 			})
 		})
 	})

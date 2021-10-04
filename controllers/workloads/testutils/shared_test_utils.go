@@ -21,7 +21,7 @@ func GenerateGUID() string {
 	return newUUID.String()
 }
 
-func MockK8sNamespaceObject(name string) *corev1.Namespace {
+func BuildNamespaceObject(name string) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -29,7 +29,7 @@ func MockK8sNamespaceObject(name string) *corev1.Namespace {
 	}
 }
 
-func MockAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp {
+func BuildCFAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp {
 	return &workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
@@ -49,7 +49,7 @@ func MockAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp 
 	}
 }
 
-func MockPackageCRObject(packageGUID, namespaceGUID, appGUID string) *workloadsv1alpha1.CFPackage {
+func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID string) *workloadsv1alpha1.CFPackage {
 	return &workloadsv1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageGUID,
@@ -63,14 +63,14 @@ func MockPackageCRObject(packageGUID, namespaceGUID, appGUID string) *workloadsv
 			Source: workloadsv1alpha1.PackageSource{
 				Registry: workloadsv1alpha1.Registry{
 					Image:            "PACKAGE_IMAGE",
-					ImagePullSecrets: nil,
+					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "source-registry-image-pull-secret"}},
 				},
 			},
 		},
 	}
 }
 
-func MockCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID string, cfAppGUID string) *workloadsv1alpha1.CFBuild {
+func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID string, cfAppGUID string) *workloadsv1alpha1.CFBuild {
 	return &workloadsv1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfBuildGUID,
