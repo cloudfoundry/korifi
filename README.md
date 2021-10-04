@@ -45,7 +45,7 @@ kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
 ```
 Or
 ```
-kubectl apply -f dependencies/contour-1.18.1.yaml
+kubectl apply -f dependencies/contour-1.18.2.yaml
 
 ```
 

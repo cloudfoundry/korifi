@@ -73,7 +73,7 @@ echo "*******************"
 echo "Installing Contour"
 echo "*******************"
 
-kubectl apply -f dependencies/contour-1.18.1.yaml
+kubectl apply -f dependencies/contour-1.18.2.yaml
 
 echo "******"
 echo "Done"
