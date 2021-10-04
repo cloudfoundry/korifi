@@ -37,6 +37,9 @@ test-e2e:
 run: fmt vet ## Run a controller from your host.
 	go run ./main.go
 
+manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=cf-admin-clusterrole paths=./... output:rbac:artifacts:config=../config/base/rbac
+
 generate: fmt vet
 	go generate ./...
 
@@ -57,6 +60,10 @@ docker-build: ## Build docker image with the manager.
 build-reference: kustomize
 	cd config/base && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-api=${IMG}
 	$(KUSTOMIZE) build config/base -o reference/cf-k8s-api.yaml
+
+CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
+controller-gen: ## Download controller-gen locally if necessary.
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
