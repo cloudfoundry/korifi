@@ -6,3 +6,5 @@ defaultLifecycleConfig:
   stack: cflinuxfs3
   stagingMemoryMB: 1024
   stagingDiskMB: 1024
+packageRegistryBase: # FILL THIS IN
+packageRegistrySecretName: image-registry-secret # Create this secret in the rootNamespace

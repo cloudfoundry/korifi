@@ -137,6 +137,14 @@ func newUniquenessError(detail string) presenter.ErrorsResponse {
 	}}}
 }
 
+func newInvalidRequestError(detail string) presenter.ErrorsResponse {
+	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+		Title:  "CF-InvalidRequest",
+		Detail: detail,
+		Code:   10004,
+	}}}
+}
+
 func writeNotFoundErrorResponse(w http.ResponseWriter, resourceName string) {
 	responseBody, err := json.Marshal(newNotFoundError(resourceName))
 	if err != nil {
@@ -177,6 +185,16 @@ func writeUnprocessableEntityError(w http.ResponseWriter, errorDetail string) {
 func writeUniquenessError(w http.ResponseWriter, detail string) {
 	w.WriteHeader(http.StatusUnprocessableEntity)
 	responseBody, err := json.Marshal(newUniquenessError(detail))
+	if err != nil {
+		return
+	}
+	w.Write(responseBody)
+}
+
+func writeInvalidRequestError(w http.ResponseWriter, detail string) {
+	w.WriteHeader(http.StatusBadRequest)
+
+	responseBody, err := json.Marshal(newInvalidRequestError(detail))
 	if err != nil {
 		return
 	}

@@ -75,7 +75,7 @@ func testFetchRoute(t *testing.T, when spec.G, it spec.S) {
 
 		it("fetches the CFRoute CR we're looking for", func() {
 			routeRepo := RouteRepo{}
-			client, err := BuildClient(k8sConfig)
+			client, err := BuildCRClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			route := RouteRecord{}
@@ -101,7 +101,7 @@ func testFetchRoute(t *testing.T, when spec.G, it spec.S) {
 	when("no CFRoute exists", func() {
 		it("returns an error", func() {
 			routeRepo := RouteRepo{}
-			client, err := BuildClient(k8sConfig)
+			client, err := BuildCRClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			_, err = routeRepo.FetchRoute(testCtx, client, "non-existent-route-guid")
@@ -159,7 +159,7 @@ func testFetchRoute(t *testing.T, when spec.G, it spec.S) {
 
 		it("returns an error", func() {
 			routeRepo := RouteRepo{}
-			client, err := BuildClient(k8sConfig)
+			client, err := BuildCRClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// Looks like we can continue doing state-based setup for the time being
@@ -243,7 +243,7 @@ func testCreateRoute(t *testing.T, when spec.G, it spec.S) {
 
 	it.Before(func() {
 		var err error
-		client, err = BuildClient(k8sConfig)
+		client, err = BuildCRClient(k8sConfig)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		routeRepo = RouteRepo{}

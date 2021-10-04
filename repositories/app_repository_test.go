@@ -28,7 +28,7 @@ var _ = SuiteDescribe("App Repository FetchNamespace", func(t *testing.T, when s
 	when("space does not exist", func() {
 		it("returns an unauthorized or not found err", func() {
 			appRepo := AppRepo{}
-			client, err := BuildClient(k8sConfig)
+			client, err := BuildCRClient(k8sConfig)
 
 			_, err = appRepo.FetchNamespace(context.Background(), client, "some-guid")
 			g.Expect(err).To(HaveOccurred())
@@ -54,7 +54,7 @@ func testFetchApp(t *testing.T, when spec.G, it spec.S) {
 
 		appRepo = new(AppRepo)
 		var err error
-		client, err = BuildClient(k8sConfig)
+		client, err = BuildCRClient(k8sConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 
 		namespace1Name := generateGUID()
@@ -277,7 +277,7 @@ func testFetchAppList(t *testing.T, when spec.G, it spec.S) {
 		// TODO: Update this test annotation to reflect proper filtering by caller permissions when that is available
 		it("returns all the AppRecord CRs", func() {
 			appRepo := AppRepo{}
-			client, err := BuildClient(k8sConfig)
+			client, err := BuildCRClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			appList, err := appRepo.FetchAppList(testCtx, client)
@@ -293,7 +293,7 @@ func testFetchAppList(t *testing.T, when spec.G, it spec.S) {
 		// This test setup may fail if we run tests in parallel that create app records
 		it("returns an error", func() {
 			appRepo := AppRepo{}
-			client, err := BuildClient(k8sConfig)
+			client, err := BuildCRClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			_, err = appRepo.FetchAppList(testCtx, client)
@@ -389,7 +389,7 @@ func testCreateApp(t *testing.T, when spec.G, it spec.S) {
 				appRepo = AppRepo{}
 
 				var err error
-				client, err = BuildClient(k8sConfig)
+				client, err = BuildCRClient(k8sConfig)
 				g.Expect(err).NotTo(HaveOccurred())
 
 				appRecord = initializeAppRecord(testAppName, testAppGUID, defaultNamespace)
@@ -473,7 +473,7 @@ func testCreateApp(t *testing.T, when spec.G, it spec.S) {
 				g.Expect(k8sClient.Create(beforeCtx, &appCR)).To(Succeed())
 
 				appRepo = AppRepo{}
-				client, _ = BuildClient(k8sConfig)
+				client, _ = BuildCRClient(k8sConfig)
 			})
 
 			it.After(func() {
@@ -518,7 +518,7 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 		it.Before(func() {
 			beforeCtx := context.Background()
 			appRepo = AppRepo{}
-			client, _ = BuildClient(k8sConfig)
+			client, _ = BuildCRClient(k8sConfig)
 			testAppGUID = generateGUID()
 			testAppEnvSecretName = generateAppEnvSecretName(testAppGUID)
 			testAppEnvSecret = AppEnvVarsRecord{
@@ -542,7 +542,7 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 			g.Expect(client.Delete(afterCtx, &lookupSecretK8sResource)).To(Succeed(), "Could not clean up the created App Env Secret")
 		})
 
-		// this test appears flakey
+		// TODO: this test appears flakey
 		it("returns a record matching the input and no error", func() {
 			g.Expect(returnedAppEnvVarsRecord.AppGUID).To(Equal(testAppEnvSecret.AppGUID))
 			g.Expect(returnedAppEnvVarsRecord.SpaceGUID).To(Equal(testAppEnvSecret.SpaceGUID))

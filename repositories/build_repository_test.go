@@ -55,7 +55,7 @@ func testFetchBuild(t *testing.T, when spec.G, it spec.S) {
 
 		buildRepo = new(BuildRepo)
 		var err error
-		client, err = BuildClient(k8sConfig)
+		client, err = BuildCRClient(k8sConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -388,7 +388,7 @@ func testCreateBuild(t *testing.T, when spec.G, it spec.S) {
 		buildRepo = new(BuildRepo)
 
 		var err error
-		client, err = BuildClient(k8sConfig)
+		client, err = BuildCRClient(k8sConfig)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		beforeCtx := context.Background()

@@ -7,9 +7,11 @@ import (
 )
 
 type Config struct {
-	ServerURL     string `yaml:"serverURL"`
-	ServerPort    int    `yaml:"serverPort"`
-	RootNamespace string `yaml:"rootNamespace"`
+	ServerURL                 string `yaml:"serverURL"`
+	ServerPort                int    `yaml:"serverPort"`
+	RootNamespace             string `yaml:"rootNamespace"`
+	PackageRegistryBase       string `yaml:"packageRegistryBase"`
+	PackageRegistrySecretName string `yaml:"packageRegistrySecretName"`
 
 	DefaultLifecycleConfig DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
 }

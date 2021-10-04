@@ -3,6 +3,8 @@ package repositories
 import (
 	"context"
 	"errors"
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
@@ -24,11 +26,18 @@ type PackageCreateMessage struct {
 	SpaceGUID string
 }
 
+type PackageUpdateSourceMessage struct {
+	GUID               string
+	SpaceGUID          string
+	ImageRef           string
+	RegistrySecretName string
+}
+
 type PackageRecord struct {
 	GUID      string
-	SpaceGUID string
 	Type      string
 	AppGUID   string
+	SpaceGUID string
 	State     string
 	CreatedAt string
 	UpdatedAt string
@@ -37,12 +46,12 @@ type PackageRecord struct {
 type PackageRepo struct{}
 
 func (r *PackageRepo) CreatePackage(ctx context.Context, client client.Client, message PackageCreateMessage) (PackageRecord, error) {
-	cfPackage := r.packageCreateToCFPackage(message)
+	cfPackage := packageCreateToCFPackage(message)
 	err := client.Create(ctx, &cfPackage)
 	if err != nil {
 		return PackageRecord{}, err
 	}
-	return r.cfPackageToPackageRecord(cfPackage), nil
+	return cfPackageToPackageRecord(cfPackage), nil
 }
 
 func (r *PackageRepo) FetchPackage(ctx context.Context, client client.Client, guid string) (PackageRecord, error) {
@@ -52,12 +61,32 @@ func (r *PackageRepo) FetchPackage(ctx context.Context, client client.Client, gu
 		return PackageRecord{}, err
 	}
 	allPackages := packageList.Items
-	matches := r.filterPackagesByMetadataName(allPackages, guid)
+	matches := filterPackagesByMetadataName(allPackages, guid)
 
-	return r.returnPackage(matches)
+	return returnPackage(matches)
 }
 
-func (r *PackageRepo) packageCreateToCFPackage(message PackageCreateMessage) workloadsv1alpha1.CFPackage {
+func (r *PackageRepo) UpdatePackageSource(ctx context.Context, c client.Client, message PackageUpdateSourceMessage) (PackageRecord, error) {
+	baseCFPackage := &workloadsv1alpha1.CFPackage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.GUID,
+			Namespace: message.SpaceGUID,
+		},
+	}
+	cfPackage := baseCFPackage.DeepCopy()
+	cfPackage.Spec.Source.Registry.Image = message.ImageRef
+	cfPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: message.RegistrySecretName}}
+
+	err := c.Patch(ctx, cfPackage, client.MergeFrom(baseCFPackage))
+	if err != nil { // untested
+		return PackageRecord{}, fmt.Errorf("err in client.Patch: %w", err)
+	}
+
+	record := cfPackageToPackageRecord(*cfPackage)
+	return record, nil
+}
+
+func packageCreateToCFPackage(message PackageCreateMessage) workloadsv1alpha1.CFPackage {
 	guid := uuid.New().String()
 	return workloadsv1alpha1.CFPackage{
 		TypeMeta: metav1.TypeMeta{
@@ -77,20 +106,24 @@ func (r *PackageRepo) packageCreateToCFPackage(message PackageCreateMessage) wor
 	}
 }
 
-func (r *PackageRepo) cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPackage) PackageRecord {
+func cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPackage) PackageRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfPackage.ObjectMeta)
+	state := "AWAITING_UPLOAD"
+	if cfPackage.Spec.Source.Registry.Image != "" {
+		state = "PROCESSING_UPLOAD"
+	}
 	return PackageRecord{
 		GUID:      cfPackage.ObjectMeta.Name,
 		SpaceGUID: cfPackage.ObjectMeta.Namespace,
 		Type:      string(cfPackage.Spec.Type),
 		AppGUID:   cfPackage.Spec.AppRef.Name,
-		State:     "AWAITING_UPLOAD",
+		State:     state,
 		CreatedAt: formatTimestamp(cfPackage.CreationTimestamp),
 		UpdatedAt: updatedAtTime,
 	}
 }
 
-func (r *PackageRepo) filterPackagesByMetadataName(packages []workloadsv1alpha1.CFPackage, name string) []workloadsv1alpha1.CFPackage {
+func filterPackagesByMetadataName(packages []workloadsv1alpha1.CFPackage, name string) []workloadsv1alpha1.CFPackage {
 	var filtered []workloadsv1alpha1.CFPackage
 	for i, app := range packages {
 		if app.ObjectMeta.Name == name {
@@ -100,7 +133,7 @@ func (r *PackageRepo) filterPackagesByMetadataName(packages []workloadsv1alpha1.
 	return filtered
 }
 
-func (r *PackageRepo) returnPackage(apps []workloadsv1alpha1.CFPackage) (PackageRecord, error) {
+func returnPackage(apps []workloadsv1alpha1.CFPackage) (PackageRecord, error) {
 	if len(apps) == 0 {
 		return PackageRecord{}, NotFoundError{}
 	}
@@ -108,5 +141,5 @@ func (r *PackageRepo) returnPackage(apps []workloadsv1alpha1.CFPackage) (Package
 		return PackageRecord{}, errors.New("duplicate packages exist")
 	}
 
-	return r.cfPackageToPackageRecord(apps[0]), nil
+	return cfPackageToPackageRecord(apps[0]), nil
 }

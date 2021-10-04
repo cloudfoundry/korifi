@@ -4,15 +4,20 @@ go 1.16
 
 require (
 	code.cloudfoundry.org/cf-k8s-controllers v0.0.0-20210927185152-baa2416c14c0
+	github.com/buildpacks/pack v0.21.1
 	github.com/go-logr/logr v0.4.0
 	github.com/go-playground/locales v0.14.0
 	github.com/go-playground/universal-translator v0.18.0
 	github.com/go-playground/validator/v10 v10.9.0
-	github.com/google/uuid v1.1.2
+	github.com/google/go-containerregistry v0.6.0
+	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-uuid v1.0.1
+	github.com/matt-royal/biloba v0.2.1
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.4.1
-	github.com/onsi/gomega v1.15.0
+	github.com/onsi/ginkgo v1.16.4
+	github.com/onsi/gomega v1.16.0
+	github.com/pivotal/kpack v0.3.1
 	github.com/sclevine/spec v1.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	k8s.io/api v0.22.2

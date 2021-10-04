@@ -4,7 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"mime/multipart"
 	"net/http"
+
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
@@ -29,31 +33,42 @@ const (
 type CFPackageRepository interface {
 	FetchPackage(context.Context, client.Client, string) (repositories.PackageRecord, error)
 	CreatePackage(context.Context, client.Client, repositories.PackageCreateMessage) (repositories.PackageRecord, error)
+	UpdatePackageSource(ctx context.Context, client client.Client, message repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)
 }
+
+//counterfeiter:generate -o fake -fake-name SourceImageUploader . SourceImageUploader
+
+type SourceImageUploader func(imageRef string, packageSrcFile multipart.File, credentialOption remote.Option) (imageRefWithDigest string, err error)
+
+//counterfeiter:generate -o fake -fake-name RegistryAuthBuilder . RegistryAuthBuilder
+
+type RegistryAuthBuilder func(ctx context.Context) (remote.Option, error)
 
 type PackageHandler struct {
-	logger      logr.Logger
-	serverURL   string
-	packageRepo CFPackageRepository
-	appRepo     CFAppRepository
-	k8sConfig   *rest.Config
-	buildClient ClientBuilder
+	logger             logr.Logger
+	serverURL          string
+	packageRepo        CFPackageRepository
+	appRepo            CFAppRepository
+	buildClient        ClientBuilder
+	uploadSourceImage  SourceImageUploader
+	buildRegistryAuth  RegistryAuthBuilder
+	k8sConfig          *rest.Config
+	registryBase       string
+	registrySecretName string
 }
 
-func NewPackageHandler(
-	logger logr.Logger,
-	serverURL string,
-	packageRepo CFPackageRepository,
-	appRepo CFAppRepository,
-	buildClient ClientBuilder,
-	k8sConfig *rest.Config) *PackageHandler {
+func NewPackageHandler(logger logr.Logger, serverURL string, packageRepo CFPackageRepository, appRepo CFAppRepository, buildClient ClientBuilder, uploadSourceImage SourceImageUploader, buildRegistryAuth RegistryAuthBuilder, k8sConfig *rest.Config, registryBase string, registrySecretName string) *PackageHandler {
 	return &PackageHandler{
-		logger:      logger,
-		serverURL:   serverURL,
-		packageRepo: packageRepo,
-		appRepo:     appRepo,
-		buildClient: buildClient,
-		k8sConfig:   k8sConfig,
+		logger:             logger,
+		serverURL:          serverURL,
+		packageRepo:        packageRepo,
+		appRepo:            appRepo,
+		buildClient:        buildClient,
+		uploadSourceImage:  uploadSourceImage,
+		buildRegistryAuth:  buildRegistryAuth,
+		k8sConfig:          k8sConfig,
+		registryBase:       registryBase,
+		registrySecretName: registrySecretName,
 	}
 }
 
@@ -105,9 +120,22 @@ func (h PackageHandler) packageCreateHandler(w http.ResponseWriter, req *http.Re
 }
 
 func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Request) {
-	packageGUID := mux.Vars(req)["guid"]
-
 	w.Header().Set("Content-Type", "application/json")
+	packageGUID := mux.Vars(req)["guid"]
+	err := req.ParseForm()
+	if err != nil { // untested - couldn't find a way to trigger this branch
+		h.logger.Info("Error parsing multipart form", "error", err.Error())
+		writeInvalidRequestError(w, "Unable to parse body as multipart form")
+		return
+	}
+
+	bitsFile, _, err := req.FormFile("bits")
+	if err != nil {
+		h.logger.Info("Error reading form file \"bits\"", "error", err.Error())
+		writeUnprocessableEntityError(w, "Upload must include bits")
+		return
+	}
+	defer bitsFile.Close()
 
 	client, err := h.buildClient(h.k8sConfig)
 	if err != nil {
@@ -125,6 +153,34 @@ func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Re
 			h.logger.Info("Error fetching package with repository", "error", err.Error())
 			writeUnknownErrorResponse(w)
 		}
+		return
+	}
+
+	registryAuth, err := h.buildRegistryAuth(req.Context())
+	if err != nil {
+		h.logger.Info("Error calling buildRegistryAuth", "error", err.Error())
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	imageRef := fmt.Sprintf("%s/%s", h.registryBase, packageGUID)
+
+	uploadedImageRef, err := h.uploadSourceImage(imageRef, bitsFile, registryAuth)
+	if err != nil {
+		h.logger.Info("Error calling uploadSourceImage", "error", err.Error())
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	record, err = h.packageRepo.UpdatePackageSource(req.Context(), client, repositories.PackageUpdateSourceMessage{
+		GUID:               packageGUID,
+		SpaceGUID:          record.SpaceGUID,
+		ImageRef:           uploadedImageRef,
+		RegistrySecretName: h.registrySecretName,
+	})
+	if err != nil {
+		h.logger.Info("Error calling UpdatePackageSource", "error", err.Error())
+		writeUnknownErrorResponse(w)
 		return
 	}
 

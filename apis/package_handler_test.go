@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"testing"
+
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	. "github.com/onsi/ginkgo"
 
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
@@ -17,8 +19,6 @@ import (
 
 	"github.com/gorilla/mux"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
-	"github.com/sclevine/spec/report"
 	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -27,34 +27,28 @@ const (
 	testPackageHandlerLoggerName = "TestPackageHandler"
 )
 
-func TestPackage(t *testing.T) {
-	spec.Run(t, "the POST /v3/packages endpoint", testPackageCreateHandler, spec.Report(report.Terminal{}))
-	spec.Run(t, "the POST /v3/packages/upload endpoint", testPackageUploadHandler, spec.Report(report.Terminal{}))
-}
+var _ = Describe("PackageHandler", func() {
+	Describe("the POST /v3/packages endpoint", func() {
+		var (
+			rr            *httptest.ResponseRecorder
+			packageRepo   *fake.CFPackageRepository
+			appRepo       *fake.CFAppRepository
+			clientBuilder *fake.ClientBuilder
+			router        *mux.Router
+		)
 
-func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
+		makePostRequest := func(body string) {
+			req, err := http.NewRequest("POST", "/v3/packages", strings.NewReader(body))
+			Expect(err).NotTo(HaveOccurred())
 
-	var (
-		rr            *httptest.ResponseRecorder
-		packageRepo   *fake.CFPackageRepository
-		appRepo       *fake.CFAppRepository
-		clientBuilder *fake.ClientBuilder
-		router        *mux.Router
-	)
+			router.ServeHTTP(rr, req)
+		}
 
-	makePostRequest := func(body string) {
-		req, err := http.NewRequest("POST", "/v3/packages", strings.NewReader(body))
-		g.Expect(err).NotTo(HaveOccurred())
-
-		router.ServeHTTP(rr, req)
-	}
-
-	const (
-		packageGUID = "the-package-guid"
-		appGUID     = "the-app-guid"
-		spaceGUID   = "the-space-guid"
-		validBody   = `{
+		const (
+			packageGUID = "the-package-guid"
+			appGUID     = "the-app-guid"
+			spaceGUID   = "the-space-guid"
+			validBody   = `{
 			"type": "bits",
 			"relationships": {
 				"app": {
@@ -64,74 +58,68 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				}
         	}
 		}`
-		createdAt = "1906-04-18T13:12:00Z"
-		updatedAt = "1906-04-18T13:12:01Z"
-	)
-
-	getRR := func() *httptest.ResponseRecorder { return rr }
-
-	it.Before(func() {
-		rr = httptest.NewRecorder()
-		router = mux.NewRouter()
-
-		packageRepo = new(fake.CFPackageRepository)
-		packageRepo.CreatePackageReturns(repositories.PackageRecord{
-			Type:      "bits",
-			AppGUID:   appGUID,
-			GUID:      packageGUID,
-			State:     "AWAITING_UPLOAD",
-			CreatedAt: createdAt,
-			UpdatedAt: updatedAt,
-		}, nil)
-
-		appRepo = new(fake.CFAppRepository)
-		appRepo.FetchAppReturns(repositories.AppRecord{
-			SpaceGUID: spaceGUID,
-		}, nil)
-
-		clientBuilder = new(fake.ClientBuilder)
-
-		apiHandler := NewPackageHandler(
-			logf.Log.WithName(testPackageHandlerLoggerName),
-			defaultServerURL,
-			packageRepo,
-			appRepo,
-			clientBuilder.Spy,
-			&rest.Config{},
+			createdAt = "1906-04-18T13:12:00Z"
+			updatedAt = "1906-04-18T13:12:01Z"
 		)
-		apiHandler.RegisterRoutes(router)
-	})
 
-	when("on the happy path", func() {
-		it.Before(func() {
-			makePostRequest(validBody)
-		})
+		getRR := func() *httptest.ResponseRecorder { return rr }
 
-		it("returns status 201", func() {
-			g.Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
-		})
+		BeforeEach(func() {
+			rr = httptest.NewRecorder()
+			router = mux.NewRouter()
 
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-		})
-
-		it("configures the client", func() {
-			g.Expect(clientBuilder.CallCount()).To(Equal(1))
-		})
-
-		it("creates a CFPackage", func() {
-			g.Expect(packageRepo.CreatePackageCallCount()).To(Equal(1))
-			_, _, actualCreate := packageRepo.CreatePackageArgsForCall(0)
-			g.Expect(actualCreate).To(Equal(repositories.PackageCreateMessage{
+			packageRepo = new(fake.CFPackageRepository)
+			packageRepo.CreatePackageReturns(repositories.PackageRecord{
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
-			}))
+				GUID:      packageGUID,
+				State:     "AWAITING_UPLOAD",
+				CreatedAt: createdAt,
+				UpdatedAt: updatedAt,
+			}, nil)
+
+			appRepo = new(fake.CFAppRepository)
+			appRepo.FetchAppReturns(repositories.AppRecord{
+				SpaceGUID: spaceGUID,
+			}, nil)
+
+			clientBuilder = new(fake.ClientBuilder)
+
+			apiHandler := NewPackageHandler(logf.Log.WithName(testPackageHandlerLoggerName), defaultServerURL, packageRepo, appRepo, clientBuilder.Spy, nil, nil, &rest.Config{}, "", "")
+			apiHandler.RegisterRoutes(router)
 		})
 
-		it("returns a JSON body", func() {
-			g.Expect(rr.Body.String()).To(MatchJSON(`
+		When("on the happy path", func() {
+			BeforeEach(func() {
+				makePostRequest(validBody)
+			})
+
+			It("returns status 201", func() {
+				Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("configures the client", func() {
+				Expect(clientBuilder.CallCount()).To(Equal(1))
+			})
+
+			It("creates a CFPackage", func() {
+				Expect(packageRepo.CreatePackageCallCount()).To(Equal(1))
+				_, _, actualCreate := packageRepo.CreatePackageArgsForCall(0)
+				Expect(actualCreate).To(Equal(repositories.PackageCreateMessage{
+					Type:      "bits",
+					AppGUID:   appGUID,
+					SpaceGUID: spaceGUID,
+				}))
+			})
+
+			It("returns a JSON body", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`
 				{
 				  "guid": "` + packageGUID + `",
 				  "type": "bits",
@@ -168,27 +156,27 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				  }
 				}
             `))
-		})
-	})
-
-	when("the app doesn't exist", func() {
-		it.Before(func() {
-			appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
-
-			makePostRequest(validBody)
+			})
 		})
 
-		it("returns status 422", func() {
-			g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-		})
+		When("the app doesn't exist", func() {
+			BeforeEach(func() {
+				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-		})
+				makePostRequest(validBody)
+			})
 
-		it("responds with error code", func() {
-			g.Expect(rr.Body.String()).To(MatchJSON(`{
+			It("returns status 422", func() {
+				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("responds with error code", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`{
 				"errors": [
 					{
 						"code": 10008,
@@ -197,30 +185,30 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					}
 				]
 			}`))
+			})
+
+			It("doesn't create a package", func() {
+				Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
+			})
 		})
 
-		it("doesn't create a package", func() {
-			g.Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
+		When("the app exists check returns an error", func() {
+			BeforeEach(func() {
+				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("boom"))
+
+				makePostRequest(validBody)
+			})
+
+			itRespondsWithUnknownErrorForGinkgo(getRR)
+
+			It("doesn't create a package", func() {
+				Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
+			})
 		})
-	})
 
-	when("the app exists check returns an error", func() {
-		it.Before(func() {
-			appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("boom"))
-
-			makePostRequest(validBody)
-		})
-
-		itRespondsWithUnknownError(it, g, getRR)
-
-		it("doesn't create a package", func() {
-			g.Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
-		})
-	})
-
-	when("the type is invalid", func() {
-		const (
-			bodyWithInvalidType = `{
+		When("the type is invalid", func() {
+			const (
+				bodyWithInvalidType = `{
 				"type": "docker",
 				"relationships": {
 					"app": {
@@ -230,23 +218,23 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					}
 				}
 			}`
-		)
+			)
 
-		it.Before(func() {
-			makePostRequest(bodyWithInvalidType)
-		})
+			BeforeEach(func() {
+				makePostRequest(bodyWithInvalidType)
+			})
 
-		it("returns a status 422 Unprocessable Entity", func() {
-			g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-		})
+			It("returns a status 422 Unprocessable Entity", func() {
+				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			})
 
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-		})
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
 
-		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).To(MatchJSON(`{
+			It("has the expected error response body", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`{
 					"errors": [
 						{
 							"code":   10008,
@@ -255,25 +243,25 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 						}
 					]
 				}`), "Response body matches response:")
-		})
-	})
-
-	when("the relationship field is completely omitted", func() {
-		it.Before(func() {
-			makePostRequest(`{ "type": "bits" }`)
+			})
 		})
 
-		it("returns a status 422 Unprocessable Entity", func() {
-			g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-		})
+		When("the relationship field is completely omitted", func() {
+			BeforeEach(func() {
+				makePostRequest(`{ "type": "bits" }`)
+			})
 
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-		})
+			It("returns a status 422 Unprocessable Entity", func() {
+				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			})
 
-		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).To(MatchJSON(`{
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("has the expected error response body", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`{
 					"errors": [
 						{
 							"code":   10008,
@@ -282,11 +270,11 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 						}
 					]
 				}`), "Response body matches response:")
+			})
 		})
-	})
 
-	when("an invalid relationship is given", func() {
-		const bodyWithoutAppRelationship = `{
+		When("an invalid relationship is given", func() {
+			const bodyWithoutAppRelationship = `{
 			"type": "bits",
 			"relationships": {
 				"build": {
@@ -295,21 +283,21 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			}
 		}`
 
-		it.Before(func() {
-			makePostRequest(bodyWithoutAppRelationship)
-		})
+			BeforeEach(func() {
+				makePostRequest(bodyWithoutAppRelationship)
+			})
 
-		it("returns a status 422 Unprocessable Entity", func() {
-			g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-		})
+			It("returns a status 422 Unprocessable Entity", func() {
+				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			})
 
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-		})
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
 
-		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).To(MatchJSON(`{
+			It("has the expected error response body", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`{
 					"errors": [
 						{
 							"code":   10008,
@@ -318,25 +306,25 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 						}
 					]
 				}`), "Response body matches response:")
-		})
-	})
-
-	when("the JSON body is invalid", func() {
-		it.Before(func() {
-			makePostRequest(`{`)
+			})
 		})
 
-		it("returns a status 400 Bad Request ", func() {
-			g.Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
-		})
+		When("the JSON body is invalid", func() {
+			BeforeEach(func() {
+				makePostRequest(`{`)
+			})
 
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-		})
+			It("returns a status 400 Bad Request ", func() {
+				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+			})
 
-		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).To(MatchJSON(`{
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("has the expected error response body", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`{
 					"errors": [
 						{
 							"title": "CF-MessageParseError",
@@ -345,121 +333,168 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 						}
 					]
 				}`), "Response body matches response:")
+			})
+		})
+
+		When("building the k8s client errors", func() {
+			BeforeEach(func() {
+				clientBuilder.Returns(nil, errors.New("boom"))
+				makePostRequest(validBody)
+			})
+
+			itRespondsWithUnknownErrorForGinkgo(getRR)
+
+			It("doesn't create a Package", func() {
+				Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
+			})
+		})
+
+		When("creating the package in the repo errors", func() {
+			BeforeEach(func() {
+				packageRepo.CreatePackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+				makePostRequest(validBody)
+			})
+
+			itRespondsWithUnknownErrorForGinkgo(getRR)
 		})
 	})
 
-	when("building the k8s client errors", func() {
-		it.Before(func() {
-			clientBuilder.Returns(nil, errors.New("boom"))
-			makePostRequest(validBody)
+	Describe("the POST /v3/packages/upload endpoint", func() {
+		var (
+			rr                *httptest.ResponseRecorder
+			packageRepo       *fake.CFPackageRepository
+			appRepo           *fake.CFAppRepository
+			uploadImageSource *fake.SourceImageUploader
+			buildRegistryAuth *fake.RegistryAuthBuilder
+			credentialOption  remote.Option
+			clientBuilder     *fake.ClientBuilder
+			router            *mux.Router
+		)
+
+		getRR := func() *httptest.ResponseRecorder { return rr }
+
+		makeUploadRequest := func(packageGUID string, file io.Reader) {
+			var b bytes.Buffer
+			writer := multipart.NewWriter(&b)
+			part, err := writer.CreateFormFile("bits", "unused.zip")
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = io.Copy(part, file)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(writer.Close()).To(Succeed())
+
+			req, err := http.NewRequest("POST", fmt.Sprintf("/v3/packages/%s/upload", packageGUID), &b)
+			Expect(err).NotTo(HaveOccurred())
+			req.Header.Add("Content-Type", writer.FormDataContentType())
+
+			router.ServeHTTP(rr, req)
+		}
+
+		const (
+			packageGUID                = "the-package-guid"
+			appGUID                    = "the-app-guid"
+			createdAt                  = "1906-04-18T13:12:00Z"
+			updatedAt                  = "1906-04-18T13:12:01Z"
+			imageRefWithDigest         = "some-org/the-package-guid@SHA256:some-sha-256"
+			srcFileContents            = "the-src-file-contents"
+			packageRegistryBase        = "some-org"
+			packageImagePullSecretName = "package-image-pull-secret"
+		)
+
+		BeforeEach(func() {
+			rr = httptest.NewRecorder()
+			router = mux.NewRouter()
+
+			packageRepo = new(fake.CFPackageRepository)
+			packageRepo.FetchPackageReturns(repositories.PackageRecord{
+				Type:      "bits",
+				AppGUID:   appGUID,
+				SpaceGUID: spaceGUID,
+				GUID:      packageGUID,
+				State:     "AWAITING_UPLOAD",
+				CreatedAt: createdAt,
+				UpdatedAt: updatedAt,
+			}, nil)
+			packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{
+				Type:      "bits",
+				AppGUID:   appGUID,
+				SpaceGUID: spaceGUID,
+				GUID:      packageGUID,
+				State:     "PROCESSING_UPLOAD",
+				CreatedAt: createdAt,
+				UpdatedAt: updatedAt,
+			}, nil)
+
+			uploadImageSource = new(fake.SourceImageUploader)
+			uploadImageSource.Returns(imageRefWithDigest, nil)
+
+			appRepo = new(fake.CFAppRepository)
+			clientBuilder = new(fake.ClientBuilder)
+			credentialOption = remote.WithUserAgent("for-test-use-only") // real one should have credentials
+			buildRegistryAuth = new(fake.RegistryAuthBuilder)
+			buildRegistryAuth.Returns(credentialOption, nil)
+
+			apiHandler := NewPackageHandler(
+				logf.Log.WithName(testPackageHandlerLoggerName),
+				defaultServerURL,
+				packageRepo,
+				appRepo,
+				clientBuilder.Spy,
+				uploadImageSource.Spy,
+				buildRegistryAuth.Spy,
+				&rest.Config{},
+				packageRegistryBase,
+				packageImagePullSecretName,
+			)
+
+			apiHandler.RegisterRoutes(router)
 		})
 
-		itRespondsWithUnknownError(it, g, getRR)
+		When("on the happy path", func() {
+			BeforeEach(func() {
+				makeUploadRequest(packageGUID, strings.NewReader(srcFileContents))
+			})
 
-		it("doesn't create a Package", func() {
-			g.Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
-		})
-	})
+			It("returns status 200", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
 
-	when("creating the package in the repo errors", func() {
-		it.Before(func() {
-			packageRepo.CreatePackageReturns(repositories.PackageRecord{}, errors.New("boom"))
-			makePostRequest(validBody)
-		})
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
 
-		itRespondsWithUnknownError(it, g, getRR)
-	})
-}
+			It("configures the client", func() {
+				Expect(clientBuilder.CallCount()).To(Equal(1))
+			})
 
-func testPackageUploadHandler(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
-	var (
-		rr            *httptest.ResponseRecorder
-		packageRepo   *fake.CFPackageRepository
-		appRepo       *fake.CFAppRepository
-		clientBuilder *fake.ClientBuilder
-		router        *mux.Router
-	)
+			It("fetches the right package", func() {
+				Expect(packageRepo.FetchPackageCallCount()).To(Equal(1))
 
-	getRR := func() *httptest.ResponseRecorder { return rr }
+				_, _, actualPackageGUID := packageRepo.FetchPackageArgsForCall(0)
+				Expect(actualPackageGUID).To(Equal(packageGUID))
+			})
 
-	makeUploadRequest := func(packageGUID string, file io.Reader) {
-		var b bytes.Buffer
-		w := multipart.NewWriter(&b)
-		bitsWriter, err := w.CreateFormFile("bits", "unused.zip")
-		g.Expect(err).NotTo(HaveOccurred())
+			It("uploads the image source", func() {
+				Expect(uploadImageSource.CallCount()).To(Equal(1))
+				imageRef, srcFile, actualCredentialOption := uploadImageSource.ArgsForCall(0)
+				Expect(imageRef).To(Equal(fmt.Sprintf("%s/%s", packageRegistryBase, packageGUID)))
+				actualSrcContents, err := io.ReadAll(srcFile)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(actualSrcContents)).To(Equal(srcFileContents))
+				Expect(actualCredentialOption).NotTo(BeNil())
+			})
 
-		_, err = io.Copy(bitsWriter, file)
-		g.Expect(err).NotTo(HaveOccurred())
+			It("saves the uploaded image reference on the package", func() {
+				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(1))
+				_, _, message := packageRepo.UpdatePackageSourceArgsForCall(0)
+				Expect(message.GUID).To(Equal(packageGUID))
+				Expect(message.ImageRef).To(Equal(imageRefWithDigest))
+				Expect(message.RegistrySecretName).To(Equal(packageImagePullSecretName))
+			})
 
-		req, err := http.NewRequest("POST", fmt.Sprintf("/v3/packages/%s/upload", packageGUID), &b)
-		g.Expect(err).NotTo(HaveOccurred())
-
-		router.ServeHTTP(rr, req)
-	}
-
-	const (
-		packageGUID = "the-package-guid"
-		appGUID     = "the-app-guid"
-		createdAt   = "1906-04-18T13:12:00Z"
-		updatedAt   = "1906-04-18T13:12:01Z"
-	)
-
-	it.Before(func() {
-		rr = httptest.NewRecorder()
-		router = mux.NewRouter()
-
-		packageRepo = new(fake.CFPackageRepository)
-		packageRepo.FetchPackageReturns(repositories.PackageRecord{
-			Type:      "bits",
-			AppGUID:   appGUID,
-			GUID:      packageGUID,
-			State:     "PROCESSING_UPLOAD",
-			CreatedAt: createdAt,
-			UpdatedAt: updatedAt,
-		}, nil)
-
-		appRepo = new(fake.CFAppRepository)
-		clientBuilder = new(fake.ClientBuilder)
-
-		apiHandler := NewPackageHandler(
-			logf.Log.WithName(testPackageHandlerLoggerName),
-			defaultServerURL,
-			packageRepo,
-			appRepo,
-			clientBuilder.Spy,
-			&rest.Config{})
-
-		apiHandler.RegisterRoutes(router)
-	})
-
-	when("on the happy path", func() {
-		it.Before(func() {
-			makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
-		})
-
-		it("returns status 200", func() {
-			g.Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-		})
-
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-		})
-
-		it("configures the client", func() {
-			g.Expect(clientBuilder.CallCount()).To(Equal(1))
-		})
-
-		it("fetches the right package", func() {
-			g.Expect(packageRepo.FetchPackageCallCount()).To(Equal(1))
-
-			_, _, actualPackageGUID := packageRepo.FetchPackageArgsForCall(0)
-			g.Expect(actualPackageGUID).To(Equal(packageGUID))
-		})
-
-		it("returns a JSON body", func() {
-			g.Expect(rr.Body.String()).To(MatchJSON(`
+			It("returns a JSON body", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`
 				{
 				  "guid": "` + packageGUID + `",
 				  "type": "bits",
@@ -496,36 +531,146 @@ func testPackageUploadHandler(t *testing.T, when spec.G, it spec.S) {
 				  }
 				}
             `))
-		})
-	})
-
-	when("the record doesn't exist", func() {
-		it.Before(func() {
-			packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
-
-			makeUploadRequest("no-such-package-guid", strings.NewReader("the-zip-contents"))
+			})
 		})
 
-		itRespondsWithNotFound(it, g, "Package not found", getRR)
-	})
+		When("the record doesn't exist", func() {
+			BeforeEach(func() {
+				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
 
-	when("building the client errors", func() {
-		it.Before(func() {
-			clientBuilder.Returns(nil, errors.New("boom"))
+				makeUploadRequest("no-such-package-guid", strings.NewReader("the-zip-contents"))
+			})
 
-			makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+			itRespondsWithNotFoundForGinkgo("Package not found", getRR)
+
+			It("doesn't build an image from the source", func() {
+				Expect(uploadImageSource.CallCount()).To(Equal(0))
+			})
+
+			It("doesn't update any Packages", func() {
+				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+			})
 		})
 
-		itRespondsWithUnknownError(it, g, getRR)
-	})
+		When("building the client errors", func() {
+			BeforeEach(func() {
+				clientBuilder.Returns(nil, errors.New("boom"))
 
-	when("fetching the package errors", func() {
-		it.Before(func() {
-			packageRepo.FetchPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+			})
 
-			makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+			itRespondsWithUnknownErrorForGinkgo(getRR)
+
+			It("doesn't build an image from the source", func() {
+				Expect(uploadImageSource.CallCount()).To(Equal(0))
+			})
+
+			It("doesn't update any Packages", func() {
+				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+			})
 		})
 
-		itRespondsWithUnknownError(it, g, getRR)
+		When("fetching the package errors", func() {
+			BeforeEach(func() {
+				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+
+				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+			})
+
+			itRespondsWithUnknownErrorForGinkgo(getRR)
+
+			It("doesn't build an image from the source", func() {
+				Expect(uploadImageSource.CallCount()).To(Equal(0))
+			})
+
+			It("doesn't update any Packages", func() {
+				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+			})
+		})
+
+		When("no bits file is given", func() {
+			BeforeEach(func() {
+				var b bytes.Buffer
+				writer := multipart.NewWriter(&b)
+				Expect(writer.Close()).To(Succeed())
+
+				req, err := http.NewRequest("POST", fmt.Sprintf("/v3/packages/%s/upload", packageGUID), &b)
+				Expect(err).NotTo(HaveOccurred())
+				req.Header.Add("Content-Type", writer.FormDataContentType())
+
+				router.ServeHTTP(rr, req)
+			})
+
+			It("returns status 422", func() {
+				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("responds with error code", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`{
+				"errors": [
+					{
+						"code": 10008,
+						"title": "CF-UnprocessableEntity",
+						"detail": "Upload must include bits"
+					}
+				]
+			}`))
+			})
+
+			It("doesn't build an image from the source", func() {
+				Expect(uploadImageSource.CallCount()).To(Equal(0))
+			})
+
+			It("doesn't update any Packages", func() {
+				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+			})
+		})
+
+		When("building the image credentials errors", func() {
+			BeforeEach(func() {
+				buildRegistryAuth.Returns(nil, errors.New("boom"))
+
+				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+			})
+
+			itRespondsWithUnknownErrorForGinkgo(getRR)
+
+			It("doesn't build an image from the source", func() {
+				Expect(uploadImageSource.CallCount()).To(Equal(0))
+			})
+
+			It("doesn't update any Packages", func() {
+				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+			})
+		})
+
+		When("uploading the source image errors", func() {
+			BeforeEach(func() {
+				uploadImageSource.Returns("", errors.New("boom"))
+
+				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+			})
+
+			itRespondsWithUnknownErrorForGinkgo(getRR)
+
+			It("doesn't update any Packages", func() {
+				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+			})
+		})
+
+		When("updating the package source registry errors", func() {
+			BeforeEach(func() {
+				packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{}, errors.New("boom"))
+
+				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+			})
+
+			itRespondsWithUnknownErrorForGinkgo(getRR)
+		})
 	})
-}
+})

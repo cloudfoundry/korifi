@@ -46,6 +46,9 @@ To update these CRDs you'll need to install [vendir](https://carvel.dev/vendir/)
 To specify a custom configuration file, set the `CONFIG` environment variable to its path when running the web server.
 Refer to the [default config](config/cf_k8s_api_config.yaml) for the config file structure and options.
 
+*See the comments in the default config file to see which fields must be set manually and what other manual setup is
+required.*
+
 ## Regenerate kubernetes resources after making changes
 To regenerate the kubernetes resources under `./config`, run `make generate` or `go generate ./...`
 from the root of the project.

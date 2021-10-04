@@ -51,6 +51,7 @@ curl "http://localhost:9000/v3/apps" \
 | Resource | Endpoint |
 |--|--|
 | Create Package | POST /v3/packages |
+| Upload Package Bits | POST /v3/packages/<guid>/upload |
 
 #### [Creating Packages](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-package)
 ```bash
@@ -59,6 +60,13 @@ curl "http://localhost:9000/v3/packages" \
   -d '{"type":"bits","relationships":{"app":{"data":{"guid":"<app-guid-goes-here>"}}}}'
 ```
 
+#### [Uploading Package Bits](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#upload-package-bits)
+```bash
+curl "http://api-shim.example.org/v3/packages/<guid>/upload" \
+  -X POST \
+  -F bits=@"<path-to-app-source.zip>"
+```
+ 
 ### Builds
 
 Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#builds

@@ -54,7 +54,7 @@ var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec
 
 		it("fetches the CFDomain CR we're looking for", func() {
 			domainRepo := DomainRepo{}
-			client, err := BuildClient(k8sConfig)
+			client, err := BuildCRClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			domain := DomainRecord{}
@@ -75,7 +75,7 @@ var _ = SuiteDescribe("Domain API Shim", func(t *testing.T, when spec.G, it spec
 	when("no CFDomain exists", func() {
 		it("returns an error", func() {
 			domainRepo := DomainRepo{}
-			client, err := BuildClient(k8sConfig)
+			client, err := BuildCRClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			_, err = domainRepo.FetchDomain(testCtx, client, "non-existent-domain-guid")

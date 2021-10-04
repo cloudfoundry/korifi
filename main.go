@@ -1,22 +1,28 @@
 package main
 
 import (
-	"code.cloudfoundry.org/cf-k8s-api/payloads"
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/pivotal/kpack/pkg/registry"
+	k8sclient "k8s.io/client-go/kubernetes"
+
 	"code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/config"
+	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
+	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
+	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
@@ -51,7 +57,11 @@ func main() {
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
 
-	privilegedClient, err := repositories.BuildClient(k8sClientConfig)
+	privilegedCRClient, err := repositories.BuildCRClient(k8sClientConfig)
+	if err != nil {
+		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
+	}
+	privilegedK8sClient, err := repositories.BuildK8sClient(k8sClientConfig)
 	if err != nil {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
@@ -66,37 +76,41 @@ func main() {
 		apis.NewAppHandler(
 			ctrl.Log.WithName("AppHandler"),
 			config.ServerURL,
-			&repositories.AppRepo{},
-			repositories.BuildClient,
+			new(repositories.AppRepo),
+			repositories.BuildCRClient,
 			k8sClientConfig,
 		),
 		apis.NewRouteHandler(
 			ctrl.Log.WithName("RouteHandler"),
 			config.ServerURL,
-			&repositories.RouteRepo{},
-			&repositories.DomainRepo{},
-			&repositories.AppRepo{},
-			repositories.BuildClient,
+			new(repositories.RouteRepo),
+			new(repositories.DomainRepo),
+			new(repositories.AppRepo),
+			repositories.BuildCRClient,
 			k8sClientConfig,
 		),
 		apis.NewPackageHandler(
 			ctrl.Log.WithName("PackageHandler"),
 			config.ServerURL,
-			&repositories.PackageRepo{},
-			&repositories.AppRepo{},
-			repositories.BuildClient,
+			new(repositories.PackageRepo),
+			new(repositories.AppRepo),
+			repositories.BuildCRClient,
+			repositories.UploadSourceImage,
+			newRegistryAuthBuilder(privilegedK8sClient, config),
 			k8sClientConfig,
+			config.PackageRegistryBase,
+			config.PackageRegistrySecretName,
 		),
 		apis.NewBuildHandler(
 			ctrl.Log.WithName("BuildHandler"),
 			config.ServerURL,
-			&repositories.BuildRepo{},
-			&repositories.PackageRepo{},
-			repositories.BuildClient,
+			new(repositories.BuildRepo),
+			new(repositories.PackageRepo),
+			repositories.BuildCRClient,
 			k8sClientConfig,
 		),
 		apis.NewOrgHandler(
-			repositories.NewOrgRepo(config.RootNamespace, privilegedClient),
+			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient),
 			config.ServerURL,
 		),
 	}
@@ -108,4 +122,22 @@ func main() {
 
 	portString := fmt.Sprintf(":%v", config.ServerPort)
 	log.Fatal(http.ListenAndServe(portString, router))
+}
+
+func newRegistryAuthBuilder(privilegedK8sClient k8sclient.Interface, config *config.Config) func(ctx context.Context) (remote.Option, error) {
+	return func(ctx context.Context) (remote.Option, error) {
+		keychainFactory, err := k8sdockercreds.NewSecretKeychainFactory(privilegedK8sClient)
+		if err != nil {
+			return nil, fmt.Errorf("error in k8sdockercreds.NewSecretKeychainFactory: %w", err)
+		}
+		keychain, err := keychainFactory.KeychainForSecretRef(ctx, registry.SecretRef{
+			Namespace:        config.RootNamespace,
+			ImagePullSecrets: []corev1.LocalObjectReference{{Name: config.PackageRegistrySecretName}},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", err)
+		}
+
+		return remote.WithAuthFromKeychain(keychain), nil
+	}
 }

@@ -41,6 +41,21 @@ type CFPackageRepository struct {
 		result1 repositories.PackageRecord
 		result2 error
 	}
+	UpdatePackageSourceStub        func(context.Context, client.Client, repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)
+	updatePackageSourceMutex       sync.RWMutex
+	updatePackageSourceArgsForCall []struct {
+		arg1 context.Context
+		arg2 client.Client
+		arg3 repositories.PackageUpdateSourceMessage
+	}
+	updatePackageSourceReturns struct {
+		result1 repositories.PackageRecord
+		result2 error
+	}
+	updatePackageSourceReturnsOnCall map[int]struct {
+		result1 repositories.PackageRecord
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -177,6 +192,72 @@ func (fake *CFPackageRepository) FetchPackageReturnsOnCall(i int, result1 reposi
 	}{result1, result2}
 }
 
+func (fake *CFPackageRepository) UpdatePackageSource(arg1 context.Context, arg2 client.Client, arg3 repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error) {
+	fake.updatePackageSourceMutex.Lock()
+	ret, specificReturn := fake.updatePackageSourceReturnsOnCall[len(fake.updatePackageSourceArgsForCall)]
+	fake.updatePackageSourceArgsForCall = append(fake.updatePackageSourceArgsForCall, struct {
+		arg1 context.Context
+		arg2 client.Client
+		arg3 repositories.PackageUpdateSourceMessage
+	}{arg1, arg2, arg3})
+	stub := fake.UpdatePackageSourceStub
+	fakeReturns := fake.updatePackageSourceReturns
+	fake.recordInvocation("UpdatePackageSource", []interface{}{arg1, arg2, arg3})
+	fake.updatePackageSourceMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFPackageRepository) UpdatePackageSourceCallCount() int {
+	fake.updatePackageSourceMutex.RLock()
+	defer fake.updatePackageSourceMutex.RUnlock()
+	return len(fake.updatePackageSourceArgsForCall)
+}
+
+func (fake *CFPackageRepository) UpdatePackageSourceCalls(stub func(context.Context, client.Client, repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)) {
+	fake.updatePackageSourceMutex.Lock()
+	defer fake.updatePackageSourceMutex.Unlock()
+	fake.UpdatePackageSourceStub = stub
+}
+
+func (fake *CFPackageRepository) UpdatePackageSourceArgsForCall(i int) (context.Context, client.Client, repositories.PackageUpdateSourceMessage) {
+	fake.updatePackageSourceMutex.RLock()
+	defer fake.updatePackageSourceMutex.RUnlock()
+	argsForCall := fake.updatePackageSourceArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFPackageRepository) UpdatePackageSourceReturns(result1 repositories.PackageRecord, result2 error) {
+	fake.updatePackageSourceMutex.Lock()
+	defer fake.updatePackageSourceMutex.Unlock()
+	fake.UpdatePackageSourceStub = nil
+	fake.updatePackageSourceReturns = struct {
+		result1 repositories.PackageRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFPackageRepository) UpdatePackageSourceReturnsOnCall(i int, result1 repositories.PackageRecord, result2 error) {
+	fake.updatePackageSourceMutex.Lock()
+	defer fake.updatePackageSourceMutex.Unlock()
+	fake.UpdatePackageSourceStub = nil
+	if fake.updatePackageSourceReturnsOnCall == nil {
+		fake.updatePackageSourceReturnsOnCall = make(map[int]struct {
+			result1 repositories.PackageRecord
+			result2 error
+		})
+	}
+	fake.updatePackageSourceReturnsOnCall[i] = struct {
+		result1 repositories.PackageRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFPackageRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -184,6 +265,8 @@ func (fake *CFPackageRepository) Invocations() map[string][][]interface{} {
 	defer fake.createPackageMutex.RUnlock()
 	fake.fetchPackageMutex.RLock()
 	defer fake.fetchPackageMutex.RUnlock()
+	fake.updatePackageSourceMutex.RLock()
+	defer fake.updatePackageSourceMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
