@@ -50,8 +50,7 @@ Refer to the [default config](config/cf_k8s_api_config.yaml) for the config file
 required.*
 
 ## Regenerate kubernetes resources after making changes
-To regenerate the kubernetes resources under `./config`, run `make generate` or `go generate ./...`
-from the root of the project.
+To regenerate the kubernetes resources under `./config`, run `make manifests` from the root of the project.
 
 ## Generate reference yaml
 ```
@@ -67,4 +66,3 @@ You can deploy the app to your cluster by running `make deploy` from the project
 
 ### Using Kubectl
 You can deploy the app to your cluster by running `kubectl apply -f reference/cf-k8s-api.yaml` from the project root.
-
