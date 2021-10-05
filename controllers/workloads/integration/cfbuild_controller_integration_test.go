@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"encoding/base64"
 	"time"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
@@ -19,8 +20,9 @@ import (
 
 var _ = Describe("CFBuildReconciler", func() {
 	const (
-		succeededConditionType  = "Succeeded"
-		kpackReadyConditionType = "Ready"
+		succeededConditionType              = "Succeeded"
+		kpackReadyConditionType             = "Ready"
+		wellFormedRegistryCredentialsSecret = "image-registry-credentials"
 	)
 
 	When("CFBuild status conditions are missing or unknown", func() {
@@ -197,7 +199,43 @@ var _ = Describe("CFBuildReconciler", func() {
 			desiredCFApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
 
+			dockerRegistryUsername := "user"
+			dockerRegistryPassword := "password"
+			dockerAuth := base64.StdEncoding.EncodeToString([]byte(dockerRegistryUsername + ":" + dockerRegistryPassword))
+			dockerConfigJSON := `{"auths":{"https://index.docker.io/v1/":{"username":"` + dockerRegistryUsername + `","password":"` + dockerRegistryPassword + `","auth":"` + dockerAuth + `"}}}`
+			dockerRegistrySecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      wellFormedRegistryCredentialsSecret,
+					Namespace: namespaceGUID,
+				},
+				Immutable: nil,
+				Data:      nil,
+				StringData: map[string]string{
+					".dockerconfigjson": dockerConfigJSON,
+				},
+				Type: "kubernetes.io/dockerconfigjson",
+			}
+			Expect(k8sClient.Create(beforeCtx, dockerRegistrySecret)).To(Succeed())
+
+			//registryServiceAccountName := namespaceGUID + "-kpack-service-account"
+			//registryServiceAccount := &corev1.ServiceAccount{
+			//	ObjectMeta: metav1.ObjectMeta{
+			//		Name:      registryServiceAccountName,
+			//		Namespace: namespaceGUID,
+			//	},
+			//	Secrets:          []corev1.ObjectReference{corev1.ObjectReference{Name: wellFormedRegistryCredentialsSecret}},
+			//	ImagePullSecrets: []corev1.LocalObjectReference{corev1.LocalObjectReference{Name: wellFormedRegistryCredentialsSecret}},
+			//}
+			registryServiceAccount := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: namespaceGUID,
+				},
+			}
+			Expect(k8sClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
+
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
+			desiredCFPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{corev1.LocalObjectReference{Name: wellFormedRegistryCredentialsSecret}}
 			Expect(k8sClient.Create(beforeCtx, desiredCFPackage)).To(Succeed())
 
 			desiredCFBuild = BuildCFBuildObject(cfBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
@@ -252,6 +290,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			BeforeEach(func() {
 				testCtx := context.Background()
 
+				// Fill out fake ImageProcessFetcher
 				returnedProcessTypes = []workloadsv1alpha1.ProcessType{{Type: "web", Command: "my-command"}, {Type: "db", Command: "my-command2"}}
 				returnedPorts = []int32{8080, 8443}
 				fakeImageProcessFetcher.Returns(
@@ -275,13 +314,16 @@ var _ = Describe("CFBuildReconciler", func() {
 				testCtx := context.Background()
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				createdCFBuild := new(workloadsv1alpha1.CFBuild)
-				Eventually(func() bool {
-					err := k8sClient.Get(testCtx, cfBuildLookupKey, createdCFBuild)
-					if err != nil {
-						return false
-					}
-					return meta.IsStatusConditionTrue(createdCFBuild.Status.Conditions, succeededConditionType)
-				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
+				Describe("does this work?", func() {
+					Eventually(func() bool {
+						err := k8sClient.Get(testCtx, cfBuildLookupKey, createdCFBuild)
+						if err != nil {
+							return false
+						}
+						return meta.IsStatusConditionTrue(createdCFBuild.Status.Conditions, succeededConditionType)
+					}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
+				})
+
 			})
 
 			It("should eventually set BuildStatusDroplet object", func() {

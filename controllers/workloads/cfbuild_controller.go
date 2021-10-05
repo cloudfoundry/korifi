@@ -21,22 +21,21 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
-	"github.com/pivotal/kpack/pkg/registry"
-	k8sclient "k8s.io/client-go/kubernetes"
-
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
+	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
+	"github.com/pivotal/kpack/pkg/registry"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sclient "k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -63,6 +62,8 @@ func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface) RegistryAut
 		keychain, err := keychainFactory.KeychainForSecretRef(ctx, registry.SecretRef{
 			Namespace:        namespace,
 			ImagePullSecrets: imagePullSecrets,
+			//ServiceAccount: namespace + kpackServiceAccountSuffix,
+			// Service account goes here
 		})
 		if err != nil {
 			return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", err)
@@ -166,7 +167,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType, metav1.ConditionTrue, "kpack", "kpack")
 			// Generate Droplet object using Kpack Image and set it on CFBuild local copy
-			cfBuild.Status.BuildDropletStatus = r.generateBuildDropletStatus(&kpackImage)
+			cfBuild.Status.BuildDropletStatus = r.generateBuildDropletStatus(ctx, &kpackImage)
 			// Call Status().Update() tp push updates to the server
 			if err := r.Client.Status().Update(ctx, &cfBuild); err != nil {
 				r.Log.Error(err, "Error when updating CFBuild status")
@@ -242,22 +243,36 @@ func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, des
 	return nil
 }
 
-func (r *CFBuildReconciler) generateBuildDropletStatus(kpackImage *buildv1alpha1.Image) *workloadsv1alpha1.BuildDropletStatus {
+func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpackImage *buildv1alpha1.Image) *workloadsv1alpha1.BuildDropletStatus {
+
+	imageRef := kpackImage.Status.LatestImage
+	imagePullSecrets := kpackImage.Spec.Source.Registry.ImagePullSecrets
+
+	// Use ImagePullSecrets to extract credentials with RegistryAuthFetcher
+	// RegistryAuthFetcher func(ctx context.Context, imagePullSecrets []corev1.LocalObjectReference, namespace string) (remote.Option, error)
+	credentials, err := r.RegistryAuthFetcher(ctx, imagePullSecrets, kpackImage.Namespace)
+	if err != nil {
+
+		panic(fmt.Sprintf("%v", err))
+	}
+
+	// Use the credentials to get the values of Ports and ProcessTypes
+	dropletProcessTypes, dropletPorts, err := r.ImageProcessFetcher(imageRef, credentials)
+	if err != nil {
+		panic("TODO")
+	}
+
 	return &workloadsv1alpha1.BuildDropletStatus{
 		Registry: workloadsv1alpha1.Registry{
-			Image: kpackImage.Status.LatestImage,
+			Image: imageRef,
 			//TODO: has implications on security. revisit this after getting consensus.
-			ImagePullSecrets: kpackImage.Spec.Source.Registry.ImagePullSecrets,
+			ImagePullSecrets: imagePullSecrets,
 		},
-		// ProceesTypes & Ports are required fields. Hence, populating with dummy values
+
+		// ProcessTypes & Ports are required fields. Hence, populating with dummy values
 		// Populating with real values will be handled in a future story
-		ProcessTypes: []workloadsv1alpha1.ProcessType{
-			{
-				Type:    "web",
-				Command: "my-command",
-			},
-		},
-		Ports: []int32{8080},
+		ProcessTypes: dropletProcessTypes,
+		Ports:        dropletPorts,
 	}
 }
 
