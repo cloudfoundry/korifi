@@ -104,3 +104,9 @@ rules:
   - cfpackages/status
   verbs:
   - get
+- apiGroups:
+  - hnc.x-k8s.io
+  resources:
+  - subnamespaceanchors
+  verbs:
+  - list

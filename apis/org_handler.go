@@ -47,6 +47,7 @@ func (h *OrgHandler) OrgListHandler(w http.ResponseWriter, r *http.Request) {
 
 	orgs, err := h.orgRepo.FetchOrgs(ctx, names)
 	if err != nil {
+		h.logger.Error(err, "failed to fetch orgs")
 		writeUnknownErrorResponse(w)
 
 		return
