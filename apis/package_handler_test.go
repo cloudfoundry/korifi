@@ -199,7 +199,7 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			itRespondsWithUnknownErrorForGinkgo(getRR)
+			itRespondsWithUnknownError(getRR)
 
 			It("doesn't create a package", func() {
 				Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
@@ -342,7 +342,7 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			itRespondsWithUnknownErrorForGinkgo(getRR)
+			itRespondsWithUnknownError(getRR)
 
 			It("doesn't create a Package", func() {
 				Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
@@ -355,7 +355,7 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			itRespondsWithUnknownErrorForGinkgo(getRR)
+			itRespondsWithUnknownError(getRR)
 		})
 	})
 
@@ -541,7 +541,7 @@ var _ = Describe("PackageHandler", func() {
 				makeUploadRequest("no-such-package-guid", strings.NewReader("the-zip-contents"))
 			})
 
-			itRespondsWithNotFoundForGinkgo("Package not found", getRR)
+			itRespondsWithNotFound("Package not found", getRR)
 
 			It("doesn't build an image from the source", func() {
 				Expect(uploadImageSource.CallCount()).To(Equal(0))
@@ -559,7 +559,7 @@ var _ = Describe("PackageHandler", func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
-			itRespondsWithUnknownErrorForGinkgo(getRR)
+			itRespondsWithUnknownError(getRR)
 
 			It("doesn't build an image from the source", func() {
 				Expect(uploadImageSource.CallCount()).To(Equal(0))
@@ -577,7 +577,7 @@ var _ = Describe("PackageHandler", func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
-			itRespondsWithUnknownErrorForGinkgo(getRR)
+			itRespondsWithUnknownError(getRR)
 
 			It("doesn't build an image from the source", func() {
 				Expect(uploadImageSource.CallCount()).To(Equal(0))
@@ -638,7 +638,7 @@ var _ = Describe("PackageHandler", func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
-			itRespondsWithUnknownErrorForGinkgo(getRR)
+			itRespondsWithUnknownError(getRR)
 
 			It("doesn't build an image from the source", func() {
 				Expect(uploadImageSource.CallCount()).To(Equal(0))
@@ -656,7 +656,7 @@ var _ = Describe("PackageHandler", func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
-			itRespondsWithUnknownErrorForGinkgo(getRR)
+			itRespondsWithUnknownError(getRR)
 
 			It("doesn't update any Packages", func() {
 				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
@@ -670,7 +670,7 @@ var _ = Describe("PackageHandler", func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
-			itRespondsWithUnknownErrorForGinkgo(getRR)
+			itRespondsWithUnknownError(getRR)
 		})
 	})
 })

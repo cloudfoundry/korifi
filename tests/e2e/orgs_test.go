@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"testing"
 
 	. "github.com/onsi/gomega/gstruct"
 
@@ -19,43 +18,45 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
-var _ = SuiteDescribe("listing orgs", func(t *testing.T, when spec.G, it spec.S) {
-	var org1, org2, org3 string
+var _ = Describe("Orgs", func() {
+	Describe("Listing Orgs", func() {
+		var org1, org2, org3 string
 
-	it.Before(func() {
-		org1 = generateGUID()
-		org2 = generateGUID()
-		org3 = generateGUID()
-		createSubnamespaces(rootNamespace, org1, org2, org3)
-	})
+		BeforeEach(func() {
+			org1 = generateGUID()
+			org2 = generateGUID()
+			org3 = generateGUID()
+			createSubnamespaces(rootNamespace, org1, org2, org3)
+		})
 
-	it.After(func() {
-		deleteSubnamespaces(rootNamespace, org1, org2, org3)
-	})
+		AfterEach(func() {
+			deleteSubnamespaces(rootNamespace, org1, org2, org3)
+		})
 
-	it("returns all 3 orgs", func() {
-		g.Eventually(getOrgs()).Should(ContainElements(
-			MatchFields(IgnoreExtras, Fields{"Name": Equal(org1)}),
-			MatchFields(IgnoreExtras, Fields{"Name": Equal(org2)}),
-			MatchFields(IgnoreExtras, Fields{"Name": Equal(org3)}),
-		))
-	})
-
-	when("org names are filtered", func() {
-		it("returns orgs 1 & 3", func() {
-			g.Eventually(getOrgs(org1, org3)).Should(ContainElements(
+		It("returns all 3 orgs", func() {
+			Eventually(getOrgs()).Should(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(org1)}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(org2)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(org3)}),
 			))
-			g.Consistently(getOrgs(org1, org3), "2s").ShouldNot(ContainElement(
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(org2)}),
-			))
+		})
+
+		When("org names are filtered", func() {
+			It("returns orgs 1 & 3", func() {
+				Eventually(getOrgs(org1, org3)).Should(ContainElements(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org1)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org3)}),
+				))
+				Consistently(getOrgs(org1, org3), "2s").ShouldNot(ContainElement(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org2)}),
+				))
+			})
 		})
 	})
 })
@@ -108,7 +109,7 @@ func createSubnamespaces(parent string, names ...string) {
 		anchor.Namespace = parent
 		anchor.Labels = map[string]string{repositories.OrgNameLabel: name}
 		err := k8sClient.Create(ctx, anchor)
-		g.Expect(err).NotTo(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 	}
 }
 
@@ -116,11 +117,11 @@ func deleteSubnamespaces(parent string, names ...string) {
 	ctx := context.Background()
 
 	namesRequirement, err := labels.NewRequirement(repositories.OrgNameLabel, selection.In, names)
-	g.Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 	namesSelector := client.MatchingLabelsSelector{
 		Selector: labels.NewSelector().Add(*namesRequirement),
 	}
 
 	err = k8sClient.DeleteAllOf(ctx, &hnsv1alpha2.SubnamespaceAnchor{}, client.InNamespace(parent), namesSelector)
-	g.Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 }

@@ -7,15 +7,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"testing"
 
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 
 	"github.com/gorilla/mux"
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
-	"github.com/sclevine/spec/report"
 	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -24,93 +22,87 @@ const (
 	testBuildHandlerLoggerName = "TestBuildHandler"
 )
 
-func TestBuild(t *testing.T) {
-	spec.Run(t, "the GET /v3/builds/{guid} endpoint", testBuildGetHandler, spec.Report(report.Terminal{}))
-	spec.Run(t, "the POST /v3/builds endpoint", testBuildCreateHandler, spec.Report(report.Terminal{}))
-}
+var _ = Describe("BuildHandler", func() {
+	Describe("the GET /v3/builds/{guid} endpoint", func() {
+		const (
+			appGUID     = "test-app-guid"
+			packageGUID = "test-package-guid"
+			buildGUID   = "test-build-guid"
 
-func testBuildGetHandler(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
+			stagingMem  = 1024
+			stagingDisk = 2048
 
-	const (
-		appGUID     = "test-app-guid"
-		packageGUID = "test-package-guid"
-		buildGUID   = "test-build-guid"
-
-		stagingMem  = 1024
-		stagingDisk = 2048
-
-		createdAt = "1906-04-18T13:12:00Z"
-		updatedAt = "1906-04-18T13:12:01Z"
-	)
-
-	var (
-		rr            *httptest.ResponseRecorder
-		req           *http.Request
-		buildRepo     *fake.CFBuildRepository
-		clientBuilder *fake.ClientBuilder
-		router        *mux.Router
-	)
-
-	getRR := func() *httptest.ResponseRecorder { return rr }
-
-	// set up happy path defaults
-	it.Before(func() {
-		buildRepo = new(fake.CFBuildRepository)
-		buildRepo.FetchBuildReturns(repositories.BuildRecord{
-			GUID:            buildGUID,
-			State:           "STAGING",
-			CreatedAt:       createdAt,
-			UpdatedAt:       updatedAt,
-			StagingMemoryMB: stagingMem,
-			StagingDiskMB:   stagingDisk,
-			Lifecycle: repositories.Lifecycle{
-				Type: "buildpack",
-				Data: repositories.LifecycleData{
-					Buildpacks: []string{},
-					Stack:      "",
-				},
-			},
-			PackageGUID: packageGUID,
-			AppGUID:     appGUID,
-		}, nil)
-
-		var err error
-		req, err = http.NewRequest("GET", "/v3/builds/"+buildGUID, nil)
-		g.Expect(err).NotTo(HaveOccurred())
-
-		rr = httptest.NewRecorder()
-		router = mux.NewRouter()
-		clientBuilder = new(fake.ClientBuilder)
-
-		buildHandler := NewBuildHandler(
-			logf.Log.WithName(testBuildHandlerLoggerName),
-			defaultServerURL,
-			buildRepo,
-			new(fake.CFPackageRepository),
-			clientBuilder.Spy,
-			&rest.Config{},
+			createdAt = "1906-04-18T13:12:00Z"
+			updatedAt = "1906-04-18T13:12:01Z"
 		)
-		buildHandler.RegisterRoutes(router)
-	})
 
-	when("on the happy path", func() {
-		when("build staging is not complete", func() {
-			it.Before(func() {
-				router.ServeHTTP(rr, req)
-			})
+		var (
+			rr            *httptest.ResponseRecorder
+			req           *http.Request
+			buildRepo     *fake.CFBuildRepository
+			clientBuilder *fake.ClientBuilder
+			router        *mux.Router
+		)
 
-			it("returns status 200 OK", func() {
-				g.Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+		getRR := func() *httptest.ResponseRecorder { return rr }
 
-			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
+		// set up happy path defaults
+		BeforeEach(func() {
+			buildRepo = new(fake.CFBuildRepository)
+			buildRepo.FetchBuildReturns(repositories.BuildRecord{
+				GUID:            buildGUID,
+				State:           "STAGING",
+				CreatedAt:       createdAt,
+				UpdatedAt:       updatedAt,
+				StagingMemoryMB: stagingMem,
+				StagingDiskMB:   stagingDisk,
+				Lifecycle: repositories.Lifecycle{
+					Type: "buildpack",
+					Data: repositories.LifecycleData{
+						Buildpacks: []string{},
+						Stack:      "",
+					},
+				},
+				PackageGUID: packageGUID,
+				AppGUID:     appGUID,
+			}, nil)
 
-			it("returns the Build in the response", func() {
-				g.Expect(rr.Body.String()).To(MatchJSON(`{
+			var err error
+			req, err = http.NewRequest("GET", "/v3/builds/"+buildGUID, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			rr = httptest.NewRecorder()
+			router = mux.NewRouter()
+			clientBuilder = new(fake.ClientBuilder)
+
+			buildHandler := NewBuildHandler(
+				logf.Log.WithName(testBuildHandlerLoggerName),
+				defaultServerURL,
+				buildRepo,
+				new(fake.CFPackageRepository),
+				clientBuilder.Spy,
+				&rest.Config{},
+			)
+			buildHandler.RegisterRoutes(router)
+		})
+
+		When("on the happy path", func() {
+			When("build staging is not complete", func() {
+				BeforeEach(func() {
+					router.ServeHTTP(rr, req)
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				})
+
+				It("returns the Build in the response", func() {
+					Expect(rr.Body.String()).To(MatchJSON(`{
 					"guid": "`+buildGUID+`",
 					"created_at": "`+createdAt+`",
 					"updated_at": "`+updatedAt+`",
@@ -150,43 +142,43 @@ func testBuildGetHandler(t *testing.T, when spec.G, it spec.S) {
 						}
 					}
 				}`), "Response body matches response:")
+				})
 			})
-		})
-		when("build staging is successful", func() {
+			When("build staging is successful", func() {
 
-			it.Before(func() {
-				buildRepo.FetchBuildReturns(repositories.BuildRecord{
-					GUID:            buildGUID,
-					State:           "STAGED",
-					CreatedAt:       createdAt,
-					UpdatedAt:       updatedAt,
-					StagingMemoryMB: stagingMem,
-					StagingDiskMB:   stagingDisk,
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
+				BeforeEach(func() {
+					buildRepo.FetchBuildReturns(repositories.BuildRecord{
+						GUID:            buildGUID,
+						State:           "STAGED",
+						CreatedAt:       createdAt,
+						UpdatedAt:       updatedAt,
+						StagingMemoryMB: stagingMem,
+						StagingDiskMB:   stagingDisk,
+						Lifecycle: repositories.Lifecycle{
+							Type: "buildpack",
+							Data: repositories.LifecycleData{
+								Buildpacks: []string{},
+								Stack:      "",
+							},
 						},
-					},
-					PackageGUID: packageGUID,
-					DropletGUID: buildGUID,
-					AppGUID:     appGUID,
-				}, nil)
-				router.ServeHTTP(rr, req)
-			})
+						PackageGUID: packageGUID,
+						DropletGUID: buildGUID,
+						AppGUID:     appGUID,
+					}, nil)
+					router.ServeHTTP(rr, req)
+				})
 
-			it("returns status 200 OK", func() {
-				g.Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
 
-			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				})
 
-			it("returns the Build in the response", func() {
-				g.Expect(rr.Body.String()).To(MatchJSON(`{
+				It("returns the Build in the response", func() {
+					Expect(rr.Body.String()).To(MatchJSON(`{
 					"guid": "`+buildGUID+`",
 					"created_at": "`+createdAt+`",
 					"updated_at": "`+updatedAt+`",
@@ -231,46 +223,46 @@ func testBuildGetHandler(t *testing.T, when spec.G, it spec.S) {
 						}
 					}
 				}`), "Response body matches response:")
+				})
 			})
-		})
-		when("build staging fails", func() {
-			const (
-				stagingErrorMsg = "StagingError: something went wrong during staging"
-			)
-			it.Before(func() {
-				buildRepo.FetchBuildReturns(repositories.BuildRecord{
-					GUID:            buildGUID,
-					State:           "FAILED",
-					CreatedAt:       createdAt,
-					UpdatedAt:       updatedAt,
-					StagingErrorMsg: stagingErrorMsg,
-					StagingMemoryMB: stagingMem,
-					StagingDiskMB:   stagingDisk,
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
+			When("build staging fails", func() {
+				const (
+					stagingErrorMsg = "StagingError: something went wrong during staging"
+				)
+				BeforeEach(func() {
+					buildRepo.FetchBuildReturns(repositories.BuildRecord{
+						GUID:            buildGUID,
+						State:           "FAILED",
+						CreatedAt:       createdAt,
+						UpdatedAt:       updatedAt,
+						StagingErrorMsg: stagingErrorMsg,
+						StagingMemoryMB: stagingMem,
+						StagingDiskMB:   stagingDisk,
+						Lifecycle: repositories.Lifecycle{
+							Type: "buildpack",
+							Data: repositories.LifecycleData{
+								Buildpacks: []string{},
+								Stack:      "",
+							},
 						},
-					},
-					PackageGUID: packageGUID,
-					DropletGUID: "",
-					AppGUID:     appGUID,
-				}, nil)
-				router.ServeHTTP(rr, req)
-			})
+						PackageGUID: packageGUID,
+						DropletGUID: "",
+						AppGUID:     appGUID,
+					}, nil)
+					router.ServeHTTP(rr, req)
+				})
 
-			it("returns status 200 OK", func() {
-				g.Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
 
-			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				})
 
-			it("returns the Build in the response", func() {
-				g.Expect(rr.Body.String()).To(MatchJSON(`{
+				It("returns the Build in the response", func() {
+					Expect(rr.Body.String()).To(MatchJSON(`{
 					"guid": "`+buildGUID+`",
 					"created_at": "`+createdAt+`",
 					"updated_at": "`+updatedAt+`",
@@ -310,177 +302,173 @@ func testBuildGetHandler(t *testing.T, when spec.G, it spec.S) {
 						}
 					}
 				}`), "Make sure there is no droplet and error is surfaced from record")
+				})
 			})
 		})
-	})
 
-	when("building the k8s client errors", func() {
-		it.Before(func() {
-			clientBuilder.Returns(nil, errors.New("boom"))
-			router.ServeHTTP(rr, req)
+		When("building the k8s client errors", func() {
+			BeforeEach(func() {
+				clientBuilder.Returns(nil, errors.New("boom"))
+				router.ServeHTTP(rr, req)
+			})
+
+			itRespondsWithUnknownError(getRR)
 		})
 
-		itRespondsWithUnknownError(it, g, getRR)
-	})
+		When("the build cannot be found", func() {
+			BeforeEach(func() {
+				buildRepo.FetchBuildReturns(repositories.BuildRecord{}, repositories.NotFoundError{})
 
-	when("the build cannot be found", func() {
-		it.Before(func() {
-			buildRepo.FetchBuildReturns(repositories.BuildRecord{}, repositories.NotFoundError{})
+				router.ServeHTTP(rr, req)
+			})
 
-			router.ServeHTTP(rr, req)
+			itRespondsWithNotFound("Build not found", getRR)
 		})
 
-		itRespondsWithNotFound(it, g, "Build not found", getRR)
-	})
+		When("there is some other error fetching the build", func() {
+			BeforeEach(func() {
+				buildRepo.FetchBuildReturns(repositories.BuildRecord{}, errors.New("unknown!"))
 
-	when("there is some other error fetching the build", func() {
-		it.Before(func() {
-			buildRepo.FetchBuildReturns(repositories.BuildRecord{}, errors.New("unknown!"))
+				router.ServeHTTP(rr, req)
+			})
+
+			itRespondsWithUnknownError(getRR)
+		})
+	})
+	Describe("the POST /v3/builds endpoint", func() {
+		var (
+			rr            *httptest.ResponseRecorder
+			packageRepo   *fake.CFPackageRepository
+			buildRepo     *fake.CFBuildRepository
+			clientBuilder *fake.ClientBuilder
+			router        *mux.Router
+		)
+
+		makePostRequest := func(body string) {
+			req, err := http.NewRequest("POST", "/v3/builds", strings.NewReader(body))
+			Expect(err).NotTo(HaveOccurred())
 
 			router.ServeHTTP(rr, req)
-		})
+		}
 
-		itRespondsWithUnknownError(it, g, getRR)
-	})
+		const (
+			packageGUID = "the-package-guid"
+			appGUID     = "the-app-guid"
+			buildGUID   = "test-build-guid"
 
-}
-
-func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
-
-	var (
-		rr            *httptest.ResponseRecorder
-		packageRepo   *fake.CFPackageRepository
-		buildRepo     *fake.CFBuildRepository
-		clientBuilder *fake.ClientBuilder
-		router        *mux.Router
-	)
-
-	makePostRequest := func(body string) {
-		req, err := http.NewRequest("POST", "/v3/builds", strings.NewReader(body))
-		g.Expect(err).NotTo(HaveOccurred())
-
-		router.ServeHTTP(rr, req)
-	}
-
-	const (
-		packageGUID = "the-package-guid"
-		appGUID     = "the-app-guid"
-		buildGUID   = "test-build-guid"
-
-		expectedStagingMem     = 1024
-		expectedStagingDisk    = 1024
-		expectedLifecycleType  = "buildpack"
-		expectedLifecycleStack = "cflinuxfs3"
-		spaceGUID              = "the-space-guid"
-		validBody              = `{
+			expectedStagingMem     = 1024
+			expectedStagingDisk    = 1024
+			expectedLifecycleType  = "buildpack"
+			expectedLifecycleStack = "cflinuxfs3"
+			spaceGUID              = "the-space-guid"
+			validBody              = `{
 			"package": {
 				"guid": "` + packageGUID + `"
         	}
 		}`
-		createdAt = "1906-04-18T13:12:00Z"
-		updatedAt = "1906-04-18T13:12:01Z"
-	)
-
-	getRR := func() *httptest.ResponseRecorder { return rr }
-
-	it.Before(func() {
-		rr = httptest.NewRecorder()
-		router = mux.NewRouter()
-
-		packageRepo = new(fake.CFPackageRepository)
-		packageRepo.FetchPackageReturns(repositories.PackageRecord{
-			Type:      "bits",
-			AppGUID:   appGUID,
-			SpaceGUID: spaceGUID,
-			GUID:      packageGUID,
-			State:     "READY",
-			CreatedAt: createdAt,
-			UpdatedAt: updatedAt,
-		}, nil)
-
-		buildRepo = new(fake.CFBuildRepository)
-		buildRepo.CreateBuildReturns(repositories.BuildRecord{
-			GUID:            buildGUID,
-			State:           "STAGING",
-			CreatedAt:       createdAt,
-			UpdatedAt:       updatedAt,
-			StagingMemoryMB: expectedStagingMem,
-			StagingDiskMB:   expectedStagingDisk,
-			Lifecycle: repositories.Lifecycle{
-				Type: expectedLifecycleType,
-				Data: repositories.LifecycleData{
-					Buildpacks: []string{},
-					Stack:      expectedLifecycleStack,
-				},
-			},
-			PackageGUID: packageGUID,
-			AppGUID:     appGUID,
-		}, nil)
-
-		clientBuilder = new(fake.ClientBuilder)
-		buildHandler := NewBuildHandler(
-			logf.Log.WithName(testBuildHandlerLoggerName),
-			defaultServerURL,
-			buildRepo,
-			packageRepo,
-			clientBuilder.Spy,
-			&rest.Config{},
+			createdAt = "1906-04-18T13:12:00Z"
+			updatedAt = "1906-04-18T13:12:01Z"
 		)
-		buildHandler.RegisterRoutes(router)
-	})
 
-	when("on the happy path", func() {
-		it.Before(func() {
-			makePostRequest(validBody)
-		})
+		getRR := func() *httptest.ResponseRecorder { return rr }
 
-		it("returns status 201", func() {
-			g.Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
-		})
+		BeforeEach(func() {
+			rr = httptest.NewRecorder()
+			router = mux.NewRouter()
 
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-		})
+			packageRepo = new(fake.CFPackageRepository)
+			packageRepo.FetchPackageReturns(repositories.PackageRecord{
+				Type:      "bits",
+				AppGUID:   appGUID,
+				SpaceGUID: spaceGUID,
+				GUID:      packageGUID,
+				State:     "READY",
+				CreatedAt: createdAt,
+				UpdatedAt: updatedAt,
+			}, nil)
 
-		it("configures the client", func() {
-			g.Expect(clientBuilder.CallCount()).To(Equal(1))
-		})
+			buildRepo = new(fake.CFBuildRepository)
+			buildRepo.CreateBuildReturns(repositories.BuildRecord{
+				GUID:            buildGUID,
+				State:           "STAGING",
+				CreatedAt:       createdAt,
+				UpdatedAt:       updatedAt,
+				StagingMemoryMB: expectedStagingMem,
+				StagingDiskMB:   expectedStagingDisk,
+				Lifecycle: repositories.Lifecycle{
+					Type: expectedLifecycleType,
+					Data: repositories.LifecycleData{
+						Buildpacks: []string{},
+						Stack:      expectedLifecycleStack,
+					},
+				},
+				PackageGUID: packageGUID,
+				AppGUID:     appGUID,
+			}, nil)
 
-		when("examining the BuildCreate message", func() {
-			var (
-				actualCreate repositories.BuildCreateMessage
+			clientBuilder = new(fake.ClientBuilder)
+			buildHandler := NewBuildHandler(
+				logf.Log.WithName(testBuildHandlerLoggerName),
+				defaultServerURL,
+				buildRepo,
+				packageRepo,
+				clientBuilder.Spy,
+				&rest.Config{},
 			)
-			it.Before(func() {
-				g.Expect(buildRepo.CreateBuildCallCount()).To(Equal(1), "buildRepo CreateBuild was not called")
-				_, _, actualCreate = buildRepo.CreateBuildArgsForCall(0)
-			})
-			it("has the same SpaceGUID as the package", func() {
-				g.Expect(actualCreate.SpaceGUID).To(Equal(spaceGUID))
-			})
-			it("has the same AppGUID as the package", func() {
-				g.Expect(actualCreate.AppGUID).To(Equal(appGUID))
-			})
-			it("has the same PackageGUID as the request", func() {
-				g.Expect(actualCreate.PackageGUID).To(Equal(packageGUID))
-			})
-			it("fills in values for StagingMemoryMB", func() {
-				g.Expect(actualCreate.StagingMemoryMB).To(Equal(expectedStagingMem))
-
-			})
-			it("fills in values for StagingDiskMB", func() {
-				g.Expect(actualCreate.StagingDiskMB).To(Equal(expectedStagingDisk))
-			})
-			it("fills in values for Lifecycle", func() {
-				g.Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
-				g.Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal([]string{}))
-				g.Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
-			})
+			buildHandler.RegisterRoutes(router)
 		})
 
-		it("returns the Build in the response", func() {
-			g.Expect(rr.Body.String()).To(MatchJSON(`{
+		When("on the happy path", func() {
+			BeforeEach(func() {
+				makePostRequest(validBody)
+			})
+
+			It("returns status 201", func() {
+				Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("configures the client", func() {
+				Expect(clientBuilder.CallCount()).To(Equal(1))
+			})
+
+			When("examining the BuildCreate message", func() {
+				var (
+					actualCreate repositories.BuildCreateMessage
+				)
+				BeforeEach(func() {
+					Expect(buildRepo.CreateBuildCallCount()).To(Equal(1), "buildRepo CreateBuild was not called")
+					_, _, actualCreate = buildRepo.CreateBuildArgsForCall(0)
+				})
+				It("has the same SpaceGUID as the package", func() {
+					Expect(actualCreate.SpaceGUID).To(Equal(spaceGUID))
+				})
+				It("has the same AppGUID as the package", func() {
+					Expect(actualCreate.AppGUID).To(Equal(appGUID))
+				})
+				It("has the same PackageGUID as the request", func() {
+					Expect(actualCreate.PackageGUID).To(Equal(packageGUID))
+				})
+				It("fills in values for StagingMemoryMB", func() {
+					Expect(actualCreate.StagingMemoryMB).To(Equal(expectedStagingMem))
+
+				})
+				It("fills in values for StagingDiskMB", func() {
+					Expect(actualCreate.StagingDiskMB).To(Equal(expectedStagingDisk))
+				})
+				It("fills in values for Lifecycle", func() {
+					Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
+					Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal([]string{}))
+					Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
+				})
+			})
+
+			It("returns the Build in the response", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`{
 					"guid": "`+buildGUID+`",
 					"created_at": "`+createdAt+`",
 					"updated_at": "`+updatedAt+`",
@@ -520,27 +508,27 @@ func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
 						}
 					}
 				}`), "Response body matches response:")
-		})
-	})
-
-	when("the package doesn't exist", func() {
-		it.Before(func() {
-			packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
-
-			makePostRequest(validBody)
+			})
 		})
 
-		it("returns status 422", func() {
-			g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-		})
+		When("the package doesn't exist", func() {
+			BeforeEach(func() {
+				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
 
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-		})
+				makePostRequest(validBody)
+			})
 
-		it("responds with error code", func() {
-			g.Expect(rr.Body.String()).To(MatchJSON(`{
+			It("returns status 422", func() {
+				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("responds with error code", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`{
 					"errors": [
 						{
 							"code": 10008,
@@ -549,65 +537,65 @@ func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
 						}
 					]
 				}`))
+			})
+
+			It("doesn't create a build", func() {
+				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
+			})
 		})
 
-		it("doesn't create a build", func() {
-			g.Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
-		})
-	})
+		When("the package exists check returns an error", func() {
+			BeforeEach(func() {
+				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
 
-	when("the package exists check returns an error", func() {
-		it.Before(func() {
-			packageRepo.FetchPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+				makePostRequest(validBody)
+			})
 
-			makePostRequest(validBody)
-		})
+			itRespondsWithUnknownError(getRR)
 
-		itRespondsWithUnknownError(it, g, getRR)
-
-		it("doesn't create a build", func() {
-			g.Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
-		})
-	})
-
-	when("building the k8s client errors", func() {
-		it.Before(func() {
-			clientBuilder.Returns(nil, errors.New("boom"))
-			makePostRequest(validBody)
+			It("doesn't create a build", func() {
+				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
+			})
 		})
 
-		itRespondsWithUnknownError(it, g, getRR)
+		When("building the k8s client errors", func() {
+			BeforeEach(func() {
+				clientBuilder.Returns(nil, errors.New("boom"))
+				makePostRequest(validBody)
+			})
 
-		it("doesn't create a Build", func() {
-			g.Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
-		})
-	})
+			itRespondsWithUnknownError(getRR)
 
-	when("creating the build in the repo errors", func() {
-		it.Before(func() {
-			buildRepo.CreateBuildReturns(repositories.BuildRecord{}, errors.New("boom"))
-			makePostRequest(validBody)
-		})
-
-		itRespondsWithUnknownError(it, g, getRR)
-	})
-
-	when("the JSON body is invalid", func() {
-		it.Before(func() {
-			makePostRequest(`{`)
+			It("doesn't create a Build", func() {
+				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
+			})
 		})
 
-		it("returns a status 400 Bad Request ", func() {
-			g.Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+		When("creating the build in the repo errors", func() {
+			BeforeEach(func() {
+				buildRepo.CreateBuildReturns(repositories.BuildRecord{}, errors.New("boom"))
+				makePostRequest(validBody)
+			})
+
+			itRespondsWithUnknownError(getRR)
 		})
 
-		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-		})
+		When("the JSON body is invalid", func() {
+			BeforeEach(func() {
+				makePostRequest(`{`)
+			})
 
-		it("has the expected error response body", func() {
-			g.Expect(rr.Body.String()).To(MatchJSON(`{
+			It("returns a status 400 Bad Request ", func() {
+				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("has the expected error response body", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`{
 						"errors": [
 							{
 								"title": "CF-MessageParseError",
@@ -616,7 +604,7 @@ func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
 							}
 						]
 					}`), "Response body matches response:")
+			})
 		})
 	})
-
-}
+})

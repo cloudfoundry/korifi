@@ -6,16 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"testing"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"github.com/gorilla/mux"
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
-	"github.com/sclevine/spec/report"
 )
 
 const (
@@ -23,73 +21,68 @@ const (
 	orgsBase = "/v3/organizations"
 )
 
-func TestOrg(t *testing.T) {
-	spec.Run(t, "listing orgs", testListingOrgs, spec.Report(report.Terminal{}))
-}
+var _ = Describe("OrgHandler", func() {
+	Describe("Listing Orgs", func() {
+		var (
+			ctx        context.Context
+			router     *mux.Router
+			orgHandler *apis.OrgHandler
+			orgRepo    *fake.CFOrgRepository
+			req        *http.Request
+			rr         *httptest.ResponseRecorder
+			err        error
+		)
 
-func testListingOrgs(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
+		BeforeEach(func() {
+			ctx = context.Background()
+			orgRepo = new(fake.CFOrgRepository)
 
-	var (
-		ctx        context.Context
-		router     *mux.Router
-		orgHandler *apis.OrgHandler
-		orgRepo    *fake.CFOrgRepository
-		req        *http.Request
-		rr         *httptest.ResponseRecorder
-		err        error
-	)
+			now := time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
+			orgRepo.FetchOrgsReturns([]repositories.OrgRecord{
+				{
+					Name:      "alice",
+					GUID:      "a-l-i-c-e",
+					CreatedAt: now,
+					UpdatedAt: now,
+				},
+				{
+					Name:      "bob",
+					GUID:      "b-o-b",
+					CreatedAt: now,
+					UpdatedAt: now,
+				},
+			}, nil)
 
-	it.Before(func() {
-		ctx = context.Background()
-		orgRepo = new(fake.CFOrgRepository)
+			orgHandler = apis.NewOrgHandler(orgRepo, rootURL)
+			router = mux.NewRouter()
+			orgHandler.RegisterRoutes(router)
 
-		now := time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
-		orgRepo.FetchOrgsReturns([]repositories.OrgRecord{
-			{
-				Name:      "alice",
-				GUID:      "a-l-i-c-e",
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-			{
-				Name:      "bob",
-				GUID:      "b-o-b",
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-		}, nil)
-
-		orgHandler = apis.NewOrgHandler(orgRepo, rootURL)
-		router = mux.NewRouter()
-		orgHandler.RegisterRoutes(router)
-
-		rr = httptest.NewRecorder()
-		req, err = http.NewRequestWithContext(ctx, http.MethodGet, orgsBase, nil)
-		g.Expect(err).NotTo(HaveOccurred())
-	})
-
-	when("happy path", func() {
-		it.Before(func() {
-			router.ServeHTTP(rr, req)
+			rr = httptest.NewRecorder()
+			req, err = http.NewRequestWithContext(ctx, http.MethodGet, orgsBase, nil)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
-		it("returns 200", func() {
-			g.Expect(rr.Result().StatusCode).To(Equal(http.StatusOK))
-		})
+		When("happy path", func() {
+			BeforeEach(func() {
+				router.ServeHTTP(rr, req)
+			})
 
-		it("sets json content type", func() {
-			g.Expect(rr.Header().Get("Content-Type")).To(Equal("application/json"))
-		})
+			It("returns 200", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusOK))
+			})
 
-		it("lists orgs using the repository", func() {
-			g.Expect(orgRepo.FetchOrgsCallCount()).To(Equal(1))
-			_, names := orgRepo.FetchOrgsArgsForCall(0)
-			g.Expect(names).To(BeEmpty())
-		})
+			It("sets json content type", func() {
+				Expect(rr.Header().Get("Content-Type")).To(Equal("application/json"))
+			})
 
-		it("renders the orgs response", func() {
-			expectedBody := fmt.Sprintf(`
+			It("lists orgs using the repository", func() {
+				Expect(orgRepo.FetchOrgsCallCount()).To(Equal(1))
+				_, names := orgRepo.FetchOrgsArgsForCall(0)
+				Expect(names).To(BeEmpty())
+			})
+
+			It("renders the orgs response", func() {
+				expectedBody := fmt.Sprintf(`
                 {
                    "pagination": {
                       "total_results": 2,
@@ -140,31 +133,32 @@ func testListingOrgs(t *testing.T, when spec.G, it spec.S) {
                         }
                     ]
                 }`, rootURL)
-			g.Expect(rr.Body.String()).To(MatchJSON(expectedBody))
+				Expect(rr.Body.String()).To(MatchJSON(expectedBody))
+			})
+		})
+
+		When("names are specified", func() {
+			BeforeEach(func() {
+				req, err = http.NewRequestWithContext(ctx, http.MethodGet, orgsBase+"?names=foo,bar", nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				router.ServeHTTP(rr, req)
+			})
+
+			It("filters by them", func() {
+				Expect(orgRepo.FetchOrgsCallCount()).To(Equal(1))
+				_, names := orgRepo.FetchOrgsArgsForCall(0)
+				Expect(names).To(ConsistOf("foo", "bar"))
+			})
+		})
+
+		When("fetching the orgs fails", func() {
+			BeforeEach(func() {
+				orgRepo.FetchOrgsReturns(nil, errors.New("boom!"))
+				router.ServeHTTP(rr, req)
+			})
+
+			itRespondsWithUnknownError(func() *httptest.ResponseRecorder { return rr })
 		})
 	})
-
-	when("names are specified", func() {
-		it.Before(func() {
-			req, err = http.NewRequestWithContext(ctx, http.MethodGet, orgsBase+"?names=foo,bar", nil)
-			g.Expect(err).NotTo(HaveOccurred())
-
-			router.ServeHTTP(rr, req)
-		})
-
-		it("filters by them", func() {
-			g.Expect(orgRepo.FetchOrgsCallCount()).To(Equal(1))
-			_, names := orgRepo.FetchOrgsArgsForCall(0)
-			g.Expect(names).To(ConsistOf("foo", "bar"))
-		})
-	})
-
-	when("fetching the orgs fails", func() {
-		it.Before(func() {
-			orgRepo.FetchOrgsReturns(nil, errors.New("boom!"))
-			router.ServeHTTP(rr, req)
-		})
-
-		itRespondsWithUnknownError(it, g, func() *httptest.ResponseRecorder { return rr })
-	})
-}
+})
