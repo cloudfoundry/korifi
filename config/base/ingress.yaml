@@ -3,11 +3,11 @@ kind: HTTPProxy
 metadata:
   labels:
     app: cf-k8s-api
-  name: cf-k8s-api
+  name: proxy
   namespace: default
 spec:
   virtualhost:
-    fqdn: localhost
+    fqdn: API_URL
   routes:
   - conditions:
     - prefix: /

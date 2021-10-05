@@ -9,3 +9,14 @@ kind: Kustomization
 
 resources:
 - ../../base
+
+patches:
+- target:
+    group: projectcontour.io
+    version: v1
+    kind: HTTPProxy
+    name: proxy
+  patch: |-
+    - op: replace
+      path: /spec/virtualhost/fqdn
+      value: "localhost"
