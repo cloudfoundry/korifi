@@ -21,6 +21,10 @@ import (
 	"fmt"
 	"os"
 
+	k8sclient "k8s.io/client-go/kubernetes"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/imageprocessfetcher"
+
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
@@ -100,6 +104,12 @@ func main() {
 		panic(errorMessage)
 	}
 
+	k8sClientConfig := ctrl.GetConfigOrDie()
+	privilegedK8sClient, err := k8sclient.NewForConfig(k8sClientConfig)
+	if err != nil {
+		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
+	}
+
 	if err = (&workloadscontrollers.CFAppReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -109,11 +119,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	cfBuildImageProcessFetcher := &imageprocessfetcher.ImageProcessFetcher{
+		Log: ctrl.Log.WithName("controllers").WithName("CFBuildImageProcessFetcher"),
+	}
 	if err = (&workloadscontrollers.CFBuildReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		Log:              ctrl.Log.WithName("controllers").WithName("CFBuild"),
-		ControllerConfig: cfControllerConfig,
+		Client:              mgr.GetClient(),
+		Scheme:              mgr.GetScheme(),
+		Log:                 ctrl.Log.WithName("controllers").WithName("CFBuild"),
+		ControllerConfig:    cfControllerConfig,
+		RegistryAuthFetcher: workloadscontrollers.NewRegistryAuthFetcher(privilegedK8sClient),
+		ImageProcessFetcher: cfBuildImageProcessFetcher.Fetch,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
 		os.Exit(1)

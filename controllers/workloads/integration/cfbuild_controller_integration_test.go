@@ -2,10 +2,10 @@ package integration_test
 
 import (
 	"context"
-	"encoding/base64"
 	"time"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/testutils"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/testutils"
 	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
 	"github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
@@ -199,39 +199,11 @@ var _ = Describe("CFBuildReconciler", func() {
 			desiredCFApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
 
-			dockerRegistryUsername := "user"
-			dockerRegistryPassword := "password"
-			dockerAuth := base64.StdEncoding.EncodeToString([]byte(dockerRegistryUsername + ":" + dockerRegistryPassword))
-			dockerConfigJSON := `{"auths":{"https://index.docker.io/v1/":{"username":"` + dockerRegistryUsername + `","password":"` + dockerRegistryPassword + `","auth":"` + dockerAuth + `"}}}`
-			dockerRegistrySecret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      wellFormedRegistryCredentialsSecret,
-					Namespace: namespaceGUID,
-				},
-				Immutable: nil,
-				Data:      nil,
-				StringData: map[string]string{
-					".dockerconfigjson": dockerConfigJSON,
-				},
-				Type: "kubernetes.io/dockerconfigjson",
-			}
+			dockerRegistrySecret := testutils.BuildDockerRegistrySecret(wellFormedRegistryCredentialsSecret, namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, dockerRegistrySecret)).To(Succeed())
 
-			//registryServiceAccountName := namespaceGUID + "-kpack-service-account"
-			//registryServiceAccount := &corev1.ServiceAccount{
-			//	ObjectMeta: metav1.ObjectMeta{
-			//		Name:      registryServiceAccountName,
-			//		Namespace: namespaceGUID,
-			//	},
-			//	Secrets:          []corev1.ObjectReference{corev1.ObjectReference{Name: wellFormedRegistryCredentialsSecret}},
-			//	ImagePullSecrets: []corev1.LocalObjectReference{corev1.LocalObjectReference{Name: wellFormedRegistryCredentialsSecret}},
-			//}
-			registryServiceAccount := &corev1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default",
-					Namespace: namespaceGUID,
-				},
-			}
+			registryServiceAccountName := namespaceGUID + "-kpack-service-account"
+			registryServiceAccount := testutils.BuildServiceAccount(registryServiceAccountName, namespaceGUID, wellFormedRegistryCredentialsSecret)
 			Expect(k8sClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
 
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)

@@ -38,17 +38,27 @@ var _ = Describe("CFBuildReconciler", func() {
 		fakeClient       *fake.CFClient
 		fakeStatusWriter *fake.StatusWriter
 
-		cfAppGUID      string
-		cfPackageGUID  string
-		cfBuildGUID    string
-		kpackImageGUID string
+		fakeRegistryAuthFetcher *fake.RegistryAuthFetcher
+		fakeImageProcessFetcher *fake.ImageProcessFetcher
 
-		cfBuild           *workloadsv1alpha1.CFBuild
-		cfBuildError      error
-		cfApp             *workloadsv1alpha1.CFApp
-		cfAppError        error
-		cfPackage         *workloadsv1alpha1.CFPackage
-		cfPackageError    error
+		cfAppGUID               string
+		cfPackageGUID           string
+		cfBuildGUID             string
+		kpackImageGUID          string
+		kpackRegistrySecretName string
+		kpackServiceAccountName string
+
+		cfBuild        *workloadsv1alpha1.CFBuild
+		cfBuildError   error
+		cfApp          *workloadsv1alpha1.CFApp
+		cfAppError     error
+		cfPackage      *workloadsv1alpha1.CFPackage
+		cfPackageError error
+
+		kpackServiceAccount      *corev1.ServiceAccount
+		kpackServiceAccountError error
+		//kpackRegistrySecret      *corev1.Secret
+
 		kpackImage        *buildv1alpha1.Image
 		kpackImageError   error
 		cfBuildReconciler *CFBuildReconciler
@@ -67,6 +77,9 @@ var _ = Describe("CFBuildReconciler", func() {
 		cfBuildGUID = "cf-build-guid"
 		kpackImageGUID = cfBuildGUID
 
+		kpackRegistrySecretName = "kpack-registry-secret"
+		kpackServiceAccountName = defaultNamespace + "-kpack-service-account"
+
 		cfBuild = BuildCFBuildObject(cfBuildGUID, defaultNamespace, cfPackageGUID, cfAppGUID)
 		cfBuildError = nil
 		cfApp = BuildCFAppCRObject(cfAppGUID, defaultNamespace)
@@ -75,6 +88,10 @@ var _ = Describe("CFBuildReconciler", func() {
 		cfPackageError = nil
 		kpackImage = mockKpackImageObject(kpackImageGUID, defaultNamespace)
 		kpackImageError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
+
+		//kpackRegistrySecret = BuildDockerRegistrySecret(kpackRegistrySecretName, defaultNamespace)
+		kpackServiceAccount = BuildServiceAccount(kpackServiceAccountName, defaultNamespace, kpackRegistrySecretName)
+		kpackServiceAccountError = nil
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
@@ -91,6 +108,9 @@ var _ = Describe("CFBuildReconciler", func() {
 			case *buildv1alpha1.Image:
 				kpackImage.DeepCopyInto(obj.(*buildv1alpha1.Image))
 				return kpackImageError
+			case *corev1.ServiceAccount:
+				kpackServiceAccount.DeepCopyInto(obj.(*corev1.ServiceAccount))
+				return kpackServiceAccountError
 			default:
 				panic("test Client Get provided a weird obj")
 			}
@@ -100,14 +120,22 @@ var _ = Describe("CFBuildReconciler", func() {
 		fakeStatusWriter = &fake.StatusWriter{}
 		fakeClient.StatusReturns(fakeStatusWriter)
 
+		// Configure a fake RegistryAuthFetcher
+		fakeRegistryAuthFetcher = &fake.RegistryAuthFetcher{}
+
+		// Configure a fake ImageProcessFetcher
+		fakeImageProcessFetcher = &fake.ImageProcessFetcher{}
+
 		// configure a CFBuildReconciler with the client
 		Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(buildv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfBuildReconciler = &CFBuildReconciler{
-			Client:           fakeClient,
-			Scheme:           scheme.Scheme,
-			Log:              zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			ControllerConfig: &cfconfig.ControllerConfig{KpackImageTag: "image/registry/tag"},
+			Client:              fakeClient,
+			Scheme:              scheme.Scheme,
+			Log:                 zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+			ControllerConfig:    &cfconfig.ControllerConfig{KpackImageTag: "image/registry/tag"},
+			RegistryAuthFetcher: fakeRegistryAuthFetcher.Spy,
+			ImageProcessFetcher: fakeImageProcessFetcher.Spy,
 		}
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{

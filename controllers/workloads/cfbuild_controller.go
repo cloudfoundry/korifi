@@ -51,19 +51,18 @@ const (
 	cfKpackClusterBuilderName = "cf-kpack-cluster-builder"
 )
 
-type RegistryAuthFetcher func(ctx context.Context, imagePullSecrets []corev1.LocalObjectReference, namespace string) (remote.Option, error)
+//counterfeiter:generate -o fake -fake-name RegistryAuthFetcher . RegistryAuthFetcher
+type RegistryAuthFetcher func(ctx context.Context, namespace string) (remote.Option, error)
 
 func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface) RegistryAuthFetcher {
-	return func(ctx context.Context, imagePullSecrets []corev1.LocalObjectReference, namespace string) (remote.Option, error) {
+	return func(ctx context.Context, namespace string) (remote.Option, error) {
 		keychainFactory, err := k8sdockercreds.NewSecretKeychainFactory(privilegedK8sClient)
 		if err != nil {
 			return nil, fmt.Errorf("error in k8sdockercreds.NewSecretKeychainFactory: %w", err)
 		}
 		keychain, err := keychainFactory.KeychainForSecretRef(ctx, registry.SecretRef{
-			Namespace:        namespace,
-			ImagePullSecrets: imagePullSecrets,
-			//ServiceAccount: namespace + kpackServiceAccountSuffix,
-			// Service account goes here
+			Namespace:      namespace,
+			ServiceAccount: kpackServiceAccountName(namespace),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", err)
@@ -71,6 +70,10 @@ func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface) RegistryAut
 
 		return remote.WithAuthFromKeychain(keychain), nil
 	}
+}
+
+func kpackServiceAccountName(namespace string) string {
+	return namespace + kpackServiceAccountSuffix
 }
 
 //counterfeiter:generate -o fake -fake-name ImageProcessFetcher . ImageProcessFetcher
@@ -166,8 +169,18 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			// Set CFBuild status Conditions on local copy- Staging to False and Succeeded to True
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType, metav1.ConditionTrue, "kpack", "kpack")
+
+			// try to find the ServiceAccount image pull secrets from the kpack service account
+			serviceAccountName := kpackServiceAccountName(cfBuild.Namespace)
+			serviceAccountLookupKey := types.NamespacedName{Name: serviceAccountName, Namespace: req.Namespace}
+			foundServiceAccount := corev1.ServiceAccount{}
+			err := r.Client.Get(ctx, serviceAccountLookupKey, &foundServiceAccount)
+			if err != nil {
+				panic("TODO")
+			}
+
 			// Generate Droplet object using Kpack Image and set it on CFBuild local copy
-			cfBuild.Status.BuildDropletStatus = r.generateBuildDropletStatus(ctx, &kpackImage)
+			cfBuild.Status.BuildDropletStatus = r.generateBuildDropletStatus(ctx, &kpackImage, foundServiceAccount.ImagePullSecrets)
 			// Call Status().Update() tp push updates to the server
 			if err := r.Client.Status().Update(ctx, &cfBuild); err != nil {
 				r.Log.Error(err, "Error when updating CFBuild status")
@@ -179,7 +192,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
-	serviceAccountName := cfBuild.Namespace + kpackServiceAccountSuffix
+	serviceAccountName := kpackServiceAccountName(cfBuild.Namespace)
 	kpackImageTag := r.concatenateStrings("/", r.ControllerConfig.KpackImageTag, cfBuild.Name)
 	kpackImageName := cfBuild.Name
 	kpackImageNamespace := cfBuild.Namespace
@@ -243,14 +256,14 @@ func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, des
 	return nil
 }
 
-func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpackImage *buildv1alpha1.Image) *workloadsv1alpha1.BuildDropletStatus {
+func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpackImage *buildv1alpha1.Image, imagePullSecrets []corev1.LocalObjectReference) *workloadsv1alpha1.BuildDropletStatus {
 
 	imageRef := kpackImage.Status.LatestImage
-	imagePullSecrets := kpackImage.Spec.Source.Registry.ImagePullSecrets
+	//imagePullSecrets := kpackImage.Spec.Source.Registry.ImagePullSecrets
 
 	// Use ImagePullSecrets to extract credentials with RegistryAuthFetcher
 	// RegistryAuthFetcher func(ctx context.Context, imagePullSecrets []corev1.LocalObjectReference, namespace string) (remote.Option, error)
-	credentials, err := r.RegistryAuthFetcher(ctx, imagePullSecrets, kpackImage.Namespace)
+	credentials, err := r.RegistryAuthFetcher(ctx, kpackImage.Namespace)
 	if err != nil {
 
 		panic(fmt.Sprintf("%v", err))
@@ -264,8 +277,7 @@ func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpac
 
 	return &workloadsv1alpha1.BuildDropletStatus{
 		Registry: workloadsv1alpha1.Registry{
-			Image: imageRef,
-			//TODO: has implications on security. revisit this after getting consensus.
+			Image:            imageRef,
 			ImagePullSecrets: imagePullSecrets,
 		},
 
