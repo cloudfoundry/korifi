@@ -174,13 +174,19 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			serviceAccountName := kpackServiceAccountName(cfBuild.Namespace)
 			serviceAccountLookupKey := types.NamespacedName{Name: serviceAccountName, Namespace: req.Namespace}
 			foundServiceAccount := corev1.ServiceAccount{}
-			err := r.Client.Get(ctx, serviceAccountLookupKey, &foundServiceAccount)
+			err = r.Client.Get(ctx, serviceAccountLookupKey, &foundServiceAccount)
 			if err != nil {
-				panic("TODO")
+				r.Log.Error(err, "Error when fetching kpack ServiceAccount")
+				return ctrl.Result{}, err
 			}
 
-			// Generate Droplet object using Kpack Image and set it on CFBuild local copy
-			cfBuild.Status.BuildDropletStatus = r.generateBuildDropletStatus(ctx, &kpackImage, foundServiceAccount.ImagePullSecrets)
+			// Generate Droplet object using kpack Image and set it on CFBuild local copy
+			cfBuild.Status.BuildDropletStatus, err = r.generateBuildDropletStatus(ctx, &kpackImage, foundServiceAccount.ImagePullSecrets)
+			if err != nil {
+				r.Log.Error(err, "Error when compiling the DropletStatus")
+				return ctrl.Result{}, err
+			}
+
 			// Call Status().Update() tp push updates to the server
 			if err := r.Client.Status().Update(ctx, &cfBuild); err != nil {
 				r.Log.Error(err, "Error when updating CFBuild status")
@@ -256,7 +262,7 @@ func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, des
 	return nil
 }
 
-func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpackImage *buildv1alpha1.Image, imagePullSecrets []corev1.LocalObjectReference) *workloadsv1alpha1.BuildDropletStatus {
+func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpackImage *buildv1alpha1.Image, imagePullSecrets []corev1.LocalObjectReference) (*workloadsv1alpha1.BuildDropletStatus, error) {
 
 	imageRef := kpackImage.Status.LatestImage
 	//imagePullSecrets := kpackImage.Spec.Source.Registry.ImagePullSecrets
@@ -265,14 +271,15 @@ func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpac
 	// RegistryAuthFetcher func(ctx context.Context, imagePullSecrets []corev1.LocalObjectReference, namespace string) (remote.Option, error)
 	credentials, err := r.RegistryAuthFetcher(ctx, kpackImage.Namespace)
 	if err != nil {
-
-		panic(fmt.Sprintf("%v", err))
+		r.Log.Error(err, "Error when fetching registry credentials for Droplet image")
+		return nil, err
 	}
 
 	// Use the credentials to get the values of Ports and ProcessTypes
 	dropletProcessTypes, dropletPorts, err := r.ImageProcessFetcher(imageRef, credentials)
 	if err != nil {
-		panic("TODO")
+		r.Log.Error(err, "Error when compiling droplet image details")
+		return nil, err
 	}
 
 	return &workloadsv1alpha1.BuildDropletStatus{
@@ -285,7 +292,7 @@ func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpac
 		// Populating with real values will be handled in a future story
 		ProcessTypes: dropletProcessTypes,
 		Ports:        dropletPorts,
-	}
+	}, nil
 }
 
 func (r *CFBuildReconciler) concatenateStrings(separator string, text ...string) string {

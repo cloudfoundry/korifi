@@ -30,7 +30,6 @@ import (
 	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
 	networkingcontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/networking"
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -166,34 +165,37 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
 		os.Exit(1)
 	}
+	/*
+		if err = (&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
+			os.Exit(1)
+		}
 
-	if err = (&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
-		os.Exit(1)
-	}
+		if err = (&workloadsv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
+			os.Exit(1)
+		}
+		if err = (&workloadsv1alpha1.CFBuild{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFBuild")
+			os.Exit(1)
+		}
+		//+kubebuilder:scaffold:builder
 
-	if err = (&workloadsv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
-		os.Exit(1)
-	}
-	if err = (&workloadsv1alpha1.CFBuild{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "CFBuild")
-		os.Exit(1)
-	}
-	//+kubebuilder:scaffold:builder
+		if err = (&workloadsv1alpha1.CFProcess{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFProcess")
+			os.Exit(1)
+		}
+		//+kubebuilder:scaffold:builder
 
-	if err = (&workloadsv1alpha1.CFProcess{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "CFProcess")
-		os.Exit(1)
-	}
-	//+kubebuilder:scaffold:builder
 
-	if err = (&workloads.CFAppValidation{
-		Client: mgr.GetClient(),
-	}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
-		os.Exit(1)
-	}
+			if err = (&workloads.CFAppValidation{
+				Client: mgr.GetClient(),
+			}).SetupWebhookWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
+				os.Exit(1)
+			}
+
+	*/
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
