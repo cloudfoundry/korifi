@@ -5,17 +5,16 @@ import (
 	"time"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/testutils"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/testutils"
-	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
-	"github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
-	"k8s.io/apimachinery/pkg/types"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
+	"github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("CFBuildReconciler", func() {
@@ -199,11 +198,11 @@ var _ = Describe("CFBuildReconciler", func() {
 			desiredCFApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
 
-			dockerRegistrySecret := testutils.BuildDockerRegistrySecret(wellFormedRegistryCredentialsSecret, namespaceGUID)
+			dockerRegistrySecret := BuildDockerRegistrySecret(wellFormedRegistryCredentialsSecret, namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, dockerRegistrySecret)).To(Succeed())
 
 			registryServiceAccountName := namespaceGUID + "-kpack-service-account"
-			registryServiceAccount := testutils.BuildServiceAccount(registryServiceAccountName, namespaceGUID, wellFormedRegistryCredentialsSecret)
+			registryServiceAccount := BuildServiceAccount(registryServiceAccountName, namespaceGUID, wellFormedRegistryCredentialsSecret)
 			Expect(k8sClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
 
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
