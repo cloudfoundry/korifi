@@ -11,7 +11,7 @@ require (
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
 	github.com/pivotal/kpack v0.3.1
-	github.com/projectcontour/contour v1.18.1
+	github.com/projectcontour/contour v1.18.2
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	k8s.io/api v0.21.2
 	k8s.io/apimachinery v0.21.2

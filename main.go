@@ -30,6 +30,7 @@ import (
 	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
 	networkingcontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/networking"
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -109,6 +110,8 @@ func main() {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
 
+	// Setup with manager
+
 	if err = (&workloadscontrollers.CFAppReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -165,7 +168,10 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
 		os.Exit(1)
 	}
-	/*
+
+	// Setup webhooks with manager
+
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err = (&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
 			os.Exit(1)
@@ -179,23 +185,23 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFBuild")
 			os.Exit(1)
 		}
-		//+kubebuilder:scaffold:builder
 
 		if err = (&workloadsv1alpha1.CFProcess{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFProcess")
 			os.Exit(1)
 		}
-		//+kubebuilder:scaffold:builder
 
+		if err = (&workloads.CFAppValidation{
+			Client: mgr.GetClient(),
+		}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
+			os.Exit(1)
+		}
+	} else {
+		setupLog.Info("Skipping webhook setup because ENABLE_WEBHOOKS set to false.")
+	}
 
-			if err = (&workloads.CFAppValidation{
-				Client: mgr.GetClient(),
-			}).SetupWebhookWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
-				os.Exit(1)
-			}
-
-	*/
+	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
