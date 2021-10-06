@@ -288,8 +288,8 @@ func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpac
 			ImagePullSecrets: imagePullSecrets,
 		},
 
-		// ProcessTypes & Ports are required fields. Hence, populating with dummy values
-		// Populating with real values will be handled in a future story
+		Stack: kpackImage.Status.LatestStack,
+
 		ProcessTypes: dropletProcessTypes,
 		Ports:        dropletPorts,
 	}, nil

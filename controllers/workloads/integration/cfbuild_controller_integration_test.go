@@ -250,7 +250,8 @@ var _ = Describe("CFBuildReconciler", func() {
 
 		When("kpack image has built successfully", func() {
 			const (
-				kpackBuildImageRef = "some-org/my-image@sha256:some-sha"
+				kpackBuildImageRef    = "some-org/my-image@sha256:some-sha"
+				kpackImageLatestStack = "cflinuxfs3"
 			)
 
 			var (
@@ -278,6 +279,7 @@ var _ = Describe("CFBuildReconciler", func() {
 				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not retrieve the kpack image")
 				setKpackImageStatus(createdKpackImage, kpackReadyConditionType, "True")
 				createdKpackImage.Status.LatestImage = kpackBuildImageRef
+				createdKpackImage.Status.LatestStack = kpackImageLatestStack
 				Expect(k8sClient.Status().Update(testCtx, createdKpackImage)).To(Succeed())
 			})
 
@@ -309,7 +311,8 @@ var _ = Describe("CFBuildReconciler", func() {
 					return createdCFBuild.Status.BuildDropletStatus
 				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeNil(), "BuildStatusDroplet was nil on CFBuild")
 				Expect(fakeImageProcessFetcher.CallCount()).To(Equal(1), "Build Controller imageProcessFetcher was not called just once")
-				Expect(createdCFBuild.Status.BuildDropletStatus.Registry.Image).To(Equal(kpackBuildImageRef))
+				Expect(createdCFBuild.Status.BuildDropletStatus.Registry.Image).To(Equal(kpackBuildImageRef), "droplet registry image does not match kpack image latestImage")
+				Expect(createdCFBuild.Status.BuildDropletStatus.Stack).To(Equal(kpackImageLatestStack), "droplet stack does not match kpack image latestStack")
 				Expect(createdCFBuild.Status.BuildDropletStatus.Registry.ImagePullSecrets).To(Equal(desiredCFPackage.Spec.Source.Registry.ImagePullSecrets))
 				Expect(createdCFBuild.Status.BuildDropletStatus.ProcessTypes).To(Equal(returnedProcessTypes))
 				Expect(createdCFBuild.Status.BuildDropletStatus.Ports).To(Equal(returnedPorts))

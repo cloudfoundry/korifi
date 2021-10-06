@@ -49,6 +49,9 @@ type BuildDropletStatus struct {
 	// Specifies the Container registry image, and secrets to access
 	Registry Registry `json:"registry"`
 
+	// Specifies the stack used to build the Droplet
+	Stack string `json:"stack"`
+
 	// Specifies the process types and associated start commands for the Droplet
 	ProcessTypes []ProcessType `json:"processTypes"`
 
