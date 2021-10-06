@@ -38,17 +38,27 @@ var _ = Describe("CFBuildReconciler", func() {
 		fakeClient       *fake.CFClient
 		fakeStatusWriter *fake.StatusWriter
 
-		cfAppGUID      string
-		cfPackageGUID  string
-		cfBuildGUID    string
-		kpackImageGUID string
+		fakeRegistryAuthFetcher *fake.RegistryAuthFetcher
+		fakeImageProcessFetcher *fake.ImageProcessFetcher
 
-		cfBuild           *workloadsv1alpha1.CFBuild
-		cfBuildError      error
-		cfApp             *workloadsv1alpha1.CFApp
-		cfAppError        error
-		cfPackage         *workloadsv1alpha1.CFPackage
-		cfPackageError    error
+		cfAppGUID               string
+		cfPackageGUID           string
+		cfBuildGUID             string
+		kpackImageGUID          string
+		kpackRegistrySecretName string
+		kpackServiceAccountName string
+
+		cfBuild        *workloadsv1alpha1.CFBuild
+		cfBuildError   error
+		cfApp          *workloadsv1alpha1.CFApp
+		cfAppError     error
+		cfPackage      *workloadsv1alpha1.CFPackage
+		cfPackageError error
+
+		kpackServiceAccount      *corev1.ServiceAccount
+		kpackServiceAccountError error
+		//kpackRegistrySecret      *corev1.Secret
+
 		kpackImage        *buildv1alpha1.Image
 		kpackImageError   error
 		cfBuildReconciler *CFBuildReconciler
@@ -67,14 +77,21 @@ var _ = Describe("CFBuildReconciler", func() {
 		cfBuildGUID = "cf-build-guid"
 		kpackImageGUID = cfBuildGUID
 
-		cfBuild = MockCFBuildObject(cfBuildGUID, defaultNamespace, cfPackageGUID, cfAppGUID)
+		kpackRegistrySecretName = "kpack-registry-secret"
+		kpackServiceAccountName = defaultNamespace + "-kpack-service-account"
+
+		cfBuild = BuildCFBuildObject(cfBuildGUID, defaultNamespace, cfPackageGUID, cfAppGUID)
 		cfBuildError = nil
-		cfApp = MockAppCRObject(cfAppGUID, defaultNamespace)
+		cfApp = BuildCFAppCRObject(cfAppGUID, defaultNamespace)
 		cfAppError = nil
-		cfPackage = MockPackageCRObject(cfPackageGUID, defaultNamespace, cfAppGUID)
+		cfPackage = BuildCFPackageCRObject(cfPackageGUID, defaultNamespace, cfAppGUID)
 		cfPackageError = nil
 		kpackImage = mockKpackImageObject(kpackImageGUID, defaultNamespace)
 		kpackImageError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
+
+		//kpackRegistrySecret = BuildDockerRegistrySecret(kpackRegistrySecretName, defaultNamespace)
+		kpackServiceAccount = BuildServiceAccount(kpackServiceAccountName, defaultNamespace, kpackRegistrySecretName)
+		kpackServiceAccountError = nil
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
@@ -91,6 +108,9 @@ var _ = Describe("CFBuildReconciler", func() {
 			case *buildv1alpha1.Image:
 				kpackImage.DeepCopyInto(obj.(*buildv1alpha1.Image))
 				return kpackImageError
+			case *corev1.ServiceAccount:
+				kpackServiceAccount.DeepCopyInto(obj.(*corev1.ServiceAccount))
+				return kpackServiceAccountError
 			default:
 				panic("test Client Get provided a weird obj")
 			}
@@ -100,14 +120,22 @@ var _ = Describe("CFBuildReconciler", func() {
 		fakeStatusWriter = &fake.StatusWriter{}
 		fakeClient.StatusReturns(fakeStatusWriter)
 
+		// Configure a fake RegistryAuthFetcher
+		fakeRegistryAuthFetcher = &fake.RegistryAuthFetcher{}
+
+		// Configure a fake ImageProcessFetcher
+		fakeImageProcessFetcher = &fake.ImageProcessFetcher{}
+
 		// configure a CFBuildReconciler with the client
 		Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(buildv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfBuildReconciler = &CFBuildReconciler{
-			Client:           fakeClient,
-			Scheme:           scheme.Scheme,
-			Log:              zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			ControllerConfig: &cfconfig.ControllerConfig{KpackImageTag: "image/registry/tag"},
+			Client:              fakeClient,
+			Scheme:              scheme.Scheme,
+			Log:                 zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+			ControllerConfig:    &cfconfig.ControllerConfig{KpackImageTag: "image/registry/tag"},
+			RegistryAuthFetcher: fakeRegistryAuthFetcher.Spy,
+			ImageProcessFetcher: fakeImageProcessFetcher.Spy,
 		}
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{
@@ -143,57 +171,69 @@ var _ = Describe("CFBuildReconciler", func() {
 			})
 
 		})
+
 		When("on unhappy path", func() {
 			When("fetch CFBuild returns an error", func() {
 				BeforeEach(func() {
 					cfBuildError = errors.New("failing on purpose")
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
+
 				It("should return an error", func() {
 					Expect(reconcileErr).To(HaveOccurred())
 				})
 			})
+
 			When("fetch CFBuild returns a NotFoundError", func() {
 				BeforeEach(func() {
 					cfBuildError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
+
 				It("should NOT return any error", func() {
 					Expect(reconcileErr).NotTo(HaveOccurred())
 				})
 			})
+
 			When("fetch CFApp returns an error", func() {
 				BeforeEach(func() {
 					cfAppError = errors.New("failing on purpose")
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
+
 				It("should return an error", func() {
 					Expect(reconcileErr).To(HaveOccurred())
 				})
 			})
+
 			When("fetch CFPackage returns an error", func() {
 				BeforeEach(func() {
 					cfPackageError = errors.New("failing on purpose")
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
+
 				It("should return an error", func() {
 					Expect(reconcileErr).To(HaveOccurred())
 				})
 			})
+
 			When("create Kpack Image returns an error", func() {
 				BeforeEach(func() {
 					fakeClient.CreateReturns(errors.New("failing on purpose"))
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
+
 				It("should return an error", func() {
 					Expect(reconcileErr).To(HaveOccurred())
 				})
 			})
+
 			When("update status conditions returns an error", func() {
 				BeforeEach(func() {
 					fakeStatusWriter.UpdateReturns(errors.New("failing on purpose"))
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
+
 				It("should return an error", func() {
 					Expect(reconcileErr).To(HaveOccurred())
 				})
@@ -201,6 +241,7 @@ var _ = Describe("CFBuildReconciler", func() {
 		})
 
 	})
+
 	When("CFBuild status conditions for Staging is True and others are unknown", func() {
 		BeforeEach(func() {
 			SetStatusCondition(&cfBuild.Status.Conditions, stagingConditionType, metav1.ConditionTrue)
@@ -212,6 +253,7 @@ var _ = Describe("CFBuildReconciler", func() {
 				setKpackImageStatus(kpackImage, kpackReadyConditionType, "True")
 				reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 			})
+
 			It("does not return an error", func() {
 				Expect(reconcileErr).NotTo(HaveOccurred())
 			})
@@ -228,29 +270,35 @@ var _ = Describe("CFBuildReconciler", func() {
 				Expect(fakeClient.StatusCallCount()).To(Equal(1))
 			})
 		})
+
 		When("on the unhappy path", func() {
 			When("fetch KpackImage returns an error", func() {
 				BeforeEach(func() {
 					kpackImageError = errors.New("failing on purpose")
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
+
 				It("should return an error", func() {
 					Expect(reconcileErr).To(HaveOccurred())
 				})
 			})
+
 			When("fetch KpackImage returns a NotFoundError", func() {
 				BeforeEach(func() {
 					kpackImageError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
+
 				It("should NOT return any error", func() {
 					Expect(reconcileErr).NotTo(HaveOccurred())
 				})
 			})
+
 			When("kpack image status conditions for Type Succeeded is nil", func() {
 				BeforeEach(func() {
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
+
 				It("does not return an error", func() {
 					Expect(reconcileErr).NotTo(HaveOccurred())
 				})
@@ -259,12 +307,14 @@ var _ = Describe("CFBuildReconciler", func() {
 					Expect(reconcileResult).To(Equal(ctrl.Result{}))
 				})
 			})
+
 			When("kpack image status conditions for Type Succeeded is UNKNOWN", func() {
 				BeforeEach(func() {
 					kpackImageError = nil
 					setKpackImageStatus(kpackImage, kpackReadyConditionType, "Unknown")
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
+
 				It("does not return an error", func() {
 					Expect(reconcileErr).NotTo(HaveOccurred())
 				})
@@ -273,36 +323,89 @@ var _ = Describe("CFBuildReconciler", func() {
 					Expect(reconcileResult).To(Equal(ctrl.Result{}))
 				})
 			})
+
 			When("kpack image status conditions for Type Succeeded is FALSE", func() {
 				BeforeEach(func() {
 					kpackImageError = nil
 					setKpackImageStatus(kpackImage, kpackReadyConditionType, "False")
 					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
+
 				It("does not return an error", func() {
 					Expect(reconcileErr).NotTo(HaveOccurred())
 				})
+
 				It("updates status conditions on CFBuild", func() {
 					Expect(fakeClient.StatusCallCount()).To(Equal(1))
 				})
+
 				When("update status conditions returns an error", func() {
 					BeforeEach(func() {
 						fakeStatusWriter.UpdateReturns(errors.New("failing on purpose"))
 						reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 					})
-					It("should return an error", func() {
+
+					It("returns an error", func() {
 						Expect(reconcileErr).To(HaveOccurred())
 					})
 				})
 			})
-			When("kpack image status conditions for Type Succeeded is True", func() {
+
+			When("kpack image status conditions for Type Succeeded is True and", func() {
+				BeforeEach(func() {
+					kpackImageError = nil
+					setKpackImageStatus(kpackImage, kpackReadyConditionType, "True")
+				})
+
+				When("fetch kpack ServiceAccount returns an error", func() {
+					BeforeEach(func() {
+						kpackServiceAccountError = errors.New("kpackServiceAccountFetchError failing on purpose")
+						reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
+					})
+
+					It("should return an error", func() {
+						Expect(reconcileErr).To(HaveOccurred())
+					})
+				})
+
+				When("compiling the DropletStatus and", func() {
+					When("RegistryAuthFetcher fails while retrieving registry credentials", func() {
+						var registryAuthFetcherError error
+
+						BeforeEach(func() {
+							registryAuthFetcherError = errors.New("registryAuthFetcherError failing on purpose")
+							fakeRegistryAuthFetcher.Returns(nil, registryAuthFetcherError)
+							reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
+						})
+
+						It("returns an error", func() {
+							Expect(reconcileErr).To(HaveOccurred())
+							Expect(reconcileErr).To(Equal(registryAuthFetcherError))
+						})
+					})
+
+					When("ImageProcessFetcher fails while compiling Droplet Image fields", func() {
+						var imageProcessFetcherError error
+
+						BeforeEach(func() {
+							imageProcessFetcherError = errors.New("imageProcessFetcherError failing on purpose")
+							fakeImageProcessFetcher.Returns(nil, nil, imageProcessFetcherError)
+							reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
+						})
+
+						It("returns an error", func() {
+							Expect(reconcileErr).To(HaveOccurred())
+							Expect(reconcileErr).To(Equal(imageProcessFetcherError))
+						})
+					})
+				})
+
 				When("update status conditions returns an error", func() {
 					BeforeEach(func() {
-						kpackImageError = nil
-						setKpackImageStatus(kpackImage, kpackReadyConditionType, "True")
 						fakeStatusWriter.UpdateReturns(errors.New("failing on purpose"))
 						reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 					})
+
 					It("should return an error", func() {
 						Expect(reconcileErr).To(HaveOccurred())
 					})

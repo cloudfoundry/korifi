@@ -18,18 +18,24 @@ package workloads
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
+
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
+	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
+	"github.com/pivotal/kpack/pkg/registry"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sclient "k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -45,12 +51,42 @@ const (
 	cfKpackClusterBuilderName = "cf-kpack-cluster-builder"
 )
 
+//counterfeiter:generate -o fake -fake-name RegistryAuthFetcher . RegistryAuthFetcher
+type RegistryAuthFetcher func(ctx context.Context, namespace string) (remote.Option, error)
+
+func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface) RegistryAuthFetcher {
+	return func(ctx context.Context, namespace string) (remote.Option, error) {
+		keychainFactory, err := k8sdockercreds.NewSecretKeychainFactory(privilegedK8sClient)
+		if err != nil {
+			return nil, fmt.Errorf("error in k8sdockercreds.NewSecretKeychainFactory: %w", err)
+		}
+		keychain, err := keychainFactory.KeychainForSecretRef(ctx, registry.SecretRef{
+			Namespace:      namespace,
+			ServiceAccount: kpackServiceAccountName(namespace),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", err)
+		}
+
+		return remote.WithAuthFromKeychain(keychain), nil
+	}
+}
+
+func kpackServiceAccountName(namespace string) string {
+	return namespace + kpackServiceAccountSuffix
+}
+
+//counterfeiter:generate -o fake -fake-name ImageProcessFetcher . ImageProcessFetcher
+type ImageProcessFetcher func(imageRef string, credsOption remote.Option) ([]workloadsv1alpha1.ProcessType, []int32, error)
+
 // CFBuildReconciler reconciles a CFBuild object
 type CFBuildReconciler struct {
-	Client           CFClient
-	Scheme           *runtime.Scheme
-	Log              logr.Logger
-	ControllerConfig *cfconfig.ControllerConfig
+	Client              CFClient
+	Scheme              *runtime.Scheme
+	Log                 logr.Logger
+	ControllerConfig    *cfconfig.ControllerConfig
+	RegistryAuthFetcher RegistryAuthFetcher
+	ImageProcessFetcher ImageProcessFetcher
 }
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete
@@ -133,8 +169,24 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			// Set CFBuild status Conditions on local copy- Staging to False and Succeeded to True
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType, metav1.ConditionTrue, "kpack", "kpack")
-			// Generate Droplet object using Kpack Image and set it on CFBuild local copy
-			cfBuild.Status.BuildDropletStatus = r.generateBuildDropletStatus(&kpackImage)
+
+			// try to find the ServiceAccount image pull secrets from the kpack service account
+			serviceAccountName := kpackServiceAccountName(cfBuild.Namespace)
+			serviceAccountLookupKey := types.NamespacedName{Name: serviceAccountName, Namespace: req.Namespace}
+			foundServiceAccount := corev1.ServiceAccount{}
+			err = r.Client.Get(ctx, serviceAccountLookupKey, &foundServiceAccount)
+			if err != nil {
+				r.Log.Error(err, "Error when fetching kpack ServiceAccount")
+				return ctrl.Result{}, err
+			}
+
+			// Generate Droplet object using kpack Image and set it on CFBuild local copy
+			cfBuild.Status.BuildDropletStatus, err = r.generateBuildDropletStatus(ctx, &kpackImage, foundServiceAccount.ImagePullSecrets)
+			if err != nil {
+				r.Log.Error(err, "Error when compiling the DropletStatus")
+				return ctrl.Result{}, err
+			}
+
 			// Call Status().Update() tp push updates to the server
 			if err := r.Client.Status().Update(ctx, &cfBuild); err != nil {
 				r.Log.Error(err, "Error when updating CFBuild status")
@@ -146,7 +198,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
-	serviceAccountName := cfBuild.Namespace + kpackServiceAccountSuffix
+	serviceAccountName := kpackServiceAccountName(cfBuild.Namespace)
 	kpackImageTag := r.concatenateStrings("/", r.ControllerConfig.KpackImageTag, cfBuild.Name)
 	kpackImageName := cfBuild.Name
 	kpackImageNamespace := cfBuild.Namespace
@@ -210,23 +262,37 @@ func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, des
 	return nil
 }
 
-func (r *CFBuildReconciler) generateBuildDropletStatus(kpackImage *buildv1alpha1.Image) *workloadsv1alpha1.BuildDropletStatus {
+func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpackImage *buildv1alpha1.Image, imagePullSecrets []corev1.LocalObjectReference) (*workloadsv1alpha1.BuildDropletStatus, error) {
+
+	imageRef := kpackImage.Status.LatestImage
+	//imagePullSecrets := kpackImage.Spec.Source.Registry.ImagePullSecrets
+
+	// Use ImagePullSecrets to extract credentials with RegistryAuthFetcher
+	// RegistryAuthFetcher func(ctx context.Context, imagePullSecrets []corev1.LocalObjectReference, namespace string) (remote.Option, error)
+	credentials, err := r.RegistryAuthFetcher(ctx, kpackImage.Namespace)
+	if err != nil {
+		r.Log.Error(err, "Error when fetching registry credentials for Droplet image")
+		return nil, err
+	}
+
+	// Use the credentials to get the values of Ports and ProcessTypes
+	dropletProcessTypes, dropletPorts, err := r.ImageProcessFetcher(imageRef, credentials)
+	if err != nil {
+		r.Log.Error(err, "Error when compiling droplet image details")
+		return nil, err
+	}
+
 	return &workloadsv1alpha1.BuildDropletStatus{
 		Registry: workloadsv1alpha1.Registry{
-			Image: kpackImage.Status.LatestImage,
-			//TODO: has implications on security. revisit this after getting consensus.
-			ImagePullSecrets: kpackImage.Spec.Source.Registry.ImagePullSecrets,
+			Image:            imageRef,
+			ImagePullSecrets: imagePullSecrets,
 		},
-		// ProceesTypes & Ports are required fields. Hence, populating with dummy values
+
+		// ProcessTypes & Ports are required fields. Hence, populating with dummy values
 		// Populating with real values will be handled in a future story
-		ProcessTypes: []workloadsv1alpha1.ProcessType{
-			{
-				Type:    "web",
-				Command: "my-command",
-			},
-		},
-		Ports: []int32{8080},
-	}
+		ProcessTypes: dropletProcessTypes,
+		Ports:        dropletPorts,
+	}, nil
 }
 
 func (r *CFBuildReconciler) concatenateStrings(separator string, text ...string) string {

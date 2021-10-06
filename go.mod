@@ -3,7 +3,9 @@ module code.cloudfoundry.org/cf-k8s-controllers
 go 1.16
 
 require (
+	github.com/buildpacks/lifecycle v0.12.0
 	github.com/go-logr/logr v0.4.0
+	github.com/google/go-containerregistry v0.5.2-0.20210604130445-3bfab55f3bd9
 	github.com/google/uuid v1.2.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.4.1
 	github.com/onsi/ginkgo v1.16.4

@@ -26,17 +26,18 @@ import (
 	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
 	networkingcontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/networking"
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/imageprocessfetcher"
 	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
 	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	k8sclient "k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -100,6 +101,12 @@ func main() {
 		panic(errorMessage)
 	}
 
+	k8sClientConfig := ctrl.GetConfigOrDie()
+	privilegedK8sClient, err := k8sclient.NewForConfig(k8sClientConfig)
+	if err != nil {
+		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
+	}
+
 	// Setup with manager
 
 	if err = (&workloadscontrollers.CFAppReconciler{
@@ -111,11 +118,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	cfBuildImageProcessFetcher := &imageprocessfetcher.ImageProcessFetcher{
+		Log: ctrl.Log.WithName("controllers").WithName("CFBuildImageProcessFetcher"),
+	}
 	if err = (&workloadscontrollers.CFBuildReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		Log:              ctrl.Log.WithName("controllers").WithName("CFBuild"),
-		ControllerConfig: cfControllerConfig,
+		Client:              mgr.GetClient(),
+		Scheme:              mgr.GetScheme(),
+		Log:                 ctrl.Log.WithName("controllers").WithName("CFBuild"),
+		ControllerConfig:    cfControllerConfig,
+		RegistryAuthFetcher: workloadscontrollers.NewRegistryAuthFetcher(privilegedK8sClient),
+		ImageProcessFetcher: cfBuildImageProcessFetcher.Fetch,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
 		os.Exit(1)

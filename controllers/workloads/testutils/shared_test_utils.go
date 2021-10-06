@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -21,7 +22,7 @@ func GenerateGUID() string {
 	return newUUID.String()
 }
 
-func MockK8sNamespaceObject(name string) *corev1.Namespace {
+func BuildNamespaceObject(name string) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -29,7 +30,7 @@ func MockK8sNamespaceObject(name string) *corev1.Namespace {
 	}
 }
 
-func MockAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp {
+func BuildCFAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp {
 	return &workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
@@ -49,7 +50,7 @@ func MockAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp 
 	}
 }
 
-func MockPackageCRObject(packageGUID, namespaceGUID, appGUID string) *workloadsv1alpha1.CFPackage {
+func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID string) *workloadsv1alpha1.CFPackage {
 	return &workloadsv1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageGUID,
@@ -63,14 +64,14 @@ func MockPackageCRObject(packageGUID, namespaceGUID, appGUID string) *workloadsv
 			Source: workloadsv1alpha1.PackageSource{
 				Registry: workloadsv1alpha1.Registry{
 					Image:            "PACKAGE_IMAGE",
-					ImagePullSecrets: nil,
+					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "source-registry-image-pull-secret"}},
 				},
 			},
 		},
 	}
 }
 
-func MockCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID string, cfAppGUID string) *workloadsv1alpha1.CFBuild {
+func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID string, cfAppGUID string) *workloadsv1alpha1.CFBuild {
 	return &workloadsv1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfBuildGUID,
@@ -93,6 +94,36 @@ func MockCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID strin
 				},
 			},
 		},
+	}
+}
+
+func BuildDockerRegistrySecret(name, namespace string) *corev1.Secret {
+	dockerRegistryUsername := "user"
+	dockerRegistryPassword := "password"
+	dockerAuth := base64.StdEncoding.EncodeToString([]byte(dockerRegistryUsername + ":" + dockerRegistryPassword))
+	dockerConfigJSON := `{"auths":{"https://index.docker.io/v1/":{"username":"` + dockerRegistryUsername + `","password":"` + dockerRegistryPassword + `","auth":"` + dockerAuth + `"}}}`
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Immutable: nil,
+		Data:      nil,
+		StringData: map[string]string{
+			".dockerconfigjson": dockerConfigJSON,
+		},
+		Type: "kubernetes.io/dockerconfigjson",
+	}
+}
+
+func BuildServiceAccount(name, namespace, imagePullSecretName string) *corev1.ServiceAccount {
+	return &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Secrets:          []corev1.ObjectReference{corev1.ObjectReference{Name: imagePullSecretName}},
+		ImagePullSecrets: []corev1.LocalObjectReference{corev1.LocalObjectReference{Name: imagePullSecretName}},
 	}
 }
 
