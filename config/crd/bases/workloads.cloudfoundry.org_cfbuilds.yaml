@@ -173,10 +173,14 @@ spec:
                     required:
                     - image
                     type: object
+                  stack:
+                    description: Specifies the stack used to build the Droplet
+                    type: string
                 required:
                 - ports
                 - processTypes
                 - registry
+                - stack
                 type: object
             required:
             - conditions
