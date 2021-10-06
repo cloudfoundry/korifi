@@ -83,6 +83,14 @@ curl "http://localhost:9000/v3/builds" \
   -d '{"package":{"guid":"<package-guid-goes-here>"}}'
 ```
 
+### Droplet
+
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#droplets
+
+| Resource | Endpoint |
+|--|--|
+| Get Droplet | GET /v3/droplets/\<guid> |
+
 ### Routes
 
 | Resource | Endpoint |

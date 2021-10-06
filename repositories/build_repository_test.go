@@ -216,7 +216,6 @@ var _ = Describe("BuildRepository", func() {
 					It("should eventually return a record with State: \"STAGED\", no StagingErrorMsg, and a DropletGUID that matches the BuildGUID", func() {
 						ctx := context.Background()
 						Eventually(func() string {
-
 							returnedBuildRecord, err := buildRepo.FetchBuild(ctx, client, build2GUID)
 							buildRecord = &returnedBuildRecord
 							fetchError = err

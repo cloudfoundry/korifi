@@ -64,7 +64,7 @@ func (b *BuildRepo) FetchBuild(ctx context.Context, k8sClient client.Client, bui
 		return BuildRecord{}, err
 	}
 	allBuilds := buildList.Items
-	matches := b.filterBuildsByMetadataName(allBuilds, buildGUID)
+	matches := filterBuildsByMetadataName(allBuilds, buildGUID)
 
 	return b.returnBuild(matches)
 }
@@ -126,7 +126,7 @@ func (b *BuildRepo) cfBuildToBuildRecord(cfBuild workloadsv1alpha1.CFBuild) Buil
 	return toReturn
 }
 
-func (b *BuildRepo) filterBuildsByMetadataName(builds []workloadsv1alpha1.CFBuild, name string) []workloadsv1alpha1.CFBuild {
+func filterBuildsByMetadataName(builds []workloadsv1alpha1.CFBuild, name string) []workloadsv1alpha1.CFBuild {
 	var filtered []workloadsv1alpha1.CFBuild
 	for i, build := range builds {
 		if build.ObjectMeta.Name == name {

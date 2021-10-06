@@ -109,6 +109,13 @@ func main() {
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),
+		apis.NewDropletHandler(
+			ctrl.Log.WithName("DropletHandler"),
+			config.ServerURL,
+			new(repositories.DropletRepo),
+			repositories.BuildCRClient,
+			k8sClientConfig,
+		),
 		apis.NewOrgHandler(
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient),
 			config.ServerURL,
