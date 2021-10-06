@@ -39,6 +39,7 @@ spec:
 #      reason: Buildpack
 #      message: ""
 #  droplet:
+#    stack: cflinuxfs3
 #    ports: [80, 443] # spec.ports is the set of ports exposed on the Processes of the Droplet
 #    processTypes:
 #      - type: web
