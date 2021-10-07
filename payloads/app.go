@@ -49,3 +49,7 @@ func (p AppCreate) ToRecord() repositories.AppRecord {
 		UpdatedAt:   "",
 	}
 }
+
+type AppSetCurrentDroplet struct {
+	Relationship `json:",inline" validate:"required"`
+}

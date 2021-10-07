@@ -133,3 +133,31 @@ func ForAppList(appRecordList []repositories.AppRecord, baseURL string) AppListR
 
 	return appListResponse
 }
+
+type CurrentDropletResponse struct {
+	Relationship `json:",inline"`
+	Links        CurrentDropletLinks `json:"links"`
+}
+
+type CurrentDropletLinks struct {
+	Self    Link `json:"self"`
+	Related Link `json:"related"`
+}
+
+func ForCurrentDroplet(record repositories.CurrentDropletRecord, baseURL string) CurrentDropletResponse {
+	return CurrentDropletResponse{
+		Relationship: Relationship{
+			Data: RelationshipData{
+				GUID: record.DropletGUID,
+			},
+		},
+		Links: CurrentDropletLinks{
+			Self: Link{
+				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/relationships/current_droplet", record.AppGUID)),
+			},
+			Related: Link{
+				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/droplets/current", record.AppGUID)),
+			},
+		},
+	}
+}
