@@ -20,7 +20,7 @@ spec:
     data:
       buildpacks: []
       stack: cflinuxfs3
-#status:
+status:
 #  conditions:
 #    - type: Succeeded
 #      status: "True"
@@ -29,14 +29,6 @@ spec:
 #    - type: Staging
 #      status: "False"
 #      reason: Succeeded
-#      message: ""
-#    - type: BuildReady
-#      status: "True"
-#      reason: Buildpack
-#      message: ""
-#    - type: DropletReady
-#      status: "True"
-#      reason: Buildpack
 #      message: ""
 #  droplet:
 #    stack: cflinuxfs3
