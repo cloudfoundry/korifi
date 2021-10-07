@@ -33,6 +33,7 @@ var _ = Describe("DropletRepository", func() {
 			packageGUID         = "package-1-guid"
 			stagingMemory       = 1024
 			stagingDisk         = 2048
+			dropletStack        = "cflinuxfs3"
 			registryImage       = "registry/image:tag"
 			registryImageSecret = "secret-key"
 		)
@@ -102,6 +103,7 @@ var _ = Describe("DropletRepository", func() {
 						Message: "Unknown",
 					})
 					build.Status.BuildDropletStatus = &workloadsv1alpha1.BuildDropletStatus{
+						Stack: dropletStack,
 						Registry: workloadsv1alpha1.Registry{
 							Image: registryImage,
 							ImagePullSecrets: []corev1.LocalObjectReference{
@@ -146,6 +148,10 @@ var _ = Describe("DropletRepository", func() {
 					updatedAt, err := time.Parse(time.RFC3339, dropletRecord.UpdatedAt)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				})
+
+				It("returns a record with stack field matching the CR", func() {
+					Expect(dropletRecord.Stack).To(Equal(build.Status.BuildDropletStatus.Stack))
 				})
 
 				It("returns a record with Lifecycle fields matching the CR", func() {

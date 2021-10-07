@@ -3,7 +3,7 @@ module code.cloudfoundry.org/cf-k8s-api
 go 1.16
 
 require (
-	code.cloudfoundry.org/cf-k8s-controllers v0.0.0-20210927185152-baa2416c14c0
+	code.cloudfoundry.org/cf-k8s-controllers v0.0.0-20211007182811-671a78a1a8cb
 	github.com/buildpacks/pack v0.21.1
 	github.com/go-logr/logr v0.4.0
 	github.com/go-playground/locales v0.14.0

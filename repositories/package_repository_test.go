@@ -378,11 +378,11 @@ var _ = Describe("PackageRepository", func() {
 
 			createdAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(createdAt).To(BeTemporally("~", time.Now(), time.Second))
+			Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 
 			updatedAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedAt).To(BeTemporally("~", time.Now(), time.Second))
+			Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 		})
 
 		It("updates only the Registry field of the existing CFPackage", func() {

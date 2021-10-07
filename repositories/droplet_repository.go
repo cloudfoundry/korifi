@@ -3,13 +3,14 @@ package repositories
 import (
 	"context"
 	"errors"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// No kubebuilder RBAC tags required, because Build and Droplet are the same CR
 
 type DropletRecord struct {
 	GUID            string
@@ -66,7 +67,7 @@ func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {
 		processTypesMap[processTypesArrayObject[index].Type] = processTypesArrayObject[index].Command
 	}
 
-	toReturn := DropletRecord{
+	return DropletRecord{
 		GUID:      cfBuild.Name,
 		State:     "STAGED",
 		CreatedAt: formatTimestamp(cfBuild.CreationTimestamp),
@@ -78,13 +79,11 @@ func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {
 				Stack:      cfBuild.Spec.Lifecycle.Data.Stack,
 			},
 		},
-		Stack:        "",
+		Stack:        cfBuild.Status.BuildDropletStatus.Stack,
 		ProcessTypes: processTypesMap,
 		AppGUID:      cfBuild.Spec.AppRef.Name,
 		PackageGUID:  cfBuild.Spec.PackageRef.Name,
 		Labels:       cfBuild.Labels,
 		Annotations:  cfBuild.Annotations,
 	}
-
-	return toReturn
 }
