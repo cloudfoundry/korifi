@@ -1,12 +1,13 @@
 package apis_test
 
 import (
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+
+	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
@@ -511,37 +512,20 @@ var _ = Describe("BuildHandler", func() {
 			})
 		})
 
-		When("the package doesn't exist", func() {
-			BeforeEach(func() {
-				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
-
-				makePostRequest(validBody)
-			})
-
-			It("returns status 422", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("responds with error code", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					"errors": [
-						{
-							"code": 10008,
-							"title": "CF-UnprocessableEntity",
-							"detail": "Unable to use package. Ensure that the package exists and you have access to it."
-						}
-					]
-				}`))
-			})
-
+		itDoesntCreateABuild := func() {
 			It("doesn't create a build", func() {
 				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
 			})
+		}
+
+		When("the package doesn't exist", func() {
+			BeforeEach(func() {
+				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+				makePostRequest(validBody)
+			})
+
+			itRespondsWithUnprocessableEntity("Unable to use package. Ensure that the package exists and you have access to it.", getRR)
+			itDoesntCreateABuild()
 		})
 
 		When("the package exists check returns an error", func() {
@@ -552,10 +536,7 @@ var _ = Describe("BuildHandler", func() {
 			})
 
 			itRespondsWithUnknownError(getRR)
-
-			It("doesn't create a build", func() {
-				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
-			})
+			itDoesntCreateABuild()
 		})
 
 		When("building the k8s client errors", func() {
@@ -565,10 +546,7 @@ var _ = Describe("BuildHandler", func() {
 			})
 
 			itRespondsWithUnknownError(getRR)
-
-			It("doesn't create a Build", func() {
-				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
-			})
+			itDoesntCreateABuild()
 		})
 
 		When("creating the build in the repo errors", func() {
