@@ -3,10 +3,11 @@ package apis_test
 import (
 	"encoding/json"
 	"errors"
-	"github.com/gorilla/mux"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+
+	"github.com/gorilla/mux"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -21,27 +22,48 @@ import (
 )
 
 const (
-	appGUID   = "test-app-guid"
-	spaceGUID = "test-space-guid"
+	appGUID                  = "test-app-guid"
+	spaceGUID                = "test-space-guid"
+	testAppHandlerLoggerName = "TestAppHandler"
 )
 
 var _ = Describe("AppHandler", func() {
+	var (
+		rr            *httptest.ResponseRecorder
+		req           *http.Request
+		appRepo       *fake.CFAppRepository
+		dropletRepo   *fake.CFDropletRepository
+		clientBuilder *fake.ClientBuilder
+		router        *mux.Router
+	)
+
+	getRR := func() *httptest.ResponseRecorder { return rr }
+
+	BeforeEach(func() {
+		appRepo = new(fake.CFAppRepository)
+		dropletRepo = new(fake.CFDropletRepository)
+		clientBuilder = new(fake.ClientBuilder)
+
+		rr = httptest.NewRecorder()
+		router = mux.NewRouter()
+
+		apiHandler := NewAppHandler(
+			logf.Log.WithName(testAppHandlerLoggerName),
+			defaultServerURL,
+			appRepo,
+			dropletRepo,
+			clientBuilder.Spy,
+			&rest.Config{},
+		)
+		apiHandler.RegisterRoutes(router)
+	})
+
+	JustBeforeEach(func() {
+		router.ServeHTTP(rr, req)
+	})
+
 	Describe("the GET /v3/apps/:guid endpoint", func() {
-		const (
-			testAppHandlerLoggerName = "TestAppHandler"
-		)
-
-		var (
-			rr      *httptest.ResponseRecorder
-			req     *http.Request
-			appRepo *fake.CFAppRepository
-			router  *mux.Router
-		)
-
-		getRR := func() *httptest.ResponseRecorder { return rr }
-
 		BeforeEach(func() {
-			appRepo = new(fake.CFAppRepository)
 			appRepo.FetchAppReturns(repositories.AppRecord{
 				GUID:      appGUID,
 				Name:      "test-app",
@@ -59,36 +81,17 @@ var _ = Describe("AppHandler", func() {
 			var err error
 			req, err = http.NewRequest("GET", "/v3/apps/"+appGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
-
-			rr = httptest.NewRecorder()
-			router = mux.NewRouter()
-			clientBuilder := new(fake.ClientBuilder)
-
-			apiHandler := NewAppHandler(
-				logf.Log.WithName(testAppHandlerLoggerName),
-				defaultServerURL,
-				appRepo,
-				clientBuilder.Spy,
-				&rest.Config{},
-			)
-			apiHandler.RegisterRoutes(router)
 		})
 
 		When("on the happy path", func() {
-			BeforeEach(func() {
-				router.ServeHTTP(rr, req)
-			})
-
 			It("returns status 200 OK", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
 
-			It("returns Content-Type as JSON in header", func() {
+			It("returns the App in the response", func() {
 				contentTypeHeader := rr.Header().Get("Content-Type")
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
 
-			It("returns the App in the response", func() {
 				Expect(rr.Body.String()).To(MatchJSON(`{
 				"guid": "`+appGUID+`",
 				"created_at": "",
@@ -163,8 +166,6 @@ var _ = Describe("AppHandler", func() {
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
 				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
-
-				router.ServeHTTP(rr, req)
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -174,237 +175,106 @@ var _ = Describe("AppHandler", func() {
 		When("there is some other error fetching the app", func() {
 			BeforeEach(func() {
 				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
-
-				router.ServeHTTP(rr, req)
 			})
 
 			itRespondsWithUnknownError(getRR)
 		})
 	})
+
 	Describe("the POST /v3/apps endpoint", func() {
 		const (
 			testAppName = "test-app"
-
-			testAppHandlerLoggerName = "TestAppHandler"
 		)
 
-		var (
-			rr      *httptest.ResponseRecorder
-			appRepo *fake.CFAppRepository
-			router  *mux.Router
-		)
-
-		getRR := func() *httptest.ResponseRecorder { return rr }
-
-		makePostRequest := func(requestBody string) {
-			req, err := http.NewRequest("POST", "/v3/apps", strings.NewReader(requestBody))
+		queuePostRequest := func(requestBody string) {
+			var err error
+			req, err = http.NewRequest("POST", "/v3/apps", strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
-
-			router.ServeHTTP(rr, req)
 		}
-
-		BeforeEach(func() {
-			rr = httptest.NewRecorder()
-			router = mux.NewRouter()
-
-			appRepo = new(fake.CFAppRepository)
-			apiHandler := NewAppHandler(
-				logf.Log.WithName(testAppHandlerLoggerName),
-				defaultServerURL,
-				appRepo,
-				new(fake.ClientBuilder).Spy,
-				&rest.Config{},
-			)
-			apiHandler.RegisterRoutes(router)
-		})
 
 		When("the request body is invalid json", func() {
 			BeforeEach(func() {
-				makePostRequest(`{`)
+				queuePostRequest(`{`)
 			})
 
 			It("returns a status 400 Bad Request ", func() {
 				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
 			})
 
-			It("returns Content-Type as JSON in header", func() {
+			It("has the expected error response body", func() {
 				contentTypeHeader := rr.Header().Get("Content-Type")
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
 
-			It("has the expected error response body", func() {
 				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"title": "CF-MessageParseError",
-						"detail": "Request invalid due to parse error: invalid request body",
-						"code": 1001
-					}
-				]
-			}`), "Response body matches response:")
+					"errors": [
+						{
+							"title": "CF-MessageParseError",
+							"detail": "Request invalid due to parse error: invalid request body",
+							"code": 1001
+						}
+					]
+				}`), "Response body matches response:")
 			})
 		})
 
 		When("the request body does not validate", func() {
 			BeforeEach(func() {
-				makePostRequest(`{"description" : "Invalid Request"}`)
+				queuePostRequest(`{"description" : "Invalid Request"}`)
 			})
 
-			It("returns a status 422 Bad Request ", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"title": "CF-UnprocessableEntity",
-						"detail": "invalid request body: json: unknown field \"description\"",
-						"code": 10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity(`invalid request body: json: unknown field "description"`, getRR)
 		})
 
 		When("the request body is invalid with invalid app name", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
-				"name": 12345,
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
-						}
-					 }
-				}
-			}`)
+				queuePostRequest(`{
+					"name": 12345,
+					"relationships": { "space": { "data": { "guid": "2f35885d-0c9d-4423-83ad-fd05066f8576" } } }
+				}`)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"code":   10008,
-						"title": "CF-UnprocessableEntity",
-						"detail": "Name must be a string"
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity("Name must be a string", getRR)
 		})
 
 		When("the request body is invalid with invalid environment variable object", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
-				"name": "my_app",
-				"environment_variables": [],
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
-						}
-					}
-				}
-			}`)
+				queuePostRequest(`{
+					"name": "my_app",
+					"environment_variables": [],
+					"relationships": { "space": { "data": { "guid": "2f35885d-0c9d-4423-83ad-fd05066f8576" } } }
+				}`)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"title": "CF-UnprocessableEntity",
-						"detail": "Environment_variables must be a map[string]string",
-						"code": 10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity("Environment_variables must be a map[string]string", getRR)
 		})
 
 		When("the request body is invalid with missing required name field", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
-						}
-				 	}
-				}
-			}`)
+				queuePostRequest(`{
+					"relationships": { "space": { "data": { "guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806" } } }
+				}`)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"title": "CF-UnprocessableEntity",
-						"detail": "Name is a required field",
-						"code": 10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity("Name is a required field", getRR)
 		})
 
 		When("the request body is invalid with missing data within lifecycle", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
-				"name": "test-app",
-				"lifecycle":{},
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
-						 }
-				 	 }
-				}
-			}`)
+				queuePostRequest(`{
+					"name": "test-app",
+					"lifecycle":{},
+					"relationships": { "space": { "data": { "guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806" } } }
+				}`)
 			})
 
 			It("returns a status 422 Unprocessable Entity", func() {
 				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
 			})
 
-			It("returns Content-Type as JSON in header", func() {
+			It("has the expected error response body", func() {
 				contentTypeHeader := rr.Header().Get("Content-Type")
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
 
-			It("has the expected error response body", func() {
 				decoder := json.NewDecoder(rr.Body)
 				decoder.DisallowUnknownFields()
 
@@ -432,33 +302,16 @@ var _ = Describe("AppHandler", func() {
 
 		When("the space does not exist", func() {
 			BeforeEach(func() {
-				appRepo.FetchNamespaceReturns(repositories.SpaceRecord{},
-					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")})
+				appRepo.FetchNamespaceReturns(
+					repositories.SpaceRecord{},
+					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")},
+				)
 
 				requestBody := initializeCreateAppRequestBody(testAppName, "no-such-guid", nil, nil, nil)
-				makePostRequest(requestBody)
+				queuePostRequest(requestBody)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("returns a CF API formatted Error response", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"title": "CF-UnprocessableEntity",
-						"detail": "Invalid space. Ensure that the space exists and you have access to it.",
-						"code": 10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity("Invalid space. Ensure that the space exists and you have access to it.", getRR)
 		})
 
 		When("the app already exists, but AppCreate returns false due to validating webhook rejection", func() {
@@ -468,19 +321,17 @@ var _ = Describe("AppHandler", func() {
 				appRepo.CreateAppReturns(repositories.AppRecord{}, controllerError)
 
 				requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
-				makePostRequest(requestBody)
+				queuePostRequest(requestBody)
 			})
 
 			It("returns a status 422 Unprocessable Entity", func() {
 				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
 			})
 
-			It("returns Content-Type as JSON in header", func() {
+			It("returns a CF API formatted Error response", func() {
 				contentTypeHeader := rr.Header().Get("Content-Type")
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
 
-			It("returns a CF API formatted Error response", func() {
 				Expect(rr.Body.String()).To(MatchJSON(`{
 				"errors": [
 					{
@@ -500,7 +351,7 @@ var _ = Describe("AppHandler", func() {
 				appRepo.CreateAppReturns(repositories.AppRecord{}, controllerError)
 
 				requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
-				makePostRequest(requestBody)
+				queuePostRequest(requestBody)
 			})
 
 			itRespondsWithUnknownError(getRR)
@@ -524,7 +375,7 @@ var _ = Describe("AppHandler", func() {
 					}, nil)
 
 					requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
-					makePostRequest(requestBody)
+					queuePostRequest(requestBody)
 				})
 
 				It("should invoke repo CreateApp with a random GUID", func() {
@@ -638,7 +489,7 @@ var _ = Describe("AppHandler", func() {
 							Name: createEnvVarsResponseName,
 						}, nil)
 
-						makePostRequest(requestBody)
+						queuePostRequest(requestBody)
 					})
 
 					It("should call Repo CreateAppEnvironmentVariables with the space and environment vars", func() {
@@ -659,7 +510,7 @@ var _ = Describe("AppHandler", func() {
 					BeforeEach(func() {
 						appRepo.CreateAppEnvironmentVariablesReturns(repositories.AppEnvVarsRecord{}, errors.New("intentional error"))
 
-						makePostRequest(requestBody)
+						queuePostRequest(requestBody)
 					})
 
 					itRespondsWithUnknownError(getRR)
@@ -673,7 +524,7 @@ var _ = Describe("AppHandler", func() {
 					testLabels = map[string]string{"foo": "foo", "bar": "bar"}
 
 					requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, testLabels, nil)
-					makePostRequest(requestBody)
+					queuePostRequest(requestBody)
 				})
 
 				It("should pass along the labels to CreateApp", func() {
@@ -689,7 +540,7 @@ var _ = Describe("AppHandler", func() {
 				BeforeEach(func() {
 					testAnnotations = map[string]string{"foo": "foo", "bar": "bar"}
 					requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, testAnnotations)
-					makePostRequest(requestBody)
+					queuePostRequest(requestBody)
 				})
 
 				It("should pass along the annotations to CreateApp", func() {
@@ -700,22 +551,9 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 	})
+
 	Describe("the GET /v3/apps endpoint", func() {
-		const (
-			testAppHandlerLoggerName = "TestAppHandler"
-		)
-
-		var (
-			rr      *httptest.ResponseRecorder
-			req     *http.Request
-			router  *mux.Router
-			appRepo *fake.CFAppRepository
-		)
-
-		getRR := func() *httptest.ResponseRecorder { return rr }
-
 		BeforeEach(func() {
-			appRepo = new(fake.CFAppRepository)
 			appRepo.FetchAppListReturns([]repositories.AppRecord{
 				{
 					GUID:      "first-test-app-guid",
@@ -748,26 +586,9 @@ var _ = Describe("AppHandler", func() {
 			var err error
 			req, err = http.NewRequest("GET", "/v3/apps", nil)
 			Expect(err).NotTo(HaveOccurred())
-
-			rr = httptest.NewRecorder()
-			router = mux.NewRouter()
-			clientBuilder := new(fake.ClientBuilder)
-
-			apiHandler := NewAppHandler(
-				logf.Log.WithName(testAppHandlerLoggerName),
-				defaultServerURL,
-				appRepo,
-				clientBuilder.Spy,
-				&rest.Config{},
-			)
-			apiHandler.RegisterRoutes(router)
 		})
 
 		When("on the happy path", func() {
-			BeforeEach(func() {
-				router.ServeHTTP(rr, req)
-			})
-
 			It("returns status 200 OK", func() {
 				Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
@@ -936,8 +757,6 @@ var _ = Describe("AppHandler", func() {
 		When("no apps can be found", func() {
 			BeforeEach(func() {
 				appRepo.FetchAppListReturns([]repositories.AppRecord{}, nil)
-
-				router.ServeHTTP(rr, req)
 			})
 
 			It("returns status 200 OK", func() {
@@ -971,8 +790,164 @@ var _ = Describe("AppHandler", func() {
 		When("there is some other error fetching apps", func() {
 			BeforeEach(func() {
 				appRepo.FetchAppListReturns([]repositories.AppRecord{}, errors.New("unknown!"))
+			})
 
-				router.ServeHTTP(rr, req)
+			itRespondsWithUnknownError(getRR)
+		})
+	})
+
+	Describe("the PATCH /v3/apps/:guid/current_droplet endpoint", func() {
+		const (
+			dropletGUID = "test-droplet-guid"
+		)
+
+		var (
+			app     repositories.AppRecord
+			droplet repositories.DropletRecord
+		)
+
+		BeforeEach(func() {
+			app = repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID}
+			droplet = repositories.DropletRecord{GUID: dropletGUID, AppGUID: appGUID}
+
+			appRepo.FetchAppReturns(app, nil)
+			dropletRepo.FetchDropletReturns(droplet, nil)
+			appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{
+				AppGUID:     appGUID,
+				DropletGUID: dropletGUID,
+			}, nil)
+
+			var err error
+			req, err = http.NewRequest("PATCH", "/v3/apps/"+appGUID+"/current_droplet", strings.NewReader(`
+					{ "data": { "guid": "`+dropletGUID+`" } }
+                `))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		itDoesntSetTheCurrentDroplet := func() {
+			It("doesn't set the current droplet on the app", func() {
+				Expect(appRepo.SetCurrentDropletCallCount()).To(Equal(0))
+			})
+		}
+
+		When("on the happy path", func() {
+			It("responds with a 200 code", func() {
+				Expect(rr.Code).To(Equal(200))
+			})
+
+			It("updates the k8s record via the repository", func() {
+				Expect(appRepo.SetCurrentDropletCallCount()).To(Equal(1))
+				_, _, message := appRepo.SetCurrentDropletArgsForCall(0)
+				Expect(message.AppGUID).To(Equal(appGUID))
+				Expect(message.DropletGUID).To(Equal(dropletGUID))
+				Expect(message.SpaceGUID).To(Equal(spaceGUID))
+			})
+
+			It("responds with JSON", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(`{
+                	"data": {
+                		"guid": "` + dropletGUID + `"
+                	},
+                	"links": {
+                		"self": {
+                			"href": "https://api.example.org/v3/apps/` + appGUID + `/relationships/current_droplet"
+                		},
+                		"related": {
+                			"href": "https://api.example.org/v3/apps/` + appGUID + `/droplets/current"
+                		}
+                	}
+                }`))
+			})
+
+			It("fetches the right App", func() {
+				Expect(appRepo.FetchAppCallCount()).To(Equal(1))
+				_, _, actualAppGUID := appRepo.FetchAppArgsForCall(0)
+				Expect(actualAppGUID).To(Equal(appGUID))
+			})
+
+			It("fetches the right Droplet", func() {
+				Expect(dropletRepo.FetchDropletCallCount()).To(Equal(1))
+				_, _, actualDropletGUID := dropletRepo.FetchDropletArgsForCall(0)
+				Expect(actualDropletGUID).To(Equal(dropletGUID))
+			})
+		})
+
+		When("the App doesn't exist", func() {
+			BeforeEach(func() {
+				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+			})
+
+			itRespondsWithNotFound("App not found", getRR)
+			itDoesntSetTheCurrentDroplet()
+		})
+
+		When("the Droplet doesn't exist", func() {
+			BeforeEach(func() {
+				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
+			})
+
+			itRespondsWithUnprocessableEntity("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.", getRR)
+			itDoesntSetTheCurrentDroplet()
+		})
+
+		When("the Droplet belongs to a different App", func() {
+			BeforeEach(func() {
+				droplet.AppGUID = "a-different-app-guid"
+				dropletRepo.FetchDropletReturns(repositories.DropletRecord{
+					GUID:    dropletGUID,
+					AppGUID: "a-different-app-guid",
+				}, nil)
+			})
+
+			itRespondsWithUnprocessableEntity("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.", getRR)
+			itDoesntSetTheCurrentDroplet()
+		})
+
+		When("the guid is missing", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("PATCH", "/v3/apps/"+appGUID+"/current_droplet", strings.NewReader(`
+					{ "data": {  } }
+                `))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			itRespondsWithUnprocessableEntity("GUID is a required field", getRR)
+		})
+
+		When("building the client errors", func() {
+			BeforeEach(func() {
+				clientBuilder.Returns(nil, errors.New("boom"))
+			})
+
+			itRespondsWithUnknownError(getRR)
+			itDoesntSetTheCurrentDroplet()
+		})
+
+		When("fetching the App errors", func() {
+			BeforeEach(func() {
+				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("boom"))
+			})
+
+			itRespondsWithUnknownError(getRR)
+			itDoesntSetTheCurrentDroplet()
+		})
+
+		When("fetching the Droplet errors", func() {
+			BeforeEach(func() {
+				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, errors.New("boom"))
+			})
+
+			itRespondsWithUnknownError(getRR)
+			itDoesntSetTheCurrentDroplet()
+		})
+
+		When("setting the current droplet errors", func() {
+			BeforeEach(func() {
+				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, errors.New("boom"))
 			})
 
 			itRespondsWithUnknownError(getRR)

@@ -77,6 +77,7 @@ func main() {
 			ctrl.Log.WithName("AppHandler"),
 			config.ServerURL,
 			new(repositories.AppRepo),
+			new(repositories.DropletRepo),
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),

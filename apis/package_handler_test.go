@@ -159,6 +159,12 @@ var _ = Describe("PackageHandler", func() {
 			})
 		})
 
+		itDoesntCreateAPackage := func() {
+			It("doesn't create a package", func() {
+				Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
+			})
+		}
+
 		When("the app doesn't exist", func() {
 			BeforeEach(func() {
 				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
@@ -166,30 +172,8 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			It("returns status 422", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("responds with error code", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"code": 10008,
-						"title": "CF-UnprocessableEntity",
-						"detail": "App is invalid. Ensure it exists and you have access to it."
-					}
-				]
-			}`))
-			})
-
-			It("doesn't create a package", func() {
-				Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
-			})
+			itRespondsWithUnprocessableEntity("App is invalid. Ensure it exists and you have access to it.", getRR)
+			itDoesntCreateAPackage()
 		})
 
 		When("the app exists check returns an error", func() {
@@ -200,50 +184,28 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			itRespondsWithUnknownError(getRR)
-
-			It("doesn't create a package", func() {
-				Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
-			})
+			itDoesntCreateAPackage()
 		})
 
 		When("the type is invalid", func() {
 			const (
 				bodyWithInvalidType = `{
-				"type": "docker",
-				"relationships": {
-					"app": {
-						"data": {
-							"guid": "` + appGUID + `"
+					"type": "docker",
+					"relationships": {
+						"app": {
+							"data": {
+								"guid": "` + appGUID + `"
+							}
 						}
 					}
-				}
-			}`
+				}`
 			)
 
 			BeforeEach(func() {
 				makePostRequest(bodyWithInvalidType)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					"errors": [
-						{
-							"code":   10008,
-							"title": "CF-UnprocessableEntity",
-							"detail": "Type must be one of ['bits']"
-						}
-					]
-				}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity("Type must be one of ['bits']", getRR)
 		})
 
 		When("the relationship field is completely omitted", func() {
@@ -251,62 +213,24 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(`{ "type": "bits" }`)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					"errors": [
-						{
-							"code":   10008,
-							"title": "CF-UnprocessableEntity",
-							"detail": "Relationships is a required field"
-						}
-					]
-				}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity("Relationships is a required field", getRR)
 		})
 
 		When("an invalid relationship is given", func() {
 			const bodyWithoutAppRelationship = `{
-			"type": "bits",
-			"relationships": {
-				"build": {
-					"data": {}
-			   	}
-			}
-		}`
+				"type": "bits",
+				"relationships": {
+					"build": {
+						"data": {}
+				   	}
+				}
+			}`
 
 			BeforeEach(func() {
 				makePostRequest(bodyWithoutAppRelationship)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					"errors": [
-						{
-							"code":   10008,
-							"title": "CF-UnprocessableEntity",
-							"detail": "invalid request body: json: unknown field \"build\""
-						}
-					]
-				}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity(`invalid request body: json: unknown field "build"`, getRR)
 		})
 
 		When("the JSON body is invalid", func() {
@@ -343,10 +267,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			itRespondsWithUnknownError(getRR)
-
-			It("doesn't create a Package", func() {
-				Expect(packageRepo.CreatePackageCallCount()).To(Equal(0))
-			})
+			itDoesntCreateAPackage()
 		})
 
 		When("creating the package in the repo errors", func() {
@@ -534,6 +455,18 @@ var _ = Describe("PackageHandler", func() {
 			})
 		})
 
+		itDoesntBuildAnImageFromSource := func() {
+			It("doesn't build an image from the source", func() {
+				Expect(uploadImageSource.CallCount()).To(Equal(0))
+			})
+		}
+
+		itDoesntUpdateAnyPackages := func() {
+			It("doesn't update any Packages", func() {
+				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+			})
+		}
+
 		When("the record doesn't exist", func() {
 			BeforeEach(func() {
 				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
@@ -542,14 +475,8 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			itRespondsWithNotFound("Package not found", getRR)
-
-			It("doesn't build an image from the source", func() {
-				Expect(uploadImageSource.CallCount()).To(Equal(0))
-			})
-
-			It("doesn't update any Packages", func() {
-				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
-			})
+			itDoesntBuildAnImageFromSource()
+			itDoesntUpdateAnyPackages()
 		})
 
 		When("building the client errors", func() {
@@ -560,14 +487,8 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			itRespondsWithUnknownError(getRR)
-
-			It("doesn't build an image from the source", func() {
-				Expect(uploadImageSource.CallCount()).To(Equal(0))
-			})
-
-			It("doesn't update any Packages", func() {
-				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
-			})
+			itDoesntBuildAnImageFromSource()
+			itDoesntUpdateAnyPackages()
 		})
 
 		When("fetching the package errors", func() {
@@ -578,14 +499,8 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			itRespondsWithUnknownError(getRR)
-
-			It("doesn't build an image from the source", func() {
-				Expect(uploadImageSource.CallCount()).To(Equal(0))
-			})
-
-			It("doesn't update any Packages", func() {
-				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
-			})
+			itDoesntBuildAnImageFromSource()
+			itDoesntUpdateAnyPackages()
 		})
 
 		When("no bits file is given", func() {
@@ -601,34 +516,9 @@ var _ = Describe("PackageHandler", func() {
 				router.ServeHTTP(rr, req)
 			})
 
-			It("returns status 422", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("responds with error code", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"code": 10008,
-						"title": "CF-UnprocessableEntity",
-						"detail": "Upload must include bits"
-					}
-				]
-			}`))
-			})
-
-			It("doesn't build an image from the source", func() {
-				Expect(uploadImageSource.CallCount()).To(Equal(0))
-			})
-
-			It("doesn't update any Packages", func() {
-				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
-			})
+			itRespondsWithUnprocessableEntity("Upload must include bits", getRR)
+			itDoesntBuildAnImageFromSource()
+			itDoesntUpdateAnyPackages()
 		})
 
 		When("building the image credentials errors", func() {
@@ -639,14 +529,8 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			itRespondsWithUnknownError(getRR)
-
-			It("doesn't build an image from the source", func() {
-				Expect(uploadImageSource.CallCount()).To(Equal(0))
-			})
-
-			It("doesn't update any Packages", func() {
-				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
-			})
+			itDoesntBuildAnImageFromSource()
+			itDoesntUpdateAnyPackages()
 		})
 
 		When("uploading the source image errors", func() {
@@ -657,10 +541,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			itRespondsWithUnknownError(getRR)
-
-			It("doesn't update any Packages", func() {
-				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
-			})
+			itDoesntUpdateAnyPackages()
 		})
 
 		When("updating the package source registry errors", func() {

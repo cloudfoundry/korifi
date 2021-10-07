@@ -1,15 +1,16 @@
 package apis_test
 
 import (
-	. "code.cloudfoundry.org/cf-k8s-api/apis"
-	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+
+	. "code.cloudfoundry.org/cf-k8s-api/apis"
+	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
+	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
@@ -97,46 +98,46 @@ var _ = Describe("RouteHandler", func() {
 
 			It("returns the Route in the response", func() {
 				expectedBody := `{
-				"guid": "test-route-guid",
-				"port": null,
-				"path": "",
-				"protocol": "http",
-				"host": "test-route-host",
-				"url": "test-route-host.example.org",
-				"created_at": "create-time",
-				"updated_at": "update-time",
-				"destinations": null,
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "test-space-guid"
+					"guid": "test-route-guid",
+					"port": null,
+					"path": "",
+					"protocol": "http",
+					"host": "test-route-host",
+					"url": "test-route-host.example.org",
+					"created_at": "create-time",
+					"updated_at": "update-time",
+					"destinations": null,
+					"relationships": {
+						"space": {
+							"data": {
+								"guid": "test-space-guid"
+							}
+						},
+						"domain": {
+							"data": {
+								"guid": "test-domain-guid"
+							}
 						}
 					},
-					"domain": {
-						"data": {
-							"guid": "test-domain-guid"
+					"metadata": {
+						"labels": {},
+						"annotations": {}
+					},
+					"links": {
+						"self":{
+							"href": "https://api.example.org/v3/routes/test-route-guid"
+						},
+						"space":{
+							"href": "https://api.example.org/v3/spaces/test-space-guid"
+						},
+						"domain":{
+							"href": "https://api.example.org/v3/domains/test-domain-guid"
+						},
+						"destinations":{
+							"href": "https://api.example.org/v3/routes/test-route-guid/destinations"
 						}
 					}
-				},
-				"metadata": {
-					"labels": {},
-					"annotations": {}
-				},
-				"links": {
-					"self":{
-						"href": "https://api.example.org/v3/routes/test-route-guid"
-					},
-					"space":{
-						"href": "https://api.example.org/v3/spaces/test-space-guid"
-					},
-					"domain":{
-						"href": "https://api.example.org/v3/domains/test-domain-guid"
-					},
-					"destinations":{
-						"href": "https://api.example.org/v3/routes/test-route-guid/destinations"
-					}
-				}
-			}`
+				}`
 
 				Expect(rr.Body.String()).To(MatchJSON(expectedBody), "Response body matches response:")
 			})
@@ -290,46 +291,46 @@ var _ = Describe("RouteHandler", func() {
 
 				It("returns the created route in the response", func() {
 					Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "test-route-guid",
-					"protocol": "http",
-					"port": null,
-					"host": "test-route-host",
-					"path": "/test-route-path",
-					"url": "test-route-host.test-domain-name/test-route-path",
-					"created_at": "create-time",
-					"updated_at": "update-time",
-					"destinations": null,
-					"metadata": {
-						"labels": {},
-						"annotations": {}
-					},
-					"relationships": {
-						"space": {
-							"data": {
-								"guid": "test-space-guid"
+						"guid": "test-route-guid",
+						"protocol": "http",
+						"port": null,
+						"host": "test-route-host",
+						"path": "/test-route-path",
+						"url": "test-route-host.test-domain-name/test-route-path",
+						"created_at": "create-time",
+						"updated_at": "update-time",
+						"destinations": null,
+						"metadata": {
+							"labels": {},
+							"annotations": {}
+						},
+						"relationships": {
+							"space": {
+								"data": {
+									"guid": "test-space-guid"
+								}
+							},
+							"domain": {
+								"data": {
+									"guid": "test-domain-guid"
+								}
 							}
 						},
-						"domain": {
-							"data": {
-								"guid": "test-domain-guid"
+						"links": {
+							"self": {
+								"href": "https://api.example.org/v3/routes/test-route-guid"
+							},
+							"space": {
+								"href": "https://api.example.org/v3/spaces/test-space-guid"
+							},
+							"domain": {
+								"href": "https://api.example.org/v3/domains/test-domain-guid"
+							},
+							"destinations": {
+								"href": "https://api.example.org/v3/routes/test-route-guid/destinations"
 							}
 						}
-					},
-					"links": {
-						"self": {
-							"href": "https://api.example.org/v3/routes/test-route-guid"
-						},
-						"space": {
-							"href": "https://api.example.org/v3/spaces/test-space-guid"
-						},
-						"domain": {
-							"href": "https://api.example.org/v3/domains/test-domain-guid"
-						},
-						"destinations": {
-							"href": "https://api.example.org/v3/routes/test-route-guid/destinations"
-						}
-					}
-				}`), "Response body mismatch")
+					}`), "Response body mismatch")
 				})
 			})
 
@@ -382,14 +383,14 @@ var _ = Describe("RouteHandler", func() {
 
 			It("has the expected error response body", func() {
 				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"title": "CF-MessageParseError",
-						"detail": "Request invalid due to parse error: invalid request body",
-						"code": 1001
-					}
-				]
-			}`), "Response body matches response:")
+					"errors": [
+						{
+							"title": "CF-MessageParseError",
+							"detail": "Request invalid due to parse error: invalid request body",
+							"code": 1001
+						}
+					]
+				}`), "Response body matches response:")
 			})
 		})
 
@@ -398,293 +399,158 @@ var _ = Describe("RouteHandler", func() {
 				makePostRequest(`{"description" : "Invalid Request"}`)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"detail": "invalid request body: json: unknown field \"description\"",
-						"title": "CF-UnprocessableEntity",
-						"code": 10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity(`invalid request body: json: unknown field "description"`, getRR)
 		})
 
 		When("the host is missing", func() {
 			BeforeEach(func() {
 				makePostRequest(`{
-				"relationships": {
-					"domain": {
-						"data": {
-							"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-						}
-					},
-					"space": {
-						"data": {
-							"guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
+					"relationships": {
+						"domain": {
+							"data": {
+								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
+							}
+						},
+						"space": {
+							"data": {
+								"guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
+							}
 						}
 					}
-				}
-			}`)
+				}`)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"detail": "Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag",
-						"title": "CF-UnprocessableEntity",
-						"code": 10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity(
+				"Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag",
+				getRR,
+			)
 		})
 
 		When("the host is not a string", func() {
 			BeforeEach(func() {
 				makePostRequest(`{
-				"host": 12345,
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+					"host": 12345,
+					"relationships": {
+						"space": {
+							"data": {
+								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+							}
 						}
 					}
-				}
-			}`)
+				}`)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"detail": "Host must be a string",
-						"title": "CF-UnprocessableEntity",
-						"code":   10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity("Host must be a string", getRR)
 		})
 
 		When("the host format is invalid", func() {
 			BeforeEach(func() {
 				makePostRequest(`{
-				"host": "!-invalid-hostname-!",
-				"relationships": {
-					"domain": {
-						"data": {
-							"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-						}
-					},
-					"space": {
-						"data": {
-							"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+					"host": "!-invalid-hostname-!",
+					"relationships": {
+						"domain": {
+							"data": {
+								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
+							}
+						},
+						"space": {
+							"data": {
+								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+							}
 						}
 					}
-				}
-			}`)
+				}`)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"detail": "Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag",
-						"title": "CF-UnprocessableEntity",
-						"code":   10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity(
+				"Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag",
+				getRR,
+			)
 		})
 
 		When("the host too long", func() {
 			BeforeEach(func() {
 				makePostRequest(`{
-				"host": "a-really-long-hostname-that-is-not-valid-according-to-the-dns-rfc",
-				"relationships": {
-					"domain": {
-						"data": {
-							"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-						}
-					},
-					"space": {
-						"data": {
-							"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+					"host": "a-really-long-hostname-that-is-not-valid-according-to-the-dns-rfc",
+					"relationships": {
+						"domain": {
+							"data": {
+								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
+							}
+						},
+						"space": {
+							"data": {
+								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+							}
 						}
 					}
-				}
-			}`)
+				}`)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"detail": "Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag",
-						"title": "CF-UnprocessableEntity",
-						"code":   10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity(
+				"Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag",
+				getRR,
+			)
 		})
 
 		When("the path is missing a leading /", func() {
 			BeforeEach(func() {
 				makePostRequest(`{
-				"host": "test-route-host",
-				"path": "invalid/path",
-				 "relationships": {
-					"domain": {
-						"data": {
-							"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-						}
-					},
-					"space": {
-						"data": {
-							"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+					"host": "test-route-host",
+					"path": "invalid/path",
+					 "relationships": {
+						"domain": {
+							"data": {
+								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
+							}
+						},
+						"space": {
+							"data": {
+								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+							}
 						}
 					}
-				}
-			}`)
+				}`)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"detail": "Key: 'RouteCreate.Path' Error:Field validation for 'Path' failed on the 'routepathstartswithslash' tag",
-						"title": "CF-UnprocessableEntity",
-						"code":   10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity(
+				"Key: 'RouteCreate.Path' Error:Field validation for 'Path' failed on the 'routepathstartswithslash' tag",
+				getRR,
+			)
 		})
 
 		When("the request body is missing the domain relationship", func() {
 			BeforeEach(func() {
 				makePostRequest(`{
-				"host": "test-route-host",
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
+					"host": "test-route-host",
+					"relationships": {
+						"space": {
+							"data": {
+								"guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
+							}
 						}
 					}
-				}
-			}`)
+				}`)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				 "errors": [
-					{
-						"title": "CF-UnprocessableEntity",
-						"detail": "Data is a required field",
-						"code": 10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity("Data is a required field", getRR)
 		})
 
 		When("the request body is missing the space relationship", func() {
 			BeforeEach(func() {
 				makePostRequest(`{
-				"host": "test-route-host",
-				"relationships": {
-					"domain": {
-						"data": {
-							"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
+					"host": "test-route-host",
+					"relationships": {
+						"domain": {
+							"data": {
+								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
+							}
 						}
 					}
-				}
-			}`)
+				}`)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				 "errors": [
-					{
-						"title": "CF-UnprocessableEntity",
-						"detail": "Data is a required field",
-						"code": 10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity("Data is a required field", getRR)
 		})
 
 		When("the client cannot be built", func() {
@@ -707,26 +573,10 @@ var _ = Describe("RouteHandler", func() {
 				makePostRequest(requestBody)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("returns a CF API formatted Error response", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				 "errors": [
-					{
-						"title": "CF-UnprocessableEntity",
-						"detail": "Invalid space. Ensure that the space exists and you have access to it.",
-						"code": 10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity(
+				"Invalid space. Ensure that the space exists and you have access to it.",
+				getRR,
+			)
 		})
 
 		When("FetchNamespace returns an unknown error", func() {
@@ -754,26 +604,10 @@ var _ = Describe("RouteHandler", func() {
 				makePostRequest(requestBody)
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("returns a CF API formatted Error response", func() {
-				Expect(rr.Body.String()).Should(MatchJSON(`{
-				 "errors": [
-					{
-						"title": "CF-UnprocessableEntity",
-						"detail": "Invalid domain. Ensure that the domain exists and you have access to it.",
-						"code": 10008
-					}
-				]
-			}`), "Response body matches response:")
-			})
+			itRespondsWithUnprocessableEntity(
+				"Invalid domain. Ensure that the domain exists and you have access to it.",
+				getRR,
+			)
 		})
 
 		When("FetchDomain returns an unknown error", func() {

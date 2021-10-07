@@ -85,6 +85,21 @@ type CFAppRepository struct {
 		result1 repositories.SpaceRecord
 		result2 error
 	}
+	SetCurrentDropletStub        func(context.Context, client.Client, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
+	setCurrentDropletMutex       sync.RWMutex
+	setCurrentDropletArgsForCall []struct {
+		arg1 context.Context
+		arg2 client.Client
+		arg3 repositories.SetCurrentDropletMessage
+	}
+	setCurrentDropletReturns struct {
+		result1 repositories.CurrentDropletRecord
+		result2 error
+	}
+	setCurrentDropletReturnsOnCall map[int]struct {
+		result1 repositories.CurrentDropletRecord
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -418,6 +433,72 @@ func (fake *CFAppRepository) FetchNamespaceReturnsOnCall(i int, result1 reposito
 	}{result1, result2}
 }
 
+func (fake *CFAppRepository) SetCurrentDroplet(arg1 context.Context, arg2 client.Client, arg3 repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error) {
+	fake.setCurrentDropletMutex.Lock()
+	ret, specificReturn := fake.setCurrentDropletReturnsOnCall[len(fake.setCurrentDropletArgsForCall)]
+	fake.setCurrentDropletArgsForCall = append(fake.setCurrentDropletArgsForCall, struct {
+		arg1 context.Context
+		arg2 client.Client
+		arg3 repositories.SetCurrentDropletMessage
+	}{arg1, arg2, arg3})
+	stub := fake.SetCurrentDropletStub
+	fakeReturns := fake.setCurrentDropletReturns
+	fake.recordInvocation("SetCurrentDroplet", []interface{}{arg1, arg2, arg3})
+	fake.setCurrentDropletMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFAppRepository) SetCurrentDropletCallCount() int {
+	fake.setCurrentDropletMutex.RLock()
+	defer fake.setCurrentDropletMutex.RUnlock()
+	return len(fake.setCurrentDropletArgsForCall)
+}
+
+func (fake *CFAppRepository) SetCurrentDropletCalls(stub func(context.Context, client.Client, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)) {
+	fake.setCurrentDropletMutex.Lock()
+	defer fake.setCurrentDropletMutex.Unlock()
+	fake.SetCurrentDropletStub = stub
+}
+
+func (fake *CFAppRepository) SetCurrentDropletArgsForCall(i int) (context.Context, client.Client, repositories.SetCurrentDropletMessage) {
+	fake.setCurrentDropletMutex.RLock()
+	defer fake.setCurrentDropletMutex.RUnlock()
+	argsForCall := fake.setCurrentDropletArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFAppRepository) SetCurrentDropletReturns(result1 repositories.CurrentDropletRecord, result2 error) {
+	fake.setCurrentDropletMutex.Lock()
+	defer fake.setCurrentDropletMutex.Unlock()
+	fake.SetCurrentDropletStub = nil
+	fake.setCurrentDropletReturns = struct {
+		result1 repositories.CurrentDropletRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) SetCurrentDropletReturnsOnCall(i int, result1 repositories.CurrentDropletRecord, result2 error) {
+	fake.setCurrentDropletMutex.Lock()
+	defer fake.setCurrentDropletMutex.Unlock()
+	fake.SetCurrentDropletStub = nil
+	if fake.setCurrentDropletReturnsOnCall == nil {
+		fake.setCurrentDropletReturnsOnCall = make(map[int]struct {
+			result1 repositories.CurrentDropletRecord
+			result2 error
+		})
+	}
+	fake.setCurrentDropletReturnsOnCall[i] = struct {
+		result1 repositories.CurrentDropletRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -431,6 +512,8 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.fetchAppListMutex.RUnlock()
 	fake.fetchNamespaceMutex.RLock()
 	defer fake.fetchNamespaceMutex.RUnlock()
+	fake.setCurrentDropletMutex.RLock()
+	defer fake.setCurrentDropletMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

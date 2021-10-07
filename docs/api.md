@@ -36,7 +36,8 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 |--|--|
 | List Apps | GET /v3/apps |
 | Get App | GET /v3/apps/\<guid> |
-| Create App | POST /v3/apps
+| Create App | POST /v3/apps |
+| Set App's Current Droplet | PATCH /v3/apps/\<guid>/current_droplet |
 
 #### [Creating Apps](https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#the-app-object)
 Note : `namespace` needs to exist before creating the app.
@@ -44,6 +45,13 @@ Note : `namespace` needs to exist before creating the app.
 curl "http://localhost:9000/v3/apps" \
   -X POST \
   -d '{"name":"my-app","relationships":{"space":{"data":{"guid":"<namespace-name>"}}}}'
+```
+
+#### [Setting App's Current Droplet](https://v3-apidocs.cloudfoundry.org/version/3.108.0/index.html#update-a-droplet)
+```bash
+curl "http://localhost:9000/v3/apps/<app-guid>/relationships/current_droplet" \
+  -X PATCH \
+  -d '{"data":{"guid":"<droplet-guid>"}}'
 ```
 
 ### Packages

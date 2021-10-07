@@ -24,21 +24,19 @@ func itRespondsWithUnknownError(rr func() *httptest.ResponseRecorder) {
 		Expect(rr().Code).To(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
 	})
 
-	It("returns Content-Type as JSON in header", func() {
+	It("returns a CF API formatted Error response", func() {
 		contentTypeHeader := rr().Header().Get("Content-Type")
 		Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-	})
 
-	It("returns a CF API formatted Error response", func() {
 		Expect(rr().Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"title": "UnknownError",
-						"detail": "An unknown error occurred.",
-						"code": 10001
-					}
-				]
-			}`), "Response body matches response:")
+			"errors": [
+				{
+					"title": "UnknownError",
+					"detail": "An unknown error occurred.",
+					"code": 10001
+				}
+			]
+		}`), "Response body matches response:")
 	})
 }
 
@@ -47,20 +45,39 @@ func itRespondsWithNotFound(detail string, rr func() *httptest.ResponseRecorder)
 		Expect(rr().Code).To(Equal(http.StatusNotFound), "Matching HTTP response code:")
 	})
 
-	It("returns Content-Type as JSON in header", func() {
+	It("returns a CF API formatted Error response", func() {
 		contentTypeHeader := rr().Header().Get("Content-Type")
 		Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+		Expect(rr().Body.String()).To(MatchJSON(fmt.Sprintf(`{
+			"errors": [
+				{
+					"code": 10010,
+					"title": "CF-ResourceNotFound",
+					"detail": %q
+				}
+			]
+		}`, detail)), "Response body matches response:")
+	})
+}
+
+func itRespondsWithUnprocessableEntity(detail string, rr func() *httptest.ResponseRecorder) {
+	It("responds 422", func() {
+		Expect(rr().Code).To(Equal(http.StatusUnprocessableEntity))
 	})
 
-	It("returns a CF API formatted Error response", func() {
-		Expect(rr().Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"code": 10010,
-						"title": "CF-ResourceNotFound",
-						"detail": "`+detail+`"
-					}
-				]
-			}`), "Response body matches response:")
+	It("responds with a CF-UnprocessableEntity error", func() {
+		contentTypeHeader := rr().Header().Get("Content-Type")
+		Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+		Expect(rr().Body.String()).To(MatchJSON(fmt.Sprintf(`{
+			"errors": [
+				{
+					"detail": %q,
+					"title": "CF-UnprocessableEntity",
+					"code": 10008
+				}
+			]
+		}`, detail)))
 	})
 }
