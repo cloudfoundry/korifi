@@ -97,6 +97,9 @@ type CFBuildReconciler struct {
 //+kubebuilder:rbac:groups=kpack.io,resources=images/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=kpack.io,resources=images/finalizers,verbs=update
 
+//+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
+
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
