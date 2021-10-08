@@ -84,10 +84,6 @@ var _ = Describe("DropletRepository", func() {
 		When("on the happy path", func() {
 
 			When("status.BuildDropletStatus is set", func() {
-				var (
-					dropletRecord DropletRecord
-					fetchErr      error
-				)
 
 				BeforeEach(func() {
 					meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
@@ -128,53 +124,55 @@ var _ = Describe("DropletRepository", func() {
 					Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
 				})
 
-				It("should eventually return a record with state : \"STAGED\" set", func() {
+				It("should eventually return a droplet record with fields set to expected values", func() {
+					var dropletRecord DropletRecord
+
 					Eventually(func() string {
+						var fetchErr error
 						dropletRecord, fetchErr = dropletRepo.FetchDroplet(testCtx, client, buildGUID)
 						if fetchErr != nil {
 							return ""
 						}
 						return dropletRecord.State
-					}, 10*time.Second, 250*time.Millisecond).Should(Equal("STAGED"), "the returned record State was not STAGED")
-				})
+					}, 10*time.Second, 250*time.Millisecond).Should(Equal("STAGED"), "the returned record State was not \"STAGED\"")
 
-				It("returns a record with a CreatedAt field from the CR", func() {
-					createdAt, err := time.Parse(time.RFC3339, dropletRecord.CreatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-				})
+					By("returning a record with a CreatedAt field from the CR", func() {
+						createdAt, err := time.Parse(time.RFC3339, dropletRecord.CreatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+					})
 
-				It("returns a record with a UpdatedAt field from the CR", func() {
-					updatedAt, err := time.Parse(time.RFC3339, dropletRecord.UpdatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-				})
+					By("returning a record with a UpdatedAt field from the CR", func() {
+						updatedAt, err := time.Parse(time.RFC3339, dropletRecord.UpdatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+					})
 
-				It("returns a record with stack field matching the CR", func() {
-					Expect(dropletRecord.Stack).To(Equal(build.Status.BuildDropletStatus.Stack))
-				})
+					By("returning a record with stack field matching the CR", func() {
+						Expect(dropletRecord.Stack).To(Equal(build.Status.BuildDropletStatus.Stack))
+					})
 
-				It("returns a record with Lifecycle fields matching the CR", func() {
-					Expect(dropletRecord.Lifecycle.Type).To(Equal(string(build.Spec.Lifecycle.Type)), "returned record lifecycle.type did not match CR")
-					Expect(dropletRecord.Lifecycle.Data.Buildpacks).To(Equal(build.Spec.Lifecycle.Data.Buildpacks), "returned record lifecycle.data.buildpacks did not match CR")
-					Expect(dropletRecord.Lifecycle.Data.Stack).To(Equal(build.Spec.Lifecycle.Data.Stack), "returned record lifecycle.data.stack did not match CR")
-				})
+					By("returning a record with Lifecycle fields matching the CR", func() {
+						Expect(dropletRecord.Lifecycle.Type).To(Equal(string(build.Spec.Lifecycle.Type)), "returned record lifecycle.type did not match CR")
+						Expect(dropletRecord.Lifecycle.Data.Buildpacks).To(Equal(build.Spec.Lifecycle.Data.Buildpacks), "returned record lifecycle.data.buildpacks did not match CR")
+						Expect(dropletRecord.Lifecycle.Data.Stack).To(Equal(build.Spec.Lifecycle.Data.Stack), "returned record lifecycle.data.stack did not match CR")
+					})
 
-				It("returns a record with an AppGUID field matching the CR", func() {
-					Expect(dropletRecord.AppGUID).To(Equal(build.Spec.AppRef.Name))
-				})
+					By("returning a record with an AppGUID field matching the CR", func() {
+						Expect(dropletRecord.AppGUID).To(Equal(build.Spec.AppRef.Name))
+					})
 
-				It("returns a record with a PackageGUID field matching the CR", func() {
-					Expect(dropletRecord.PackageGUID).To(Equal(build.Spec.PackageRef.Name))
-				})
+					By("returning a record with a PackageGUID field matching the CR", func() {
+						Expect(dropletRecord.PackageGUID).To(Equal(build.Spec.PackageRef.Name))
+					})
 
-				It("return a record with all process types and commands matching the CR", func() {
-					processTypesArray := build.Status.BuildDropletStatus.ProcessTypes
-					for index := range processTypesArray {
-						Expect(dropletRecord.ProcessTypes).To(HaveKeyWithValue(processTypesArray[index].Type, processTypesArray[index].Command))
-					}
+					By("returning a record with all process types and commands matching the CR", func() {
+						processTypesArray := build.Status.BuildDropletStatus.ProcessTypes
+						for index := range processTypesArray {
+							Expect(dropletRecord.ProcessTypes).To(HaveKeyWithValue(processTypesArray[index].Type, processTypesArray[index].Command))
+						}
+					})
 				})
-
 			})
 
 			When("status.BuildDropletStatus is not set", func() {
