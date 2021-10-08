@@ -25,7 +25,7 @@ const (
 	AppCreateEndpoint            = "/v3/apps"
 	AppGetEndpoint               = "/v3/apps/{guid}"
 	AppListEndpoint              = "/v3/apps"
-	AppSetCurrentDropletEndpoint = "/v3/apps/{guid}/current_droplet"
+	AppSetCurrentDropletEndpoint = "/v3/apps/{guid}/relationships/current_droplet"
 
 	invalidDropletMsg = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 )

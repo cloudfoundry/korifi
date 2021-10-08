@@ -37,7 +37,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 | List Apps | GET /v3/apps |
 | Get App | GET /v3/apps/\<guid> |
 | Create App | POST /v3/apps |
-| Set App's Current Droplet | PATCH /v3/apps/\<guid>/current_droplet |
+| Set App's Current Droplet | PATCH /v3/apps/\<guid>/relationships/current_droplet |
 
 #### [Creating Apps](https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#the-app-object)
 Note : `namespace` needs to exist before creating the app.
