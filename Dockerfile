@@ -16,7 +16,7 @@ COPY repositories/ repositories/
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o cfapi main.go
 
-FROM scratch
+FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/cfapi .
 USER 1000:1000

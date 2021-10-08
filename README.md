@@ -26,6 +26,32 @@ shell
 go run main.go
 ```
 
+### Deploying the app to your cluster
+
+**Note** Supports ingress with only GKE
+
+### Editing Local Configuration
+To specify a custom configuration file, set the `CONFIG` environment variable to its path when running the web server.
+Refer to the [default config](config/cf_k8s_api_config.yaml) for the config file structure and options.
+
+Edit the file: config/base/cf_k8s_api_config.yaml and set the `packageRegistryBase` field to be the registry location you want your source package image to be uploaded to.
+
+### Using make
+You can deploy the app to your cluster by running `make deploy` from the project root.
+
+### Using Kubectl
+You can deploy the app to your cluster by running `kubectl apply -f reference/cf-k8s-api.yaml` from the project root.
+
+### Post Deployment
+Run the commands below substituting the values for the Docker credentials to the registry where source package images will be uploaded to.
+
+```
+kubectl create secret docker-registry image-registry-secret \
+    --docker-username="<DOCKER_USERNAME>" \
+    --docker-password="<DOCKER_PASSWORD>" \
+     --docker-server="<DOCKER_SERVER>" --namespace cf-k8s-api-system
+```
+
 ## Contributing
 
 ### Running Tests
@@ -42,27 +68,12 @@ KUBEBUILDER_ASSETS=$PWD/testbin/bin go test ./... -coverprofile cover.out
 Some tests run a real Kubernetes API/etcd via the [`envtest`](https://book.kubebuilder.io/reference/envtest.html) package. These tests rely on the CRDs from [cf-k8s-controllers](https://github.com/cloudfoundry/cf-k8s-controllers) which we have vendored in.
 To update these CRDs you'll need to install [vendir](https://carvel.dev/vendir/) and run `vendir sync` in the `repositories/fixtures` directory.
 
-### Editing Local Configuration
-To specify a custom configuration file, set the `CONFIG` environment variable to its path when running the web server.
-Refer to the [default config](config/cf_k8s_api_config.yaml) for the config file structure and options.
-
-*See the comments in the default config file to see which fields must be set manually and what other manual setup is
-required.*
-
 ## Regenerate kubernetes resources after making changes
 To regenerate the kubernetes resources under `./config`, run `make manifests` from the root of the project.
 
 ## Generate reference yaml
+
 ```
 make build-reference
 ```
 
-## Deploying the app to your cluster
-
-**Note** Supports ingress with only GKE
-
-### Using make
-You can deploy the app to your cluster by running `make deploy` from the project root.
-
-### Using Kubectl
-You can deploy the app to your cluster by running `kubectl apply -f reference/cf-k8s-api.yaml` from the project root.
