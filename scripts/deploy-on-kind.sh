@@ -33,17 +33,20 @@ EOF
 }
 
 deploy_cf_k8s_controllers() {
-    pushd "$CTRL_DIR"
+  pushd "$CTRL_DIR"
+  {
     kubectl apply -f dependencies/cert-manager.yaml
     local uuid
     uuid="$(uuidgen)"
     export IMG="cf-k8s-controllers:$uuid"
+    export KUBEBUILDER_ASSETS=$CTRL_DIR/testbin/bin
     make generate
     make docker-build
     kind load docker-image --name "$cluster" "$IMG"
     make install
     make deploy
-    popd
+  }
+  popd
 }
 
 deploy_cf_k8s_api() {
