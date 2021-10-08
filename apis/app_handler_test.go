@@ -796,7 +796,7 @@ var _ = Describe("AppHandler", func() {
 		})
 	})
 
-	Describe("the PATCH /v3/apps/:guid/current_droplet endpoint", func() {
+	Describe("the PATCH /v3/apps/:guid/relationships/current_droplet endpoint", func() {
 		const (
 			dropletGUID = "test-droplet-guid"
 		)
@@ -818,7 +818,7 @@ var _ = Describe("AppHandler", func() {
 			}, nil)
 
 			var err error
-			req, err = http.NewRequest("PATCH", "/v3/apps/"+appGUID+"/current_droplet", strings.NewReader(`
+			req, err = http.NewRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
 					{ "data": { "guid": "`+dropletGUID+`" } }
                 `))
 			Expect(err).NotTo(HaveOccurred())
@@ -909,7 +909,7 @@ var _ = Describe("AppHandler", func() {
 		When("the guid is missing", func() {
 			BeforeEach(func() {
 				var err error
-				req, err = http.NewRequest("PATCH", "/v3/apps/"+appGUID+"/current_droplet", strings.NewReader(`
+				req, err = http.NewRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
 					{ "data": {  } }
                 `))
 				Expect(err).NotTo(HaveOccurred())
