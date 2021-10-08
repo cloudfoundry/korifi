@@ -38,7 +38,7 @@ run: fmt vet ## Run a controller from your host.
 	go run ./main.go
 
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=cf-admin-clusterrole paths=./... output:rbac:artifacts:config=../config/base/rbac
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=cf-admin-clusterrole paths=./... output:rbac:artifacts:config=config/base/rbac
 
 generate: fmt vet
 	go generate ./...
