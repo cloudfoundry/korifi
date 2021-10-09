@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
@@ -24,7 +25,7 @@ var _ = Describe("DropletHandler", func() {
 		const (
 			appGUID     = "test-app-guid"
 			packageGUID = "test-package-guid"
-			dropletGUID = "test-build-guid" //same as build guid
+			dropletGUID = "test-build-guid" // same as build guid
 
 			createdAt = "1906-04-18T13:12:00Z"
 			updatedAt = "1906-04-18T13:12:01Z"
@@ -49,9 +50,11 @@ var _ = Describe("DropletHandler", func() {
 			router = mux.NewRouter()
 			clientBuilder = new(fake.ClientBuilder)
 
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
 			dropletHandler := NewDropletHandler(
 				logf.Log.WithName(testDropletHandlerLoggerName),
-				defaultServerURL,
+				*serverURL,
 				dropletRepo,
 				clientBuilder.Spy,
 				&rest.Config{},
@@ -59,9 +62,7 @@ var _ = Describe("DropletHandler", func() {
 			dropletHandler.RegisterRoutes(router)
 		})
 		When("on the happy path", func() {
-
 			When("build staging is successful", func() {
-
 				BeforeEach(func() {
 					dropletRepo.FetchDropletReturns(repositories.DropletRecord{
 						GUID:      dropletGUID,
@@ -158,7 +159,6 @@ var _ = Describe("DropletHandler", func() {
 					  }
 					}`), "Response body matches response:")
 				})
-
 			})
 		})
 		When("building the k8s client errors", func() {

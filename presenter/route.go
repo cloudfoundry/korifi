@@ -2,8 +2,14 @@ package presenter
 
 import (
 	"fmt"
+	"net/url"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+)
+
+const (
+	routesBase  = "/v3/routes"
+	domainsBase = "/v3/domains"
 )
 
 type RouteResponse struct {
@@ -42,13 +48,13 @@ type routeLinks struct {
 	Destinations Link `json:"destinations"`
 }
 
-func ForRoute(route repositories.RouteRecord, baseURL string) RouteResponse {
+func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 	return RouteResponse{
 		GUID:      route.GUID,
 		Protocol:  route.Protocol,
 		Host:      route.Host,
 		Path:      route.Path,
-		URL:       url(route),
+		URL:       routeURL(route),
 		CreatedAt: route.CreatedAt,
 		UpdatedAt: route.UpdatedAt,
 		Relationships: Relationships{
@@ -69,22 +75,22 @@ func ForRoute(route repositories.RouteRecord, baseURL string) RouteResponse {
 		},
 		Links: routeLinks{
 			Self: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/routes/%s", route.GUID)),
+				HREF: buildURL(baseURL).appendPath(routesBase, route.GUID).build(),
 			},
 			Space: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/spaces/%s", route.SpaceGUID)),
+				HREF: buildURL(baseURL).appendPath(spacesBase, route.SpaceGUID).build(),
 			},
 			Domain: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/domains/%s", route.DomainRef.GUID)),
+				HREF: buildURL(baseURL).appendPath(domainsBase, route.DomainRef.GUID).build(),
 			},
 			Destinations: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/routes/%s/destinations", route.GUID)),
+				HREF: buildURL(baseURL).appendPath(routesBase, route.GUID, "destinations").build(),
 			},
 		},
 	}
 }
 
-func url(route repositories.RouteRecord) string {
+func routeURL(route repositories.RouteRecord) string {
 	if route.Host != "" {
 		return fmt.Sprintf("%s.%s%s", route.Host, route.DomainRef.Name, route.Path)
 	} else {

@@ -1,9 +1,13 @@
 package presenter
 
 import (
-	"fmt"
+	"net/url"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+)
+
+const (
+	packagesBase = "/v3/packages"
 )
 
 type PackageResponse struct {
@@ -18,8 +22,7 @@ type PackageResponse struct {
 	UpdatedAt     string        `json:"updated_at"`
 }
 
-type PackageData struct {
-}
+type PackageData struct{}
 
 type PackageLinks struct {
 	Self     Link `json:"self"`
@@ -28,7 +31,7 @@ type PackageLinks struct {
 	App      Link `json:"app"`
 }
 
-func ForPackage(record repositories.PackageRecord, baseURL string) PackageResponse {
+func ForPackage(record repositories.PackageRecord, baseURL url.URL) PackageResponse {
 	return PackageResponse{
 		GUID:      record.GUID,
 		Type:      record.Type,
@@ -44,18 +47,18 @@ func ForPackage(record repositories.PackageRecord, baseURL string) PackageRespon
 		},
 		Links: PackageLinks{
 			Self: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/packages/%s", record.GUID)),
+				HREF: buildURL(baseURL).appendPath(packagesBase, record.GUID).build(),
 			},
 			Upload: Link{
-				HREF:   prefixedLinkURL(baseURL, fmt.Sprintf("v3/packages/%s/upload", record.GUID)),
+				HREF:   buildURL(baseURL).appendPath(packagesBase, record.GUID, "upload").build(),
 				Method: "POST",
 			},
 			Download: Link{
-				HREF:   prefixedLinkURL(baseURL, fmt.Sprintf("v3/packages/%s/download", record.GUID)),
+				HREF:   buildURL(baseURL).appendPath(packagesBase, record.GUID, "download").build(),
 				Method: "GET",
 			},
 			App: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s", record.AppGUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, record.AppGUID).build(),
 			},
 		},
 		Metadata: Metadata{

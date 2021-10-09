@@ -1,8 +1,14 @@
 package presenter
 
 import (
+	"net/url"
+
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
-	"fmt"
+)
+
+const (
+	buildsBase   = "/v3/builds"
+	dropletsBase = "/v3/droplets"
 )
 
 type BuildResponse struct {
@@ -22,7 +28,7 @@ type BuildResponse struct {
 	Links           map[string]Link        `json:"links"`
 }
 
-func ForBuild(buildRecord repositories.BuildRecord, baseURL string) BuildResponse {
+func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL) BuildResponse {
 	toReturn := BuildResponse{
 		GUID:            buildRecord.GUID,
 		CreatedAt:       buildRecord.CreatedAt,
@@ -54,11 +60,11 @@ func ForBuild(buildRecord repositories.BuildRecord, baseURL string) BuildRespons
 			Annotations: map[string]string{},
 		},
 		Links: map[string]Link{
-			"self": Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/builds/%s", buildRecord.GUID)),
+			"self": {
+				HREF: buildURL(baseURL).appendPath(buildsBase, buildRecord.GUID).build(),
 			},
-			"app": Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s", buildRecord.AppGUID)),
+			"app": {
+				HREF: buildURL(baseURL).appendPath(appsBase, buildRecord.AppGUID).build(),
 			},
 		},
 	}
@@ -69,7 +75,7 @@ func ForBuild(buildRecord repositories.BuildRecord, baseURL string) BuildRespons
 		}
 
 		toReturn.Links["droplet"] = Link{
-			HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/droplets/%s", buildRecord.DropletGUID)),
+			HREF: buildURL(baseURL).appendPath(dropletsBase, buildRecord.DropletGUID).build(),
 		}
 	}
 

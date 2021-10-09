@@ -35,6 +35,7 @@ rules:
   resources:
   - subnamespaceanchors
   verbs:
+  - create
   - list
 - apiGroups:
   - networking.cloudfoundry.org

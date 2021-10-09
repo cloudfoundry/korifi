@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
@@ -64,9 +65,11 @@ var _ = Describe("RouteHandler", func() {
 				Name: "example.org",
 			}, nil)
 
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
 			routeHandler := NewRouteHandler(
 				logf.Log.WithName("TestRouteHandler"),
-				defaultServerURL,
+				*serverURL,
 				routeRepo,
 				domainRepo,
 				appRepo,
@@ -75,7 +78,6 @@ var _ = Describe("RouteHandler", func() {
 			)
 			routeHandler.RegisterRoutes(router)
 
-			var err error
 			req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s", testRouteGUID), nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -97,7 +99,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns the Route in the response", func() {
-				expectedBody := `{
+				expectedBody := fmt.Sprintf(`{
 					"guid": "test-route-guid",
 					"port": null,
 					"path": "",
@@ -125,19 +127,19 @@ var _ = Describe("RouteHandler", func() {
 					},
 					"links": {
 						"self":{
-							"href": "https://api.example.org/v3/routes/test-route-guid"
+                            "href": "%[1]s/v3/routes/test-route-guid"
 						},
 						"space":{
-							"href": "https://api.example.org/v3/spaces/test-space-guid"
+                            "href": "%[1]s/v3/spaces/test-space-guid"
 						},
 						"domain":{
-							"href": "https://api.example.org/v3/domains/test-domain-guid"
+                            "href": "%[1]s/v3/domains/test-domain-guid"
 						},
 						"destinations":{
-							"href": "https://api.example.org/v3/routes/test-route-guid/destinations"
+                            "href": "%[1]s/v3/routes/test-route-guid/destinations"
 						}
 					}
-				}`
+                }`, defaultServerURL)
 
 				Expect(rr.Body.String()).To(MatchJSON(expectedBody), "Response body matches response:")
 			})
@@ -185,6 +187,7 @@ var _ = Describe("RouteHandler", func() {
 			itRespondsWithUnknownError(getRR)
 		})
 	})
+
 	Describe("the POST /v3/routes endpoint", func() {
 		const (
 			testDomainGUID = "test-domain-guid"
@@ -222,9 +225,11 @@ var _ = Describe("RouteHandler", func() {
 			appRepo = new(fake.CFAppRepository)
 			clientBuilder = new(fake.ClientBuilder)
 
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
 			apiHandler := NewRouteHandler(
 				logf.Log.WithName("TestRouteHandler"),
-				defaultServerURL,
+				*serverURL,
 				routeRepo,
 				domainRepo,
 				appRepo,
@@ -290,7 +295,7 @@ var _ = Describe("RouteHandler", func() {
 				})
 
 				It("returns the created route in the response", func() {
-					Expect(rr.Body.String()).To(MatchJSON(`{
+					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 						"guid": "test-route-guid",
 						"protocol": "http",
 						"port": null,
@@ -318,19 +323,19 @@ var _ = Describe("RouteHandler", func() {
 						},
 						"links": {
 							"self": {
-								"href": "https://api.example.org/v3/routes/test-route-guid"
+                                "href": "%[1]s/v3/routes/test-route-guid"
 							},
 							"space": {
-								"href": "https://api.example.org/v3/spaces/test-space-guid"
+                                "href": "%[1]s/v3/spaces/test-space-guid"
 							},
 							"domain": {
-								"href": "https://api.example.org/v3/domains/test-domain-guid"
+                                "href": "%[1]s/v3/domains/test-domain-guid"
 							},
 							"destinations": {
-								"href": "https://api.example.org/v3/routes/test-route-guid/destinations"
+                                "href": "%[1]s/v3/routes/test-route-guid/destinations"
 							}
 						}
-					}`), "Response body mismatch")
+                    }`, defaultServerURL)), "Response body mismatch")
 				})
 			})
 

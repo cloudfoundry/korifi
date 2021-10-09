@@ -1,7 +1,8 @@
 package presenter
 
 import (
-	"fmt"
+	"net/url"
+	"path"
 )
 
 type Lifecycle struct {
@@ -47,6 +48,28 @@ type PageRef struct {
 	HREF string `json:"href"`
 }
 
-func prefixedLinkURL(baseURL, path string) string {
-	return fmt.Sprintf("%s/%s", baseURL, path)
+type buildURL url.URL
+
+func (u buildURL) appendPath(subpath ...string) buildURL {
+	rest := path.Join(subpath...)
+	if u.Path == "" {
+		u.Path = rest
+	} else {
+		u.Path = path.Join(u.Path, rest)
+	}
+
+	return u
+}
+
+func (u buildURL) setQuery(rawQuery string) buildURL {
+	u.RawQuery = rawQuery
+
+	return u
+}
+
+func (u buildURL) build() string {
+	native := url.URL(u)
+	nativeP := &native
+
+	return nativeP.String()
 }

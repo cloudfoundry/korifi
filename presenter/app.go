@@ -1,9 +1,13 @@
 package presenter
 
 import (
-	"fmt"
+	"net/url"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+)
+
+const (
+	appsBase = "/v3/apps"
 )
 
 type AppResponse struct {
@@ -40,7 +44,7 @@ type AppListResponse struct {
 	Resources      []AppResponse  `json:"resources"`
 }
 
-func ForApp(responseApp repositories.AppRecord, baseURL string) AppResponse {
+func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 	return AppResponse{
 		Name:      responseApp.Name,
 		GUID:      responseApp.GUID,
@@ -67,51 +71,51 @@ func ForApp(responseApp repositories.AppRecord, baseURL string) AppResponse {
 		},
 		Links: AppLinks{
 			Self: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s", responseApp.GUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID).build(),
 			},
 			Space: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/spaces/%s", responseApp.SpaceGUID)),
+				HREF: buildURL(baseURL).appendPath(spacesBase, responseApp.SpaceGUID).build(),
 			},
 			Processes: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/processes", responseApp.GUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "processes").build(),
 			},
 			Packages: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/packages", responseApp.GUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "packages").build(),
 			},
 			EnvironmentVariables: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/environment_variables", responseApp.GUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "environment_variables").build(),
 			},
 			CurrentDroplet: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/droplets/current", responseApp.GUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "droplets/current").build(),
 			},
 			Droplets: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/droplets", responseApp.GUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "droplets").build(),
 			},
 			Tasks: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/tasks", responseApp.GUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "tasks").build(),
 			},
 			StartAction: Link{
-				HREF:   prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/actions/start", responseApp.GUID)),
+				HREF:   buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "actions/start").build(),
 				Method: "POST",
 			},
 			StopAction: Link{
-				HREF:   prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/actions/stop", responseApp.GUID)),
+				HREF:   buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "actions/stop").build(),
 				Method: "POST",
 			},
 			Revisions: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/revisions", responseApp.GUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "revisions").build(),
 			},
 			DeployedRevisions: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/revisions/deployed", responseApp.GUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "revisions/deployed").build(),
 			},
 			Features: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/features", responseApp.GUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "features").build(),
 			},
 		},
 	}
 }
 
-func ForAppList(appRecordList []repositories.AppRecord, baseURL string) AppListResponse {
+func ForAppList(appRecordList []repositories.AppRecord, baseURL url.URL) AppListResponse {
 	appResponses := make([]AppResponse, 0, len(appRecordList))
 	for _, app := range appRecordList {
 		appResponses = append(appResponses, ForApp(app, baseURL))
@@ -122,10 +126,10 @@ func ForAppList(appRecordList []repositories.AppRecord, baseURL string) AppListR
 			TotalResults: len(appResponses),
 			TotalPages:   1,
 			First: PageRef{
-				HREF: prefixedLinkURL(baseURL, "v3/apps?page=1"),
+				HREF: buildURL(baseURL).appendPath(appsBase).setQuery("page=1").build(),
 			},
 			Last: PageRef{
-				HREF: prefixedLinkURL(baseURL, "v3/apps?page=1"),
+				HREF: buildURL(baseURL).appendPath(appsBase).setQuery("page=1").build(),
 			},
 		},
 		Resources: appResponses,
@@ -144,7 +148,7 @@ type CurrentDropletLinks struct {
 	Related Link `json:"related"`
 }
 
-func ForCurrentDroplet(record repositories.CurrentDropletRecord, baseURL string) CurrentDropletResponse {
+func ForCurrentDroplet(record repositories.CurrentDropletRecord, baseURL url.URL) CurrentDropletResponse {
 	return CurrentDropletResponse{
 		Relationship: Relationship{
 			Data: RelationshipData{
@@ -153,10 +157,10 @@ func ForCurrentDroplet(record repositories.CurrentDropletRecord, baseURL string)
 		},
 		Links: CurrentDropletLinks{
 			Self: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/relationships/current_droplet", record.AppGUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, record.AppGUID, "relationships/current_droplet").build(),
 			},
 			Related: Link{
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/droplets/current", record.AppGUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, record.AppGUID, "droplets/current").build(),
 			},
 		},
 	}

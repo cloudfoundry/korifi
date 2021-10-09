@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
@@ -46,7 +47,7 @@ type RegistryAuthBuilder func(ctx context.Context) (remote.Option, error)
 
 type PackageHandler struct {
 	logger             logr.Logger
-	serverURL          string
+	serverURL          url.URL
 	packageRepo        CFPackageRepository
 	appRepo            CFAppRepository
 	buildClient        ClientBuilder
@@ -57,7 +58,17 @@ type PackageHandler struct {
 	registrySecretName string
 }
 
-func NewPackageHandler(logger logr.Logger, serverURL string, packageRepo CFPackageRepository, appRepo CFAppRepository, buildClient ClientBuilder, uploadSourceImage SourceImageUploader, buildRegistryAuth RegistryAuthBuilder, k8sConfig *rest.Config, registryBase string, registrySecretName string) *PackageHandler {
+func NewPackageHandler(
+	logger logr.Logger,
+	serverURL url.URL,
+	packageRepo CFPackageRepository,
+	appRepo CFAppRepository,
+	buildClient ClientBuilder,
+	uploadSourceImage SourceImageUploader,
+	buildRegistryAuth RegistryAuthBuilder,
+	k8sConfig *rest.Config,
+	registryBase string,
+	registrySecretName string) *PackageHandler {
 	return &PackageHandler{
 		logger:             logger,
 		serverURL:          serverURL,

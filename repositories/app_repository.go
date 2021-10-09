@@ -59,11 +59,6 @@ type LifecycleData struct {
 	Stack      string
 }
 
-type SpaceRecord struct {
-	Name             string
-	OrganizationGUID string
-}
-
 type AppEnvVarsRecord struct {
 	Name                 string
 	AppGUID              string
@@ -240,7 +235,7 @@ func filterAppsByMetadataName(apps []workloadsv1alpha1.CFApp, name string) []wor
 }
 
 func v1NamespaceToSpaceRecord(namespace *v1.Namespace) SpaceRecord {
-	//TODO How do we derive Organization GUID here?
+	// TODO How do we derive Organization GUID here?
 	return SpaceRecord{
 		Name:             namespace.Name,
 		OrganizationGUID: "",

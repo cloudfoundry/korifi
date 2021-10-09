@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -25,7 +26,7 @@ type CFDropletRepository interface {
 }
 
 type DropletHandler struct {
-	serverURL   string
+	serverURL   url.URL
 	dropletRepo CFDropletRepository
 	buildClient ClientBuilder
 	logger      logr.Logger
@@ -34,7 +35,7 @@ type DropletHandler struct {
 
 func NewDropletHandler(
 	logger logr.Logger,
-	serverURL string,
+	serverURL url.URL,
 	dropletRepo CFDropletRepository,
 	buildClient ClientBuilder,
 	k8sConfig *rest.Config) *DropletHandler {
@@ -84,7 +85,6 @@ func (h *DropletHandler) dropletGetHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	w.Write(responseBody)
-
 }
 
 func (h *DropletHandler) RegisterRoutes(router *mux.Router) {

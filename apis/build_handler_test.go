@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -76,9 +77,11 @@ var _ = Describe("BuildHandler", func() {
 			router = mux.NewRouter()
 			clientBuilder = new(fake.ClientBuilder)
 
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
 			buildHandler := NewBuildHandler(
 				logf.Log.WithName(testBuildHandlerLoggerName),
-				defaultServerURL,
+				*serverURL,
 				buildRepo,
 				new(fake.CFPackageRepository),
 				clientBuilder.Spy,
@@ -146,7 +149,6 @@ var _ = Describe("BuildHandler", func() {
 				})
 			})
 			When("build staging is successful", func() {
-
 				BeforeEach(func() {
 					buildRepo.FetchBuildReturns(repositories.BuildRecord{
 						GUID:            buildGUID,
@@ -407,10 +409,12 @@ var _ = Describe("BuildHandler", func() {
 				AppGUID:     appGUID,
 			}, nil)
 
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
 			clientBuilder = new(fake.ClientBuilder)
 			buildHandler := NewBuildHandler(
 				logf.Log.WithName(testBuildHandlerLoggerName),
-				defaultServerURL,
+				*serverURL,
 				buildRepo,
 				packageRepo,
 				clientBuilder.Spy,
@@ -438,9 +442,7 @@ var _ = Describe("BuildHandler", func() {
 			})
 
 			When("examining the BuildCreate message", func() {
-				var (
-					actualCreate repositories.BuildCreateMessage
-				)
+				var actualCreate repositories.BuildCreateMessage
 				BeforeEach(func() {
 					Expect(buildRepo.CreateBuildCallCount()).To(Equal(1), "buildRepo CreateBuild was not called")
 					_, _, actualCreate = buildRepo.CreateBuildArgsForCall(0)
@@ -456,7 +458,6 @@ var _ = Describe("BuildHandler", func() {
 				})
 				It("fills in values for StagingMemoryMB", func() {
 					Expect(actualCreate.StagingMemoryMB).To(Equal(expectedStagingMem))
-
 				})
 				It("fills in values for StagingDiskMB", func() {
 					Expect(actualCreate.StagingDiskMB).To(Equal(expectedStagingDisk))

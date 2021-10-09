@@ -1,7 +1,7 @@
 package presenter
 
 import (
-	"fmt"
+	"net/url"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 )
@@ -36,7 +36,7 @@ type BuildpackData struct {
 	Version       string `json:"version"`
 }
 
-func ForDroplet(dropletRecord repositories.DropletRecord, baseURL string) DropletResponse {
+func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL) DropletResponse {
 	toReturn := DropletResponse{
 		GUID:      dropletRecord.GUID,
 		CreatedAt: dropletRecord.CreatedAt,
@@ -66,16 +66,16 @@ func ForDroplet(dropletRecord repositories.DropletRecord, baseURL string) Drople
 		},
 		Links: map[string]*Link{
 			"self": {
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/droplets/%s", dropletRecord.GUID)),
+				HREF: buildURL(baseURL).appendPath(dropletsBase, dropletRecord.GUID).build(),
 			},
 			"package": {
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/packages/%s", dropletRecord.PackageGUID)),
+				HREF: buildURL(baseURL).appendPath(packagesBase, dropletRecord.PackageGUID).build(),
 			},
 			"app": {
-				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s", dropletRecord.AppGUID)),
+				HREF: buildURL(baseURL).appendPath(appsBase, dropletRecord.AppGUID).build(),
 			},
 			"assign_current_droplet": {
-				HREF:   prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/relationships/current_droplet", dropletRecord.AppGUID)),
+				HREF:   buildURL(baseURL).appendPath(appsBase, dropletRecord.AppGUID, "relationships/current_droplet").build(),
 				Method: "PATCH",
 			},
 			"download": nil,

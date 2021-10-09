@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 
@@ -42,14 +43,20 @@ type CFAppRepository interface {
 
 type AppHandler struct {
 	logger      logr.Logger
-	serverURL   string
+	serverURL   url.URL
 	appRepo     CFAppRepository
 	dropletRepo CFDropletRepository
 	buildClient ClientBuilder
 	k8sConfig   *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
-func NewAppHandler(logger logr.Logger, serverURL string, appRepo CFAppRepository, dropletRepo CFDropletRepository, buildClient ClientBuilder, k8sConfig *rest.Config) *AppHandler {
+func NewAppHandler(
+	logger logr.Logger,
+	serverURL url.URL,
+	appRepo CFAppRepository,
+	dropletRepo CFDropletRepository,
+	buildClient ClientBuilder,
+	k8sConfig *rest.Config) *AppHandler {
 	return &AppHandler{
 		logger:      logger,
 		serverURL:   serverURL,

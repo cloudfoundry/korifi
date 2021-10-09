@@ -1,10 +1,12 @@
 package apis
 
 import (
-	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
+
+	"code.cloudfoundry.org/cf-k8s-api/payloads"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -27,7 +29,7 @@ type CFBuildRepository interface {
 }
 
 type BuildHandler struct {
-	serverURL   string
+	serverURL   url.URL
 	buildRepo   CFBuildRepository
 	buildClient ClientBuilder
 	packageRepo CFPackageRepository
@@ -37,7 +39,7 @@ type BuildHandler struct {
 
 func NewBuildHandler(
 	logger logr.Logger,
-	serverURL string,
+	serverURL url.URL,
 	buildRepo CFBuildRepository,
 	packageRepo CFPackageRepository,
 	buildClient ClientBuilder,

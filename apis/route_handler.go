@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 
 	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
@@ -37,7 +38,7 @@ type CFDomainRepository interface {
 
 type RouteHandler struct {
 	logger      logr.Logger
-	serverURL   string
+	serverURL   url.URL
 	routeRepo   CFRouteRepository
 	domainRepo  CFDomainRepository
 	appRepo     CFAppRepository
@@ -47,7 +48,7 @@ type RouteHandler struct {
 
 func NewRouteHandler(
 	logger logr.Logger,
-	serverURL string,
+	serverURL url.URL,
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	appRepo CFAppRepository,
