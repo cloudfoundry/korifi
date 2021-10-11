@@ -1,11 +1,10 @@
 package integration_test
 
 import (
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/fake"
 	"context"
 	"path/filepath"
 	"testing"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/fake"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
@@ -64,8 +63,15 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
+		Scheme:             scheme.Scheme,
+		Host:               webhookInstallOptions.LocalServingHost,
+		Port:               webhookInstallOptions.LocalServingPort,
+		CertDir:            webhookInstallOptions.LocalServingCertDir,
+		LeaderElection:     false,
+		MetricsBindAddress: "0",
 	})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -94,6 +100,7 @@ var _ = BeforeSuite(func() {
 	// TODO: Add the other reconcilers
 
 	go func() {
+		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred())
 	}()

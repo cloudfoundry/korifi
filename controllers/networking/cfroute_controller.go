@@ -17,30 +17,30 @@ limitations under the License.
 package networking
 
 import (
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	"context"
 	"fmt"
-
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/go-logr/logr"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const (
-	// TODO: This seems too specific to the current implementation
-	ProxyCreatedConditionType = "ProxyCreated"
-)
+//const (
+//	ProxyCreatedConditionType = "ProxyCreated"
+//)
 
-// CFRouteReconciler reconciles a CFRoute object
+// CFRouteReconciler reconciles a CFRoute object to create Contour resources
 type CFRouteReconciler struct {
-	Client CFClient
+	Client client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 }
@@ -53,20 +53,15 @@ type CFRouteReconciler struct {
 //+kubebuilder:rbac:groups=projectcontour.io,resources=httpproxies/status,verbs=get
 //+kubebuilder:rbac:groups=projectcontour.io,resources=httpproxies/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the CFRoute object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
+//+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
+
 func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var cfRoute networkingv1alpha1.CFRoute
 	err := r.Client.Get(ctx, req.NamespacedName, &cfRoute)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching CFRoute")
+		if !apierrors.IsNotFound(err) {
+			r.Log.Error(err, "Error when fetching CFRoute")
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -74,97 +69,148 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name}, &cfDomain)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFDomain")
+
+		// TODO: General status management in follow up story, possibly set CFRoute to status invalid?
 		return ctrl.Result{}, err
 	}
 
-	proxyCreatedStatus := getConditionOrSetAsUnknown(&cfRoute.Status.Conditions, ProxyCreatedConditionType)
+	// Check all namespaces for root proxy with the matching FQDN label
+	var proxies contourv1.HTTPProxyList
+	err = r.Client.List(ctx, &proxies)
+	if err != nil {
+		r.Log.Error(err, "Error listing HTTPProxies")
+		return ctrl.Result{}, err
+	}
 
-	if proxyCreatedStatus == metav1.ConditionUnknown {
-		err = r.createContourHTTPProxyAndUpdateStatus(ctx, &cfRoute, &cfDomain)
-		if err != nil {
-			return ctrl.Result{}, err
+	var rootHTTPProxy contourv1.HTTPProxy
+	fqdn := fmt.Sprintf("%s.%s", cfRoute.Spec.Host, cfDomain.Spec.Name)
+
+	found := false
+	for _, proxy := range proxies.Items {
+		if proxy.Spec.VirtualHost != nil && proxy.Spec.VirtualHost.Fqdn == fqdn {
+			if found {
+				err = fmt.Errorf("found multiple HTTPProxy with FQDN %s", fqdn)
+				r.Log.Error(err, "")
+				return ctrl.Result{}, err
+			}
+			rootHTTPProxy = proxy
+			found = true
 		}
 	}
 
-	return ctrl.Result{}, nil
-}
-
-// getConditionOrSetAsUnknown is a helper function that retrieves the value of the provided conditionType, like "Succeeded" and returns the value: "True", "False", or "Unknown"
-// If the value is not present, the pointer to the list of conditions provided to the function is used to add an entry to the list of Conditions with a value of "Unknown" and "Unknown" is returned
-func getConditionOrSetAsUnknown(conditions *[]metav1.Condition, conditionType string) metav1.ConditionStatus {
-	conditionStatus := meta.FindStatusCondition(*conditions, conditionType)
-	conditionStatusValue := metav1.ConditionUnknown
-	if conditionStatus != nil {
-		conditionStatusValue = conditionStatus.Status
-	} else {
-		// set local copy of CR condition to "unknown" because it had no value
-		meta.SetStatusCondition(conditions, metav1.Condition{
-			Type:    conditionType,
-			Status:  metav1.ConditionUnknown,
-			Reason:  "Unknown", // TODO: Think about this. Consumers of status will care?
-			Message: "Unknown",
-		})
+	// If not found, create in current namespace
+	if !found {
+		rootHTTPProxy = contourv1.HTTPProxy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fqdn,
+				Namespace: cfRoute.Namespace,
+			},
+		}
 	}
 
-	return conditionStatusValue
-}
+	// Update root proxy with include for new sub-proxy
+	result, err := controllerutil.CreateOrPatch(ctx, r.Client, &rootHTTPProxy, func() error {
+		rootHTTPProxy.Spec.VirtualHost = &contourv1.VirtualHost{
+			Fqdn: fqdn,
+		}
 
-func (r *CFRouteReconciler) createContourHTTPProxyAndUpdateStatus(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute, cfDomain *networkingv1alpha1.CFDomain) error {
-	desiredContourHTTPProxy := contourv1.HTTPProxy{
+		found := false
+		for _, include := range rootHTTPProxy.Spec.Includes {
+			if include.Name == cfRoute.Name && include.Namespace == cfRoute.Namespace {
+				found = true
+			}
+		}
+
+		if !found {
+			rootHTTPProxy.Spec.Includes = append(rootHTTPProxy.Spec.Includes, contourv1.Include{
+				Name:      cfRoute.Name,
+				Namespace: cfRoute.Namespace,
+			})
+		}
+
+		return nil
+	})
+	if err != nil {
+		r.Log.Error(err, "Error patching Root HTTPProxy")
+		return ctrl.Result{}, err
+	}
+	r.Log.Info(fmt.Sprintf("Root HTTPProxy/%s %s", rootHTTPProxy.Name, result))
+
+	routeHTTPProxy := &contourv1.HTTPProxy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfRoute.Name,
 			Namespace: cfRoute.Namespace,
-			Labels: map[string]string{
-				networkingv1alpha1.CFRouteGUIDLabelKey:  cfRoute.Name,
-				networkingv1alpha1.CFDomainGUIDLabelKey: cfDomain.Name,
-			},
-		},
-		Spec: contourv1.HTTPProxySpec{
-			VirtualHost: &contourv1.VirtualHost{
-				Fqdn: fmt.Sprintf("%s.%s", cfRoute.Spec.Host, cfDomain.Spec.Name),
-			},
 		},
 	}
 
-	err := r.createContourHTTPProxyIfNotExists(ctx, desiredContourHTTPProxy)
-	if err != nil {
-		return err
-	}
+	result, err = controllerutil.CreateOrPatch(ctx, r.Client, routeHTTPProxy, func() error {
+		desiredRoutes := make([]contourv1.Route, 0, len(cfRoute.Spec.Destinations))
 
-	// Update and set "ProxyCreated" status to True
-	meta.SetStatusCondition(&cfRoute.Status.Conditions, metav1.Condition{
-		Type:    ProxyCreatedConditionType,
-		Status:  metav1.ConditionTrue,
-		Reason:  "ContourResourceCreate",
-		Message: "Successfully created HTTPProxy",
-	})
-
-	// Update Route Status Conditions based on changes made to local copy
-	if err := r.Client.Status().Update(ctx, cfRoute); err != nil {
-		r.Log.Error(err, "Error when updating CFRoute status")
-		return err
-	}
-
-	return nil
-}
-
-func (r *CFRouteReconciler) createContourHTTPProxyIfNotExists(ctx context.Context, desiredContourHTTPProxy contourv1.HTTPProxy) error {
-	foundContourHTTPProxy := contourv1.HTTPProxy{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: desiredContourHTTPProxy.Name, Namespace: desiredContourHTTPProxy.Namespace}, &foundContourHTTPProxy)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			err = r.Client.Create(ctx, &desiredContourHTTPProxy)
-			if err != nil {
-				r.Log.Error(err, "Error when creating Contour HTTPProxy")
-				return err
+		for _, destination := range cfRoute.Spec.Destinations {
+			desiredRoute := contourv1.Route{
+				Conditions: []contourv1.MatchCondition{
+					{
+						Prefix: cfRoute.Spec.Path,
+					},
+				},
+				Services: []contourv1.Service{
+					{
+						Name: fmt.Sprintf("s-%s-%s", destination.AppRef.Name, destination.ProcessType),
+						Port: destination.Port,
+					},
+				},
 			}
+			desiredRoutes = append(desiredRoutes, desiredRoute)
+		}
+
+		routeHTTPProxy.Spec.Routes = desiredRoutes
+
+		return nil
+	})
+	if err != nil {
+		r.Log.Error(err, "Error updating sub-HTTPProxy")
+		return ctrl.Result{}, err
+	}
+	r.Log.Info(fmt.Sprintf("Sub HTTPProxy/%s %s", routeHTTPProxy.Name, result))
+
+	var serviceReconcileErr error
+	for _, destination := range cfRoute.Spec.Destinations {
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				// TODO: Make name GUID to avoid complexity on delete trying to check for other proxies referring to the service
+				Name:      fmt.Sprintf("s-%s-%s", destination.AppRef.Name, destination.ProcessType),
+				Namespace: cfRoute.Namespace,
+			},
+		}
+
+		result, err = controllerutil.CreateOrPatch(ctx, r.Client, service, func() error {
+			service.ObjectMeta.Labels = map[string]string{
+				"workloads.cloudfoundry.org/app-guid": destination.AppRef.Name,
+			}
+
+			service.Spec.Ports = []corev1.ServicePort{{
+				Port: int32(destination.Port),
+			}}
+			service.Spec.Selector = map[string]string{
+				"workloads.cloudfoundry.org/app-guid":     destination.AppRef.Name,
+				"workloads.cloudfoundry.org/process-type": destination.ProcessType,
+			}
+
+			return nil
+		})
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("Service/%s %s", service.Name, result))
+			serviceReconcileErr = fmt.Errorf("service reconciliation failed for CFRoute/%s destinations", cfRoute.Name)
 		} else {
-			r.Log.Error(err, "Error when checking if Contour HTTPProxy exists")
-			return err
+			r.Log.Info(fmt.Sprintf("Service/%s %s", service.Name, result))
 		}
 	}
 
-	return nil
+	if serviceReconcileErr != nil {
+		return ctrl.Result{}, serviceReconcileErr
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
