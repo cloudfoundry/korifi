@@ -1,4 +1,4 @@
-# 2. Set Convention For Controller Client Interfaces
+# Set Convention For Controller Client Interfaces
 
 Date: 2021-08-25
 
