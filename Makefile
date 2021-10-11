@@ -75,30 +75,8 @@ GINKGO = $(shell pwd)/bin/ginkgo
 ginkgo:
 	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo@latest)
 
-HNC_VERSION ?= v0.8.0
-HNC_PLATFORM=$(shell go env GOHOSTOS)_$(shell go env GOHOSTARCH)
-HNC_BIN=$(shell pwd)/bin
-export PATH := $(HNC_BIN):$(PATH)
 hnc-install:
-	mkdir -p "$(HNC_BIN)"
-	curl -L https://github.com/kubernetes-sigs/multi-tenancy/releases/download/hnc-$(HNC_VERSION)/kubectl-hns_$(HNC_PLATFORM) -o "$(HNC_BIN)/kubectl-hns"
-	chmod +x "$(HNC_BIN)/kubectl-hns"
-
-	kubectl label ns kube-system hnc.x-k8s.io/excluded-namespace=true --overwrite
-	kubectl label ns kube-public hnc.x-k8s.io/excluded-namespace=true --overwrite
-	kubectl label ns kube-node-lease hnc.x-k8s.io/excluded-namespace=true --overwrite
-	kubectl apply -f https://github.com/kubernetes-sigs/multi-tenancy/releases/download/hnc-$(HNC_VERSION)/hnc-manager.yaml
-	kubectl rollout status deployment/hnc-controller-manager -w -n hnc-system
-	# Hierarchical namespace controller is quite asynchronous. There is no
-	# guarantee that the operations below would succeed on first invocation,
-	# so retry until they do.
-	echo -n waiting for hns controller to be ready and servicing validating webhooks
-	until kubectl create namespace ping-hnc; do echo -n .; sleep 0.5; done
-	until kubectl hns create -n ping-hnc ping-hnc-child; do echo -n .; sleep 0.5; done
-	until kubectl get namespace ping-hnc-child; do echo -n .; sleep 0.5; done
-	until kubectl hns set --allowCascadingDeletion ping-hnc; do echo -n .; sleep 0.5; done
-	until kubectl delete namespace ping-hnc --wait=false; do echo -n .; sleep 0.5; done
-	echo
+	./scripts/install-hnc.sh
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
