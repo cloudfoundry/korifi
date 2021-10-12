@@ -27,10 +27,8 @@ const (
 	AppGetEndpoint               = "/v3/apps/{guid}"
 	AppListEndpoint              = "/v3/apps"
 	AppSetCurrentDropletEndpoint = "/v3/apps/{guid}/relationships/current_droplet"
-	AppStartEndpoint             = "/v3/apps/{guid}/actions/start"
-	invalidDropletMsg            = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
-	AppStartedState = "STARTED"
+	invalidDropletMsg = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 )
 
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
@@ -41,7 +39,6 @@ type CFAppRepository interface {
 	CreateAppEnvironmentVariables(context.Context, client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, client.Client, repositories.AppRecord) (repositories.AppRecord, error)
 	SetCurrentDroplet(context.Context, client.Client, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
-	SetAppDesiredState(context.Context, client.Client, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 }
 
 type AppHandler struct {
@@ -300,66 +297,9 @@ func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.
 	w.Write(responseBody)
 }
 
-func (h *AppHandler) appStartHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
-
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
-
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
-		writeUnknownErrorResponse(w)
-		return
-	}
-
-	app, err := h.appRepo.FetchApp(ctx, client, appGUID)
-	if err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("App not found", "AppGUID", appGUID)
-			writeNotFoundErrorResponse(w, "App")
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
-	}
-	if app.DropletGUID == "" {
-		h.logger.Info("App droplet not set before start", "AppGUID", appGUID)
-		writeUnprocessableEntityError(w, "Assign a droplet before starting this app.")
-		return
-	}
-
-	app, err = h.appRepo.SetAppDesiredState(ctx, client, repositories.SetAppDesiredStateMessage{
-		AppGUID:   app.GUID,
-		SpaceGUID: app.SpaceGUID,
-		Value:     AppStartedState,
-	})
-	if err != nil {
-		h.logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
-		writeUnknownErrorResponse(w)
-		return
-	}
-
-	responseBody, err := json.Marshal(presenter.ForApp(app, h.serverURL))
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
-		writeUnknownErrorResponse(w)
-		return
-	}
-
-	w.Write(responseBody)
-}
-
 func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(AppGetEndpoint).Methods("GET").HandlerFunc(h.appGetHandler)
 	router.Path(AppListEndpoint).Methods("GET").HandlerFunc(h.appListHandler)
 	router.Path(AppCreateEndpoint).Methods("POST").HandlerFunc(h.appCreateHandler)
 	router.Path(AppSetCurrentDropletEndpoint).Methods("PATCH").HandlerFunc(h.appSetCurrentDropletHandler)
-	router.Path(AppStartEndpoint).Methods("POST").HandlerFunc(h.appStartHandler)
 }

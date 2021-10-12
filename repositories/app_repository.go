@@ -38,7 +38,6 @@ type AppRecord struct {
 	Name          string
 	GUID          string
 	SpaceGUID     string
-	DropletGUID   string
 	Labels        map[string]string
 	Annotations   map[string]string
 	State         DesiredState
@@ -164,28 +163,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, c client.Client, messag
 	}, nil
 }
 
-type SetAppDesiredStateMessage struct {
-	AppGUID   string
-	SpaceGUID string
-	Value     string
-}
-
-func (f *AppRepo) SetAppDesiredState(ctx context.Context, c client.Client, message SetAppDesiredStateMessage) (AppRecord, error) {
-	baseCFApp := &workloadsv1alpha1.CFApp{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.AppGUID,
-			Namespace: message.SpaceGUID,
-		},
-	}
-	cfApp := baseCFApp.DeepCopy()
-	cfApp.Spec.DesiredState = workloadsv1alpha1.DesiredState(StartedState)
-
-	err := c.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
-	if err != nil {
-		return AppRecord{}, fmt.Errorf("err in client.Patch: %w", err)
-	}
-	return cfAppToAppRecord(*cfApp), nil
-}
+var staticCFApp workloadsv1alpha1.CFApp
 
 func appRecordToCFApp(appRecord AppRecord) workloadsv1alpha1.CFApp {
 	return workloadsv1alpha1.CFApp{
@@ -221,7 +199,6 @@ func cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 		GUID:        cfApp.Name,
 		Name:        cfApp.Spec.Name,
 		SpaceGUID:   cfApp.Namespace,
-		DropletGUID: cfApp.Spec.CurrentDropletRef.Name,
 		Labels:      cfApp.Labels,
 		Annotations: cfApp.Annotations,
 		State:       DesiredState(cfApp.Spec.DesiredState),
