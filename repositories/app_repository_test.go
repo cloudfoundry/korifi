@@ -49,6 +49,9 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		When("on the happy path", func() {
+			const (
+				app2DropletGUID = "app2-droplet-guid"
+			)
 			var (
 				app1GUID string
 				app2GUID string
@@ -93,6 +96,9 @@ var _ = Describe("AppRepository", func() {
 								Stack:      "",
 							},
 						},
+						CurrentDropletRef: corev1.LocalObjectReference{
+							Name: app2DropletGUID,
+						},
 					},
 				}
 				Expect(k8sClient.Create(context.Background(), cfApp2)).To(Succeed())
@@ -111,6 +117,10 @@ var _ = Describe("AppRepository", func() {
 				Expect(app.SpaceGUID).To(Equal(namespace2.Name))
 				Expect(app.State).To(Equal(DesiredState("STOPPED")))
 
+				By("returning a record with the App's DropletGUID when it is set", func() {
+					Expect(app.DropletGUID).To(Equal(app2DropletGUID))
+				})
+
 				expectedLifecycle := Lifecycle{
 					Data: LifecycleData{
 						Buildpacks: []string{"java"},
@@ -119,6 +129,7 @@ var _ = Describe("AppRepository", func() {
 				}
 				Expect(app.Lifecycle).To(Equal(expectedLifecycle))
 			})
+
 		})
 
 		When("duplicate Apps exist across namespaces with the same GUIDs", func() {
@@ -571,4 +582,78 @@ var _ = Describe("AppRepository", func() {
 			})
 		})
 	})
+
+	Describe("SetDesiredState", func() {
+		const (
+			appName         = "some-app"
+			spaceGUID       = "default"
+			appStartedValue = "STARTED"
+		)
+
+		var (
+			appGUID string
+			appCR   *workloadsv1alpha1.CFApp
+
+			returnedAppRecord *AppRecord
+			returnedErr       error
+		)
+
+		BeforeEach(func() {
+			appGUID = generateGUID()
+			appCR = initializeAppCR(appName, appGUID, spaceGUID)
+
+			Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			k8sClient.Delete(context.Background(), appCR)
+		})
+
+		JustBeforeEach(func() {
+			appRecord, err := appRepo.SetAppDesiredState(context.Background(), client, SetAppDesiredStateMessage{
+				AppGUID:   appGUID,
+				SpaceGUID: spaceGUID,
+				Value:     appStartedValue,
+			})
+			returnedAppRecord = &appRecord
+			returnedErr = err
+		})
+
+		When("on the happy path", func() {
+
+			It("doesn't return an error", func() {
+				Expect(returnedErr).ToNot(HaveOccurred())
+			})
+
+			It("returns the updated app record", func() {
+				Expect(returnedAppRecord.GUID).To(Equal(appGUID))
+				Expect(returnedAppRecord.Name).To(Equal(appName))
+				Expect(returnedAppRecord.SpaceGUID).To(Equal(spaceGUID))
+				Expect(returnedAppRecord.State).To(Equal(DesiredState("STARTED")))
+			})
+
+			It("eventually changes the desired state of the App", func() {
+				cfAppLookupKey := types.NamespacedName{Name: appGUID, Namespace: spaceGUID}
+				updatedCFApp := new(workloadsv1alpha1.CFApp)
+				Eventually(func() string {
+					err := k8sClient.Get(context.Background(), cfAppLookupKey, updatedCFApp)
+					if err != nil {
+						return ""
+					}
+					return string(updatedCFApp.Spec.DesiredState)
+				}, 10*time.Second, 250*time.Millisecond).Should(Equal(appStartedValue))
+
+			})
+		})
+
+		When("the app doesn't exist", func() {
+			BeforeEach(func() {
+				appGUID = "fake-app-guid"
+			})
+			It("returns an error", func() {
+				Expect(returnedErr).To(HaveOccurred())
+			})
+		})
+	})
+
 })
