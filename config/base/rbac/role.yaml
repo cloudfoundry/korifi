@@ -127,3 +127,21 @@ rules:
   - cfpackages/status
   verbs:
   - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfprocesses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfprocesses/status
+  verbs:
+  - get

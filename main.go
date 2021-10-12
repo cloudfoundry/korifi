@@ -123,6 +123,13 @@ func main() {
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),
+		apis.NewProcessHandler(
+			ctrl.Log.WithName("ProcessHandler"),
+			*serverURL,
+			new(repositories.ProcessRepository),
+			repositories.BuildCRClient,
+			k8sClientConfig,
+		),
 		apis.NewOrgHandler(
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient),
 			*serverURL,

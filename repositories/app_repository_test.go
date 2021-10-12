@@ -2,14 +2,12 @@ package repositories_test
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 
 	. "code.cloudfoundry.org/cf-k8s-api/repositories"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -365,16 +363,16 @@ var _ = Describe("AppRepository", func() {
 
 			When("the app already exists", func() {
 				var (
-					appCR workloadsv1alpha1.CFApp
+					appCR *workloadsv1alpha1.CFApp
 				)
 
 				BeforeEach(func() {
 					appCR = initializeAppCR(testAppName, testAppGUID, defaultNamespace)
-					Expect(k8sClient.Create(context.Background(), &appCR)).To(Succeed())
+					Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
 				})
 
 				AfterEach(func() {
-					Expect(k8sClient.Delete(context.Background(), &appCR)).To(Succeed())
+					Expect(k8sClient.Delete(context.Background(), appCR)).To(Succeed())
 				})
 
 				It("should error when trying to create the same app again", func() {
@@ -513,7 +511,7 @@ var _ = Describe("AppRepository", func() {
 		)
 
 		var (
-			appCR     workloadsv1alpha1.CFApp
+			appCR     *workloadsv1alpha1.CFApp
 			dropletCR workloadsv1alpha1.CFBuild
 		)
 
@@ -521,12 +519,12 @@ var _ = Describe("AppRepository", func() {
 			appCR = initializeAppCR("some-app", appGUID, spaceGUID)
 			dropletCR = initializeDropletCR(dropletGUID, appGUID, spaceGUID)
 
-			Expect(k8sClient.Create(context.Background(), &appCR)).To(Succeed())
+			Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
 			Expect(k8sClient.Create(context.Background(), &dropletCR)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(context.Background(), &appCR)).To(Succeed())
+			Expect(k8sClient.Delete(context.Background(), appCR)).To(Succeed())
 			Expect(k8sClient.Delete(context.Background(), &dropletCR)).To(Succeed())
 		})
 
@@ -574,77 +572,3 @@ var _ = Describe("AppRepository", func() {
 		})
 	})
 })
-
-func generateGUID() string {
-	newUUID, err := uuid.NewUUID()
-	if err != nil {
-		errorMessage := fmt.Sprintf("could not generate a UUID %v", err)
-		panic(errorMessage)
-	}
-	return newUUID.String()
-}
-
-func initializeAppCR(appName string, appGUID string, spaceGUID string) workloadsv1alpha1.CFApp {
-	return workloadsv1alpha1.CFApp{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      appGUID,
-			Namespace: spaceGUID,
-		},
-		Spec: workloadsv1alpha1.CFAppSpec{
-			Name:         appName,
-			DesiredState: "STOPPED",
-			Lifecycle: workloadsv1alpha1.Lifecycle{
-				Type: "buildpack",
-				Data: workloadsv1alpha1.LifecycleData{
-					Buildpacks: []string{},
-					Stack:      "",
-				},
-			},
-		},
-	}
-}
-
-func initializeDropletCR(dropletGUID, appGUID, spaceGUID string) workloadsv1alpha1.CFBuild {
-	return workloadsv1alpha1.CFBuild{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      dropletGUID,
-			Namespace: spaceGUID,
-		},
-		Spec: workloadsv1alpha1.CFBuildSpec{
-			AppRef: corev1.LocalObjectReference{Name: appGUID},
-			Lifecycle: workloadsv1alpha1.Lifecycle{
-				Type: "buildpack",
-			},
-		},
-	}
-}
-
-func initializeAppRecord(appName string, appGUID string, spaceGUID string) AppRecord {
-	return AppRecord{
-		Name:      appName,
-		GUID:      appGUID,
-		SpaceGUID: spaceGUID,
-		State:     "STOPPED",
-		Lifecycle: Lifecycle{
-			Type: "buildpack",
-			Data: LifecycleData{
-				Buildpacks: []string{},
-				Stack:      "cflinuxfs3",
-			},
-		},
-	}
-}
-
-func cleanupApp(k8sClient client.Client, ctx context.Context, appGUID, appNamespace string) error {
-	app := workloadsv1alpha1.CFApp{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      appGUID,
-			Namespace: appNamespace,
-		},
-	}
-	return k8sClient.Delete(ctx, &app)
-}
-
-func generateAppEnvSecretName(appGUID string) string {
-	return appGUID + "-env"
-}
