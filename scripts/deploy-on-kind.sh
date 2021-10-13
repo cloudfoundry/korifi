@@ -24,6 +24,9 @@ nodes:
   - containerPort: 80
     hostPort: 80
     protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
 EOF
     if [[ -n "$current_cluster" ]]; then
       kubectl config use-context "$current_cluster"
@@ -35,7 +38,7 @@ EOF
 deploy_cf_k8s_controllers() {
   pushd "$CTRL_DIR"
   {
-    kubectl apply -f dependencies/cert-manager.yaml
+    ./hack/install-dependencies.sh
     local uuid
     uuid="$(uuidgen)"
     export IMG="cf-k8s-controllers:$uuid"
@@ -52,11 +55,6 @@ deploy_cf_k8s_controllers() {
 deploy_cf_k8s_api() {
     pushd "$API_DIR"
     make hnc-install
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.0.0/deploy/static/provider/kind/deploy.yaml
-    kubectl wait --namespace ingress-nginx \
-      --for=condition=ready pod \
-      --selector=app.kubernetes.io/component=controller \
-      --timeout=90s
     local uuid
     uuid="$(uuidgen)"
     export IMG="cf-k8s-api:$uuid"

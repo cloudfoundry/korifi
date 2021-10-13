@@ -34,7 +34,8 @@ go run main.go
 To specify a custom configuration file, set the `CONFIG` environment variable to its path when running the web server.
 Refer to the [default config](config/cf_k8s_api_config.yaml) for the config file structure and options.
 
-Edit the file: config/base/cf_k8s_api_config.yaml and set the `packageRegistryBase` field to be the registry location you want your source package image to be uploaded to.
+Edit the file `config/base/cf_k8s_api_config.yaml` and set the `packageRegistryBase` field to be the registry location you want your source package image to be uploaded to.
+Edit the file `config/base/api_url_patch.yaml` to specify the desired URL for the deployed API.
 
 ### Using make
 You can deploy the app to your cluster by running `make deploy` from the project root.
@@ -76,4 +77,3 @@ To regenerate the kubernetes resources under `./config`, run `make manifests` fr
 ```
 make build-reference
 ```
-

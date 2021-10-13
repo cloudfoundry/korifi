@@ -7,7 +7,16 @@ configMapGenerator:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-patchesStrategicMerge:
-- ingress.yaml
 resources:
 - ../../base
+
+patches:
+- target:
+    group: projectcontour.io
+    version: v1
+    kind: HTTPProxy
+    name: proxy
+  patch: |-
+    - op: replace
+      path: /spec/virtualhost/fqdn
+      value: "localhost"
