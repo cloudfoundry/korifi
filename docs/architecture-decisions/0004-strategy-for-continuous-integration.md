@@ -1,4 +1,4 @@
-# 4. Strategy for Continuous Integration
+# Strategy for Continuous Integration
 
 Date: 2021-08-27
 

@@ -1,4 +1,4 @@
-# 3. Strategy for Testing Frameworks
+# Strategy for Testing Frameworks
 
 
 Date: 2021-08-27
