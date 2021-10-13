@@ -182,7 +182,7 @@ var _ = Describe("BuildRepository", func() {
 
 					It("returns a record with Lifecycle fields matching the CR", func() {
 						Expect(buildRecord.Lifecycle.Type).To(Equal(string(build2.Spec.Lifecycle.Type)), "returned record lifecycle.type did not match CR")
-						Expect(buildRecord.Lifecycle.Data.Buildpacks).To(Equal(build2.Spec.Lifecycle.Data.Buildpacks), "returned record lifecycle.data.buildpacks did not match CR")
+						Expect(buildRecord.Lifecycle.Data.Buildpacks).To(BeEmpty(), "returned record lifecycle.data.buildpacks did not match CR")
 						Expect(buildRecord.Lifecycle.Data.Stack).To(Equal(build2.Spec.Lifecycle.Data.Stack), "returned record lifecycle.data.stack did not match CR")
 					})
 

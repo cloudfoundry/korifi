@@ -154,7 +154,7 @@ var _ = Describe("DropletRepository", func() {
 
 					By("returning a record with Lifecycle fields matching the CR", func() {
 						Expect(dropletRecord.Lifecycle.Type).To(Equal(string(build.Spec.Lifecycle.Type)), "returned record lifecycle.type did not match CR")
-						Expect(dropletRecord.Lifecycle.Data.Buildpacks).To(Equal(build.Spec.Lifecycle.Data.Buildpacks), "returned record lifecycle.data.buildpacks did not match CR")
+						Expect(dropletRecord.Lifecycle.Data.Buildpacks).To(BeEmpty(), "returned record lifecycle.data.buildpacks did not match CR")
 						Expect(dropletRecord.Lifecycle.Data.Stack).To(Equal(build.Spec.Lifecycle.Data.Stack), "returned record lifecycle.data.stack did not match CR")
 					})
 
