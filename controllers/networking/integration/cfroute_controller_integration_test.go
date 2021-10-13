@@ -20,9 +20,8 @@ import (
 var _ = Describe("CFRouteReconciler Integration Tests", func() {
 	const (
 		testRouteHost = "test-route-host"
-		//testDomainName = "test-domain-name"
-		//testFQDN       = "test-route-host.test-domain-name"
 	)
+
 	var (
 		testNamespace  string
 		testDomainGUID string
@@ -66,15 +65,14 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
-		//k8sClient.Create(ctx, cfDomain)
 	})
 
 	AfterEach(func() {
 		ctx := context.Background()
 
-		Expect(k8sClient.Delete(ctx, cfRoute)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, ns)).To(Succeed())
+		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, cfRoute))).To(Succeed())
+		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, cfDomain))).To(Succeed())
+		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, ns))).To(Succeed())
 	})
 
 	When("the CFRoute does not include any destinations", func() {
@@ -124,6 +122,15 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				Name:      testRouteGUID,
 				Namespace: testNamespace,
 			}), "HTTPProxy include does not match proxy for route destinations")
+
+			Expect(proxy.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+				{
+					APIVersion: "networking.cloudfoundry.org/v1alpha1",
+					Kind:       "CFRoute",
+					Name:       cfRoute.Name,
+					UID:        cfRoute.GetUID(),
+				},
+			}))
 		})
 
 		It("reconciles the CFRoute to a child proxy with no routes", func() {
@@ -142,6 +149,27 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 			Expect(proxy.Spec.VirtualHost).To(BeNil(), "VirtualHost set on non-root HTTPProxy")
 			Expect(proxy.Spec.Routes).To(HaveLen(0), "HTTPProxy doesn't have the expected number of routes")
+
+			Expect(proxy.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+				{
+					APIVersion: "networking.cloudfoundry.org/v1alpha1",
+					Kind:       "CFRoute",
+					Name:       cfRoute.Name,
+					UID:        cfRoute.GetUID(),
+				},
+			}))
+		})
+
+		It("adds a finalizer to the CFRoute", func() {
+			ctx := context.Background()
+
+			Eventually(func() []string {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)
+				Expect(err).NotTo(HaveOccurred())
+				return cfRoute.ObjectMeta.Finalizers
+			}, 2*time.Second).Should(ConsistOf([]string{
+				"cfRoute.networking.cloudfoundry.org",
+			}))
 		})
 	})
 
@@ -194,7 +222,6 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(proxy.Spec.VirtualHost.Fqdn).To(Equal(testFQDN), "HTTPProxy FQDN mismatch")
 			Expect(proxy.Spec.Includes).To(HaveLen(1), "HTTPProxy doesn't have the expected number of includes")
 			Expect(proxy.Spec.Includes[0]).To(Equal(contourv1.Include{
 				Name:      testRouteGUID,
@@ -216,7 +243,6 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(proxy.Spec.VirtualHost).To(BeNil(), "VirtualHost set on non-root HTTPProxy")
 			Expect(proxy.Spec.Routes).To(HaveLen(1), "HTTPProxy doesn't have the expected number of routes")
 			Expect(proxy.Spec.Routes[0]).To(Equal(contourv1.Route{
 				Conditions: []contourv1.MatchCondition{
@@ -252,14 +278,22 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				"workloads.cloudfoundry.org/app-guid":     "the-app-guid",
 				"workloads.cloudfoundry.org/process-type": "web",
 			}))
+
+			Expect(svc.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+				{
+					APIVersion: "networking.cloudfoundry.org/v1alpha1",
+					Kind:       "CFRoute",
+					Name:       cfRoute.Name,
+					UID:        cfRoute.GetUID(),
+				},
+			}))
 		})
 	})
 
-	When("the FQDN of a CFRoute is not unique", func() {
+	When("the FQDN of a CFRoute is not unique within a space", func() {
 		var (
 			duplicateRouteGUID string
 			duplicateRoute     *networkingv1alpha1.CFRoute
-			duplicateNamespace string
 		)
 
 		BeforeEach(func() {
@@ -301,27 +335,17 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				return proxy.GetName()
 			}, 2*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace))
 
-			duplicateNamespace, err = uuid.GenerateUUID()
-			Expect(err).NotTo(HaveOccurred())
-
-			ns = &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: duplicateNamespace,
-				},
-			}
-			Expect(k8sClient.Create(ctx, ns)).To(Succeed())
-
 			duplicateRouteGUID, err = uuid.GenerateUUID()
 			Expect(err).NotTo(HaveOccurred())
 
 			duplicateRoute = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      duplicateRouteGUID,
-					Namespace: duplicateNamespace,
+					Namespace: testNamespace,
 				},
 				Spec: networkingv1alpha1.CFRouteSpec{
 					Host:     testRouteHost,
-					Path:     "",
+					Path:     "/",
 					Protocol: "http",
 					DomainRef: corev1.LocalObjectReference{
 						Name: testDomainGUID,
@@ -348,7 +372,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)
 				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to get HTTPProxy/%s in namespace %s", testFQDN, testNamespace))
 				return len(proxy.Spec.Includes)
-			}, 2*time.Second).Should(Equal(2), fmt.Sprintf("Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace))
+			}, 2*time.Second).Should(Equal(2), fmt.Sprintf("Timed out waiting for HTTPProxy/%s in namespace %s to include HTTPProxy/%s", testFQDN, testNamespace, duplicateRouteGUID))
 
 			var proxy contourv1.HTTPProxy
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)
@@ -361,7 +385,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				},
 				{
 					Name:      duplicateRouteGUID,
-					Namespace: duplicateNamespace,
+					Namespace: testNamespace,
 				},
 			}), "HTTPProxy includes mismatch")
 		})
@@ -371,13 +395,13 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 			Eventually(func() string {
 				var proxy contourv1.HTTPProxy
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)
-				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to get HTTPProxy/%s in namespace %s", testRouteGUID, testNamespace))
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: duplicateRouteGUID, Namespace: testNamespace}, &proxy)
+				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to get HTTPProxy/%s in namespace %s", duplicateRouteGUID, testNamespace))
 				return proxy.GetName()
-			}, 2*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for HTTPProxy/%s in namespace %s to be created", testRouteGUID, testNamespace))
+			}, 2*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for HTTPProxy/%s in namespace %s to be created", duplicateRouteGUID, testNamespace))
 
 			var proxy contourv1.HTTPProxy
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: duplicateRouteGUID, Namespace: testNamespace}, &proxy)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(proxy.Spec.VirtualHost).To(BeNil(), "VirtualHost set on non-root HTTPProxy")
@@ -390,8 +414,8 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				},
 				Services: []contourv1.Service{
 					{
-						Name: fmt.Sprintf("s-%s-%s", cfRoute.Spec.Destinations[0].AppRef.Name, cfRoute.Spec.Destinations[0].ProcessType),
-						Port: cfRoute.Spec.Destinations[0].Port,
+						Name: fmt.Sprintf("s-%s-%s", duplicateRoute.Spec.Destinations[0].AppRef.Name, duplicateRoute.Spec.Destinations[0].ProcessType),
+						Port: duplicateRoute.Spec.Destinations[0].Port,
 					},
 				},
 			}), "HTTPProxy route does not match destination")
@@ -495,9 +519,5 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 	When("a destination is removed from a CFRoute", func() {
 		// TODO: separate story to handle this properly
-	})
-
-	When("the CFRoute is deleted", func() {
-		// TODO: separate story to handle this properly with finalizers
 	})
 })
