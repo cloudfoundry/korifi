@@ -220,7 +220,7 @@ var _ = Describe("PackageRepository", func() {
 				},
 				{
 					description:   "an source image is set",
-					expectedState: "PROCESSING_UPLOAD",
+					expectedState: "READY",
 					setupFunc:     func(p *workloadsv1alpha1.CFPackage) { p.Spec.Source.Registry.Image = "some-org/some-repo" },
 				},
 			}
@@ -374,7 +374,7 @@ var _ = Describe("PackageRepository", func() {
 			Expect(returnedPackageRecord.Type).To(Equal(string(existingCFPackage.Spec.Type)))
 			Expect(returnedPackageRecord.AppGUID).To(Equal(existingCFPackage.Spec.AppRef.Name))
 			Expect(returnedPackageRecord.SpaceGUID).To(Equal(existingCFPackage.ObjectMeta.Namespace))
-			Expect(returnedPackageRecord.State).To(Equal("PROCESSING_UPLOAD"))
+			Expect(returnedPackageRecord.State).To(Equal("READY"))
 
 			createdAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
 			Expect(err).NotTo(HaveOccurred())

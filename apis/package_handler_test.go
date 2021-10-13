@@ -353,7 +353,7 @@ var _ = Describe("PackageHandler", func() {
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
 				GUID:      packageGUID,
-				State:     "PROCESSING_UPLOAD",
+				State:     "READY",
 				CreatedAt: createdAt,
 				UpdatedAt: updatedAt,
 			}, nil)
@@ -434,7 +434,7 @@ var _ = Describe("PackageHandler", func() {
 				  "guid": "` + packageGUID + `",
 				  "type": "bits",
 				  "data": {},
-				  "state": "PROCESSING_UPLOAD",
+				  "state": "READY",
 				  "created_at": "` + createdAt + `",
 				  "updated_at": "` + updatedAt + `",
 				  "relationships": {
@@ -566,6 +566,41 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			itRespondsWithUnknownError(getRR)
+		})
+
+		When("the package has already been uploaded", func() {
+			BeforeEach(func() {
+				packageRepo.FetchPackageReturns(repositories.PackageRecord{
+					Type:      "bits",
+					AppGUID:   appGUID,
+					SpaceGUID: spaceGUID,
+					GUID:      packageGUID,
+					State:     repositories.PackageStateReady,
+					CreatedAt: createdAt,
+					UpdatedAt: updatedAt,
+				}, nil)
+
+				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+			})
+
+			It("returns status 400 BadRequest", func() {
+				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+			})
+
+			It("returns a CF API formatted Error response", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(`{
+					"errors": [
+						{
+							"title": "CF-PackageBitsAlreadyUploaded",
+							"detail": "Bits may be uploaded only once. Create a new package to upload different bits.",
+							"code": 150004
+						}
+					]
+				}`), "Response body matches response:")
+			})
 		})
 	})
 })

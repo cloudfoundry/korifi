@@ -145,6 +145,14 @@ func newInvalidRequestError(detail string) presenter.ErrorsResponse {
 	}}}
 }
 
+func newPackageBitsAlreadyUploadedError() presenter.ErrorsResponse {
+	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+		Title:  "CF-PackageBitsAlreadyUploaded",
+		Detail: "Bits may be uploaded only once. Create a new package to upload different bits.",
+		Code:   150004,
+	}}}
+}
+
 func writeNotFoundErrorResponse(w http.ResponseWriter, resourceName string) {
 	responseBody, err := json.Marshal(newNotFoundError(resourceName))
 	if err != nil {
@@ -195,6 +203,16 @@ func writeInvalidRequestError(w http.ResponseWriter, detail string) {
 	w.WriteHeader(http.StatusBadRequest)
 
 	responseBody, err := json.Marshal(newInvalidRequestError(detail))
+	if err != nil {
+		return
+	}
+	w.Write(responseBody)
+}
+
+func writePackageBitsAlreadyUploadedError(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
+
+	responseBody, err := json.Marshal(newPackageBitsAlreadyUploadedError())
 	if err != nil {
 		return
 	}

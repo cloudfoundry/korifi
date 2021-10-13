@@ -15,6 +15,9 @@ import (
 
 const (
 	kind = "CFPackage"
+
+	PackageStateAwaitingUpload = "AWAITING_UPLOAD"
+	PackageStateReady          = "READY"
 )
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages,verbs=get;list;watch;create;update;patch;delete
@@ -111,9 +114,9 @@ func packageCreateToCFPackage(message PackageCreateMessage) workloadsv1alpha1.CF
 
 func cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPackage) PackageRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfPackage.ObjectMeta)
-	state := "AWAITING_UPLOAD"
+	state := PackageStateAwaitingUpload
 	if cfPackage.Spec.Source.Registry.Image != "" {
-		state = "PROCESSING_UPLOAD"
+		state = PackageStateReady
 	}
 	return PackageRecord{
 		GUID:      cfPackage.ObjectMeta.Name,

@@ -77,7 +77,7 @@ curl "http://localhost:9000/v3/packages" \
 
 #### [Uploading Package Bits](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#upload-package-bits)
 ```bash
-curl "http://api-shim.example.org/v3/packages/<guid>/upload" \
+curl "http://localhost:9000/v3/packages/<guid>/upload" \
   -X POST \
   -F bits=@"<path-to-app-source.zip>"
 ```

@@ -9,19 +9,15 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"code.cloudfoundry.org/cf-k8s-api/payloads"
+	"code.cloudfoundry.org/cf-k8s-api/presenter"
+	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
-
-	"code.cloudfoundry.org/cf-k8s-api/payloads"
-
-	"code.cloudfoundry.org/cf-k8s-api/presenter"
-
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
 )
 
 const (
@@ -164,6 +160,12 @@ func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Re
 			h.logger.Info("Error fetching package with repository", "error", err.Error())
 			writeUnknownErrorResponse(w)
 		}
+		return
+	}
+
+	if record.State != repositories.PackageStateAwaitingUpload {
+		h.logger.Info("Error, cannot call package upload state was not AWAITING_UPLOAD", "packageGUID", packageGUID)
+		writePackageBitsAlreadyUploadedError(w)
 		return
 	}
 
