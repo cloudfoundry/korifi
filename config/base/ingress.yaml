@@ -1,17 +1,16 @@
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
 metadata:
-  name: cf-k8s-api-ingress
-  annotations:
-    kubernetes.io/ingress.class: gce
+  labels:
+    app: cf-k8s-api
+  name: proxy
+  namespace: default
 spec:
-  rules:
-  - http:
-      paths:
-      - backend:
-          service:
-            name: cf-k8s-api-svc
-            port:
-              name: web
-        path: /*
-        pathType: ImplementationSpecific
+  virtualhost:
+    fqdn: API_URL
+  routes:
+  - conditions:
+    - prefix: /
+    services:
+    - name: cf-k8s-api-svc
+      port: 80

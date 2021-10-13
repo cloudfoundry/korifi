@@ -26,3 +26,11 @@ images:
 - name: cloudfoundry/cf-k8s-api
   newName: cloudfoundry/cf-k8s-api
   newTag: latest
+
+patches:
+- path: api_url_patch.yaml
+  target:
+    group: projectcontour.io
+    version: v1
+    kind: HTTPProxy
+    name: proxy
