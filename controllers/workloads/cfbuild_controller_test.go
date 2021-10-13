@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
+	config "code.cloudfoundry.org/cf-k8s-controllers/config/base"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/testutils"
@@ -133,7 +133,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			Client:              fakeClient,
 			Scheme:              scheme.Scheme,
 			Log:                 zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			ControllerConfig:    &cfconfig.ControllerConfig{KpackImageTag: "image/registry/tag"},
+			ControllerConfig:    &config.ControllerConfig{KpackImageTag: "image/registry/tag"},
 			RegistryAuthFetcher: fakeRegistryAuthFetcher.Spy,
 			ImageProcessFetcher: fakeImageProcessFetcher.Spy,
 		}

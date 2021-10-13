@@ -7,7 +7,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 
-	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
+	config "code.cloudfoundry.org/cf-k8s-controllers/config/base"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -35,7 +35,7 @@ type CFAppReconciler struct {
 	Client           CFClient
 	Scheme           *runtime.Scheme
 	Log              logr.Logger
-	ControllerConfig *cfconfig.ControllerConfig
+	ControllerConfig *config.ControllerConfig
 }
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfapps,verbs=get;list;watch;create;update;patch;delete

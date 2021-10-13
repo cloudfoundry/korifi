@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
+	config "code.cloudfoundry.org/cf-k8s-controllers/config/base"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -96,9 +96,9 @@ var _ = Describe("CFAppReconciler", func() {
 			Client: fakeClient,
 			Scheme: scheme.Scheme,
 			Log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			ControllerConfig: &cfconfig.ControllerConfig{
+			ControllerConfig: &config.ControllerConfig{
 				KpackImageTag: "image/registry/tag",
-				CFProcessDefaults: cfconfig.CFProcessDefaults{
+				CFProcessDefaults: config.CFProcessDefaults{
 					MemoryMB:           0,
 					DefaultDiskQuotaMB: 0,
 				},
