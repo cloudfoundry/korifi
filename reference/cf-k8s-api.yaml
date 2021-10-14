@@ -16,6 +16,37 @@ metadata:
   name: cf-k8s-api-cf-admin-clusterrole
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets/status
+  - serviceaccounts/status
+  verbs:
+  - get
+- apiGroups:
+  - hnc.x-k8s.io
+  resources:
+  - subnamespaceanchors
+  verbs:
+  - create
+  - list
+- apiGroups:
   - networking.cloudfoundry.org
   resources:
   - cfdomains
@@ -69,6 +100,60 @@ rules:
   - cfapps/status
   verbs:
   - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds/status
+  verbs:
+  - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages/status
+  verbs:
+  - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfprocesses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfprocesses/status
+  verbs:
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -85,12 +170,20 @@ subjects:
 ---
 apiVersion: v1
 data:
-  cf_k8s_api_config.yaml: |-
-    "serverURL": "https://api.example.org"
-    "serverPort": 9000
+  cf_k8s_api_config.yaml: |
+    serverURL: "https://api.example.org"
+    serverPort: 9000
+    rootNamespace: cf-k8s-api-system
+    defaultLifecycleConfig:
+      type: buildpack
+      stack: cflinuxfs3
+      stagingMemoryMB: 1024
+      stagingDiskMB: 1024
+    packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
+    packageRegistrySecretName: image-registry-secret # Create this secret in the rootNamespace
 kind: ConfigMap
 metadata:
-  name: cf-k8s-api-config-h2gm67bf87
+  name: cf-k8s-api-config-t8hct5kdgd
   namespace: cf-k8s-api-system
 ---
 apiVersion: v1
@@ -103,12 +196,12 @@ metadata:
 spec:
   ports:
   - name: web
-    port: 9000
+    port: 80
     protocol: TCP
     targetPort: web
   selector:
     app: cf-k8s-api
-  type: NodePort
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -146,24 +239,22 @@ spec:
       serviceAccountName: cf-k8s-api-cf-admin-serviceaccount
       volumes:
       - configMap:
-          name: cf-k8s-api-config-h2gm67bf87
+          name: cf-k8s-api-config-t8hct5kdgd
         name: cf-k8s-api-config
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
 metadata:
-  annotations:
-    kubernetes.io/ingress.class: gce
-  name: cf-k8s-api-cf-k8s-api-ingress
+  labels:
+    app: cf-k8s-api
+  name: cf-k8s-api-proxy
   namespace: cf-k8s-api-system
 spec:
-  rules:
-  - http:
-      paths:
-      - backend:
-          service:
-            name: cf-k8s-api-svc
-            port:
-              name: web
-        path: /*
-        pathType: ImplementationSpecific
+  routes:
+  - conditions:
+    - prefix: /
+    services:
+    - name: cf-k8s-api-svc
+      port: 80
+  virtualhost:
+    fqdn: ""
