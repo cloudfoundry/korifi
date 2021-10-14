@@ -1,13 +1,14 @@
 package integration_test
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/fake"
 	"context"
 	"path/filepath"
 	"testing"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/fake"
+
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
+	config "code.cloudfoundry.org/cf-k8s-controllers/config/base"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
 
 	. "github.com/onsi/ginkgo"
@@ -79,6 +80,13 @@ var _ = BeforeSuite(func() {
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
 		Log:    ctrl.Log.WithName("controllers").WithName("CFApp"),
+		ControllerConfig: &config.ControllerConfig{
+			KpackImageTag: "image/registry/tag",
+			CFProcessDefaults: config.CFProcessDefaults{
+				MemoryMB:           500,
+				DefaultDiskQuotaMB: 512,
+			},
+		},
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -89,7 +97,7 @@ var _ = BeforeSuite(func() {
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
 		Log:    ctrl.Log.WithName("controllers").WithName("CFBuild"),
-		ControllerConfig: &cfconfig.ControllerConfig{
+		ControllerConfig: &config.ControllerConfig{
 			KpackImageTag: "image/registry/tag",
 		},
 		RegistryAuthFetcher: NewRegistryAuthFetcher(registryAuthFetcherClient),

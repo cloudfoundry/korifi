@@ -83,7 +83,7 @@ hack/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
 ```
 
 ## Configure cf-k8s-controllers
-Configuration file for cf-k8s-controllers is at `config/cf/cf_k8s_controllers_k8s.yaml`
+Configuration file for cf-k8s-controllers is at `config/base/cf_k8s_controllers_k8s.yaml`
 
 Note: Edit this file and set the `kpackImageTag` to be the registry location you want for storing the images. 
 

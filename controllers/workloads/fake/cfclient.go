@@ -37,6 +37,19 @@ type CFClient struct {
 	getReturnsOnCall map[int]struct {
 		result1 error
 	}
+	ListStub        func(context.Context, client.ObjectList, ...client.ListOption) error
+	listMutex       sync.RWMutex
+	listArgsForCall []struct {
+		arg1 context.Context
+		arg2 client.ObjectList
+		arg3 []client.ListOption
+	}
+	listReturns struct {
+		result1 error
+	}
+	listReturnsOnCall map[int]struct {
+		result1 error
+	}
 	StatusStub        func() client.StatusWriter
 	statusMutex       sync.RWMutex
 	statusArgsForCall []struct {
@@ -177,6 +190,69 @@ func (fake *CFClient) GetReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *CFClient) List(arg1 context.Context, arg2 client.ObjectList, arg3 ...client.ListOption) error {
+	fake.listMutex.Lock()
+	ret, specificReturn := fake.listReturnsOnCall[len(fake.listArgsForCall)]
+	fake.listArgsForCall = append(fake.listArgsForCall, struct {
+		arg1 context.Context
+		arg2 client.ObjectList
+		arg3 []client.ListOption
+	}{arg1, arg2, arg3})
+	stub := fake.ListStub
+	fakeReturns := fake.listReturns
+	fake.recordInvocation("List", []interface{}{arg1, arg2, arg3})
+	fake.listMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3...)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFClient) ListCallCount() int {
+	fake.listMutex.RLock()
+	defer fake.listMutex.RUnlock()
+	return len(fake.listArgsForCall)
+}
+
+func (fake *CFClient) ListCalls(stub func(context.Context, client.ObjectList, ...client.ListOption) error) {
+	fake.listMutex.Lock()
+	defer fake.listMutex.Unlock()
+	fake.ListStub = stub
+}
+
+func (fake *CFClient) ListArgsForCall(i int) (context.Context, client.ObjectList, []client.ListOption) {
+	fake.listMutex.RLock()
+	defer fake.listMutex.RUnlock()
+	argsForCall := fake.listArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFClient) ListReturns(result1 error) {
+	fake.listMutex.Lock()
+	defer fake.listMutex.Unlock()
+	fake.ListStub = nil
+	fake.listReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFClient) ListReturnsOnCall(i int, result1 error) {
+	fake.listMutex.Lock()
+	defer fake.listMutex.Unlock()
+	fake.ListStub = nil
+	if fake.listReturnsOnCall == nil {
+		fake.listReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.listReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *CFClient) Status() client.StatusWriter {
 	fake.statusMutex.Lock()
 	ret, specificReturn := fake.statusReturnsOnCall[len(fake.statusArgsForCall)]
@@ -237,6 +313,8 @@ func (fake *CFClient) Invocations() map[string][][]interface{} {
 	defer fake.createMutex.RUnlock()
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
+	fake.listMutex.RLock()
+	defer fake.listMutex.RUnlock()
 	fake.statusMutex.RLock()
 	defer fake.statusMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

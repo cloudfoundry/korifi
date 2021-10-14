@@ -1,4 +1,4 @@
-package cf
+package base
 
 import (
 	"os"
@@ -7,7 +7,13 @@ import (
 )
 
 type ControllerConfig struct {
-	KpackImageTag string `yaml:"kpackImageTag"`
+	KpackImageTag     string            `yaml:"kpackImageTag"`
+	CFProcessDefaults CFProcessDefaults `yaml:"cfProcessDefaults"`
+}
+
+type CFProcessDefaults struct {
+	MemoryMB           int64 `yaml:"memoryMB"`
+	DefaultDiskQuotaMB int64 `yaml:"diskQuotaMB"`
 }
 
 func LoadConfigFromPath(path string) (*ControllerConfig, error) {

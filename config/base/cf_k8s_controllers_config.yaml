@@ -1,0 +1,4 @@
+kpackImageTag: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
+cfProcessDefaults:
+  memoryMB: 500
+  diskQuotaMB: 512

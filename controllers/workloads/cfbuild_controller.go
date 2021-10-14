@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
+	config "code.cloudfoundry.org/cf-k8s-controllers/config/base"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -84,7 +84,7 @@ type CFBuildReconciler struct {
 	Client              CFClient
 	Scheme              *runtime.Scheme
 	Log                 logr.Logger
-	ControllerConfig    *cfconfig.ControllerConfig
+	ControllerConfig    *config.ControllerConfig
 	RegistryAuthFetcher RegistryAuthFetcher
 	ImageProcessFetcher ImageProcessFetcher
 }

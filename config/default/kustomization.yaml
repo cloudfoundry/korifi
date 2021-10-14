@@ -23,7 +23,7 @@ bases:
 - ../certmanager
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
 #- ../prometheus
-- ../cf
+- ../base
 
 patchesStrategicMerge:
 # Protect the /metrics endpoint by putting it behind auth.

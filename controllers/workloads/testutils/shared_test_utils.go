@@ -13,6 +13,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	CFAppLabelKey         = "workloads.cloudfoundry.org/app-guid"
+	CFProcessGUIDLabelKey = "workloads.cloudfoundry.org/process-guid"
+	CFProcessTypeLabelKey = "workloads.cloudfoundry.org/process-type"
+)
+
 func GenerateGUID() string {
 	newUUID, err := uuid.NewUUID()
 	if err != nil {
@@ -124,6 +130,36 @@ func BuildServiceAccount(name, namespace, imagePullSecretName string) *corev1.Se
 		},
 		Secrets:          []corev1.ObjectReference{corev1.ObjectReference{Name: imagePullSecretName}},
 		ImagePullSecrets: []corev1.LocalObjectReference{corev1.LocalObjectReference{Name: imagePullSecretName}},
+	}
+}
+
+func BuildCFProcessCRObject(cfProcessGUID string, namespace string, cfAppGUID string, processType string, processCommand string) *workloadsv1alpha1.CFProcess {
+	return &workloadsv1alpha1.CFProcess{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfProcessGUID,
+			Namespace: namespace,
+			Labels: map[string]string{
+				CFAppLabelKey:         cfAppGUID,
+				CFProcessGUIDLabelKey: cfProcessGUID,
+				CFProcessTypeLabelKey: processType,
+			},
+		},
+		Spec: workloadsv1alpha1.CFProcessSpec{
+			AppRef:      corev1.LocalObjectReference{Name: cfAppGUID},
+			ProcessType: processType,
+			Command:     processCommand,
+			HealthCheck: workloadsv1alpha1.HealthCheck{
+				Type: "process",
+				Data: workloadsv1alpha1.HealthCheckData{
+					InvocationTimeoutSeconds: 0,
+					TimeoutSeconds:           0,
+				},
+			},
+			DesiredInstances: 0,
+			MemoryMB:         0,
+			DiskQuotaMB:      0,
+			Ports:            []int32{8080},
+		},
 	}
 }
 

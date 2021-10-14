@@ -23,7 +23,7 @@ import (
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-	cfconfig "code.cloudfoundry.org/cf-k8s-controllers/config/cf"
+	config "code.cloudfoundry.org/cf-k8s-controllers/config/base"
 	networkingcontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/networking"
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/imageprocessfetcher"
@@ -95,7 +95,7 @@ func main() {
 		panic("CONFIG must be set")
 	}
 
-	cfControllerConfig, err := cfconfig.LoadConfigFromPath(configPath)
+	controllerConfig, err := config.LoadConfigFromPath(configPath)
 	if err != nil {
 		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
 		panic(errorMessage)
@@ -110,9 +110,10 @@ func main() {
 	// Setup with manager
 
 	if err = (&workloadscontrollers.CFAppReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFApp"),
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Log:              ctrl.Log.WithName("controllers").WithName("CFApp"),
+		ControllerConfig: controllerConfig,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFApp")
 		os.Exit(1)
@@ -125,7 +126,7 @@ func main() {
 		Client:              mgr.GetClient(),
 		Scheme:              mgr.GetScheme(),
 		Log:                 ctrl.Log.WithName("controllers").WithName("CFBuild"),
-		ControllerConfig:    cfControllerConfig,
+		ControllerConfig:    controllerConfig,
 		RegistryAuthFetcher: workloadscontrollers.NewRegistryAuthFetcher(privilegedK8sClient),
 		ImageProcessFetcher: cfBuildImageProcessFetcher.Fetch,
 	}).SetupWithManager(mgr); err != nil {
