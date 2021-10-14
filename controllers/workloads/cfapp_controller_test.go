@@ -27,8 +27,10 @@ import (
 )
 
 const (
-	defaultNamespace = "default"
-	failsOnPurpose   = "fails on purpose"
+	defaultNamespace               = "default"
+	failsOnPurposeErrorMessage     = "fails on purpose"
+	buildDropletStatusErrorMessage = "status field CFBuildDropletStatus is nil on CFBuild"
+	labelSyntaxErrorMessage        = "a valid label must be an empty string or consist of alphanumeric characters"
 )
 
 var _ = Describe("CFAppReconciler", func() {
@@ -145,12 +147,12 @@ var _ = Describe("CFAppReconciler", func() {
 
 			When("fetch CFApp returns an error", func() {
 				BeforeEach(func() {
-					cfAppError = errors.New(failsOnPurpose)
+					cfAppError = errors.New(failsOnPurposeErrorMessage)
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
-					Expect(reconcileErr).To(MatchError(failsOnPurpose))
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
 
@@ -167,12 +169,12 @@ var _ = Describe("CFAppReconciler", func() {
 
 			When("update status conditions returns an error", func() {
 				BeforeEach(func() {
-					fakeStatusWriter.UpdateReturns(errors.New(failsOnPurpose))
+					fakeStatusWriter.UpdateReturns(errors.New(failsOnPurposeErrorMessage))
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
-					Expect(reconcileErr).To(MatchError(failsOnPurpose))
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
 		})
@@ -226,12 +228,12 @@ var _ = Describe("CFAppReconciler", func() {
 
 			When("fetch CFApp returns an error", func() {
 				BeforeEach(func() {
-					cfAppError = errors.New(failsOnPurpose)
+					cfAppError = errors.New(failsOnPurposeErrorMessage)
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
-					Expect(reconcileErr).To(MatchError(failsOnPurpose))
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
 
@@ -248,12 +250,12 @@ var _ = Describe("CFAppReconciler", func() {
 
 			When("fetch CFBuild returns an error", func() {
 				BeforeEach(func() {
-					cfBuildError = errors.New(failsOnPurpose)
+					cfBuildError = errors.New(failsOnPurposeErrorMessage)
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
-					Expect(reconcileErr).To(MatchError(failsOnPurpose))
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
 
@@ -264,7 +266,7 @@ var _ = Describe("CFAppReconciler", func() {
 				})
 
 				It("should returns an error", func() {
-					Expect(reconcileErr).To(HaveOccurred())
+					Expect(reconcileErr).To(MatchError(ContainSubstring(buildDropletStatusErrorMessage)))
 				})
 			})
 
@@ -275,42 +277,42 @@ var _ = Describe("CFAppReconciler", func() {
 				})
 
 				It("should returns an error", func() {
-					Expect(reconcileErr).To(HaveOccurred())
+					Expect(reconcileErr).To(MatchError(ContainSubstring(labelSyntaxErrorMessage)))
 				})
 			})
 
 			When("fetch matching CFProcess returns error", func() {
 				BeforeEach(func() {
-					fakeClient.ListReturns(errors.New(failsOnPurpose))
+					fakeClient.ListReturns(errors.New(failsOnPurposeErrorMessage))
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
-					Expect(reconcileErr).To(HaveOccurred())
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 
 			})
 
 			When("create CFProcess returns an error", func() {
 				BeforeEach(func() {
-					fakeClient.CreateReturns(errors.New(failsOnPurpose))
+					fakeClient.CreateReturns(errors.New(failsOnPurposeErrorMessage))
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
-					Expect(reconcileErr).To(HaveOccurred())
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 
 			})
 
 			When("update status conditions returns an error", func() {
 				BeforeEach(func() {
-					fakeStatusWriter.UpdateReturns(errors.New(failsOnPurpose))
+					fakeStatusWriter.UpdateReturns(errors.New(failsOnPurposeErrorMessage))
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
-					Expect(reconcileErr).To(MatchError(failsOnPurpose))
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
 		})

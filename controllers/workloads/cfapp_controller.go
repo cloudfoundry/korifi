@@ -62,7 +62,7 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	//Create CFProcesses if current droplet reference is not empty.
+	// Create CFProcesses if current droplet reference is not empty.
 	if cfApp.Spec.CurrentDropletRef.Name != "" {
 		var cfBuild workloadsv1alpha1.CFBuild
 		err = r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfApp.Namespace}, &cfBuild)
@@ -71,18 +71,19 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return ctrl.Result{}, err
 		}
 
-		//If CFBuildStatusDroplet is nil return error
+		// CFBuildDropletStatus is nil when build has not completed staging or that it has failed.
+		// In such cases return error.
 		if cfBuild.Status.BuildDropletStatus == nil {
-			err = errors.New("CFBuildDropletStatus is nil")
-			r.Log.Error(err, fmt.Sprintf("CFBuildDropletStatus is nil on the build %s", cfBuild.Name))
+			err = errors.New("status field CFBuildDropletStatus is nil on CFBuild")
+			r.Log.Error(err, "CFBuildDropletStatus is nil on CFBuild.Status, check if referenced Build/Droplet was successfully staged")
 			return ctrl.Result{}, err
 		}
 
 		droplet := cfBuild.Status.BuildDropletStatus
 
-		//Iterate over the processTypes array on the droplet
+		// Iterate over the processTypes array on the droplet
 		for _, process := range droplet.ProcessTypes {
-			//Check if CFProcess exists for a given process type
+			// Check if CFProcess exists for a given process type
 			var processExistsForType bool
 			processExistsForType, err = r.checkCFProcessExistsForType(ctx, cfApp.Name, cfApp.Namespace, process.Type)
 			if err != nil {
@@ -90,7 +91,7 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				return ctrl.Result{}, err
 			}
 
-			//Only if CFProcess does no exist for a given process type, invoke create
+			// Only if CFProcess does no exist for a given process type, invoke create
 			if !processExistsForType {
 				err = r.createCFProcess(ctx, process, droplet.Ports, cfApp.Name, cfApp.Namespace)
 				if err != nil {
@@ -125,7 +126,12 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 func (r *CFAppReconciler) createCFProcess(ctx context.Context, process workloadsv1alpha1.ProcessType, ports []int32, cfAppGUID string, namespace string) error {
-	cfProcessGUID := generateGUID()
+	cfProcessGUID, err := generateGUID()
+	if err != nil {
+		r.Log.Error(err, "Error generating GUID")
+		return err
+	}
+
 	desiredCFProcess := workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfProcessGUID,

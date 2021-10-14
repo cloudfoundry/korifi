@@ -169,10 +169,10 @@ var _ = Describe("CFAppReconciler", func() {
 							}
 							selector, selectorValidationErr := labelSelectorMap.AsValidatedSelector()
 							Expect(selectorValidationErr).To(BeNil())
-							Eventually(func() bool {
+							Eventually(func() []workloadsv1alpha1.CFProcess {
 								_ = k8sClient.List(testCtx, &cfProcessList, &client.ListOptions{LabelSelector: selector, Namespace: cfApp.Namespace})
-								return len(cfProcessList.Items) == 1
-							}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "expected CFProcesses to eventually be created")
+								return cfProcessList.Items
+							}, 10*time.Second, 250*time.Millisecond).Should(HaveLen(1), "expected CFProcess to eventually be created")
 							createdCFProcess := cfProcessList.Items[0]
 							Expect(createdCFProcess.Spec.Command).To(Equal(process.Command), "cfprocess command does not match with droplet command")
 							Expect(createdCFProcess.Spec.AppRef.Name).To(Equal(cfAppGUID), "cfprocess app ref does not match app-guid")
@@ -247,10 +247,10 @@ var _ = Describe("CFAppReconciler", func() {
 						}
 						selector, selectorValidationErr := labelSelectorMap.AsValidatedSelector()
 						Expect(selectorValidationErr).To(BeNil())
-						Eventually(func() int {
+						Eventually(func() []workloadsv1alpha1.CFProcess {
 							_ = k8sClient.List(testCtx, &cfProcessList, &client.ListOptions{LabelSelector: selector, Namespace: cfApp.Namespace})
-							return len(cfProcessList.Items)
-						}, 10*time.Second, 250*time.Millisecond).Should(Equal(1), "CFProcess for type - worker, is not equal to 1")
+							return cfProcessList.Items
+						}, 10*time.Second, 250*time.Millisecond).Should(HaveLen(1), "Count of CFProcess is not equal to 1")
 
 						cfProcessList = workloadsv1alpha1.CFProcessList{}
 						labelSelectorMap = labels.Set{
@@ -260,7 +260,7 @@ var _ = Describe("CFAppReconciler", func() {
 						selector, selectorValidationErr = labelSelectorMap.AsValidatedSelector()
 						Expect(selectorValidationErr).To(BeNil())
 						Expect(k8sClient.List(testCtx, &cfProcessList, &client.ListOptions{LabelSelector: selector, Namespace: cfApp.Namespace})).To(Succeed())
-						Expect(len(cfProcessList.Items)).Should(Equal(1))
+						Expect(cfProcessList.Items).Should(HaveLen(1), "Count of CFProcess is not equal to 1")
 					})
 				})
 

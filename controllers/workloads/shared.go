@@ -2,7 +2,6 @@ package workloads
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 
@@ -31,13 +30,12 @@ func setStatusConditionOnLocalCopy(conditions *[]metav1.Condition, conditionType
 	})
 }
 
-func generateGUID() string {
+func generateGUID() (string, error) {
 	newUUID, err := uuid.NewUUID()
 	if err != nil {
-		errorMessage := fmt.Sprintf("could not generate a UUID %v", err)
-		panic(errorMessage)
+		return "", err
 	}
-	return newUUID.String()
+	return newUUID.String(), nil
 }
 
 //counterfeiter:generate -o fake -fake-name StatusWriter sigs.k8s.io/controller-runtime/pkg/client.StatusWriter
