@@ -21,6 +21,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
 type CFProcessRepository interface {
 	FetchProcess(context.Context, client.Client, string) (repositories.ProcessRecord, error)
+	FetchProcessesForApp(context.Context, client.Client, string, string) ([]repositories.ProcessRecord, error)
 }
 
 type ProcessHandler struct {

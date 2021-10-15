@@ -13,6 +13,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	cfAppGUIDLabelKey = "workloads.cloudfoundry.org/app-guid"
+)
+
 func generateGUID() string {
 	newUUID, err := uuid.NewUUID()
 	if err != nil {
@@ -47,6 +51,9 @@ func initializeProcessCR(processGUID, spaceGUID, appGUID string) *workloadsv1alp
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      processGUID,
 			Namespace: spaceGUID,
+			Labels: map[string]string{
+				cfAppGUIDLabelKey: appGUID,
+			},
 		},
 		Spec: workloadsv1alpha1.CFProcessSpec{
 			AppRef: corev1.LocalObjectReference{

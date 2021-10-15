@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-api/repositories"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -80,4 +82,30 @@ func itRespondsWithUnprocessableEntity(detail string, rr func() *httptest.Respon
 			]
 		}`, detail)))
 	})
+}
+
+func initializeProcessRecord(processGUID, spaceGUID, appGUID string) *repositories.ProcessRecord {
+	return &repositories.ProcessRecord{
+		GUID:        processGUID,
+		SpaceGUID:   spaceGUID,
+		AppGUID:     appGUID,
+		Type:        "web",
+		Command:     "rackup",
+		Instances:   1,
+		MemoryMB:    256,
+		DiskQuotaMB: 1024,
+		Ports:       []int32{8080},
+		HealthCheck: repositories.HealthCheck{
+			Type: "port",
+			Data: repositories.HealthCheckData{
+				HTTPEndpoint:             "",
+				InvocationTimeoutSeconds: 0,
+				TimeoutSeconds:           0,
+			},
+		},
+		Labels:      map[string]string{},
+		Annotations: map[string]string{},
+		CreatedAt:   "",
+		UpdatedAt:   "",
+	}
 }

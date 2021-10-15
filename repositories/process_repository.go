@@ -1,10 +1,9 @@
 package repositories
 
 import (
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"context"
 	"errors"
-
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -13,11 +12,31 @@ import (
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfprocesses/status,verbs=get
 
 type ProcessRecord struct {
-	GUID      string
-	SpaceGUID string
-	AppGUID   string
-	CreatedAt string
-	UpdatedAt string
+	GUID        string
+	SpaceGUID   string
+	AppGUID     string
+	Type        string
+	Command     string
+	Instances   int
+	MemoryMB    int64
+	DiskQuotaMB int64
+	Ports       []int32
+	HealthCheck HealthCheck
+	Labels      map[string]string
+	Annotations map[string]string
+	CreatedAt   string
+	UpdatedAt   string
+}
+
+type HealthCheck struct {
+	Type string
+	Data HealthCheckData
+}
+
+type HealthCheckData struct {
+	HTTPEndpoint             string
+	InvocationTimeoutSeconds int64
+	TimeoutSeconds           int64
 }
 
 type ProcessRepository struct{}
@@ -34,6 +53,21 @@ func (r *ProcessRepository) FetchProcess(ctx context.Context, client client.Clie
 	matches := filterProcessesByMetadataName(allProcesses, processGUID)
 
 	return returnProcess(matches)
+}
+
+func (r *ProcessRepository) FetchProcessesForApp(ctx context.Context, k8sClient client.Client, appGUID, spaceGUID string) ([]ProcessRecord, error) {
+	processList := &workloadsv1alpha1.CFProcessList{}
+	options := []client.ListOption{
+		client.InNamespace(spaceGUID),
+	}
+	err := k8sClient.List(ctx, processList, options...)
+	if err != nil { // untested
+		return []ProcessRecord{}, err
+	}
+	allProcesses := processList.Items
+	matches := filterProcessesByAppGUID(allProcesses, appGUID)
+
+	return returnProcesses(matches)
 }
 
 func filterProcessesByMetadataName(processes []workloadsv1alpha1.CFProcess, name string) []workloadsv1alpha1.CFProcess {
@@ -57,14 +91,50 @@ func returnProcess(processes []workloadsv1alpha1.CFProcess) (ProcessRecord, erro
 	return cfProcessToProcessRecord(processes[0]), nil
 }
 
+func filterProcessesByAppGUID(processes []workloadsv1alpha1.CFProcess, appGUID string) []workloadsv1alpha1.CFProcess {
+	var filtered []workloadsv1alpha1.CFProcess
+	for i, process := range processes {
+		if process.Spec.AppRef.Name == appGUID {
+			filtered = append(filtered, processes[i])
+		}
+	}
+	return filtered
+}
+
+func returnProcesses(processes []workloadsv1alpha1.CFProcess) ([]ProcessRecord, error) {
+	processRecords := make([]ProcessRecord, 0, len(processes))
+	for _, process := range processes {
+		processRecord := cfProcessToProcessRecord(process)
+		processRecords = append(processRecords, processRecord)
+	}
+
+	return processRecords, nil
+}
+
 func cfProcessToProcessRecord(cfProcess workloadsv1alpha1.CFProcess) ProcessRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfProcess.ObjectMeta)
 
 	return ProcessRecord{
-		GUID:      cfProcess.Name,
-		SpaceGUID: cfProcess.Namespace,
-		AppGUID:   cfProcess.Spec.AppRef.Name,
-		CreatedAt: cfProcess.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt: updatedAtTime,
+		GUID:        cfProcess.Name,
+		SpaceGUID:   cfProcess.Namespace,
+		AppGUID:     cfProcess.Spec.AppRef.Name,
+		Type:        cfProcess.Spec.ProcessType,
+		Command:     cfProcess.Spec.Command,
+		Instances:   cfProcess.Spec.DesiredInstances,
+		MemoryMB:    cfProcess.Spec.MemoryMB,
+		DiskQuotaMB: cfProcess.Spec.DiskQuotaMB,
+		Ports:       cfProcess.Spec.Ports,
+		HealthCheck: HealthCheck{
+			Type: string(cfProcess.Spec.HealthCheck.Type),
+			Data: HealthCheckData{
+				HTTPEndpoint:             cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
+				InvocationTimeoutSeconds: cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds,
+				TimeoutSeconds:           cfProcess.Spec.HealthCheck.Data.TimeoutSeconds,
+			},
+		},
+		Labels:      map[string]string{},
+		Annotations: map[string]string{},
+		CreatedAt:   cfProcess.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt:   updatedAtTime,
 	}
 }

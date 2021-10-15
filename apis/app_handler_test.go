@@ -9,16 +9,14 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/gorilla/mux"
-
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
+	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -36,6 +34,7 @@ var _ = Describe("AppHandler", func() {
 		req           *http.Request
 		appRepo       *fake.CFAppRepository
 		dropletRepo   *fake.CFDropletRepository
+		processRepo   *fake.CFProcessRepository
 		clientBuilder *fake.ClientBuilder
 		router        *mux.Router
 	)
@@ -45,6 +44,7 @@ var _ = Describe("AppHandler", func() {
 	BeforeEach(func() {
 		appRepo = new(fake.CFAppRepository)
 		dropletRepo = new(fake.CFDropletRepository)
+		processRepo = new(fake.CFProcessRepository)
 		clientBuilder = new(fake.ClientBuilder)
 
 		rr = httptest.NewRecorder()
@@ -56,6 +56,7 @@ var _ = Describe("AppHandler", func() {
 			*serverURL,
 			appRepo,
 			dropletRepo,
+			processRepo,
 			clientBuilder.Spy,
 			&rest.Config{},
 		)
@@ -1111,6 +1112,230 @@ var _ = Describe("AppHandler", func() {
 			itRespondsWithUnknownError(getRR)
 		})
 	})
+
+	Describe("the GET /v3/apps/:guid/processes endpoint", func() {
+		var (
+			process1Record *repositories.ProcessRecord
+			process2Record *repositories.ProcessRecord
+		)
+		BeforeEach(func() {
+			processRecord := repositories.ProcessRecord{
+				GUID:        "process-1-guid",
+				SpaceGUID:   spaceGUID,
+				AppGUID:     appGUID,
+				Type:        "web",
+				Command:     "rackup",
+				Instances:   5,
+				MemoryMB:    256,
+				DiskQuotaMB: 1024,
+				Ports:       []int32{8080},
+				HealthCheck: repositories.HealthCheck{
+					Type: "port",
+					Data: repositories.HealthCheckData{
+						HTTPEndpoint:             "",
+						InvocationTimeoutSeconds: 0,
+						TimeoutSeconds:           0,
+					},
+				},
+				Labels:      map[string]string{},
+				Annotations: map[string]string{},
+				CreatedAt:   "2016-03-23T18:48:22Z",
+				UpdatedAt:   "2016-03-23T18:48:42Z",
+			}
+			processRecord2 := processRecord
+			processRecord2.GUID = "process-2-guid"
+			processRecord2.Type = "worker"
+			processRecord2.Instances = 1
+			processRecord2.HealthCheck.Type = "process"
+
+			process1Record = &processRecord
+			process2Record = &processRecord2
+			processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{
+				processRecord,
+				processRecord2,
+			}, nil)
+
+			var err error
+			req, err = http.NewRequest("GET", "/v3/apps/"+appGUID+"/processes", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+		When("On the happy path and", func() {
+			When("The App has associated processes", func() {
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns the Processes in the response", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+					Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
+						"pagination": {
+						  "total_results": 2,
+						  "total_pages": 1,
+						  "first": {
+							"href": "%[1]s/v3/apps/%[2]s/processes?page=1"
+						  },
+						  "last": {
+							"href": "%[1]s/v3/apps/%[2]s/processes?page=1"
+						  },
+						  "next": null,
+						  "previous": null
+						},
+						"resources": [
+							{
+								"guid": "%[4]s",
+								"type": "web",
+								"command": "[PRIVATE DATA HIDDEN IN LISTS]",
+								"instances": 5,
+								"memory_in_mb": 256,
+								"disk_in_mb": 1024,
+								"health_check": {
+									"type": "port",
+									"data": {
+										"timeout": null,
+										"invocation_timeout": null
+									}
+								},
+								"relationships": {
+									"app": {
+										"data": {
+											"guid": "%[2]s"
+										}
+									}
+								},
+								"metadata": {
+									"labels": {},
+									"annotations": {}
+								},
+								"created_at": "2016-03-23T18:48:22Z",
+								"updated_at": "2016-03-23T18:48:42Z",
+								"links": {
+									"self": {
+										"href": "%[1]s/v3/processes/%[4]s"
+									},
+									"scale": {
+										"href": "%[1]s/v3/processes/%[4]s/actions/scale",
+										"method": "POST"
+									},
+									"app": {
+										"href": "%[1]s/v3/apps/%[2]s"
+									},
+									"space": {
+										"href": "%[1]s/v3/spaces/%[3]s"
+									},
+									"stats": {
+										"href": "%[1]s/v3/processes/%[4]s/stats"
+									}
+								}
+							},
+							{
+								"guid": "%[5]s",
+								"type": "worker",
+								"command": "[PRIVATE DATA HIDDEN IN LISTS]",
+								"instances": 1,
+								"memory_in_mb": 256,
+								"disk_in_mb": 1024,
+								"health_check": {
+									"type": "process",
+									"data": {
+										"timeout": null
+									}
+								},
+								"relationships": {
+									"app": {
+										"data": {
+											"guid": "%[2]s"
+										}
+									}
+								},
+								"metadata": {
+									"labels": {},
+									"annotations": {}
+								},
+								"created_at": "2016-03-23T18:48:22Z",
+								"updated_at": "2016-03-23T18:48:42Z",
+								"links": {
+									"self": {
+										"href": "%[1]s/v3/processes/%[5]s"
+									},
+									"scale": {
+										"href": "%[1]s/v3/processes/%[5]s/actions/scale",
+										"method": "POST"
+									},
+									"app": {
+										"href": "%[1]s/v3/apps/%[2]s"
+									},
+									"space": {
+										"href": "%[1]s/v3/spaces/%[3]s"
+									},
+									"stats": {
+										"href": "%[1]s/v3/processes/%[5]s/stats"
+									}
+								}
+							}
+						]
+					}`, defaultServerURL, appGUID, spaceGUID, process1Record.GUID, process2Record.GUID)), "Response body matches response:")
+				})
+			})
+
+			When("The App does not have associated processes", func() {
+				BeforeEach(func() {
+					processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{}, nil)
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns a response with an empty resources array", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+					Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
+						"pagination": {
+						  "total_results": 0,
+						  "total_pages": 1,
+						  "first": {
+							"href": "%[1]s/v3/apps/%[2]s/processes?page=1"
+						  },
+						  "last": {
+							"href": "%[1]s/v3/apps/%[2]s/processes?page=1"
+						  },
+						  "next": null,
+						  "previous": null
+						},
+						"resources": []
+					}`, defaultServerURL, appGUID)), "Response body matches response:")
+				})
+			})
+		})
+		When("On the sad path and", func() {
+			When("the app cannot be found", func() {
+				BeforeEach(func() {
+					appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				})
+
+				itRespondsWithNotFound("App not found", getRR)
+			})
+
+			When("there is some other error fetching the app", func() {
+				BeforeEach(func() {
+					appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+				})
+
+				itRespondsWithUnknownError(getRR)
+			})
+			When("there is some error fetching the app's processes", func() {
+				BeforeEach(func() {
+					processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{}, errors.New("unknown!"))
+				})
+
+				itRespondsWithUnknownError(getRR)
+			})
+		})
+	})
+
 })
 
 func initializeCreateAppRequestBody(appName, spaceGUID string, envVars, labels, annotations map[string]string) string {
