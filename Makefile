@@ -16,7 +16,7 @@ SHELL = /usr/bin/env bash -o pipefail
 
 .DEFAULT_GOAL := test
 
-.PHONY: hnc-install test test-e2e kustomize docker-build fmt vet
+.PHONY: hnc-install test test-e2e kustomize docker-build docker-push fmt vet
 
 fmt: ## Run go fmt against code.
 	go fmt ./...
@@ -52,6 +52,9 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 
 docker-build: ## Build docker image with the manager.
 	docker build -t ${IMG} .
+
+docker-push: ## Push docker image with the manager.
+	docker push ${IMG}
 
 build-reference: kustomize
 	cd config/base && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-api=${IMG}
