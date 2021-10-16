@@ -26,7 +26,6 @@ import (
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,7 +35,7 @@ import (
 )
 
 const (
-	FinalizerName        = "cfRoute.networking.cloudfoundry.org"
+	FinalizerName = "cfRoute.networking.cloudfoundry.org"
 )
 
 // CFRouteReconciler reconciles a CFRoute object to create Contour resources
