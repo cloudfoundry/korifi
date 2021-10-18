@@ -17,26 +17,26 @@ limitations under the License.
 package networking
 
 import (
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	"context"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 
 	"github.com/go-logr/logr"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-//const (
-//	ProxyCreatedConditionType = "ProxyCreated"
-//)
+const (
+	FinalizerName = "cfRoute.networking.cloudfoundry.org"
+)
 
 // CFRouteReconciler reconciles a CFRoute object to create Contour resources
 type CFRouteReconciler struct {
@@ -60,7 +60,7 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	err := r.Client.Get(ctx, req.NamespacedName, &cfRoute)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
-			r.Log.Error(err, "Error when fetching CFRoute")
+			r.Log.Error(err, "failed to get CFRoute")
 		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -68,21 +68,21 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	var cfDomain networkingv1alpha1.CFDomain
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name}, &cfDomain)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching CFDomain")
+		r.Log.Error(err, "failed to get CFDomain")
 
 		// TODO: General status management in follow up story, possibly set CFRoute to status invalid?
 		return ctrl.Result{}, err
 	}
 
-	// Check all namespaces for root proxy with the matching FQDN label
+	// Check all namespaces for FQDN proxy with the matching FQDN label
 	var proxies contourv1.HTTPProxyList
 	err = r.Client.List(ctx, &proxies)
 	if err != nil {
-		r.Log.Error(err, "Error listing HTTPProxies")
+		r.Log.Error(err, "failed to list HTTPProxies")
 		return ctrl.Result{}, err
 	}
 
-	var rootHTTPProxy contourv1.HTTPProxy
+	var fqdnHTTPProxy contourv1.HTTPProxy
 	fqdn := fmt.Sprintf("%s.%s", cfRoute.Spec.Host, cfDomain.Spec.Name)
 
 	found := false
@@ -92,15 +92,20 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				err = fmt.Errorf("found multiple HTTPProxy with FQDN %s", fqdn)
 				r.Log.Error(err, "")
 				return ctrl.Result{}, err
+			} else if proxy.Namespace != cfRoute.Namespace {
+				err = fmt.Errorf("found existing HTTPProxy with FQDN %s in another space", fqdn)
+				r.Log.Error(err, fmt.Sprintf("existing proxy found in namespace %s", proxy.Namespace))
+				return ctrl.Result{}, err
 			}
-			rootHTTPProxy = proxy
+
+			fqdnHTTPProxy = proxy
 			found = true
 		}
 	}
 
-	// If not found, create in current namespace
+	// If proxy with desired FQDN not found, create in current namespace
 	if !found {
-		rootHTTPProxy = contourv1.HTTPProxy{
+		fqdnHTTPProxy = contourv1.HTTPProxy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fqdn,
 				Namespace: cfRoute.Namespace,
@@ -108,33 +113,58 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	// Update root proxy with include for new sub-proxy
-	result, err := controllerutil.CreateOrPatch(ctx, r.Client, &rootHTTPProxy, func() error {
-		rootHTTPProxy.Spec.VirtualHost = &contourv1.VirtualHost{
+	if cfRoute.ObjectMeta.DeletionTimestamp != nil && cfRoute.ObjectMeta.DeletionTimestamp.IsZero() == false {
+		r.Log.Info(fmt.Sprintf("Reconciling deletion of CFRoute/%s", cfRoute.Name))
+		// Cleanup the FQDN HTTPProxy on delete
+		if hasFinalizer(&cfRoute, FinalizerName) {
+			err = r.finalizeCFRouteForDeletion(ctx, req, &cfRoute, &fqdnHTTPProxy, found)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			controllerutil.RemoveFinalizer(&cfRoute, FinalizerName)
+			if err := r.Client.Update(ctx, &cfRoute); err != nil {
+				r.Log.Error(err, "Failed to remove finalizer")
+				return ctrl.Result{}, err
+			}
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	// Update FQDN proxy with include for new sub-proxy
+	result, err := controllerutil.CreateOrPatch(ctx, r.Client, &fqdnHTTPProxy, func() error {
+		fqdnHTTPProxy.Spec.VirtualHost = &contourv1.VirtualHost{
 			Fqdn: fqdn,
 		}
 
 		found := false
-		for _, include := range rootHTTPProxy.Spec.Includes {
+		for _, include := range fqdnHTTPProxy.Spec.Includes {
 			if include.Name == cfRoute.Name && include.Namespace == cfRoute.Namespace {
 				found = true
 			}
 		}
 
 		if !found {
-			rootHTTPProxy.Spec.Includes = append(rootHTTPProxy.Spec.Includes, contourv1.Include{
+			fqdnHTTPProxy.Spec.Includes = append(fqdnHTTPProxy.Spec.Includes, contourv1.Include{
 				Name:      cfRoute.Name,
 				Namespace: cfRoute.Namespace,
 			})
 		}
 
+		err = controllerutil.SetOwnerReference(&cfRoute, &fqdnHTTPProxy, r.Scheme)
+		if err != nil {
+			r.Log.Error(err, "failed to set OwnerRef on FQDN HTTPProxy")
+			return err
+		}
+
 		return nil
 	})
 	if err != nil {
-		r.Log.Error(err, "Error patching Root HTTPProxy")
+		r.Log.Error(err, "failed to patch FQDN HTTPProxy")
 		return ctrl.Result{}, err
 	}
-	r.Log.Info(fmt.Sprintf("Root HTTPProxy/%s %s", rootHTTPProxy.Name, result))
+	r.Log.Info(fmt.Sprintf("FQDN HTTPProxy/%s %s", fqdnHTTPProxy.Name, result))
 
 	routeHTTPProxy := &contourv1.HTTPProxy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -165,13 +195,19 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		routeHTTPProxy.Spec.Routes = desiredRoutes
 
+		err = controllerutil.SetOwnerReference(&cfRoute, routeHTTPProxy, r.Scheme)
+		if err != nil {
+			r.Log.Error(err, "failed to set OwnerRef on route HTTPProxy")
+			return err
+		}
+
 		return nil
 	})
 	if err != nil {
-		r.Log.Error(err, "Error updating sub-HTTPProxy")
+		r.Log.Error(err, "failed to patch route HTTPProxy")
 		return ctrl.Result{}, err
 	}
-	r.Log.Info(fmt.Sprintf("Sub HTTPProxy/%s %s", routeHTTPProxy.Name, result))
+	r.Log.Info(fmt.Sprintf("Route HTTPProxy/%s %s", routeHTTPProxy.Name, result))
 
 	var serviceReconcileErr error
 	for _, destination := range cfRoute.Spec.Destinations {
@@ -188,6 +224,12 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				"workloads.cloudfoundry.org/app-guid": destination.AppRef.Name,
 			}
 
+			err = controllerutil.SetOwnerReference(&cfRoute, service, r.Scheme)
+			if err != nil {
+				r.Log.Error(err, "failed to set OwnerRef on Service")
+				return err
+			}
+
 			service.Spec.Ports = []corev1.ServicePort{{
 				Port: int32(destination.Port),
 			}}
@@ -199,7 +241,7 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return nil
 		})
 		if err != nil {
-			r.Log.Error(err, fmt.Sprintf("Service/%s %s", service.Name, result))
+			r.Log.Error(err, fmt.Sprintf("failed to patch Service/%s", service.Name))
 			serviceReconcileErr = fmt.Errorf("service reconciliation failed for CFRoute/%s destinations", cfRoute.Name)
 		} else {
 			r.Log.Info(fmt.Sprintf("Service/%s %s", service.Name, result))
@@ -210,6 +252,17 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, serviceReconcileErr
 	}
 
+	// Add the finalizer
+	result, err = controllerutil.CreateOrPatch(ctx, r.Client, &cfRoute, func() error {
+		controllerutil.AddFinalizer(&cfRoute, FinalizerName)
+		return nil
+	})
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error updating CFRoute/%s", cfRoute.Name))
+	} else {
+		r.Log.Info(fmt.Sprintf("CFRoute/%s %s with finalizer", cfRoute.Name, result))
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -218,4 +271,39 @@ func (r *CFRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.CFRoute{}).
 		Complete(r)
+}
+
+func hasFinalizer(o metav1.Object, finalizerName string) bool {
+	for _, f := range o.GetFinalizers() {
+		if f == finalizerName {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *CFRouteReconciler) finalizeCFRouteForDeletion(ctx context.Context, req ctrl.Request, cfRoute *networkingv1alpha1.CFRoute, fqdnHTTPProxy *contourv1.HTTPProxy, found bool) error {
+	// If the FQDN HTTPProxy was not found, there is nothing to do
+	if !found {
+		return nil
+	}
+
+	// Remove the sub-HTTPProxy (name equal to the CFRoute name) from the list of includes
+	_, err := controllerutil.CreateOrPatch(ctx, r.Client, fqdnHTTPProxy, func() error {
+		for idx, include := range fqdnHTTPProxy.Spec.Includes {
+			if include.Name == cfRoute.Name {
+				r.Log.Info(fmt.Sprintf("Removing sub-HTTPProxy for route %s from FQDN HTTPProxy", cfRoute.Name))
+				fqdnHTTPProxy.Spec.Includes[idx] = fqdnHTTPProxy.Spec.Includes[len(fqdnHTTPProxy.Spec.Includes)-1]
+				fqdnHTTPProxy.Spec.Includes = fqdnHTTPProxy.Spec.Includes[:len(fqdnHTTPProxy.Spec.Includes)-1]
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		r.Log.Error(err, "failed to patch FQDN HTTPProxy to remove sub HTTPProxy")
+		return err
+	}
+
+	return nil
 }
