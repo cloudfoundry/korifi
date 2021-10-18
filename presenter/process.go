@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/url"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -132,8 +133,8 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 				HREF: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID).build(),
 			},
 			Scale: Link{
-				HREF:   buildURL(baseURL).appendPath(processesBase, responseProcess.GUID, "actions/scale").build(),
-				Method: "POST",
+				HREF:   buildURL(baseURL).appendPath(processesBase, responseProcess.GUID, "actions", "scale").build(),
+				Method: http.MethodPost,
 			},
 			App: Link{
 				HREF: buildURL(baseURL).appendPath(appsBase, responseProcess.AppGUID).build(),

@@ -2,10 +2,12 @@ package apis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	"github.com/go-logr/logr"
@@ -15,6 +17,7 @@ import (
 )
 
 const (
+	ProcessGetEndpoint         = "/v3/processes/{guid}"
 	ProcessGetSidecarsEndpoint = "/v3/processes/{guid}/sidecars"
 )
 
@@ -47,6 +50,36 @@ func NewProcessHandler(
 	}
 }
 
+func (h *ProcessHandler) processGetHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	processGUID := vars["guid"]
+
+	client, err := h.buildClient(h.k8sConfig)
+	if err != nil {
+		h.logger.Error(err, "Unable to create Kubernetes client", "ProcessGUID", processGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	process, err := h.processRepo.FetchProcess(ctx, client, processGUID)
+	if err != nil {
+		h.LogError(w, processGUID, err)
+		return
+	}
+
+	responseBody, err := json.Marshal(presenter.ForProcess(process, h.serverURL))
+	if err != nil {
+		h.logger.Error(err, "Failed to render response", "ProcessGUID", processGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	w.Write(responseBody)
+}
+
 func (h *ProcessHandler) processGetSidecarsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
@@ -65,16 +98,8 @@ func (h *ProcessHandler) processGetSidecarsHandler(w http.ResponseWriter, r *htt
 
 	_, err = h.processRepo.FetchProcess(ctx, client, processGUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("Process not found", "ProcessGUID", processGUID)
-			writeNotFoundErrorResponse(w, "Process")
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.LogError(w, processGUID, err)
+		return
 	}
 
 	w.Write([]byte(fmt.Sprintf(`{
@@ -94,6 +119,18 @@ func (h *ProcessHandler) processGetSidecarsHandler(w http.ResponseWriter, r *htt
 				}`, h.serverURL.String(), processGUID)))
 }
 
+func (h *ProcessHandler) LogError(w http.ResponseWriter, processGUID string, err error) {
+	switch err.(type) {
+	case repositories.NotFoundError:
+		h.logger.Info("Process not found", "ProcessGUID", processGUID)
+		writeNotFoundErrorResponse(w, "Process")
+	default:
+		h.logger.Error(err, "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
+		writeUnknownErrorResponse(w)
+	}
+}
+
 func (h *ProcessHandler) RegisterRoutes(router *mux.Router) {
+	router.Path(ProcessGetEndpoint).Methods("GET").HandlerFunc(h.processGetHandler)
 	router.Path(ProcessGetSidecarsEndpoint).Methods("GET").HandlerFunc(h.processGetSidecarsHandler)
 }

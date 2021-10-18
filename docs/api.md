@@ -113,6 +113,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#processes
 
 | Resource | Endpoint |
 |--|--|
+| Get Process | GET /v3/processes/\<guid>/sidecars |
 | Get Process Sidecars | GET /v3/processes/\<guid>/sidecars |
 
 
