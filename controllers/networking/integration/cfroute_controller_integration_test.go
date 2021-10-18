@@ -6,15 +6,15 @@ import (
 	"time"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/testutils"
 
-	"github.com/hashicorp/go-uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("CFRouteReconciler Integration Tests", func() {
@@ -36,12 +36,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		var err error
-
 		ctx := context.Background()
 
-		testNamespace, err = uuid.GenerateUUID()
-		Expect(err).NotTo(HaveOccurred())
+		testNamespace = GenerateGUID()
 
 		ns = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -50,10 +47,8 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		}
 		Expect(k8sClient.Create(ctx, ns)).To(Succeed())
 
-		testDomainGUID, err = uuid.GenerateUUID()
-		Expect(err).NotTo(HaveOccurred())
-		testDomainName, err = uuid.GenerateUUID()
-		Expect(err).NotTo(HaveOccurred())
+		testDomainGUID = GenerateGUID()
+		testDomainName = GenerateGUID()
 		testFQDN = fmt.Sprintf("%s.%s", testRouteHost, testDomainName)
 
 		cfDomain = &networkingv1alpha1.CFDomain{
@@ -77,12 +72,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 	When("the CFRoute does not include any destinations", func() {
 		BeforeEach(func() {
-			var err error
-
 			ctx := context.Background()
 
-			testRouteGUID, err = uuid.GenerateUUID()
-			Expect(err).NotTo(HaveOccurred())
+			testRouteGUID = GenerateGUID()
 
 			cfRoute = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -175,12 +167,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 	When("the CFRoute includes destinations", func() {
 		BeforeEach(func() {
-			var err error
-
 			ctx := context.Background()
 
-			testRouteGUID, err = uuid.GenerateUUID()
-			Expect(err).NotTo(HaveOccurred())
+			testRouteGUID = GenerateGUID()
 
 			cfRoute = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -297,12 +286,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		)
 
 		BeforeEach(func() {
-			var err error
-
 			ctx := context.Background()
 
-			testRouteGUID, err = uuid.GenerateUUID()
-			Expect(err).NotTo(HaveOccurred())
+			testRouteGUID = GenerateGUID()
 
 			cfRoute = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -335,8 +321,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				return proxy.GetName()
 			}, 2*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace))
 
-			duplicateRouteGUID, err = uuid.GenerateUUID()
-			Expect(err).NotTo(HaveOccurred())
+			duplicateRouteGUID = GenerateGUID()
 
 			duplicateRoute = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -424,12 +409,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 	When("a destination is added to a CFRoute", func() {
 		BeforeEach(func() {
-			var err error
-
 			ctx := context.Background()
 
-			testRouteGUID, err = uuid.GenerateUUID()
-			Expect(err).NotTo(HaveOccurred())
+			testRouteGUID = GenerateGUID()
 
 			cfRoute = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
