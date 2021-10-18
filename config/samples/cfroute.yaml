@@ -13,7 +13,8 @@ spec:
     name: 5b5032ab-7fc8-4da5-b853-821fd1879201
   # This array of destinations starts empty and is filled by CF Shim endpoints for /v3/routes/:guid/destinations
   destinations:
-    - port: 8080
+    - guid: 8ad77ef4-53d5-117a-b640-0ae227a13f35
+      port: 8080
       appRef:
         name: 745cfe64-ac7a-4d4a-a627-c481e8f03be8
       processType: web
