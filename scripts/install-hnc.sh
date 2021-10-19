@@ -42,3 +42,7 @@ until kubectl delete namespace ping-hnc --wait=false; do
   sleep 0.5
 done
 echo
+
+# The eirini controller requires a service account and rolebinding, which are
+# used by the statefulset controller to be able to create pods
+kubectl hns config set-resource serviceaccounts --mode Propagate

@@ -49,6 +49,10 @@ jobs:
         with:
           repository: cloudfoundry/cf-k8s-controllers
           path: cf-k8s-controllers
+      - uses: actions/checkout@v2
+        with:
+          repository: cloudfoundry-incubator/eirini-controller
+          path: eirini-controller
       - uses: actions/cache@v2
         with:
           path: |
