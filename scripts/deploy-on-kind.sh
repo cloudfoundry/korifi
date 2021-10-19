@@ -5,6 +5,8 @@ set -euxo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 API_DIR="$SCRIPT_DIR/.."
 CTRL_DIR="$API_DIR/../cf-k8s-controllers"
+EIRINI_CONTROLLER_DIR="$API_DIR/../eirini-controller"
+export PATH="$PATH:$API_DIR/bin"
 
 ensure_kind_cluster() {
   if ! kind get clusters | grep -q "$cluster"; then
@@ -53,7 +55,8 @@ deploy_cf_k8s_controllers() {
 }
 
 deploy_cf_k8s_api() {
-    pushd "$API_DIR"
+  pushd "$API_DIR"
+  {
     make hnc-install
     local uuid
     uuid="$(uuidgen)"
@@ -61,7 +64,37 @@ deploy_cf_k8s_api() {
     make docker-build
     kind load docker-image --name "$cluster" "$IMG"
     make deploy-kind
-    popd
+  }
+  popd
+}
+
+deploy_eirini_controller() {
+  if ! command -v kbld >/dev/null; then
+    curl -L https://carvel.dev/install.sh | K14SIO_INSTALL_BIN_DIR=$API_DIR/bin bash
+  fi
+
+  pushd "$EIRINI_CONTROLLER_DIR"
+  {
+    "./deployment/scripts/generate-secrets.sh" "*.eirini-controller.svc"
+
+    render_dir=$(mktemp -d)
+    trap "rm -rf $render_dir" EXIT
+    webhooks_ca_bundle="$(kubectl get secret -n eirini-controller eirini-webhooks-certs -o jsonpath="{.data['tls\.ca']}")"
+    kbld -f "$SCRIPT_DIR/assets/eirini-controller-kbld.yml" \
+      -f "$EIRINI_CONTROLLER_DIR/deployment/helm/values-template.yaml" \
+      >"$EIRINI_CONTROLLER_DIR/deployment/helm/values.yaml"
+
+    "$EIRINI_CONTROLLER_DIR/deployment/scripts/render-templates.sh" eirini-controller "$render_dir" \
+      --values "$EIRINI_CONTROLLER_DIR/deployment/scripts/assets/value-overrides.yaml" \
+      --set "webhooks.ca_bundle=$webhooks_ca_bundle" \
+      --set "workloads.create_namespaces=true" \
+      --set "workloads.default_namespace=cf"
+    for img in $(grep -oh "kbld:.*" "$EIRINI_CONTROLLER_DIR/deployment/helm/values.yaml"); do
+      kind load docker-image --name "$cluster" "$img"
+    done
+    kapp -y delete -a eirini-controller
+    kapp -y deploy -a eirini-controller -f "$render_dir/templates/"
+  }
 }
 
 cluster=${1:?specify cluster name}
@@ -69,3 +102,4 @@ ensure_kind_cluster "$cluster"
 export KUBECONFIG="$HOME/.kube/$cluster.yml"
 deploy_cf_k8s_controllers
 deploy_cf_k8s_api
+deploy_eirini_controller
