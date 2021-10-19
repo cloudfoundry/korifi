@@ -16,7 +16,7 @@ SHELL = /usr/bin/env bash -o pipefail
 
 .DEFAULT_GOAL := test
 
-.PHONY: hnc-install test test-e2e kustomize docker-build docker-push fmt vet
+.PHONY: hnc-install test test-e2e kustomize docker-build docker-push fmt vet build-reference
 
 fmt: ## Run go fmt against code.
 	go fmt ./...
