@@ -969,6 +969,9 @@ spec:
                             TODO: Add other useful fields. apiVersion, kind, uid?'
                           type: string
                       type: object
+                    guid:
+                      description: GUID is required to support CF V3 Destination endpoints
+                      type: string
                     port:
                       description: Port is optional, defaults to ProcessModel::DEFAULT_HTTP_PORT
                       type: integer
@@ -980,6 +983,7 @@ spec:
                       type: string
                   required:
                   - appRef
+                  - guid
                   - processType
                   type: object
                 type: array
@@ -1163,6 +1167,18 @@ rules:
   - serviceaccounts/status
   verbs:
   - get
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - kpack.io
   resources:
@@ -1440,7 +1456,11 @@ subjects:
 ---
 apiVersion: v1
 data:
-  cf_k8s_controllers_config.yaml: 'kpackImageTag: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta'
+  cf_k8s_controllers_config.yaml: |-
+    kpackImageTag: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
+    cfProcessDefaults:
+      memoryMB: 500
+      diskQuotaMB: 512
 kind: ConfigMap
 metadata:
   name: cf-k8s-controllers-config
