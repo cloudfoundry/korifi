@@ -1,12 +1,14 @@
 package integration_test
 
 import (
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/networking"
 	"context"
 	"path/filepath"
 	"testing"
 
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/networking"
+
+	"github.com/matt-royal/biloba"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
@@ -27,7 +29,7 @@ var (
 
 func TestNetworkingControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Networking Controllers Integration Suite")
+	RunSpecsWithDefaultAndCustomReporters(t, "Networking Controllers Integration Suite", biloba.GoLandReporter())
 }
 
 var _ = BeforeSuite(func() {
