@@ -36,12 +36,14 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -57,6 +59,7 @@ func init() {
 	utilruntime.Must(buildv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(contourv1.AddToScheme(scheme))
 	utilruntime.Must(eiriniv1.AddToScheme(scheme))
+	utilruntime.Must(hnsv1alpha2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -195,6 +198,11 @@ func main() {
 			Client: mgr.GetClient(),
 		}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
+			os.Exit(1)
+		}
+
+		if err = workloads.NewSubnamespaceAnchorValidation(mgr.GetClient()).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "SubnamespaceAnchors")
 			os.Exit(1)
 		}
 	} else {

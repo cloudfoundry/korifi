@@ -55,6 +55,13 @@ rules:
   - update
   - watch
 - apiGroups:
+  - hnc.x-k8s.io
+  resources:
+  - subnamespaceanchors
+  verbs:
+  - list
+  - watch
+- apiGroups:
   - kpack.io
   resources:
   - images

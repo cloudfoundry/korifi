@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -43,7 +44,10 @@ var _ = BeforeSuite(func() {
 	cancel = cancelFunc
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("fixtures", "vendor", "hierarchical-namespaces", "config", "crd", "bases"),
+		},
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
 			Paths: []string{filepath.Join("..", "..", "..", "config", "webhook")},
@@ -55,12 +59,10 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	scheme := runtime.NewScheme()
-	err = v1alpha1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
-
+	Expect(v1alpha1.AddToScheme(scheme)).To(Succeed())
 	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
-
 	Expect(v1.AddToScheme(scheme)).To(Succeed())
+	Expect(hnsv1alpha2.AddToScheme(scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
 
@@ -82,8 +84,11 @@ var _ = BeforeSuite(func() {
 
 	Expect((&v1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	cfAppValidatingWebhook := &CFAppValidation{Client: mgr.GetClient()}
+	cfAppValidatingWebhook := &workloads.CFAppValidation{Client: mgr.GetClient()}
 	Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
+
+	anchorValidationWebhook := workloads.NewSubnamespaceAnchorValidation(mgr.GetClient())
+	Expect(anchorValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook
 
