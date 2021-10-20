@@ -3,6 +3,7 @@ package networking_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
@@ -24,14 +25,14 @@ import (
 )
 
 const (
-	testNamespace     = "test-ns"
-	testDomainGUID    = "test-domain-guid"
-	testDomainName    = "test.domain.name"
-	testRouteGUID     = "test-route-guid"
-	testRouteHost     = "test-route-host"
-	testFQDN          = testRouteHost + "." + testDomainName
-	testHTTPProxyName = "test-httpproxy-name"
-	testServiceName   = "s-test-app-guid-web"
+	testNamespace            = "test-ns"
+	testDomainGUID           = "test-domain-guid"
+	testDomainName           = "test.domain.name"
+	testRouteGUID            = "test-route-guid"
+	testRouteHost            = "test-route-host"
+	testRouteDestinationGUID = "test-route-destination-guid"
+	testFQDN                 = testRouteHost + "." + testDomainName
+	testHTTPProxyName        = "test-httpproxy-name"
 )
 
 var _ = Describe("CFRouteReconciler Unit Tests", func() {
@@ -90,6 +91,7 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 				},
 				Destinations: []networkingv1alpha1.Destination{
 					{
+						GUID: testRouteDestinationGUID,
 						AppRef: v1.LocalObjectReference{
 							Name: "test-app-guid",
 						},
@@ -139,7 +141,7 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 				}
 				return getHTTPProxyError
 			case *v1.Service:
-				return apierrors.NewNotFound(schema.GroupResource{}, testServiceName)
+				return apierrors.NewNotFound(schema.GroupResource{}, testRouteDestinationGUID)
 			default:
 				panic("TestClient Get provided an unexpected object type")
 			}
@@ -213,7 +215,7 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 				Expect(reconcileErr).NotTo(HaveOccurred())
 			})
 
-			// TODO: re-examine this later
+			// TODO: re-examine this later, because order will flip
 			It("creates an FQDN HTTPProxy, a route HTTPProxy, and a Service", func() {
 				Expect(fakeClient.CreateCallCount()).To(Equal(3), "Client.Create call count mismatch")
 
@@ -233,7 +235,8 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 				_, requestObject, _ = fakeClient.CreateArgsForCall(2)
 				requestService, ok := requestObject.(*v1.Service)
 				Expect(ok).To(BeTrue(), "Cast of Client.Create arg to v1.Service failed")
-				Expect(requestService.Name).To(Equal(testServiceName))
+				serviceName := fmt.Sprintf("s-%s", testRouteDestinationGUID)
+				Expect(requestService.Name).To(Equal(serviceName))
 			})
 		})
 

@@ -20,9 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 
 	"github.com/go-logr/logr"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
@@ -30,6 +29,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -164,7 +164,7 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				},
 				Services: []contourv1.Service{
 					{
-						Name: fmt.Sprintf("s-%s-%s", destination.AppRef.Name, destination.ProcessType),
+						Name: generateServiceName(&destination),
 						Port: destination.Port,
 					},
 				},
@@ -192,15 +192,15 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	for _, destination := range cfRoute.Spec.Destinations {
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				// TODO: Make name GUID to avoid complexity on delete trying to check for other proxies referring to the service
-				Name:      fmt.Sprintf("s-%s-%s", destination.AppRef.Name, destination.ProcessType),
+				Name:      generateServiceName(&destination),
 				Namespace: cfRoute.Namespace,
 			},
 		}
 
 		result, err = controllerutil.CreateOrPatch(ctx, r.Client, service, func() error {
 			service.ObjectMeta.Labels = map[string]string{
-				"workloads.cloudfoundry.org/app-guid": destination.AppRef.Name,
+				workloadsv1alpha1.CFAppGUIDLabelKey:    destination.AppRef.Name,
+				networkingv1alpha1.CFRouteGUIDLabelKey: cfRoute.Name,
 			}
 
 			err = controllerutil.SetOwnerReference(&cfRoute, service, r.Scheme)
@@ -213,8 +213,8 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				Port: int32(destination.Port),
 			}}
 			service.Spec.Selector = map[string]string{
-				"workloads.cloudfoundry.org/app-guid":     destination.AppRef.Name,
-				"workloads.cloudfoundry.org/process-type": destination.ProcessType,
+				workloadsv1alpha1.CFAppGUIDLabelKey:     destination.AppRef.Name,
+				workloadsv1alpha1.CFProcessTypeLabelKey: destination.ProcessType,
 			}
 
 			return nil
@@ -243,6 +243,10 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func generateServiceName(destination *networkingv1alpha1.Destination) string {
+	return fmt.Sprintf("s-%s", destination.GUID)
 }
 
 func isFinalizing(cfRoute *networkingv1alpha1.CFRoute) bool {

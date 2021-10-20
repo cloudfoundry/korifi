@@ -93,7 +93,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
 		})
 
-		It("reconciles the CFRoute to a root Contour HTTPProxy which includes a proxy for a route destination", func() {
+		It("eventually reconciles the CFRoute to a root Contour HTTPProxy which includes a proxy for a route destination", func() {
 			ctx := context.Background()
 
 			var proxy contourv1.HTTPProxy
@@ -120,7 +120,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			}))
 		})
 
-		It("reconciles the CFRoute to a child proxy with no routes", func() {
+		It("eventually reconciles the CFRoute to a child proxy with no routes", func() {
 			ctx := context.Background()
 
 			Eventually(func() string {
@@ -147,7 +147,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			}))
 		})
 
-		It("adds a finalizer to the CFRoute", func() {
+		It("eventually adds a finalizer to the CFRoute", func() {
 			ctx := context.Background()
 
 			Eventually(func() []string {
@@ -178,6 +178,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					},
 					Destinations: []networkingv1alpha1.Destination{
 						{
+							GUID: GenerateGUID(),
 							AppRef: corev1.LocalObjectReference{
 								Name: "the-app-guid",
 							},
@@ -190,7 +191,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
 		})
 
-		It("reconciles the CFRoute to a root Contour HTTPProxy which includes a proxy for a route destination", func() {
+		It("eventually reconciles the CFRoute to a root Contour HTTPProxy which includes a proxy for a route destination", func() {
 			ctx := context.Background()
 
 			Eventually(func() string {
@@ -211,7 +212,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			}), "HTTPProxy include does not match proxy for route destinations")
 		})
 
-		It("reconciles the CFRoute to a child proxy with a route", func() {
+		It("eventually reconciles the CFRoute to a child proxy with a route", func() {
 			ctx := context.Background()
 
 			Eventually(func() string {
@@ -234,41 +235,49 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				},
 				Services: []contourv1.Service{
 					{
-						Name: fmt.Sprintf("s-%s-%s", cfRoute.Spec.Destinations[0].AppRef.Name, cfRoute.Spec.Destinations[0].ProcessType),
+						Name: fmt.Sprintf("s-%s", cfRoute.Spec.Destinations[0].GUID),
 						Port: cfRoute.Spec.Destinations[0].Port,
 					},
 				},
 			}), "HTTPProxy route does not match destination")
 		})
 
-		It("reconciles each destination to a Service", func() {
-			ctx := context.Background()
+		It("eventually reconciles each destination to a Service for the app", func() {
 
-			serviceName := fmt.Sprintf("s-%s-%s", cfRoute.Spec.Destinations[0].AppRef.Name, cfRoute.Spec.Destinations[0].ProcessType)
-			Eventually(func() string {
-				var svc corev1.Service
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)
-				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get Service/%s in namespace %s", serviceName, testNamespace)
-				return svc.GetName()
-			}, 2*time.Second).ShouldNot(BeEmpty(), "Timed out waiting for Service/%s in namespace %s to be created", serviceName, testNamespace)
-
+			serviceName := fmt.Sprintf("s-%s", cfRoute.Spec.Destinations[0].GUID)
 			var svc corev1.Service
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)
-			Expect(err).NotTo(HaveOccurred())
 
-			Expect(svc.Spec.Selector).To(Equal(map[string]string{
-				"workloads.cloudfoundry.org/app-guid":     "the-app-guid",
-				"workloads.cloudfoundry.org/process-type": "web",
-			}))
+			By("eventually creating a Service", func() {
+				ctx := context.Background()
+				Eventually(func() string {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)
+					Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get Service/%s in namespace %s", serviceName, testNamespace)
+					return svc.GetName()
+				}, 2*time.Second).ShouldNot(BeEmpty(), "Timed out waiting for Service/%s in namespace %s to be created", serviceName, testNamespace)
+			})
 
-			Expect(svc.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
-				{
-					APIVersion: "networking.cloudfoundry.org/v1alpha1",
-					Kind:       "CFRoute",
-					Name:       cfRoute.Name,
-					UID:        cfRoute.GetUID(),
-				},
-			}))
+			By("setting the labels on the created Service", func() {
+				Expect(svc.Labels["workloads.cloudfoundry.org/app-guid"]).To(Equal(cfRoute.Spec.Destinations[0].AppRef.Name))
+				Expect(svc.Labels["networking.cloudfoundry.org/route-guid"]).To(Equal(cfRoute.Name))
+			})
+
+			By("setting the selectors on the created Service", func() {
+				Expect(svc.Spec.Selector).To(Equal(map[string]string{
+					"workloads.cloudfoundry.org/app-guid":     "the-app-guid",
+					"workloads.cloudfoundry.org/process-type": "web",
+				}))
+			})
+
+			By("setting the OwnerReferences on the created Service", func() {
+				Expect(svc.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+					{
+						APIVersion: "networking.cloudfoundry.org/v1alpha1",
+						Kind:       "CFRoute",
+						Name:       cfRoute.Name,
+						UID:        cfRoute.GetUID(),
+					},
+				}))
+			})
 		})
 	})
 
@@ -340,7 +349,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			Expect(k8sClient.Create(ctx, duplicateRoute)).To(Succeed())
 		})
 
-		It("reconciles the CFRoute to the existing Contour HTTPProxy with the matching FQDN", func() {
+		It("eventually reconciles the CFRoute to the existing Contour HTTPProxy with the matching FQDN", func() {
 			ctx := context.Background()
 
 			Eventually(func() int {
@@ -366,7 +375,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			}), "HTTPProxy includes mismatch")
 		})
 
-		It("reconciles the duplicate CFRoute to a child proxy with a route", func() {
+		It("eventually reconciles the duplicate CFRoute to a child proxy with a route", func() {
 			ctx := context.Background()
 
 			Eventually(func() string {
@@ -390,7 +399,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				},
 				Services: []contourv1.Service{
 					{
-						Name: fmt.Sprintf("s-%s-%s", duplicateRoute.Spec.Destinations[0].AppRef.Name, duplicateRoute.Spec.Destinations[0].ProcessType),
+						Name: fmt.Sprintf("s-%s", duplicateRoute.Spec.Destinations[0].GUID),
 						Port: duplicateRoute.Spec.Destinations[0].Port,
 					},
 				},
@@ -416,6 +425,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					},
 					Destinations: []networkingv1alpha1.Destination{
 						{
+							GUID: GenerateGUID(),
 							AppRef: corev1.LocalObjectReference{
 								Name: "the-app-guid",
 							},
@@ -435,6 +445,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 			// Why not just set up the CFRoute with this in the first place?
 			cfRoute.Spec.Destinations = append(cfRoute.Spec.Destinations, networkingv1alpha1.Destination{
+				GUID: GenerateGUID(),
 				AppRef: corev1.LocalObjectReference{
 					Name: "app-guid-2",
 				},
@@ -444,7 +455,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			Expect(k8sClient.Update(ctx, cfRoute)).To(Succeed())
 		})
 
-		It("reconciles the CFRoute to a child proxy with a route", func() {
+		It("eventually reconciles the CFRoute to a child proxy with a route", func() {
 			ctx := context.Background()
 
 			Eventually(func() int {
@@ -467,7 +478,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					},
 					Services: []contourv1.Service{
 						{
-							Name: fmt.Sprintf("s-%s-%s", cfRoute.Spec.Destinations[0].AppRef.Name, cfRoute.Spec.Destinations[0].ProcessType),
+							Name: fmt.Sprintf("s-%s", cfRoute.Spec.Destinations[0].GUID),
 							Port: cfRoute.Spec.Destinations[0].Port,
 						},
 					},
@@ -480,12 +491,50 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					},
 					Services: []contourv1.Service{
 						{
-							Name: fmt.Sprintf("s-%s-%s", cfRoute.Spec.Destinations[1].AppRef.Name, cfRoute.Spec.Destinations[1].ProcessType),
+							Name: fmt.Sprintf("s-%s", cfRoute.Spec.Destinations[1].GUID),
 							Port: cfRoute.Spec.Destinations[1].Port,
 						},
 					},
 				},
 			}), "HTTPProxy routes mismatch")
+		})
+
+		It("eventually reconciles the new destination to a Service for the app", func() {
+
+			serviceName := fmt.Sprintf("s-%s", cfRoute.Spec.Destinations[1].GUID)
+			var svc corev1.Service
+
+			By("eventually creating a Service", func() {
+				ctx := context.Background()
+				Eventually(func() string {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)
+					Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get Service/%s in namespace %s", serviceName, testNamespace)
+					return svc.GetName()
+				}, 2*time.Second).ShouldNot(BeEmpty(), "Timed out waiting for Service/%s in namespace %s to be created", serviceName, testNamespace)
+			})
+
+			By("setting the labels on the created Service", func() {
+				Expect(svc.Labels["workloads.cloudfoundry.org/app-guid"]).To(Equal(cfRoute.Spec.Destinations[1].AppRef.Name))
+				Expect(svc.Labels["networking.cloudfoundry.org/route-guid"]).To(Equal(cfRoute.Name))
+			})
+
+			By("setting the selectors on the created Service", func() {
+				Expect(svc.Spec.Selector).To(Equal(map[string]string{
+					"workloads.cloudfoundry.org/app-guid":     cfRoute.Spec.Destinations[1].AppRef.Name,
+					"workloads.cloudfoundry.org/process-type": cfRoute.Spec.Destinations[1].ProcessType,
+				}))
+			})
+
+			By("setting the OwnerReferences on the created Service", func() {
+				Expect(svc.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+					{
+						APIVersion: "networking.cloudfoundry.org/v1alpha1",
+						Kind:       "CFRoute",
+						Name:       cfRoute.Name,
+						UID:        cfRoute.GetUID(),
+					},
+				}))
+			})
 		})
 	})
 
