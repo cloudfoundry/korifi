@@ -64,10 +64,10 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 	existingItems := &v1alpha2.SubnamespaceAnchorList{}
 
 	label := OrgNameLabel
-	anchorType := "org"
+	dupError := DuplicateOrgNameError
 	if anchor.Labels[SpaceNameLabel] != "" {
 		label = SpaceNameLabel
-		anchorType = "space"
+		dupError = DuplicateSpaceNameError
 	}
 
 	err = v.lister.List(ctx, existingItems, client.InNamespace(req.Namespace), client.MatchingLabels{label: anchor.Labels[label]})
@@ -84,7 +84,8 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 	}
 
 	if len(items) > 0 {
-		return admission.Denied(fmt.Sprintf("duplicate %s name: %q", anchorType, anchor.Labels[label]))
+		subnsLogger.Info(dupError.GetMessage(), "name", anchor.Labels[label])
+		return admission.Denied(dupError.Marshal())
 	}
 
 	return admission.Allowed("")

@@ -77,7 +77,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 		When("the name already exists in its namespace", func() {
 			It("fails", func() {
 				_, err := createOrg(otherNamespace.Name, "my-org")
-				Expect(err).To(MatchError(ContainSubstring("my-org")))
+				Expect(err).To(MatchError(ContainSubstring("Org with same name exists")))
 			})
 		})
 	})
@@ -98,7 +98,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 		When("the name already exists in the org namespace", func() {
 			It("fails", func() {
 				_, err := createSpace(otherNamespace.Name, "my-space")
-				Expect(err).To(MatchError(ContainSubstring("my-space")))
+				Expect(err).To(MatchError(ContainSubstring("Space with same name exists")))
 			})
 		})
 	})
@@ -151,7 +151,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 			})
 
 			It("fails", func() {
-				Expect(k8sClient.Update(ctx, org)).To(MatchError(ContainSubstring("another-org")))
+				Expect(k8sClient.Update(ctx, org)).To(MatchError(ContainSubstring("Org with same name exists")))
 			})
 		})
 	})
@@ -204,7 +204,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 			})
 
 			It("fails", func() {
-				Expect(k8sClient.Update(ctx, space)).To(MatchError(ContainSubstring("another-space")))
+				Expect(k8sClient.Update(ctx, space)).To(MatchError(ContainSubstring("Space with same name exists")))
 			})
 		})
 	})

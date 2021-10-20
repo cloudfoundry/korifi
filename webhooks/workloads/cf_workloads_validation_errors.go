@@ -12,6 +12,8 @@ type ValidationError struct {
 const (
 	UnknownError = ValidationErrorCode(iota)
 	DuplicateAppError
+	DuplicateOrgNameError
+	DuplicateSpaceNameError
 )
 
 func (w ValidationErrorCode) Marshal() string {
@@ -38,6 +40,10 @@ func (w ValidationErrorCode) GetMessage() string {
 	switch w {
 	case DuplicateAppError:
 		return "CFApp with the same spec.name exists"
+	case DuplicateOrgNameError:
+		return "Org with same name exists"
+	case DuplicateSpaceNameError:
+		return "Space with same name exists"
 	default:
 		return "An unknown error has occured"
 	}
