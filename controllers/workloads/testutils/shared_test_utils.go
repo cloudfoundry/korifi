@@ -52,6 +52,7 @@ func BuildCFAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFA
 					Stack:      "",
 				},
 			},
+			EnvSecretName: "test-env-secret-name",
 		},
 	}
 }
@@ -156,8 +157,8 @@ func BuildCFProcessCRObject(cfProcessGUID string, namespace string, cfAppGUID st
 				},
 			},
 			DesiredInstances: 0,
-			MemoryMB:         0,
-			DiskQuotaMB:      0,
+			MemoryMB:         100,
+			DiskQuotaMB:      100,
 			Ports:            []int32{8080},
 		},
 	}
@@ -170,4 +171,25 @@ func SetStatusCondition(conditions *[]metav1.Condition, conditionType string, st
 		Reason:  "reasons",
 		Message: "",
 	})
+}
+
+func UpdateCFBuildWithDropletStatus(cfbuild *workloadsv1alpha1.CFBuild) {
+	cfbuild.Status.BuildDropletStatus = &workloadsv1alpha1.BuildDropletStatus{
+		Registry: workloadsv1alpha1.Registry{
+			Image:            "my-image",
+			ImagePullSecrets: nil,
+		},
+		Stack: "cflinuxfs3",
+		ProcessTypes: []workloadsv1alpha1.ProcessType{
+			{
+				Type:    "web",
+				Command: "web-command",
+			},
+		},
+		Ports: []int32{8080},
+	}
+}
+
+func UpdateCFAppWithCurrentDropletRef(cfApp *workloadsv1alpha1.CFApp, buildGUID string) {
+	cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: buildGUID}
 }

@@ -75,6 +75,13 @@ echo "*******************"
 
 kubectl apply -f dependencies/contour-1.18.2.yaml
 
+
+echo "***************************"
+echo "Installing Eirini LRP CRD"
+echo "***************************"
+
+kubectl apply -f dependencies/lrp-crd.yaml
+
 echo "******"
 echo "Done"
 echo "******"

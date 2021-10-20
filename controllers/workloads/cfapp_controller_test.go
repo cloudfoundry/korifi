@@ -65,7 +65,7 @@ var _ = Describe("CFAppReconciler", func() {
 		cfApp = BuildCFAppCRObject(cfAppGUID, defaultNamespace)
 		cfAppError = nil
 		cfBuild = BuildCFBuildObject(cfBuildGUID, defaultNamespace, cfPackageGUID, cfAppGUID)
-		updateCFBuildWithDropletStatus(cfBuild)
+		UpdateCFBuildWithDropletStatus(cfBuild)
 		cfBuildError = nil
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
@@ -151,7 +151,7 @@ var _ = Describe("CFAppReconciler", func() {
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
-				It("should returns an error", func() {
+				It("should return an error", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
@@ -319,20 +319,3 @@ var _ = Describe("CFAppReconciler", func() {
 	})
 
 })
-
-func updateCFBuildWithDropletStatus(cfbuild *workloadsv1alpha1.CFBuild) {
-	cfbuild.Status.BuildDropletStatus = &workloadsv1alpha1.BuildDropletStatus{
-		Registry: workloadsv1alpha1.Registry{
-			Image:            "my-image",
-			ImagePullSecrets: nil,
-		},
-		Stack: "cflinuxfs3",
-		ProcessTypes: []workloadsv1alpha1.ProcessType{
-			{
-				Type:    "web",
-				Command: "web-command",
-			},
-		},
-		Ports: []int32{8080},
-	}
-}

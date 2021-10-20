@@ -3,6 +3,7 @@ module code.cloudfoundry.org/cf-k8s-controllers
 go 1.16
 
 require (
+	code.cloudfoundry.org/eirini-controller v0.1.0
 	github.com/buildpacks/lifecycle v0.12.0
 	github.com/go-logr/logr v0.4.0
 	github.com/google/go-containerregistry v0.6.0

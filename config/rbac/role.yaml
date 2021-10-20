@@ -10,6 +10,14 @@ rules:
   - ""
   resources:
   - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
   - serviceaccounts
   verbs:
   - get
@@ -26,6 +34,18 @@ rules:
   - ""
   resources:
   - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - eirini.cloudfoundry.org
+  resources:
+  - lrps
   verbs:
   - create
   - delete
