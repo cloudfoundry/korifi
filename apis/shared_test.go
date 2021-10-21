@@ -8,7 +8,6 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
-	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
@@ -21,16 +20,14 @@ func defaultServerURI(paths ...string) string {
 	return fmt.Sprintf("%s%s", defaultServerURL, strings.Join(paths, ""))
 }
 
-func itRespondsWithUnknownError(rr func() *httptest.ResponseRecorder) {
-	It("returns status 500 InternalServerError", func() {
-		Expect(rr().Code).To(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
-	})
+func expectJSONResponse(rr *httptest.ResponseRecorder, status int, body string) {
+	Expect(rr).To(HaveHTTPStatus(status))
+	Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+	Expect(rr).To(HaveHTTPBody(MatchJSON(body)))
+}
 
-	It("returns a CF API formatted Error response", func() {
-		contentTypeHeader := rr().Header().Get("Content-Type")
-		Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-		Expect(rr().Body.String()).To(MatchJSON(`{
+func expectUnknownError(rr *httptest.ResponseRecorder) {
+	expectJSONResponse(rr, http.StatusInternalServerError, `{
 			"errors": [
 				{
 					"title": "UnknownError",
@@ -38,20 +35,11 @@ func itRespondsWithUnknownError(rr func() *httptest.ResponseRecorder) {
 					"code": 10001
 				}
 			]
-		}`), "Response body matches response:")
-	})
+		}`)
 }
 
-func itRespondsWithNotFound(detail string, rr func() *httptest.ResponseRecorder) {
-	It("returns status 404 NotFound", func() {
-		Expect(rr().Code).To(Equal(http.StatusNotFound), "Matching HTTP response code:")
-	})
-
-	It("returns a CF API formatted Error response", func() {
-		contentTypeHeader := rr().Header().Get("Content-Type")
-		Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-		Expect(rr().Body.String()).To(MatchJSON(fmt.Sprintf(`{
+func expectNotFoundError(rr *httptest.ResponseRecorder, detail string) {
+	expectJSONResponse(rr, http.StatusNotFound, fmt.Sprintf(`{
 			"errors": [
 				{
 					"code": 10010,
@@ -59,20 +47,11 @@ func itRespondsWithNotFound(detail string, rr func() *httptest.ResponseRecorder)
 					"detail": %q
 				}
 			]
-		}`, detail)), "Response body matches response:")
-	})
+		}`, detail))
 }
 
-func itRespondsWithUnprocessableEntity(detail string, rr func() *httptest.ResponseRecorder) {
-	It("responds 422", func() {
-		Expect(rr().Code).To(Equal(http.StatusUnprocessableEntity))
-	})
-
-	It("responds with a CF-UnprocessableEntity error", func() {
-		contentTypeHeader := rr().Header().Get("Content-Type")
-		Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-		Expect(rr().Body.String()).To(MatchJSON(fmt.Sprintf(`{
+func expectUnprocessableEntityError(rr *httptest.ResponseRecorder, detail string) {
+	expectJSONResponse(rr, http.StatusUnprocessableEntity, fmt.Sprintf(`{
 			"errors": [
 				{
 					"detail": %q,
@@ -80,8 +59,7 @@ func itRespondsWithUnprocessableEntity(detail string, rr func() *httptest.Respon
 					"code": 10008
 				}
 			]
-		}`, detail)))
-	})
+		}`, detail))
 }
 
 func initializeProcessRecord(processGUID, spaceGUID, appGUID string) *repositories.ProcessRecord {

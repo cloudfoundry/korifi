@@ -39,8 +39,6 @@ var _ = Describe("AppHandler", func() {
 		router        *mux.Router
 	)
 
-	getRR := func() *httptest.ResponseRecorder { return rr }
-
 	BeforeEach(func() {
 		appRepo = new(fake.CFAppRepository)
 		dropletRepo = new(fake.CFDropletRepository)
@@ -173,7 +171,9 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			// TODO: should we return code 100004 instead?
-			itRespondsWithNotFound("App not found", getRR)
+			It("returns an error", func() {
+				expectNotFoundError(rr, "App not found")
+			})
 		})
 
 		When("there is some other error fetching the app", func() {
@@ -181,7 +181,9 @@ var _ = Describe("AppHandler", func() {
 				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 	})
 
@@ -226,7 +228,9 @@ var _ = Describe("AppHandler", func() {
 				queuePostRequest(`{"description" : "Invalid Request"}`)
 			})
 
-			itRespondsWithUnprocessableEntity(`invalid request body: json: unknown field "description"`, getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, `invalid request body: json: unknown field "description"`)
+			})
 		})
 
 		When("the request body is invalid with invalid app name", func() {
@@ -237,7 +241,9 @@ var _ = Describe("AppHandler", func() {
 				}`)
 			})
 
-			itRespondsWithUnprocessableEntity("Name must be a string", getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, "Name must be a string")
+			})
 		})
 
 		When("the request body is invalid with invalid environment variable object", func() {
@@ -249,7 +255,9 @@ var _ = Describe("AppHandler", func() {
 				}`)
 			})
 
-			itRespondsWithUnprocessableEntity("Environment_variables must be a map[string]string", getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, "Environment_variables must be a map[string]string")
+			})
 		})
 
 		When("the request body is invalid with missing required name field", func() {
@@ -259,7 +267,9 @@ var _ = Describe("AppHandler", func() {
 				}`)
 			})
 
-			itRespondsWithUnprocessableEntity("Name is a required field", getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, "Name is a required field")
+			})
 		})
 
 		When("the request body is invalid with missing data within lifecycle", func() {
@@ -315,7 +325,9 @@ var _ = Describe("AppHandler", func() {
 				queuePostRequest(requestBody)
 			})
 
-			itRespondsWithUnprocessableEntity("Invalid space. Ensure that the space exists and you have access to it.", getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, "Invalid space. Ensure that the space exists and you have access to it.")
+			})
 		})
 
 		When("the app already exists, but AppCreate returns false due to validating webhook rejection", func() {
@@ -358,7 +370,9 @@ var _ = Describe("AppHandler", func() {
 				queuePostRequest(requestBody)
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 
 		When("the namespace exists and app does not exist and", func() {
@@ -517,7 +531,9 @@ var _ = Describe("AppHandler", func() {
 						queuePostRequest(requestBody)
 					})
 
-					itRespondsWithUnknownError(getRR)
+					It("returns an error", func() {
+						expectUnknownError(rr)
+					})
 				})
 			})
 
@@ -796,7 +812,9 @@ var _ = Describe("AppHandler", func() {
 				appRepo.FetchAppListReturns([]repositories.AppRecord{}, errors.New("unknown!"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 	})
 
@@ -884,7 +902,9 @@ var _ = Describe("AppHandler", func() {
 				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 			})
 
-			itRespondsWithNotFound("App not found", getRR)
+			It("returns an error", func() {
+				expectNotFoundError(rr, "App not found")
+			})
 			itDoesntSetTheCurrentDroplet()
 		})
 
@@ -893,7 +913,9 @@ var _ = Describe("AppHandler", func() {
 				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
 			})
 
-			itRespondsWithUnprocessableEntity("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.", getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, "Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
+			})
 			itDoesntSetTheCurrentDroplet()
 		})
 
@@ -906,7 +928,9 @@ var _ = Describe("AppHandler", func() {
 				}, nil)
 			})
 
-			itRespondsWithUnprocessableEntity("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.", getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, "Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
+			})
 			itDoesntSetTheCurrentDroplet()
 		})
 
@@ -919,7 +943,9 @@ var _ = Describe("AppHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			itRespondsWithUnprocessableEntity("GUID is a required field", getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, "GUID is a required field")
+			})
 		})
 
 		When("building the client errors", func() {
@@ -927,7 +953,9 @@ var _ = Describe("AppHandler", func() {
 				clientBuilder.Returns(nil, errors.New("boom"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 			itDoesntSetTheCurrentDroplet()
 		})
 
@@ -936,7 +964,9 @@ var _ = Describe("AppHandler", func() {
 				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("boom"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 			itDoesntSetTheCurrentDroplet()
 		})
 
@@ -945,7 +975,9 @@ var _ = Describe("AppHandler", func() {
 				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, errors.New("boom"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 			itDoesntSetTheCurrentDroplet()
 		})
 
@@ -954,12 +986,13 @@ var _ = Describe("AppHandler", func() {
 				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, errors.New("boom"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 	})
 
 	Describe("the POST /v3/apps/:guid/actions/start endpoint", func() {
-
 		BeforeEach(func() {
 			fetchAppRecord := repositories.AppRecord{
 				Name:        appName,
@@ -1071,7 +1104,9 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			// TODO: should we return code 100004 instead?
-			itRespondsWithNotFound("App not found", getRR)
+			It("returns an error", func() {
+				expectNotFoundError(rr, "App not found")
+			})
 		})
 
 		When("there is some other error fetching the app", func() {
@@ -1079,7 +1114,9 @@ var _ = Describe("AppHandler", func() {
 				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 
 		When("the app has no droplet", func() {
@@ -1101,7 +1138,9 @@ var _ = Describe("AppHandler", func() {
 				appRepo.FetchAppReturns(fetchAppRecord, nil)
 			})
 
-			itRespondsWithUnprocessableEntity(`Assign a droplet before starting this app.`, getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, `Assign a droplet before starting this app.`)
+			})
 		})
 
 		When("there is some other error updating app desiredState", func() {
@@ -1109,7 +1148,9 @@ var _ = Describe("AppHandler", func() {
 				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 	})
 
@@ -1316,7 +1357,9 @@ var _ = Describe("AppHandler", func() {
 					appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 				})
 
-				itRespondsWithNotFound("App not found", getRR)
+				It("returns an error", func() {
+					expectNotFoundError(rr, "App not found")
+				})
 			})
 
 			When("there is some other error fetching the app", func() {
@@ -1324,18 +1367,21 @@ var _ = Describe("AppHandler", func() {
 					appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 				})
 
-				itRespondsWithUnknownError(getRR)
+				It("returns an error", func() {
+					expectUnknownError(rr)
+				})
 			})
 			When("there is some error fetching the app's processes", func() {
 				BeforeEach(func() {
 					processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{}, errors.New("unknown!"))
 				})
 
-				itRespondsWithUnknownError(getRR)
+				It("returns an error", func() {
+					expectUnknownError(rr)
+				})
 			})
 		})
 	})
-
 })
 
 func initializeCreateAppRequestBody(appName, spaceGUID string, envVars, labels, annotations map[string]string) string {

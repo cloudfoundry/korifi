@@ -147,7 +147,9 @@ var _ = Describe("Spaces", func() {
 				router.ServeHTTP(rr, req)
 			})
 
-			itRespondsWithUnknownError(func() *httptest.ResponseRecorder { return rr })
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 
 		When("organization_guids are provided as a comma-separated list", func() {

@@ -31,8 +31,6 @@ var _ = Describe("ProcessHandler", func() {
 		router        *mux.Router
 	)
 
-	getRR := func() *httptest.ResponseRecorder { return rr }
-
 	BeforeEach(func() {
 		processRepo = new(fake.CFProcessRepository)
 		clientBuilder = new(fake.ClientBuilder)
@@ -166,7 +164,9 @@ var _ = Describe("ProcessHandler", func() {
 					processRepo.FetchProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{})
 				})
 
-				itRespondsWithNotFound("Process not found", getRR)
+				It("returns an error", func() {
+					expectNotFoundError(rr, "Process not found")
+				})
 			})
 
 			When("there is some other error fetching the process", func() {
@@ -174,7 +174,9 @@ var _ = Describe("ProcessHandler", func() {
 					processRepo.FetchProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
 				})
 
-				itRespondsWithUnknownError(getRR)
+				It("returns an error", func() {
+					expectUnknownError(rr)
+				})
 			})
 		})
 	})
@@ -221,7 +223,9 @@ var _ = Describe("ProcessHandler", func() {
 					processRepo.FetchProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{})
 				})
 
-				itRespondsWithNotFound("Process not found", getRR)
+				It("returns an error", func() {
+					expectNotFoundError(rr, "Process not found")
+				})
 			})
 
 			When("there is some other error fetching the process", func() {
@@ -229,9 +233,10 @@ var _ = Describe("ProcessHandler", func() {
 					processRepo.FetchProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
 				})
 
-				itRespondsWithUnknownError(getRR)
+				It("returns an error", func() {
+					expectUnknownError(rr)
+				})
 			})
 		})
 	})
-
 })

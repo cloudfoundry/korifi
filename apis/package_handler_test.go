@@ -63,8 +63,6 @@ var _ = Describe("PackageHandler", func() {
 			updatedAt = "1906-04-18T13:12:01Z"
 		)
 
-		getRR := func() *httptest.ResponseRecorder { return rr }
-
 		BeforeEach(func() {
 			rr = httptest.NewRecorder()
 			router = mux.NewRouter()
@@ -184,7 +182,9 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			itRespondsWithUnprocessableEntity("App is invalid. Ensure it exists and you have access to it.", getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, "App is invalid. Ensure it exists and you have access to it.")
+			})
 			itDoesntCreateAPackage()
 		})
 
@@ -195,7 +195,9 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 			itDoesntCreateAPackage()
 		})
 
@@ -217,7 +219,9 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(bodyWithInvalidType)
 			})
 
-			itRespondsWithUnprocessableEntity("Type must be one of ['bits']", getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, "Type must be one of ['bits']")
+			})
 		})
 
 		When("the relationship field is completely omitted", func() {
@@ -225,7 +229,9 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(`{ "type": "bits" }`)
 			})
 
-			itRespondsWithUnprocessableEntity("Relationships is a required field", getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, "Relationships is a required field")
+			})
 		})
 
 		When("an invalid relationship is given", func() {
@@ -242,7 +248,9 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(bodyWithoutAppRelationship)
 			})
 
-			itRespondsWithUnprocessableEntity(`invalid request body: json: unknown field "build"`, getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, `invalid request body: json: unknown field "build"`)
+			})
 		})
 
 		When("the JSON body is invalid", func() {
@@ -278,7 +286,9 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 			itDoesntCreateAPackage()
 		})
 
@@ -288,7 +298,9 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 	})
 
@@ -303,8 +315,6 @@ var _ = Describe("PackageHandler", func() {
 			clientBuilder     *fake.ClientBuilder
 			router            *mux.Router
 		)
-
-		getRR := func() *httptest.ResponseRecorder { return rr }
 
 		makeUploadRequest := func(packageGUID string, file io.Reader) {
 			var b bytes.Buffer
@@ -488,7 +498,9 @@ var _ = Describe("PackageHandler", func() {
 				makeUploadRequest("no-such-package-guid", strings.NewReader("the-zip-contents"))
 			})
 
-			itRespondsWithNotFound("Package not found", getRR)
+			It("returns an error", func() {
+				expectNotFoundError(rr, "Package not found")
+			})
 			itDoesntBuildAnImageFromSource()
 			itDoesntUpdateAnyPackages()
 		})
@@ -500,7 +512,9 @@ var _ = Describe("PackageHandler", func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 			itDoesntBuildAnImageFromSource()
 			itDoesntUpdateAnyPackages()
 		})
@@ -512,7 +526,9 @@ var _ = Describe("PackageHandler", func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 			itDoesntBuildAnImageFromSource()
 			itDoesntUpdateAnyPackages()
 		})
@@ -530,7 +546,9 @@ var _ = Describe("PackageHandler", func() {
 				router.ServeHTTP(rr, req)
 			})
 
-			itRespondsWithUnprocessableEntity("Upload must include bits", getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, "Upload must include bits")
+			})
 			itDoesntBuildAnImageFromSource()
 			itDoesntUpdateAnyPackages()
 		})
@@ -542,7 +560,9 @@ var _ = Describe("PackageHandler", func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 			itDoesntBuildAnImageFromSource()
 			itDoesntUpdateAnyPackages()
 		})
@@ -554,7 +574,9 @@ var _ = Describe("PackageHandler", func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 			itDoesntUpdateAnyPackages()
 		})
 
@@ -565,7 +587,9 @@ var _ = Describe("PackageHandler", func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 
 		When("the package has already been uploaded", func() {

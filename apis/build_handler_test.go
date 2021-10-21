@@ -46,8 +46,6 @@ var _ = Describe("BuildHandler", func() {
 			router        *mux.Router
 		)
 
-		getRR := func() *httptest.ResponseRecorder { return rr }
-
 		// set up happy path defaults
 		BeforeEach(func() {
 			buildRepo = new(fake.CFBuildRepository)
@@ -315,7 +313,9 @@ var _ = Describe("BuildHandler", func() {
 				router.ServeHTTP(rr, req)
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 
 		When("the build cannot be found", func() {
@@ -325,7 +325,9 @@ var _ = Describe("BuildHandler", func() {
 				router.ServeHTTP(rr, req)
 			})
 
-			itRespondsWithNotFound("Build not found", getRR)
+			It("returns an error", func() {
+				expectNotFoundError(rr, "Build not found")
+			})
 		})
 
 		When("there is some other error fetching the build", func() {
@@ -335,7 +337,9 @@ var _ = Describe("BuildHandler", func() {
 				router.ServeHTTP(rr, req)
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 	})
 	Describe("the POST /v3/builds endpoint", func() {
@@ -372,8 +376,6 @@ var _ = Describe("BuildHandler", func() {
 			createdAt = "1906-04-18T13:12:00Z"
 			updatedAt = "1906-04-18T13:12:01Z"
 		)
-
-		getRR := func() *httptest.ResponseRecorder { return rr }
 
 		BeforeEach(func() {
 			rr = httptest.NewRecorder()
@@ -525,7 +527,10 @@ var _ = Describe("BuildHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			itRespondsWithUnprocessableEntity("Unable to use package. Ensure that the package exists and you have access to it.", getRR)
+			It("returns an error", func() {
+				expectUnprocessableEntityError(rr, "Unable to use package. Ensure that the package exists and you have access to it.")
+			})
+
 			itDoesntCreateABuild()
 		})
 
@@ -536,7 +541,9 @@ var _ = Describe("BuildHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 			itDoesntCreateABuild()
 		})
 
@@ -546,7 +553,9 @@ var _ = Describe("BuildHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 			itDoesntCreateABuild()
 		})
 
@@ -556,7 +565,9 @@ var _ = Describe("BuildHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 
 		When("the JSON body is invalid", func() {

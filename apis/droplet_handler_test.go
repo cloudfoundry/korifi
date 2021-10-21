@@ -38,8 +38,6 @@ var _ = Describe("DropletHandler", func() {
 			router        *mux.Router
 		)
 
-		getRR := func() *httptest.ResponseRecorder { return rr }
-
 		BeforeEach(func() {
 			dropletRepo = new(fake.CFDropletRepository)
 			var err error
@@ -167,7 +165,9 @@ var _ = Describe("DropletHandler", func() {
 				router.ServeHTTP(rr, req)
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 
 		When("the droplet cannot be found", func() {
@@ -176,7 +176,9 @@ var _ = Describe("DropletHandler", func() {
 				router.ServeHTTP(rr, req)
 			})
 
-			itRespondsWithNotFound("Droplet not found", getRR)
+			It("returns an error", func() {
+				expectNotFoundError(rr, "Droplet not found")
+			})
 		})
 
 		When("there is some other error fetching the droplet", func() {
@@ -186,7 +188,9 @@ var _ = Describe("DropletHandler", func() {
 				router.ServeHTTP(rr, req)
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 	})
 })

@@ -128,7 +128,9 @@ var _ = Describe("OrgHandler", func() {
 				makePostRequest(`{"name": "the-org"}`)
 			})
 
-			itRespondsWithUnknownError(func() *httptest.ResponseRecorder { return rr })
+			It("returns unknown error", func() {
+				expectUnknownError(rr)
+			})
 		})
 
 		When("the user passes optional org parameters", func() {
@@ -386,7 +388,9 @@ var _ = Describe("OrgHandler", func() {
 				router.ServeHTTP(rr, req)
 			})
 
-			itRespondsWithUnknownError(func() *httptest.ResponseRecorder { return rr })
+			It("returns an error", func() {
+				expectUnknownError(rr)
+			})
 		})
 	})
 })
