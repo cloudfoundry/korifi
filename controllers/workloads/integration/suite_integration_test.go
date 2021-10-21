@@ -105,7 +105,7 @@ var _ = BeforeSuite(func() {
 	err = (cfBuildReconciler).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	// TODO: Add the other reconcilers
+	// Add new reconcilers here
 
 	go func() {
 		defer GinkgoRecover()
