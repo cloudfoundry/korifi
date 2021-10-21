@@ -1,6 +1,11 @@
 package workloads
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+)
 
 type ValidationErrorCode int
 
@@ -47,4 +52,18 @@ func (w ValidationErrorCode) GetMessage() string {
 	default:
 		return "An unknown error has occured"
 	}
+}
+
+func HasErrorCode(err error, code ValidationErrorCode) bool {
+	if statusError := new(k8serrors.StatusError); errors.As(err, &statusError) {
+		reason := statusError.Status().Reason
+
+		val := new(ValidationErrorCode)
+		val.Unmarshall(string(reason))
+
+		if *val == code {
+			return true
+		}
+	}
+	return false
 }
