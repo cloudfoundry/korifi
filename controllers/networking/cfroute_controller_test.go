@@ -11,6 +11,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
+	gomegaTypes "github.com/onsi/gomega/types"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,17 +26,19 @@ import (
 )
 
 const (
-	testNamespace     = "test-ns"
-	testDomainGUID    = "test-domain-guid"
-	testDomainName    = "test.domain.name"
-	testRouteGUID     = "test-route-guid"
-	testRouteHost     = "test-route-host"
-	testFQDN          = testRouteHost + "." + testDomainName
-	testHTTPProxyName = "test-httpproxy-name"
-	testServiceName   = "s-test-app-guid-web"
+	testNamespace            = "test-ns"
+	testDomainGUID           = "test-domain-guid"
+	testDomainName           = "test.domain.name"
+	testRouteGUID            = "test-route-guid"
+	testRouteHost            = "test-route-host"
+	testRouteDestinationGUID = "test-route-destination-guid"
+	testFQDN                 = testRouteHost + "." + testDomainName
+	testHTTPProxyName        = "test-httpproxy-name"
+	testServiceGUID          = "s-" + testRouteDestinationGUID
+	routeGUIDLabelKey        = "networking.cloudfoundry.org/route-guid"
 )
 
-var _ = Describe("CFRouteReconciler Unit Tests", func() {
+var _ = Describe("CFRouteReconciler.Reconcile", func() {
 	var (
 		fakeClient       *fake.Client
 		fakeStatusWriter *fake.StatusWriter
@@ -44,6 +48,7 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 		httpProxyList  *contourv1.HTTPProxyList
 		fqdnHTTPProxy  *contourv1.HTTPProxy
 		routeHTTPProxy *contourv1.HTTPProxy
+		serviceList    *v1.ServiceList
 
 		getDomainError            error
 		getRouteError             error
@@ -52,8 +57,11 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 		createFQDNHTTPProxyError  error
 		createRouteHTTPProxyError error
 		createServiceError        error
+		patchCFRouteError         error
 		patchHTTPProxyError       error
 		updateCFRouteError        error
+		deleteServiceErr          error
+		listServicesError         error
 
 		cfRouteReconciler *CFRouteReconciler
 		ctx               context.Context
@@ -90,6 +98,7 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 				},
 				Destinations: []networkingv1alpha1.Destination{
 					{
+						GUID: testRouteDestinationGUID,
 						AppRef: v1.LocalObjectReference{
 							Name: "test-app-guid",
 						},
@@ -112,6 +121,7 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 				Namespace: testNamespace,
 			},
 		}
+		serviceList = &v1.ServiceList{}
 
 		getDomainError = nil
 		getRouteError = nil
@@ -120,8 +130,11 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 		createFQDNHTTPProxyError = nil
 		createRouteHTTPProxyError = nil
 		createServiceError = nil
+		patchCFRouteError = nil
 		patchHTTPProxyError = nil
 		updateCFRouteError = nil
+		deleteServiceErr = nil
+		listServicesError = nil
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj.(type) {
@@ -139,15 +152,23 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 				}
 				return getHTTPProxyError
 			case *v1.Service:
-				return apierrors.NewNotFound(schema.GroupResource{}, testServiceName)
+				return apierrors.NewNotFound(schema.GroupResource{}, testRouteDestinationGUID)
 			default:
 				panic("TestClient Get provided an unexpected object type")
 			}
 		}
 
 		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
-			httpProxyList.DeepCopyInto(list.(*contourv1.HTTPProxyList))
-			return listHTTPProxiesError
+			switch list.(type) {
+			case *contourv1.HTTPProxyList:
+				httpProxyList.DeepCopyInto(list.(*contourv1.HTTPProxyList))
+				return listHTTPProxiesError
+			case *v1.ServiceList:
+				serviceList.DeepCopyInto(list.(*v1.ServiceList))
+				return listServicesError
+			default:
+				panic("TestClient List provided an unexpected object type")
+			}
 		}
 
 		fakeClient.CreateStub = func(ctx context.Context, obj client.Object, option ...client.CreateOption) error {
@@ -167,6 +188,8 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 
 		fakeClient.PatchStub = func(ctx context.Context, obj client.Object, patch client.Patch, option ...client.PatchOption) error {
 			switch obj.(type) {
+			case *networkingv1alpha1.CFRoute:
+				return patchCFRouteError
 			case *contourv1.HTTPProxy:
 				return patchHTTPProxyError
 			default:
@@ -180,6 +203,15 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 				return updateCFRouteError
 			default:
 				panic("TestClient Update provided an unexpected object type")
+			}
+		}
+
+		fakeClient.DeleteStub = func(ctx context.Context, obj client.Object, option ...client.DeleteOption) error {
+			switch obj.(type) {
+			case *v1.Service:
+				return deleteServiceErr
+			default:
+				panic("TestClient Delete provided an unexpected object type")
 			}
 		}
 
@@ -202,7 +234,7 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 		}
 	})
 
-	When("CFRouteReconciler.Reconcile is called and the CFRoute is being created", func() {
+	When("the CFRoute is being created", func() {
 		When("on the happy path", func() {
 			BeforeEach(func() {
 				reconcileResult, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
@@ -213,63 +245,20 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 				Expect(reconcileErr).NotTo(HaveOccurred())
 			})
 
-			It("retrieves the required resources", func() {
-				// Validate the inputs to Get
-				Expect(fakeClient.GetCallCount()).To(Equal(6), "Client.Get call count mismatch")
-				_, requestNamespacedName, _ := fakeClient.GetArgsForCall(0)
-				Expect(requestNamespacedName.Name).To(Equal(testRouteGUID))
-				Expect(requestNamespacedName.Namespace).To(Equal(testNamespace))
-
-				_, requestNamespacedName, _ = fakeClient.GetArgsForCall(1)
-				Expect(requestNamespacedName.Name).To(Equal(testDomainGUID))
-				Expect(requestNamespacedName.Namespace).To(BeEmpty())
-
-				// controllerutil.CreateOrPatch calls get when reconciling the FQDN HTTPProxy
-				// FQDN HTTPProxy is named after the FQDN
-				_, requestNamespacedName, _ = fakeClient.GetArgsForCall(2)
-				Expect(requestNamespacedName.Name).To(Equal(testFQDN))
-				Expect(requestNamespacedName.Namespace).To(Equal(testNamespace))
-
-				// controllerutil.CreateOrPatch calls get when reconciling the Route HTTPProxy
-				// Route HTTPProxy is named after the CFRoute
-				_, requestNamespacedName, _ = fakeClient.GetArgsForCall(3)
-				Expect(requestNamespacedName.Name).To(Equal(testRouteGUID))
-				Expect(requestNamespacedName.Namespace).To(Equal(testNamespace))
-
-				// controllerutil.CreateOrPatch calls get when reconciling the Service
-				// Service is named after the CFRoute destination's AppRef.Name and ProcessType
-				_, requestNamespacedName, _ = fakeClient.GetArgsForCall(4)
-				Expect(requestNamespacedName.Name).To(Equal("s-test-app-guid-web"))
-				Expect(requestNamespacedName.Namespace).To(Equal(testNamespace))
-
-				// controllerutil.CreateOrPatch calls get when updating the CFRoute with the finalizer
-				_, requestNamespacedName, _ = fakeClient.GetArgsForCall(5)
-				Expect(requestNamespacedName.Name).To(Equal(testRouteGUID))
-				Expect(requestNamespacedName.Namespace).To(Equal(testNamespace))
-
-				Expect(fakeClient.ListCallCount()).To(Equal(1), "Client.List call count mismatch")
-			})
-
 			It("creates an FQDN HTTPProxy, a route HTTPProxy, and a Service", func() {
 				Expect(fakeClient.CreateCallCount()).To(Equal(3), "Client.Create call count mismatch")
 
-				_, requestObject, _ := fakeClient.CreateArgsForCall(0)
-				requestHTTPProxy, ok := requestObject.(*contourv1.HTTPProxy)
-				Expect(ok).To(BeTrue(), "Cast of Client.Create arg to contourv1.HTTPProxy failed")
-				Expect(requestHTTPProxy.Spec.VirtualHost.Fqdn).To(Equal(testFQDN))
-				Expect(requestHTTPProxy.Spec.Includes).To(HaveLen(1), "FQDN HTTPProxy does not have the expected includes")
+				createdObjectMatches := func(matcher gomegaTypes.GomegaMatcher) gomegaTypes.GomegaMatcher {
+					return MatchElementsWithIndex(IndexIdentity, IgnoreExtras, Elements{
+						"1": matcher,
+					})
+				}
 
-				_, requestObject, _ = fakeClient.CreateArgsForCall(1)
-				requestHTTPProxy, ok = requestObject.(*contourv1.HTTPProxy)
-				Expect(ok).To(BeTrue(), "Cast of Client.Create arg to contourv1.HTTPProxy failed")
-				Expect(requestHTTPProxy.Spec.VirtualHost).To(BeNil())
-				Expect(requestHTTPProxy.Spec.Includes).To(HaveLen(0), "Route HTTPProxy does not have the expected includes")
-				Expect(requestHTTPProxy.Spec.Routes).To(HaveLen(1), "Route HTTPProxy does not have the expected routes")
-
-				_, requestObject, _ = fakeClient.CreateArgsForCall(2)
-				requestService, ok := requestObject.(*v1.Service)
-				Expect(ok).To(BeTrue(), "Cast of Client.Create arg to v1.Service failed")
-				Expect(requestService.Name).To(Equal(testServiceName))
+				Expect(fakeClient.Invocations()["Create"]).To(ConsistOf(
+					createdObjectMatches(BeAssignableToTypeOf(new(contourv1.HTTPProxy))),
+					createdObjectMatches(BeAssignableToTypeOf(new(contourv1.HTTPProxy))),
+					createdObjectMatches(BeAssignableToTypeOf(new(v1.Service))),
+				))
 			})
 		})
 
@@ -379,6 +368,18 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 				})
 			})
 
+			When("adding the finalizer to the CFRoute errors", func() {
+				BeforeEach(func() {
+					cfRoute.ObjectMeta.Finalizers = []string{}
+					patchCFRouteError = errors.New("failed to patch CFRoute")
+					_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
+				})
+
+				It("returns the error", func() {
+					Expect(reconcileErr).To(MatchError("failed to patch CFRoute"))
+				})
+			})
+
 			When("creating the FQDN HTTPProxy returns an error", func() {
 				BeforeEach(func() {
 					createFQDNHTTPProxyError = errors.New("failed to create FQDN HTTPProxy")
@@ -414,7 +415,7 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 		})
 	})
 
-	When("CFRouteReconciler.Reconcile is called and the CFRoute is being deleted", func() {
+	When("the CFRoute is being deleted", func() {
 		BeforeEach(func() {
 			cfRoute.ObjectMeta.DeletionTimestamp = &metav1.Time{
 				Time: time.Now(),
@@ -541,6 +542,112 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 
 				It("returns the error", func() {
 					Expect(reconcileErr).To(MatchError("failed to update CFRoute"))
+				})
+			})
+		})
+	})
+
+	When("the CFRoute is being updated", func() {
+		BeforeEach(func() {
+			httpProxyList = &contourv1.HTTPProxyList{
+				Items: []contourv1.HTTPProxy{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      testFQDN,
+							Namespace: testNamespace,
+						},
+						Spec: contourv1.HTTPProxySpec{
+							VirtualHost: &contourv1.VirtualHost{
+								Fqdn: testFQDN,
+							},
+							Includes: []contourv1.Include{
+								{
+									Name:      testRouteGUID,
+									Namespace: testNamespace,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			getHTTPProxyError = nil
+
+			fqdnHTTPProxy = &contourv1.HTTPProxy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testFQDN,
+					Namespace: testNamespace,
+				},
+				Spec: contourv1.HTTPProxySpec{
+					VirtualHost: &contourv1.VirtualHost{
+						Fqdn: testFQDN,
+					},
+					Includes: []contourv1.Include{
+						{
+							Name:      testRouteGUID,
+							Namespace: testNamespace,
+						},
+					},
+				},
+			}
+
+			serviceList = &v1.ServiceList{
+				Items: []v1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      testServiceGUID,
+							Namespace: testNamespace,
+							Labels: map[string]string{
+								routeGUIDLabelKey: testRouteGUID,
+							},
+						},
+						Spec: v1.ServiceSpec{},
+					},
+				},
+			}
+		})
+
+		When("a destination on CFRoute is removed", func() {
+			BeforeEach(func() {
+				cfRoute.Spec.Destinations = []networkingv1alpha1.Destination{}
+			})
+
+			When("on the happy path", func() {
+				BeforeEach(func() {
+					reconcileResult, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
+				})
+
+				It("returns an empty result and does not return error", func() {
+					Expect(reconcileResult).To(Equal(ctrl.Result{}))
+					Expect(reconcileErr).NotTo(HaveOccurred())
+				})
+			})
+
+			When("on the unhappy path", func() {
+				When("listing Services fails", func() {
+					BeforeEach(func() {
+						listServicesError = errors.New("failed to list Services")
+						_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
+					})
+
+					It("returns an error", func() {
+						Expect(reconcileErr).To(MatchError("failed to list Services"))
+					})
+
+					It("doesn't delete any services", func() {
+						Expect(fakeClient.DeleteCallCount()).To(Equal(0))
+					})
+				})
+
+				When("deleting a service fails", func() {
+					BeforeEach(func() {
+						deleteServiceErr = errors.New("failed to delete Service")
+						_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
+					})
+
+					It("returns an error", func() {
+						Expect(reconcileErr).To(MatchError("failed to delete Service"))
+					})
 				})
 			})
 		})
