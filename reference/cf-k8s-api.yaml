@@ -46,6 +46,7 @@ rules:
   verbs:
   - create
   - list
+  - watch
 - apiGroups:
   - networking.cloudfoundry.org
   resources:
