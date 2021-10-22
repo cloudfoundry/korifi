@@ -11,6 +11,7 @@ import (
 	config "code.cloudfoundry.org/cf-k8s-controllers/config/base"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
 
+	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
@@ -47,7 +48,8 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 		CRDInstallOptions: envtest.CRDInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "..", "dependencies", "kpack-release-0.3.1.yaml")},
+			Paths: []string{filepath.Join("..", "..", "..", "dependencies", "kpack-release-0.3.1.yaml"),
+				filepath.Join("..", "..", "..", "dependencies", "lrp-crd.yaml")},
 		},
 	}
 
@@ -58,6 +60,8 @@ var _ = BeforeSuite(func() {
 	Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	Expect(buildv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	// Add Eirini to Scheme
+	Expect(eiriniv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
 
@@ -105,6 +109,12 @@ var _ = BeforeSuite(func() {
 	err = (cfBuildReconciler).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	err = (&CFProcessReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("CFProcess"),
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
 	// Add new reconcilers here
 
 	go func() {
