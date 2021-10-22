@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -9,6 +10,8 @@ import (
 	"strings"
 
 	. "github.com/onsi/gomega/gstruct"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -45,6 +48,10 @@ var _ = Describe("Orgs", func() {
 			responseMap := map[string]interface{}{}
 			Expect(json.NewDecoder(resp.Body).Decode(&responseMap)).To(Succeed())
 			Expect(responseMap["name"]).To(Equal(orgName))
+
+			nsName, ok := responseMap["guid"].(string)
+			Expect(ok).To(BeTrue())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: nsName}, &corev1.Namespace{})).To(Succeed())
 		})
 	})
 

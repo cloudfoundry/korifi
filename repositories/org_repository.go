@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,13 +39,15 @@ type SpaceRecord struct {
 
 type OrgRepo struct {
 	rootNamespace    string
-	privilegedClient client.Client
+	privilegedClient client.WithWatch
+	timeout          time.Duration
 }
 
-func NewOrgRepo(rootNamespace string, privilegedClient client.Client) *OrgRepo {
+func NewOrgRepo(rootNamespace string, privilegedClient client.WithWatch, timeout time.Duration) *OrgRepo {
 	return &OrgRepo{
 		rootNamespace:    rootNamespace,
 		privilegedClient: privilegedClient,
+		timeout:          timeout,
 	}
 }
 
@@ -60,12 +63,41 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, erro
 	}
 	err := r.privilegedClient.Create(ctx, anchor)
 	if err != nil {
-		return OrgRecord{}, err
+		return OrgRecord{}, fmt.Errorf("failed to create subnamespaceanchor: %w", err)
+	}
+
+	timeoutCtx, cancelFn := context.WithTimeout(ctx, r.timeout)
+	defer cancelFn()
+
+	watch, err := r.privilegedClient.Watch(timeoutCtx, &v1alpha2.SubnamespaceAnchorList{},
+		client.InNamespace(r.rootNamespace),
+		client.MatchingFields{"metadata.name": org.GUID},
+	)
+	if err != nil {
+		return OrgRecord{}, fmt.Errorf("failed to set up watch on subnamespaceanchors: %w", err)
+	}
+
+	stateOK := false
+	for res := range watch.ResultChan() {
+		obj, ok := res.Object.(*v1alpha2.SubnamespaceAnchor)
+		if !ok {
+			// should never happen, but avoids panic above
+			continue
+		}
+		if obj.Status.State == v1alpha2.Ok {
+			watch.Stop()
+			stateOK = true
+			break
+		}
+	}
+	if !stateOK {
+		return OrgRecord{}, fmt.Errorf("subnamespaceanchor did not get state 'ok' within timeout period")
 	}
 
 	org.GUID = anchor.Name
 	org.CreatedAt = anchor.CreationTimestamp.Time
 	org.UpdatedAt = anchor.CreationTimestamp.Time
+
 	return org, nil
 }
 

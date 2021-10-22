@@ -30,7 +30,7 @@ func TestRepositories(t *testing.T) {
 
 var (
 	testEnv           *envtest.Environment
-	k8sClient         client.Client
+	k8sClient         client.WithWatch
 	k8sConfig         *rest.Config
 	testServerAddress string
 )
@@ -58,7 +58,7 @@ var _ = BeforeSuite(func() {
 	err = hnsv1alpha2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient, err = client.New(k8sConfig, client.Options{Scheme: scheme.Scheme})
+	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 })

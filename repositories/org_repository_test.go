@@ -27,7 +27,7 @@ var _ = Describe("OrgRepository", func() {
 	BeforeEach(func() {
 		rootNamespace = generateGUID()
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient)
+		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, time.Millisecond*500)
 	})
 
 	Describe("Create Org", func() {
@@ -37,7 +37,27 @@ var _ = Describe("OrgRepository", func() {
 			ctx = context.Background()
 		})
 
+		updateStatus := func(orgGUID string) {
+			defer GinkgoRecover()
+
+			org := &hnsv1alpha2.SubnamespaceAnchor{}
+			for {
+				err := k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: orgGUID}, org)
+				if err == nil {
+					break
+				}
+
+				time.Sleep(time.Millisecond * 100)
+				continue
+			}
+
+			newOrg := org.DeepCopy()
+			newOrg.Status.State = hnsv1alpha2.Ok
+			Expect(k8sClient.Patch(ctx, newOrg, client.MergeFrom(org))).To(Succeed())
+		}
+
 		It("creates a subnamespace anchor in the root namespace", func() {
+			go updateStatus("some-guid")
 			org, err := orgRepo.CreateOrg(ctx, repositories.OrgRecord{
 				GUID: "some-guid",
 				Name: "our-org",
@@ -57,6 +77,17 @@ var _ = Describe("OrgRepository", func() {
 			Expect(org.GUID).To(Equal("some-guid"))
 			Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 			Expect(org.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+		})
+
+		When("the org isn't ready in the timeout", func() {
+			It("returns an error", func() {
+				// we do not call updateStatus() to set state = ok
+				_, err := orgRepo.CreateOrg(ctx, repositories.OrgRecord{
+					GUID: "some-guid",
+					Name: "our-org",
+				})
+				Expect(err).To(MatchError(ContainSubstring("did not get state 'ok'")))
+			})
 		})
 
 		When("the client fails to create the org", func() {

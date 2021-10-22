@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/pivotal/kpack/pkg/registry"
 	k8sclient "k8s.io/client-go/kubernetes"
@@ -25,9 +26,12 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
+
+var createTimeout = time.Second * 30
 
 func init() {
 	utilruntime.Must(workloadsv1alpha1.AddToScheme(scheme.Scheme))
@@ -58,7 +62,7 @@ func main() {
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
 
-	privilegedCRClient, err := repositories.BuildCRClient(k8sClientConfig)
+	privilegedCRClient, err := client.NewWithWatch(k8sClientConfig, client.Options{})
 	if err != nil {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
@@ -132,11 +136,11 @@ func main() {
 			k8sClientConfig,
 		),
 		apis.NewOrgHandler(
-			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient),
+			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
 			*serverURL,
 		),
 		apis.NewSpaceHandler(
-			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient),
+			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
 			*serverURL,
 		),
 	}
