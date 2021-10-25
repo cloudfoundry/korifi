@@ -116,6 +116,9 @@ var _ = Describe("OrgRepository", func() {
 					Namespace: rootNamespace,
 					Labels:    map[string]string{repositories.OrgNameLabel: name},
 				},
+				Status: hnsv1alpha2.SubnamespaceAnchorStatus{
+					State: hnsv1alpha2.Ok,
+				},
 			}
 
 			Expect(k8sClient.Create(ctx, org)).To(Succeed())
@@ -131,6 +134,9 @@ var _ = Describe("OrgRepository", func() {
 					Name:      guid,
 					Namespace: orgName,
 					Labels:    map[string]string{repositories.SpaceNameLabel: name},
+				},
+				Status: hnsv1alpha2.SubnamespaceAnchorStatus{
+					State: hnsv1alpha2.Ok,
 				},
 			}
 
@@ -180,6 +186,28 @@ var _ = Describe("OrgRepository", func() {
 					GUID:      org3Anchor.Name,
 				},
 			))
+		})
+
+		When("the org anchor is not ready", func() {
+			BeforeEach(func() {
+				org1AnchorCopy := org1Anchor.DeepCopy()
+				org1AnchorCopy.Status.State = hnsv1alpha2.Missing
+				Expect(k8sClient.Patch(ctx, org1AnchorCopy, client.MergeFrom(org1Anchor))).To(Succeed())
+			})
+
+			It("does not list it", func() {
+				orgs, err := orgRepo.FetchOrgs(ctx, nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(orgs).NotTo(ContainElement(
+					repositories.OrgRecord{
+						Name:      "org1",
+						CreatedAt: org1Anchor.CreationTimestamp.Time,
+						UpdatedAt: org1Anchor.CreationTimestamp.Time,
+						GUID:      org1Anchor.Name,
+					},
+				))
+			})
 		})
 
 		When("we filter for org1 and org3", func() {
@@ -252,6 +280,29 @@ var _ = Describe("OrgRepository", func() {
 					OrganizationGUID: org3Anchor.Name,
 				},
 			))
+		})
+
+		When("the space anchor is not ready", func() {
+			BeforeEach(func() {
+				space11AnchorCopy := space11Anchor.DeepCopy()
+				space11AnchorCopy.Status.State = hnsv1alpha2.Missing
+				Expect(k8sClient.Patch(ctx, space11AnchorCopy, client.MergeFrom(space11Anchor))).To(Succeed())
+			})
+
+			It("does not list it", func() {
+				spaces, err := orgRepo.FetchSpaces(ctx, []string{}, []string{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(spaces).NotTo(ContainElement(
+					repositories.SpaceRecord{
+						Name:             "space1",
+						CreatedAt:        space11Anchor.CreationTimestamp.Time,
+						UpdatedAt:        space11Anchor.CreationTimestamp.Time,
+						GUID:             space11Anchor.Name,
+						OrganizationGUID: org1Anchor.Name,
+					},
+				))
+			})
 		})
 
 		When("filtering by org guids", func() {

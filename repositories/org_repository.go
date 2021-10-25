@@ -91,7 +91,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, erro
 		}
 	}
 	if !stateOK {
-		return OrgRecord{}, fmt.Errorf("subnamespaceanchor did not get state 'ok' within timeout period")
+		return OrgRecord{}, fmt.Errorf("subnamespaceanchor did not get state 'ok' within timeout period %d ms", r.timeout.Milliseconds())
 	}
 
 	org.GUID = anchor.Name
@@ -123,6 +123,10 @@ func (r *OrgRepo) FetchOrgs(ctx context.Context, names []string) ([]OrgRecord, e
 
 	records := []OrgRecord{}
 	for _, anchor := range subnamespaceAnchorList.Items {
+		if anchor.Status.State != v1alpha2.Ok {
+			continue
+		}
+
 		records = append(records, OrgRecord{
 			Name:      anchor.Labels[OrgNameLabel],
 			GUID:      anchor.Name,
@@ -159,6 +163,10 @@ func (r *OrgRepo) FetchSpaces(ctx context.Context, organizationGUIDs, names []st
 	nameFilter := toMap(names)
 	records := []SpaceRecord{}
 	for _, anchor := range subnamespaceAnchorList.Items {
+		if anchor.Status.State != v1alpha2.Ok {
+			continue
+		}
+
 		spaceName := anchor.Labels[SpaceNameLabel]
 		if !matchFilter(nameFilter, spaceName) {
 			continue
