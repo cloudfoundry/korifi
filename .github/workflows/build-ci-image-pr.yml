@@ -3,7 +3,9 @@ name: Build the CI Docker Image on PR
 on:
   pull_request:
     branches: [ main ]
-    paths: ['ci/Dockerfile']
+    paths:
+    - 'ci/Dockerfile'
+    - '.github/workflows/build-ci-image-pr.yml'
 
 jobs:
   build-and-push-image:
