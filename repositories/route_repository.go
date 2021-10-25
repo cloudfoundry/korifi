@@ -84,6 +84,11 @@ func (f *RouteRepo) returnRoute(routeList []networkingv1alpha1.CFRoute) (RouteRe
 }
 
 func cfRouteToRouteRecord(cfRoute networkingv1alpha1.CFRoute) RouteRecord {
+	destinations := []Destination{}
+	for _, destination := range cfRoute.Spec.Destinations {
+		destinations = append(destinations, cfRouteDestinationToDestinationRecord(destination))
+	}
+	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfRoute.ObjectMeta)
 	return RouteRecord{
 		GUID:      cfRoute.Name,
 		SpaceGUID: cfRoute.Namespace,
@@ -93,9 +98,18 @@ func cfRouteToRouteRecord(cfRoute networkingv1alpha1.CFRoute) RouteRecord {
 		Host:         cfRoute.Spec.Host,
 		Path:         cfRoute.Spec.Path,
 		Protocol:     "http", // TODO: Create a mutating webhook to set this default on the CFRoute
-		Destinations: []Destination{},
-		CreatedAt:    "",
-		UpdatedAt:    "",
+		Destinations: destinations,
+		CreatedAt:    cfRoute.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt:    updatedAtTime,
+	}
+}
+
+func cfRouteDestinationToDestinationRecord(cfRouteDestination networkingv1alpha1.Destination) Destination {
+	return Destination{
+		GUID:        cfRouteDestination.GUID,
+		AppGUID:     cfRouteDestination.AppRef.Name,
+		ProcessType: cfRouteDestination.ProcessType,
+		Port:        cfRouteDestination.Port,
 	}
 }
 

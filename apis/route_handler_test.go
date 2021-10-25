@@ -108,7 +108,7 @@ var _ = Describe("RouteHandler", func() {
 					"url": "test-route-host.example.org",
 					"created_at": "create-time",
 					"updated_at": "update-time",
-					"destinations": null,
+					"destinations": [],
 					"relationships": {
 						"space": {
 							"data": {
@@ -304,7 +304,7 @@ var _ = Describe("RouteHandler", func() {
 						"url": "test-route-host.test-domain-name/test-route-path",
 						"created_at": "create-time",
 						"updated_at": "update-time",
-						"destinations": null,
+						"destinations": [],
 						"metadata": {
 							"labels": {},
 							"annotations": {}
@@ -647,6 +647,201 @@ var _ = Describe("RouteHandler", func() {
 
 				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
 				makePostRequest(requestBody)
+			})
+
+			itRespondsWithUnknownError(getRR)
+		})
+	})
+
+	Describe("the GET /v3/routes/:guid/destinations endpoint", func() {
+
+		const (
+			testDomainGUID = "test-domain-guid"
+			testRouteGUID  = "test-route-guid"
+			testRouteHost  = "test-route-host"
+			testSpaceGUID  = "test-space-guid"
+		)
+
+		var (
+			rr            *httptest.ResponseRecorder
+			routeRepo     *fake.CFRouteRepository
+			appRepo       *fake.CFAppRepository
+			clientBuilder *fake.ClientBuilder
+			req           *http.Request
+			router        *mux.Router
+			routeRecord   *repositories.RouteRecord
+		)
+
+		getRR := func() *httptest.ResponseRecorder { return rr }
+
+		BeforeEach(func() {
+			rr = httptest.NewRecorder()
+			router = mux.NewRouter()
+
+			routeRepo = new(fake.CFRouteRepository)
+			domainRepo := new(fake.CFDomainRepository)
+			appRepo = new(fake.CFAppRepository)
+			clientBuilder = new(fake.ClientBuilder)
+
+			routeRecord = &repositories.RouteRecord{
+				GUID:      testRouteGUID,
+				SpaceGUID: testSpaceGUID,
+				DomainRef: repositories.DomainRecord{
+					GUID: testDomainGUID,
+				},
+				Host:     testRouteHost,
+				Protocol: "http",
+				Destinations: []repositories.Destination{
+					{
+						GUID:        "89323d4e-2e84-43e7-83e9-adbf50a20c0e",
+						AppGUID:     "1cb006ee-fb05-47e1-b541-c34179ddc446",
+						ProcessType: "web",
+						Port:        8080,
+					},
+					{
+						GUID:        "fbef10a2-8ee7-11e9-aa2d-abeeaf7b83c5",
+						AppGUID:     "01856e12-8ee8-11e9-98a5-bb397dbc818f",
+						ProcessType: "api",
+						Port:        9000,
+					},
+				},
+				CreatedAt: "create-time",
+				UpdatedAt: "update-time",
+			}
+			routeRepo.FetchRouteReturns(*routeRecord, nil)
+
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
+			routeHandler := NewRouteHandler(
+				logf.Log.WithName("TestRouteHandler"),
+				*serverURL,
+				routeRepo,
+				domainRepo,
+				appRepo,
+				clientBuilder.Spy,
+				&rest.Config{}, // required for k8s client (transitive dependency from route repo)
+			)
+			routeHandler.RegisterRoutes(router)
+
+			req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s/destinations", testRouteGUID), nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		JustBeforeEach(func() {
+			router.ServeHTTP(rr, req)
+		})
+
+		When("On the happy path and", func() {
+
+			When("the Route has destinations", func() {
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				})
+
+				It("returns the Destinations in the response", func() {
+					expectedBody := fmt.Sprintf(`{
+						"destinations": [
+							{
+								"guid": "%[3]s",
+								"app": {
+									"guid": "%[4]s",
+									"process": {
+										"type": "%[5]s"
+									}
+								},
+								"weight": null,
+								"port": %[6]d,
+								"protocol": "http1"
+							},
+							{
+								"guid": "%[7]s",
+								"app": {
+									"guid": "%[8]s",
+									"process": {
+										"type": "%[9]s"
+									}
+								},
+								"weight": null,
+								"port": %[10]d,
+								"protocol": "http1"
+							}
+						],
+						"links": {
+							"self": {
+								"href": "%[1]s/v3/routes/%[2]s/destinations"
+							},
+							"route": {
+								"href": "%[1]s/v3/routes/%[2]s"
+							}
+						}
+					}`, defaultServerURL, testRouteGUID,
+						routeRecord.Destinations[0].GUID, routeRecord.Destinations[0].AppGUID, routeRecord.Destinations[0].ProcessType, routeRecord.Destinations[0].Port,
+						routeRecord.Destinations[1].GUID, routeRecord.Destinations[1].AppGUID, routeRecord.Destinations[1].ProcessType, routeRecord.Destinations[1].Port)
+
+					Expect(rr.Body.String()).To(MatchJSON(expectedBody), "Response body matches response:")
+				})
+			})
+
+			When("the Route has no destinations", func() {
+				BeforeEach(func() {
+					routeRepo.FetchRouteReturns(
+						repositories.RouteRecord{
+							GUID:      testRouteGUID,
+							SpaceGUID: testSpaceGUID,
+							DomainRef: repositories.DomainRecord{
+								GUID: testDomainGUID,
+							},
+							Host:         testRouteHost,
+							Protocol:     "http",
+							Destinations: []repositories.Destination{},
+							CreatedAt:    "create-time",
+							UpdatedAt:    "update-time",
+						}, nil)
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				})
+
+				It("returns no Destinations in the response", func() {
+					expectedBody := fmt.Sprintf(`{
+						"destinations": [],
+						"links": {
+							"self": {
+								"href": "%[1]s/v3/routes/%[2]s/destinations"
+							},
+							"route": {
+								"href": "%[1]s/v3/routes/%[2]s"
+							}
+						}
+					}`, defaultServerURL, testRouteGUID)
+
+					Expect(rr.Body.String()).To(MatchJSON(expectedBody), "Response body matches response:")
+				})
+			})
+		})
+
+		When("the route cannot be found", func() {
+			BeforeEach(func() {
+				routeRepo.FetchRouteReturns(repositories.RouteRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
+			})
+
+			itRespondsWithNotFound("Route not found", getRR)
+		})
+
+		When("there is some other issue fetching the route", func() {
+			BeforeEach(func() {
+				routeRepo.FetchRouteReturns(repositories.RouteRecord{}, errors.New("unknown!"))
 			})
 
 			itRespondsWithUnknownError(getRR)

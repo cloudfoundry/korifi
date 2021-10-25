@@ -28,8 +28,17 @@ type RouteResponse struct {
 	Links         routeLinks    `json:"links"`
 }
 
+type RouteDestinationsResponse struct {
+	Destinations []routeDestination     `json:"destinations"`
+	Links        routeDestinationsLinks `json:"links"`
+}
+
 type routeDestination struct {
-	App routeDestinationApp `json:"app"`
+	GUID     string              `json:"guid"`
+	App      routeDestinationApp `json:"app"`
+	Weight   *int                `json:"weight"`
+	Port     int                 `json:"port"`
+	Protocol string              `json:"protocol"`
 }
 
 type routeDestinationApp struct {
@@ -48,7 +57,16 @@ type routeLinks struct {
 	Destinations Link `json:"destinations"`
 }
 
+type routeDestinationsLinks struct {
+	Self  Link `json:"self"`
+	Route Link `json:"route"`
+}
+
 func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
+	destinations := make([]routeDestination, len(route.Destinations))
+	for _, destinationRecord := range route.Destinations {
+		destinations = append(destinations, forDestination(destinationRecord))
+	}
 	return RouteResponse{
 		GUID:      route.GUID,
 		Protocol:  route.Protocol,
@@ -69,6 +87,7 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 				},
 			},
 		},
+		Destinations: destinations,
 		Metadata: Metadata{
 			Labels:      map[string]string{},
 			Annotations: map[string]string{},
@@ -85,6 +104,39 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 			},
 			Destinations: Link{
 				HREF: buildURL(baseURL).appendPath(routesBase, route.GUID, "destinations").build(),
+			},
+		},
+	}
+}
+
+func forDestination(destination repositories.Destination) routeDestination {
+	return routeDestination{
+		GUID: destination.GUID,
+		App: routeDestinationApp{
+			AppGUID: destination.AppGUID,
+			Process: routeDestinationAppProcess{
+				Type: destination.ProcessType,
+			},
+		},
+		Weight:   nil,
+		Port:     destination.Port,
+		Protocol: "http1",
+	}
+}
+
+func ForRouteDestinations(route repositories.RouteRecord, baseURL url.URL) RouteDestinationsResponse {
+	destinations := []routeDestination{}
+	for _, destinationRecord := range route.Destinations {
+		destinations = append(destinations, forDestination(destinationRecord))
+	}
+	return RouteDestinationsResponse{
+		Destinations: destinations,
+		Links: routeDestinationsLinks{
+			Self: Link{
+				HREF: buildURL(baseURL).appendPath(routesBase, route.GUID, "destinations").build(),
+			},
+			Route: Link{
+				HREF: buildURL(baseURL).appendPath(routesBase, route.GUID).build(),
 			},
 		},
 	}

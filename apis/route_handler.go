@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	RouteGetEndpoint    = "/v3/routes/{guid}"
-	RouteCreateEndpoint = "/v3/routes"
+	RouteGetEndpoint             = "/v3/routes/{guid}"
+	RouteGetDestinationsEndpoint = "/v3/routes/{guid}/destinations"
+	RouteCreateEndpoint          = "/v3/routes"
 )
 
 //counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository
@@ -87,6 +88,37 @@ func (h *RouteHandler) routeGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responseBody, err := json.Marshal(presenter.ForRoute(route, h.serverURL))
+	if err != nil {
+		h.logger.Error(err, "Failed to render response", "Route Host", route.Host)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	_, _ = w.Write(responseBody)
+}
+
+func (h *RouteHandler) routeGetDestinationsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	routeGUID := vars["guid"]
+
+	route, err := h.lookupRouteAndDomain(ctx, routeGUID)
+	if err != nil {
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("Route not found", "RouteGUID", routeGUID)
+			writeNotFoundErrorResponse(w, "Route")
+			return
+		default:
+			h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	responseBody, err := json.Marshal(presenter.ForRouteDestinations(route, h.serverURL))
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "Route Host", route.Host)
 		writeUnknownErrorResponse(w)
@@ -200,5 +232,6 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 
 func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(RouteGetEndpoint).Methods("GET").HandlerFunc(h.routeGetHandler)
+	router.Path(RouteGetDestinationsEndpoint).Methods("GET").HandlerFunc(h.routeGetDestinationsHandler)
 	router.Path(RouteCreateEndpoint).Methods("POST").HandlerFunc(h.routeCreateHandler)
 }
