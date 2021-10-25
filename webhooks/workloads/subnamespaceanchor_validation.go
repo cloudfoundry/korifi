@@ -61,16 +61,16 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 		return admission.Denied("cannot have both org and space labels set")
 	}
 
+	if anchor.Labels[SpaceNameLabel] == "" {
+		return v.validateAnchorLabel(ctx, anchor, OrgNameLabel, DuplicateOrgNameError)
+	}
+	return v.validateAnchorLabel(ctx, anchor, SpaceNameLabel, DuplicateSpaceNameError)
+}
+
+func (v *SubnamespaceAnchorValidation) validateAnchorLabel(ctx context.Context, anchor *v1alpha2.SubnamespaceAnchor, label string, dupError ValidationErrorCode) admission.Response {
 	existingItems := &v1alpha2.SubnamespaceAnchorList{}
 
-	label := OrgNameLabel
-	dupError := DuplicateOrgNameError
-	if anchor.Labels[SpaceNameLabel] != "" {
-		label = SpaceNameLabel
-		dupError = DuplicateSpaceNameError
-	}
-
-	err = v.lister.List(ctx, existingItems, client.InNamespace(req.Namespace), client.MatchingLabels{label: anchor.Labels[label]})
+	err := v.lister.List(ctx, existingItems, client.InNamespace(anchor.Namespace), client.MatchingLabels{label: anchor.Labels[label]})
 	if err != nil {
 		subnsLogger.Info("listing subnamespace anchors failed", "error", err.Error())
 		return admission.Errored(2, fmt.Errorf("failed listing subnamespace anchors: %w", err))
