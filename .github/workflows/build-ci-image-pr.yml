@@ -1,0 +1,23 @@
+name: Build the CI Docker Image on PR
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths: ['ci/Dockerfile']
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: false
