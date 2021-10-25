@@ -3,7 +3,7 @@ module code.cloudfoundry.org/cf-k8s-api
 go 1.16
 
 require (
-	code.cloudfoundry.org/cf-k8s-controllers v0.0.0-20211007182811-671a78a1a8cb
+	code.cloudfoundry.org/cf-k8s-controllers v0.0.0-20211025144914-9b7abcfcdeb5
 	github.com/buildpacks/pack v0.21.1
 	github.com/go-logr/logr v0.4.0
 	github.com/go-playground/locales v0.14.0
@@ -24,5 +24,5 @@ require (
 	k8s.io/client-go v0.22.2
 	sigs.k8s.io/controller-runtime v0.10.2
 	sigs.k8s.io/controller-tools v0.7.0
-	sigs.k8s.io/hierarchical-namespaces v0.0.0-20210827200453-b03328e734e6
+	sigs.k8s.io/hierarchical-namespaces v0.9.0
 )

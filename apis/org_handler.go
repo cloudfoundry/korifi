@@ -3,6 +3,7 @@ package apis
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -59,9 +61,14 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	record, err := h.orgRepo.CreateOrg(ctx, org)
 	if err != nil {
-		h.logger.Error(err, "failed to create org")
+		if workloads.HasErrorCode(err, workloads.DuplicateOrgNameError) {
+			errorDetail := fmt.Sprintf("Organization '%s' already exists.", org.Name)
+			h.logger.Info(errorDetail)
+			writeUnprocessableEntityError(w, errorDetail)
+			return
+		}
+		h.logger.Error(err, "Failed to create org", "Org Name", payload.Name)
 		writeUnknownErrorResponse(w)
-
 		return
 	}
 

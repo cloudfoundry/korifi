@@ -13,6 +13,10 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -104,7 +108,21 @@ var _ = Describe("OrgHandler", func() {
 			})
 		})
 
-		When("the org repo returns an error", func() {
+		When("the org repo returns a uniqueness error", func() {
+			BeforeEach(func() {
+				var err error = &k8serrors.StatusError{
+					ErrStatus: metav1.Status{
+						Reason: metav1.StatusReason(fmt.Sprintf(`{"code":%d}`, workloads.DuplicateOrgNameError)),
+					},
+				}
+				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, err)
+				makePostRequest(`{"name": "the-org"}`)
+			})
+
+			itRespondsWithUnprocessableEntity("Organization 'the-org' already exists.", func() *httptest.ResponseRecorder { return rr })
+		})
+
+		When("the org repo returns another error", func() {
 			BeforeEach(func() {
 				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, errors.New("boom"))
 				makePostRequest(`{"name": "the-org"}`)

@@ -17,7 +17,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -175,18 +174,11 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	responseAppRecord, err := h.appRepo.CreateApp(ctx, client, createAppRecord)
 	if err != nil {
-		if statusError := new(k8serrors.StatusError); errors.As(err, &statusError) {
-			reason := statusError.Status().Reason
-
-			val := new(workloads.ValidationErrorCode)
-			val.Unmarshall(string(reason))
-
-			if *val == workloads.DuplicateAppError {
-				errorDetail := fmt.Sprintf("App with the name '%s' already exists.", payload.Name)
-				h.logger.Error(err, errorDetail, "App Name", payload.Name)
-				writeUniquenessError(w, errorDetail)
-				return
-			}
+		if workloads.HasErrorCode(err, workloads.DuplicateAppError) {
+			errorDetail := fmt.Sprintf("App with the name '%s' already exists.", payload.Name)
+			h.logger.Error(err, errorDetail, "App Name", payload.Name)
+			writeUniquenessError(w, errorDetail)
+			return
 		}
 		h.logger.Error(err, "Failed to create app", "App Name", payload.Name)
 		writeUnknownErrorResponse(w)

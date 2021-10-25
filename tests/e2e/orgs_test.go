@@ -21,6 +21,15 @@ import (
 )
 
 var _ = Describe("Orgs", func() {
+	createOrg := func(orgName string) (*http.Response, error) {
+		orgsUrl := apiServerRoot + "/v3/organizations"
+		body := fmt.Sprintf(`{ "name": "%s" }`, orgName)
+		req, err := http.NewRequest(http.MethodPost, orgsUrl, strings.NewReader(body))
+		Expect(err).NotTo(HaveOccurred())
+
+		return http.DefaultClient.Do(req)
+	}
+
 	Describe("creating orgs", func() {
 		var orgName string
 
@@ -33,13 +42,7 @@ var _ = Describe("Orgs", func() {
 		})
 
 		It("creates an org", func() {
-			orgsUrl := apiServerRoot + "/v3/organizations"
-
-			body := fmt.Sprintf(`{ "name": "%s" }`, orgName)
-			req, err := http.NewRequest(http.MethodPost, orgsUrl, strings.NewReader(body))
-			Expect(err).NotTo(HaveOccurred())
-
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := createOrg(orgName)
 			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
 
@@ -52,6 +55,31 @@ var _ = Describe("Orgs", func() {
 			nsName, ok := responseMap["guid"].(string)
 			Expect(ok).To(BeTrue())
 			Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: nsName}, &corev1.Namespace{})).To(Succeed())
+		})
+
+		When("the org name already exists", func() {
+			BeforeEach(func() {
+				resp, err := createOrg(orgName)
+				Expect(err).NotTo(HaveOccurred())
+				defer resp.Body.Close()
+				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+			})
+
+			It("returns an unprocessable entity error", func() {
+				resp, err := createOrg(orgName)
+				Expect(err).NotTo(HaveOccurred())
+				defer resp.Body.Close()
+				Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
+				responseMap := map[string]interface{}{}
+				Expect(json.NewDecoder(resp.Body).Decode(&responseMap)).To(Succeed())
+				Expect(responseMap).To(HaveKeyWithValue("errors", BeAssignableToTypeOf([]interface{}{})))
+				errs := responseMap["errors"].([]interface{})
+				Expect(errs[0]).To(SatisfyAll(
+					HaveKeyWithValue("code", BeNumerically("==", 10008)),
+					HaveKeyWithValue("detail", MatchRegexp(fmt.Sprintf(`Organization '%s' already exists.`, orgName))),
+					HaveKeyWithValue("title", Equal("CF-UnprocessableEntity")),
+				))
+			})
 		})
 	})
 
