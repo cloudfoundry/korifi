@@ -3,7 +3,9 @@ name: Build and Push the CI Docker Image
 on:
   push:
     branches: [ main ]
-    paths: ['ci/Dockerfile']
+    paths:
+    - 'ci/Dockerfile'
+    - '.github/workflows/push-ci-image-main.yml'
 
 env:
   REGISTRY: ghcr.io
