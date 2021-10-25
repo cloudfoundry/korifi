@@ -2,9 +2,8 @@ package apis_test
 
 import (
 	"encoding/json"
-	"github.com/gorilla/mux"
 	"net/http"
-	"net/http/httptest"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
@@ -16,14 +15,9 @@ import (
 
 var _ = Describe("RootHandler", func() {
 	Describe("GET / endpoint", func() {
-		var rr *httptest.ResponseRecorder
-
 		BeforeEach(func() {
 			req, err := http.NewRequest("GET", "/", nil)
 			Expect(err).NotTo(HaveOccurred())
-
-			rr = httptest.NewRecorder()
-			router := mux.NewRouter()
 
 			apiHandler := apis.NewRootHandler(
 				logf.Log.WithName("TestRootHandler"),

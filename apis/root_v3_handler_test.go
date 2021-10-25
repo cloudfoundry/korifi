@@ -1,9 +1,7 @@
 package apis_test
 
 import (
-	"github.com/gorilla/mux"
 	"net/http"
-	"net/http/httptest"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
 	. "github.com/onsi/ginkgo"
@@ -12,13 +10,9 @@ import (
 
 var _ = Describe("RootV3Handler", func() {
 	Describe("the GET /v3 endpoint", func() {
-		var rr *httptest.ResponseRecorder
 		BeforeEach(func() {
 			req, err := http.NewRequest("GET", "/v3", nil)
 			Expect(err).NotTo(HaveOccurred())
-
-			rr = httptest.NewRecorder()
-			router := mux.NewRouter()
 
 			apiHandler := apis.NewRootV3Handler(defaultServerURL)
 			apiHandler.RegisterRoutes(router)

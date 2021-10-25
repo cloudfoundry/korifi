@@ -7,8 +7,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -18,7 +16,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
-	"github.com/gorilla/mux"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -31,11 +28,9 @@ const (
 var _ = Describe("PackageHandler", func() {
 	Describe("the POST /v3/packages endpoint", func() {
 		var (
-			rr            *httptest.ResponseRecorder
 			packageRepo   *fake.CFPackageRepository
 			appRepo       *fake.CFAppRepository
 			clientBuilder *fake.ClientBuilder
-			router        *mux.Router
 		)
 
 		makePostRequest := func(body string) {
@@ -64,9 +59,6 @@ var _ = Describe("PackageHandler", func() {
 		)
 
 		BeforeEach(func() {
-			rr = httptest.NewRecorder()
-			router = mux.NewRouter()
-
 			packageRepo = new(fake.CFPackageRepository)
 			packageRepo.CreatePackageReturns(repositories.PackageRecord{
 				Type:      "bits",
@@ -85,8 +77,6 @@ var _ = Describe("PackageHandler", func() {
 
 			clientBuilder = new(fake.ClientBuilder)
 
-			serverURL, err := url.Parse(defaultServerURL)
-			Expect(err).NotTo(HaveOccurred())
 			apiHandler := NewPackageHandler(
 				logf.Log.WithName(testPackageHandlerLoggerName),
 				*serverURL,
@@ -183,7 +173,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "App is invalid. Ensure it exists and you have access to it.")
+				expectUnprocessableEntityError("App is invalid. Ensure it exists and you have access to it.")
 			})
 			itDoesntCreateAPackage()
 		})
@@ -196,7 +186,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 			itDoesntCreateAPackage()
 		})
@@ -220,7 +210,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Type must be one of ['bits']")
+				expectUnprocessableEntityError("Type must be one of ['bits']")
 			})
 		})
 
@@ -230,7 +220,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Relationships is a required field")
+				expectUnprocessableEntityError("Relationships is a required field")
 			})
 		})
 
@@ -249,7 +239,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, `invalid request body: json: unknown field "build"`)
+				expectUnprocessableEntityError(`invalid request body: json: unknown field "build"`)
 			})
 		})
 
@@ -287,7 +277,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 			itDoesntCreateAPackage()
 		})
@@ -299,21 +289,19 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 	})
 
 	Describe("the POST /v3/packages/upload endpoint", func() {
 		var (
-			rr                *httptest.ResponseRecorder
 			packageRepo       *fake.CFPackageRepository
 			appRepo           *fake.CFAppRepository
 			uploadImageSource *fake.SourceImageUploader
 			buildRegistryAuth *fake.RegistryAuthBuilder
 			credentialOption  remote.Option
 			clientBuilder     *fake.ClientBuilder
-			router            *mux.Router
 		)
 
 		makeUploadRequest := func(packageGUID string, file io.Reader) {
@@ -345,9 +333,6 @@ var _ = Describe("PackageHandler", func() {
 		)
 
 		BeforeEach(func() {
-			rr = httptest.NewRecorder()
-			router = mux.NewRouter()
-
 			packageRepo = new(fake.CFPackageRepository)
 			packageRepo.FetchPackageReturns(repositories.PackageRecord{
 				Type:      "bits",
@@ -377,8 +362,6 @@ var _ = Describe("PackageHandler", func() {
 			buildRegistryAuth = new(fake.RegistryAuthBuilder)
 			buildRegistryAuth.Returns(credentialOption, nil)
 
-			serverURL, err := url.Parse(defaultServerURL)
-			Expect(err).NotTo(HaveOccurred())
 			apiHandler := NewPackageHandler(
 				logf.Log.WithName(testPackageHandlerLoggerName),
 				*serverURL,
@@ -499,7 +482,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError(rr, "Package not found")
+				expectNotFoundError("Package not found")
 			})
 			itDoesntBuildAnImageFromSource()
 			itDoesntUpdateAnyPackages()
@@ -513,7 +496,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 			itDoesntBuildAnImageFromSource()
 			itDoesntUpdateAnyPackages()
@@ -527,7 +510,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 			itDoesntBuildAnImageFromSource()
 			itDoesntUpdateAnyPackages()
@@ -547,7 +530,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Upload must include bits")
+				expectUnprocessableEntityError("Upload must include bits")
 			})
 			itDoesntBuildAnImageFromSource()
 			itDoesntUpdateAnyPackages()
@@ -561,7 +544,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 			itDoesntBuildAnImageFromSource()
 			itDoesntUpdateAnyPackages()
@@ -575,7 +558,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 			itDoesntUpdateAnyPackages()
 		})
@@ -588,7 +571,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 

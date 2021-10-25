@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"strings"
 	"time"
 
@@ -14,12 +12,10 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -29,12 +25,8 @@ const (
 
 var _ = Describe("OrgHandler", func() {
 	var (
-		ctx        context.Context
-		router     *mux.Router
 		orgHandler *apis.OrgHandler
 		orgRepo    *fake.CFOrgRepository
-		req        *http.Request
-		rr         *httptest.ResponseRecorder
 		err        error
 		now        time.Time
 	)
@@ -52,7 +44,6 @@ var _ = Describe("OrgHandler", func() {
 		}
 
 		BeforeEach(func() {
-			ctx = context.Background()
 			orgRepo = new(fake.CFOrgRepository)
 			orgRepo.CreateOrgStub = func(_ context.Context, record repositories.OrgRecord) (repositories.OrgRecord, error) {
 				record.GUID = "t-h-e-o-r-g"
@@ -61,14 +52,8 @@ var _ = Describe("OrgHandler", func() {
 				return record, nil
 			}
 
-			serverURL, err := url.Parse(defaultServerURL)
-			Expect(err).NotTo(HaveOccurred())
-
 			orgHandler = apis.NewOrgHandler(orgRepo, *serverURL)
-			router = mux.NewRouter()
 			orgHandler.RegisterRoutes(router)
-
-			rr = httptest.NewRecorder()
 		})
 
 		When("happy path", func() {
@@ -119,7 +104,9 @@ var _ = Describe("OrgHandler", func() {
 				makePostRequest(`{"name": "the-org"}`)
 			})
 
-			itRespondsWithUnprocessableEntity("Organization 'the-org' already exists.", func() *httptest.ResponseRecorder { return rr })
+			It("returns an error", func() {
+				expectUnprocessableEntityError("Organization 'the-org' already exists.")
+			})
 		})
 
 		When("the org repo returns another error", func() {
@@ -129,7 +116,7 @@ var _ = Describe("OrgHandler", func() {
 			})
 
 			It("returns unknown error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 
@@ -281,13 +268,9 @@ var _ = Describe("OrgHandler", func() {
 				},
 			}, nil)
 
-			serverURL, err := url.Parse(rootURL)
-			Expect(err).NotTo(HaveOccurred())
 			orgHandler = apis.NewOrgHandler(orgRepo, *serverURL)
-			router = mux.NewRouter()
 			orgHandler.RegisterRoutes(router)
 
-			rr = httptest.NewRecorder()
 			req, err = http.NewRequestWithContext(ctx, http.MethodGet, orgsBase, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -389,7 +372,7 @@ var _ = Describe("OrgHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 	})

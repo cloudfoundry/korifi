@@ -5,15 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"strings"
 
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
-	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,13 +27,10 @@ const (
 
 var _ = Describe("AppHandler", func() {
 	var (
-		rr            *httptest.ResponseRecorder
-		req           *http.Request
 		appRepo       *fake.CFAppRepository
 		dropletRepo   *fake.CFDropletRepository
 		processRepo   *fake.CFProcessRepository
 		clientBuilder *fake.ClientBuilder
-		router        *mux.Router
 	)
 
 	BeforeEach(func() {
@@ -45,10 +39,6 @@ var _ = Describe("AppHandler", func() {
 		processRepo = new(fake.CFProcessRepository)
 		clientBuilder = new(fake.ClientBuilder)
 
-		rr = httptest.NewRecorder()
-		router = mux.NewRouter()
-		serverURL, err := url.Parse(defaultServerURL)
-		Expect(err).NotTo(HaveOccurred())
 		apiHandler := NewAppHandler(
 			logf.Log.WithName(testAppHandlerLoggerName),
 			*serverURL,
@@ -172,7 +162,7 @@ var _ = Describe("AppHandler", func() {
 
 			// TODO: should we return code 100004 instead?
 			It("returns an error", func() {
-				expectNotFoundError(rr, "App not found")
+				expectNotFoundError("App not found")
 			})
 		})
 
@@ -182,7 +172,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 	})
@@ -229,7 +219,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, `invalid request body: json: unknown field "description"`)
+				expectUnprocessableEntityError(`invalid request body: json: unknown field "description"`)
 			})
 		})
 
@@ -242,7 +232,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Name must be a string")
+				expectUnprocessableEntityError("Name must be a string")
 			})
 		})
 
@@ -256,7 +246,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Environment_variables must be a map[string]string")
+				expectUnprocessableEntityError("Environment_variables must be a map[string]string")
 			})
 		})
 
@@ -268,7 +258,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Name is a required field")
+				expectUnprocessableEntityError("Name is a required field")
 			})
 		})
 
@@ -326,7 +316,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Invalid space. Ensure that the space exists and you have access to it.")
+				expectUnprocessableEntityError("Invalid space. Ensure that the space exists and you have access to it.")
 			})
 		})
 
@@ -371,7 +361,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 
@@ -532,7 +522,7 @@ var _ = Describe("AppHandler", func() {
 					})
 
 					It("returns an error", func() {
-						expectUnknownError(rr)
+						expectUnknownError()
 					})
 				})
 			})
@@ -813,7 +803,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 	})
@@ -903,7 +893,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError(rr, "App not found")
+				expectNotFoundError("App not found")
 			})
 			itDoesntSetTheCurrentDroplet()
 		})
@@ -914,7 +904,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
+				expectUnprocessableEntityError("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
 			})
 			itDoesntSetTheCurrentDroplet()
 		})
@@ -929,7 +919,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
+				expectUnprocessableEntityError("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
 			})
 			itDoesntSetTheCurrentDroplet()
 		})
@@ -944,7 +934,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "GUID is a required field")
+				expectUnprocessableEntityError("GUID is a required field")
 			})
 		})
 
@@ -954,7 +944,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 			itDoesntSetTheCurrentDroplet()
 		})
@@ -965,7 +955,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 			itDoesntSetTheCurrentDroplet()
 		})
@@ -976,7 +966,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 			itDoesntSetTheCurrentDroplet()
 		})
@@ -987,7 +977,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 	})
@@ -1105,7 +1095,7 @@ var _ = Describe("AppHandler", func() {
 
 			// TODO: should we return code 100004 instead?
 			It("returns an error", func() {
-				expectNotFoundError(rr, "App not found")
+				expectNotFoundError("App not found")
 			})
 		})
 
@@ -1115,7 +1105,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 
@@ -1139,7 +1129,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, `Assign a droplet before starting this app.`)
+				expectUnprocessableEntityError(`Assign a droplet before starting this app.`)
 			})
 		})
 
@@ -1149,7 +1139,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 	})
@@ -1358,7 +1348,7 @@ var _ = Describe("AppHandler", func() {
 				})
 
 				It("returns an error", func() {
-					expectNotFoundError(rr, "App not found")
+					expectNotFoundError("App not found")
 				})
 			})
 
@@ -1368,7 +1358,7 @@ var _ = Describe("AppHandler", func() {
 				})
 
 				It("returns an error", func() {
-					expectUnknownError(rr)
+					expectUnknownError()
 				})
 			})
 			When("there is some error fetching the app's processes", func() {
@@ -1377,7 +1367,7 @@ var _ = Describe("AppHandler", func() {
 				})
 
 				It("returns an error", func() {
-					expectUnknownError(rr)
+					expectUnknownError()
 				})
 			})
 		})

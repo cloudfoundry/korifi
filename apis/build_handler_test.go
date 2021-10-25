@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -13,7 +11,6 @@ import (
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 
-	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
@@ -39,11 +36,8 @@ var _ = Describe("BuildHandler", func() {
 		)
 
 		var (
-			rr            *httptest.ResponseRecorder
-			req           *http.Request
 			buildRepo     *fake.CFBuildRepository
 			clientBuilder *fake.ClientBuilder
-			router        *mux.Router
 		)
 
 		// set up happy path defaults
@@ -71,12 +65,8 @@ var _ = Describe("BuildHandler", func() {
 			req, err = http.NewRequest("GET", "/v3/builds/"+buildGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			rr = httptest.NewRecorder()
-			router = mux.NewRouter()
 			clientBuilder = new(fake.ClientBuilder)
 
-			serverURL, err := url.Parse(defaultServerURL)
-			Expect(err).NotTo(HaveOccurred())
 			buildHandler := NewBuildHandler(
 				logf.Log.WithName(testBuildHandlerLoggerName),
 				*serverURL,
@@ -314,7 +304,7 @@ var _ = Describe("BuildHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 
@@ -326,7 +316,7 @@ var _ = Describe("BuildHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError(rr, "Build not found")
+				expectNotFoundError("Build not found")
 			})
 		})
 
@@ -338,17 +328,15 @@ var _ = Describe("BuildHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 	})
 	Describe("the POST /v3/builds endpoint", func() {
 		var (
-			rr            *httptest.ResponseRecorder
 			packageRepo   *fake.CFPackageRepository
 			buildRepo     *fake.CFBuildRepository
 			clientBuilder *fake.ClientBuilder
-			router        *mux.Router
 		)
 
 		makePostRequest := func(body string) {
@@ -378,9 +366,6 @@ var _ = Describe("BuildHandler", func() {
 		)
 
 		BeforeEach(func() {
-			rr = httptest.NewRecorder()
-			router = mux.NewRouter()
-
 			packageRepo = new(fake.CFPackageRepository)
 			packageRepo.FetchPackageReturns(repositories.PackageRecord{
 				Type:      "bits",
@@ -411,8 +396,6 @@ var _ = Describe("BuildHandler", func() {
 				AppGUID:     appGUID,
 			}, nil)
 
-			serverURL, err := url.Parse(defaultServerURL)
-			Expect(err).NotTo(HaveOccurred())
 			clientBuilder = new(fake.ClientBuilder)
 			buildHandler := NewBuildHandler(
 				logf.Log.WithName(testBuildHandlerLoggerName),
@@ -528,7 +511,7 @@ var _ = Describe("BuildHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Unable to use package. Ensure that the package exists and you have access to it.")
+				expectUnprocessableEntityError("Unable to use package. Ensure that the package exists and you have access to it.")
 			})
 
 			itDoesntCreateABuild()
@@ -542,7 +525,7 @@ var _ = Describe("BuildHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 			itDoesntCreateABuild()
 		})
@@ -554,7 +537,7 @@ var _ = Describe("BuildHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 			itDoesntCreateABuild()
 		})
@@ -566,7 +549,7 @@ var _ = Describe("BuildHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 

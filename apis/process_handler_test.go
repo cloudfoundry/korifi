@@ -4,14 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
-	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
@@ -24,21 +21,14 @@ var _ = Describe("ProcessHandler", func() {
 	)
 
 	var (
-		rr            *httptest.ResponseRecorder
-		req           *http.Request
 		processRepo   *fake.CFProcessRepository
 		clientBuilder *fake.ClientBuilder
-		router        *mux.Router
 	)
 
 	BeforeEach(func() {
 		processRepo = new(fake.CFProcessRepository)
 		clientBuilder = new(fake.ClientBuilder)
 
-		rr = httptest.NewRecorder()
-		router = mux.NewRouter()
-		serverURL, err := url.Parse(defaultServerURL)
-		Expect(err).NotTo(HaveOccurred())
 		apiHandler := NewProcessHandler(
 			logf.Log.WithName(testAppHandlerLoggerName),
 			*serverURL,
@@ -165,7 +155,7 @@ var _ = Describe("ProcessHandler", func() {
 				})
 
 				It("returns an error", func() {
-					expectNotFoundError(rr, "Process not found")
+					expectNotFoundError("Process not found")
 				})
 			})
 
@@ -175,7 +165,7 @@ var _ = Describe("ProcessHandler", func() {
 				})
 
 				It("returns an error", func() {
-					expectUnknownError(rr)
+					expectUnknownError()
 				})
 			})
 		})
@@ -224,7 +214,7 @@ var _ = Describe("ProcessHandler", func() {
 				})
 
 				It("returns an error", func() {
-					expectNotFoundError(rr, "Process not found")
+					expectNotFoundError("Process not found")
 				})
 			})
 
@@ -234,7 +224,7 @@ var _ = Describe("ProcessHandler", func() {
 				})
 
 				It("returns an error", func() {
-					expectUnknownError(rr)
+					expectUnknownError()
 				})
 			})
 		})

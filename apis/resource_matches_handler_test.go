@@ -1,24 +1,17 @@
 package apis_test
 
 import (
-	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 
-	"github.com/gorilla/mux"
+	. "code.cloudfoundry.org/cf-k8s-api/apis"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("ResourceMatchesHandler", func() {
 	Describe("Get Resource Match Endpoint", func() {
-
-		var (
-			rr     *httptest.ResponseRecorder
-			router *mux.Router
-		)
-
 		makePostRequest := func(body string) {
 			req, err := http.NewRequest("POST", "/v3/resource_matches", strings.NewReader(body))
 			Expect(err).NotTo(HaveOccurred())
@@ -27,8 +20,6 @@ var _ = Describe("ResourceMatchesHandler", func() {
 		}
 
 		BeforeEach(func() {
-			rr = httptest.NewRecorder()
-			router = mux.NewRouter()
 			apiHandler := NewResourceMatchesHandler("foo://my-server")
 			apiHandler.RegisterRoutes(router)
 		})

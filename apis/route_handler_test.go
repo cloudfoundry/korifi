@@ -5,15 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"strings"
 
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
-	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
@@ -30,19 +27,13 @@ var _ = Describe("RouteHandler", func() {
 		)
 
 		var (
-			rr            *httptest.ResponseRecorder
 			routeRepo     *fake.CFRouteRepository
 			domainRepo    *fake.CFDomainRepository
 			appRepo       *fake.CFAppRepository
 			clientBuilder *fake.ClientBuilder
-			req           *http.Request
-			router        *mux.Router
 		)
 
 		BeforeEach(func() {
-			rr = httptest.NewRecorder()
-			router = mux.NewRouter()
-
 			routeRepo = new(fake.CFRouteRepository)
 			domainRepo = new(fake.CFDomainRepository)
 			appRepo = new(fake.CFAppRepository)
@@ -65,8 +56,6 @@ var _ = Describe("RouteHandler", func() {
 				Name: "example.org",
 			}, nil)
 
-			serverURL, err := url.Parse(defaultServerURL)
-			Expect(err).NotTo(HaveOccurred())
 			routeHandler := NewRouteHandler(
 				logf.Log.WithName("TestRouteHandler"),
 				*serverURL,
@@ -78,6 +67,7 @@ var _ = Describe("RouteHandler", func() {
 			)
 			routeHandler.RegisterRoutes(router)
 
+			var err error
 			req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s", testRouteGUID), nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -163,7 +153,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError(rr, "Route not found")
+				expectNotFoundError("Route not found")
 			})
 		})
 
@@ -175,7 +165,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 
@@ -187,7 +177,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 	})
@@ -203,8 +193,6 @@ var _ = Describe("RouteHandler", func() {
 		)
 
 		var (
-			rr            *httptest.ResponseRecorder
-			router        *mux.Router
 			routeRepo     *fake.CFRouteRepository
 			domainRepo    *fake.CFDomainRepository
 			appRepo       *fake.CFAppRepository
@@ -219,16 +207,11 @@ var _ = Describe("RouteHandler", func() {
 		}
 
 		BeforeEach(func() {
-			rr = httptest.NewRecorder()
-			router = mux.NewRouter()
-
 			routeRepo = new(fake.CFRouteRepository)
 			domainRepo = new(fake.CFDomainRepository)
 			appRepo = new(fake.CFAppRepository)
 			clientBuilder = new(fake.ClientBuilder)
 
-			serverURL, err := url.Parse(defaultServerURL)
-			Expect(err).NotTo(HaveOccurred())
 			apiHandler := NewRouteHandler(
 				logf.Log.WithName("TestRouteHandler"),
 				*serverURL,
@@ -407,7 +390,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, `invalid request body: json: unknown field "description"`)
+				expectUnprocessableEntityError(`invalid request body: json: unknown field "description"`)
 			})
 		})
 
@@ -430,7 +413,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag")
+				expectUnprocessableEntityError("Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag")
 			})
 		})
 
@@ -449,7 +432,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Host must be a string")
+				expectUnprocessableEntityError("Host must be a string")
 			})
 		})
 
@@ -473,7 +456,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag")
+				expectUnprocessableEntityError("Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag")
 			})
 		})
 
@@ -497,7 +480,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag")
+				expectUnprocessableEntityError("Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag")
 			})
 		})
 
@@ -522,7 +505,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Key: 'RouteCreate.Path' Error:Field validation for 'Path' failed on the 'routepathstartswithslash' tag")
+				expectUnprocessableEntityError("Key: 'RouteCreate.Path' Error:Field validation for 'Path' failed on the 'routepathstartswithslash' tag")
 			})
 		})
 
@@ -541,7 +524,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Data is a required field")
+				expectUnprocessableEntityError("Data is a required field")
 			})
 		})
 
@@ -560,7 +543,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Data is a required field")
+				expectUnprocessableEntityError("Data is a required field")
 			})
 		})
 
@@ -573,7 +556,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 
@@ -587,7 +570,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Invalid space. Ensure that the space exists and you have access to it.")
+				expectUnprocessableEntityError("Invalid space. Ensure that the space exists and you have access to it.")
 			})
 		})
 
@@ -601,7 +584,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 
@@ -619,7 +602,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(rr, "Invalid domain. Ensure that the domain exists and you have access to it.")
+				expectUnprocessableEntityError("Invalid domain. Ensure that the domain exists and you have access to it.")
 			})
 		})
 
@@ -637,7 +620,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 
@@ -660,7 +643,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 	})

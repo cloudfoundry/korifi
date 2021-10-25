@@ -3,14 +3,11 @@ package apis_test
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
-	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
@@ -31,11 +28,8 @@ var _ = Describe("DropletHandler", func() {
 			updatedAt = "1906-04-18T13:12:01Z"
 		)
 		var (
-			rr            *httptest.ResponseRecorder
-			req           *http.Request
 			dropletRepo   *fake.CFDropletRepository
 			clientBuilder *fake.ClientBuilder
-			router        *mux.Router
 		)
 
 		BeforeEach(func() {
@@ -44,12 +38,8 @@ var _ = Describe("DropletHandler", func() {
 			req, err = http.NewRequest("GET", "/v3/droplets/"+dropletGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			rr = httptest.NewRecorder()
-			router = mux.NewRouter()
 			clientBuilder = new(fake.ClientBuilder)
 
-			serverURL, err := url.Parse(defaultServerURL)
-			Expect(err).NotTo(HaveOccurred())
 			dropletHandler := NewDropletHandler(
 				logf.Log.WithName(testDropletHandlerLoggerName),
 				*serverURL,
@@ -166,7 +156,7 @@ var _ = Describe("DropletHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 
@@ -177,7 +167,7 @@ var _ = Describe("DropletHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError(rr, "Droplet not found")
+				expectNotFoundError("Droplet not found")
 			})
 		})
 
@@ -189,7 +179,7 @@ var _ = Describe("DropletHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 	})

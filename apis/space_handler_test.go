@@ -1,18 +1,14 @@
 package apis_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
-	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -21,18 +17,13 @@ var _ = Describe("Spaces", func() {
 	Describe("Listing Spaces", func() {
 		const spacesBase = "/v3/spaces"
 		var (
-			ctx          context.Context
-			router       *mux.Router
 			spaceHandler *apis.SpaceHandler
 			spaceRepo    *fake.CFSpaceRepository
-			req          *http.Request
-			rr           *httptest.ResponseRecorder
 			err          error
 			now          time.Time
 		)
 
 		BeforeEach(func() {
-			ctx = context.Background()
 			spaceRepo = new(fake.CFSpaceRepository)
 
 			now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
@@ -53,13 +44,9 @@ var _ = Describe("Spaces", func() {
 				},
 			}, nil)
 
-			serverURL, err := url.Parse(rootURL)
-			Expect(err).NotTo(HaveOccurred())
 			spaceHandler = apis.NewSpaceHandler(spaceRepo, *serverURL)
-			router = mux.NewRouter()
 			spaceHandler.RegisterRoutes(router)
 
-			rr = httptest.NewRecorder()
 			req, err = http.NewRequestWithContext(ctx, http.MethodGet, spacesBase, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -148,7 +135,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError(rr)
+				expectUnknownError()
 			})
 		})
 
