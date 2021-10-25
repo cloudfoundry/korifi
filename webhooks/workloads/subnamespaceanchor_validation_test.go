@@ -235,20 +235,6 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 	Describe("subnamespace anchor updates", func() {
 		var newAnchor *hnsv1alpha2.SubnamespaceAnchor
 
-		BeforeEach(func() {
-			anchor = &hnsv1alpha2.SubnamespaceAnchor{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      uuid.NewString(),
-					Namespace: namespace,
-					Labels: map[string]string{
-						workloads.OrgNameLabel: "my-org",
-					},
-				},
-			}
-			newAnchor = anchor.DeepCopy()
-			newAnchor.Labels[workloads.OrgNameLabel] = "another-org"
-		})
-
 		JustBeforeEach(func() {
 			newAnchorJSON, err := json.Marshal(newAnchor)
 			Expect(err).NotTo(HaveOccurred())
@@ -271,6 +257,20 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 		})
 
 		Context("orgs", func() {
+			BeforeEach(func() {
+				anchor = &hnsv1alpha2.SubnamespaceAnchor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.NewString(),
+						Namespace: namespace,
+						Labels: map[string]string{
+							workloads.OrgNameLabel: "my-org",
+						},
+					},
+				}
+				newAnchor = anchor.DeepCopy()
+				newAnchor.Labels[workloads.OrgNameLabel] = "another-org"
+			})
+
 			It("searches for matching org labels in the namespace", func() {
 				Expect(lister.ListCallCount()).To(Equal(1))
 				_, _, options := lister.ListArgsForCall(0)
@@ -299,6 +299,59 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 			When("the org name hasn't changed", func() {
 				BeforeEach(func() {
 					newAnchor.Labels[workloads.OrgNameLabel] = "my-org"
+					newAnchor.Labels["something"] = "else"
+					listResult = []hnsv1alpha2.SubnamespaceAnchor{*anchor}
+				})
+
+				It("succeeds", func() {
+					Expect(response.Allowed).To(BeTrue())
+				})
+			})
+		})
+
+		Context("spaces", func() {
+			BeforeEach(func() {
+				anchor = &hnsv1alpha2.SubnamespaceAnchor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.NewString(),
+						Namespace: namespace,
+						Labels: map[string]string{
+							workloads.SpaceNameLabel: "my-space",
+						},
+					},
+				}
+				newAnchor = anchor.DeepCopy()
+				newAnchor.Labels[workloads.SpaceNameLabel] = "another-space"
+			})
+
+			It("searches for matching space labels in the namespace", func() {
+				Expect(lister.ListCallCount()).To(Equal(1))
+				_, _, options := lister.ListArgsForCall(0)
+				Expect(options).To(ConsistOf(
+					client.InNamespace(namespace),
+					client.MatchingLabels{workloads.SpaceNameLabel: "another-space"},
+				))
+			})
+
+			When("the new space name is unique in the namespace", func() {
+				It("allows the request", func() {
+					Expect(response.Allowed).To(BeTrue())
+				})
+			})
+
+			When("the new space name already exists in the namespace", func() {
+				BeforeEach(func() {
+					listResult = []hnsv1alpha2.SubnamespaceAnchor{{}}
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+				})
+			})
+
+			When("the space name hasn't changed", func() {
+				BeforeEach(func() {
+					newAnchor.Labels[workloads.SpaceNameLabel] = "my-space"
 					newAnchor.Labels["something"] = "else"
 					listResult = []hnsv1alpha2.SubnamespaceAnchor{*anchor}
 				})
