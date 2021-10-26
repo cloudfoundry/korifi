@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	. "github.com/onsi/gomega/gstruct"
+
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -42,7 +44,7 @@ var _ = Describe("RouteHandler", func() {
 			routeRepo.FetchRouteReturns(repositories.RouteRecord{
 				GUID:      testRouteGUID,
 				SpaceGUID: testSpaceGUID,
-				DomainRef: repositories.DomainRecord{
+				Domain: repositories.DomainRecord{
 					GUID: testDomainGUID,
 				},
 				Host:      testRouteHost,
@@ -210,7 +212,7 @@ var _ = Describe("RouteHandler", func() {
 			routeRecord = &repositories.RouteRecord{
 				GUID:      testRouteGUID,
 				SpaceGUID: testSpaceGUID,
-				DomainRef: repositories.DomainRecord{
+				Domain: repositories.DomainRecord{
 					GUID: testDomainGUID,
 				},
 				Host:         testRouteHost,
@@ -253,7 +255,6 @@ var _ = Describe("RouteHandler", func() {
 		})
 
 		When("on the happy path", func() {
-
 			It("returns status 200 OK", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
@@ -437,7 +438,7 @@ var _ = Describe("RouteHandler", func() {
 					routeRepo.CreateRouteReturns(repositories.RouteRecord{
 						GUID:      testRouteGUID,
 						SpaceGUID: testSpaceGUID,
-						DomainRef: repositories.DomainRecord{
+						Domain: repositories.DomainRecord{
 							GUID: testDomainGUID,
 						},
 						Host:      testRouteHost,
@@ -870,12 +871,12 @@ var _ = Describe("RouteHandler", func() {
 			routeRecord = &repositories.RouteRecord{
 				GUID:      testRouteGUID,
 				SpaceGUID: testSpaceGUID,
-				DomainRef: repositories.DomainRecord{
+				Domain: repositories.DomainRecord{
 					GUID: testDomainGUID,
 				},
 				Host:     testRouteHost,
 				Protocol: "http",
-				Destinations: []repositories.Destination{
+				Destinations: []repositories.DestinationRecord{
 					{
 						GUID:        "89323d4e-2e84-43e7-83e9-adbf50a20c0e",
 						AppGUID:     "1cb006ee-fb05-47e1-b541-c34179ddc446",
@@ -975,12 +976,12 @@ var _ = Describe("RouteHandler", func() {
 						repositories.RouteRecord{
 							GUID:      testRouteGUID,
 							SpaceGUID: testSpaceGUID,
-							DomainRef: repositories.DomainRecord{
+							Domain: repositories.DomainRecord{
 								GUID: testDomainGUID,
 							},
 							Host:         testRouteHost,
 							Protocol:     "http",
-							Destinations: []repositories.Destination{},
+							Destinations: []repositories.DestinationRecord{},
 							CreatedAt:    "create-time",
 							UpdatedAt:    "update-time",
 						}, nil)
@@ -1030,6 +1031,353 @@ var _ = Describe("RouteHandler", func() {
 
 			It("returns an errror", func() {
 				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("the POST /v3/routes/:guid/destinations endpoint", func() {
+		const (
+			routeGUID               = "test-route-guid"
+			domainGUID              = "test-domain-guid"
+			spaceGUID               = "test-space-guid"
+			routeHost               = "test-app"
+			destination1AppGUID     = "1cb006ee-fb05-47e1-b541-c34179ddc446"
+			destination2AppGUID     = "01856e12-8ee8-11e9-98a5-bb397dbc818f"
+			destination2ProcessType = "api"
+			destination2Port        = 9000
+			destination1GUID        = "destination1-guid"
+			destination2GUID        = "destination2-guid"
+		)
+
+		var (
+			routeRepo     *fake.CFRouteRepository
+			domainRepo    *fake.CFDomainRepository
+			appRepo       *fake.CFAppRepository
+			clientBuilder *fake.ClientBuilder
+			domain        repositories.DomainRecord
+			route         repositories.RouteRecord
+		)
+
+		makePostRequest := func(requestBody string, sprintfArgs ...interface{}) {
+			req, err := http.NewRequest("POST", "/v3/routes/"+routeGUID+"/destinations",
+				strings.NewReader(
+					fmt.Sprintf(requestBody, sprintfArgs...),
+				),
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			router.ServeHTTP(rr, req)
+		}
+
+		BeforeEach(func() {
+			routeRepo = new(fake.CFRouteRepository)
+			domainRepo = new(fake.CFDomainRepository)
+			appRepo = new(fake.CFAppRepository)
+			clientBuilder = new(fake.ClientBuilder)
+
+			apiHandler := NewRouteHandler(
+				logf.Log.WithName("TestRouteHandler"),
+				*serverURL,
+				routeRepo,
+				domainRepo,
+				appRepo,
+				clientBuilder.Spy,
+				&rest.Config{}, // required for k8s client (transitive dependency from route repo)
+			)
+			apiHandler.RegisterRoutes(router)
+
+			route = repositories.RouteRecord{
+				GUID:         routeGUID,
+				SpaceGUID:    spaceGUID,
+				Domain:       repositories.DomainRecord{GUID: domainGUID},
+				Host:         routeHost,
+				Path:         "",
+				Protocol:     "http1",
+				Destinations: nil,
+			}
+
+			domain = repositories.DomainRecord{
+				GUID: domainGUID,
+				Name: "my-tld.com",
+			}
+
+			routeRepo.FetchRouteReturns(route, nil)
+			domainRepo.FetchDomainReturns(domain, nil)
+		})
+
+		When("the request body is valid", func() {
+			BeforeEach(func() {
+				updatedRoute := route
+				updatedRoute.Domain = domain
+				updatedRoute.Destinations = []repositories.DestinationRecord{
+					{
+						GUID:        destination1GUID,
+						AppGUID:     destination1AppGUID,
+						ProcessType: "web",
+						Port:        8080,
+					},
+					{
+						GUID:        destination2GUID,
+						AppGUID:     destination2AppGUID,
+						ProcessType: destination2ProcessType,
+						Port:        destination2Port,
+					},
+				}
+				routeRepo.AddDestinationsToRouteReturns(updatedRoute, nil)
+			})
+
+			JustBeforeEach(func() {
+				makePostRequest(`{ 
+					"destinations": [
+						{
+							"app": {
+								"guid": %q
+							},
+							"protocol": "http1"
+						},
+						{
+							"app": {
+								"guid": %q,
+								"process": {
+									"type": %q
+								}
+							},
+							"port": %d,
+							"protocol": "http1"
+						}
+					]
+				}`, destination1AppGUID, destination2AppGUID, destination2ProcessType, destination2Port)
+			})
+
+			It("returns a success and a valid response", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+
+				var parsedBody map[string]interface{}
+				Expect(
+					json.Unmarshal(rr.Body.Bytes(), &parsedBody),
+				).To(Succeed())
+
+				Expect(parsedBody["destinations"]).To(HaveLen(2))
+				Expect(parsedBody["destinations"]).To(Equal([]interface{}{
+					map[string]interface{}{
+						"guid": destination1GUID,
+						"app": map[string]interface{}{
+							"guid": destination1AppGUID,
+							"process": map[string]interface{}{
+								"type": "web",
+							},
+						},
+						"weight":   nil,
+						"port":     float64(8080),
+						"protocol": "http1",
+					},
+					map[string]interface{}{
+						"guid": destination2GUID,
+						"app": map[string]interface{}{
+							"guid": destination2AppGUID,
+							"process": map[string]interface{}{
+								"type": destination2ProcessType,
+							},
+						},
+						"weight":   nil,
+						"port":     float64(destination2Port),
+						"protocol": "http1",
+					},
+				}))
+
+				Expect(parsedBody["links"]).To(Equal(map[string]interface{}{
+					"self": map[string]interface{}{
+						"href": "https://api.example.org/v3/routes/test-route-guid/destinations",
+					},
+					"route": map[string]interface{}{
+						"href": "https://api.example.org/v3/routes/test-route-guid",
+					},
+				}))
+			})
+
+			It("adds the new destinations to the Route", func() {
+				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
+				_, _, message := routeRepo.AddDestinationsToRouteArgsForCall(0)
+				Expect(message.Route).To(Equal(repositories.RouteRecord{
+					GUID:         routeGUID,
+					SpaceGUID:    spaceGUID,
+					Domain:       domain,
+					Host:         routeHost,
+					Path:         "",
+					Protocol:     "http1",
+					Destinations: nil,
+				}))
+
+				Expect(message.Destinations).To(ConsistOf(
+					MatchAllFields(Fields{
+						"GUID":        Not(BeEmpty()),
+						"AppGUID":     Equal(destination1AppGUID),
+						"ProcessType": Equal("web"),
+						"Port":        Equal(8080),
+					}),
+					MatchAllFields(Fields{
+						"GUID":        Not(BeEmpty()),
+						"AppGUID":     Equal(destination2AppGUID),
+						"ProcessType": Equal(destination2ProcessType),
+						"Port":        Equal(destination2Port),
+					}),
+				))
+			})
+
+			When("the route doesn't exist", func() {
+				BeforeEach(func() {
+					routeRepo.FetchRouteReturns(repositories.RouteRecord{}, repositories.NotFoundError{})
+				})
+
+				It("responds with 422 and an error", func() {
+					expectUnprocessableEntityError("Route is invalid. Ensure it exists and you have access to it.")
+				})
+
+				It("doesn't add any destinations to a route", func() {
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+
+			When("fetching the route errors", func() {
+				BeforeEach(func() {
+					routeRepo.FetchRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
+				})
+
+				It("responds with an Unknown Error", func() {
+					expectUnknownError()
+				})
+
+				It("doesn't add any destinations to a route", func() {
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+
+			When("adding the destinations to the Route errors", func() {
+				BeforeEach(func() {
+					routeRepo.AddDestinationsToRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
+				})
+
+				It("responds with an Unknown Error", func() {
+					expectUnknownError()
+				})
+			})
+		})
+
+		When("the request body is invalid", func() {
+			When("JSON is invalid", func() {
+				BeforeEach(func() {
+					makePostRequest(`{ this_is_a_invalid_json }`)
+				})
+
+				It("returns a status 400 Bad Request ", func() {
+					Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+				})
+
+				It("has the expected error response body", func() {
+					Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+					Expect(rr.Body.String()).To(MatchJSON(`{
+						"errors": [
+							{
+								"title": "CF-MessageParseError",
+								"detail": "Request invalid due to parse error: invalid request body",
+								"code": 1001
+							}
+						]
+					}`), "Response body matches response:")
+				})
+			})
+
+			When("app is missing", func() {
+				BeforeEach(func() {
+					makePostRequest(`{
+						"destinations": [
+						  {
+							"port": 9000,
+							"protocol": "http1"
+						  }
+						]
+					}`)
+				})
+
+				It("returns a status 422 Unprocessable Entity ", func() {
+					expectUnprocessableEntityError("App is a required field")
+				})
+
+				It("doesn't add any destinations to a route", func() {
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+
+			When("app GUID is missing", func() {
+				BeforeEach(func() {
+					makePostRequest(`{
+						"destinations": [
+						  {
+							"app": {},
+							"port": 9000,
+							"protocol": "http1"
+						  }
+						]
+					}`)
+				})
+
+				It("returns a status 422 Unprocessable Entity ", func() {
+					expectUnprocessableEntityError("GUID is a required field")
+				})
+
+				It("doesn't add any destinations to a route", func() {
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+
+			When("process type is missing", func() {
+				BeforeEach(func() {
+					makePostRequest(`{
+						"destinations": [
+							{
+								"app": {
+									"guid": "01856e12-8ee8-11e9-98a5-bb397dbc818f",
+									"process": {}
+								},
+								"port": 9000,
+								"protocol": "http1"
+							}
+						]
+					}`)
+				})
+
+				It("returns a status 422 Unprocessable Entity ", func() {
+					expectUnprocessableEntityError("Type is a required field")
+				})
+
+				It("doesn't add any destinations to a route", func() {
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+
+			When("destination protocol is not http or http1", func() {
+				BeforeEach(func() {
+					makePostRequest(`{
+						"destinations": [
+						  {
+							"app": {
+							  "guid": "01856e12-8ee8-11e9-98a5-bb397dbc818f"
+							},
+							"port": 9000,
+							"protocol": "xyz"
+						  }
+						]
+					}`)
+				})
+
+				It("returns a status 422 Unprocessable Entity ", func() {
+					expectUnprocessableEntityError("Protocol must be one of [http http1]")
+				})
+
+				It("doesn't add any destinations to a route", func() {
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
 			})
 		})
 	})

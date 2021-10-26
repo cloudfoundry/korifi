@@ -133,12 +133,38 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#processes
 |--|--|
 | Get Route | GET /v3/routes/\<guid> |
 | Get Route List | GET /v3/routes |
-| Get Route Destinations | GET /v3/routes/\<guid>\destinations |
+| Get Route Destinations | GET /v3/routes/\<guid\>/destinations |
 | Create Route | POST /v3/routes |
+| Add Destinations to Route | POST /v3/routes/\<guid\>/destinations |
 
 #### [Creating Routes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-route)
 ```bash
-curl "http://localhost:9000/v3/routes" \
+curl "http://localhost:9000/v3/routes/<guid>/destinations" \
   -X POST \
   -d '{"host": "hostname","path": "/path","relationships": {"domain": {"data": { "guid": "<domain-guid-goes-here>" }},"space": {"data": { "guid": "<namespace-name>" }}}}'
+```
+
+#### [Add Destinations to Route](https://v3-apidocs.cloudfoundry.org/version/3.108.0/index.html#insert-destinations-for-a-route)
+```bash
+curl "http://localhost:9000/v3/routes" \
+  -X POST \
+  -d '{
+        "destinations": [
+          {
+            "app": {
+              "guid": "<app-guid-1>"
+            }
+          },
+          {
+            "app": {
+              "guid": "<app-guid-2>",
+              "process": {
+                "type": "api"
+              }
+            },
+            "port": 9000,
+            "protocol": "http1"
+          }
+        ]
+      }'
 ```

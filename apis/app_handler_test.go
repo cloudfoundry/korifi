@@ -1739,7 +1739,7 @@ var _ = Describe("AppHandler", func() {
 			routeRecord := repositories.RouteRecord{
 				GUID:      testRouteGUID,
 				SpaceGUID: testSpaceGUID,
-				DomainRef: repositories.DomainRecord{
+				Domain: repositories.DomainRecord{
 					GUID: testDomainGUID,
 				},
 
