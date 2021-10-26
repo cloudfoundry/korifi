@@ -29,5 +29,6 @@ RUN  curl -sL "https://github.com/vmware-tanzu/carvel-kapp/releases/download/$KA
 ARG GINKGO_VERSION=v1.16.5
 RUN go install "github.com/onsi/ginkgo/ginkgo@$GINKGO_VERSION" "github.com/onsi/gomega/...@$GINKGO_VERSION"
 
-# ARG KIND_VERSION=v0.11.1
-# RUN go install sigs.k8s.io/kind@$KIND_VERSION
+ARG KIND_VERSION=v0.11.1
+RUN curl -sL "https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-amd64" -o /usr/local/bin/kind && \
+  chmod +x /usr/local/bin/kind
