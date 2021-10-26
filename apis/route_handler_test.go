@@ -649,7 +649,6 @@ var _ = Describe("RouteHandler", func() {
 	})
 
 	Describe("the GET /v3/routes/:guid/destinations endpoint", func() {
-
 		const (
 			testDomainGUID = "test-domain-guid"
 			testRouteGUID  = "test-route-guid"
@@ -658,21 +657,13 @@ var _ = Describe("RouteHandler", func() {
 		)
 
 		var (
-			rr            *httptest.ResponseRecorder
 			routeRepo     *fake.CFRouteRepository
 			appRepo       *fake.CFAppRepository
 			clientBuilder *fake.ClientBuilder
-			req           *http.Request
-			router        *mux.Router
 			routeRecord   *repositories.RouteRecord
 		)
 
-		getRR := func() *httptest.ResponseRecorder { return rr }
-
 		BeforeEach(func() {
-			rr = httptest.NewRecorder()
-			router = mux.NewRouter()
-
 			routeRepo = new(fake.CFRouteRepository)
 			domainRepo := new(fake.CFDomainRepository)
 			appRepo = new(fake.CFAppRepository)
@@ -705,8 +696,6 @@ var _ = Describe("RouteHandler", func() {
 			}
 			routeRepo.FetchRouteReturns(*routeRecord, nil)
 
-			serverURL, err := url.Parse(defaultServerURL)
-			Expect(err).NotTo(HaveOccurred())
 			routeHandler := NewRouteHandler(
 				logf.Log.WithName("TestRouteHandler"),
 				*serverURL,
@@ -718,6 +707,7 @@ var _ = Describe("RouteHandler", func() {
 			)
 			routeHandler.RegisterRoutes(router)
 
+			var err error
 			req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s/destinations", testRouteGUID), nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -727,7 +717,6 @@ var _ = Describe("RouteHandler", func() {
 		})
 
 		When("On the happy path and", func() {
-
 			When("the Route has destinations", func() {
 				It("returns status 200 OK", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
@@ -831,7 +820,9 @@ var _ = Describe("RouteHandler", func() {
 				routeRepo.FetchRouteReturns(repositories.RouteRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
 			})
 
-			itRespondsWithNotFound("Route not found", getRR)
+			It("returns an error", func() {
+				expectNotFoundError("Route not found")
+			})
 		})
 
 		When("there is some other issue fetching the route", func() {
@@ -839,7 +830,9 @@ var _ = Describe("RouteHandler", func() {
 				routeRepo.FetchRouteReturns(repositories.RouteRecord{}, errors.New("unknown!"))
 			})
 
-			itRespondsWithUnknownError(getRR)
+			It("returns an errror", func() {
+				expectUnknownError()
+			})
 		})
 	})
 })
