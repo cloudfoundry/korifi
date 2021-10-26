@@ -182,6 +182,204 @@ var _ = Describe("RouteHandler", func() {
 		})
 	})
 
+	Describe("the GET /v3/routes endpoint", func() {
+		const (
+			testDomainGUID = "test-domain-guid"
+			testRouteGUID  = "test-route-guid"
+			testRouteHost  = "test-route-host"
+			testSpaceGUID  = "test-space-guid"
+		)
+
+		var (
+			routeRepo     *fake.CFRouteRepository
+			domainRepo    *fake.CFDomainRepository
+			appRepo       *fake.CFAppRepository
+			clientBuilder *fake.ClientBuilder
+
+			domainRecord *repositories.DomainRecord
+			routeRecord  *repositories.RouteRecord
+		)
+
+		BeforeEach(func() {
+
+			routeRepo = new(fake.CFRouteRepository)
+			domainRepo = new(fake.CFDomainRepository)
+			appRepo = new(fake.CFAppRepository)
+			clientBuilder = new(fake.ClientBuilder)
+
+			routeRecord = &repositories.RouteRecord{
+				GUID:      testRouteGUID,
+				SpaceGUID: testSpaceGUID,
+				DomainRef: repositories.DomainRecord{
+					GUID: testDomainGUID,
+				},
+				Host:         testRouteHost,
+				Path:         "/some_path",
+				Protocol:     "http",
+				Destinations: nil,
+				Labels:       nil,
+				Annotations:  nil,
+				CreatedAt:    "2019-05-10T17:17:48Z",
+				UpdatedAt:    "2019-05-10T17:17:48Z",
+			}
+			routeRepo.FetchRouteListReturns([]repositories.RouteRecord{
+				*routeRecord,
+			}, nil)
+
+			domainRecord = &repositories.DomainRecord{
+				GUID: testDomainGUID,
+				Name: "example.org",
+			}
+			domainRepo.FetchDomainReturns(*domainRecord, nil)
+
+			routeHandler := NewRouteHandler(
+				logf.Log.WithName("TestRouteHandler"),
+				*serverURL,
+				routeRepo,
+				domainRepo,
+				appRepo,
+				clientBuilder.Spy,
+				&rest.Config{}, // required for k8s client (transitive dependency from route repo)
+			)
+			routeHandler.RegisterRoutes(router)
+
+			var err error
+			req, err = http.NewRequest("GET", "/v3/routes", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		JustBeforeEach(func() {
+			router.ServeHTTP(rr, req)
+		})
+
+		When("on the happy path", func() {
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+			It("returns the Pagination Data and App Resources in the response", func() {
+				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+				"pagination": {
+					"total_results": 1,
+					"total_pages": 1,
+					"first": {
+						"href": "%[1]s/v3/routes?page=1"
+					},
+					"last": {
+						"href": "%[1]s/v3/routes?page=1"
+					},
+					"next": null,
+					"previous": null
+				},
+				"resources": [
+					{
+						"guid": "%[2]s",
+						"port": null,
+						"path": "%[3]s",
+						"protocol": "%[4]s",
+						"host": "%[5]s",
+						"url": "%[5]s.%[6]s%[3]s",
+						"created_at": "%[7]s",
+						"updated_at": "%[8]s",
+						"destinations": [],
+						"relationships": {
+							"space": {
+								"data": {
+									"guid": "%[9]s"
+								}
+							},
+							"domain": {
+								"data": {
+									"guid": "%[10]s"
+								}
+							}
+						},
+						"metadata": {
+							"labels": {},
+							"annotations": {}
+						},
+						"links": {
+							"self":{
+								"href": "%[1]s/v3/routes/%[2]s"
+							},
+							"space":{
+								"href": "%[1]s/v3/spaces/%[9]s"
+							},
+							"domain":{
+								"href": "%[1]s/v3/domains/%[10]s"
+							},
+							"destinations":{
+								"href": "%[1]s/v3/routes/%[2]s/destinations"
+							}
+						}
+					}
+				]
+				}`, defaultServerURL, routeRecord.GUID, routeRecord.Path, routeRecord.Protocol, routeRecord.Host, domainRecord.Name, routeRecord.CreatedAt, routeRecord.UpdatedAt, routeRecord.SpaceGUID, domainRecord.GUID)), "Response body matches response:")
+			})
+		})
+
+		When("no routes exist", func() {
+			BeforeEach(func() {
+				routeRepo.FetchRouteListReturns([]repositories.RouteRecord{}, nil)
+			})
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("returns an empty list in the response", func() {
+				expectedBody := fmt.Sprintf(`{
+					"pagination": {
+						"total_results": 0,
+						"total_pages": 1,
+						"first": {
+							"href": "%[1]s/v3/routes?page=1"
+						},
+						"last": {
+							"href": "%[1]s/v3/routes?page=1"
+						},
+						"next": null,
+						"previous": null
+					},
+					"resources": [
+					]
+				}`, defaultServerURL)
+
+				Expect(rr.Body.String()).To(MatchJSON(expectedBody), "Response body matches response:")
+			})
+		})
+
+		When("there is a failure Listing Routes", func() {
+			BeforeEach(func() {
+				routeRepo.FetchRouteListReturns([]repositories.RouteRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("there is a failure finding a Domain", func() {
+			BeforeEach(func() {
+				domainRepo.FetchDomainReturns(repositories.DomainRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
 	Describe("the POST /v3/routes endpoint", func() {
 		const (
 			testDomainGUID = "test-domain-guid"

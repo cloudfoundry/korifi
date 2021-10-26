@@ -28,6 +28,11 @@ type RouteResponse struct {
 	Links         routeLinks    `json:"links"`
 }
 
+type RouteListResponse struct {
+	PaginationData PaginationData  `json:"pagination"`
+	Resources      []RouteResponse `json:"resources"`
+}
+
 type RouteDestinationsResponse struct {
 	Destinations []routeDestination     `json:"destinations"`
 	Links        routeDestinationsLinks `json:"links"`
@@ -63,7 +68,7 @@ type routeDestinationsLinks struct {
 }
 
 func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
-	destinations := make([]routeDestination, len(route.Destinations))
+	destinations := make([]routeDestination, 0, len(route.Destinations))
 	for _, destinationRecord := range route.Destinations {
 		destinations = append(destinations, forDestination(destinationRecord))
 	}
@@ -109,6 +114,29 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 	}
 }
 
+func ForRouteList(routeRecordList []repositories.RouteRecord, baseURL url.URL) RouteListResponse {
+	routeResponses := make([]RouteResponse, 0, len(routeRecordList))
+	for _, routeRecord := range routeRecordList {
+		routeResponses = append(routeResponses, ForRoute(routeRecord, baseURL))
+	}
+
+	routeListResponse := RouteListResponse{
+		PaginationData: PaginationData{
+			TotalResults: len(routeResponses),
+			TotalPages:   1,
+			First: PageRef{
+				HREF: buildURL(baseURL).appendPath(routesBase).setQuery("page=1").build(),
+			},
+			Last: PageRef{
+				HREF: buildURL(baseURL).appendPath(routesBase).setQuery("page=1").build(),
+			},
+		},
+		Resources: routeResponses,
+	}
+
+	return routeListResponse
+}
+
 func forDestination(destination repositories.Destination) routeDestination {
 	return routeDestination{
 		GUID: destination.GUID,
@@ -125,7 +153,7 @@ func forDestination(destination repositories.Destination) routeDestination {
 }
 
 func ForRouteDestinations(route repositories.RouteRecord, baseURL url.URL) RouteDestinationsResponse {
-	destinations := []routeDestination{}
+	destinations := make([]routeDestination, 0, len(route.Destinations))
 	for _, destinationRecord := range route.Destinations {
 		destinations = append(destinations, forDestination(destinationRecord))
 	}

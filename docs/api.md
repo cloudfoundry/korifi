@@ -124,6 +124,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#processes
 | Resource | Endpoint |
 |--|--|
 | Get Route | GET /v3/routes/\<guid> |
+| Get Route List | GET /v3/routes |
 | Get Route Destinations | GET /v3/routes/\<guid>\destinations |
 | Create Route | POST /v3/routes |
 

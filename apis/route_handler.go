@@ -20,6 +20,7 @@ import (
 
 const (
 	RouteGetEndpoint             = "/v3/routes/{guid}"
+	RouteGetListEndpoint         = "/v3/routes"
 	RouteGetDestinationsEndpoint = "/v3/routes/{guid}/destinations"
 	RouteCreateEndpoint          = "/v3/routes"
 )
@@ -28,6 +29,7 @@ const (
 
 type CFRouteRepository interface {
 	FetchRoute(context.Context, client.Client, string) (repositories.RouteRecord, error)
+	FetchRouteList(context.Context, client.Client) ([]repositories.RouteRecord, error)
 	CreateRoute(context.Context, client.Client, repositories.RouteRecord) (repositories.RouteRecord, error)
 }
 
@@ -97,6 +99,27 @@ func (h *RouteHandler) routeGetHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(responseBody)
 }
 
+func (h *RouteHandler) routeGetListHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	routes, err := h.lookupRouteAndDomainList(ctx)
+	if err != nil {
+		h.logger.Error(err, "Failed to fetch route or domains from Kubernetes")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	responseBody, err := json.Marshal(presenter.ForRouteList(routes, h.serverURL))
+	if err != nil {
+		h.logger.Error(err, "Failed to render response")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	_, _ = w.Write(responseBody)
+}
+
 func (h *RouteHandler) routeGetDestinationsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
@@ -153,6 +176,38 @@ func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, routeGUID strin
 	route = route.UpdateDomainRef(domain)
 
 	return route, nil
+}
+
+func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context) ([]repositories.RouteRecord, error) {
+	// TODO: Instantiate config based on bearer token
+	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
+	client, err := h.buildClient(h.k8sConfig)
+	if err != nil {
+		return []repositories.RouteRecord{}, err
+	}
+
+	routeRecords, err := h.routeRepo.FetchRouteList(ctx, client)
+	if err != nil {
+		return []repositories.RouteRecord{}, err
+	}
+
+	domainGUIDToDomainRecord := make(map[string]repositories.DomainRecord)
+
+	for i, routeRecord := range routeRecords {
+		currentDomainGUID := routeRecord.DomainRef.GUID
+		domainRecord, has := domainGUIDToDomainRecord[currentDomainGUID]
+		if !has {
+			domainRecord, err = h.domainRepo.FetchDomain(ctx, client, currentDomainGUID)
+			if err != nil {
+				err = errors.New("resource not found for route's specified domain ref")
+				return []repositories.RouteRecord{}, err
+			}
+			domainGUIDToDomainRecord[currentDomainGUID] = domainRecord
+		}
+		routeRecords[i] = routeRecord.UpdateDomainRef(domainRecord)
+	}
+
+	return routeRecords, nil
 }
 
 func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -232,6 +287,7 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 
 func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(RouteGetEndpoint).Methods("GET").HandlerFunc(h.routeGetHandler)
+	router.Path(RouteGetListEndpoint).Methods("GET").HandlerFunc(h.routeGetListHandler)
 	router.Path(RouteGetDestinationsEndpoint).Methods("GET").HandlerFunc(h.routeGetDestinationsHandler)
 	router.Path(RouteCreateEndpoint).Methods("POST").HandlerFunc(h.routeCreateHandler)
 }

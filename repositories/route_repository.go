@@ -50,7 +50,19 @@ func (f *RouteRepo) FetchRoute(ctx context.Context, client client.Client, routeG
 	routeList := cfRouteList.Items
 	filteredRouteList := f.filterByRouteName(routeList, routeGUID)
 
-	return f.returnRoute(filteredRouteList)
+	toReturn, err := f.returnRoute(filteredRouteList)
+	return toReturn, err
+}
+
+func (f *RouteRepo) FetchRouteList(ctx context.Context, client client.Client) ([]RouteRecord, error) {
+	cfRouteList := &networkingv1alpha1.CFRouteList{}
+	err := client.List(ctx, cfRouteList)
+
+	if err != nil {
+		return []RouteRecord{}, err
+	}
+
+	return f.returnRouteList(cfRouteList.Items), nil
 }
 
 func (r RouteRecord) UpdateDomainRef(d DomainRecord) RouteRecord {
@@ -81,6 +93,15 @@ func (f *RouteRepo) returnRoute(routeList []networkingv1alpha1.CFRoute) (RouteRe
 	}
 
 	return cfRouteToRouteRecord(routeList[0]), nil
+}
+
+func (f *RouteRepo) returnRouteList(routeList []networkingv1alpha1.CFRoute) []RouteRecord {
+	routeRecords := make([]RouteRecord, 0, len(routeList))
+
+	for _, route := range routeList {
+		routeRecords = append(routeRecords, cfRouteToRouteRecord(route))
+	}
+	return routeRecords
 }
 
 func cfRouteToRouteRecord(cfRoute networkingv1alpha1.CFRoute) RouteRecord {
