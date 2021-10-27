@@ -1,7 +1,6 @@
 package repositories_test
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -36,7 +35,7 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
