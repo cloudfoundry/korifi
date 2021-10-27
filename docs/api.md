@@ -40,6 +40,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 | Set App's Current Droplet | PATCH /v3/apps/\<guid>/relationships/current_droplet |
 | Start App | POST /v3/apps/\<guid>/actions/start |
 | List App Processes | GET /v3/apps/\<guid>/processes |
+| List App Routes | GET /v3/apps/\<guid>/routes |
 
 #### [Creating Apps](https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#the-app-object)
 Note : `namespace` needs to exist before creating the app.

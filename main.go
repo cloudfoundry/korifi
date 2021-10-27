@@ -89,6 +89,8 @@ func main() {
 			new(repositories.AppRepo),
 			new(repositories.DropletRepo),
 			new(repositories.ProcessRepository),
+			new(repositories.RouteRepo),
+			new(repositories.DomainRepo),
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),

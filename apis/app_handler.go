@@ -27,6 +27,7 @@ const (
 	AppListEndpoint              = "/v3/apps"
 	AppSetCurrentDropletEndpoint = "/v3/apps/{guid}/relationships/current_droplet"
 	AppGetProcessesEndpoint      = "/v3/apps/{guid}/processes"
+	AppGetRoutesEndpoint         = "/v3/apps/{guid}/routes"
 	AppStartEndpoint             = "/v3/apps/{guid}/actions/start"
 	invalidDropletMsg            = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
@@ -50,6 +51,8 @@ type AppHandler struct {
 	appRepo     CFAppRepository
 	dropletRepo CFDropletRepository
 	processRepo CFProcessRepository
+	routeRepo   CFRouteRepository
+	domainRepo  CFDomainRepository
 	buildClient ClientBuilder
 	k8sConfig   *rest.Config // TODO: this would be global for all requests, not what we want
 }
@@ -60,6 +63,8 @@ func NewAppHandler(
 	appRepo CFAppRepository,
 	dropletRepo CFDropletRepository,
 	processRepo CFProcessRepository,
+	routeRepo CFRouteRepository,
+	domainRepo CFDomainRepository,
 	buildClient ClientBuilder,
 	k8sConfig *rest.Config) *AppHandler {
 	return &AppHandler{
@@ -68,6 +73,8 @@ func NewAppHandler(
 		appRepo:     appRepo,
 		dropletRepo: dropletRepo,
 		processRepo: processRepo,
+		routeRepo:   routeRepo,
+		domainRepo:  domainRepo,
 		buildClient: buildClient,
 		k8sConfig:   k8sConfig,
 	}
@@ -399,6 +406,63 @@ func (h *AppHandler) getProcessesForAppHandler(w http.ResponseWriter, r *http.Re
 	w.Write(responseBody)
 }
 
+func (h *AppHandler) getRoutesForAppHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+
+	// TODO: Instantiate config based on bearer token
+	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
+	client, err := h.buildClient(h.k8sConfig)
+	if err != nil {
+		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	app, err := h.appRepo.FetchApp(ctx, client, appGUID)
+	if err != nil {
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("App not found", "AppGUID", appGUID)
+			writeNotFoundErrorResponse(w, "App")
+			return
+		default:
+			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	routes, err := h.lookupAppRouteAndDomainList(ctx, client, app.GUID, app.SpaceGUID)
+	if err != nil {
+		h.logger.Error(err, "Failed to fetch route or domains from Kubernetes")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	responseBody, err := json.Marshal(presenter.ForAppRouteList(routes, h.serverURL, app.GUID))
+	if err != nil {
+		h.logger.Error(err, "Failed to render response")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	w.Write(responseBody)
+}
+
+func (h *AppHandler) lookupAppRouteAndDomainList(ctx context.Context, client client.Client, appGUID, spaceGUID string) ([]repositories.RouteRecord, error) {
+
+	routeRecords, err := h.routeRepo.FetchRoutesForApp(ctx, client, appGUID, spaceGUID)
+	if err != nil {
+		return []repositories.RouteRecord{}, err
+	}
+
+	return getDomainsForRoutes(ctx, h.domainRepo, client, routeRecords)
+}
+
 func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(AppGetEndpoint).Methods("GET").HandlerFunc(h.appGetHandler)
 	router.Path(AppListEndpoint).Methods("GET").HandlerFunc(h.appListHandler)
@@ -406,4 +470,5 @@ func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(AppSetCurrentDropletEndpoint).Methods("PATCH").HandlerFunc(h.appSetCurrentDropletHandler)
 	router.Path(AppStartEndpoint).Methods("POST").HandlerFunc(h.appStartHandler)
 	router.Path(AppGetProcessesEndpoint).Methods("GET").HandlerFunc(h.getProcessesForAppHandler)
+	router.Path(AppGetRoutesEndpoint).Methods("GET").HandlerFunc(h.getRoutesForAppHandler)
 }

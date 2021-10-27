@@ -30,6 +30,8 @@ var _ = Describe("AppHandler", func() {
 		appRepo       *fake.CFAppRepository
 		dropletRepo   *fake.CFDropletRepository
 		processRepo   *fake.CFProcessRepository
+		routeRepo     *fake.CFRouteRepository
+		domainRepo    *fake.CFDomainRepository
 		clientBuilder *fake.ClientBuilder
 	)
 
@@ -37,6 +39,8 @@ var _ = Describe("AppHandler", func() {
 		appRepo = new(fake.CFAppRepository)
 		dropletRepo = new(fake.CFDropletRepository)
 		processRepo = new(fake.CFProcessRepository)
+		routeRepo = new(fake.CFRouteRepository)
+		domainRepo = new(fake.CFDomainRepository)
 		clientBuilder = new(fake.ClientBuilder)
 
 		apiHandler := NewAppHandler(
@@ -45,6 +49,8 @@ var _ = Describe("AppHandler", func() {
 			appRepo,
 			dropletRepo,
 			processRepo,
+			routeRepo,
+			domainRepo,
 			clientBuilder.Spy,
 			&rest.Config{},
 		)
@@ -1364,6 +1370,193 @@ var _ = Describe("AppHandler", func() {
 			When("there is some error fetching the app's processes", func() {
 				BeforeEach(func() {
 					processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{}, errors.New("unknown!"))
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
+			})
+		})
+	})
+
+	Describe("the GET /v3/apps/:guid/routes endpoint", func() {
+		const (
+			testDomainGUID = "test-domain-guid"
+			testRouteGUID  = "test-route-guid"
+			testRouteHost  = "test-route-host"
+			testSpaceGUID  = "test-space-guid"
+		)
+
+		var (
+			route1Record *repositories.RouteRecord
+
+			domainRecord *repositories.DomainRecord
+		)
+
+		BeforeEach(func() {
+			appRepo.FetchAppReturns(repositories.AppRecord{GUID: appGUID, SpaceGUID: testSpaceGUID}, nil)
+
+			routeRecord := repositories.RouteRecord{
+				GUID:      testRouteGUID,
+				SpaceGUID: testSpaceGUID,
+				DomainRef: repositories.DomainRecord{
+					GUID: testDomainGUID,
+				},
+
+				Host:         testRouteHost,
+				Path:         "/some_path",
+				Protocol:     "http",
+				Destinations: nil,
+				Labels:       nil,
+				Annotations:  nil,
+				CreatedAt:    "2019-05-10T17:17:48Z",
+				UpdatedAt:    "2019-05-10T17:17:48Z",
+			}
+
+			route1Record = &routeRecord
+			routeRepo.FetchRoutesForAppReturns([]repositories.RouteRecord{
+				routeRecord,
+			}, nil)
+
+			domainRecord = &repositories.DomainRecord{
+				GUID: testDomainGUID,
+				Name: "example.org",
+			}
+			domainRepo.FetchDomainReturns(*domainRecord, nil)
+
+			var err error
+			req, err = http.NewRequest("GET", "/v3/apps/"+appGUID+"/routes", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("on the happy path and", func() {
+			When("the App has associated routes", func() {
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				})
+
+				It("returns the Pagination Data and App Resources in the response", func() {
+					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+						"pagination": {
+							"total_results": 1,
+							"total_pages": 1,
+							"first": {
+								"href": "%[1]s/v3/apps/%[2]s/routes?page=1"
+							},
+							"last": {
+								"href": "%[1]s/v3/apps/%[2]s/routes?page=1"
+							},
+							"next": null,
+							"previous": null
+						},
+						"resources": [
+							{
+								"guid": "%[3]s",
+								"port": null,
+								"path": "%[4]s",
+								"protocol": "%[5]s",
+								"host": "%[6]s",
+								"url": "%[6]s.%[7]s%[4]s",
+								"created_at": "%[8]s",
+								"updated_at": "%[9]s",
+								"destinations": [],
+								"relationships": {
+									"space": {
+										"data": {
+											"guid": "%[10]s"
+										}
+									},
+									"domain": {
+										"data": {
+											"guid": "%[11]s"
+										}
+									}
+								},
+								"metadata": {
+									"labels": {},
+									"annotations": {}
+								},
+								"links": {
+									"self":{
+										"href": "%[1]s/v3/routes/%[3]s"
+									},
+									"space":{
+										"href": "%[1]s/v3/spaces/%[10]s"
+									},
+									"domain":{
+										"href": "%[1]s/v3/domains/%[11]s"
+									},
+									"destinations":{
+										"href": "%[1]s/v3/routes/%[3]s/destinations"
+									}
+								}
+							}
+						]
+					}`, defaultServerURL, appGUID, route1Record.GUID, route1Record.Path, route1Record.Protocol, route1Record.Host, domainRecord.Name, route1Record.CreatedAt, route1Record.UpdatedAt, route1Record.SpaceGUID, domainRecord.GUID)), "Response body matches response:")
+				})
+			})
+
+			When("The App does not have associated routes", func() {
+				BeforeEach(func() {
+					routeRepo.FetchRoutesForAppReturns([]repositories.RouteRecord{}, nil)
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns a response with an empty resources array", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+					Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
+						"pagination": {
+						  "total_results": 0,
+						  "total_pages": 1,
+						  "first": {
+							"href": "%[1]s/v3/apps/%[2]s/routes?page=1"
+						  },
+						  "last": {
+							"href": "%[1]s/v3/apps/%[2]s/routes?page=1"
+						  },
+						  "next": null,
+						  "previous": null
+						},
+						"resources": []
+					}`, defaultServerURL, appGUID)), "Response body matches response:")
+				})
+			})
+		})
+
+		When("on the sad path and", func() {
+			When("the app cannot be found", func() {
+				BeforeEach(func() {
+					appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				})
+
+				It("returns an error", func() {
+					expectNotFoundError("App not found")
+				})
+			})
+
+			When("there is some other error fetching the app", func() {
+				BeforeEach(func() {
+					appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
+			})
+
+			When("there is some error fetching the app's routes", func() {
+				BeforeEach(func() {
+					routeRepo.FetchRoutesForAppReturns([]repositories.RouteRecord{}, errors.New("unknown!"))
 				})
 
 				It("returns an error", func() {

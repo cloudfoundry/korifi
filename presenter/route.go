@@ -137,6 +137,29 @@ func ForRouteList(routeRecordList []repositories.RouteRecord, baseURL url.URL) R
 	return routeListResponse
 }
 
+func ForAppRouteList(routeRecordList []repositories.RouteRecord, baseURL url.URL, appGUID string) RouteListResponse {
+	routeResponses := make([]RouteResponse, 0, len(routeRecordList))
+	for _, routeRecord := range routeRecordList {
+		routeResponses = append(routeResponses, ForRoute(routeRecord, baseURL))
+	}
+
+	routeListResponse := RouteListResponse{
+		PaginationData: PaginationData{
+			TotalResults: len(routeResponses),
+			TotalPages:   1,
+			First: PageRef{
+				HREF: buildURL(baseURL).appendPath(appsBase, appGUID, "routes").setQuery("page=1").build(),
+			},
+			Last: PageRef{
+				HREF: buildURL(baseURL).appendPath(appsBase, appGUID, "routes").setQuery("page=1").build(),
+			},
+		},
+		Resources: routeResponses,
+	}
+
+	return routeListResponse
+}
+
 func forDestination(destination repositories.Destination) routeDestination {
 	return routeDestination{
 		GUID: destination.GUID,

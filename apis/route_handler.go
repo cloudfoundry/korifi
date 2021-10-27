@@ -30,6 +30,7 @@ const (
 type CFRouteRepository interface {
 	FetchRoute(context.Context, client.Client, string) (repositories.RouteRecord, error)
 	FetchRouteList(context.Context, client.Client) ([]repositories.RouteRecord, error)
+	FetchRoutesForApp(context.Context, client.Client, string, string) ([]repositories.RouteRecord, error)
 	CreateRoute(context.Context, client.Client, repositories.RouteRecord) (repositories.RouteRecord, error)
 }
 
@@ -191,13 +192,17 @@ func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context) ([]reposito
 		return []repositories.RouteRecord{}, err
 	}
 
-	domainGUIDToDomainRecord := make(map[string]repositories.DomainRecord)
+	return getDomainsForRoutes(ctx, h.domainRepo, client, routeRecords)
+}
 
+func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, client client.Client, routeRecords []repositories.RouteRecord) ([]repositories.RouteRecord, error) {
+	domainGUIDToDomainRecord := make(map[string]repositories.DomainRecord)
 	for i, routeRecord := range routeRecords {
 		currentDomainGUID := routeRecord.DomainRef.GUID
 		domainRecord, has := domainGUIDToDomainRecord[currentDomainGUID]
 		if !has {
-			domainRecord, err = h.domainRepo.FetchDomain(ctx, client, currentDomainGUID)
+			var err error
+			domainRecord, err = domainRepo.FetchDomain(ctx, client, currentDomainGUID)
 			if err != nil {
 				err = errors.New("resource not found for route's specified domain ref")
 				return []repositories.RouteRecord{}, err

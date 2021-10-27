@@ -65,6 +65,17 @@ func (f *RouteRepo) FetchRouteList(ctx context.Context, client client.Client) ([
 	return f.returnRouteList(cfRouteList.Items), nil
 }
 
+func (f *RouteRepo) FetchRoutesForApp(ctx context.Context, k8sClient client.Client, appGUID string, spaceGUID string) ([]RouteRecord, error) {
+	cfRouteList := &networkingv1alpha1.CFRouteList{}
+	err := k8sClient.List(ctx, cfRouteList, client.InNamespace(spaceGUID))
+	if err != nil {
+		return []RouteRecord{}, err
+	}
+	filteredRouteList := f.filterByAppDestination(cfRouteList.Items, appGUID)
+
+	return f.returnRouteList(filteredRouteList), nil
+}
+
 func (r RouteRecord) UpdateDomainRef(d DomainRecord) RouteRecord {
 	r.DomainRef = d
 
@@ -77,6 +88,24 @@ func (f *RouteRepo) filterByRouteName(routeList []networkingv1alpha1.CFRoute, na
 	for i, route := range routeList {
 		if route.Name == name {
 			filtered = append(filtered, routeList[i])
+		}
+	}
+
+	return filtered
+}
+
+func (f *RouteRepo) filterByAppDestination(routeList []networkingv1alpha1.CFRoute, appGUID string) []networkingv1alpha1.CFRoute {
+	var filtered []networkingv1alpha1.CFRoute
+
+	for i, route := range routeList {
+		if len(route.Spec.Destinations) == 0 {
+			continue
+		}
+		for _, destination := range route.Spec.Destinations {
+			if destination.AppRef.Name == appGUID {
+				filtered = append(filtered, routeList[i])
+				break
+			}
 		}
 	}
 
