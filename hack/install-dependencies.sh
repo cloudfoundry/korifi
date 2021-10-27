@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DEP_DIR="$(cd "${SCRIPT_DIR}/../dependencies" && pwd)"
 
 function usage_text() {
   cat <<EOF
@@ -41,50 +44,117 @@ echo "Installing Cert Manager"
 echo "*************************"
 
 # Install Cert Manager
-kubectl apply -f dependencies/cert-manager.yaml
+kubectl apply -f "${DEP_DIR}/cert-manager.yaml"
 
 echo "*******************"
 echo "Installing Kpack"
 echo "*******************"
 
-kubectl apply -f dependencies/kpack-release-0.3.1.yaml
+kubectl apply -f "${DEP_DIR}/kpack-release-0.3.1.yaml"
 
 echo "*******************"
 echo "Configuring Kpack"
 echo "*******************"
 
-if [[ -n "${GCP_SERVICE_ACCOUNT_JSON_FILE}" ]]; then
-  # For GCR with a json key, DOCKER_USERNAME is `_json_key`
-  DOCKER_USERNAME=${DOCKER_USERNAME:-"_json_key"}
-  DOCKER_PASSWORD=${DOCKER_PASSWORD:-"$(cat $GCP_SERVICE_ACCOUNT_JSON_FILE)"}
-  DOCKER_SERVER=${DOCKER_SERVER:-"gcr.io"}
+if [[ -n "${GCP_SERVICE_ACCOUNT_JSON_FILE:=}" ]]; then
+  DOCKER_SERVER="gcr.io"
+  DOCKER_USERNAME="_json_key"
+  DOCKER_PASSWORD="$(cat ${GCP_SERVICE_ACCOUNT_JSON_FILE})"
+fi
+
+if [[ -n "${DOCKER_SERVER:=}" && -n "${DOCKER_USERNAME:=}" && -n "${DOCKER_PASSWORD:=}" ]]; then
+  if kubectl get secret image-registry-credentials >/dev/null 2>&1; then
+    kubectl delete secret image-registry-credentials
+  fi
 
   kubectl create secret docker-registry image-registry-credentials \
-      --docker-username=$DOCKER_USERNAME --docker-password="$DOCKER_PASSWORD" --docker-server=$DOCKER_SERVER --namespace default || true
-  # kubectl create secret docker-registry image-registry-credentials --docker-username="_json_key" --docker-password="$(cat /home/birdrock/workspace/credentials/cf-relint-greengrass-2826975617b2.json)" --docker-server=gcr.io --namespace default
+      --docker-server=${DOCKER_SERVER} \
+      --docker-username=${DOCKER_USERNAME} \
+      --docker-password="${DOCKER_PASSWORD}"
 fi
 
 kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterbuilders.kpack.io
 kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstores.kpack.io
 kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstacks.kpack.io
 
-kubectl apply -f config/kpack/service_account.yaml \
-    -f config/kpack/cluster_stack.yaml \
-    -f config/kpack/cluster_store.yaml \
-    -f config/kpack/cluster_builder.yaml
+kubectl apply -f "${DEP_DIR}/kpack/service_account.yaml" \
+    -f "${DEP_DIR}/kpack/cluster_stack.yaml" \
+    -f "${DEP_DIR}/kpack/cluster_store.yaml" \
+    -f "${DEP_DIR}/kpack/cluster_builder.yaml"
 
 echo "*******************"
 echo "Installing Contour"
 echo "*******************"
 
-kubectl apply -f dependencies/contour-1.18.2.yaml
+kubectl apply -f "${DEP_DIR}/contour-1.18.2.yaml"
 
+echo "*******************"
+echo "Installing HNC"
+echo "*******************"
 
-echo "***************************"
-echo "Installing Eirini LRP CRD"
-echo "***************************"
+readonly HNC_VERSION="v0.8.0"
+readonly HNC_PLATFORM="$(go env GOHOSTOS)_$(go env GOHOSTARCH)"
+readonly HNC_BIN="${PWD}/bin"
+export PATH="${HNC_BIN}:${PATH}"
 
-kubectl apply -f dependencies/lrp-crd.yaml
+mkdir -p "${HNC_BIN}"
+curl -L "https://github.com/kubernetes-sigs/multi-tenancy/releases/download/hnc-${HNC_VERSION}/kubectl-hns_${HNC_PLATFORM}" -o "${HNC_BIN}/kubectl-hns"
+chmod +x "${HNC_BIN}/kubectl-hns"
+
+kubectl label ns kube-system hnc.x-k8s.io/excluded-namespace=true --overwrite
+kubectl label ns kube-public hnc.x-k8s.io/excluded-namespace=true --overwrite
+kubectl label ns kube-node-lease hnc.x-k8s.io/excluded-namespace=true --overwrite
+kubectl apply -f "https://github.com/kubernetes-sigs/multi-tenancy/releases/download/hnc-${HNC_VERSION}/hnc-manager.yaml"
+kubectl rollout status deployment/hnc-controller-manager -w -n hnc-system
+
+# Hierarchical namespace controller is quite asynchronous. There is no
+# guarantee that the operations below would succeed on first invocation,
+# so retry until they do.
+echo -n waiting for hns controller to be ready and servicing validating webhooks
+until kubectl create namespace ping-hnc; do
+  echo -n .
+  sleep 0.5
+done
+until kubectl hns create -n ping-hnc ping-hnc-child; do
+  echo -n .
+  sleep 0.5
+done
+until kubectl get namespace ping-hnc-child; do
+  echo -n .
+  sleep 0.5
+done
+until kubectl hns set --allowCascadingDeletion ping-hnc; do
+  echo -n .
+  sleep 0.5
+done
+until kubectl delete namespace ping-hnc --wait=false; do
+  echo -n .
+  sleep 0.5
+done
+echo
+
+# The eirini controller requires a service account and rolebinding, which are
+# used by the statefulset controller to be able to create pods
+kubectl hns config set-resource serviceaccounts --mode Propagate
+
+echo "*******************"
+echo "Installing Eirini"
+echo "*******************"
+
+## Assumes eirini-controller repository is available at the same level as this project's repository in the filesystem
+EIRINI_DIR="$(cd "$(dirname "$0")/../../eirini-controller" && pwd)"
+
+"${SCRIPT_DIR}/generate-eirini-certs-secret.sh" "*.eirini-controller.svc"
+
+webhooks_ca_bundle="$(kubectl get secret -n eirini-controller eirini-webhooks-certs -o jsonpath="{.data['tls\.ca']}")"
+
+# Install image built based on eirini-controller/main@c048d6
+helm template eirini-controller "${EIRINI_DIR}/deployment/helm" \
+  --set "webhooks.ca_bundle=${webhooks_ca_bundle}" \
+  --set "workloads.create_namespaces=true" \
+  --set "workloads.default_namespace=cf" \
+  --set "images.eirini_controller=eirini/eirini-controller@sha256:4dc6547537e30d778e81955065686b6d4d6162821f1ce29f7b80b3aefe20afb3" \
+  --namespace "eirini-controller" | kubectl apply -f -
 
 echo "******"
 echo "Done"

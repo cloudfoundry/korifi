@@ -5,11 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/fake"
-
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	config "code.cloudfoundry.org/cf-k8s-controllers/config/base"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/fake"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	. "github.com/onsi/ginkgo"
@@ -48,8 +47,10 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 		CRDInstallOptions: envtest.CRDInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "..", "dependencies", "kpack-release-0.3.1.yaml"),
-				filepath.Join("..", "..", "..", "dependencies", "lrp-crd.yaml")},
+			Paths: []string{
+				filepath.Join("..", "..", "..", "dependencies", "kpack-release-0.3.1.yaml"),
+				filepath.Join("fixtures", "lrp-crd.yaml"),
+			},
 		},
 	}
 

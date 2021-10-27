@@ -4,20 +4,17 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/apimachinery/pkg/labels"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/testutils"
-	corev1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("CFAppReconciler", func() {
@@ -29,19 +26,19 @@ var _ = Describe("CFAppReconciler", func() {
 
 		It("sets its status.conditions", func() {
 			ctx := context.Background()
-			cfApp := &v1alpha1.CFApp{
+			cfApp := &workloadsv1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
 					Namespace: namespace,
 				},
-				Spec: v1alpha1.CFAppSpec{
+				Spec: workloadsv1alpha1.CFAppSpec{
 					Name:         "test-app",
 					DesiredState: "STOPPED",
-					Lifecycle: v1alpha1.Lifecycle{
+					Lifecycle: workloadsv1alpha1.Lifecycle{
 						Type: "buildpack",
 					},
 				},
@@ -49,7 +46,7 @@ var _ = Describe("CFAppReconciler", func() {
 			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 
 			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespace}
-			createdCFApp := new(v1alpha1.CFApp)
+			createdCFApp := new(workloadsv1alpha1.CFApp)
 
 			Eventually(func() []metav1.Condition {
 				err := k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)
