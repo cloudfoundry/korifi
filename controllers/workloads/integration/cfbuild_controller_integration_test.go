@@ -206,7 +206,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			Expect(k8sClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
 
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
-			desiredCFPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{corev1.LocalObjectReference{Name: wellFormedRegistryCredentialsSecret}}
+			desiredCFPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: wellFormedRegistryCredentialsSecret}}
 			Expect(k8sClient.Create(beforeCtx, desiredCFPackage)).To(Succeed())
 
 			desiredCFBuild = BuildCFBuildObject(cfBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)

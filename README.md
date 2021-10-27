@@ -20,25 +20,35 @@ kubectl apply -f dependencies/cert-manager.yaml
 ```
 
 ### Install Kpack
+To deploy cf-k8s-controller and run it in a cluster, you must first [install kpack](https://github.com/pivotal/kpack/blob/main/docs/install.md)
+```
+kubectl apply -f https://github.com/pivotal/kpack/releases/download/v0.3.1/release-0.3.1.yaml
+```
+Or
+```
+kubectl apply -f dependencies/kpack-release-0.3.1.yaml
+```
 
+#### Configure an Image Registry Credentials Secret
 Edit the file: `config/kpack/cluster_builder.yaml` and set the `tag` field to be the registry location you want your ClusterBuilder image to be uploaded to.
 
-Run the commands below substituting the values for the Docker credentials to the registry where images will be uploaded to.
+Run the command below, substituting the values for the Docker credentials to the registry where images will be uploaded to.
 ```
 kubectl create secret docker-registry image-registry-credentials \
     --docker-username="<DOCKER_USERNAME>" \
     --docker-password="<DOCKER_PASSWORD>" \
      --docker-server="<DOCKER_SERVER>" --namespace default
+```
 
-kubectl apply -f dependencies/kpack-release-0.3.1.yaml
-kubectl apply -f config/kpack/service_account.yaml \
-    -f config/kpack/cluster_stack.yaml \
-    -f config/kpack/cluster_store.yaml \
-    -f config/kpack/cluster_builder.yaml
+#### Configure a Default Builder
+```
+kubectl apply -f dependencies/kpack/service_account.yaml \
+    -f dependencies/kpack/cluster_stack.yaml \
+    -f dependencies/kpack/cluster_store.yaml \
+    -f dependencies/kpack/cluster_builder.yaml
 ```
 
 ### Install Contour and Envoy
-
 To deploy cf-k8s-controller and run it in a cluster, you must first [install contour](https://projectcontour.io/getting-started/) 
 ```
 kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
@@ -49,15 +59,40 @@ kubectl apply -f dependencies/contour-1.18.2.yaml
 
 ```
 
-### Configure Ingress
+#### Configure Ingress
 To enable external access to workloads running on the cluster, you must configure ingress. Generally, a load balancer service will route traffic to the cluster with an external IP and an ingress controller will route the traffic based on domain name or the Host header.
 
 Provisioning a load balancer service is generally handled automatically by Contour, given the cluster infrastructure provider supports load balancer services. When a load balancer service is reconciled, it is assigned an external IP by the infrastructure provider. The external IP is visible on the Service resource itself via `kubectl get service envoy -n projectcontour -o wide`. You can use that external IP to define a DNS A record to route traffic based on your desired domain name.
 
 With the load balancer provisioned, you must configure the ingress controller to route traffic based on your desired domain/host name. For Contour, this configuration goes on an HTTPProxy, for which we have a default resource defined to route traffic to the [CF API](https://github.com/cloudfoundry/cf-k8s-api).
 
-### Domain management
+#### Domain Management
 To be able to create workload routes via the [CF API](https://github.com/cloudfoundry/cf-k8s-api) in the absence of the domain management endpoints, you must first create the appropriate `CFDomain` resource(s) for your cluster. Each desired domain name should be specified via the `spec.name` property of a distinct resource. The `metadata.name` for the resource can be set to any unique value (the API will use a GUID). See `config/samples/cfdomain.yaml` for an example.
+
+### Install Eirini-Controller
+To deploy cf-k8s-controller and run it in a cluster, you must first install eirini-controller.
+
+#### Configure a Controller Certificate
+Eirini-controller requires a certificate for the controller and webhook. Taken from a script in the eirini-controller repo:
+```
+openssl req -x509 -newkey rsa:4096 -keyout tls.key -out tls.crt -nodes -subj '/CN=localhost' -addext "subjectAltName = DNS:*.eirini-controller.svc, DNS:*.eirini-controller.svc.cluster.local" -days 365
+
+kubectl create secret -n eirini-controller generic eirini-webhooks-cert --from-file=tls.crt=./tls.crt --from-file=tls.ca=./tls.crt --from-file=tls.key=./tls.key
+```
+
+#### Install
+Clone the eirini-controller repo and go to its root directory, render the Helm chart, and apply it. In this case we use the image built based on the latest commit of main at the time of authoring.
+```
+# Set the certificate authority value for the eirini installation
+export webhooks_ca_bundle="$(kubectl get secret -n eirini-controller eirini-webhooks-certs -o jsonpath="{.data['tls\.ca']}")"
+# Run from the eirini-controller repository root
+helm template eirini-controller deployment/helm \
+  --set "webhooks.ca_bundle=${webhooks_ca_bundle}" \
+  --set "workloads.create_namespaces=true" \
+  --set "workloads.default_namespace=cf" \
+  --set "images.eirini_controller=eirini/eirini-controller@sha256:4dc6547537e30d778e81955065686b6d4d6162821f1ce29f7b80b3aefe20afb3" \
+  --namespace "eirini-controller" | kubectl apply -f -
+```
 
 ---
 # Development Workflow
