@@ -64,6 +64,10 @@ if [[ -n "${GCP_SERVICE_ACCOUNT_JSON_FILE}" ]]; then
   # kubectl create secret docker-registry image-registry-credentials --docker-username="_json_key" --docker-password="$(cat /home/birdrock/workspace/credentials/cf-relint-greengrass-2826975617b2.json)" --docker-server=gcr.io --namespace default
 fi
 
+kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterbuilders.kpack.io
+kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstores.kpack.io
+kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstacks.kpack.io
+
 kubectl apply -f config/kpack/service_account.yaml \
     -f config/kpack/cluster_stack.yaml \
     -f config/kpack/cluster_store.yaml \
