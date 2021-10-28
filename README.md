@@ -103,10 +103,12 @@ Clone the eirini-controller repo and go to its root directory, render the Helm c
 # Set the certificate authority value for the eirini installation
 export webhooks_ca_bundle="$(kubectl get secret -n eirini-controller eirini-webhooks-certs -o jsonpath="{.data['tls\.ca']}")"
 # Run from the eirini-controller repository root
-helm template eirini-controller deployment/helm \
+helm template eirini-controller "deployment/helm" \
+  --values "deployment/helm/values-template.yaml"
   --set "webhooks.ca_bundle=${webhooks_ca_bundle}" \
   --set "workloads.create_namespaces=true" \
   --set "workloads.default_namespace=cf" \
+  --set "controller.registry_secret_name=image-registry-credentials" \
   --set "images.eirini_controller=eirini/eirini-controller@sha256:4dc6547537e30d778e81955065686b6d4d6162821f1ce29f7b80b3aefe20afb3" \
   --namespace "eirini-controller" | kubectl apply -f -
 ```
