@@ -57,7 +57,6 @@ deploy_cf_k8s_controllers() {
 deploy_cf_k8s_api() {
   pushd "$API_DIR"
   {
-    make hnc-install
     local uuid
     uuid="$(uuidgen)"
     export IMG="cf-k8s-api:$uuid"
