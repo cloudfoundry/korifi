@@ -1660,6 +1660,27 @@ webhooks:
     service:
       name: cf-k8s-controllers-webhook-service
       namespace: cf-k8s-controllers-system
+      path: /mutate-networking-cloudfoundry-org-v1alpha1-cfroute
+  failurePolicy: Fail
+  name: mcfroute.kb.io
+  rules:
+  - apiGroups:
+    - networking.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfroutes
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: cf-k8s-controllers-webhook-service
+      namespace: cf-k8s-controllers-system
       path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfapp
   failurePolicy: Fail
   name: mcfapp.kb.io

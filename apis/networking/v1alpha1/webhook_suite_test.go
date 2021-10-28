@@ -9,5 +9,5 @@ import (
 
 func TestWorkloadsMutatingWebhooks(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Workloads Mutating Webhooks Unit Test Suite")
+	RunSpecs(t, "Networking Mutating Webhooks Unit Test Suite")
 }
