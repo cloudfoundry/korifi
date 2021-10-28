@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("CFBuildAppWebhook Unit Tests", func() {
+var _ = Describe("CFAppMutatingWebhook Unit Tests", func() {
 	const (
 		cfAppGUID     = "test-app-guid"
 		cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"

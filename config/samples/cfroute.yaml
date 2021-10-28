@@ -2,9 +2,6 @@ apiVersion: networking.cloudfoundry.org/v1alpha1
 kind: CFRoute
 metadata:
   name: 84afc0f2-3dc2-4709-9fc8-8340be584a43
-  # workloads.cloudfoundry.org/ labels are all managed by a mutating webhook
-  labels:
-    workloads.cloudfoundry.org/routeGUID: 84afc0f2-3dc2-4709-9fc8-8340be584a43
 spec:
   host: my-host
   path: /
@@ -18,4 +15,3 @@ spec:
       appRef:
         name: 745cfe64-ac7a-4d4a-a627-c481e8f03be8
       processType: web
-

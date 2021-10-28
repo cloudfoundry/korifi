@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("CFBuildAppWebhook Integration Tests", func() {
+var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 	When("a CFApp record is created", func() {
 		const (
 			cfAppLabelKey = "workloads.cloudfoundry.org/app-guid"

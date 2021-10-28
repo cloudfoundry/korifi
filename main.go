@@ -205,6 +205,11 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "SubnamespaceAnchors")
 			os.Exit(1)
 		}
+
+		if err = (&networkingv1alpha1.CFRoute{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
+			os.Exit(1)
+		}
 	} else {
 		setupLog.Info("Skipping webhook setup because ENABLE_WEBHOOKS set to false.")
 	}
