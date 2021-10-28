@@ -107,35 +107,27 @@ kubectl label ns kube-node-lease hnc.x-k8s.io/excluded-namespace=true --overwrit
 kubectl apply -f "https://github.com/kubernetes-sigs/multi-tenancy/releases/download/hnc-${HNC_VERSION}/hnc-manager.yaml"
 kubectl rollout status deployment/hnc-controller-manager -w -n hnc-system
 
+retry() {
+  until $@; do
+    echo -n .
+    sleep 1
+  done
+  echo
+}
+
 # Hierarchical namespace controller is quite asynchronous. There is no
 # guarantee that the operations below would succeed on first invocation,
 # so retry until they do.
 echo -n waiting for hns controller to be ready and servicing validating webhooks
-until kubectl create namespace ping-hnc; do
-  echo -n .
-  sleep 0.5
-done
-until kubectl hns create -n ping-hnc ping-hnc-child; do
-  echo -n .
-  sleep 0.5
-done
-until kubectl get namespace ping-hnc-child; do
-  echo -n .
-  sleep 0.5
-done
-until kubectl hns set --allowCascadingDeletion ping-hnc; do
-  echo -n .
-  sleep 0.5
-done
-until kubectl delete namespace ping-hnc --wait=false; do
-  echo -n .
-  sleep 0.5
-done
-echo
+retry kubectl create namespace ping-hnc
+retry kubectl hns create -n ping-hnc ping-hnc-child
+retry kubectl get namespace ping-hnc-child
+retry kubectl hns set --allowCascadingDeletion ping-hnc
+retry kubectl delete namespace ping-hnc --wait=false
 
 # The eirini controller requires a service account and rolebinding, which are
 # used by the statefulset controller to be able to create pods
-kubectl hns config set-resource serviceaccounts --mode Propagate
+retry kubectl hns config set-resource serviceaccounts --mode Propagate
 
 echo "*******************"
 echo "Installing Eirini"
