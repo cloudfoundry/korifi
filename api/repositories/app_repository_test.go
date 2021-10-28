@@ -196,7 +196,7 @@ var _ = Describe("AppRepository", func() {
 			It("returns an error", func() {
 				_, err := appRepo.FetchApp(testCtx, client, "i don't exist")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(NotFoundError{}))
+				Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
 			})
 		})
 	})

@@ -41,6 +41,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 | Start App | POST /v3/apps/\<guid>/actions/start |
 | Stop App | POST /v3/apps/\<guid>/actions/stop |
 | List App Processes | GET /v3/apps/\<guid>/processes |
+| Scale App Process | POST /v3/apps/<guid>/processes/<type>/actions/scale |
 | List App Routes | GET /v3/apps/\<guid>/routes |
 
 #### [Creating Apps](https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#the-app-object)
@@ -57,6 +58,14 @@ curl "http://localhost:9000/v3/apps/<app-guid>/relationships/current_droplet" \
   -X PATCH \
   -d '{"data":{"guid":"<droplet-guid>"}}'
 ```
+
+#### [Scaling App's Process](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#scale-a-process)
+```bash
+curl "http://localhost:9000/v3/apps/<guid>/processes/<type>/actions/scale" \
+  -X POST \
+  -d '{ "instances": 5, "memory_in_mb": 256, "disk_in_mb": 1024 }'
+```
+
 
 #### [Start an app](https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#start-an-app)
 ```bash
@@ -123,8 +132,14 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#processes
 |--|--|
 | Get Process | GET /v3/processes/\<guid>/sidecars |
 | Get Process Sidecars | GET /v3/processes/\<guid>/sidecars |
+| Scale Process | POST /v3/processes/\<guid>/actions/scale |
 
-
+#### [Scaling Processes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#scale-a-process)
+```bash
+curl "http://localhost:9000/v3/processes/<guid>/actions/scale" \
+  -X POST \
+  -d '{ "instances": 5, "memory_in_mb": 256, "disk_in_mb": 1024 }'
+```
 
 
 ### Routes
