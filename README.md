@@ -104,7 +104,7 @@ Clone the eirini-controller repo and go to its root directory, render the Helm c
 export webhooks_ca_bundle="$(kubectl get secret -n eirini-controller eirini-webhooks-certs -o jsonpath="{.data['tls\.ca']}")"
 # Run from the eirini-controller repository root
 helm template eirini-controller "deployment/helm" \
-  --values "deployment/helm/values-template.yaml"
+  --values "deployment/helm/values-template.yaml" \
   --set "webhooks.ca_bundle=${webhooks_ca_bundle}" \
   --set "workloads.create_namespaces=true" \
   --set "workloads.default_namespace=cf" \
