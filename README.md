@@ -1,4 +1,5 @@
 # Installation
+
 ## Clone this repo
 
 ```
@@ -10,7 +11,7 @@ cd cf-k8s-controllers/
 ## Prerequisites
 
 ### Install Cert-Manager
-To deploy cf-k8s-controller and run it in a cluster, you must first [install cert-manager](https://cert-manager.io/docs/installation/) 
+To deploy cf-k8s-controller and run it in a cluster, you must first [install cert-manager](https://cert-manager.io/docs/installation/).
 ```
 kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
 ```
@@ -20,7 +21,7 @@ kubectl apply -f dependencies/cert-manager.yaml
 ```
 
 ### Install Kpack
-To deploy cf-k8s-controller and run it in a cluster, you must first [install kpack](https://github.com/pivotal/kpack/blob/main/docs/install.md)
+To deploy cf-k8s-controller and run it in a cluster, you must first [install kpack](https://github.com/pivotal/kpack/blob/main/docs/install.md).
 ```
 kubectl apply -f https://github.com/pivotal/kpack/releases/download/v0.3.1/release-0.3.1.yaml
 ```
@@ -49,7 +50,7 @@ kubectl apply -f dependencies/kpack/service_account.yaml \
 ```
 
 ### Install Contour and Envoy
-To deploy cf-k8s-controller and run it in a cluster, you must first [install contour](https://projectcontour.io/getting-started/) 
+To deploy cf-k8s-controller and run it in a cluster, you must first [install contour](https://projectcontour.io/getting-started/).
 ```
 kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
 ```
@@ -70,13 +71,29 @@ With the load balancer provisioned, you must configure the ingress controller to
 To be able to create workload routes via the [CF API](https://github.com/cloudfoundry/cf-k8s-api) in the absence of the domain management endpoints, you must first create the appropriate `CFDomain` resource(s) for your cluster. Each desired domain name should be specified via the `spec.name` property of a distinct resource. The `metadata.name` for the resource can be set to any unique value (the API will use a GUID). See `config/samples/cfdomain.yaml` for an example.
 
 ### Install Eirini-Controller
-To deploy cf-k8s-controller and run it in a cluster, you must first install eirini-controller.
+To deploy cf-k8s-controller and run it in a cluster, you must first install [eirini-controller](https://github.com/cloudfoundry-incubator/eirini-controller).
 
 #### Configure a Controller Certificate
-Eirini-controller requires a certificate for the controller and webhook. Taken from a script in the eirini-controller repo:
+Eirini-controller requires a certificate for the controller and webhook. If you are using openssl, or libressl v3.1.0 or later:
 ```
-openssl req -x509 -newkey rsa:4096 -keyout tls.key -out tls.crt -nodes -subj '/CN=localhost' -addext "subjectAltName = DNS:*.eirini-controller.svc, DNS:*.eirini-controller.svc.cluster.local" -days 365
+openssl req -x509 -newkey rsa:4096 \
+  -keyout tls.key -out tls.crt \
+  -nodes -subj '/CN=localhost' \
+  -addext "subjectAltName = DNS:*.eirini-controller.svc, DNS:*.eirini-controller.svc.cluster.local" \
+  -days 365
+```
 
+If you are using an older version of libressl (the default on OSX):
+```
+openssl req -x509 -newkey rsa:4096 \
+  -keyout tls.key -out tls.crt \
+  -nodes -subj '/CN=localhost' \
+  -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:*.eirini-controller.svc, DNS:*.eirini-controller.svc.cluster.local'")) \
+  -days 365
+```
+
+Once you have created a certificate, use it to create the secret required by eirini-controller:
+```
 kubectl create secret -n eirini-controller generic eirini-webhooks-cert --from-file=tls.crt=./tls.crt --from-file=tls.ca=./tls.crt --from-file=tls.key=./tls.key
 ```
 
@@ -116,14 +133,19 @@ go test ./... -tags=integration
 # modify kpack dependency files to point towards your registry
 hack/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
 ```
+**Note**: This will not work by default on OSX with a `libressl` version prior to `v3.1.0`. You can install the latest version of `openssl` by running the following commands:
+```
+brew install openssl
+ln -s /usr/local/opt/openssl@3/bin/openssl /usr/local/bin/openssl
+```
 
 ## Configure cf-k8s-controllers
 Configuration file for cf-k8s-controllers is at `config/base/cf_k8s_controllers_k8s.yaml`
 
-Note: Edit this file and set the `kpackImageTag` to be the registry location you want for storing the images. 
+Note: Edit this file and set the `kpackImageTag` to be the registry location you want for storing the images.
 
 ## Build, Install and Deploy to K8s cluster
-Set the $IMG environment variable to a location you have push/pull access. For example 
+Set the $IMG environment variable to a location you have push/pull access. For example:
 ```
 export IMG=foo/cf-k8s-controllers:bar #Replace this with your image ref
 make generate docker-build docker-push install deploy
