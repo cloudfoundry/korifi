@@ -25,7 +25,7 @@ var _ = Describe("OrgRepository", func() {
 	)
 
 	BeforeEach(func() {
-		rootNamespace = generateGUID()
+		rootNamespace = uuid.NewString()
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, time.Millisecond*500)
 	})

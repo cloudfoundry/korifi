@@ -113,6 +113,14 @@ func newUnknownError() presenter.ErrorsResponse {
 	}}}
 }
 
+func newUnauthenticatedError() presenter.ErrorsResponse {
+	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+		Title:  "CF-NotAuthenticated",
+		Detail: "No auth token was given, but authentication is required for this endpoint",
+		Code:   10002,
+	}}}
+}
+
 func newMessageParseError() presenter.ErrorsResponse {
 	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "CF-MessageParseError",
@@ -166,6 +174,15 @@ func writeNotFoundErrorResponse(w http.ResponseWriter, resourceName string) {
 func writeUnknownErrorResponse(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusInternalServerError)
 	responseBody, err := json.Marshal(newUnknownError())
+	if err != nil {
+		return
+	}
+	_, _ = w.Write(responseBody)
+}
+
+func writeUnauthorizedErrorResponse(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusUnauthorized)
+	responseBody, err := json.Marshal(newUnauthenticatedError())
 	if err != nil {
 		return
 	}

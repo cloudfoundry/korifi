@@ -5,13 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-api/repositories/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
+	"github.com/go-http-utils/headers"
+	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,35 +30,49 @@ const (
 
 var _ = Describe("OrgHandler", func() {
 	var (
-		orgHandler *apis.OrgHandler
-		orgRepo    *fake.CFOrgRepository
-		err        error
-		now        time.Time
+		ctx             context.Context
+		router          *mux.Router
+		orgHandler      *apis.OrgHandler
+		orgRepoProvider *fake.OrgRepositoryProvider
+		orgRepo         *fake.CFOrgRepository
+		req             *http.Request
+		now             time.Time
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
+
+		orgRepoProvider = new(fake.OrgRepositoryProvider)
+		orgRepo = new(fake.CFOrgRepository)
+		orgRepoProvider.OrgRepoForRequestReturns(orgRepo, nil)
+
+		serverURL, err := url.Parse(defaultServerURL)
+		Expect(err).NotTo(HaveOccurred())
+
+		orgHandler = apis.NewOrgHandler(*serverURL, orgRepoProvider)
+		router = mux.NewRouter()
+		orgHandler.RegisterRoutes(router)
+
+		rr = httptest.NewRecorder()
 	})
 
 	Describe("Create Org", func() {
 		makePostRequest := func(requestBody string) {
 			req, err := http.NewRequestWithContext(ctx, "POST", orgsBase, strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
+			req.Header.Add(headers.Authorization, "Bearer my-token")
 
 			router.ServeHTTP(rr, req)
 		}
 
 		BeforeEach(func() {
-			orgRepo = new(fake.CFOrgRepository)
 			orgRepo.CreateOrgStub = func(_ context.Context, record repositories.OrgRecord) (repositories.OrgRecord, error) {
 				record.GUID = "t-h-e-o-r-g"
 				record.CreatedAt = now
 				record.UpdatedAt = now
 				return record, nil
 			}
-
-			orgHandler = apis.NewOrgHandler(orgRepo, *serverURL)
-			orgHandler.RegisterRoutes(router)
 		})
 
 		When("happy path", func() {
@@ -65,22 +84,27 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
-          "guid": "t-h-e-o-r-g",
-					"name": "the-org",
-					"created_at": "2021-09-17T15:23:10Z",
-					"updated_at": "2021-09-17T15:23:10Z",
-					"suspended": false,
-					"metadata": {
-					  "labels": {},
-					  "annotations": {}
-					},
-					"relationships": {},
-					"links": {
-						"self": {
-							"href": "%[1]s/v3/organizations/t-h-e-o-r-g"
-						}
-					}
-				}`, defaultServerURL))))
+                    "guid": "t-h-e-o-r-g",
+                    "name": "the-org",
+                    "created_at": "2021-09-17T15:23:10Z",
+                    "updated_at": "2021-09-17T15:23:10Z",
+                    "suspended": false,
+                    "metadata": {
+                        "labels": {},
+                        "annotations": {}
+                    },
+                    "relationships": {},
+                    "links": {
+                        "self": {
+                            "href": "%[1]s/v3/organizations/t-h-e-o-r-g"
+                        }
+                    }
+                }`, defaultServerURL))))
+			})
+
+			It("creates org repository for the request", func() {
+				Expect(orgRepoProvider.OrgRepoForRequestCallCount()).To(Equal(1))
+				Expect(orgRepoProvider.OrgRepoForRequestArgsForCall(0).Method).To(Equal(http.MethodPost))
 			})
 
 			It("invokes the repo org create function with expected parameters", func() {
@@ -123,13 +147,13 @@ var _ = Describe("OrgHandler", func() {
 		When("the user passes optional org parameters", func() {
 			BeforeEach(func() {
 				makePostRequest(`{
-          "name": "the-org",
-					"suspended": true,
-					"metadata": {
-						"labels": {"foo": "bar"},
-						"annotations": {"bar": "baz"}
-					}
-				}`)
+                    "name": "the-org",
+                    "suspended": true,
+                    "metadata": {
+                        "labels": {"foo": "bar"},
+                        "annotations": {"bar": "baz"}
+                    }
+                }`)
 			})
 
 			It("invokes the repo org create function with expected parameters", func() {
@@ -147,22 +171,22 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
-          "guid": "t-h-e-o-r-g",
-					"name": "the-org",
-					"created_at": "2021-09-17T15:23:10Z",
-					"updated_at": "2021-09-17T15:23:10Z",
-					"suspended": true,
-					"metadata": {
-					  "labels": {"foo": "bar"},
-					  "annotations": {"bar": "baz"}
-					},
-					"relationships": {},
-					"links": {
-						"self": {
-							"href": "%[1]s/v3/organizations/t-h-e-o-r-g"
-						}
-					}
-				}`, defaultServerURL))))
+                    "guid": "t-h-e-o-r-g",
+                    "name": "the-org",
+                    "created_at": "2021-09-17T15:23:10Z",
+                    "updated_at": "2021-09-17T15:23:10Z",
+                    "suspended": true,
+                    "metadata": {
+                        "labels": {"foo": "bar"},
+                        "annotations": {"bar": "baz"}
+                    },
+                    "relationships": {},
+                    "links": {
+                        "self": {
+                            "href": "%[1]s/v3/organizations/t-h-e-o-r-g"
+                        }
+                    }
+                }`, defaultServerURL))))
 			})
 		})
 
@@ -175,14 +199,14 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-          "errors": [
-            {
-              "title": "CF-MessageParseError",
-              "detail": "Request invalid due to parse error: invalid request body",
-              "code": 1001
-            }
-          ]
-        }`)))
+                    "errors": [
+                    {
+                        "title": "CF-MessageParseError",
+                        "detail": "Request invalid due to parse error: invalid request body",
+                        "code": 1001
+                    }
+                    ]
+                }`)))
 			})
 		})
 
@@ -195,14 +219,14 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-          "errors": [
-            {
-              "title": "CF-UnprocessableEntity",
-              "detail": "invalid request body: json: unknown field \"description\"",
-              "code": 10008
-            }
-          ]
-        }`)))
+                    "errors": [
+                    {
+                        "title": "CF-UnprocessableEntity",
+                        "detail": "invalid request body: json: unknown field \"description\"",
+                        "code": 10008
+                    }
+                    ]
+                }`)))
 			})
 		})
 
@@ -215,14 +239,14 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-          "errors": [
-            {
-              "code":   10008,
-              "title": "CF-UnprocessableEntity",
-              "detail": "Name must be a string"
-            }
-          ]
-        }`)))
+                    "errors": [
+                    {
+                        "code":   10008,
+                        "title": "CF-UnprocessableEntity",
+                        "detail": "Name must be a string"
+                    }
+                    ]
+                }`)))
 			})
 		})
 
@@ -235,24 +259,60 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-          "errors": [
-            {
-              "title": "CF-UnprocessableEntity",
-              "detail": "Name is a required field",
-              "code": 10008
-            }
-          ]
-        }`)))
+                    "errors": [
+                    {
+                        "title": "CF-UnprocessableEntity",
+                        "detail": "Name is a required field",
+                        "code": 10008
+                    }
+                    ]
+                }`)))
+			})
+		})
+
+		When("not authorized", func() {
+			BeforeEach(func() {
+				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.UnauthorizedErr{})
+				makePostRequest(`{"name": "the-org"}`)
+			})
+
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+                    "errors": [
+                    {
+                        "detail": "No auth token was given, but authentication is required for this endpoint",
+                        "title": "CF-NotAuthenticated",
+                        "code": 10002
+                    }
+                    ]
+                }`))
+			})
+		})
+
+		When("providing the repository fails", func() {
+			BeforeEach(func() {
+				orgRepoProvider.OrgRepoForRequestReturns(nil, errors.New("boom"))
+				makePostRequest(`{"name": "the-org"}`)
+			})
+
+			It("returns Unknown error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusInternalServerError))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+                    "errors": [
+                    {
+                        "title": "UnknownError",
+                        "detail": "An unknown error occurred.",
+                        "code": 10001
+                    }
+                    ]
+                }`))
 			})
 		})
 	})
 
 	Describe("Listing Orgs", func() {
 		BeforeEach(func() {
-			ctx = context.Background()
-			orgRepo = new(fake.CFOrgRepository)
-
-			now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
 			orgRepo.FetchOrgsReturns([]repositories.OrgRecord{
 				{
 					Name:      "alice",
@@ -268,11 +328,10 @@ var _ = Describe("OrgHandler", func() {
 				},
 			}, nil)
 
-			orgHandler = apis.NewOrgHandler(orgRepo, *serverURL)
-			orgHandler.RegisterRoutes(router)
-
+			var err error
 			req, err = http.NewRequestWithContext(ctx, http.MethodGet, orgsBase, nil)
 			Expect(err).NotTo(HaveOccurred())
+			req.Header.Add(headers.Authorization, "Bearer my-token")
 		})
 
 		When("happy path", func() {
@@ -288,6 +347,11 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr.Header().Get("Content-Type")).To(Equal("application/json"))
 			})
 
+			It("creates org repository for the request", func() {
+				Expect(orgRepoProvider.OrgRepoForRequestCallCount()).To(Equal(1))
+				Expect(orgRepoProvider.OrgRepoForRequestArgsForCall(0).Method).To(Equal(http.MethodGet))
+			})
+
 			It("lists orgs using the repository", func() {
 				Expect(orgRepo.FetchOrgsCallCount()).To(Equal(1))
 				_, names := orgRepo.FetchOrgsArgsForCall(0)
@@ -296,64 +360,66 @@ var _ = Describe("OrgHandler", func() {
 
 			It("renders the orgs response", func() {
 				expectedBody := fmt.Sprintf(`
-          {
-             "pagination": {
-                "total_results": 2,
-                "total_pages": 1,
-                "first": {
-                   "href": "%[1]s/v3/organizations?page=1"
-                },
-                "last": {
-                   "href": "%[1]s/v3/organizations?page=1"
-                },
-                "next": null,
-                "previous": null
-             },
-             "resources": [
-                  {
-                      "guid": "a-l-i-c-e",
-                      "name": "alice",
-                      "created_at": "2021-09-17T15:23:10Z",
-                      "updated_at": "2021-09-17T15:23:10Z",
-                      "suspended": false,
-                      "metadata": {
-                        "labels": {},
-                        "annotations": {}
-                      },
-                      "relationships": {},
-                      "links": {
-                          "self": {
-                              "href": "%[1]s/v3/organizations/a-l-i-c-e"
-                          }
-                      }
-                  },
-                  {
-                      "guid": "b-o-b",
-                      "name": "bob",
-                      "created_at": "2021-09-17T15:23:10Z",
-                      "updated_at": "2021-09-17T15:23:10Z",
-                      "suspended": false,
-                      "metadata": {
-                        "labels": {},
-                        "annotations": {}
-                      },
-                      "relationships": {},
-                      "links": {
-                          "self": {
-                              "href": "%[1]s/v3/organizations/b-o-b"
-                          }
-                      }
-                  }
-              ]
-          }`, rootURL)
+                {
+                    "pagination": {
+                        "total_results": 2,
+                        "total_pages": 1,
+                        "first": {
+                            "href": "%[1]s/v3/organizations?page=1"
+                        },
+                        "last": {
+                            "href": "%[1]s/v3/organizations?page=1"
+                        },
+                        "next": null,
+                        "previous": null
+                    },
+                    "resources": [
+                    {
+                        "guid": "a-l-i-c-e",
+                        "name": "alice",
+                        "created_at": "2021-09-17T15:23:10Z",
+                        "updated_at": "2021-09-17T15:23:10Z",
+                        "suspended": false,
+                        "metadata": {
+                            "labels": {},
+                            "annotations": {}
+                        },
+                        "relationships": {},
+                        "links": {
+                            "self": {
+                                "href": "%[1]s/v3/organizations/a-l-i-c-e"
+                            }
+                        }
+                    },
+                    {
+                        "guid": "b-o-b",
+                        "name": "bob",
+                        "created_at": "2021-09-17T15:23:10Z",
+                        "updated_at": "2021-09-17T15:23:10Z",
+                        "suspended": false,
+                        "metadata": {
+                            "labels": {},
+                            "annotations": {}
+                        },
+                        "relationships": {},
+                        "links": {
+                            "self": {
+                                "href": "%[1]s/v3/organizations/b-o-b"
+                            }
+                        }
+                    }
+                    ]
+                }`, rootURL)
 				Expect(rr.Body.String()).To(MatchJSON(expectedBody))
 			})
 		})
 
 		When("names are specified", func() {
 			BeforeEach(func() {
-				req, err = http.NewRequestWithContext(ctx, http.MethodGet, orgsBase+"?names=foo,bar", nil)
-				Expect(err).NotTo(HaveOccurred())
+				values := url.Values{
+					"names": []string{"foo,bar"},
+				}
+				req.URL.RawQuery = values.Encode()
 
 				router.ServeHTTP(rr, req)
 			})
@@ -373,6 +439,46 @@ var _ = Describe("OrgHandler", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+
+		When("not authorized", func() {
+			BeforeEach(func() {
+				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.UnauthorizedErr{})
+				router.ServeHTTP(rr, req)
+			})
+
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+                    "errors": [
+                    {
+                        "detail": "No auth token was given, but authentication is required for this endpoint",
+                        "title": "CF-NotAuthenticated",
+                        "code": 10002
+                    }
+                    ]
+                }`))
+			})
+		})
+
+		When("providing the repository fails", func() {
+			BeforeEach(func() {
+				orgRepoProvider.OrgRepoForRequestReturns(nil, errors.New("boom"))
+				router.ServeHTTP(rr, req)
+			})
+
+			It("returns Unknown error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusInternalServerError))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+                    "errors": [
+                    {
+                        "title": "UnknownError",
+                        "detail": "An unknown error occurred.",
+                        "code": 10001
+                    }
+                    ]
+                }`))
 			})
 		})
 	})
