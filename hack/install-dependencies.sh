@@ -142,7 +142,7 @@ webhooks_ca_bundle="$(kubectl get secret -n eirini-controller eirini-webhooks-ce
 
 # Install image built based on eirini-controller/main@c048d6 w/ values-template as default values file
 helm template eirini-controller "${EIRINI_DIR}/deployment/helm" \
-  --values "${EIRINI_DIR}/deployment/helm/values-template.yaml"
+  --values "${EIRINI_DIR}/deployment/helm/values-template.yaml" \
   --set "webhooks.ca_bundle=${webhooks_ca_bundle}" \
   --set "workloads.create_namespaces=true" \
   --set "workloads.default_namespace=cf" \
