@@ -15,7 +15,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	v1 "k8s.io/api/core/v1"
+	coordv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,7 +62,8 @@ var _ = BeforeSuite(func() {
 	scheme := runtime.NewScheme()
 	Expect(v1alpha1.AddToScheme(scheme)).To(Succeed())
 	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
-	Expect(v1.AddToScheme(scheme)).To(Succeed())
+	Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	Expect(coordv1.AddToScheme(scheme)).To(Succeed())
 	Expect(hnsv1alpha2.AddToScheme(scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
