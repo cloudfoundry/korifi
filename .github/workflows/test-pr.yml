@@ -54,8 +54,6 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '^1.17'
-      - name: Run End to End Tests
-        run: make test-e2e
       - name: Run all tests
         run: make test
         working-directory: ./cf-k8s-api
