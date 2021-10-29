@@ -85,26 +85,21 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
                     "guid": "t-h-e-o-r-g",
-                    "name": "the-org",
-                    "created_at": "2021-09-17T15:23:10Z",
-                    "updated_at": "2021-09-17T15:23:10Z",
-                    "suspended": false,
-                    "metadata": {
-                        "labels": {},
-                        "annotations": {}
-                    },
-                    "relationships": {},
-                    "links": {
-                        "self": {
-                            "href": "%[1]s/v3/organizations/t-h-e-o-r-g"
-                        }
-                    }
-                }`, defaultServerURL))))
-			})
-
-			It("creates org repository for the request", func() {
-				Expect(orgRepoProvider.OrgRepoForRequestCallCount()).To(Equal(1))
-				Expect(orgRepoProvider.OrgRepoForRequestArgsForCall(0).Method).To(Equal(http.MethodPost))
+					"name": "the-org",
+					"created_at": "2021-09-17T15:23:10Z",
+					"updated_at": "2021-09-17T15:23:10Z",
+					"suspended": false,
+					"metadata": {
+					  "labels": {},
+					  "annotations": {}
+					},
+					"relationships": {},
+					"links": {
+						"self": {
+							"href": "%[1]s/v3/organizations/t-h-e-o-r-g"
+						}
+					}
+				}`, defaultServerURL))))
 			})
 
 			It("invokes the repo org create function with expected parameters", func() {

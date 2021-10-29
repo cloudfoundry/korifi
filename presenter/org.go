@@ -83,35 +83,15 @@ func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL url.URL) OrgListRespon
 	}
 }
 
+func ForCreateSpace(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceResponse {
+	return toSpaceResponse(space, apiBaseURL)
+}
+
 func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL url.URL) SpaceListResponse {
 	spaceResponses := []SpaceResponse{}
 
 	for _, space := range spaces {
-		spaceResponses = append(spaceResponses, SpaceResponse{
-			Name:      space.Name,
-			GUID:      space.GUID,
-			CreatedAt: space.CreatedAt.UTC().Format(time.RFC3339),
-			UpdatedAt: space.CreatedAt.UTC().Format(time.RFC3339),
-			Metadata: Metadata{
-				Labels:      map[string]string{},
-				Annotations: map[string]string{},
-			},
-			Relationships: Relationships{
-				"organization": Relationship{
-					Data: RelationshipData{
-						GUID: space.OrganizationGUID,
-					},
-				},
-			},
-			Links: SpaceLinks{
-				Self: &Link{
-					HREF: buildURL(apiBaseURL).appendPath(spacesBase, space.GUID).build(),
-				},
-				Organization: &Link{
-					HREF: buildURL(apiBaseURL).appendPath(orgsBase, space.OrganizationGUID).build(),
-				},
-			},
-		})
+		spaceResponses = append(spaceResponses, toSpaceResponse(space, apiBaseURL))
 	}
 
 	paginationURL := buildURL(apiBaseURL).appendPath(spacesBase).setQuery("page=1").build()
@@ -127,6 +107,34 @@ func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL url.URL) SpaceLi
 			},
 		},
 		Resources: spaceResponses,
+	}
+}
+
+func toSpaceResponse(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceResponse {
+	return SpaceResponse{
+		Name:      space.Name,
+		GUID:      space.GUID,
+		CreatedAt: space.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt: space.CreatedAt.UTC().Format(time.RFC3339),
+		Metadata: Metadata{
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
+		},
+		Relationships: Relationships{
+			"organization": Relationship{
+				Data: RelationshipData{
+					GUID: space.OrganizationGUID,
+				},
+			},
+		},
+		Links: SpaceLinks{
+			Self: &Link{
+				HREF: buildURL(apiBaseURL).appendPath(spacesBase, space.GUID).build(),
+			},
+			Organization: &Link{
+				HREF: buildURL(apiBaseURL).appendPath(orgsBase, space.OrganizationGUID).build(),
+			},
+		},
 	}
 }
 

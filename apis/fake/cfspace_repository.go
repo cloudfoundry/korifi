@@ -10,6 +10,20 @@ import (
 )
 
 type CFSpaceRepository struct {
+	CreateSpaceStub        func(context.Context, repositories.SpaceRecord) (repositories.SpaceRecord, error)
+	createSpaceMutex       sync.RWMutex
+	createSpaceArgsForCall []struct {
+		arg1 context.Context
+		arg2 repositories.SpaceRecord
+	}
+	createSpaceReturns struct {
+		result1 repositories.SpaceRecord
+		result2 error
+	}
+	createSpaceReturnsOnCall map[int]struct {
+		result1 repositories.SpaceRecord
+		result2 error
+	}
 	FetchSpacesStub        func(context.Context, []string, []string) ([]repositories.SpaceRecord, error)
 	fetchSpacesMutex       sync.RWMutex
 	fetchSpacesArgsForCall []struct {
@@ -27,6 +41,71 @@ type CFSpaceRepository struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *CFSpaceRepository) CreateSpace(arg1 context.Context, arg2 repositories.SpaceRecord) (repositories.SpaceRecord, error) {
+	fake.createSpaceMutex.Lock()
+	ret, specificReturn := fake.createSpaceReturnsOnCall[len(fake.createSpaceArgsForCall)]
+	fake.createSpaceArgsForCall = append(fake.createSpaceArgsForCall, struct {
+		arg1 context.Context
+		arg2 repositories.SpaceRecord
+	}{arg1, arg2})
+	stub := fake.CreateSpaceStub
+	fakeReturns := fake.createSpaceReturns
+	fake.recordInvocation("CreateSpace", []interface{}{arg1, arg2})
+	fake.createSpaceMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFSpaceRepository) CreateSpaceCallCount() int {
+	fake.createSpaceMutex.RLock()
+	defer fake.createSpaceMutex.RUnlock()
+	return len(fake.createSpaceArgsForCall)
+}
+
+func (fake *CFSpaceRepository) CreateSpaceCalls(stub func(context.Context, repositories.SpaceRecord) (repositories.SpaceRecord, error)) {
+	fake.createSpaceMutex.Lock()
+	defer fake.createSpaceMutex.Unlock()
+	fake.CreateSpaceStub = stub
+}
+
+func (fake *CFSpaceRepository) CreateSpaceArgsForCall(i int) (context.Context, repositories.SpaceRecord) {
+	fake.createSpaceMutex.RLock()
+	defer fake.createSpaceMutex.RUnlock()
+	argsForCall := fake.createSpaceArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *CFSpaceRepository) CreateSpaceReturns(result1 repositories.SpaceRecord, result2 error) {
+	fake.createSpaceMutex.Lock()
+	defer fake.createSpaceMutex.Unlock()
+	fake.CreateSpaceStub = nil
+	fake.createSpaceReturns = struct {
+		result1 repositories.SpaceRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFSpaceRepository) CreateSpaceReturnsOnCall(i int, result1 repositories.SpaceRecord, result2 error) {
+	fake.createSpaceMutex.Lock()
+	defer fake.createSpaceMutex.Unlock()
+	fake.CreateSpaceStub = nil
+	if fake.createSpaceReturnsOnCall == nil {
+		fake.createSpaceReturnsOnCall = make(map[int]struct {
+			result1 repositories.SpaceRecord
+			result2 error
+		})
+	}
+	fake.createSpaceReturnsOnCall[i] = struct {
+		result1 repositories.SpaceRecord
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *CFSpaceRepository) FetchSpaces(arg1 context.Context, arg2 []string, arg3 []string) ([]repositories.SpaceRecord, error) {
@@ -108,6 +187,8 @@ func (fake *CFSpaceRepository) FetchSpacesReturnsOnCall(i int, result1 []reposit
 func (fake *CFSpaceRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.createSpaceMutex.RLock()
+	defer fake.createSpaceMutex.RUnlock()
 	fake.fetchSpacesMutex.RLock()
 	defer fake.fetchSpacesMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

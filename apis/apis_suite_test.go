@@ -90,6 +90,18 @@ func expectUnprocessableEntityError(detail string) {
 		}`, detail))
 }
 
+func expectBadRequestError() {
+	expectJSONResponse(http.StatusBadRequest, `{
+        "errors": [
+            {
+                "title": "CF-MessageParseError",
+                "detail": "Request invalid due to parse error: invalid request body",
+                "code": 1001
+            }
+        ]
+    }`)
+}
+
 func initializeProcessRecord(processGUID, spaceGUID, appGUID string) *repositories.ProcessRecord {
 	return &repositories.ProcessRecord{
 		GUID:        processGUID,

@@ -33,6 +33,8 @@ type SpaceRecord struct {
 	Name             string
 	GUID             string
 	OrganizationGUID string
+	Labels           map[string]string
+	Annotations      map[string]string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -52,7 +54,7 @@ func NewOrgRepo(rootNamespace string, privilegedClient client.WithWatch, timeout
 }
 
 func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, error) {
-	anchor := &v1alpha2.SubnamespaceAnchor{
+	anchor, err := r.createSubnamespaceAnchor(ctx, &v1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      org.GUID,
 			Namespace: r.rootNamespace,
@@ -60,38 +62,9 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, erro
 				OrgNameLabel: org.Name,
 			},
 		},
-	}
-	err := r.privilegedClient.Create(ctx, anchor)
+	})
 	if err != nil {
-		return OrgRecord{}, fmt.Errorf("failed to create subnamespaceanchor: %w", err)
-	}
-
-	timeoutCtx, cancelFn := context.WithTimeout(ctx, r.timeout)
-	defer cancelFn()
-
-	watch, err := r.privilegedClient.Watch(timeoutCtx, &v1alpha2.SubnamespaceAnchorList{},
-		client.InNamespace(r.rootNamespace),
-		client.MatchingFields{"metadata.name": org.GUID},
-	)
-	if err != nil {
-		return OrgRecord{}, fmt.Errorf("failed to set up watch on subnamespaceanchors: %w", err)
-	}
-
-	stateOK := false
-	for res := range watch.ResultChan() {
-		obj, ok := res.Object.(*v1alpha2.SubnamespaceAnchor)
-		if !ok {
-			// should never happen, but avoids panic above
-			continue
-		}
-		if obj.Status.State == v1alpha2.Ok {
-			watch.Stop()
-			stateOK = true
-			break
-		}
-	}
-	if !stateOK {
-		return OrgRecord{}, fmt.Errorf("subnamespaceanchor did not get state 'ok' within timeout period %d ms", r.timeout.Milliseconds())
+		return OrgRecord{}, err
 	}
 
 	org.GUID = anchor.Name
@@ -99,6 +72,67 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, erro
 	org.UpdatedAt = anchor.CreationTimestamp.Time
 
 	return org, nil
+}
+
+func (r *OrgRepo) CreateSpace(ctx context.Context, space SpaceRecord) (SpaceRecord, error) {
+	anchor, err := r.createSubnamespaceAnchor(ctx, &v1alpha2.SubnamespaceAnchor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      space.GUID,
+			Namespace: space.OrganizationGUID,
+			Labels: map[string]string{
+				SpaceNameLabel: space.Name,
+			},
+		},
+	})
+	if err != nil {
+		return SpaceRecord{}, err
+	}
+
+	space.GUID = anchor.Name
+	space.CreatedAt = anchor.CreationTimestamp.Time
+	space.UpdatedAt = anchor.CreationTimestamp.Time
+
+	return space, nil
+}
+
+func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context, anchor *v1alpha2.SubnamespaceAnchor) (*v1alpha2.SubnamespaceAnchor, error) {
+	err := r.privilegedClient.Create(ctx, anchor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create subnamespaceanchor: %w", err)
+	}
+
+	timeoutCtx, cancelFn := context.WithTimeout(ctx, r.timeout)
+	defer cancelFn()
+
+	watch, err := r.privilegedClient.Watch(timeoutCtx, &v1alpha2.SubnamespaceAnchorList{},
+		client.InNamespace(anchor.Namespace),
+		client.MatchingFields{"metadata.name": anchor.Name},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set up watch on subnamespaceanchors: %w", err)
+	}
+
+	stateOK := false
+	var createdAnchor *v1alpha2.SubnamespaceAnchor
+	for res := range watch.ResultChan() {
+		var ok bool
+		createdAnchor, ok = res.Object.(*v1alpha2.SubnamespaceAnchor)
+		if !ok {
+			// should never happen, but avoids panic above
+			continue
+		}
+		if createdAnchor.Status.State == v1alpha2.Ok {
+			watch.Stop()
+			stateOK = true
+			break
+		}
+	}
+
+	if !stateOK {
+		return nil, fmt.Errorf("subnamespaceanchor did not get state 'ok' within timeout period %d ms", r.timeout.Milliseconds())
+	}
+
+	return createdAnchor, nil
 }
 
 func (r *OrgRepo) FetchOrgs(ctx context.Context, names []string) ([]OrgRecord, error) {

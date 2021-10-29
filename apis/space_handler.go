@@ -3,24 +3,29 @@ package apis
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
 const (
-	SpaceListEndpoint = "/v3/spaces"
+	SpacesEndpoint = "/v3/spaces"
 )
 
 //counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
 
 type CFSpaceRepository interface {
+	CreateSpace(context.Context, repositories.SpaceRecord) (repositories.SpaceRecord, error)
 	FetchSpaces(context.Context, []string, []string) ([]repositories.SpaceRecord, error)
 }
 
@@ -35,6 +40,43 @@ func NewSpaceHandler(spaceRepo CFSpaceRepository, apiBaseURL url.URL) *SpaceHand
 		spaceRepo:  spaceRepo,
 		apiBaseURL: apiBaseURL,
 		logger:     controllerruntime.Log.WithName("Org Handler"),
+	}
+}
+
+func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+	var payload payloads.SpaceCreate
+	rme := DecodeAndValidatePayload(r, &payload)
+	if rme != nil {
+		h.logger.Error(rme, "Failed to decode and validate payload")
+		writeErrorResponse(w, rme)
+		return
+	}
+
+	space := payload.ToRecord()
+	space.GUID = uuid.NewString()
+
+	record, err := h.spaceRepo.CreateSpace(ctx, space)
+	if err != nil {
+		if workloads.HasErrorCode(err, workloads.DuplicateSpaceNameError) {
+			errorDetail := fmt.Sprintf("Space '%s' already exists.", space.Name)
+			h.logger.Info(errorDetail)
+			writeUnprocessableEntityError(w, errorDetail)
+			return
+		}
+
+		h.logger.Error(err, "Failed to create space", "Space Name", space.Name)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	spaceResponse := presenter.ForCreateSpace(record, h.apiBaseURL)
+
+	err = json.NewEncoder(w).Encode(spaceResponse)
+	if err != nil {
+		h.logger.Error(err, "Failed to write response")
 	}
 }
 
@@ -57,7 +99,8 @@ func (h *SpaceHandler) SpaceListHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *SpaceHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(SpaceListEndpoint).Methods("GET").HandlerFunc(h.SpaceListHandler)
+	router.Path(SpacesEndpoint).Methods("GET").HandlerFunc(h.SpaceListHandler)
+	router.Path(SpacesEndpoint).Methods("POST").HandlerFunc(h.SpaceCreateHandler)
 }
 
 func parseCommaSeparatedList(list string) []string {
