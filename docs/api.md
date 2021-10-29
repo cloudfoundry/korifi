@@ -39,6 +39,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 | Create App | POST /v3/apps |
 | Set App's Current Droplet | PATCH /v3/apps/\<guid>/relationships/current_droplet |
 | Start App | POST /v3/apps/\<guid>/actions/start |
+| Stop App | POST /v3/apps/\<guid>/actions/stop |
 | List App Processes | GET /v3/apps/\<guid>/processes |
 | List App Routes | GET /v3/apps/\<guid>/routes |
 
@@ -60,6 +61,12 @@ curl "http://localhost:9000/v3/apps/<app-guid>/relationships/current_droplet" \
 #### [Start an app](https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#start-an-app)
 ```bash
 curl "http://localhost:9000/v3/apps/<app-guid>/actions/start" \
+  -X POST
+```
+
+#### [Stop an app](https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#stop-an-app)
+```bash
+curl "http://localhost:9000/v3/apps/<app-guid>/actions/stop" \
   -X POST
 ```
 

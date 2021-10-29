@@ -587,38 +587,39 @@ var _ = Describe("AppRepository", func() {
 			appName         = "some-app"
 			spaceGUID       = "default"
 			appStartedValue = "STARTED"
+			appStoppedValue = "STOPPED"
 		)
 
 		var (
 			appGUID string
 			appCR   *workloadsv1alpha1.CFApp
-
-			returnedAppRecord *AppRecord
-			returnedErr       error
 		)
-
-		BeforeEach(func() {
-			appGUID = generateGUID()
-			appCR = initializeAppCR(appName, appGUID, spaceGUID)
-
-			Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
-		})
 
 		AfterEach(func() {
 			k8sClient.Delete(context.Background(), appCR)
 		})
 
-		JustBeforeEach(func() {
-			appRecord, err := appRepo.SetAppDesiredState(context.Background(), client, SetAppDesiredStateMessage{
-				AppGUID:   appGUID,
-				SpaceGUID: spaceGUID,
-				Value:     appStartedValue,
-			})
-			returnedAppRecord = &appRecord
-			returnedErr = err
-		})
+		When("starting an app", func() {
+			var (
+				returnedAppRecord *AppRecord
+				returnedErr       error
+			)
 
-		When("on the happy path", func() {
+			BeforeEach(func() {
+				appGUID = generateGUID()
+				appCR = initializeAppCR(appName, appGUID, spaceGUID)
+				appCR.Spec.DesiredState = appStoppedValue
+
+				Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
+
+				appRecord, err := appRepo.SetAppDesiredState(context.Background(), client, SetAppDesiredStateMessage{
+					AppGUID:      appGUID,
+					SpaceGUID:    spaceGUID,
+					DesiredState: appStartedValue,
+				})
+				returnedAppRecord = &appRecord
+				returnedErr = err
+			})
 
 			It("doesn't return an error", func() {
 				Expect(returnedErr).ToNot(HaveOccurred())
@@ -641,16 +642,67 @@ var _ = Describe("AppRepository", func() {
 					}
 					return string(updatedCFApp.Spec.DesiredState)
 				}, 10*time.Second, 250*time.Millisecond).Should(Equal(appStartedValue))
+			})
+		})
+
+		When("stopping an app", func() {
+			var (
+				returnedAppRecord *AppRecord
+				returnedErr       error
+			)
+
+			BeforeEach(func() {
+				appGUID = generateGUID()
+				appCR = initializeAppCR(appName, appGUID, spaceGUID)
+				appCR.Spec.DesiredState = appStartedValue
+
+				Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
+
+				appRecord, err := appRepo.SetAppDesiredState(context.Background(), client, SetAppDesiredStateMessage{
+					AppGUID:      appGUID,
+					SpaceGUID:    spaceGUID,
+					DesiredState: appStoppedValue,
+				})
+				returnedAppRecord = &appRecord
+				returnedErr = err
+			})
+
+			It("doesn't return an error", func() {
+				Expect(returnedErr).ToNot(HaveOccurred())
+			})
+
+			It("returns the updated app record", func() {
+				Expect(returnedAppRecord.GUID).To(Equal(appGUID))
+				Expect(returnedAppRecord.Name).To(Equal(appName))
+				Expect(returnedAppRecord.SpaceGUID).To(Equal(spaceGUID))
+				Expect(returnedAppRecord.State).To(Equal(DesiredState("STOPPED")))
+			})
+
+			It("eventually changes the desired state of the App", func() {
+				cfAppLookupKey := types.NamespacedName{Name: appGUID, Namespace: spaceGUID}
+				updatedCFApp := new(workloadsv1alpha1.CFApp)
+				Eventually(func() string {
+					err := k8sClient.Get(context.Background(), cfAppLookupKey, updatedCFApp)
+					if err != nil {
+						return ""
+					}
+					return string(updatedCFApp.Spec.DesiredState)
+				}, 10*time.Second, 250*time.Millisecond).Should(Equal(appStoppedValue))
 
 			})
 		})
 
 		When("the app doesn't exist", func() {
-			BeforeEach(func() {
-				appGUID = "fake-app-guid"
-			})
 			It("returns an error", func() {
-				Expect(returnedErr).To(HaveOccurred())
+				appGUID = "fake-app-guid"
+
+				_, err := appRepo.SetAppDesiredState(context.Background(), client, SetAppDesiredStateMessage{
+					AppGUID:      appGUID,
+					SpaceGUID:    spaceGUID,
+					DesiredState: appStartedValue,
+				})
+
+				Expect(err).To(MatchError(ContainSubstring("\"fake-app-guid\" not found")))
 			})
 		})
 	})

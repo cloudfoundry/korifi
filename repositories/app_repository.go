@@ -165,9 +165,9 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, c client.Client, messag
 }
 
 type SetAppDesiredStateMessage struct {
-	AppGUID   string
-	SpaceGUID string
-	Value     string
+	AppGUID      string
+	SpaceGUID    string
+	DesiredState string
 }
 
 func (f *AppRepo) SetAppDesiredState(ctx context.Context, c client.Client, message SetAppDesiredStateMessage) (AppRecord, error) {
@@ -178,7 +178,7 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, c client.Client, messa
 		},
 	}
 	cfApp := baseCFApp.DeepCopy()
-	cfApp.Spec.DesiredState = workloadsv1alpha1.DesiredState(StartedState)
+	cfApp.Spec.DesiredState = workloadsv1alpha1.DesiredState(message.DesiredState)
 
 	err := c.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {

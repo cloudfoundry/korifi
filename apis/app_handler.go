@@ -29,9 +29,11 @@ const (
 	AppGetProcessesEndpoint      = "/v3/apps/{guid}/processes"
 	AppGetRoutesEndpoint         = "/v3/apps/{guid}/routes"
 	AppStartEndpoint             = "/v3/apps/{guid}/actions/start"
+	AppStopEndpoint              = "/v3/apps/{guid}/actions/stop"
 	invalidDropletMsg            = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
 	AppStartedState = "STARTED"
+	AppStoppedState = "STOPPED"
 )
 
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
@@ -339,9 +341,60 @@ func (h *AppHandler) appStartHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app, err = h.appRepo.SetAppDesiredState(ctx, client, repositories.SetAppDesiredStateMessage{
-		AppGUID:   app.GUID,
-		SpaceGUID: app.SpaceGUID,
-		Value:     AppStartedState,
+		AppGUID:      app.GUID,
+		SpaceGUID:    app.SpaceGUID,
+		DesiredState: AppStartedState,
+	})
+	if err != nil {
+		h.logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	responseBody, err := json.Marshal(presenter.ForApp(app, h.serverURL))
+	if err != nil {
+		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	w.Write(responseBody)
+}
+
+func (h *AppHandler) appStopHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+
+	// TODO: Instantiate config based on bearer token
+	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
+	client, err := h.buildClient(h.k8sConfig)
+	if err != nil {
+		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	app, err := h.appRepo.FetchApp(ctx, client, appGUID)
+	if err != nil {
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("App not found", "AppGUID", appGUID)
+			writeNotFoundErrorResponse(w, "App")
+			return
+		default:
+			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	app, err = h.appRepo.SetAppDesiredState(ctx, client, repositories.SetAppDesiredStateMessage{
+		AppGUID:      app.GUID,
+		SpaceGUID:    app.SpaceGUID,
+		DesiredState: AppStoppedState,
 	})
 	if err != nil {
 		h.logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
@@ -469,6 +522,7 @@ func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(AppCreateEndpoint).Methods("POST").HandlerFunc(h.appCreateHandler)
 	router.Path(AppSetCurrentDropletEndpoint).Methods("PATCH").HandlerFunc(h.appSetCurrentDropletHandler)
 	router.Path(AppStartEndpoint).Methods("POST").HandlerFunc(h.appStartHandler)
+	router.Path(AppStopEndpoint).Methods("POST").HandlerFunc(h.appStopHandler)
 	router.Path(AppGetProcessesEndpoint).Methods("GET").HandlerFunc(h.getProcessesForAppHandler)
 	router.Path(AppGetRoutesEndpoint).Methods("GET").HandlerFunc(h.getRoutesForAppHandler)
 }

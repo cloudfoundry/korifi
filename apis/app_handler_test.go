@@ -1150,6 +1150,346 @@ var _ = Describe("AppHandler", func() {
 		})
 	})
 
+	Describe("the POST /v3/apps/:guid/actions/stop endpoint", func() {
+		BeforeEach(func() {
+			fetchAppRecord := repositories.AppRecord{
+				Name:        appName,
+				GUID:        appGUID,
+				SpaceGUID:   spaceGUID,
+				DropletGUID: "some-droplet-guid",
+				State:       "STARTED",
+				Lifecycle: repositories.Lifecycle{
+					Type: "buildpack",
+					Data: repositories.LifecycleData{
+						Buildpacks: []string{},
+						Stack:      "",
+					},
+				},
+			}
+			appRepo.FetchAppReturns(fetchAppRecord, nil)
+			setAppDesiredStateRecord := fetchAppRecord
+			setAppDesiredStateRecord.State = "STOPPED"
+			appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
+
+			var err error
+			req, err = http.NewRequest("POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("when the app is STARTED", func() {
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("returns the App in the response with a state of STOPPED", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+					"guid": "%[2]s",
+					"created_at": "",
+					"updated_at": "",
+					"name": "%[4]s",
+					"state": "STOPPED",
+					"lifecycle": {
+						"type": "buildpack",
+						"data": {
+							"buildpacks": [],
+							"stack": ""
+						}
+					},
+					"relationships": {
+						"space": {
+							"data": {
+								"guid": "%[3]s"
+							}
+						}
+					},
+					"metadata": {
+						"labels": {},
+						"annotations": {}
+					},
+					"links": {
+						"self": {
+							"href": "https://api.example.org/v3/apps/%[2]s"
+						},
+						"environment_variables": {
+							"href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
+						},
+						"space": {
+							"href": "https://api.example.org/v3/spaces/%[3]s"
+						},
+						"processes": {
+							"href": "https://api.example.org/v3/apps/%[2]s/processes"
+						},
+						"packages": {
+							"href": "https://api.example.org/v3/apps/%[2]s/packages"
+						},
+						"current_droplet": {
+							"href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
+						},
+						"droplets": {
+							"href": "https://api.example.org/v3/apps/%[2]s/droplets"
+						},
+						"tasks": {
+							"href": "https://api.example.org/v3/apps/%[2]s/tasks"
+						},
+						"start": {
+							"href": "https://api.example.org/v3/apps/%[2]s/actions/start",
+							"method": "POST"
+						},
+						"stop": {
+							"href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
+							"method": "POST"
+						},
+						"revisions": {
+							"href": "https://api.example.org/v3/apps/%[2]s/revisions"
+						},
+						"deployed_revisions": {
+							"href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
+						},
+						"features": {
+							"href": "https://api.example.org/v3/apps/%[2]s/features"
+						}
+					}
+				}`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
+			})
+		})
+
+		When("when the app is STOPPED", func() {
+			BeforeEach(func() {
+				fetchAppRecord := repositories.AppRecord{
+					Name:        appName,
+					GUID:        appGUID,
+					SpaceGUID:   spaceGUID,
+					DropletGUID: "some-droplet-guid",
+					State:       "STOPPED",
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				}
+				appRepo.FetchAppReturns(fetchAppRecord, nil)
+				setAppDesiredStateRecord := fetchAppRecord
+				setAppDesiredStateRecord.State = "STOPPED"
+				appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
+
+				var err error
+				req, err = http.NewRequest("POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("returns the App in the response with a state of STOPPED", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+					"guid": "%[2]s",
+					"created_at": "",
+					"updated_at": "",
+					"name": "%[4]s",
+					"state": "STOPPED",
+					"lifecycle": {
+						"type": "buildpack",
+						"data": {
+							"buildpacks": [],
+							"stack": ""
+						}
+					},
+					"relationships": {
+						"space": {
+							"data": {
+								"guid": "%[3]s"
+							}
+						}
+					},
+					"metadata": {
+						"labels": {},
+						"annotations": {}
+					},
+					"links": {
+						"self": {
+							"href": "https://api.example.org/v3/apps/%[2]s"
+						},
+						"environment_variables": {
+							"href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
+						},
+						"space": {
+							"href": "https://api.example.org/v3/spaces/%[3]s"
+						},
+						"processes": {
+							"href": "https://api.example.org/v3/apps/%[2]s/processes"
+						},
+						"packages": {
+							"href": "https://api.example.org/v3/apps/%[2]s/packages"
+						},
+						"current_droplet": {
+							"href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
+						},
+						"droplets": {
+							"href": "https://api.example.org/v3/apps/%[2]s/droplets"
+						},
+						"tasks": {
+							"href": "https://api.example.org/v3/apps/%[2]s/tasks"
+						},
+						"start": {
+							"href": "https://api.example.org/v3/apps/%[2]s/actions/start",
+							"method": "POST"
+						},
+						"stop": {
+							"href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
+							"method": "POST"
+						},
+						"revisions": {
+							"href": "https://api.example.org/v3/apps/%[2]s/revisions"
+						},
+						"deployed_revisions": {
+							"href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
+						},
+						"features": {
+							"href": "https://api.example.org/v3/apps/%[2]s/features"
+						}
+					}
+				}`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
+			})
+		})
+
+		When("the app cannot be found", func() {
+			BeforeEach(func() {
+				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("there is some other error fetching the app", func() {
+			BeforeEach(func() {
+				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the app has no droplet", func() {
+			BeforeEach(func() {
+				fetchAppRecord := repositories.AppRecord{
+					Name:        appName,
+					GUID:        appGUID,
+					SpaceGUID:   spaceGUID,
+					DropletGUID: "",
+					State:       "STOPPED",
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				}
+				appRepo.FetchAppReturns(fetchAppRecord, nil)
+			})
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("returns the App in the response with a state of STOPPED", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+					"guid": "%[2]s",
+					"created_at": "",
+					"updated_at": "",
+					"name": "%[4]s",
+					"state": "STOPPED",
+					"lifecycle": {
+						"type": "buildpack",
+						"data": {
+							"buildpacks": [],
+							"stack": ""
+						}
+					},
+					"relationships": {
+						"space": {
+							"data": {
+								"guid": "%[3]s"
+							}
+						}
+					},
+					"metadata": {
+						"labels": {},
+						"annotations": {}
+					},
+					"links": {
+						"self": {
+							"href": "https://api.example.org/v3/apps/%[2]s"
+						},
+						"environment_variables": {
+							"href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
+						},
+						"space": {
+							"href": "https://api.example.org/v3/spaces/%[3]s"
+						},
+						"processes": {
+							"href": "https://api.example.org/v3/apps/%[2]s/processes"
+						},
+						"packages": {
+							"href": "https://api.example.org/v3/apps/%[2]s/packages"
+						},
+						"current_droplet": {
+							"href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
+						},
+						"droplets": {
+							"href": "https://api.example.org/v3/apps/%[2]s/droplets"
+						},
+						"tasks": {
+							"href": "https://api.example.org/v3/apps/%[2]s/tasks"
+						},
+						"start": {
+							"href": "https://api.example.org/v3/apps/%[2]s/actions/start",
+							"method": "POST"
+						},
+						"stop": {
+							"href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
+							"method": "POST"
+						},
+						"revisions": {
+							"href": "https://api.example.org/v3/apps/%[2]s/revisions"
+						},
+						"deployed_revisions": {
+							"href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
+						},
+						"features": {
+							"href": "https://api.example.org/v3/apps/%[2]s/features"
+						}
+					}
+				}`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
+			})
+		})
+
+		When("there is some other error updating app desiredState", func() {
+			BeforeEach(func() {
+				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
 	Describe("the GET /v3/apps/:guid/processes endpoint", func() {
 		var (
 			process1Record *repositories.ProcessRecord
