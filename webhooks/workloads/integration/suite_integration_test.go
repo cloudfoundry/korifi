@@ -89,7 +89,7 @@ var _ = BeforeSuite(func() {
 	cfAppValidatingWebhook := &workloads.CFAppValidation{Client: mgr.GetClient()}
 	Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
-	anchorValidationWebhook := workloads.NewSubnamespaceAnchorValidation(mgr.GetClient())
+	anchorValidationWebhook := workloads.NewSubnamespaceAnchorValidation()
 	Expect(anchorValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook

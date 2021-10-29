@@ -8,7 +8,6 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -23,14 +22,7 @@ const (
 	SpaceNameLabel = "cloudfoundry.org/space-name"
 )
 
-//counterfeiter:generate -o fake -fake-name SubnamespaceAnchorLister . SubnamespaceAnchorLister
-
-type SubnamespaceAnchorLister interface {
-	List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error
-}
-
 type SubnamespaceAnchorValidation struct {
-	lister    SubnamespaceAnchorLister
 	decoder   *admission.Decoder
 	registrar *registry.Registrar
 	logger    logr.Logger
@@ -46,9 +38,8 @@ var getSpaceName mapToName = func(anchor *v1alpha2.SubnamespaceAnchor) string {
 	return anchor.Labels[SpaceNameLabel]
 }
 
-func NewSubnamespaceAnchorValidation(lister SubnamespaceAnchorLister) *SubnamespaceAnchorValidation {
+func NewSubnamespaceAnchorValidation() *SubnamespaceAnchorValidation {
 	return &SubnamespaceAnchorValidation{
-		lister: lister,
 		logger: logf.Log.WithName("subns-validate"),
 	}
 }
@@ -61,11 +52,11 @@ func (v *SubnamespaceAnchorValidation) SetupWebhookWithManager(mgr ctrl.Manager)
 }
 
 func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	anchor := &v1alpha2.SubnamespaceAnchor{}
 	if req.Operation == admissionv1.Delete {
 		return v.handleDelete(ctx, req)
 	}
 
+	anchor := &v1alpha2.SubnamespaceAnchor{}
 	err := v.decoder.Decode(req, anchor)
 	if err != nil {
 		v.logger.Info("failed to decode subnamespace anchor", "error", err.Error())
@@ -101,6 +92,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 	case admissionv1.Update:
 		var oldAnchor v1alpha2.SubnamespaceAnchor
 		if err := v.decoder.DecodeRaw(req.OldObject, &oldAnchor); err != nil {
+			v.logger.Info("failed to decode old object", "error", err)
 			return admission.Denied("failed to decode subnamespace anchor")
 		}
 		return v.handleUpdate(ctx, anchor, &oldAnchor, anchorType, dupError, getName)
@@ -117,6 +109,7 @@ func (v *SubnamespaceAnchorValidation) handleCreate(ctx context.Context, anchor 
 			logger.Info(dupError.GetMessage())
 			return admission.Denied(dupError.Marshal())
 		}
+		logger.Info("creating lease record failed", "error", err)
 		return admission.Denied("failed trying to register name")
 	}
 
@@ -146,10 +139,10 @@ func (v *SubnamespaceAnchorValidation) handleUpdate(
 	}
 
 	if err := v.registrar.TryRegister(ctx, anchorType, anchor, anchorName); err != nil {
+		if err := v.registrar.ReleaseLease(ctx, anchorType, oldAnchor, oldAnchorName); err != nil {
+			logger.Info("failed to release lease", "error", err)
+		}
 		if errors.IsAlreadyExists(err) {
-			if err := v.registrar.ReleaseLease(ctx, anchorType, oldAnchor, oldAnchorName); err != nil {
-				logger.Info("failed to release lease", "error", err)
-			}
 			logger.Info(dupError.GetMessage())
 			return admission.Denied(dupError.Marshal())
 		}

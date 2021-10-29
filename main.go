@@ -201,7 +201,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = workloads.NewSubnamespaceAnchorValidation(mgr.GetClient()).SetupWebhookWithManager(mgr); err != nil {
+		if err = workloads.NewSubnamespaceAnchorValidation().SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "SubnamespaceAnchors")
 			os.Exit(1)
 		}
