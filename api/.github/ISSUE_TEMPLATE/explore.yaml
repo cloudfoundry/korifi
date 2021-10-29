@@ -1,0 +1,33 @@
+name: Explore Story
+description: Exploration story
+title: "[Explore]: "
+labels: [explore]
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: Background
+      description: Insert helpful context and links. What is the goal of the exploration?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Possible outcomes include.
+      placeholder: |
+        Design Document (proposal/ADR)
+        Meeting w/ team to discuss findings
+        Shareout on slack channels or mailing lists
+        Demo video
+    validations:
+      required: true
+  - type: textarea
+    id: timebox
+    attributes:
+      label: Number of days this exploration is expected to take. This is what is “pointed”.
+  - type: textarea
+    id: dev-notes
+    attributes:
+      label: Dev Notes
+      placeholder: This section can either be filled in advance or serves as a place to document learnings from discussion in IPM.
