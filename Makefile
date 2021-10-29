@@ -16,7 +16,7 @@ SHELL = /usr/bin/env bash -o pipefail
 
 .DEFAULT_GOAL := test
 
-.PHONY: hnc-install test test-e2e kustomize docker-build docker-push fmt vet build-reference
+.PHONY: test test-e2e kustomize docker-build docker-push fmt vet build-reference
 
 fmt: ## Run go fmt against code.
 	go fmt ./...
@@ -71,9 +71,6 @@ kustomize: ## Download kustomize locally if necessary.
 GINKGO = $(shell pwd)/bin/ginkgo
 ginkgo:
 	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo@latest)
-
-hnc-install:
-	./scripts/install-hnc.sh
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
