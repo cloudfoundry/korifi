@@ -73,6 +73,19 @@ func (l *Registrar) TryClaimLease(ctx context.Context, registryType RegistryType
 	return l.client.Patch(ctx, lease, client.RawPatch(types.JSONPatchType, []byte(jsonPatch)))
 }
 
+func (l *Registrar) ReleaseLease(ctx context.Context, registryType RegistryType, obj client.Object, name string) error {
+	lease := &coordv1.Lease{}
+	lease.Namespace = obj.GetNamespace()
+	lease.Name = getLeaseName(registryType, name)
+
+	jsonPatch := fmt.Sprintf(`
+	[
+	  {"op":"replace", "path":"/spec/holderIdentity", "value": "%s"}
+	]`, unclaimedHolder)
+
+	return l.client.Patch(ctx, lease, client.RawPatch(types.JSONPatchType, []byte(jsonPatch)))
+}
+
 func (l *Registrar) DeleteRecordFor(ctx context.Context, registryType RegistryType, namespace, name string) error {
 	lease := &coordv1.Lease{}
 	lease.Namespace = namespace

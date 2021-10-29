@@ -2,7 +2,6 @@ package workloads
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/registry"
@@ -71,7 +70,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 	err := v.decoder.Decode(req, anchor)
 	if err != nil {
 		subnsLogger.Info("failed to decode subnamespace anchor", "error", err.Error())
-		return admission.Errored(1, fmt.Errorf("failed to decode subnamespace anchor: %w", err))
+		return admission.Denied("failed to decode subnamespace anchor")
 	}
 
 	if anchor.Labels[OrgNameLabel] == "" && anchor.Labels[SpaceNameLabel] == "" {
@@ -103,7 +102,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 	case admissionv1.Update:
 		var oldAnchor v1alpha2.SubnamespaceAnchor
 		if err := v.decoder.DecodeRaw(req.OldObject, &oldAnchor); err != nil {
-			return admission.Errored(1, fmt.Errorf("failed to decode subnamespace anchor: %w", err))
+			return admission.Denied("failed to decode subnamespace anchor")
 		}
 		return v.handleUpdate(ctx, anchor, &oldAnchor, anchorType, dupError, getName)
 	}
@@ -119,31 +118,42 @@ func (v *SubnamespaceAnchorValidation) handleCreate(ctx context.Context, anchor 
 			subnsLogger.Info(dupError.GetMessage(), "name", name)
 			return admission.Denied(dupError.Marshal())
 		}
-		return admission.Errored(2, fmt.Errorf("failed trying to register name: %w", err))
+		return admission.Denied("failed trying to register name")
 	}
 
 	return admission.Allowed("")
 }
 
-func (v *SubnamespaceAnchorValidation) handleUpdate(ctx context.Context, anchor, oldAnchor *v1alpha2.SubnamespaceAnchor, anchorType registry.RegistryType, dupError ValidationErrorCode, getName mapToName) admission.Response {
+func (v *SubnamespaceAnchorValidation) handleUpdate(
+	ctx context.Context,
+	anchor, oldAnchor *v1alpha2.SubnamespaceAnchor,
+	anchorType registry.RegistryType,
+	dupError ValidationErrorCode,
+	getName mapToName,
+) admission.Response {
+
 	anchorName := getName(anchor)
 	oldAnchorName := getName(oldAnchor)
 	if anchorName == oldAnchorName {
 		return admission.Allowed("")
 	}
-	subnsLogger.Info("updating name", "oldName", oldAnchorName, "newName", anchorName)
+	subnsLogger := subnsLogger.WithValues("anchorType", anchorType, "anchorNamespace", oldAnchor.Namespace, "oldAnchorName", oldAnchorName, "newAnchorName", anchorName)
+	subnsLogger.Info("updating name")
 
 	if err := v.registrar.TryClaimLease(ctx, anchorType, oldAnchor, oldAnchorName); err != nil {
-		subnsLogger.Info("failed to obtain lease on old record", "err", err, "anchorType", anchorType, "anchorNamespace", oldAnchor.Namespace, "anchorName", oldAnchorName)
+		subnsLogger.Info("failed to obtain lease on old record", "err", err)
 		return admission.Denied("cannot lock old record")
 	}
 
-	if err := v.registrar.TryRegister(ctx, anchorType, oldAnchor, oldAnchorName); err != nil {
+	if err := v.registrar.TryRegister(ctx, anchorType, anchor, anchorName); err != nil {
 		if errors.IsAlreadyExists(err) {
-			subnsLogger.Info(dupError.GetMessage(), "name", anchorName)
+			if err := v.registrar.ReleaseLease(ctx, anchorType, oldAnchor, oldAnchorName); err != nil {
+				subnsLogger.Info("failed to release lease", "error", err)
+			}
+			subnsLogger.Info(dupError.GetMessage())
 			return admission.Denied(dupError.Marshal())
 		}
-		return admission.Errored(2, fmt.Errorf("failed trying to register name: %w", err))
+		return admission.Denied("failed trying to register name")
 	}
 
 	if err := v.registrar.DeleteRecordFor(ctx, anchorType, oldAnchor.Namespace, oldAnchorName); err != nil {
@@ -156,7 +166,7 @@ func (v *SubnamespaceAnchorValidation) handleUpdate(ctx context.Context, anchor,
 func (v *SubnamespaceAnchorValidation) handleDelete(ctx context.Context, req admission.Request) admission.Response {
 	var oldAnchor v1alpha2.SubnamespaceAnchor
 	if err := v.decoder.DecodeRaw(req.OldObject, &oldAnchor); err != nil {
-		return admission.Errored(1, fmt.Errorf("failed to decode subnamespace anchor: %w", err))
+		return admission.Denied("failed to decode subnamespace anchor")
 	}
 
 	anchorType := registry.OrgType
