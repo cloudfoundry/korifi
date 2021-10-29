@@ -24,8 +24,13 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-test: fmt vet ## Run tests.
-	./scripts/test
+test: test-unit test-integration test-e2e
+
+test-unit: fmt vet
+	./scripts/test -skipPackage=test
+
+test-integration:
+	./scripts/test tests/integration
 
 test-e2e:
 	./scripts/test tests/e2e
@@ -45,7 +50,7 @@ deploy: kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/c
 
 deploy-kind: kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/base && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-api=${IMG}
-	$(KUSTOMIZE) build config/overlays/kind | kubectl apply -f -
+	$(KUSTOMIZE) build config/overlays/kind-auth-enabled | kubectl apply -f -
 
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/base | kubectl delete -f -

@@ -14,6 +14,8 @@ type Config struct {
 	PackageRegistrySecretName string `yaml:"packageRegistrySecretName"`
 
 	DefaultLifecycleConfig DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
+
+	AuthEnabled bool `yaml:"authEnabled"`
 }
 
 // DefaultLifecycleConfig contains default values of the Lifecycle block of CFApps and Builds created by the Shim

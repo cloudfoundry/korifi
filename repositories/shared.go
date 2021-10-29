@@ -8,6 +8,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 
 type NotFoundError struct {
@@ -55,7 +57,7 @@ func getTimeLastUpdatedTimestamp(metadata *metav1.ObjectMeta) (string, error) {
 
 	latestTime := metadata.ManagedFields[0].Time
 	for i := 1; i < len(metadata.ManagedFields); i++ {
-		var currentTime = metadata.ManagedFields[i].Time
+		currentTime := metadata.ManagedFields[i].Time
 		if latestTime == nil {
 			latestTime = currentTime
 		} else if currentTime != nil {

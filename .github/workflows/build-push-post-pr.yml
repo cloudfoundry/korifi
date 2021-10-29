@@ -14,7 +14,7 @@ on:
 jobs:
   # This workflow contains a single job called "build"
   build:
-    needs: e2e-tests
+    needs: tests
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
 

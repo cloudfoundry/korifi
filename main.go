@@ -16,6 +16,8 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/config"
 	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-api/repositories/authorization"
+	"code.cloudfoundry.org/cf-k8s-api/repositories/provider"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
@@ -76,6 +78,7 @@ func main() {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
 
+	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout)
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
 		apis.NewRootHandler(
@@ -137,10 +140,8 @@ func main() {
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),
-		apis.NewOrgHandler(
-			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
-			*serverURL,
-		),
+
+		wireOrgHandler(*serverURL, orgRepo, privilegedCRClient, config.AuthEnabled),
 		apis.NewSpaceHandler(
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
 			*serverURL,
@@ -172,4 +173,16 @@ func newRegistryAuthBuilder(privilegedK8sClient k8sclient.Interface, config *con
 
 		return remote.WithAuthFromKeychain(keychain), nil
 	}
+}
+
+func wireOrgHandler(serverUrl url.URL, orgRepo *repositories.OrgRepo, client client.Client, authEnabled bool) *apis.OrgHandler {
+	var orgRepoProvider apis.OrgRepositoryProvider = provider.NewPrivilegedOrg(orgRepo)
+	if authEnabled {
+		authNsProvider := authorization.NewOrg(client)
+		tokenReviewer := authorization.NewTokenReviewer(client)
+		identityProvider := authorization.NewIdentityProvider(tokenReviewer)
+		orgRepoProvider = provider.NewOrg(orgRepo, authNsProvider, identityProvider)
+	}
+
+	return apis.NewOrgHandler(serverUrl, orgRepoProvider)
 }

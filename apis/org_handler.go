@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-api/repositories/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -23,29 +24,32 @@ const (
 )
 
 //counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
+//counterfeiter:generate -o fake -fake-name OrgRepositoryProvider . OrgRepositoryProvider
 
 type CFOrgRepository interface {
-	// TODO: pass received credentials to OrgRepo so it can create user-auth'ed k8s client
-	CreateOrg(context.Context, repositories.OrgRecord) (repositories.OrgRecord, error)
-	FetchOrgs(context.Context, []string) ([]repositories.OrgRecord, error)
+	CreateOrg(context context.Context, org repositories.OrgRecord) (repositories.OrgRecord, error)
+	FetchOrgs(context context.Context, orgNames []string) ([]repositories.OrgRecord, error)
+}
+
+type OrgRepositoryProvider interface {
+	OrgRepoForRequest(request *http.Request) (CFOrgRepository, error)
 }
 
 type OrgHandler struct {
-	orgRepo    CFOrgRepository
-	logger     logr.Logger
-	apiBaseURL url.URL
+	logger          logr.Logger
+	apiBaseURL      url.URL
+	orgRepoProvider OrgRepositoryProvider
 }
 
-func NewOrgHandler(orgRepo CFOrgRepository, apiBaseURL url.URL) *OrgHandler {
+func NewOrgHandler(apiBaseURL url.URL, orgRepoProvider OrgRepositoryProvider) *OrgHandler {
 	return &OrgHandler{
-		orgRepo:    orgRepo,
-		apiBaseURL: apiBaseURL,
-		logger:     controllerruntime.Log.WithName("Org Handler"),
+		logger:          controllerruntime.Log.WithName("Org Handler"),
+		apiBaseURL:      apiBaseURL,
+		orgRepoProvider: orgRepoProvider,
 	}
 }
 
 func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.OrgCreate
@@ -59,7 +63,22 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 	org := payload.ToRecord()
 	org.GUID = uuid.New().String()
 
-	record, err := h.orgRepo.CreateOrg(ctx, org)
+	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest(r)
+	if err != nil {
+		if authorization.IsUnauthorized(err) {
+			h.logger.Error(err, "unauthorized to create org")
+			writeUnauthorizedErrorResponse(w)
+
+			return
+		}
+
+		h.logger.Error(err, "failed to create org repo for the authorization header")
+		writeUnknownErrorResponse(w)
+
+		return
+	}
+
+	record, err := orgRepo.CreateOrg(r.Context(), org)
 	if err != nil {
 		if workloads.HasErrorCode(err, workloads.DuplicateOrgNameError) {
 			errorDetail := fmt.Sprintf("Organization '%s' already exists.", org.Name)
@@ -87,7 +106,22 @@ func (h *OrgHandler) orgListHandler(w http.ResponseWriter, r *http.Request) {
 		names = strings.Split(namesList, ",")
 	}
 
-	orgs, err := h.orgRepo.FetchOrgs(ctx, names)
+	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest(r)
+	if err != nil {
+		if authorization.IsUnauthorized(err) {
+			h.logger.Error(err, "unauthorized to list orgs")
+			writeUnauthorizedErrorResponse(w)
+
+			return
+		}
+
+		h.logger.Error(err, "failed to create org repo for the authorization header")
+		writeUnknownErrorResponse(w)
+
+		return
+	}
+
+	orgs, err := orgRepo.FetchOrgs(ctx, names)
 	if err != nil {
 		h.logger.Error(err, "failed to fetch orgs")
 		writeUnknownErrorResponse(w)
