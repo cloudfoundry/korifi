@@ -271,3 +271,5 @@ spec:
       port: 80
   virtualhost:
     fqdn: ""
+    tls:
+      secretName: cf-k8s-api-ingress-cert

@@ -29,7 +29,7 @@ spec:
         - /manager
         args:
         - --leader-elect
-        image: controller:latest
+        image: cloudfoundry/cf-k8s-controllers:latest
         name: manager
         securityContext:
           allowPrivilegeEscalation: false

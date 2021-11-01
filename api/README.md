@@ -23,7 +23,7 @@ shell
 go run main.go
 ```
 
-### Deploying the app to your cluster
+### Deploying the API to your cluster
 
 **Note** Supports ingress with only GKE
 
@@ -41,14 +41,48 @@ You can deploy the app to your cluster by running `make deploy` from the project
 You can deploy the app to your cluster by running `kubectl apply -f reference/cf-k8s-api.yaml` from the project root.
 
 ### Post Deployment
-Run the commands below substituting the values for the Docker credentials to the registry where source package images will be uploaded to.
+
+#### Configure Image Registry Credentials Secret
+Run the command below, substituting the values for the Docker credentials to the registry where source package images will be uploaded to.
 
 ```
 kubectl create secret docker-registry image-registry-secret \
-    --docker-username="<DOCKER_USERNAME>" \
-    --docker-password="<DOCKER_PASSWORD>" \
-     --docker-server="<DOCKER_SERVER>" --namespace cf-k8s-api-system
+  --docker-username="<DOCKER_USERNAME>" \
+  --docker-password="<DOCKER_PASSWORD>" \
+  --docker-server="<DOCKER_SERVER>" --namespace cf-k8s-api-system
 ```
+
+#### Configure API Ingress TLS Certificate Secret
+Generate a self-signed certificate. If you are using openssl, or libressl v3.1.0 or later:
+```
+openssl req -x509 -newkey rsa:4096 \
+  -keyout tls.key -out tls.crt \
+  -nodes -subj '/CN=localhost' \
+  -addext "subjectAltName = DNS:localhost" \
+  -days 365
+```
+
+If you are using an older version of libressl (the default on OSX):
+```
+openssl req -x509 -newkey rsa:4096 \
+  -keyout tls.key -out tls.crt \
+  -nodes -subj '/CN=localhost' \
+  -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:localhost'")) \
+  -days 365
+```
+
+Create a TLS secret called `cf-k8s-api-ingress-cert` using the self-signed
+certificate generated above, or from your own existing certificate:
+```
+kubectl create secret tls \
+  cf-k8s-api-ingress-cert \
+  --cert=./tls.crt --key=./tls.key \
+  -n cf-k8s-api-system
+```
+
+**NOTE**: If you choose to generate a self-signed certificate, you will need to
+either skip TLS validation or use the `--cacert` flag with the generated
+certificate when connecting to the API.
 
 ## Contributing
 
