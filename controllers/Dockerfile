@@ -1,4 +1,4 @@
-# Build the manager binary
+# syntax = docker/dockerfile:1.3
 FROM golang:1.16 as builder
 
 WORKDIR /workspace
