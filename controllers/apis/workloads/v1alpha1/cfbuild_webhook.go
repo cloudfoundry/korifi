@@ -31,7 +31,7 @@ func (r *CFBuild) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-workloads-cloudfoundry-org-v1alpha1-cfbuild,mutating=true,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cfbuilds,verbs=create;update,versions=v1alpha1,name=mcfbuild.kb.io,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-workloads-cloudfoundry-org-v1alpha1-cfbuild,mutating=true,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cfbuilds,verbs=create;update,versions=v1alpha1,name=mcfbuild.workloads.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Defaulter = &CFBuild{}
 

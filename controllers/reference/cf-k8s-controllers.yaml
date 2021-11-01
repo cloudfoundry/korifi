@@ -1662,7 +1662,7 @@ webhooks:
       namespace: cf-k8s-controllers-system
       path: /mutate-networking-cloudfoundry-org-v1alpha1-cfroute
   failurePolicy: Fail
-  name: mcfroute.kb.io
+  name: mcfroute.networking.cloudfoundry.org
   rules:
   - apiGroups:
     - networking.cloudfoundry.org
@@ -1683,7 +1683,7 @@ webhooks:
       namespace: cf-k8s-controllers-system
       path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfapp
   failurePolicy: Fail
-  name: mcfapp.kb.io
+  name: mcfapp.workloads.cloudfoundry.org
   rules:
   - apiGroups:
     - workloads.cloudfoundry.org
@@ -1704,7 +1704,7 @@ webhooks:
       namespace: cf-k8s-controllers-system
       path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfbuild
   failurePolicy: Fail
-  name: mcfbuild.kb.io
+  name: mcfbuild.workloads.cloudfoundry.org
   rules:
   - apiGroups:
     - workloads.cloudfoundry.org
@@ -1725,7 +1725,7 @@ webhooks:
       namespace: cf-k8s-controllers-system
       path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfpackage
   failurePolicy: Fail
-  name: mcfpackage.kb.io
+  name: mcfpackage.workloads.cloudfoundry.org
   rules:
   - apiGroups:
     - workloads.cloudfoundry.org
@@ -1746,7 +1746,7 @@ webhooks:
       namespace: cf-k8s-controllers-system
       path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfprocess
   failurePolicy: Fail
-  name: mcfprocess.kb.io
+  name: mcfprocess.workloads.cloudfoundry.org
   rules:
   - apiGroups:
     - workloads.cloudfoundry.org
@@ -1775,7 +1775,7 @@ webhooks:
       namespace: cf-k8s-controllers-system
       path: /validate-workloads-cloudfoundry-org-v1alpha1-cfapp
   failurePolicy: Fail
-  name: vcfapp.kb.io
+  name: vcfapp.workloads.cloudfoundry.org
   rules:
   - apiGroups:
     - workloads.cloudfoundry.org
@@ -1796,7 +1796,7 @@ webhooks:
       namespace: cf-k8s-controllers-system
       path: /validate-hnc-x-k8s-io-v1alpha2-subnamespaceanchor
   failurePolicy: Fail
-  name: vsubns.kb.io
+  name: vsubns.workloads.cloudfoundry.org
   rules:
   - apiGroups:
     - hnc.x-k8s.io

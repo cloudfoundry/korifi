@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
-//+kubebuilder:webhook:path=/validate-hnc-x-k8s-io-v1alpha2-subnamespaceanchor,mutating=false,failurePolicy=fail,sideEffects=None,groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=create;update,versions=v1alpha2,name=vsubns.kb.io,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-hnc-x-k8s-io-v1alpha2-subnamespaceanchor,mutating=false,failurePolicy=fail,sideEffects=None,groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=create;update,versions=v1alpha2,name=vsubns.workloads.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 //+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;watch
 
 const (

@@ -33,7 +33,7 @@ func (r *CFRoute) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-networking-cloudfoundry-org-v1alpha1-cfroute,mutating=true,failurePolicy=fail,sideEffects=None,groups=networking.cloudfoundry.org,resources=cfroutes,verbs=create;update,versions=v1alpha1,name=mcfroute.kb.io,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-networking-cloudfoundry-org-v1alpha1-cfroute,mutating=true,failurePolicy=fail,sideEffects=None,groups=networking.cloudfoundry.org,resources=cfroutes,verbs=create;update,versions=v1alpha1,name=mcfroute.networking.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Defaulter = &CFRoute{}
 
