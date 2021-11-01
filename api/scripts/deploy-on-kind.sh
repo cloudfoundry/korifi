@@ -4,8 +4,8 @@ set -euxo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 API_DIR="$SCRIPT_DIR/.."
-CTRL_DIR="$API_DIR/../cf-k8s-controllers"
-EIRINI_CONTROLLER_DIR="$API_DIR/../eirini-controller"
+CTRL_DIR="$API_DIR/../controllers"
+EIRINI_CONTROLLER_DIR="$API_DIR/../../eirini-controller"
 export PATH="$PATH:$API_DIR/bin"
 
 ensure_kind_cluster() {
