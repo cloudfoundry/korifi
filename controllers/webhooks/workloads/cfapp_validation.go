@@ -19,7 +19,7 @@ const specNameKey = "spec.name"
 var cfapplog = logf.Log.WithName("cfapp-validate")
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-workloads-cloudfoundry-org-v1alpha1-cfapp,mutating=false,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cfapps,verbs=create;update,versions=v1alpha1,name=vcfapp.kb.io,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-workloads-cloudfoundry-org-v1alpha1-cfapp,mutating=false,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cfapps,verbs=create;update,versions=v1alpha1,name=vcfapp.workloads.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFAppValidation struct {
 	Client  CFAppClient

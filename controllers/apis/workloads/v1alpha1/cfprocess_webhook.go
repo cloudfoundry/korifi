@@ -33,7 +33,7 @@ func (r *CFProcess) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-workloads-cloudfoundry-org-v1alpha1-cfprocess,mutating=true,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cfprocesses,verbs=create;update,versions=v1alpha1,name=mcfprocess.kb.io,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-workloads-cloudfoundry-org-v1alpha1-cfprocess,mutating=true,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cfprocesses,verbs=create;update,versions=v1alpha1,name=mcfprocess.workloads.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Defaulter = &CFProcess{}
 
