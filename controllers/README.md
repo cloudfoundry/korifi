@@ -94,7 +94,7 @@ openssl req -x509 -newkey rsa:4096 \
 
 Once you have created a certificate, use it to create the secret required by eirini-controller:
 ```
-kubectl create secret -n eirini-controller generic eirini-webhooks-cert --from-file=tls.crt=./tls.crt --from-file=tls.ca=./tls.crt --from-file=tls.key=./tls.key
+kubectl create secret -n eirini-controller generic eirini-webhooks-certs --from-file=tls.crt=./tls.crt --from-file=tls.ca=./tls.crt --from-file=tls.key=./tls.key
 ```
 
 #### Install
