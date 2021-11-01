@@ -37,5 +37,5 @@ jobs:
           context: .
           push: false
           tags: cloudfoundry/cf-k8s-controllers:latest
-          cache-from: type=registry,ref=cloudfoundry/cf-k8s-controllers:latest
-          cache-to: type=inline
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
