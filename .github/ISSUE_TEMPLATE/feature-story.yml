@@ -14,9 +14,9 @@ body:
       label: Background
       description: Insert any additional helpful context and links. Specifically note if the USER is an end user or API client.
       value: |
-        As a <USER>
-        I want <some feature>
-        So that <I can achieve some outcome>
+        **As a** <USER>
+        **I want** <some feature>
+        **So that** <I can achieve some outcome>
     validations:
       required: true
   - type: textarea
@@ -25,9 +25,9 @@ body:
       label: Acceptance Criteria
       description: Generally acceptance criteria should cover the “happy path” case as well as any edge cases.
       value: |
-        GIVEN <pre-requisites>
-        WHEN I <do some action>
-        THEN I <see some outcome>
+        **GIVEN** <pre-requisites>
+        **WHEN I** <do some action>
+        **THEN I** <see some outcome>
     validations:
       required: true
   - type: textarea
