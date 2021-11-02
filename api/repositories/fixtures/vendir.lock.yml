@@ -2,10 +2,6 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Reconcile CFPRocess to Eirini LRP (#118)...
-      sha: be12e4c647f058b95b186cb39671a46c06d80659
-    path: cf-k8s-controllers
-  - git:
       commitTitle: 'Merge pull request #109 from adrianludwin/readme...'
       sha: a4fe5ce4534f43205e507b99790151255e3af133
       tags:

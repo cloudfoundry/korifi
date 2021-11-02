@@ -3,12 +3,6 @@ kind: Config
 directories:
   - path: vendor
     contents:
-      - path: cf-k8s-controllers
-        git:
-          url: https://github.com/cloudfoundry/cf-k8s-controllers
-          ref: main
-        includePaths:
-          - config/crd/bases/**/*
       - path: hierarchical-namespaces
         git:
           url: https://github.com/kubernetes-sigs/hierarchical-namespaces
