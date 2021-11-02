@@ -3,9 +3,11 @@ package repositories
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -27,6 +29,18 @@ type ProcessRecord struct {
 	Annotations map[string]string
 	CreatedAt   string
 	UpdatedAt   string
+}
+
+type ScaleProcessMessage struct {
+	GUID      string
+	SpaceGUID string
+	ProcessScale
+}
+
+type ProcessScale struct {
+	Instances *int
+	MemoryMB  *int64
+	DiskMB    *int64
 }
 
 type HealthCheck struct {
@@ -71,6 +85,33 @@ func (r *ProcessRepository) FetchProcessesForApp(ctx context.Context, k8sClient 
 	return returnProcesses(matches)
 }
 
+func (r *ProcessRepository) ScaleProcess(ctx context.Context, k8sClient client.Client, scaleProcessMessage ScaleProcessMessage) (ProcessRecord, error) {
+	baseCFProcess := &workloadsv1alpha1.CFProcess{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      scaleProcessMessage.GUID,
+			Namespace: scaleProcessMessage.SpaceGUID,
+		},
+	}
+	cfProcess := baseCFProcess.DeepCopy()
+	if scaleProcessMessage.Instances != nil {
+		cfProcess.Spec.DesiredInstances = *scaleProcessMessage.Instances
+	}
+	if scaleProcessMessage.MemoryMB != nil {
+		cfProcess.Spec.MemoryMB = *scaleProcessMessage.MemoryMB
+	}
+	if scaleProcessMessage.DiskMB != nil {
+		cfProcess.Spec.DiskQuotaMB = *scaleProcessMessage.DiskMB
+	}
+
+	err := k8sClient.Patch(ctx, cfProcess, client.MergeFrom(baseCFProcess))
+	if err != nil {
+		return ProcessRecord{}, fmt.Errorf("err in client.Patch: %w", err)
+	}
+
+	record := cfProcessToProcessRecord(*cfProcess)
+	return record, nil
+}
+
 func filterProcessesByMetadataName(processes []workloadsv1alpha1.CFProcess, name string) []workloadsv1alpha1.CFProcess {
 	var filtered []workloadsv1alpha1.CFProcess
 	for i, process := range processes {
@@ -83,7 +124,7 @@ func filterProcessesByMetadataName(processes []workloadsv1alpha1.CFProcess, name
 
 func returnProcess(processes []workloadsv1alpha1.CFProcess) (ProcessRecord, error) {
 	if len(processes) == 0 {
-		return ProcessRecord{}, NotFoundError{}
+		return ProcessRecord{}, NotFoundError{ResourceType: "Process"}
 	}
 	if len(processes) > 1 {
 		return ProcessRecord{}, errors.New("duplicate processes exist")

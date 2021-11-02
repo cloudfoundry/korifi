@@ -13,7 +13,8 @@ import (
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 
 type NotFoundError struct {
-	Err error
+	Err          error
+	ResourceType string
 }
 
 func (e NotFoundError) Error() string {

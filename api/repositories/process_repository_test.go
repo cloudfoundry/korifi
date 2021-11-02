@@ -2,14 +2,17 @@ package repositories_test
 
 import (
 	"context"
+	"time"
 
 	. "code.cloudfoundry.org/cf-k8s-api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -178,7 +181,7 @@ var _ = Describe("ProcessRepository", func() {
 			It("returns an error", func() {
 				_, err := processRepo.FetchProcess(testCtx, client, "i don't exist")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(NotFoundError{}))
+				Expect(err).To(MatchError(NotFoundError{ResourceType: "Process"}))
 			})
 		})
 	})
@@ -261,6 +264,133 @@ var _ = Describe("ProcessRepository", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(processes).To(BeEmpty())
 				Expect(processes).ToNot(BeNil())
+			})
+		})
+	})
+
+	Describe("ScaleProcess", func() {
+		var (
+			namespace *corev1.Namespace
+
+			appGUID string
+			cfApp   *workloadsv1alpha1.CFApp
+
+			processGUID string
+			cfProcess   *workloadsv1alpha1.CFProcess
+
+			scaleProcessMessage *ScaleProcessMessage
+		)
+
+		BeforeEach(func() {
+			beforeCtx := context.Background()
+			namespaceName := generateGUID()
+			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
+			Expect(k8sClient.Create(beforeCtx, namespace)).To(Succeed())
+
+			appGUID = generateGUID()
+			cfApp = initializeAppCR("test-app1", appGUID, namespace.Name)
+			Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+
+			processGUID = generateGUID()
+			cfProcess = initializeProcessCR(processGUID, namespace.Name, appGUID)
+			Expect(k8sClient.Create(context.Background(), cfProcess)).To(Succeed())
+
+			scaleProcessMessage = &ScaleProcessMessage{
+				GUID:         processGUID,
+				SpaceGUID:    namespace.Name,
+				ProcessScale: ProcessScale{},
+			}
+		})
+
+		AfterEach(func() {
+			afterCtx := context.Background()
+			k8sClient.Delete(afterCtx, namespace)
+			k8sClient.Delete(afterCtx, cfApp)
+			k8sClient.Delete(afterCtx, cfProcess)
+		})
+
+		When("on the happy path", func() {
+			var (
+				instanceScale int
+				diskScaleMB   int64
+				memoryScaleMB int64
+			)
+
+			BeforeEach(func() {
+				instanceScale = 7
+				diskScaleMB = 80
+				memoryScaleMB = 900
+			})
+
+			DescribeTable("calling ScaleProcess with a set of scale values returns an updated CFProcess record",
+				func(instances *int, diskMB, memoryMB *int64) {
+					scaleProcessMessage.ProcessScale = ProcessScale{
+						Instances: instances,
+						DiskMB:    diskMB,
+						MemoryMB:  memoryMB,
+					}
+					scaleProcessRecord, scaleProcessErr := processRepo.ScaleProcess(context.Background(), client, *scaleProcessMessage)
+					Expect(scaleProcessErr).ToNot(HaveOccurred())
+					if instances != nil {
+						Expect(scaleProcessRecord.Instances).To(Equal(*instances))
+					} else {
+						Expect(scaleProcessRecord.Instances).To(Equal(cfProcess.Spec.DesiredInstances))
+					}
+					if diskMB != nil {
+						Expect(scaleProcessRecord.DiskQuotaMB).To(Equal(*diskMB))
+					} else {
+						Expect(scaleProcessRecord.DiskQuotaMB).To(Equal(cfProcess.Spec.DiskQuotaMB))
+					}
+					if memoryMB != nil {
+						Expect(scaleProcessRecord.MemoryMB).To(Equal(*memoryMB))
+					} else {
+						Expect(scaleProcessRecord.MemoryMB).To(Equal(cfProcess.Spec.MemoryMB))
+					}
+				},
+				Entry("all scale values are provided", &instanceScale, &diskScaleMB, &memoryScaleMB),
+				Entry("no scale values are provided", nil, nil, nil),
+				Entry("some scale values are provided", &instanceScale, nil, nil),
+				Entry("some scale values are provided", nil, &diskScaleMB, &memoryScaleMB),
+			)
+
+			It("eventually updates the scale of the CFProcess CR", func() {
+				scaleProcessMessage.ProcessScale = ProcessScale{
+					Instances: &instanceScale,
+					MemoryMB:  &memoryScaleMB,
+					DiskMB:    &diskScaleMB,
+				}
+				_, err := processRepo.ScaleProcess(testCtx, client, *scaleProcessMessage)
+				Expect(err).ToNot(HaveOccurred())
+				var updatedCFProcess workloadsv1alpha1.CFProcess
+
+				Eventually(func() int {
+					lookupKey := types.NamespacedName{Name: processGUID, Namespace: namespace.Name}
+					err := k8sClient.Get(context.Background(), lookupKey, &updatedCFProcess)
+					if err != nil {
+						return 0
+					}
+					return updatedCFProcess.Spec.DesiredInstances
+				}, timeCheckThreshold*time.Second).Should(Equal(instanceScale), "instance scale was not updated")
+
+				By("updating the CFProcess CR instance scale appropriately", func() {
+					Expect(updatedCFProcess.Spec.DesiredInstances).To(Equal(instanceScale))
+				})
+
+				By("updating the CFProcess CR disk scale appropriately", func() {
+					Expect(updatedCFProcess.Spec.DiskQuotaMB).To(Equal(diskScaleMB))
+				})
+
+				By("updating the CFProcess CR memory scale appropriately", func() {
+					Expect(updatedCFProcess.Spec.MemoryMB).To(Equal(memoryScaleMB))
+				})
+			})
+		})
+
+		When("the process does not exist", func() {
+			It("returns an error", func() {
+				scaleProcessMessage.GUID = "i-dont-exist"
+				_, err := processRepo.ScaleProcess(testCtx, client, *scaleProcessMessage)
+				Expect(err).To(HaveOccurred())
 			})
 		})
 	})

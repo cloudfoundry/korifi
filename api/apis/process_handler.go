@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
@@ -19,6 +20,7 @@ import (
 const (
 	ProcessGetEndpoint         = "/v3/processes/{guid}"
 	ProcessGetSidecarsEndpoint = "/v3/processes/{guid}/sidecars"
+	ProcessScaleEndpoint       = "/v3/processes/{guid}/actions/scale"
 )
 
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
@@ -27,26 +29,32 @@ type CFProcessRepository interface {
 	FetchProcessesForApp(context.Context, client.Client, string, string) ([]repositories.ProcessRecord, error)
 }
 
+//counterfeiter:generate -o fake -fake-name ScaleProcess . ScaleProcess
+type ScaleProcess func(ctx context.Context, client client.Client, processGUID string, scale repositories.ProcessScale) (repositories.ProcessRecord, error)
+
 type ProcessHandler struct {
-	logger      logr.Logger
-	serverURL   url.URL
-	processRepo CFProcessRepository
-	buildClient ClientBuilder
-	k8sConfig   *rest.Config // TODO: this would be global for all requests, not what we want
+	logger       logr.Logger
+	serverURL    url.URL
+	processRepo  CFProcessRepository
+	scaleProcess ScaleProcess
+	buildClient  ClientBuilder
+	k8sConfig    *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
 func NewProcessHandler(
 	logger logr.Logger,
 	serverURL url.URL,
 	processRepo CFProcessRepository,
+	scaleProcessFunc ScaleProcess,
 	buildClient ClientBuilder,
 	k8sConfig *rest.Config) *ProcessHandler {
 	return &ProcessHandler{
-		logger:      logger,
-		serverURL:   serverURL,
-		processRepo: processRepo,
-		buildClient: buildClient,
-		k8sConfig:   k8sConfig,
+		logger:       logger,
+		serverURL:    serverURL,
+		processRepo:  processRepo,
+		scaleProcess: scaleProcessFunc,
+		buildClient:  buildClient,
+		k8sConfig:    k8sConfig,
 	}
 }
 
@@ -119,6 +127,53 @@ func (h *ProcessHandler) processGetSidecarsHandler(w http.ResponseWriter, r *htt
 				}`, h.serverURL.String(), processGUID)))
 }
 
+func (h *ProcessHandler) processScaleHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	processGUID := vars["guid"]
+
+	var payload payloads.ProcessScale
+	rme := DecodeAndValidatePayload(r, &payload)
+	if rme != nil {
+		writeErrorResponse(w, rme)
+		return
+	}
+
+	// TODO: Instantiate config based on bearer token
+	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
+	client, err := h.buildClient(h.k8sConfig)
+	if err != nil {
+		h.logger.Error(err, "Unable to create Kubernetes client", "ProcessGUID", processGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	processRecord, err := h.scaleProcess(ctx, client, processGUID, payload.ToRecord())
+	if err != nil {
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("Process not found", "processGUID", processGUID)
+			writeNotFoundErrorResponse(w, "Process")
+			return
+		default:
+			h.logger.Error(err, "Failed due to error from Kubernetes", "processGUID", processGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	responseBody, err := json.Marshal(presenter.ForProcess(processRecord, h.serverURL))
+	if err != nil {
+		h.logger.Error(err, "Failed to render response", "ProcessGUID", processGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	w.Write(responseBody)
+}
+
 func (h *ProcessHandler) LogError(w http.ResponseWriter, processGUID string, err error) {
 	switch err.(type) {
 	case repositories.NotFoundError:
@@ -133,4 +188,5 @@ func (h *ProcessHandler) LogError(w http.ResponseWriter, processGUID string, err
 func (h *ProcessHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(ProcessGetEndpoint).Methods("GET").HandlerFunc(h.processGetHandler)
 	router.Path(ProcessGetSidecarsEndpoint).Methods("GET").HandlerFunc(h.processGetSidecarsHandler)
+	router.Path(ProcessScaleEndpoint).Methods("POST").HandlerFunc(h.processScaleHandler)
 }
