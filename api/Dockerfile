@@ -12,6 +12,7 @@ COPY apis/ apis/
 COPY config/*.go config/
 COPY payloads/ payloads/
 COPY presenter/ presenter/
+COPY actions/ actions/
 COPY repositories/ repositories/
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o cfapi main.go
