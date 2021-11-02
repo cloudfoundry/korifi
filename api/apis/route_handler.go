@@ -23,6 +23,7 @@ const (
 	RouteGetListEndpoint         = "/v3/routes"
 	RouteGetDestinationsEndpoint = "/v3/routes/{guid}/destinations"
 	RouteCreateEndpoint          = "/v3/routes"
+	RouteAddDestinationsEndpoint = "/v3/routes/{guid}/destinations"
 )
 
 //counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository
@@ -32,6 +33,7 @@ type CFRouteRepository interface {
 	FetchRouteList(context.Context, client.Client) ([]repositories.RouteRecord, error)
 	FetchRoutesForApp(context.Context, client.Client, string, string) ([]repositories.RouteRecord, error)
 	CreateRoute(context.Context, client.Client, repositories.RouteRecord) (repositories.RouteRecord, error)
+	AddDestinationsToRoute(ctx context.Context, c client.Client, message repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name CFDomainRepository . CFDomainRepository
@@ -152,69 +154,6 @@ func (h *RouteHandler) routeGetDestinationsHandler(w http.ResponseWriter, r *htt
 	_, _ = w.Write(responseBody)
 }
 
-// Fetch Route and compose related Domain information within
-func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, routeGUID string) (repositories.RouteRecord, error) {
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
-	if err != nil {
-		return repositories.RouteRecord{}, err
-	}
-
-	route, err := h.routeRepo.FetchRoute(ctx, client, routeGUID)
-	if err != nil {
-		return repositories.RouteRecord{}, err
-	}
-
-	domain, err := h.domainRepo.FetchDomain(ctx, client, route.DomainRef.GUID)
-	// We assume K8s controller will ensure valid data, so the only error case is due to eventually consistency.
-	// Return a generic retryable error.
-	if err != nil {
-		err = errors.New("resource not found for route's specified domain ref")
-		return repositories.RouteRecord{}, err
-	}
-
-	route = route.UpdateDomainRef(domain)
-
-	return route, nil
-}
-
-func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context) ([]repositories.RouteRecord, error) {
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
-	if err != nil {
-		return []repositories.RouteRecord{}, err
-	}
-
-	routeRecords, err := h.routeRepo.FetchRouteList(ctx, client)
-	if err != nil {
-		return []repositories.RouteRecord{}, err
-	}
-
-	return getDomainsForRoutes(ctx, h.domainRepo, client, routeRecords)
-}
-
-func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, client client.Client, routeRecords []repositories.RouteRecord) ([]repositories.RouteRecord, error) {
-	domainGUIDToDomainRecord := make(map[string]repositories.DomainRecord)
-	for i, routeRecord := range routeRecords {
-		currentDomainGUID := routeRecord.DomainRef.GUID
-		domainRecord, has := domainGUIDToDomainRecord[currentDomainGUID]
-		if !has {
-			var err error
-			domainRecord, err = domainRepo.FetchDomain(ctx, client, currentDomainGUID)
-			if err != nil {
-				err = errors.New("resource not found for route's specified domain ref")
-				return []repositories.RouteRecord{}, err
-			}
-			domainGUIDToDomainRecord[currentDomainGUID] = domainRecord
-		}
-		routeRecords[i] = routeRecord.UpdateDomainRef(domainRecord)
-	}
-
-	return routeRecords, nil
-}
-
 func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
@@ -290,9 +229,143 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 	w.Write(responseBody)
 }
 
+func (h *RouteHandler) routeAddDestinationsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	var destinationCreatePayload payloads.DestinationListCreate
+	rme := DecodeAndValidatePayload(r, &destinationCreatePayload)
+	if rme != nil {
+		writeErrorResponse(w, rme)
+		return
+	}
+
+	vars := mux.Vars(r)
+	routeGUID := vars["guid"]
+
+	routeRecord, err := h.lookupRouteAndDomain(ctx, routeGUID)
+	if err != nil {
+		if errors.As(err, new(repositories.NotFoundError)) {
+			h.logger.Info("Route not found", "RouteGUID", routeGUID)
+			writeUnprocessableEntityError(w, "Route is invalid. Ensure it exists and you have access to it.")
+		} else {
+			h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
+			writeUnknownErrorResponse(w)
+		}
+		return
+	}
+
+	// TODO: Instantiate config based on bearer token
+	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
+	client, err := h.buildClient(h.k8sConfig)
+	if err != nil {
+		h.logger.Error(err, "Unable to create Kubernetes client")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	destinationListCreateMessage := destinationCreatePayload.ToMessage(routeRecord)
+
+	responseRouteRecord, err := h.routeRepo.AddDestinationsToRoute(ctx, client, destinationListCreateMessage)
+	if err != nil {
+		h.logger.Error(err, "Failed to add destination on route", "Route GUID", routeRecord.GUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	responseBody, err := json.Marshal(presenter.ForRouteDestinations(responseRouteRecord, h.serverURL))
+	if err != nil { // untested
+		h.logger.Error(err, "Failed to render response", "Route GUID", routeRecord.GUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	w.Write(responseBody)
+}
+
 func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(RouteGetEndpoint).Methods("GET").HandlerFunc(h.routeGetHandler)
 	router.Path(RouteGetListEndpoint).Methods("GET").HandlerFunc(h.routeGetListHandler)
 	router.Path(RouteGetDestinationsEndpoint).Methods("GET").HandlerFunc(h.routeGetDestinationsHandler)
 	router.Path(RouteCreateEndpoint).Methods("POST").HandlerFunc(h.routeCreateHandler)
+	router.Path(RouteAddDestinationsEndpoint).Methods("POST").HandlerFunc(h.routeAddDestinationsHandler)
+}
+
+// Fetch Route and compose related Domain information within
+func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, routeGUID string) (repositories.RouteRecord, error) {
+	// TODO: Instantiate config based on bearer token
+	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
+	client, err := h.buildClient(h.k8sConfig)
+	if err != nil {
+		return repositories.RouteRecord{}, err
+	}
+
+	route, err := h.routeRepo.FetchRoute(ctx, client, routeGUID)
+	if err != nil {
+		return repositories.RouteRecord{}, err
+	}
+
+	domain, err := h.domainRepo.FetchDomain(ctx, client, route.Domain.GUID)
+	// We assume K8s controller will ensure valid data, so the only error case is due to eventually consistency.
+	// Return a generic retryable error.
+	if err != nil {
+		err = errors.New("resource not found for route's specified domain ref")
+		return repositories.RouteRecord{}, err
+	}
+
+	route = route.UpdateDomainRef(domain)
+
+	return route, nil
+}
+
+func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context) ([]repositories.RouteRecord, error) {
+	// TODO: Instantiate config based on bearer token
+	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
+	client, err := h.buildClient(h.k8sConfig)
+	if err != nil {
+		return []repositories.RouteRecord{}, err
+	}
+
+	routeRecords, err := h.routeRepo.FetchRouteList(ctx, client)
+	if err != nil {
+		return []repositories.RouteRecord{}, err
+	}
+
+	domainGUIDToDomainRecord := make(map[string]repositories.DomainRecord)
+
+	for i, routeRecord := range routeRecords {
+		currentDomainGUID := routeRecord.Domain.GUID
+		domainRecord, has := domainGUIDToDomainRecord[currentDomainGUID]
+		if !has {
+			domainRecord, err = h.domainRepo.FetchDomain(ctx, client, currentDomainGUID)
+			if err != nil {
+				err = errors.New("resource not found for route's specified domain ref")
+				return []repositories.RouteRecord{}, err
+			}
+			domainGUIDToDomainRecord[currentDomainGUID] = domainRecord
+		}
+		routeRecords[i] = routeRecord.UpdateDomainRef(domainRecord)
+	}
+
+	return routeRecords, nil
+}
+
+func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, client client.Client, routeRecords []repositories.RouteRecord) ([]repositories.RouteRecord, error) {
+	domainGUIDToDomainRecord := make(map[string]repositories.DomainRecord)
+	for i, routeRecord := range routeRecords {
+		currentDomainGUID := routeRecord.Domain.GUID
+		domainRecord, has := domainGUIDToDomainRecord[currentDomainGUID]
+		if !has {
+			var err error
+			domainRecord, err = domainRepo.FetchDomain(ctx, client, currentDomainGUID)
+			if err != nil {
+				err = errors.New("resource not found for route's specified domain ref")
+				return []repositories.RouteRecord{}, err
+			}
+			domainGUIDToDomainRecord[currentDomainGUID] = domainRecord
+		}
+		routeRecords[i] = routeRecord.UpdateDomainRef(domainRecord)
+	}
+
+	return routeRecords, nil
 }
