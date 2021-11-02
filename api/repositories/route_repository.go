@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 
@@ -16,7 +17,7 @@ import (
 
 type RouteRepo struct{}
 
-type Destination struct {
+type DestinationRecord struct {
 	GUID        string
 	AppGUID     string
 	ProcessType string
@@ -27,15 +28,20 @@ type Destination struct {
 type RouteRecord struct {
 	GUID         string
 	SpaceGUID    string
-	DomainRef    DomainRecord
+	Domain       DomainRecord
 	Host         string
 	Path         string
 	Protocol     string
-	Destinations []Destination
+	Destinations []DestinationRecord
 	Labels       map[string]string
 	Annotations  map[string]string
 	CreatedAt    string
 	UpdatedAt    string
+}
+
+type RouteAddDestinationsMessage struct {
+	Route        RouteRecord
+	Destinations []DestinationRecord
 }
 
 func (f *RouteRepo) FetchRoute(ctx context.Context, client client.Client, routeGUID string) (RouteRecord, error) {
@@ -77,7 +83,7 @@ func (f *RouteRepo) FetchRoutesForApp(ctx context.Context, k8sClient client.Clie
 }
 
 func (r RouteRecord) UpdateDomainRef(d DomainRecord) RouteRecord {
-	r.DomainRef = d
+	r.Domain = d
 
 	return r
 }
@@ -134,15 +140,15 @@ func (f *RouteRepo) returnRouteList(routeList []networkingv1alpha1.CFRoute) []Ro
 }
 
 func cfRouteToRouteRecord(cfRoute networkingv1alpha1.CFRoute) RouteRecord {
-	destinations := []Destination{}
+	destinations := []DestinationRecord{}
 	for _, destination := range cfRoute.Spec.Destinations {
-		destinations = append(destinations, cfRouteDestinationToDestinationRecord(destination))
+		destinations = append(destinations, cfRouteDestinationToDestination(destination))
 	}
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfRoute.ObjectMeta)
 	return RouteRecord{
 		GUID:      cfRoute.Name,
 		SpaceGUID: cfRoute.Namespace,
-		DomainRef: DomainRecord{
+		Domain: DomainRecord{
 			GUID: cfRoute.Spec.DomainRef.Name,
 		},
 		Host:         cfRoute.Spec.Host,
@@ -154,8 +160,8 @@ func cfRouteToRouteRecord(cfRoute networkingv1alpha1.CFRoute) RouteRecord {
 	}
 }
 
-func cfRouteDestinationToDestinationRecord(cfRouteDestination networkingv1alpha1.Destination) Destination {
-	return Destination{
+func cfRouteDestinationToDestination(cfRouteDestination networkingv1alpha1.Destination) DestinationRecord {
+	return DestinationRecord{
 		GUID:        cfRouteDestination.GUID,
 		AppGUID:     cfRouteDestination.AppRef.Name,
 		ProcessType: cfRouteDestination.ProcessType,
@@ -170,7 +176,7 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, client client.Client, route
 		return RouteRecord{}, err
 	}
 
-	return f.cfRouteToResponseRoute(cfRoute), err
+	return cfRouteToRouteRecord(cfRoute), err
 }
 
 func (f *RouteRepo) routeRecordToCFRoute(routeRecord RouteRecord) networkingv1alpha1.CFRoute {
@@ -189,24 +195,46 @@ func (f *RouteRepo) routeRecordToCFRoute(routeRecord RouteRecord) networkingv1al
 			Host: routeRecord.Host,
 			Path: routeRecord.Path,
 			DomainRef: v1.LocalObjectReference{
-				Name: routeRecord.DomainRef.GUID,
+				Name: routeRecord.Domain.GUID,
 			},
 		},
 	}
 }
 
-func (f *RouteRepo) cfRouteToResponseRoute(cfRoute networkingv1alpha1.CFRoute) RouteRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfRoute.ObjectMeta)
-
-	return RouteRecord{
-		GUID:      cfRoute.Name,
-		Host:      cfRoute.Spec.Host,
-		Path:      cfRoute.Spec.Path,
-		SpaceGUID: cfRoute.Namespace,
-		DomainRef: DomainRecord{
-			GUID: cfRoute.Spec.DomainRef.Name,
+func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, c client.Client, message RouteAddDestinationsMessage) (RouteRecord, error) {
+	baseCFRoute := &networkingv1alpha1.CFRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.Route.GUID,
+			Namespace: message.Route.SpaceGUID,
 		},
-		CreatedAt: cfRoute.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt: updatedAtTime,
+		Spec: networkingv1alpha1.CFRouteSpec{
+			Destinations: destinationRecordsToCFDestinations(message.Route.Destinations),
+		},
 	}
+
+	cfRoute := baseCFRoute.DeepCopy()
+	cfRoute.Spec.Destinations = append(cfRoute.Spec.Destinations, destinationRecordsToCFDestinations(message.Destinations)...)
+
+	err := c.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
+	if err != nil { // untested
+		return RouteRecord{}, fmt.Errorf("err in client.Patch: %w", err)
+	}
+
+	return cfRouteToRouteRecord(*cfRoute), err
+}
+
+func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) []networkingv1alpha1.Destination {
+	var destinations []networkingv1alpha1.Destination
+	for _, destinationRecord := range destinationRecords {
+		destinations = append(destinations, networkingv1alpha1.Destination{
+			GUID: destinationRecord.GUID,
+			Port: destinationRecord.Port,
+			AppRef: v1.LocalObjectReference{
+				Name: destinationRecord.AppGUID,
+			},
+			ProcessType: destinationRecord.ProcessType,
+		})
+	}
+
+	return destinations
 }

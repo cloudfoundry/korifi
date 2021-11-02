@@ -88,7 +88,7 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 			},
 			"domain": Relationship{
 				Data: RelationshipData{
-					GUID: route.DomainRef.GUID,
+					GUID: route.Domain.GUID,
 				},
 			},
 		},
@@ -105,7 +105,7 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 				HREF: buildURL(baseURL).appendPath(spacesBase, route.SpaceGUID).build(),
 			},
 			Domain: Link{
-				HREF: buildURL(baseURL).appendPath(domainsBase, route.DomainRef.GUID).build(),
+				HREF: buildURL(baseURL).appendPath(domainsBase, route.Domain.GUID).build(),
 			},
 			Destinations: Link{
 				HREF: buildURL(baseURL).appendPath(routesBase, route.GUID, "destinations").build(),
@@ -160,7 +160,7 @@ func ForAppRouteList(routeRecordList []repositories.RouteRecord, baseURL url.URL
 	return routeListResponse
 }
 
-func forDestination(destination repositories.Destination) routeDestination {
+func forDestination(destination repositories.DestinationRecord) routeDestination {
 	return routeDestination{
 		GUID: destination.GUID,
 		App: routeDestinationApp{
@@ -195,8 +195,8 @@ func ForRouteDestinations(route repositories.RouteRecord, baseURL url.URL) Route
 
 func routeURL(route repositories.RouteRecord) string {
 	if route.Host != "" {
-		return fmt.Sprintf("%s.%s%s", route.Host, route.DomainRef.Name, route.Path)
+		return fmt.Sprintf("%s.%s%s", route.Host, route.Domain.Name, route.Path)
 	} else {
-		return fmt.Sprintf("%s%s", route.DomainRef.Name, route.Path)
+		return fmt.Sprintf("%s%s", route.Domain.Name, route.Path)
 	}
 }

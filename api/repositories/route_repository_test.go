@@ -2,11 +2,12 @@ package repositories_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	. "code.cloudfoundry.org/cf-k8s-api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	. "code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -14,10 +15,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("RouteRepository", func() {
 	Describe("GetRoute", func() {
+		const domainName = "my-domain-name"
 		var (
 			testCtx    context.Context
 			route1GUID string
@@ -26,6 +29,7 @@ var _ = Describe("RouteRepository", func() {
 
 			cfRoute1 *networkingv1alpha1.CFRoute
 			cfRoute2 *networkingv1alpha1.CFRoute
+			cfDomain *networkingv1alpha1.CFDomain
 
 			routeRepo  RouteRepo
 			repoClient client.Client
@@ -38,6 +42,16 @@ var _ = Describe("RouteRepository", func() {
 			domainGUID = generateGUID()
 
 			ctx := context.Background()
+
+			cfDomain = &networkingv1alpha1.CFDomain{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: domainGUID,
+				},
+				Spec: networkingv1alpha1.CFDomainSpec{
+					Name: domainName,
+				},
+			}
+			Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
 
 			cfRoute1 = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -106,7 +120,7 @@ var _ = Describe("RouteRepository", func() {
 				Expect(route.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
 
 				By("returning a record with destinations that match the CFRoute CR", func() {
-					Expect(len(route.Destinations)).To(Equal(len(cfRoute1.Spec.Destinations)), "Route Record Destinations returned was not the correct length")
+					Expect(route.Destinations).To(HaveLen(len(cfRoute1.Spec.Destinations)), "Route Record Destinations returned was not the correct length")
 					destinationRecord := route.Destinations[0]
 					Expect(destinationRecord.GUID).To(Equal(cfRoute1.Spec.Destinations[0].GUID))
 					Expect(destinationRecord.AppGUID).To(Equal(cfRoute1.Spec.Destinations[0].AppRef.Name))
@@ -124,14 +138,14 @@ var _ = Describe("RouteRepository", func() {
 					Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 				})
 
-				Expect(route.DomainRef.GUID).To(Equal(cfRoute1.Spec.DomainRef.Name))
+				Expect(route.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
 			})
 		})
 
-		When("the CFRoute does exist", func() {
+		When("the CFRoute doesn't exist", func() {
 			It("returns an error", func() {
 				_, err := routeRepo.FetchRoute(testCtx, repoClient, "non-existent-route-guid")
-				Expect(err).To(MatchError("not found"))
+				Expect(err).To(MatchError(NotFoundError{}))
 			})
 		})
 
@@ -202,6 +216,7 @@ var _ = Describe("RouteRepository", func() {
 		})
 
 		When("multiple CFRoutes exist", func() {
+			const domainName = "my-domain-name"
 			var (
 				route1GUID string
 				route2GUID string
@@ -209,6 +224,7 @@ var _ = Describe("RouteRepository", func() {
 
 				cfRoute1 *networkingv1alpha1.CFRoute
 				cfRoute2 *networkingv1alpha1.CFRoute
+				cfDomain *networkingv1alpha1.CFDomain
 			)
 
 			BeforeEach(func() {
@@ -217,6 +233,16 @@ var _ = Describe("RouteRepository", func() {
 				domainGUID = generateGUID()
 
 				ctx := context.Background()
+
+				cfDomain = &networkingv1alpha1.CFDomain{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: domainGUID,
+					},
+					Spec: networkingv1alpha1.CFDomainSpec{
+						Name: domainName,
+					},
+				}
+				Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
 
 				cfRoute1 = &networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
@@ -270,92 +296,69 @@ var _ = Describe("RouteRepository", func() {
 
 			It("eventually returns a list of routeRecords for each CFRoute CR", func() {
 				var routeRecords []RouteRecord
-				Eventually(func() int {
+				Eventually(func() []RouteRecord {
 					routeRecords, _ = routeRepo.FetchRouteList(testCtx, repoClient)
-					return len(routeRecords)
-				}, timeCheckThreshold*time.Second).Should(Equal(2), "returned records count should equal number of created CRs")
+					return routeRecords
+				}, timeCheckThreshold*time.Second).Should(HaveLen(2), "returned records count should equal number of created CRs")
+
+				var route1, route2 RouteRecord
+				for _, routeRecord := range routeRecords {
+					switch routeRecord.GUID {
+					case cfRoute1.Name:
+						route1 = routeRecord
+					case cfRoute2.Name:
+						route2 = routeRecord
+					default:
+						Fail(fmt.Sprintf("Unknown routeRecord: %v", routeRecord))
+					}
+				}
+
+				Expect(route1).NotTo(BeZero())
+				Expect(route2).NotTo(BeZero())
 
 				By("returning a routeRecord in the list for one of the created CRs", func() {
-					var route RouteRecord
-					var found bool
-					for _, routeRecord := range routeRecords {
-						if routeRecord.GUID == cfRoute1.Name {
-							found = true
-							route = routeRecord
-							break
-						}
-					}
-					Expect(found).To(BeTrue(), "could not find matching record")
+					Expect(route1.GUID).To(Equal(cfRoute1.Name))
+					Expect(route1.Host).To(Equal(cfRoute1.Spec.Host))
+					Expect(route1.SpaceGUID).To(Equal(cfRoute1.Namespace))
+					Expect(route1.Path).To(Equal(cfRoute1.Spec.Path))
+					Expect(route1.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
+					Expect(route1.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
 
-					By("returning a record with metadata fields from the CFRoute CR", func() {
-						Expect(route.GUID).To(Equal(cfRoute1.Name))
-						Expect(route.Host).To(Equal(cfRoute1.Spec.Host))
-						Expect(route.SpaceGUID).To(Equal(cfRoute1.Namespace))
-					})
+					Expect(route1.Destinations).To(Equal([]DestinationRecord{
+						{
+							GUID:        cfRoute1.Spec.Destinations[0].GUID,
+							AppGUID:     cfRoute1.Spec.Destinations[0].AppRef.Name,
+							Port:        cfRoute1.Spec.Destinations[0].Port,
+							ProcessType: cfRoute1.Spec.Destinations[0].ProcessType,
+						},
+					}))
 
-					By("returning a record with spec fields from the CFRoute CR", func() {
-						Expect(route.Path).To(Equal(cfRoute1.Spec.Path))
-						Expect(route.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
-						Expect(route.DomainRef.GUID).To(Equal(cfRoute1.Spec.DomainRef.Name))
-					})
+					createdAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 
-					By("returning a record with destinations that match the CFRoute CR", func() {
-						Expect(len(route.Destinations)).To(Equal(len(cfRoute1.Spec.Destinations)), "Route Record Destinations returned was not the correct length")
-						destinationRecord := route.Destinations[0]
-						Expect(destinationRecord.GUID).To(Equal(cfRoute1.Spec.Destinations[0].GUID))
-						Expect(destinationRecord.AppGUID).To(Equal(cfRoute1.Spec.Destinations[0].AppRef.Name))
-						Expect(destinationRecord.Port).To(Equal(cfRoute1.Spec.Destinations[0].Port))
-						Expect(destinationRecord.ProcessType).To(Equal(cfRoute1.Spec.Destinations[0].ProcessType))
-					})
-
-					By("returning a record where the CreatedAt and UpdatedAt match the CR creation time", func() {
-						createdAt, err := time.Parse(time.RFC3339, route.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-						updatedAt, err := time.Parse(time.RFC3339, route.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-					})
+					updatedAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 				})
 
 				By("returning a routeRecord in the list that matches another of the created CRs", func() {
-					var route RouteRecord
-					var found bool
-					for _, routeRecord := range routeRecords {
-						if routeRecord.GUID == cfRoute2.Name {
-							found = true
-							route = routeRecord
-							break
-						}
-					}
-					Expect(found).To(BeTrue(), "could not find matching record")
+					Expect(route2.GUID).To(Equal(cfRoute2.Name))
+					Expect(route2.Host).To(Equal(cfRoute2.Spec.Host))
+					Expect(route2.SpaceGUID).To(Equal(cfRoute2.Namespace))
+					Expect(route2.Path).To(Equal(cfRoute2.Spec.Path))
+					Expect(route2.Protocol).To(Equal(string(cfRoute2.Spec.Protocol)))
+					Expect(route2.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
 
-					By("returning a record with metadata fields from the CFRoute CR", func() {
-						Expect(route.GUID).To(Equal(cfRoute2.Name))
-						Expect(route.Host).To(Equal(cfRoute2.Spec.Host))
-						Expect(route.SpaceGUID).To(Equal(cfRoute2.Namespace))
-					})
+					Expect(route2.Destinations).To(BeEmpty())
 
-					By("returning a record with spec fields from the CFRoute CR", func() {
-						Expect(route.Path).To(Equal(cfRoute2.Spec.Path))
-						Expect(route.Protocol).To(Equal(string(cfRoute2.Spec.Protocol)))
-						Expect(route.DomainRef.GUID).To(Equal(cfRoute2.Spec.DomainRef.Name))
-					})
+					createdAt, err := time.Parse(time.RFC3339, route2.CreatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 
-					By("returning a record with destinations that match the CFRoute CR", func() {
-						Expect(len(route.Destinations)).To(Equal(len(cfRoute2.Spec.Destinations)), "Route Record Destinations returned was not the correct length")
-					})
-
-					By("returning a record where the CreatedAt and UpdatedAt match the CR creation time", func() {
-						createdAt, err := time.Parse(time.RFC3339, route.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-						updatedAt, err := time.Parse(time.RFC3339, route.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-					})
+					updatedAt, err := time.Parse(time.RFC3339, route2.CreatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 				})
 			})
 		})
@@ -484,7 +487,7 @@ var _ = Describe("RouteRepository", func() {
 					By("returning a record with spec fields from the CFRoute CR", func() {
 						Expect(route.Path).To(Equal(cfRoute1.Spec.Path))
 						Expect(route.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
-						Expect(route.DomainRef.GUID).To(Equal(cfRoute1.Spec.DomainRef.Name))
+						Expect(route.Domain.GUID).To(Equal(cfRoute1.Spec.DomainRef.Name))
 					})
 
 					By("returning a record with destinations that match the CFRoute CR", func() {
@@ -529,6 +532,7 @@ var _ = Describe("RouteRepository", func() {
 			client         client.Client
 			routeRepo      RouteRepo
 			testCtx        context.Context
+			cfDomain       *networkingv1alpha1.CFDomain
 			testDomainGUID string
 			testRouteGUID  string
 		)
@@ -546,24 +550,23 @@ var _ = Describe("RouteRepository", func() {
 		})
 
 		When("route does not already exist", func() {
+			const domainName = "my-domain-name"
 			var (
 				createdRouteRecord RouteRecord
 				createdRouteErr    error
-				beforeCreationTime time.Time
 			)
 
 			BeforeEach(func() {
-				// Create a CFDomain
-				cfDomain := &networkingv1alpha1.CFDomain{
+				cfDomain = &networkingv1alpha1.CFDomain{
 					ObjectMeta: v1.ObjectMeta{
 						Name: testDomainGUID,
 					},
-					Spec: networkingv1alpha1.CFDomainSpec{},
+					Spec: networkingv1alpha1.CFDomainSpec{
+						Name: domainName,
+					},
 				}
 				err := k8sClient.Create(context.Background(), cfDomain)
 				Expect(err).NotTo(HaveOccurred())
-
-				beforeCreationTime = time.Now().UTC().AddDate(0, 0, -1)
 
 				routeRecord := initializeRouteRecord(testRouteHost, testRoutePath, testRouteGUID, testDomainGUID, testNamespace)
 				createdRouteRecord, createdRouteErr = routeRepo.CreateRoute(testCtx, client, routeRecord)
@@ -575,7 +578,7 @@ var _ = Describe("RouteRepository", func() {
 				Expect(cleanupDomain(k8sClient, testCtx, testDomainGUID)).To(Succeed())
 			})
 
-			It("should create a new CFRoute CR successfully", func() {
+			It("creates a new CFRoute CR successfully", func() {
 				cfRouteLookupKey := types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}
 				createdCFRoute := new(networkingv1alpha1.CFRoute)
 				Eventually(func() string {
@@ -587,42 +590,312 @@ var _ = Describe("RouteRepository", func() {
 				}, 10*time.Second, 250*time.Millisecond).Should(Equal(testRouteGUID))
 			})
 
-			It("should return an RouteRecord with matching GUID, spaceGUID, and host", func() {
+			It("returns an RouteRecord with matching fields", func() {
 				Expect(createdRouteRecord.GUID).To(Equal(testRouteGUID), "Route GUID in record did not match input")
 				Expect(createdRouteRecord.Host).To(Equal(testRouteHost), "Route Host in record did not match input")
 				Expect(createdRouteRecord.Path).To(Equal(testRoutePath), "Route Path in record did not match input")
 				Expect(createdRouteRecord.SpaceGUID).To(Equal(testNamespace), "Route Space GUID in record did not match input")
-				Expect(createdRouteRecord.DomainRef.GUID).To(Equal(testDomainGUID), "Route Domain GUID in record did not match input")
-			})
-
-			It("should return an RouteRecord with CreatedAt and UpdatedAt fields that make sense", func() {
-				afterTestTime := time.Now().UTC().AddDate(0, 0, 1)
+				Expect(createdRouteRecord.Domain).To(Equal(DomainRecord{GUID: testDomainGUID}), "Route Domain in record did not match created domain")
 
 				recordCreatedTime, err := time.Parse(TimestampFormat, createdRouteRecord.CreatedAt)
-				Expect(err).To(BeNil(), "There was an error converting the createRouteRecord CreatedTime to string")
+				Expect(err).NotTo(HaveOccurred(), "There was an error converting the createRouteRecord CreatedTime to string")
 				recordUpdatedTime, err := time.Parse(TimestampFormat, createdRouteRecord.UpdatedAt)
-				Expect(err).To(BeNil(), "There was an error converting the createRouteRecord UpdatedTime to string")
+				Expect(err).NotTo(HaveOccurred(), "There was an error converting the createRouteRecord UpdatedTime to string")
 
-				Expect(recordCreatedTime.After(beforeCreationTime)).To(BeTrue(), "record creation time was not after the expected creation time")
-				Expect(recordCreatedTime.Before(afterTestTime)).To(BeTrue(), "record creation time was not before the expected testing time")
-
-				Expect(recordUpdatedTime.After(beforeCreationTime)).To(BeTrue(), "record updated time was not after the expected creation time")
-				Expect(recordUpdatedTime.Before(afterTestTime)).To(BeTrue(), "record updated time was not before the expected testing time")
+				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 1*time.Second))
+				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 1*time.Second))
 			})
 		})
 
 		When("route creation fails", func() {
-			It("should return an error", func() {
-				routeRecord := RouteRecord{}
-				_, err := routeRepo.CreateRoute(testCtx, client, routeRecord)
-				Expect(err).To(MatchError("an empty namespace may not be set during creation"))
+			When("namespace doesn't exist", func() {
+				It("returns an error", func() {
+					routeRecord := RouteRecord{}
+					_, err := routeRepo.CreateRoute(testCtx, client, routeRecord)
+					Expect(err).To(MatchError("an empty namespace may not be set during creation"))
+				})
+			})
+		})
+	})
+
+	Describe("AddDestinationsToRoute", func() {
+		const (
+			testRouteHost = "test-route-host"
+			testRoutePath = "/test/route/path"
+		)
+
+		var (
+			testDomainGUID string
+			testRouteGUID  string
+			testNamespace  string
+			client         client.Client
+			routeRepo      RouteRepo
+			testCtx        context.Context
+			newNamespace   *corev1.Namespace
+		)
+
+		BeforeEach(func() {
+			var err error
+			client, err = BuildCRClient(k8sConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			routeRepo = RouteRepo{}
+
+			testCtx = context.Background()
+			testDomainGUID = generateGUID()
+			testRouteGUID = generateGUID()
+			testNamespace = generateGUID()
+		})
+
+		When("the route exists with no destinations", func() {
+			BeforeEach(func() {
+				beforeCtx := context.Background()
+
+				newNamespace = &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: testNamespace,
+					},
+				}
+				Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
+
+				cfDomain := &networkingv1alpha1.CFDomain{
+					ObjectMeta: v1.ObjectMeta{
+						Name: testDomainGUID,
+					},
+					Spec: networkingv1alpha1.CFDomainSpec{},
+				}
+				Expect(k8sClient.Create(beforeCtx, cfDomain)).To(Succeed())
+
+				cfRoute := initializeRouteCR(testRouteHost, testRoutePath, testRouteGUID, testDomainGUID, testNamespace)
+				Expect(k8sClient.Create(beforeCtx, cfRoute)).To(Succeed())
+
+			})
+
+			AfterEach(func() {
+				Expect(cleanupRoute(k8sClient, testCtx, testRouteGUID, testNamespace)).To(Succeed())
+				Expect(cleanupDomain(k8sClient, testCtx, testDomainGUID)).To(Succeed())
+			})
+
+			When("route is updated to add new destinations", func() {
+				var (
+					destinationGUID1   string
+					destinationGUID2   string
+					appGUID1           string
+					appGUID2           string
+					destionationRecord []DestinationRecord
+					patchedRouteRecord RouteRecord
+					addDestinationErr  error
+				)
+				BeforeEach(func() {
+					beforeCtx := context.Background()
+					destinationGUID1 = generateGUID()
+					destinationGUID2 = generateGUID()
+					appGUID1 = generateGUID()
+					appGUID2 = generateGUID()
+					destionationRecord = []DestinationRecord{
+						{
+							GUID:        destinationGUID1,
+							AppGUID:     appGUID1,
+							ProcessType: "web",
+							Port:        8080,
+						},
+						{
+							GUID:        destinationGUID2,
+							AppGUID:     appGUID2,
+							ProcessType: "worker",
+							Port:        9000,
+						},
+					}
+
+					routeRecord, err := routeRepo.FetchRoute(beforeCtx, client, testRouteGUID)
+					Expect(err).NotTo(HaveOccurred())
+
+					//initialize a DestinationListMessage
+					destinationListCreateMessage := initializeDestinationListMessage(routeRecord, destionationRecord)
+					patchedRouteRecord, addDestinationErr = routeRepo.AddDestinationsToRoute(beforeCtx, client, destinationListCreateMessage)
+					Expect(addDestinationErr).NotTo(HaveOccurred())
+				})
+
+				It("adds the destinations to CFRoute successfully", func() {
+					testCtx = context.Background()
+					cfRouteLookupKey := types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}
+					createdCFRoute := new(networkingv1alpha1.CFRoute)
+					Eventually(func() []networkingv1alpha1.Destination {
+						err := k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)
+						if err != nil {
+							return nil
+						}
+						return createdCFRoute.Spec.Destinations
+					}, 5*time.Second).Should(HaveLen(2), "could not retrieve cfRoute having exactly 2 destinations")
+
+					Expect(createdCFRoute.Spec.Destinations).To(ConsistOf([]networkingv1alpha1.Destination{
+						{
+							GUID: destinationGUID1,
+							Port: 8080,
+							AppRef: corev1.LocalObjectReference{
+								Name: appGUID1,
+							},
+							ProcessType: "web",
+						},
+						{
+							GUID: destinationGUID2,
+							Port: 9000,
+							AppRef: corev1.LocalObjectReference{
+								Name: appGUID2,
+							},
+							ProcessType: "worker",
+						},
+					}))
+				})
+
+				It("returns RouteRecord with new destinations", func() {
+					Expect(patchedRouteRecord.Destinations).To(ConsistOf(destionationRecord))
+				})
+			})
+		})
+
+		When("the route exists with a destination", func() {
+			var (
+				routeDestination networkingv1alpha1.Destination
+				destinationGUID  string
+				appGUID          string
+			)
+
+			BeforeEach(func() {
+				beforeCtx := context.Background()
+
+				newNamespace = &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: testNamespace,
+					},
+				}
+				Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
+
+				cfDomain := &networkingv1alpha1.CFDomain{
+					ObjectMeta: v1.ObjectMeta{
+						Name: testDomainGUID,
+					},
+					Spec: networkingv1alpha1.CFDomainSpec{},
+				}
+				Expect(k8sClient.Create(beforeCtx, cfDomain)).To(Succeed())
+
+				cfRoute := initializeRouteCR(testRouteHost, testRoutePath, testRouteGUID, testDomainGUID, testNamespace)
+
+				destinationGUID = generateGUID()
+				appGUID = generateGUID()
+				routeDestination = networkingv1alpha1.Destination{
+					GUID: destinationGUID,
+					Port: 8000,
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+					ProcessType: "web",
+				}
+
+				cfRoute.Spec.Destinations = []networkingv1alpha1.Destination{routeDestination}
+				Expect(k8sClient.Create(beforeCtx, cfRoute)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				Expect(cleanupRoute(k8sClient, testCtx, testRouteGUID, testNamespace)).To(Succeed())
+				Expect(cleanupDomain(k8sClient, testCtx, testDomainGUID)).To(Succeed())
+			})
+
+			When("route is updated to append new destinations", func() {
+				var (
+					destinationGUID1   string
+					destinationGUID2   string
+					appGUID1           string
+					appGUID2           string
+					destinationRecord  []DestinationRecord
+					patchedRouteRecord RouteRecord
+					addDestinationErr  error
+				)
+
+				BeforeEach(func() {
+					beforeCtx := context.Background()
+					destinationGUID1 = generateGUID()
+					destinationGUID2 = generateGUID()
+					appGUID1 = generateGUID()
+					appGUID2 = generateGUID()
+					destinationRecord = []DestinationRecord{
+						{
+							GUID:        destinationGUID1,
+							AppGUID:     appGUID1,
+							ProcessType: "web",
+							Port:        8080,
+						},
+						{
+							GUID:        destinationGUID2,
+							AppGUID:     appGUID2,
+							ProcessType: "worker",
+							Port:        9000,
+						},
+					}
+
+					routeRecord, err := routeRepo.FetchRoute(beforeCtx, client, testRouteGUID)
+					Expect(err).NotTo(HaveOccurred())
+
+					destinationListCreateMessage := initializeDestinationListMessage(routeRecord, destinationRecord)
+					patchedRouteRecord, addDestinationErr = routeRepo.AddDestinationsToRoute(beforeCtx, client, destinationListCreateMessage)
+					Expect(addDestinationErr).NotTo(HaveOccurred())
+				})
+
+				It("adds the destinations to CFRoute successfully", func() {
+					testCtx = context.Background()
+					cfRouteLookupKey := types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}
+					createdCFRoute := new(networkingv1alpha1.CFRoute)
+					Eventually(func() []networkingv1alpha1.Destination {
+						err := k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)
+						if err != nil {
+							return nil
+						}
+						return createdCFRoute.Spec.Destinations
+					}, 5*time.Second).Should(HaveLen(3), "could not retrieve cfRoute having exactly 3 destinations")
+
+					Expect(createdCFRoute.Spec.Destinations).To(ConsistOf([]networkingv1alpha1.Destination{
+						{
+							GUID: destinationGUID1,
+							Port: 8080,
+							AppRef: corev1.LocalObjectReference{
+								Name: appGUID1,
+							},
+							ProcessType: "web",
+						},
+						{
+							GUID: destinationGUID2,
+							Port: 9000,
+							AppRef: corev1.LocalObjectReference{
+								Name: appGUID2,
+							},
+							ProcessType: "worker",
+						},
+						{
+							GUID: destinationGUID,
+							Port: 8000,
+							AppRef: corev1.LocalObjectReference{
+								Name: appGUID,
+							},
+							ProcessType: "web",
+						},
+					}))
+				})
+
+				It("returns RouteRecord with new destinations", func() {
+					Expect(patchedRouteRecord.Destinations).To(ConsistOf(append(destinationRecord, DestinationRecord{
+						GUID:        destinationGUID,
+						AppGUID:     appGUID,
+						ProcessType: "web",
+						Port:        8000,
+					})))
+				})
 			})
 		})
 	})
 })
 
-func initializeRouteCR(routeHost, routePath, routeGUID, domainGUID, spaceGUID string) networkingv1alpha1.CFRoute {
-	return networkingv1alpha1.CFRoute{
+func initializeRouteCR(routeHost, routePath, routeGUID, domainGUID, spaceGUID string) *networkingv1alpha1.CFRoute {
+	return &networkingv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      routeGUID,
 			Namespace: spaceGUID,
@@ -637,13 +910,20 @@ func initializeRouteCR(routeHost, routePath, routeGUID, domainGUID, spaceGUID st
 	}
 }
 
+func initializeDestinationListMessage(routeRecord RouteRecord, destinationRecords []DestinationRecord) RouteAddDestinationsMessage {
+	return RouteAddDestinationsMessage{
+		Route:        routeRecord,
+		Destinations: destinationRecords,
+	}
+}
+
 func initializeRouteRecord(routeHost, routePath, routeGUID, domainGUID, spaceGUID string) RouteRecord {
 	return RouteRecord{
 		GUID:      routeGUID,
 		Host:      routeHost,
 		Path:      routePath,
 		SpaceGUID: spaceGUID,
-		DomainRef: DomainRecord{
+		Domain: DomainRecord{
 			GUID: domainGUID,
 		},
 	}

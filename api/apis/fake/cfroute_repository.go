@@ -11,6 +11,21 @@ import (
 )
 
 type CFRouteRepository struct {
+	AddDestinationsToRouteStub        func(context.Context, client.Client, repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error)
+	addDestinationsToRouteMutex       sync.RWMutex
+	addDestinationsToRouteArgsForCall []struct {
+		arg1 context.Context
+		arg2 client.Client
+		arg3 repositories.RouteAddDestinationsMessage
+	}
+	addDestinationsToRouteReturns struct {
+		result1 repositories.RouteRecord
+		result2 error
+	}
+	addDestinationsToRouteReturnsOnCall map[int]struct {
+		result1 repositories.RouteRecord
+		result2 error
+	}
 	CreateRouteStub        func(context.Context, client.Client, repositories.RouteRecord) (repositories.RouteRecord, error)
 	createRouteMutex       sync.RWMutex
 	createRouteArgsForCall []struct {
@@ -73,6 +88,72 @@ type CFRouteRepository struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *CFRouteRepository) AddDestinationsToRoute(arg1 context.Context, arg2 client.Client, arg3 repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error) {
+	fake.addDestinationsToRouteMutex.Lock()
+	ret, specificReturn := fake.addDestinationsToRouteReturnsOnCall[len(fake.addDestinationsToRouteArgsForCall)]
+	fake.addDestinationsToRouteArgsForCall = append(fake.addDestinationsToRouteArgsForCall, struct {
+		arg1 context.Context
+		arg2 client.Client
+		arg3 repositories.RouteAddDestinationsMessage
+	}{arg1, arg2, arg3})
+	stub := fake.AddDestinationsToRouteStub
+	fakeReturns := fake.addDestinationsToRouteReturns
+	fake.recordInvocation("AddDestinationsToRoute", []interface{}{arg1, arg2, arg3})
+	fake.addDestinationsToRouteMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFRouteRepository) AddDestinationsToRouteCallCount() int {
+	fake.addDestinationsToRouteMutex.RLock()
+	defer fake.addDestinationsToRouteMutex.RUnlock()
+	return len(fake.addDestinationsToRouteArgsForCall)
+}
+
+func (fake *CFRouteRepository) AddDestinationsToRouteCalls(stub func(context.Context, client.Client, repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error)) {
+	fake.addDestinationsToRouteMutex.Lock()
+	defer fake.addDestinationsToRouteMutex.Unlock()
+	fake.AddDestinationsToRouteStub = stub
+}
+
+func (fake *CFRouteRepository) AddDestinationsToRouteArgsForCall(i int) (context.Context, client.Client, repositories.RouteAddDestinationsMessage) {
+	fake.addDestinationsToRouteMutex.RLock()
+	defer fake.addDestinationsToRouteMutex.RUnlock()
+	argsForCall := fake.addDestinationsToRouteArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFRouteRepository) AddDestinationsToRouteReturns(result1 repositories.RouteRecord, result2 error) {
+	fake.addDestinationsToRouteMutex.Lock()
+	defer fake.addDestinationsToRouteMutex.Unlock()
+	fake.AddDestinationsToRouteStub = nil
+	fake.addDestinationsToRouteReturns = struct {
+		result1 repositories.RouteRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFRouteRepository) AddDestinationsToRouteReturnsOnCall(i int, result1 repositories.RouteRecord, result2 error) {
+	fake.addDestinationsToRouteMutex.Lock()
+	defer fake.addDestinationsToRouteMutex.Unlock()
+	fake.AddDestinationsToRouteStub = nil
+	if fake.addDestinationsToRouteReturnsOnCall == nil {
+		fake.addDestinationsToRouteReturnsOnCall = make(map[int]struct {
+			result1 repositories.RouteRecord
+			result2 error
+		})
+	}
+	fake.addDestinationsToRouteReturnsOnCall[i] = struct {
+		result1 repositories.RouteRecord
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *CFRouteRepository) CreateRoute(arg1 context.Context, arg2 client.Client, arg3 repositories.RouteRecord) (repositories.RouteRecord, error) {
@@ -342,6 +423,8 @@ func (fake *CFRouteRepository) FetchRoutesForAppReturnsOnCall(i int, result1 []r
 func (fake *CFRouteRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.addDestinationsToRouteMutex.RLock()
+	defer fake.addDestinationsToRouteMutex.RUnlock()
 	fake.createRouteMutex.RLock()
 	defer fake.createRouteMutex.RUnlock()
 	fake.fetchRouteMutex.RLock()

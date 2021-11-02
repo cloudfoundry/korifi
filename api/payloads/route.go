@@ -22,7 +22,7 @@ func (p RouteCreate) ToRecord() repositories.RouteRecord {
 		Host:      p.Host,
 		Path:      p.Path,
 		SpaceGUID: p.Relationships.Space.Data.GUID,
-		DomainRef: repositories.DomainRecord{
+		Domain: repositories.DomainRecord{
 			GUID: p.Relationships.Domain.Data.GUID,
 		},
 		Labels:      p.Metadata.Labels,
