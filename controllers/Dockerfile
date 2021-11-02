@@ -1,4 +1,3 @@
-# syntax = docker/dockerfile:1.3
 FROM golang:1.16 as builder
 
 WORKDIR /workspace
@@ -16,7 +15,7 @@ COPY config/ config/
 COPY controllers/ controllers/
 COPY webhooks/ webhooks/
 
-COPY .cache/go-build /root/.cache/go-build
+COPY --from=eirini/cf-k8s-controllers:builder /root/.cache/go-build /root/.cache/go-build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o manager main.go
 
 # Use distroless as minimal base image to package the manager binary
