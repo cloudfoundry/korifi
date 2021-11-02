@@ -226,7 +226,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("try go build cache")
+	fmt.Println("try go build cache AAAAA111122222222222333333")
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")

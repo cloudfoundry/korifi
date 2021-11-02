@@ -15,8 +15,11 @@ COPY config/ config/
 COPY controllers/ controllers/
 COPY webhooks/ webhooks/
 
-COPY --from=eirini/cf-k8s-controllers:builder /root/.cache/go-build /root/.cache/go-build
+#QCOPY --from=eirini/cf-k8s-controllers:builder /root/.cache/go-build /root/.cache/go-build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o manager main.go
+
+FROM scratch as cache
+COPY --from=builder /root/.cache/go-build /root/.cache/go-build
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
