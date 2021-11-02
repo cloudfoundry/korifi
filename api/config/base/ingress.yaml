@@ -4,10 +4,11 @@ metadata:
   labels:
     app: cf-k8s-api
   name: proxy
-  namespace: default
 spec:
   virtualhost:
     fqdn: API_URL
+    tls:
+      secretName: cf-k8s-api-ingress-cert
   routes:
   - conditions:
     - prefix: /

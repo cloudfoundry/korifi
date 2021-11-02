@@ -85,6 +85,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 build-reference: manifests kustomize ## Generate reference yaml and output to ./reference/cf-k8s-controllers.yaml
+	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-controllers=${IMG}
 	$(KUSTOMIZE) build config/default -o reference/cf-k8s-controllers.yaml
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
