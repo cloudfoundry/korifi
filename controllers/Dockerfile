@@ -16,9 +16,8 @@ COPY config/ config/
 COPY controllers/ controllers/
 COPY webhooks/ webhooks/
 
-# Build
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o manager main.go
+COPY .cache/go-build /root/.cache/go-build
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o manager main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
