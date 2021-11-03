@@ -1,0 +1,273 @@
+name: Test, Build, and Push API Image from main
+
+on:
+  push:
+    branches:
+    - main
+    paths-ignore:
+    - '**/*.md'
+    - '.*/**'
+    - '!.github/**'
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  check-reference-api:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.17'
+
+    - name: Check for reference YAML drift
+      working-directory: ./api
+      run: |
+        make build-reference
+        git diff --exit-code
+
+  check-reference-controllers:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.17'
+
+    - name: Check for reference YAML drift
+      working-directory: ./controllers
+      run: |
+        make build-reference
+        git diff --exit-code
+
+  controllers-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('controllers/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.17'
+
+    - name: Run Controllers tests
+      working-directory: ./controllers
+      run: make test
+
+  api-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('api/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.17'
+
+    - name: Run API unit tests
+      working-directory: ./api
+      run: make test-unit
+
+  api-integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('api/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.17'
+
+    - name: Run API integration tests
+      working-directory: ./api
+      run: make test-integration
+
+  build-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build and export
+        uses: docker/build-push-action@v2
+        with:
+          context: ./api
+          push: false
+          tags: cloudfoundry/cf-k8s-api:${{ github.sha }},cloudfoundry/cf-k8s-api:latest
+          cache-from: type=gha,scope=api-${{ matrix.buildx_version }}
+          cache-to: type=gha,scope=api-${{ matrix.buildx_version }}
+          outputs: type=docker,dest=/tmp/cf-k8s-api.image.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: cf-k8s-api.image
+          path: /tmp/cf-k8s-api.image.tar
+
+  build-controllers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build and export
+        uses: docker/build-push-action@v2
+        with:
+          context: ./controllers
+          push: false
+          tags: cloudfoundry/cf-k8s-controllers:${{ github.sha }},cloudfoundry/cf-k8s-controllers:latest
+          cache-from: type=gha,scope=controllers-${{ matrix.buildx_version }}
+          cache-to: type=gha,scope=controllers-${{ matrix.buildx_version }}
+          outputs: type=docker,dest=/tmp/cf-k8s-controllers.image.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: cf-k8s-controllers.image
+          path: /tmp/cf-k8s-controllers.image.tar
+
+  e2e-tests:
+    needs:
+    - build-api
+    - build-controllers
+    - check-reference-api
+    - check-reference-controllers
+    - api-unit-tests
+    - api-integration-tests
+    - controllers-tests
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        path: cf-k8s-controllers
+
+    - uses: actions/checkout@v2
+      with:
+        repository: cloudfoundry-incubator/eirini-controller
+        path: eirini-controller
+
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('cf-k8s-controllers/**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.17'
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Download API image
+      uses: actions/download-artifact@v2
+      with:
+        name: cf-k8s-api.image
+        path: /tmp
+
+    - name: Load API image
+      run: |
+        docker load --input /tmp/cf-k8s-api.image.tar
+
+    - name: Download controllers image
+      uses: actions/download-artifact@v2
+      with:
+        name: cf-k8s-controllers.image
+        path: /tmp
+
+    - name: Load controllers image
+      run: |
+        docker load --input /tmp/cf-k8s-controllers.image.tar
+
+    - name: Run e2e tests
+      env:
+        SKIP_DOCKER_BUILD: true
+        API_IMG: cloudfoundry/cf-k8s-api:${{ github.sha }}
+        CONTROLLERS_IMG: cloudfoundry/cf-k8s-controllers:${{ github.sha }}
+      working-directory: ./cf-k8s-controllers/api
+      run: make test-e2e
+
+  push-latest-docker-images:
+    needs: e2e-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Download API image
+        uses: actions/download-artifact@v2
+        with:
+          name: cf-k8s-api.image
+          path: /tmp
+
+      - name: Load API image
+        run: |
+          docker load --input /tmp/cf-k8s-api.image.tar
+
+      - name: Download controllers image
+        uses: actions/download-artifact@v2
+        with:
+          name: cf-k8s-controllers.image
+          path: /tmp
+
+      - name: Load controllers image
+        run: |
+          docker load --input /tmp/cf-k8s-controllers.image.tar
+
+      - name: Push API image
+        run: |
+          docker push cloudfoundry/cf-k8s-api:latest
+
+      - name: Push Controller image
+        run: |
+          docker push cloudfoundry/cf-k8s-controllers:latest
