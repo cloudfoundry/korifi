@@ -27,12 +27,12 @@ type CFAppRepository struct {
 		result1 bool
 		result2 error
 	}
-	CreateAppStub        func(context.Context, client.Client, repositories.AppRecord) (repositories.AppRecord, error)
+	CreateAppStub        func(context.Context, client.Client, repositories.AppCreateMessage) (repositories.AppRecord, error)
 	createAppMutex       sync.RWMutex
 	createAppArgsForCall []struct {
 		arg1 context.Context
 		arg2 client.Client
-		arg3 repositories.AppRecord
+		arg3 repositories.AppCreateMessage
 	}
 	createAppReturns struct {
 		result1 repositories.AppRecord
@@ -202,13 +202,13 @@ func (fake *CFAppRepository) AppExistsWithNameAndSpaceReturnsOnCall(i int, resul
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) CreateApp(arg1 context.Context, arg2 client.Client, arg3 repositories.AppRecord) (repositories.AppRecord, error) {
+func (fake *CFAppRepository) CreateApp(arg1 context.Context, arg2 client.Client, arg3 repositories.AppCreateMessage) (repositories.AppRecord, error) {
 	fake.createAppMutex.Lock()
 	ret, specificReturn := fake.createAppReturnsOnCall[len(fake.createAppArgsForCall)]
 	fake.createAppArgsForCall = append(fake.createAppArgsForCall, struct {
 		arg1 context.Context
 		arg2 client.Client
-		arg3 repositories.AppRecord
+		arg3 repositories.AppCreateMessage
 	}{arg1, arg2, arg3})
 	stub := fake.CreateAppStub
 	fakeReturns := fake.createAppReturns
@@ -229,13 +229,13 @@ func (fake *CFAppRepository) CreateAppCallCount() int {
 	return len(fake.createAppArgsForCall)
 }
 
-func (fake *CFAppRepository) CreateAppCalls(stub func(context.Context, client.Client, repositories.AppRecord) (repositories.AppRecord, error)) {
+func (fake *CFAppRepository) CreateAppCalls(stub func(context.Context, client.Client, repositories.AppCreateMessage) (repositories.AppRecord, error)) {
 	fake.createAppMutex.Lock()
 	defer fake.createAppMutex.Unlock()
 	fake.CreateAppStub = stub
 }
 
-func (fake *CFAppRepository) CreateAppArgsForCall(i int) (context.Context, client.Client, repositories.AppRecord) {
+func (fake *CFAppRepository) CreateAppArgsForCall(i int) (context.Context, client.Client, repositories.AppCreateMessage) {
 	fake.createAppMutex.RLock()
 	defer fake.createAppMutex.RUnlock()
 	argsForCall := fake.createAppArgsForCall[i]

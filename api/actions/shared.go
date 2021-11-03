@@ -26,7 +26,7 @@ type CFAppRepository interface {
 	FetchAppList(context.Context, client.Client) ([]repositories.AppRecord, error)
 	FetchNamespace(context.Context, client.Client, string) (repositories.SpaceRecord, error)
 	CreateAppEnvironmentVariables(context.Context, client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
-	CreateApp(context.Context, client.Client, repositories.AppRecord) (repositories.AppRecord, error)
+	CreateApp(context.Context, client.Client, repositories.AppCreateMessage) (repositories.AppRecord, error)
 	SetCurrentDroplet(context.Context, client.Client, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
 	SetAppDesiredState(context.Context, client.Client, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 }

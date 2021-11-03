@@ -38,11 +38,16 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 	When("on the happy path", func() {
 		var (
-			namespace *corev1.Namespace
-			resp      *http.Response
+			namespace      *corev1.Namespace
+			resp           *http.Response
+			requestEnvVars map[string]string
 		)
 
-		const appName = "app1"
+		const (
+			appName = "app1"
+			key1    = "KEY1"
+			key2    = "KEY2"
+		)
 
 		BeforeEach(func() {
 			namespaceGUID := generateGUID()
@@ -51,10 +56,18 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				k8sClient.Create(context.Background(), namespace),
 			).To(Succeed())
 
+			requestEnvVars = map[string]string{
+				key1: "VAL1",
+				key2: "VAL2",
+			}
+
 			requestBody := fmt.Sprintf(`---
                 version: 1
                 applications:
-                - name: %s`, appName)
+                - name: %s
+                  env:
+                    %s: %s
+                    %s: %s`, appName, key1, requestEnvVars[key1], key2, requestEnvVars[key2])
 
 			var err error
 			req, err = http.NewRequest(
@@ -101,6 +114,22 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				Expect(app1.Spec.Name).To(Equal(appName))
 				Expect(app1.Spec.DesiredState).To(BeEquivalentTo("STOPPED"))
 				Expect(app1.Spec.Lifecycle.Type).To(BeEquivalentTo("buildpack"))
+				Expect(app1.Spec.EnvSecretName).NotTo(BeEmpty())
+
+				secretNSName := types.NamespacedName{
+					Name:      app1.Spec.EnvSecretName,
+					Namespace: namespace.Name,
+				}
+				var secretRecord corev1.Secret
+				Eventually(func() error {
+					return k8sClient.Get(context.Background(), secretNSName, &secretRecord)
+				}).Should(Succeed())
+				Expect(secretRecord.Data).To(HaveLen(len(requestEnvVars)))
+				for k, v := range requestEnvVars {
+					secretKeyValue, exists := secretRecord.Data[k]
+					Expect(exists).To(BeTrue(), "Key %v did not exist in env var secret", k)
+					Expect(string(secretKeyValue)).To(Equal(v), "Env Secret key value for %v did not match", k)
+				}
 			})
 		})
 

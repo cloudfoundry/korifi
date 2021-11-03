@@ -604,8 +604,8 @@ var _ = Describe("RouteRepository", func() {
 				recordUpdatedTime, err := time.Parse(TimestampFormat, createdRouteRecord.UpdatedAt)
 				Expect(err).NotTo(HaveOccurred(), "There was an error converting the createRouteRecord UpdatedTime to string")
 
-				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 1*time.Second))
-				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 1*time.Second))
+				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
+				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
 			})
 		})
 

@@ -338,31 +338,25 @@ var _ = Describe("AppRepository", func() {
 				testAppName = "test-app-name"
 			)
 
-			var (
-				testAppGUID    string
-				emptyAppRecord = AppRecord{}
-			)
-
 			BeforeEach(func() {
-				testAppGUID = generateGUID()
 				testCtx = context.Background()
 			})
 
 			When("app does not already exist", func() {
 				var (
-					appRecord AppRecord
+					appCreateMessage AppCreateMessage
 				)
 
 				BeforeEach(func() {
-					appRecord = initializeAppRecord(testAppName, testAppGUID, defaultNamespace)
+					appCreateMessage = initializeAppCreateMessage(testAppName, defaultNamespace)
 				})
 
 				It("should create a new app CR successfully", func() {
-					createdAppRecord, err := appRepo.CreateApp(testCtx, client, appRecord)
+					createdAppRecord, err := appRepo.CreateApp(testCtx, client, appCreateMessage)
 					Expect(err).To(BeNil())
 					Expect(createdAppRecord).NotTo(BeNil())
 
-					cfAppLookupKey := types.NamespacedName{Name: testAppGUID, Namespace: defaultNamespace}
+					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: defaultNamespace}
 					createdCFApp := new(workloadsv1alpha1.CFApp)
 					Eventually(func() string {
 						err := k8sClient.Get(context.Background(), cfAppLookupKey, createdCFApp)
@@ -370,8 +364,8 @@ var _ = Describe("AppRepository", func() {
 							return ""
 						}
 						return createdCFApp.Name
-					}, 10*time.Second, 250*time.Millisecond).Should(Equal(testAppGUID))
-					Expect(cleanupApp(k8sClient, testCtx, testAppGUID, defaultNamespace)).To(Succeed())
+					}, 10*time.Second, 250*time.Millisecond).Should(Equal(createdAppRecord.GUID))
+					cleanupApp(k8sClient, testCtx, createdAppRecord.GUID, defaultNamespace)
 				})
 
 				When("an app is created with the repository", func() {
@@ -384,22 +378,20 @@ var _ = Describe("AppRepository", func() {
 						beforeCreationTime = time.Now().UTC().AddDate(0, 0, -1)
 
 						var err error
-						createdAppRecord, err = appRepo.CreateApp(context.Background(), client, appRecord)
+						createdAppRecord, err = appRepo.CreateApp(context.Background(), client, appCreateMessage)
 						Expect(err).To(BeNil())
 					})
 
 					AfterEach(func() {
-						Expect(
-							cleanupApp(k8sClient, context.Background(), testAppGUID, defaultNamespace),
-						).To(Succeed())
+						cleanupApp(k8sClient, context.Background(), createdAppRecord.GUID, defaultNamespace)
 					})
 
 					It("should return a non-empty AppRecord", func() {
-						Expect(createdAppRecord).NotTo(Equal(emptyAppRecord))
+						Expect(createdAppRecord).NotTo(Equal(AppRecord{}))
 					})
 
 					It("should return an AppRecord with matching GUID, spaceGUID, and name", func() {
-						Expect(createdAppRecord.GUID).To(Equal(testAppGUID), "App GUID in record did not match input")
+						Expect(createdAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
 						Expect(createdAppRecord.SpaceGUID).To(Equal(defaultNamespace), "App SpaceGUID in record did not match input")
 						Expect(createdAppRecord.Name).To(Equal(testAppName), "App Name in record did not match input")
 					})
@@ -421,27 +413,6 @@ var _ = Describe("AppRepository", func() {
 				})
 			})
 
-			When("the app already exists", func() {
-				var (
-					appCR *workloadsv1alpha1.CFApp
-				)
-
-				BeforeEach(func() {
-					appCR = initializeAppCR(testAppName, testAppGUID, defaultNamespace)
-					Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
-				})
-
-				AfterEach(func() {
-					Expect(k8sClient.Delete(context.Background(), appCR)).To(Succeed())
-				})
-
-				It("should error when trying to create the same app again", func() {
-					appRecord := initializeAppRecord(testAppName, testAppGUID, defaultNamespace)
-					createdAppRecord, err := appRepo.CreateApp(testCtx, client, appRecord)
-					Expect(err).NotTo(BeNil())
-					Expect(createdAppRecord).To(Equal(emptyAppRecord))
-				})
-			})
 		})
 	})
 
