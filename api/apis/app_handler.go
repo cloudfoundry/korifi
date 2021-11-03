@@ -49,7 +49,7 @@ type CFAppRepository interface {
 }
 
 //counterfeiter:generate -o fake -fake-name ScaleAppProcess . ScaleAppProcess
-type ScaleAppProcess func(ctx context.Context, client client.Client, appGUID string, processType string, scale repositories.ProcessScale) (repositories.ProcessRecord, error)
+type ScaleAppProcess func(ctx context.Context, client client.Client, appGUID string, processType string, scale repositories.ProcessScaleMessage) (repositories.ProcessRecord, error)
 
 type AppHandler struct {
 	logger          logr.Logger
@@ -134,7 +134,7 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.AppCreate
-	rme := DecodeAndValidatePayload(r, &payload)
+	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeErrorResponse(w, rme)
 		return
@@ -208,6 +208,7 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusCreated)
 	w.Write(responseBody)
 }
 
@@ -248,7 +249,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.
 	appGUID := vars["guid"]
 
 	var payload payloads.AppSetCurrentDroplet
-	rme := DecodeAndValidatePayload(r, &payload)
+	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeErrorResponse(w, rme)
 		return
@@ -522,7 +523,7 @@ func (h *AppHandler) appScaleProcessHandler(w http.ResponseWriter, r *http.Reque
 	processType := vars["processType"]
 
 	var payload payloads.ProcessScale
-	rme := DecodeAndValidatePayload(r, &payload)
+	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeErrorResponse(w, rme)
 		return

@@ -407,8 +407,8 @@ var _ = Describe("AppHandler", func() {
 					Expect(appRepo.CreateAppEnvironmentVariablesCallCount()).To(BeZero(), "Repo CreateAppEnvironmentVariables was invoked even though no environment vars were provided")
 				})
 
-				It("return status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				It("return status 201 Created", func() {
+					Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
 				})
 
 				It("returns Content-Type as JSON in header", func() {
@@ -416,7 +416,7 @@ var _ = Describe("AppHandler", func() {
 					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 				})
 
-				It("returns the \"created app\"(the mock response record) in the response", func() {
+				It(`returns the "created app" (the mock response record) in the response`, func() {
 					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 					"guid": "%[2]s",
 					"created_at": "",

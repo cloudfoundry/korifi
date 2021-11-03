@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
-	. "code.cloudfoundry.org/cf-k8s-api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+
+	. "code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -31,7 +32,7 @@ var _ = Describe("AppRepository", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Describe("GetApp", func() {
+	Describe("FetchApp", func() {
 		var (
 			namespace1 *corev1.Namespace
 			namespace2 *corev1.Namespace
@@ -197,6 +198,55 @@ var _ = Describe("AppRepository", func() {
 				_, err := appRepo.FetchApp(testCtx, client, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
+			})
+		})
+	})
+
+	Describe("AppExistsWithNameAndSpace", func() {
+		const appName = "test-app1"
+		var (
+			namespace      *corev1.Namespace
+			otherNamespace *corev1.Namespace
+			cfApp          *workloadsv1alpha1.CFApp
+		)
+
+		BeforeEach(func() {
+			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: generateGUID()}}
+			Expect(k8sClient.Create(context.Background(), namespace)).To(Succeed())
+
+			otherNamespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: generateGUID()}}
+			Expect(k8sClient.Create(context.Background(), otherNamespace)).To(Succeed())
+			cfApp = &workloadsv1alpha1.CFApp{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      generateGUID(),
+					Namespace: namespace.Name,
+				},
+				Spec: workloadsv1alpha1.CFAppSpec{
+					Name:         appName,
+					DesiredState: "STOPPED",
+					Lifecycle:    workloadsv1alpha1.Lifecycle{Type: "buildpack"},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.Delete(context.Background(), cfApp)).To(Succeed())
+		})
+
+		When("the App exists in the Space", func() {
+			It("returns true", func() {
+				exists, err := appRepo.AppExistsWithNameAndSpace(context.Background(), client, appName, namespace.Name)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(exists).To(BeTrue())
+			})
+		})
+
+		When("the App doesn't exist in the Space (but is in another Space)", func() {
+			It("returns false", func() {
+				exists, err := appRepo.AppExistsWithNameAndSpace(context.Background(), client, appName, otherNamespace.Name)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(exists).To(BeFalse())
 			})
 		})
 	})

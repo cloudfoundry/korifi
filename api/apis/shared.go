@@ -34,10 +34,11 @@ func (rme *requestMalformedError) Error() string {
 	return fmt.Sprintf("Error throwing an http %v", rme.httpStatus)
 }
 
-func DecodeAndValidatePayload(r *http.Request, object interface{}) *requestMalformedError {
+func decodeAndValidateJSONPayload(r *http.Request, object interface{}) *requestMalformedError {
 	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
 	decoder.DisallowUnknownFields()
-	err := decoder.Decode(&object)
+	err := decoder.Decode(object)
 	if err != nil {
 		var unmarshalTypeError *json.UnmarshalTypeError
 		switch {
@@ -63,6 +64,10 @@ func DecodeAndValidatePayload(r *http.Request, object interface{}) *requestMalfo
 		}
 	}
 
+	return validatePayload(object)
+}
+
+func validatePayload(object interface{}) *requestMalformedError {
 	v := validator.New()
 
 	// Register custom validators
@@ -70,18 +75,26 @@ func DecodeAndValidatePayload(r *http.Request, object interface{}) *requestMalfo
 
 	trans := registerDefaultTranslator(v)
 
-	err = v.Struct(object)
+	err := v.Struct(object)
 	if err != nil {
-		errorMap := err.(validator.ValidationErrors).Translate(trans)
-		var errorMessages []string
-		for _, msg := range errorMap {
-			errorMessages = append(errorMessages, msg)
-		}
+		switch typedErr := err.(type) {
+		case validator.ValidationErrors:
+			errorMap := typedErr.Translate(trans)
+			var errorMessages []string
+			for _, msg := range errorMap {
+				errorMessages = append(errorMessages, msg)
+			}
 
-		if len(errorMessages) > 0 {
+			if len(errorMessages) > 0 {
+				return &requestMalformedError{
+					httpStatus:    http.StatusUnprocessableEntity,
+					errorResponse: newUnprocessableEntityError(strings.Join(errorMessages, ",")),
+				}
+			}
+		default:
 			return &requestMalformedError{
 				httpStatus:    http.StatusUnprocessableEntity,
-				errorResponse: newUnprocessableEntityError(strings.Join(errorMessages, ",")),
+				errorResponse: newUnprocessableEntityError(err.Error()),
 			}
 		}
 	}

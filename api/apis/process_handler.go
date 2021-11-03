@@ -30,7 +30,7 @@ type CFProcessRepository interface {
 }
 
 //counterfeiter:generate -o fake -fake-name ScaleProcess . ScaleProcess
-type ScaleProcess func(ctx context.Context, client client.Client, processGUID string, scale repositories.ProcessScale) (repositories.ProcessRecord, error)
+type ScaleProcess func(ctx context.Context, client client.Client, processGUID string, scale repositories.ProcessScaleMessage) (repositories.ProcessRecord, error)
 
 type ProcessHandler struct {
 	logger       logr.Logger
@@ -135,7 +135,7 @@ func (h *ProcessHandler) processScaleHandler(w http.ResponseWriter, r *http.Requ
 	processGUID := vars["guid"]
 
 	var payload payloads.ProcessScale
-	rme := DecodeAndValidatePayload(r, &payload)
+	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeErrorResponse(w, rme)
 		return

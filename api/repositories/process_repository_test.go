@@ -296,9 +296,9 @@ var _ = Describe("ProcessRepository", func() {
 			Expect(k8sClient.Create(context.Background(), cfProcess)).To(Succeed())
 
 			scaleProcessMessage = &ScaleProcessMessage{
-				GUID:         processGUID,
-				SpaceGUID:    namespace.Name,
-				ProcessScale: ProcessScale{},
+				GUID:                processGUID,
+				SpaceGUID:           namespace.Name,
+				ProcessScaleMessage: ProcessScaleMessage{},
 			}
 		})
 
@@ -324,7 +324,7 @@ var _ = Describe("ProcessRepository", func() {
 
 			DescribeTable("calling ScaleProcess with a set of scale values returns an updated CFProcess record",
 				func(instances *int, diskMB, memoryMB *int64) {
-					scaleProcessMessage.ProcessScale = ProcessScale{
+					scaleProcessMessage.ProcessScaleMessage = ProcessScaleMessage{
 						Instances: instances,
 						DiskMB:    diskMB,
 						MemoryMB:  memoryMB,
@@ -354,7 +354,7 @@ var _ = Describe("ProcessRepository", func() {
 			)
 
 			It("eventually updates the scale of the CFProcess CR", func() {
-				scaleProcessMessage.ProcessScale = ProcessScale{
+				scaleProcessMessage.ProcessScaleMessage = ProcessScaleMessage{
 					Instances: &instanceScale,
 					MemoryMB:  &memoryScaleMB,
 					DiskMB:    &diskScaleMB,

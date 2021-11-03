@@ -97,7 +97,7 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.BuildCreate
-	rme := DecodeAndValidatePayload(req, &payload)
+	rme := decodeAndValidateJSONPayload(req, &payload)
 	if rme != nil {
 		writeErrorResponse(w, rme)
 		return

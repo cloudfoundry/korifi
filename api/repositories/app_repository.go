@@ -85,6 +85,21 @@ func (f *AppRepo) FetchApp(ctx context.Context, client client.Client, appGUID st
 	return returnApp(matches)
 }
 
+func (f *AppRepo) AppExistsWithNameAndSpace(ctx context.Context, c client.Client, appName, spaceGUID string) (bool, error) {
+	appList := new(workloadsv1alpha1.CFAppList)
+	err := c.List(ctx, appList, client.InNamespace(spaceGUID))
+	if err != nil { // untested
+		return false, err
+	}
+
+	for _, app := range appList.Items {
+		if app.Spec.Name == appName {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (f *AppRepo) CreateApp(ctx context.Context, client client.Client, appRecord AppRecord) (AppRecord, error) {
 	cfApp := appRecordToCFApp(appRecord)
 	err := client.Create(ctx, &cfApp)
