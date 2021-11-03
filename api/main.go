@@ -151,6 +151,14 @@ func main() {
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
 			*serverURL,
 		),
+
+		apis.NewSpaceManifestHandler(
+			ctrl.Log.WithName("SpaceManifestHandler"),
+			*serverURL,
+			actions.NewApplyManifest(new(repositories.AppRepo)).Invoke,
+			repositories.BuildCRClient,
+			k8sClientConfig,
+		),
 	}
 
 	router := mux.NewRouter()

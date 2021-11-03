@@ -183,3 +183,17 @@ curl "http://localhost:9000/v3/routes" \
         ]
       }'
 ```
+
+### Manifest
+
+| Resource | Endpoint |
+|--|--|
+| Apply a manifest | POST /v3/spaces/\<space-guid>/actions/apply_manifest |
+
+#### [Applying a manifest](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-route)
+```bash
+curl "http://localhost:9000/v3/spaces/<space-guid>/actions/apply_manifest" \
+  -X POST \
+  -H "Content-type: application/x-yaml" \
+  --data-binary @<path-to-manifest.yml>
+```

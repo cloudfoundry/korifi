@@ -33,7 +33,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		scaleAppProcessAction *ScaleAppProcess
 
 		testClient *fake.Client
-		testScale  *repositories.ProcessScale
+		testScale  *repositories.ProcessScaleMessage
 
 		responseRecord repositories.ProcessRecord
 		responseErr    error
@@ -68,7 +68,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		var newMemoryMB int64 = 256
 		var newDiskMB int64 = 1024
 
-		testScale = &repositories.ProcessScale{
+		testScale = &repositories.ProcessScaleMessage{
 			Instances: &newInstances,
 			MemoryMB:  &newMemoryMB,
 			DiskMB:    &newDiskMB,
@@ -126,7 +126,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			Expect(scaleProcessMessage.DiskMB).To(Equal(testScale.DiskMB))
 			Expect(scaleProcessMessage.MemoryMB).To(Equal(testScale.MemoryMB))
 		})
-		It("transparently returns a record from repositories.ProcessScale", func() {
+		It("transparently returns a record from repositories.ProcessScaleMessage", func() {
 			Expect(responseRecord).To(Equal(*updatedProcessRecord))
 		})
 	})

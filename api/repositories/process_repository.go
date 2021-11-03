@@ -34,10 +34,10 @@ type ProcessRecord struct {
 type ScaleProcessMessage struct {
 	GUID      string
 	SpaceGUID string
-	ProcessScale
+	ProcessScaleMessage
 }
 
-type ProcessScale struct {
+type ProcessScaleMessage struct {
 	Instances *int
 	MemoryMB  *int64
 	DiskMB    *int64
@@ -54,7 +54,7 @@ type HealthCheckData struct {
 	TimeoutSeconds           int64
 }
 
-type ProcessRepository struct{}
+type ProcessRepository struct{} // TODO: rename this to ProcessRepo to follow our conventions
 
 func (r *ProcessRepository) FetchProcess(ctx context.Context, client client.Client, processGUID string) (ProcessRecord, error) {
 

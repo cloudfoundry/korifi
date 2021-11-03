@@ -3,8 +3,9 @@ package actions
 import (
 	"context"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"code.cloudfoundry.org/cf-k8s-api/repositories"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
@@ -21,6 +22,7 @@ type CFProcessRepository interface {
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
 type CFAppRepository interface {
 	FetchApp(context.Context, client.Client, string) (repositories.AppRecord, error)
+	AppExistsWithNameAndSpace(context.Context, client.Client, string, string) (bool, error)
 	FetchAppList(context.Context, client.Client) ([]repositories.AppRecord, error)
 	FetchNamespace(context.Context, client.Client, string) (repositories.SpaceRecord, error)
 	CreateAppEnvironmentVariables(context.Context, client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)

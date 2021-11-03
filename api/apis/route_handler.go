@@ -159,7 +159,7 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 
 	var routeCreateMessage payloads.RouteCreate
-	rme := DecodeAndValidatePayload(r, &routeCreateMessage)
+	rme := decodeAndValidateJSONPayload(r, &routeCreateMessage)
 	if rme != nil {
 		writeErrorResponse(w, rme)
 		return
@@ -234,7 +234,7 @@ func (h *RouteHandler) routeAddDestinationsHandler(w http.ResponseWriter, r *htt
 	w.Header().Set("Content-Type", "application/json")
 
 	var destinationCreatePayload payloads.DestinationListCreate
-	rme := DecodeAndValidatePayload(r, &destinationCreatePayload)
+	rme := decodeAndValidateJSONPayload(r, &destinationCreatePayload)
 	if rme != nil {
 		writeErrorResponse(w, rme)
 		return

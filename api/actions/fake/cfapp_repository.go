@@ -11,6 +11,22 @@ import (
 )
 
 type CFAppRepository struct {
+	AppExistsWithNameAndSpaceStub        func(context.Context, client.Client, string, string) (bool, error)
+	appExistsWithNameAndSpaceMutex       sync.RWMutex
+	appExistsWithNameAndSpaceArgsForCall []struct {
+		arg1 context.Context
+		arg2 client.Client
+		arg3 string
+		arg4 string
+	}
+	appExistsWithNameAndSpaceReturns struct {
+		result1 bool
+		result2 error
+	}
+	appExistsWithNameAndSpaceReturnsOnCall map[int]struct {
+		result1 bool
+		result2 error
+	}
 	CreateAppStub        func(context.Context, client.Client, repositories.AppRecord) (repositories.AppRecord, error)
 	createAppMutex       sync.RWMutex
 	createAppArgsForCall []struct {
@@ -117,6 +133,73 @@ type CFAppRepository struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *CFAppRepository) AppExistsWithNameAndSpace(arg1 context.Context, arg2 client.Client, arg3 string, arg4 string) (bool, error) {
+	fake.appExistsWithNameAndSpaceMutex.Lock()
+	ret, specificReturn := fake.appExistsWithNameAndSpaceReturnsOnCall[len(fake.appExistsWithNameAndSpaceArgsForCall)]
+	fake.appExistsWithNameAndSpaceArgsForCall = append(fake.appExistsWithNameAndSpaceArgsForCall, struct {
+		arg1 context.Context
+		arg2 client.Client
+		arg3 string
+		arg4 string
+	}{arg1, arg2, arg3, arg4})
+	stub := fake.AppExistsWithNameAndSpaceStub
+	fakeReturns := fake.appExistsWithNameAndSpaceReturns
+	fake.recordInvocation("AppExistsWithNameAndSpace", []interface{}{arg1, arg2, arg3, arg4})
+	fake.appExistsWithNameAndSpaceMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFAppRepository) AppExistsWithNameAndSpaceCallCount() int {
+	fake.appExistsWithNameAndSpaceMutex.RLock()
+	defer fake.appExistsWithNameAndSpaceMutex.RUnlock()
+	return len(fake.appExistsWithNameAndSpaceArgsForCall)
+}
+
+func (fake *CFAppRepository) AppExistsWithNameAndSpaceCalls(stub func(context.Context, client.Client, string, string) (bool, error)) {
+	fake.appExistsWithNameAndSpaceMutex.Lock()
+	defer fake.appExistsWithNameAndSpaceMutex.Unlock()
+	fake.AppExistsWithNameAndSpaceStub = stub
+}
+
+func (fake *CFAppRepository) AppExistsWithNameAndSpaceArgsForCall(i int) (context.Context, client.Client, string, string) {
+	fake.appExistsWithNameAndSpaceMutex.RLock()
+	defer fake.appExistsWithNameAndSpaceMutex.RUnlock()
+	argsForCall := fake.appExistsWithNameAndSpaceArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *CFAppRepository) AppExistsWithNameAndSpaceReturns(result1 bool, result2 error) {
+	fake.appExistsWithNameAndSpaceMutex.Lock()
+	defer fake.appExistsWithNameAndSpaceMutex.Unlock()
+	fake.AppExistsWithNameAndSpaceStub = nil
+	fake.appExistsWithNameAndSpaceReturns = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) AppExistsWithNameAndSpaceReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.appExistsWithNameAndSpaceMutex.Lock()
+	defer fake.appExistsWithNameAndSpaceMutex.Unlock()
+	fake.AppExistsWithNameAndSpaceStub = nil
+	if fake.appExistsWithNameAndSpaceReturnsOnCall == nil {
+		fake.appExistsWithNameAndSpaceReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 error
+		})
+	}
+	fake.appExistsWithNameAndSpaceReturnsOnCall[i] = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *CFAppRepository) CreateApp(arg1 context.Context, arg2 client.Client, arg3 repositories.AppRecord) (repositories.AppRecord, error) {
@@ -583,6 +666,8 @@ func (fake *CFAppRepository) SetCurrentDropletReturnsOnCall(i int, result1 repos
 func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.appExistsWithNameAndSpaceMutex.RLock()
+	defer fake.appExistsWithNameAndSpaceMutex.RUnlock()
 	fake.createAppMutex.RLock()
 	defer fake.createAppMutex.RUnlock()
 	fake.createAppEnvironmentVariablesMutex.RLock()
