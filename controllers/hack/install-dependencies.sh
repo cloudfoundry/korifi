@@ -86,7 +86,7 @@ echo "*******************"
 echo "Installing Contour"
 echo "*******************"
 
-kubectl apply -f "${DEP_DIR}/contour-1.18.2.yaml"
+kubectl apply -f "${DEP_DIR}/contour-1.19.1.yaml"
 
 echo "*******************"
 echo "Installing HNC"
