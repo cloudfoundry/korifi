@@ -82,12 +82,12 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 		UpdatedAt: route.UpdatedAt,
 		Relationships: Relationships{
 			"space": Relationship{
-				Data: RelationshipData{
+				Data: &RelationshipData{
 					GUID: route.SpaceGUID,
 				},
 			},
 			"domain": Relationship{
-				Data: RelationshipData{
+				Data: &RelationshipData{
 					GUID: route.Domain.GUID,
 				},
 			},

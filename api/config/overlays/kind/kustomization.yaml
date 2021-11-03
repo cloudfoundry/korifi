@@ -1,5 +1,5 @@
 configMapGenerator:
-- behavior: replace
+- behavior: merge
   files:
   - cf_k8s_api_config.yaml
   name: config

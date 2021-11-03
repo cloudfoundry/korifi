@@ -51,7 +51,6 @@ rules:
   - subnamespaceanchors
   verbs:
   - create
-  - get
   - list
   - watch
 - apiGroups:
@@ -95,6 +94,7 @@ rules:
   resources:
   - rolebindings
   verbs:
+  - create
   - list
 - apiGroups:
   - workloads.cloudfoundry.org
@@ -195,9 +195,21 @@ data:
       stagingDiskMB: 1024
     packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
     packageRegistrySecretName: image-registry-secret # Create this secret in the rootNamespace
+  role_mappings_config.yaml: |
+    roleMappings:
+      admin: cf-k8s-controllers-admin
+      admin_read_only: cf-k8s-controllers-admin-read-only
+      global_auditor: cf-k8s-controllers-global-auditor
+      organization_auditor: cf-k8s-controllers-organization-auditor
+      organization_billing_manager: cf-k8s-controllers-organization-billing-manager
+      organization_user: cf-k8s-controllers-organization-user
+      space_auditor: cf-k8s-controllers-space-auditor
+      space_developer: cf-k8s-controllers-space-developer
+      space_manager: cf-k8s-controllers-space-manager
+      space_supporter: cf-k8s-controllers-space-supporter
 kind: ConfigMap
 metadata:
-  name: cf-k8s-api-config-t8hct5kdgd
+  name: cf-k8s-api-config-h9h47bgdt2
   namespace: cf-k8s-api-system
 ---
 apiVersion: v1
@@ -238,7 +250,7 @@ spec:
       containers:
       - env:
         - name: CONFIG
-          value: /cf_k8s_api_config.yaml
+          value: /etc/cf-k8s-api-config
         image: cloudfoundry/cf-k8s-api:latest
         name: cf-k8s-api
         ports:
@@ -246,14 +258,13 @@ spec:
           name: web
         resources: {}
         volumeMounts:
-        - mountPath: /cf_k8s_api_config.yaml
+        - mountPath: /etc/cf-k8s-api-config
           name: cf-k8s-api-config
           readOnly: true
-          subPath: cf_k8s_api_config.yaml
       serviceAccountName: cf-k8s-api-cf-admin-serviceaccount
       volumes:
       - configMap:
-          name: cf-k8s-api-config-t8hct5kdgd
+          name: cf-k8s-api-config-h9h47bgdt2
         name: cf-k8s-api-config
 ---
 apiVersion: projectcontour.io/v1

@@ -1,0 +1,11 @@
+roleMappings:
+  admin: cf-k8s-controllers-admin
+  admin_read_only: cf-k8s-controllers-admin-read-only
+  global_auditor: cf-k8s-controllers-global-auditor
+  organization_auditor: cf-k8s-controllers-organization-auditor
+  organization_billing_manager: cf-k8s-controllers-organization-billing-manager
+  organization_user: cf-k8s-controllers-organization-user
+  space_auditor: cf-k8s-controllers-space-auditor
+  space_developer: cf-k8s-controllers-space-developer
+  space_manager: cf-k8s-controllers-space-manager
+  space_supporter: cf-k8s-controllers-space-supporter

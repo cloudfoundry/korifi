@@ -2,7 +2,6 @@ package integration_test
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -48,7 +47,7 @@ var _ = AfterEach(func() {
 })
 
 func startEnvTest(apiServerEtraArgs ...string) {
-	logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	apiServerArgs := append(envtest.DefaultKubeAPIServerFlags, apiServerEtraArgs...)
 
 	testEnv = &envtest.Environment{

@@ -42,7 +42,6 @@ rules:
   - subnamespaceanchors
   verbs:
   - create
-  - get
   - list
   - watch
 - apiGroups:
@@ -86,6 +85,7 @@ rules:
   resources:
   - rolebindings
   verbs:
+  - create
   - list
 - apiGroups:
   - workloads.cloudfoundry.org

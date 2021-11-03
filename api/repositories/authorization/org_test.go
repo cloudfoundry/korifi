@@ -23,7 +23,8 @@ var _ = Describe("Org", func() {
 		identity   authorization.Identity
 
 		org1Ns, org2Ns string
-		roleName       string
+		roleName1      string
+		roleName2      string
 	)
 
 	createNamespace := func() string {
@@ -81,54 +82,78 @@ var _ = Describe("Org", func() {
 		org1Ns = createNamespace()
 		org2Ns = createNamespace()
 
-		roleName = generateGUID("org-user")
-		createClusterRole(roleName)
-		createRoleBindingForUser(userName, roleName, org1Ns)
-		createRoleBindingForUser("some-other-user", roleName, org1Ns)
-	})
-
-	JustBeforeEach(func() {
-		namespaces, getErr = org.GetAuthorizedNamespaces(ctx, identity)
+		roleName1 = generateGUID("org-user-1")
+		roleName2 = generateGUID("org-user-1")
+		createClusterRole(roleName1)
+		createClusterRole(roleName2)
+		createRoleBindingForUser(userName, roleName1, org1Ns)
+		createRoleBindingForUser(userName, roleName2, org1Ns)
+		createRoleBindingForUser("some-other-user", roleName1, org1Ns)
 	})
 
 	AfterEach(func() {
 		Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org1Ns}})).To(Succeed())
 		Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org2Ns}})).To(Succeed())
-		Expect(k8sClient.Delete(context.Background(), &rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: roleName}})).To(Succeed())
+		Expect(k8sClient.Delete(context.Background(), &rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: roleName1}})).To(Succeed())
+		Expect(k8sClient.Delete(context.Background(), &rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: roleName2}})).To(Succeed())
 	})
 
-	It("lists the namespaces with bindings for current user", func() {
-		Expect(getErr).NotTo(HaveOccurred())
-		Expect(namespaces).To(ConsistOf(org1Ns))
-	})
-
-	When("the user does not have a rolebinding associated with it", func() {
-		BeforeEach(func() {
-			identity = authorization.Identity{
-				Name: generateGUID("bob"),
-				Kind: "User",
-			}
+	Describe("Get Authorized Namespaces", func() {
+		JustBeforeEach(func() {
+			namespaces, getErr = org.GetAuthorizedNamespaces(ctx, identity)
 		})
 
-		It("returns an empty list", func() {
+		It("lists the namespaces with bindings for current user", func() {
 			Expect(getErr).NotTo(HaveOccurred())
-			Expect(namespaces).To(BeEmpty())
+			Expect(namespaces).To(ConsistOf(org1Ns))
+		})
+
+		When("the user does not have a rolebinding associated with it", func() {
+			BeforeEach(func() {
+				identity = authorization.Identity{
+					Name: generateGUID("bob"),
+					Kind: "User",
+				}
+			})
+
+			It("returns an empty list", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(namespaces).To(BeEmpty())
+			})
+		})
+
+		When("listing the rolebindings fails", func() {
+			var cancelCtx context.CancelFunc
+
+			BeforeEach(func() {
+				ctx, cancelCtx = context.WithDeadline(ctx, time.Now().Add(-time.Minute))
+			})
+
+			AfterEach(func() {
+				cancelCtx()
+			})
+
+			It("returns an error", func() {
+				Expect(getErr).To(MatchError(ContainSubstring("failed to list rolebindings")))
+			})
 		})
 	})
 
-	When("listing the rolebindings fails", func() {
-		var cancelCtx context.CancelFunc
-
-		BeforeEach(func() {
-			ctx, cancelCtx = context.WithDeadline(ctx, time.Now().Add(-time.Minute))
+	Describe("Authorized In", func() {
+		When("the user has a rolebinding in the namespace", func() {
+			It("returns true", func() {
+				authorized, err := org.AuthorizedIn(ctx, identity, org1Ns)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(authorized).To(BeTrue())
+			})
 		})
 
-		AfterEach(func() {
-			cancelCtx()
-		})
-
-		It("returns an error", func() {
-			Expect(getErr).To(MatchError(ContainSubstring("failed to list rolebindings")))
+		When("the user does not have a RoleBinding in the namespace", func() {
+			It("returns false", func() {
+				authorized, err := org.AuthorizedIn(ctx, identity, org2Ns)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(authorized).To(BeFalse())
+			})
 		})
 	})
 })

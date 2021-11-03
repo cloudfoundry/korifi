@@ -40,7 +40,7 @@ func ForPackage(record repositories.PackageRecord, baseURL url.URL) PackageRespo
 		UpdatedAt: record.UpdatedAt,
 		Relationships: Relationships{
 			"app": Relationship{
-				Data: RelationshipData{
+				Data: &RelationshipData{
 					GUID: record.AppGUID,
 				},
 			},
