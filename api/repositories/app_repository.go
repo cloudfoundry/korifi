@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -100,8 +102,8 @@ func (f *AppRepo) AppExistsWithNameAndSpace(ctx context.Context, c client.Client
 	return false, nil
 }
 
-func (f *AppRepo) CreateApp(ctx context.Context, client client.Client, appRecord AppRecord) (AppRecord, error) {
-	cfApp := appRecordToCFApp(appRecord)
+func (f *AppRepo) CreateApp(ctx context.Context, client client.Client, appCreateMessage AppCreateMessage) (AppRecord, error) {
+	cfApp := appCreateMessage.toCFApp()
 	err := client.Create(ctx, &cfApp)
 	if err != nil {
 		return AppRecord{}, err
@@ -202,27 +204,42 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, c client.Client, messa
 	return cfAppToAppRecord(*cfApp), nil
 }
 
-func appRecordToCFApp(appRecord AppRecord) workloadsv1alpha1.CFApp {
+func generateEnvSecretName(appGUID string) string {
+	return appGUID + "-env"
+}
+
+type AppCreateMessage struct {
+	Name        string
+	SpaceGUID   string
+	Labels      map[string]string
+	Annotations map[string]string
+	State       DesiredState
+	Lifecycle   Lifecycle
+	HasEnvVars  bool
+}
+
+func (m *AppCreateMessage) toCFApp() workloadsv1alpha1.CFApp {
+	guid := uuid.New().String()
+	var envVarSecretName string
+	if m.HasEnvVars {
+		envVarSecretName = generateEnvSecretName(guid)
+	}
 	return workloadsv1alpha1.CFApp{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       Kind,
-			APIVersion: APIVersion,
-		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        appRecord.GUID,
-			Namespace:   appRecord.SpaceGUID,
-			Labels:      appRecord.Labels,
-			Annotations: appRecord.Annotations,
+			Name:        guid,
+			Namespace:   m.SpaceGUID,
+			Labels:      m.Labels,
+			Annotations: m.Annotations,
 		},
 		Spec: workloadsv1alpha1.CFAppSpec{
-			Name:          appRecord.Name,
-			DesiredState:  workloadsv1alpha1.DesiredState(appRecord.State),
-			EnvSecretName: appRecord.EnvSecretName,
+			Name:          m.Name,
+			DesiredState:  workloadsv1alpha1.DesiredState(m.State),
+			EnvSecretName: envVarSecretName,
 			Lifecycle: workloadsv1alpha1.Lifecycle{
-				Type: workloadsv1alpha1.LifecycleType(appRecord.Lifecycle.Type),
+				Type: workloadsv1alpha1.LifecycleType(m.Lifecycle.Type),
 				Data: workloadsv1alpha1.LifecycleData{
-					Buildpacks: appRecord.Lifecycle.Data.Buildpacks,
-					Stack:      appRecord.Lifecycle.Data.Stack,
+					Buildpacks: m.Lifecycle.Data.Buildpacks,
+					Stack:      m.Lifecycle.Data.Stack,
 				},
 			},
 		},
@@ -283,7 +300,7 @@ func v1NamespaceToSpaceRecord(namespace *v1.Namespace) SpaceRecord {
 func appEnvVarsRecordToSecret(envVars AppEnvVarsRecord) corev1.Secret {
 	labels := make(map[string]string, 1)
 	labels[CFAppGUIDLabel] = envVars.AppGUID
-	envSecretName := envVars.AppGUID + "-env"
+	envSecretName := generateEnvSecretName(envVars.AppGUID)
 	return corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      envSecretName,

@@ -400,8 +400,6 @@ var _ = Describe("AppHandler", func() {
 
 				It("should invoke repo CreateApp with a random GUID", func() {
 					Expect(appRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
-					_, _, createAppRecord := appRepo.CreateAppArgsForCall(0)
-					Expect(createAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "CreateApp record GUID was not a 36 character guid")
 				})
 
 				It("should not invoke repo CreateAppEnvironmentVariables when no environment variables are provided", func() {
@@ -519,10 +517,10 @@ var _ = Describe("AppHandler", func() {
 						Expect(createAppEnvVarsRecord.SpaceGUID).To(Equal(spaceGUID))
 					})
 
-					It("should call Repo CreateApp and provide the name of the created env Secret", func() {
+					It("should call Repo CreateApp and provide whether the app has environment variables or not", func() {
 						Expect(appRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
-						_, _, createAppRecord := appRepo.CreateAppArgsForCall(0)
-						Expect(createAppRecord.EnvSecretName).To(Equal(createEnvVarsResponseName))
+						_, _, createAppMessage := appRepo.CreateAppArgsForCall(0)
+						Expect(createAppMessage.HasEnvVars).To(BeTrue())
 					})
 				})
 

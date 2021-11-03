@@ -25,7 +25,7 @@ type AppRelationships struct {
 	Space Relationship `json:"space" validate:"required"`
 }
 
-func (p AppCreate) ToRecord() repositories.AppRecord {
+func (p AppCreate) ToAppCreateMessage() repositories.AppCreateMessage {
 	lifecycleBlock := repositories.Lifecycle{
 		Type: DefaultLifecycleConfig.Type,
 		Data: repositories.LifecycleData{
@@ -37,16 +37,14 @@ func (p AppCreate) ToRecord() repositories.AppRecord {
 		lifecycleBlock.Data.Buildpacks = p.Lifecycle.Data.Buildpacks
 	}
 
-	return repositories.AppRecord{
+	return repositories.AppCreateMessage{
 		Name:        p.Name,
-		GUID:        "",
 		SpaceGUID:   p.Relationships.Space.Data.GUID,
 		Labels:      p.Metadata.Labels,
 		Annotations: p.Metadata.Annotations,
 		State:       repositories.StoppedState,
 		Lifecycle:   lifecycleBlock,
-		CreatedAt:   "",
-		UpdatedAt:   "",
+		HasEnvVars:  len(p.EnvironmentVariables) > 0,
 	}
 }
 

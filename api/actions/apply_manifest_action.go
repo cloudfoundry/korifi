@@ -3,9 +3,10 @@ package actions
 import (
 	"context"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ApplyManifest struct {
@@ -19,8 +20,8 @@ func NewApplyManifest(appRepo CFAppRepository) *ApplyManifest {
 }
 
 func (a *ApplyManifest) Invoke(ctx context.Context, c client.Client, spaceGUID string, manifest payloads.SpaceManifestApply) error {
-	appRecord := manifest.ToRecord(spaceGUID)
-	exists, err := a.appRepo.AppExistsWithNameAndSpace(ctx, c, appRecord.Name, appRecord.SpaceGUID)
+	appCreateMessage := manifest.ToAppCreateMessage(spaceGUID)
+	exists, err := a.appRepo.AppExistsWithNameAndSpace(ctx, c, appCreateMessage.Name, appCreateMessage.SpaceGUID)
 	if err != nil {
 		return err
 	}
@@ -28,6 +29,15 @@ func (a *ApplyManifest) Invoke(ctx context.Context, c client.Client, spaceGUID s
 		return nil
 	}
 
-	_, err = a.appRepo.CreateApp(ctx, c, appRecord)
-	return err
+	createdAppRecord, err := a.appRepo.CreateApp(ctx, c, appCreateMessage)
+	if err != nil {
+		return err
+	}
+	_, err = a.appRepo.CreateAppEnvironmentVariables(ctx, c, repositories.AppEnvVarsRecord{
+		AppGUID:              createdAppRecord.GUID,
+		SpaceGUID:            createdAppRecord.SpaceGUID,
+		EnvironmentVariables: manifest.Applications[0].Env,
+	})
+
+	return nil
 }

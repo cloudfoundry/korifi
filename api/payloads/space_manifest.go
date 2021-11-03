@@ -1,10 +1,8 @@
 package payloads
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	"github.com/google/uuid"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
 type SpaceManifestApply struct {
@@ -13,15 +11,15 @@ type SpaceManifestApply struct {
 }
 
 type SpaceManifestApplyApplication struct {
-	Name string `yaml:"name" validate:"required"`
+	Name string            `yaml:"name" validate:"required"`
+	Env  map[string]string `yaml:"env"`
 }
 
-func (a SpaceManifestApply) ToRecord(spaceGUID string) repositories.AppRecord {
-	appGUID := uuid.New().String()
-	return repositories.AppRecord{
-		GUID:      appGUID,
-		Name:      a.Applications[0].Name,
-		SpaceGUID: spaceGUID,
+func (a SpaceManifestApply) ToAppCreateMessage(spaceGUID string) repositories.AppCreateMessage {
+	return repositories.AppCreateMessage{
+		Name:       a.Applications[0].Name,
+		HasEnvVars: len(a.Applications[0].Env) > 0,
+		SpaceGUID:  spaceGUID,
 		Lifecycle: repositories.Lifecycle{
 			Type: string(v1alpha1.BuildpackLifecycle),
 		},
