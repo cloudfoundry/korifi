@@ -26,7 +26,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
 	"github.com/pivotal/kpack/pkg/registry"
 	corev1 "k8s.io/api/core/v1"
@@ -46,7 +47,7 @@ import (
 const (
 	kpackReadyConditionType   = "Ready"
 	clusterBuilderKind        = "ClusterBuilder"
-	clusterBuilderAPIVersion  = "kpack.io/v1alpha1"
+	clusterBuilderAPIVersion  = "kpack.io/v1alpha2"
 	kpackServiceAccountSuffix = "-kpack-service-account"
 	cfKpackClusterBuilderName = "cf-kpack-cluster-builder"
 )
@@ -151,7 +152,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// If Found, check Succeeded status condition
 		// If Succeeded is True - Update Status Conditions and Droplet fields on CFBuild
 		// If Succeeded is False - Update Status Conditions on CFBuild
-		var kpackImage buildv1alpha1.Image
+		var kpackImage buildv1alpha2.Image
 		err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Name, Namespace: cfBuild.Namespace}, &kpackImage)
 		if err != nil {
 			r.Log.Error(err, "Error when fetching Kpack Image")
@@ -205,7 +206,7 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 	kpackImageTag := r.concatenateStrings("/", r.ControllerConfig.KpackImageTag, cfBuild.Name)
 	kpackImageName := cfBuild.Name
 	kpackImageNamespace := cfBuild.Namespace
-	desiredKpackImage := buildv1alpha1.Image{
+	desiredKpackImage := buildv1alpha2.Image{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kpackImageName,
 			Namespace: kpackImageNamespace,
@@ -214,16 +215,16 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 				workloadsv1alpha1.CFAppGUIDLabelKey:   cfApp.Name,
 			},
 		},
-		Spec: buildv1alpha1.ImageSpec{
+		Spec: buildv1alpha2.ImageSpec{
 			Tag: kpackImageTag,
 			Builder: corev1.ObjectReference{
 				Kind:       clusterBuilderKind,
 				Name:       cfKpackClusterBuilderName,
 				APIVersion: clusterBuilderAPIVersion,
 			},
-			ServiceAccount: serviceAccountName,
-			Source: buildv1alpha1.SourceConfig{
-				Registry: &buildv1alpha1.Registry{
+			ServiceAccountName: serviceAccountName,
+			Source: corev1alpha1.SourceConfig{
+				Registry: &corev1alpha1.Registry{
 					Image:            cfPackage.Spec.Source.Registry.Image,
 					ImagePullSecrets: cfPackage.Spec.Source.Registry.ImagePullSecrets,
 				},
@@ -247,8 +248,8 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 	return nil
 }
 
-func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, desiredKpackImage buildv1alpha1.Image) error {
-	var foundKpackImage buildv1alpha1.Image
+func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, desiredKpackImage buildv1alpha2.Image) error {
+	var foundKpackImage buildv1alpha2.Image
 	err := r.Client.Get(ctx, types.NamespacedName{Name: desiredKpackImage.Name, Namespace: desiredKpackImage.Namespace}, &foundKpackImage)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -265,7 +266,7 @@ func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, des
 	return nil
 }
 
-func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpackImage *buildv1alpha1.Image, imagePullSecrets []corev1.LocalObjectReference) (*workloadsv1alpha1.BuildDropletStatus, error) {
+func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpackImage *buildv1alpha2.Image, imagePullSecrets []corev1.LocalObjectReference) (*workloadsv1alpha1.BuildDropletStatus, error) {
 
 	imageRef := kpackImage.Status.LatestImage
 	//imagePullSecrets := kpackImage.Spec.Source.Registry.ImagePullSecrets
@@ -326,7 +327,7 @@ func (r *CFBuildReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&workloadsv1alpha1.CFBuild{}).
 		Watches(
-			&source.Kind{Type: &buildv1alpha1.Image{}},
+			&source.Kind{Type: &buildv1alpha2.Image{}},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
 				var requests []reconcile.Request
 				requests = append(requests, reconcile.Request{

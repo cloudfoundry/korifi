@@ -12,8 +12,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
-	"github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,7 +59,7 @@ var _ = Describe("CFBuildReconciler", func() {
 		kpackServiceAccountError error
 		//kpackRegistrySecret      *corev1.Secret
 
-		kpackImage        *buildv1alpha1.Image
+		kpackImage        *buildv1alpha2.Image
 		kpackImageError   error
 		cfBuildReconciler *CFBuildReconciler
 		req               ctrl.Request
@@ -105,8 +105,8 @@ var _ = Describe("CFBuildReconciler", func() {
 			case *workloadsv1alpha1.CFPackage:
 				cfPackage.DeepCopyInto(obj.(*workloadsv1alpha1.CFPackage))
 				return cfPackageError
-			case *buildv1alpha1.Image:
-				kpackImage.DeepCopyInto(obj.(*buildv1alpha1.Image))
+			case *buildv1alpha2.Image:
+				kpackImage.DeepCopyInto(obj.(*buildv1alpha2.Image))
 				return kpackImageError
 			case *corev1.ServiceAccount:
 				kpackServiceAccount.DeepCopyInto(obj.(*corev1.ServiceAccount))
@@ -128,7 +128,7 @@ var _ = Describe("CFBuildReconciler", func() {
 
 		// configure a CFBuildReconciler with the client
 		Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-		Expect(buildv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfBuildReconciler = &CFBuildReconciler{
 			Client:              fakeClient,
 			Scheme:              scheme.Scheme,
@@ -415,18 +415,18 @@ var _ = Describe("CFBuildReconciler", func() {
 	})
 })
 
-func mockKpackImageObject(guid string, namespace string) *buildv1alpha1.Image {
-	return &buildv1alpha1.Image{
+func mockKpackImageObject(guid string, namespace string) *buildv1alpha2.Image {
+	return &buildv1alpha2.Image{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: namespace,
 		},
-		Spec: buildv1alpha1.ImageSpec{
-			Tag:            "test-tag",
-			Builder:        corev1.ObjectReference{},
-			ServiceAccount: "test-service-account",
-			Source: buildv1alpha1.SourceConfig{
-				Registry: &buildv1alpha1.Registry{
+		Spec: buildv1alpha2.ImageSpec{
+			Tag:                "test-tag",
+			Builder:            corev1.ObjectReference{},
+			ServiceAccountName: "test-service-account",
+			Source: corev1alpha1.SourceConfig{
+				Registry: &corev1alpha1.Registry{
 					Image:            "image-path",
 					ImagePullSecrets: nil,
 				},
@@ -435,9 +435,9 @@ func mockKpackImageObject(guid string, namespace string) *buildv1alpha1.Image {
 	}
 }
 
-func setKpackImageStatus(kpackImage *buildv1alpha1.Image, conditionType string, conditionStatus string) {
-	kpackImage.Status.Conditions = append(kpackImage.Status.Conditions, v1alpha1.Condition{
-		Type:   v1alpha1.ConditionType(conditionType),
+func setKpackImageStatus(kpackImage *buildv1alpha2.Image, conditionType string, conditionStatus string) {
+	kpackImage.Status.Conditions = append(kpackImage.Status.Conditions, corev1alpha1.Condition{
+		Type:   corev1alpha1.ConditionType(conditionType),
 		Status: corev1.ConditionStatus(conditionStatus),
 	})
 }

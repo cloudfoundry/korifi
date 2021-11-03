@@ -9,8 +9,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
-	"github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -92,7 +92,7 @@ var _ = Describe("CFBuildReconciler", func() {
 				It("should eventually create a Kpack Image", func() {
 					testCtx := context.Background()
 					kpackImageLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-					createdKpackImage := new(buildv1alpha1.Image)
+					createdKpackImage := new(buildv1alpha2.Image)
 					Eventually(func() bool {
 						err := k8sClient.Get(testCtx, kpackImageLookupKey, createdKpackImage)
 						return err == nil
@@ -119,26 +119,26 @@ var _ = Describe("CFBuildReconciler", func() {
 			When("kpack image with CFBuild GUID already exists", func() {
 				var (
 					newCFBuildGUID     string
-					existingKpackImage *buildv1alpha1.Image
+					existingKpackImage *buildv1alpha2.Image
 					newCFBuild         *workloadsv1alpha1.CFBuild
 				)
 
 				BeforeEach(func() {
 					beforeCtx := context.Background()
 					newCFBuildGUID = GenerateGUID()
-					existingKpackImage = &buildv1alpha1.Image{
+					existingKpackImage = &buildv1alpha2.Image{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      newCFBuildGUID,
 							Namespace: namespaceGUID,
 						},
-						Spec: buildv1alpha1.ImageSpec{
+						Spec: buildv1alpha2.ImageSpec{
 							Tag: "my-tag-string",
 							Builder: corev1.ObjectReference{
 								Name: "my-builder",
 							},
-							ServiceAccount: "my-service-account",
-							Source: buildv1alpha1.SourceConfig{
-								Registry: &buildv1alpha1.Registry{
+							ServiceAccountName: "my-service-account",
+							Source: corev1alpha1.SourceConfig{
+								Registry: &corev1alpha1.Registry{
 									Image:            "not-an-image",
 									ImagePullSecrets: nil,
 								},
@@ -225,7 +225,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			BeforeEach(func() {
 				testCtx := context.Background()
 				kpackImageLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-				createdKpackImage := new(buildv1alpha1.Image)
+				createdKpackImage := new(buildv1alpha2.Image)
 				Eventually(func() bool {
 					err := k8sClient.Get(testCtx, kpackImageLookupKey, createdKpackImage)
 					return err == nil
@@ -272,7 +272,7 @@ var _ = Describe("CFBuildReconciler", func() {
 				)
 
 				kpackImageLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-				createdKpackImage := new(buildv1alpha1.Image)
+				createdKpackImage := new(buildv1alpha2.Image)
 				Eventually(func() bool {
 					err := k8sClient.Get(testCtx, kpackImageLookupKey, createdKpackImage)
 					return err == nil
@@ -322,9 +322,9 @@ var _ = Describe("CFBuildReconciler", func() {
 	})
 })
 
-func setKpackImageStatus(kpackImage *buildv1alpha1.Image, conditionType string, conditionStatus string) {
-	kpackImage.Status.Conditions = append(kpackImage.Status.Conditions, v1alpha1.Condition{
-		Type:   v1alpha1.ConditionType(conditionType),
+func setKpackImageStatus(kpackImage *buildv1alpha2.Image, conditionType string, conditionStatus string) {
+	kpackImage.Status.Conditions = append(kpackImage.Status.Conditions, corev1alpha1.Condition{
+		Type:   corev1alpha1.ConditionType(conditionType),
 		Status: corev1.ConditionStatus(conditionStatus),
 	})
 }

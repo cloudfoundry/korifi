@@ -13,7 +13,7 @@ import (
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,7 +48,7 @@ var _ = BeforeSuite(func() {
 		ErrorIfCRDPathMissing: true,
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
-				filepath.Join("..", "..", "..", "dependencies", "kpack-release-0.3.1.yaml"),
+				filepath.Join("..", "..", "..", "dependencies", "kpack-release-0.4.1.yaml"),
 				filepath.Join("fixtures", "lrp-crd.yaml"),
 			},
 		},
@@ -60,7 +60,7 @@ var _ = BeforeSuite(func() {
 
 	Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	Expect(buildv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 	// Add Eirini to Scheme
 	Expect(eiriniv1.AddToScheme(scheme.Scheme)).To(Succeed())
 

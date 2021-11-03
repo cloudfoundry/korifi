@@ -50,7 +50,7 @@ echo "*******************"
 echo "Installing Kpack"
 echo "*******************"
 
-kubectl apply -f "${DEP_DIR}/kpack-release-0.3.1.yaml"
+kubectl apply -f "${DEP_DIR}/kpack-release-0.4.1.yaml"
 
 echo "*******************"
 echo "Configuring Kpack"
