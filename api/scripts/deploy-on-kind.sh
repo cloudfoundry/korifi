@@ -41,12 +41,12 @@ deploy_cf_k8s_controllers() {
   pushd "$CTRL_DIR"
   {
     ./hack/install-dependencies.sh
-    local uuid
-    uuid="$(uuidgen)"
-    export IMG="cf-k8s-controllers:$uuid"
+    export IMG=${CONTROLLERS_IMG:-"cf-k8s-controllers:$(uuidgen)"}
     export KUBEBUILDER_ASSETS=$CTRL_DIR/testbin/bin
     make generate
-    make docker-build
+    if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
+      make docker-build
+    fi
     kind load docker-image --name "$cluster" "$IMG"
     make install
     make deploy
@@ -57,10 +57,10 @@ deploy_cf_k8s_controllers() {
 deploy_cf_k8s_api() {
   pushd "$API_DIR"
   {
-    local uuid
-    uuid="$(uuidgen)"
-    export IMG="cf-k8s-api:$uuid"
-    make docker-build
+    export IMG=${API_IMG:-"cf-k8s-api:$(uuidgen)"}
+    if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
+      make docker-build
+    fi
     kind load docker-image --name "$cluster" "$IMG"
     make deploy-kind
   }
