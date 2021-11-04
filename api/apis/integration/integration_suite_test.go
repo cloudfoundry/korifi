@@ -3,12 +3,14 @@ package integration_test
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
@@ -29,15 +31,12 @@ func TestIntegration(t *testing.T) {
 	RunSpecs(t, "Integration Suite")
 }
 
-const (
-	serverAddr = "localhost:9876"
-)
-
 var (
 	testEnv   *envtest.Environment
 	k8sClient client.WithWatch
 	k8sConfig *rest.Config
 	server    *http.Server
+	port      int
 )
 
 var (
@@ -47,7 +46,6 @@ var (
 	serverURL *url.URL
 	ctx       context.Context
 )
-
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
@@ -69,6 +67,8 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	rand.Seed(time.Now().UnixNano())
 })
 
 var _ = AfterSuite(func() {
@@ -80,6 +80,9 @@ var _ = BeforeEach(func() {
 	rr = httptest.NewRecorder()
 	router = mux.NewRouter()
 
+	port = 1024 + rand.Intn(8975)
+
+	serverAddr := fmt.Sprintf("localhost:%d", port)
 	var err error
 	serverURL, err = url.Parse("http://" + serverAddr)
 	Expect(err).NotTo(HaveOccurred())
