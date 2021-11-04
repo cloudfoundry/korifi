@@ -1,6 +1,6 @@
 package payloads
 
-import "code.cloudfoundry.org/cf-k8s-api/repositories"
+import "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 type BuildCreate struct {
 	Package         *RelationshipData `json:"package" validate:"required"`

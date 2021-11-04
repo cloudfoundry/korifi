@@ -5,8 +5,8 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
-	"code.cloudfoundry.org/cf-k8s-api/repositories/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
 )
 
 type AuthorizedNamespacesProvider struct {

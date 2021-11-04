@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
-	config "code.cloudfoundry.org/cf-k8s-controllers/config/base"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/workloads/fake"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	config "code.cloudfoundry.org/cf-k8s-controllers/controllers/config/base"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/fake"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	. "github.com/onsi/ginkgo"

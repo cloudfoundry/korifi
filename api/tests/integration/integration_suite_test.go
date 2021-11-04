@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-api/tests/integration/helpers"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	authv1 "k8s.io/api/authentication/v1"

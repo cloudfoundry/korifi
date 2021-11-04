@@ -3,7 +3,7 @@ package workloads
 import (
 	"context"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	v1 "k8s.io/api/admission/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

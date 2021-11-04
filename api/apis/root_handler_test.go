@@ -6,8 +6,8 @@ import (
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"code.cloudfoundry.org/cf-k8s-api/apis"
-	"code.cloudfoundry.org/cf-k8s-api/presenter"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"

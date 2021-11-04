@@ -3,7 +3,7 @@ package workloads_test
 import (
 	"fmt"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

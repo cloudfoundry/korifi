@@ -3,7 +3,7 @@ package apis_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

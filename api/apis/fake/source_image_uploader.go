@@ -5,7 +5,7 @@ import (
 	"mime/multipart"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 

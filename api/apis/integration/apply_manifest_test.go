@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -16,9 +16,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"code.cloudfoundry.org/cf-k8s-api/actions"
-	. "code.cloudfoundry.org/cf-k8s-api/apis"
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
+	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", func() {

@@ -1,8 +1,8 @@
 package payloads
 
 import (
-	"code.cloudfoundry.org/cf-k8s-api/config"
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 // DefaultLifecycleConfig is overwritten by main.go

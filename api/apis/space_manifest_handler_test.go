@@ -10,8 +10,8 @@ import (
 	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	. "code.cloudfoundry.org/cf-k8s-api/apis"
-	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
+	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 )
 
 var _ = Describe("SpaceManifestHandler", func() {

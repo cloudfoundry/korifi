@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/networking"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/networking/fake"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking/fake"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

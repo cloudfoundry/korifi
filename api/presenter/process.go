@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 const (

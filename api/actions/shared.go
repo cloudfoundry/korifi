@@ -5,7 +5,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate

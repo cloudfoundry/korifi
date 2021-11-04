@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"code.cloudfoundry.org/cf-k8s-api/payloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 )
 
 const (

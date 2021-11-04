@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-api/presenter"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"

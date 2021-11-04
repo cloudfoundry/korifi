@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

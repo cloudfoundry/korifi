@@ -3,7 +3,7 @@ package repositories
 import (
 	"context"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
 )
 
 //counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository

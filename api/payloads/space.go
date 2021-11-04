@@ -1,7 +1,7 @@
 package payloads
 
 import (
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 type SpaceCreate struct {

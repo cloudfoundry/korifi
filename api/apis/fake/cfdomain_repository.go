@@ -5,8 +5,8 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-api/apis"
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -1,6 +1,6 @@
 package payloads
 
-import "code.cloudfoundry.org/cf-k8s-api/repositories"
+import "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 type PackageCreate struct {
 	Type          string                `json:"type" validate:"required,oneof='bits'"`

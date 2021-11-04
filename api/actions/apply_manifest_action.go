@@ -5,7 +5,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"code.cloudfoundry.org/cf-k8s-api/payloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 )
 
 type ApplyManifest struct {

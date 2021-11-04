@@ -3,7 +3,7 @@ package actions
 import (
 	"context"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

@@ -12,9 +12,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	. "github.com/onsi/ginkgo"
 
-	. "code.cloudfoundry.org/cf-k8s-api/apis"
-	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
