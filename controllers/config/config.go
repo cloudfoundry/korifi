@@ -1,4 +1,4 @@
-package base
+package config
 
 import (
 	"os"

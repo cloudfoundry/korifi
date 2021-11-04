@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	config "code.cloudfoundry.org/cf-k8s-controllers/controllers/config/base"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 
 	v1 "k8s.io/api/core/v1"
 

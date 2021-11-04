@@ -40,11 +40,18 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
   - hnc.x-k8s.io
   resources:
   - subnamespaceanchors
   verbs:
   - create
+  - get
   - list
   - watch
 - apiGroups:
@@ -83,6 +90,12 @@ rules:
   - cfroutes/status
   verbs:
   - get
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - list
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
@@ -155,18 +168,6 @@ rules:
   - cfprocesses/status
   verbs:
   - get
-- apiGroups:
-  - authentication.k8s.io
-  resources:
-  - tokenreviews
-  verbs:
-  - create
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - rolebindings
-  verbs:
-  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	config "code.cloudfoundry.org/cf-k8s-controllers/controllers/config/base"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/fake"
 
@@ -46,9 +46,10 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
+		// TODO: Reconcile with CRDDirectoryPaths
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
-				filepath.Join("..", "..", "..", "dependencies", "kpack-release-0.4.1.yaml"),
+				filepath.Join("..", "..", "..", "..", "dependencies", "kpack-release-0.4.1.yaml"),
 				filepath.Join("fixtures", "lrp-crd.yaml"),
 			},
 		},

@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	config "code.cloudfoundry.org/cf-k8s-controllers/controllers/config/base"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"

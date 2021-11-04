@@ -12,7 +12,8 @@ import (
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
-//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;create
+//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=get;list;watch;create
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=list
 
 const (
 	OrgNameLabel   = "cloudfoundry.org/org-name"

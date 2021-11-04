@@ -134,7 +134,7 @@ echo "Installing Eirini"
 echo "*******************"
 
 ## Assumes eirini-controller repository is available at the same level as this project's repository in the filesystem
-EIRINI_DIR="$(cd "$(dirname "$0")/../../../eirini-controller" && pwd)"
+EIRINI_DIR="$(cd "$(dirname "$0")/../../eirini-controller" && pwd)"
 
 "${SCRIPT_DIR}/generate-eirini-certs-secret.sh" "*.eirini-controller.svc"
 

@@ -18,7 +18,7 @@ if ! egrep -q e2e <(echo "$@"); then
   extra_args+=("-coverprofile=cover.out" "-skipPackage=e2e")
 else
   if [ -z "$SKIP_DEPLOY" ]; then
-    ./scripts/deploy-on-kind.sh e2e
+    $SCRIPT_DIR/deploy-on-kind.sh e2e
   fi
 
   export KUBECONFIG="${HOME}/.kube/e2e.yml"
