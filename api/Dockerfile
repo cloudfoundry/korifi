@@ -1,3 +1,4 @@
+# syntax = docker/dockerfile:experimental
 FROM golang:1.17 as builder
 
 WORKDIR /workspace
@@ -14,7 +15,8 @@ COPY api/presenter api/presenter/
 COPY api/repositories api/repositories/
 COPY api/config/config.go api/config/
 COPY api/main.go api/
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o cfapi api/main.go
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o cfapi api/main.go
 
 FROM gcr.io/distroless/static:nonroot
 
