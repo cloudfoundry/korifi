@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "github.com/onsi/ginkgo"
@@ -28,6 +29,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			logf.Log.WithName("integration tests"),
 			*serverURL,
 			actions.NewApplyManifest(appRepo).Invoke,
+			repositories.NewOrgRepo("cf", k8sClient, 1*time.Minute),
 			repositories.BuildCRClient,
 			k8sConfig,
 		)

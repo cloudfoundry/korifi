@@ -156,6 +156,7 @@ func main() {
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
 			actions.NewApplyManifest(new(repositories.AppRepo)).Invoke,
+			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),

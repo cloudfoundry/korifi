@@ -17,12 +17,14 @@ import (
 
 const (
 	SpaceManifestApplyEndpoint = "/v3/spaces/{spaceGUID}/actions/apply_manifest"
+	SpaceManifestDiffEndpoint  = "/v3/spaces/{spaceGUID}/manifest_diff"
 )
 
 type SpaceManifestHandler struct {
 	logger              logr.Logger
 	serverURL           url.URL
 	applyManifestAction ApplyManifestAction
+	spaceRepo           CFSpaceRepository
 	buildClient         ClientBuilder
 	k8sConfig           *rest.Config // TODO: this would be global for all requests, not what we want
 }
@@ -34,12 +36,14 @@ func NewSpaceManifestHandler(
 	logger logr.Logger,
 	serverURL url.URL,
 	applyManifestAction ApplyManifestAction,
+	spaceRepo CFSpaceRepository,
 	buildClient ClientBuilder,
 	k8sConfig *rest.Config) *SpaceManifestHandler {
 	return &SpaceManifestHandler{
 		logger:              logger,
 		serverURL:           serverURL,
 		applyManifestAction: applyManifestAction,
+		spaceRepo:           spaceRepo,
 		buildClient:         buildClient,
 		k8sConfig:           k8sConfig,
 	}
@@ -47,6 +51,7 @@ func NewSpaceManifestHandler(
 
 func (h *SpaceManifestHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(SpaceManifestApplyEndpoint).Methods("POST").HandlerFunc(h.applyManifestHandler)
+	router.Path(SpaceManifestDiffEndpoint).Methods("POST").HandlerFunc(h.validateSpaceVisible(h.diffManifestHandler))
 }
 
 func (h *SpaceManifestHandler) applyManifestHandler(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +88,12 @@ func (h *SpaceManifestHandler) applyManifestHandler(w http.ResponseWriter, r *ht
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func (h *SpaceManifestHandler) diffManifestHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	w.Write([]byte(`{"diff":[]}`))
+}
+
 func decodeAndValidateYAMLPayload(r *http.Request, object interface{}) *requestMalformedError {
 	decoder := yaml.NewDecoder(r.Body)
 	defer r.Body.Close()
@@ -97,4 +108,34 @@ func decodeAndValidateYAMLPayload(r *http.Request, object interface{}) *requestM
 	}
 
 	return validatePayload(object)
+}
+
+func (h *SpaceManifestHandler) validateSpaceVisible(hf http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		spaceGUID := vars["spaceGUID"]
+		w.Header().Set("Content-Type", "application/json")
+
+		spaces, err := h.spaceRepo.FetchSpaces(r.Context(), []string{}, []string{})
+		if err != nil {
+			h.logger.Error(err, "Failed to list spaces")
+			writeUnknownErrorResponse(w)
+			return
+		}
+
+		spaceNotFound := true
+		for _, space := range spaces {
+			if space.GUID == spaceGUID {
+				spaceNotFound = false
+				break
+			}
+		}
+
+		if spaceNotFound {
+			writeNotFoundErrorResponse(w, "Space")
+			return
+		}
+
+		hf.ServeHTTP(w, r)
+	})
 }
