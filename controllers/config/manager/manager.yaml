@@ -25,9 +25,7 @@ spec:
       securityContext:
         runAsNonRoot: true
       containers:
-      - command:
-        - /manager
-        args:
+      - args:
         - --leader-elect
         image: cloudfoundry/cf-k8s-controllers:latest
         name: manager
