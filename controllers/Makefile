@@ -64,7 +64,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 	ENABLE_WEBHOOKS=false go run ./main.go
 
 docker-build: test ## Build docker image with the manager.
-	docker buildx build -t ${IMG} .
+	cd ..; docker buildx build -f controllers/Dockerfile -t ${IMG} .
 
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
