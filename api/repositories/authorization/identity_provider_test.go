@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories/authorization"
-	"code.cloudfoundry.org/cf-k8s-api/repositories/authorization/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization/fake"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"

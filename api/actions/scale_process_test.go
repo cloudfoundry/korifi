@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	. "code.cloudfoundry.org/cf-k8s-api/actions"
-	"code.cloudfoundry.org/cf-k8s-api/actions/fake"
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	. "code.cloudfoundry.org/cf-k8s-controllers/api/actions"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/actions/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

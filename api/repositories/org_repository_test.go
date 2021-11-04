@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"

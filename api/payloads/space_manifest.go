@@ -1,10 +1,10 @@
 package payloads
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"github.com/google/uuid"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 type SpaceManifestApply struct {

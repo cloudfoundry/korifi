@@ -7,7 +7,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 
-	config "code.cloudfoundry.org/cf-k8s-controllers/config/base"
+	config "code.cloudfoundry.org/cf-k8s-controllers/controllers/config/base"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -20,7 +20,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
 const (

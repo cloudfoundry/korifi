@@ -3,7 +3,7 @@ package payloads
 import (
 	"github.com/google/uuid"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 type DestinationListCreate struct {

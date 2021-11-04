@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"

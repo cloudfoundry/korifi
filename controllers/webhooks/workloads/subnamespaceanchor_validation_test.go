@@ -15,8 +15,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads/fake"
 )
 
 var _ = Describe("SubnamespaceanchorValidation", func() {

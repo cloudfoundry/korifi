@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"github.com/hashicorp/go-uuid"
 	"github.com/matt-royal/biloba"
 	. "github.com/onsi/ginkgo"

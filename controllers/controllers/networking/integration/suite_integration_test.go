@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/networking/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/networking"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
 
 	"github.com/matt-royal/biloba"
 	. "github.com/onsi/ginkgo"

@@ -3,9 +3,10 @@ package repositories
 import (
 	"context"
 	"errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

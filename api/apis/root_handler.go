@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-api/presenter"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 )

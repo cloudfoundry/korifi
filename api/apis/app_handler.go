@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
-	"code.cloudfoundry.org/cf-k8s-api/payloads"
-	"code.cloudfoundry.org/cf-k8s-api/presenter"
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
