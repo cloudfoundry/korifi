@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 echo "Will now generate tls.ca tls.crt and tls.key files"
 
 keys="$(mktemp -d)"

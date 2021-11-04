@@ -24,9 +24,8 @@ jobs:
         go-version: '^1.17'
 
     - name: Check for reference YAML drift
-      working-directory: ./api
       run: |
-        make build-reference
+        make build-reference-api
         git diff --exit-code
 
   check-reference-controllers:
@@ -41,9 +40,8 @@ jobs:
 
     - name: Check for reference YAML drift
       run: |
-        make build-reference
+        make build-reference-controllers
         git diff --exit-code
-      working-directory: ./controllers
 
   controllers-tests:
     runs-on: ubuntu-latest
@@ -65,8 +63,7 @@ jobs:
         go-version: '^1.17'
 
     - name: Run Controllers tests
-      working-directory: ./controllers
-      run: make test
+      run: make test-controllers
 
   api-unit-tests:
     runs-on: ubuntu-latest
@@ -87,8 +84,7 @@ jobs:
         go-version: '^1.17'
 
     - name: Run API unit tests
-      working-directory: ./api
-      run: make test-unit
+      run: make test-api-unit
 
   api-integration-tests:
     runs-on: ubuntu-latest
@@ -109,8 +105,7 @@ jobs:
         go-version: '^1.17'
 
     - name: Run API integration tests
-      working-directory: ./api
-      run: make test-integration
+      run: make test-api-integration
 
   build-api:
     runs-on: ubuntu-latest
@@ -227,5 +222,5 @@ jobs:
         SKIP_DOCKER_BUILD: true
         API_IMG: cloudfoundry/cf-k8s-api:${{ github.sha }}
         CONTROLLERS_IMG: cloudfoundry/cf-k8s-controllers:${{ github.sha }}
-      working-directory: ./cf-k8s-controllers/api
       run: make test-e2e
+      working-directory: ./cf-k8s-controllers

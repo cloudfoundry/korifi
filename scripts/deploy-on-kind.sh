@@ -1,11 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euxo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-API_DIR="$SCRIPT_DIR/.."
-CTRL_DIR="$API_DIR/../controllers"
-EIRINI_CONTROLLER_DIR="$API_DIR/../../eirini-controller"
+ROOT_DIR="$SCRIPT_DIR/.."
+API_DIR="$ROOT_DIR/api"
+CTRL_DIR="$ROOT_DIR/controllers"
+EIRINI_CONTROLLER_DIR="$ROOT_DIR/../eirini-controller"
 export PATH="$PATH:$API_DIR/bin"
 
 ensure_kind_cluster() {
@@ -38,33 +39,34 @@ EOF
 }
 
 deploy_cf_k8s_controllers() {
-  pushd "$CTRL_DIR"
+  pushd $ROOT_DIR > /dev/null
   {
-    ./hack/install-dependencies.sh
-    export IMG=${CONTROLLERS_IMG:-"cf-k8s-controllers:$(uuidgen)"}
-    export KUBEBUILDER_ASSETS=$CTRL_DIR/testbin/bin
-    make generate
+    "$SCRIPT_DIR/install-dependencies.sh"
+    export IMG_CONTROLLERS=${CONTROLLERS_IMG:-"cf-k8s-controllers:$(uuidgen)"}
+    export KUBEBUILDER_ASSETS=$ROOT_DIR/testbin/bin
+    echo $PWD
+    make generate-controllers
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      make docker-build
+      make docker-build-controllers
     fi
-    kind load docker-image --name "$cluster" "$IMG"
-    make install
-    make deploy
+    kind load docker-image --name "$cluster" "$IMG_CONTROLLERS"
+    make install-crds
+    make deploy-controllers
   }
-  popd
+  popd > /dev/null
 }
 
 deploy_cf_k8s_api() {
-  pushd "$API_DIR"
+  pushd $ROOT_DIR > /dev/null
   {
-    export IMG=${API_IMG:-"cf-k8s-api:$(uuidgen)"}
+    export IMG_API=${API_IMG:-"cf-k8s-api:$(uuidgen)"}
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      make docker-build
+      make docker-build-api
     fi
-    kind load docker-image --name "$cluster" "$IMG"
-    make deploy-kind
+    kind load docker-image --name "$cluster" "$IMG_API"
+    make deploy-api-kind-auth
   }
-  popd
+  popd > /dev/null
 }
 
 cluster=${1:?specify cluster name}

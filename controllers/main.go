@@ -23,7 +23,7 @@ import (
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	config "code.cloudfoundry.org/cf-k8s-controllers/controllers/config/base"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 	networkingcontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/imageprocessfetcher"

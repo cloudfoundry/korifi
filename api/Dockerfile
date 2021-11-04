@@ -1,8 +1,19 @@
 FROM golang:1.17 as builder
 
 WORKDIR /workspace
-COPY . .
+
+COPY go.mod go.sum ./
 RUN go mod download
+
+COPY controllers/apis controllers/apis/
+COPY controllers/webhooks controllers/webhooks/
+COPY api/actions api/actions/
+COPY api/apis api/apis/
+COPY api/payloads api/payloads/
+COPY api/presenter api/presenter/
+COPY api/repositories api/repositories/
+COPY api/config/config.go api/config/
+COPY api/main.go api/
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o cfapi api/main.go
 
 FROM gcr.io/distroless/static:nonroot

@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	config "code.cloudfoundry.org/cf-k8s-controllers/controllers/config/base"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"

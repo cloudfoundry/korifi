@@ -40,9 +40,10 @@ var _ = BeforeSuite(func() {
 
 	// TODO: Add directory path for Contour CRDs
 	testEnv = &envtest.Environment{
+		// TODO: Reconcile with CRDInstallOptions
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
-			filepath.Join("..", "..", "..", "dependencies"),
+			filepath.Join("..", "..", "..", "..", "dependencies"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
