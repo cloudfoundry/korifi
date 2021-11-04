@@ -1,5 +1,5 @@
-cover.out
-bin
-testbin
+**/cover.out
+**/bin
+**/testbin
 .idea/
 ~/.*
