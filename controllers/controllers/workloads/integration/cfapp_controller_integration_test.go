@@ -18,10 +18,23 @@ import (
 )
 
 var _ = Describe("CFAppReconciler", func() {
+	var (
+		namespaceGUID string
+		ns            *corev1.Namespace
+	)
+
+	BeforeEach(func() {
+		namespaceGUID = GenerateGUID()
+		ns = createNamespace(context.Background(), k8sClient, namespaceGUID)
+	})
+
+	AfterEach(func() {
+		k8sClient.Delete(context.Background(), ns)
+	})
+
 	When("a new CFApp resource is created", func() {
 		const (
 			cfAppGUID = "test-app-guid"
-			namespace = "default"
 		)
 
 		It("sets its status.conditions", func() {
@@ -33,7 +46,7 @@ var _ = Describe("CFAppReconciler", func() {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
-					Namespace: namespace,
+					Namespace: namespaceGUID,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
 					Name:         "test-app",
@@ -45,7 +58,7 @@ var _ = Describe("CFAppReconciler", func() {
 			}
 			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 
-			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespace}
+			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}
 			createdCFApp := new(workloadsv1alpha1.CFApp)
 
 			Eventually(func() []metav1.Condition {
@@ -63,28 +76,31 @@ var _ = Describe("CFAppReconciler", func() {
 			Expect(restartingConditionFalse).To(BeTrue())
 		})
 	})
-	When("a CFApp resource exists", func() {
+	When("a CFApp resource exists and", func() {
+		const (
+			processTypeWeb           = "web"
+			processTypeWebCommand    = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
+			processTypeWorker        = "worker"
+			processTypeWorkerCommand = "bundle exec rackup config.ru"
+			port8080                 = 8080
+			port9000                 = 9000
+		)
+
 		var (
-			namespaceGUID string
 			cfAppGUID     string
 			cfBuildGUID   string
 			cfPackageGUID string
-			newNamespace  *corev1.Namespace
 			cfApp         *workloadsv1alpha1.CFApp
 			cfPackage     *workloadsv1alpha1.CFPackage
 			cfBuild       *workloadsv1alpha1.CFBuild
 		)
 
 		BeforeEach(func() {
-			namespaceGUID = GenerateGUID()
 			cfAppGUID = GenerateGUID()
 			cfPackageGUID = GenerateGUID()
 			cfBuildGUID = GenerateGUID()
 
 			beforeCtx := context.Background()
-
-			newNamespace = BuildNamespaceObject(namespaceGUID)
-			Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
 
 			cfApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, cfApp)).To(Succeed())
@@ -93,70 +109,26 @@ var _ = Describe("CFAppReconciler", func() {
 			Expect(k8sClient.Create(beforeCtx, cfPackage)).To(Succeed())
 
 			cfBuild = BuildCFBuildObject(cfBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
-			Expect(k8sClient.Create(beforeCtx, cfBuild)).To(Succeed())
+			dropletProcessTypeMap := map[string]string{
+				processTypeWeb:    processTypeWebCommand,
+				processTypeWorker: processTypeWorkerCommand,
+			}
+			dropletPorts := []int32{port8080, port9000}
+			buildDropletStatus := BuildCFBuildDropletStatusObject(dropletProcessTypeMap, dropletPorts)
+			cfBuild = createBuildWithDroplet(beforeCtx, k8sClient, cfBuild, buildDropletStatus)
 		})
 
-		When("currentDropletRef is set", func() {
+		When("currentDropletRef is set and", func() {
 
-			When("referenced build/droplet exist", func() {
-				const (
-					processTypeWeb           = "web"
-					processTypeWebCommand    = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
-					processTypeWorker        = "worker"
-					processTypeWorkerCommand = "bundle exec rackup config.ru"
-					port8080                 = 8080
-					port9000                 = 9000
-				)
+			When("the referenced build/droplet exists", func() {
 				When("CFProcesses do not exist for the app", func() {
-
-					var createdCFBuild *workloadsv1alpha1.CFBuild
-
 					BeforeEach(func() {
-						beforeCtx := context.Background()
-						cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-						createdCFBuild = new(workloadsv1alpha1.CFBuild)
-						Eventually(func() []metav1.Condition {
-							err := k8sClient.Get(beforeCtx, cfBuildLookupKey, createdCFBuild)
-							if err != nil {
-								return nil
-							}
-							return createdCFBuild.Status.Conditions
-						}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "could not retrieve the cfbuild")
-
-						createdCFBuild.Status.BuildDropletStatus = &workloadsv1alpha1.BuildDropletStatus{
-							Registry: workloadsv1alpha1.Registry{
-								Image:            "image/registry/url",
-								ImagePullSecrets: nil,
-							},
-							Stack: "cflinuxfs3",
-							ProcessTypes: []workloadsv1alpha1.ProcessType{
-								{
-									Type:    processTypeWeb,
-									Command: processTypeWebCommand,
-								},
-								{
-									Type:    processTypeWorker,
-									Command: processTypeWorkerCommand,
-								},
-							},
-							Ports: []int32{port8080, port9000},
-						}
-						Expect(k8sClient.Status().Update(beforeCtx, createdCFBuild)).To(Succeed())
-
-						baseCFApp := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      cfAppGUID,
-								Namespace: namespaceGUID,
-							},
-						}
-						patchedCFApp := baseCFApp.DeepCopy()
-						patchedCFApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: cfBuildGUID}
-						Expect(k8sClient.Patch(beforeCtx, patchedCFApp, client.MergeFrom(baseCFApp))).To(Succeed())
+						patchAppWithDroplet(context.Background(), k8sClient, cfAppGUID, namespaceGUID, cfBuildGUID)
 					})
 
 					It("should eventually create CFProcess for each process listed on the droplet", func() {
 						testCtx := context.Background()
-						droplet := createdCFBuild.Status.BuildDropletStatus
+						droplet := cfBuild.Status.BuildDropletStatus
 						processTypes := droplet.ProcessTypes
 						for _, process := range processTypes {
 							cfProcessList := workloadsv1alpha1.CFProcessList{}
@@ -178,12 +150,11 @@ var _ = Describe("CFAppReconciler", func() {
 					})
 				})
 
-				When("CFProcess exists for the app", func() {
+				When("CFProcesses exist for the app", func() {
 
 					var (
 						cfProcessForTypeWebGUID string
 						cfProcessForTypeWeb     *workloadsv1alpha1.CFProcess
-						createdCFBuild          *workloadsv1alpha1.CFBuild
 					)
 
 					BeforeEach(func() {
@@ -192,45 +163,7 @@ var _ = Describe("CFAppReconciler", func() {
 						cfProcessForTypeWeb = BuildCFProcessCRObject(cfProcessForTypeWebGUID, namespaceGUID, cfAppGUID, processTypeWeb, processTypeWebCommand)
 						Expect(k8sClient.Create(beforeCtx, cfProcessForTypeWeb)).To(Succeed())
 
-						cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-						createdCFBuild = new(workloadsv1alpha1.CFBuild)
-						Eventually(func() []metav1.Condition {
-							err := k8sClient.Get(beforeCtx, cfBuildLookupKey, createdCFBuild)
-							if err != nil {
-								return nil
-							}
-							return createdCFBuild.Status.Conditions
-						}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "could not retrieve the cfbuild")
-
-						createdCFBuild.Status.BuildDropletStatus = &workloadsv1alpha1.BuildDropletStatus{
-							Registry: workloadsv1alpha1.Registry{
-								Image:            "image/registry/url",
-								ImagePullSecrets: nil,
-							},
-							Stack: "cflinuxfs3",
-							ProcessTypes: []workloadsv1alpha1.ProcessType{
-								{
-									Type:    processTypeWeb,
-									Command: processTypeWebCommand,
-								},
-								{
-									Type:    processTypeWorker,
-									Command: processTypeWorkerCommand,
-								},
-							},
-							Ports: []int32{port8080, port9000},
-						}
-						Expect(k8sClient.Status().Update(beforeCtx, createdCFBuild)).To(Succeed())
-
-						baseCFApp := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      cfAppGUID,
-								Namespace: namespaceGUID,
-							},
-						}
-						patchedCFApp := baseCFApp.DeepCopy()
-						patchedCFApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: cfBuildGUID}
-						Expect(k8sClient.Patch(beforeCtx, patchedCFApp, client.MergeFrom(baseCFApp))).To(Succeed())
+						patchAppWithDroplet(beforeCtx, k8sClient, cfAppGUID, namespaceGUID, cfBuildGUID)
 					})
 
 					It("should eventually create CFProcess for only the missing processTypes", func() {
@@ -261,6 +194,50 @@ var _ = Describe("CFAppReconciler", func() {
 					})
 				})
 
+			})
+
+			When("the droplet has no ports set", func() {
+				var (
+					otherBuildGUID string
+					otherCFBuild   *workloadsv1alpha1.CFBuild
+				)
+
+				BeforeEach(func() {
+					beforeCtx := context.Background()
+
+					otherBuildGUID = GenerateGUID()
+					otherCFBuild = BuildCFBuildObject(otherBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
+					dropletProcessTypeMap := map[string]string{
+						processTypeWeb: processTypeWebCommand,
+					}
+					dropletPorts := []int32{}
+					buildDropletStatus := BuildCFBuildDropletStatusObject(dropletProcessTypeMap, dropletPorts)
+					otherCFBuild = createBuildWithDroplet(beforeCtx, k8sClient, otherCFBuild, buildDropletStatus)
+
+					patchAppWithDroplet(beforeCtx, k8sClient, cfAppGUID, namespaceGUID, cfBuildGUID)
+				})
+
+				It("should eventually create CFProcess with empty ports and a healthCheck type of \"process\"", func() {
+					testCtx := context.Background()
+					droplet := cfBuild.Status.BuildDropletStatus
+					processTypes := droplet.ProcessTypes
+					for _, process := range processTypes {
+						cfProcessList := workloadsv1alpha1.CFProcessList{}
+						labelSelectorMap := labels.Set{
+							CFAppLabelKey:         cfAppGUID,
+							CFProcessTypeLabelKey: process.Type,
+						}
+						selector, selectorValidationErr := labelSelectorMap.AsValidatedSelector()
+						Expect(selectorValidationErr).To(BeNil())
+						Eventually(func() []workloadsv1alpha1.CFProcess {
+							_ = k8sClient.List(testCtx, &cfProcessList, &client.ListOptions{LabelSelector: selector, Namespace: cfApp.Namespace})
+							return cfProcessList.Items
+						}, 10*time.Second, 250*time.Millisecond).Should(HaveLen(1), "expected CFProcess to eventually be created")
+						createdCFProcess := cfProcessList.Items[0]
+						Expect(createdCFProcess.Spec.Ports).To(Equal(droplet.Ports), "cfprocess ports does not match ports on droplet")
+						Expect(string(createdCFProcess.Spec.HealthCheck.Type)).To(Equal("process"))
+					}
+				})
 			})
 		})
 

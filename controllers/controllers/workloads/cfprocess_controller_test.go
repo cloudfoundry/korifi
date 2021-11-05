@@ -108,7 +108,7 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 	})
 
 	When("CFProcessReconciler.Reconcile is called", func() {
-		When("one the happy path", func() {
+		When("on the happy path", func() {
 			When("the CFApp is created with desired state stopped", func() {
 				BeforeEach(func() {
 					cfApp.Spec.DesiredState = workloadsv1alpha1.StoppedState
@@ -151,6 +151,7 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 				})
 			})
 		})
+
 		When("on the unhappy path", func() {
 			BeforeEach(func() {
 				cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState

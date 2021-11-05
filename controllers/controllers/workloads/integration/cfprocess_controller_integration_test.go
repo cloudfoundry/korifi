@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
 
@@ -12,26 +14,23 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	var (
-		testNamespace   string
+		testNamespace string
+		ns            *corev1.Namespace
+
 		testProcessGUID string
 		testAppGUID     string
 		testBuildGUID   string
 		testPackageGUID string
-
-		ns *corev1.Namespace
-
-		cfProcess *workloadsv1alpha1.CFProcess
-		cfPackage *workloadsv1alpha1.CFPackage
-		cfApp     *workloadsv1alpha1.CFApp
-		cfBuild   *workloadsv1alpha1.CFBuild
+		cfProcess       *workloadsv1alpha1.CFProcess
+		cfPackage       *workloadsv1alpha1.CFPackage
+		cfApp           *workloadsv1alpha1.CFApp
+		cfBuild         *workloadsv1alpha1.CFBuild
 	)
 
 	const (
@@ -45,138 +44,88 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		var err error
 		ctx := context.Background()
 
 		testNamespace = GenerateGUID()
-		Expect(err).NotTo(HaveOccurred())
-
-		ns = &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: testNamespace,
-			},
-		}
-		Expect(k8sClient.Create(ctx, ns)).To(Succeed())
+		ns = createNamespace(ctx, k8sClient, testNamespace)
 
 		testAppGUID = GenerateGUID()
 		testProcessGUID = GenerateGUID()
 		testBuildGUID = GenerateGUID()
 		testPackageGUID = GenerateGUID()
-		testAppEnvSecretName := GenerateGUID()
 
 		// Technically the app controller should be creating this process based on CFApp and CFBuild, but we
 		// want to drive testing with a specific CFProcess instead of cascading (non-object-ref) state through
 		// other resources.
 		cfProcess = BuildCFProcessCRObject(testProcessGUID, testNamespace, testAppGUID, processTypeWeb, processTypeWebCommand)
-		Expect(k8sClient.Create(ctx, cfProcess)).To(Succeed())
+		Expect(
+			k8sClient.Create(ctx, cfProcess),
+		).To(Succeed())
 
 		cfApp = BuildCFAppCRObject(testAppGUID, testNamespace)
 		UpdateCFAppWithCurrentDropletRef(cfApp, testBuildGUID)
-		cfApp.Spec.EnvSecretName = testAppEnvSecretName
-		cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
-		Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+		cfApp.Spec.EnvSecretName = testAppGUID + "-env"
 
-		appEnvSecret := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
-				Name:      testAppEnvSecretName,
-			},
-			StringData: map[string]string{
-				"test-env-key": "test-env-val",
-			},
-		}
-		Expect(k8sClient.Create(ctx, &appEnvSecret)).To(Succeed())
+		appEnvSecret := BuildCFAppEnvVarsSecret(testAppGUID, testNamespace, map[string]string{"test-env-key": "test-env-val"})
+		Expect(
+			k8sClient.Create(ctx, appEnvSecret),
+		).To(Succeed())
 
 		cfPackage = BuildCFPackageCRObject(testPackageGUID, testNamespace, testAppGUID)
-		Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
-
+		Expect(
+			k8sClient.Create(ctx, cfPackage),
+		).To(Succeed())
 		cfBuild = BuildCFBuildObject(testBuildGUID, testNamespace, testPackageGUID, testAppGUID)
-		Expect(k8sClient.Create(ctx, cfBuild)).To(Succeed())
-		cfBuildLookupKey := types.NamespacedName{Name: testBuildGUID, Namespace: testNamespace}
-		Eventually(func() []metav1.Condition {
-			err := k8sClient.Get(ctx, cfBuildLookupKey, cfBuild)
-			if err != nil {
-				return nil
-			}
-			return cfBuild.Status.Conditions
-		}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "could not retrieve the cfbuild")
-
-		cfBuild.Status.BuildDropletStatus = &workloadsv1alpha1.BuildDropletStatus{
-			Registry: workloadsv1alpha1.Registry{
-				Image:            "image/registry/url",
-				ImagePullSecrets: nil,
-			},
-			Stack: "cflinuxfs3",
-			ProcessTypes: []workloadsv1alpha1.ProcessType{
-				{
-					Type:    processTypeWeb,
-					Command: processTypeWebCommand,
-				},
-				{
-					Type:    processTypeWorker,
-					Command: processTypeWorkerCommand,
-				},
-			},
-			Ports: []int32{port8080, port9000},
+		dropletProcessTypeMap := map[string]string{
+			processTypeWeb:    processTypeWebCommand,
+			processTypeWorker: processTypeWorkerCommand,
 		}
-		Expect(k8sClient.Status().Update(ctx, cfBuild)).To(Succeed())
+		dropletPorts := []int32{port8080, port9000}
+		buildDropletStatus := BuildCFBuildDropletStatusObject(dropletProcessTypeMap, dropletPorts)
+		createBuildWithDroplet(ctx, k8sClient, cfBuild, buildDropletStatus)
 	})
 
 	AfterEach(func() {
-		ctx := context.Background()
-
-		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, cfApp))).To(Succeed())
-		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, cfBuild))).To(Succeed())
-		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, cfPackage))).To(Succeed())
-		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, cfProcess))).To(Succeed())
-		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, ns))).To(Succeed())
+		k8sClient.Delete(context.Background(), ns)
 	})
 
-	When("a CFProcess is created", func() {
-		When("the CFApp desired state is STARTED", func() {
-			It("eventually reconciles the CFProcess into an LRP", func() {
-				ctx := context.Background()
-				var lrp eiriniv1.LRP
-
-				Eventually(func() string {
-					err := k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: testNamespace}, &lrp)
-					Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to get LRP/%s in namespace %s", testProcessGUID, testNamespace))
-					return lrp.GetName()
-				}, defaultEventuallyTimeoutSeconds*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
-
-				Expect(lrp.Spec.GUID).To(Equal(cfProcess.Name), "Expected lrp spec GUID to match cfProcess GUID")
-				Expect(lrp.Spec.DiskMB).To(Equal(cfProcess.Spec.DiskQuotaMB), "lrp DiskMB does not match")
-				Expect(lrp.Spec.MemoryMB).To(Equal(cfProcess.Spec.MemoryMB), "lrp MemoryMB does not match")
-				Expect(lrp.Spec.Image).To(Equal(cfBuild.Status.BuildDropletStatus.Registry.Image), "lrp Image does not match Droplet")
-				Expect(lrp.Spec.ProcessType).To(Equal(processTypeWeb), "lrp process type does not match")
-				Expect(lrp.Spec.AppName).To(Equal(cfApp.Spec.Name), "lrp app name does not match CFApp")
-				Expect(lrp.Spec.AppGUID).To(Equal(cfApp.Name), "lrp app GUID does not match CFApp")
-				Expect(lrp.Spec.Ports).To(Equal(cfProcess.Spec.Ports), "lrp ports do not match")
-				Expect(lrp.Spec.Instances).To(Equal(cfProcess.Spec.DesiredInstances), "lrp desired instances does not match CFApp")
-				Expect(lrp.Spec.CPUWeight).To(BeZero(), "expected cpu to always be 0")
-				Expect(lrp.Spec.Sidecars).To(BeNil(), "expected sidecars to always be nil")
-				Expect(lrp.Spec.Env).To(HaveKeyWithValue("test-env-key", "test-env-val"))
-				Expect(lrp.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", processTypeWebCommand))
-			})
-
-			It("sets the LRP ownerRef to the CFProcess", func() {
-				ctx := context.Background()
-				var lrp eiriniv1.LRP
-
-				Eventually(func() string {
-					err := k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: testNamespace}, &lrp)
-					Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to get LRP/%s in namespace %s", testProcessGUID, testNamespace))
-					return lrp.GetName()
-				}, defaultEventuallyTimeoutSeconds*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
-
-				Expect(lrp.OwnerReferences).To(HaveLen(1), "expected length of ownerReferences to be 1")
-				Expect(lrp.OwnerReferences[0].Name).To(Equal(cfProcess.Name))
-			})
+	When("the CFApp desired state is STARTED", func() {
+		BeforeEach(func() {
+			ctx := context.Background()
+			cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
+			Expect(
+				k8sClient.Create(ctx, cfApp),
+			).To(Succeed())
 		})
-	})
 
-	// We need to actually listen on CFApp desiredStatus updates; currently only changes to the CFProcess trigger reconcile requests
-	When("a CFProcess exists and", func() {
+		It("eventually reconciles the CFProcess into an LRP", func() {
+			ctx := context.Background()
+			var lrp eiriniv1.LRP
+
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: testNamespace}, &lrp)
+				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to get LRP/%s in namespace %s", testProcessGUID, testNamespace))
+				return lrp.GetName()
+			}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
+
+			Expect(lrp.OwnerReferences).To(HaveLen(1), "expected length of ownerReferences to be 1")
+			Expect(lrp.OwnerReferences[0].Name).To(Equal(cfProcess.Name))
+
+			Expect(lrp.Spec.GUID).To(Equal(cfProcess.Name), "Expected lrp spec GUID to match cfProcess GUID")
+			Expect(lrp.Spec.DiskMB).To(Equal(cfProcess.Spec.DiskQuotaMB), "lrp DiskMB does not match")
+			Expect(lrp.Spec.MemoryMB).To(Equal(cfProcess.Spec.MemoryMB), "lrp MemoryMB does not match")
+			Expect(lrp.Spec.Image).To(Equal(cfBuild.Status.BuildDropletStatus.Registry.Image), "lrp Image does not match Droplet")
+			Expect(lrp.Spec.ProcessType).To(Equal(processTypeWeb), "lrp process type does not match")
+			Expect(lrp.Spec.AppName).To(Equal(cfApp.Spec.Name), "lrp app name does not match CFApp")
+			Expect(lrp.Spec.AppGUID).To(Equal(cfApp.Name), "lrp app GUID does not match CFApp")
+			Expect(lrp.Spec.Ports).To(Equal(cfProcess.Spec.Ports), "lrp ports do not match")
+			Expect(lrp.Spec.Instances).To(Equal(cfProcess.Spec.DesiredInstances), "lrp desired instances does not match CFApp")
+			Expect(lrp.Spec.CPUWeight).To(BeZero(), "expected cpu to always be 0")
+			Expect(lrp.Spec.Sidecars).To(BeNil(), "expected sidecars to always be nil")
+			Expect(lrp.Spec.Env).To(HaveKeyWithValue("test-env-key", "test-env-val"))
+			Expect(lrp.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", processTypeWebCommand))
+		})
+
 		When("a CFApp desired state is updated to STOPPED", func() {
 			BeforeEach(func() {
 				ctx := context.Background()
@@ -204,5 +153,37 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				}, defaultEventuallyTimeoutSeconds*time.Second).Should(BeTrue(), "Timed out waiting for deletion of LRP/%s in namespace %s to cause NotFound error", testProcessGUID, testNamespace)
 			})
 		})
+	})
+
+	When("the CFProcess has health check of type process", func() {
+		BeforeEach(func() {
+			ctx := context.Background()
+
+			cfProcess.Spec.HealthCheck.Type = "process"
+			cfProcess.Spec.Ports = []int32{}
+			Expect(
+				k8sClient.Update(ctx, cfProcess),
+			).To(Succeed())
+
+			cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
+			Expect(
+				k8sClient.Create(ctx, cfApp),
+			).To(Succeed())
+		})
+
+		It("eventually reconciles the CFProcess into an LRP", func() {
+			ctx := context.Background()
+			var lrp eiriniv1.LRP
+
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: testNamespace}, &lrp)
+				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to get LRP/%s in namespace %s", testProcessGUID, testNamespace))
+				return lrp.GetName()
+			}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
+
+			Expect(lrp.Spec.Health.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
+			Expect(lrp.Spec.Health.Port).To(BeZero())
+		})
+
 	})
 })
