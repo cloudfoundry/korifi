@@ -236,7 +236,7 @@ func obtainServiceAccountToken(name string) string {
 		}
 
 		return nil
-	}, "30s").Should(Succeed())
+	}, "120s").Should(Succeed())
 
 	tokenSecret := corev1.Secret{}
 	Eventually(func() error {
