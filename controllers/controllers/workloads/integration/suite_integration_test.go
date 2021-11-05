@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
@@ -135,3 +138,39 @@ var _ = BeforeEach(func() {
 	fakeImageProcessFetcher = new(fake.ImageProcessFetcher)
 	cfBuildReconciler.ImageProcessFetcher = fakeImageProcessFetcher.Spy
 })
+
+func createBuildWithDroplet(ctx context.Context, k8sClient client.Client, cfBuild *workloadsv1alpha1.CFBuild, droplet *workloadsv1alpha1.BuildDropletStatus) *workloadsv1alpha1.CFBuild {
+	Expect(
+		k8sClient.Create(ctx, cfBuild),
+	).To(Succeed())
+	cfBuild.Status.Conditions = []metav1.Condition{}
+	cfBuild.Status.BuildDropletStatus = droplet
+	Expect(
+		k8sClient.Status().Update(ctx, cfBuild),
+	).To(Succeed())
+	return cfBuild
+}
+
+func createNamespace(ctx context.Context, k8sClient client.Client, name string) *corev1.Namespace {
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	Expect(
+		k8sClient.Create(ctx, ns)).To(Succeed())
+	return ns
+}
+
+func patchAppWithDroplet(ctx context.Context, k8sClient client.Client, appGUID, spaceGUID, buildGUID string) *workloadsv1alpha1.CFApp {
+	baseCFApp := &workloadsv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      appGUID,
+			Namespace: spaceGUID,
+		},
+	}
+	patchedCFApp := baseCFApp.DeepCopy()
+	patchedCFApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: buildGUID}
+	Expect(k8sClient.Patch(ctx, patchedCFApp, client.MergeFrom(baseCFApp))).To(Succeed())
+	return baseCFApp
+}

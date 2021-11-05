@@ -57,6 +57,16 @@ func BuildCFAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFA
 	}
 }
 
+func BuildCFAppEnvVarsSecret(appGUID, spaceGUID string, envVars map[string]string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: spaceGUID,
+			Name:      appGUID + "-env",
+		},
+		StringData: envVars,
+	}
+}
+
 func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID string) *workloadsv1alpha1.CFPackage {
 	return &workloadsv1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
@@ -101,6 +111,25 @@ func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID stri
 				},
 			},
 		},
+	}
+}
+
+func BuildCFBuildDropletStatusObject(dropletProcessTypeMap map[string]string, dropletPorts []int32) *workloadsv1alpha1.BuildDropletStatus {
+	dropletProcessTypes := make([]workloadsv1alpha1.ProcessType, 0, len(dropletProcessTypeMap))
+	for k, v := range dropletProcessTypeMap {
+		dropletProcessTypes = append(dropletProcessTypes, workloadsv1alpha1.ProcessType{
+			Type:    k,
+			Command: v,
+		})
+	}
+	return &workloadsv1alpha1.BuildDropletStatus{
+		Registry: workloadsv1alpha1.Registry{
+			Image:            "image/registry/url",
+			ImagePullSecrets: nil,
+		},
+		Stack:        "cflinuxfs3",
+		ProcessTypes: dropletProcessTypes,
+		Ports:        dropletPorts,
 	}
 }
 

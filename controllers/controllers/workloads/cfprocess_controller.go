@@ -103,6 +103,10 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 
+		var lrpHealthCheckPort int32 = 0
+		if len(cfProcess.Spec.Ports) > 0 {
+			lrpHealthCheckPort = cfProcess.Spec.Ports[0]
+		}
 		_, err = controllerutil.CreateOrPatch(ctx, r.Client, &lrp, func() error {
 			lrp.Spec.GUID = cfProcess.Name
 			lrp.Spec.DiskMB = cfProcess.Spec.DiskQuotaMB
@@ -117,7 +121,7 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			lrp.Spec.Env = secretDataToEnvMap(appEnvSecret.Data)
 			lrp.Spec.Health = eiriniv1.Healthcheck{
 				Type:      string(cfProcess.Spec.HealthCheck.Type),
-				Port:      cfProcess.Spec.Ports[0], // Is this always the first process port?
+				Port:      lrpHealthCheckPort,
 				Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
 				TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
 			}
@@ -143,7 +147,6 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, client.IgnoreNotFound(err)
 		}
 	}
-
 	return ctrl.Result{}, nil
 }
 
