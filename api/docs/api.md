@@ -197,3 +197,28 @@ curl "http://localhost:9000/v3/spaces/<space-guid>/actions/apply_manifest" \
   -H "Content-type: application/x-yaml" \
   --data-binary @<path-to-manifest.yml>
 ```
+
+| Resource | Endpoint |
+|--|--|
+| Create a manifest diff for a space | POST /v3/spaces/\<space-guid>/manifest_diff |
+
+#### [Create a manifest diff for a space](https://v3-apidocs.cloudfoundry.org/version/3.109.0/index.html#create-a-manifest-diff-for-a-space-experimental)
+**WARNING:** Currently this endpoint always returns an empty diff.
+
+##### Example Request
+```bash
+curl "http://localhost:9000/v3/spaces/<space-guid>/manifest_diff" \
+  -X POST \
+  -H "Content-type: application/x-yaml" \
+  --data-binary @<path-to-manifest.yml>
+```
+
+##### Example Response
+```json
+HTTP/1.1 202 OK
+Content-Type: application/json
+
+{
+  "diff": []
+}
+```
