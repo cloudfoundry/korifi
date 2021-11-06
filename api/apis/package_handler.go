@@ -21,6 +21,7 @@ import (
 )
 
 const (
+	PackageGetEndpoint    = "/v3/packages/{guid}"
 	PackageCreateEndpoint = "/v3/packages"
 	PackageUploadEndpoint = "/v3/packages/{guid}/upload"
 )
@@ -76,6 +77,39 @@ func NewPackageHandler(
 		k8sConfig:          k8sConfig,
 		registryBase:       registryBase,
 		registrySecretName: registrySecretName,
+	}
+}
+
+func (h PackageHandler) packageGetHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	client, err := h.buildClient(h.k8sConfig)
+	if err != nil {
+		h.logger.Info("Error building k8s client", "error", err.Error())
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	packageGUID := mux.Vars(req)["guid"]
+	record, err := h.packageRepo.FetchPackage(req.Context(), client, packageGUID)
+
+	if err != nil {
+		switch {
+		case errors.As(err, new(repositories.NotFoundError)):
+			writeNotFoundErrorResponse(w, "Package")
+		default:
+			h.logger.Info("Error fetching package with repository", "error", err.Error())
+			writeUnknownErrorResponse(w)
+		}
+		return
+	}
+
+	res := presenter.ForPackage(record, h.serverURL)
+	err = json.NewEncoder(w).Encode(res)
+	if err != nil {
+		h.logger.Info("Error encoding JSON response", "error", err.Error())
+		writeUnknownErrorResponse(w)
+		return
 	}
 }
 
@@ -207,6 +241,7 @@ func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Re
 }
 
 func (h *PackageHandler) RegisterRoutes(router *mux.Router) {
+	router.Path(PackageGetEndpoint).Methods("GET").HandlerFunc(h.packageGetHandler)
 	router.Path(PackageCreateEndpoint).Methods("POST").HandlerFunc(h.packageCreateHandler)
 	router.Path(PackageUploadEndpoint).Methods("POST").HandlerFunc(h.packageUploadHandler)
 }
