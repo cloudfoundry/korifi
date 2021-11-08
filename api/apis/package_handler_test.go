@@ -26,6 +26,154 @@ const (
 )
 
 var _ = Describe("PackageHandler", func() {
+	Describe("the GET /v3/packages/:guid endpoint", func() {
+		var (
+			packageRepo   *fake.CFPackageRepository
+			appRepo       *fake.CFAppRepository
+			clientBuilder *fake.ClientBuilder
+		)
+
+		const (
+			packageGUID = "the-package-guid"
+			appGUID     = "the-app-guid"
+			spaceGUID   = "the-space-guid"
+			createdAt   = "1906-04-18T13:12:00Z"
+			updatedAt   = "1906-04-18T13:12:01Z"
+		)
+
+		makeGetRequest := func(guid string) {
+			req, err := http.NewRequest("GET", "/v3/packages/"+guid, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			router.ServeHTTP(rr, req)
+		}
+
+		BeforeEach(func() {
+			packageRepo = new(fake.CFPackageRepository)
+
+			appRepo = new(fake.CFAppRepository)
+
+			clientBuilder = new(fake.ClientBuilder)
+
+			apiHandler := NewPackageHandler(
+				logf.Log.WithName(testPackageHandlerLoggerName),
+				*serverURL,
+				packageRepo,
+				appRepo,
+				clientBuilder.Spy,
+				nil,
+				nil,
+				&rest.Config{},
+				"",
+				"",
+			)
+
+			apiHandler.RegisterRoutes(router)
+		})
+
+		When("on the happy path", func() {
+			BeforeEach(func() {
+				packageRepo.FetchPackageReturns(repositories.PackageRecord{
+					GUID:      packageGUID,
+					Type:      "bits",
+					AppGUID:   appGUID,
+					SpaceGUID: spaceGUID,
+					State:     "AWAITING_UPLOAD",
+					CreatedAt: createdAt,
+					UpdatedAt: updatedAt,
+				}, nil)
+				makeGetRequest(packageGUID)
+			})
+
+			It("returns status 200", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("configures the client", func() {
+				Expect(clientBuilder.CallCount()).To(Equal(1))
+			})
+
+			It("returns a JSON body", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`
+				{
+				  "guid": "` + packageGUID + `",
+				  "type": "bits",
+				  "data": {},
+				  "state": "AWAITING_UPLOAD",
+				  "created_at": "` + createdAt + `",
+				  "updated_at": "` + updatedAt + `",
+				  "relationships": {
+					"app": {
+					  "data": {
+						"guid": "` + appGUID + `"
+					  }
+					}
+				  },
+				  "links": {
+					"self": {
+					  "href": "` + defaultServerURI("/v3/packages/", packageGUID) + `"
+					},
+					"upload": {
+					  "href": "` + defaultServerURI("/v3/packages/", packageGUID, "/upload") + `",
+					  "method": "POST"
+					},
+					"download": {
+					  "href": "` + defaultServerURI("/v3/packages/", packageGUID, "/download") + `",
+					  "method": "GET"
+					},
+					"app": {
+					  "href": "` + defaultServerURI("/v3/apps/", appGUID) + `"
+					}
+				  },
+				  "metadata": {
+					"labels": { },
+					"annotations": { }
+				  }
+				}
+            `))
+			})
+		})
+
+		When("on the sad path", func() {
+			BeforeEach(func() {
+				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+				makeGetRequest("invalid-package-guid")
+			})
+
+			It("returns status 404", func() {
+				Expect(rr.Code).To(Equal(http.StatusNotFound), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type heaer:")
+			})
+
+			It("configures the client", func() {
+				Expect(clientBuilder.CallCount()).To(Equal(1))
+			})
+
+			It("returns a JSON body", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`
+				{
+					"errors": [
+						{
+							"detail": "Package not found",
+							"title": "CF-ResourceNotFound",
+							"code": 10010
+						}
+					]
+				}
+            `))
+			})
+		})
+	})
+
 	Describe("the POST /v3/packages endpoint", func() {
 		var (
 			packageRepo   *fake.CFPackageRepository
