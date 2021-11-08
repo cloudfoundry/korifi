@@ -174,6 +174,14 @@ func newPackageBitsAlreadyUploadedError() presenter.ErrorsResponse {
 	}}}
 }
 
+func newUnknownKeyError() presenter.ErrorsResponse {
+	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+		Title:  "CF-BadQueryParameter",
+		Detail: "The query parameter is invalid: Valid parameters are: 'names'",
+		Code:   10005,
+	}}}
+}
+
 func writeNotFoundErrorResponse(w http.ResponseWriter, resourceName string) {
 	responseBody, err := json.Marshal(newNotFoundError(resourceName))
 	if err != nil {
@@ -243,6 +251,15 @@ func writePackageBitsAlreadyUploadedError(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusBadRequest)
 
 	responseBody, err := json.Marshal(newPackageBitsAlreadyUploadedError())
+	if err != nil {
+		return
+	}
+	w.Write(responseBody)
+}
+
+func writeUnknownKeyError(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
+	responseBody, err := json.Marshal(newUnknownKeyError())
 	if err != nil {
 		return
 	}
