@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
@@ -2170,6 +2171,185 @@ var _ = Describe("AppHandler", func() {
 				It("returns an error", func() {
 					expectUnknownError()
 				})
+			})
+		})
+	})
+
+	Describe("the GET /v3/apps/:guid/droplets/current", func() {
+		const (
+			dropletGUID = "test-droplet-guid"
+			packageGUID = "test-package-guid"
+		)
+
+		var (
+			app       repositories.AppRecord
+			droplet   repositories.DropletRecord
+			timestamp string
+		)
+
+		BeforeEach(func() {
+			app = repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID, DropletGUID: dropletGUID}
+			timestamp = time.Unix(1631892190, 0).String()
+			droplet = repositories.DropletRecord{
+				GUID:      dropletGUID,
+				State:     "STAGED",
+				CreatedAt: timestamp,
+				UpdatedAt: timestamp,
+				Lifecycle: repositories.Lifecycle{
+					Type: "buildpack",
+					Data: repositories.LifecycleData{
+						Buildpacks: []string{},
+						Stack:      "",
+					},
+				},
+				Stack: "cflinuxfs3",
+				ProcessTypes: map[string]string{
+					"rake": "bundle exec rake",
+					"web":  "bundle exec rackup config.ru -p $PORT",
+				},
+				AppGUID:     appGUID,
+				PackageGUID: packageGUID,
+			}
+
+			appRepo.FetchAppReturns(app, nil)
+			dropletRepo.FetchDropletReturns(droplet, nil)
+
+			var err error
+			req, err = http.NewRequest("GET", "/v3/apps/"+appGUID+"/droplets/current", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("on the happy path", func() {
+			It("responds with a 200 code", func() {
+				Expect(rr.Code).To(Equal(200))
+			})
+
+			It("responds with the current droplet encoded as JSON", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(`{
+					  "guid": "`+dropletGUID+`",
+					  "state": "STAGED",
+					  "error": null,
+					  "lifecycle": {
+						"type": "buildpack",
+						"data": {
+							"buildpacks": [],
+							"stack": ""
+						}
+					},
+					  "execution_metadata": "",
+					  "process_types": {
+						"rake": "bundle exec rake",
+						"web": "bundle exec rackup config.ru -p $PORT"
+					  },
+					  "checksum": null,
+					  "buildpacks": [],
+					  "stack": "cflinuxfs3",
+					  "image": null,
+					  "created_at": "`+timestamp+`",
+					  "updated_at": "`+timestamp+`",
+					  "relationships": {
+						"app": {
+						  "data": {
+							"guid": "`+appGUID+`"
+						  }
+						}
+					  },
+					  "links": {
+						"self": {
+						  "href": "`+defaultServerURI("/v3/droplets/", dropletGUID)+`"
+						},
+						"package": {
+						  "href": "`+defaultServerURI("/v3/packages/", packageGUID)+`"
+						},
+						"app": {
+						  "href": "`+defaultServerURI("/v3/apps/", appGUID)+`"
+						},
+						"assign_current_droplet": {
+						  "href": "`+defaultServerURI("/v3/apps/", appGUID, "/relationships/current_droplet")+`",
+						  "method": "PATCH"
+						  },
+						"download": null
+					  },
+					  "metadata": {
+						"labels": {},
+						"annotations": {}
+					  }
+					}`), "Response body matches response:")
+			})
+
+			It("fetches the correct App", func() {
+				Expect(appRepo.FetchAppCallCount()).To(Equal(1))
+				_, _, actualAppGUID := appRepo.FetchAppArgsForCall(0)
+				Expect(actualAppGUID).To(Equal(appGUID))
+			})
+
+			It("fetches the correct Droplet", func() {
+				Expect(dropletRepo.FetchDropletCallCount()).To(Equal(1))
+				_, _, actualDropletGUID := dropletRepo.FetchDropletArgsForCall(0)
+				Expect(actualDropletGUID).To(Equal(dropletGUID))
+			})
+		})
+
+		When("the App doesn't exist", func() {
+			BeforeEach(func() {
+				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("the App doesn't have a current droplet assigned", func() {
+			BeforeEach(func() {
+				appRepo.FetchAppReturns(repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID, DropletGUID: ""}, nil)
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Droplet not found")
+			})
+		})
+
+		When("the Droplet doesn't exist", func() {
+			BeforeEach(func() {
+				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Droplet not found")
+			})
+		})
+
+		When("building the client errors", func() {
+			BeforeEach(func() {
+				clientBuilder.Returns(nil, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("fetching the App errors", func() {
+			BeforeEach(func() {
+				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("fetching the Droplet errors", func() {
+			BeforeEach(func() {
+				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})

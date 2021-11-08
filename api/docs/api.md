@@ -38,6 +38,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 | Get App | GET /v3/apps/\<guid> |
 | Create App | POST /v3/apps |
 | Set App's Current Droplet | PATCH /v3/apps/\<guid>/relationships/current_droplet |
+| Get App's Current Droplet | GET /v3/apps/\<guid>/droplets/current |
 | Start App | POST /v3/apps/\<guid>/actions/start |
 | Stop App | POST /v3/apps/\<guid>/actions/stop |
 | List App Processes | GET /v3/apps/\<guid>/processes |
@@ -57,6 +58,11 @@ curl "http://localhost:9000/v3/apps" \
 curl "http://localhost:9000/v3/apps/<app-guid>/relationships/current_droplet" \
   -X PATCH \
   -d '{"data":{"guid":"<droplet-guid>"}}'
+```
+
+#### [Getting App's Current Droplet](https://v3-apidocs.cloudfoundry.org/version/3.109.0/index.html#get-current-droplet)
+```bash
+curl "http://localhost:9000/v3/apps/<app-guid>/droplets/current"
 ```
 
 #### [Scaling App's Process](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#scale-a-process)
