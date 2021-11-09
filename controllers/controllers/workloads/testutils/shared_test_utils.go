@@ -94,6 +94,10 @@ func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID stri
 			Name:      cfBuildGUID,
 			Namespace: namespace,
 		},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "CFBuild",
+			APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+		},
 		Spec: workloadsv1alpha1.CFBuildSpec{
 			PackageRef: corev1.LocalObjectReference{
 				Name: cfPackageGUID,
