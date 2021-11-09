@@ -26,6 +26,7 @@ const (
 	AppGetEndpoint               = "/v3/apps/{guid}"
 	AppListEndpoint              = "/v3/apps"
 	AppSetCurrentDropletEndpoint = "/v3/apps/{guid}/relationships/current_droplet"
+	AppGetCurrentDropletEndpoint = "/v3/apps/{guid}/droplets/current"
 	AppGetProcessesEndpoint      = "/v3/apps/{guid}/processes"
 	AppGetRoutesEndpoint         = "/v3/apps/{guid}/routes"
 	AppStartEndpoint             = "/v3/apps/{guid}/actions/start"
@@ -267,9 +268,10 @@ func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.
 	app, err := h.appRepo.FetchApp(ctx, client, appGUID)
 	if err != nil {
 		if errors.As(err, new(repositories.NotFoundError)) {
+			h.logger.Error(err, "App not found", "appGUID", app.GUID)
 			writeNotFoundErrorResponse(w, "App")
 		} else {
-			h.logger.Error(err, "Error fetching app")
+			h.logger.Error(err, "Error fetching app", "appGUID", app.GUID)
 			writeUnknownErrorResponse(w)
 		}
 		return
@@ -310,6 +312,61 @@ func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
+	w.Write(responseBody)
+}
+
+func (h *AppHandler) appGetCurrentDropletHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+
+	// TODO: Instantiate config based on bearer token
+	client, err := h.buildClient(h.k8sConfig)
+	if err != nil {
+		h.logger.Error(err, "Unable to create Kubernetes client")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	app, err := h.appRepo.FetchApp(ctx, client, appGUID)
+	if err != nil {
+		if errors.As(err, new(repositories.NotFoundError)) {
+			h.logger.Error(err, "App not found", "appGUID", app.GUID)
+			writeNotFoundErrorResponse(w, "App")
+		} else {
+			h.logger.Error(err, "Error fetching app", "appGUID", app.GUID)
+			writeUnknownErrorResponse(w)
+		}
+		return
+	}
+
+	if app.DropletGUID == "" {
+		h.logger.Info("App does not have a current droplet assigned", "appGUID", app.GUID)
+		writeNotFoundErrorResponse(w, "Droplet")
+		return
+	}
+
+	droplet, err := h.dropletRepo.FetchDroplet(ctx, client, app.DropletGUID)
+	if err != nil {
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("Droplet not found", "dropletGUID", app.DropletGUID)
+			writeNotFoundErrorResponse(w, "Droplet")
+			return
+		default:
+			h.logger.Error(err, "Failed to fetch droplet from Kubernetes", "dropletGUID", app.DropletGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	responseBody, err := json.Marshal(presenter.ForDroplet(droplet, h.serverURL))
+	if err != nil {
+		h.logger.Error(err, "Failed to render response", "dropletGUID", app.DropletGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
 	w.Write(responseBody)
 }
 
@@ -578,6 +635,7 @@ func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(AppListEndpoint).Methods("GET").HandlerFunc(h.appListHandler)
 	router.Path(AppCreateEndpoint).Methods("POST").HandlerFunc(h.appCreateHandler)
 	router.Path(AppSetCurrentDropletEndpoint).Methods("PATCH").HandlerFunc(h.appSetCurrentDropletHandler)
+	router.Path(AppGetCurrentDropletEndpoint).Methods("GET").HandlerFunc(h.appGetCurrentDropletHandler)
 	router.Path(AppStartEndpoint).Methods("POST").HandlerFunc(h.appStartHandler)
 	router.Path(AppStopEndpoint).Methods("POST").HandlerFunc(h.appStopHandler)
 	router.Path(AppProcessScaleEndpoint).Methods("POST").HandlerFunc(h.appScaleProcessHandler)
