@@ -106,6 +106,7 @@ var _ = Describe("RouteRepository", func() {
 			ctx := context.Background()
 			k8sClient.Delete(ctx, cfRoute1)
 			k8sClient.Delete(ctx, cfRoute2)
+			k8sClient.Delete(ctx, cfDomain)
 		})
 
 		When("multiple CFRoute resources exist", func() {
@@ -292,6 +293,7 @@ var _ = Describe("RouteRepository", func() {
 				ctx := context.Background()
 				k8sClient.Delete(ctx, cfRoute1)
 				k8sClient.Delete(ctx, cfRoute2)
+				k8sClient.Delete(ctx, cfDomain)
 			})
 
 			It("eventually returns a list of routeRecords for each CFRoute CR", func() {

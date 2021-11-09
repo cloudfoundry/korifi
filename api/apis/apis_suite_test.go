@@ -102,6 +102,18 @@ func expectBadRequestError() {
     }`)
 }
 
+func expectUnknownKeyError() {
+	expectJSONResponse(http.StatusBadRequest, `{
+        "errors": [
+            {
+                "title": "CF-BadQueryParameter",
+                "detail": "The query parameter is invalid: Valid parameters are: 'names'",
+                "code": 10005
+            }
+        ]
+    }`)
+}
+
 func initializeProcessRecord(processGUID, spaceGUID, appGUID string) *repositories.ProcessRecord {
 	return &repositories.ProcessRecord{
 		GUID:        processGUID,

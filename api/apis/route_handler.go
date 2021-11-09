@@ -36,12 +36,6 @@ type CFRouteRepository interface {
 	AddDestinationsToRoute(ctx context.Context, c client.Client, message repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error)
 }
 
-//counterfeiter:generate -o fake -fake-name CFDomainRepository . CFDomainRepository
-
-type CFDomainRepository interface {
-	FetchDomain(context.Context, client.Client, string) (repositories.DomainRecord, error)
-}
-
 type RouteHandler struct {
 	logger      logr.Logger
 	serverURL   url.URL

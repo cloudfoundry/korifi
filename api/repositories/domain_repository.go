@@ -17,10 +17,16 @@ import (
 type DomainRepo struct{}
 
 type DomainRecord struct {
-	Name      string
-	GUID      string
-	CreatedAt string
-	UpdatedAt string
+	Name        string
+	GUID        string
+	Labels      map[string]string
+	Annotations map[string]string
+	CreatedAt   string
+	UpdatedAt   string
+}
+
+type DomainListMessage struct {
+	Names []string
 }
 
 func (f *DomainRepo) FetchDomain(ctx context.Context, client client.Client, domainGUID string) (DomainRecord, error) {
@@ -38,14 +44,54 @@ func (f *DomainRepo) FetchDomain(ctx context.Context, client client.Client, doma
 		return DomainRecord{}, err
 	}
 
-	return f.cfDomainToDomainRecord(domain), nil
+	return cfDomainToDomainRecord(domain), nil
 }
 
-func (f *DomainRepo) cfDomainToDomainRecord(cfDomain *networkingv1alpha1.CFDomain) DomainRecord {
+func (f *DomainRepo) FetchDomainList(ctx context.Context, client client.Client, message DomainListMessage) ([]DomainRecord, error) {
+	cfdomainList := &networkingv1alpha1.CFDomainList{}
+	err := client.List(ctx, cfdomainList)
+
+	if err != nil {
+		return []DomainRecord{}, err
+	}
+
+	filtered := f.applyFilter(cfdomainList.Items, message)
+
+	return f.returnDomainList(filtered), nil
+}
+
+func (f *DomainRepo) applyFilter(domainList []networkingv1alpha1.CFDomain, message DomainListMessage) []networkingv1alpha1.CFDomain {
+	if len(message.Names) == 0 {
+		return domainList
+	}
+
+	var filtered []networkingv1alpha1.CFDomain
+	for _, domain := range domainList {
+		for _, name := range message.Names {
+			if domain.Spec.Name == name {
+				filtered = append(filtered, domain)
+			}
+		}
+	}
+
+	return filtered
+}
+
+func (f *DomainRepo) returnDomainList(domainList []networkingv1alpha1.CFDomain) []DomainRecord {
+	domainRecords := make([]DomainRecord, 0, len(domainList))
+
+	for _, domain := range domainList {
+		domainRecords = append(domainRecords, cfDomainToDomainRecord(&domain))
+	}
+	return domainRecords
+}
+
+func cfDomainToDomainRecord(cfDomain *networkingv1alpha1.CFDomain) DomainRecord {
+	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfDomain.ObjectMeta)
 	return DomainRecord{
 		Name:      cfDomain.Spec.Name,
 		GUID:      cfDomain.Name,
-		CreatedAt: "",
-		UpdatedAt: "",
+		CreatedAt: cfDomain.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt: updatedAtTime,
 	}
 }

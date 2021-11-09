@@ -122,4 +122,7 @@ require (
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
-require github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
+require (
+	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
+	github.com/gorilla/schema v1.2.0 // indirect
+)

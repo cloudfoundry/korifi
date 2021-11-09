@@ -141,6 +141,19 @@ curl "http://localhost:9000/v3/processes/<guid>/actions/scale" \
   -d '{ "instances": 5, "memory_in_mb": 256, "disk_in_mb": 1024 }'
 ```
 
+### Domain
+
+https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#domains
+
+| Resource | Endpoint | 
+|--|--|
+| List Domains | GET /v3/domains |
+
+#### [List Domains](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#list-domains)
+```bash
+curl "http://localhost:9000/v3/domains?names=cf-apps.io" \
+  -X GET
+```
 
 ### Routes
 

@@ -8,8 +8,7 @@ import (
 )
 
 const (
-	routesBase  = "/v3/routes"
-	domainsBase = "/v3/domains"
+	routesBase = "/v3/routes"
 )
 
 type RouteResponse struct {

@@ -145,6 +145,13 @@ func main() {
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),
+		apis.NewDomainHandler(
+			ctrl.Log.WithName("DomainHandler"),
+			*serverURL,
+			new(repositories.DomainRepo),
+			repositories.BuildCRClient,
+			k8sClientConfig,
+		),
 
 		wireOrgHandler(*serverURL, orgRepo, privilegedCRClient, config.AuthEnabled),
 		apis.NewSpaceHandler(
