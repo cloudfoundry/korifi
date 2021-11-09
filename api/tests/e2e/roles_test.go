@@ -23,7 +23,7 @@ var _ = Describe("Roles", func() {
 		userName string
 	)
 
-	createRoleWithHeaders := func(roleName, userName, spaceGUID string, headers map[string]string) (*http.Response, error) {
+	createRole := func(roleName, userName, spaceGUID string) (*http.Response, error) {
 		rolesURL := apiServerRoot + "/v3/roles"
 		body := fmt.Sprintf(`{
             "type": "%s",
@@ -43,9 +43,6 @@ var _ = Describe("Roles", func() {
 		req, err := http.NewRequest(http.MethodPost, rolesURL, strings.NewReader(body))
 		Expect(err).NotTo(HaveOccurred())
 
-		for key, value := range headers {
-			req.Header.Add(key, value)
-		}
 		return http.DefaultClient.Do(req)
 	}
 
@@ -95,7 +92,7 @@ var _ = Describe("Roles", func() {
 		})
 
 		It("creates a role binding", func() {
-			response, err := createRoleWithHeaders("space_developer", userName, space.GUID, nil)
+			response, err := createRole("space_developer", userName, space.GUID)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(response).To(HaveHTTPStatus(http.StatusCreated))

@@ -114,9 +114,8 @@ func (r *RoleRepo) CreateSpaceRole(ctx context.Context, role RoleRecord) (RoleRe
 		return RoleRecord{}, fmt.Errorf("failed to assign user %q to role %q: %w", role.User, role.Type, err)
 	}
 
-	now := time.Now()
-	role.CreatedAt = now
-	role.UpdatedAt = now
+	role.CreatedAt = roleBinding.CreationTimestamp.Time
+	role.UpdatedAt = roleBinding.CreationTimestamp.Time
 
 	return role, nil
 }

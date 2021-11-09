@@ -65,15 +65,13 @@ var _ = BeforeSuite(func() {
 
 	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
 	ensureServerIsUp()
-})
 
-var _ = BeforeEach(func() {
 	serviceAccountName = generateGUID("user")
 	token := obtainServiceAccountToken(serviceAccountName)
 	authHeader = fmt.Sprintf("Bearer %s", token)
 })
 
-var _ = AfterEach(func() {
+var _ = AfterSuite(func() {
 	deleteServiceAccount(serviceAccountName)
 })
 

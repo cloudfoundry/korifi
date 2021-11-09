@@ -189,7 +189,7 @@ var _ = Describe("RoleHandler", func() {
 			})
 		})
 
-		When("the request body is invalid with missing required name field", func() {
+		When("the request body is invalid with missing required type field", func() {
 			BeforeEach(func() {
 				createRoleRequestBody = `{
                     "relationships": {

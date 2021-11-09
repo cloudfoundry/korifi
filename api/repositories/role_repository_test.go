@@ -38,32 +38,6 @@ var _ = Describe("RoleRepository", func() {
 	})
 
 	Describe("CreateSpaceRole", func() {
-		createSubnamespaceAnchor := func(name, parent string) *hnsv1alpha2.SubnamespaceAnchor {
-			guid := uuid.New().String()
-			anchor := &hnsv1alpha2.SubnamespaceAnchor{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      guid,
-					Namespace: parent,
-					Labels:    map[string]string{repositories.SpaceNameLabel: name},
-				},
-				Status: hnsv1alpha2.SubnamespaceAnchorStatus{
-					State: hnsv1alpha2.Ok,
-				},
-			}
-
-			Expect(k8sClient.Create(ctx, anchor)).To(Succeed())
-			Expect(k8sClient.Create(ctx, &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: anchor.Name,
-					Annotations: map[string]string{
-						hnsv1alpha2.SubnamespaceOf: parent,
-					},
-				},
-			})).To(Succeed())
-
-			return anchor
-		}
-
 		var (
 			orgAnchor   *hnsv1alpha2.SubnamespaceAnchor
 			spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
@@ -73,8 +47,9 @@ var _ = Describe("RoleRepository", func() {
 
 		BeforeEach(func() {
 			authorizedInChecker.AuthorizedInReturns(true, nil)
-			orgAnchor = createSubnamespaceAnchor(uuid.NewString(), rootNamespace)
-			spaceAnchor = createSubnamespaceAnchor(uuid.NewString(), orgAnchor.Name)
+			orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, uuid.NewString())
+			spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, uuid.NewString())
+
 			Expect(k8sClient.Create(context.Background(), &rbacv1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",

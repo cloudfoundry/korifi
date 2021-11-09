@@ -29,7 +29,7 @@ var _ = Describe("Org", func() {
 
 	createNamespace := func() string {
 		guid := uuid.NewString()
-		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: guid}})).To(Succeed())
+		Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: guid}})).To(Succeed())
 
 		return guid
 	}
@@ -41,7 +41,7 @@ var _ = Describe("Org", func() {
 			},
 		}
 
-		Expect(k8sClient.Create(context.Background(), role)).To(Succeed())
+		Expect(k8sClient.Create(ctx, role)).To(Succeed())
 
 		return role
 	}
@@ -65,7 +65,7 @@ var _ = Describe("Org", func() {
 			},
 		}
 
-		Expect(k8sClient.Create(context.Background(), role)).To(Succeed())
+		Expect(k8sClient.Create(ctx, role)).To(Succeed())
 
 		return role
 	}
@@ -83,7 +83,7 @@ var _ = Describe("Org", func() {
 		org2Ns = createNamespace()
 
 		roleName1 = generateGUID("org-user-1")
-		roleName2 = generateGUID("org-user-1")
+		roleName2 = generateGUID("org-user-2")
 		createClusterRole(roleName1)
 		createClusterRole(roleName2)
 		createRoleBindingForUser(userName, roleName1, org1Ns)
@@ -92,10 +92,11 @@ var _ = Describe("Org", func() {
 	})
 
 	AfterEach(func() {
-		Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org1Ns}})).To(Succeed())
-		Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org2Ns}})).To(Succeed())
-		Expect(k8sClient.Delete(context.Background(), &rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: roleName1}})).To(Succeed())
-		Expect(k8sClient.Delete(context.Background(), &rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: roleName2}})).To(Succeed())
+		ctx = context.Background()
+		Expect(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org1Ns}})).To(Succeed())
+		Expect(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org2Ns}})).To(Succeed())
+		Expect(k8sClient.Delete(ctx, &rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: roleName1}})).To(Succeed())
+		Expect(k8sClient.Delete(ctx, &rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: roleName2}})).To(Succeed())
 	})
 
 	Describe("Get Authorized Namespaces", func() {
