@@ -17,9 +17,8 @@ type SpaceManifestApplyApplication struct {
 
 func (a SpaceManifestApply) ToAppCreateMessage(spaceGUID string) repositories.AppCreateMessage {
 	return repositories.AppCreateMessage{
-		Name:       a.Applications[0].Name,
-		HasEnvVars: len(a.Applications[0].Env) > 0,
-		SpaceGUID:  spaceGUID,
+		Name:      a.Applications[0].Name,
+		SpaceGUID: spaceGUID,
 		Lifecycle: repositories.Lifecycle{
 			Type: string(v1alpha1.BuildpackLifecycle),
 		},

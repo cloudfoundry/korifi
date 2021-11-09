@@ -35,6 +35,7 @@ var _ = Describe("AppHandler", func() {
 		processRepo         *fake.CFProcessRepository
 		routeRepo           *fake.CFRouteRepository
 		scaleAppProcessFunc *fake.ScaleAppProcess
+		createAppFunc       *fake.CreateApp
 		domainRepo          *fake.CFDomainRepository
 		clientBuilder       *fake.ClientBuilder
 	)
@@ -46,6 +47,7 @@ var _ = Describe("AppHandler", func() {
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
 		scaleAppProcessFunc = new(fake.ScaleAppProcess)
+		createAppFunc = new(fake.CreateApp)
 		clientBuilder = new(fake.ClientBuilder)
 
 		apiHandler := NewAppHandler(
@@ -57,6 +59,7 @@ var _ = Describe("AppHandler", func() {
 			routeRepo,
 			domainRepo,
 			scaleAppProcessFunc.Spy,
+			createAppFunc.Spy,
 			clientBuilder.Spy,
 			&rest.Config{},
 		)
@@ -332,11 +335,11 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the app already exists, but AppCreate returns false due to validating webhook rejection", func() {
+		When("the action errors due to validating webhook rejection", func() {
 			BeforeEach(func() {
 				controllerError := new(k8serrors.StatusError)
 				controllerError.ErrStatus.Reason = `{"code":1,"message":"CFApp with the same spec.name exists"}`
-				appRepo.CreateAppReturns(repositories.AppRecord{}, controllerError)
+				createAppFunc.Returns(repositories.AppRecord{}, controllerError)
 
 				requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
 				queuePostRequest(requestBody)
@@ -362,11 +365,11 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the app already exists, but CreateApp returns false due to a non webhook k8s error", func() {
+		When("the action errors due to a non webhook k8s error", func() {
 			BeforeEach(func() {
 				controllerError := new(k8serrors.StatusError)
 				controllerError.ErrStatus.Reason = "different k8s api error"
-				appRepo.CreateAppReturns(repositories.AppRecord{}, controllerError)
+				createAppFunc.Returns(repositories.AppRecord{}, controllerError)
 
 				requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
 				queuePostRequest(requestBody)
@@ -374,200 +377,6 @@ var _ = Describe("AppHandler", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
-			})
-		})
-
-		When("the namespace exists and app does not exist and", func() {
-			When("a plain POST test app request is sent without env vars or metadata", func() {
-				BeforeEach(func() {
-					appRepo.CreateAppReturns(repositories.AppRecord{
-						GUID:      appGUID,
-						Name:      testAppName,
-						SpaceGUID: spaceGUID,
-						State:     repositories.DesiredState("STOPPED"),
-						Lifecycle: repositories.Lifecycle{
-							Type: "buildpack",
-							Data: repositories.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
-						},
-					}, nil)
-
-					requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
-					queuePostRequest(requestBody)
-				})
-
-				It("should invoke repo CreateApp with a random GUID", func() {
-					Expect(appRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
-				})
-
-				It("should not invoke repo CreateAppEnvironmentVariables when no environment variables are provided", func() {
-					Expect(appRepo.CreateAppEnvironmentVariablesCallCount()).To(BeZero(), "Repo CreateAppEnvironmentVariables was invoked even though no environment vars were provided")
-				})
-
-				It("return status 201 Created", func() {
-					Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
-				})
-
-				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-				})
-
-				It(`returns the "created app" (the mock response record) in the response`, func() {
-					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-					"guid": "%[2]s",
-					"created_at": "",
-					"updated_at": "",
-					"name": "test-app",
-					"state": "STOPPED",
-					"lifecycle": {
-					  "type": "buildpack",
-					  "data": {
-						"buildpacks": [],
-						"stack": ""
-					  }
-					},
-					"relationships": {
-					  "space": {
-						"data": {
-						  "guid": "%[3]s"
-						}
-					  }
-					},
-					"metadata": {
-					  "labels": {},
-					  "annotations": {}
-					},
-					"links": {
-					  "self": {
-						"href": "%[1]s/v3/apps/%[2]s"
-					  },
-					  "environment_variables": {
-						"href": "%[1]s/v3/apps/%[2]s/environment_variables"
-					  },
-					  "space": {
-						"href": "%[1]s/v3/spaces/%[3]s"
-					  },
-					  "processes": {
-						"href": "%[1]s/v3/apps/%[2]s/processes"
-					  },
-					  "packages": {
-						"href": "%[1]s/v3/apps/%[2]s/packages"
-					  },
-					  "current_droplet": {
-						"href": "%[1]s/v3/apps/%[2]s/droplets/current"
-					  },
-					  "droplets": {
-						"href": "%[1]s/v3/apps/%[2]s/droplets"
-					  },
-					  "tasks": {
-						"href": "%[1]s/v3/apps/%[2]s/tasks"
-					  },
-					  "start": {
-						"href": "%[1]s/v3/apps/%[2]s/actions/start",
-						"method": "POST"
-					  },
-					  "stop": {
-						"href": "%[1]s/v3/apps/%[2]s/actions/stop",
-						"method": "POST"
-					  },
-					  "revisions": {
-						"href": "%[1]s/v3/apps/%[2]s/revisions"
-					  },
-					  "deployed_revisions": {
-						"href": "%[1]s/v3/apps/%[2]s/revisions/deployed"
-					  },
-					  "features": {
-						"href": "%[1]s/v3/apps/%[2]s/features"
-					  }
-					}
-				}`, defaultServerURL, appGUID, spaceGUID)), "Response body matches response:")
-				})
-			})
-
-			When("a POST test app request is sent with env vars and", func() {
-				var (
-					testEnvironmentVariables map[string]string
-					requestBody              string
-				)
-
-				BeforeEach(func() {
-					testEnvironmentVariables = map[string]string{"foo": "foo", "bar": "bar"}
-
-					requestBody = initializeCreateAppRequestBody(testAppName, spaceGUID, testEnvironmentVariables, nil, nil)
-				})
-
-				When("the env var repository is working and will not return an error", func() {
-					const createEnvVarsResponseName = "testAppGUID-env"
-
-					BeforeEach(func() {
-						appRepo.CreateAppEnvironmentVariablesReturns(repositories.AppEnvVarsRecord{
-							Name: createEnvVarsResponseName,
-						}, nil)
-
-						queuePostRequest(requestBody)
-					})
-
-					It("should call Repo CreateAppEnvironmentVariables with the space and environment vars", func() {
-						Expect(appRepo.CreateAppEnvironmentVariablesCallCount()).To(Equal(1), "Repo CreateAppEnvironmentVariables count was not invoked 1 time")
-						_, _, createAppEnvVarsRecord := appRepo.CreateAppEnvironmentVariablesArgsForCall(0)
-						Expect(createAppEnvVarsRecord.EnvironmentVariables).To(Equal(testEnvironmentVariables))
-						Expect(createAppEnvVarsRecord.SpaceGUID).To(Equal(spaceGUID))
-					})
-
-					It("should call Repo CreateApp and provide whether the app has environment variables or not", func() {
-						Expect(appRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
-						_, _, createAppMessage := appRepo.CreateAppArgsForCall(0)
-						Expect(createAppMessage.HasEnvVars).To(BeTrue())
-					})
-				})
-
-				When("there will be a repository error with creating the env vars", func() {
-					BeforeEach(func() {
-						appRepo.CreateAppEnvironmentVariablesReturns(repositories.AppEnvVarsRecord{}, errors.New("intentional error"))
-
-						queuePostRequest(requestBody)
-					})
-
-					It("returns an error", func() {
-						expectUnknownError()
-					})
-				})
-			})
-
-			When("a POST test app request is sent with metadata labels", func() {
-				var testLabels map[string]string
-
-				BeforeEach(func() {
-					testLabels = map[string]string{"foo": "foo", "bar": "bar"}
-
-					requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, testLabels, nil)
-					queuePostRequest(requestBody)
-				})
-
-				It("should pass along the labels to CreateApp", func() {
-					Expect(appRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
-					_, _, createAppRecord := appRepo.CreateAppArgsForCall(0)
-					Expect(createAppRecord.Labels).To(Equal(testLabels))
-				})
-			})
-
-			When("a POST test app request is sent with metadata annotations", func() {
-				var testAnnotations map[string]string
-
-				BeforeEach(func() {
-					testAnnotations = map[string]string{"foo": "foo", "bar": "bar"}
-					requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, testAnnotations)
-					queuePostRequest(requestBody)
-				})
-
-				It("should pass along the annotations to CreateApp", func() {
-					Expect(appRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
-					_, _, createAppRecord := appRepo.CreateAppArgsForCall(0)
-					Expect(createAppRecord.Annotations).To(Equal(testAnnotations))
-				})
 			})
 		})
 	})

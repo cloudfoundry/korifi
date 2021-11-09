@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,10 +26,11 @@ import (
 var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", func() {
 	BeforeEach(func() {
 		appRepo := new(repositories.AppRepo)
+		createApp := actions.NewCreateApp(appRepo)
 		apiHandler := NewSpaceManifestHandler(
 			logf.Log.WithName("integration tests"),
 			*serverURL,
-			actions.NewApplyManifest(appRepo).Invoke,
+			actions.NewApplyManifest(appRepo, createApp.Invoke).Invoke,
 			repositories.NewOrgRepo("cf", k8sClient, 1*time.Minute),
 			repositories.BuildCRClient,
 			k8sConfig,
@@ -133,16 +135,25 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			})
 		})
 
-		When("an app with that name already exists", func() {
-			const appGUID = "my-app-guid"
+		When("an app with that name already exists with env vars", func() {
+			const (
+				appGUID = "my-app-guid"
+				key0    = "KEY0"
+			)
+
+			var (
+				originalEnvVars map[string]string
+			)
 
 			BeforeEach(func() {
+				beforeCtx := context.Background()
 				Expect(
-					k8sClient.Create(context.Background(), &v1alpha1.CFApp{
+					k8sClient.Create(beforeCtx, &v1alpha1.CFApp{
 						ObjectMeta: metav1.ObjectMeta{Name: appGUID, Namespace: namespace.Name},
 						Spec: v1alpha1.CFAppSpec{
-							Name:         appName,
-							DesiredState: v1alpha1.StoppedState,
+							Name:          appName,
+							EnvSecretName: appGUID + "-env",
+							DesiredState:  v1alpha1.StoppedState,
 							Lifecycle: v1alpha1.Lifecycle{
 								Type: v1alpha1.BuildpackLifecycle,
 							},
@@ -150,13 +161,22 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					}),
 				).To(Succeed())
 
-				nsName := types.NamespacedName{Name: appGUID, Namespace: namespace.Name}
-				Eventually(func() error {
-					return k8sClient.Get(context.Background(), nsName, new(v1alpha1.CFApp))
-				}).Should(Succeed())
+				originalEnvVars = map[string]string{
+					key0: "VAL0",
+					key1: "original-value", // This variable will change after the manifest is applied
+				}
+				Expect(
+					k8sClient.Create(beforeCtx, &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      appGUID + "-env",
+							Namespace: namespace.Name,
+						},
+						StringData: originalEnvVars,
+					}),
+				).To(Succeed())
 			})
 
-			It("doesn't change the App, but it returns 202 with a Location", func() {
+			It("updates the app with the manifest changes and returns a 202", func() {
 				Expect(resp.StatusCode).To(Equal(202))
 
 				body, err := ioutil.ReadAll(resp.Body)
@@ -177,6 +197,23 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				Expect(app1.Spec.Name).To(Equal(appName))
 				Expect(app1.Spec.DesiredState).To(BeEquivalentTo("STOPPED"))
 				Expect(app1.Spec.Lifecycle.Type).To(BeEquivalentTo("buildpack"))
+				Expect(app1.Spec.EnvSecretName).NotTo(BeEmpty())
+
+				secretNSName := types.NamespacedName{
+					Name:      app1.Spec.EnvSecretName,
+					Namespace: namespace.Name,
+				}
+				var updatedSecret corev1.Secret
+				Eventually(func() map[string][]byte {
+					Expect(
+						k8sClient.Get(context.Background(), secretNSName, &updatedSecret),
+					).To(Succeed())
+					return updatedSecret.Data
+				}, 3*time.Second).Should(MatchAllKeys(Keys{
+					key0: BeEquivalentTo(originalEnvVars[key0]),
+					key1: BeEquivalentTo(requestEnvVars[key1]),
+					key2: BeEquivalentTo(requestEnvVars[key2]),
+				}))
 			})
 		})
 	})

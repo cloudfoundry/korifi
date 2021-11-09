@@ -2,11 +2,12 @@ package repositories
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/google/uuid"
 
@@ -39,6 +40,7 @@ const (
 type AppRecord struct {
 	Name          string
 	GUID          string
+	EtcdUID       types.UID
 	SpaceGUID     string
 	DropletGUID   string
 	Labels        map[string]string
@@ -60,6 +62,13 @@ type Lifecycle struct {
 type LifecycleData struct {
 	Buildpacks []string
 	Stack      string
+}
+
+type CreateOrPatchAppEnvVarsMessage struct {
+	AppGUID              string
+	AppEtcdUID           types.UID
+	SpaceGUID            string
+	EnvironmentVariables map[string]string
 }
 
 type AppEnvVarsRecord struct {
@@ -87,19 +96,20 @@ func (f *AppRepo) FetchApp(ctx context.Context, client client.Client, appGUID st
 	return returnApp(matches)
 }
 
-func (f *AppRepo) AppExistsWithNameAndSpace(ctx context.Context, c client.Client, appName, spaceGUID string) (bool, error) {
+func (f *AppRepo) FetchAppByNameAndSpace(ctx context.Context, c client.Client, appName string, spaceGUID string) (AppRecord, error) {
 	appList := new(workloadsv1alpha1.CFAppList)
 	err := c.List(ctx, appList, client.InNamespace(spaceGUID))
 	if err != nil { // untested
-		return false, err
+		return AppRecord{}, err
 	}
 
+	var matches []workloadsv1alpha1.CFApp
 	for _, app := range appList.Items {
 		if app.Spec.Name == appName {
-			return true, nil
+			matches = append(matches, app)
 		}
 	}
-	return false, nil
+	return returnApp(matches)
 }
 
 func (f *AppRepo) CreateApp(ctx context.Context, client client.Client, appCreateMessage AppCreateMessage) (AppRecord, error) {
@@ -145,9 +155,13 @@ func (f *AppRepo) FetchNamespace(ctx context.Context, client client.Client, nsGU
 	return v1NamespaceToSpaceRecord(namespace), nil
 }
 
-func (f *AppRepo) CreateAppEnvironmentVariables(ctx context.Context, client client.Client, envVariables AppEnvVarsRecord) (AppEnvVarsRecord, error) {
+func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, client client.Client, envVariables CreateOrPatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
 	secretObj := appEnvVarsRecordToSecret(envVariables)
-	err := client.Create(ctx, &secretObj)
+
+	_, err := controllerutil.CreateOrPatch(ctx, client, &secretObj, func() error {
+		secretObj.StringData = envVariables.EnvironmentVariables
+		return nil
+	})
 	if err != nil {
 		return AppEnvVarsRecord{}, err
 	}
@@ -215,15 +229,10 @@ type AppCreateMessage struct {
 	Annotations map[string]string
 	State       DesiredState
 	Lifecycle   Lifecycle
-	HasEnvVars  bool
 }
 
 func (m *AppCreateMessage) toCFApp() workloadsv1alpha1.CFApp {
 	guid := uuid.New().String()
-	var envVarSecretName string
-	if m.HasEnvVars {
-		envVarSecretName = generateEnvSecretName(guid)
-	}
 	return workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        guid,
@@ -234,7 +243,7 @@ func (m *AppCreateMessage) toCFApp() workloadsv1alpha1.CFApp {
 		Spec: workloadsv1alpha1.CFAppSpec{
 			Name:          m.Name,
 			DesiredState:  workloadsv1alpha1.DesiredState(m.State),
-			EnvSecretName: envVarSecretName,
+			EnvSecretName: generateEnvSecretName(guid),
 			Lifecycle: workloadsv1alpha1.Lifecycle{
 				Type: workloadsv1alpha1.LifecycleType(m.Lifecycle.Type),
 				Data: workloadsv1alpha1.LifecycleData{
@@ -251,6 +260,7 @@ func cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 
 	return AppRecord{
 		GUID:        cfApp.Name,
+		EtcdUID:     cfApp.GetUID(),
 		Name:        cfApp.Spec.Name,
 		SpaceGUID:   cfApp.Namespace,
 		DropletGUID: cfApp.Spec.CurrentDropletRef.Name,
@@ -258,6 +268,7 @@ func cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 		Annotations: cfApp.Annotations,
 		State:       DesiredState(cfApp.Spec.DesiredState),
 		Lifecycle: Lifecycle{
+			Type: string(cfApp.Spec.Lifecycle.Type),
 			Data: LifecycleData{
 				Buildpacks: cfApp.Spec.Lifecycle.Data.Buildpacks,
 				Stack:      cfApp.Spec.Lifecycle.Data.Stack,
@@ -269,6 +280,9 @@ func cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 }
 
 func returnApp(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
+	if len(apps) == 0 {
+		return AppRecord{}, NotFoundError{ResourceType: "App"}
+	}
 	if len(apps) == 0 {
 		return AppRecord{}, NotFoundError{ResourceType: "App"}
 	}
@@ -297,15 +311,22 @@ func v1NamespaceToSpaceRecord(namespace *v1.Namespace) SpaceRecord {
 	}
 }
 
-func appEnvVarsRecordToSecret(envVars AppEnvVarsRecord) corev1.Secret {
+func appEnvVarsRecordToSecret(envVars CreateOrPatchAppEnvVarsMessage) corev1.Secret {
 	labels := make(map[string]string, 1)
 	labels[CFAppGUIDLabel] = envVars.AppGUID
-	envSecretName := generateEnvSecretName(envVars.AppGUID)
 	return corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      envSecretName,
+			Name:      generateEnvSecretName(envVars.AppGUID),
 			Namespace: envVars.SpaceGUID,
 			Labels:    labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: APIVersion,
+					Kind:       Kind,
+					Name:       envVars.AppGUID,
+					UID:        envVars.AppEtcdUID,
+				},
+			},
 		},
 		StringData: envVars.EnvironmentVariables,
 	}
@@ -323,8 +344,9 @@ func appEnvVarsSecretToRecord(envVars corev1.Secret) AppEnvVarsRecord {
 
 func convertByteSliceValuesToStrings(inputMap map[string][]byte) map[string]string {
 	// StringData is a write-only field of a corev1.Secret, the real data lives in .Data and is []byte & base64 encoded
-	marshalledData, _ := json.Marshal(inputMap)
-	outputMap := make(map[string]string)
-	json.Unmarshal(marshalledData, &outputMap)
+	outputMap := make(map[string]string, len(inputMap))
+	for k, v := range inputMap {
+		outputMap[k] = string(v)
+	}
 	return outputMap
 }

@@ -30,6 +30,7 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 		domainRepo := new(repositories.DomainRepo)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
+		createApp := actions.NewCreateApp(appRepo).Invoke
 
 		apiHandler := NewAppHandler(
 			logf.Log.WithName("integration tests"),
@@ -40,6 +41,7 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 			routeRepo,
 			domainRepo,
 			scaleAppProcess,
+			createApp,
 			repositories.BuildCRClient,
 			k8sConfig,
 		)
@@ -48,8 +50,9 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 
 	When("on the happy path", func() {
 		var (
-			namespace *corev1.Namespace
-			resp      *http.Response
+			namespace                *corev1.Namespace
+			resp                     *http.Response
+			testEnvironmentVariables map[string]string
 		)
 
 		BeforeEach(func() {
@@ -59,7 +62,7 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 				k8sClient.Create(context.Background(), namespace),
 			).To(Succeed())
 
-			testEnvironmentVariables := map[string]string{"foo": "foo", "bar": "bar"}
+			testEnvironmentVariables = map[string]string{"foo": "foo", "bar": "bar"}
 			requestBody := initializeCreateAppRequestBody("my-test-app", namespace.Name, testEnvironmentVariables, nil, nil)
 
 			var err error
@@ -119,12 +122,13 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 				Name:      appRecord.Spec.EnvSecretName,
 				Namespace: namespace.Name,
 			}
-			var secretRecord corev1.Secret
+			var secretCR corev1.Secret
 			Eventually(func() error {
-				return k8sClient.Get(context.Background(), secretNSName, &secretRecord)
+				return k8sClient.Get(context.Background(), secretNSName, &secretCR)
 			}).Should(Succeed())
 
 			// TODO: test that the secret has the correct contents
+			Expect(secretCR.Data).To(HaveLen(len(testEnvironmentVariables)))
 		})
 	})
 })
