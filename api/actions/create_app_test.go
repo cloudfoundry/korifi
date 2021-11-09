@@ -2,7 +2,6 @@ package actions_test
 
 import (
 	"context"
-	"errors"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -100,19 +99,6 @@ var _ = Describe("CreateApp", func() {
 						Stack: "cflinuxfs3",
 					},
 				},
-			}))
-		})
-
-		It("invokes repo CreateOrPatchAppEnvVars", func() {
-			_, _ = action(context.Background(), client, payload)
-
-			Expect(appRepo.CreateOrPatchAppEnvVarsCallCount()).To(Equal(1))
-
-			_, _, message := appRepo.CreateOrPatchAppEnvVarsArgsForCall(0)
-			Expect(message).To(Equal(repositories.CreateOrPatchAppEnvVarsMessage{
-				AppGUID:              appGUID,
-				AppEtcdUID:           appEtcdUID,
-				SpaceGUID:            spaceGUID,
 				EnvironmentVariables: nil,
 			}))
 		})
@@ -152,32 +138,8 @@ var _ = Describe("CreateApp", func() {
 						Stack: "cflinuxfs3",
 					},
 				},
-			}))
-		})
-
-		It("invokes repo CreateOrPatchAppEnvVars", func() {
-			_, _ = action(context.Background(), client, payload)
-
-			Expect(appRepo.CreateOrPatchAppEnvVarsCallCount()).To(Equal(1))
-
-			_, _, message := appRepo.CreateOrPatchAppEnvVarsArgsForCall(0)
-			Expect(message).To(Equal(repositories.CreateOrPatchAppEnvVarsMessage{
-				AppGUID:              appGUID,
-				AppEtcdUID:           appEtcdUID,
-				SpaceGUID:            spaceGUID,
 				EnvironmentVariables: testEnvironmentVariables,
 			}))
-		})
-
-		When("the repository errors while creating the env vars", func() {
-			BeforeEach(func() {
-				appRepo.CreateOrPatchAppEnvVarsReturns(repositories.AppEnvVarsRecord{}, errors.New("intentional error"))
-			})
-
-			It("errors", func() {
-				_, err := action(context.Background(), client, payload)
-				Expect(err).To(MatchError(ContainSubstring("intentional error")))
-			})
 		})
 	})
 

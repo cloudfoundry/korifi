@@ -20,24 +20,8 @@ func NewCreateApp(appRepo CFAppRepository) *createApp {
 }
 
 func (a *createApp) Invoke(ctx context.Context, c client.Client, payload payloads.AppCreate) (repositories.AppRecord, error) {
+	// TODO: this action is so simple that we may want to inline it
 	appCreateMessage := payload.ToAppCreateMessage()
 
-	appRecord, err := a.appRepo.CreateApp(ctx, c, appCreateMessage)
-
-	if err != nil {
-		return repositories.AppRecord{}, err
-	}
-
-	envVarsMessage := repositories.CreateOrPatchAppEnvVarsMessage{
-		AppGUID:              appRecord.GUID,
-		AppEtcdUID:           appRecord.EtcdUID,
-		SpaceGUID:            appRecord.SpaceGUID,
-		EnvironmentVariables: payload.EnvironmentVariables,
-	}
-	_, err = a.appRepo.CreateOrPatchAppEnvVars(ctx, c, envVarsMessage)
-	if err != nil {
-		return repositories.AppRecord{}, err
-	}
-
-	return appRecord, nil
+	return a.appRepo.CreateApp(ctx, c, appCreateMessage)
 }

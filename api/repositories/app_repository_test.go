@@ -5,12 +5,12 @@ import (
 	"errors"
 	"time"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -334,89 +334,118 @@ var _ = Describe("AppRepository", func() {
 
 	Describe("CreateApp", func() {
 		const (
-			defaultNamespace = "default"
+			testAppName = "test-app-name"
+		)
+		var (
+			appCreateMessage AppCreateMessage
+			spaceGUID        string
 		)
 
-		When("creating an App record and", func() {
-			const (
-				testAppName = "test-app-name"
-			)
+		BeforeEach(func() {
+			spaceGUID = generateGUID()
 
+			Expect(k8sClient.Create(testCtx, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: spaceGUID},
+			})).To(Succeed())
+
+			appCreateMessage = initializeAppCreateMessage(testAppName, spaceGUID)
+		})
+
+		AfterEach(func() {
+			k8sClient.Delete(testCtx, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: spaceGUID},
+			})
+		})
+
+		It("creates a new app CR", func() {
+			createdAppRecord, err := appRepo.CreateApp(testCtx, client, appCreateMessage)
+			Expect(err).To(BeNil())
+			Expect(createdAppRecord).NotTo(BeNil())
+
+			cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: spaceGUID}
+			createdCFApp := new(workloadsv1alpha1.CFApp)
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), cfAppLookupKey, createdCFApp)
+			}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
+		})
+
+		It("returns an AppRecord with correct fields", func() {
+			createdAppRecord, err := appRepo.CreateApp(context.Background(), client, appCreateMessage)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createdAppRecord).NotTo(Equal(AppRecord{}))
+			Expect(createdAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
+			Expect(createdAppRecord.SpaceGUID).To(Equal(spaceGUID), "App SpaceGUID in record did not match input")
+			Expect(createdAppRecord.Name).To(Equal(testAppName), "App Name in record did not match input")
+
+			recordCreatedTime, err := time.Parse(TimestampFormat, createdAppRecord.CreatedAt)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), time.Second))
+
+			recordUpdatedTime, err := time.Parse(TimestampFormat, createdAppRecord.UpdatedAt)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), time.Second))
+		})
+
+		When("no environment variables are given", func() {
 			BeforeEach(func() {
-				testCtx = context.Background()
+				appCreateMessage.EnvironmentVariables = nil
 			})
 
-			When("app does not already exist", func() {
-				var (
-					appCreateMessage AppCreateMessage
-				)
+			It("creates an empty secret and sets the environment variable secret ref on the App", func() {
+				createdAppRecord, err := appRepo.CreateApp(testCtx, client, appCreateMessage)
+				Expect(err).To(BeNil())
+				Expect(createdAppRecord).NotTo(BeNil())
 
-				BeforeEach(func() {
-					appCreateMessage = initializeAppCreateMessage(testAppName, defaultNamespace)
-				})
+				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: spaceGUID}
+				createdCFApp := new(workloadsv1alpha1.CFApp)
+				Eventually(func() error {
+					return k8sClient.Get(context.Background(), cfAppLookupKey, createdCFApp)
+				}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
 
-				It("should create a new app CR successfully", func() {
-					createdAppRecord, err := appRepo.CreateApp(testCtx, client, appCreateMessage)
-					Expect(err).To(BeNil())
-					Expect(createdAppRecord).NotTo(BeNil())
+				Expect(createdCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
 
-					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: defaultNamespace}
-					createdCFApp := new(workloadsv1alpha1.CFApp)
-					Eventually(func() string {
-						err := k8sClient.Get(context.Background(), cfAppLookupKey, createdCFApp)
-						if err != nil {
-							return ""
-						}
-						return createdCFApp.Name
-					}, 10*time.Second, 250*time.Millisecond).Should(Equal(createdAppRecord.GUID))
-					cleanupApp(k8sClient, testCtx, createdAppRecord.GUID, defaultNamespace)
-				})
+				secretLookupKey := types.NamespacedName{Name: createdCFApp.Spec.EnvSecretName, Namespace: spaceGUID}
+				createdSecret := new(corev1.Secret)
+				Eventually(func() error {
+					return k8sClient.Get(context.Background(), secretLookupKey, createdSecret)
+				}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
 
-				When("an app is created with the repository", func() {
-					var (
-						beforeCreationTime time.Time
-						createdAppRecord   AppRecord
-					)
+				Expect(createdSecret.Data).To(BeEmpty())
+			})
+		})
 
-					BeforeEach(func() {
-						beforeCreationTime = time.Now().UTC().AddDate(0, 0, -1)
-
-						var err error
-						createdAppRecord, err = appRepo.CreateApp(context.Background(), client, appCreateMessage)
-						Expect(err).To(BeNil())
-					})
-
-					AfterEach(func() {
-						cleanupApp(k8sClient, context.Background(), createdAppRecord.GUID, defaultNamespace)
-					})
-
-					It("should return a non-empty AppRecord", func() {
-						Expect(createdAppRecord).NotTo(Equal(AppRecord{}))
-					})
-
-					It("should return an AppRecord with matching GUID, spaceGUID, and name", func() {
-						Expect(createdAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
-						Expect(createdAppRecord.SpaceGUID).To(Equal(defaultNamespace), "App SpaceGUID in record did not match input")
-						Expect(createdAppRecord.Name).To(Equal(testAppName), "App Name in record did not match input")
-					})
-
-					It("should return an AppRecord with CreatedAt and UpdatedAt fields that make sense", func() {
-						afterTestTime := time.Now().UTC().AddDate(0, 0, 1)
-						recordCreatedTime, err := time.Parse(TimestampFormat, createdAppRecord.CreatedAt)
-						Expect(err).To(BeNil(), "There was an error converting the createAppRecord CreatedTime to string")
-						recordUpdatedTime, err := time.Parse(TimestampFormat, createdAppRecord.UpdatedAt)
-						Expect(err).To(BeNil(), "There was an error converting the createAppRecord UpdatedTime to string")
-
-						Expect(recordCreatedTime.After(beforeCreationTime)).To(BeTrue(), "app record creation time was not after the expected creation time")
-						Expect(recordCreatedTime.Before(afterTestTime)).To(BeTrue(), "app record creation time was not before the expected testing time")
-
-						Expect(recordUpdatedTime.After(beforeCreationTime)).To(BeTrue(), "app record updated time was not after the expected creation time")
-						Expect(recordUpdatedTime.Before(afterTestTime)).To(BeTrue(), "app record updated time was not before the expected testing time")
-					})
-
-				})
+		When("environment variables are given", func() {
+			BeforeEach(func() {
+				appCreateMessage.EnvironmentVariables = map[string]string{
+					"FOO": "foo",
+					"BAR": "bar",
+				}
 			})
 
+			It("creates an secret for the environment variables and sets the ref on the App", func() {
+				createdAppRecord, err := appRepo.CreateApp(testCtx, client, appCreateMessage)
+				Expect(err).To(BeNil())
+				Expect(createdAppRecord).NotTo(BeNil())
+
+				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: spaceGUID}
+				createdCFApp := new(workloadsv1alpha1.CFApp)
+				Eventually(func() error {
+					return k8sClient.Get(context.Background(), cfAppLookupKey, createdCFApp)
+				}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
+
+				Expect(createdCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
+
+				secretLookupKey := types.NamespacedName{Name: createdCFApp.Spec.EnvSecretName, Namespace: spaceGUID}
+				createdSecret := new(corev1.Secret)
+				Eventually(func() error {
+					return k8sClient.Get(context.Background(), secretLookupKey, createdSecret)
+				}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
+
+				Expect(createdSecret.Data).To(MatchAllKeys(Keys{
+					"FOO": BeEquivalentTo("foo"),
+					"BAR": BeEquivalentTo("bar"),
+				}))
+			})
 		})
 	})
 

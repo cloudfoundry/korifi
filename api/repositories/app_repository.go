@@ -64,13 +64,6 @@ type LifecycleData struct {
 	Stack      string
 }
 
-type CreateOrPatchAppEnvVarsMessage struct {
-	AppGUID              string
-	AppEtcdUID           types.UID
-	SpaceGUID            string
-	EnvironmentVariables map[string]string
-}
-
 type AppEnvVarsRecord struct {
 	Name                 string
 	AppGUID              string
@@ -81,6 +74,35 @@ type AppEnvVarsRecord struct {
 type CurrentDropletRecord struct {
 	AppGUID     string
 	DropletGUID string
+}
+
+type AppCreateMessage struct {
+	Name                 string
+	SpaceGUID            string
+	Labels               map[string]string
+	Annotations          map[string]string
+	State                DesiredState
+	Lifecycle            Lifecycle
+	EnvironmentVariables map[string]string
+}
+
+type CreateOrPatchAppEnvVarsMessage struct {
+	AppGUID              string
+	AppEtcdUID           types.UID
+	SpaceGUID            string
+	EnvironmentVariables map[string]string
+}
+
+type SetCurrentDropletMessage struct {
+	AppGUID     string
+	DropletGUID string
+	SpaceGUID   string
+}
+
+type SetAppDesiredStateMessage struct {
+	AppGUID      string
+	SpaceGUID    string
+	DesiredState string
 }
 
 func (f *AppRepo) FetchApp(ctx context.Context, client client.Client, appGUID string) (AppRecord, error) {
@@ -118,6 +140,18 @@ func (f *AppRepo) CreateApp(ctx context.Context, client client.Client, appCreate
 	if err != nil {
 		return AppRecord{}, err
 	}
+
+	envVarsMessage := CreateOrPatchAppEnvVarsMessage{
+		AppGUID:              cfApp.Name,
+		AppEtcdUID:           cfApp.UID,
+		SpaceGUID:            cfApp.Namespace,
+		EnvironmentVariables: appCreateMessage.EnvironmentVariables,
+	}
+	_, err = f.CreateOrPatchAppEnvVars(ctx, client, envVarsMessage)
+	if err != nil {
+		return AppRecord{}, err
+	}
+
 	return cfAppToAppRecord(cfApp), err
 }
 
@@ -168,12 +202,6 @@ func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, client client.Cli
 	return appEnvVarsSecretToRecord(secretObj), nil
 }
 
-type SetCurrentDropletMessage struct {
-	AppGUID     string
-	DropletGUID string
-	SpaceGUID   string
-}
-
 func (f *AppRepo) SetCurrentDroplet(ctx context.Context, c client.Client, message SetCurrentDropletMessage) (CurrentDropletRecord, error) {
 	baseCFApp := &workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
@@ -195,12 +223,6 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, c client.Client, messag
 	}, nil
 }
 
-type SetAppDesiredStateMessage struct {
-	AppGUID      string
-	SpaceGUID    string
-	DesiredState string
-}
-
 func (f *AppRepo) SetAppDesiredState(ctx context.Context, c client.Client, message SetAppDesiredStateMessage) (AppRecord, error) {
 	baseCFApp := &workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
@@ -220,15 +242,6 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, c client.Client, messa
 
 func generateEnvSecretName(appGUID string) string {
 	return appGUID + "-env"
-}
-
-type AppCreateMessage struct {
-	Name        string
-	SpaceGUID   string
-	Labels      map[string]string
-	Annotations map[string]string
-	State       DesiredState
-	Lifecycle   Lifecycle
 }
 
 func (m *AppCreateMessage) toCFApp() workloadsv1alpha1.CFApp {
