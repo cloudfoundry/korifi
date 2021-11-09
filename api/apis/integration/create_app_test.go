@@ -127,8 +127,10 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 				return k8sClient.Get(context.Background(), secretNSName, &secretCR)
 			}).Should(Succeed())
 
-			// TODO: test that the secret has the correct contents
-			Expect(secretCR.Data).To(HaveLen(len(testEnvironmentVariables)))
+			Expect(secretCR.Data).To(MatchAllKeys(Keys{
+				"foo": BeEquivalentTo(testEnvironmentVariables["foo"]),
+				"bar": BeEquivalentTo(testEnvironmentVariables["bar"]),
+			}))
 		})
 	})
 })
