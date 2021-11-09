@@ -24,11 +24,6 @@ import (
 )
 
 var _ = Describe("Orgs", func() {
-	var (
-		serviceAccountName string
-		authHeader         string
-	)
-
 	createOrgWithHeaders := func(orgName string, headers map[string]string) (*http.Response, error) {
 		orgsUrl := apiServerRoot + "/v3/organizations"
 		body := fmt.Sprintf(`{ "name": "%s" }`, orgName)
@@ -40,16 +35,6 @@ var _ = Describe("Orgs", func() {
 		}
 		return http.DefaultClient.Do(req)
 	}
-
-	BeforeEach(func() {
-		serviceAccountName = generateGUID("user")
-		token := obtainServiceAccountToken(serviceAccountName)
-		authHeader = fmt.Sprintf("Bearer %s", token)
-	})
-
-	AfterEach(func() {
-		deleteServiceAccount(serviceAccountName)
-	})
 
 	Describe("creating orgs", func() {
 		var orgName string
@@ -223,47 +208,4 @@ func bindServiceAccountToOrg(userName string, org hierarchicalNamespace) {
 		RoleRef:  rbacv1.RoleRef{Kind: "ClusterRole", Name: "cf-admin-clusterrole"},
 	}
 	Expect(k8sClient.Create(context.Background(), roleBinding)).To(Succeed())
-}
-
-func obtainServiceAccountToken(name string) string {
-	var err error
-
-	serviceAccount := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: rootNamespace,
-		},
-	}
-	err = k8sClient.Create(context.Background(), &serviceAccount)
-	Expect(err).NotTo(HaveOccurred())
-
-	Eventually(func() error {
-		if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(&serviceAccount), &serviceAccount); err != nil {
-			return err
-		}
-
-		if len(serviceAccount.Secrets) != 1 {
-			return fmt.Errorf("expected exactly 1 secret, got %d", len(serviceAccount.Secrets))
-		}
-
-		return nil
-	}, "30s").Should(Succeed())
-
-	tokenSecret := corev1.Secret{}
-	Eventually(func() error {
-		return k8sClient.Get(context.Background(), client.ObjectKey{Name: serviceAccount.Secrets[0].Name, Namespace: rootNamespace}, &tokenSecret)
-	}).Should(Succeed())
-
-	return string(tokenSecret.Data["token"])
-}
-
-func deleteServiceAccount(name string) {
-	serviceAccount := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: rootNamespace,
-		},
-	}
-
-	Expect(k8sClient.Delete(context.Background(), &serviceAccount)).To(Succeed())
 }

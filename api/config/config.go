@@ -1,7 +1,11 @@
 package config
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -15,7 +19,8 @@ type Config struct {
 
 	DefaultLifecycleConfig DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
 
-	AuthEnabled bool `yaml:"authEnabled"`
+	AuthEnabled  bool              `yaml:"authEnabled"`
+	RoleMappings map[string]string `yaml:"roleMappings"`
 }
 
 // DefaultLifecycleConfig contains default values of the Lifecycle block of CFApps and Builds created by the Shim
@@ -28,12 +33,29 @@ type DefaultLifecycleConfig struct {
 
 func LoadFromPath(path string) (*Config, error) {
 	var config Config
-	configFile, err := os.Open(path)
+
+	items, err := ioutil.ReadDir(path)
 	if err != nil {
-		return &config, err
+		return nil, fmt.Errorf("error reading config dir %q: %w", path, err)
 	}
-	defer configFile.Close()
-	decoder := yaml.NewDecoder(configFile)
-	err = decoder.Decode(&config)
-	return &config, err
+
+	for _, item := range items {
+		fileName := item.Name()
+		if item.IsDir() || strings.HasPrefix(fileName, ".") {
+			continue
+		}
+
+		configFile, err := os.Open(filepath.Join(path, fileName))
+		if err != nil {
+			return &config, fmt.Errorf("failed to open file: %w", err)
+		}
+		defer configFile.Close()
+
+		decoder := yaml.NewDecoder(configFile)
+		if err = decoder.Decode(&config); err != nil {
+			return nil, fmt.Errorf("failed decoding %q: %w", item.Name(), err)
+		}
+	}
+
+	return &config, nil
 }

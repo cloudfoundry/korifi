@@ -53,7 +53,7 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 		UpdatedAt: responseApp.UpdatedAt,
 		Relationships: Relationships{
 			"space": Relationship{
-				Data: RelationshipData{
+				Data: &RelationshipData{
 					GUID: responseApp.SpaceGUID,
 				},
 			},
@@ -151,7 +151,7 @@ type CurrentDropletLinks struct {
 func ForCurrentDroplet(record repositories.CurrentDropletRecord, baseURL url.URL) CurrentDropletResponse {
 	return CurrentDropletResponse{
 		Relationship: Relationship{
-			Data: RelationshipData{
+			Data: &RelationshipData{
 				GUID: record.DropletGUID,
 			},
 		},

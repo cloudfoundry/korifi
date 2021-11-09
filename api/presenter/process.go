@@ -117,7 +117,7 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 		},
 		Relationships: map[string]Relationship{
 			"app": {
-				Data: RelationshipData{
+				Data: &RelationshipData{
 					GUID: responseProcess.AppGUID,
 				},
 			},

@@ -50,7 +50,7 @@ func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL) BuildRespon
 		Droplet: nil,
 		Relationships: Relationships{
 			"app": Relationship{
-				Data: RelationshipData{
+				Data: &RelationshipData{
 					GUID: buildRecord.AppGUID,
 				},
 			},

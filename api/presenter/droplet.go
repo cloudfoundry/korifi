@@ -55,7 +55,7 @@ func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL) Dropl
 		Stack:             dropletRecord.Stack,
 		Relationships: Relationships{
 			"app": Relationship{
-				Data: RelationshipData{
+				Data: &RelationshipData{
 					GUID: dropletRecord.AppGUID,
 				},
 			},

@@ -1442,6 +1442,12 @@ rules:
   - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cf-k8s-controllers-space-developer
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: cf-k8s-controllers-leader-election-rolebinding

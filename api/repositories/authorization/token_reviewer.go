@@ -11,6 +11,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
+
 const (
 	serviceAccountsGroup     = "system:serviceaccounts"
 	serviceAccountNamePrefix = "system:serviceaccount:"

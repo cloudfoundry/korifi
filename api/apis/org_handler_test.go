@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 	"time"
@@ -16,7 +15,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 	"github.com/go-http-utils/headers"
-	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,7 +29,6 @@ const (
 var _ = Describe("OrgHandler", func() {
 	var (
 		ctx             context.Context
-		router          *mux.Router
 		orgHandler      *apis.OrgHandler
 		orgRepoProvider *fake.OrgRepositoryProvider
 		orgRepo         *fake.CFOrgRepository
@@ -47,14 +44,8 @@ var _ = Describe("OrgHandler", func() {
 		orgRepo = new(fake.CFOrgRepository)
 		orgRepoProvider.OrgRepoForRequestReturns(orgRepo, nil)
 
-		serverURL, err := url.Parse(defaultServerURL)
-		Expect(err).NotTo(HaveOccurred())
-
 		orgHandler = apis.NewOrgHandler(*serverURL, orgRepoProvider)
-		router = mux.NewRouter()
 		orgHandler.RegisterRoutes(router)
-
-		rr = httptest.NewRecorder()
 	})
 
 	Describe("Create Org", func() {

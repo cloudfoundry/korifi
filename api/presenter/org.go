@@ -122,7 +122,7 @@ func toSpaceResponse(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceRe
 		},
 		Relationships: Relationships{
 			"organization": Relationship{
-				Data: RelationshipData{
+				Data: &RelationshipData{
 					GUID: space.OrganizationGUID,
 				},
 			},

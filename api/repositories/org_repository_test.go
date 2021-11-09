@@ -32,25 +32,6 @@ var _ = Describe("OrgRepository", func() {
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, time.Millisecond*500)
 	})
 
-	createOrgAnchor := func(name string) *hnsv1alpha2.SubnamespaceAnchor {
-		guid := uuid.New().String()
-		org := &hnsv1alpha2.SubnamespaceAnchor{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      guid,
-				Namespace: rootNamespace,
-				Labels:    map[string]string{repositories.OrgNameLabel: name},
-			},
-			Status: hnsv1alpha2.SubnamespaceAnchorStatus{
-				State: hnsv1alpha2.Ok,
-			},
-		}
-
-		Expect(k8sClient.Create(ctx, org)).To(Succeed())
-		Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org.Name}})).To(Succeed())
-
-		return org
-	}
-
 	Describe("Create", func() {
 		updateStatus := func(anchorNamespace, anchorName string) {
 			defer GinkgoRecover()
@@ -120,7 +101,7 @@ var _ = Describe("OrgRepository", func() {
 			var org *hnsv1alpha2.SubnamespaceAnchor
 
 			BeforeEach(func() {
-				org = createOrgAnchor("org")
+				org = createOrgAnchorAndNamespace(ctx, rootNamespace, "org")
 			})
 
 			It("creates a subnamespace anchor in the org namespace", func() {
@@ -183,9 +164,9 @@ var _ = Describe("OrgRepository", func() {
 		BeforeEach(func() {
 			ctx = context.Background()
 
-			org1Anchor = createOrgAnchor("org1")
-			org2Anchor = createOrgAnchor("org2")
-			org3Anchor = createOrgAnchor("org3")
+			org1Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org1")
+			org2Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org2")
+			org3Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org3")
 		})
 
 		Describe("Orgs", func() {
@@ -263,33 +244,15 @@ var _ = Describe("OrgRepository", func() {
 		Describe("Spaces", func() {
 			var space11Anchor, space12Anchor, space21Anchor, space22Anchor, space31Anchor, space32Anchor *hnsv1alpha2.SubnamespaceAnchor
 
-			createSpaceAnchor := func(name, orgName string) *hnsv1alpha2.SubnamespaceAnchor {
-				guid := uuid.New().String()
-				space := &hnsv1alpha2.SubnamespaceAnchor{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      guid,
-						Namespace: orgName,
-						Labels:    map[string]string{repositories.SpaceNameLabel: name},
-					},
-					Status: hnsv1alpha2.SubnamespaceAnchorStatus{
-						State: hnsv1alpha2.Ok,
-					},
-				}
-
-				Expect(k8sClient.Create(ctx, space)).To(Succeed())
-
-				return space
-			}
-
 			BeforeEach(func() {
-				space11Anchor = createSpaceAnchor("space1", org1Anchor.Name)
-				space12Anchor = createSpaceAnchor("space2", org1Anchor.Name)
+				space11Anchor = createSpaceAnchorAndNamespace(ctx, org1Anchor.Name, "space1")
+				space12Anchor = createSpaceAnchorAndNamespace(ctx, org1Anchor.Name, "space2")
 
-				space21Anchor = createSpaceAnchor("space1", org2Anchor.Name)
-				space22Anchor = createSpaceAnchor("space3", org2Anchor.Name)
+				space21Anchor = createSpaceAnchorAndNamespace(ctx, org2Anchor.Name, "space1")
+				space22Anchor = createSpaceAnchorAndNamespace(ctx, org2Anchor.Name, "space3")
 
-				space31Anchor = createSpaceAnchor("space1", org3Anchor.Name)
-				space32Anchor = createSpaceAnchor("space4", org3Anchor.Name)
+				space31Anchor = createSpaceAnchorAndNamespace(ctx, org3Anchor.Name, "space1")
+				space32Anchor = createSpaceAnchorAndNamespace(ctx, org3Anchor.Name, "space4")
 			})
 
 			It("returns the 6 spaces", func() {

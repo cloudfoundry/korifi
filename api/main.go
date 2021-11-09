@@ -160,6 +160,8 @@ func main() {
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),
+
+		apis.NewRoleHandler(*serverURL, repositories.NewRoleRepo(privilegedCRClient, authorization.NewOrg(privilegedCRClient), config.RoleMappings)),
 	}
 
 	router := mux.NewRouter()

@@ -84,7 +84,7 @@ run-controllers: manifests-controllers generate-controllers fmt vet ## Run a con
 	CONFIG=$(shell pwd)/controllers/config/base/cf_k8s_controllers_config.yaml ENABLE_WEBHOOKS=false go run ./controllers/main.go
 
 run-api: fmt vet
-	CONFIG=$(shell pwd)/api/config/base/cf_k8s_api_config.yaml go run ./api/main.go
+	CONFIG=$(shell pwd)/api/config/base/config go run ./api/main.go
 
 docker-build: docker-build-controllers docker-build-api
 

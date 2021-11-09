@@ -1,3 +1,4 @@
+# syntax = docker/dockerfile:experimental
 FROM golang:1.17.2 as builder
 
 WORKDIR /workspace
@@ -10,7 +11,8 @@ COPY controllers/controllers controllers/controllers/
 COPY controllers/webhooks controllers/webhooks/
 COPY controllers/config/config.go controllers/config/
 COPY controllers/main.go controllers/
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager controllers/main.go
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o manager controllers/main.go
 
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /

@@ -1,4 +1,0 @@
-serverURL: http://localhost
-serverPort: 9000
-rootNamespace: cf-k8s-api-system
-authEnabled: true
