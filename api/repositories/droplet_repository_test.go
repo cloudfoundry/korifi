@@ -140,6 +140,7 @@ var _ = Describe("DropletRepository", func() {
 						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 					})
 
+					// TODO: Fix these failing UpdatedAt assertions or remove these tests
 					By("returning a record with a UpdatedAt field from the CR", func() {
 						updatedAt, err := time.Parse(time.RFC3339, dropletRecord.UpdatedAt)
 						Expect(err).NotTo(HaveOccurred())

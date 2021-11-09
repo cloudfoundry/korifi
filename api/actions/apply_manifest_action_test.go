@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
@@ -19,16 +21,18 @@ var _ = Describe("ApplyManifest", func() {
 		appName   = "my-app"
 	)
 	var (
-		manifest payloads.SpaceManifestApply
-		action   *ApplyManifest
-		appRepo  *fake.CFAppRepository
-		client   *fake.Client
+		manifest  payloads.SpaceManifestApply
+		action    func(context.Context, client.Client, string, payloads.SpaceManifestApply) error
+		appRepo   *fake.CFAppRepository
+		createApp *fake.CreateAppFunc
+		k8sClient *fake.Client
 	)
 
 	BeforeEach(func() {
 		appRepo = new(fake.CFAppRepository)
-		client = new(fake.Client)
-		action = NewApplyManifest(appRepo)
+		createApp = new(fake.CreateAppFunc)
+		k8sClient = new(fake.Client)
+		action = NewApplyManifest(appRepo, createApp.Spy).Invoke
 		manifest = payloads.SpaceManifestApply{
 			Version: 1,
 			Applications: []payloads.SpaceManifestApplyApplication{
@@ -37,77 +41,60 @@ var _ = Describe("ApplyManifest", func() {
 		}
 	})
 
-	When("on the happy path", func() {
-		It("fetches the App using the correct name and space", func() {
-			Expect(
-				action.Invoke(context.Background(), client, spaceGUID, manifest),
-			).To(Succeed())
-
-			Expect(appRepo.AppExistsWithNameAndSpaceCallCount()).To(Equal(1))
-			_, _, actualAppName, actualSpaceGUID := appRepo.AppExistsWithNameAndSpaceArgsForCall(0)
-			Expect(actualAppName).To(Equal(appName))
-			Expect(actualSpaceGUID).To(Equal(spaceGUID))
-		})
-
-		When("the app in the manifest doesn't exist", func() {
-			BeforeEach(func() {
-				appRepo.AppExistsWithNameAndSpaceReturns(false, nil)
-			})
-
-			It("creates the App with the correct name", func() {
-				Expect(
-					action.Invoke(context.Background(), client, spaceGUID, manifest),
-				).To(Succeed())
-
-				Expect(appRepo.CreateAppCallCount()).To(Equal(1))
-				_, _, appRecord := appRepo.CreateAppArgsForCall(0)
-				Expect(appRecord.Name).To(Equal(appName))
-				Expect(appRecord.SpaceGUID).To(Equal(spaceGUID))
-			})
-		})
-
-		When("the app in the manifest already exists", func() {
-			BeforeEach(func() {
-				appRepo.AppExistsWithNameAndSpaceReturns(true, nil)
-			})
-
-			It("doesn't attempt to create the App", func() {
-				Expect(
-					action.Invoke(context.Background(), client, spaceGUID, manifest),
-				).To(Succeed())
-
-				Expect(appRepo.CreateAppCallCount()).To(Equal(0))
-			})
-		})
-	})
-
 	When("fetching the app errors", func() {
 		BeforeEach(func() {
-			appRepo.AppExistsWithNameAndSpaceReturns(false, errors.New("boom"))
+			appRepo.FetchAppByNameAndSpaceReturns(repositories.AppRecord{}, errors.New("boom"))
 		})
 
 		It("returns an error", func() {
 			Expect(
-				action.Invoke(context.Background(), client, spaceGUID, manifest),
+				action(context.Background(), k8sClient, spaceGUID, manifest),
 			).To(MatchError(ContainSubstring("boom")))
 		})
 
 		It("doesn't create an App", func() {
-			_ = action.Invoke(context.Background(), client, spaceGUID, manifest)
+			_ = action(context.Background(), k8sClient, spaceGUID, manifest)
 
-			Expect(appRepo.CreateAppCallCount()).To(Equal(0))
+			Expect(createApp.CallCount()).To(Equal(0))
 		})
 	})
 
-	When("creating the app errors", func() {
+	When("the app does not exist", func() {
 		BeforeEach(func() {
-			appRepo.CreateAppReturns(repositories.AppRecord{}, errors.New("boom"))
+			appRepo.FetchAppByNameAndSpaceReturns(repositories.AppRecord{}, repositories.NotFoundError{ResourceType: "App"})
 		})
 
-		It("returns an error", func() {
-			Expect(
-				action.Invoke(context.Background(), client, spaceGUID, manifest),
-			).To(MatchError(ContainSubstring("boom")))
+		When("creating the app errors", func() {
+			BeforeEach(func() {
+				createApp.Returns(repositories.AppRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				Expect(
+					action(context.Background(), k8sClient, spaceGUID, manifest),
+				).To(MatchError(ContainSubstring("boom")))
+			})
+		})
+	})
+
+	When("the app exists", func() {
+		var appRecord repositories.AppRecord
+
+		BeforeEach(func() {
+			appRecord = repositories.AppRecord{GUID: "my-app-guid", Name: appName, SpaceGUID: spaceGUID}
+			appRepo.FetchAppByNameAndSpaceReturns(appRecord, nil)
+		})
+
+		When("updating the env vars errors", func() {
+			BeforeEach(func() {
+				appRepo.CreateOrPatchAppEnvVarsReturns(repositories.AppEnvVarsRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				Expect(
+					action(context.Background(), k8sClient, spaceGUID, manifest),
+				).To(MatchError(ContainSubstring("boom")))
+			})
 		})
 	})
 })

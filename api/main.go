@@ -80,6 +80,7 @@ func main() {
 	}
 	scaleProcessAction := actions.NewScaleProcess(new(repositories.ProcessRepository))
 	scaleAppProcessAction := actions.NewScaleAppProcess(new(repositories.AppRepo), new(repositories.ProcessRepository), scaleProcessAction.Invoke)
+	createAppAction := actions.NewCreateApp(new(repositories.AppRepo))
 
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout)
 	handlers := []APIHandler{
@@ -98,6 +99,7 @@ func main() {
 			new(repositories.RouteRepo),
 			new(repositories.DomainRepo),
 			scaleAppProcessAction.Invoke,
+			createAppAction.Invoke,
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),
@@ -162,7 +164,7 @@ func main() {
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
-			actions.NewApplyManifest(new(repositories.AppRepo)).Invoke,
+			actions.NewApplyManifest(new(repositories.AppRepo), createAppAction.Invoke).Invoke,
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
 			repositories.BuildCRClient,
 			k8sClientConfig,

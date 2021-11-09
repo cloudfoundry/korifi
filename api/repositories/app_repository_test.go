@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -112,24 +113,21 @@ var _ = Describe("AppRepository", func() {
 			It("can fetch the AppRecord CR we're looking for", func() {
 				app, err := appRepo.FetchApp(testCtx, client, app2GUID)
 				Expect(err).NotTo(HaveOccurred())
+
 				Expect(app.GUID).To(Equal(app2GUID))
+				Expect(app.EtcdUID).To(Equal(cfApp2.GetUID()))
 				Expect(app.Name).To(Equal("test-app2"))
 				Expect(app.SpaceGUID).To(Equal(namespace2.Name))
 				Expect(app.State).To(Equal(DesiredState("STOPPED")))
-
-				By("returning a record with the App's DropletGUID when it is set", func() {
-					Expect(app.DropletGUID).To(Equal(app2DropletGUID))
-				})
-
-				expectedLifecycle := Lifecycle{
+				Expect(app.DropletGUID).To(Equal(app2DropletGUID))
+				Expect(app.Lifecycle).To(Equal(Lifecycle{
+					Type: "buildpack",
 					Data: LifecycleData{
 						Buildpacks: []string{"java"},
 						Stack:      "",
 					},
-				}
-				Expect(app.Lifecycle).To(Equal(expectedLifecycle))
+				}))
 			})
-
 		})
 
 		When("duplicate Apps exist across namespaces with the same GUIDs", func() {
@@ -202,7 +200,7 @@ var _ = Describe("AppRepository", func() {
 		})
 	})
 
-	Describe("AppExistsWithNameAndSpace", func() {
+	Describe("FetchAppByNameAndSpace", func() {
 		const appName = "test-app1"
 		var (
 			namespace      *corev1.Namespace
@@ -235,18 +233,24 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		When("the App exists in the Space", func() {
-			It("returns true", func() {
-				exists, err := appRepo.AppExistsWithNameAndSpace(context.Background(), client, appName, namespace.Name)
+			It("returns the record", func() {
+				appRecord, err := appRepo.FetchAppByNameAndSpace(context.Background(), client, appName, namespace.Name)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(exists).To(BeTrue())
-			})
-		})
 
-		When("the App doesn't exist in the Space (but is in another Space)", func() {
-			It("returns false", func() {
-				exists, err := appRepo.AppExistsWithNameAndSpace(context.Background(), client, appName, otherNamespace.Name)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(exists).To(BeFalse())
+				Expect(appRecord.Name).To(Equal(appName))
+				Expect(appRecord.GUID).To(Equal(cfApp.Name))
+				Expect(appRecord.EtcdUID).To(Equal(cfApp.UID))
+				Expect(appRecord.SpaceGUID).To(Equal(namespace.Name))
+				Expect(appRecord.State).To(BeEquivalentTo("STOPPED"))
+				Expect(appRecord.Lifecycle).To(Equal(Lifecycle{Type: "buildpack"}))
+				//Expect(appRecord.CreatedAt).To(Equal()) "",
+			})
+
+			When("the App doesn't exist in the Space (but is in another Space)", func() {
+				It("returns a NotFoundError", func() {
+					_, err := appRepo.FetchAppByNameAndSpace(context.Background(), client, appName, otherNamespace.Name)
+					Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
+				})
 			})
 		})
 	})
@@ -416,48 +420,65 @@ var _ = Describe("AppRepository", func() {
 		})
 	})
 
-	Describe("CreateAppEnvSecret", func() {
+	Describe("CreateOrPatchAppEnvVars", func() {
 		const (
+			testAppName      = "some-app-name"
 			defaultNamespace = "default"
+			key1             = "KEY1"
+			key2             = "KEY2"
 		)
 
-		When("an envSecret is created for a CFApp with the Repo", func() {
-			var (
-				testAppGUID              string
-				testAppEnvSecretName     string
-				testAppEnvSecret         AppEnvVarsRecord
-				returnedAppEnvVarsRecord AppEnvVarsRecord
-				returnedErr              error
-			)
+		var (
+			testAppGUID              string
+			cfAppCR                  *workloadsv1alpha1.CFApp
+			testAppEnvSecretName     string
+			requestEnvVars           map[string]string
+			testAppEnvSecret         CreateOrPatchAppEnvVarsMessage
+			returnedAppEnvVarsRecord AppEnvVarsRecord
+			returnedErr              error
+		)
 
-			BeforeEach(func() {
-				testAppGUID = generateGUID()
-				testAppEnvSecretName = generateAppEnvSecretName(testAppGUID)
-				testAppEnvSecret = AppEnvVarsRecord{
-					AppGUID:              testAppGUID,
-					SpaceGUID:            defaultNamespace,
-					EnvironmentVariables: map[string]string{"foo": "foo", "bar": "bar"},
-				}
+		BeforeEach(func() {
+			testAppGUID = generateGUID()
+			cfAppCR = initializeAppCR(testAppName, testAppGUID, defaultNamespace)
+			Expect(
+				k8sClient.Create(context.Background(), cfAppCR),
+			).To(Succeed())
 
-				returnedAppEnvVarsRecord, returnedErr = appRepo.CreateAppEnvironmentVariables(context.Background(), client, testAppEnvSecret)
-			})
+			testAppEnvSecretName = generateAppEnvSecretName(testAppGUID)
+			requestEnvVars = map[string]string{
+				key1: "VAL1",
+				key2: "VAL2",
+			}
+			testAppEnvSecret = CreateOrPatchAppEnvVarsMessage{
+				AppGUID:              testAppGUID,
+				AppEtcdUID:           cfAppCR.GetUID(),
+				SpaceGUID:            defaultNamespace,
+				EnvironmentVariables: requestEnvVars,
+			}
+		})
 
-			AfterEach(func() {
-				lookupSecretK8sResource := corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      testAppEnvSecretName,
-						Namespace: defaultNamespace,
-					},
-				}
-				Expect(
-					client.Delete(context.Background(), &lookupSecretK8sResource),
-				).To(Succeed(), "Could not clean up the created App Env Secret")
-			})
+		JustBeforeEach(func() {
+			returnedAppEnvVarsRecord, returnedErr = appRepo.CreateOrPatchAppEnvVars(context.Background(), client, testAppEnvSecret)
+		})
 
+		AfterEach(func() {
+			lookupSecretK8sResource := corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testAppEnvSecretName,
+					Namespace: defaultNamespace,
+				},
+			}
+			Expect(
+				client.Delete(context.Background(), &lookupSecretK8sResource),
+			).To(Succeed(), "Could not clean up the created App Env Secret")
+		})
+
+		When("the secret doesn't already exist", func() {
 			It("returns a record matching the input and no error", func() {
 				Expect(returnedAppEnvVarsRecord.AppGUID).To(Equal(testAppEnvSecret.AppGUID))
 				Expect(returnedAppEnvVarsRecord.SpaceGUID).To(Equal(testAppEnvSecret.SpaceGUID))
-				Expect(len(returnedAppEnvVarsRecord.EnvironmentVariables)).To(Equal(len(testAppEnvSecret.EnvironmentVariables)))
+				Expect(returnedAppEnvVarsRecord.EnvironmentVariables).To(HaveLen(len(testAppEnvSecret.EnvironmentVariables)))
 				Expect(returnedErr).To(BeNil())
 			})
 
@@ -469,57 +490,100 @@ var _ = Describe("AppRepository", func() {
 				// Used a strings.Trim to remove characters, which cause the behavior in Issue #103
 				testAppEnvSecret.AppGUID = "estringtrimmedguid"
 
-				returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateAppEnvironmentVariables(testCtx, client, testAppEnvSecret)
+				returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateOrPatchAppEnvVars(testCtx, client, testAppEnvSecret)
 				Expect(returnedUpdatedErr).ToNot(HaveOccurred())
 				Expect(returnedUpdatedAppEnvVarsRecord.AppGUID).To(Equal(testAppEnvSecret.AppGUID), "Expected App GUID to match after transform")
 			})
 
-			When("examining the created Secret in the k8s api", func() {
-				var (
-					createdCFAppSecret corev1.Secret
-				)
+			It("eventually creates a secret that matches the request record", func() {
+				cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: defaultNamespace}
+				createdCFAppSecret := &corev1.Secret{}
+				Eventually(func() bool {
+					err := client.Get(context.Background(), cfAppSecretLookupKey, createdCFAppSecret)
+					if err != nil {
+						return false
+					}
+					return true
+				}, timeCheckThreshold*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not find the secret created by the repo")
 
-				BeforeEach(func() {
-					cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: defaultNamespace}
-					createdCFAppSecret = corev1.Secret{}
-					Eventually(func() bool {
-						err := client.Get(context.Background(), cfAppSecretLookupKey, &createdCFAppSecret)
-						if err != nil {
-							return false
-						}
-						return true
-					}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not find the secret created by the repo")
-				})
+				// Secret has an owner reference that points to the App CR
+				Expect(createdCFAppSecret.OwnerReferences)
+				Expect(createdCFAppSecret.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+					{
+						APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+						Kind:       "CFApp",
+						Name:       cfAppCR.Name,
+						UID:        cfAppCR.GetUID(),
+					},
+				}))
 
-				It("is not empty", func() {
-					Expect(createdCFAppSecret).ToNot(Equal(corev1.Secret{}))
-				})
+				Expect(createdCFAppSecret).ToNot(BeZero())
+				Expect(createdCFAppSecret.Name).To(Equal(testAppEnvSecretName))
+				Expect(createdCFAppSecret.Labels).To(HaveKeyWithValue(CFAppGUIDLabel, testAppGUID))
+				Expect(createdCFAppSecret.Data).To(HaveLen(len(testAppEnvSecret.EnvironmentVariables)))
+			})
+		})
 
-				It("has a Name that is derived from the CFApp", func() {
-					Expect(createdCFAppSecret.Name).To(Equal(testAppEnvSecretName))
-				})
-
-				It("has a label that matches the CFApp GUID", func() {
-					labelValue, exists := createdCFAppSecret.Labels[CFAppGUIDLabel]
-					Expect(exists).To(BeTrue(), "label for envSecret AppGUID not found")
-					Expect(labelValue).To(Equal(testAppGUID))
-				})
-
-				It("contains string data that matches the input record length", func() {
-					Expect(len(createdCFAppSecret.Data)).To(Equal(len(testAppEnvSecret.EnvironmentVariables)))
-				})
+		When("the secret does exist", func() {
+			const (
+				key0              = "KEY0"
+				expectedMapLength = 3
+			)
+			var originalEnvVars map[string]string
+			BeforeEach(func() {
+				originalEnvVars = map[string]string{
+					key0: "VAL0",
+					key1: "original-value", // This variable will change after the manifest is applied
+				}
+				originalSecret := corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      testAppEnvSecretName,
+						Namespace: defaultNamespace,
+						Labels: map[string]string{
+							CFAppGUIDLabel: testAppGUID,
+						},
+					},
+					StringData: originalEnvVars,
+				}
+				Expect(
+					client.Create(context.Background(), &originalSecret),
+				).To(Succeed())
 			})
 
-			When("the secret already exists", func() {
-				BeforeEach(func() {
-					testAppEnvSecret.EnvironmentVariables = map[string]string{"foo": "foo", "bar": "bar"}
-				})
+			It("returns a record matching the input and no error", func() {
+				Expect(returnedErr).NotTo(HaveOccurred())
+				Expect(returnedAppEnvVarsRecord.AppGUID).To(Equal(testAppEnvSecret.AppGUID))
+				Expect(returnedAppEnvVarsRecord.Name).ToNot(BeEmpty())
+				Expect(returnedAppEnvVarsRecord.SpaceGUID).To(Equal(testAppEnvSecret.SpaceGUID))
+				Expect(returnedAppEnvVarsRecord.EnvironmentVariables).To(Equal(map[string]string{
+					key0: originalEnvVars[key0],
+					key1: requestEnvVars[key1],
+					key2: requestEnvVars[key2],
+				}))
+			})
 
-				It("returns an error if the secret already exists", func() {
-					_, err := appRepo.CreateAppEnvironmentVariables(testCtx, client, testAppEnvSecret)
-					Expect(err).To(HaveOccurred())
-					Expect(err).To(MatchError(ContainSubstring("already exists")))
-				})
+			It("eventually creates a secret that matches the request record", func() {
+				cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: defaultNamespace}
+
+				var updatedSecret corev1.Secret
+				Eventually(func() error {
+					err := k8sClient.Get(context.Background(), cfAppSecretLookupKey, &updatedSecret)
+					if err == nil && len(updatedSecret.Data) != expectedMapLength {
+						return errors.New("the data entries in the secret were not updated")
+					}
+					return err
+				}, timeCheckThreshold*time.Second).Should(Succeed())
+
+				Expect(updatedSecret).ToNot(BeZero())
+				Expect(updatedSecret.Name).To(Equal(testAppEnvSecretName))
+				Expect(updatedSecret.Labels).To(HaveKeyWithValue(CFAppGUIDLabel, testAppGUID))
+				Expect(updatedSecret.Data).To(HaveLen(expectedMapLength))
+				Expect(updatedSecret.Data).To(HaveKey(key1))
+				Expect(string(updatedSecret.Data[key1])).To(Equal(requestEnvVars[key1]))
+				Expect(updatedSecret.Data).To(HaveKey(key2))
+				Expect(string(updatedSecret.Data[key2])).To(Equal(requestEnvVars[key2]))
+				Expect(updatedSecret.Data).To(HaveKey(key0))
+				Expect(string(updatedSecret.Data[key0])).To(Equal(originalEnvVars[key0]))
 			})
 		})
 	})
@@ -727,5 +791,4 @@ var _ = Describe("AppRepository", func() {
 			})
 		})
 	})
-
 })

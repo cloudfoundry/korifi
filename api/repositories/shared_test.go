@@ -93,10 +93,9 @@ func initializeDropletCR(dropletGUID, appGUID, spaceGUID string) workloadsv1alph
 
 func initializeAppCreateMessage(appName string, spaceGUID string) AppCreateMessage {
 	return AppCreateMessage{
-		Name:       appName,
-		HasEnvVars: false,
-		SpaceGUID:  spaceGUID,
-		State:      "STOPPED",
+		Name:      appName,
+		SpaceGUID: spaceGUID,
+		State:     "STOPPED",
 		Lifecycle: Lifecycle{
 			Type: "buildpack",
 			Data: LifecycleData{

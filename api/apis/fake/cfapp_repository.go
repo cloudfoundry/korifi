@@ -26,18 +26,18 @@ type CFAppRepository struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
-	CreateAppEnvironmentVariablesStub        func(context.Context, client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
-	createAppEnvironmentVariablesMutex       sync.RWMutex
-	createAppEnvironmentVariablesArgsForCall []struct {
+	CreateOrPatchAppEnvVarsStub        func(context.Context, client.Client, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
+	createOrPatchAppEnvVarsMutex       sync.RWMutex
+	createOrPatchAppEnvVarsArgsForCall []struct {
 		arg1 context.Context
 		arg2 client.Client
-		arg3 repositories.AppEnvVarsRecord
+		arg3 repositories.CreateOrPatchAppEnvVarsMessage
 	}
-	createAppEnvironmentVariablesReturns struct {
+	createOrPatchAppEnvVarsReturns struct {
 		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}
-	createAppEnvironmentVariablesReturnsOnCall map[int]struct {
+	createOrPatchAppEnvVarsReturnsOnCall map[int]struct {
 		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}
@@ -53,6 +53,22 @@ type CFAppRepository struct {
 		result2 error
 	}
 	fetchAppReturnsOnCall map[int]struct {
+		result1 repositories.AppRecord
+		result2 error
+	}
+	FetchAppByNameAndSpaceStub        func(context.Context, client.Client, string, string) (repositories.AppRecord, error)
+	fetchAppByNameAndSpaceMutex       sync.RWMutex
+	fetchAppByNameAndSpaceArgsForCall []struct {
+		arg1 context.Context
+		arg2 client.Client
+		arg3 string
+		arg4 string
+	}
+	fetchAppByNameAndSpaceReturns struct {
+		result1 repositories.AppRecord
+		result2 error
+	}
+	fetchAppByNameAndSpaceReturnsOnCall map[int]struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
@@ -185,18 +201,18 @@ func (fake *CFAppRepository) CreateAppReturnsOnCall(i int, result1 repositories.
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) CreateAppEnvironmentVariables(arg1 context.Context, arg2 client.Client, arg3 repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error) {
-	fake.createAppEnvironmentVariablesMutex.Lock()
-	ret, specificReturn := fake.createAppEnvironmentVariablesReturnsOnCall[len(fake.createAppEnvironmentVariablesArgsForCall)]
-	fake.createAppEnvironmentVariablesArgsForCall = append(fake.createAppEnvironmentVariablesArgsForCall, struct {
+func (fake *CFAppRepository) CreateOrPatchAppEnvVars(arg1 context.Context, arg2 client.Client, arg3 repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error) {
+	fake.createOrPatchAppEnvVarsMutex.Lock()
+	ret, specificReturn := fake.createOrPatchAppEnvVarsReturnsOnCall[len(fake.createOrPatchAppEnvVarsArgsForCall)]
+	fake.createOrPatchAppEnvVarsArgsForCall = append(fake.createOrPatchAppEnvVarsArgsForCall, struct {
 		arg1 context.Context
 		arg2 client.Client
-		arg3 repositories.AppEnvVarsRecord
+		arg3 repositories.CreateOrPatchAppEnvVarsMessage
 	}{arg1, arg2, arg3})
-	stub := fake.CreateAppEnvironmentVariablesStub
-	fakeReturns := fake.createAppEnvironmentVariablesReturns
-	fake.recordInvocation("CreateAppEnvironmentVariables", []interface{}{arg1, arg2, arg3})
-	fake.createAppEnvironmentVariablesMutex.Unlock()
+	stub := fake.CreateOrPatchAppEnvVarsStub
+	fakeReturns := fake.createOrPatchAppEnvVarsReturns
+	fake.recordInvocation("CreateOrPatchAppEnvVars", []interface{}{arg1, arg2, arg3})
+	fake.createOrPatchAppEnvVarsMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
 	}
@@ -206,46 +222,46 @@ func (fake *CFAppRepository) CreateAppEnvironmentVariables(arg1 context.Context,
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFAppRepository) CreateAppEnvironmentVariablesCallCount() int {
-	fake.createAppEnvironmentVariablesMutex.RLock()
-	defer fake.createAppEnvironmentVariablesMutex.RUnlock()
-	return len(fake.createAppEnvironmentVariablesArgsForCall)
+func (fake *CFAppRepository) CreateOrPatchAppEnvVarsCallCount() int {
+	fake.createOrPatchAppEnvVarsMutex.RLock()
+	defer fake.createOrPatchAppEnvVarsMutex.RUnlock()
+	return len(fake.createOrPatchAppEnvVarsArgsForCall)
 }
 
-func (fake *CFAppRepository) CreateAppEnvironmentVariablesCalls(stub func(context.Context, client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)) {
-	fake.createAppEnvironmentVariablesMutex.Lock()
-	defer fake.createAppEnvironmentVariablesMutex.Unlock()
-	fake.CreateAppEnvironmentVariablesStub = stub
+func (fake *CFAppRepository) CreateOrPatchAppEnvVarsCalls(stub func(context.Context, client.Client, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)) {
+	fake.createOrPatchAppEnvVarsMutex.Lock()
+	defer fake.createOrPatchAppEnvVarsMutex.Unlock()
+	fake.CreateOrPatchAppEnvVarsStub = stub
 }
 
-func (fake *CFAppRepository) CreateAppEnvironmentVariablesArgsForCall(i int) (context.Context, client.Client, repositories.AppEnvVarsRecord) {
-	fake.createAppEnvironmentVariablesMutex.RLock()
-	defer fake.createAppEnvironmentVariablesMutex.RUnlock()
-	argsForCall := fake.createAppEnvironmentVariablesArgsForCall[i]
+func (fake *CFAppRepository) CreateOrPatchAppEnvVarsArgsForCall(i int) (context.Context, client.Client, repositories.CreateOrPatchAppEnvVarsMessage) {
+	fake.createOrPatchAppEnvVarsMutex.RLock()
+	defer fake.createOrPatchAppEnvVarsMutex.RUnlock()
+	argsForCall := fake.createOrPatchAppEnvVarsArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFAppRepository) CreateAppEnvironmentVariablesReturns(result1 repositories.AppEnvVarsRecord, result2 error) {
-	fake.createAppEnvironmentVariablesMutex.Lock()
-	defer fake.createAppEnvironmentVariablesMutex.Unlock()
-	fake.CreateAppEnvironmentVariablesStub = nil
-	fake.createAppEnvironmentVariablesReturns = struct {
+func (fake *CFAppRepository) CreateOrPatchAppEnvVarsReturns(result1 repositories.AppEnvVarsRecord, result2 error) {
+	fake.createOrPatchAppEnvVarsMutex.Lock()
+	defer fake.createOrPatchAppEnvVarsMutex.Unlock()
+	fake.CreateOrPatchAppEnvVarsStub = nil
+	fake.createOrPatchAppEnvVarsReturns = struct {
 		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) CreateAppEnvironmentVariablesReturnsOnCall(i int, result1 repositories.AppEnvVarsRecord, result2 error) {
-	fake.createAppEnvironmentVariablesMutex.Lock()
-	defer fake.createAppEnvironmentVariablesMutex.Unlock()
-	fake.CreateAppEnvironmentVariablesStub = nil
-	if fake.createAppEnvironmentVariablesReturnsOnCall == nil {
-		fake.createAppEnvironmentVariablesReturnsOnCall = make(map[int]struct {
+func (fake *CFAppRepository) CreateOrPatchAppEnvVarsReturnsOnCall(i int, result1 repositories.AppEnvVarsRecord, result2 error) {
+	fake.createOrPatchAppEnvVarsMutex.Lock()
+	defer fake.createOrPatchAppEnvVarsMutex.Unlock()
+	fake.CreateOrPatchAppEnvVarsStub = nil
+	if fake.createOrPatchAppEnvVarsReturnsOnCall == nil {
+		fake.createOrPatchAppEnvVarsReturnsOnCall = make(map[int]struct {
 			result1 repositories.AppEnvVarsRecord
 			result2 error
 		})
 	}
-	fake.createAppEnvironmentVariablesReturnsOnCall[i] = struct {
+	fake.createOrPatchAppEnvVarsReturnsOnCall[i] = struct {
 		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}{result1, result2}
@@ -312,6 +328,73 @@ func (fake *CFAppRepository) FetchAppReturnsOnCall(i int, result1 repositories.A
 		})
 	}
 	fake.fetchAppReturnsOnCall[i] = struct {
+		result1 repositories.AppRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) FetchAppByNameAndSpace(arg1 context.Context, arg2 client.Client, arg3 string, arg4 string) (repositories.AppRecord, error) {
+	fake.fetchAppByNameAndSpaceMutex.Lock()
+	ret, specificReturn := fake.fetchAppByNameAndSpaceReturnsOnCall[len(fake.fetchAppByNameAndSpaceArgsForCall)]
+	fake.fetchAppByNameAndSpaceArgsForCall = append(fake.fetchAppByNameAndSpaceArgsForCall, struct {
+		arg1 context.Context
+		arg2 client.Client
+		arg3 string
+		arg4 string
+	}{arg1, arg2, arg3, arg4})
+	stub := fake.FetchAppByNameAndSpaceStub
+	fakeReturns := fake.fetchAppByNameAndSpaceReturns
+	fake.recordInvocation("FetchAppByNameAndSpace", []interface{}{arg1, arg2, arg3, arg4})
+	fake.fetchAppByNameAndSpaceMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFAppRepository) FetchAppByNameAndSpaceCallCount() int {
+	fake.fetchAppByNameAndSpaceMutex.RLock()
+	defer fake.fetchAppByNameAndSpaceMutex.RUnlock()
+	return len(fake.fetchAppByNameAndSpaceArgsForCall)
+}
+
+func (fake *CFAppRepository) FetchAppByNameAndSpaceCalls(stub func(context.Context, client.Client, string, string) (repositories.AppRecord, error)) {
+	fake.fetchAppByNameAndSpaceMutex.Lock()
+	defer fake.fetchAppByNameAndSpaceMutex.Unlock()
+	fake.FetchAppByNameAndSpaceStub = stub
+}
+
+func (fake *CFAppRepository) FetchAppByNameAndSpaceArgsForCall(i int) (context.Context, client.Client, string, string) {
+	fake.fetchAppByNameAndSpaceMutex.RLock()
+	defer fake.fetchAppByNameAndSpaceMutex.RUnlock()
+	argsForCall := fake.fetchAppByNameAndSpaceArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *CFAppRepository) FetchAppByNameAndSpaceReturns(result1 repositories.AppRecord, result2 error) {
+	fake.fetchAppByNameAndSpaceMutex.Lock()
+	defer fake.fetchAppByNameAndSpaceMutex.Unlock()
+	fake.FetchAppByNameAndSpaceStub = nil
+	fake.fetchAppByNameAndSpaceReturns = struct {
+		result1 repositories.AppRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) FetchAppByNameAndSpaceReturnsOnCall(i int, result1 repositories.AppRecord, result2 error) {
+	fake.fetchAppByNameAndSpaceMutex.Lock()
+	defer fake.fetchAppByNameAndSpaceMutex.Unlock()
+	fake.FetchAppByNameAndSpaceStub = nil
+	if fake.fetchAppByNameAndSpaceReturnsOnCall == nil {
+		fake.fetchAppByNameAndSpaceReturnsOnCall = make(map[int]struct {
+			result1 repositories.AppRecord
+			result2 error
+		})
+	}
+	fake.fetchAppByNameAndSpaceReturnsOnCall[i] = struct {
 		result1 repositories.AppRecord
 		result2 error
 	}{result1, result2}
@@ -585,10 +668,12 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.createAppMutex.RLock()
 	defer fake.createAppMutex.RUnlock()
-	fake.createAppEnvironmentVariablesMutex.RLock()
-	defer fake.createAppEnvironmentVariablesMutex.RUnlock()
+	fake.createOrPatchAppEnvVarsMutex.RLock()
+	defer fake.createOrPatchAppEnvVarsMutex.RUnlock()
 	fake.fetchAppMutex.RLock()
 	defer fake.fetchAppMutex.RUnlock()
+	fake.fetchAppByNameAndSpaceMutex.RLock()
+	defer fake.fetchAppByNameAndSpaceMutex.RUnlock()
 	fake.fetchAppListMutex.RLock()
 	defer fake.fetchAppListMutex.RUnlock()
 	fake.fetchNamespaceMutex.RLock()

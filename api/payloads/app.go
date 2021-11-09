@@ -44,7 +44,6 @@ func (p AppCreate) ToAppCreateMessage() repositories.AppCreateMessage {
 		Annotations: p.Metadata.Annotations,
 		State:       repositories.StoppedState,
 		Lifecycle:   lifecycleBlock,
-		HasEnvVars:  len(p.EnvironmentVariables) > 0,
 	}
 }
 
