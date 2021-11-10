@@ -4,6 +4,7 @@ apiVersion: workloads.cloudfoundry.org/v1alpha1
 kind: CFProcess
 metadata:  # workloads.cloudfoundry.org/ labels are all managed by a mutating webhook based on appRef and its droplet
   name: 99dcda7d-1fa1-4a91-b437-fbdba20et56y
+  namespace: cf
 spec:
   appRef:
     name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a

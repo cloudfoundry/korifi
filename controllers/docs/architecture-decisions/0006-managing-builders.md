@@ -40,7 +40,7 @@ After a stack is updated, subsequent builds will use the new stack, so we focus 
 ### Default Cluster Builder
 Operator is responsible for creating a default cluster builder, and it has be named as `cf-kpack-cluster-builder`.
 Operator is also responsible for creating service-account & secrets for access to a single registry on each namespace.
-We expect the operators to follow `${namespace}-kpack-service-account` naming convention for service accounts.
+We expect the operators to follow `kpack-service-account` naming convention for service accounts.
 
 ### Handling Stack and Buildpack Updates
 At kpack Builder update time (for both Stack and Buildpack), the kpack controller will see the changes, find affected kpack Images, rebuild them, and add a new status on the Image with the reason for rebuild. A CF controller will see the changes on the kpack Image status, find affected CFApps by builder guid label, and update the droplet image ref of the associated CFBuild with the newly built image ref.

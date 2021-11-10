@@ -4,6 +4,7 @@ apiVersion: workloads.cloudfoundry.org/v1alpha1
 kind: CFPackage
 metadata: #workloads.cloudfoundry.org/* labels are managed by a mutating webhook
   name: ac85ad52-f52f-48e3-8c99-5e7badbe79c5
+  namespace: cf
 spec:
   type: bits
   appRef:

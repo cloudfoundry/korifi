@@ -40,6 +40,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "*************************"
+echo "Creating CF Namespace"
+echo "*************************"
+
+kubectl apply -f "${DEP_DIR}/namespace.yaml"
+
+echo "*************************"
 echo "Installing Cert Manager"
 echo "*************************"
 
@@ -61,26 +67,27 @@ if [[ -n "${GCP_SERVICE_ACCOUNT_JSON_FILE:=}" ]]; then
   DOCKER_USERNAME="_json_key"
   DOCKER_PASSWORD="$(cat ${GCP_SERVICE_ACCOUNT_JSON_FILE})"
 fi
-
 if [[ -n "${DOCKER_SERVER:=}" && -n "${DOCKER_USERNAME:=}" && -n "${DOCKER_PASSWORD:=}" ]]; then
-  if kubectl get secret image-registry-credentials >/dev/null 2>&1; then
-    kubectl delete secret image-registry-credentials
-  fi
+  for ns in cf; do
+    if kubectl get -n $ns secret image-registry-credentials >/dev/null 2>&1; then
+      kubectl delete -n $ns secret image-registry-credentials
+    fi
 
-  kubectl create secret docker-registry image-registry-credentials \
-      --docker-server=${DOCKER_SERVER} \
-      --docker-username=${DOCKER_USERNAME} \
-      --docker-password="${DOCKER_PASSWORD}"
+    kubectl create secret -n $ns docker-registry image-registry-credentials \
+        --docker-server=${DOCKER_SERVER} \
+        --docker-username=${DOCKER_USERNAME} \
+        --docker-password="${DOCKER_PASSWORD}"
+  done
 fi
 
 kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterbuilders.kpack.io
 kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstores.kpack.io
 kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstacks.kpack.io
 
-kubectl apply -f "${DEP_DIR}/kpack/service_account.yaml" \
-    -f "${DEP_DIR}/kpack/cluster_stack.yaml" \
-    -f "${DEP_DIR}/kpack/cluster_store.yaml" \
-    -f "${DEP_DIR}/kpack/cluster_builder.yaml"
+kubectl apply -f "${DEP_DIR}/kpack/service_account.yaml"
+kubectl apply -f "${DEP_DIR}/kpack/cluster_stack.yaml" \
+              -f "${DEP_DIR}/kpack/cluster_store.yaml" \
+              -f "${DEP_DIR}/kpack/cluster_builder.yaml"
 
 echo "*******************"
 echo "Installing Contour"
@@ -144,7 +151,6 @@ webhooks_ca_bundle="$(kubectl get secret -n eirini-controller eirini-webhooks-ce
 helm template eirini-controller "${EIRINI_DIR}/deployment/helm" \
   --values "${EIRINI_DIR}/deployment/helm/values-template.yaml" \
   --set "webhooks.ca_bundle=${webhooks_ca_bundle}" \
-  --set "workloads.create_namespaces=true" \
   --set "workloads.default_namespace=cf" \
   --set "controller.registry_secret_name=image-registry-credentials" \
   --set "images.eirini_controller=eirini/eirini-controller@sha256:4dc6547537e30d778e81955065686b6d4d6162821f1ce29f7b80b3aefe20afb3" \

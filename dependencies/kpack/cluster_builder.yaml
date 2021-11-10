@@ -4,8 +4,8 @@ metadata:
   name: cf-kpack-cluster-builder
 spec:
   serviceAccountRef:
-    name: default-kpack-service-account
-    namespace: default
+    name: kpack-service-account
+    namespace: cf
   # Replace with real docker registry
   tag: gcr.io/cf-relint-greengrass/cf-crd-staging-spike/akira/builder
   stack:

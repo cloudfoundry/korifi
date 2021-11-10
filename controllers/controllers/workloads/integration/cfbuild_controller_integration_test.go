@@ -207,7 +207,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			dockerRegistrySecret := BuildDockerRegistrySecret(wellFormedRegistryCredentialsSecret, namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, dockerRegistrySecret)).To(Succeed())
 
-			registryServiceAccountName := namespaceGUID + "-kpack-service-account"
+			registryServiceAccountName := "kpack-service-account"
 			registryServiceAccount := BuildServiceAccount(registryServiceAccountName, namespaceGUID, wellFormedRegistryCredentialsSecret)
 			Expect(k8sClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
 

@@ -2,6 +2,7 @@ apiVersion: networking.cloudfoundry.org/v1alpha1
 kind: CFRoute
 metadata:
   name: 84afc0f2-3dc2-4709-9fc8-8340be584a43
+  namespace: cf
 spec:
   host: my-host
   path: /
