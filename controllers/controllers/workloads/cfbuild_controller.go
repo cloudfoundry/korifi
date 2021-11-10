@@ -48,7 +48,7 @@ const (
 	kpackReadyConditionType   = "Ready"
 	clusterBuilderKind        = "ClusterBuilder"
 	clusterBuilderAPIVersion  = "kpack.io/v1alpha2"
-	kpackServiceAccountSuffix = "-kpack-service-account"
+	kpackServiceAccount       = "kpack-service-account"
 	cfKpackClusterBuilderName = "cf-kpack-cluster-builder"
 )
 
@@ -63,7 +63,7 @@ func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface) RegistryAut
 		}
 		keychain, err := keychainFactory.KeychainForSecretRef(ctx, registry.SecretRef{
 			Namespace:      namespace,
-			ServiceAccount: kpackServiceAccountName(namespace),
+			ServiceAccount: kpackServiceAccount,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", err)
@@ -71,10 +71,6 @@ func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface) RegistryAut
 
 		return remote.WithAuthFromKeychain(keychain), nil
 	}
-}
-
-func kpackServiceAccountName(namespace string) string {
-	return namespace + kpackServiceAccountSuffix
 }
 
 //counterfeiter:generate -o fake -fake-name ImageProcessFetcher . ImageProcessFetcher
@@ -175,7 +171,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType, metav1.ConditionTrue, "kpack", "kpack")
 
 			// try to find the ServiceAccount image pull secrets from the kpack service account
-			serviceAccountName := kpackServiceAccountName(cfBuild.Namespace)
+			serviceAccountName := kpackServiceAccount
 			serviceAccountLookupKey := types.NamespacedName{Name: serviceAccountName, Namespace: req.Namespace}
 			foundServiceAccount := corev1.ServiceAccount{}
 			err = r.Client.Get(ctx, serviceAccountLookupKey, &foundServiceAccount)
@@ -202,7 +198,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
-	serviceAccountName := kpackServiceAccountName(cfBuild.Namespace)
+	serviceAccountName := kpackServiceAccount
 	kpackImageTag := r.concatenateStrings("/", r.ControllerConfig.KpackImageTag, cfBuild.Name)
 	kpackImageName := cfBuild.Name
 	kpackImageNamespace := cfBuild.Namespace

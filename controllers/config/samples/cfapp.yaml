@@ -4,6 +4,7 @@ apiVersion: workloads.cloudfoundry.org/v1alpha1
 kind: CFApp
 metadata: #workloads.cloudfoundry.org/* labels are managed by a mutating webhook
   name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
+  namespace: cf
 spec:
   name: my-app # validated to be unique per namespace by validating webhook
   currentDropletRef: # starts empty and is filled by CF Shim PATCH endpoint /v3/apps/:guid/current_droplet

@@ -78,7 +78,7 @@ var _ = Describe("CFBuildReconciler", func() {
 		kpackImageGUID = cfBuildGUID
 
 		kpackRegistrySecretName = "kpack-registry-secret"
-		kpackServiceAccountName = defaultNamespace + "-kpack-service-account"
+		kpackServiceAccountName = "kpack-service-account"
 
 		cfBuild = BuildCFBuildObject(cfBuildGUID, defaultNamespace, cfPackageGUID, cfAppGUID)
 		cfBuildError = nil
