@@ -202,6 +202,7 @@ data:
       global_auditor: cf-k8s-controllers-global-auditor
       organization_auditor: cf-k8s-controllers-organization-auditor
       organization_billing_manager: cf-k8s-controllers-organization-billing-manager
+      organization_manager: cf-k8s-controllers-organization-manager
       organization_user: cf-k8s-controllers-organization-user
       space_auditor: cf-k8s-controllers-space-auditor
       space_developer: cf-k8s-controllers-space-developer
@@ -209,7 +210,7 @@ data:
       space_supporter: cf-k8s-controllers-space-supporter
 kind: ConfigMap
 metadata:
-  name: cf-k8s-api-config-h9h47bgdt2
+  name: cf-k8s-api-config-62bf886gfh
   namespace: cf-k8s-api-system
 ---
 apiVersion: v1
@@ -264,7 +265,7 @@ spec:
       serviceAccountName: cf-k8s-api-cf-admin-serviceaccount
       volumes:
       - configMap:
-          name: cf-k8s-api-config-h9h47bgdt2
+          name: cf-k8s-api-config-62bf886gfh
         name: cf-k8s-api-config
 ---
 apiVersion: projectcontour.io/v1

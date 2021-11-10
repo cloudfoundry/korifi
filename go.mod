@@ -52,6 +52,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/schema v1.2.0
 	github.com/hashicorp/go-uuid v1.0.2
 	github.com/heroku/color v0.0.6 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
@@ -120,9 +121,4 @@ require (
 	sigs.k8s.io/hierarchical-namespaces v0.9.0
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.2 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
-)
-
-require (
-	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
-	github.com/gorilla/schema v1.2.0 // indirect
 )

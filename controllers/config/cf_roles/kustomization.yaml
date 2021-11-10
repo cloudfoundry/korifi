@@ -1,2 +1,3 @@
 resources:
 - cf_space_developer.yaml
+- cf_org_manager.yaml

@@ -22,8 +22,9 @@ type RoleResponse struct {
 }
 
 type RoleLinks struct {
-	Self  *Link `json:"self"`
-	Space *Link `json:"space"`
+	Self         *Link `json:"self"`
+	Space        *Link `json:"space,omitempty"`
+	Organization *Link `json:"organization,omitempty"`
 }
 
 func ForCreateRole(role repositories.RoleRecord, apiBaseURL url.URL) RoleResponse {
@@ -31,23 +32,36 @@ func ForCreateRole(role repositories.RoleRecord, apiBaseURL url.URL) RoleRespons
 }
 
 func toRoleResponse(role repositories.RoleRecord, apiBaseURL url.URL) RoleResponse {
-	return RoleResponse{
+	resp := RoleResponse{
 		GUID:      role.GUID,
 		CreatedAt: role.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt: role.CreatedAt.UTC().Format(time.RFC3339),
 		Type:      role.Type,
 		Relationships: Relationships{
 			"user":         Relationship{Data: &RelationshipData{GUID: role.User}},
-			"space":        Relationship{Data: &RelationshipData{GUID: role.Space}},
+			"space":        Relationship{Data: nil},
 			"organization": Relationship{Data: nil},
 		},
 		Links: RoleLinks{
 			Self: &Link{
 				HREF: buildURL(apiBaseURL).appendPath(rolesBase, role.GUID).build(),
 			},
-			Space: &Link{
-				HREF: buildURL(apiBaseURL).appendPath(spacesBase, role.Space).build(),
-			},
 		},
 	}
+
+	if role.Org != "" {
+		resp.Relationships["organization"] = Relationship{Data: &RelationshipData{GUID: role.Org}}
+		resp.Links.Organization = &Link{
+			HREF: buildURL(apiBaseURL).appendPath(orgsBase, role.Org).build(),
+		}
+	}
+
+	if role.Space != "" {
+		resp.Relationships["space"] = Relationship{Data: &RelationshipData{GUID: role.Space}}
+		resp.Links.Space = &Link{
+			HREF: buildURL(apiBaseURL).appendPath(spacesBase, role.Space).build(),
+		}
+	}
+
+	return resp
 }

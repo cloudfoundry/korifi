@@ -4,6 +4,7 @@ roleMappings:
   global_auditor: cf-k8s-controllers-global-auditor
   organization_auditor: cf-k8s-controllers-organization-auditor
   organization_billing_manager: cf-k8s-controllers-organization-billing-manager
+  organization_manager: cf-k8s-controllers-organization-manager
   organization_user: cf-k8s-controllers-organization-user
   space_auditor: cf-k8s-controllers-space-auditor
   space_developer: cf-k8s-controllers-space-developer

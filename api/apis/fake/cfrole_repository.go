@@ -10,17 +10,17 @@ import (
 )
 
 type CFRoleRepository struct {
-	CreateSpaceRoleStub        func(context.Context, repositories.RoleRecord) (repositories.RoleRecord, error)
-	createSpaceRoleMutex       sync.RWMutex
-	createSpaceRoleArgsForCall []struct {
+	CreateRoleStub        func(context.Context, repositories.RoleRecord) (repositories.RoleRecord, error)
+	createRoleMutex       sync.RWMutex
+	createRoleArgsForCall []struct {
 		arg1 context.Context
 		arg2 repositories.RoleRecord
 	}
-	createSpaceRoleReturns struct {
+	createRoleReturns struct {
 		result1 repositories.RoleRecord
 		result2 error
 	}
-	createSpaceRoleReturnsOnCall map[int]struct {
+	createRoleReturnsOnCall map[int]struct {
 		result1 repositories.RoleRecord
 		result2 error
 	}
@@ -28,17 +28,17 @@ type CFRoleRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFRoleRepository) CreateSpaceRole(arg1 context.Context, arg2 repositories.RoleRecord) (repositories.RoleRecord, error) {
-	fake.createSpaceRoleMutex.Lock()
-	ret, specificReturn := fake.createSpaceRoleReturnsOnCall[len(fake.createSpaceRoleArgsForCall)]
-	fake.createSpaceRoleArgsForCall = append(fake.createSpaceRoleArgsForCall, struct {
+func (fake *CFRoleRepository) CreateRole(arg1 context.Context, arg2 repositories.RoleRecord) (repositories.RoleRecord, error) {
+	fake.createRoleMutex.Lock()
+	ret, specificReturn := fake.createRoleReturnsOnCall[len(fake.createRoleArgsForCall)]
+	fake.createRoleArgsForCall = append(fake.createRoleArgsForCall, struct {
 		arg1 context.Context
 		arg2 repositories.RoleRecord
 	}{arg1, arg2})
-	stub := fake.CreateSpaceRoleStub
-	fakeReturns := fake.createSpaceRoleReturns
-	fake.recordInvocation("CreateSpaceRole", []interface{}{arg1, arg2})
-	fake.createSpaceRoleMutex.Unlock()
+	stub := fake.CreateRoleStub
+	fakeReturns := fake.createRoleReturns
+	fake.recordInvocation("CreateRole", []interface{}{arg1, arg2})
+	fake.createRoleMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
 	}
@@ -48,46 +48,46 @@ func (fake *CFRoleRepository) CreateSpaceRole(arg1 context.Context, arg2 reposit
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFRoleRepository) CreateSpaceRoleCallCount() int {
-	fake.createSpaceRoleMutex.RLock()
-	defer fake.createSpaceRoleMutex.RUnlock()
-	return len(fake.createSpaceRoleArgsForCall)
+func (fake *CFRoleRepository) CreateRoleCallCount() int {
+	fake.createRoleMutex.RLock()
+	defer fake.createRoleMutex.RUnlock()
+	return len(fake.createRoleArgsForCall)
 }
 
-func (fake *CFRoleRepository) CreateSpaceRoleCalls(stub func(context.Context, repositories.RoleRecord) (repositories.RoleRecord, error)) {
-	fake.createSpaceRoleMutex.Lock()
-	defer fake.createSpaceRoleMutex.Unlock()
-	fake.CreateSpaceRoleStub = stub
+func (fake *CFRoleRepository) CreateRoleCalls(stub func(context.Context, repositories.RoleRecord) (repositories.RoleRecord, error)) {
+	fake.createRoleMutex.Lock()
+	defer fake.createRoleMutex.Unlock()
+	fake.CreateRoleStub = stub
 }
 
-func (fake *CFRoleRepository) CreateSpaceRoleArgsForCall(i int) (context.Context, repositories.RoleRecord) {
-	fake.createSpaceRoleMutex.RLock()
-	defer fake.createSpaceRoleMutex.RUnlock()
-	argsForCall := fake.createSpaceRoleArgsForCall[i]
+func (fake *CFRoleRepository) CreateRoleArgsForCall(i int) (context.Context, repositories.RoleRecord) {
+	fake.createRoleMutex.RLock()
+	defer fake.createRoleMutex.RUnlock()
+	argsForCall := fake.createRoleArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *CFRoleRepository) CreateSpaceRoleReturns(result1 repositories.RoleRecord, result2 error) {
-	fake.createSpaceRoleMutex.Lock()
-	defer fake.createSpaceRoleMutex.Unlock()
-	fake.CreateSpaceRoleStub = nil
-	fake.createSpaceRoleReturns = struct {
+func (fake *CFRoleRepository) CreateRoleReturns(result1 repositories.RoleRecord, result2 error) {
+	fake.createRoleMutex.Lock()
+	defer fake.createRoleMutex.Unlock()
+	fake.CreateRoleStub = nil
+	fake.createRoleReturns = struct {
 		result1 repositories.RoleRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFRoleRepository) CreateSpaceRoleReturnsOnCall(i int, result1 repositories.RoleRecord, result2 error) {
-	fake.createSpaceRoleMutex.Lock()
-	defer fake.createSpaceRoleMutex.Unlock()
-	fake.CreateSpaceRoleStub = nil
-	if fake.createSpaceRoleReturnsOnCall == nil {
-		fake.createSpaceRoleReturnsOnCall = make(map[int]struct {
+func (fake *CFRoleRepository) CreateRoleReturnsOnCall(i int, result1 repositories.RoleRecord, result2 error) {
+	fake.createRoleMutex.Lock()
+	defer fake.createRoleMutex.Unlock()
+	fake.CreateRoleStub = nil
+	if fake.createRoleReturnsOnCall == nil {
+		fake.createRoleReturnsOnCall = make(map[int]struct {
 			result1 repositories.RoleRecord
 			result2 error
 		})
 	}
-	fake.createSpaceRoleReturnsOnCall[i] = struct {
+	fake.createRoleReturnsOnCall[i] = struct {
 		result1 repositories.RoleRecord
 		result2 error
 	}{result1, result2}
@@ -96,8 +96,8 @@ func (fake *CFRoleRepository) CreateSpaceRoleReturnsOnCall(i int, result1 reposi
 func (fake *CFRoleRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createSpaceRoleMutex.RLock()
-	defer fake.createSpaceRoleMutex.RUnlock()
+	fake.createRoleMutex.RLock()
+	defer fake.createRoleMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

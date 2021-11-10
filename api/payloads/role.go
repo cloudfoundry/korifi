@@ -8,14 +8,24 @@ type RoleCreate struct {
 }
 
 type RoleRelationships struct {
-	User  Relationship `json:"user" validate:"required"`
-	Space Relationship `json:"space" validate:"required"`
+	User         Relationship  `json:"user" validate:"required"`
+	Space        *Relationship `json:"space"`
+	Organization *Relationship `json:"organization"`
 }
 
 func (p RoleCreate) ToRecord() repositories.RoleRecord {
-	return repositories.RoleRecord{
-		Type:  p.Type,
-		User:  p.Relationships.User.Data.GUID,
-		Space: p.Relationships.Space.Data.GUID,
+	record := repositories.RoleRecord{
+		Type: p.Type,
+		User: p.Relationships.User.Data.GUID,
 	}
+
+	if p.Relationships.Space != nil {
+		record.Space = p.Relationships.Space.Data.GUID
+	}
+
+	if p.Relationships.Organization != nil {
+		record.Org = p.Relationships.Organization.Data.GUID
+	}
+
+	return record
 }

@@ -23,7 +23,7 @@ var _ = Describe("Roles", func() {
 		userName string
 	)
 
-	createRole := func(roleName, userName, spaceGUID string) (*http.Response, error) {
+	createRole := func(roleName, orgSpaceType, userName, orgSpaceGUID string) (*http.Response, error) {
 		rolesURL := apiServerRoot + "/v3/roles"
 		body := fmt.Sprintf(`{
             "type": "%s",
@@ -33,17 +33,25 @@ var _ = Describe("Roles", func() {
                         "guid": "%s"
                     }
                 },
-                "space": {
+                "%s": {
                     "data": {
                         "guid": "%s"
                     }
                 }
             }
-        }`, roleName, userName, spaceGUID)
+        }`, roleName, userName, orgSpaceType, orgSpaceGUID)
 		req, err := http.NewRequest(http.MethodPost, rolesURL, strings.NewReader(body))
 		Expect(err).NotTo(HaveOccurred())
 
 		return http.DefaultClient.Do(req)
+	}
+
+	createOrgRole := func(roleName, userName, orgGUID string) (*http.Response, error) {
+		return createRole(roleName, "organization", userName, orgGUID)
+	}
+
+	createSpaceRole := func(roleName, userName, spaceGUID string) (*http.Response, error) {
+		return createRole(roleName, "space", userName, spaceGUID)
 	}
 
 	createBinding := func(namespace, userName, roleName string) *rbacv1.RoleBinding {
@@ -74,6 +82,58 @@ var _ = Describe("Roles", func() {
 		userName = uuid.NewString()
 	})
 
+	Describe("creating an org role", func() {
+		var (
+			org   presenter.OrgResponse
+			space presenter.SpaceResponse
+		)
+
+		BeforeEach(func() {
+			org = createOrg(uuid.NewString())
+		})
+
+		AfterEach(func() {
+			deleteSubnamespace(rootNamespace, org.GUID)
+		})
+
+		It("creates a role binding", func() {
+			response, err := createOrgRole("organization_manager", userName, org.GUID)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(response).To(HaveHTTPStatus(http.StatusCreated))
+
+			defer response.Body.Close()
+
+			responseMap := map[string]interface{}{}
+			Expect(json.NewDecoder(response.Body).Decode(&responseMap)).To(Succeed())
+
+			Expect(responseMap).To(HaveKeyWithValue("type", "organization_manager"))
+
+			roleBindingList := &rbacv1.RoleBindingList{}
+			Eventually(func() ([]rbacv1.RoleBinding, error) {
+				err := k8sClient.List(ctx, roleBindingList,
+					client.InNamespace(space.GUID),
+					client.MatchingLabels{
+						repositories.RoleTypeLabel: "organization_manager",
+					},
+				)
+				if err != nil {
+					return nil, err
+				}
+				return roleBindingList.Items, nil
+			}).Should(HaveLen(1))
+
+			binding := roleBindingList.Items[0]
+			Expect(responseMap).To(HaveKeyWithValue("guid", binding.Labels[repositories.RoleGuidLabel]))
+			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-organization-manager"))
+			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))
+			Expect(binding.Subjects).To(HaveLen(1))
+			subject := binding.Subjects[0]
+			Expect(subject.Name).To(Equal(userName))
+			Expect(subject.Kind).To(Equal(rbacv1.UserKind))
+		})
+	})
+
 	Describe("creating a space role", func() {
 		var (
 			org   presenter.OrgResponse
@@ -92,7 +152,7 @@ var _ = Describe("Roles", func() {
 		})
 
 		It("creates a role binding", func() {
-			response, err := createRole("space_developer", userName, space.GUID)
+			response, err := createSpaceRole("space_developer", userName, space.GUID)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(response).To(HaveHTTPStatus(http.StatusCreated))

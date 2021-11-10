@@ -1,0 +1,6 @@
+# The CF Organization Manager Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: organization-manager
+rules: []

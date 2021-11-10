@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
 	"github.com/go-playground/locales/en"
@@ -70,10 +71,24 @@ func decodeAndValidateJSONPayload(r *http.Request, object interface{}) *requestM
 func validatePayload(object interface{}) *requestMalformedError {
 	v := validator.New()
 
+	trans := registerDefaultTranslator(v)
+
 	// Register custom validators
 	v.RegisterValidation("routepathstartswithslash", routePathStartsWithSlash)
 
-	trans := registerDefaultTranslator(v)
+	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
+	v.RegisterTranslation("cannot_have_both_org_and_space_set", trans, func(ut ut.Translator) error {
+		return ut.Add("cannot_have_both_org_and_space_set", "Cannot pass both 'organization' and 'space' in a create role request", false)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("cannot_have_both_org_and_space_set", fe.Field())
+		return t
+	})
+	v.RegisterTranslation("valid_role", trans, func(ut ut.Translator) error {
+		return ut.Add("valid_role", "{0} is not a valid role", false)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("valid_role", fmt.Sprintf("%v", fe.Value()))
+		return t
+	})
 
 	err := v.Struct(object)
 	if err != nil {
@@ -277,4 +292,41 @@ func routePathStartsWithSlash(fl validator.FieldLevel) bool {
 	}
 
 	return true
+}
+
+func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
+	roleCreate := sl.Current().Interface().(payloads.RoleCreate)
+
+	if roleCreate.Relationships.Organization != nil && roleCreate.Relationships.Space != nil {
+		sl.ReportError(roleCreate.Relationships.Organization, "relationships.organization", "Organization", "cannot_have_both_org_and_space_set", "")
+	}
+
+	roleType := RoleName(roleCreate.Type)
+
+	switch roleType {
+	case RoleSpaceManager:
+		fallthrough
+	case RoleSpaceAuditor:
+		fallthrough
+	case RoleSpaceDeveloper:
+		fallthrough
+	case RoleSpaceSupporter:
+		if roleCreate.Relationships.Space == nil {
+			sl.ReportError(roleCreate.Relationships.Space, "relationships.space", "Space", "required", "")
+		}
+	case RoleOrganizationUser:
+		fallthrough
+	case RoleOrganizationAuditor:
+		fallthrough
+	case RoleOrganizationManager:
+		fallthrough
+	case RoleOrganizationBillingManager:
+		if roleCreate.Relationships.Organization == nil {
+			sl.ReportError(roleCreate.Relationships.Organization, "relationships.organization", "Organization", "required", "")
+		}
+
+	case RoleName(""):
+	default:
+		sl.ReportError(roleCreate.Type, "type", "Role type", "valid_role", "")
+	}
 }
