@@ -99,6 +99,12 @@ var _ = Describe("CFBuildReconciler", func() {
 					}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not retrieve the kpack image")
 					kpackImageTag := "image/registry/tag" + "/" + cfBuildGUID
 					Expect(createdKpackImage.Spec.Tag).To(Equal(kpackImageTag))
+					Expect(createdKpackImage.GetOwnerReferences()).To(ConsistOf(metav1.OwnerReference{
+						UID:        desiredCFBuild.UID,
+						Kind:       "CFBuild",
+						APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+						Name:       desiredCFBuild.Name,
+					}))
 					Expect(k8sClient.Delete(testCtx, createdKpackImage)).To(Succeed())
 				})
 

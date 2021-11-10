@@ -39,6 +39,7 @@ import (
 	k8sclient "k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -232,7 +233,13 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 		},
 	}
 
-	err := r.createKpackImageIfNotExists(ctx, desiredKpackImage)
+	err := controllerutil.SetOwnerReference(cfBuild, &desiredKpackImage, r.Scheme)
+	if err != nil {
+		r.Log.Error(err, "failed to set OwnerRef on Kpack Image")
+		return err
+	}
+
+	err = r.createKpackImageIfNotExists(ctx, desiredKpackImage)
 	if err != nil {
 		return err
 	}

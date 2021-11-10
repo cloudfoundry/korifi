@@ -95,21 +95,21 @@ var _ = Describe("CFBuildReconciler", func() {
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
-			switch obj.(type) {
+			switch obj := obj.(type) {
 			case *workloadsv1alpha1.CFBuild:
-				cfBuild.DeepCopyInto(obj.(*workloadsv1alpha1.CFBuild))
+				cfBuild.DeepCopyInto(obj)
 				return cfBuildError
 			case *workloadsv1alpha1.CFApp:
-				cfApp.DeepCopyInto(obj.(*workloadsv1alpha1.CFApp))
+				cfApp.DeepCopyInto(obj)
 				return cfAppError
 			case *workloadsv1alpha1.CFPackage:
-				cfPackage.DeepCopyInto(obj.(*workloadsv1alpha1.CFPackage))
+				cfPackage.DeepCopyInto(obj)
 				return cfPackageError
 			case *buildv1alpha2.Image:
-				kpackImage.DeepCopyInto(obj.(*buildv1alpha2.Image))
+				kpackImage.DeepCopyInto(obj)
 				return kpackImageError
 			case *corev1.ServiceAccount:
-				kpackServiceAccount.DeepCopyInto(obj.(*corev1.ServiceAccount))
+				kpackServiceAccount.DeepCopyInto(obj)
 				return kpackServiceAccountError
 			default:
 				panic("test Client Get provided a weird obj")
@@ -166,10 +166,22 @@ var _ = Describe("CFBuildReconciler", func() {
 				_, kpackImage, _ := fakeClient.CreateArgsForCall(0)
 				Expect(kpackImage.GetName()).To(Equal(cfBuildGUID))
 			})
+
 			It("should update the status conditions on CFBuild", func() {
 				Expect(fakeClient.StatusCallCount()).To(Equal(1))
 			})
 
+			It("should create kpack Image with CFBuild owner reference", func() {
+				Expect(fakeClient.CreateCallCount()).To(Equal(1), "fakeClient Create was not called 1 time")
+				_, kpackImage, _ := fakeClient.CreateArgsForCall(0)
+				ownerRefs := kpackImage.GetOwnerReferences()
+				Expect(ownerRefs).To(ConsistOf(metav1.OwnerReference{
+					UID:        cfBuild.UID,
+					Kind:       cfBuild.Kind,
+					APIVersion: cfBuild.APIVersion,
+					Name:       cfBuild.Name,
+				}))
+			})
 		})
 
 		When("on unhappy path", func() {
