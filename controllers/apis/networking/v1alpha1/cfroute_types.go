@@ -73,6 +73,8 @@ type CFRouteStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="URI",type=string,JSONPath=`.status.uri`
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 
 // CFRoute is the Schema for the cfroutes API
 type CFRoute struct {

@@ -41,6 +41,8 @@ type CFDomainStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:scope=Cluster
+//+kubebuilder:printcolumn:name="Domain Name",type=string,JSONPath=`.spec.name`
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 
 // CFDomain is the Schema for the cfdomains API
 type CFDomain struct {
