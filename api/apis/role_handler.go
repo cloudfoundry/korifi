@@ -21,10 +21,26 @@ const (
 	RolesEndpoint = "/v3/roles"
 )
 
+type RoleName string
+
+const (
+	RoleAdmin                      RoleName = "admin"
+	RoleAdminReadOnly              RoleName = "admin_read_only"
+	RoleGlobalAuditor              RoleName = "global_auditor"
+	RoleOrganizationAuditor        RoleName = "organization_auditor"
+	RoleOrganizationBillingManager RoleName = "organization_billing_manager"
+	RoleOrganizationManager        RoleName = "organization_manager"
+	RoleOrganizationUser           RoleName = "organization_user"
+	RoleSpaceAuditor               RoleName = "space_auditor"
+	RoleSpaceDeveloper             RoleName = "space_developer"
+	RoleSpaceManager               RoleName = "space_manager"
+	RoleSpaceSupporter             RoleName = "space_supporter"
+)
+
 //counterfeiter:generate -o fake -fake-name CFRoleRepository . CFRoleRepository
 
 type CFRoleRepository interface {
-	CreateSpaceRole(ctx context.Context, role repositories.RoleRecord) (repositories.RoleRecord, error)
+	CreateRole(ctx context.Context, role repositories.RoleRecord) (repositories.RoleRecord, error)
 }
 
 type RoleHandler struct {
@@ -56,7 +72,7 @@ func (h *RoleHandler) roleCreateHandler(w http.ResponseWriter, r *http.Request) 
 	role := payload.ToRecord()
 	role.GUID = uuid.NewString()
 
-	record, err := h.roleRepo.CreateSpaceRole(r.Context(), role)
+	record, err := h.roleRepo.CreateRole(r.Context(), role)
 	if err != nil {
 		if errors.Is(err, repositories.ErrorDuplicateRoleBinding) {
 			errorDetail := fmt.Sprintf("User '%s' already has '%s' role", role.User, role.Type)

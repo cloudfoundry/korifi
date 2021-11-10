@@ -24,7 +24,10 @@ var _ = Describe("RoleRepository", func() {
 		rootNamespace       string
 		roleRepo            *repositories.RoleRepo
 		roleRecord          repositories.RoleRecord
+		orgAnchor           *hnsv1alpha2.SubnamespaceAnchor
+		createdRole         repositories.RoleRecord
 		authorizedInChecker *fake.AuthorizedInChecker
+		createErr           error
 	)
 
 	BeforeEach(func() {
@@ -32,22 +35,102 @@ var _ = Describe("RoleRepository", func() {
 		ctx = context.Background()
 		authorizedInChecker = new(fake.AuthorizedInChecker)
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
-		roleRepo = repositories.NewRoleRepo(k8sClient, authorizedInChecker, map[string]string{"space_developer": "cf-space-dev-role"})
+		roleRepo = repositories.NewRoleRepo(k8sClient, authorizedInChecker, map[string]string{
+			"space_developer":      "cf-space-dev-role",
+			"organization_manager": "cf-org-mgr-role",
+		})
 
 		roleRecord = repositories.RoleRecord{}
+		orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, uuid.NewString())
 	})
 
-	Describe("CreateSpaceRole", func() {
+	Describe("Create Org Role", func() {
 		var (
-			orgAnchor   *hnsv1alpha2.SubnamespaceAnchor
-			spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
 			createdRole repositories.RoleRecord
 			createErr   error
 		)
 
 		BeforeEach(func() {
+			roleRecord = repositories.RoleRecord{
+				GUID: uuid.NewString(),
+				Type: "organization_manager",
+				User: "my-user",
+				Org:  orgAnchor.Name,
+			}
+		})
+
+		JustBeforeEach(func() {
+			createdRole, createErr = roleRepo.CreateRole(ctx, roleRecord)
+		})
+
+		It("succeeds", func() {
+			Expect(createErr).NotTo(HaveOccurred())
+		})
+
+		It("creates a role binding in the org namespace", func() {
+			roleBindingList := rbacv1.RoleBindingList{}
+			Expect(k8sClient.List(ctx, &roleBindingList, client.InNamespace(orgAnchor.Name))).To(Succeed())
+			Expect(roleBindingList.Items).To(HaveLen(1))
+
+			roleBinding := roleBindingList.Items[0]
+
+			// Sha256 sum of "organization_manager::my-user"
+			Expect(roleBinding.Name).To(Equal("cf-d024ad51b9896f27fab865db894beb14992af05fbbc785bbf90d8706bc95b21b"))
+			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleRecord.GUID))
+			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleUserLabel, roleRecord.User))
+			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleTypeLabel, roleRecord.Type))
+			Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
+			Expect(roleBinding.RoleRef.Name).To(Equal("cf-org-mgr-role"))
+			Expect(roleBinding.Subjects).To(HaveLen(1))
+			Expect(roleBinding.Subjects[0].Kind).To(Equal("User"))
+			Expect(roleBinding.Subjects[0].Name).To(Equal("my-user"))
+		})
+
+		It("updated the create/updated timestamps", func() {
+			Expect(createdRole.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+			Expect(createdRole.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+			Expect(createdRole.CreatedAt).To(Equal(createdRole.UpdatedAt))
+		})
+
+		When("the org does not exist", func() {
+			BeforeEach(func() {
+				roleRecord.Org = "i-do-not-exist"
+			})
+
+			It("returns an error", func() {
+				Expect(k8serrors.IsNotFound(createErr)).To(BeTrue())
+			})
+		})
+
+		When("the role type is invalid", func() {
+			BeforeEach(func() {
+				roleRecord.Type = "i-am-invalid"
+			})
+
+			It("returns an error", func() {
+				Expect(createErr).To(MatchError(ContainSubstring("invalid role type")))
+			})
+		})
+
+		When("the user is already bound to that role", func() {
+			It("returns an error", func() {
+				anotherRoleRecord := repositories.RoleRecord{
+					GUID: uuid.NewString(),
+					Type: "organization_manager",
+					User: "my-user",
+					Org:  roleRecord.Org,
+				}
+				_, createErr = roleRepo.CreateRole(ctx, anotherRoleRecord)
+				Expect(createErr).To(Equal(repositories.ErrorDuplicateRoleBinding))
+			})
+		})
+	})
+
+	Describe("Create Space Role", func() {
+		var spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
+
+		BeforeEach(func() {
 			authorizedInChecker.AuthorizedInReturns(true, nil)
-			orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, uuid.NewString())
 			spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, uuid.NewString())
 
 			Expect(k8sClient.Create(context.Background(), &rbacv1.RoleBinding{
@@ -76,7 +159,7 @@ var _ = Describe("RoleRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			createdRole, createErr = roleRepo.CreateSpaceRole(ctx, roleRecord)
+			createdRole, createErr = roleRepo.CreateRole(ctx, roleRecord)
 		})
 
 		It("succeeds", func() {
@@ -175,7 +258,7 @@ var _ = Describe("RoleRepository", func() {
 					User:  "my-user",
 					Space: roleRecord.Space,
 				}
-				_, createErr = roleRepo.CreateSpaceRole(ctx, anotherRoleRecord)
+				_, createErr = roleRepo.CreateRole(ctx, anotherRoleRecord)
 				Expect(createErr).To(Equal(repositories.ErrorDuplicateRoleBinding))
 			})
 		})

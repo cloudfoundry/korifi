@@ -1426,6 +1426,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: cf-k8s-controllers-organization-manager
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: cf-k8s-controllers-proxy-role
 rules:
 - apiGroups:

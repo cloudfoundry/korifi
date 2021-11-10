@@ -42,6 +42,7 @@ type RoleRecord struct {
 	UpdatedAt time.Time
 	Type      string
 	Space     string
+	Org       string
 	User      string
 }
 
@@ -59,15 +60,10 @@ func NewRoleRepo(privilegedClient client.Client, authorizedInChecker AuthorizedI
 	}
 }
 
-func (r *RoleRepo) CreateSpaceRole(ctx context.Context, role RoleRecord) (RoleRecord, error) {
+func (r *RoleRepo) CreateRole(ctx context.Context, role RoleRecord) (RoleRecord, error) {
 	k8sRoleName, ok := r.roleMappings[role.Type]
 	if !ok {
 		return RoleRecord{}, fmt.Errorf("invalid role type: %q", role.Type)
-	}
-
-	orgName, err := r.getOrgName(ctx, role.Space)
-	if err != nil {
-		return RoleRecord{}, err
 	}
 
 	userIdentity := authorization.Identity{
@@ -75,18 +71,30 @@ func (r *RoleRepo) CreateSpaceRole(ctx context.Context, role RoleRecord) (RoleRe
 		Kind: rbacv1.UserKind,
 	}
 
-	hasOrgBinding, err := r.authorizedInChecker.AuthorizedIn(ctx, userIdentity, orgName)
-	if err != nil {
-		return RoleRecord{}, fmt.Errorf("failed to check for role in parent org: %w", err)
+	if role.Space != "" {
+		orgName, err := r.getOrgName(ctx, role.Space)
+		if err != nil {
+			return RoleRecord{}, err
+		}
+
+		hasOrgBinding, err := r.authorizedInChecker.AuthorizedIn(ctx, userIdentity, orgName)
+		if err != nil {
+			return RoleRecord{}, fmt.Errorf("failed to check for role in parent org: %w", err)
+		}
+
+		if !hasOrgBinding {
+			return RoleRecord{}, ErrorMissingRoleBindingInParentOrg
+		}
 	}
 
-	if !hasOrgBinding {
-		return RoleRecord{}, ErrorMissingRoleBindingInParentOrg
+	ns := role.Space
+	if ns == "" {
+		ns = role.Org
 	}
 
 	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: role.Space,
+			Namespace: ns,
 			Name:      calculateRoleBindingName(role),
 			Labels: map[string]string{
 				RoleGuidLabel: role.GUID,
@@ -106,7 +114,7 @@ func (r *RoleRepo) CreateSpaceRole(ctx context.Context, role RoleRecord) (RoleRe
 		},
 	}
 
-	err = r.privilegedClient.Create(ctx, &roleBinding)
+	err := r.privilegedClient.Create(ctx, &roleBinding)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
 			return RoleRecord{}, ErrorDuplicateRoleBinding
