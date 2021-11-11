@@ -48,7 +48,7 @@ var _ = Describe("Orgs", func() {
 		})
 
 		It("creates an org", func() {
-			resp, err := createOrgWithHeaders(orgName, map[string]string{headers.Authorization: authHeader})
+			resp, err := createOrgWithHeaders(orgName, map[string]string{headers.Authorization: tokenAuthHeader})
 			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
 
@@ -65,14 +65,14 @@ var _ = Describe("Orgs", func() {
 
 		When("the org name already exists", func() {
 			BeforeEach(func() {
-				resp, err := createOrgWithHeaders(orgName, map[string]string{headers.Authorization: authHeader})
+				resp, err := createOrgWithHeaders(orgName, map[string]string{headers.Authorization: tokenAuthHeader})
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 			})
 
 			It("returns an unprocessable entity error", func() {
-				resp, err := createOrgWithHeaders(orgName, map[string]string{headers.Authorization: authHeader})
+				resp, err := createOrgWithHeaders(orgName, map[string]string{headers.Authorization: tokenAuthHeader})
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
@@ -97,6 +97,7 @@ var _ = Describe("Orgs", func() {
 			for i := 1; i < 4; i++ {
 				org := createOrgNamespace(generateGUID("org" + strconv.Itoa(i)))
 				bindServiceAccountToOrg(serviceAccountName, org)
+				bindUserToOrg(certUserName, org)
 				orgs = append(orgs, org)
 			}
 
@@ -109,29 +110,59 @@ var _ = Describe("Orgs", func() {
 			}
 		})
 
-		It("returns all 3 orgs that the service account has a role in", func() {
-			Eventually(getOrgsFn(authHeader)).Should(ContainElements(
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
-			))
-		})
-
-		It("does not return orgs the service account does not have a role in", func() {
-			Consistently(getOrgsFn(authHeader)).ShouldNot(ContainElements(
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[3].label)}),
-			))
-		})
-
-		When("org names are filtered", func() {
-			It("returns orgs 1 & 3", func() {
-				Eventually(getOrgsFn(authHeader, orgs[0].label, orgs[2].label)).Should(ContainElements(
+		Context("with a bearer token auth header", func() {
+			It("returns all 3 orgs that the service account has a role in", func() {
+				Eventually(getOrgsFn(tokenAuthHeader)).Should(ContainElements(
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
 				))
-				Consistently(getOrgsFn(authHeader, orgs[0].label, orgs[2].label), "2s").ShouldNot(ContainElement(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
+			})
+
+			It("does not return orgs the service account does not have a role in", func() {
+				Consistently(getOrgsFn(tokenAuthHeader)).ShouldNot(ContainElements(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[3].label)}),
 				))
+			})
+
+			When("org names are filtered", func() {
+				It("returns orgs 1 & 3", func() {
+					Eventually(getOrgsFn(tokenAuthHeader, orgs[0].label, orgs[2].label)).Should(ContainElements(
+						MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
+						MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
+					))
+					Consistently(getOrgsFn(tokenAuthHeader, orgs[0].label, orgs[2].label), "2s").ShouldNot(ContainElement(
+						MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
+					))
+				})
+			})
+		})
+
+		Context("with a client certificate auth header", func() {
+			It("returns all 3 orgs that the service account has a role in", func() {
+				Eventually(getOrgsFn(certAuthHeader)).Should(ContainElements(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
+				))
+			})
+
+			It("does not return orgs the service account does not have a role in", func() {
+				Consistently(getOrgsFn(certAuthHeader)).ShouldNot(ContainElements(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[3].label)}),
+				))
+			})
+
+			When("org names are filtered", func() {
+				It("returns orgs 1 & 3", func() {
+					Eventually(getOrgsFn(certAuthHeader, orgs[0].label, orgs[2].label)).Should(ContainElements(
+						MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
+						MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
+					))
+					Consistently(getOrgsFn(certAuthHeader, orgs[0].label, orgs[2].label), "2s").ShouldNot(ContainElement(
+						MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
+					))
+				})
 			})
 		})
 
@@ -198,13 +229,25 @@ func createOrgNamespace(orgName string) hierarchicalNamespace {
 	return orgDetails
 }
 
-func bindServiceAccountToOrg(userName string, org hierarchicalNamespace) {
+func bindServiceAccountToOrg(serviceAccountName string, org hierarchicalNamespace) {
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: org.guid,
+			Name:      serviceAccountName + "-admin",
+		},
+		Subjects: []rbacv1.Subject{{Kind: rbacv1.ServiceAccountKind, Name: serviceAccountName}},
+		RoleRef:  rbacv1.RoleRef{Kind: "ClusterRole", Name: "cf-admin-clusterrole"},
+	}
+	Expect(k8sClient.Create(context.Background(), roleBinding)).To(Succeed())
+}
+
+func bindUserToOrg(userName string, org hierarchicalNamespace) {
 	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: org.guid,
 			Name:      userName + "-admin",
 		},
-		Subjects: []rbacv1.Subject{{Kind: rbacv1.ServiceAccountKind, Name: userName}},
+		Subjects: []rbacv1.Subject{{Kind: rbacv1.UserKind, Name: userName}},
 		RoleRef:  rbacv1.RoleRef{Kind: "ClusterRole", Name: "cf-admin-clusterrole"},
 	}
 	Expect(k8sClient.Create(context.Background(), roleBinding)).To(Succeed())
