@@ -82,6 +82,8 @@ func main() {
 	scaleProcessAction := actions.NewScaleProcess(new(repositories.ProcessRepo))
 	scaleAppProcessAction := actions.NewScaleAppProcess(new(repositories.AppRepo), new(repositories.ProcessRepo), scaleProcessAction.Invoke)
 
+	fetchProcessStatsAction := actions.NewFetchProcessStats(new(repositories.ProcessRepo), new(repositories.PodRepo), new(repositories.AppRepo))
+
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout)
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
@@ -142,6 +144,7 @@ func main() {
 			ctrl.Log.WithName("ProcessHandler"),
 			*serverURL,
 			new(repositories.ProcessRepo),
+			fetchProcessStatsAction.Invoke,
 			scaleProcessAction.Invoke,
 			repositories.BuildCRClient,
 			k8sClientConfig,

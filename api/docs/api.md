@@ -139,6 +139,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#processes
 | Get Process | GET /v3/processes/\<guid>/sidecars |
 | Get Process Sidecars | GET /v3/processes/\<guid>/sidecars |
 | Scale Process | POST /v3/processes/\<guid>/actions/scale |
+| Get Process Stats | POST /v3/processes/\<guid>/stats |
 
 #### [Scaling Processes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#scale-a-process)
 ```bash

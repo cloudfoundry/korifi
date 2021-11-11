@@ -23,13 +23,15 @@ var _ = Describe("ProcessHandler", func() {
 	)
 
 	var (
-		processRepo      *fake.CFProcessRepository
-		scaleProcessFunc *fake.ScaleProcess
-		clientBuilder    *fake.ClientBuilder
+		processRepo       *fake.CFProcessRepository
+		fetchProcessStats *fake.FetchProcessStats
+		scaleProcessFunc  *fake.ScaleProcess
+		clientBuilder     *fake.ClientBuilder
 	)
 
 	BeforeEach(func() {
 		processRepo = new(fake.CFProcessRepository)
+		fetchProcessStats = new(fake.FetchProcessStats)
 		scaleProcessFunc = new(fake.ScaleProcess)
 		clientBuilder = new(fake.ClientBuilder)
 
@@ -37,6 +39,7 @@ var _ = Describe("ProcessHandler", func() {
 			logf.Log.WithName(testAppHandlerLoggerName),
 			*serverURL,
 			processRepo,
+			fetchProcessStats.Spy,
 			scaleProcessFunc.Spy,
 			clientBuilder.Spy,
 			&rest.Config{},
@@ -156,7 +159,7 @@ var _ = Describe("ProcessHandler", func() {
 		When("on the sad path and", func() {
 			When("the process doesn't exist", func() {
 				BeforeEach(func() {
-					processRepo.FetchProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{})
+					processRepo.FetchProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
 				})
 
 				It("returns an error", func() {
@@ -215,7 +218,7 @@ var _ = Describe("ProcessHandler", func() {
 		When("on the sad path and", func() {
 			When("the process doesn't exist", func() {
 				BeforeEach(func() {
-					processRepo.FetchProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{})
+					processRepo.FetchProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
 				})
 
 				It("returns an error", func() {
@@ -451,7 +454,7 @@ var _ = Describe("ProcessHandler", func() {
 
 			When("the process doesn't exist", func() {
 				BeforeEach(func() {
-					scaleProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NotFoundError{})
+					scaleProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
 				})
 
 				It("returns an error", func() {
@@ -485,6 +488,88 @@ var _ = Describe("ProcessHandler", func() {
 				Entry("memory is a positive integer", `{"memory_in_mb":1024}`, http.StatusOK),
 				Entry("disk is a positive integer", `{"disk_in_mb":1024}`, http.StatusOK),
 			)
+		})
+	})
+
+	Describe("the GET /v3/processes/<guid>/stats endpoint", func() {
+
+		BeforeEach(func() {
+			fetchProcessStats.Returns([]repositories.PodStatsRecord{
+				{
+					Type:  "web",
+					Index: 0,
+					State: "RUNNING",
+				},
+				{
+					Type:  "web",
+					Index: 1,
+					State: "RUNNING",
+				},
+			}, nil)
+
+			var err error
+			req, err = http.NewRequest("GET", "/v3/processes/"+processGUID+"/stats", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("on the happy path", func() {
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP reponse code:")
+			})
+
+			It("returns a canned response with the processGUID in it", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(`{
+					"resources": [
+						{
+							"type": "web",
+							"index": 0,
+							"state": "RUNNING",
+							"host": null,
+							"uptime": null,
+							"mem_quota": null,
+							"disk_quota": null,
+							"fds_quota": null,
+							"isolation_segment": null,
+							"details": null,
+							"instance_ports": []
+						},
+						{
+							"type": "web",
+							"index": 1,
+							"state": "RUNNING",
+							"host": null,
+							"uptime": null,
+							"mem_quota": null,
+							"disk_quota": null,
+							"fds_quota": null,
+							"isolation_segment": null,
+							"details": null,
+							"instance_ports": []
+						}
+					]
+				}`), "Response body matches response:")
+			})
+		})
+
+		When("the process is not found", func() {
+			BeforeEach(func() {
+				fetchProcessStats.Returns(nil, repositories.NotFoundError{ResourceType: "Process"})
+			})
+			It("an error", func() {
+				expectNotFoundError("Process not found")
+			})
+		})
+
+		When("the app is not found", func() {
+			BeforeEach(func() {
+				fetchProcessStats.Returns(nil, repositories.NotFoundError{ResourceType: "App"})
+			})
+			It("an error", func() {
+				expectNotFoundError("App not found")
+			})
 		})
 	})
 })
