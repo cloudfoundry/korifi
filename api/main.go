@@ -203,7 +203,8 @@ func wireOrgHandler(serverUrl url.URL, orgRepo *repositories.OrgRepo, client cli
 	if authEnabled {
 		authNsProvider := authorization.NewOrg(client)
 		tokenReviewer := authorization.NewTokenReviewer(client)
-		identityProvider := authorization.NewIdentityProvider(tokenReviewer)
+		certInspector := authorization.NewCertInspector()
+		identityProvider := authorization.NewIdentityProvider(tokenReviewer, certInspector)
 		orgRepoProvider = provider.NewOrg(orgRepo, authNsProvider, identityProvider)
 	}
 

@@ -2,7 +2,13 @@ package e2e_test
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,13 +19,15 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"github.com/go-http-utils/headers"
-	"github.com/hashicorp/go-uuid"
+	"github.com/google/uuid"
 	"github.com/matt-royal/biloba"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	certsv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,10 +46,14 @@ type hierarchicalNamespace struct {
 var (
 	testServerAddress  string
 	k8sClient          client.Client
+	clientset          *kubernetes.Clientset
 	rootNamespace      string
 	apiServerRoot      string
 	serviceAccountName string
-	authHeader         string
+	tokenAuthHeader    string
+	certUserName       string
+	certSigningReq     *certsv1.CertificateSigningRequest
+	certAuthHeader     string
 )
 
 func TestE2E(t *testing.T) {
@@ -63,16 +75,25 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 
+	clientset, err = kubernetes.NewForConfig(config)
+	Expect(err).NotTo(HaveOccurred())
+
 	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
 	ensureServerIsUp()
 
-	serviceAccountName = generateGUID("user")
+	serviceAccountName = generateGUID("token-user")
 	token := obtainServiceAccountToken(serviceAccountName)
-	authHeader = fmt.Sprintf("Bearer %s", token)
+	tokenAuthHeader = fmt.Sprintf("Bearer %s", token)
+
+	certUserName = generateGUID("cert-user")
+	var certPEM string
+	certSigningReq, certPEM = obtainClientCert(certUserName)
+	certAuthHeader = "ClientCert " + certPEM
 })
 
 var _ = AfterSuite(func() {
 	deleteServiceAccount(serviceAccountName)
+	deleteCSR(certSigningReq)
 })
 
 func mustHaveEnv(key string) string {
@@ -96,8 +117,7 @@ func ensureServerIsUp() {
 }
 
 func generateGUID(prefix string) string {
-	guid, err := uuid.GenerateUUID()
-	Expect(err).NotTo(HaveOccurred())
+	guid := uuid.NewString()
 
 	return fmt.Sprintf("%s-%s", prefix, guid[:6])
 }
@@ -173,7 +193,7 @@ func createOrg(orgName string) presenter.OrgResponse {
 	body := fmt.Sprintf(`{ "name": "%s" }`, orgName)
 	req, err := http.NewRequest(http.MethodPost, orgsUrl, strings.NewReader(body))
 	Expect(err).NotTo(HaveOccurred())
-	req.Header.Add(headers.Authorization, authHeader)
+	req.Header.Add(headers.Authorization, tokenAuthHeader)
 
 	resp, err := http.DefaultClient.Do(req)
 	Expect(err).NotTo(HaveOccurred())
@@ -189,15 +209,15 @@ func createOrg(orgName string) presenter.OrgResponse {
 func createSpace(spaceName, orgGUID string) presenter.SpaceResponse {
 	spacesURL := apiServerRoot + "/v3/spaces"
 	body := fmt.Sprintf(`{
-                "name": "%s",
-                "relationships": {
-                  "organization": {
-                    "data": {
-                      "guid": "%s"
-                    }
-                  }
+        "name": "%s",
+        "relationships": {
+            "organization": {
+                "data": {
+                    "guid": "%s"
                 }
-            }`, spaceName, orgGUID)
+            }
+        }
+    }`, spaceName, orgGUID)
 	req, err := http.NewRequest(http.MethodPost, spacesURL, strings.NewReader(body))
 	Expect(err).NotTo(HaveOccurred())
 
@@ -253,4 +273,60 @@ func deleteServiceAccount(name string) {
 	}
 
 	Expect(k8sClient.Delete(context.Background(), &serviceAccount)).To(Succeed())
+}
+
+func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) {
+	keyBytes, err := rsa.GenerateKey(rand.Reader, 1024)
+	Expect(err).NotTo(HaveOccurred())
+
+	template := x509.CertificateRequest{
+		Subject:            pkix.Name{CommonName: name},
+		SignatureAlgorithm: x509.SHA256WithRSA,
+	}
+
+	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, keyBytes)
+	Expect(err).NotTo(HaveOccurred())
+
+	k8sCSR := &certsv1.CertificateSigningRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: uuid.NewString(),
+		},
+		Spec: certsv1.CertificateSigningRequestSpec{
+			Request:    pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes}),
+			SignerName: "kubernetes.io/kube-apiserver-client",
+			Usages:     []certsv1.KeyUsage{certsv1.UsageClientAuth},
+		},
+	}
+
+	Expect(k8sClient.Create(context.Background(), k8sCSR)).To(Succeed())
+
+	k8sCSR.Status.Conditions = append(k8sCSR.Status.Conditions, certsv1.CertificateSigningRequestCondition{
+		Type:   certsv1.CertificateApproved,
+		Status: "True",
+	})
+
+	k8sCSR, err = clientset.CertificatesV1().CertificateSigningRequests().UpdateApproval(context.Background(), k8sCSR.Name, k8sCSR, metav1.UpdateOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	var certPEM string
+	Eventually(func() (string, error) {
+		err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(k8sCSR), k8sCSR)
+		if err != nil {
+			return "", err
+		}
+
+		if len(k8sCSR.Status.Certificate) == 0 {
+			return "", nil
+		}
+
+		certPEM = base64.StdEncoding.EncodeToString(k8sCSR.Status.Certificate)
+
+		return certPEM, nil
+	}).ShouldNot(BeEmpty())
+
+	return k8sCSR, certPEM
+}
+
+func deleteCSR(csr *certsv1.CertificateSigningRequest) {
+	Expect(k8sClient.Delete(context.Background(), csr)).To(Succeed())
 }
