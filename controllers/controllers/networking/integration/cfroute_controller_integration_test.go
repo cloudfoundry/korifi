@@ -3,7 +3,6 @@ package integration_test
 import (
 	"context"
 	"fmt"
-	"time"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
@@ -102,7 +101,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)
 				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get HTTPProxy/%s in namespace %s", testFQDN, testNamespace)
 				return proxy.Name
-			}, 2*time.Second).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace)
+			}).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace)
 
 			Expect(proxy.Spec.VirtualHost.Fqdn).To(Equal(testFQDN), "HTTPProxy FQDN mismatch")
 			Expect(proxy.Spec.Includes).To(HaveLen(1), "HTTPProxy doesn't have the expected number of includes")
@@ -129,7 +128,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)
 				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get HTTPProxy/%s in namespace %s", testRouteGUID, testNamespace)
 				return proxy.GetName()
-			}, 2*time.Second).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testRouteGUID, testNamespace)
+			}).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testRouteGUID, testNamespace)
 
 			var proxy contourv1.HTTPProxy
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)
@@ -155,7 +154,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)
 				Expect(err).NotTo(HaveOccurred())
 				return cfRoute.ObjectMeta.Finalizers
-			}, 2*time.Second).Should(ConsistOf([]string{
+			}).Should(ConsistOf([]string{
 				"cfRoute.networking.cloudfoundry.org",
 			}))
 		})
@@ -200,7 +199,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)
 				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get HTTPProxy/%s in namespace %s", testFQDN, testNamespace)
 				return proxy.GetName()
-			}, 2*time.Second).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace)
+			}).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace)
 
 			var proxy contourv1.HTTPProxy
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)
@@ -221,7 +220,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)
 				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get HTTPProxy/%s in namespace %s", testRouteGUID, testNamespace)
 				return proxy.GetName()
-			}, 2*time.Second).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testRouteGUID, testNamespace)
+			}).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testRouteGUID, testNamespace)
 
 			var proxy contourv1.HTTPProxy
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)
@@ -244,7 +243,6 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		})
 
 		It("eventually reconciles each destination to a Service for the app", func() {
-
 			serviceName := fmt.Sprintf("s-%s", cfRoute.Spec.Destinations[0].GUID)
 			var svc corev1.Service
 
@@ -254,7 +252,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)
 					Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get Service/%s in namespace %s", serviceName, testNamespace)
 					return svc.GetName()
-				}, 2*time.Second).ShouldNot(BeEmpty(), "Timed out waiting for Service/%s in namespace %s to be created", serviceName, testNamespace)
+				}).ShouldNot(BeEmpty(), "Timed out waiting for Service/%s in namespace %s to be created", serviceName, testNamespace)
 			})
 
 			By("setting the labels on the created Service", func() {
@@ -321,7 +319,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)
 				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get HTTPProxy/%s in namespace %s", testFQDN, testNamespace)
 				return proxy.GetName()
-			}, 2*time.Second).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace)
+			}).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace)
 
 			duplicateRouteGUID = GenerateGUID()
 
@@ -360,7 +358,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)
 				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get HTTPProxy/%s in namespace %s", testFQDN, testNamespace)
 				return proxy.Spec.Includes
-			}, 2*time.Second).Should(HaveLen(2), "Timed out waiting for HTTPProxy/%s in namespace %s to include HTTPProxy/%s", testFQDN, testNamespace, duplicateRouteGUID)
+			}).Should(HaveLen(2), "Timed out waiting for HTTPProxy/%s in namespace %s to include HTTPProxy/%s", testFQDN, testNamespace, duplicateRouteGUID)
 
 			var proxy contourv1.HTTPProxy
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)
@@ -386,7 +384,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: duplicateRouteGUID, Namespace: testNamespace}, &proxy)
 				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get HTTPProxy/%s in namespace %s", duplicateRouteGUID, testNamespace)
 				return proxy.GetName()
-			}, 2*time.Second).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", duplicateRouteGUID, testNamespace)
+			}).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", duplicateRouteGUID, testNamespace)
 
 			var proxy contourv1.HTTPProxy
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: duplicateRouteGUID, Namespace: testNamespace}, &proxy)
@@ -444,7 +442,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)
 				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to get HTTPProxy/%s in namespace %s", testFQDN, testNamespace))
 				return proxy.GetName()
-			}, 2*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace))
+			}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace))
 
 			originalCFRoute := cfRoute.DeepCopy()
 			// Why not just set up the CFRoute with this in the first place?
@@ -468,7 +466,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to get HTTPProxy/%s in namespace %s", testRouteGUID, testNamespace))
 				Expect(proxy.Spec.Routes).To(HaveLen(1))
 				return proxy.Spec.Routes[0].Services
-			}, 2*time.Second).Should(HaveLen(2), fmt.Sprintf("Timed out waiting for HTTPProxy/%s in namespace %s to be updated", testRouteGUID, testNamespace))
+			}).Should(HaveLen(2), fmt.Sprintf("Timed out waiting for HTTPProxy/%s in namespace %s to be updated", testRouteGUID, testNamespace))
 
 			var proxy contourv1.HTTPProxy
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)
@@ -496,7 +494,6 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		})
 
 		It("eventually reconciles the new destination to a Service for the app", func() {
-
 			serviceName := fmt.Sprintf("s-%s", cfRoute.Spec.Destinations[1].GUID)
 			var svc corev1.Service
 
@@ -506,7 +503,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)
 					Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get Service/%s in namespace %s", serviceName, testNamespace)
 					return svc.GetName()
-				}, 2*time.Second).ShouldNot(BeEmpty(), "Timed out waiting for Service/%s in namespace %s to be created", serviceName, testNamespace)
+				}).ShouldNot(BeEmpty(), "Timed out waiting for Service/%s in namespace %s to be created", serviceName, testNamespace)
 			})
 
 			By("setting the labels on the created Service", func() {
@@ -571,7 +568,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					err := k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)
 					Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get HTTPProxy/%s in namespace %s", testFQDN, testNamespace)
 					return proxy.GetName()
-				}, 2*time.Second).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace)
+				}).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace)
 
 				var routeProxy contourv1.HTTPProxy
 				Eventually(func() error {
@@ -604,14 +601,14 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &routeProxy)
 					Expect(err).NotTo(HaveOccurred(), "Failed to get HTTPProxy/%s in namespace %s", testRouteGUID, testNamespace)
 					return routeProxy.Spec.Routes
-				}, 2*time.Second).Should(BeEmpty(), "Timed out waiting for HTTPProxy/%s to have Routes deleted", testRouteGUID)
+				}).Should(BeEmpty(), "Timed out waiting for HTTPProxy/%s to have Routes deleted", testRouteGUID)
 			})
 
 			By("Confirming Deletion of the corresponding Service", func() {
 				Eventually(func() bool {
 					err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, new(corev1.Service))
 					return errors.IsNotFound(err)
-				}, 2*time.Second).Should(BeTrue(), "Timed out waiting for Service/%s in namespace %s to be deleted", serviceName, testNamespace)
+				}).Should(BeTrue(), "Timed out waiting for Service/%s in namespace %s to be deleted", serviceName, testNamespace)
 			})
 
 			By("Confirming that the FQDN is not deleted", func() {
