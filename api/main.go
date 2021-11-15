@@ -180,6 +180,8 @@ func main() {
 		),
 
 		apis.NewRoleHandler(*serverURL, repositories.NewRoleRepo(privilegedCRClient, authorization.NewOrg(privilegedCRClient), config.RoleMappings)),
+
+		apis.NewWhoAmI(wireIdentityProvider(privilegedCRClient, k8sClientConfig), *serverURL),
 	}
 
 	router := mux.NewRouter()
@@ -214,11 +216,15 @@ func wireOrgHandler(serverUrl url.URL, orgRepo *repositories.OrgRepo, client cli
 	var orgRepoProvider apis.OrgRepositoryProvider = provider.NewPrivilegedOrg(orgRepo)
 	if authEnabled {
 		authNsProvider := authorization.NewOrg(client)
-		tokenReviewer := authorization.NewTokenReviewer(client)
-		certInspector := authorization.NewCertInspector(restConfig)
-		identityProvider := authorization.NewIdentityProvider(tokenReviewer, certInspector)
+		identityProvider := wireIdentityProvider(client, restConfig)
 		orgRepoProvider = provider.NewOrg(orgRepo, authNsProvider, identityProvider)
 	}
 
 	return apis.NewOrgHandler(serverUrl, orgRepoProvider)
+}
+
+func wireIdentityProvider(client client.Client, restConfig *rest.Config) *authorization.IdentityProvider {
+	tokenReviewer := authorization.NewTokenReviewer(client)
+	certInspector := authorization.NewCertInspector(restConfig)
+	return authorization.NewIdentityProvider(tokenReviewer, certInspector)
 }
