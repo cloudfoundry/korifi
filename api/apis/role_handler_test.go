@@ -45,7 +45,7 @@ var _ = Describe("RoleHandler", func() {
                 "relationships": {
                     "user": {
                         "data": {
-                            "guid": "my-user"
+                            "username": "my-user"
                         }
                     },
                     "%s": {
@@ -106,7 +106,7 @@ var _ = Describe("RoleHandler", func() {
                 "relationships": {
                     "user": {
                         "data": {
-                            "guid": "my-user"
+                            "username": "my-user"
                         }
                     },
                     "space": {
@@ -172,6 +172,60 @@ var _ = Describe("RoleHandler", func() {
 			Expect(roleRecord.Kind).To(Equal(rbacv1.UserKind))
 		})
 
+		When("username is passed in the guid field", func() {
+			BeforeEach(func() {
+				createRoleRequestBody = `{
+                    "type": "space_developer",
+                    "relationships": {
+                        "user": {
+                            "data": {
+                                "guid": "my-user"
+                            }
+                        },
+                        "space": {
+                            "data": {
+                                "guid": "my-space"
+                            }
+                        }
+                    }
+                }`
+			})
+
+			It("still works as guid and username are equivalent here", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
+                    "guid": "t-h-e-r-o-l-e",
+                    "created_at": "2021-09-17T15:23:10Z",
+                    "updated_at": "2021-09-17T15:23:10Z",
+                    "type": "space_developer",
+                    "relationships": {
+                        "user": {
+                            "data":{
+                                "guid": "my-user"
+                            }
+                        },
+                        "space": {
+                            "data":{
+                                "guid": "my-space"
+                            }
+                        },
+                        "organization": {
+                            "data":null
+                        }
+                    },
+                    "links": {
+                        "self": {
+                            "href": "%[1]s/v3/roles/t-h-e-r-o-l-e"
+                        },
+                        "space": {
+                            "href": "%[1]s/v3/spaces/my-space"
+                        }
+                    }
+                }`, defaultServerURL))))
+			})
+		})
+
 		When("the role is an organisation role", func() {
 			BeforeEach(func() {
 				createRoleRequestBody = `{
@@ -195,11 +249,11 @@ var _ = Describe("RoleHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
-                "guid": "t-h-e-r-o-l-e",
-                "created_at": "2021-09-17T15:23:10Z",
-                "updated_at": "2021-09-17T15:23:10Z",
-                "type": "organization_manager",
-                "relationships": {
+                    "guid": "t-h-e-r-o-l-e",
+                    "created_at": "2021-09-17T15:23:10Z",
+                    "updated_at": "2021-09-17T15:23:10Z",
+                    "type": "organization_manager",
+                    "relationships": {
                         "user": {
                             "data":{
                                 "guid": "my-user"
@@ -376,11 +430,11 @@ var _ = Describe("RoleHandler", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
                     "errors": [
-                    {
-                        "title": "CF-MessageParseError",
-                        "detail": "Request invalid due to parse error: invalid request body",
-                        "code": 1001
-                    }
+                        {
+                            "title": "CF-MessageParseError",
+                            "detail": "Request invalid due to parse error: invalid request body",
+                            "code": 1001
+                        }
                     ]
                 }`)))
 			})
@@ -396,11 +450,11 @@ var _ = Describe("RoleHandler", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
                     "errors": [
-                    {
-                        "title": "CF-UnprocessableEntity",
-                        "detail": "invalid request body: json: unknown field \"who-am-i\"",
-                        "code": 10008
-                    }
+                        {
+                            "title": "CF-UnprocessableEntity",
+                            "detail": "invalid request body: json: unknown field \"who-am-i\"",
+                            "code": 10008
+                        }
                     ]
                 }`)))
 			})
@@ -429,13 +483,40 @@ var _ = Describe("RoleHandler", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
                     "errors": [
-                    {
-                        "title": "CF-UnprocessableEntity",
-                        "detail": "Type is a required field",
-                        "code": 10008
-                    }
+                        {
+                            "title": "CF-UnprocessableEntity",
+                            "detail": "Type is a required field",
+                            "code": 10008
+                        }
                     ]
                 }`)))
+			})
+		})
+
+		When("the request body has neither user name nor guid", func() {
+			BeforeEach(func() {
+				createRoleRequestBody = `{
+                    "type": "organization_manager",
+                    "relationships": {
+                        "user": {
+                            "data": {}
+                        },
+                        "space": {
+                            "data": {
+                                "guid": "my-space"
+                            }
+                        }
+                    }
+                }`
+			})
+
+			It("returns a status 422 with appropriate error message json", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					ContainSubstring("Field validation for 'GUID' failed"),
+					ContainSubstring("Field validation for 'Username' failed"),
+				)))
 			})
 		})
 	})
