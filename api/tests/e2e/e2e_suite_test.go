@@ -226,9 +226,9 @@ func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) pre
 
 	switch kind {
 	case rbacv1.UserKind:
-		payload.Relationships.User = &payloads.Relationship{
-			Data: &payloads.RelationshipData{
-				GUID: userName,
+		payload.Relationships.User = &payloads.UserRelationship{
+			Data: payloads.UserRelationshipData{
+				Username: userName,
 			},
 		}
 	case rbacv1.ServiceAccountKind:

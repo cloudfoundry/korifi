@@ -10,11 +10,20 @@ type RoleCreate struct {
 	Relationships RoleRelationships `json:"relationships" validate:"required"`
 }
 
+type UserRelationship struct {
+	Data UserRelationshipData `json:"data" validate:"required"`
+}
+
+type UserRelationshipData struct {
+	Username string `json:"username" validate:"required_without=GUID"`
+	GUID     string `json:"guid" validate:"required_without=Username"`
+}
+
 type RoleRelationships struct {
-	User                     *Relationship `json:"user" validate:"required_without=KubernetesServiceAccount"`
-	KubernetesServiceAccount *Relationship `json:"kubernetesServiceAccount" validate:"required_without=User"`
-	Space                    *Relationship `json:"space"`
-	Organization             *Relationship `json:"organization"`
+	User                     *UserRelationship `json:"user" validate:"required_without=KubernetesServiceAccount"`
+	KubernetesServiceAccount *Relationship     `json:"kubernetesServiceAccount" validate:"required_without=User"`
+	Space                    *Relationship     `json:"space"`
+	Organization             *Relationship     `json:"organization"`
 }
 
 func (p RoleCreate) ToRecord() repositories.RoleRecord {
@@ -32,7 +41,10 @@ func (p RoleCreate) ToRecord() repositories.RoleRecord {
 
 	if p.Relationships.User != nil {
 		record.Kind = rbacv1.UserKind
-		record.User = p.Relationships.User.Data.GUID
+		record.User = p.Relationships.User.Data.Username
+		if p.Relationships.User.Data.GUID != "" {
+			record.User = p.Relationships.User.Data.GUID
+		}
 	} else {
 		record.Kind = rbacv1.ServiceAccountKind
 		record.User = p.Relationships.KubernetesServiceAccount.Data.GUID
