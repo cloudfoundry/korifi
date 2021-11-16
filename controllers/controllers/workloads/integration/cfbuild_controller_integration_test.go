@@ -293,16 +293,14 @@ var _ = Describe("CFBuildReconciler", func() {
 				testCtx := context.Background()
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				createdCFBuild := new(workloadsv1alpha1.CFBuild)
-				Describe("does this work?", func() {
-					Eventually(func() bool {
-						err := k8sClient.Get(testCtx, cfBuildLookupKey, createdCFBuild)
-						if err != nil {
-							return false
-						}
-						return meta.IsStatusConditionTrue(createdCFBuild.Status.Conditions, succeededConditionType)
-					}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
-				})
 
+				Eventually(func() bool {
+					err := k8sClient.Get(testCtx, cfBuildLookupKey, createdCFBuild)
+					if err != nil {
+						return false
+					}
+					return meta.IsStatusConditionTrue(createdCFBuild.Status.Conditions, succeededConditionType)
+				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
 			})
 
 			It("should eventually set BuildStatusDroplet object", func() {
@@ -322,7 +320,6 @@ var _ = Describe("CFBuildReconciler", func() {
 				Expect(createdCFBuild.Status.BuildDropletStatus.Registry.ImagePullSecrets).To(Equal(desiredCFPackage.Spec.Source.Registry.ImagePullSecrets))
 				Expect(createdCFBuild.Status.BuildDropletStatus.ProcessTypes).To(Equal(returnedProcessTypes))
 				Expect(createdCFBuild.Status.BuildDropletStatus.Ports).To(Equal(returnedPorts))
-
 			})
 		})
 	})

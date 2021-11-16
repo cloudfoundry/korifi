@@ -5,11 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"github.com/google/uuid"
-	"github.com/matt-royal/biloba"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +17,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
 const (
@@ -29,7 +29,7 @@ const (
 
 func TestRepositories(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecsWithDefaultAndCustomReporters(t, "Repositories Suite", biloba.GoLandReporter())
+	RunSpecs(t, "Repositories Suite")
 }
 
 var (

@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/matt-royal/biloba"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -15,7 +14,7 @@ var (
 
 func TestApis(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecsWithDefaultAndCustomReporters(t, "Actions Suite", biloba.GoLandReporter())
+	RunSpecs(t, "Actions Suite")
 }
 
 var _ = BeforeEach(func() {

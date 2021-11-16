@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENVTEST_ASSETS_DIR=$SCRIPT_DIR/../testbin
 mkdir -p $ENVTEST_ASSETS_DIR
 
-go install github.com/onsi/ginkgo/ginkgo@latest
+go install github.com/onsi/ginkgo/ginkgo
 
 extra_args=()
 if ! egrep -q e2e <(echo "$@"); then

@@ -16,11 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
-	"github.com/matt-royal/biloba"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	certsv1 "k8s.io/api/certificates/v1"
@@ -34,6 +31,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 type hierarchicalNamespace struct {
@@ -58,7 +58,7 @@ var (
 
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecsWithDefaultAndCustomReporters(t, "E2E Suite", biloba.GoLandReporter())
+	RunSpecs(t, "E2E Suite")
 }
 
 var _ = BeforeSuite(func() {

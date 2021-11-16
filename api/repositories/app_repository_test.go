@@ -19,9 +19,9 @@ import (
 
 var _ = Describe("AppRepository", func() {
 	var (
-		testCtx context.Context
-		appRepo *AppRepo
-		client  client.Client
+		testCtx    context.Context
+		appRepo    *AppRepo
+		testClient client.Client
 	)
 
 	BeforeEach(func() {
@@ -29,7 +29,7 @@ var _ = Describe("AppRepository", func() {
 
 		appRepo = new(AppRepo)
 		var err error
-		client, err = BuildCRClient(k8sConfig)
+		testClient, err = BuildCRClient(k8sConfig)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -111,7 +111,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("can fetch the AppRecord CR we're looking for", func() {
-				app, err := appRepo.FetchApp(testCtx, client, app2GUID)
+				app, err := appRepo.FetchApp(testCtx, testClient, app2GUID)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(app.GUID).To(Equal(app2GUID))
@@ -185,7 +185,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := appRepo.FetchApp(testCtx, client, testAppGUID)
+				_, err := appRepo.FetchApp(testCtx, testClient, testAppGUID)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("duplicate apps exist"))
 			})
@@ -193,7 +193,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("no Apps exist", func() {
 			It("returns an error", func() {
-				_, err := appRepo.FetchApp(testCtx, client, "i don't exist")
+				_, err := appRepo.FetchApp(testCtx, testClient, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
 			})
@@ -234,7 +234,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the App exists in the Space", func() {
 			It("returns the record", func() {
-				appRecord, err := appRepo.FetchAppByNameAndSpace(context.Background(), client, appName, namespace.Name)
+				appRecord, err := appRepo.FetchAppByNameAndSpace(context.Background(), testClient, appName, namespace.Name)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(appRecord.Name).To(Equal(appName))
@@ -248,39 +248,42 @@ var _ = Describe("AppRepository", func() {
 
 			When("the App doesn't exist in the Space (but is in another Space)", func() {
 				It("returns a NotFoundError", func() {
-					_, err := appRepo.FetchAppByNameAndSpace(context.Background(), client, appName, otherNamespace.Name)
+					_, err := appRepo.FetchAppByNameAndSpace(context.Background(), testClient, appName, otherNamespace.Name)
 					Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
 				})
 			})
 		})
 	})
 
-	Describe("FetchAppList", func() {
+	Describe("FetchAppList", Serial, func() {
 		const namespace = "default"
 
 		BeforeEach(func() {
-			client.DeleteAllOf(context.Background(), new(workloadsv1alpha1.CFApp))
+			var cfAppList workloadsv1alpha1.CFAppList
+			Expect(
+				testClient.List(context.Background(), &cfAppList),
+			).To(Succeed())
 
-			var CFAppList workloadsv1alpha1.CFAppList
-			Eventually(func() []workloadsv1alpha1.CFApp {
-				client.List(context.Background(), &CFAppList)
-				return CFAppList.Items
-			}, 5*time.Second).Should(BeEmpty(), "No CFApps should exist, but some do")
+			for _, app := range cfAppList.Items {
+				Expect(
+					testClient.Delete(context.Background(), &app),
+				).To(Succeed())
+			}
+		})
+
+		When("no Apps exist", func() {
+			It("returns an error", func() {
+				_, err := appRepo.FetchAppList(testCtx, testClient)
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 
 		When("multiple Apps exist", func() {
-			var (
-				app1GUID string
-				app2GUID string
-				cfApp1   *workloadsv1alpha1.CFApp
-				cfApp2   *workloadsv1alpha1.CFApp
-			)
-
 			BeforeEach(func() {
 				beforeCtx := context.Background()
-				app1GUID = generateGUID()
-				app2GUID = generateGUID()
-				cfApp1 = &workloadsv1alpha1.CFApp{
+				app1GUID := generateGUID()
+				app2GUID := generateGUID()
+				cfApp1 := &workloadsv1alpha1.CFApp{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      app1GUID,
 						Namespace: namespace,
@@ -299,7 +302,7 @@ var _ = Describe("AppRepository", func() {
 				}
 				Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
 
-				cfApp2 = &workloadsv1alpha1.CFApp{
+				cfApp2 := &workloadsv1alpha1.CFApp{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      app2GUID,
 						Namespace: namespace,
@@ -319,25 +322,12 @@ var _ = Describe("AppRepository", func() {
 				Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
 			})
 
-			AfterEach(func() {
-				afterCtx := context.Background()
-				Expect(k8sClient.Delete(afterCtx, cfApp1)).To(Succeed())
-				Expect(k8sClient.Delete(afterCtx, cfApp2)).To(Succeed())
-			})
-
 			// TODO: Update this test annotation to reflect proper filtering by caller permissions when that is available
 			It("returns all the AppRecord CRs", func() {
-				appList, err := appRepo.FetchAppList(testCtx, client)
+				appList, err := appRepo.FetchAppList(testCtx, testClient)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(appList).To(HaveLen(2), "repository should return 2 app records")
+				Expect(appList).To(HaveLen(2))
 				// TODO: Assert on equality for each expected appRecord? Could just hardcode checks for each app?
-			})
-		})
-
-		When("no Apps exist", func() {
-			It("returns an error", func() {
-				_, err := appRepo.FetchAppList(testCtx, client)
-				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})
@@ -368,7 +358,7 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		It("creates a new app CR", func() {
-			createdAppRecord, err := appRepo.CreateApp(testCtx, client, appCreateMessage)
+			createdAppRecord, err := appRepo.CreateApp(testCtx, testClient, appCreateMessage)
 			Expect(err).To(BeNil())
 			Expect(createdAppRecord).NotTo(BeNil())
 
@@ -380,7 +370,7 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		It("returns an AppRecord with correct fields", func() {
-			createdAppRecord, err := appRepo.CreateApp(context.Background(), client, appCreateMessage)
+			createdAppRecord, err := appRepo.CreateApp(context.Background(), testClient, appCreateMessage)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createdAppRecord).NotTo(Equal(AppRecord{}))
 			Expect(createdAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
@@ -389,11 +379,11 @@ var _ = Describe("AppRepository", func() {
 
 			recordCreatedTime, err := time.Parse(TimestampFormat, createdAppRecord.CreatedAt)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), time.Second))
+			Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
 
 			recordUpdatedTime, err := time.Parse(TimestampFormat, createdAppRecord.UpdatedAt)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), time.Second))
+			Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
 		})
 
 		When("no environment variables are given", func() {
@@ -402,7 +392,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("creates an empty secret and sets the environment variable secret ref on the App", func() {
-				createdAppRecord, err := appRepo.CreateApp(testCtx, client, appCreateMessage)
+				createdAppRecord, err := appRepo.CreateApp(testCtx, testClient, appCreateMessage)
 				Expect(err).To(BeNil())
 				Expect(createdAppRecord).NotTo(BeNil())
 
@@ -433,7 +423,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("creates an secret for the environment variables and sets the ref on the App", func() {
-				createdAppRecord, err := appRepo.CreateApp(testCtx, client, appCreateMessage)
+				createdAppRecord, err := appRepo.CreateApp(testCtx, testClient, appCreateMessage)
 				Expect(err).To(BeNil())
 				Expect(createdAppRecord).NotTo(BeNil())
 
@@ -498,7 +488,7 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			returnedAppEnvVarsRecord, returnedErr = appRepo.CreateOrPatchAppEnvVars(context.Background(), client, testAppEnvSecret)
+			returnedAppEnvVarsRecord, returnedErr = appRepo.CreateOrPatchAppEnvVars(context.Background(), testClient, testAppEnvSecret)
 		})
 
 		AfterEach(func() {
@@ -509,7 +499,7 @@ var _ = Describe("AppRepository", func() {
 				},
 			}
 			Expect(
-				client.Delete(context.Background(), &lookupSecretK8sResource),
+				testClient.Delete(context.Background(), &lookupSecretK8sResource),
 			).To(Succeed(), "Could not clean up the created App Env Secret")
 		})
 
@@ -529,7 +519,7 @@ var _ = Describe("AppRepository", func() {
 				// Used a strings.Trim to remove characters, which cause the behavior in Issue #103
 				testAppEnvSecret.AppGUID = "estringtrimmedguid"
 
-				returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateOrPatchAppEnvVars(testCtx, client, testAppEnvSecret)
+				returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateOrPatchAppEnvVars(testCtx, testClient, testAppEnvSecret)
 				Expect(returnedUpdatedErr).ToNot(HaveOccurred())
 				Expect(returnedUpdatedAppEnvVarsRecord.AppGUID).To(Equal(testAppEnvSecret.AppGUID), "Expected App GUID to match after transform")
 			})
@@ -538,7 +528,7 @@ var _ = Describe("AppRepository", func() {
 				cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: defaultNamespace}
 				createdCFAppSecret := &corev1.Secret{}
 				Eventually(func() bool {
-					err := client.Get(context.Background(), cfAppSecretLookupKey, createdCFAppSecret)
+					err := testClient.Get(context.Background(), cfAppSecretLookupKey, createdCFAppSecret)
 					if err != nil {
 						return false
 					}
@@ -585,7 +575,7 @@ var _ = Describe("AppRepository", func() {
 					StringData: originalEnvVars,
 				}
 				Expect(
-					client.Create(context.Background(), &originalSecret),
+					testClient.Create(context.Background(), &originalSecret),
 				).To(Succeed())
 			})
 
@@ -630,7 +620,7 @@ var _ = Describe("AppRepository", func() {
 	Describe("GetNamespace", func() {
 		When("space does not exist", func() {
 			It("returns an unauthorized or not found err", func() {
-				_, err := appRepo.FetchNamespace(context.Background(), client, "some-guid")
+				_, err := appRepo.FetchNamespace(context.Background(), testClient, "some-guid")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("Resource not found or permission denied."))
 			})
@@ -664,7 +654,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("on the happy path", func() {
 			It("returns a CurrentDroplet record", func() {
-				record, err := appRepo.SetCurrentDroplet(testCtx, client, SetCurrentDropletMessage{
+				record, err := appRepo.SetCurrentDroplet(testCtx, testClient, SetCurrentDropletMessage{
 					AppGUID:     appGUID,
 					DropletGUID: dropletGUID,
 					SpaceGUID:   spaceGUID,
@@ -677,7 +667,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("sets the spec.current_droplet_ref.name to the Droplet GUID", func() {
-				_, err := appRepo.SetCurrentDroplet(testCtx, client, SetCurrentDropletMessage{
+				_, err := appRepo.SetCurrentDroplet(testCtx, testClient, SetCurrentDropletMessage{
 					AppGUID:     appGUID,
 					DropletGUID: dropletGUID,
 					SpaceGUID:   spaceGUID,
@@ -695,7 +685,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the app doesn't exist", func() {
 			It("errors", func() {
-				_, err := appRepo.SetCurrentDroplet(testCtx, client, SetCurrentDropletMessage{
+				_, err := appRepo.SetCurrentDroplet(testCtx, testClient, SetCurrentDropletMessage{
 					AppGUID:     "no-such-app",
 					DropletGUID: dropletGUID,
 					SpaceGUID:   spaceGUID,
@@ -736,7 +726,7 @@ var _ = Describe("AppRepository", func() {
 
 				Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
 
-				appRecord, err := appRepo.SetAppDesiredState(context.Background(), client, SetAppDesiredStateMessage{
+				appRecord, err := appRepo.SetAppDesiredState(context.Background(), testClient, SetAppDesiredStateMessage{
 					AppGUID:      appGUID,
 					SpaceGUID:    spaceGUID,
 					DesiredState: appStartedValue,
@@ -782,7 +772,7 @@ var _ = Describe("AppRepository", func() {
 
 				Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
 
-				appRecord, err := appRepo.SetAppDesiredState(context.Background(), client, SetAppDesiredStateMessage{
+				appRecord, err := appRepo.SetAppDesiredState(context.Background(), testClient, SetAppDesiredStateMessage{
 					AppGUID:      appGUID,
 					SpaceGUID:    spaceGUID,
 					DesiredState: appStoppedValue,
@@ -820,7 +810,7 @@ var _ = Describe("AppRepository", func() {
 			It("returns an error", func() {
 				appGUID = "fake-app-guid"
 
-				_, err := appRepo.SetAppDesiredState(context.Background(), client, SetAppDesiredStateMessage{
+				_, err := appRepo.SetAppDesiredState(context.Background(), testClient, SetAppDesiredStateMessage{
 					AppGUID:      appGUID,
 					SpaceGUID:    spaceGUID,
 					DesiredState: appStartedValue,

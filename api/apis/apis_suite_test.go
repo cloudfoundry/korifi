@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"github.com/gorilla/mux"
-	"github.com/matt-royal/biloba"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 const (
@@ -31,7 +31,7 @@ var (
 
 func TestApis(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecsWithDefaultAndCustomReporters(t, "Apis Suite", biloba.GoLandReporter())
+	RunSpecs(t, "Apis Suite")
 }
 
 var _ = BeforeEach(func() {
