@@ -102,14 +102,6 @@ docker-push-controllers:
 docker-push-api:
 	docker push ${IMG_API}
 
-kind-load-images: kind-load-controllers-image kind-load-api-image
-
-kind-load-controllers-image:
-	kind load docker-image ${IMG_CONTROLLERS}
-
-kind-load-api-image:
-	kind load docker-image ${IMG_API}
-
 ##@ Deployment
 
 install-crds: manifests-controllers kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
@@ -118,9 +110,7 @@ install-crds: manifests-controllers kustomize ## Install CRDs into the K8s clust
 uninstall-crds: manifests-controllers kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build controllers/config/crd | kubectl delete -f -
 
-deploy: install-crds deploy-controllers deploy-api
-
-deploy-kind: install-crds deploy-controllers deploy-api-kind-auth
+deploy: deploy-controllers deploy-api
 
 deploy-controllers: manifests-controllers kustomize
 	cd controllers/config/manager && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-controllers=${IMG_CONTROLLERS}
