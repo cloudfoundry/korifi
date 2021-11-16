@@ -12,6 +12,18 @@ type DomainList struct {
 
 func (d *DomainList) ToMessage() repositories.DomainListMessage {
 	return repositories.DomainListMessage{
-		Names: strings.Split(strings.TrimSpace(d.Names), ","),
+		Names: parseArrayParam(d.Names),
 	}
+}
+
+func parseArrayParam(arrayParam string) []string {
+	if arrayParam == "" {
+		return []string{}
+	}
+
+	elements := strings.Split(arrayParam, ",")
+	for i, e := range elements {
+		elements[i] = strings.TrimSpace(e)
+	}
+	return elements
 }

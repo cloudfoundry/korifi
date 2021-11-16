@@ -15,7 +15,7 @@ import (
 )
 
 var _ = Describe("DomainRepository", func() {
-	Describe("GetDomain", func() {
+	Describe("FetchDomain", func() {
 		var testCtx context.Context
 
 		BeforeEach(func() {
@@ -85,7 +85,7 @@ var _ = Describe("DomainRepository", func() {
 		})
 	})
 
-	Describe("GetDomainList", func() {
+	Describe("FetchDomainList", func() {
 		var (
 			testCtx context.Context
 
