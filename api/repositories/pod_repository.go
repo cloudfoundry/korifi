@@ -60,7 +60,7 @@ func (r *PodRepo) FetchPodStatsByAppGUID(ctx context.Context, k8sClient client.C
 		records[i] = PodStatsRecord{
 			Type:  message.ProcessType,
 			Index: i,
-			State: "DOWN",
+			State: unknownState,
 		}
 	}
 

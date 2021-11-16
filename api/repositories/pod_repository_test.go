@@ -14,7 +14,7 @@ import (
 )
 
 var _ = Describe("PodRepository", func() {
-	Describe("GetPod", func() {
+	Describe("FetchPodStatsByAppGUID", func() {
 		var (
 			podRepo    *PodRepo
 			testClient client.Client
