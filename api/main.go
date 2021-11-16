@@ -152,6 +152,10 @@ func main() {
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),
+		apis.NewJobHandler(
+			ctrl.Log.WithName("JobHandler"),
+			*serverURL,
+		),
 
 		wireOrgHandler(*serverURL, orgRepo, privilegedCRClient, config.AuthEnabled),
 		apis.NewSpaceHandler(
