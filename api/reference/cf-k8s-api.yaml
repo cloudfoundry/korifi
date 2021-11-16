@@ -97,6 +97,20 @@ rules:
   - create
   - list
 - apiGroups:
+  - v1
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - v1
+  resources:
+  - pods/status
+  verbs:
+  - get
+- apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
