@@ -258,6 +258,16 @@ var _ = Describe("AppRepository", func() {
 	Describe("FetchAppList", func() {
 		const namespace = "default"
 
+		BeforeEach(func() {
+			client.DeleteAllOf(context.Background(), new(workloadsv1alpha1.CFApp))
+
+			var CFAppList workloadsv1alpha1.CFAppList
+			Eventually(func() []workloadsv1alpha1.CFApp {
+				client.List(context.Background(), &CFAppList)
+				return CFAppList.Items
+			}, 5*time.Second).Should(BeEmpty(), "No CFApps should exist, but some do")
+		})
+
 		When("multiple Apps exist", func() {
 			var (
 				app1GUID string

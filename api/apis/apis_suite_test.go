@@ -116,15 +116,15 @@ func expectUnknownKeyError() {
 
 func initializeProcessRecord(processGUID, spaceGUID, appGUID string) *repositories.ProcessRecord {
 	return &repositories.ProcessRecord{
-		GUID:        processGUID,
-		SpaceGUID:   spaceGUID,
-		AppGUID:     appGUID,
-		Type:        "web",
-		Command:     "rackup",
-		Instances:   1,
-		MemoryMB:    256,
-		DiskQuotaMB: 1024,
-		Ports:       []int32{8080},
+		GUID:             processGUID,
+		SpaceGUID:        spaceGUID,
+		AppGUID:          appGUID,
+		Type:             "web",
+		Command:          "rackup",
+		DesiredInstances: 1,
+		MemoryMB:         256,
+		DiskQuotaMB:      1024,
+		Ports:            []int32{8080},
 		HealthCheck: repositories.HealthCheck{
 			Type: "port",
 			Data: repositories.HealthCheckData{

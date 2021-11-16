@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -18,6 +17,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -26,11 +27,11 @@ import (
 var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", func() {
 	BeforeEach(func() {
 		appRepo := new(repositories.AppRepo)
-		createApp := actions.NewCreateApp(appRepo)
+		processRepo := new(repositories.ProcessRepo)
 		apiHandler := NewSpaceManifestHandler(
 			logf.Log.WithName("integration tests"),
 			*serverURL,
-			actions.NewApplyManifest(appRepo, createApp.Invoke).Invoke,
+			actions.NewApplyManifest(appRepo, processRepo).Invoke,
 			repositories.NewOrgRepo("cf", k8sClient, 1*time.Minute),
 			repositories.BuildCRClient,
 			k8sConfig,
@@ -43,6 +44,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			namespace      *corev1.Namespace
 			resp           *http.Response
 			requestEnvVars map[string]string
+			requestBody    string
 		)
 
 		const (
@@ -62,40 +64,56 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				key1: "VAL1",
 				key2: "VAL2",
 			}
+		})
 
-			requestBody := fmt.Sprintf(`---
-                version: 1
-                applications:
-                - name: %s
-                  env:
-                    %s: %s
-                    %s: %s`, appName, key1, requestEnvVars[key1], key2, requestEnvVars[key2])
+		AfterEach(func() {
+			k8sClient.Delete(context.Background(), namespace)
+		})
 
+		JustBeforeEach(func() {
 			var err error
 			req, err = http.NewRequest(
 				"POST",
-				serverURI("/v3/spaces/", namespaceGUID, "/actions/apply_manifest"),
+				serverURI("/v3/spaces/", namespace.Name, "/actions/apply_manifest"),
 				strings.NewReader(requestBody),
 			)
 			Expect(err).NotTo(HaveOccurred())
 
 			req.Header.Add("Content-type", "application/x-yaml")
-		})
-
-		AfterEach(func() {
-			Expect(
-				k8sClient.Delete(context.Background(), namespace),
-			).To(Succeed())
-		})
-
-		JustBeforeEach(func() {
-			var err error
 			resp, err = new(http.Client).Do(req)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("no app with that name exists", func() {
-			It("creates the applications in the manifest, returns 202 and a job URI", func() {
+			BeforeEach(func() {
+				requestBody = fmt.Sprintf(`---
+                  version: 1
+                  applications:
+                  - name: %s
+                    env:
+                      %s: %s
+                      %s: %s
+                    processes:
+                    - type: web
+                      command: start-web.sh
+                      disk_quota: 512M
+                      instances: 3
+                      memory: 500M
+                      health-check-type: http
+                      health-check-http-endpoint: /stuff
+                      health-check-invocation-timeout: 60
+                      timeout: 60
+                    - type: worker
+                      command: start-worker.sh
+                      disk_quota: 1G
+                      memory: 256M
+                      health-check-type: http
+                      health-check-http-endpoint: /things
+                      health-check-invocation-timeout: 90
+                      timeout: 90`, appName, key1, requestEnvVars[key1], key2, requestEnvVars[key2])
+			})
+
+			It("creates the applications in the manifest, the env var secret, and the processes, returns 202 and a job URI", func() {
 				Expect(resp.StatusCode).To(Equal(202))
 
 				body, err := ioutil.ReadAll(resp.Body)
@@ -127,25 +145,96 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					return k8sClient.Get(context.Background(), secretNSName, &secretRecord)
 				}).Should(Succeed())
 				Expect(secretRecord.Data).To(HaveLen(len(requestEnvVars)))
+
 				for k, v := range requestEnvVars {
-					secretKeyValue, exists := secretRecord.Data[k]
-					Expect(exists).To(BeTrue(), "Key %v did not exist in env var secret", k)
-					Expect(string(secretKeyValue)).To(Equal(v), "Env Secret key value for %v did not match", k)
+					Expect(secretRecord.Data).To(HaveKeyWithValue(k, BeEquivalentTo(v)))
 				}
+
+				var processList v1alpha1.CFProcessList
+				Eventually(func() []v1alpha1.CFProcess {
+					Expect(
+						k8sClient.List(context.Background(), &processList, client.InNamespace(namespace.Name)),
+					).To(Succeed())
+					return processList.Items
+				}).Should(HaveLen(2))
+
+				Expect(processList.Items).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Spec": Equal(v1alpha1.CFProcessSpec{
+							AppRef:      corev1.LocalObjectReference{Name: app1.Name},
+							ProcessType: "web",
+							Command:     "start-web.sh",
+							HealthCheck: v1alpha1.HealthCheck{
+								Type: "http",
+								Data: v1alpha1.HealthCheckData{
+									HTTPEndpoint:             "/stuff",
+									InvocationTimeoutSeconds: 60,
+									TimeoutSeconds:           60,
+								},
+							},
+							DesiredInstances: 3,
+							MemoryMB:         500,
+							DiskQuotaMB:      512,
+							Ports:            []int32{},
+						}),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Spec": Equal(v1alpha1.CFProcessSpec{
+							AppRef:      corev1.LocalObjectReference{Name: app1.Name},
+							ProcessType: "worker",
+							Command:     "start-worker.sh",
+							HealthCheck: v1alpha1.HealthCheck{
+								Type: "http",
+								Data: v1alpha1.HealthCheckData{
+									HTTPEndpoint:             "/things",
+									InvocationTimeoutSeconds: 90,
+									TimeoutSeconds:           90,
+								},
+							},
+							DesiredInstances: 0, // default value, since we didn't specify in manifest
+							MemoryMB:         256,
+							DiskQuotaMB:      1024,
+							Ports:            []int32{},
+						}),
+					}),
+				))
 			})
 		})
 
-		When("an app with that name already exists with env vars", func() {
+		When("an app with that name already exists with env vars and processes", func() {
 			const (
 				appGUID = "my-app-guid"
 				key0    = "KEY0"
 			)
 
 			var (
-				originalEnvVars map[string]string
+				originalEnvVars         map[string]string
+				originalExistingProcess v1alpha1.CFProcess
 			)
 
 			BeforeEach(func() {
+				requestBody = fmt.Sprintf(`---
+                  version: 1
+                  applications:
+                  - name: %s
+                    env:
+                      %s: %s
+                      %s: %s
+                    processes:
+                    - type: web
+                      command: new-command
+                      disk_quota: 128M
+                      memory: 256M
+                    - type: worker
+                      command: start-worker.sh
+                      disk_quota: 1G
+                      instances: 2
+                      memory: 256M
+                      health-check-type: http
+                      health-check-http-endpoint: /things
+                      health-check-invocation-timeout: 90
+                      timeout: 90`, appName, key1, requestEnvVars[key1], key2, requestEnvVars[key2])
+
 				beforeCtx := context.Background()
 				Expect(
 					k8sClient.Create(beforeCtx, &v1alpha1.CFApp{
@@ -172,6 +261,45 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 							Namespace: namespace.Name,
 						},
 						StringData: originalEnvVars,
+					}),
+				).To(Succeed())
+
+				originalExistingProcess = v1alpha1.CFProcess{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "existing-process-guid",
+						Namespace: namespace.Name,
+					},
+					Spec: v1alpha1.CFProcessSpec{
+						AppRef:           corev1.LocalObjectReference{Name: appGUID},
+						ProcessType:      "existing",
+						Command:          "do-the-thing.sh",
+						HealthCheck:      v1alpha1.HealthCheck{Type: "process"},
+						DesiredInstances: 1,
+						MemoryMB:         123,
+						Ports:            []int32{},
+					},
+				}
+
+				Expect(
+					k8sClient.Create(beforeCtx, &originalExistingProcess),
+				).To(Succeed())
+
+				Expect(
+					k8sClient.Create(beforeCtx, &v1alpha1.CFProcess{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "web-process-guid",
+							Namespace: namespace.Name,
+						},
+						Spec: v1alpha1.CFProcessSpec{
+							AppRef:           corev1.LocalObjectReference{Name: appGUID},
+							ProcessType:      "web",
+							Command:          "original-command.sh",
+							HealthCheck:      v1alpha1.HealthCheck{Type: "process"},
+							DesiredInstances: 42,
+							MemoryMB:         42,
+							DiskQuotaMB:      42,
+							Ports:            []int32{},
+						},
 					}),
 				).To(Succeed())
 			})
@@ -214,6 +342,53 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					key1: BeEquivalentTo(requestEnvVars[key1]),
 					key2: BeEquivalentTo(requestEnvVars[key2]),
 				}))
+
+				var processList v1alpha1.CFProcessList
+				Eventually(func() []v1alpha1.CFProcess {
+					Expect(
+						k8sClient.List(context.Background(), &processList, client.InNamespace(namespace.Name)),
+					).To(Succeed())
+					return processList.Items
+				}).Should(HaveLen(3))
+
+				Expect(processList.Items).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Spec": Equal(originalExistingProcess.Spec),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Spec": Equal(v1alpha1.CFProcessSpec{
+							AppRef:      corev1.LocalObjectReference{Name: app1.Name},
+							ProcessType: "web",
+							Command:     "new-command",
+							HealthCheck: v1alpha1.HealthCheck{
+								Type: "process",
+							},
+							DesiredInstances: 42,
+							MemoryMB:         256,
+							DiskQuotaMB:      128,
+							Ports:            []int32{},
+						}),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Spec": Equal(v1alpha1.CFProcessSpec{
+							AppRef:      corev1.LocalObjectReference{Name: app1.Name},
+							ProcessType: "worker",
+							Command:     "start-worker.sh",
+							HealthCheck: v1alpha1.HealthCheck{
+								Type: "http",
+								Data: v1alpha1.HealthCheckData{
+									HTTPEndpoint:             "/things",
+									InvocationTimeoutSeconds: 90,
+									TimeoutSeconds:           90,
+								},
+							},
+							DesiredInstances: 2,
+							MemoryMB:         256,
+							DiskQuotaMB:      1024,
+							Ports:            []int32{},
+						}),
+					}),
+				))
 			})
 		})
 	})

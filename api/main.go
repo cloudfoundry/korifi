@@ -20,8 +20,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
 	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
@@ -32,6 +30,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
 var createTimeout = time.Second * 30
@@ -78,9 +79,8 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
-	scaleProcessAction := actions.NewScaleProcess(new(repositories.ProcessRepository))
-	scaleAppProcessAction := actions.NewScaleAppProcess(new(repositories.AppRepo), new(repositories.ProcessRepository), scaleProcessAction.Invoke)
-	createAppAction := actions.NewCreateApp(new(repositories.AppRepo))
+	scaleProcessAction := actions.NewScaleProcess(new(repositories.ProcessRepo))
+	scaleAppProcessAction := actions.NewScaleAppProcess(new(repositories.AppRepo), new(repositories.ProcessRepo), scaleProcessAction.Invoke)
 
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout)
 	handlers := []APIHandler{
@@ -95,11 +95,10 @@ func main() {
 			*serverURL,
 			new(repositories.AppRepo),
 			new(repositories.DropletRepo),
-			new(repositories.ProcessRepository),
+			new(repositories.ProcessRepo),
 			new(repositories.RouteRepo),
 			new(repositories.DomainRepo),
 			scaleAppProcessAction.Invoke,
-			createAppAction.Invoke,
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),
@@ -142,7 +141,7 @@ func main() {
 		apis.NewProcessHandler(
 			ctrl.Log.WithName("ProcessHandler"),
 			*serverURL,
-			new(repositories.ProcessRepository),
+			new(repositories.ProcessRepo),
 			scaleProcessAction.Invoke,
 			repositories.BuildCRClient,
 			k8sClientConfig,
@@ -168,7 +167,7 @@ func main() {
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
-			actions.NewApplyManifest(new(repositories.AppRepo), createAppAction.Invoke).Invoke,
+			actions.NewApplyManifest(new(repositories.AppRepo), new(repositories.ProcessRepo)).Invoke,
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
 			repositories.BuildCRClient,
 			k8sClientConfig,
@@ -183,6 +182,7 @@ func main() {
 	}
 
 	portString := fmt.Sprintf(":%v", config.ServerPort)
+	log.Println("Listening on ", portString)
 	log.Fatal(http.ListenAndServe(portString, router))
 }
 

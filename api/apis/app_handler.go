@@ -50,10 +50,7 @@ type CFAppRepository interface {
 }
 
 //counterfeiter:generate -o fake -fake-name ScaleAppProcess . ScaleAppProcess
-type ScaleAppProcess func(ctx context.Context, client client.Client, appGUID string, processType string, scale repositories.ProcessScaleMessage) (repositories.ProcessRecord, error)
-
-//counterfeiter:generate -o fake -fake-name CreateApp . CreateApp
-type CreateApp func(context.Context, client.Client, payloads.AppCreate) (repositories.AppRecord, error)
+type ScaleAppProcess func(ctx context.Context, client client.Client, appGUID string, processType string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
 
 type AppHandler struct {
 	logger          logr.Logger
@@ -64,7 +61,6 @@ type AppHandler struct {
 	routeRepo       CFRouteRepository
 	domainRepo      CFDomainRepository
 	scaleAppProcess ScaleAppProcess
-	createApp       CreateApp
 	buildClient     ClientBuilder
 	k8sConfig       *rest.Config // TODO: this would be global for all requests, not what we want
 }
@@ -78,7 +74,6 @@ func NewAppHandler(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	scaleAppProcessFunc ScaleAppProcess,
-	createAppFunc CreateApp,
 	buildClient ClientBuilder,
 	k8sConfig *rest.Config) *AppHandler {
 	return &AppHandler{
@@ -90,7 +85,6 @@ func NewAppHandler(
 		routeRepo:       routeRepo,
 		domainRepo:      domainRepo,
 		scaleAppProcess: scaleAppProcessFunc,
-		createApp:       createAppFunc,
 		buildClient:     buildClient,
 		k8sConfig:       k8sConfig,
 	}
@@ -173,7 +167,7 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	appRecord, err := h.createApp(ctx, client, payload)
+	appRecord, err := h.appRepo.CreateApp(ctx, client, payload.ToAppCreateMessage())
 	if err != nil {
 		if workloads.HasErrorCode(err, workloads.DuplicateAppError) {
 			errorDetail := fmt.Sprintf("App with the name '%s' already exists.", payload.Name)

@@ -73,16 +73,16 @@ var _ = Describe("ProcessHandler", func() {
 
 		BeforeEach(func() {
 			processRepo.FetchProcessReturns(repositories.ProcessRecord{
-				GUID:        processGUID,
-				SpaceGUID:   spaceGUID,
-				AppGUID:     appGUID,
-				CreatedAt:   createdAt,
-				UpdatedAt:   updatedAt,
-				Type:        processType,
-				Command:     command,
-				Instances:   instances,
-				MemoryMB:    memoryInMB,
-				DiskQuotaMB: diskInMB,
+				GUID:             processGUID,
+				SpaceGUID:        spaceGUID,
+				AppGUID:          appGUID,
+				CreatedAt:        createdAt,
+				UpdatedAt:        updatedAt,
+				Type:             processType,
+				Command:          command,
+				DesiredInstances: instances,
+				MemoryMB:         memoryInMB,
+				DiskQuotaMB:      diskInMB,
 				HealthCheck: repositories.HealthCheck{
 					Type: healthcheckType,
 					Data: repositories.HealthCheckData{},
@@ -266,16 +266,16 @@ var _ = Describe("ProcessHandler", func() {
 
 		BeforeEach(func() {
 			scaleProcessFunc.Returns(repositories.ProcessRecord{
-				GUID:        processGUID,
-				SpaceGUID:   spaceGUID,
-				AppGUID:     appGUID,
-				CreatedAt:   createdAt,
-				UpdatedAt:   updatedAt,
-				Type:        processType,
-				Command:     command,
-				Instances:   instances,
-				MemoryMB:    memoryInMB,
-				DiskQuotaMB: diskInMB,
+				GUID:             processGUID,
+				SpaceGUID:        spaceGUID,
+				AppGUID:          appGUID,
+				CreatedAt:        createdAt,
+				UpdatedAt:        updatedAt,
+				Type:             processType,
+				Command:          command,
+				DesiredInstances: instances,
+				MemoryMB:         memoryInMB,
+				DiskQuotaMB:      diskInMB,
 				HealthCheck: repositories.HealthCheck{
 					Type: healthcheckType,
 					Data: repositories.HealthCheckData{},

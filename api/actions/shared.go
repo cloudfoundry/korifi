@@ -16,7 +16,10 @@ import (
 type CFProcessRepository interface {
 	FetchProcess(context.Context, client.Client, string) (repositories.ProcessRecord, error)
 	FetchProcessesForApp(context.Context, client.Client, string, string) ([]repositories.ProcessRecord, error)
-	ScaleProcess(context.Context, client.Client, repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)
+	ScaleProcess(context.Context, client.Client, repositories.ProcessScaleMessage) (repositories.ProcessRecord, error)
+	CreateProcess(context.Context, client.Client, repositories.ProcessCreateMessage) error
+	FetchProcessByAppTypeAndSpace(context.Context, client.Client, string, string, string) (repositories.ProcessRecord, error)
+	PatchProcess(context.Context, client.Client, repositories.ProcessPatchMessage) error
 }
 
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository

@@ -17,11 +17,11 @@ type Destination struct {
 }
 
 type AppResource struct {
-	GUID    string   `json:"guid" validate:"required"`
-	Process *Process `json:"process"`
+	GUID    string                 `json:"guid" validate:"required"`
+	Process *DestinationAppProcess `json:"process"`
 }
 
-type Process struct {
+type DestinationAppProcess struct {
 	Type string `json:"type" validate:"required"`
 }
 

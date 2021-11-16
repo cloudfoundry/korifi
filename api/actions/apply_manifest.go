@@ -11,21 +11,18 @@ import (
 )
 
 type applyManifest struct {
-	appRepo   CFAppRepository
-	createApp CreateAppFunc
+	appRepo     CFAppRepository
+	processRepo CFProcessRepository
 }
 
-//counterfeiter:generate -o fake -fake-name CreateAppFunc . CreateAppFunc
-type CreateAppFunc func(ctx context.Context, client2 client.Client, create payloads.AppCreate) (repositories.AppRecord, error)
-
-func NewApplyManifest(appRepo CFAppRepository, createApp CreateAppFunc) *applyManifest {
+func NewApplyManifest(appRepo CFAppRepository, processRepo CFProcessRepository) *applyManifest {
 	return &applyManifest{
-		appRepo:   appRepo,
-		createApp: createApp,
+		appRepo:     appRepo,
+		processRepo: processRepo,
 	}
 }
 
-func (a *applyManifest) Invoke(ctx context.Context, c client.Client, spaceGUID string, manifest payloads.SpaceManifestApply) error {
+func (a *applyManifest) Invoke(ctx context.Context, c client.Client, spaceGUID string, manifest payloads.Manifest) error {
 	appInfo := manifest.Applications[0]
 	exists := true
 	appRecord, err := a.appRepo.FetchAppByNameAndSpace(ctx, c, appInfo.Name, spaceGUID)
@@ -36,29 +33,61 @@ func (a *applyManifest) Invoke(ctx context.Context, c client.Client, spaceGUID s
 		exists = false
 	}
 
-	if !exists {
-		appRecord, err = a.createApp(ctx, c, payloads.AppCreate{
-			Name:                 appInfo.Name,
-			EnvironmentVariables: appInfo.Env,
-			Relationships: payloads.AppRelationships{
-				Space: payloads.Relationship{
-					Data: &payloads.RelationshipData{GUID: spaceGUID},
-				},
-			},
-		})
-
-		if err != nil {
-			return err
-		}
-		return nil
+	if exists {
+		return a.updateApp(ctx, c, spaceGUID, appRecord, appInfo)
+	} else {
+		return a.createApp(ctx, c, spaceGUID, appInfo)
 	}
+}
 
-	_, err = a.appRepo.CreateOrPatchAppEnvVars(ctx, c, repositories.CreateOrPatchAppEnvVarsMessage{
+func (a *applyManifest) updateApp(ctx context.Context, c client.Client, spaceGUID string, appRecord repositories.AppRecord, appInfo payloads.ManifestApplication) error {
+	_, err := a.appRepo.CreateOrPatchAppEnvVars(ctx, c, repositories.CreateOrPatchAppEnvVarsMessage{
 		AppGUID:              appRecord.GUID,
 		AppEtcdUID:           appRecord.EtcdUID,
 		SpaceGUID:            appRecord.SpaceGUID,
-		EnvironmentVariables: manifest.Applications[0].Env,
+		EnvironmentVariables: appInfo.Env,
 	})
+	if err != nil {
+		return err
+	}
+
+	for _, processInfo := range appInfo.Processes {
+		exists := true
+		process, err := a.processRepo.FetchProcessByAppTypeAndSpace(ctx, c, appRecord.GUID, processInfo.Type, spaceGUID)
+		if err != nil {
+			if errors.As(err, new(repositories.NotFoundError)) {
+				exists = false
+			} else {
+				return err
+			}
+		}
+
+		if exists {
+			err = a.processRepo.PatchProcess(ctx, c, processInfo.ToProcessPatchMessage(process.GUID, spaceGUID))
+		} else {
+			err = a.processRepo.CreateProcess(ctx, c, processInfo.ToProcessCreateMessage(appRecord.GUID, spaceGUID))
+		}
+		if err != nil {
+			return err
+		}
+	}
 
 	return err
+}
+
+func (a *applyManifest) createApp(ctx context.Context, c client.Client, spaceGUID string, appInfo payloads.ManifestApplication) error {
+	appRecord, err := a.appRepo.CreateApp(ctx, c, appInfo.ToAppCreateMessage(spaceGUID))
+	if err != nil {
+		return err
+	}
+
+	for _, processInfo := range appInfo.Processes {
+		message := processInfo.ToProcessCreateMessage(appRecord.GUID, spaceGUID)
+		err = a.processRepo.CreateProcess(ctx, c, message)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

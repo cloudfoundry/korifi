@@ -35,7 +35,6 @@ var _ = Describe("AppHandler", func() {
 		processRepo         *fake.CFProcessRepository
 		routeRepo           *fake.CFRouteRepository
 		scaleAppProcessFunc *fake.ScaleAppProcess
-		createAppFunc       *fake.CreateApp
 		domainRepo          *fake.CFDomainRepository
 		clientBuilder       *fake.ClientBuilder
 	)
@@ -47,7 +46,6 @@ var _ = Describe("AppHandler", func() {
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
 		scaleAppProcessFunc = new(fake.ScaleAppProcess)
-		createAppFunc = new(fake.CreateApp)
 		clientBuilder = new(fake.ClientBuilder)
 
 		apiHandler := NewAppHandler(
@@ -59,7 +57,6 @@ var _ = Describe("AppHandler", func() {
 			routeRepo,
 			domainRepo,
 			scaleAppProcessFunc.Spy,
-			createAppFunc.Spy,
 			clientBuilder.Spy,
 			&rest.Config{},
 		)
@@ -339,7 +336,7 @@ var _ = Describe("AppHandler", func() {
 			BeforeEach(func() {
 				controllerError := new(k8serrors.StatusError)
 				controllerError.ErrStatus.Reason = `{"code":1,"message":"CFApp with the same spec.name exists"}`
-				createAppFunc.Returns(repositories.AppRecord{}, controllerError)
+				appRepo.CreateAppReturns(repositories.AppRecord{}, controllerError)
 
 				requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
 				queuePostRequest(requestBody)
@@ -369,7 +366,7 @@ var _ = Describe("AppHandler", func() {
 			BeforeEach(func() {
 				controllerError := new(k8serrors.StatusError)
 				controllerError.ErrStatus.Reason = "different k8s api error"
-				createAppFunc.Returns(repositories.AppRecord{}, controllerError)
+				appRepo.CreateAppReturns(repositories.AppRecord{}, controllerError)
 
 				requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
 				queuePostRequest(requestBody)
@@ -1310,15 +1307,15 @@ var _ = Describe("AppHandler", func() {
 		)
 		BeforeEach(func() {
 			processRecord := repositories.ProcessRecord{
-				GUID:        "process-1-guid",
-				SpaceGUID:   spaceGUID,
-				AppGUID:     appGUID,
-				Type:        "web",
-				Command:     "rackup",
-				Instances:   5,
-				MemoryMB:    256,
-				DiskQuotaMB: 1024,
-				Ports:       []int32{8080},
+				GUID:             "process-1-guid",
+				SpaceGUID:        spaceGUID,
+				AppGUID:          appGUID,
+				Type:             "web",
+				Command:          "rackup",
+				DesiredInstances: 5,
+				MemoryMB:         256,
+				DiskQuotaMB:      1024,
+				Ports:            []int32{8080},
 				HealthCheck: repositories.HealthCheck{
 					Type: "port",
 					Data: repositories.HealthCheckData{
@@ -1335,7 +1332,7 @@ var _ = Describe("AppHandler", func() {
 			processRecord2 := processRecord
 			processRecord2.GUID = "process-2-guid"
 			processRecord2.Type = "worker"
-			processRecord2.Instances = 1
+			processRecord2.DesiredInstances = 1
 			processRecord2.HealthCheck.Type = "process"
 
 			process1Record = &processRecord
@@ -1562,16 +1559,16 @@ var _ = Describe("AppHandler", func() {
 
 		BeforeEach(func() {
 			scaleAppProcessFunc.Returns(repositories.ProcessRecord{
-				GUID:        processGUID,
-				SpaceGUID:   spaceGUID,
-				AppGUID:     appGUID,
-				CreatedAt:   createdAt,
-				UpdatedAt:   updatedAt,
-				Type:        processType,
-				Command:     command,
-				Instances:   instances,
-				MemoryMB:    memoryInMB,
-				DiskQuotaMB: diskInMB,
+				GUID:             processGUID,
+				SpaceGUID:        spaceGUID,
+				AppGUID:          appGUID,
+				CreatedAt:        createdAt,
+				UpdatedAt:        updatedAt,
+				Type:             processType,
+				Command:          command,
+				DesiredInstances: instances,
+				MemoryMB:         memoryInMB,
+				DiskQuotaMB:      diskInMB,
 				HealthCheck: repositories.HealthCheck{
 					Type: healthcheckType,
 					Data: repositories.HealthCheckData{},

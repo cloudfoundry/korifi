@@ -56,6 +56,8 @@ cloud.google.com/go/storage v1.10.0/go.mod h1:FLPqc6j+Ki4BU591ie1oL6qBQGu2Bl/tZ9
 cloud.google.com/go/storage v1.15.0/go.mod h1:mjjQMoxxyGH7Jr8K5qrx6N2O0AHsczI61sMNn03GIZI=
 cloud.google.com/go/storage v1.16.0/go.mod h1:ieKBmUyzcftN5tbxwnXClMKH00CfcQ+xL6NN0r5QfmE=
 code.cloudfoundry.org/bbs v0.0.0-20210615140220-2942e7d25726/go.mod h1:XKlGVVXFi5EcHHMPzw3xgONK9PeEZuUbIC43XNwxD10=
+code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5 h1:tM5+dn2C9xZw1RzgI6WTQW1rGqdUimKB3RFbyu4h6Hc=
+code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5/go.mod h1:v4VVB6oBMz/c9fRY6vZrwr5xKRWOH5NPDjQZlPk0Gbs=
 code.cloudfoundry.org/cfhttp/v2 v2.0.0/go.mod h1:Fwt0o/haXfwgOHMom4AM96pXCVw9EAiIcSsPb8hWK9s=
 code.cloudfoundry.org/clock v1.0.0/go.mod h1:QD9Lzhd/ux6eNQVUDVRJX/RKTigpewimNYBi7ivZKY8=
 code.cloudfoundry.org/consuladapter v0.0.0-20210518201129-f961dd99a7b2/go.mod h1:bOVcKUGVpa9/23DMPJUd4mPt420blgr/Tpwb0+y32Cc=

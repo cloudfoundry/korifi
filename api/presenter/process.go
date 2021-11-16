@@ -103,7 +103,7 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 		GUID:        responseProcess.GUID,
 		Type:        responseProcess.Type,
 		Command:     responseProcess.Command,
-		Instances:   responseProcess.Instances,
+		Instances:   responseProcess.DesiredInstances,
 		MemoryMB:    responseProcess.MemoryMB,
 		DiskQuotaMB: responseProcess.DiskQuotaMB,
 		HealthCheck: ProcessResponseHealthCheck{

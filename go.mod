@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	cloud.google.com/go v0.88.0 // indirect
+	code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 	code.cloudfoundry.org/eirini-controller v0.1.0
 	github.com/Azure/azure-sdk-for-go v56.0.0+incompatible // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect

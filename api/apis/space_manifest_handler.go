@@ -30,7 +30,7 @@ type SpaceManifestHandler struct {
 }
 
 //counterfeiter:generate -o fake -fake-name ApplyManifestAction . ApplyManifestAction
-type ApplyManifestAction func(ctx context.Context, c client.Client, spaceGUID string, manifest payloads.SpaceManifestApply) error
+type ApplyManifestAction func(ctx context.Context, c client.Client, spaceGUID string, manifest payloads.Manifest) error
 
 func NewSpaceManifestHandler(
 	logger logr.Logger,
@@ -58,7 +58,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(w http.ResponseWriter, r *ht
 	vars := mux.Vars(r)
 	spaceGUID := vars["spaceGUID"]
 
-	var manifest payloads.SpaceManifestApply
+	var manifest payloads.Manifest
 	rme := decodeAndValidateYAMLPayload(r, &manifest)
 	if rme != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -97,7 +97,7 @@ func (h *SpaceManifestHandler) diffManifestHandler(w http.ResponseWriter, r *htt
 func decodeAndValidateYAMLPayload(r *http.Request, object interface{}) *requestMalformedError {
 	decoder := yaml.NewDecoder(r.Body)
 	defer r.Body.Close()
-	decoder.KnownFields(false) // TODO: make this true once we've added all fields to payloads.SpaceManifestApply
+	decoder.KnownFields(false) // TODO: change this to true once we've added all manifest fields to payloads.Manifest
 	err := decoder.Decode(object)
 	if err != nil {
 		Logger.Error(err, fmt.Sprintf("Unable to parse the YAML body: %T: %q", err, err.Error()))
