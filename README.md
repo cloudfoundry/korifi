@@ -279,6 +279,39 @@ kubectl create secret tls \
 either skip TLS validation or use the `--cacert` flag with the generated
 certificate when connecting to the API.
 
+### Creating a CF Space
+As the current implementation of HNC does not correctly propagate ServiceAccounts, when we `cf create-space`, the ServiceAccount required for image building is absent. We must create the
+ServiceAccount ourselves with a reference to the image registry credentials.
+
+Pre-req: Have a local copy of the required ServiceAccount resource
+```
+cat <<EOF >> kpack-service-account.yml
+—
+apiVersion: v1
+imagePullSecrets:
+- name: image-registry-credentials
+kind: ServiceAccount
+metadata:
+  name: kpack-service-account
+secrets:
+- name: image-registry-credentials
+EOF
+```
+1. Create the cf space
+```
+cf create-org <org_name>
+cf target -o <org_name>
+cf create-space <space_name>
+```
+2. Get the cf space guid which corresponds to the kubernetes namespace in which we create the ServiceAccount
+```
+cf space <space_name> —guid
+```
+3. Apply the service-account yaml to that namespace
+```
+kubectl apply -f kpack-service-account.yml -n <space_guid>
+```
+
 ### Running Tests
 make
 ```sh

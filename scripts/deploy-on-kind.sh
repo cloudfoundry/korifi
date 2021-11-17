@@ -42,14 +42,14 @@ deploy_cf_k8s_controllers() {
   pushd $ROOT_DIR > /dev/null
   {
     "$SCRIPT_DIR/install-dependencies.sh"
-    export IMG_CONTROLLERS=${CONTROLLERS_IMG:-"cf-k8s-controllers:$(uuidgen)"}
     export KUBEBUILDER_ASSETS=$ROOT_DIR/testbin/bin
     echo $PWD
     make generate-controllers
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
+      export IMG_CONTROLLERS=${CONTROLLERS_IMG:-"cf-k8s-controllers:$(uuidgen)"}
       make docker-build-controllers
+      kind load docker-image --name "$cluster" "$IMG_CONTROLLERS"
     fi
-    kind load docker-image --name "$cluster" "$IMG_CONTROLLERS"
     make install-crds
     make deploy-controllers
   }
@@ -59,11 +59,11 @@ deploy_cf_k8s_controllers() {
 deploy_cf_k8s_api() {
   pushd $ROOT_DIR > /dev/null
   {
-    export IMG_API=${API_IMG:-"cf-k8s-api:$(uuidgen)"}
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
+      export IMG_API=${API_IMG:-"cf-k8s-api:$(uuidgen)"}
       make docker-build-api
+      kind load docker-image --name "$cluster" "$IMG_API"
     fi
-    kind load docker-image --name "$cluster" "$IMG_API"
     make deploy-api-kind-auth
   }
   popd > /dev/null

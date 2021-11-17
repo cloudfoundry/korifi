@@ -209,14 +209,14 @@ data:
   cf_k8s_api_config.yaml: |
     serverURL: "https://api.example.org"
     serverPort: 9000
-    rootNamespace: cf-k8s-api-system
+    rootNamespace: cf
     defaultLifecycleConfig:
       type: buildpack
       stack: cflinuxfs3
       stagingMemoryMB: 1024
       stagingDiskMB: 1024
     packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
-    packageRegistrySecretName: image-registry-secret # Create this secret in the rootNamespace
+    packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
   role_mappings_config.yaml: |
     roleMappings:
       admin: cf-k8s-controllers-admin
@@ -232,7 +232,7 @@ data:
       space_supporter: cf-k8s-controllers-space-supporter
 kind: ConfigMap
 metadata:
-  name: cf-k8s-api-config-62bf886gfh
+  name: cf-k8s-api-config-b5hg59dmk4
   namespace: cf-k8s-api-system
 ---
 apiVersion: v1
@@ -287,7 +287,7 @@ spec:
       serviceAccountName: cf-k8s-api-cf-admin-serviceaccount
       volumes:
       - configMap:
-          name: cf-k8s-api-config-62bf886gfh
+          name: cf-k8s-api-config-b5hg59dmk4
         name: cf-k8s-api-config
 ---
 apiVersion: projectcontour.io/v1
