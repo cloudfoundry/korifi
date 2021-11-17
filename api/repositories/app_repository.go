@@ -34,7 +34,7 @@ const (
 	Kind            string = "CFApp"
 	APIVersion      string = "workloads.cloudfoundry.org/v1alpha1"
 	TimestampFormat string = time.RFC3339
-	CFAppGUIDLabel  string = "apps.cloudfoundry.org/appGuid"
+	CFAppGUIDLabel  string = "workloads.cloudfoundry.org/app-guid"
 )
 
 type AppRecord struct {
