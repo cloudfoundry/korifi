@@ -55,6 +55,7 @@ var _ = Describe("RoleRepository", func() {
 				GUID: uuid.NewString(),
 				Type: "organization_manager",
 				User: "my-user",
+				Kind: rbacv1.UserKind,
 				Org:  orgAnchor.Name,
 			}
 		})
@@ -82,7 +83,7 @@ var _ = Describe("RoleRepository", func() {
 			Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(roleBinding.RoleRef.Name).To(Equal("cf-org-mgr-role"))
 			Expect(roleBinding.Subjects).To(HaveLen(1))
-			Expect(roleBinding.Subjects[0].Kind).To(Equal("User"))
+			Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.UserKind))
 			Expect(roleBinding.Subjects[0].Name).To(Equal("my-user"))
 		})
 
@@ -90,6 +91,25 @@ var _ = Describe("RoleRepository", func() {
 			Expect(createdRole.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 			Expect(createdRole.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 			Expect(createdRole.CreatedAt).To(Equal(createdRole.UpdatedAt))
+		})
+
+		When("using a service account identity", func() {
+			BeforeEach(func() {
+				roleRecord.Kind = rbacv1.ServiceAccountKind
+			})
+
+			It("succeeds and uses a service account subject kind", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
+				roleBindingList := rbacv1.RoleBindingList{}
+				Expect(k8sClient.List(ctx, &roleBindingList, client.InNamespace(orgAnchor.Name))).To(Succeed())
+				Expect(roleBindingList.Items).To(HaveLen(1))
+
+				roleBinding := roleBindingList.Items[0]
+
+				Expect(roleBinding.Subjects).To(HaveLen(1))
+				Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.ServiceAccountKind))
+			})
 		})
 
 		When("the org does not exist", func() {
@@ -118,6 +138,7 @@ var _ = Describe("RoleRepository", func() {
 					GUID: uuid.NewString(),
 					Type: "organization_manager",
 					User: "my-user",
+					Kind: rbacv1.UserKind,
 					Org:  roleRecord.Org,
 				}
 				_, createErr = roleRepo.CreateRole(ctx, anotherRoleRecord)
@@ -154,6 +175,7 @@ var _ = Describe("RoleRepository", func() {
 				GUID:  uuid.NewString(),
 				Type:  "space_developer",
 				User:  "my-user",
+				Kind:  rbacv1.UserKind,
 				Space: spaceAnchor.Name,
 			}
 		})
@@ -256,6 +278,7 @@ var _ = Describe("RoleRepository", func() {
 					GUID:  uuid.NewString(),
 					Type:  "space_developer",
 					User:  "my-user",
+					Kind:  rbacv1.UserKind,
 					Space: roleRecord.Space,
 				}
 				_, createErr = roleRepo.CreateRole(ctx, anotherRoleRecord)

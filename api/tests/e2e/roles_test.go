@@ -2,10 +2,6 @@ package e2e_test
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -22,37 +18,6 @@ var _ = Describe("Roles", func() {
 		ctx      context.Context
 		userName string
 	)
-
-	createRole := func(roleName, orgSpaceType, userName, orgSpaceGUID string) (*http.Response, error) {
-		rolesURL := apiServerRoot + "/v3/roles"
-		body := fmt.Sprintf(`{
-            "type": "%s",
-            "relationships": {
-                "user": {
-                    "data": {
-                        "guid": "%s"
-                    }
-                },
-                "%s": {
-                    "data": {
-                        "guid": "%s"
-                    }
-                }
-            }
-        }`, roleName, userName, orgSpaceType, orgSpaceGUID)
-		req, err := http.NewRequest(http.MethodPost, rolesURL, strings.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		return http.DefaultClient.Do(req)
-	}
-
-	createOrgRole := func(roleName, userName, orgGUID string) (*http.Response, error) {
-		return createRole(roleName, "organization", userName, orgGUID)
-	}
-
-	createSpaceRole := func(roleName, userName, spaceGUID string) (*http.Response, error) {
-		return createRole(roleName, "space", userName, spaceGUID)
-	}
 
 	createBinding := func(namespace, userName, roleName string) *rbacv1.RoleBinding {
 		binding := &rbacv1.RoleBinding{
@@ -89,7 +54,7 @@ var _ = Describe("Roles", func() {
 		)
 
 		BeforeEach(func() {
-			org = createOrg(uuid.NewString())
+			org = createOrg(uuid.NewString(), tokenAuthHeader)
 		})
 
 		AfterEach(func() {
@@ -97,17 +62,8 @@ var _ = Describe("Roles", func() {
 		})
 
 		It("creates a role binding", func() {
-			response, err := createOrgRole("organization_manager", userName, org.GUID)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(response).To(HaveHTTPStatus(http.StatusCreated))
-
-			defer response.Body.Close()
-
-			responseMap := map[string]interface{}{}
-			Expect(json.NewDecoder(response.Body).Decode(&responseMap)).To(Succeed())
-
-			Expect(responseMap).To(HaveKeyWithValue("type", "organization_manager"))
+			role := createOrgRole("organization_manager", rbacv1.UserKind, userName, org.GUID)
+			Expect(role.Type).To(Equal("organization_manager"))
 
 			roleBindingList := &rbacv1.RoleBindingList{}
 			Eventually(func() ([]rbacv1.RoleBinding, error) {
@@ -124,7 +80,7 @@ var _ = Describe("Roles", func() {
 			}).Should(HaveLen(1))
 
 			binding := roleBindingList.Items[0]
-			Expect(responseMap).To(HaveKeyWithValue("guid", binding.Labels[repositories.RoleGuidLabel]))
+			Expect(role.GUID).To(Equal(binding.Labels[repositories.RoleGuidLabel]))
 			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-organization-manager"))
 			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(binding.Subjects).To(HaveLen(1))
@@ -141,7 +97,7 @@ var _ = Describe("Roles", func() {
 		)
 
 		BeforeEach(func() {
-			org = createOrg(uuid.NewString())
+			org = createOrg(uuid.NewString(), tokenAuthHeader)
 			space = createSpace(uuid.NewString(), org.GUID)
 			createBinding(org.GUID, userName, "basic-user")
 		})
@@ -152,17 +108,9 @@ var _ = Describe("Roles", func() {
 		})
 
 		It("creates a role binding", func() {
-			response, err := createSpaceRole("space_developer", userName, space.GUID)
-			Expect(err).NotTo(HaveOccurred())
+			role := createSpaceRole("space_developer", rbacv1.UserKind, userName, space.GUID)
 
-			Expect(response).To(HaveHTTPStatus(http.StatusCreated))
-
-			defer response.Body.Close()
-
-			responseMap := map[string]interface{}{}
-			Expect(json.NewDecoder(response.Body).Decode(&responseMap)).To(Succeed())
-
-			Expect(responseMap).To(HaveKeyWithValue("type", "space_developer"))
+			Expect(role.Type).To(Equal("space_developer"))
 
 			roleBindingList := &rbacv1.RoleBindingList{}
 			Eventually(func() ([]rbacv1.RoleBinding, error) {
@@ -179,7 +127,7 @@ var _ = Describe("Roles", func() {
 			}).Should(HaveLen(1))
 
 			binding := roleBindingList.Items[0]
-			Expect(responseMap).To(HaveKeyWithValue("guid", binding.Labels[repositories.RoleGuidLabel]))
+			Expect(role.GUID).To(Equal(binding.Labels[repositories.RoleGuidLabel]))
 			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-space-developer"))
 			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(binding.Subjects).To(HaveLen(1))

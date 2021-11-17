@@ -6,73 +6,51 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Orgs", func() {
-	createOrgWithHeaders := func(orgName string, headers map[string]string) (*http.Response, error) {
-		orgsUrl := apiServerRoot + "/v3/organizations"
-		body := fmt.Sprintf(`{ "name": "%s" }`, orgName)
-		req, err := http.NewRequest(http.MethodPost, orgsUrl, strings.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		for key, value := range headers {
-			req.Header.Add(key, value)
-		}
-		return http.DefaultClient.Do(req)
-	}
-
 	Describe("creating orgs", func() {
-		var orgName string
+		var (
+			org     presenter.OrgResponse
+			orgName string
+		)
 
 		BeforeEach(func() {
-			orgName = generateGUID("org")
+			orgName = generateGUID("my-org")
 		})
 
 		AfterEach(func() {
-			deleteSubnamespaceByLabel(rootNamespace, orgName)
+			deleteSubnamespace(rootNamespace, org.GUID)
 		})
 
 		It("creates an org", func() {
-			resp, err := createOrgWithHeaders(orgName, map[string]string{headers.Authorization: tokenAuthHeader})
-			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
-
-			Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-			Expect(resp.Header["Content-Type"]).To(ConsistOf("application/json"))
-			responseMap := map[string]interface{}{}
-			Expect(json.NewDecoder(resp.Body).Decode(&responseMap)).To(Succeed())
-			Expect(responseMap["name"]).To(Equal(orgName))
-
-			nsName, ok := responseMap["guid"].(string)
-			Expect(ok).To(BeTrue())
-			Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: nsName}, &corev1.Namespace{})).To(Succeed())
+			org = createOrg(orgName, tokenAuthHeader)
+			Expect(org.Name).To(Equal(orgName))
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), client.ObjectKey{Name: org.GUID}, &corev1.Namespace{})
+			}).Should(Succeed())
 		})
 
 		When("the org name already exists", func() {
 			BeforeEach(func() {
-				resp, err := createOrgWithHeaders(orgName, map[string]string{headers.Authorization: tokenAuthHeader})
-				Expect(err).NotTo(HaveOccurred())
-				defer resp.Body.Close()
-				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+				org = createOrg(orgName, tokenAuthHeader)
 			})
 
 			It("returns an unprocessable entity error", func() {
-				resp, err := createOrgWithHeaders(orgName, map[string]string{headers.Authorization: tokenAuthHeader})
+				resp, err := createOrgRaw(orgName, tokenAuthHeader)
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
@@ -90,77 +68,85 @@ var _ = Describe("Orgs", func() {
 	})
 
 	Describe("listing orgs", func() {
-		var orgs []hierarchicalNamespace
+		var org1, org2, org3, org4 presenter.OrgResponse
 
 		BeforeEach(func() {
-			orgs = []hierarchicalNamespace{}
-			for i := 1; i < 4; i++ {
-				org := createOrgNamespace(generateGUID("org" + strconv.Itoa(i)))
-				bindServiceAccountToOrg(serviceAccountName, org)
-				bindUserToOrg(certUserName, org)
-				orgs = append(orgs, org)
-			}
-
-			orgs = append(orgs, createOrgNamespace(generateGUID("org4")))
+			org1 = createOrg(generateGUID("org1"), tokenAuthHeader)
+			org2 = createOrg(generateGUID("org2"), tokenAuthHeader)
+			org3 = createOrg(generateGUID("org3"), tokenAuthHeader)
+			org4 = createOrg(generateGUID("org4"), tokenAuthHeader)
 		})
 
 		AfterEach(func() {
-			for _, org := range orgs {
-				deleteSubnamespace(rootNamespace, org.guid)
-			}
+			deleteSubnamespace(rootNamespace, org1.GUID)
+			deleteSubnamespace(rootNamespace, org2.GUID)
+			deleteSubnamespace(rootNamespace, org3.GUID)
+			deleteSubnamespace(rootNamespace, org4.GUID)
 		})
 
 		Context("with a bearer token auth header", func() {
+			BeforeEach(func() {
+				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID)
+				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID)
+				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID)
+			})
+
 			It("returns all 3 orgs that the service account has a role in", func() {
 				Eventually(getOrgsFn(tokenAuthHeader)).Should(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org1.Name)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org2.Name)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org3.Name)}),
 				))
 			})
 
 			It("does not return orgs the service account does not have a role in", func() {
 				Consistently(getOrgsFn(tokenAuthHeader)).ShouldNot(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[3].label)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org4.Name)}),
 				))
 			})
 
 			When("org names are filtered", func() {
 				It("returns orgs 1 & 3", func() {
-					Eventually(getOrgsFn(tokenAuthHeader, orgs[0].label, orgs[2].label)).Should(ContainElements(
-						MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
-						MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
+					Eventually(getOrgsFn(tokenAuthHeader, org1.Name, org3.Name)).Should(ContainElements(
+						MatchFields(IgnoreExtras, Fields{"Name": Equal(org1.Name)}),
+						MatchFields(IgnoreExtras, Fields{"Name": Equal(org3.Name)}),
 					))
-					Consistently(getOrgsFn(tokenAuthHeader, orgs[0].label, orgs[2].label), "2s").ShouldNot(ContainElement(
-						MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
+					Consistently(getOrgsFn(tokenAuthHeader, org1.Name, org3.Name), "2s").ShouldNot(ContainElement(
+						MatchFields(IgnoreExtras, Fields{"Name": Equal(org2.Name)}),
 					))
 				})
 			})
 		})
 
 		Context("with a client certificate auth header", func() {
+			BeforeEach(func() {
+				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org1.GUID)
+				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org2.GUID)
+				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org3.GUID)
+			})
+
 			It("returns all 3 orgs that the service account has a role in", func() {
 				Eventually(getOrgsFn(certAuthHeader)).Should(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org1.Name)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org2.Name)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org3.Name)}),
 				))
 			})
 
 			It("does not return orgs the service account does not have a role in", func() {
 				Consistently(getOrgsFn(certAuthHeader)).ShouldNot(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[3].label)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org4.Name)}),
 				))
 			})
 
 			When("org names are filtered", func() {
 				It("returns orgs 1 & 3", func() {
-					Eventually(getOrgsFn(certAuthHeader, orgs[0].label, orgs[2].label)).Should(ContainElements(
-						MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
-						MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
+					Eventually(getOrgsFn(certAuthHeader, org1.Name, org3.Name)).Should(ContainElements(
+						MatchFields(IgnoreExtras, Fields{"Name": Equal(org1.Name)}),
+						MatchFields(IgnoreExtras, Fields{"Name": Equal(org3.Name)}),
 					))
-					Consistently(getOrgsFn(certAuthHeader, orgs[0].label, orgs[2].label), "2s").ShouldNot(ContainElement(
-						MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
+					Consistently(getOrgsFn(certAuthHeader, org1.Name, org3.Name), "2s").ShouldNot(ContainElement(
+						MatchFields(IgnoreExtras, Fields{"Name": Equal(org2.Name)}),
 					))
 				})
 			})
@@ -168,7 +154,7 @@ var _ = Describe("Orgs", func() {
 
 		When("no Authorization header is available in the request", func() {
 			It("returns unauthorized error", func() {
-				orgsUrl := apiServerRoot + "/v3/organizations"
+				orgsUrl := apiServerRoot + apis.OrgsEndpoint
 				req, err := http.NewRequest(http.MethodGet, orgsUrl, nil)
 				Expect(err).NotTo(HaveOccurred())
 				resp, err := http.DefaultClient.Do(req)
@@ -182,7 +168,7 @@ var _ = Describe("Orgs", func() {
 
 func getOrgsFn(authHeaderValue string, names ...string) func() ([]presenter.OrgResponse, error) {
 	return func() ([]presenter.OrgResponse, error) {
-		orgsUrl := apiServerRoot + "/v3/organizations"
+		orgsUrl := apiServerRoot + apis.OrgsEndpoint
 
 		if len(names) > 0 {
 			orgsUrl += "?names=" + strings.Join(names, ",")
@@ -221,34 +207,4 @@ func getOrgsFn(authHeaderValue string, names ...string) func() ([]presenter.OrgR
 
 		return orgList.Resources, nil
 	}
-}
-
-func createOrgNamespace(orgName string) hierarchicalNamespace {
-	orgDetails := createHierarchicalNamespace(rootNamespace, orgName, repositories.OrgNameLabel)
-	waitForSubnamespaceAnchor(rootNamespace, orgDetails.guid)
-	return orgDetails
-}
-
-func bindServiceAccountToOrg(serviceAccountName string, org hierarchicalNamespace) {
-	roleBinding := &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: org.guid,
-			Name:      serviceAccountName + "-admin",
-		},
-		Subjects: []rbacv1.Subject{{Kind: rbacv1.ServiceAccountKind, Name: serviceAccountName}},
-		RoleRef:  rbacv1.RoleRef{Kind: "ClusterRole", Name: "cf-admin-clusterrole"},
-	}
-	Expect(k8sClient.Create(context.Background(), roleBinding)).To(Succeed())
-}
-
-func bindUserToOrg(userName string, org hierarchicalNamespace) {
-	roleBinding := &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: org.guid,
-			Name:      userName + "-admin",
-		},
-		Subjects: []rbacv1.Subject{{Kind: rbacv1.UserKind, Name: userName}},
-		RoleRef:  rbacv1.RoleRef{Kind: "ClusterRole", Name: "cf-admin-clusterrole"},
-	}
-	Expect(k8sClient.Create(context.Background(), roleBinding)).To(Succeed())
 }

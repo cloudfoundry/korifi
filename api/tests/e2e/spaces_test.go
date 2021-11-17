@@ -7,10 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strconv"
-	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -21,77 +19,47 @@ import (
 var _ = Describe("Spaces", func() {
 	Describe("creating spaces", func() {
 		var (
-			org                   hierarchicalNamespace
-			spaceName             string
-			createStatusCode      int
-			createResponseHeaders http.Header
-			createResponseBody    map[string]interface{}
+			org       presenter.OrgResponse
+			spaceName string
+			space     presenter.SpaceResponse
 		)
-
-		createSpace := func(spaceName, orgName string) (int, http.Header, map[string]interface{}) {
-			spacesUrl := apiServerRoot + "/v3/spaces"
-
-			body := fmt.Sprintf(`{
-                "name": "%s",
-                "relationships": {
-                  "organization": {
-                    "data": {
-                      "guid": "%s"
-                    }
-                  }
-                }
-            }`, spaceName, orgName)
-			req, err := http.NewRequest(http.MethodPost, spacesUrl, strings.NewReader(body))
-			Expect(err).NotTo(HaveOccurred())
-
-			response, err := http.DefaultClient.Do(req)
-			Expect(err).NotTo(HaveOccurred())
-			defer response.Body.Close()
-
-			responseMap := map[string]interface{}{}
-			Expect(json.NewDecoder(response.Body).Decode(&responseMap)).To(Succeed())
-
-			return response.StatusCode, response.Header, responseMap
-		}
 
 		BeforeEach(func() {
 			spaceName = generateGUID("space")
-			org = createHierarchicalNamespace(rootNamespace, generateGUID("org"), repositories.OrgNameLabel)
-			waitForSubnamespaceAnchor(rootNamespace, org.guid)
+			org = createOrg(generateGUID("org"), tokenAuthHeader)
 		})
 
 		AfterEach(func() {
-			spaceGuid, ok := createResponseBody["guid"].(string)
-			Expect(ok).To(BeTrue())
-			deleteSubnamespace(org.guid, spaceGuid)
-			waitForNamespaceDeletion(org.guid, spaceGuid)
+			deleteSubnamespace(org.GUID, space.GUID)
+			waitForNamespaceDeletion(org.GUID, space.GUID)
+			deleteSubnamespace(rootNamespace, org.GUID)
 		})
 
 		JustBeforeEach(func() {
-			createStatusCode, createResponseHeaders, createResponseBody = createSpace(spaceName, org.guid)
+			space = createSpace(spaceName, org.GUID)
 		})
 
 		It("creates a space", func() {
-			Expect(createStatusCode).To(Equal(http.StatusCreated))
-			Expect(createResponseHeaders["Content-Type"]).To(ConsistOf("application/json"))
-			Expect(createResponseBody["name"]).To(Equal(spaceName))
+			Expect(space.Name).To(Equal(spaceName))
 
-			nsName, ok := createResponseBody["guid"].(string)
-			Expect(ok).To(BeTrue())
-			Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: nsName}, &corev1.Namespace{})).To(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), client.ObjectKey{Name: space.GUID}, &corev1.Namespace{})
+			}).Should(Succeed())
 		})
 
 		When("the space name already exists", func() {
-			JustBeforeEach(func() {
-				Expect(createStatusCode).To(Equal(http.StatusCreated))
-			})
-
 			It("returns an unprocessable entity error", func() {
-				dupRespCode, _, dupRespBody := createSpace(spaceName, org.guid)
-				Expect(dupRespCode).To(Equal(http.StatusUnprocessableEntity))
+				resp, err := createSpaceRaw(spaceName, org.GUID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
+				defer resp.Body.Close()
 
-				Expect(dupRespBody).To(HaveKeyWithValue("errors", BeAssignableToTypeOf([]interface{}{})))
-				errs := dupRespBody["errors"].([]interface{})
+				bodyMap := map[string]interface{}{}
+				err = json.NewDecoder(resp.Body).Decode(&bodyMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(bodyMap).To(HaveKeyWithValue("errors", BeAssignableToTypeOf([]interface{}{})))
+				errs := bodyMap["errors"].([]interface{})
 				Expect(errs[0]).To(SatisfyAll(
 					HaveKeyWithValue("code", BeNumerically("==", 10008)),
 					HaveKeyWithValue("detail", MatchRegexp(fmt.Sprintf(`Space '%s' already exists.`, spaceName))),
@@ -102,55 +70,63 @@ var _ = Describe("Spaces", func() {
 	})
 
 	Describe("listing spaces", func() {
-		var orgs []hierarchicalNamespace
+		var (
+			org1, org2, org3                                     presenter.OrgResponse
+			space11, space12, space21, space22, space31, space32 presenter.SpaceResponse
+		)
 
 		BeforeEach(func() {
-			orgs = []hierarchicalNamespace{}
-			for i := 1; i <= 3; i++ {
-				orgDetails := createHierarchicalNamespace(rootNamespace, generateGUID("org"+strconv.Itoa(i)), repositories.OrgNameLabel)
-				waitForSubnamespaceAnchor(rootNamespace, orgDetails.guid)
+			org1 = createOrg(generateGUID("org1"), tokenAuthHeader)
+			org2 = createOrg(generateGUID("org2"), tokenAuthHeader)
+			org3 = createOrg(generateGUID("org3"), tokenAuthHeader)
 
-				for j := 1; j <= 2; j++ {
-					spaceDetails := createHierarchicalNamespace(orgDetails.guid, generateGUID("space"+strconv.Itoa(j)), repositories.SpaceNameLabel)
-					waitForSubnamespaceAnchor(orgDetails.guid, spaceDetails.guid)
-					orgDetails.children = append(orgDetails.children, spaceDetails)
-				}
-
-				orgs = append(orgs, orgDetails)
-			}
+			space11 = createSpace(generateGUID("space1"), org1.GUID)
+			space12 = createSpace(generateGUID("space2"), org1.GUID)
+			space21 = createSpace(generateGUID("space1"), org2.GUID)
+			space22 = createSpace(generateGUID("space2"), org2.GUID)
+			space31 = createSpace(generateGUID("space1"), org3.GUID)
+			space32 = createSpace(generateGUID("space2"), org3.GUID)
 		})
 
 		AfterEach(func() {
-			for _, org := range orgs {
-				for _, space := range org.children {
-					deleteSubnamespace(org.guid, space.guid)
-					waitForNamespaceDeletion(org.guid, space.guid)
-				}
-				deleteSubnamespace(rootNamespace, org.guid)
-			}
+			deleteSubnamespace(org1.GUID, space11.GUID)
+			deleteSubnamespace(org1.GUID, space12.GUID)
+			deleteSubnamespace(org2.GUID, space21.GUID)
+			deleteSubnamespace(org2.GUID, space22.GUID)
+			deleteSubnamespace(org3.GUID, space31.GUID)
+			deleteSubnamespace(org3.GUID, space32.GUID)
+			waitForNamespaceDeletion(org1.GUID, space11.GUID)
+			waitForNamespaceDeletion(org1.GUID, space12.GUID)
+			waitForNamespaceDeletion(org2.GUID, space21.GUID)
+			waitForNamespaceDeletion(org2.GUID, space22.GUID)
+			waitForNamespaceDeletion(org3.GUID, space31.GUID)
+			waitForNamespaceDeletion(org3.GUID, space32.GUID)
+			deleteSubnamespace(rootNamespace, org1.GUID)
+			deleteSubnamespace(rootNamespace, org2.GUID)
+			deleteSubnamespace(rootNamespace, org3.GUID)
 		})
 
 		It("lists all the spaces", func() {
-			Eventually(getSpacesFn(), "60s").Should(SatisfyAll(
+			Eventually(getSpacesFn()).Should(SatisfyAll(
 				HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 6))),
 				HaveKeyWithValue("resources", ContainElements(
-					HaveKeyWithValue("name", orgs[0].children[0].label),
-					HaveKeyWithValue("name", orgs[0].children[1].label),
-					HaveKeyWithValue("name", orgs[1].children[0].label),
-					HaveKeyWithValue("name", orgs[1].children[1].label),
-					HaveKeyWithValue("name", orgs[2].children[0].label),
-					HaveKeyWithValue("name", orgs[2].children[1].label),
+					HaveKeyWithValue("name", space11.Name),
+					HaveKeyWithValue("name", space12.Name),
+					HaveKeyWithValue("name", space21.Name),
+					HaveKeyWithValue("name", space22.Name),
+					HaveKeyWithValue("name", space31.Name),
+					HaveKeyWithValue("name", space32.Name),
 				))))
 		})
 
 		When("filtering by organization GUIDs", func() {
 			It("only lists spaces beloging to the orgs", func() {
-				Eventually(getSpacesWithQueryFn(map[string]string{"organization_guids": fmt.Sprintf("%s,%s", orgs[0].guid, orgs[2].guid)}), "60s").Should(
+				Eventually(getSpacesWithQueryFn(map[string]string{"organization_guids": fmt.Sprintf("%s,%s", org1.GUID, org3.GUID)})).Should(
 					HaveKeyWithValue("resources", ConsistOf(
-						HaveKeyWithValue("name", orgs[0].children[0].label),
-						HaveKeyWithValue("name", orgs[0].children[1].label),
-						HaveKeyWithValue("name", orgs[2].children[0].label),
-						HaveKeyWithValue("name", orgs[2].children[1].label),
+						HaveKeyWithValue("name", space11.Name),
+						HaveKeyWithValue("name", space12.Name),
+						HaveKeyWithValue("name", space31.Name),
+						HaveKeyWithValue("name", space32.Name),
 					)))
 			})
 		})

@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	OrgListEndpoint = "/v3/organizations"
+	OrgsEndpoint = "/v3/organizations"
 )
 
 //counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
@@ -134,6 +134,6 @@ func (h *OrgHandler) orgListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OrgHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(OrgListEndpoint).Methods("GET").HandlerFunc(h.orgListHandler)
-	router.Path(OrgListEndpoint).Methods("POST").HandlerFunc(h.orgCreateHandler)
+	router.Path(OrgsEndpoint).Methods("GET").HandlerFunc(h.orgListHandler)
+	router.Path(OrgsEndpoint).Methods("POST").HandlerFunc(h.orgCreateHandler)
 }
