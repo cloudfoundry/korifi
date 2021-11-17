@@ -100,6 +100,7 @@ func main() {
 			new(repositories.ProcessRepo),
 			new(repositories.RouteRepo),
 			new(repositories.DomainRepo),
+			new(repositories.PodRepo),
 			scaleAppProcessAction.Invoke,
 			repositories.BuildCRClient,
 			k8sClientConfig,

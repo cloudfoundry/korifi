@@ -41,6 +41,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 | Get App's Current Droplet | GET /v3/apps/\<guid>/droplets/current |
 | Start App | POST /v3/apps/\<guid>/actions/start |
 | Stop App | POST /v3/apps/\<guid>/actions/stop |
+| Restart App | POST /v3/apps/\<guid>/actions/restart |
 | List App Processes | GET /v3/apps/\<guid>/processes |
 | Scale App Process | POST /v3/apps/<guid>/processes/<type>/actions/scale |
 | List App Routes | GET /v3/apps/\<guid>/routes |
@@ -82,6 +83,12 @@ curl "http://localhost:9000/v3/apps/<app-guid>/actions/start" \
 #### [Stop an app](https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#stop-an-app)
 ```bash
 curl "http://localhost:9000/v3/apps/<app-guid>/actions/stop" \
+  -X POST
+```
+
+#### [Restart an app](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#restart-an-app)
+```bash
+curl "http://localhost:9000/v3/apps/<app-guid>/actions/restart" \
   -X POST
 ```
 

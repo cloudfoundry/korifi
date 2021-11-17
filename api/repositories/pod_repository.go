@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -81,6 +84,30 @@ func FetchPods(ctx context.Context, k8sClient client.Client, listOpts client.Lis
 		return nil, err
 	}
 	return podList.Items, nil
+}
+
+func (r *PodRepo) WatchForPodsTermination(ctx context.Context, k8sClient client.Client, appGUID, namespace string) (bool, error) {
+	err := wait.PollUntilWithContext(ctx, time.Second*1, func(ctx context.Context) (done bool, err error) {
+		podList := corev1.PodList{}
+		labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{AppGUIDKey: appGUID})
+		if err != nil {
+			return false, err
+		}
+		listOpts := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+		err = k8sClient.List(ctx, &podList, listOpts)
+		if err != nil {
+			return false, err
+		}
+		if len(podList.Items) == 0 {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func setPodState(record *PodStatsRecord, pod corev1.Pod) {
