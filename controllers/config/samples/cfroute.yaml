@@ -14,5 +14,5 @@ spec:
     - guid: 8ad77ef4-53d5-117a-b640-0ae227a13f35
       port: 8080
       appRef:
-        name: 745cfe64-ac7a-4d4a-a627-c481e8f03be8
+        name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
       processType: web
