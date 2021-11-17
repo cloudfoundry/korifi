@@ -2160,7 +2160,7 @@ var _ = Describe("AppHandler", func() {
 		})
 	})
 
-	Describe("the GET /v3/apps/:guid/actions/restart", func() {
+	Describe("the GET /v3/apps/:guid/actions/restart endpoint", func() {
 		var (
 			fetchAppRecord repositories.AppRecord
 		)
@@ -2206,7 +2206,7 @@ var _ = Describe("AppHandler", func() {
 				Expect(appDesiredStateMessage.DesiredState).To(Equal("STARTED"))
 			})
 
-			It("calls WatchForPodsTermination to wait before staring the app", func() {
+			It("calls WatchForPodsTermination to wait before starting the app", func() {
 				Expect(podRepo.WatchForPodsTerminationCallCount()).To(Equal(1))
 			})
 
