@@ -294,7 +294,7 @@ spec:
     spec:
       containers:
       - env:
-        - name: CONFIG
+        - name: APICONFIG
           value: /etc/cf-k8s-api-config
         image: cloudfoundry/cf-k8s-api:latest
         name: cf-k8s-api

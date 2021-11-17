@@ -24,7 +24,7 @@ spec:
           name: web
         resources: {}
         env:
-        - name: CONFIG
+        - name: APICONFIG
           value: "/etc/cf-k8s-api-config"
         volumeMounts:
         - name: &configname cf-k8s-api-config

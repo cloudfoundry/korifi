@@ -52,10 +52,10 @@ spec:
             memory: 20Mi
         env:
         - name: CONTROLLERSCONFIG
-          value: "/etc/cf-k8s-api-config"
+          value: "/etc/cf-k8s-controllers-config"
         volumeMounts:
         - name: cf-k8s-controllers-config
-          mountPath: /etc/cf-k8s-api-config
+          mountPath: /etc/cf-k8s-controllers-config
           readOnly: true
       volumes:
       - name: cf-k8s-controllers-config

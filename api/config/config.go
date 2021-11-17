@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
+type APIConfig struct {
 	ServerURL                 string `yaml:"serverURL"`
 	ServerPort                int    `yaml:"serverPort"`
 	RootNamespace             string `yaml:"rootNamespace"`
@@ -36,8 +36,8 @@ type DefaultLifecycleConfig struct {
 	StagingDiskMB   int    `yaml:"stagingDiskMB"`
 }
 
-func LoadFromPath(path string) (*Config, error) {
-	var config Config
+func LoadFromPath(path string) (*APIConfig, error) {
+	var config APIConfig
 
 	items, err := ioutil.ReadDir(path)
 	if err != nil {

@@ -83,10 +83,10 @@ build: generate-controllers fmt vet ## Build manager binary.
 	go build -o controllers/bin/manager controllers/main.go
 
 run-controllers: manifests-controllers generate-controllers fmt vet ## Run a controller from your host.
-	CONFIG=$(shell pwd)/controllers/config/base/cf_k8s_controllers_config.yaml ENABLE_WEBHOOKS=false go run ./controllers/main.go
+	CONTROLLERSCONFIG=$(shell pwd)/controllers/config/base/controllersconfig ENABLE_WEBHOOKS=false go run ./controllers/main.go
 
 run-api: fmt vet
-	CONFIG=$(shell pwd)/api/config/base/config go run ./api/main.go
+	APICONFIG=$(shell pwd)/api/config/base/apiconfig go run ./api/main.go
 
 docker-build: docker-build-controllers docker-build-api
 

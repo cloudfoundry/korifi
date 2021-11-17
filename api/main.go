@@ -49,9 +49,9 @@ type APIHandler interface {
 }
 
 func main() {
-	configPath, found := os.LookupEnv("CONFIG")
+	configPath, found := os.LookupEnv("APICONFIG")
 	if !found {
-		panic("CONFIG must be set")
+		panic("APICONFIG must be set")
 	}
 	config, err := config.LoadFromPath(configPath)
 	if err != nil {
@@ -190,7 +190,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(portString, router))
 }
 
-func newRegistryAuthBuilder(privilegedK8sClient k8sclient.Interface, config *config.Config) func(ctx context.Context) (remote.Option, error) {
+func newRegistryAuthBuilder(privilegedK8sClient k8sclient.Interface, config *config.APIConfig) func(ctx context.Context) (remote.Option, error) {
 	return func(ctx context.Context) (remote.Option, error) {
 		keychainFactory, err := k8sdockercreds.NewSecretKeychainFactory(privilegedK8sClient)
 		if err != nil {

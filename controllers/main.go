@@ -95,12 +95,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	configPath, found := os.LookupEnv("CONFIG")
+	configPath, found := os.LookupEnv("CONTROLLERSCONFIG")
 	if !found {
-		panic("CONFIG must be set")
+		panic("CONTROLLERSCONFIG must be set")
 	}
 
-	controllerConfig, err := config.LoadConfigFromPath(configPath)
+	controllerConfig, err := config.LoadFromPath(configPath)
 	if err != nil {
 		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
 		panic(errorMessage)
