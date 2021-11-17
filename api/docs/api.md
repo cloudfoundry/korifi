@@ -119,7 +119,7 @@ curl "http://localhost:9000/v3/packages/<guid>/upload" \
   -X POST \
   -F bits=@"<path-to-app-source.zip>"
 ```
- 
+
 ### Builds
 
 Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#builds
@@ -164,14 +164,14 @@ curl "http://localhost:9000/v3/processes/<guid>/actions/scale" \
 
 #### [Get Process Stats](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#get-stats-for-a-process)
 Currently, we only support fetching stats using the process guid endpoint, i.e., POST /v3/processes/\<guid>/stats.
-This endpoint supports populating only the index and state details on the response. 
-Support for populating other fields will come later. 
+This endpoint supports populating only the index and state details on the response.
+Support for populating other fields will come later.
 
 ### Domain
 
 https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#domains
 
-| Resource | Endpoint | 
+| Resource | Endpoint |
 |--|--|
 | List Domains | GET /v3/domains |
 
@@ -277,3 +277,22 @@ We support basic, unauthenticated versions of the following [log-cache](https://
 |--|--|
 | Retrieve data by source-id. Currently returns a hard-coded empty list of Loggregator envelopes. | GET /api/v1/read/<source-id> |
 
+### User Identity
+
+_This is not part of the published CF API, and is not supported on CF on VMs._
+
+It is required by the CF CLI when targetting CF-on-k8s, as the CLI needs to
+know the username for display in command output and to use in creating roles
+during `create-space`. This cannot be inferred from the authentication token
+without the help of kubernetes since tokens might be opaque, and even when not,
+kubernetes can choose non-standard fields to use as the username, and can
+choose to prefix the value.
+
+`ClientCert` authentication provides a client certificate, and we can extract
+the username from the subject's common name, but we choose to deal with all
+authorization header types in this endpoint to provide a useful common
+abstraction.
+
+| Resource                        | Endpoint    |
+| ------------------------------- | ----------- |
+| User or ServiceAccount identity | GET /whoami |
