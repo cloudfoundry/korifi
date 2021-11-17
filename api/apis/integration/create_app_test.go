@@ -3,11 +3,11 @@ package integration_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -15,6 +15,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
@@ -25,7 +27,7 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 	BeforeEach(func() {
 		appRepo := new(repositories.AppRepo)
 		dropletRepo := new(repositories.DropletRepo)
-		processRepo := new(repositories.ProcessRepository)
+		processRepo := new(repositories.ProcessRepo)
 		routeRepo := new(repositories.RouteRepo)
 		domainRepo := new(repositories.DomainRepo)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
@@ -47,9 +49,13 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 	})
 
 	When("on the happy path", func() {
+		const (
+			appName = "my-test-app"
+		)
 		var (
-			namespace *corev1.Namespace
-			resp      *http.Response
+			namespace                *corev1.Namespace
+			resp                     *http.Response
+			testEnvironmentVariables map[string]string
 		)
 
 		BeforeEach(func() {
@@ -59,8 +65,19 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 				k8sClient.Create(context.Background(), namespace),
 			).To(Succeed())
 
-			testEnvironmentVariables := map[string]string{"foo": "foo", "bar": "bar"}
-			requestBody := initializeCreateAppRequestBody("my-test-app", namespace.Name, testEnvironmentVariables, nil, nil)
+			testEnvironmentVariables = map[string]string{"foo": "foo", "bar": "bar"}
+			envJSON, _ := json.Marshal(&testEnvironmentVariables)
+			requestBody := fmt.Sprintf(`{
+				"name": %q,
+				"relationships": {
+					"space": {
+						"data": {
+							"guid": %q 
+						}
+					}
+				},
+				"environment_variables": %s
+			}`, appName, namespaceGUID, envJSON)
 
 			var err error
 			req, err = http.NewRequest("POST", serverURI("/v3/apps"), strings.NewReader(requestBody))
@@ -119,34 +136,15 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 				Name:      appRecord.Spec.EnvSecretName,
 				Namespace: namespace.Name,
 			}
-			var secretRecord corev1.Secret
+			var secretCR corev1.Secret
 			Eventually(func() error {
-				return k8sClient.Get(context.Background(), secretNSName, &secretRecord)
+				return k8sClient.Get(context.Background(), secretNSName, &secretCR)
 			}).Should(Succeed())
 
-			// TODO: test that the secret has the correct contents
+			Expect(secretCR.Data).To(MatchAllKeys(Keys{
+				"foo": BeEquivalentTo(testEnvironmentVariables["foo"]),
+				"bar": BeEquivalentTo(testEnvironmentVariables["bar"]),
+			}))
 		})
 	})
 })
-
-func initializeCreateAppRequestBody(appName, spaceGUID string, envVars, labels, annotations map[string]string) string {
-	marshaledEnvironmentVariables, _ := json.Marshal(envVars)
-	marshaledLabels, _ := json.Marshal(labels)
-	marshaledAnnotations, _ := json.Marshal(annotations)
-
-	return `{
-		"name": "` + appName + `",
-		"relationships": {
-			"space": {
-				"data": {
-					"guid": "` + spaceGUID + `"
-				}
-			}
-		},
-		"environment_variables": ` + string(marshaledEnvironmentVariables) + `,
-		"metadata": {
-			"labels": ` + string(marshaledLabels) + `,
-			"annotations": ` + string(marshaledAnnotations) + `
-		}
-	}`
-}

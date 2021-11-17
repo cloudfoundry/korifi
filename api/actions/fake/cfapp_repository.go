@@ -11,28 +11,12 @@ import (
 )
 
 type CFAppRepository struct {
-	AppExistsWithNameAndSpaceStub        func(context.Context, client.Client, string, string) (bool, error)
-	appExistsWithNameAndSpaceMutex       sync.RWMutex
-	appExistsWithNameAndSpaceArgsForCall []struct {
-		arg1 context.Context
-		arg2 client.Client
-		arg3 string
-		arg4 string
-	}
-	appExistsWithNameAndSpaceReturns struct {
-		result1 bool
-		result2 error
-	}
-	appExistsWithNameAndSpaceReturnsOnCall map[int]struct {
-		result1 bool
-		result2 error
-	}
-	CreateAppStub        func(context.Context, client.Client, repositories.AppRecord) (repositories.AppRecord, error)
+	CreateAppStub        func(context.Context, client.Client, repositories.AppCreateMessage) (repositories.AppRecord, error)
 	createAppMutex       sync.RWMutex
 	createAppArgsForCall []struct {
 		arg1 context.Context
 		arg2 client.Client
-		arg3 repositories.AppRecord
+		arg3 repositories.AppCreateMessage
 	}
 	createAppReturns struct {
 		result1 repositories.AppRecord
@@ -42,18 +26,18 @@ type CFAppRepository struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
-	CreateAppEnvironmentVariablesStub        func(context.Context, client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
-	createAppEnvironmentVariablesMutex       sync.RWMutex
-	createAppEnvironmentVariablesArgsForCall []struct {
+	CreateOrPatchAppEnvVarsStub        func(context.Context, client.Client, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
+	createOrPatchAppEnvVarsMutex       sync.RWMutex
+	createOrPatchAppEnvVarsArgsForCall []struct {
 		arg1 context.Context
 		arg2 client.Client
-		arg3 repositories.AppEnvVarsRecord
+		arg3 repositories.CreateOrPatchAppEnvVarsMessage
 	}
-	createAppEnvironmentVariablesReturns struct {
+	createOrPatchAppEnvVarsReturns struct {
 		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}
-	createAppEnvironmentVariablesReturnsOnCall map[int]struct {
+	createOrPatchAppEnvVarsReturnsOnCall map[int]struct {
 		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}
@@ -72,18 +56,20 @@ type CFAppRepository struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
-	FetchAppListStub        func(context.Context, client.Client) ([]repositories.AppRecord, error)
-	fetchAppListMutex       sync.RWMutex
-	fetchAppListArgsForCall []struct {
+	FetchAppByNameAndSpaceStub        func(context.Context, client.Client, string, string) (repositories.AppRecord, error)
+	fetchAppByNameAndSpaceMutex       sync.RWMutex
+	fetchAppByNameAndSpaceArgsForCall []struct {
 		arg1 context.Context
 		arg2 client.Client
+		arg3 string
+		arg4 string
 	}
-	fetchAppListReturns struct {
-		result1 []repositories.AppRecord
+	fetchAppByNameAndSpaceReturns struct {
+		result1 repositories.AppRecord
 		result2 error
 	}
-	fetchAppListReturnsOnCall map[int]struct {
-		result1 []repositories.AppRecord
+	fetchAppByNameAndSpaceReturnsOnCall map[int]struct {
+		result1 repositories.AppRecord
 		result2 error
 	}
 	FetchNamespaceStub        func(context.Context, client.Client, string) (repositories.SpaceRecord, error)
@@ -101,114 +87,17 @@ type CFAppRepository struct {
 		result1 repositories.SpaceRecord
 		result2 error
 	}
-	SetAppDesiredStateStub        func(context.Context, client.Client, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
-	setAppDesiredStateMutex       sync.RWMutex
-	setAppDesiredStateArgsForCall []struct {
-		arg1 context.Context
-		arg2 client.Client
-		arg3 repositories.SetAppDesiredStateMessage
-	}
-	setAppDesiredStateReturns struct {
-		result1 repositories.AppRecord
-		result2 error
-	}
-	setAppDesiredStateReturnsOnCall map[int]struct {
-		result1 repositories.AppRecord
-		result2 error
-	}
-	SetCurrentDropletStub        func(context.Context, client.Client, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
-	setCurrentDropletMutex       sync.RWMutex
-	setCurrentDropletArgsForCall []struct {
-		arg1 context.Context
-		arg2 client.Client
-		arg3 repositories.SetCurrentDropletMessage
-	}
-	setCurrentDropletReturns struct {
-		result1 repositories.CurrentDropletRecord
-		result2 error
-	}
-	setCurrentDropletReturnsOnCall map[int]struct {
-		result1 repositories.CurrentDropletRecord
-		result2 error
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFAppRepository) AppExistsWithNameAndSpace(arg1 context.Context, arg2 client.Client, arg3 string, arg4 string) (bool, error) {
-	fake.appExistsWithNameAndSpaceMutex.Lock()
-	ret, specificReturn := fake.appExistsWithNameAndSpaceReturnsOnCall[len(fake.appExistsWithNameAndSpaceArgsForCall)]
-	fake.appExistsWithNameAndSpaceArgsForCall = append(fake.appExistsWithNameAndSpaceArgsForCall, struct {
-		arg1 context.Context
-		arg2 client.Client
-		arg3 string
-		arg4 string
-	}{arg1, arg2, arg3, arg4})
-	stub := fake.AppExistsWithNameAndSpaceStub
-	fakeReturns := fake.appExistsWithNameAndSpaceReturns
-	fake.recordInvocation("AppExistsWithNameAndSpace", []interface{}{arg1, arg2, arg3, arg4})
-	fake.appExistsWithNameAndSpaceMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *CFAppRepository) AppExistsWithNameAndSpaceCallCount() int {
-	fake.appExistsWithNameAndSpaceMutex.RLock()
-	defer fake.appExistsWithNameAndSpaceMutex.RUnlock()
-	return len(fake.appExistsWithNameAndSpaceArgsForCall)
-}
-
-func (fake *CFAppRepository) AppExistsWithNameAndSpaceCalls(stub func(context.Context, client.Client, string, string) (bool, error)) {
-	fake.appExistsWithNameAndSpaceMutex.Lock()
-	defer fake.appExistsWithNameAndSpaceMutex.Unlock()
-	fake.AppExistsWithNameAndSpaceStub = stub
-}
-
-func (fake *CFAppRepository) AppExistsWithNameAndSpaceArgsForCall(i int) (context.Context, client.Client, string, string) {
-	fake.appExistsWithNameAndSpaceMutex.RLock()
-	defer fake.appExistsWithNameAndSpaceMutex.RUnlock()
-	argsForCall := fake.appExistsWithNameAndSpaceArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
-}
-
-func (fake *CFAppRepository) AppExistsWithNameAndSpaceReturns(result1 bool, result2 error) {
-	fake.appExistsWithNameAndSpaceMutex.Lock()
-	defer fake.appExistsWithNameAndSpaceMutex.Unlock()
-	fake.AppExistsWithNameAndSpaceStub = nil
-	fake.appExistsWithNameAndSpaceReturns = struct {
-		result1 bool
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFAppRepository) AppExistsWithNameAndSpaceReturnsOnCall(i int, result1 bool, result2 error) {
-	fake.appExistsWithNameAndSpaceMutex.Lock()
-	defer fake.appExistsWithNameAndSpaceMutex.Unlock()
-	fake.AppExistsWithNameAndSpaceStub = nil
-	if fake.appExistsWithNameAndSpaceReturnsOnCall == nil {
-		fake.appExistsWithNameAndSpaceReturnsOnCall = make(map[int]struct {
-			result1 bool
-			result2 error
-		})
-	}
-	fake.appExistsWithNameAndSpaceReturnsOnCall[i] = struct {
-		result1 bool
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFAppRepository) CreateApp(arg1 context.Context, arg2 client.Client, arg3 repositories.AppRecord) (repositories.AppRecord, error) {
+func (fake *CFAppRepository) CreateApp(arg1 context.Context, arg2 client.Client, arg3 repositories.AppCreateMessage) (repositories.AppRecord, error) {
 	fake.createAppMutex.Lock()
 	ret, specificReturn := fake.createAppReturnsOnCall[len(fake.createAppArgsForCall)]
 	fake.createAppArgsForCall = append(fake.createAppArgsForCall, struct {
 		arg1 context.Context
 		arg2 client.Client
-		arg3 repositories.AppRecord
+		arg3 repositories.AppCreateMessage
 	}{arg1, arg2, arg3})
 	stub := fake.CreateAppStub
 	fakeReturns := fake.createAppReturns
@@ -229,13 +118,13 @@ func (fake *CFAppRepository) CreateAppCallCount() int {
 	return len(fake.createAppArgsForCall)
 }
 
-func (fake *CFAppRepository) CreateAppCalls(stub func(context.Context, client.Client, repositories.AppRecord) (repositories.AppRecord, error)) {
+func (fake *CFAppRepository) CreateAppCalls(stub func(context.Context, client.Client, repositories.AppCreateMessage) (repositories.AppRecord, error)) {
 	fake.createAppMutex.Lock()
 	defer fake.createAppMutex.Unlock()
 	fake.CreateAppStub = stub
 }
 
-func (fake *CFAppRepository) CreateAppArgsForCall(i int) (context.Context, client.Client, repositories.AppRecord) {
+func (fake *CFAppRepository) CreateAppArgsForCall(i int) (context.Context, client.Client, repositories.AppCreateMessage) {
 	fake.createAppMutex.RLock()
 	defer fake.createAppMutex.RUnlock()
 	argsForCall := fake.createAppArgsForCall[i]
@@ -268,18 +157,18 @@ func (fake *CFAppRepository) CreateAppReturnsOnCall(i int, result1 repositories.
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) CreateAppEnvironmentVariables(arg1 context.Context, arg2 client.Client, arg3 repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error) {
-	fake.createAppEnvironmentVariablesMutex.Lock()
-	ret, specificReturn := fake.createAppEnvironmentVariablesReturnsOnCall[len(fake.createAppEnvironmentVariablesArgsForCall)]
-	fake.createAppEnvironmentVariablesArgsForCall = append(fake.createAppEnvironmentVariablesArgsForCall, struct {
+func (fake *CFAppRepository) CreateOrPatchAppEnvVars(arg1 context.Context, arg2 client.Client, arg3 repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error) {
+	fake.createOrPatchAppEnvVarsMutex.Lock()
+	ret, specificReturn := fake.createOrPatchAppEnvVarsReturnsOnCall[len(fake.createOrPatchAppEnvVarsArgsForCall)]
+	fake.createOrPatchAppEnvVarsArgsForCall = append(fake.createOrPatchAppEnvVarsArgsForCall, struct {
 		arg1 context.Context
 		arg2 client.Client
-		arg3 repositories.AppEnvVarsRecord
+		arg3 repositories.CreateOrPatchAppEnvVarsMessage
 	}{arg1, arg2, arg3})
-	stub := fake.CreateAppEnvironmentVariablesStub
-	fakeReturns := fake.createAppEnvironmentVariablesReturns
-	fake.recordInvocation("CreateAppEnvironmentVariables", []interface{}{arg1, arg2, arg3})
-	fake.createAppEnvironmentVariablesMutex.Unlock()
+	stub := fake.CreateOrPatchAppEnvVarsStub
+	fakeReturns := fake.createOrPatchAppEnvVarsReturns
+	fake.recordInvocation("CreateOrPatchAppEnvVars", []interface{}{arg1, arg2, arg3})
+	fake.createOrPatchAppEnvVarsMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
 	}
@@ -289,46 +178,46 @@ func (fake *CFAppRepository) CreateAppEnvironmentVariables(arg1 context.Context,
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFAppRepository) CreateAppEnvironmentVariablesCallCount() int {
-	fake.createAppEnvironmentVariablesMutex.RLock()
-	defer fake.createAppEnvironmentVariablesMutex.RUnlock()
-	return len(fake.createAppEnvironmentVariablesArgsForCall)
+func (fake *CFAppRepository) CreateOrPatchAppEnvVarsCallCount() int {
+	fake.createOrPatchAppEnvVarsMutex.RLock()
+	defer fake.createOrPatchAppEnvVarsMutex.RUnlock()
+	return len(fake.createOrPatchAppEnvVarsArgsForCall)
 }
 
-func (fake *CFAppRepository) CreateAppEnvironmentVariablesCalls(stub func(context.Context, client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)) {
-	fake.createAppEnvironmentVariablesMutex.Lock()
-	defer fake.createAppEnvironmentVariablesMutex.Unlock()
-	fake.CreateAppEnvironmentVariablesStub = stub
+func (fake *CFAppRepository) CreateOrPatchAppEnvVarsCalls(stub func(context.Context, client.Client, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)) {
+	fake.createOrPatchAppEnvVarsMutex.Lock()
+	defer fake.createOrPatchAppEnvVarsMutex.Unlock()
+	fake.CreateOrPatchAppEnvVarsStub = stub
 }
 
-func (fake *CFAppRepository) CreateAppEnvironmentVariablesArgsForCall(i int) (context.Context, client.Client, repositories.AppEnvVarsRecord) {
-	fake.createAppEnvironmentVariablesMutex.RLock()
-	defer fake.createAppEnvironmentVariablesMutex.RUnlock()
-	argsForCall := fake.createAppEnvironmentVariablesArgsForCall[i]
+func (fake *CFAppRepository) CreateOrPatchAppEnvVarsArgsForCall(i int) (context.Context, client.Client, repositories.CreateOrPatchAppEnvVarsMessage) {
+	fake.createOrPatchAppEnvVarsMutex.RLock()
+	defer fake.createOrPatchAppEnvVarsMutex.RUnlock()
+	argsForCall := fake.createOrPatchAppEnvVarsArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFAppRepository) CreateAppEnvironmentVariablesReturns(result1 repositories.AppEnvVarsRecord, result2 error) {
-	fake.createAppEnvironmentVariablesMutex.Lock()
-	defer fake.createAppEnvironmentVariablesMutex.Unlock()
-	fake.CreateAppEnvironmentVariablesStub = nil
-	fake.createAppEnvironmentVariablesReturns = struct {
+func (fake *CFAppRepository) CreateOrPatchAppEnvVarsReturns(result1 repositories.AppEnvVarsRecord, result2 error) {
+	fake.createOrPatchAppEnvVarsMutex.Lock()
+	defer fake.createOrPatchAppEnvVarsMutex.Unlock()
+	fake.CreateOrPatchAppEnvVarsStub = nil
+	fake.createOrPatchAppEnvVarsReturns = struct {
 		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) CreateAppEnvironmentVariablesReturnsOnCall(i int, result1 repositories.AppEnvVarsRecord, result2 error) {
-	fake.createAppEnvironmentVariablesMutex.Lock()
-	defer fake.createAppEnvironmentVariablesMutex.Unlock()
-	fake.CreateAppEnvironmentVariablesStub = nil
-	if fake.createAppEnvironmentVariablesReturnsOnCall == nil {
-		fake.createAppEnvironmentVariablesReturnsOnCall = make(map[int]struct {
+func (fake *CFAppRepository) CreateOrPatchAppEnvVarsReturnsOnCall(i int, result1 repositories.AppEnvVarsRecord, result2 error) {
+	fake.createOrPatchAppEnvVarsMutex.Lock()
+	defer fake.createOrPatchAppEnvVarsMutex.Unlock()
+	fake.CreateOrPatchAppEnvVarsStub = nil
+	if fake.createOrPatchAppEnvVarsReturnsOnCall == nil {
+		fake.createOrPatchAppEnvVarsReturnsOnCall = make(map[int]struct {
 			result1 repositories.AppEnvVarsRecord
 			result2 error
 		})
 	}
-	fake.createAppEnvironmentVariablesReturnsOnCall[i] = struct {
+	fake.createOrPatchAppEnvVarsReturnsOnCall[i] = struct {
 		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}{result1, result2}
@@ -400,19 +289,21 @@ func (fake *CFAppRepository) FetchAppReturnsOnCall(i int, result1 repositories.A
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) FetchAppList(arg1 context.Context, arg2 client.Client) ([]repositories.AppRecord, error) {
-	fake.fetchAppListMutex.Lock()
-	ret, specificReturn := fake.fetchAppListReturnsOnCall[len(fake.fetchAppListArgsForCall)]
-	fake.fetchAppListArgsForCall = append(fake.fetchAppListArgsForCall, struct {
+func (fake *CFAppRepository) FetchAppByNameAndSpace(arg1 context.Context, arg2 client.Client, arg3 string, arg4 string) (repositories.AppRecord, error) {
+	fake.fetchAppByNameAndSpaceMutex.Lock()
+	ret, specificReturn := fake.fetchAppByNameAndSpaceReturnsOnCall[len(fake.fetchAppByNameAndSpaceArgsForCall)]
+	fake.fetchAppByNameAndSpaceArgsForCall = append(fake.fetchAppByNameAndSpaceArgsForCall, struct {
 		arg1 context.Context
 		arg2 client.Client
-	}{arg1, arg2})
-	stub := fake.FetchAppListStub
-	fakeReturns := fake.fetchAppListReturns
-	fake.recordInvocation("FetchAppList", []interface{}{arg1, arg2})
-	fake.fetchAppListMutex.Unlock()
+		arg3 string
+		arg4 string
+	}{arg1, arg2, arg3, arg4})
+	stub := fake.FetchAppByNameAndSpaceStub
+	fakeReturns := fake.fetchAppByNameAndSpaceReturns
+	fake.recordInvocation("FetchAppByNameAndSpace", []interface{}{arg1, arg2, arg3, arg4})
+	fake.fetchAppByNameAndSpaceMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -420,47 +311,47 @@ func (fake *CFAppRepository) FetchAppList(arg1 context.Context, arg2 client.Clie
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFAppRepository) FetchAppListCallCount() int {
-	fake.fetchAppListMutex.RLock()
-	defer fake.fetchAppListMutex.RUnlock()
-	return len(fake.fetchAppListArgsForCall)
+func (fake *CFAppRepository) FetchAppByNameAndSpaceCallCount() int {
+	fake.fetchAppByNameAndSpaceMutex.RLock()
+	defer fake.fetchAppByNameAndSpaceMutex.RUnlock()
+	return len(fake.fetchAppByNameAndSpaceArgsForCall)
 }
 
-func (fake *CFAppRepository) FetchAppListCalls(stub func(context.Context, client.Client) ([]repositories.AppRecord, error)) {
-	fake.fetchAppListMutex.Lock()
-	defer fake.fetchAppListMutex.Unlock()
-	fake.FetchAppListStub = stub
+func (fake *CFAppRepository) FetchAppByNameAndSpaceCalls(stub func(context.Context, client.Client, string, string) (repositories.AppRecord, error)) {
+	fake.fetchAppByNameAndSpaceMutex.Lock()
+	defer fake.fetchAppByNameAndSpaceMutex.Unlock()
+	fake.FetchAppByNameAndSpaceStub = stub
 }
 
-func (fake *CFAppRepository) FetchAppListArgsForCall(i int) (context.Context, client.Client) {
-	fake.fetchAppListMutex.RLock()
-	defer fake.fetchAppListMutex.RUnlock()
-	argsForCall := fake.fetchAppListArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+func (fake *CFAppRepository) FetchAppByNameAndSpaceArgsForCall(i int) (context.Context, client.Client, string, string) {
+	fake.fetchAppByNameAndSpaceMutex.RLock()
+	defer fake.fetchAppByNameAndSpaceMutex.RUnlock()
+	argsForCall := fake.fetchAppByNameAndSpaceArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
-func (fake *CFAppRepository) FetchAppListReturns(result1 []repositories.AppRecord, result2 error) {
-	fake.fetchAppListMutex.Lock()
-	defer fake.fetchAppListMutex.Unlock()
-	fake.FetchAppListStub = nil
-	fake.fetchAppListReturns = struct {
-		result1 []repositories.AppRecord
+func (fake *CFAppRepository) FetchAppByNameAndSpaceReturns(result1 repositories.AppRecord, result2 error) {
+	fake.fetchAppByNameAndSpaceMutex.Lock()
+	defer fake.fetchAppByNameAndSpaceMutex.Unlock()
+	fake.FetchAppByNameAndSpaceStub = nil
+	fake.fetchAppByNameAndSpaceReturns = struct {
+		result1 repositories.AppRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) FetchAppListReturnsOnCall(i int, result1 []repositories.AppRecord, result2 error) {
-	fake.fetchAppListMutex.Lock()
-	defer fake.fetchAppListMutex.Unlock()
-	fake.FetchAppListStub = nil
-	if fake.fetchAppListReturnsOnCall == nil {
-		fake.fetchAppListReturnsOnCall = make(map[int]struct {
-			result1 []repositories.AppRecord
+func (fake *CFAppRepository) FetchAppByNameAndSpaceReturnsOnCall(i int, result1 repositories.AppRecord, result2 error) {
+	fake.fetchAppByNameAndSpaceMutex.Lock()
+	defer fake.fetchAppByNameAndSpaceMutex.Unlock()
+	fake.FetchAppByNameAndSpaceStub = nil
+	if fake.fetchAppByNameAndSpaceReturnsOnCall == nil {
+		fake.fetchAppByNameAndSpaceReturnsOnCall = make(map[int]struct {
+			result1 repositories.AppRecord
 			result2 error
 		})
 	}
-	fake.fetchAppListReturnsOnCall[i] = struct {
-		result1 []repositories.AppRecord
+	fake.fetchAppByNameAndSpaceReturnsOnCall[i] = struct {
+		result1 repositories.AppRecord
 		result2 error
 	}{result1, result2}
 }
@@ -531,157 +422,19 @@ func (fake *CFAppRepository) FetchNamespaceReturnsOnCall(i int, result1 reposito
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) SetAppDesiredState(arg1 context.Context, arg2 client.Client, arg3 repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error) {
-	fake.setAppDesiredStateMutex.Lock()
-	ret, specificReturn := fake.setAppDesiredStateReturnsOnCall[len(fake.setAppDesiredStateArgsForCall)]
-	fake.setAppDesiredStateArgsForCall = append(fake.setAppDesiredStateArgsForCall, struct {
-		arg1 context.Context
-		arg2 client.Client
-		arg3 repositories.SetAppDesiredStateMessage
-	}{arg1, arg2, arg3})
-	stub := fake.SetAppDesiredStateStub
-	fakeReturns := fake.setAppDesiredStateReturns
-	fake.recordInvocation("SetAppDesiredState", []interface{}{arg1, arg2, arg3})
-	fake.setAppDesiredStateMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2, arg3)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *CFAppRepository) SetAppDesiredStateCallCount() int {
-	fake.setAppDesiredStateMutex.RLock()
-	defer fake.setAppDesiredStateMutex.RUnlock()
-	return len(fake.setAppDesiredStateArgsForCall)
-}
-
-func (fake *CFAppRepository) SetAppDesiredStateCalls(stub func(context.Context, client.Client, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)) {
-	fake.setAppDesiredStateMutex.Lock()
-	defer fake.setAppDesiredStateMutex.Unlock()
-	fake.SetAppDesiredStateStub = stub
-}
-
-func (fake *CFAppRepository) SetAppDesiredStateArgsForCall(i int) (context.Context, client.Client, repositories.SetAppDesiredStateMessage) {
-	fake.setAppDesiredStateMutex.RLock()
-	defer fake.setAppDesiredStateMutex.RUnlock()
-	argsForCall := fake.setAppDesiredStateArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
-}
-
-func (fake *CFAppRepository) SetAppDesiredStateReturns(result1 repositories.AppRecord, result2 error) {
-	fake.setAppDesiredStateMutex.Lock()
-	defer fake.setAppDesiredStateMutex.Unlock()
-	fake.SetAppDesiredStateStub = nil
-	fake.setAppDesiredStateReturns = struct {
-		result1 repositories.AppRecord
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFAppRepository) SetAppDesiredStateReturnsOnCall(i int, result1 repositories.AppRecord, result2 error) {
-	fake.setAppDesiredStateMutex.Lock()
-	defer fake.setAppDesiredStateMutex.Unlock()
-	fake.SetAppDesiredStateStub = nil
-	if fake.setAppDesiredStateReturnsOnCall == nil {
-		fake.setAppDesiredStateReturnsOnCall = make(map[int]struct {
-			result1 repositories.AppRecord
-			result2 error
-		})
-	}
-	fake.setAppDesiredStateReturnsOnCall[i] = struct {
-		result1 repositories.AppRecord
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFAppRepository) SetCurrentDroplet(arg1 context.Context, arg2 client.Client, arg3 repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error) {
-	fake.setCurrentDropletMutex.Lock()
-	ret, specificReturn := fake.setCurrentDropletReturnsOnCall[len(fake.setCurrentDropletArgsForCall)]
-	fake.setCurrentDropletArgsForCall = append(fake.setCurrentDropletArgsForCall, struct {
-		arg1 context.Context
-		arg2 client.Client
-		arg3 repositories.SetCurrentDropletMessage
-	}{arg1, arg2, arg3})
-	stub := fake.SetCurrentDropletStub
-	fakeReturns := fake.setCurrentDropletReturns
-	fake.recordInvocation("SetCurrentDroplet", []interface{}{arg1, arg2, arg3})
-	fake.setCurrentDropletMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2, arg3)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *CFAppRepository) SetCurrentDropletCallCount() int {
-	fake.setCurrentDropletMutex.RLock()
-	defer fake.setCurrentDropletMutex.RUnlock()
-	return len(fake.setCurrentDropletArgsForCall)
-}
-
-func (fake *CFAppRepository) SetCurrentDropletCalls(stub func(context.Context, client.Client, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)) {
-	fake.setCurrentDropletMutex.Lock()
-	defer fake.setCurrentDropletMutex.Unlock()
-	fake.SetCurrentDropletStub = stub
-}
-
-func (fake *CFAppRepository) SetCurrentDropletArgsForCall(i int) (context.Context, client.Client, repositories.SetCurrentDropletMessage) {
-	fake.setCurrentDropletMutex.RLock()
-	defer fake.setCurrentDropletMutex.RUnlock()
-	argsForCall := fake.setCurrentDropletArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
-}
-
-func (fake *CFAppRepository) SetCurrentDropletReturns(result1 repositories.CurrentDropletRecord, result2 error) {
-	fake.setCurrentDropletMutex.Lock()
-	defer fake.setCurrentDropletMutex.Unlock()
-	fake.SetCurrentDropletStub = nil
-	fake.setCurrentDropletReturns = struct {
-		result1 repositories.CurrentDropletRecord
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFAppRepository) SetCurrentDropletReturnsOnCall(i int, result1 repositories.CurrentDropletRecord, result2 error) {
-	fake.setCurrentDropletMutex.Lock()
-	defer fake.setCurrentDropletMutex.Unlock()
-	fake.SetCurrentDropletStub = nil
-	if fake.setCurrentDropletReturnsOnCall == nil {
-		fake.setCurrentDropletReturnsOnCall = make(map[int]struct {
-			result1 repositories.CurrentDropletRecord
-			result2 error
-		})
-	}
-	fake.setCurrentDropletReturnsOnCall[i] = struct {
-		result1 repositories.CurrentDropletRecord
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.appExistsWithNameAndSpaceMutex.RLock()
-	defer fake.appExistsWithNameAndSpaceMutex.RUnlock()
 	fake.createAppMutex.RLock()
 	defer fake.createAppMutex.RUnlock()
-	fake.createAppEnvironmentVariablesMutex.RLock()
-	defer fake.createAppEnvironmentVariablesMutex.RUnlock()
+	fake.createOrPatchAppEnvVarsMutex.RLock()
+	defer fake.createOrPatchAppEnvVarsMutex.RUnlock()
 	fake.fetchAppMutex.RLock()
 	defer fake.fetchAppMutex.RUnlock()
-	fake.fetchAppListMutex.RLock()
-	defer fake.fetchAppListMutex.RUnlock()
+	fake.fetchAppByNameAndSpaceMutex.RLock()
+	defer fake.fetchAppByNameAndSpaceMutex.RUnlock()
 	fake.fetchNamespaceMutex.RLock()
 	defer fake.fetchNamespaceMutex.RUnlock()
-	fake.setAppDesiredStateMutex.RLock()
-	defer fake.setAppDesiredStateMutex.RUnlock()
-	fake.setCurrentDropletMutex.RLock()
-	defer fake.setCurrentDropletMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

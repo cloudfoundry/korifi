@@ -30,7 +30,7 @@ type CFProcessRepository interface {
 }
 
 //counterfeiter:generate -o fake -fake-name ScaleProcess . ScaleProcess
-type ScaleProcess func(ctx context.Context, client client.Client, processGUID string, scale repositories.ProcessScaleMessage) (repositories.ProcessRecord, error)
+type ScaleProcess func(ctx context.Context, client client.Client, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
 
 type ProcessHandler struct {
 	logger       logr.Logger

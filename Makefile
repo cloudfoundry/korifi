@@ -148,9 +148,8 @@ KUSTOMIZE = $(shell pwd)/controllers/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.2.0)
 
-GINKGO = $(shell pwd)/bin/ginkgo
 ginkgo:
-	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo@latest)
+	go install github.com/onsi/ginkgo/ginkgo
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 define go-get-tool

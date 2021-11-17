@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
+	"code.cloudfoundry.org/bytefmt"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
@@ -75,6 +76,7 @@ func validatePayload(object interface{}) *requestMalformedError {
 
 	// Register custom validators
 	v.RegisterValidation("routepathstartswithslash", routePathStartsWithSlash)
+	v.RegisterValidation("megabytestring", megabyteFormattedString, true)
 
 	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
 	v.RegisterTranslation("cannot_have_both_org_and_space_set", trans, func(ut ut.Translator) error {
@@ -329,4 +331,14 @@ func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
 	default:
 		sl.ReportError(roleCreate.Type, "type", "Role type", "valid_role", "")
 	}
+}
+
+func megabyteFormattedString(fl validator.FieldLevel) bool {
+	val, ok := fl.Field().Interface().(string)
+	if !ok {
+		return true
+	}
+
+	_, err := bytefmt.ToMegabytes(val)
+	return err == nil
 }

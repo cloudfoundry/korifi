@@ -15,7 +15,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	"github.com/go-logr/logr"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,16 +40,17 @@ const (
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
 type CFAppRepository interface {
 	FetchApp(context.Context, client.Client, string) (repositories.AppRecord, error)
+	FetchAppByNameAndSpace(context.Context, client.Client, string, string) (repositories.AppRecord, error)
 	FetchAppList(context.Context, client.Client) ([]repositories.AppRecord, error)
 	FetchNamespace(context.Context, client.Client, string) (repositories.SpaceRecord, error)
-	CreateAppEnvironmentVariables(context.Context, client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
-	CreateApp(context.Context, client.Client, repositories.AppRecord) (repositories.AppRecord, error)
+	CreateOrPatchAppEnvVars(context.Context, client.Client, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
+	CreateApp(context.Context, client.Client, repositories.AppCreateMessage) (repositories.AppRecord, error)
 	SetCurrentDroplet(context.Context, client.Client, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
 	SetAppDesiredState(context.Context, client.Client, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name ScaleAppProcess . ScaleAppProcess
-type ScaleAppProcess func(ctx context.Context, client client.Client, appGUID string, processType string, scale repositories.ProcessScaleMessage) (repositories.ProcessRecord, error)
+type ScaleAppProcess func(ctx context.Context, client client.Client, appGUID string, processType string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
 
 type AppHandler struct {
 	logger          logr.Logger
@@ -150,6 +150,7 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: Move this into the action or its own "filter"
 	namespaceGUID := payload.Relationships.Space.Data.GUID
 	_, err = h.appRepo.FetchNamespace(ctx, client, namespaceGUID)
 
@@ -166,30 +167,7 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	appGUID := uuid.New().String()
-	var appEnvSecretName string
-
-	if len(payload.EnvironmentVariables) > 0 {
-		appEnvSecretRecord := repositories.AppEnvVarsRecord{
-			AppGUID:              appGUID,
-			SpaceGUID:            namespaceGUID,
-			EnvironmentVariables: payload.EnvironmentVariables,
-		}
-		responseAppEnvSecretRecord, err := h.appRepo.CreateAppEnvironmentVariables(ctx, client, appEnvSecretRecord)
-		if err != nil {
-			h.logger.Error(err, "Failed to create app environment vars", "App Name", payload.Name)
-			writeUnknownErrorResponse(w)
-			return
-		}
-		appEnvSecretName = responseAppEnvSecretRecord.Name
-	}
-
-	createAppRecord := payload.ToRecord()
-	// Set GUID and EnvSecretName
-	createAppRecord.GUID = appGUID
-	createAppRecord.EnvSecretName = appEnvSecretName
-
-	responseAppRecord, err := h.appRepo.CreateApp(ctx, client, createAppRecord)
+	appRecord, err := h.appRepo.CreateApp(ctx, client, payload.ToAppCreateMessage())
 	if err != nil {
 		if workloads.HasErrorCode(err, workloads.DuplicateAppError) {
 			errorDetail := fmt.Sprintf("App with the name '%s' already exists.", payload.Name)
@@ -202,7 +180,7 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForApp(responseAppRecord, h.serverURL))
+	responseBody, err := json.Marshal(presenter.ForApp(appRecord, h.serverURL))
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "App Name", payload.Name)
 		writeUnknownErrorResponse(w)

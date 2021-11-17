@@ -91,6 +91,21 @@ func initializeDropletCR(dropletGUID, appGUID, spaceGUID string) workloadsv1alph
 	}
 }
 
+func initializeAppCreateMessage(appName string, spaceGUID string) AppCreateMessage {
+	return AppCreateMessage{
+		Name:      appName,
+		SpaceGUID: spaceGUID,
+		State:     "STOPPED",
+		Lifecycle: Lifecycle{
+			Type: "buildpack",
+			Data: LifecycleData{
+				Buildpacks: []string{},
+				Stack:      "cflinuxfs3",
+			},
+		},
+	}
+}
+
 func initializeAppRecord(appName string, appGUID string, spaceGUID string) AppRecord {
 	return AppRecord{
 		Name:      appName,

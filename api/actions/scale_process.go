@@ -18,15 +18,15 @@ func NewScaleProcess(processRepo CFProcessRepository) *ScaleProcess {
 	}
 }
 
-func (a *ScaleProcess) Invoke(ctx context.Context, client client.Client, processGUID string, scale repositories.ProcessScaleMessage) (repositories.ProcessRecord, error) {
+func (a *ScaleProcess) Invoke(ctx context.Context, client client.Client, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error) {
 	process, err := a.processRepo.FetchProcess(ctx, client, processGUID)
 	if err != nil {
 		return repositories.ProcessRecord{}, err
 	}
-	scaleMessage := repositories.ScaleProcessMessage{
-		GUID:                process.GUID,
-		SpaceGUID:           process.SpaceGUID,
-		ProcessScaleMessage: scale,
+	scaleMessage := repositories.ProcessScaleMessage{
+		GUID:               process.GUID,
+		SpaceGUID:          process.SpaceGUID,
+		ProcessScaleValues: scale,
 	}
 	return a.processRepo.ScaleProcess(ctx, client, scaleMessage)
 }

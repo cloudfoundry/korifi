@@ -33,7 +33,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		scaleAppProcessAction *ScaleAppProcess
 
 		testClient *fake.Client
-		testScale  *repositories.ProcessScaleMessage
+		testScale  *repositories.ProcessScaleValues
 
 		responseRecord repositories.ProcessRecord
 		responseErr    error
@@ -46,14 +46,14 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		testClient = new(fake.Client)
 
 		processRecord := repositories.ProcessRecord{
-			GUID:        testProcessGUID,
-			SpaceGUID:   testProcessSpaceGUID,
-			AppGUID:     testAppGUID,
-			Type:        processType,
-			Command:     "some command",
-			Instances:   initialInstances,
-			MemoryMB:    initialMemoryMB,
-			DiskQuotaMB: initialDiskQuotaMB,
+			GUID:             testProcessGUID,
+			SpaceGUID:        testProcessSpaceGUID,
+			AppGUID:          testAppGUID,
+			Type:             processType,
+			Command:          "some command",
+			DesiredInstances: initialInstances,
+			MemoryMB:         initialMemoryMB,
+			DiskQuotaMB:      initialDiskQuotaMB,
 		}
 
 		appRepo.FetchAppReturns(repositories.AppRecord{
@@ -68,7 +68,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		var newMemoryMB int64 = 256
 		var newDiskMB int64 = 1024
 
-		testScale = &repositories.ProcessScaleMessage{
+		testScale = &repositories.ProcessScaleValues{
 			Instances: &newInstances,
 			MemoryMB:  &newMemoryMB,
 			DiskMB:    &newDiskMB,
@@ -76,15 +76,15 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		scaleProcessAction = &fake.ScaleProcess{}
 
 		updatedProcessRecord = &repositories.ProcessRecord{
-			GUID:        testProcessGUID,
-			SpaceGUID:   testProcessSpaceGUID,
-			AppGUID:     testAppGUID,
-			Type:        processType,
-			Command:     "some-command",
-			Instances:   initialInstances,
-			MemoryMB:    initialMemoryMB,
-			DiskQuotaMB: initialDiskQuotaMB,
-			Ports:       []int32{8080},
+			GUID:             testProcessGUID,
+			SpaceGUID:        testProcessSpaceGUID,
+			AppGUID:          testAppGUID,
+			Type:             processType,
+			Command:          "some-command",
+			DesiredInstances: initialInstances,
+			MemoryMB:         initialMemoryMB,
+			DiskQuotaMB:      initialDiskQuotaMB,
+			Ports:            []int32{8080},
 			HealthCheck: repositories.HealthCheck{
 				Type: "port",
 				Data: repositories.HealthCheckData{},
@@ -118,7 +118,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			Expect(appGUID).To(Equal(testAppGUID))
 			Expect(calledNamespace).To(Equal(testProcessSpaceGUID))
 		})
-		It("fabricates a ProcessScaleMessage using the inputs and the process GUID and looked-up space", func() {
+		It("fabricates a ProcessScaleValues using the inputs and the process GUID and looked-up space", func() {
 			Expect(scaleProcessAction.CallCount()).ToNot(BeZero())
 			_, _, scaleProcessGUID, scaleProcessMessage := scaleProcessAction.ArgsForCall(0)
 			Expect(scaleProcessGUID).To(Equal(testProcessGUID))
@@ -126,7 +126,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			Expect(scaleProcessMessage.DiskMB).To(Equal(testScale.DiskMB))
 			Expect(scaleProcessMessage.MemoryMB).To(Equal(testScale.MemoryMB))
 		})
-		It("transparently returns a record from repositories.ProcessScaleMessage", func() {
+		It("transparently returns a record from repositories.ProcessScaleValues", func() {
 			Expect(responseRecord).To(Equal(*updatedProcessRecord))
 		})
 	})

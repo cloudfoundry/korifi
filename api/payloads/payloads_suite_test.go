@@ -1,9 +1,6 @@
 package payloads_test
 
 import (
-	"github.com/matt-royal/biloba"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -12,9 +9,5 @@ import (
 
 func TestPayloads(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecsWithDefaultAndCustomReporters(t, "Payloads Suite", biloba.GoLandReporter())
+	RunSpecs(t, "Payloads Suite")
 }
-
-var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-})

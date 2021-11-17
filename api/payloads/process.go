@@ -8,8 +8,8 @@ type ProcessScale struct {
 	DiskMB    *int64 `json:"disk_in_mb" validate:"omitempty,gt=0"`
 }
 
-func (p ProcessScale) ToRecord() repositories.ProcessScaleMessage {
-	return repositories.ProcessScaleMessage{
+func (p ProcessScale) ToRecord() repositories.ProcessScaleValues {
+	return repositories.ProcessScaleValues{
 		Instances: p.Instances,
 		MemoryMB:  p.MemoryMB,
 		DiskMB:    p.DiskMB,

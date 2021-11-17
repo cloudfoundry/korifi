@@ -11,13 +11,13 @@ import (
 )
 
 type ApplyManifestAction struct {
-	Stub        func(context.Context, client.Client, string, payloads.SpaceManifestApply) error
+	Stub        func(context.Context, client.Client, string, payloads.Manifest) error
 	mutex       sync.RWMutex
 	argsForCall []struct {
 		arg1 context.Context
 		arg2 client.Client
 		arg3 string
-		arg4 payloads.SpaceManifestApply
+		arg4 payloads.Manifest
 	}
 	returns struct {
 		result1 error
@@ -29,14 +29,14 @@ type ApplyManifestAction struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ApplyManifestAction) Spy(arg1 context.Context, arg2 client.Client, arg3 string, arg4 payloads.SpaceManifestApply) error {
+func (fake *ApplyManifestAction) Spy(arg1 context.Context, arg2 client.Client, arg3 string, arg4 payloads.Manifest) error {
 	fake.mutex.Lock()
 	ret, specificReturn := fake.returnsOnCall[len(fake.argsForCall)]
 	fake.argsForCall = append(fake.argsForCall, struct {
 		arg1 context.Context
 		arg2 client.Client
 		arg3 string
-		arg4 payloads.SpaceManifestApply
+		arg4 payloads.Manifest
 	}{arg1, arg2, arg3, arg4})
 	stub := fake.Stub
 	returns := fake.returns
@@ -57,13 +57,13 @@ func (fake *ApplyManifestAction) CallCount() int {
 	return len(fake.argsForCall)
 }
 
-func (fake *ApplyManifestAction) Calls(stub func(context.Context, client.Client, string, payloads.SpaceManifestApply) error) {
+func (fake *ApplyManifestAction) Calls(stub func(context.Context, client.Client, string, payloads.Manifest) error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = stub
 }
 
-func (fake *ApplyManifestAction) ArgsForCall(i int) (context.Context, client.Client, string, payloads.SpaceManifestApply) {
+func (fake *ApplyManifestAction) ArgsForCall(i int) (context.Context, client.Client, string, payloads.Manifest) {
 	fake.mutex.RLock()
 	defer fake.mutex.RUnlock()
 	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2, fake.argsForCall[i].arg3, fake.argsForCall[i].arg4
