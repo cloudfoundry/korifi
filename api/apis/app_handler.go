@@ -27,10 +27,11 @@ const (
 	AppSetCurrentDropletEndpoint = "/v3/apps/{guid}/relationships/current_droplet"
 	AppGetCurrentDropletEndpoint = "/v3/apps/{guid}/droplets/current"
 	AppGetProcessesEndpoint      = "/v3/apps/{guid}/processes"
+	AppProcessScaleEndpoint      = "/v3/apps/{guid}/processes/{processType}/actions/scale"
 	AppGetRoutesEndpoint         = "/v3/apps/{guid}/routes"
 	AppStartEndpoint             = "/v3/apps/{guid}/actions/start"
-	AppProcessScaleEndpoint      = "/v3/apps/{guid}/processes/{processType}/actions/scale"
 	AppStopEndpoint              = "/v3/apps/{guid}/actions/stop"
+	AppRestartEndpoint           = "/v3/apps/{guid}/actions/restart"
 	invalidDropletMsg            = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
 	AppStartedState = "STARTED"
@@ -60,6 +61,7 @@ type AppHandler struct {
 	processRepo     CFProcessRepository
 	routeRepo       CFRouteRepository
 	domainRepo      CFDomainRepository
+	podRepo         PodRepository
 	scaleAppProcess ScaleAppProcess
 	buildClient     ClientBuilder
 	k8sConfig       *rest.Config // TODO: this would be global for all requests, not what we want
@@ -73,6 +75,7 @@ func NewAppHandler(
 	processRepo CFProcessRepository,
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
+	podRepo PodRepository,
 	scaleAppProcessFunc ScaleAppProcess,
 	buildClient ClientBuilder,
 	k8sConfig *rest.Config) *AppHandler {
@@ -84,6 +87,7 @@ func NewAppHandler(
 		processRepo:     processRepo,
 		routeRepo:       routeRepo,
 		domainRepo:      domainRepo,
+		podRepo:         podRepo,
 		scaleAppProcess: scaleAppProcessFunc,
 		buildClient:     buildClient,
 		k8sConfig:       k8sConfig,
@@ -598,6 +602,91 @@ func (h *AppHandler) appScaleProcessHandler(w http.ResponseWriter, r *http.Reque
 	w.Write(responseBody)
 }
 
+func (h *AppHandler) appRestartHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+
+	// TODO: Instantiate config based on bearer token
+	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
+	client, err := h.buildClient(h.k8sConfig)
+	if err != nil {
+		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	app, err := h.appRepo.FetchApp(ctx, client, appGUID)
+	if err != nil {
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("App not found", "AppGUID", appGUID)
+			writeNotFoundErrorResponse(w, "App")
+			return
+		default:
+			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	if app.DropletGUID == "" {
+		h.logger.Info("App droplet not set before start", "AppGUID", appGUID)
+		writeUnprocessableEntityError(w, "Assign a droplet before starting this app.")
+		return
+	}
+
+	if app.State == repositories.StartedState {
+		app, err = h.appRepo.SetAppDesiredState(ctx, client, repositories.SetAppDesiredStateMessage{
+			AppGUID:      app.GUID,
+			SpaceGUID:    app.SpaceGUID,
+			DesiredState: AppStoppedState,
+		})
+		if err != nil {
+			h.logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+
+		terminated, err := h.podRepo.WatchForPodsTermination(ctx, client, app.GUID, app.SpaceGUID)
+		if err != nil {
+			h.logger.Error(err, "Failed to fetch pods for app in Kubernetes", "AppGUID", appGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+
+		// Terminated can only be false if the user cancels the context.
+		if !terminated {
+			h.logger.Error(err, "Timed out waiting for pods to terminate for app", "AppGUID", appGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	app, err = h.appRepo.SetAppDesiredState(ctx, client, repositories.SetAppDesiredStateMessage{
+		AppGUID:      app.GUID,
+		SpaceGUID:    app.SpaceGUID,
+		DesiredState: AppStartedState,
+	})
+	if err != nil {
+		h.logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	responseBody, err := json.Marshal(presenter.ForApp(app, h.serverURL))
+	if err != nil {
+		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	w.Write(responseBody)
+
+}
+
 func (h *AppHandler) lookupAppRouteAndDomainList(ctx context.Context, client client.Client, appGUID, spaceGUID string) ([]repositories.RouteRecord, error) {
 
 	routeRecords, err := h.routeRepo.FetchRoutesForApp(ctx, client, appGUID, spaceGUID)
@@ -616,6 +705,7 @@ func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(AppGetCurrentDropletEndpoint).Methods("GET").HandlerFunc(h.appGetCurrentDropletHandler)
 	router.Path(AppStartEndpoint).Methods("POST").HandlerFunc(h.appStartHandler)
 	router.Path(AppStopEndpoint).Methods("POST").HandlerFunc(h.appStopHandler)
+	router.Path(AppRestartEndpoint).Methods("POST").HandlerFunc(h.appRestartHandler)
 	router.Path(AppProcessScaleEndpoint).Methods("POST").HandlerFunc(h.appScaleProcessHandler)
 	router.Path(AppGetProcessesEndpoint).Methods("GET").HandlerFunc(h.getProcessesForAppHandler)
 	router.Path(AppGetRoutesEndpoint).Methods("GET").HandlerFunc(h.getRoutesForAppHandler)

@@ -30,6 +30,7 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 		processRepo := new(repositories.ProcessRepo)
 		routeRepo := new(repositories.RouteRepo)
 		domainRepo := new(repositories.DomainRepo)
+		podRepo := new(repositories.PodRepo)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
 
@@ -41,6 +42,7 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 			processRepo,
 			routeRepo,
 			domainRepo,
+			podRepo,
 			scaleAppProcess,
 			repositories.BuildCRClient,
 			k8sConfig,

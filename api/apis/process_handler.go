@@ -32,7 +32,8 @@ type CFProcessRepository interface {
 
 //counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
 type PodRepository interface {
-	FetchPodStatsByAppGUID(ctx context.Context, k8sClient client.Client, namespace string, appGUID string) ([]repositories.PodStatsRecord, error)
+	FetchPodStatsByAppGUID(context.Context, client.Client, repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)
+	WatchForPodsTermination(context.Context, client.Client, string, string) (bool, error)
 }
 
 //counterfeiter:generate -o fake -fake-name ScaleProcess . ScaleProcess
