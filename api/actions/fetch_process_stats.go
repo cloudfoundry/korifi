@@ -39,7 +39,7 @@ func (a *FetchProcessStats) Invoke(ctx context.Context, c client.Client, process
 	message := repositories.FetchPodStatsMessage{
 		Namespace:   processRecord.SpaceGUID,
 		AppGUID:     processRecord.AppGUID,
-		Instances:   processRecord.Instances,
+		Instances:   processRecord.DesiredInstances,
 		ProcessType: processRecord.Type,
 	}
 	return a.podRepo.FetchPodStatsByAppGUID(ctx, c, message)
