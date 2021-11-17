@@ -63,9 +63,11 @@ var _ = Describe("RootHandler", func() {
 					"credhub":           nil,
 					"routing":           nil,
 					"logging":           nil,
-					"log_cache":         nil,
-					"log_stream":        nil,
-					"app_ssh":           nil,
+					"log_cache": {
+						Link: presenter.Link{HREF: defaultServerURL},
+					},
+					"log_stream": nil,
+					"app_ssh":    nil,
 				}),
 				"CFOnK8s": Equal(true),
 			}))
