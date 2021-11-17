@@ -67,7 +67,7 @@ test-controllers: ginkgo manifests-controllers generate-controllers fmt vet ## R
 test-api: test-api-unit test-api-integration
 
 test-api-unit: ginkgo fmt vet
-	cd api && ../scripts/run-tests.sh -skipPackage=test
+	cd api && ../scripts/run-tests.sh --skip-package=test
 
 test-api-integration: ginkgo
 	cd api && ../scripts/run-tests.sh tests/integration

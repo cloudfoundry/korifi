@@ -15,7 +15,7 @@ if ! egrep -q e2e <(echo "$@"); then
   source $ENVTEST_ASSETS_DIR/setup-envtest.sh
   fetch_envtest_tools $ENVTEST_ASSETS_DIR
   setup_envtest_env $ENVTEST_ASSETS_DIR
-  extra_args+=("-coverprofile=cover.out" "-skipPackage=e2e")
+  extra_args+=("-coverprofile=cover.out" "--skip-package=e2e")
 else
   if [ -z "$SKIP_DEPLOY" ]; then
     $SCRIPT_DIR/deploy-on-kind.sh e2e
@@ -24,6 +24,8 @@ else
   export KUBECONFIG="${HOME}/.kube/e2e.yml"
   export API_SERVER_ROOT=http://localhost
   export ROOT_NAMESPACE=cf-k8s-api-system
+
+  extra_args+=("--slow-spec-threshold=30s")
 fi
 
-ginkgo -r -p -randomizeSuites -randomizeAllSpecs "${extra_args[@]}" $@
+ginkgo -r -p --randomize-all --randomize-suites "${extra_args[@]}" $@
