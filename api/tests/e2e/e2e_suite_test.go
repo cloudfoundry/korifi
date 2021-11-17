@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -16,12 +17,16 @@ import (
 	"testing"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	certsv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -31,9 +36,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 type hierarchicalNamespace struct {
@@ -62,7 +64,7 @@ func TestE2E(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	SetDefaultEventuallyTimeout(30 * time.Second)
+	SetDefaultEventuallyTimeout(120 * time.Second)
 	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
@@ -122,18 +124,6 @@ func generateGUID(prefix string) string {
 	return fmt.Sprintf("%s-%s", prefix, guid[:6])
 }
 
-func waitForSubnamespaceAnchor(parent, name string) {
-	Eventually(func() (bool, error) {
-		anchor := &hnsv1alpha2.SubnamespaceAnchor{}
-		err := k8sClient.Get(context.Background(), client.ObjectKey{Namespace: parent, Name: name}, anchor)
-		if err != nil {
-			return false, err
-		}
-
-		return anchor.Status.State == hnsv1alpha2.Ok, nil
-	}, "30s").Should(BeTrue())
-}
-
 func waitForNamespaceDeletion(parent, ns string) {
 	Eventually(func() (bool, error) {
 		err := k8sClient.Get(context.Background(), client.ObjectKey{Namespace: parent, Name: ns}, &hnsv1alpha2.SubnamespaceAnchor{})
@@ -143,23 +133,6 @@ func waitForNamespaceDeletion(parent, ns string) {
 
 		return false, err
 	}, "30s").Should(BeTrue())
-}
-
-func createHierarchicalNamespace(parentName, cfName, labelKey string) hierarchicalNamespace {
-	ctx := context.Background()
-
-	anchor := &hnsv1alpha2.SubnamespaceAnchor{}
-	anchor.GenerateName = cfName
-	anchor.Namespace = parentName
-	anchor.Labels = map[string]string{labelKey: cfName}
-	err := k8sClient.Create(ctx, anchor)
-	Expect(err).NotTo(HaveOccurred())
-
-	return hierarchicalNamespace{
-		label:     cfName,
-		guid:      anchor.Name,
-		createdAt: anchor.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-	}
 }
 
 func deleteSubnamespace(parent, name string) {
@@ -181,22 +154,23 @@ func deleteSubnamespace(parent, name string) {
 	}).Should(BeTrue())
 }
 
-func deleteSubnamespaceByLabel(parentNS, label string) {
-	ctx := context.Background()
-
-	err := k8sClient.DeleteAllOf(ctx, &hnsv1alpha2.SubnamespaceAnchor{}, client.MatchingLabels{repositories.OrgNameLabel: label}, client.InNamespace(parentNS))
-	Expect(err).NotTo(HaveOccurred())
-}
-
-func createOrg(orgName string) presenter.OrgResponse {
-	orgsUrl := apiServerRoot + "/v3/organizations"
+func createOrgRaw(orgName, authHeader string) (*http.Response, error) {
+	orgsUrl := apiServerRoot + apis.OrgsEndpoint
 	body := fmt.Sprintf(`{ "name": "%s" }`, orgName)
 	req, err := http.NewRequest(http.MethodPost, orgsUrl, strings.NewReader(body))
 	Expect(err).NotTo(HaveOccurred())
-	req.Header.Add(headers.Authorization, tokenAuthHeader)
+	if authHeader != "" {
+		req.Header.Add(headers.Authorization, authHeader)
+	}
 
-	resp, err := http.DefaultClient.Do(req)
+	return http.DefaultClient.Do(req)
+}
+
+func createOrg(orgName, authHeader string) presenter.OrgResponse {
+	resp, err := createOrgRaw(orgName, authHeader)
 	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
+	Expect(resp).To(HaveHTTPHeaderWithValue(headers.ContentType, "application/json"))
 	defer resp.Body.Close()
 
 	org := presenter.OrgResponse{}
@@ -206,30 +180,142 @@ func createOrg(orgName string) presenter.OrgResponse {
 	return org
 }
 
-func createSpace(spaceName, orgGUID string) presenter.SpaceResponse {
-	spacesURL := apiServerRoot + "/v3/spaces"
-	body := fmt.Sprintf(`{
-        "name": "%s",
-        "relationships": {
-            "organization": {
-                "data": {
-                    "guid": "%s"
-                }
-            }
-        }
-    }`, spaceName, orgGUID)
-	req, err := http.NewRequest(http.MethodPost, spacesURL, strings.NewReader(body))
+func createSpaceRaw(spaceName, orgGUID string) (*http.Response, error) {
+	spacesURL := apiServerRoot + apis.SpacesEndpoint
+	payload := payloads.SpaceCreate{
+		Name: spaceName,
+		Relationships: payloads.SpaceRelationships{
+			Org: payloads.Relationship{
+				Data: &payloads.RelationshipData{
+					GUID: orgGUID,
+				},
+			},
+		},
+	}
+	body, err := json.Marshal(payload)
 	Expect(err).NotTo(HaveOccurred())
 
-	resp, err := http.DefaultClient.Do(req)
+	req, err := http.NewRequest(http.MethodPost, spacesURL, bytes.NewReader(body))
+	Expect(err).NotTo(HaveOccurred())
+
+	return http.DefaultClient.Do(req)
+}
+
+func createSpace(spaceName, orgGUID string) presenter.SpaceResponse {
+	resp, err := createSpaceRaw(spaceName, orgGUID)
 	Expect(err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
+
+	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
+	Expect(resp).To(HaveHTTPHeaderWithValue(headers.ContentType, "application/json"))
 
 	space := presenter.SpaceResponse{}
 	err = json.NewDecoder(resp.Body).Decode(&space)
 	Expect(err).NotTo(HaveOccurred())
 
 	return space
+}
+
+// createRole creates an org or space role
+// You should probably invoke this via createOrgRole or createSpaceRole
+func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) presenter.RoleResponse {
+	rolesURL := apiServerRoot + apis.RolesEndpoint
+	payload := payloads.RoleCreate{
+		Type: roleName,
+	}
+
+	switch kind {
+	case rbacv1.UserKind:
+		payload.Relationships.User = &payloads.Relationship{
+			Data: &payloads.RelationshipData{
+				GUID: userName,
+			},
+		}
+	case rbacv1.ServiceAccountKind:
+		payload.Relationships.KubernetesServiceAccount = &payloads.Relationship{
+			Data: &payloads.RelationshipData{
+				GUID: userName,
+			},
+		}
+	default:
+		Fail("unexpected Kind " + kind)
+	}
+
+	switch orgSpaceType {
+	case "organization":
+		payload.Relationships.Organization = &payloads.Relationship{
+			Data: &payloads.RelationshipData{
+				GUID: orgSpaceGUID,
+			},
+		}
+	case "space":
+		payload.Relationships.Space = &payloads.Relationship{
+			Data: &payloads.RelationshipData{
+				GUID: orgSpaceGUID,
+			},
+		}
+	default:
+		Fail("unexpected type " + orgSpaceType)
+	}
+
+	body, err := json.Marshal(payload)
+	Expect(err).NotTo(HaveOccurred())
+
+	req, err := http.NewRequest(http.MethodPost, rolesURL, bytes.NewReader(body))
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
+
+	resp, err := http.DefaultClient.Do(req)
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
+	defer resp.Body.Close()
+
+	ExpectWithOffset(2, resp).To(HaveHTTPStatus(http.StatusCreated))
+
+	role := presenter.RoleResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&role)
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
+
+	return role
+}
+
+func createOrgRole(roleName, kind, userName, orgGUID string) presenter.RoleResponse {
+	return createRole(roleName, kind, "organization", userName, orgGUID)
+}
+
+func createSpaceRole(roleName, kind, userName, spaceGUID string) presenter.RoleResponse {
+	return createRole(roleName, kind, "space", userName, spaceGUID)
+}
+
+func createApp(spaceGUID, name string) presenter.AppResponse {
+	appsURL := apiServerRoot + apis.AppCreateEndpoint
+
+	payload := payloads.AppCreate{
+		Name: name,
+		Relationships: payloads.AppRelationships{
+			Space: payloads.Relationship{
+				Data: &payloads.RelationshipData{
+					GUID: spaceGUID,
+				},
+			},
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	Expect(err).NotTo(HaveOccurred())
+
+	req, err := http.NewRequest(http.MethodPost, appsURL, bytes.NewReader(body))
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
+
+	resp, err := http.DefaultClient.Do(req)
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
+	defer resp.Body.Close()
+
+	ExpectWithOffset(2, resp).To(HaveHTTPStatus(http.StatusCreated))
+
+	app := presenter.AppResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&app)
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
+
+	return app
 }
 
 func obtainServiceAccountToken(name string) string {

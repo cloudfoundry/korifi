@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 const (
@@ -168,6 +169,7 @@ var _ = Describe("RoleHandler", func() {
 			Expect(roleRecord.Type).To(Equal("space_developer"))
 			Expect(roleRecord.Space).To(Equal("my-space"))
 			Expect(roleRecord.User).To(Equal("my-user"))
+			Expect(roleRecord.Kind).To(Equal(rbacv1.UserKind))
 		})
 
 		When("the role is an organisation role", func() {
@@ -232,6 +234,36 @@ var _ = Describe("RoleHandler", func() {
 			})
 		})
 
+		When("the kind is a service account", func() {
+			BeforeEach(func() {
+				createRoleRequestBody = `{
+                    "type": "organization_manager",
+                    "relationships": {
+                        "kubernetesServiceAccount": {
+                            "data": {
+                                "guid": "my-user"
+                            }
+                        },
+                        "organization": {
+                            "data": {
+                                "guid": "my-org"
+                            }
+                        }
+                    }
+                }`
+			})
+
+			It("creates a service account role binding", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
+				Expect(roleRepo.CreateRoleCallCount()).To(Equal(1))
+				_, roleRecord := roleRepo.CreateRoleArgsForCall(0)
+				Expect(roleRecord.Type).To(Equal("organization_manager"))
+				Expect(roleRecord.Org).To(Equal("my-org"))
+				Expect(roleRecord.User).To(Equal("my-user"))
+				Expect(roleRecord.Kind).To(Equal(rbacv1.ServiceAccountKind))
+			})
+		})
+
 		When("the user has been already assigned to that role", func() {
 			BeforeEach(func() {
 				roleRepo.CreateRoleReturns(repositories.RoleRecord{}, repositories.ErrorDuplicateRoleBinding)
@@ -249,6 +281,30 @@ var _ = Describe("RoleHandler", func() {
 
 			It("returns unprocessable entry error", func() {
 				expectUnprocessableEntityError("Users cannot be assigned roles in a space if they do not have a role in that space's organization.")
+			})
+		})
+
+		When("the role does not contain a user or service account", func() {
+			BeforeEach(func() {
+				createRoleRequestBody = `{
+                    "type": "organization_manager",
+                    "relationships": {
+                        "organization": {
+                            "data": {
+                                "guid": "my-org"
+                            }
+                        }
+                    }
+                }`
+			})
+
+			It("returns an error", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					ContainSubstring("Field validation for 'User' failed on the 'required_without' tag"),
+					ContainSubstring("Field validation for 'KubernetesServiceAccount' failed on the 'required_without' tag"),
+				)))
 			})
 		})
 

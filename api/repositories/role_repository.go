@@ -44,6 +44,7 @@ type RoleRecord struct {
 	Space     string
 	Org       string
 	User      string
+	Kind      string
 }
 
 type RoleRepo struct {
@@ -104,7 +105,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, role RoleRecord) (RoleRecord,
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind: rbacv1.UserKind,
+				Kind: role.Kind,
 				Name: role.User,
 			},
 		},
