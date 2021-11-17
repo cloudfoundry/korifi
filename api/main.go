@@ -160,6 +160,7 @@ func main() {
 			ctrl.Log.WithName("JobHandler"),
 			*serverURL,
 		),
+		apis.NewLogCacheHandler(),
 
 		wireOrgHandler(*serverURL, orgRepo, privilegedCRClient, config.AuthEnabled),
 		apis.NewSpaceHandler(

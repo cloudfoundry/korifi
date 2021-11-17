@@ -247,3 +247,19 @@ Content-Type: application/json
   "diff": []
 }
 ```
+
+### Log-Cache API
+We support basic, unauthenticated versions of the following [log-cache](https://github.com/cloudfoundry/log-cache) APIs that return hard-coded responses.
+
+#### [Log-Cache Info](https://github.com/cloudfoundry/log-cache#get-apiv1info)
+
+| Resource | Endpoint |
+|--|--|
+| Retrieve version information | GET /api/v1/info |
+
+#### [Log-Cache Read](https://github.com/cloudfoundry/log-cache#get-apiv1readsource-id)
+
+| Resource | Endpoint |
+|--|--|
+| Retrieve data by source-id. Currently returns a hard-coded empty list of Loggregator envelopes. | GET /api/v1/read/<source-id> |
+

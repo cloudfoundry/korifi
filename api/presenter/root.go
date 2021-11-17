@@ -30,7 +30,7 @@ func GetRootResponse(serverURL string) RootResponse {
 			"credhub":             nil,
 			"routing":             nil,
 			"logging":             nil,
-			"log_cache":           nil,
+			"log_cache":           {Link: Link{HREF: serverURL}},
 			"log_stream":          nil,
 			"app_ssh":             nil,
 		},
