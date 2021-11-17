@@ -139,6 +139,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#processes
 | Get Process | GET /v3/processes/\<guid>/sidecars |
 | Get Process Sidecars | GET /v3/processes/\<guid>/sidecars |
 | Scale Process | POST /v3/processes/\<guid>/actions/scale |
+| Get Process Stats | POST /v3/processes/\<guid>/stats |
 
 #### [Scaling Processes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#scale-a-process)
 ```bash
@@ -146,6 +147,11 @@ curl "http://localhost:9000/v3/processes/<guid>/actions/scale" \
   -X POST \
   -d '{ "instances": 5, "memory_in_mb": 256, "disk_in_mb": 1024 }'
 ```
+
+#### [Get Process Stats](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#get-stats-for-a-process)
+Currently, we only support fetching stats using the process guid endpoint, i.e., POST /v3/processes/\<guid>/stats.
+This endpoint supports populating only the index and state details on the response. 
+Support for populating other fields will come later. 
 
 ### Domain
 

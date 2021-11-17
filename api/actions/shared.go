@@ -30,3 +30,8 @@ type CFAppRepository interface {
 	CreateOrPatchAppEnvVars(context.Context, client.Client, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, client.Client, repositories.AppCreateMessage) (repositories.AppRecord, error)
 }
+
+//counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
+type PodRepository interface {
+	FetchPodStatsByAppGUID(ctx context.Context, k8sClient client.Client, message repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)
+}
