@@ -23,7 +23,7 @@ else
 
   export KUBECONFIG="${HOME}/.kube/e2e.yml"
   export API_SERVER_ROOT=http://localhost
-  export ROOT_NAMESPACE=cf-k8s-api-system
+  export ROOT_NAMESPACE=cf
 
   extra_args+=("--slow-spec-threshold=30s")
 fi
