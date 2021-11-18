@@ -478,8 +478,8 @@ var _ = Describe("AppRepository", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(HaveLen(2))
 
-						Expect(appList[0].GUID).To(Equal(app2GUID))
-						Expect(appList[1].GUID).To(Equal(app3GUID))
+						Expect(appList[0].GUID).To(BeElementOf(app2GUID, app3GUID))
+						Expect(appList[1].GUID).To(BeElementOf(app2GUID, app3GUID))
 					})
 				})
 			})
@@ -613,8 +613,8 @@ var _ = Describe("AppRepository", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(HaveLen(2))
 
-						Expect(appList[0].GUID).To(Equal(app2GUID))
-						Expect(appList[1].GUID).To(Equal(app3GUID))
+						Expect(appList[0].GUID).To(BeElementOf(app2GUID, app3GUID))
+						Expect(appList[1].GUID).To(BeElementOf(app2GUID, app3GUID))
 					})
 				})
 			})
