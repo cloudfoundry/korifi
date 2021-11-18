@@ -21,6 +21,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	ValidStatus   CurrentStatus = "valid"
+	InvalidStatus CurrentStatus = "invalid"
+)
+
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
@@ -61,6 +66,8 @@ type CFRouteSpec struct {
 
 // CFRouteStatus defines the observed state of CFRoute
 type CFRouteStatus struct {
+	CurrentStatus CurrentStatus `json:"currentStatus"`
+	Description   string        `json:"description"`
 	// FQDN captures the fully-qualified domain name for the route
 	FQDN string `json:"fqdn,omitempty"`
 
@@ -70,6 +77,10 @@ type CFRouteStatus struct {
 	// Conditions capture the current status of the route
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
+
+// CurrentStatus declares whether the CFRoute is currently valid or invalid
+// +kubebuilder:validation:Enum=valid;invalid
+type CurrentStatus string
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status

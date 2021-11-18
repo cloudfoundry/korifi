@@ -58,8 +58,8 @@ type CFRouteReconciler struct {
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
 func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var cfRoute networkingv1alpha1.CFRoute
-	err := r.Client.Get(ctx, req.NamespacedName, &cfRoute)
+	cfRoute := new(networkingv1alpha1.CFRoute)
+	err := r.Client.Get(ctx, req.NamespacedName, cfRoute)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			r.Log.Error(err, "failed to get CFRoute")
@@ -70,46 +70,86 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	var cfDomain networkingv1alpha1.CFDomain
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name}, &cfDomain)
 	if err != nil {
-		r.Log.Error(err, "failed to get CFDomain")
-
+		if apierrors.IsNotFound(err) {
+			r.Log.Error(err, "CFDomain not found")
+			errMsg := fmt.Sprintf("%v", err)
+			if err := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.InvalidStatus, "Invalid domain reference", "InvalidDomainRef", errMsg); err != nil {
+				r.Log.Error(err, "Error when updating CFRoute status")
+				return ctrl.Result{}, err
+			}
+		} else {
+			description := "Error fetching domain reference"
+			r.Log.Error(err, description)
+			errMsg := fmt.Sprintf("%v", err)
+			if err := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.InvalidStatus, description, "FetchDomainRef", errMsg); err != nil {
+				r.Log.Error(err, "Error when updating CFRoute status")
+				return ctrl.Result{}, err
+			}
+		}
 		return ctrl.Result{}, err
 	}
 
-	err = r.addFinalizer(ctx, &cfRoute)
+	err = r.addFinalizer(ctx, cfRoute)
+	if err != nil {
+		// TODO: Add failed status here
+		return ctrl.Result{}, err
+	}
+
+	if isFinalizing(cfRoute) {
+		return r.finalizeCFRoute(ctx, cfRoute, &cfDomain)
+	}
+
+	err = r.setStatusFields(ctx, cfRoute, &cfDomain)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if isFinalizing(&cfRoute) {
-		return r.finalizeCFRoute(ctx, &cfRoute, &cfDomain)
-	}
-
-	err = r.setStatusFields(ctx, &cfRoute, &cfDomain)
+	err = r.createOrPatchServices(ctx, cfRoute)
 	if err != nil {
+		// TODO: Add failed status here
 		return ctrl.Result{}, err
 	}
 
-	err = r.createOrPatchServices(ctx, &cfRoute)
+	err = r.createOrPatchRouteProxy(ctx, cfRoute)
 	if err != nil {
+		// TODO: Add failed status here
 		return ctrl.Result{}, err
 	}
 
-	err = r.createOrPatchRouteProxy(ctx, &cfRoute)
+	err = r.createOrPatchFQDNProxy(ctx, cfRoute, &cfDomain)
 	if err != nil {
+		// TODO: Add failed status here
 		return ctrl.Result{}, err
 	}
 
-	err = r.createOrPatchFQDNProxy(ctx, &cfRoute, &cfDomain)
+	err = r.deleteOrphanedServices(ctx, cfRoute)
 	if err != nil {
+		// TODO: Add failed status here
 		return ctrl.Result{}, err
 	}
 
-	err = r.deleteOrphanedServices(ctx, &cfRoute)
-	if err != nil {
+	if err := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.ValidStatus, "Valid CFRoute", "Valid", "Valid CFRoute"); err != nil {
+		r.Log.Error(err, "Error when updating CFRoute status")
 		return ctrl.Result{}, err
 	}
-
 	return ctrl.Result{}, nil
+}
+
+func (r *CFRouteReconciler) setRouteStatus(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute, statusValue networkingv1alpha1.CurrentStatus, description, reason, message string) error {
+
+	cfRoute.Status.CurrentStatus = statusValue
+	cfRoute.Status.Description = description
+
+	statusConditionValue := metav1.ConditionUnknown
+	if statusValue == networkingv1alpha1.InvalidStatus {
+		statusConditionValue = metav1.ConditionFalse
+	} else if statusValue == networkingv1alpha1.ValidStatus {
+		statusConditionValue = metav1.ConditionTrue
+	}
+
+	setStatusConditionOnLocalCopy(&cfRoute.Status.Conditions, "Valid", statusConditionValue, reason, message)
+
+	return r.Client.Status().Update(ctx, cfRoute)
 }
 
 // SetupWithManager sets up the controller with the Manager.

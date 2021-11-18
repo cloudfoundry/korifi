@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking/fake"
@@ -246,9 +248,25 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 				reconcileResult, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
 			})
 
-			It("returns an empty result and does not return error", func() {
+			It("returns an empty result and does not return error, also updates status", func() {
 				Expect(reconcileResult).To(Equal(ctrl.Result{}))
 				Expect(reconcileErr).NotTo(HaveOccurred())
+
+				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+				_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+				updatedCFRoute, ok := routeObj.(*networkingv1alpha1.CFRoute)
+				Expect(ok).To(BeTrue())
+				Expect(updatedCFRoute.Status.CurrentStatus).To(Equal(networkingv1alpha1.ValidStatus))
+				Expect(updatedCFRoute.Status.Description).To(Equal("Valid CFRoute"))
+
+				validStatus := meta.FindStatusCondition(updatedCFRoute.Status.Conditions, "Valid")
+				Expect(validStatus).NotTo(BeNil())
+				Expect(*validStatus).To(MatchFields(IgnoreExtras, Fields{
+					"Type":    Equal("Valid"),
+					"Status":  Equal(metav1.ConditionTrue),
+					"Reason":  Equal("Valid"),
+					"Message": Equal("Valid CFRoute"),
+				}))
 			})
 
 			It("creates an FQDN HTTPProxy, a route HTTPProxy, and a Service", func() {
@@ -297,8 +315,50 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
 				})
 
-				It("returns an error", func() {
-					Expect(reconcileErr).To(MatchError("failed to get CFDomain"))
+				It("returns an error and updates the CurrentStatus and Status Conditions", func() {
+					Expect(reconcileErr).To(HaveOccurred())
+					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+					updatedCFRoute, ok := routeObj.(*networkingv1alpha1.CFRoute)
+					Expect(ok).To(BeTrue())
+					Expect(updatedCFRoute.Status.CurrentStatus).To(Equal(networkingv1alpha1.InvalidStatus))
+					Expect(updatedCFRoute.Status.Description).NotTo(BeEmpty())
+
+					validStatus := meta.FindStatusCondition(updatedCFRoute.Status.Conditions, "Valid")
+					Expect(validStatus).NotTo(BeNil())
+					Expect(*validStatus).To(MatchFields(IgnoreExtras, Fields{
+						"Type":    Equal("Valid"),
+						"Status":  Equal(metav1.ConditionFalse),
+						"Reason":  Not(BeEmpty()),
+						"Message": Not(BeEmpty()),
+					}))
+				})
+			})
+
+			When("fetch CFDomain returns a NotFoundError", func() {
+				BeforeEach(func() {
+					getDomainError = apierrors.NewNotFound(schema.GroupResource{}, testDomainGUID)
+
+					_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
+				})
+
+				It("returns an error and updates the CurrentStatus and Status Conditions", func() {
+					Expect(reconcileErr).To(HaveOccurred())
+					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+					updatedCFRoute, ok := routeObj.(*networkingv1alpha1.CFRoute)
+					Expect(ok).To(BeTrue())
+					Expect(updatedCFRoute.Status.CurrentStatus).To(Equal(networkingv1alpha1.InvalidStatus))
+					Expect(updatedCFRoute.Status.Description).NotTo(BeEmpty())
+
+					validStatus := meta.FindStatusCondition(updatedCFRoute.Status.Conditions, "Valid")
+					Expect(validStatus).NotTo(BeNil())
+					Expect(*validStatus).To(MatchFields(IgnoreExtras, Fields{
+						"Type":    Equal("Valid"),
+						"Status":  Equal(metav1.ConditionFalse),
+						"Reason":  Not(BeEmpty()),
+						"Message": Not(BeEmpty()),
+					}))
 				})
 			})
 
