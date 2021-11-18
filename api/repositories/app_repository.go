@@ -106,6 +106,11 @@ type SetAppDesiredStateMessage struct {
 	DesiredState string
 }
 
+type AppListMessage struct {
+	Names []string
+	SpaceGuids []string
+}
+
 func (f *AppRepo) FetchApp(ctx context.Context, client client.Client, appGUID string) (AppRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	appList := &workloadsv1alpha1.CFAppList{}

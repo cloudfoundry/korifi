@@ -51,3 +51,15 @@ func (p AppCreate) ToAppCreateMessage() repositories.AppCreateMessage {
 type AppSetCurrentDroplet struct {
 	Relationship `json:",inline" validate:"required"`
 }
+
+type AppList struct {
+	Names string `schema:"names"`
+	SpaceGuids string `schema:"space_guids"`
+}
+
+func (a *AppList) ToMessage() repositories.AppListMessage {
+	return repositories.AppListMessage{
+		Names: parseArrayParam(a.Names),
+		SpaceGuids: parseArrayParam(a.SpaceGuids),
+	}
+}
