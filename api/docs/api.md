@@ -46,6 +46,13 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 | Scale App Process | POST /v3/apps/<guid>/processes/<type>/actions/scale |
 | List App Routes | GET /v3/apps/\<guid>/routes |
 
+#### [List Apps](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-apps)
+**Filters:** Currently supports filtering by app `names` and `space_guids`.
+
+```bash
+curl "http://localhost:9000/v3/apps?names=app1,app2&space_guids=ad0836b5-09f4-48c0-adb2-2c61e515562f,6030b015-f003-4c9f-8bb4-1ed7ae3d3659"
+```
+
 #### [Creating Apps](https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#the-app-object)
 Note : `namespace` needs to exist before creating the app.
 ```bash

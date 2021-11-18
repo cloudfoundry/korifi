@@ -181,7 +181,7 @@ var _ = Describe("DomainHandler", func() {
 				router.ServeHTTP(rr, req)
 			})
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError()
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names'")
 			})
 		})
 
