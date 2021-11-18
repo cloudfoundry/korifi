@@ -93,7 +93,7 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, c client.Client, 
 }
 
 func packageCreateToCFPackage(message PackageCreateMessage) workloadsv1alpha1.CFPackage {
-	guid := uuid.New().String()
+	guid := uuid.NewString()
 	return workloadsv1alpha1.CFPackage{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       kind,

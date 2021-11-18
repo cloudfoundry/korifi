@@ -146,7 +146,7 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, k8sClient client.Client, me
 }
 
 func (b *BuildRepo) buildCreateToCFBuild(message BuildCreateMessage) workloadsv1alpha1.CFBuild {
-	guid := uuid.New().String()
+	guid := uuid.NewString()
 	return workloadsv1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        guid,

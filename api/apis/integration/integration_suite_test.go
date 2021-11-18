@@ -108,10 +108,5 @@ func serverURI(paths ...string) string {
 }
 
 func generateGUID() string {
-	newUUID, err := uuid.NewUUID()
-	if err != nil {
-		errorMessage := fmt.Sprintf("could not generate a UUID %v", err)
-		panic(errorMessage)
-	}
-	return newUUID.String()
+	return uuid.NewString()
 }

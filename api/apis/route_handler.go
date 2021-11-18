@@ -198,7 +198,7 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	routeGUID := uuid.New().String()
+	routeGUID := uuid.NewString()
 
 	createRouteRecord := routeCreateMessage.ToRecord()
 	createRouteRecord.GUID = routeGUID

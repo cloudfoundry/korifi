@@ -32,12 +32,8 @@ func setStatusConditionOnLocalCopy(conditions *[]metav1.Condition, conditionType
 	})
 }
 
-func generateGUID() (string, error) {
-	newUUID, err := uuid.NewUUID()
-	if err != nil {
-		return "", err
-	}
-	return newUUID.String(), nil
+func generateGUID() string {
+	return uuid.NewString()
 }
 
 //counterfeiter:generate -o fake -fake-name StatusWriter sigs.k8s.io/controller-runtime/pkg/client.StatusWriter
