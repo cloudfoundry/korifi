@@ -110,7 +110,7 @@ helm template eirini-controller "deployment/helm" \
   --set "workloads.create_namespaces=true" \
   --set "workloads.default_namespace=cf" \
   --set "controller.registry_secret_name=image-registry-credentials" \
-  --set "images.eirini_controller=eirini/eirini-controller@sha256:4dc6547537e30d778e81955065686b6d4d6162821f1ce29f7b80b3aefe20afb3" \
+  --set "images.eirini_controller=eirini/eirini-controller@sha256:42e22b3222e9b3788782f5c141d260a5e163da4f4032e2926752ef2e5bae0685" \
   --namespace "eirini-controller" | kubectl apply -f -
 ```
 ---

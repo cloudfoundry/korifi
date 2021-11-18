@@ -2,14 +2,14 @@ package repositories
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -41,12 +41,8 @@ type FetchPodStatsMessage struct {
 
 type PodRepo struct{}
 
-const (
-	AppGUIDKey = "cloudfoundry.org/app_guid" // TODO: Eirini currently uses this key - get them to update this?
-)
-
 func (r *PodRepo) FetchPodStatsByAppGUID(ctx context.Context, k8sClient client.Client, message FetchPodStatsMessage) ([]PodStatsRecord, error) {
-	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{AppGUIDKey: message.AppGUID})
+	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{workloadsv1alpha1.CFAppGUIDLabelKey: message.AppGUID})
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +68,9 @@ func (r *PodRepo) FetchPodStatsByAppGUID(ctx context.Context, k8sClient client.C
 		if err != nil {
 			return nil, err
 		}
-		setPodState(&records[index], p)
+		if index >= 0 {
+			setPodState(&records[index], p)
+		}
 	}
 	return records, nil
 }
@@ -89,7 +87,7 @@ func FetchPods(ctx context.Context, k8sClient client.Client, listOpts client.Lis
 func (r *PodRepo) WatchForPodsTermination(ctx context.Context, k8sClient client.Client, appGUID, namespace string) (bool, error) {
 	err := wait.PollUntilWithContext(ctx, time.Second*1, func(ctx context.Context) (done bool, err error) {
 		podList := corev1.PodList{}
-		labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{AppGUIDKey: appGUID})
+		labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{workloadsv1alpha1.CFAppGUIDLabelKey: appGUID})
 		if err != nil {
 			return false, err
 		}
@@ -114,14 +112,13 @@ func setPodState(record *PodStatsRecord, pod corev1.Pod) {
 	record.State = getPodState(pod)
 }
 
-func extractProcessContainer(containers []corev1.Container) (corev1.Container, error) {
+func extractProcessContainer(containers []corev1.Container) *corev1.Container {
 	for i, c := range containers {
 		if c.Name == workloadsContainerName {
-			return containers[i], nil
+			return &containers[i]
 		}
 	}
-
-	return corev1.Container{}, fmt.Errorf("Could not find '%s' container", workloadsContainerName)
+	return nil
 }
 
 func extractIndexFromContainer(container corev1.Container) string {
@@ -135,11 +132,11 @@ func extractIndexFromContainer(container corev1.Container) string {
 }
 
 func extractIndex(pod corev1.Pod) (int, error) {
-	container, err := extractProcessContainer(pod.Spec.Containers)
-	if err != nil {
-		return -1, err
+	container := extractProcessContainer(pod.Spec.Containers)
+	if container == nil {
+		return -1, nil
 	}
-	indexString := extractIndexFromContainer(container)
+	indexString := extractIndexFromContainer(*container)
 	index, err := strconv.Atoi(indexString)
 	if err != nil {
 		return -1, err
