@@ -5,6 +5,7 @@ import (
 	"time"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
@@ -301,7 +302,7 @@ func createPodDef(name, namespace, appGUID, index string) *corev1.Pod {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels:    map[string]string{AppGUIDKey: appGUID},
+			Labels:    map[string]string{workloadsv1alpha1.CFAppGUIDLabelKey: appGUID},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
