@@ -71,27 +71,20 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name}, &cfDomain)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			r.Log.Error(err, "CFDomain not found")
-			errMsg := fmt.Sprintf("%v", err)
-			if err := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.InvalidStatus, "Invalid domain reference", "InvalidDomainRef", errMsg); err != nil {
-				r.Log.Error(err, "Error when updating CFRoute status")
-				return ctrl.Result{}, err
-			}
-		} else {
-			description := "Error fetching domain reference"
-			r.Log.Error(err, description)
-			errMsg := fmt.Sprintf("%v", err)
-			if err := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.InvalidStatus, description, "FetchDomainRef", errMsg); err != nil {
-				r.Log.Error(err, "Error when updating CFRoute status")
-				return ctrl.Result{}, err
-			}
+			return r.setRouteErrorStatusAndReturn(ctx, cfRoute, err, "CFDomain not found", "InvalidDomainRef")
 		}
-		return ctrl.Result{}, err
+		return r.setRouteErrorStatusAndReturn(ctx, cfRoute, err, "Error fetching domain reference", "FetchDomainRef")
 	}
 
 	err = r.addFinalizer(ctx, cfRoute)
 	if err != nil {
-		// TODO: Add failed status here
+		description := "Error adding finalizer"
+		r.Log.Error(err, description)
+		errMsg := fmt.Sprintf("%v", err)
+		if err := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.InvalidStatus, description, "AddFinalizer", errMsg); err != nil {
+			r.Log.Error(err, "Error when updating CFRoute status")
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -106,25 +99,21 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	err = r.createOrPatchServices(ctx, cfRoute)
 	if err != nil {
-		// TODO: Add failed status here
-		return ctrl.Result{}, err
+		return r.setRouteErrorStatusAndReturn(ctx, cfRoute, err, "Error creating/patching services", "CreatePatchServices")
 	}
 
 	err = r.createOrPatchRouteProxy(ctx, cfRoute)
 	if err != nil {
-		// TODO: Add failed status here
-		return ctrl.Result{}, err
+		return r.setRouteErrorStatusAndReturn(ctx, cfRoute, err, "Error creating/patching Route Proxy", "CreatePatchRouteProxy")
 	}
 
 	err = r.createOrPatchFQDNProxy(ctx, cfRoute, &cfDomain)
 	if err != nil {
-		// TODO: Add failed status here
-		return ctrl.Result{}, err
+		return r.setRouteErrorStatusAndReturn(ctx, cfRoute, err, "Error creating/patching FQDN Proxy", "CreatePatchFQDNProxy")
 	}
 
 	err = r.deleteOrphanedServices(ctx, cfRoute)
-	if err != nil {
-		// TODO: Add failed status here
+	if err != nil { // technically, failing to delete the orphaned services does not make the CFRoute invalid so we don't mess with the cfRoute status here
 		return ctrl.Result{}, err
 	}
 
@@ -150,6 +139,16 @@ func (r *CFRouteReconciler) setRouteStatus(ctx context.Context, cfRoute *network
 	setStatusConditionOnLocalCopy(&cfRoute.Status.Conditions, "Valid", statusConditionValue, reason, message)
 
 	return r.Client.Status().Update(ctx, cfRoute)
+}
+
+func (r *CFRouteReconciler) setRouteErrorStatusAndReturn(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute, err error, description, reason string) (ctrl.Result, error) {
+	r.Log.Error(err, description)
+	errMsg := fmt.Sprintf("%v", err)
+	if err := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.InvalidStatus, description, reason, errMsg); err != nil {
+		r.Log.Error(err, "Error when updating CFRoute status")
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager sets up the controller with the Manager.
