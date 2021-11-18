@@ -17,6 +17,20 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/status
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
   - create
@@ -95,20 +109,6 @@ rules:
   verbs:
   - create
   - list
-- apiGroups:
-  - v1
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - v1
-  resources:
-  - pods/status
-  verbs:
-  - get
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:

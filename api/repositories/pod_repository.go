@@ -13,8 +13,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//+kubebuilder:rbac:groups=v1,resources=pods,verbs=get;list;watch
-//+kubebuilder:rbac:groups=v1,resources=pods/status,verbs=get
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=pods/status,verbs=get
 
 const (
 	workloadsContainerName = "opi"
