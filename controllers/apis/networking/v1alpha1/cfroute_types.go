@@ -61,12 +61,20 @@ type CFRouteSpec struct {
 
 // CFRouteStatus defines the observed state of CFRoute
 type CFRouteStatus struct {
-	// Conditions capture the current status of the Build
-	Conditions []metav1.Condition `json:"conditions"`
+	// FQDN captures the fully-qualified domain name for the route
+	FQDN string `json:"fqdn,omitempty"`
+
+	// URI captures the URI (FQDN + path) for the route
+	URI string `json:"uri,omitempty"`
+
+	// Conditions capture the current status of the route
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="URI",type=string,JSONPath=`.status.uri`
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 
 // CFRoute is the Schema for the cfroutes API
 type CFRoute struct {

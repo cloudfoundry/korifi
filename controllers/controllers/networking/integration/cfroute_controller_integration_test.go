@@ -171,7 +171,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				},
 				Spec: networkingv1alpha1.CFRouteSpec{
 					Host:     testRouteHost,
-					Path:     "/",
+					Path:     "/test/path",
 					Protocol: "http",
 					DomainRef: corev1.LocalObjectReference{
 						Name: testDomainGUID,
@@ -230,7 +230,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			Expect(proxy.Spec.Routes[0]).To(Equal(contourv1.Route{
 				Conditions: []contourv1.MatchCondition{
 					{
-						Prefix: "/",
+						Prefix: "/test/path",
 					},
 				},
 				Services: []contourv1.Service{
@@ -277,6 +277,22 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					},
 				}))
 			})
+		})
+
+		It("eventually adds the FQDN and URI status fields to the CFRoute", func() {
+			ctx := context.Background()
+
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)
+				Expect(err).NotTo(HaveOccurred())
+				return cfRoute.Status.FQDN
+			}).Should(Equal(testFQDN))
+
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)
+				Expect(err).NotTo(HaveOccurred())
+				return cfRoute.Status.URI
+			}).Should(Equal(testFQDN + "/test/path"))
 		})
 	})
 

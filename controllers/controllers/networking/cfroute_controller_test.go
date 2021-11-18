@@ -62,6 +62,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 		updateCFRouteError        error
 		deleteServiceErr          error
 		listServicesError         error
+		updateCFRouteStatusError  error
 
 		cfRouteReconciler *CFRouteReconciler
 		ctx               context.Context
@@ -135,6 +136,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 		updateCFRouteError = nil
 		deleteServiceErr = nil
 		listServicesError = nil
+		updateCFRouteStatusError = nil
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj.(type) {
@@ -217,6 +219,10 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 		fakeStatusWriter = &fake.StatusWriter{}
 		fakeClient.StatusReturns(fakeStatusWriter)
+
+		fakeStatusWriter.UpdateStub = func(ctx context.Context, obj client.Object, option ...client.UpdateOption) error {
+			return updateCFRouteStatusError
+		}
 
 		Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfRouteReconciler = &CFRouteReconciler{
@@ -368,7 +374,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 				})
 			})
 
-			When("adding the finalizer to the CFRoute errors", func() {
+			When("adding the finalizer to the CFRoute returns an error", func() {
 				BeforeEach(func() {
 					cfRoute.ObjectMeta.Finalizers = []string{}
 					patchCFRouteError = errors.New("failed to patch CFRoute")
@@ -377,6 +383,17 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 				It("returns the error", func() {
 					Expect(reconcileErr).To(MatchError("failed to patch CFRoute"))
+				})
+			})
+
+			When("setting the CFRoute status fields returns an error", func() {
+				BeforeEach(func() {
+					updateCFRouteStatusError = errors.New("failed to update CFRoute status")
+					_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
+				})
+
+				It("returns the error", func() {
+					Expect(reconcileErr).To(MatchError("failed to update CFRoute status"))
 				})
 			})
 

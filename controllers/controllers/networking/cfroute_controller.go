@@ -84,6 +84,11 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.finalizeCFRoute(ctx, &cfRoute, &cfDomain)
 	}
 
+	err = r.setStatusFields(ctx, &cfRoute, &cfDomain)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	err = r.createOrPatchServices(ctx, &cfRoute)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -124,11 +129,11 @@ func (r *CFRouteReconciler) addFinalizer(ctx context.Context, cfRoute *networkin
 
 	err := r.Client.Patch(ctx, cfRoute, client.MergeFrom(originalCFRoute))
 	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("Error updating CFRoute/%s", cfRoute.Name))
+		r.Log.Error(err, fmt.Sprintf("Error adding finalizer to CFRoute/%s", cfRoute.Name))
 		return err
 	}
 
-	r.Log.Info(fmt.Sprintf("CFRoute/%s added to finalizer", cfRoute.Name))
+	r.Log.Info(fmt.Sprintf("Finalizer added to CFRoute/%s", cfRoute.Name))
 	return nil
 }
 
@@ -159,6 +164,21 @@ func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *networ
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *CFRouteReconciler) setStatusFields(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute, cfDomain *networkingv1alpha1.CFDomain) error {
+	cfRoute.Status.FQDN = cfRoute.Spec.Host + "." + cfDomain.Spec.Name
+	cfRoute.Status.URI = cfRoute.Status.FQDN + cfRoute.Spec.Path
+
+	err := r.Client.Status().Update(ctx, cfRoute)
+
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error updating CFRoute/%s status fields", cfRoute.Name))
+		return err
+	}
+
+	r.Log.Info(fmt.Sprintf("Updated CFRoute/%s status fields", cfRoute.Name))
+	return nil
 }
 
 func (r *CFRouteReconciler) finalizeFQDNProxy(ctx context.Context, cfRouteName string, fqdnProxy *contourv1.HTTPProxy) error {
