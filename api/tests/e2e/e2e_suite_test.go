@@ -362,7 +362,7 @@ func deleteServiceAccount(name string) {
 }
 
 func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) {
-	keyBytes, err := rsa.GenerateKey(rand.Reader, 1024)
+	privKey, err := rsa.GenerateKey(rand.Reader, 1024)
 	Expect(err).NotTo(HaveOccurred())
 
 	template := x509.CertificateRequest{
@@ -370,7 +370,7 @@ func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) 
 		SignatureAlgorithm: x509.SHA256WithRSA,
 	}
 
-	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, keyBytes)
+	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, privKey)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sCSR := &certsv1.CertificateSigningRequest{
@@ -394,23 +394,29 @@ func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) 
 	k8sCSR, err = clientset.CertificatesV1().CertificateSigningRequests().UpdateApproval(context.Background(), k8sCSR.Name, k8sCSR, metav1.UpdateOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
-	var certPEM string
-	Eventually(func() (string, error) {
+	var certPEM []byte
+	Eventually(func() ([]byte, error) {
 		err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(k8sCSR), k8sCSR)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		if len(k8sCSR.Status.Certificate) == 0 {
-			return "", nil
+			return nil, nil
 		}
 
-		certPEM = base64.StdEncoding.EncodeToString(k8sCSR.Status.Certificate)
+		certPEM = k8sCSR.Status.Certificate
 
 		return certPEM, nil
 	}).ShouldNot(BeEmpty())
 
-	return k8sCSR, certPEM
+	buf := bytes.NewBuffer(certPEM)
+	Expect(pem.Encode(buf, &pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
+	})).To(Succeed())
+
+	return k8sCSR, base64.StdEncoding.EncodeToString(buf.Bytes())
 }
 
 func deleteCSR(csr *certsv1.CertificateSigningRequest) {

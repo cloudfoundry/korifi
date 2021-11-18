@@ -11,6 +11,7 @@ import (
 
 	"github.com/pivotal/kpack/pkg/registry"
 	k8sclient "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
@@ -163,7 +164,7 @@ func main() {
 		),
 		apis.NewLogCacheHandler(),
 
-		wireOrgHandler(*serverURL, orgRepo, privilegedCRClient, config.AuthEnabled),
+		wireOrgHandler(*serverURL, orgRepo, privilegedCRClient, config.AuthEnabled, k8sClientConfig),
 		apis.NewSpaceHandler(
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
 			*serverURL,
@@ -209,12 +210,12 @@ func newRegistryAuthBuilder(privilegedK8sClient k8sclient.Interface, config *con
 	}
 }
 
-func wireOrgHandler(serverUrl url.URL, orgRepo *repositories.OrgRepo, client client.Client, authEnabled bool) *apis.OrgHandler {
+func wireOrgHandler(serverUrl url.URL, orgRepo *repositories.OrgRepo, client client.Client, authEnabled bool, restConfig *rest.Config) *apis.OrgHandler {
 	var orgRepoProvider apis.OrgRepositoryProvider = provider.NewPrivilegedOrg(orgRepo)
 	if authEnabled {
 		authNsProvider := authorization.NewOrg(client)
 		tokenReviewer := authorization.NewTokenReviewer(client)
-		certInspector := authorization.NewCertInspector()
+		certInspector := authorization.NewCertInspector(restConfig)
 		identityProvider := authorization.NewIdentityProvider(tokenReviewer, certInspector)
 		orgRepoProvider = provider.NewOrg(orgRepo, authNsProvider, identityProvider)
 	}

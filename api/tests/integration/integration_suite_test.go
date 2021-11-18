@@ -1,7 +1,15 @@
 package integration_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/base64"
+	"encoding/pem"
+	"math/big"
 	"testing"
 	"time"
 
@@ -46,9 +54,9 @@ var _ = AfterEach(func() {
 	Expect(testEnv.Stop()).To(Succeed())
 })
 
-func startEnvTest(apiServerEtraArgs ...string) {
+func startEnvTest(apiServerExtraArgs ...string) {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-	apiServerArgs := append(envtest.DefaultKubeAPIServerFlags, apiServerEtraArgs...)
+	apiServerArgs := append(envtest.DefaultKubeAPIServerFlags, apiServerExtraArgs...)
 
 	testEnv = &envtest.Environment{
 		AttachControlPlaneOutput: false, // set to true for full apiserver logs
@@ -73,4 +81,49 @@ func startEnvTest(apiServerEtraArgs ...string) {
 func restartEnvTest(apiServerEtraArgs ...string) {
 	Expect(testEnv.Stop()).To(Succeed())
 	startEnvTest(apiServerEtraArgs...)
+}
+
+func obtainClientCert(name string) string {
+	authUser, err := testEnv.ControlPlane.AddUser(envtest.User{Name: name}, k8sConfig)
+	Expect(err).NotTo(HaveOccurred())
+
+	userConfig := authUser.Config()
+
+	authHeader := []byte{}
+	authHeader = append(authHeader, userConfig.CertData...)
+	authHeader = append(authHeader, userConfig.KeyData...)
+
+	return base64.StdEncoding.EncodeToString(authHeader)
+}
+
+func generateUnsignedCert(name string) string {
+	cert := &x509.Certificate{
+		SerialNumber: big.NewInt(1658),
+		Subject: pkix.Name{
+			CommonName: name,
+		},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().AddDate(10, 0, 0),
+		SubjectKeyId: []byte{1, 2, 3, 4, 6},
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+	}
+
+	privKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	Expect(err).NotTo(HaveOccurred())
+
+	certBytes, err := x509.CreateCertificate(rand.Reader, cert, cert, &privKey.PublicKey, privKey)
+	Expect(err).NotTo(HaveOccurred())
+
+	buf := new(bytes.Buffer)
+	Expect(pem.Encode(buf, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certBytes,
+	})).To(Succeed())
+	Expect(pem.Encode(buf, &pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
+	})).To(Succeed())
+
+	return base64.StdEncoding.EncodeToString(buf.Bytes())
 }

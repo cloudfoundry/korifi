@@ -47,6 +47,7 @@ var (
 	serverURL *url.URL
 	ctx       context.Context
 )
+
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 

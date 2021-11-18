@@ -8,28 +8,55 @@ import (
 	"fmt"
 
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type CertInspector struct{}
-
-func NewCertInspector() CertInspector {
-	return CertInspector{}
+type CertInspector struct {
+	restConfig *rest.Config
 }
 
-func (c CertInspector) WhoAmI(_ context.Context, certPEMB64 string) (Identity, error) {
+func NewCertInspector(restConfig *rest.Config) CertInspector {
+	return CertInspector{
+		restConfig: restConfig,
+	}
+}
+
+func (c CertInspector) WhoAmI(ctx context.Context, certPEMB64 string) (Identity, error) {
 	pemBytes, err := base64.StdEncoding.DecodeString(certPEMB64)
 	if err != nil {
 		return Identity{}, fmt.Errorf("failed to base64 decode cert")
 	}
 
-	pemBlock, _ := pem.Decode(pemBytes)
-	if pemBlock == nil {
-		return Identity{}, fmt.Errorf("failed to decode PEM")
+	certBlock, rst := pem.Decode(pemBytes)
+	if certBlock == nil {
+		return Identity{}, fmt.Errorf("failed to decode cert PEM")
 	}
 
-	cert, err := x509.ParseCertificate(pemBlock.Bytes)
+	cert, err := x509.ParseCertificate(certBlock.Bytes)
 	if err != nil {
 		return Identity{}, fmt.Errorf("failed to parse certificate: %w", err)
+	}
+
+	keyBlock, _ := pem.Decode(rst)
+	if keyBlock == nil {
+		return Identity{}, fmt.Errorf("failed to decode key PEM")
+	}
+
+	config := rest.AnonymousClientConfig(c.restConfig)
+	config.CertData = pem.EncodeToMemory(certBlock)
+	config.KeyData = pem.EncodeToMemory(keyBlock)
+
+	// This does an API call within the controller-runtime code and is
+	// sufficient to determine whether the certificate is valid and accepted by
+	// the cluster
+	_, err = client.New(config, client.Options{})
+	if apierrors.IsUnauthorized(err) {
+		return Identity{}, UnauthorizedErr{}
+	}
+	if err != nil {
+		return Identity{}, err
 	}
 
 	return Identity{
