@@ -53,13 +53,17 @@ type AppSetCurrentDroplet struct {
 }
 
 type AppList struct {
-	Names string `schema:"names"`
+	Names      string `schema:"names"`
 	SpaceGuids string `schema:"space_guids"`
 }
 
 func (a *AppList) ToMessage() repositories.AppListMessage {
 	return repositories.AppListMessage{
-		Names: parseArrayParam(a.Names),
+		Names:      parseArrayParam(a.Names),
 		SpaceGuids: parseArrayParam(a.SpaceGuids),
 	}
+}
+
+func (a *AppList) SupportedFilterKeys() []string {
+	return []string{"names", "space_guids"}
 }

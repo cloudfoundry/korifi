@@ -14,4 +14,6 @@ func (d *DomainList) ToMessage() repositories.DomainListMessage {
 	}
 }
 
-
+func (d *DomainList) SupportedFilterKeys() []string {
+	return []string{"names"}
+}

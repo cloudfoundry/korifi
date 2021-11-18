@@ -624,6 +624,18 @@ var _ = Describe("AppHandler", func() {
 				expectUnknownError()
 			})
 		})
+
+		When("invalid query parameters are provided", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("GET", "/v3/apps?foo=bar", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an Unknown key error", func() {
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, space_guids'")
+			})
+		})
 	})
 
 	Describe("the PATCH /v3/apps/:guid/relationships/current_droplet endpoint", func() {

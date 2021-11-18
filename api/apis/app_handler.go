@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gorilla/schema"
 	"net/http"
 	"net/url"
 
@@ -42,7 +43,7 @@ const (
 type CFAppRepository interface {
 	FetchApp(context.Context, client.Client, string) (repositories.AppRecord, error)
 	FetchAppByNameAndSpace(context.Context, client.Client, string, string) (repositories.AppRecord, error)
-	FetchAppList(context.Context, client.Client) ([]repositories.AppRecord, error)
+	FetchAppList(context.Context, client.Client, repositories.AppListMessage) ([]repositories.AppRecord, error)
 	FetchNamespace(context.Context, client.Client, string) (repositories.SpaceRecord, error)
 	CreateOrPatchAppEnvVars(context.Context, client.Client, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, client.Client, repositories.AppCreateMessage) (repositories.AppRecord, error)
@@ -199,6 +200,37 @@ func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error(err, "Unable to parse request query parameters")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	appListFilter := new(payloads.AppList)
+	err := schema.NewDecoder().Decode(appListFilter, r.Form)
+
+	if err != nil {
+		switch err.(type) {
+		case schema.MultiError:
+			multiError := err.(schema.MultiError)
+			for _, v := range multiError {
+				_, ok := v.(schema.UnknownKeyError)
+				if ok {
+					h.logger.Info("Unknown key used in Apps filter")
+					writeUnknownKeyError(w, appListFilter.SupportedFilterKeys())
+					return
+				}
+			}
+
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+		default:
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+		}
+		return
+	}
+
 	// TODO: Instantiate config based on bearer token
 	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
 	client, err := h.buildClient(h.k8sConfig)
@@ -208,7 +240,7 @@ func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	appList, err := h.appRepo.FetchAppList(ctx, client)
+	appList, err := h.appRepo.FetchAppList(ctx, client, appListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch app(s) from Kubernetes")
 		writeUnknownErrorResponse(w)

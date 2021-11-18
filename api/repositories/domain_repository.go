@@ -54,12 +54,12 @@ func (f *DomainRepo) FetchDomainList(ctx context.Context, client client.Client, 
 		return []DomainRecord{}, err
 	}
 
-	filtered := f.applyFilter(cfdomainList.Items, message)
+	filtered := f.applyDomainListFilter(cfdomainList.Items, message)
 
 	return f.returnDomainList(filtered), nil
 }
 
-func (f *DomainRepo) applyFilter(domainList []networkingv1alpha1.CFDomain, message DomainListMessage) []networkingv1alpha1.CFDomain {
+func (f *DomainRepo) applyDomainListFilter(domainList []networkingv1alpha1.CFDomain, message DomainListMessage) []networkingv1alpha1.CFDomain {
 	if len(message.Names) == 0 {
 		return domainList
 	}

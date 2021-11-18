@@ -107,7 +107,7 @@ type SetAppDesiredStateMessage struct {
 }
 
 type AppListMessage struct {
-	Names []string
+	Names      []string
 	SpaceGuids []string
 }
 
@@ -161,7 +161,7 @@ func (f *AppRepo) CreateApp(ctx context.Context, client client.Client, appCreate
 	return cfAppToAppRecord(cfApp), err
 }
 
-func (f *AppRepo) FetchAppList(ctx context.Context, client client.Client) ([]AppRecord, error) {
+func (f *AppRepo) FetchAppList(ctx context.Context, client client.Client, message AppListMessage) ([]AppRecord, error) {
 	// TODO: add checks for allowed namespaces with completion of initial auth work
 	// Currently we assume the client has full cluster access and naively returns all records
 	appList := &workloadsv1alpha1.CFAppList{}
@@ -169,14 +169,62 @@ func (f *AppRepo) FetchAppList(ctx context.Context, client client.Client) ([]App
 	if err != nil {
 		return []AppRecord{}, err
 	}
-	allApps := appList.Items
+	filteredApps := f.applyAppListFilter(appList.Items, message)
 
-	appRecordList := make([]AppRecord, 0, len(allApps))
-	for _, app := range allApps {
-		appRecordList = append(appRecordList, cfAppToAppRecord(app))
+	return f.returnAppList(filteredApps), nil
+}
+
+func (f *AppRepo) applyAppListFilter(appList []workloadsv1alpha1.CFApp, message AppListMessage) []workloadsv1alpha1.CFApp {
+	nameFilterSpecified := len(message.Names) > 0
+	spaceGUIDFilterSpecified := len(message.SpaceGuids) > 0
+
+	if !nameFilterSpecified && !spaceGUIDFilterSpecified {
+		return appList
 	}
 
-	return appRecordList, nil
+	var filtered []workloadsv1alpha1.CFApp
+	for _, app := range appList {
+		if nameFilterSpecified && spaceGUIDFilterSpecified {
+			for _, name := range message.Names {
+				for _, spaceGUID := range message.SpaceGuids {
+					if appBelongsToSpace(app, spaceGUID) && appMatchesName(app, name) {
+						filtered = append(filtered, app)
+					}
+				}
+			}
+		} else if nameFilterSpecified {
+			for _, name := range message.Names {
+				if appMatchesName(app, name) {
+					filtered = append(filtered, app)
+				}
+			}
+		} else if spaceGUIDFilterSpecified {
+			for _, spaceGUID := range message.SpaceGuids {
+				if appBelongsToSpace(app, spaceGUID) {
+					filtered = append(filtered, app)
+				}
+			}
+		}
+	}
+
+	return filtered
+}
+
+func appBelongsToSpace(app workloadsv1alpha1.CFApp, spaceGUID string) bool {
+	return app.ObjectMeta.Namespace == spaceGUID
+}
+
+func appMatchesName(app workloadsv1alpha1.CFApp, name string) bool {
+	return app.Spec.Name == name
+}
+
+func (f *AppRepo) returnAppList(appList []workloadsv1alpha1.CFApp) []AppRecord {
+	appRecords := make([]AppRecord, 0, len(appList))
+
+	for _, app := range appList {
+		appRecords = append(appRecords, cfAppToAppRecord(app))
+	}
+	return appRecords
 }
 
 func (f *AppRepo) FetchNamespace(ctx context.Context, client client.Client, nsGUID string) (SpaceRecord, error) {

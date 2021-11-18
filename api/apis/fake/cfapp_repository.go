@@ -72,11 +72,12 @@ type CFAppRepository struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
-	FetchAppListStub        func(context.Context, client.Client) ([]repositories.AppRecord, error)
+	FetchAppListStub        func(context.Context, client.Client, repositories.AppListMessage) ([]repositories.AppRecord, error)
 	fetchAppListMutex       sync.RWMutex
 	fetchAppListArgsForCall []struct {
 		arg1 context.Context
 		arg2 client.Client
+		arg3 repositories.AppListMessage
 	}
 	fetchAppListReturns struct {
 		result1 []repositories.AppRecord
@@ -400,19 +401,20 @@ func (fake *CFAppRepository) FetchAppByNameAndSpaceReturnsOnCall(i int, result1 
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) FetchAppList(arg1 context.Context, arg2 client.Client) ([]repositories.AppRecord, error) {
+func (fake *CFAppRepository) FetchAppList(arg1 context.Context, arg2 client.Client, arg3 repositories.AppListMessage) ([]repositories.AppRecord, error) {
 	fake.fetchAppListMutex.Lock()
 	ret, specificReturn := fake.fetchAppListReturnsOnCall[len(fake.fetchAppListArgsForCall)]
 	fake.fetchAppListArgsForCall = append(fake.fetchAppListArgsForCall, struct {
 		arg1 context.Context
 		arg2 client.Client
-	}{arg1, arg2})
+		arg3 repositories.AppListMessage
+	}{arg1, arg2, arg3})
 	stub := fake.FetchAppListStub
 	fakeReturns := fake.fetchAppListReturns
-	fake.recordInvocation("FetchAppList", []interface{}{arg1, arg2})
+	fake.recordInvocation("FetchAppList", []interface{}{arg1, arg2, arg3})
 	fake.fetchAppListMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -426,17 +428,17 @@ func (fake *CFAppRepository) FetchAppListCallCount() int {
 	return len(fake.fetchAppListArgsForCall)
 }
 
-func (fake *CFAppRepository) FetchAppListCalls(stub func(context.Context, client.Client) ([]repositories.AppRecord, error)) {
+func (fake *CFAppRepository) FetchAppListCalls(stub func(context.Context, client.Client, repositories.AppListMessage) ([]repositories.AppRecord, error)) {
 	fake.fetchAppListMutex.Lock()
 	defer fake.fetchAppListMutex.Unlock()
 	fake.FetchAppListStub = stub
 }
 
-func (fake *CFAppRepository) FetchAppListArgsForCall(i int) (context.Context, client.Client) {
+func (fake *CFAppRepository) FetchAppListArgsForCall(i int) (context.Context, client.Client, repositories.AppListMessage) {
 	fake.fetchAppListMutex.RLock()
 	defer fake.fetchAppListMutex.RUnlock()
 	argsForCall := fake.fetchAppListArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CFAppRepository) FetchAppListReturns(result1 []repositories.AppRecord, result2 error) {

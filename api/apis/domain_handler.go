@@ -74,7 +74,7 @@ func (h *DomainHandler) DomainListHandler(w http.ResponseWriter, r *http.Request
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
 					h.logger.Info("Unknown key used in Domain filter")
-					writeUnknownKeyError(w)
+					writeUnknownKeyError(w, domainListFilter.SupportedFilterKeys())
 					return
 				}
 			}
