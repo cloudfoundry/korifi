@@ -9,5 +9,5 @@ func (e UnauthorizedErr) Error() string {
 }
 
 func IsUnauthorized(err error) bool {
-	return errors.As(err, &UnauthorizedErr{})
+	return errors.Is(err, UnauthorizedErr{})
 }
