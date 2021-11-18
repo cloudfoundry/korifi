@@ -39,7 +39,7 @@ func (dc DestinationListCreate) ToMessage(routeRecord repositories.RouteRecord) 
 		}
 
 		destinationRecords = append(destinationRecords, repositories.DestinationRecord{
-			GUID:        uuid.New().String(),
+			GUID:        uuid.NewString(),
 			AppGUID:     destination.App.GUID,
 			ProcessType: processType,
 			Port:        port,

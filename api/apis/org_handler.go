@@ -61,7 +61,7 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	org := payload.ToRecord()
-	org.GUID = uuid.New().String()
+	org.GUID = uuid.NewString()
 
 	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest(r)
 	if err != nil {

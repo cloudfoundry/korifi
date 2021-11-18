@@ -139,7 +139,7 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, k8sClient client.Client,
 }
 
 func (r *ProcessRepo) CreateProcess(ctx context.Context, k8sClient client.Client, message ProcessCreateMessage) error {
-	guid := uuid.New().String()
+	guid := uuid.NewString()
 	err := k8sClient.Create(ctx, &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,

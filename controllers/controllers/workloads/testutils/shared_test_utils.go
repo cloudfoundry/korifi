@@ -2,7 +2,6 @@ package testutils
 
 import (
 	"encoding/base64"
-	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 
@@ -20,12 +19,7 @@ const (
 )
 
 func GenerateGUID() string {
-	newUUID, err := uuid.NewUUID()
-	if err != nil {
-		errorMessage := fmt.Sprintf("could not generate a UUID %v", err)
-		panic(errorMessage)
-	}
-	return newUUID.String()
+	return uuid.NewString()
 }
 
 func BuildNamespaceObject(name string) *corev1.Namespace {

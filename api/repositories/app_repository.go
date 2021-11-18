@@ -246,7 +246,7 @@ func generateEnvSecretName(appGUID string) string {
 }
 
 func (m *AppCreateMessage) toCFApp() workloadsv1alpha1.CFApp {
-	guid := uuid.New().String()
+	guid := uuid.NewString()
 	return workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        guid,

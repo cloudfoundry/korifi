@@ -2,7 +2,6 @@ package repositories_test
 
 import (
 	"context"
-	"fmt"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -18,12 +17,7 @@ const (
 )
 
 func generateGUID() string {
-	newUUID, err := uuid.NewUUID()
-	if err != nil {
-		errorMessage := fmt.Sprintf("could not generate a UUID %v", err)
-		panic(errorMessage)
-	}
-	return newUUID.String()
+	return uuid.NewString()
 }
 
 func initializeAppCR(appName string, appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp {

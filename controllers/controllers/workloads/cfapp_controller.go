@@ -126,11 +126,7 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 func (r *CFAppReconciler) createCFProcess(ctx context.Context, process workloadsv1alpha1.ProcessType, ports []int32, cfAppGUID string, namespace string) error {
-	cfProcessGUID, err := generateGUID()
-	if err != nil {
-		r.Log.Error(err, "Error generating GUID")
-		return err
-	}
+	cfProcessGUID := generateGUID()
 
 	desiredCFProcess := workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
