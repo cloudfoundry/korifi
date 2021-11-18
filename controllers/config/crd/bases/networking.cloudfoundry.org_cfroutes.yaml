@@ -135,12 +135,23 @@ spec:
                   - type
                   type: object
                 type: array
+              currentStatus:
+                description: CurrentStatus declares whether the CFRoute is currently valid or invalid
+                enum:
+                - valid
+                - invalid
+                type: string
+              description:
+                type: string
               fqdn:
                 description: FQDN captures the fully-qualified domain name for the route
                 type: string
               uri:
                 description: URI captures the URI (FQDN + path) for the route
                 type: string
+            required:
+            - currentStatus
+            - description
             type: object
         type: object
     served: true

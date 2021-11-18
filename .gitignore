@@ -3,3 +3,4 @@
 **/testbin
 .idea/
 ~/.*
+*.test

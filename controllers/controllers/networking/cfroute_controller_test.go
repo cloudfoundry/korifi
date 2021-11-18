@@ -246,9 +246,15 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 				reconcileResult, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
 			})
 
-			It("returns an empty result and does not return error", func() {
+			It("returns an empty result and does not return error, also updates cfRoute status", func() {
 				Expect(reconcileResult).To(Equal(ctrl.Result{}))
 				Expect(reconcileErr).NotTo(HaveOccurred())
+
+				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+				_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+				updatedCFRoute, ok := routeObj.(*networkingv1alpha1.CFRoute)
+				Expect(ok).To(BeTrue())
+				expectCFRouteValidStatus(updatedCFRoute.Status, true, "Valid CFRoute", "Valid", "Valid CFRoute")
 			})
 
 			It("creates an FQDN HTTPProxy, a route HTTPProxy, and a Service", func() {
@@ -297,8 +303,30 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
 				})
 
-				It("returns an error", func() {
-					Expect(reconcileErr).To(MatchError("failed to get CFDomain"))
+				It("returns an error and updates the CurrentStatus and Status Conditions", func() {
+					Expect(reconcileErr).To(HaveOccurred())
+					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+					updatedCFRoute, ok := routeObj.(*networkingv1alpha1.CFRoute)
+					Expect(ok).To(BeTrue())
+					expectCFRouteValidStatus(updatedCFRoute.Status, false)
+				})
+			})
+
+			When("fetch CFDomain returns a NotFoundError", func() {
+				BeforeEach(func() {
+					getDomainError = apierrors.NewNotFound(schema.GroupResource{}, testDomainGUID)
+
+					_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
+				})
+
+				It("returns an error and updates the CurrentStatus and Status Conditions", func() {
+					Expect(reconcileErr).To(HaveOccurred())
+					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+					updatedCFRoute, ok := routeObj.(*networkingv1alpha1.CFRoute)
+					Expect(ok).To(BeTrue())
+					expectCFRouteValidStatus(updatedCFRoute.Status, false)
 				})
 			})
 
@@ -381,8 +409,14 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
 				})
 
-				It("returns the error", func() {
+				It("returns the error and sets an \"invalid\" status on the cfRoute", func() {
 					Expect(reconcileErr).To(MatchError("failed to patch CFRoute"))
+
+					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+					updatedCFRoute, ok := routeObj.(*networkingv1alpha1.CFRoute)
+					Expect(ok).To(BeTrue())
+					expectCFRouteValidStatus(updatedCFRoute.Status, false)
 				})
 			})
 
@@ -403,8 +437,14 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
 				})
 
-				It("returns the error", func() {
+				It("returns the error and sets an \"invalid\" status on the cfRoute", func() {
 					Expect(reconcileErr).To(MatchError("failed to create FQDN HTTPProxy"))
+
+					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+					updatedCFRoute, ok := routeObj.(*networkingv1alpha1.CFRoute)
+					Expect(ok).To(BeTrue())
+					expectCFRouteValidStatus(updatedCFRoute.Status, false)
 				})
 			})
 
@@ -414,8 +454,14 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
 				})
 
-				It("returns the error", func() {
+				It("returns the error and sets an \"invalid\" status on the cfRoute", func() {
 					Expect(reconcileErr).To(MatchError("failed to create route HTTPProxy"))
+
+					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+					updatedCFRoute, ok := routeObj.(*networkingv1alpha1.CFRoute)
+					Expect(ok).To(BeTrue())
+					expectCFRouteValidStatus(updatedCFRoute.Status, false)
 				})
 			})
 
@@ -425,8 +471,14 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
 				})
 
-				It("returns the error", func() {
+				It("returns the error and sets an \"invalid\" status on the cfRoute", func() {
 					Expect(reconcileErr).To(MatchError("service reconciliation failed for CFRoute/" + testRouteGUID + " destinations"))
+
+					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+					updatedCFRoute, ok := routeObj.(*networkingv1alpha1.CFRoute)
+					Expect(ok).To(BeTrue())
+					expectCFRouteValidStatus(updatedCFRoute.Status, false)
 				})
 			})
 		})
@@ -662,7 +714,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 						_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
 					})
 
-					It("returns an error", func() {
+					It("returns an error and sets an \"invalid\" status on the cfRoute", func() {
 						Expect(reconcileErr).To(MatchError("failed to delete Service"))
 					})
 				})
