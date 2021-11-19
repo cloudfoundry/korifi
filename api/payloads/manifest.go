@@ -15,7 +15,7 @@ type Manifest struct {
 type ManifestApplication struct {
 	Name      string                       `yaml:"name" validate:"required"`
 	Env       map[string]string            `yaml:"env"`
-	Processes []ManifestApplicationProcess `validate:"dive"`
+	Processes []ManifestApplicationProcess `yaml:"processes" validate:"dive"`
 }
 
 type ManifestApplicationProcess struct {
@@ -25,7 +25,7 @@ type ManifestApplicationProcess struct {
 	HealthCheckHTTPEndpoint      *string `yaml:"health-check-http-endpoint"`
 	HealthCheckInvocationTimeout *int64  `yaml:"health-check-invocation-timeout"`
 	HealthCheckType              *string `yaml:"health-check-type"`
-	Instances                    *int    `yaml:"instances"`
+	Instances                    *int    `yaml:"instances" validate:"omitempty,gte=0"`
 	Memory                       *string `yaml:"memory" validate:"megabytestring"`
 	Timeout                      *int64  `yaml:"timeout"`
 }

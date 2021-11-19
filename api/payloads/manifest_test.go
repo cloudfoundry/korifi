@@ -164,6 +164,26 @@ var _ = Describe("ManifestApplicationProcess", func() {
 				).To(BeNil())
 			})
 		})
+
+		When("Instances is specified", func() {
+			BeforeEach(func() {
+				processInfo.Instances = intPointer(3)
+			})
+
+			It("returns a message with DesiredInstances set to the parsed value", func() {
+				Expect(
+					processInfo.ToProcessPatchMessage(processGUID, spaceGUID).DesiredInstances,
+				).To(PointTo(BeEquivalentTo(3)))
+			})
+		})
+
+		When("Instances is unspecified", func() {
+			It("returns a message with DesiredInstances unset", func() {
+				Expect(
+					processInfo.ToProcessPatchMessage(processGUID, spaceGUID).DesiredInstances,
+				).To(BeNil())
+			})
+		})
 	})
 })
 
