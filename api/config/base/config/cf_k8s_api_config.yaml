@@ -1,10 +1,10 @@
 serverURL: "https://api.example.org"
 serverPort: 9000
-rootNamespace: cf-k8s-api-system
+rootNamespace: cf
 defaultLifecycleConfig:
   type: buildpack
   stack: cflinuxfs3
   stagingMemoryMB: 1024
   stagingDiskMB: 1024
 packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
-packageRegistrySecretName: image-registry-secret # Create this secret in the rootNamespace
+packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace

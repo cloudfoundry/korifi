@@ -132,9 +132,8 @@ retry kubectl get namespace ping-hnc-child
 retry kubectl hns set --allowCascadingDeletion ping-hnc
 retry kubectl delete namespace ping-hnc --wait=false
 
-# The eirini controller requires a service account and rolebinding, which are
-# used by the statefulset controller to be able to create pods
-retry kubectl hns config set-resource serviceaccounts --mode Propagate
+# Propagate the kpack image registry write secret
+retry kubectl hns config set-resource secrets --mode Propagate
 
 echo "*******************"
 echo "Installing Eirini"
