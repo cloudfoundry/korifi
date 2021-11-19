@@ -473,8 +473,8 @@ var _ = Describe("ProcessHandler", func() {
 			})
 		})
 
-		When("the validating scale parameters", func() {
-			DescribeTable("returns validation",
+		When("validating scale parameters", func() {
+			DescribeTable("returns a validation decision",
 				func(requestBody string, status int) {
 					var tableTestRecorder *httptest.ResponseRecorder = httptest.NewRecorder()
 					queuePostRequest(requestBody)

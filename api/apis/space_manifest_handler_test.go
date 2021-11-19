@@ -155,19 +155,76 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 		})
 
-		When("an invalid manifest is provided", func() {
+		When("the application name is missing", func() {
 			BeforeEach(func() {
 				var err error
 				req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
                 version: 1
                 applications:
-                  - {}
+                - {}
             `))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("responds 422", func() {
 				expectUnprocessableEntityError("Name is a required field")
+			})
+		})
+
+		When("the application process instance count is negative", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+                version: 1
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    instances: -1
+            `))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("responds 422", func() {
+				expectUnprocessableEntityError("Instances must be 0 or greater")
+			})
+		})
+
+		When("the application process disk is not a positive integer", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+                version: 1
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    disk_quota: 0
+            `))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("responds 422", func() {
+				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].Processes[0].DiskQuota' Error:Field validation for 'DiskQuota' failed on the 'megabytestring' tag")
+			})
+		})
+
+		When("the application process memory is not a positive integer", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+                version: 1
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    memory: 0
+            `))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("responds 422", func() {
+				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].Processes[0].Memory' Error:Field validation for 'Memory' failed on the 'megabytestring' tag")
 			})
 		})
 
