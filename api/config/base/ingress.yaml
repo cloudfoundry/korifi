@@ -15,3 +15,5 @@ spec:
     services:
     - name: cf-k8s-api-svc
       port: 80
+    timeoutPolicy:
+      response: "5m"
