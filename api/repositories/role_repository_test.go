@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"github.com/google/uuid"
@@ -35,14 +36,23 @@ var _ = Describe("RoleRepository", func() {
 		ctx = context.Background()
 		authorizedInChecker = new(fake.AuthorizedInChecker)
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
-		roleRepo = repositories.NewRoleRepo(k8sClient, authorizedInChecker, map[string]string{
-			"space_developer":      "cf-space-dev-role",
-			"organization_manager": "cf-org-mgr-role",
+		roleRepo = repositories.NewRoleRepo(k8sClient, authorizedInChecker, map[string]config.Role{
+			"space_developer":      {Name: "cf-space-dev-role"},
+			"organization_manager": {Name: "cf-org-mgr-role", Propagate: true},
+			"organization_user":    {Name: "cf-org-user-role"},
 		})
 
 		roleRecord = repositories.RoleRecord{}
 		orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, uuid.NewString())
 	})
+
+	getTheRoleBinding := func(namespace string) rbacv1.RoleBinding {
+		roleBindingList := rbacv1.RoleBindingList{}
+		ExpectWithOffset(1, k8sClient.List(ctx, &roleBindingList, client.InNamespace(namespace))).To(Succeed())
+		ExpectWithOffset(1, roleBindingList.Items).To(HaveLen(1))
+
+		return roleBindingList.Items[0]
+	}
 
 	Describe("Create Org Role", func() {
 		var (
@@ -69,11 +79,7 @@ var _ = Describe("RoleRepository", func() {
 		})
 
 		It("creates a role binding in the org namespace", func() {
-			roleBindingList := rbacv1.RoleBindingList{}
-			Expect(k8sClient.List(ctx, &roleBindingList, client.InNamespace(orgAnchor.Name))).To(Succeed())
-			Expect(roleBindingList.Items).To(HaveLen(1))
-
-			roleBinding := roleBindingList.Items[0]
+			roleBinding := getTheRoleBinding(orgAnchor.Name)
 
 			// Sha256 sum of "organization_manager::my-user"
 			Expect(roleBinding.Name).To(Equal("cf-d024ad51b9896f27fab865db894beb14992af05fbbc785bbf90d8706bc95b21b"))
@@ -93,6 +99,28 @@ var _ = Describe("RoleRepository", func() {
 			Expect(createdRole.CreatedAt).To(Equal(createdRole.UpdatedAt))
 		})
 
+		Describe("Role propagation", func() {
+			When("the org role has propagation enabled", func() {
+				BeforeEach(func() {
+					roleRecord.Type = "organization_manager"
+				})
+
+				It("enables the role binding propagation", func() {
+					Expect(getTheRoleBinding(orgAnchor.Name).Annotations).NotTo(HaveKey(HavePrefix(hnsv1alpha2.AnnotationPropagatePrefix)))
+				})
+			})
+
+			When("the org role has propagation disabled", func() {
+				BeforeEach(func() {
+					roleRecord.Type = "organization_user"
+				})
+
+				It("enables the role binding propagation", func() {
+					Expect(getTheRoleBinding(orgAnchor.Name).Annotations).To(HaveKeyWithValue(hnsv1alpha2.AnnotationNoneSelector, "true"))
+				})
+			})
+		})
+
 		When("using a service account identity", func() {
 			BeforeEach(func() {
 				roleRecord.Kind = rbacv1.ServiceAccountKind
@@ -101,12 +129,7 @@ var _ = Describe("RoleRepository", func() {
 			It("succeeds and uses a service account subject kind", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				roleBindingList := rbacv1.RoleBindingList{}
-				Expect(k8sClient.List(ctx, &roleBindingList, client.InNamespace(orgAnchor.Name))).To(Succeed())
-				Expect(roleBindingList.Items).To(HaveLen(1))
-
-				roleBinding := roleBindingList.Items[0]
-
+				roleBinding := getTheRoleBinding(orgAnchor.Name)
 				Expect(roleBinding.Subjects).To(HaveLen(1))
 				Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.ServiceAccountKind))
 			})
@@ -148,11 +171,27 @@ var _ = Describe("RoleRepository", func() {
 	})
 
 	Describe("Create Space Role", func() {
-		var spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
+		var (
+			spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
+			subjectKind string
+		)
 
 		BeforeEach(func() {
 			authorizedInChecker.AuthorizedInReturns(true, nil)
 			spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, uuid.NewString())
+
+			subjectKind = rbacv1.UserKind
+
+			roleRecord = repositories.RoleRecord{
+				GUID:  uuid.NewString(),
+				Type:  "space_developer",
+				User:  "my-user",
+				Space: spaceAnchor.Name,
+			}
+		})
+
+		JustBeforeEach(func() {
+			roleRecord.Kind = subjectKind
 
 			Expect(k8sClient.Create(context.Background(), &rbacv1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
@@ -161,7 +200,7 @@ var _ = Describe("RoleRepository", func() {
 				},
 				Subjects: []rbacv1.Subject{
 					{
-						Kind: rbacv1.UserKind,
+						Kind: subjectKind,
 						Name: "my-user",
 					},
 				},
@@ -171,16 +210,6 @@ var _ = Describe("RoleRepository", func() {
 				},
 			})).To(Succeed())
 
-			roleRecord = repositories.RoleRecord{
-				GUID:  uuid.NewString(),
-				Type:  "space_developer",
-				User:  "my-user",
-				Kind:  rbacv1.UserKind,
-				Space: spaceAnchor.Name,
-			}
-		})
-
-		JustBeforeEach(func() {
 			createdRole, createErr = roleRepo.CreateRole(ctx, roleRecord)
 		})
 
@@ -189,11 +218,7 @@ var _ = Describe("RoleRepository", func() {
 		})
 
 		It("creates a role binding in the space namespace", func() {
-			roleBindingList := rbacv1.RoleBindingList{}
-			Expect(k8sClient.List(ctx, &roleBindingList, client.InNamespace(spaceAnchor.Name))).To(Succeed())
-			Expect(roleBindingList.Items).To(HaveLen(1))
-
-			roleBinding := roleBindingList.Items[0]
+			roleBinding := getTheRoleBinding(spaceAnchor.Name)
 
 			// Sha256 sum of "space_developer::my-user"
 			Expect(roleBinding.Name).To(Equal("cf-1b2399803c0978bcf9669095590b5f423215e053200e67d7d517db76fdedf197"))
@@ -203,7 +228,7 @@ var _ = Describe("RoleRepository", func() {
 			Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(roleBinding.RoleRef.Name).To(Equal("cf-space-dev-role"))
 			Expect(roleBinding.Subjects).To(HaveLen(1))
-			Expect(roleBinding.Subjects[0].Kind).To(Equal("User"))
+			Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.UserKind))
 			Expect(roleBinding.Subjects[0].Name).To(Equal("my-user"))
 		})
 
@@ -219,6 +244,17 @@ var _ = Describe("RoleRepository", func() {
 			Expect(createdRole.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 			Expect(createdRole.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 			Expect(createdRole.CreatedAt).To(Equal(createdRole.UpdatedAt))
+		})
+
+		When("using service accounts", func() {
+			BeforeEach(func() {
+				subjectKind = rbacv1.ServiceAccountKind
+			})
+
+			It("sends the service account kind to the authorized in checker", func() {
+				_, identity, _ := authorizedInChecker.AuthorizedInArgsForCall(0)
+				Expect(identity.Kind).To(Equal(rbacv1.ServiceAccountKind))
+			})
 		})
 
 		When("getting the parent org fails", func() {

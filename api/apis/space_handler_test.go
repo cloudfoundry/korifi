@@ -10,6 +10,8 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
+	repositoriesfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -21,20 +23,23 @@ var _ = Describe("Spaces", func() {
 	const spacesBase = "/v3/spaces"
 
 	var (
-		now           time.Time
-		spaceHandler  *apis.SpaceHandler
-		spaceRepo     *fake.CFSpaceRepository
-		requestMethod string
-		requestBody   string
-		requestPath   string
+		now               time.Time
+		spaceHandler      *apis.SpaceHandler
+		spaceRepo         *repositoriesfake.CFSpaceRepository
+		spaceRepoProvider *fake.SpaceRepositoryProvider
+		requestMethod     string
+		requestBody       string
+		requestPath       string
 	)
 
 	BeforeEach(func() {
 		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
 		requestBody = ""
 		requestPath = spacesBase
-		spaceRepo = new(fake.CFSpaceRepository)
-		spaceHandler = apis.NewSpaceHandler(spaceRepo, *serverURL)
+		spaceRepo = new(repositoriesfake.CFSpaceRepository)
+		spaceRepoProvider = new(fake.SpaceRepositoryProvider)
+		spaceRepoProvider.SpaceRepoForRequestReturns(spaceRepo, nil)
+		spaceHandler = apis.NewSpaceHandler(*serverURL, spaceRepoProvider)
 		spaceHandler.RegisterRoutes(router)
 	})
 
@@ -103,6 +108,26 @@ var _ = Describe("Spaces", func() {
 			Expect(spaceRepo.CreateSpaceCallCount()).To(Equal(1))
 			_, spaceRecord := spaceRepo.CreateSpaceArgsForCall(0)
 			Expect(spaceRecord.Name).To(Equal("the-space"))
+		})
+
+		When("not authorized", func() {
+			BeforeEach(func() {
+				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.UnauthorizedErr{})
+			})
+
+			It("returns an unauthorized error", func() {
+				expectUnauthorizedError()
+			})
+		})
+
+		When("providing the space repository fails", func() {
+			BeforeEach(func() {
+				spaceRepoProvider.SpaceRepoForRequestReturns(nil, errors.New("space-repo-provisioning-failed"))
+			})
+
+			It("returns unknown error", func() {
+				expectUnknownError()
+			})
 		})
 
 		When("a field in the request has invalid value", func() {
@@ -269,6 +294,26 @@ var _ = Describe("Spaces", func() {
 			_, organizationGUIDs, names := spaceRepo.FetchSpacesArgsForCall(0)
 			Expect(organizationGUIDs).To(BeEmpty())
 			Expect(names).To(BeEmpty())
+		})
+
+		When("not authorized", func() {
+			BeforeEach(func() {
+				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.UnauthorizedErr{})
+			})
+
+			It("returns an unauthorized error", func() {
+				expectUnauthorizedError()
+			})
+		})
+
+		When("providing the space repository fails", func() {
+			BeforeEach(func() {
+				spaceRepoProvider.SpaceRepoForRequestReturns(nil, errors.New("space-repo-provisioning-failed"))
+			})
+
+			It("returns unknown error", func() {
+				expectUnknownError()
+			})
 		})
 
 		When("fetching the spaces fails", func() {

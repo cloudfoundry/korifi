@@ -1,11 +1,13 @@
 package apis_test
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"errors"
 	"net/http"
 	"strings"
 	"time"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	repositoriesfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -20,13 +22,13 @@ var _ = Describe("SpaceManifestHandler", func() {
 	var (
 		clientBuilder       *fake.ClientBuilder
 		applyManifestAction *fake.ApplyManifestAction
-		spaceRepo           *fake.CFSpaceRepository
+		spaceRepo           *repositoriesfake.CFSpaceRepository
 	)
 
 	BeforeEach(func() {
 		clientBuilder = new(fake.ClientBuilder)
 		applyManifestAction = new(fake.ApplyManifestAction)
-		spaceRepo = new(fake.CFSpaceRepository)
+		spaceRepo = new(repositoriesfake.CFSpaceRepository)
 
 		now := time.Unix(1631892190, 0)
 		spaceRepo.FetchSpacesReturns([]repositories.SpaceRecord{
@@ -120,7 +122,7 @@ var _ = Describe("SpaceManifestHandler", func() {
                     health-check-type: process
                     instances: 2
                     memory: 256M
-                    timeout: 15 
+                    timeout: 15
             `))
 				Expect(err).NotTo(HaveOccurred())
 				req.Header.Add("Content-type", "application/x-yaml")

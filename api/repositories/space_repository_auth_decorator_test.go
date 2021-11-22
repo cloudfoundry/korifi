@@ -16,35 +16,35 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
-var _ = Describe("OrgRepositoryAuthDecorator", func() {
+var _ = Describe("SpaceRepositoryAuthDecorator", func() {
 	var (
-		orgRepo              *fake.CFOrgRepository
-		orgRepoAuthDecorator repositories.CFOrgRepository
-		orgRepoProvider      *provider.OrgRepositoryProvider
-		nsProvider           *fake.AuthorizedNamespacesProvider
-		identity             authorization.Identity
-		identityProvider     *providerfake.IdentityProvider
-		orgs                 []repositories.OrgRecord
-		err                  error
+		spaceRepo              *fake.CFSpaceRepository
+		spaceRepoAuthDecorator repositories.CFSpaceRepository
+		spaceRepoProvider      *provider.SpaceRepositoryProvider
+		nsProvider             *fake.AuthorizedNamespacesProvider
+		identity               authorization.Identity
+		identityProvider       *providerfake.IdentityProvider
+		spaces                 []repositories.SpaceRecord
+		err                    error
 	)
 
 	BeforeEach(func() {
 		identity = authorization.Identity{Kind: rbacv1.UserKind, Name: "alice"}
 		identityProvider = new(providerfake.IdentityProvider)
 		identityProvider.GetIdentityReturns(identity, nil)
-		orgRepo = new(fake.CFOrgRepository)
+		spaceRepo = new(fake.CFSpaceRepository)
 		nsProvider = new(fake.AuthorizedNamespacesProvider)
-		orgRepo.FetchOrgsReturns([]repositories.OrgRecord{
-			{GUID: "org1"},
-			{GUID: "org2"},
+		spaceRepo.FetchSpacesReturns([]repositories.SpaceRecord{
+			{GUID: "space1"},
+			{GUID: "space2"},
 		}, nil)
-		nsProvider.GetAuthorizedNamespacesReturns([]string{"org2"}, nil)
-		orgRepoProvider = provider.NewOrg(orgRepo, nsProvider, identityProvider)
+		nsProvider.GetAuthorizedNamespacesReturns([]string{"space2"}, nil)
+		spaceRepoProvider = provider.NewSpace(spaceRepo, nsProvider, identityProvider)
 	})
 
 	Describe("creation", func() {
 		JustBeforeEach(func() {
-			orgRepoAuthDecorator, err = orgRepoProvider.OrgRepoForRequest(&http.Request{
+			spaceRepoAuthDecorator, err = spaceRepoProvider.SpaceRepoForRequest(&http.Request{
 				Header: http.Header{
 					headers.Authorization: []string{"bearer the-token"},
 				},
@@ -68,9 +68,9 @@ var _ = Describe("OrgRepositoryAuthDecorator", func() {
 		})
 	})
 
-	Describe("org repo itself", func() {
+	Describe("space repo itself", func() {
 		BeforeEach(func() {
-			orgRepoAuthDecorator, err = orgRepoProvider.OrgRepoForRequest(&http.Request{
+			spaceRepoAuthDecorator, err = spaceRepoProvider.SpaceRepoForRequest(&http.Request{
 				Header: http.Header{
 					headers.Authorization: []string{"bearer the-token"},
 				},
@@ -79,21 +79,28 @@ var _ = Describe("OrgRepositoryAuthDecorator", func() {
 		})
 
 		JustBeforeEach(func() {
-			orgs, err = orgRepoAuthDecorator.FetchOrgs(context.Background(), []string{"foo", "bar"})
+			spaces, err = spaceRepoAuthDecorator.FetchSpaces(context.Background(), []string{"boo", "baz"}, []string{"foo", "bar"})
 		})
 
-		It("fetches orgs associated with the identity only", func() {
+		It("fetches spaces associated with the identity only", func() {
 			Expect(err).NotTo(HaveOccurred())
-			Expect(orgs).To(ConsistOf(repositories.OrgRecord{GUID: "org2"}))
+			Expect(spaces).To(ConsistOf(repositories.SpaceRecord{GUID: "space2"}))
 		})
 
-		When("fetching orgs fails", func() {
+		It("calls the space repo with the right parameters", func() {
+			Expect(spaceRepo.FetchSpacesCallCount()).To(Equal(1))
+			_, orgIDs, names := spaceRepo.FetchSpacesArgsForCall(0)
+			Expect(orgIDs).To(ConsistOf("boo", "baz"))
+			Expect(names).To(ConsistOf("foo", "bar"))
+		})
+
+		When("fetching spaces fails", func() {
 			BeforeEach(func() {
-				orgRepo.FetchOrgsReturns(nil, errors.New("fetch-orgs-failed"))
+				spaceRepo.FetchSpacesReturns(nil, errors.New("fetch-spaces-failed"))
 			})
 
 			It("returns the error", func() {
-				Expect(err).To(MatchError("fetch-orgs-failed"))
+				Expect(err).To(MatchError("fetch-spaces-failed"))
 			})
 		})
 

@@ -6,13 +6,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
 )
 
-//counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
 //counterfeiter:generate -o fake -fake-name AuthorizedNamespacesProvider . AuthorizedNamespacesProvider
-
-type CFOrgRepository interface {
-	CreateOrg(context context.Context, org OrgRecord) (OrgRecord, error)
-	FetchOrgs(context context.Context, orgNames []string) ([]OrgRecord, error)
-}
 
 type AuthorizedNamespacesProvider interface {
 	GetAuthorizedNamespaces(context.Context, authorization.Identity) ([]string, error)

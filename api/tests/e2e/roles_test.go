@@ -48,10 +48,7 @@ var _ = Describe("Roles", func() {
 	})
 
 	Describe("creating an org role", func() {
-		var (
-			org   presenter.OrgResponse
-			space presenter.SpaceResponse
-		)
+		var org presenter.OrgResponse
 
 		BeforeEach(func() {
 			org = createOrg(uuid.NewString(), tokenAuthHeader)
@@ -68,7 +65,7 @@ var _ = Describe("Roles", func() {
 			roleBindingList := &rbacv1.RoleBindingList{}
 			Eventually(func() ([]rbacv1.RoleBinding, error) {
 				err := k8sClient.List(ctx, roleBindingList,
-					client.InNamespace(space.GUID),
+					client.InNamespace(org.GUID),
 					client.MatchingLabels{
 						repositories.RoleTypeLabel: "organization_manager",
 					},
@@ -98,7 +95,7 @@ var _ = Describe("Roles", func() {
 
 		BeforeEach(func() {
 			org = createOrg(uuid.NewString(), tokenAuthHeader)
-			space = createSpace(uuid.NewString(), org.GUID)
+			space = createSpace(uuid.NewString(), org.GUID, tokenAuthHeader)
 			createBinding(org.GUID, userName, "basic-user")
 		})
 

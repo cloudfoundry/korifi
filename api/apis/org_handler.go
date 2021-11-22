@@ -1,7 +1,6 @@
 package apis
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -23,16 +22,10 @@ const (
 	OrgsEndpoint = "/v3/organizations"
 )
 
-//counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
 //counterfeiter:generate -o fake -fake-name OrgRepositoryProvider . OrgRepositoryProvider
 
-type CFOrgRepository interface {
-	CreateOrg(context context.Context, org repositories.OrgRecord) (repositories.OrgRecord, error)
-	FetchOrgs(context context.Context, orgNames []string) ([]repositories.OrgRecord, error)
-}
-
 type OrgRepositoryProvider interface {
-	OrgRepoForRequest(request *http.Request) (CFOrgRepository, error)
+	OrgRepoForRequest(request *http.Request) (repositories.CFOrgRepository, error)
 }
 
 type OrgHandler struct {

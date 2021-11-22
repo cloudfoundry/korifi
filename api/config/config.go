@@ -19,8 +19,13 @@ type Config struct {
 
 	DefaultLifecycleConfig DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
 
-	AuthEnabled  bool              `yaml:"authEnabled"`
-	RoleMappings map[string]string `yaml:"roleMappings"`
+	AuthEnabled  bool            `yaml:"authEnabled"`
+	RoleMappings map[string]Role `yaml:"roleMappings"`
+}
+
+type Role struct {
+	Name      string `yaml:"name"`
+	Propagate bool   `yaml:"propagate"`
 }
 
 // DefaultLifecycleConfig contains default values of the Lifecycle block of CFApps and Builds created by the Shim

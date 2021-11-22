@@ -146,7 +146,7 @@ func newUnknownError() presenter.ErrorsResponse {
 func newUnauthenticatedError() presenter.ErrorsResponse {
 	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "CF-NotAuthenticated",
-		Detail: "No auth token was given, but authentication is required for this endpoint",
+		Detail: "Authentication error",
 		Code:   10002,
 	}}}
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
 	"github.com/go-http-utils/headers"
@@ -33,7 +32,7 @@ func NewOrg(
 	}
 }
 
-func (p *OrgRepositoryProvider) OrgRepoForRequest(request *http.Request) (apis.CFOrgRepository, error) {
+func (p *OrgRepositoryProvider) OrgRepoForRequest(request *http.Request) (repositories.CFOrgRepository, error) {
 	identity, err := p.identityProvider.GetIdentity(request.Context(), request.Header.Get(headers.Authorization))
 	if err != nil {
 		return nil, err
@@ -52,6 +51,6 @@ func NewPrivilegedOrg(orgRepo repositories.CFOrgRepository) *PrivilegedOrgReposi
 	}
 }
 
-func (p *PrivilegedOrgRepositoryProvider) OrgRepoForRequest(_ *http.Request) (apis.CFOrgRepository, error) {
+func (p *PrivilegedOrgRepositoryProvider) OrgRepoForRequest(_ *http.Request) (repositories.CFOrgRepository, error) {
 	return p.orgRepo, nil
 }

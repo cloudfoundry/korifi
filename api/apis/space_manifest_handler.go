@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 const (
@@ -24,7 +25,7 @@ type SpaceManifestHandler struct {
 	logger              logr.Logger
 	serverURL           url.URL
 	applyManifestAction ApplyManifestAction
-	spaceRepo           CFSpaceRepository
+	spaceRepo           repositories.CFSpaceRepository
 	buildClient         ClientBuilder
 	k8sConfig           *rest.Config // TODO: this would be global for all requests, not what we want
 }
@@ -36,7 +37,7 @@ func NewSpaceManifestHandler(
 	logger logr.Logger,
 	serverURL url.URL,
 	applyManifestAction ApplyManifestAction,
-	spaceRepo CFSpaceRepository,
+	spaceRepo repositories.CFSpaceRepository,
 	buildClient ClientBuilder,
 	k8sConfig *rest.Config) *SpaceManifestHandler {
 	return &SpaceManifestHandler{

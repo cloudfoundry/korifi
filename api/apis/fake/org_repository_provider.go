@@ -6,27 +6,28 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 type OrgRepositoryProvider struct {
-	OrgRepoForRequestStub        func(*http.Request) (apis.CFOrgRepository, error)
+	OrgRepoForRequestStub        func(*http.Request) (repositories.CFOrgRepository, error)
 	orgRepoForRequestMutex       sync.RWMutex
 	orgRepoForRequestArgsForCall []struct {
 		arg1 *http.Request
 	}
 	orgRepoForRequestReturns struct {
-		result1 apis.CFOrgRepository
+		result1 repositories.CFOrgRepository
 		result2 error
 	}
 	orgRepoForRequestReturnsOnCall map[int]struct {
-		result1 apis.CFOrgRepository
+		result1 repositories.CFOrgRepository
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *OrgRepositoryProvider) OrgRepoForRequest(arg1 *http.Request) (apis.CFOrgRepository, error) {
+func (fake *OrgRepositoryProvider) OrgRepoForRequest(arg1 *http.Request) (repositories.CFOrgRepository, error) {
 	fake.orgRepoForRequestMutex.Lock()
 	ret, specificReturn := fake.orgRepoForRequestReturnsOnCall[len(fake.orgRepoForRequestArgsForCall)]
 	fake.orgRepoForRequestArgsForCall = append(fake.orgRepoForRequestArgsForCall, struct {
@@ -51,7 +52,7 @@ func (fake *OrgRepositoryProvider) OrgRepoForRequestCallCount() int {
 	return len(fake.orgRepoForRequestArgsForCall)
 }
 
-func (fake *OrgRepositoryProvider) OrgRepoForRequestCalls(stub func(*http.Request) (apis.CFOrgRepository, error)) {
+func (fake *OrgRepositoryProvider) OrgRepoForRequestCalls(stub func(*http.Request) (repositories.CFOrgRepository, error)) {
 	fake.orgRepoForRequestMutex.Lock()
 	defer fake.orgRepoForRequestMutex.Unlock()
 	fake.OrgRepoForRequestStub = stub
@@ -64,28 +65,28 @@ func (fake *OrgRepositoryProvider) OrgRepoForRequestArgsForCall(i int) *http.Req
 	return argsForCall.arg1
 }
 
-func (fake *OrgRepositoryProvider) OrgRepoForRequestReturns(result1 apis.CFOrgRepository, result2 error) {
+func (fake *OrgRepositoryProvider) OrgRepoForRequestReturns(result1 repositories.CFOrgRepository, result2 error) {
 	fake.orgRepoForRequestMutex.Lock()
 	defer fake.orgRepoForRequestMutex.Unlock()
 	fake.OrgRepoForRequestStub = nil
 	fake.orgRepoForRequestReturns = struct {
-		result1 apis.CFOrgRepository
+		result1 repositories.CFOrgRepository
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *OrgRepositoryProvider) OrgRepoForRequestReturnsOnCall(i int, result1 apis.CFOrgRepository, result2 error) {
+func (fake *OrgRepositoryProvider) OrgRepoForRequestReturnsOnCall(i int, result1 repositories.CFOrgRepository, result2 error) {
 	fake.orgRepoForRequestMutex.Lock()
 	defer fake.orgRepoForRequestMutex.Unlock()
 	fake.OrgRepoForRequestStub = nil
 	if fake.orgRepoForRequestReturnsOnCall == nil {
 		fake.orgRepoForRequestReturnsOnCall = make(map[int]struct {
-			result1 apis.CFOrgRepository
+			result1 repositories.CFOrgRepository
 			result2 error
 		})
 	}
 	fake.orgRepoForRequestReturnsOnCall[i] = struct {
-		result1 apis.CFOrgRepository
+		result1 repositories.CFOrgRepository
 		result2 error
 	}{result1, result2}
 }
