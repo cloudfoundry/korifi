@@ -57,7 +57,9 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-test: test-controllers test-api test-e2e
+test: test-controllers-api test-e2e
+
+test-controllers-api: test-controllers test-api
 
 test-unit: test-controllers test-api-unit
 
