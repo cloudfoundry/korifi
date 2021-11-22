@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -50,8 +49,7 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("returns an unprocessable entity error", func() {
-				resp, err := createOrgRaw(orgName, tokenAuthHeader)
-				Expect(err).NotTo(HaveOccurred())
+				resp := createOrgRaw(orgName, tokenAuthHeader)
 				defer resp.Body.Close()
 				Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 				responseMap := map[string]interface{}{}
@@ -86,9 +84,9 @@ var _ = Describe("Orgs", func() {
 
 		Context("with a bearer token auth header", func() {
 			BeforeEach(func() {
-				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID)
-				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID)
-				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID)
+				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, tokenAuthHeader)
+				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID, tokenAuthHeader)
+				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID, tokenAuthHeader)
 			})
 
 			It("returns all 3 orgs that the service account has a role in", func() {
@@ -120,9 +118,9 @@ var _ = Describe("Orgs", func() {
 
 		Context("with a client certificate auth header", func() {
 			BeforeEach(func() {
-				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org1.GUID)
-				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org2.GUID)
-				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org3.GUID)
+				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org1.GUID, certAuthHeader)
+				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org2.GUID, certAuthHeader)
+				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org3.GUID, certAuthHeader)
 			})
 
 			It("returns all 3 orgs that the service account has a role in", func() {
@@ -174,16 +172,7 @@ func getOrgsFn(authHeaderValue string, names ...string) func() ([]presenter.OrgR
 			orgsUrl += "?names=" + strings.Join(names, ",")
 		}
 
-		req, err := http.NewRequest(http.MethodGet, orgsUrl, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		if authHeaderValue != "" {
-			req.Header.Add(headers.Authorization, authHeaderValue)
-		}
-
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := httpReq(http.MethodGet, orgsUrl, authHeaderValue, nil)
 		if err != nil {
 			return nil, err
 		}

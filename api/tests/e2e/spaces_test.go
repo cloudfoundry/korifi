@@ -14,7 +14,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -31,7 +30,7 @@ var _ = Describe("Spaces", func() {
 		BeforeEach(func() {
 			spaceName = generateGUID("space")
 			org = createOrg(generateGUID("org"), tokenAuthHeader)
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org.GUID)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org.GUID, tokenAuthHeader)
 		})
 
 		AfterEach(func() {
@@ -110,26 +109,26 @@ var _ = Describe("Spaces", func() {
 			org2 = createOrg(generateGUID("org2"), tokenAuthHeader)
 			org3 = createOrg(generateGUID("org3"), tokenAuthHeader)
 
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID)
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID)
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, tokenAuthHeader)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID, tokenAuthHeader)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID, tokenAuthHeader)
 
 			space11 = createSpace(generateGUID("space1"), org1.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space11.GUID)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space11.GUID, tokenAuthHeader)
 			space12 = createSpace(generateGUID("space2"), org1.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space12.GUID)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space12.GUID, tokenAuthHeader)
 			space13 = createSpace(generateGUID("space3"), org1.GUID, tokenAuthHeader)
 
 			space21 = createSpace(generateGUID("space1"), org2.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space21.GUID)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space21.GUID, tokenAuthHeader)
 			space22 = createSpace(generateGUID("space2"), org2.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space22.GUID)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space22.GUID, tokenAuthHeader)
 			space23 = createSpace(generateGUID("space3"), org2.GUID, tokenAuthHeader)
 
 			space31 = createSpace(generateGUID("space1"), org3.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space31.GUID)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space31.GUID, tokenAuthHeader)
 			space32 = createSpace(generateGUID("space2"), org3.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space32.GUID)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space32.GUID, tokenAuthHeader)
 			space33 = createSpace(generateGUID("space3"), org3.GUID, tokenAuthHeader)
 		})
 
@@ -219,13 +218,7 @@ func getSpacesWithQueryFn(query map[string]string) func() (map[string]interface{
 		}
 		spacesUrl.RawQuery = values.Encode()
 
-		request, err := http.NewRequest(http.MethodGet, spacesUrl.String(), nil)
-		if err != nil {
-			return nil, err
-		}
-
-		request.Header.Add(headers.Authorization, tokenAuthHeader)
-		resp, err := http.DefaultClient.Do(request)
+		resp, err := httpReq(http.MethodGet, spacesUrl.String(), tokenAuthHeader, nil)
 		if err != nil {
 			return nil, err
 		}
