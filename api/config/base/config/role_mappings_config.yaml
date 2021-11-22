@@ -1,12 +1,34 @@
 roleMappings:
-  admin: cf-k8s-controllers-admin
-  admin_read_only: cf-k8s-controllers-admin-read-only
-  global_auditor: cf-k8s-controllers-global-auditor
-  organization_auditor: cf-k8s-controllers-organization-auditor
-  organization_billing_manager: cf-k8s-controllers-organization-billing-manager
-  organization_manager: cf-k8s-controllers-organization-manager
-  organization_user: cf-k8s-controllers-organization-user
-  space_auditor: cf-k8s-controllers-space-auditor
-  space_developer: cf-k8s-controllers-space-developer
-  space_manager: cf-k8s-controllers-space-manager
-  space_supporter: cf-k8s-controllers-space-supporter
+  admin:
+    name: cf-k8s-controllers-admin
+    propagate: true
+  admin_read_only:
+    name: cf-k8s-controllers-admin-read-only
+    propagate: true
+  global_auditor:
+    name: cf-k8s-controllers-global-auditor
+    propagate: true
+  organization_auditor:
+    name: cf-k8s-controllers-organization-auditor
+    propagate: false
+  organization_billing_manager:
+    name: cf-k8s-controllers-organization-billing-manager
+    propagate: false
+  organization_manager:
+    name: cf-k8s-controllers-organization-manager
+    propagate: true
+  organization_user:
+    name: cf-k8s-controllers-organization-user
+    propagate: false
+  space_auditor:
+    name: cf-k8s-controllers-space-auditor
+    propagate: false
+  space_developer:
+    name: cf-k8s-controllers-space-developer
+    propagate: false
+  space_manager:
+    name: cf-k8s-controllers-space-manager
+    propagate: false
+  space_supporter:
+    name: cf-k8s-controllers-space-supporter
+    propagate: false

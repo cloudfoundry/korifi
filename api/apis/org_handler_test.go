@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
+	repositoriesfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo"
@@ -31,7 +32,7 @@ var _ = Describe("OrgHandler", func() {
 		ctx             context.Context
 		orgHandler      *apis.OrgHandler
 		orgRepoProvider *fake.OrgRepositoryProvider
-		orgRepo         *fake.CFOrgRepository
+		orgRepo         *repositoriesfake.CFOrgRepository
 		req             *http.Request
 		now             time.Time
 	)
@@ -41,7 +42,7 @@ var _ = Describe("OrgHandler", func() {
 		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
 
 		orgRepoProvider = new(fake.OrgRepositoryProvider)
-		orgRepo = new(fake.CFOrgRepository)
+		orgRepo = new(repositoriesfake.CFOrgRepository)
 		orgRepoProvider.OrgRepoForRequestReturns(orgRepo, nil)
 
 		orgHandler = apis.NewOrgHandler(*serverURL, orgRepoProvider)
@@ -263,16 +264,7 @@ var _ = Describe("OrgHandler", func() {
 			})
 
 			It("returns Unauthorized error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-                    "errors": [
-                    {
-                        "detail": "No auth token was given, but authentication is required for this endpoint",
-                        "title": "CF-NotAuthenticated",
-                        "code": 10002
-                    }
-                    ]
-                }`))
+				expectUnauthorizedError()
 			})
 		})
 
@@ -435,16 +427,7 @@ var _ = Describe("OrgHandler", func() {
 			})
 
 			It("returns Unauthorized error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-                    "errors": [
-                    {
-                        "detail": "No auth token was given, but authentication is required for this endpoint",
-                        "title": "CF-NotAuthenticated",
-                        "code": 10002
-                    }
-                    ]
-                }`))
+				expectUnauthorizedError()
 			})
 		})
 

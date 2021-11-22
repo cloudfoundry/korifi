@@ -14,6 +14,19 @@ import (
 
 //+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;create;watch
 
+//counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
+//counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
+
+type CFOrgRepository interface {
+	CreateOrg(context context.Context, org OrgRecord) (OrgRecord, error)
+	FetchOrgs(context context.Context, orgNames []string) ([]OrgRecord, error)
+}
+
+type CFSpaceRepository interface {
+	CreateSpace(context.Context, SpaceRecord) (SpaceRecord, error)
+	FetchSpaces(context.Context, []string, []string) ([]SpaceRecord, error)
+}
+
 const (
 	OrgNameLabel   = "cloudfoundry.org/org-name"
 	SpaceNameLabel = "cloudfoundry.org/space-name"

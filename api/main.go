@@ -164,12 +164,8 @@ func main() {
 		),
 		apis.NewLogCacheHandler(),
 
-		wireOrgHandler(*serverURL, orgRepo, privilegedCRClient, config.AuthEnabled, k8sClientConfig),
-		apis.NewSpaceHandler(
-			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
-			*serverURL,
-		),
-
+		apis.NewOrgHandler(*serverURL, wireOrgRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, k8sClientConfig)),
+		apis.NewSpaceHandler(*serverURL, wireSpaceRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, k8sClientConfig)),
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
@@ -212,15 +208,24 @@ func newRegistryAuthBuilder(privilegedK8sClient k8sclient.Interface, config *con
 	}
 }
 
-func wireOrgHandler(serverUrl url.URL, orgRepo *repositories.OrgRepo, client client.Client, authEnabled bool, restConfig *rest.Config) *apis.OrgHandler {
-	var orgRepoProvider apis.OrgRepositoryProvider = provider.NewPrivilegedOrg(orgRepo)
-	if authEnabled {
-		authNsProvider := authorization.NewOrg(client)
-		identityProvider := wireIdentityProvider(client, restConfig)
-		orgRepoProvider = provider.NewOrg(orgRepo, authNsProvider, identityProvider)
+func wireOrgRepoProvider(orgRepo *repositories.OrgRepo, client client.Client, authEnabled bool, restConfig *rest.Config) apis.OrgRepositoryProvider {
+	if !authEnabled {
+		return provider.NewPrivilegedOrg(orgRepo)
 	}
 
-	return apis.NewOrgHandler(serverUrl, orgRepoProvider)
+	authNsProvider := authorization.NewOrg(client)
+	identityProvider := wireIdentityProvider(client, restConfig)
+	return provider.NewOrg(orgRepo, authNsProvider, identityProvider)
+}
+
+func wireSpaceRepoProvider(orgRepo *repositories.OrgRepo, client client.Client, authEnabled bool, restConfig *rest.Config) apis.SpaceRepositoryProvider {
+	if !authEnabled {
+		return provider.NewPrivilegedSpace(orgRepo)
+	}
+
+	authNsProvider := authorization.NewOrg(client)
+	identityProvider := wireIdentityProvider(client, restConfig)
+	return provider.NewSpace(orgRepo, authNsProvider, identityProvider)
 }
 
 func wireIdentityProvider(client client.Client, restConfig *rest.Config) *authorization.IdentityProvider {

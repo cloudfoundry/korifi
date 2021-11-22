@@ -46,16 +46,17 @@ type hierarchicalNamespace struct {
 }
 
 var (
-	testServerAddress  string
-	k8sClient          client.Client
-	clientset          *kubernetes.Clientset
-	rootNamespace      string
-	apiServerRoot      string
-	serviceAccountName string
-	tokenAuthHeader    string
-	certUserName       string
-	certSigningReq     *certsv1.CertificateSigningRequest
-	certAuthHeader     string
+	testServerAddress   string
+	k8sClient           client.Client
+	clientset           *kubernetes.Clientset
+	rootNamespace       string
+	apiServerRoot       string
+	serviceAccountName  string
+	serviceAccountToken string
+	tokenAuthHeader     string
+	certUserName        string
+	certSigningReq      *certsv1.CertificateSigningRequest
+	certAuthHeader      string
 )
 
 func TestE2E(t *testing.T) {
@@ -84,13 +85,16 @@ var _ = BeforeSuite(func() {
 	ensureServerIsUp()
 
 	serviceAccountName = generateGUID("token-user")
-	token := obtainServiceAccountToken(serviceAccountName)
-	tokenAuthHeader = fmt.Sprintf("Bearer %s", token)
+	serviceAccountToken = obtainServiceAccountToken(serviceAccountName)
 
 	certUserName = generateGUID("cert-user")
 	var certPEM string
 	certSigningReq, certPEM = obtainClientCert(certUserName)
 	certAuthHeader = "ClientCert " + certPEM
+})
+
+var _ = BeforeEach(func() {
+	tokenAuthHeader = fmt.Sprintf("Bearer %s", serviceAccountToken)
 })
 
 var _ = AfterSuite(func() {
@@ -180,7 +184,7 @@ func createOrg(orgName, authHeader string) presenter.OrgResponse {
 	return org
 }
 
-func createSpaceRaw(spaceName, orgGUID string) (*http.Response, error) {
+func createSpaceRaw(spaceName, orgGUID, authHeader string) (*http.Response, error) {
 	spacesURL := apiServerRoot + apis.SpacesEndpoint
 	payload := payloads.SpaceCreate{
 		Name: spaceName,
@@ -197,13 +201,18 @@ func createSpaceRaw(spaceName, orgGUID string) (*http.Response, error) {
 
 	req, err := http.NewRequest(http.MethodPost, spacesURL, bytes.NewReader(body))
 	Expect(err).NotTo(HaveOccurred())
+	if authHeader != "" {
+		req.Header.Add(headers.Authorization, authHeader)
+	}
 
 	return http.DefaultClient.Do(req)
 }
 
-func createSpace(spaceName, orgGUID string) presenter.SpaceResponse {
-	resp, err := createSpaceRaw(spaceName, orgGUID)
+func createSpace(spaceName, orgGUID, authHeader string) presenter.SpaceResponse {
+	resp, err := createSpaceRaw(spaceName, orgGUID, authHeader)
 	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+
 	defer resp.Body.Close()
 
 	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))

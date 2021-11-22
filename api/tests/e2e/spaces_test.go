@@ -7,11 +7,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -19,24 +22,34 @@ import (
 var _ = Describe("Spaces", func() {
 	Describe("creating spaces", func() {
 		var (
-			org       presenter.OrgResponse
-			spaceName string
-			space     presenter.SpaceResponse
+			org            presenter.OrgResponse
+			spaceName      string
+			space          presenter.SpaceResponse
+			extraSpaceGUID string
 		)
 
 		BeforeEach(func() {
 			spaceName = generateGUID("space")
 			org = createOrg(generateGUID("org"), tokenAuthHeader)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org.GUID)
 		})
 
 		AfterEach(func() {
-			deleteSubnamespace(org.GUID, space.GUID)
-			waitForNamespaceDeletion(org.GUID, space.GUID)
+			if space.GUID != "" {
+				deleteSubnamespace(org.GUID, space.GUID)
+				waitForNamespaceDeletion(org.GUID, space.GUID)
+			}
+
+			if extraSpaceGUID != "" {
+				deleteSubnamespace(org.GUID, extraSpaceGUID)
+				waitForNamespaceDeletion(org.GUID, extraSpaceGUID)
+			}
+
 			deleteSubnamespace(rootNamespace, org.GUID)
 		})
 
 		JustBeforeEach(func() {
-			space = createSpace(spaceName, org.GUID)
+			space = createSpace(spaceName, org.GUID, tokenAuthHeader)
 		})
 
 		It("creates a space", func() {
@@ -49,14 +62,19 @@ var _ = Describe("Spaces", func() {
 
 		When("the space name already exists", func() {
 			It("returns an unprocessable entity error", func() {
-				resp, err := createSpaceRaw(spaceName, org.GUID)
+				resp, err := createSpaceRaw(spaceName, org.GUID, tokenAuthHeader)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 				defer resp.Body.Close()
 
 				bodyMap := map[string]interface{}{}
 				err = json.NewDecoder(resp.Body).Decode(&bodyMap)
 				Expect(err).NotTo(HaveOccurred())
+
+				if resp.StatusCode == http.StatusCreated {
+					extraSpaceGUID = bodyMap["guid"].(string)
+				}
+
+				Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 
 				Expect(bodyMap).To(HaveKeyWithValue("errors", BeAssignableToTypeOf([]interface{}{})))
 				errs := bodyMap["errors"].([]interface{})
@@ -67,12 +85,24 @@ var _ = Describe("Spaces", func() {
 				))
 			})
 		})
+
+		When("not authorized", func() {
+			It("returns an unauthorized error", func() {
+				resp, err := createSpaceRaw("shouldn't work", org.GUID, "")
+				Expect(err).NotTo(HaveOccurred())
+				defer resp.Body.Close()
+
+				Expect(resp).To(HaveHTTPStatus(http.StatusUnauthorized))
+			})
+		})
 	})
 
 	Describe("listing spaces", func() {
 		var (
-			org1, org2, org3                                     presenter.OrgResponse
-			space11, space12, space21, space22, space31, space32 presenter.SpaceResponse
+			org1, org2, org3          presenter.OrgResponse
+			space11, space12, space13 presenter.SpaceResponse
+			space21, space22, space23 presenter.SpaceResponse
+			space31, space32, space33 presenter.SpaceResponse
 		)
 
 		BeforeEach(func() {
@@ -80,33 +110,54 @@ var _ = Describe("Spaces", func() {
 			org2 = createOrg(generateGUID("org2"), tokenAuthHeader)
 			org3 = createOrg(generateGUID("org3"), tokenAuthHeader)
 
-			space11 = createSpace(generateGUID("space1"), org1.GUID)
-			space12 = createSpace(generateGUID("space2"), org1.GUID)
-			space21 = createSpace(generateGUID("space1"), org2.GUID)
-			space22 = createSpace(generateGUID("space2"), org2.GUID)
-			space31 = createSpace(generateGUID("space1"), org3.GUID)
-			space32 = createSpace(generateGUID("space2"), org3.GUID)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID)
+
+			space11 = createSpace(generateGUID("space1"), org1.GUID, tokenAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space11.GUID)
+			space12 = createSpace(generateGUID("space2"), org1.GUID, tokenAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space12.GUID)
+			space13 = createSpace(generateGUID("space3"), org1.GUID, tokenAuthHeader)
+
+			space21 = createSpace(generateGUID("space1"), org2.GUID, tokenAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space21.GUID)
+			space22 = createSpace(generateGUID("space2"), org2.GUID, tokenAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space22.GUID)
+			space23 = createSpace(generateGUID("space3"), org2.GUID, tokenAuthHeader)
+
+			space31 = createSpace(generateGUID("space1"), org3.GUID, tokenAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space31.GUID)
+			space32 = createSpace(generateGUID("space2"), org3.GUID, tokenAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space32.GUID)
+			space33 = createSpace(generateGUID("space3"), org3.GUID, tokenAuthHeader)
 		})
 
 		AfterEach(func() {
 			deleteSubnamespace(org1.GUID, space11.GUID)
 			deleteSubnamespace(org1.GUID, space12.GUID)
+			deleteSubnamespace(org1.GUID, space13.GUID)
 			deleteSubnamespace(org2.GUID, space21.GUID)
 			deleteSubnamespace(org2.GUID, space22.GUID)
+			deleteSubnamespace(org2.GUID, space23.GUID)
 			deleteSubnamespace(org3.GUID, space31.GUID)
 			deleteSubnamespace(org3.GUID, space32.GUID)
+			deleteSubnamespace(org3.GUID, space33.GUID)
 			waitForNamespaceDeletion(org1.GUID, space11.GUID)
 			waitForNamespaceDeletion(org1.GUID, space12.GUID)
+			waitForNamespaceDeletion(org1.GUID, space13.GUID)
 			waitForNamespaceDeletion(org2.GUID, space21.GUID)
 			waitForNamespaceDeletion(org2.GUID, space22.GUID)
+			waitForNamespaceDeletion(org2.GUID, space23.GUID)
 			waitForNamespaceDeletion(org3.GUID, space31.GUID)
 			waitForNamespaceDeletion(org3.GUID, space32.GUID)
+			waitForNamespaceDeletion(org3.GUID, space33.GUID)
 			deleteSubnamespace(rootNamespace, org1.GUID)
 			deleteSubnamespace(rootNamespace, org2.GUID)
 			deleteSubnamespace(rootNamespace, org3.GUID)
 		})
 
-		It("lists all the spaces", func() {
+		It("lists the spaces the user has role in", func() {
 			Eventually(getSpacesFn()).Should(SatisfyAll(
 				HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 6))),
 				HaveKeyWithValue("resources", ContainElements(
@@ -117,6 +168,23 @@ var _ = Describe("Spaces", func() {
 					HaveKeyWithValue("name", space31.Name),
 					HaveKeyWithValue("name", space32.Name),
 				))))
+			Consistently(getSpacesFn(), "5s").ShouldNot(
+				HaveKeyWithValue("resources", ContainElements(
+					HaveKeyWithValue("name", space13.Name),
+					HaveKeyWithValue("name", space23.Name),
+					HaveKeyWithValue("name", space33.Name),
+				)))
+		})
+
+		When("not authorized", func() {
+			BeforeEach(func() {
+				tokenAuthHeader = ""
+			})
+
+			It("returns an unauthorized error", func() {
+				_, err := getSpacesFn()()
+				Expect(err).To(MatchError(ContainSubstring(strconv.Itoa(http.StatusUnauthorized))))
+			})
 		})
 
 		When("filtering by organization GUIDs", func() {
@@ -151,7 +219,13 @@ func getSpacesWithQueryFn(query map[string]string) func() (map[string]interface{
 		}
 		spacesUrl.RawQuery = values.Encode()
 
-		resp, err := http.Get(spacesUrl.String())
+		request, err := http.NewRequest(http.MethodGet, spacesUrl.String(), nil)
+		if err != nil {
+			return nil, err
+		}
+
+		request.Header.Add(headers.Authorization, tokenAuthHeader)
+		resp, err := http.DefaultClient.Do(request)
 		if err != nil {
 			return nil, err
 		}

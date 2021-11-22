@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -49,11 +50,11 @@ type RoleRecord struct {
 
 type RoleRepo struct {
 	privilegedClient    client.Client
-	roleMappings        map[string]string
+	roleMappings        map[string]config.Role
 	authorizedInChecker AuthorizedInChecker
 }
 
-func NewRoleRepo(privilegedClient client.Client, authorizedInChecker AuthorizedInChecker, roleMappings map[string]string) *RoleRepo {
+func NewRoleRepo(privilegedClient client.Client, authorizedInChecker AuthorizedInChecker, roleMappings map[string]config.Role) *RoleRepo {
 	return &RoleRepo{
 		privilegedClient:    privilegedClient,
 		roleMappings:        roleMappings,
@@ -62,14 +63,14 @@ func NewRoleRepo(privilegedClient client.Client, authorizedInChecker AuthorizedI
 }
 
 func (r *RoleRepo) CreateRole(ctx context.Context, role RoleRecord) (RoleRecord, error) {
-	k8sRoleName, ok := r.roleMappings[role.Type]
+	k8sRoleConfig, ok := r.roleMappings[role.Type]
 	if !ok {
 		return RoleRecord{}, fmt.Errorf("invalid role type: %q", role.Type)
 	}
 
 	userIdentity := authorization.Identity{
 		Name: role.User,
-		Kind: rbacv1.UserKind,
+		Kind: role.Kind,
 	}
 
 	if role.Space != "" {
@@ -93,6 +94,11 @@ func (r *RoleRepo) CreateRole(ctx context.Context, role RoleRecord) (RoleRecord,
 		ns = role.Org
 	}
 
+	annotations := map[string]string{}
+	if !k8sRoleConfig.Propagate {
+		annotations[hnsv1alpha2.AnnotationNoneSelector] = "true"
+	}
+
 	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
@@ -102,6 +108,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, role RoleRecord) (RoleRecord,
 				RoleUserLabel: role.User,
 				RoleTypeLabel: role.Type,
 			},
+			Annotations: annotations,
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -111,7 +118,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, role RoleRecord) (RoleRecord,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind: "ClusterRole",
-			Name: k8sRoleName,
+			Name: k8sRoleConfig.Name,
 		},
 	}
 

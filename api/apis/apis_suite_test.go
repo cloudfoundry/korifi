@@ -114,6 +114,18 @@ func expectUnknownKeyError(detail string) {
 	}`, detail))
 }
 
+func expectUnauthorizedError() {
+	expectJSONResponse(http.StatusUnauthorized, `{
+        "errors": [
+            {
+                "detail": "Authentication error",
+                "title": "CF-NotAuthenticated",
+                "code": 10002
+            }
+        ]
+    }`)
+}
+
 func initializeProcessRecord(processGUID, spaceGUID, appGUID string) *repositories.ProcessRecord {
 	return &repositories.ProcessRecord{
 		GUID:             processGUID,
