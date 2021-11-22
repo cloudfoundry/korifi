@@ -20,6 +20,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
@@ -59,7 +60,7 @@ var (
 )
 
 func TestE2E(t *testing.T) {
-	RegisterFailHandler(Fail)
+	RegisterFailHandler(helpers.E2EFailHandler)
 	RunSpecs(t, "E2E Suite")
 }
 
