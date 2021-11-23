@@ -9,6 +9,15 @@ CTRL_DIR="$ROOT_DIR/controllers"
 EIRINI_CONTROLLER_DIR="$ROOT_DIR/../eirini-controller"
 export PATH="$PATH:$API_DIR/bin"
 
+# undo *_IMG changes in config and reference
+clean_up_img_refs() {
+  cd "$ROOT_DIR"
+  unset IMG_CONTROLLERS
+  unset IMG_API
+  make build-reference
+}
+trap clean_up_img_refs EXIT
+
 ensure_kind_cluster() {
   if ! kind get clusters | grep -q "$cluster"; then
     current_cluster="$(kubectl config current-context)" || true
