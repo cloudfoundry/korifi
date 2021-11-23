@@ -58,7 +58,7 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest(r)
 	if err != nil {
-		if authorization.IsUnauthorized(err) {
+		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to create org")
 			writeUnauthorizedErrorResponse(w)
 
@@ -101,7 +101,7 @@ func (h *OrgHandler) orgListHandler(w http.ResponseWriter, r *http.Request) {
 
 	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest(r)
 	if err != nil {
-		if authorization.IsUnauthorized(err) {
+		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to list orgs")
 			writeUnauthorizedErrorResponse(w)
 

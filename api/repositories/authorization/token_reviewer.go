@@ -43,7 +43,7 @@ func (r *tokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, err
 	}
 
 	if !tokenReview.Status.Authenticated {
-		return Identity{}, fmt.Errorf("user is not authenticated: %s", tokenReview.Status.Error)
+		return Identity{}, InvalidAuthError{}
 	}
 
 	idKind := rbacv1.UserKind

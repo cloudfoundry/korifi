@@ -112,7 +112,7 @@ var _ = Describe("Spaces", func() {
 
 		When("not authorized", func() {
 			BeforeEach(func() {
-				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.UnauthorizedErr{})
+				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.InvalidAuthError{})
 			})
 
 			It("returns an unauthorized error", func() {
@@ -298,7 +298,7 @@ var _ = Describe("Spaces", func() {
 
 		When("not authorized", func() {
 			BeforeEach(func() {
-				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.UnauthorizedErr{})
+				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.InvalidAuthError{})
 			})
 
 			It("returns an unauthorized error", func() {

@@ -259,7 +259,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("not authorized", func() {
 			BeforeEach(func() {
-				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.UnauthorizedErr{})
+				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.InvalidAuthError{})
 				makePostRequest(`{"name": "the-org"}`)
 			})
 
@@ -422,7 +422,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("not authorized", func() {
 			BeforeEach(func() {
-				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.UnauthorizedErr{})
+				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.InvalidAuthError{})
 				router.ServeHTTP(rr, req)
 			})
 

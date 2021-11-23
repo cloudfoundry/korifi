@@ -58,7 +58,7 @@ func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request
 
 	spaceRepo, err := h.spaceRepoProvider.SpaceRepoForRequest(r)
 	if err != nil {
-		if authorization.IsUnauthorized(err) {
+		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to create spaces")
 			writeUnauthorizedErrorResponse(w)
 
@@ -103,7 +103,7 @@ func (h *SpaceHandler) SpaceListHandler(w http.ResponseWriter, r *http.Request) 
 
 	spaceRepo, err := h.spaceRepoProvider.SpaceRepoForRequest(r)
 	if err != nil {
-		if authorization.IsUnauthorized(err) {
+		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to list spaces")
 			writeUnauthorizedErrorResponse(w)
 
