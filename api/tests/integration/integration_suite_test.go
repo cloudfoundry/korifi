@@ -92,15 +92,20 @@ func restartEnvTest(apiServerEtraArgs ...string) {
 	startEnvTest(apiServerEtraArgs...)
 }
 
-func obtainClientCert(name string) string {
+func obtainClientCert(name string) (certData, keyData []byte) {
 	authUser, err := testEnv.ControlPlane.AddUser(envtest.User{Name: name}, k8sConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	userConfig := authUser.Config()
 
+	certData, keyData = userConfig.CertData, userConfig.KeyData
+	return certData, keyData
+}
+
+func encodeCertAndKey(certData, keyData []byte) string {
 	authHeader := []byte{}
-	authHeader = append(authHeader, userConfig.CertData...)
-	authHeader = append(authHeader, userConfig.KeyData...)
+	authHeader = append(authHeader, certData...)
+	authHeader = append(authHeader, keyData...)
 
 	return base64.StdEncoding.EncodeToString(authHeader)
 }

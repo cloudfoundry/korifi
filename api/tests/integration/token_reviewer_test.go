@@ -22,7 +22,7 @@ var _ = Describe("TokenReviewer", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		tokenReviewer = authorization.NewTokenReviewer(k8sClient)
+		tokenReviewer = authorization.NewTokenReviewer(k8sClient, k8sConfig)
 		token = authProvider.GenerateJWTToken("alice")
 		passErrConstraints = Succeed()
 	})
@@ -40,6 +40,12 @@ var _ = Describe("TokenReviewer", func() {
 		Expect(id.Name).To(Equal(oidcPrefix + "alice"))
 	})
 
+	It("configures a rest.Config for the identity", func() {
+		Expect(id.Config.BearerToken).To(Equal(token))
+		Expect(id.Config.CertData).To(BeEmpty())
+		Expect(id.Config.KeyData).To(BeEmpty())
+	})
+
 	When("the token is issued for a serviceaccount", func() {
 		BeforeEach(func() {
 			restartEnvTest(authProvider.APIServerExtraArgs("system:serviceaccount:")...)
@@ -47,7 +53,7 @@ var _ = Describe("TokenReviewer", func() {
 				"my-serviceaccount",
 				"system:serviceaccounts",
 			)
-			tokenReviewer = authorization.NewTokenReviewer(k8sClient)
+			tokenReviewer = authorization.NewTokenReviewer(k8sClient, k8sConfig)
 		})
 
 		It("extracts the identity of the serviceaccount", func() {
@@ -63,7 +69,7 @@ var _ = Describe("TokenReviewer", func() {
 				"my-serviceaccount",
 				"system:serviceaccounts",
 			)
-			tokenReviewer = authorization.NewTokenReviewer(k8sClient)
+			tokenReviewer = authorization.NewTokenReviewer(k8sClient, k8sConfig)
 			passErrConstraints = MatchError(ContainSubstring("invalid serviceaccount name"))
 		})
 

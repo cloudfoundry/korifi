@@ -8,6 +8,7 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -22,10 +23,11 @@ const (
 
 type tokenReviewer struct {
 	privilegedClient client.Client
+	restConfig       *rest.Config
 }
 
-func NewTokenReviewer(privilegedClient client.Client) IdentityInspector {
-	return &tokenReviewer{privilegedClient: privilegedClient}
+func NewTokenReviewer(privilegedClient client.Client, restConfig *rest.Config) IdentityInspector {
+	return &tokenReviewer{privilegedClient: privilegedClient, restConfig: restConfig}
 }
 
 func (r *tokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, error) {
@@ -59,9 +61,13 @@ func (r *tokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, err
 		idName = nameSegments[len(nameSegments)-1]
 	}
 
+	config := rest.AnonymousClientConfig(r.restConfig)
+	config.BearerToken = token
+
 	return Identity{
-		Name: idName,
-		Kind: idKind,
+		Name:   idName,
+		Kind:   idKind,
+		Config: config,
 	}, nil
 }
 

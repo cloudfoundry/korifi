@@ -17,6 +17,8 @@ var _ = Describe("CertInspector", func() {
 		ctx           context.Context
 		certInspector authorization.IdentityInspector
 		id            authorization.Identity
+		certData      []byte
+		keyData       []byte
 		certPEMBase64 string
 		inspectorErr  error
 	)
@@ -24,7 +26,8 @@ var _ = Describe("CertInspector", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		certInspector = authorization.NewCertInspector(k8sConfig)
-		certPEMBase64 = obtainClientCert("alice")
+		certData, keyData = obtainClientCert("alice")
+		certPEMBase64 = encodeCertAndKey(certData, keyData)
 	})
 
 	JustBeforeEach(func() {
@@ -35,6 +38,13 @@ var _ = Describe("CertInspector", func() {
 		Expect(inspectorErr).NotTo(HaveOccurred())
 		Expect(id.Kind).To(Equal(rbacv1.UserKind))
 		Expect(id.Name).To(Equal("alice"))
+	})
+
+	It("configures a rest.Config for the identity", func() {
+		Expect(inspectorErr).NotTo(HaveOccurred())
+		Expect(id.Config.CertData).To(Equal(certData))
+		Expect(id.Config.KeyData).To(Equal(keyData))
+		Expect(id.Config.BearerToken).To(BeEmpty())
 	})
 
 	When("the certificate is not recognized by the cluster", func() {

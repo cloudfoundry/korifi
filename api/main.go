@@ -235,7 +235,7 @@ func wireSpaceRepoProvider(orgRepo *repositories.OrgRepo, client client.Client, 
 }
 
 func wireIdentityProvider(client client.Client, restConfig *rest.Config) *authorization.IdentityProvider {
-	tokenReviewer := authorization.NewTokenReviewer(client)
+	tokenReviewer := authorization.NewTokenReviewer(client, restConfig)
 	certInspector := authorization.NewCertInspector(restConfig)
 	return authorization.NewIdentityProvider(tokenReviewer, certInspector)
 }

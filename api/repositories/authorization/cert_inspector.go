@@ -60,7 +60,8 @@ func (c CertInspector) WhoAmI(ctx context.Context, certPEMB64 string) (Identity,
 	}
 
 	return Identity{
-		Name: cert.Subject.CommonName,
-		Kind: rbacv1.UserKind,
+		Name:   cert.Subject.CommonName,
+		Kind:   rbacv1.UserKind,
+		Config: config,
 	}, nil
 }

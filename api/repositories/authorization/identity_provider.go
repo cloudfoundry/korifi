@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"k8s.io/client-go/rest"
 )
 
 const (
@@ -15,8 +17,9 @@ const (
 //counterfeiter:generate -o fake -fake-name IdentityInspector . IdentityInspector
 
 type Identity struct {
-	Name string
-	Kind string
+	Name   string
+	Kind   string
+	Config *rest.Config
 }
 
 type IdentityInspector interface {
