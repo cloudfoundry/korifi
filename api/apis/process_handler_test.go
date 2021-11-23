@@ -295,7 +295,6 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("on the happy path and", func() {
 			When("all scale fields are set", func() {
-
 				It("returns status 200 OK", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 				})
@@ -492,7 +491,6 @@ var _ = Describe("ProcessHandler", func() {
 	})
 
 	Describe("the GET /v3/processes/<guid>/stats endpoint", func() {
-
 		BeforeEach(func() {
 			fetchProcessStats.Returns([]repositories.PodStatsRecord{
 				{

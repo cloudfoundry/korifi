@@ -92,7 +92,6 @@ func (h PackageHandler) packageGetHandler(w http.ResponseWriter, req *http.Reque
 
 	packageGUID := mux.Vars(req)["guid"]
 	record, err := h.packageRepo.FetchPackage(req.Context(), client, packageGUID)
-
 	if err != nil {
 		switch {
 		case errors.As(err, new(repositories.NotFoundError)):

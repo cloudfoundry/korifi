@@ -111,9 +111,7 @@ var _ = Describe("ScaleProcessAction", func() {
 
 	When("there is an error fetching the process and", func() {
 		When("the error is \"not found\"", func() {
-			var (
-				toReturnErr error
-			)
+			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = repositories.NotFoundError{}
 				processRepo.FetchProcessReturns(repositories.ProcessRecord{}, toReturnErr)
@@ -127,9 +125,7 @@ var _ = Describe("ScaleProcessAction", func() {
 		})
 
 		When("the error is some other error", func() {
-			var (
-				toReturnErr error
-			)
+			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = errors.New("some-other-error")
 				processRepo.FetchProcessReturns(repositories.ProcessRecord{}, toReturnErr)
@@ -144,9 +140,7 @@ var _ = Describe("ScaleProcessAction", func() {
 	})
 
 	When("there is an error updating the process", func() {
-		var (
-			toReturnErr error
-		)
+		var toReturnErr error
 		BeforeEach(func() {
 			toReturnErr = errors.New("some-other-error")
 			processRepo.ScaleProcessReturns(repositories.ProcessRecord{}, toReturnErr)

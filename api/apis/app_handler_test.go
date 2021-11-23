@@ -1600,7 +1600,6 @@ var _ = Describe("AppHandler", func() {
 
 		When("on the happy path and", func() {
 			When("all scale fields are set", func() {
-
 				It("returns status 200 OK", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 				})
@@ -2173,9 +2172,7 @@ var _ = Describe("AppHandler", func() {
 	})
 
 	Describe("the GET /v3/apps/:guid/actions/restart endpoint", func() {
-		var (
-			fetchAppRecord repositories.AppRecord
-		)
+		var fetchAppRecord repositories.AppRecord
 		BeforeEach(func() {
 			fetchAppRecord = repositories.AppRecord{
 				Name:        appName,
@@ -2295,7 +2292,6 @@ var _ = Describe("AppHandler", func() {
                     }
                 }`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
 			})
-
 		})
 
 		When("the app is in STOPPED state", func() {

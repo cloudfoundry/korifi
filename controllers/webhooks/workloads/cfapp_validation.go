@@ -32,10 +32,10 @@ type CFAppClient interface {
 }
 
 func (v *CFAppValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	//Register validate webhook endpoint with kubernetes manager
+	// Register validate webhook endpoint with kubernetes manager
 	mgr.GetWebhookServer().Register("/validate-workloads-cloudfoundry-org-v1alpha1-cfapp", &webhook.Admission{Handler: v})
 
-	//Generate indexes for CFApp on field spec.name for efficient querying.
+	// Generate indexes for CFApp on field spec.name for efficient querying.
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.CFApp{}, specNameKey,
 		func(rawObj client.Object) []string {
 			app := rawObj.(*v1alpha1.CFApp)

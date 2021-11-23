@@ -123,7 +123,6 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *CFRouteReconciler) setRouteStatus(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute, statusValue networkingv1alpha1.CurrentStatus, description, reason, message string) error {
-
 	cfRoute.Status.CurrentStatus = statusValue
 	cfRoute.Status.Description = description
 

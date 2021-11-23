@@ -63,7 +63,7 @@ var _ = Describe("CFBuildMutatingWebhook Integration Tests", func() {
 			}
 			Expect(k8sClient.Create(beforeCtx, cfBuild)).To(Succeed())
 
-			//Fetching the created CFBuild resource
+			// Fetching the created CFBuild resource
 			cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespace}
 			createdCFBuild = new(v1alpha1.CFBuild)
 			Eventually(func() map[string]string {
@@ -77,7 +77,7 @@ var _ = Describe("CFBuildMutatingWebhook Integration Tests", func() {
 
 		AfterEach(func() {
 			afterCtx := context.Background()
-			//Cleaning up the created CFBuild resource
+			// Cleaning up the created CFBuild resource
 			k8sClient.Delete(afterCtx, cfBuild)
 		})
 

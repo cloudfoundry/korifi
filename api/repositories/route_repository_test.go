@@ -460,7 +460,6 @@ var _ = Describe("RouteRepository", func() {
 		})
 
 		When("multiple CFRoutes exist", func() {
-
 			It("eventually returns a list of routeRecords for each CFRoute CR", func() {
 				var routeRecords []RouteRecord
 				Eventually(func() int {
@@ -670,7 +669,6 @@ var _ = Describe("RouteRepository", func() {
 
 				cfRoute := initializeRouteCR(testRouteHost, testRoutePath, testRouteGUID, testDomainGUID, testNamespace)
 				Expect(k8sClient.Create(beforeCtx, cfRoute)).To(Succeed())
-
 			})
 
 			AfterEach(func() {
@@ -712,7 +710,7 @@ var _ = Describe("RouteRepository", func() {
 					routeRecord, err := routeRepo.FetchRoute(beforeCtx, client, testRouteGUID)
 					Expect(err).NotTo(HaveOccurred())
 
-					//initialize a DestinationListMessage
+					// initialize a DestinationListMessage
 					destinationListCreateMessage := initializeDestinationListMessage(routeRecord, destionationRecord)
 					patchedRouteRecord, addDestinationErr = routeRepo.AddDestinationsToRoute(beforeCtx, client, destinationListCreateMessage)
 					Expect(addDestinationErr).NotTo(HaveOccurred())

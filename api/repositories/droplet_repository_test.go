@@ -80,9 +80,7 @@ var _ = Describe("DropletRepository", func() {
 		})
 
 		When("on the happy path", func() {
-
 			When("status.BuildDropletStatus is set", func() {
-
 				BeforeEach(func() {
 					meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
 						Type:    "Staging",
@@ -174,9 +172,7 @@ var _ = Describe("DropletRepository", func() {
 			})
 
 			When("status.BuildDropletStatus is not set", func() {
-
 				When("status.Conditions \"Staging\": Unknown, \"Succeeded\": Unknown, is set", func() {
-
 					BeforeEach(func() {
 						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
 							Type:    "Staging",
@@ -201,7 +197,6 @@ var _ = Describe("DropletRepository", func() {
 					})
 				})
 				When("status.Conditions \"Staging\": True, \"Succeeded\": Unknown, is set", func() {
-
 					BeforeEach(func() {
 						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
 							Type:    "Staging",
@@ -226,7 +221,6 @@ var _ = Describe("DropletRepository", func() {
 					})
 				})
 				When("status.Conditions \"Staging\": False, \"Succeeded\": False, is set", func() {
-
 					BeforeEach(func() {
 						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
 							Type:    "Staging",
@@ -254,7 +248,6 @@ var _ = Describe("DropletRepository", func() {
 		})
 
 		When("build does not exist", func() {
-
 			It("returns an error", func() {
 				_, err := dropletRepo.FetchDroplet(testCtx, client, "i don't exist")
 				Expect(err).To(HaveOccurred())

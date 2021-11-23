@@ -46,7 +46,7 @@ func (r *DropletRepo) returnDroplet(builds []workloadsv1alpha1.CFBuild) (Droplet
 	if len(builds) == 0 {
 		return DropletRecord{}, NotFoundError{}
 	}
-	if len(builds) > 1 { //untested
+	if len(builds) > 1 { // untested
 		return DropletRecord{}, errors.New("duplicate builds exist")
 	}
 

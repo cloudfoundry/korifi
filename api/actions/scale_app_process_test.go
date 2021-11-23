@@ -133,9 +133,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 
 	When("there is an error fetching the app and", func() {
 		When("the error is \"not found\"", func() {
-			var (
-				toReturnErr error
-			)
+			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = repositories.NotFoundError{ResourceType: "App"}
 				appRepo.FetchAppReturns(repositories.AppRecord{}, toReturnErr)
@@ -149,9 +147,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		})
 
 		When("the error is some other error", func() {
-			var (
-				toReturnErr error
-			)
+			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = errors.New("some-other-error")
 				appRepo.FetchAppReturns(repositories.AppRecord{}, toReturnErr)
@@ -167,9 +163,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 
 	When("there is an error fetching the processes for an app and", func() {
 		When("the error is some other error", func() {
-			var (
-				toReturnErr error
-			)
+			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = errors.New("some-other-error")
 				processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{}, toReturnErr)
@@ -184,11 +178,8 @@ var _ = Describe("ScaleAppProcessAction", func() {
 	})
 
 	When("there is an error updating the process", func() {
-
 		When("the error is \"not found\"", func() {
-			var (
-				toReturnErr error
-			)
+			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = repositories.NotFoundError{ResourceType: "Process"}
 				scaleProcessAction.Returns(repositories.ProcessRecord{}, toReturnErr)
@@ -202,9 +193,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		})
 
 		When("the error is some other error", func() {
-			var (
-				toReturnErr error
-			)
+			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = errors.New("some-other-error")
 				scaleProcessAction.Returns(repositories.ProcessRecord{}, toReturnErr)

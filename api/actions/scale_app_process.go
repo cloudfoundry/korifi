@@ -10,6 +10,7 @@ import (
 
 //counterfeiter:generate -o fake -fake-name ScaleProcess . ScaleProcessAction
 type ScaleProcessAction func(ctx context.Context, client client.Client, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
+
 type ScaleAppProcess struct {
 	appRepo            CFAppRepository
 	processRepo        CFProcessRepository

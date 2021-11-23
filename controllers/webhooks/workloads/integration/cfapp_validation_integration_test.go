@@ -55,7 +55,6 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 				Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 				Expect(k8sClient.Delete(ctx, cfApp)).To(Succeed())
 			})
-
 		})
 
 		When("another CFApp exists with a same name in a different namespace", func() {
@@ -83,7 +82,6 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 				Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 				Expect(k8sClient.Delete(ctx, cfApp)).To(Succeed())
 			})
-
 		})
 
 		When("another CFApp exists with a same name in the same namespace", func() {
@@ -100,9 +98,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			It("should fail", func() {
 				Expect(k8sClient.Create(ctx, cfApp)).NotTo(Succeed())
 			})
-
 		})
-
 	})
 
 	When("updating an existing CFApp record", func() {

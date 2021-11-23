@@ -53,7 +53,6 @@ func NewDomainHandler(
 }
 
 func (h *DomainHandler) DomainListHandler(w http.ResponseWriter, r *http.Request) {
-
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -65,7 +64,6 @@ func (h *DomainHandler) DomainListHandler(w http.ResponseWriter, r *http.Request
 
 	domainListFilter := new(payloads.DomainList)
 	err := schema.NewDecoder().Decode(domainListFilter, r.Form)
-
 	if err != nil {
 		switch err.(type) {
 		case schema.MultiError:
@@ -113,7 +111,6 @@ func (h *DomainHandler) DomainListHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Write(responseBody)
-
 }
 
 func (h *DomainHandler) RegisterRoutes(router *mux.Router) {

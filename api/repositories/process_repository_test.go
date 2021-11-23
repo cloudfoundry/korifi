@@ -93,7 +93,6 @@ var _ = Describe("ProcessRepo", func() {
 				process2GUID = generateGUID()
 				cfProcess2 = initializeProcessCR(process2GUID, namespace2.Name, app2GUID)
 				Expect(k8sClient.Create(context.Background(), cfProcess2)).To(Succeed())
-
 			})
 
 			//AfterEach(func() {
@@ -169,7 +168,6 @@ var _ = Describe("ProcessRepo", func() {
 
 				cfProcess2 = initializeProcessCR(processGUID, namespace2.Name, app2GUID)
 				Expect(k8sClient.Create(context.Background(), cfProcess2)).To(Succeed())
-
 			})
 
 			//AfterEach(func() {
@@ -505,7 +503,6 @@ var _ = Describe("ProcessRepo", func() {
 				Expect(err).To(MatchError(NotFoundError{ResourceType: "Process"}))
 			})
 		})
-
 	})
 
 	Describe("PatchProcess", func() {

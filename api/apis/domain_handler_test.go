@@ -16,7 +16,6 @@ import (
 )
 
 var _ = Describe("DomainHandler", func() {
-
 	Describe("the GET /v3/domains endpoint", func() {
 		const (
 			testDomainGUID = "test-domain-guid"
@@ -29,7 +28,6 @@ var _ = Describe("DomainHandler", func() {
 		)
 
 		BeforeEach(func() {
-
 			domainRepo = new(fake.CFDomainRepository)
 			clientBuilder = new(fake.ClientBuilder)
 
@@ -51,7 +49,6 @@ var _ = Describe("DomainHandler", func() {
 				&rest.Config{}, // required for k8s client (transitive dependency from route repo)
 			)
 			domainHandler.RegisterRoutes(router)
-
 		})
 
 		When("on the happy path", func() {
@@ -184,6 +181,5 @@ var _ = Describe("DomainHandler", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names'")
 			})
 		})
-
 	})
 })

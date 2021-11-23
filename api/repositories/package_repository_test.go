@@ -46,7 +46,6 @@ var _ = Describe("PackageRepository", func() {
 			Expect(
 				k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
 			).To(Succeed())
-
 		})
 
 		AfterEach(func() {
@@ -186,9 +185,7 @@ var _ = Describe("PackageRepository", func() {
 		})
 
 		When("table-testing the State field", func() {
-			var (
-				cfPackage *workloadsv1alpha1.CFPackage
-			)
+			var cfPackage *workloadsv1alpha1.CFPackage
 
 			BeforeEach(func() {
 				packageGUID := generateGUID()
@@ -297,7 +294,6 @@ var _ = Describe("PackageRepository", func() {
 				Expect(err).To(MatchError(NotFoundError{}))
 			})
 		})
-
 	})
 
 	Describe("UpdatePackageSource", func() {

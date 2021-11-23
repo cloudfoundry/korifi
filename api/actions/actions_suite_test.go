@@ -8,9 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var (
-	ctx context.Context
-)
+var ctx context.Context
 
 func TestApis(t *testing.T) {
 	RegisterFailHandler(Fail)

@@ -1,8 +1,9 @@
 package repositories
 
 import (
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	"context"
+
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,7 +50,6 @@ func (f *DomainRepo) FetchDomain(ctx context.Context, client client.Client, doma
 func (f *DomainRepo) FetchDomainList(ctx context.Context, client client.Client, message DomainListMessage) ([]DomainRecord, error) {
 	cfdomainList := &networkingv1alpha1.CFDomainList{}
 	err := client.List(ctx, cfdomainList)
-
 	if err != nil {
 		return []DomainRecord{}, err
 	}

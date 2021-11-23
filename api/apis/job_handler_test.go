@@ -72,6 +72,5 @@ var _ = Describe("JobHandler", func() {
 				expectNotFoundError("Job not found")
 			})
 		})
-
 	})
 })
