@@ -74,9 +74,9 @@ if [[ -n "${DOCKER_SERVER:=}" && -n "${DOCKER_USERNAME:=}" && -n "${DOCKER_PASSW
     fi
 
     kubectl create secret -n $ns docker-registry image-registry-credentials \
-        --docker-server=${DOCKER_SERVER} \
-        --docker-username=${DOCKER_USERNAME} \
-        --docker-password="${DOCKER_PASSWORD}"
+      --docker-server=${DOCKER_SERVER} \
+      --docker-username=${DOCKER_USERNAME} \
+      --docker-password="${DOCKER_PASSWORD}"
   done
 fi
 
@@ -86,8 +86,8 @@ kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstack
 
 kubectl apply -f "${DEP_DIR}/kpack/service_account.yaml"
 kubectl apply -f "${DEP_DIR}/kpack/cluster_stack.yaml" \
-              -f "${DEP_DIR}/kpack/cluster_store.yaml" \
-              -f "${DEP_DIR}/kpack/cluster_builder.yaml"
+  -f "${DEP_DIR}/kpack/cluster_store.yaml" \
+  -f "${DEP_DIR}/kpack/cluster_builder.yaml"
 
 echo "*******************"
 echo "Installing Contour"
