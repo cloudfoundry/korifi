@@ -2,12 +2,22 @@ package authorization
 
 import "errors"
 
-type UnauthorizedErr struct{}
+type InvalidAuthError struct{}
 
-func (e UnauthorizedErr) Error() string {
+func (e InvalidAuthError) Error() string {
 	return "unauthorized"
 }
 
-func IsUnauthorized(err error) bool {
-	return errors.Is(err, UnauthorizedErr{})
+func IsInvalidAuth(err error) bool {
+	return errors.Is(err, InvalidAuthError{})
+}
+
+type NotAuthenticatedError struct{}
+
+func (e NotAuthenticatedError) Error() string {
+	return "not authenticated"
+}
+
+func IsNotAuthenticated(err error) bool {
+	return errors.Is(err, NotAuthenticatedError{})
 }

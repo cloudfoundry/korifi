@@ -11,9 +11,9 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -158,27 +158,25 @@ func deleteSubnamespace(parent, name string) {
 	}).Should(BeTrue())
 }
 
-func createOrgRaw(orgName, authHeader string) (*http.Response, error) {
-	orgsUrl := apiServerRoot + apis.OrgsEndpoint
-	body := fmt.Sprintf(`{ "name": "%s" }`, orgName)
-	req, err := http.NewRequest(http.MethodPost, orgsUrl, strings.NewReader(body))
+func createOrgRaw(orgName, authHeader string) *http.Response {
+	resp, err := httpReq(
+		http.MethodPost,
+		apiServerRoot+apis.OrgsEndpoint,
+		authHeader,
+		map[string]interface{}{"name": orgName},
+	)
 	Expect(err).NotTo(HaveOccurred())
-	if authHeader != "" {
-		req.Header.Add(headers.Authorization, authHeader)
-	}
-
-	return http.DefaultClient.Do(req)
+	return resp
 }
 
 func createOrg(orgName, authHeader string) presenter.OrgResponse {
-	resp, err := createOrgRaw(orgName, authHeader)
-	Expect(err).NotTo(HaveOccurred())
+	resp := createOrgRaw(orgName, authHeader)
 	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
 	Expect(resp).To(HaveHTTPHeaderWithValue(headers.ContentType, "application/json"))
 	defer resp.Body.Close()
 
 	org := presenter.OrgResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&org)
+	err := json.NewDecoder(resp.Body).Decode(&org)
 	Expect(err).NotTo(HaveOccurred())
 
 	return org
@@ -196,16 +194,7 @@ func createSpaceRaw(spaceName, orgGUID, authHeader string) (*http.Response, erro
 			},
 		},
 	}
-	body, err := json.Marshal(payload)
-	Expect(err).NotTo(HaveOccurred())
-
-	req, err := http.NewRequest(http.MethodPost, spacesURL, bytes.NewReader(body))
-	Expect(err).NotTo(HaveOccurred())
-	if authHeader != "" {
-		req.Header.Add(headers.Authorization, authHeader)
-	}
-
-	return http.DefaultClient.Do(req)
+	return httpReq(http.MethodPost, spacesURL, authHeader, payload)
 }
 
 func createSpace(spaceName, orgGUID, authHeader string) presenter.SpaceResponse {
@@ -227,7 +216,7 @@ func createSpace(spaceName, orgGUID, authHeader string) presenter.SpaceResponse 
 
 // createRole creates an org or space role
 // You should probably invoke this via createOrgRole or createSpaceRole
-func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) presenter.RoleResponse {
+func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader string) presenter.RoleResponse {
 	rolesURL := apiServerRoot + apis.RolesEndpoint
 	payload := payloads.RoleCreate{
 		Type: roleName,
@@ -267,34 +256,28 @@ func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) pre
 		Fail("unexpected type " + orgSpaceType)
 	}
 
-	body, err := json.Marshal(payload)
+	resp, err := httpReq(http.MethodPost, rolesURL, authHeader, payload)
 	Expect(err).NotTo(HaveOccurred())
-
-	req, err := http.NewRequest(http.MethodPost, rolesURL, bytes.NewReader(body))
-	ExpectWithOffset(2, err).NotTo(HaveOccurred())
-
-	resp, err := http.DefaultClient.Do(req)
-	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 
-	ExpectWithOffset(2, resp).To(HaveHTTPStatus(http.StatusCreated))
+	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
 
 	role := presenter.RoleResponse{}
 	err = json.NewDecoder(resp.Body).Decode(&role)
-	ExpectWithOffset(2, err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	return role
 }
 
-func createOrgRole(roleName, kind, userName, orgGUID string) presenter.RoleResponse {
-	return createRole(roleName, kind, "organization", userName, orgGUID)
+func createOrgRole(roleName, kind, userName, orgGUID, authHeader string) presenter.RoleResponse {
+	return createRole(roleName, kind, "organization", userName, orgGUID, authHeader)
 }
 
-func createSpaceRole(roleName, kind, userName, spaceGUID string) presenter.RoleResponse {
-	return createRole(roleName, kind, "space", userName, spaceGUID)
+func createSpaceRole(roleName, kind, userName, spaceGUID, authHeader string) presenter.RoleResponse {
+	return createRole(roleName, kind, "space", userName, spaceGUID, authHeader)
 }
 
-func createApp(spaceGUID, name string) presenter.AppResponse {
+func createApp(spaceGUID, name, authHeader string) presenter.AppResponse {
 	appsURL := apiServerRoot + apis.AppCreateEndpoint
 
 	payload := payloads.AppCreate{
@@ -308,21 +291,15 @@ func createApp(spaceGUID, name string) presenter.AppResponse {
 		},
 	}
 
-	body, err := json.Marshal(payload)
+	resp, err := httpReq(http.MethodPost, appsURL, authHeader, payload)
 	Expect(err).NotTo(HaveOccurred())
-
-	req, err := http.NewRequest(http.MethodPost, appsURL, bytes.NewReader(body))
-	ExpectWithOffset(2, err).NotTo(HaveOccurred())
-
-	resp, err := http.DefaultClient.Do(req)
-	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 
-	ExpectWithOffset(2, resp).To(HaveHTTPStatus(http.StatusCreated))
+	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
 
 	app := presenter.AppResponse{}
 	err = json.NewDecoder(resp.Body).Decode(&app)
-	ExpectWithOffset(2, err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	return app
 }
@@ -430,4 +407,29 @@ func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) 
 
 func deleteCSR(csr *certsv1.CertificateSigningRequest) {
 	Expect(k8sClient.Delete(context.Background(), csr)).To(Succeed())
+}
+
+func httpReq(method, url, authHeader string, jsonBody interface{}) (*http.Response, error) {
+	var bodyReader io.Reader
+	if jsonBody != nil {
+		body, err := json.Marshal(jsonBody)
+		if err != nil {
+			return nil, err
+		}
+		bodyReader = bytes.NewReader(body)
+	}
+
+	req, err := http.NewRequest(method, url, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Authorization", authHeader)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }

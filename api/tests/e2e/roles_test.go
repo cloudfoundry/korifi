@@ -59,7 +59,7 @@ var _ = Describe("Roles", func() {
 		})
 
 		It("creates a role binding", func() {
-			role := createOrgRole("organization_manager", rbacv1.UserKind, userName, org.GUID)
+			role := createOrgRole("organization_manager", rbacv1.UserKind, userName, org.GUID, tokenAuthHeader)
 			Expect(role.Type).To(Equal("organization_manager"))
 
 			roleBindingList := &rbacv1.RoleBindingList{}
@@ -105,7 +105,7 @@ var _ = Describe("Roles", func() {
 		})
 
 		It("creates a role binding", func() {
-			role := createSpaceRole("space_developer", rbacv1.UserKind, userName, space.GUID)
+			role := createSpaceRole("space_developer", rbacv1.UserKind, userName, space.GUID, tokenAuthHeader)
 
 			Expect(role.Type).To(Equal("space_developer"))
 

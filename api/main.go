@@ -85,6 +85,7 @@ func main() {
 
 	fetchProcessStatsAction := actions.NewFetchProcessStats(new(repositories.ProcessRepo), new(repositories.PodRepo), new(repositories.AppRepo))
 
+	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout)
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
@@ -164,8 +165,9 @@ func main() {
 		),
 		apis.NewLogCacheHandler(),
 
-		apis.NewOrgHandler(*serverURL, wireOrgRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, k8sClientConfig)),
-		apis.NewSpaceHandler(*serverURL, wireSpaceRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, k8sClientConfig)),
+		apis.NewOrgHandler(*serverURL, wireOrgRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, identityProvider)),
+		apis.NewSpaceHandler(*serverURL, wireSpaceRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, identityProvider)),
+
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
@@ -177,13 +179,14 @@ func main() {
 
 		apis.NewRoleHandler(*serverURL, repositories.NewRoleRepo(privilegedCRClient, authorization.NewOrg(privilegedCRClient), config.RoleMappings)),
 
-		apis.NewWhoAmI(wireIdentityProvider(privilegedCRClient, k8sClientConfig), *serverURL),
+		apis.NewWhoAmI(identityProvider, *serverURL),
 	}
 
 	router := mux.NewRouter()
 	for _, handler := range handlers {
 		handler.RegisterRoutes(router)
 	}
+	router.Use(apis.NewAuthenticationMiddleware(identityProvider).Middleware)
 
 	portString := fmt.Sprintf(":%v", config.ServerPort)
 	log.Println("Listening on ", portString)
@@ -208,23 +211,21 @@ func newRegistryAuthBuilder(privilegedK8sClient k8sclient.Interface, config *con
 	}
 }
 
-func wireOrgRepoProvider(orgRepo *repositories.OrgRepo, client client.Client, authEnabled bool, restConfig *rest.Config) apis.OrgRepositoryProvider {
+func wireOrgRepoProvider(orgRepo *repositories.OrgRepo, client client.Client, authEnabled bool, identityProvider *authorization.IdentityProvider) apis.OrgRepositoryProvider {
 	if !authEnabled {
 		return provider.NewPrivilegedOrg(orgRepo)
 	}
 
 	authNsProvider := authorization.NewOrg(client)
-	identityProvider := wireIdentityProvider(client, restConfig)
 	return provider.NewOrg(orgRepo, authNsProvider, identityProvider)
 }
 
-func wireSpaceRepoProvider(orgRepo *repositories.OrgRepo, client client.Client, authEnabled bool, restConfig *rest.Config) apis.SpaceRepositoryProvider {
+func wireSpaceRepoProvider(orgRepo *repositories.OrgRepo, client client.Client, authEnabled bool, identityProvider *authorization.IdentityProvider) apis.SpaceRepositoryProvider {
 	if !authEnabled {
 		return provider.NewPrivilegedSpace(orgRepo)
 	}
 
 	authNsProvider := authorization.NewOrg(client)
-	identityProvider := wireIdentityProvider(client, restConfig)
 	return provider.NewSpace(orgRepo, authNsProvider, identityProvider)
 }
 

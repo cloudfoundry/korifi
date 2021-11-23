@@ -53,7 +53,7 @@ func (c CertInspector) WhoAmI(ctx context.Context, certPEMB64 string) (Identity,
 	// the cluster
 	_, err = client.New(config, client.Options{})
 	if apierrors.IsUnauthorized(err) {
-		return Identity{}, UnauthorizedErr{}
+		return Identity{}, InvalidAuthError{}
 	}
 	if err != nil {
 		return Identity{}, err

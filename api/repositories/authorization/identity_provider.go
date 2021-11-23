@@ -37,7 +37,7 @@ func NewIdentityProvider(tokenInspector, certInspector IdentityInspector) *Ident
 
 func (p *IdentityProvider) GetIdentity(ctx context.Context, authorizationHeader string) (Identity, error) {
 	if authorizationHeader == "" {
-		return Identity{}, UnauthorizedErr{}
+		return Identity{}, NotAuthenticatedError{}
 	}
 
 	scheme, value, err := parseAuthorizationHeader(authorizationHeader)

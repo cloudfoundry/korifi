@@ -110,12 +110,31 @@ var _ = Describe("Spaces", func() {
 			Expect(spaceRecord.Name).To(Equal("the-space"))
 		})
 
-		When("not authorized", func() {
+		When("authentication is invalid", func() {
 			BeforeEach(func() {
-				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.UnauthorizedErr{})
+				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.InvalidAuthError{})
 			})
 
-			It("returns an unauthorized error", func() {
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+                    "errors": [
+                    {
+                        "detail": "Invalid Auth Token",
+                        "title": "CF-InvalidAuthToken",
+                        "code": 1000
+                    }
+                    ]
+                }`))
+			})
+		})
+
+		When("authentication is not provided", func() {
+			BeforeEach(func() {
+				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.NotAuthenticatedError{})
+			})
+
+			It("returns Unauthorized error", func() {
 				expectUnauthorizedError()
 			})
 		})
@@ -296,12 +315,31 @@ var _ = Describe("Spaces", func() {
 			Expect(names).To(BeEmpty())
 		})
 
-		When("not authorized", func() {
+		When("authentication is invalid", func() {
 			BeforeEach(func() {
-				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.UnauthorizedErr{})
+				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.InvalidAuthError{})
 			})
 
-			It("returns an unauthorized error", func() {
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+                    "errors": [
+                    {
+                        "detail": "Invalid Auth Token",
+                        "title": "CF-InvalidAuthToken",
+                        "code": 1000
+                    }
+                    ]
+                }`))
+			})
+		})
+
+		When("authentication is not provided", func() {
+			BeforeEach(func() {
+				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.NotAuthenticatedError{})
+			})
+
+			It("returns Unauthorized error", func() {
 				expectUnauthorizedError()
 			})
 		})

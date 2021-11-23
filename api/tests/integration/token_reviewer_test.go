@@ -75,7 +75,7 @@ var _ = Describe("TokenReviewer", func() {
 	When("an invalid token is passed", func() {
 		BeforeEach(func() {
 			token = "invalid"
-			passErrConstraints = MatchError("user is not authenticated: invalid bearer token")
+			passErrConstraints = BeAssignableToTypeOf(authorization.InvalidAuthError{})
 		})
 
 		It("returns an error", func() {

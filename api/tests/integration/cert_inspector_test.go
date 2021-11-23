@@ -44,7 +44,7 @@ var _ = Describe("CertInspector", func() {
 
 		It("returns a InvalidAuthError", func() {
 			Expect(inspectorErr).To(HaveOccurred())
-			Expect(authorization.IsUnauthorized(inspectorErr)).To(BeTrue(), "%#v", inspectorErr)
+			Expect(authorization.IsInvalidAuth(inspectorErr)).To(BeTrue(), "%#v", inspectorErr)
 		})
 	})
 
