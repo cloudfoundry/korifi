@@ -143,12 +143,13 @@ func createBuildWithDroplet(ctx context.Context, k8sClient client.Client, cfBuil
 	Expect(
 		k8sClient.Create(ctx, cfBuild),
 	).To(Succeed())
-	cfBuild.Status.Conditions = []metav1.Condition{}
-	cfBuild.Status.BuildDropletStatus = droplet
+	patchedCFBuild := cfBuild.DeepCopy()
+	patchedCFBuild.Status.Conditions = []metav1.Condition{}
+	patchedCFBuild.Status.BuildDropletStatus = droplet
 	Expect(
-		k8sClient.Status().Update(ctx, cfBuild),
+		k8sClient.Status().Patch(ctx, patchedCFBuild, client.MergeFrom(cfBuild)),
 	).To(Succeed())
-	return cfBuild
+	return patchedCFBuild
 }
 
 func createNamespace(ctx context.Context, k8sClient client.Client, name string) *corev1.Namespace {
