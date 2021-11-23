@@ -143,11 +143,19 @@ func newUnknownError() presenter.ErrorsResponse {
 	}}}
 }
 
-func newUnauthenticatedError() presenter.ErrorsResponse {
+func newNotAuthenticatedError() presenter.ErrorsResponse {
 	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "CF-NotAuthenticated",
 		Detail: "Authentication error",
 		Code:   10002,
+	}}}
+}
+
+func newInvalidAuthError() presenter.ErrorsResponse {
+	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+		Title:  "CF-InvalidAuthToken",
+		Detail: "Invalid Auth Token",
+		Code:   1000,
 	}}}
 }
 
@@ -220,9 +228,18 @@ func writeUnknownErrorResponse(w http.ResponseWriter) {
 	_, _ = w.Write(responseBody)
 }
 
-func writeUnauthorizedErrorResponse(w http.ResponseWriter) {
+func writeNotAuthenticatedErrorResponse(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusUnauthorized)
-	responseBody, err := json.Marshal(newUnauthenticatedError())
+	responseBody, err := json.Marshal(newNotAuthenticatedError())
+	if err != nil {
+		return
+	}
+	_, _ = w.Write(responseBody)
+}
+
+func writeInvalidAuthErrorResponse(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusUnauthorized)
+	responseBody, err := json.Marshal(newInvalidAuthError())
 	if err != nil {
 		return
 	}

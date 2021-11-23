@@ -145,8 +145,8 @@ var _ = Describe("IdentityProvider", func() {
 			authHeader = ""
 		})
 
-		It("returns a InvalidAuthError", func() {
-			Expect(err).To(BeAssignableToTypeOf(authorization.InvalidAuthError{}))
+		It("returns a NotAuthenticatedErr", func() {
+			Expect(err).To(BeAssignableToTypeOf(authorization.NotAuthenticatedError{}))
 		})
 	})
 })

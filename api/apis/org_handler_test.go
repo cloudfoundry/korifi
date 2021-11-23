@@ -257,9 +257,29 @@ var _ = Describe("OrgHandler", func() {
 			})
 		})
 
-		When("not authorized", func() {
+		When("authentication is invalid", func() {
 			BeforeEach(func() {
 				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.InvalidAuthError{})
+				makePostRequest(`{"name": "the-org"}`)
+			})
+
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+                    "errors": [
+                    {
+                        "detail": "Invalid Auth Token",
+                        "title": "CF-InvalidAuthToken",
+                        "code": 1000
+                    }
+                    ]
+                }`))
+			})
+		})
+
+		When("authentication is not provided", func() {
+			BeforeEach(func() {
+				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.NotAuthenticatedError{})
 				makePostRequest(`{"name": "the-org"}`)
 			})
 
@@ -420,9 +440,29 @@ var _ = Describe("OrgHandler", func() {
 			})
 		})
 
-		When("not authorized", func() {
+		When("authentication is invalid", func() {
 			BeforeEach(func() {
 				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.InvalidAuthError{})
+				router.ServeHTTP(rr, req)
+			})
+
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+                    "errors": [
+                    {
+                        "detail": "Invalid Auth Token",
+                        "title": "CF-InvalidAuthToken",
+                        "code": 1000
+                    }
+                    ]
+                }`))
+			})
+		})
+
+		When("authentication is not provided", func() {
+			BeforeEach(func() {
+				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.NotAuthenticatedError{})
 				router.ServeHTTP(rr, req)
 			})
 
