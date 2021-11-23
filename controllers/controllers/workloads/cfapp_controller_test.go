@@ -116,9 +116,7 @@ var _ = Describe("CFAppReconciler", func() {
 	})
 
 	When("a CFApp is created and CFAppReconciler Reconcile function is called", func() {
-
 		When("on the happy path", func() {
-
 			BeforeEach(func() {
 				reconcileResult, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 			})
@@ -144,7 +142,6 @@ var _ = Describe("CFAppReconciler", func() {
 		})
 
 		When("on the unhappy path", func() {
-
 			When("fetch CFApp returns an error", func() {
 				BeforeEach(func() {
 					cfAppError = errors.New(failsOnPurposeErrorMessage)
@@ -186,7 +183,6 @@ var _ = Describe("CFAppReconciler", func() {
 		})
 
 		When("on the happy path", func() {
-
 			BeforeEach(func() {
 				reconcileResult, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 			})
@@ -198,20 +194,20 @@ var _ = Describe("CFAppReconciler", func() {
 				// validate the inputs to Get
 				Expect(fakeClient.GetCallCount()).To(Equal(2))
 
-				//Validate args to fetch CFApp
+				// Validate args to fetch CFApp
 				_, testRequestNamespacedName, _ := fakeClient.GetArgsForCall(0)
 				Expect(testRequestNamespacedName.Namespace).To(Equal(defaultNamespace))
 				Expect(testRequestNamespacedName.Name).To(Equal(cfAppGUID))
 
-				//Validate args to fetch CFBuild
+				// Validate args to fetch CFBuild
 				_, testRequestNamespacedName, _ = fakeClient.GetArgsForCall(1)
 				Expect(testRequestNamespacedName.Namespace).To(Equal(defaultNamespace))
 				Expect(testRequestNamespacedName.Name).To(Equal(cfBuildGUID))
 
-				//Validate call count to fetch CFProcess
+				// Validate call count to fetch CFProcess
 				Expect(fakeClient.ListCallCount()).To(Equal(1))
 
-				//Validate call count to create CFProcess
+				// Validate call count to create CFProcess
 				Expect(fakeClient.CreateCallCount()).To(Equal(1))
 
 				// validate the inputs to Status.Update
@@ -225,7 +221,6 @@ var _ = Describe("CFAppReconciler", func() {
 		})
 
 		When("on the unhappy path", func() {
-
 			When("fetch CFApp returns an error", func() {
 				BeforeEach(func() {
 					cfAppError = errors.New(failsOnPurposeErrorMessage)
@@ -290,7 +285,6 @@ var _ = Describe("CFAppReconciler", func() {
 				It("should returns an error", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
-
 			})
 
 			When("create CFProcess returns an error", func() {
@@ -302,7 +296,6 @@ var _ = Describe("CFAppReconciler", func() {
 				It("should returns an error", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
-
 			})
 
 			When("update status conditions returns an error", func() {
@@ -317,5 +310,4 @@ var _ = Describe("CFAppReconciler", func() {
 			})
 		})
 	})
-
 })

@@ -91,7 +91,6 @@ var _ = Describe("FetchProcessStatsAction", func() {
 	})
 
 	When("on the unhappy path", func() {
-
 		When("FetchProcess responds with some error", func() {
 			BeforeEach(func() {
 				processRepo.FetchProcessReturns(repositories.ProcessRecord{}, errors.New("some-error"))
@@ -115,6 +114,5 @@ var _ = Describe("FetchProcessStatsAction", func() {
 				Expect(responseErr).To(MatchError("some-error"))
 			})
 		})
-
 	})
 })

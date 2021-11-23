@@ -46,7 +46,6 @@ var _ = Describe("DomainRepository", func() {
 						Name: "domain-id-2",
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
-
 						Name: "my-domain-2",
 					},
 				}
@@ -142,7 +141,6 @@ var _ = Describe("DomainRepository", func() {
 					},
 				}
 				Expect(k8sClient.Create(ctx, cfDomain2)).To(Succeed())
-
 			})
 
 			AfterEach(func() {
@@ -250,7 +248,6 @@ var _ = Describe("DomainRepository", func() {
 					},
 				}
 				Expect(k8sClient.Create(ctx, cfDomain2)).To(Succeed())
-
 			})
 
 			AfterEach(func() {
@@ -260,7 +257,6 @@ var _ = Describe("DomainRepository", func() {
 			})
 
 			When("a single value is provided for a key", func() {
-
 				It("eventually returns a list of domainRecords for each CFDomain CR that matches the key with value", func() {
 					var domainRecords []DomainRecord
 					Eventually(func() []DomainRecord {
@@ -292,12 +288,10 @@ var _ = Describe("DomainRepository", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 					})
-
 				})
 			})
 
 			When("a multiple value is provided for a key", func() {
-
 				BeforeEach(func() {
 					domainListMessage = DomainListMessage{
 						Names: []string{domainName1, domainName2},
@@ -351,11 +345,8 @@ var _ = Describe("DomainRepository", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 					})
-
 				})
 			})
-
 		})
-
 	})
 })

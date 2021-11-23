@@ -243,7 +243,7 @@ var _ = Describe("AppRepository", func() {
 				Expect(appRecord.SpaceGUID).To(Equal(namespace.Name))
 				Expect(appRecord.State).To(BeEquivalentTo("STOPPED"))
 				Expect(appRecord.Lifecycle).To(Equal(Lifecycle{Type: "buildpack"}))
-				//Expect(appRecord.CreatedAt).To(Equal()) "",
+				// Expect(appRecord.CreatedAt).To(Equal()) "",
 			})
 
 			When("the App doesn't exist in the Space (but is in another Space)", func() {
@@ -258,9 +258,7 @@ var _ = Describe("AppRepository", func() {
 	Describe("FetchAppList", Serial, func() {
 		const defaultNamespaceName = "default"
 
-		var (
-			message AppListMessage
-		)
+		var message AppListMessage
 
 		BeforeEach(func() {
 			message = AppListMessage{}
@@ -1236,7 +1234,6 @@ var _ = Describe("AppRepository", func() {
 					}
 					return string(updatedCFApp.Spec.DesiredState)
 				}, 10*time.Second, 250*time.Millisecond).Should(Equal(appStoppedValue))
-
 			})
 		})
 

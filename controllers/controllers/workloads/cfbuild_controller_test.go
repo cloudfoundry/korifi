@@ -57,7 +57,7 @@ var _ = Describe("CFBuildReconciler", func() {
 
 		kpackServiceAccount      *corev1.ServiceAccount
 		kpackServiceAccountError error
-		//kpackRegistrySecret      *corev1.Secret
+		// kpackRegistrySecret      *corev1.Secret
 
 		kpackImage        *buildv1alpha2.Image
 		kpackImageError   error
@@ -89,7 +89,7 @@ var _ = Describe("CFBuildReconciler", func() {
 		kpackImage = mockKpackImageObject(kpackImageGUID, defaultNamespace)
 		kpackImageError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
 
-		//kpackRegistrySecret = BuildDockerRegistrySecret(kpackRegistrySecretName, defaultNamespace)
+		// kpackRegistrySecret = BuildDockerRegistrySecret(kpackRegistrySecretName, defaultNamespace)
 		kpackServiceAccount = BuildServiceAccount(kpackServiceAccountName, defaultNamespace, kpackRegistrySecretName)
 		kpackServiceAccountError = nil
 
@@ -148,7 +148,6 @@ var _ = Describe("CFBuildReconciler", func() {
 
 	When("CFBuild status conditions are unknown and", func() {
 		When("on the happy path", func() {
-
 			BeforeEach(func() {
 				reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 			})
@@ -251,7 +250,6 @@ var _ = Describe("CFBuildReconciler", func() {
 				})
 			})
 		})
-
 	})
 
 	When("CFBuild status conditions for Staging is True and others are unknown", func() {

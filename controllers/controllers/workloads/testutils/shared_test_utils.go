@@ -156,8 +156,8 @@ func BuildServiceAccount(name, namespace, imagePullSecretName string) *corev1.Se
 			Name:      name,
 			Namespace: namespace,
 		},
-		Secrets:          []corev1.ObjectReference{corev1.ObjectReference{Name: imagePullSecretName}},
-		ImagePullSecrets: []corev1.LocalObjectReference{corev1.LocalObjectReference{Name: imagePullSecretName}},
+		Secrets:          []corev1.ObjectReference{{Name: imagePullSecretName}},
+		ImagePullSecrets: []corev1.LocalObjectReference{{Name: imagePullSecretName}},
 	}
 }
 

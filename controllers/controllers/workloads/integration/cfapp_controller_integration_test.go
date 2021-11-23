@@ -119,7 +119,6 @@ var _ = Describe("CFAppReconciler", func() {
 		})
 
 		When("currentDropletRef is set and", func() {
-
 			When("the referenced build/droplet exists", func() {
 				When("CFProcesses do not exist for the app", func() {
 					BeforeEach(func() {
@@ -151,7 +150,6 @@ var _ = Describe("CFAppReconciler", func() {
 				})
 
 				When("CFProcesses exist for the app", func() {
-
 					var (
 						cfProcessForTypeWebGUID string
 						cfProcessForTypeWeb     *workloadsv1alpha1.CFProcess
@@ -169,7 +167,7 @@ var _ = Describe("CFAppReconciler", func() {
 					It("should eventually create CFProcess for only the missing processTypes", func() {
 						testCtx := context.Background()
 
-						//Checking for worker type first ensures that we wait long enough for processes to be created.
+						// Checking for worker type first ensures that we wait long enough for processes to be created.
 						cfProcessList := workloadsv1alpha1.CFProcessList{}
 						labelSelectorMap := labels.Set{
 							CFAppLabelKey:         cfAppGUID,
@@ -193,7 +191,6 @@ var _ = Describe("CFAppReconciler", func() {
 						Expect(cfProcessList.Items).Should(HaveLen(1), "Count of CFProcess is not equal to 1")
 					})
 				})
-
 			})
 
 			When("the droplet has no ports set", func() {
@@ -240,6 +237,5 @@ var _ = Describe("CFAppReconciler", func() {
 				})
 			})
 		})
-
 	})
 })

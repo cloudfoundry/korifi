@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gorilla/schema"
 	"net/http"
 	"net/url"
+
+	"github.com/gorilla/schema"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
@@ -208,7 +209,6 @@ func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
 
 	appListFilter := new(payloads.AppList)
 	err := schema.NewDecoder().Decode(appListFilter, r.Form)
-
 	if err != nil {
 		switch err.(type) {
 		case schema.MultiError:
@@ -716,11 +716,9 @@ func (h *AppHandler) appRestartHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write(responseBody)
-
 }
 
 func (h *AppHandler) lookupAppRouteAndDomainList(ctx context.Context, client client.Client, appGUID, spaceGUID string) ([]repositories.RouteRecord, error) {
-
 	routeRecords, err := h.routeRepo.FetchRoutesForApp(ctx, client, appGUID, spaceGUID)
 	if err != nil {
 		return []repositories.RouteRecord{}, err

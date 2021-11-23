@@ -34,7 +34,6 @@ const (
 )
 
 var _ = Describe("CFRouteReconciler Unit Tests", func() {
-
 	var (
 		fakeClient *fake.Client
 

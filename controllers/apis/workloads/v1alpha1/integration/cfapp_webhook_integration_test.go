@@ -20,9 +20,7 @@ var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 			namespace     = "default"
 		)
 
-		var (
-			cfAppGUID string
-		)
+		var cfAppGUID string
 
 		It(" should add a metadata label on it and it matches metadata.name", func() {
 			testCtx := context.Background()

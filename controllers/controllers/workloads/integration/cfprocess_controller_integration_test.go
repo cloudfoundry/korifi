@@ -184,6 +184,5 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			Expect(lrp.Spec.Health.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
 			Expect(lrp.Spec.Health.Port).To(BeZero())
 		})
-
 	})
 })

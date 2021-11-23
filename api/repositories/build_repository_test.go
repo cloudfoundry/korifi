@@ -59,7 +59,6 @@ var _ = Describe("BuildRepository", func() {
 		})
 
 		When("on the happy path", func() {
-
 			const (
 				StagingConditionType   = "Staging"
 				SucceededConditionType = "Succeeded"
@@ -404,11 +403,9 @@ var _ = Describe("BuildRepository", func() {
 				Labels:      buildCreateLabels,
 				Annotations: buildCreateAnnotations,
 			}
-
 		})
 
 		When("creating a Build", func() {
-
 			var (
 				buildCreateRecord BuildRecord
 				buildCreateErr    error
@@ -486,7 +483,6 @@ var _ = Describe("BuildRepository", func() {
 					return err == nil
 				}, 5*time.Second, 250*time.Millisecond).Should(BeTrue(), "A CFBuild CR was not eventually created")
 			})
-
 		})
 	})
 })

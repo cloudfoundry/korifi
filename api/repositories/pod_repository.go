@@ -53,7 +53,7 @@ func (r *PodRepo) FetchPodStatsByAppGUID(ctx context.Context, k8sClient client.C
 		return nil, err
 	}
 
-	//Initialize records slice with the pod instances we expect to exist
+	// Initialize records slice with the pod instances we expect to exist
 	records := make([]PodStatsRecord, message.Instances)
 	for i := 0; i < message.Instances; i++ {
 		records[i] = PodStatsRecord{

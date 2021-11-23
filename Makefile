@@ -51,8 +51,8 @@ generate-controllers: controller-gen ## Generate code containing DeepCopy, DeepC
 generate-fakes:
 	go generate ./...
 
-fmt: ## Run go fmt against code.
-	go fmt ./...
+fmt: gofumpt
+	$(GOFUMPT) -w .
 
 vet: ## Run go vet against code.
 	go vet ./...
@@ -156,6 +156,10 @@ controller-gen: ## Download controller-gen locally if necessary.
 KUSTOMIZE = $(shell pwd)/controllers/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.2.0)
+
+GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
+gofumpt:
+	go install mvdan.cc/gofumpt@latest
 
 ginkgo:
 	go install github.com/onsi/ginkgo/ginkgo

@@ -204,7 +204,6 @@ var _ = Describe("PodRepository", func() {
 				))
 			})
 		})
-
 	})
 
 	Describe("WatchPodsForTermination", func() {
@@ -247,7 +246,6 @@ var _ = Describe("PodRepository", func() {
 			Expect(
 				k8sClient.Create(ctx, pod2),
 			).To(Succeed())
-
 		})
 
 		AfterEach(func() {
@@ -256,7 +254,6 @@ var _ = Describe("PodRepository", func() {
 
 		When("pods exist", func() {
 			It("returns true when pods are deleted", func() {
-
 				go func() {
 					time.Sleep(time.Millisecond * 200)
 					k8sClient.Delete(context.Background(), pod1)
@@ -289,7 +286,6 @@ var _ = Describe("PodRepository", func() {
 				Expect(terminated).To(BeFalse())
 			})
 		})
-
 	})
 })
 

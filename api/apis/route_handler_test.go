@@ -203,7 +203,6 @@ var _ = Describe("RouteHandler", func() {
 		)
 
 		BeforeEach(func() {
-
 			routeRepo = new(fake.CFRouteRepository)
 			domainRepo = new(fake.CFDomainRepository)
 			appRepo = new(fake.CFAppRepository)

@@ -73,7 +73,7 @@ func extractFullCommand(process launch.Process) string {
 func extractExposedPorts(imageConfig *v1.Config) ([]int32, error) {
 	// Drop the protocol since we only use TCP (the default) and only store the port number
 	ports := []int32{}
-	for port, _ := range imageConfig.ExposedPorts {
+	for port := range imageConfig.ExposedPorts {
 		portInt, err := strconv.Atoi(port)
 		if err != nil {
 			return []int32{}, err

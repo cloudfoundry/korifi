@@ -160,7 +160,6 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process workloads
 }
 
 func (r *CFAppReconciler) checkCFProcessExistsForType(ctx context.Context, appGUID string, namespace string, processType string) (bool, error) {
-
 	selector, err := labels.ValidatedSelectorFromSet(map[string]string{
 		workloadsv1alpha1.CFAppGUIDLabelKey:     appGUID,
 		workloadsv1alpha1.CFProcessTypeLabelKey: processType,

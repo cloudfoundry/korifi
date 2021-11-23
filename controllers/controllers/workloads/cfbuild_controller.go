@@ -153,7 +153,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Name, Namespace: cfBuild.Namespace}, &kpackImage)
 		if err != nil {
 			r.Log.Error(err, "Error when fetching Kpack Image")
-			//Ignore Image NotFound errors to account for eventual consistency
+			// Ignore Image NotFound errors to account for eventual consistency
 			return ctrl.Result{}, client.IgnoreNotFound(err)
 		}
 		kpackReadyStatusCondition := kpackImage.Status.GetCondition(kpackReadyConditionType)
@@ -270,9 +270,8 @@ func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, des
 }
 
 func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpackImage *buildv1alpha2.Image, imagePullSecrets []corev1.LocalObjectReference) (*workloadsv1alpha1.BuildDropletStatus, error) {
-
 	imageRef := kpackImage.Status.LatestImage
-	//imagePullSecrets := kpackImage.Spec.Source.Registry.ImagePullSecrets
+	// imagePullSecrets := kpackImage.Spec.Source.Registry.ImagePullSecrets
 
 	// Use ImagePullSecrets to extract credentials with RegistryAuthFetcher
 	// RegistryAuthFetcher func(ctx context.Context, imagePullSecrets []corev1.LocalObjectReference, namespace string) (remote.Option, error)
@@ -337,7 +336,8 @@ func (r *CFBuildReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					NamespacedName: types.NamespacedName{
 						Name:      obj.GetLabels()[workloadsv1alpha1.CFBuildGUIDLabelKey],
 						Namespace: obj.GetNamespace(),
-					}})
+					},
+				})
 				return requests
 			})).
 		Complete(r)

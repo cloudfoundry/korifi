@@ -53,8 +53,7 @@ type BuildRecord struct {
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds/status,verbs=get
 
-type BuildRepo struct {
-}
+type BuildRepo struct{}
 
 func (b *BuildRepo) FetchBuild(ctx context.Context, k8sClient client.Client, buildGUID string) (BuildRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
