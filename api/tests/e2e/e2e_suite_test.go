@@ -115,7 +115,7 @@ func ensureServerIsUp() {
 		resp.Body.Close()
 
 		return resp.StatusCode, nil
-	}, "30s").Should(Equal(http.StatusOK), "API Server at %s was not running after 30 seconds", apiServerRoot)
+	}, "5m").Should(Equal(http.StatusOK), "API Server at %s was not running after 5 minutes", apiServerRoot)
 }
 
 func generateGUID(prefix string) string {

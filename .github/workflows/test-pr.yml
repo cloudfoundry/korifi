@@ -220,7 +220,7 @@ jobs:
     - name: Run e2e tests
       env:
         SKIP_DOCKER_BUILD: true
-        API_IMG: cloudfoundry/cf-k8s-api:${{ github.sha }}
-        CONTROLLERS_IMG: cloudfoundry/cf-k8s-controllers:${{ github.sha }}
+        IMG_API: cloudfoundry/cf-k8s-api:${{ github.sha }}
+        IMG_CONTROLLERS: cloudfoundry/cf-k8s-controllers:${{ github.sha }}
       run: make test-e2e
       working-directory: ./cf-k8s-controllers
