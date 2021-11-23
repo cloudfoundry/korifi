@@ -124,16 +124,13 @@ deploy: install-crds deploy-controllers deploy-api
 
 deploy-kind: install-crds deploy-controllers deploy-api-kind-auth
 
-deploy-controllers: manifests-controllers kustomize
-	cd controllers/config/manager && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-controllers=${IMG_CONTROLLERS}
+deploy-controllers: kustomize build-reference-controllers
 	$(KUSTOMIZE) build controllers/config/default | kubectl apply -f -
 
-deploy-api: kustomize
-	cd api/config/base && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-api=${IMG_API}
+deploy-api: kustomize build-reference-api
 	$(KUSTOMIZE) build api/config/base | kubectl apply -f -
 
-deploy-api-kind-auth: kustomize
-	cd api/config/base && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-api=${IMG_API}
+deploy-api-kind-auth: kustomize build-reference-api
 	$(KUSTOMIZE) build api/config/overlays/kind-auth-enabled | kubectl apply -f -
 
 undeploy-controllers: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
