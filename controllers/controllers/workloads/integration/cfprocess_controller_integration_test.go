@@ -82,7 +82,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		}
 		dropletPorts := []int32{port8080, port9000}
 		buildDropletStatus := BuildCFBuildDropletStatusObject(dropletProcessTypeMap, dropletPorts)
-		createBuildWithDroplet(ctx, k8sClient, cfBuild, buildDropletStatus)
+		cfBuild = createBuildWithDroplet(ctx, k8sClient, cfBuild, buildDropletStatus)
 	})
 
 	AfterEach(func() {
@@ -184,6 +184,5 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			Expect(lrp.Spec.Health.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
 			Expect(lrp.Spec.Health.Port).To(BeZero())
 		})
-
 	})
 })
