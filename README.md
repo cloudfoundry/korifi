@@ -133,7 +133,7 @@ ln -s /usr/local/opt/openssl@3/bin/openssl /usr/local/bin/openssl
 ```
 
 ## Configure cf-k8s-controllers
-Configuration file for cf-k8s-controllers is at `config/base/cf_k8s_controllers_k8s.yaml`
+Configuration file for cf-k8s-controllers is at `config/base/controllersconfig/cf_k8s_controllers_k8s.yaml`
 
 Note: Edit this file and set the `kpackImageTag` to be the registry location you want for storing the images.
 
@@ -223,10 +223,10 @@ make run-api
 **Note** Supports ingress with only GKE
 
 ### Editing Local Configuration
-To specify a custom configuration file, set the `CONFIG` environment variable to its path when running the web server.
-Refer to the [default config](config/cf_k8s_api_config.yaml) for the config file structure and options.
+To specify a custom configuration file, set the `APICONFIG` environment variable to its path when running the web server.
+Refer to the [default config](apiconfig/cf_k8s_api_config.yaml) for the config file structure and options.
 
-Edit the file `config/base/cf_k8s_api_config.yaml` and set the `packageRegistryBase` field to be the registry location you want your source package image to be uploaded to.
+Edit the file `config/base/apiconfig/cf_k8s_api_config.yaml` and set the `packageRegistryBase` field to be the registry location you want your source package image to be uploaded to.
 Edit the file `config/base/api_url_patch.yaml` to specify the desired URL for the deployed API.
 
 ### Using make

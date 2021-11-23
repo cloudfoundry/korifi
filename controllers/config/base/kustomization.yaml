@@ -3,5 +3,5 @@ generatorOptions:
 
 configMapGenerator:
   - files:
-      - cf_k8s_controllers_config.yaml
+      - controllersconfig/cf_k8s_controllers_config.yaml
     name: config

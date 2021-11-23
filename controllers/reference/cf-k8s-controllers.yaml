@@ -1617,8 +1617,8 @@ spec:
         - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
         env:
-        - name: CONFIG
-          value: /cf_k8s_controllers_config.yaml
+        - name: CONTROLLERSCONFIG
+          value: /etc/cf-k8s-controllers-config
         image: cloudfoundry/cf-k8s-controllers:latest
         livenessProbe:
           httpGet:
@@ -1650,10 +1650,9 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
-        - mountPath: /cf_k8s_controllers_config.yaml
+        - mountPath: /etc/cf-k8s-controllers-config
           name: cf-k8s-controllers-config
           readOnly: true
-          subPath: cf_k8s_controllers_config.yaml
       - args:
         - --secure-listen-address=0.0.0.0:8443
         - --upstream=http://127.0.0.1:8080/
