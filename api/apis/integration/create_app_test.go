@@ -74,7 +74,7 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 				"relationships": {
 					"space": {
 						"data": {
-							"guid": %q 
+							"guid": %q
 						}
 					}
 				},

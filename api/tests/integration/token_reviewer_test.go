@@ -42,7 +42,7 @@ var _ = Describe("TokenReviewer", func() {
 
 	When("the token is issued for a serviceaccount", func() {
 		BeforeEach(func() {
-			restartEnvTest(authProvider.APIServerExtraArgs("system:serviceaccount:")...)
+			restartEnvTest(authProvider.APIServerExtraArgs("system:serviceaccount:"))
 			token = authProvider.GenerateJWTToken(
 				"my-serviceaccount",
 				"system:serviceaccounts",
@@ -58,7 +58,7 @@ var _ = Describe("TokenReviewer", func() {
 
 	When("the serviceaccount token is malformed", func() {
 		BeforeEach(func() {
-			restartEnvTest(authProvider.APIServerExtraArgs("incorrect-prefix:")...)
+			restartEnvTest(authProvider.APIServerExtraArgs("incorrect-prefix:"))
 			token = authProvider.GenerateJWTToken(
 				"my-serviceaccount",
 				"system:serviceaccounts",

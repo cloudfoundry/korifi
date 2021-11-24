@@ -961,10 +961,7 @@ var _ = Describe("AppRepository", func() {
 				createdCFAppSecret := &corev1.Secret{}
 				Eventually(func() bool {
 					err := testClient.Get(context.Background(), cfAppSecretLookupKey, createdCFAppSecret)
-					if err != nil {
-						return false
-					}
-					return true
+					return err == nil
 				}, timeCheckThreshold*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not find the secret created by the repo")
 
 				// Secret has an owner reference that points to the App CR

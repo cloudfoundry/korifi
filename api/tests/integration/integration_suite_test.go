@@ -46,7 +46,7 @@ var _ = BeforeSuite(func() {
 
 var _ = BeforeEach(func() {
 	authProvider = helpers.NewAuthProvider()
-	startEnvTest(authProvider.APIServerExtraArgs(oidcPrefix)...)
+	startEnvTest(authProvider.APIServerExtraArgs(oidcPrefix))
 })
 
 var _ = AfterEach(func() {
@@ -54,20 +54,23 @@ var _ = AfterEach(func() {
 	Expect(testEnv.Stop()).To(Succeed())
 })
 
-func startEnvTest(apiServerExtraArgs ...string) {
+func startEnvTest(apiServerExtraArgs map[string]string) {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-	apiServerArgs := append(envtest.DefaultKubeAPIServerFlags, apiServerExtraArgs...)
 
 	testEnv = &envtest.Environment{
 		AttachControlPlaneOutput: false, // set to true for full apiserver logs
-		KubeAPIServerFlags:       apiServerArgs,
+	}
+
+	for key, value := range apiServerExtraArgs {
+		testEnv.ControlPlane.GetAPIServer().Configure().Append(key, value)
 	}
 
 	var err error
 	k8sConfig, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
-	authv1.AddToScheme(scheme.Scheme)
+	err = authv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(k8sConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -78,9 +81,9 @@ func startEnvTest(apiServerExtraArgs ...string) {
 	}).Should(Succeed())
 }
 
-func restartEnvTest(apiServerEtraArgs ...string) {
+func restartEnvTest(apiServerEtraArgs map[string]string) {
 	Expect(testEnv.Stop()).To(Succeed())
-	startEnvTest(apiServerEtraArgs...)
+	startEnvTest(apiServerEtraArgs)
 }
 
 func obtainClientCert(name string) string {

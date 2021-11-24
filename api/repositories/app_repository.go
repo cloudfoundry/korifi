@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
@@ -228,7 +227,7 @@ func (f *AppRepo) returnAppList(appList []workloadsv1alpha1.CFApp) []AppRecord {
 }
 
 func (f *AppRepo) FetchNamespace(ctx context.Context, client client.Client, nsGUID string) (SpaceRecord, error) {
-	namespace := &v1.Namespace{}
+	namespace := &corev1.Namespace{}
 	err := client.Get(ctx, types.NamespacedName{Name: nsGUID}, namespace)
 	if err != nil {
 		switch errtype := err.(type) {
@@ -370,7 +369,7 @@ func filterAppsByMetadataName(apps []workloadsv1alpha1.CFApp, name string) []wor
 	return filtered
 }
 
-func v1NamespaceToSpaceRecord(namespace *v1.Namespace) SpaceRecord {
+func v1NamespaceToSpaceRecord(namespace *corev1.Namespace) SpaceRecord {
 	// TODO How do we derive Organization GUID here?
 	return SpaceRecord{
 		Name:             namespace.Name,

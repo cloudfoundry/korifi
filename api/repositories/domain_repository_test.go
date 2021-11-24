@@ -57,7 +57,7 @@ var _ = Describe("DomainRepository", func() {
 				client, err := BuildCRClient(k8sConfig)
 				Expect(err).ToNot(HaveOccurred())
 
-				domain := DomainRecord{}
+				var domain DomainRecord
 				domain, err = domainRepo.FetchDomain(testCtx, client, "domain-id-1")
 				Expect(err).ToNot(HaveOccurred())
 

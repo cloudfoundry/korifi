@@ -70,20 +70,20 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
-			switch obj.(type) {
+			switch obj := obj.(type) {
 			case *workloadsv1alpha1.CFProcess:
-				cfProcess.DeepCopyInto(obj.(*workloadsv1alpha1.CFProcess))
+				cfProcess.DeepCopyInto(obj)
 				return cfProcessError
 			case *workloadsv1alpha1.CFBuild:
-				cfBuild.DeepCopyInto(obj.(*workloadsv1alpha1.CFBuild))
+				cfBuild.DeepCopyInto(obj)
 				return cfBuildError
 			case *workloadsv1alpha1.CFApp:
-				cfApp.DeepCopyInto(obj.(*workloadsv1alpha1.CFApp))
+				cfApp.DeepCopyInto(obj)
 				return cfAppError
 			case *corev1.Secret:
 				return appEnvSecretError
 			case *eiriniv1.LRP:
-				lrp.DeepCopyInto(obj.(*eiriniv1.LRP))
+				lrp.DeepCopyInto(obj)
 				return lrpError
 			default:
 				panic("TestClient Get provided a weird obj")

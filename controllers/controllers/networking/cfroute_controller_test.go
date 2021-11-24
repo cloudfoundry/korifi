@@ -138,18 +138,18 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 		updateCFRouteStatusError = nil
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
-			switch obj.(type) {
+			switch obj := obj.(type) {
 			case *networkingv1alpha1.CFDomain:
-				cfDomain.DeepCopyInto(obj.(*networkingv1alpha1.CFDomain))
+				cfDomain.DeepCopyInto(obj)
 				return getDomainError
 			case *networkingv1alpha1.CFRoute:
-				cfRoute.DeepCopyInto(obj.(*networkingv1alpha1.CFRoute))
+				cfRoute.DeepCopyInto(obj)
 				return getRouteError
 			case *contourv1.HTTPProxy:
 				if obj.GetName() == testFQDN {
-					fqdnHTTPProxy.DeepCopyInto(obj.(*contourv1.HTTPProxy))
+					fqdnHTTPProxy.DeepCopyInto(obj)
 				} else {
-					routeHTTPProxy.DeepCopyInto(obj.(*contourv1.HTTPProxy))
+					routeHTTPProxy.DeepCopyInto(obj)
 				}
 				return getHTTPProxyError
 			case *v1.Service:
@@ -160,12 +160,12 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 		}
 
 		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
-			switch list.(type) {
+			switch list := list.(type) {
 			case *contourv1.HTTPProxyList:
-				httpProxyList.DeepCopyInto(list.(*contourv1.HTTPProxyList))
+				httpProxyList.DeepCopyInto(list)
 				return listHTTPProxiesError
 			case *v1.ServiceList:
-				serviceList.DeepCopyInto(list.(*v1.ServiceList))
+				serviceList.DeepCopyInto(list)
 				return listServicesError
 			default:
 				panic("TestClient List provided an unexpected object type")
