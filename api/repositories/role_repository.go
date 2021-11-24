@@ -24,8 +24,6 @@ var (
 
 const (
 	RoleGuidLabel         = "cloudfoundry.org/role-guid"
-	RoleUserLabel         = "cloudfoundry.org/role-user"
-	RoleTypeLabel         = "cloudfoundry.org/role-type"
 	roleBindingNamePrefix = "cf"
 )
 
@@ -105,8 +103,6 @@ func (r *RoleRepo) CreateRole(ctx context.Context, role RoleRecord) (RoleRecord,
 			Name:      calculateRoleBindingName(role),
 			Labels: map[string]string{
 				RoleGuidLabel: role.GUID,
-				RoleUserLabel: role.User,
-				RoleTypeLabel: role.Type,
 			},
 			Annotations: annotations,
 		},

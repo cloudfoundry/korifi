@@ -60,15 +60,12 @@ var _ = Describe("Roles", func() {
 
 		It("creates a role binding", func() {
 			role := createOrgRole("organization_manager", rbacv1.UserKind, userName, org.GUID, tokenAuthHeader)
-			Expect(role.Type).To(Equal("organization_manager"))
 
 			roleBindingList := &rbacv1.RoleBindingList{}
 			Eventually(func() ([]rbacv1.RoleBinding, error) {
 				err := k8sClient.List(ctx, roleBindingList,
 					client.InNamespace(org.GUID),
-					client.MatchingLabels{
-						repositories.RoleTypeLabel: "organization_manager",
-					},
+					client.MatchingLabels{repositories.RoleGuidLabel: role.GUID},
 				)
 				if err != nil {
 					return nil, err
@@ -77,7 +74,6 @@ var _ = Describe("Roles", func() {
 			}).Should(HaveLen(1))
 
 			binding := roleBindingList.Items[0]
-			Expect(role.GUID).To(Equal(binding.Labels[repositories.RoleGuidLabel]))
 			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-organization-manager"))
 			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(binding.Subjects).To(HaveLen(1))
@@ -107,15 +103,11 @@ var _ = Describe("Roles", func() {
 		It("creates a role binding", func() {
 			role := createSpaceRole("space_developer", rbacv1.UserKind, userName, space.GUID, tokenAuthHeader)
 
-			Expect(role.Type).To(Equal("space_developer"))
-
 			roleBindingList := &rbacv1.RoleBindingList{}
 			Eventually(func() ([]rbacv1.RoleBinding, error) {
 				err := k8sClient.List(ctx, roleBindingList,
 					client.InNamespace(space.GUID),
-					client.MatchingLabels{
-						repositories.RoleTypeLabel: "space_developer",
-					},
+					client.MatchingLabels{repositories.RoleGuidLabel: role.GUID},
 				)
 				if err != nil {
 					return nil, err
@@ -124,7 +116,6 @@ var _ = Describe("Roles", func() {
 			}).Should(HaveLen(1))
 
 			binding := roleBindingList.Items[0]
-			Expect(role.GUID).To(Equal(binding.Labels[repositories.RoleGuidLabel]))
 			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-space-developer"))
 			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(binding.Subjects).To(HaveLen(1))
