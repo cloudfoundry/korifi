@@ -10,10 +10,11 @@ import (
 )
 
 type ClientBuilder struct {
-	Stub        func(*rest.Config) (client.Client, error)
+	Stub        func(*rest.Config, string) (client.Client, error)
 	mutex       sync.RWMutex
 	argsForCall []struct {
 		arg1 *rest.Config
+		arg2 string
 	}
 	returns struct {
 		result1 client.Client
@@ -27,18 +28,19 @@ type ClientBuilder struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ClientBuilder) Spy(arg1 *rest.Config) (client.Client, error) {
+func (fake *ClientBuilder) Spy(arg1 *rest.Config, arg2 string) (client.Client, error) {
 	fake.mutex.Lock()
 	ret, specificReturn := fake.returnsOnCall[len(fake.argsForCall)]
 	fake.argsForCall = append(fake.argsForCall, struct {
 		arg1 *rest.Config
-	}{arg1})
+		arg2 string
+	}{arg1, arg2})
 	stub := fake.Stub
 	returns := fake.returns
-	fake.recordInvocation("ClientBuilder", []interface{}{arg1})
+	fake.recordInvocation("ClientBuilder", []interface{}{arg1, arg2})
 	fake.mutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -52,16 +54,16 @@ func (fake *ClientBuilder) CallCount() int {
 	return len(fake.argsForCall)
 }
 
-func (fake *ClientBuilder) Calls(stub func(*rest.Config) (client.Client, error)) {
+func (fake *ClientBuilder) Calls(stub func(*rest.Config, string) (client.Client, error)) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = stub
 }
 
-func (fake *ClientBuilder) ArgsForCall(i int) *rest.Config {
+func (fake *ClientBuilder) ArgsForCall(i int) (*rest.Config, string) {
 	fake.mutex.RLock()
 	defer fake.mutex.RUnlock()
-	return fake.argsForCall[i].arg1
+	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2
 }
 
 func (fake *ClientBuilder) Returns(result1 client.Client, result2 error) {

@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
+	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
@@ -87,9 +88,7 @@ func (h *DomainHandler) DomainListHandler(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client")
 		writeUnknownErrorResponse(w)

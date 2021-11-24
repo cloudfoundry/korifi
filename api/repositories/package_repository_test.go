@@ -30,11 +30,11 @@ var _ = Describe("PackageRepository", func() {
 		)
 
 		BeforeEach(func() {
-			packageRepo = new(PackageRepo)
-
 			var err error
-			client, err = BuildCRClient(k8sConfig)
+			client, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).NotTo(HaveOccurred())
+
+			packageRepo = NewPackageRepo(client)
 
 			packageCreate = PackageCreateMessage{
 				Type:      "bits",
@@ -110,10 +110,11 @@ var _ = Describe("PackageRepository", func() {
 			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
 			Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
 
-			packageRepo = new(PackageRepo)
 			var err error
-			testClient, err = BuildCRClient(k8sConfig)
+			testClient, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).ToNot(HaveOccurred())
+
+			packageRepo = NewPackageRepo(testClient)
 		})
 
 		AfterEach(func() {
@@ -314,12 +315,13 @@ var _ = Describe("PackageRepository", func() {
 
 		BeforeEach(func() {
 			spaceGUID = generateGUID()
-			packageRepo = new(PackageRepo)
 			ctx := context.Background()
 
 			var err error
-			client, err = BuildCRClient(k8sConfig)
+			client, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).NotTo(HaveOccurred())
+
+			packageRepo = NewPackageRepo(client)
 
 			existingCFPackage = workloadsv1alpha1.CFPackage{
 				TypeMeta: metav1.TypeMeta{

@@ -47,10 +47,11 @@ var _ = Describe("BuildRepository", func() {
 			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
 			Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
 
-			buildRepo = new(BuildRepo)
 			var err error
-			client, err = BuildCRClient(k8sConfig)
+			client, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).ToNot(HaveOccurred())
+
+			buildRepo = NewBuildRepo(client)
 		})
 
 		AfterEach(func() {
@@ -349,6 +350,7 @@ var _ = Describe("BuildRepository", func() {
 			})
 		})
 	})
+
 	Describe("CreateBuild", func() {
 		const (
 			appGUID     = "the-app-guid"
@@ -373,11 +375,11 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		BeforeEach(func() {
-			buildRepo = new(BuildRepo)
-
 			var err error
-			client, err = BuildCRClient(k8sConfig)
+			client, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).NotTo(HaveOccurred())
+
+			buildRepo = NewBuildRepo(client)
 
 			beforeCtx := context.Background()
 			spaceGUID = generateGUID()

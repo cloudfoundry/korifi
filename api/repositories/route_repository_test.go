@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -31,7 +30,7 @@ var _ = Describe("RouteRepository", func() {
 			cfRoute2 *networkingv1alpha1.CFRoute
 			cfDomain *networkingv1alpha1.CFDomain
 
-			routeRepo  RouteRepo
+			routeRepo  *RouteRepo
 			repoClient client.Client
 		)
 
@@ -96,10 +95,11 @@ var _ = Describe("RouteRepository", func() {
 			}
 			Expect(k8sClient.Create(ctx, cfRoute2)).To(Succeed())
 
-			routeRepo = RouteRepo{}
 			var err error
-			repoClient, err = BuildCRClient(k8sConfig)
+			repoClient, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).ToNot(HaveOccurred())
+
+			routeRepo = NewRouteRepo(repoClient)
 		})
 
 		AfterEach(func() {
@@ -203,17 +203,18 @@ var _ = Describe("RouteRepository", func() {
 		var (
 			testCtx context.Context
 
-			routeRepo  RouteRepo
+			routeRepo  *RouteRepo
 			repoClient client.Client
 		)
 
 		BeforeEach(func() {
 			testCtx = context.Background()
 
-			routeRepo = RouteRepo{}
 			var err error
-			repoClient, err = BuildCRClient(k8sConfig)
+			repoClient, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).ToNot(HaveOccurred())
+
+			routeRepo = NewRouteRepo(repoClient)
 		})
 
 		When("multiple CFRoutes exist", func() {
@@ -382,7 +383,7 @@ var _ = Describe("RouteRepository", func() {
 		var (
 			testCtx context.Context
 
-			routeRepo  RouteRepo
+			routeRepo  *RouteRepo
 			repoClient client.Client
 
 			appGUID    string
@@ -397,10 +398,11 @@ var _ = Describe("RouteRepository", func() {
 		BeforeEach(func() {
 			testCtx = context.Background()
 
-			routeRepo = RouteRepo{}
 			var err error
-			repoClient, err = BuildCRClient(k8sConfig)
+			repoClient, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).ToNot(HaveOccurred())
+
+			routeRepo = NewRouteRepo(repoClient)
 
 			appGUID = generateGUID()
 			route1GUID = generateGUID()
@@ -531,7 +533,7 @@ var _ = Describe("RouteRepository", func() {
 
 		var (
 			client         client.Client
-			routeRepo      RouteRepo
+			routeRepo      *RouteRepo
 			testCtx        context.Context
 			cfDomain       *networkingv1alpha1.CFDomain
 			testDomainGUID string
@@ -540,10 +542,10 @@ var _ = Describe("RouteRepository", func() {
 
 		BeforeEach(func() {
 			var err error
-			client, err = BuildCRClient(k8sConfig)
+			client, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).NotTo(HaveOccurred())
 
-			routeRepo = RouteRepo{}
+			routeRepo = NewRouteRepo(client)
 
 			testCtx = context.Background()
 			testDomainGUID = generateGUID()
@@ -559,7 +561,7 @@ var _ = Describe("RouteRepository", func() {
 
 			BeforeEach(func() {
 				cfDomain = &networkingv1alpha1.CFDomain{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: testDomainGUID,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
@@ -630,17 +632,17 @@ var _ = Describe("RouteRepository", func() {
 			testRouteGUID  string
 			testNamespace  string
 			client         client.Client
-			routeRepo      RouteRepo
+			routeRepo      *RouteRepo
 			testCtx        context.Context
 			newNamespace   *corev1.Namespace
 		)
 
 		BeforeEach(func() {
 			var err error
-			client, err = BuildCRClient(k8sConfig)
+			client, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).NotTo(HaveOccurred())
 
-			routeRepo = RouteRepo{}
+			routeRepo = NewRouteRepo(client)
 
 			testCtx = context.Background()
 			testDomainGUID = generateGUID()
@@ -660,7 +662,7 @@ var _ = Describe("RouteRepository", func() {
 				Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
 
 				cfDomain := &networkingv1alpha1.CFDomain{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: testDomainGUID,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{},
@@ -772,7 +774,7 @@ var _ = Describe("RouteRepository", func() {
 				Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
 
 				cfDomain := &networkingv1alpha1.CFDomain{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: testDomainGUID,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{},

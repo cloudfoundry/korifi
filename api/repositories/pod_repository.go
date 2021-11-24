@@ -39,16 +39,22 @@ type FetchPodStatsMessage struct {
 	ProcessType string
 }
 
-type PodRepo struct{}
+type PodRepo struct {
+	privilegedClient client.Client
+}
 
-func (r *PodRepo) FetchPodStatsByAppGUID(ctx context.Context, k8sClient client.Client, message FetchPodStatsMessage) ([]PodStatsRecord, error) {
+func NewPodRepo(privilegedClient client.Client) *PodRepo {
+	return &PodRepo{privilegedClient: privilegedClient}
+}
+
+func (r *PodRepo) FetchPodStatsByAppGUID(ctx context.Context, userClient client.Client, message FetchPodStatsMessage) ([]PodStatsRecord, error) {
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{workloadsv1alpha1.CFAppGUIDLabelKey: message.AppGUID})
 	if err != nil {
 		return nil, err
 	}
 	listOpts := &client.ListOptions{Namespace: message.Namespace, LabelSelector: labelSelector}
 
-	pods, err := FetchPods(ctx, k8sClient, *listOpts)
+	pods, err := FetchPods(ctx, r.privilegedClient, *listOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +90,7 @@ func FetchPods(ctx context.Context, k8sClient client.Client, listOpts client.Lis
 	return podList.Items, nil
 }
 
-func (r *PodRepo) WatchForPodsTermination(ctx context.Context, k8sClient client.Client, appGUID, namespace string) (bool, error) {
+func (r *PodRepo) WatchForPodsTermination(ctx context.Context, userClient client.Client, appGUID, namespace string) (bool, error) {
 	err := wait.PollUntilWithContext(ctx, time.Second*1, func(ctx context.Context) (done bool, err error) {
 		podList := corev1.PodList{}
 		labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{workloadsv1alpha1.CFAppGUIDLabelKey: appGUID})
@@ -92,7 +98,7 @@ func (r *PodRepo) WatchForPodsTermination(ctx context.Context, k8sClient client.
 			return false, err
 		}
 		listOpts := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
-		err = k8sClient.List(ctx, &podList, listOpts)
+		err = r.privilegedClient.List(ctx, &podList, listOpts)
 		if err != nil {
 			return false, err
 		}

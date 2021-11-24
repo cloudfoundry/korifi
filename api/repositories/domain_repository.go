@@ -14,7 +14,13 @@ import (
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfdomains,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfdomains/status,verbs=get
 
-type DomainRepo struct{}
+type DomainRepo struct {
+	privilegedClient client.Client
+}
+
+func NewDomainRepo(privilegedClient client.Client) *DomainRepo {
+	return &DomainRepo{privilegedClient: privilegedClient}
+}
 
 type DomainRecord struct {
 	Name        string
@@ -29,9 +35,9 @@ type DomainListMessage struct {
 	Names []string
 }
 
-func (f *DomainRepo) FetchDomain(ctx context.Context, client client.Client, domainGUID string) (DomainRecord, error) {
+func (f *DomainRepo) FetchDomain(ctx context.Context, userClient client.Client, domainGUID string) (DomainRecord, error) {
 	domain := &networkingv1alpha1.CFDomain{}
-	err := client.Get(ctx, types.NamespacedName{Name: domainGUID}, domain)
+	err := f.privilegedClient.Get(ctx, types.NamespacedName{Name: domainGUID}, domain)
 	if err != nil {
 		switch errtype := err.(type) {
 		case *k8serrors.StatusError:
@@ -47,9 +53,9 @@ func (f *DomainRepo) FetchDomain(ctx context.Context, client client.Client, doma
 	return cfDomainToDomainRecord(domain), nil
 }
 
-func (f *DomainRepo) FetchDomainList(ctx context.Context, client client.Client, message DomainListMessage) ([]DomainRecord, error) {
+func (f *DomainRepo) FetchDomainList(ctx context.Context, userClient client.Client, message DomainListMessage) ([]DomainRecord, error) {
 	cfdomainList := &networkingv1alpha1.CFDomainList{}
-	err := client.List(ctx, cfdomainList)
+	err := f.privilegedClient.List(ctx, cfdomainList)
 	if err != nil {
 		return []DomainRecord{}, err
 	}

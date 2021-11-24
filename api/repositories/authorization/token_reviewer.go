@@ -21,11 +21,11 @@ const (
 //+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 
 type tokenReviewer struct {
-	client client.Client
+	privilegedClient client.Client
 }
 
-func NewTokenReviewer(client client.Client) IdentityInspector {
-	return &tokenReviewer{client: client}
+func NewTokenReviewer(privilegedClient client.Client) IdentityInspector {
+	return &tokenReviewer{privilegedClient: privilegedClient}
 }
 
 func (r *tokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, error) {
@@ -37,7 +37,7 @@ func (r *tokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, err
 			Token: token,
 		},
 	}
-	err := r.client.Create(ctx, tokenReview)
+	err := r.privilegedClient.Create(ctx, tokenReview)
 	if err != nil {
 		return Identity{}, fmt.Errorf("failed to create token review: %w", err)
 	}

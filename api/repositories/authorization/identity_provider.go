@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	bearerScheme string = "bearer"
-	certScheme   string = "clientcert"
+	BearerScheme string = "bearer"
+	CertScheme   string = "clientcert"
 )
 
 //counterfeiter:generate -o fake -fake-name IdentityInspector . IdentityInspector
@@ -46,9 +46,9 @@ func (p *IdentityProvider) GetIdentity(ctx context.Context, authorizationHeader 
 	}
 
 	switch strings.ToLower(scheme) {
-	case bearerScheme:
+	case BearerScheme:
 		return p.tokenInspector.WhoAmI(ctx, value)
-	case certScheme:
+	case CertScheme:
 		return p.certInspector.WhoAmI(ctx, value)
 	default:
 		return Identity{}, fmt.Errorf("unsupported authentication scheme %q", scheme)

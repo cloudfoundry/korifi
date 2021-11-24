@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/gorilla/schema"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
+	"github.com/go-http-utils/headers"
+	"github.com/gorilla/schema"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -103,9 +103,7 @@ func (h *AppHandler) appGetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
@@ -147,9 +145,7 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client")
 		writeUnknownErrorResponse(w)
@@ -231,9 +227,7 @@ func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client")
 		writeUnknownErrorResponse(w)
@@ -270,9 +264,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client")
 		writeUnknownErrorResponse(w)
@@ -335,8 +327,7 @@ func (h *AppHandler) appGetCurrentDropletHandler(w http.ResponseWriter, r *http.
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	// TODO: Instantiate config based on bearer token
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client")
 		writeUnknownErrorResponse(w)
@@ -391,9 +382,7 @@ func (h *AppHandler) appStartHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
@@ -447,9 +436,7 @@ func (h *AppHandler) appStopHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
@@ -498,9 +485,7 @@ func (h *AppHandler) getProcessesForAppHandler(w http.ResponseWriter, r *http.Re
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
@@ -545,9 +530,7 @@ func (h *AppHandler) getRoutesForAppHandler(w http.ResponseWriter, r *http.Reque
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
@@ -600,9 +583,7 @@ func (h *AppHandler) appScaleProcessHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
@@ -641,9 +622,7 @@ func (h *AppHandler) appRestartHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)

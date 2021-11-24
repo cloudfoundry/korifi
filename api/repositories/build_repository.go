@@ -53,12 +53,18 @@ type BuildRecord struct {
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds/status,verbs=get
 
-type BuildRepo struct{}
+type BuildRepo struct {
+	privilegedClient client.Client
+}
 
-func (b *BuildRepo) FetchBuild(ctx context.Context, k8sClient client.Client, buildGUID string) (BuildRecord, error) {
+func NewBuildRepo(privilegedClient client.Client) *BuildRepo {
+	return &BuildRepo{privilegedClient: privilegedClient}
+}
+
+func (b *BuildRepo) FetchBuild(ctx context.Context, userClient client.Client, buildGUID string) (BuildRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	buildList := &workloadsv1alpha1.CFBuildList{}
-	err := k8sClient.List(ctx, buildList)
+	err := b.privilegedClient.List(ctx, buildList)
 	if err != nil { // untested
 		return BuildRecord{}, err
 	}
@@ -135,9 +141,9 @@ func filterBuildsByMetadataName(builds []workloadsv1alpha1.CFBuild, name string)
 	return filtered
 }
 
-func (b *BuildRepo) CreateBuild(ctx context.Context, k8sClient client.Client, message BuildCreateMessage) (BuildRecord, error) {
+func (b *BuildRepo) CreateBuild(ctx context.Context, userClient client.Client, message BuildCreateMessage) (BuildRecord, error) {
 	cfBuild := b.buildCreateToCFBuild(message)
-	err := k8sClient.Create(ctx, &cfBuild)
+	err := b.privilegedClient.Create(ctx, &cfBuild)
 	if err != nil { // untested!!!
 		return BuildRecord{}, err
 	}

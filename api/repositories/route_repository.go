@@ -15,7 +15,13 @@ import (
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes/status,verbs=get
 
-type RouteRepo struct{}
+type RouteRepo struct {
+	privilegedClient client.Client
+}
+
+func NewRouteRepo(privilegedClient client.Client) *RouteRepo {
+	return &RouteRepo{privilegedClient: privilegedClient}
+}
 
 type DestinationRecord struct {
 	GUID        string
@@ -44,10 +50,10 @@ type RouteAddDestinationsMessage struct {
 	Destinations []DestinationRecord
 }
 
-func (f *RouteRepo) FetchRoute(ctx context.Context, client client.Client, routeGUID string) (RouteRecord, error) {
+func (f *RouteRepo) FetchRoute(ctx context.Context, userClient client.Client, routeGUID string) (RouteRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
-	err := client.List(ctx, cfRouteList)
+	err := f.privilegedClient.List(ctx, cfRouteList)
 	if err != nil {
 		return RouteRecord{}, err
 	}
@@ -59,9 +65,9 @@ func (f *RouteRepo) FetchRoute(ctx context.Context, client client.Client, routeG
 	return toReturn, err
 }
 
-func (f *RouteRepo) FetchRouteList(ctx context.Context, client client.Client) ([]RouteRecord, error) {
+func (f *RouteRepo) FetchRouteList(ctx context.Context, userClient client.Client) ([]RouteRecord, error) {
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
-	err := client.List(ctx, cfRouteList)
+	err := f.privilegedClient.List(ctx, cfRouteList)
 	if err != nil {
 		return []RouteRecord{}, err
 	}
@@ -69,9 +75,9 @@ func (f *RouteRepo) FetchRouteList(ctx context.Context, client client.Client) ([
 	return f.returnRouteList(cfRouteList.Items), nil
 }
 
-func (f *RouteRepo) FetchRoutesForApp(ctx context.Context, k8sClient client.Client, appGUID string, spaceGUID string) ([]RouteRecord, error) {
+func (f *RouteRepo) FetchRoutesForApp(ctx context.Context, userClient client.Client, appGUID string, spaceGUID string) ([]RouteRecord, error) {
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
-	err := k8sClient.List(ctx, cfRouteList, client.InNamespace(spaceGUID))
+	err := f.privilegedClient.List(ctx, cfRouteList, client.InNamespace(spaceGUID))
 	if err != nil {
 		return []RouteRecord{}, err
 	}
@@ -167,9 +173,9 @@ func cfRouteDestinationToDestination(cfRouteDestination networkingv1alpha1.Desti
 	}
 }
 
-func (f *RouteRepo) CreateRoute(ctx context.Context, client client.Client, routeRecord RouteRecord) (RouteRecord, error) {
+func (f *RouteRepo) CreateRoute(ctx context.Context, userClient client.Client, routeRecord RouteRecord) (RouteRecord, error) {
 	cfRoute := f.routeRecordToCFRoute(routeRecord)
-	err := client.Create(ctx, &cfRoute)
+	err := f.privilegedClient.Create(ctx, &cfRoute)
 	if err != nil {
 		return RouteRecord{}, err
 	}
@@ -199,7 +205,7 @@ func (f *RouteRepo) routeRecordToCFRoute(routeRecord RouteRecord) networkingv1al
 	}
 }
 
-func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, c client.Client, message RouteAddDestinationsMessage) (RouteRecord, error) {
+func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, userClient client.Client, message RouteAddDestinationsMessage) (RouteRecord, error) {
 	baseCFRoute := &networkingv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.Route.GUID,
@@ -213,7 +219,7 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, c client.Client,
 	cfRoute := baseCFRoute.DeepCopy()
 	cfRoute.Spec.Destinations = append(cfRoute.Spec.Destinations, destinationRecordsToCFDestinations(message.Destinations)...)
 
-	err := c.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
+	err := f.privilegedClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
 	if err != nil { // untested
 		return RouteRecord{}, fmt.Errorf("err in client.Patch: %w", err)
 	}

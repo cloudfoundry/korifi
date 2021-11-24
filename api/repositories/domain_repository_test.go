@@ -53,9 +53,10 @@ var _ = Describe("DomainRepository", func() {
 			})
 
 			It("fetches the CFDomain CR we're looking for", func() {
-				domainRepo := DomainRepo{}
-				client, err := BuildCRClient(k8sConfig)
+				client, err := BuildPrivilegedClient(k8sConfig, "")
 				Expect(err).ToNot(HaveOccurred())
+
+				domainRepo := NewDomainRepo(client)
 
 				domain := DomainRecord{}
 				domain, err = domainRepo.FetchDomain(testCtx, client, "domain-id-1")
@@ -74,9 +75,10 @@ var _ = Describe("DomainRepository", func() {
 
 		When("no CFDomain exists", func() {
 			It("returns an error", func() {
-				domainRepo := DomainRepo{}
-				client, err := BuildCRClient(k8sConfig)
+				client, err := BuildPrivilegedClient(k8sConfig, "")
 				Expect(err).ToNot(HaveOccurred())
+
+				domainRepo := NewDomainRepo(client)
 
 				_, err = domainRepo.FetchDomain(testCtx, client, "non-existent-domain-guid")
 				Expect(err).To(MatchError("Resource not found or permission denied."))
@@ -88,7 +90,7 @@ var _ = Describe("DomainRepository", func() {
 		var (
 			testCtx context.Context
 
-			domainRepo        DomainRepo
+			domainRepo        *DomainRepo
 			domainClient      client.Client
 			domainListMessage DomainListMessage
 		)
@@ -96,11 +98,12 @@ var _ = Describe("DomainRepository", func() {
 		BeforeEach(func() {
 			testCtx = context.Background()
 
-			domainRepo = DomainRepo{}
 			domainListMessage = DomainListMessage{}
 			var err error
-			domainClient, err = BuildCRClient(k8sConfig)
+			domainClient, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).ToNot(HaveOccurred())
+
+			domainRepo = NewDomainRepo(domainClient)
 		})
 
 		When("multiple CFDomain exists and no filter is provided", func() {
