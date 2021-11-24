@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	"gopkg.in/yaml.v3"
@@ -67,9 +68,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		h.logger.Error(err, "Unable to create Kubernetes client")

@@ -79,6 +79,15 @@ func startEnvTest(apiServerExtraArgs map[string]string) {
 	Eventually(func() error {
 		return k8sClient.List(context.Background(), namespaceList)
 	}).Should(Succeed())
+
+	Eventually(func() error {
+		token := authProvider.GenerateJWTToken("ping")
+		cfg := rest.AnonymousClientConfig(k8sConfig)
+		cfg.BearerToken = token
+
+		_, err := client.New(cfg, client.Options{})
+		return err
+	}).Should(Succeed())
 }
 
 func restartEnvTest(apiServerEtraArgs map[string]string) {

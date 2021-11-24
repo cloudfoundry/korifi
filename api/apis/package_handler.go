@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
+	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
@@ -83,7 +84,7 @@ func NewPackageHandler(
 func (h PackageHandler) packageGetHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, req.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Info("Error building k8s client", "error", err.Error())
 		writeUnknownErrorResponse(w)
@@ -122,7 +123,7 @@ func (h PackageHandler) packageCreateHandler(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, req.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Info("Error building k8s client", "error", err.Error())
 		writeUnknownErrorResponse(w)
@@ -177,7 +178,7 @@ func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Re
 	}
 	defer bitsFile.Close()
 
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, req.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Info("Error building k8s client", "error", err.Error())
 		writeUnknownErrorResponse(w)

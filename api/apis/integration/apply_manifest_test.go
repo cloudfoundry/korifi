@@ -26,14 +26,17 @@ import (
 
 var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", func() {
 	BeforeEach(func() {
-		appRepo := new(repositories.AppRepo)
-		processRepo := new(repositories.ProcessRepo)
+		client, err := repositories.BuildPrivilegedClient(k8sConfig, "")
+		Expect(err).NotTo(HaveOccurred())
+
+		appRepo := repositories.NewAppRepo(client)
+		processRepo := repositories.NewProcessRepo(client)
 		apiHandler := NewSpaceManifestHandler(
 			logf.Log.WithName("integration tests"),
 			*serverURL,
 			actions.NewApplyManifest(appRepo, processRepo).Invoke,
 			repositories.NewOrgRepo("cf", k8sClient, 1*time.Minute),
-			repositories.BuildCRClient,
+			repositories.BuildPrivilegedClient,
 			k8sConfig,
 		)
 		apiHandler.RegisterRoutes(router)

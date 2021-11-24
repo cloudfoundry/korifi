@@ -28,10 +28,11 @@ var _ = Describe("ProcessRepo", func() {
 	BeforeEach(func() {
 		testCtx = context.Background()
 
-		processRepo = new(ProcessRepo)
 		var err error
-		testClient, err = BuildCRClient(k8sConfig)
+		testClient, err = BuildPrivilegedClient(k8sConfig, "")
 		Expect(err).ToNot(HaveOccurred())
+
+		processRepo = NewProcessRepo(testClient)
 
 		namespaceName := generateGUID()
 		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}

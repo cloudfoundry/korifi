@@ -42,11 +42,11 @@ var _ = Describe("DropletRepository", func() {
 			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
 			Expect(k8sClient.Create(testCtx, namespace)).To(Succeed())
 
-			dropletRepo = new(DropletRepo)
-
 			var err error
-			client, err = BuildCRClient(k8sConfig)
+			client, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).ToNot(HaveOccurred())
+
+			dropletRepo = NewDropletRepo(client)
 
 			buildGUID = generateGUID()
 			build = &workloadsv1alpha1.CFBuild{

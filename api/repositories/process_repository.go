@@ -81,12 +81,18 @@ type HealthCheckData struct {
 	TimeoutSeconds           int64
 }
 
-type ProcessRepo struct{}
+type ProcessRepo struct {
+	privilegedClient client.Client
+}
 
-func (r *ProcessRepo) FetchProcess(ctx context.Context, client client.Client, processGUID string) (ProcessRecord, error) {
+func NewProcessRepo(privilegedClient client.Client) *ProcessRepo {
+	return &ProcessRepo{privilegedClient: privilegedClient}
+}
+
+func (r *ProcessRepo) FetchProcess(ctx context.Context, userClient client.Client, processGUID string) (ProcessRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	processList := &workloadsv1alpha1.CFProcessList{}
-	err := client.List(ctx, processList)
+	err := r.privilegedClient.List(ctx, processList)
 	if err != nil { // untested
 		return ProcessRecord{}, err
 	}
@@ -96,12 +102,12 @@ func (r *ProcessRepo) FetchProcess(ctx context.Context, client client.Client, pr
 	return returnProcess(matches)
 }
 
-func (r *ProcessRepo) FetchProcessesForApp(ctx context.Context, k8sClient client.Client, appGUID, spaceGUID string) ([]ProcessRecord, error) {
+func (r *ProcessRepo) FetchProcessesForApp(ctx context.Context, userClient client.Client, appGUID, spaceGUID string) ([]ProcessRecord, error) {
 	processList := &workloadsv1alpha1.CFProcessList{}
 	options := []client.ListOption{
 		client.InNamespace(spaceGUID),
 	}
-	err := k8sClient.List(ctx, processList, options...)
+	err := r.privilegedClient.List(ctx, processList, options...)
 	if err != nil { // untested
 		return []ProcessRecord{}, err
 	}
@@ -111,7 +117,7 @@ func (r *ProcessRepo) FetchProcessesForApp(ctx context.Context, k8sClient client
 	return returnProcesses(matches)
 }
 
-func (r *ProcessRepo) ScaleProcess(ctx context.Context, k8sClient client.Client, scaleProcessMessage ProcessScaleMessage) (ProcessRecord, error) {
+func (r *ProcessRepo) ScaleProcess(ctx context.Context, userClient client.Client, scaleProcessMessage ProcessScaleMessage) (ProcessRecord, error) {
 	baseCFProcess := &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scaleProcessMessage.GUID,
@@ -129,7 +135,7 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, k8sClient client.Client,
 		cfProcess.Spec.DiskQuotaMB = *scaleProcessMessage.DiskMB
 	}
 
-	err := k8sClient.Patch(ctx, cfProcess, client.MergeFrom(baseCFProcess))
+	err := r.privilegedClient.Patch(ctx, cfProcess, client.MergeFrom(baseCFProcess))
 	if err != nil {
 		return ProcessRecord{}, fmt.Errorf("err in client.Patch: %w", err)
 	}
@@ -138,9 +144,9 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, k8sClient client.Client,
 	return record, nil
 }
 
-func (r *ProcessRepo) CreateProcess(ctx context.Context, k8sClient client.Client, message ProcessCreateMessage) error {
+func (r *ProcessRepo) CreateProcess(ctx context.Context, userClient client.Client, message ProcessCreateMessage) error {
 	guid := uuid.NewString()
-	err := k8sClient.Create(ctx, &workloadsv1alpha1.CFProcess{
+	err := r.privilegedClient.Create(ctx, &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: message.SpaceGUID,
@@ -162,11 +168,11 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, k8sClient client.Client
 	return err
 }
 
-func (r *ProcessRepo) FetchProcessByAppTypeAndSpace(ctx context.Context, c client.Client, appGUID, processType, spaceGUID string) (ProcessRecord, error) {
+func (r *ProcessRepo) FetchProcessByAppTypeAndSpace(ctx context.Context, userClient client.Client, appGUID, processType, spaceGUID string) (ProcessRecord, error) {
 	// Could narrow down process results via AppGUID label, but that is set up by a webhook that isn't configured in our integration tests
 	// For now, don't use labels
 	var processList workloadsv1alpha1.CFProcessList
-	err := c.List(ctx, &processList, client.InNamespace(spaceGUID))
+	err := r.privilegedClient.List(ctx, &processList, client.InNamespace(spaceGUID))
 	if err != nil {
 		return ProcessRecord{}, err
 	}
@@ -180,7 +186,7 @@ func (r *ProcessRepo) FetchProcessByAppTypeAndSpace(ctx context.Context, c clien
 	return returnProcess(matches)
 }
 
-func (r *ProcessRepo) PatchProcess(ctx context.Context, c client.Client, message ProcessPatchMessage) error {
+func (r *ProcessRepo) PatchProcess(ctx context.Context, userClient client.Client, message ProcessPatchMessage) error {
 	baseProcess := &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.ProcessGUID,
@@ -214,7 +220,7 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, c client.Client, message
 		updatedProcess.Spec.HealthCheck.Data.TimeoutSeconds = *message.HealthCheckTimeoutSeconds
 	}
 
-	err := c.Patch(ctx, updatedProcess, client.MergeFrom(baseProcess))
+	err := r.privilegedClient.Patch(ctx, updatedProcess, client.MergeFrom(baseProcess))
 	return err
 }
 

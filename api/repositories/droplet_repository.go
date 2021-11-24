@@ -28,11 +28,17 @@ type DropletRecord struct {
 	Annotations     map[string]string
 }
 
-type DropletRepo struct{}
+type DropletRepo struct {
+	privilegedClient client.Client
+}
 
-func (r *DropletRepo) FetchDroplet(ctx context.Context, k8sClient client.Client, dropletGUID string) (DropletRecord, error) {
+func NewDropletRepo(privilegedClient client.Client) *DropletRepo {
+	return &DropletRepo{privilegedClient: privilegedClient}
+}
+
+func (r *DropletRepo) FetchDroplet(ctx context.Context, userClient client.Client, dropletGUID string) (DropletRecord, error) {
 	buildList := &workloadsv1alpha1.CFBuildList{}
-	err := k8sClient.List(ctx, buildList)
+	err := r.privilegedClient.List(ctx, buildList)
 	if err != nil { // untested
 		return DropletRecord{}, err
 	}

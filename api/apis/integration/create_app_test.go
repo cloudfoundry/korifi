@@ -25,12 +25,15 @@ import (
 
 var _ = Describe("POST /v3/apps endpoint", func() {
 	BeforeEach(func() {
-		appRepo := new(repositories.AppRepo)
-		dropletRepo := new(repositories.DropletRepo)
-		processRepo := new(repositories.ProcessRepo)
-		routeRepo := new(repositories.RouteRepo)
-		domainRepo := new(repositories.DomainRepo)
-		podRepo := new(repositories.PodRepo)
+		client, err := repositories.BuildPrivilegedClient(k8sConfig, "")
+		Expect(err).NotTo(HaveOccurred())
+
+		appRepo := repositories.NewAppRepo(client)
+		dropletRepo := repositories.NewDropletRepo(client)
+		processRepo := repositories.NewProcessRepo(client)
+		routeRepo := repositories.NewRouteRepo(client)
+		domainRepo := repositories.NewDomainRepo(client)
+		podRepo := repositories.NewPodRepo(client)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
 
@@ -44,7 +47,7 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 			domainRepo,
 			podRepo,
 			scaleAppProcess,
-			repositories.BuildCRClient,
+			repositories.BuildPrivilegedClient,
 			k8sConfig,
 		)
 		apiHandler.RegisterRoutes(router)

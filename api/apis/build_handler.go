@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
+	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	"k8s.io/client-go/rest"
@@ -61,9 +62,7 @@ func (h *BuildHandler) buildGetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	buildGUID := vars["guid"]
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client", "BuildGUID", buildGUID)
 		writeUnknownErrorResponse(w)
@@ -103,7 +102,7 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, req.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Info("Error building k8s client", "error", err.Error())
 		writeUnknownErrorResponse(w)
