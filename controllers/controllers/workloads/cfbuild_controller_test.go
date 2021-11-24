@@ -29,7 +29,6 @@ var _ = Describe("CFBuildReconciler", func() {
 	const (
 		defaultNamespace        = "default"
 		stagingConditionType    = "Staging"
-		readyConditionType      = "Ready"
 		succeededConditionType  = "Succeeded"
 		kpackReadyConditionType = "Ready"
 	)

@@ -96,7 +96,6 @@ var _ = Describe("DomainRepository", func() {
 		BeforeEach(func() {
 			testCtx = context.Background()
 
-			domainRepo = DomainRepo{}
 			domainListMessage = DomainListMessage{}
 			var err error
 			domainClient, err = BuildCRClient(k8sConfig)

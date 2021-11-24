@@ -33,10 +33,9 @@ func TestRepositories(t *testing.T) {
 }
 
 var (
-	testEnv           *envtest.Environment
-	k8sClient         client.WithWatch
-	k8sConfig         *rest.Config
-	testServerAddress string
+	testEnv   *envtest.Environment
+	k8sClient client.WithWatch
+	k8sConfig *rest.Config
 )
 
 var _ = BeforeSuite(func() {

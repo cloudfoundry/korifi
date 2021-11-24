@@ -12,8 +12,6 @@ import (
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 const (
@@ -124,30 +122,4 @@ func expectUnauthorizedError() {
             }
         ]
     }`)
-}
-
-func initializeProcessRecord(processGUID, spaceGUID, appGUID string) *repositories.ProcessRecord {
-	return &repositories.ProcessRecord{
-		GUID:             processGUID,
-		SpaceGUID:        spaceGUID,
-		AppGUID:          appGUID,
-		Type:             "web",
-		Command:          "rackup",
-		DesiredInstances: 1,
-		MemoryMB:         256,
-		DiskQuotaMB:      1024,
-		Ports:            []int32{8080},
-		HealthCheck: repositories.HealthCheck{
-			Type: "port",
-			Data: repositories.HealthCheckData{
-				HTTPEndpoint:             "",
-				InvocationTimeoutSeconds: 0,
-				TimeoutSeconds:           0,
-			},
-		},
-		Labels:      map[string]string{},
-		Annotations: map[string]string{},
-		CreatedAt:   "",
-		UpdatedAt:   "",
-	}
 }

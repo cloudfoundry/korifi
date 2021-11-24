@@ -96,7 +96,6 @@ var _ = Describe("RouteRepository", func() {
 			}
 			Expect(k8sClient.Create(ctx, cfRoute2)).To(Succeed())
 
-			routeRepo = RouteRepo{}
 			var err error
 			repoClient, err = BuildCRClient(k8sConfig)
 			Expect(err).ToNot(HaveOccurred())
@@ -210,7 +209,6 @@ var _ = Describe("RouteRepository", func() {
 		BeforeEach(func() {
 			testCtx = context.Background()
 
-			routeRepo = RouteRepo{}
 			var err error
 			repoClient, err = BuildCRClient(k8sConfig)
 			Expect(err).ToNot(HaveOccurred())
@@ -397,7 +395,6 @@ var _ = Describe("RouteRepository", func() {
 		BeforeEach(func() {
 			testCtx = context.Background()
 
-			routeRepo = RouteRepo{}
 			var err error
 			repoClient, err = BuildCRClient(k8sConfig)
 			Expect(err).ToNot(HaveOccurred())
@@ -543,8 +540,6 @@ var _ = Describe("RouteRepository", func() {
 			client, err = BuildCRClient(k8sConfig)
 			Expect(err).NotTo(HaveOccurred())
 
-			routeRepo = RouteRepo{}
-
 			testCtx = context.Background()
 			testDomainGUID = generateGUID()
 			testRouteGUID = generateGUID()
@@ -639,8 +634,6 @@ var _ = Describe("RouteRepository", func() {
 			var err error
 			client, err = BuildCRClient(k8sConfig)
 			Expect(err).NotTo(HaveOccurred())
-
-			routeRepo = RouteRepo{}
 
 			testCtx = context.Background()
 			testDomainGUID = generateGUID()

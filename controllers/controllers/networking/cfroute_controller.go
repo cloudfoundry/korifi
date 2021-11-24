@@ -439,7 +439,7 @@ func (r *CFRouteReconciler) fetchServicesByMatchingLabels(ctx context.Context, l
 	serviceList := corev1.ServiceList{}
 	err = r.Client.List(ctx, &serviceList, &client.ListOptions{LabelSelector: selector, Namespace: namespace})
 	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("Failed to list services"))
+		r.Log.Error(err, "Failed to list services")
 		return nil, err
 	}
 
