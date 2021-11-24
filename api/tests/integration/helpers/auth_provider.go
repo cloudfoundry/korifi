@@ -16,7 +16,7 @@ import (
 
 	"github.com/go-http-utils/headers"
 	"github.com/golang-jwt/jwt"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	"gopkg.in/square/go-jose.v2"
 )
@@ -41,7 +41,7 @@ type AuthProvider struct {
 
 func NewAuthProvider() *AuthProvider {
 	signingKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	server := ghttp.NewTLSServer()
 	configureServer(server, signingKey)
@@ -62,7 +62,7 @@ func (p *AuthProvider) GenerateJWTToken(subject string, groups ...string) string
 	atClaims["groups"] = groups
 	at := jwt.NewWithClaims(jwt.SigningMethodRS256, atClaims)
 	token, err := at.SignedString(p.signingKey)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	return token
 }
@@ -71,12 +71,12 @@ func writeCAToTempFile(server *ghttp.Server) string {
 	caDerBytes := server.HTTPTestServer.TLS.Certificates[0].Certificate[0]
 
 	certOut, err := ioutil.TempFile("", "test-oidc-ca")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: caDerBytes})
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	Expect(certOut.Close()).To(Succeed())
+	gomega.Expect(certOut.Close()).To(gomega.Succeed())
 
 	return certOut.Name()
 }
@@ -98,9 +98,9 @@ func renderJWKSResponse(signingKey *rsa.PrivateKey) string {
 	}
 
 	signingDerBytes, err := x509.CreateCertificate(rand.Reader, template, template, &signingKey.PublicKey, signingKey)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	cert, err := x509.ParseCertificate(signingDerBytes)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	jwks := jose.JSONWebKeySet{
 		Keys: []jose.JSONWebKey{{
@@ -112,7 +112,7 @@ func renderJWKSResponse(signingKey *rsa.PrivateKey) string {
 		}},
 	}
 	jwksBytes, err := json.MarshalIndent(jwks, "", "  ")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	return string(jwksBytes)
 }
@@ -151,15 +151,15 @@ func configureServer(server *ghttp.Server, signingKey *rsa.PrivateKey) {
 
 func (p *AuthProvider) Stop() {
 	p.server.Close()
-	Expect(os.RemoveAll(p.serverCAPath)).To(Succeed())
+	gomega.Expect(os.RemoveAll(p.serverCAPath)).To(gomega.Succeed())
 }
 
-func (p *AuthProvider) APIServerExtraArgs(oidcPrefix string) []string {
-	return []string{
-		"--oidc-issuer-url=" + p.server.URL(),
-		"--oidc-client-id=" + audience,
-		"--oidc-ca-file=" + p.serverCAPath,
-		"--oidc-username-prefix=" + oidcPrefix,
-		"--oidc-groups-claim=groups",
+func (p *AuthProvider) APIServerExtraArgs(oidcPrefix string) map[string]string {
+	return map[string]string{
+		"oidc-issuer-url":      p.server.URL(),
+		"oidc-client-id":       audience,
+		"oidc-ca-file":         p.serverCAPath,
+		"oidc-username-prefix": oidcPrefix,
+		"oidc-groups-claim":    "groups",
 	}
 }

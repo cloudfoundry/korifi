@@ -447,7 +447,7 @@ func (r *CFRouteReconciler) fetchServicesByMatchingLabels(ctx context.Context, l
 }
 
 func isFinalizing(cfRoute *networkingv1alpha1.CFRoute) bool {
-	return cfRoute.ObjectMeta.DeletionTimestamp != nil && cfRoute.ObjectMeta.DeletionTimestamp.IsZero() == false
+	return cfRoute.ObjectMeta.DeletionTimestamp != nil && !cfRoute.ObjectMeta.DeletionTimestamp.IsZero()
 }
 
 func generateServiceName(destination *networkingv1alpha1.Destination) string {

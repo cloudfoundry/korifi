@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -26,10 +26,10 @@ type podContainerDescriptor struct {
 
 func E2EFailHandler(message string, callerSkip ...int) {
 	config, err := controllerruntime.GetConfig()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	clientset, err := kubernetes.NewForConfig(config)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	printPodsLogs(clientset, []podContainerDescriptor{
 		{
@@ -46,25 +46,25 @@ func E2EFailHandler(message string, callerSkip ...int) {
 		},
 	})
 
-	Fail(message, callerSkip...)
+	ginkgo.Fail(message, callerSkip...)
 }
 
 func printPodsLogs(clientset kubernetes.Interface, podContainerDescriptors []podContainerDescriptor) {
 	for _, desc := range podContainerDescriptors {
 		pods, err := getPods(clientset, desc.Namespace, desc.LabelKey, desc.LabelValue)
 		if err != nil {
-			fmt.Fprintf(GinkgoWriter, "Failed to get pods with label %s=%s: %v\n", desc.LabelKey, desc.LabelValue, err)
+			fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to get pods with label %s=%s: %v\n", desc.LabelKey, desc.LabelValue, err)
 		}
 
 		for _, pod := range pods {
 			log, err := getSinglePodLog(clientset, pod, desc.Container)
 			if err != nil {
-				fmt.Fprintf(GinkgoWriter, "Failed to get logs for pod %s: %v\n", pod.Name, err)
+				fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to get logs for pod %s: %v\n", pod.Name, err)
 
 				continue
 			}
 
-			fmt.Fprintf(GinkgoWriter,
+			fmt.Fprintf(ginkgo.GinkgoWriter,
 				"\n\n===== Logs for pod %q (last %d lines) =====\n%s\n==============================================\n\n",
 				pod.Name,
 				logTailLines,

@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -554,7 +553,7 @@ var _ = Describe("RouteRepository", func() {
 
 			BeforeEach(func() {
 				cfDomain = &networkingv1alpha1.CFDomain{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: testDomainGUID,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
@@ -653,7 +652,7 @@ var _ = Describe("RouteRepository", func() {
 				Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
 
 				cfDomain := &networkingv1alpha1.CFDomain{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: testDomainGUID,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{},
@@ -765,7 +764,7 @@ var _ = Describe("RouteRepository", func() {
 				Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
 
 				cfDomain := &networkingv1alpha1.CFDomain{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: testDomainGUID,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{},

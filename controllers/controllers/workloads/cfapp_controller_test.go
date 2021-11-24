@@ -70,12 +70,12 @@ var _ = Describe("CFAppReconciler", func() {
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
-			switch obj.(type) {
+			switch obj := obj.(type) {
 			case *workloadsv1alpha1.CFBuild:
-				cfBuild.DeepCopyInto(obj.(*workloadsv1alpha1.CFBuild))
+				cfBuild.DeepCopyInto(obj)
 				return cfBuildError
 			case *workloadsv1alpha1.CFApp:
-				cfApp.DeepCopyInto(obj.(*workloadsv1alpha1.CFApp))
+				cfApp.DeepCopyInto(obj)
 				return cfAppError
 			default:
 				panic("TestClient Get provided a weird obj")
