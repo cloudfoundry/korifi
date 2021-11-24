@@ -64,7 +64,7 @@ var _ = Describe("RoleRepository", func() {
 			roleRecord = repositories.RoleRecord{
 				GUID: uuid.NewString(),
 				Type: "organization_manager",
-				User: "my-user",
+				User: "myuser@example.com",
 				Kind: rbacv1.UserKind,
 				Org:  orgAnchor.Name,
 			}
@@ -81,16 +81,14 @@ var _ = Describe("RoleRepository", func() {
 		It("creates a role binding in the org namespace", func() {
 			roleBinding := getTheRoleBinding(orgAnchor.Name)
 
-			// Sha256 sum of "organization_manager::my-user"
-			Expect(roleBinding.Name).To(Equal("cf-d024ad51b9896f27fab865db894beb14992af05fbbc785bbf90d8706bc95b21b"))
+			// Sha256 sum of "organization_manager::myuser@example.com"
+			Expect(roleBinding.Name).To(Equal("cf-172b9594a1f617258057870643bce8476179a4078845cb4d9d44171d7a8b648b"))
 			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleRecord.GUID))
-			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleUserLabel, roleRecord.User))
-			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleTypeLabel, roleRecord.Type))
 			Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(roleBinding.RoleRef.Name).To(Equal("cf-org-mgr-role"))
 			Expect(roleBinding.Subjects).To(HaveLen(1))
 			Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.UserKind))
-			Expect(roleBinding.Subjects[0].Name).To(Equal("my-user"))
+			Expect(roleBinding.Subjects[0].Name).To(Equal("myuser@example.com"))
 		})
 
 		It("updated the create/updated timestamps", func() {
@@ -124,6 +122,7 @@ var _ = Describe("RoleRepository", func() {
 		When("using a service account identity", func() {
 			BeforeEach(func() {
 				roleRecord.Kind = rbacv1.ServiceAccountKind
+				roleRecord.User = "my-service-account"
 			})
 
 			It("succeeds and uses a service account subject kind", func() {
@@ -131,6 +130,7 @@ var _ = Describe("RoleRepository", func() {
 
 				roleBinding := getTheRoleBinding(orgAnchor.Name)
 				Expect(roleBinding.Subjects).To(HaveLen(1))
+				Expect(roleBinding.Subjects[0].Name).To(Equal("my-service-account"))
 				Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.ServiceAccountKind))
 			})
 		})
@@ -160,7 +160,7 @@ var _ = Describe("RoleRepository", func() {
 				anotherRoleRecord := repositories.RoleRecord{
 					GUID: uuid.NewString(),
 					Type: "organization_manager",
-					User: "my-user",
+					User: "myuser@example.com",
 					Kind: rbacv1.UserKind,
 					Org:  roleRecord.Org,
 				}
@@ -171,28 +171,22 @@ var _ = Describe("RoleRepository", func() {
 	})
 
 	Describe("Create Space Role", func() {
-		var (
-			spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
-			subjectKind string
-		)
+		var spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
 
 		BeforeEach(func() {
 			authorizedInChecker.AuthorizedInReturns(true, nil)
 			spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, uuid.NewString())
 
-			subjectKind = rbacv1.UserKind
-
 			roleRecord = repositories.RoleRecord{
 				GUID:  uuid.NewString(),
 				Type:  "space_developer",
-				User:  "my-user",
+				User:  "myuser@example.com",
 				Space: spaceAnchor.Name,
+				Kind:  rbacv1.UserKind,
 			}
 		})
 
 		JustBeforeEach(func() {
-			roleRecord.Kind = subjectKind
-
 			Expect(k8sClient.Create(context.Background(), &rbacv1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -200,8 +194,8 @@ var _ = Describe("RoleRepository", func() {
 				},
 				Subjects: []rbacv1.Subject{
 					{
-						Kind: subjectKind,
-						Name: "my-user",
+						Kind: roleRecord.Kind,
+						Name: roleRecord.User,
 					},
 				},
 				RoleRef: rbacv1.RoleRef{
@@ -220,22 +214,20 @@ var _ = Describe("RoleRepository", func() {
 		It("creates a role binding in the space namespace", func() {
 			roleBinding := getTheRoleBinding(spaceAnchor.Name)
 
-			// Sha256 sum of "space_developer::my-user"
-			Expect(roleBinding.Name).To(Equal("cf-1b2399803c0978bcf9669095590b5f423215e053200e67d7d517db76fdedf197"))
+			// Sha256 sum of "space_developer::myuser@example.com"
+			Expect(roleBinding.Name).To(Equal("cf-94662df3659074e12fbb2a05fbda554db8fd0bf2f59394874412ebb0dddf6ba4"))
 			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleRecord.GUID))
-			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleUserLabel, roleRecord.User))
-			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleTypeLabel, roleRecord.Type))
 			Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(roleBinding.RoleRef.Name).To(Equal("cf-space-dev-role"))
 			Expect(roleBinding.Subjects).To(HaveLen(1))
 			Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.UserKind))
-			Expect(roleBinding.Subjects[0].Name).To(Equal("my-user"))
+			Expect(roleBinding.Subjects[0].Name).To(Equal("myuser@example.com"))
 		})
 
 		It("verifies that the user has a role in the parent org", func() {
 			Expect(authorizedInChecker.AuthorizedInCallCount()).To(Equal(1))
 			_, userIdentity, org := authorizedInChecker.AuthorizedInArgsForCall(0)
-			Expect(userIdentity.Name).To(Equal("my-user"))
+			Expect(userIdentity.Name).To(Equal("myuser@example.com"))
 			Expect(userIdentity.Kind).To(Equal(rbacv1.UserKind))
 			Expect(org).To(Equal(orgAnchor.Name))
 		})
@@ -248,12 +240,14 @@ var _ = Describe("RoleRepository", func() {
 
 		When("using service accounts", func() {
 			BeforeEach(func() {
-				subjectKind = rbacv1.ServiceAccountKind
+				roleRecord.Kind = rbacv1.ServiceAccountKind
+				roleRecord.User = "my-service-account"
 			})
 
 			It("sends the service account kind to the authorized in checker", func() {
 				_, identity, _ := authorizedInChecker.AuthorizedInArgsForCall(0)
 				Expect(identity.Kind).To(Equal(rbacv1.ServiceAccountKind))
+				Expect(identity.Name).To(Equal("my-service-account"))
 			})
 		})
 
@@ -313,7 +307,7 @@ var _ = Describe("RoleRepository", func() {
 				anotherRoleRecord := repositories.RoleRecord{
 					GUID:  uuid.NewString(),
 					Type:  "space_developer",
-					User:  "my-user",
+					User:  "myuser@example.com",
 					Kind:  rbacv1.UserKind,
 					Space: roleRecord.Space,
 				}
