@@ -38,11 +38,12 @@ var _ = Describe("PodRepository", func() {
 
 		BeforeEach(func() {
 			spaceGUID = uuid.NewString()
-			podRepo = new(PodRepo)
 
 			var err error
-			testClient, err = BuildCRClient(k8sConfig)
+			testClient, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).NotTo(HaveOccurred())
+
+			podRepo = NewPodRepo(testClient)
 
 			ctx = context.Background()
 			Expect(
@@ -225,11 +226,12 @@ var _ = Describe("PodRepository", func() {
 
 		BeforeEach(func() {
 			spaceGUID = uuid.NewString()
-			podRepo = new(PodRepo)
 
 			var err error
-			testClient, err = BuildCRClient(k8sConfig)
+			testClient, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).NotTo(HaveOccurred())
+
+			podRepo = NewPodRepo(testClient)
 
 			ctx = context.Background()
 			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}

@@ -30,7 +30,7 @@ var _ = Describe("RouteRepository", func() {
 			cfRoute2 *networkingv1alpha1.CFRoute
 			cfDomain *networkingv1alpha1.CFDomain
 
-			routeRepo  RouteRepo
+			routeRepo  *RouteRepo
 			repoClient client.Client
 		)
 
@@ -96,8 +96,10 @@ var _ = Describe("RouteRepository", func() {
 			Expect(k8sClient.Create(ctx, cfRoute2)).To(Succeed())
 
 			var err error
-			repoClient, err = BuildCRClient(k8sConfig)
+			repoClient, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).ToNot(HaveOccurred())
+
+			routeRepo = NewRouteRepo(repoClient)
 		})
 
 		AfterEach(func() {
@@ -201,7 +203,7 @@ var _ = Describe("RouteRepository", func() {
 		var (
 			testCtx context.Context
 
-			routeRepo  RouteRepo
+			routeRepo  *RouteRepo
 			repoClient client.Client
 		)
 
@@ -209,8 +211,10 @@ var _ = Describe("RouteRepository", func() {
 			testCtx = context.Background()
 
 			var err error
-			repoClient, err = BuildCRClient(k8sConfig)
+			repoClient, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).ToNot(HaveOccurred())
+
+			routeRepo = NewRouteRepo(repoClient)
 		})
 
 		When("multiple CFRoutes exist", func() {
@@ -379,7 +383,7 @@ var _ = Describe("RouteRepository", func() {
 		var (
 			testCtx context.Context
 
-			routeRepo  RouteRepo
+			routeRepo  *RouteRepo
 			repoClient client.Client
 
 			appGUID    string
@@ -395,8 +399,10 @@ var _ = Describe("RouteRepository", func() {
 			testCtx = context.Background()
 
 			var err error
-			repoClient, err = BuildCRClient(k8sConfig)
+			repoClient, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).ToNot(HaveOccurred())
+
+			routeRepo = NewRouteRepo(repoClient)
 
 			appGUID = generateGUID()
 			route1GUID = generateGUID()
@@ -527,7 +533,7 @@ var _ = Describe("RouteRepository", func() {
 
 		var (
 			client         client.Client
-			routeRepo      RouteRepo
+			routeRepo      *RouteRepo
 			testCtx        context.Context
 			cfDomain       *networkingv1alpha1.CFDomain
 			testDomainGUID string
@@ -536,8 +542,10 @@ var _ = Describe("RouteRepository", func() {
 
 		BeforeEach(func() {
 			var err error
-			client, err = BuildCRClient(k8sConfig)
+			client, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).NotTo(HaveOccurred())
+
+			routeRepo = NewRouteRepo(client)
 
 			testCtx = context.Background()
 			testDomainGUID = generateGUID()
@@ -624,15 +632,17 @@ var _ = Describe("RouteRepository", func() {
 			testRouteGUID  string
 			testNamespace  string
 			client         client.Client
-			routeRepo      RouteRepo
+			routeRepo      *RouteRepo
 			testCtx        context.Context
 			newNamespace   *corev1.Namespace
 		)
 
 		BeforeEach(func() {
 			var err error
-			client, err = BuildCRClient(k8sConfig)
+			client, err = BuildPrivilegedClient(k8sConfig, "")
 			Expect(err).NotTo(HaveOccurred())
+
+			routeRepo = NewRouteRepo(client)
 
 			testCtx = context.Background()
 			testDomainGUID = generateGUID()

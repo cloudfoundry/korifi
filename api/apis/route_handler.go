@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
+	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -72,7 +73,14 @@ func (h *RouteHandler) routeGetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	routeGUID := vars["guid"]
 
-	route, err := h.lookupRouteAndDomain(ctx, routeGUID)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
+	if err != nil {
+		h.logger.Error(err, "failed to create kubernetes client")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	route, err := h.lookupRouteAndDomain(ctx, routeGUID, client)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -100,7 +108,14 @@ func (h *RouteHandler) routeGetListHandler(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
-	routes, err := h.lookupRouteAndDomainList(ctx)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
+	if err != nil {
+		h.logger.Error(err, "failed to create kubernetes client")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	routes, err := h.lookupRouteAndDomainList(ctx, client)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch route or domains from Kubernetes")
 		writeUnknownErrorResponse(w)
@@ -124,7 +139,14 @@ func (h *RouteHandler) routeGetDestinationsHandler(w http.ResponseWriter, r *htt
 	vars := mux.Vars(r)
 	routeGUID := vars["guid"]
 
-	route, err := h.lookupRouteAndDomain(ctx, routeGUID)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
+	if err != nil {
+		h.logger.Error(err, "failed to create kubernetes client")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	route, err := h.lookupRouteAndDomain(ctx, routeGUID, client)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -159,9 +181,7 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "Unable to create Kubernetes client")
 		writeUnknownErrorResponse(w)
@@ -237,7 +257,14 @@ func (h *RouteHandler) routeAddDestinationsHandler(w http.ResponseWriter, r *htt
 	vars := mux.Vars(r)
 	routeGUID := vars["guid"]
 
-	routeRecord, err := h.lookupRouteAndDomain(ctx, routeGUID)
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
+	if err != nil {
+		h.logger.Error(err, "failed to create kubernetes client")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	routeRecord, err := h.lookupRouteAndDomain(ctx, routeGUID, client)
 	if err != nil {
 		if errors.As(err, new(repositories.NotFoundError)) {
 			h.logger.Info("Route not found", "RouteGUID", routeGUID)
@@ -246,15 +273,6 @@ func (h *RouteHandler) routeAddDestinationsHandler(w http.ResponseWriter, r *htt
 			h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
 			writeUnknownErrorResponse(w)
 		}
-		return
-	}
-
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client")
-		writeUnknownErrorResponse(w)
 		return
 	}
 
@@ -286,14 +304,7 @@ func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
 }
 
 // Fetch Route and compose related Domain information within
-func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, routeGUID string) (repositories.RouteRecord, error) {
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
-	if err != nil {
-		return repositories.RouteRecord{}, err
-	}
-
+func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, routeGUID string, client client.Client) (repositories.RouteRecord, error) {
 	route, err := h.routeRepo.FetchRoute(ctx, client, routeGUID)
 	if err != nil {
 		return repositories.RouteRecord{}, err
@@ -312,14 +323,7 @@ func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, routeGUID strin
 	return route, nil
 }
 
-func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context) ([]repositories.RouteRecord, error) {
-	// TODO: Instantiate config based on bearer token
-	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	client, err := h.buildClient(h.k8sConfig)
-	if err != nil {
-		return []repositories.RouteRecord{}, err
-	}
-
+func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, client client.Client) ([]repositories.RouteRecord, error) {
 	routeRecords, err := h.routeRepo.FetchRouteList(ctx, client)
 	if err != nil {
 		return []repositories.RouteRecord{}, err

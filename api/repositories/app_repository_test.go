@@ -27,9 +27,9 @@ var _ = Describe("AppRepository", func() {
 	BeforeEach(func() {
 		testCtx = context.Background()
 
-		appRepo = new(AppRepo)
 		var err error
-		testClient, err = BuildCRClient(k8sConfig)
+		testClient, err = BuildPrivilegedClient(k8sConfig, "")
+		appRepo = NewAppRepo(testClient)
 		Expect(err).ToNot(HaveOccurred())
 	})
 

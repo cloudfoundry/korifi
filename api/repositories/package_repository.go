@@ -49,20 +49,26 @@ type PackageRecord struct {
 	UpdatedAt string
 }
 
-type PackageRepo struct{}
+type PackageRepo struct {
+	privilegedClient client.Client
+}
 
-func (r *PackageRepo) CreatePackage(ctx context.Context, client client.Client, message PackageCreateMessage) (PackageRecord, error) {
+func NewPackageRepo(privilegedClient client.Client) *PackageRepo {
+	return &PackageRepo{privilegedClient: privilegedClient}
+}
+
+func (r *PackageRepo) CreatePackage(ctx context.Context, userClient client.Client, message PackageCreateMessage) (PackageRecord, error) {
 	cfPackage := packageCreateToCFPackage(message)
-	err := client.Create(ctx, &cfPackage)
+	err := r.privilegedClient.Create(ctx, &cfPackage)
 	if err != nil {
 		return PackageRecord{}, err
 	}
 	return cfPackageToPackageRecord(cfPackage), nil
 }
 
-func (r *PackageRepo) FetchPackage(ctx context.Context, client client.Client, guid string) (PackageRecord, error) {
+func (r *PackageRepo) FetchPackage(ctx context.Context, userClient client.Client, guid string) (PackageRecord, error) {
 	packageList := &workloadsv1alpha1.CFPackageList{}
-	err := client.List(ctx, packageList)
+	err := r.privilegedClient.List(ctx, packageList)
 	if err != nil { // untested
 		return PackageRecord{}, err
 	}
@@ -72,7 +78,7 @@ func (r *PackageRepo) FetchPackage(ctx context.Context, client client.Client, gu
 	return returnPackage(matches)
 }
 
-func (r *PackageRepo) UpdatePackageSource(ctx context.Context, c client.Client, message PackageUpdateSourceMessage) (PackageRecord, error) {
+func (r *PackageRepo) UpdatePackageSource(ctx context.Context, userClient client.Client, message PackageUpdateSourceMessage) (PackageRecord, error) {
 	baseCFPackage := &workloadsv1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
@@ -83,7 +89,7 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, c client.Client, 
 	cfPackage.Spec.Source.Registry.Image = message.ImageRef
 	cfPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: message.RegistrySecretName}}
 
-	err := c.Patch(ctx, cfPackage, client.MergeFrom(baseCFPackage))
+	err := r.privilegedClient.Patch(ctx, cfPackage, client.MergeFrom(baseCFPackage))
 	if err != nil { // untested
 		return PackageRecord{}, fmt.Errorf("err in client.Patch: %w", err)
 	}

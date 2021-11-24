@@ -25,7 +25,8 @@ import (
 var Logger = ctrl.Log.WithName("Shared Handler Functions")
 
 //counterfeiter:generate -o fake -fake-name ClientBuilder . ClientBuilder
-type ClientBuilder func(*rest.Config) (client.Client, error)
+
+type ClientBuilder func(cfg *rest.Config, authHeader string) (client.Client, error)
 
 type requestMalformedError struct {
 	httpStatus    int
