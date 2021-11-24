@@ -4,12 +4,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
-const (
-	processBase            = "/v3/processes"
-	workloadsContainerName = "opi"
-	cfInstanceIndexKey     = "CF_INSTANCE_INDEX"
-)
-
 type ProcessStatsResponse struct {
 	Resources []ProcessStatsResource `json:"resources"`
 }

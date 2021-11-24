@@ -33,7 +33,6 @@ const (
 	testRouteHost            = "test-route-host"
 	testRouteDestinationGUID = "test-route-destination-guid"
 	testFQDN                 = testRouteHost + "." + testDomainName
-	testHTTPProxyName        = "test-httpproxy-name"
 	testServiceGUID          = "s-" + testRouteDestinationGUID
 	routeGUIDLabelKey        = "networking.cloudfoundry.org/route-guid"
 )

@@ -1,15 +1,12 @@
 package repositories_test
 
 import (
-	"context"
-
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -98,32 +95,6 @@ func initializeAppCreateMessage(appName string, spaceGUID string) AppCreateMessa
 			},
 		},
 	}
-}
-
-func initializeAppRecord(appName string, appGUID string, spaceGUID string) AppRecord {
-	return AppRecord{
-		Name:      appName,
-		GUID:      appGUID,
-		SpaceGUID: spaceGUID,
-		State:     "STOPPED",
-		Lifecycle: Lifecycle{
-			Type: "buildpack",
-			Data: LifecycleData{
-				Buildpacks: []string{},
-				Stack:      "cflinuxfs3",
-			},
-		},
-	}
-}
-
-func cleanupApp(k8sClient client.Client, ctx context.Context, appGUID, appNamespace string) error {
-	app := workloadsv1alpha1.CFApp{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      appGUID,
-			Namespace: appNamespace,
-		},
-	}
-	return k8sClient.Delete(ctx, &app)
 }
 
 func generateAppEnvSecretName(appGUID string) string {

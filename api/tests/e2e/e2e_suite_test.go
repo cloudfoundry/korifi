@@ -39,15 +39,7 @@ import (
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
-type hierarchicalNamespace struct {
-	label     string
-	createdAt string
-	guid      string
-	children  []hierarchicalNamespace
-}
-
 var (
-	testServerAddress   string
 	k8sClient           client.Client
 	clientset           *kubernetes.Clientset
 	rootNamespace       string
@@ -276,33 +268,6 @@ func createOrgRole(roleName, kind, userName, orgGUID, authHeader string) present
 
 func createSpaceRole(roleName, kind, userName, spaceGUID, authHeader string) presenter.RoleResponse {
 	return createRole(roleName, kind, "space", userName, spaceGUID, authHeader)
-}
-
-func createApp(spaceGUID, name, authHeader string) presenter.AppResponse {
-	appsURL := apiServerRoot + apis.AppCreateEndpoint
-
-	payload := payloads.AppCreate{
-		Name: name,
-		Relationships: payloads.AppRelationships{
-			Space: payloads.Relationship{
-				Data: &payloads.RelationshipData{
-					GUID: spaceGUID,
-				},
-			},
-		},
-	}
-
-	resp, err := httpReq(http.MethodPost, appsURL, authHeader, payload)
-	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
-
-	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
-
-	app := presenter.AppResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&app)
-	Expect(err).NotTo(HaveOccurred())
-
-	return app
 }
 
 func obtainServiceAccountToken(name string) string {
