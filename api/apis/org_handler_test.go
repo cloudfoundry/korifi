@@ -29,16 +29,13 @@ const (
 
 var _ = Describe("OrgHandler", func() {
 	var (
-		ctx             context.Context
 		orgHandler      *apis.OrgHandler
 		orgRepoProvider *fake.OrgRepositoryProvider
 		orgRepo         *repositoriesfake.CFOrgRepository
-		req             *http.Request
 		now             time.Time
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
 
 		orgRepoProvider = new(fake.OrgRepositoryProvider)
@@ -51,11 +48,11 @@ var _ = Describe("OrgHandler", func() {
 
 	Describe("Create Org", func() {
 		makePostRequest := func(requestBody string) {
-			req, err := http.NewRequestWithContext(ctx, "POST", orgsBase, strings.NewReader(requestBody))
+			request, err := http.NewRequestWithContext(ctx, "POST", orgsBase, strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
-			req.Header.Add(headers.Authorization, "Bearer my-token")
+			request.Header.Add(headers.Authorization, "Bearer my-token")
 
-			router.ServeHTTP(rr, req)
+			router.ServeHTTP(rr, request)
 		}
 
 		BeforeEach(func() {
@@ -310,6 +307,7 @@ var _ = Describe("OrgHandler", func() {
 	})
 
 	Describe("Listing Orgs", func() {
+		var req *http.Request
 		BeforeEach(func() {
 			orgRepo.FetchOrgsReturns([]repositories.OrgRecord{
 				{

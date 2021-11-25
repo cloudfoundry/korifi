@@ -682,7 +682,8 @@ func (h *AppHandler) appRestartHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		terminated, err := h.podRepo.WatchForPodsTermination(ctx, client, app.GUID, app.SpaceGUID)
+		var terminated bool
+		terminated, err = h.podRepo.WatchForPodsTermination(ctx, client, app.GUID, app.SpaceGUID)
 		if err != nil {
 			h.logger.Error(err, "Failed to fetch pods for app in Kubernetes", "AppGUID", appGUID)
 			writeUnknownErrorResponse(w)

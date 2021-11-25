@@ -162,7 +162,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			failureStatusConditionMessage := r.concatenateStrings(":", kpackReadyStatusCondition.Reason, kpackReadyStatusCondition.Message)
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType, metav1.ConditionFalse, "kpack", failureStatusConditionMessage)
-			if err := r.Client.Status().Update(ctx, &cfBuild); err != nil {
+			if err = r.Client.Status().Update(ctx, &cfBuild); err != nil {
 				r.Log.Error(err, "Error when updating CFBuild status")
 				return ctrl.Result{}, err
 			}

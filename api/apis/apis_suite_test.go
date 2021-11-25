@@ -21,7 +21,6 @@ const (
 
 var (
 	rr        *httptest.ResponseRecorder
-	req       *http.Request
 	router    *mux.Router
 	serverURL *url.URL
 	ctx       context.Context

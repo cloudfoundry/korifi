@@ -30,6 +30,7 @@ var _ = Describe("DropletHandler", func() {
 		var (
 			dropletRepo   *fake.CFDropletRepository
 			clientBuilder *fake.ClientBuilder
+			req           *http.Request
 		)
 
 		BeforeEach(func() {

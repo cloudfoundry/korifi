@@ -27,6 +27,7 @@ var _ = Describe("ProcessHandler", func() {
 		fetchProcessStats *fake.FetchProcessStats
 		scaleProcessFunc  *fake.ScaleProcess
 		clientBuilder     *fake.ClientBuilder
+		req               *http.Request
 	)
 
 	BeforeEach(func() {
