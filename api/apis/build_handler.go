@@ -90,7 +90,7 @@ func (h *BuildHandler) buildGetHandler(w http.ResponseWriter, r *http.Request) {
 		writeUnknownErrorResponse(w)
 		return
 	}
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Request) {
@@ -99,7 +99,7 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Reque
 	var payload payloads.BuildCreate
 	rme := decodeAndValidateJSONPayload(req, &payload)
 	if rme != nil {
-		writeErrorResponse(w, rme)
+		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 

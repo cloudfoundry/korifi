@@ -1,7 +1,6 @@
 package apis
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -48,7 +47,7 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 	var payload payloads.OrgCreate
 	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
-		writeErrorResponse(w, rme)
+		writeRequestMalformedErrorResponse(w, rme)
 
 		return
 	}
@@ -91,9 +90,8 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
 	orgResponse := presenter.ForCreateOrg(record, h.apiBaseURL)
-	json.NewEncoder(w).Encode(orgResponse)
+	writeResponse(w, http.StatusCreated, orgResponse)
 }
 
 func (h *OrgHandler) orgListHandler(w http.ResponseWriter, r *http.Request) {
@@ -137,7 +135,7 @@ func (h *OrgHandler) orgListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	orgList := presenter.ForOrgList(orgs, h.apiBaseURL)
-	json.NewEncoder(w).Encode(orgList)
+	writeResponse(w, http.StatusOK, orgList)
 }
 
 func (h *OrgHandler) RegisterRoutes(router *mux.Router) {

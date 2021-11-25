@@ -67,7 +67,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 		})
 
 		AfterEach(func() {
-			k8sClient.Delete(context.Background(), namespace)
+			Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {

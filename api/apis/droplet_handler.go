@@ -84,7 +84,7 @@ func (h *DropletHandler) dropletGetHandler(w http.ResponseWriter, r *http.Reques
 		writeUnknownErrorResponse(w)
 		return
 	}
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *DropletHandler) RegisterRoutes(router *mux.Router) {

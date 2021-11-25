@@ -75,17 +75,17 @@ func validatePayload(object interface{}) *requestMalformedError {
 	trans := registerDefaultTranslator(v)
 
 	// Register custom validators
-	v.RegisterValidation("routepathstartswithslash", routePathStartsWithSlash)
-	v.RegisterValidation("megabytestring", megabyteFormattedString, true)
+	_ = v.RegisterValidation("routepathstartswithslash", routePathStartsWithSlash)
+	_ = v.RegisterValidation("megabytestring", megabyteFormattedString, true)
 
 	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
-	v.RegisterTranslation("cannot_have_both_org_and_space_set", trans, func(ut ut.Translator) error {
+	_ = v.RegisterTranslation("cannot_have_both_org_and_space_set", trans, func(ut ut.Translator) error {
 		return ut.Add("cannot_have_both_org_and_space_set", "Cannot pass both 'organization' and 'space' in a create role request", false)
 	}, func(ut ut.Translator, fe validator.FieldError) string {
 		t, _ := ut.T("cannot_have_both_org_and_space_set", fe.Field())
 		return t
 	})
-	v.RegisterTranslation("valid_role", trans, func(ut ut.Translator) error {
+	_ = v.RegisterTranslation("valid_role", trans, func(ut ut.Translator) error {
 		return ut.Add("valid_role", "{0} is not a valid role", false)
 	}, func(ut ut.Translator, fe validator.FieldError) string {
 		t, _ := ut.T("valid_role", fmt.Sprintf("%v", fe.Value()))
@@ -123,40 +123,8 @@ func registerDefaultTranslator(v *validator.Validate) ut.Translator {
 	en := en.New()
 	uni := ut.New(en, en)
 	trans, _ := uni.GetTranslator("en")
-	en_translations.RegisterDefaultTranslations(v, trans)
+	_ = en_translations.RegisterDefaultTranslations(v, trans)
 	return trans
-}
-
-func newNotFoundError(resourceName string) presenter.ErrorsResponse {
-	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-ResourceNotFound",
-		Detail: fmt.Sprintf("%s not found", resourceName),
-		Code:   10010,
-	}}}
-}
-
-func newUnknownError() presenter.ErrorsResponse {
-	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "UnknownError",
-		Detail: "An unknown error occurred.",
-		Code:   10001,
-	}}}
-}
-
-func newNotAuthenticatedError() presenter.ErrorsResponse {
-	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-NotAuthenticated",
-		Detail: "Authentication error",
-		Code:   10002,
-	}}}
-}
-
-func newInvalidAuthError() presenter.ErrorsResponse {
-	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-InvalidAuthToken",
-		Detail: "Invalid Auth Token",
-		Code:   1000,
-	}}}
 }
 
 func newMessageParseError() presenter.ErrorsResponse {
@@ -175,131 +143,95 @@ func newUnprocessableEntityError(detail string) presenter.ErrorsResponse {
 	}}}
 }
 
-func newUniquenessError(detail string) presenter.ErrorsResponse {
-	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+func writeNotFoundErrorResponse(w http.ResponseWriter, resourceName string) {
+	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+		Title:  "CF-ResourceNotFound",
+		Detail: fmt.Sprintf("%s not found", resourceName),
+		Code:   10010,
+	}}}
+	writeResponse(w, http.StatusNotFound, response)
+}
+
+func writeUnknownErrorResponse(w http.ResponseWriter) {
+	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+		Title:  "UnknownError",
+		Detail: "An unknown error occurred.",
+		Code:   10001,
+	}}}
+	writeResponse(w, http.StatusInternalServerError, response)
+}
+
+func writeNotAuthenticatedErrorResponse(w http.ResponseWriter) {
+	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+		Title:  "CF-NotAuthenticated",
+		Detail: "Authentication error",
+		Code:   10002,
+	}}}
+	writeResponse(w, http.StatusUnauthorized, response)
+}
+
+func writeInvalidAuthErrorResponse(w http.ResponseWriter) {
+	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+		Title:  "CF-InvalidAuthToken",
+		Detail: "Invalid Auth Token",
+		Code:   1000,
+	}}}
+	writeResponse(w, http.StatusUnauthorized, response)
+}
+
+func writeRequestMalformedErrorResponse(w http.ResponseWriter, rme *requestMalformedError) {
+	writeResponse(w, rme.httpStatus, rme.errorResponse)
+}
+
+func writeUnprocessableEntityError(w http.ResponseWriter, detail string) {
+	writeResponse(w, http.StatusUnprocessableEntity, newUnprocessableEntityError(detail))
+}
+
+func writeUniquenessError(w http.ResponseWriter, detail string) {
+	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "CF-UniquenessError",
 		Detail: detail,
 		Code:   10016,
 	}}}
+	writeResponse(w, http.StatusUnprocessableEntity, response)
 }
 
-func newInvalidRequestError(detail string) presenter.ErrorsResponse {
-	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+func writeInvalidRequestError(w http.ResponseWriter, detail string) {
+	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "CF-InvalidRequest",
 		Detail: detail,
 		Code:   10004,
 	}}}
+	writeResponse(w, http.StatusBadRequest, response)
 }
 
-func newPackageBitsAlreadyUploadedError() presenter.ErrorsResponse {
-	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+func writePackageBitsAlreadyUploadedError(w http.ResponseWriter) {
+	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "CF-PackageBitsAlreadyUploaded",
 		Detail: "Bits may be uploaded only once. Create a new package to upload different bits.",
 		Code:   150004,
 	}}}
+	writeResponse(w, http.StatusBadRequest, response)
 }
 
-func newUnknownKeyError(validKeys []string) presenter.ErrorsResponse {
+func writeUnknownKeyError(w http.ResponseWriter, validKeys []string) {
 	detailMsg := fmt.Sprintf("The query parameter is invalid: Valid parameters are: '%s'", strings.Join(validKeys, ", "))
-
-	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "CF-BadQueryParameter",
 		Detail: detailMsg,
 		Code:   10005,
 	}}}
+	writeResponse(w, http.StatusBadRequest, response)
 }
 
-func writeNotFoundErrorResponse(w http.ResponseWriter, resourceName string) {
-	responseBody, err := json.Marshal(newNotFoundError(resourceName))
+func writeResponse(w http.ResponseWriter, status int, responseBody interface{}) {
+	w.WriteHeader(status)
+
+	err := json.NewEncoder(w).Encode(responseBody)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		Logger.Error(err, "failed to encode and wire response")
 		return
 	}
-	w.WriteHeader(http.StatusNotFound)
-	_, _ = w.Write(responseBody)
-}
-
-func writeUnknownErrorResponse(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusInternalServerError)
-	responseBody, err := json.Marshal(newUnknownError())
-	if err != nil {
-		return
-	}
-	_, _ = w.Write(responseBody)
-}
-
-func writeNotAuthenticatedErrorResponse(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusUnauthorized)
-	responseBody, err := json.Marshal(newNotAuthenticatedError())
-	if err != nil {
-		return
-	}
-	_, _ = w.Write(responseBody)
-}
-
-func writeInvalidAuthErrorResponse(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusUnauthorized)
-	responseBody, err := json.Marshal(newInvalidAuthError())
-	if err != nil {
-		return
-	}
-	_, _ = w.Write(responseBody)
-}
-
-func writeErrorResponse(w http.ResponseWriter, rme *requestMalformedError) {
-	w.WriteHeader(rme.httpStatus)
-	responseBody, err := json.Marshal(rme.errorResponse)
-	if err != nil {
-		return
-	}
-	w.Write(responseBody)
-}
-
-func writeUnprocessableEntityError(w http.ResponseWriter, errorDetail string) {
-	w.WriteHeader(http.StatusUnprocessableEntity)
-	responseBody, err := json.Marshal(newUnprocessableEntityError(errorDetail))
-	if err != nil {
-		return
-	}
-	w.Write(responseBody)
-}
-
-func writeUniquenessError(w http.ResponseWriter, detail string) {
-	w.WriteHeader(http.StatusUnprocessableEntity)
-	responseBody, err := json.Marshal(newUniquenessError(detail))
-	if err != nil {
-		return
-	}
-	w.Write(responseBody)
-}
-
-func writeInvalidRequestError(w http.ResponseWriter, detail string) {
-	w.WriteHeader(http.StatusBadRequest)
-
-	responseBody, err := json.Marshal(newInvalidRequestError(detail))
-	if err != nil {
-		return
-	}
-	w.Write(responseBody)
-}
-
-func writePackageBitsAlreadyUploadedError(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusBadRequest)
-
-	responseBody, err := json.Marshal(newPackageBitsAlreadyUploadedError())
-	if err != nil {
-		return
-	}
-	w.Write(responseBody)
-}
-
-func writeUnknownKeyError(w http.ResponseWriter, validKeys []string) {
-	w.WriteHeader(http.StatusBadRequest)
-	responseBody, err := json.Marshal(newUnknownKeyError(validKeys))
-	if err != nil {
-		return
-	}
-	w.Write(responseBody)
 }
 
 // Custom field validators

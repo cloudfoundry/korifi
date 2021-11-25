@@ -63,7 +63,7 @@ var _ = BeforeSuite(func() {
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	hnsv1alpha2.AddToScheme(scheme.Scheme)
+	Expect(hnsv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	config, err := controllerruntime.GetConfig()
 	Expect(err).NotTo(HaveOccurred())

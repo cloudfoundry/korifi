@@ -29,7 +29,7 @@ var _ = Describe("CFAppReconciler", func() {
 	})
 
 	AfterEach(func() {
-		k8sClient.Delete(context.Background(), ns)
+		Expect(k8sClient.Delete(context.Background(), ns)).To(Succeed())
 	})
 
 	When("a new CFApp resource is created", func() {

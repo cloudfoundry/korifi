@@ -784,9 +784,10 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		AfterEach(func() {
-			k8sClient.Delete(testCtx, &corev1.Namespace{
+			err := k8sClient.Delete(testCtx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{Name: spaceGUID},
 			})
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("creates a new app CR", func() {
@@ -1138,10 +1139,6 @@ var _ = Describe("AppRepository", func() {
 			appCR   *workloadsv1alpha1.CFApp
 		)
 
-		AfterEach(func() {
-			k8sClient.Delete(context.Background(), appCR)
-		})
-
 		When("starting an app", func() {
 			var (
 				returnedAppRecord *AppRecord
@@ -1162,6 +1159,10 @@ var _ = Describe("AppRepository", func() {
 				})
 				returnedAppRecord = &appRecord
 				returnedErr = err
+			})
+
+			AfterEach(func() {
+				Expect(k8sClient.Delete(context.Background(), appCR)).To(Succeed())
 			})
 
 			It("doesn't return an error", func() {
@@ -1208,6 +1209,10 @@ var _ = Describe("AppRepository", func() {
 				})
 				returnedAppRecord = &appRecord
 				returnedErr = err
+			})
+
+			AfterEach(func() {
+				Expect(k8sClient.Delete(context.Background(), appCR)).To(Succeed())
 			})
 
 			It("doesn't return an error", func() {

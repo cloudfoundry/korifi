@@ -86,7 +86,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	})
 
 	AfterEach(func() {
-		k8sClient.Delete(context.Background(), ns)
+		Expect(k8sClient.Delete(context.Background(), ns)).To(Succeed())
 	})
 
 	When("the CFApp desired state is STARTED", func() {

@@ -50,7 +50,7 @@ func (h *JobHandler) jobGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func getSpaceGUID(jobGUID string) string {

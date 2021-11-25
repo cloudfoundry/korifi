@@ -144,8 +144,8 @@ var _ = Describe("DomainRepository", func() {
 
 			AfterEach(func() {
 				ctx := context.Background()
-				k8sClient.Delete(ctx, cfDomain1)
-				k8sClient.Delete(ctx, cfDomain2)
+				Expect(k8sClient.Delete(ctx, cfDomain1)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, cfDomain2)).To(Succeed())
 			})
 
 			It("eventually returns a list of domainRecords for each CFDomain CR", func() {
@@ -251,8 +251,8 @@ var _ = Describe("DomainRepository", func() {
 
 			AfterEach(func() {
 				ctx := context.Background()
-				k8sClient.Delete(ctx, cfDomain1)
-				k8sClient.Delete(ctx, cfDomain2)
+				Expect(k8sClient.Delete(ctx, cfDomain1)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, cfDomain2)).To(Succeed())
 			})
 
 			When("a single value is provided for a key", func() {

@@ -92,7 +92,7 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 		})
 
 		AfterEach(func() {
-			k8sClient.Delete(context.Background(), namespace)
+			Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 		})
 
 		It("creates a CFApp and Secret, returns 201 and an App object as JSON", func() {

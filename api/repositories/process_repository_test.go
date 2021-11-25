@@ -61,7 +61,7 @@ var _ = Describe("ProcessRepo", func() {
 		})
 
 		AfterEach(func() {
-			k8sClient.Delete(context.Background(), namespace2)
+			Expect(k8sClient.Delete(context.Background(), namespace2)).To(Succeed())
 		})
 
 		When("on the happy path", func() {

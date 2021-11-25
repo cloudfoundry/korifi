@@ -79,8 +79,8 @@ var _ = Describe("PodRepository", func() {
 		})
 
 		AfterEach(func() {
-			k8sClient.Delete(context.Background(), pod1)
-			k8sClient.Delete(context.Background(), pod2)
+			Expect(k8sClient.Delete(context.Background(), pod1)).To(Succeed())
+			Expect(k8sClient.Delete(context.Background(), pod2)).To(Succeed())
 		})
 
 		When("All required pods exists", func() {
@@ -249,15 +249,16 @@ var _ = Describe("PodRepository", func() {
 		})
 
 		AfterEach(func() {
-			k8sClient.Delete(context.Background(), namespace)
+			Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 		})
 
 		When("pods exist", func() {
 			It("returns true when pods are deleted", func() {
 				go func() {
+					defer GinkgoRecover()
 					time.Sleep(time.Millisecond * 200)
-					k8sClient.Delete(context.Background(), pod1)
-					k8sClient.Delete(context.Background(), pod2)
+					Expect(k8sClient.Delete(context.Background(), pod1)).To(Succeed())
+					Expect(k8sClient.Delete(context.Background(), pod2)).To(Succeed())
 				}()
 
 				terminated, err := podRepo.WatchForPodsTermination(ctx, testClient, appGUID, spaceGUID)

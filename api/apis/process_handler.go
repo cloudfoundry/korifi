@@ -98,7 +98,7 @@ func (h *ProcessHandler) processGetHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *ProcessHandler) processGetSidecarsHandler(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +123,7 @@ func (h *ProcessHandler) processGetSidecarsHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf(`{
+	_, _ = w.Write([]byte(fmt.Sprintf(`{
 					"pagination": {
 						"total_results": 0,
 						"total_pages": 1,
@@ -150,7 +150,7 @@ func (h *ProcessHandler) processScaleHandler(w http.ResponseWriter, r *http.Requ
 	var payload payloads.ProcessScale
 	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
-		writeErrorResponse(w, rme)
+		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 
@@ -184,7 +184,7 @@ func (h *ProcessHandler) processScaleHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *ProcessHandler) processGetStatsHandler(w http.ResponseWriter, r *http.Request) {
@@ -215,7 +215,7 @@ func (h *ProcessHandler) processGetStatsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *ProcessHandler) LogError(w http.ResponseWriter, processGUID string, err error) {
