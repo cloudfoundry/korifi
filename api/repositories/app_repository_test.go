@@ -12,16 +12,22 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("AppRepository", func() {
 	var (
-		testCtx    context.Context
-		appRepo    *AppRepo
-		testClient client.Client
+		testCtx                context.Context
+		appRepo                *AppRepo
+		testClient             client.Client
+		rootNamespace          string
+		org                    *v1alpha2.SubnamespaceAnchor
+		space1, space2, space3 *v1alpha2.SubnamespaceAnchor
+		cfApp1, cfApp2, cfApp3 *workloadsv1alpha1.CFApp
 	)
 
 	BeforeEach(func() {
@@ -31,78 +37,22 @@ var _ = Describe("AppRepository", func() {
 		testClient, err = BuildPrivilegedClient(k8sConfig, "")
 		appRepo = NewAppRepo(testClient)
 		Expect(err).ToNot(HaveOccurred())
+
+		rootNamespace = generateGUID()
+		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
+		Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
+
+		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, generateGUID())
+		space1 = createSpaceAnchorAndNamespace(testCtx, org.Name, generateGUID())
+		space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, generateGUID())
+		space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, generateGUID())
 	})
 
 	Describe("FetchApp", func() {
-		var (
-			namespace1 *corev1.Namespace
-			namespace2 *corev1.Namespace
-		)
-
-		BeforeEach(func() {
-			namespace1Name := generateGUID()
-			namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace1Name}}
-			Expect(k8sClient.Create(context.Background(), namespace1)).To(Succeed())
-
-			namespace2Name := generateGUID()
-			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
-			Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
-		})
-
 		When("on the happy path", func() {
-			const (
-				app2DropletGUID = "app2-droplet-guid"
-			)
-			var (
-				app1GUID string
-				app2GUID string
-				cfApp1   *workloadsv1alpha1.CFApp
-				cfApp2   *workloadsv1alpha1.CFApp
-			)
-
 			BeforeEach(func() {
-				app1GUID = generateGUID()
-				app2GUID = generateGUID()
-				cfApp1 = &workloadsv1alpha1.CFApp{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      app1GUID,
-						Namespace: namespace1.Name,
-					},
-					Spec: workloadsv1alpha1.CFAppSpec{
-						Name:         "test-app1",
-						DesiredState: "STOPPED",
-						Lifecycle: workloadsv1alpha1.Lifecycle{
-							Type: "buildpack",
-							Data: workloadsv1alpha1.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
-						},
-					},
-				}
-				Expect(k8sClient.Create(context.Background(), cfApp1)).To(Succeed())
-
-				cfApp2 = &workloadsv1alpha1.CFApp{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      app2GUID,
-						Namespace: namespace2.Name,
-					},
-					Spec: workloadsv1alpha1.CFAppSpec{
-						Name:         "test-app2",
-						DesiredState: "STOPPED",
-						Lifecycle: workloadsv1alpha1.Lifecycle{
-							Type: "buildpack",
-							Data: workloadsv1alpha1.LifecycleData{
-								Buildpacks: []string{"java"},
-								Stack:      "",
-							},
-						},
-						CurrentDropletRef: corev1.LocalObjectReference{
-							Name: app2DropletGUID,
-						},
-					},
-				}
-				Expect(k8sClient.Create(context.Background(), cfApp2)).To(Succeed())
+				cfApp1 = createApp(space1.Name)
+				cfApp2 = createApp(space2.Name)
 			})
 
 			AfterEach(func() {
@@ -111,72 +61,29 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("can fetch the AppRecord CR we're looking for", func() {
-				app, err := appRepo.FetchApp(testCtx, testClient, app2GUID)
+				app, err := appRepo.FetchApp(testCtx, testClient, cfApp2.Name)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(app.GUID).To(Equal(app2GUID))
+				Expect(app.GUID).To(Equal(cfApp2.Name))
 				Expect(app.EtcdUID).To(Equal(cfApp2.GetUID()))
-				Expect(app.Name).To(Equal("test-app2"))
-				Expect(app.SpaceGUID).To(Equal(namespace2.Name))
+				Expect(app.Name).To(Equal(cfApp2.Spec.Name))
+				Expect(app.SpaceGUID).To(Equal(space2.Name))
 				Expect(app.State).To(Equal(DesiredState("STOPPED")))
-				Expect(app.DropletGUID).To(Equal(app2DropletGUID))
+				Expect(app.DropletGUID).To(Equal(cfApp2.Spec.CurrentDropletRef.Name))
 				Expect(app.Lifecycle).To(Equal(Lifecycle{
-					Type: "buildpack",
+					Type: string(cfApp2.Spec.Lifecycle.Type),
 					Data: LifecycleData{
-						Buildpacks: []string{"java"},
-						Stack:      "",
+						Buildpacks: cfApp2.Spec.Lifecycle.Data.Buildpacks,
+						Stack:      cfApp2.Spec.Lifecycle.Data.Stack,
 					},
 				}))
 			})
 		})
 
 		When("duplicate Apps exist across namespaces with the same GUIDs", func() {
-			var (
-				testAppGUID string
-				cfApp1      *workloadsv1alpha1.CFApp
-				cfApp2      *workloadsv1alpha1.CFApp
-			)
-
 			BeforeEach(func() {
-				testAppGUID = generateGUID()
-
-				cfApp1 = &workloadsv1alpha1.CFApp{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      testAppGUID,
-						Namespace: namespace1.Name,
-					},
-					Spec: workloadsv1alpha1.CFAppSpec{
-						Name:         "test-app1",
-						DesiredState: "STOPPED",
-						Lifecycle: workloadsv1alpha1.Lifecycle{
-							Type: "buildpack",
-							Data: workloadsv1alpha1.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
-						},
-					},
-				}
-				Expect(k8sClient.Create(context.Background(), cfApp1)).To(Succeed())
-
-				cfApp2 = &workloadsv1alpha1.CFApp{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      testAppGUID,
-						Namespace: namespace2.Name,
-					},
-					Spec: workloadsv1alpha1.CFAppSpec{
-						Name:         "test-app2",
-						DesiredState: "STOPPED",
-						Lifecycle: workloadsv1alpha1.Lifecycle{
-							Type: "buildpack",
-							Data: workloadsv1alpha1.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
-						},
-					},
-				}
-				Expect(k8sClient.Create(context.Background(), cfApp2)).To(Succeed())
+				cfApp1 = createAppWithGUID(space1.Name, "test-guid")
+				cfApp2 = createAppWithGUID(space2.Name, "test-guid")
 			})
 
 			AfterEach(func() {
@@ -185,7 +92,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := appRepo.FetchApp(testCtx, testClient, testAppGUID)
+				_, err := appRepo.FetchApp(testCtx, testClient, "test-guid")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("duplicate apps exist"))
 			})
@@ -201,54 +108,31 @@ var _ = Describe("AppRepository", func() {
 	})
 
 	Describe("FetchAppByNameAndSpace", func() {
-		const appName = "test-app1"
-		var (
-			namespace      *corev1.Namespace
-			otherNamespace *corev1.Namespace
-			cfApp          *workloadsv1alpha1.CFApp
-		)
-
 		BeforeEach(func() {
-			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: generateGUID()}}
-			Expect(k8sClient.Create(context.Background(), namespace)).To(Succeed())
-
-			otherNamespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: generateGUID()}}
-			Expect(k8sClient.Create(context.Background(), otherNamespace)).To(Succeed())
-			cfApp = &workloadsv1alpha1.CFApp{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      generateGUID(),
-					Namespace: namespace.Name,
-				},
-				Spec: workloadsv1alpha1.CFAppSpec{
-					Name:         appName,
-					DesiredState: "STOPPED",
-					Lifecycle:    workloadsv1alpha1.Lifecycle{Type: "buildpack"},
-				},
-			}
-			Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+			cfApp1 = createApp(space1.Name)
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(context.Background(), cfApp)).To(Succeed())
+			Expect(k8sClient.Delete(context.Background(), cfApp1)).To(Succeed())
 		})
 
 		When("the App exists in the Space", func() {
 			It("returns the record", func() {
-				appRecord, err := appRepo.FetchAppByNameAndSpace(context.Background(), testClient, appName, namespace.Name)
+				appRecord, err := appRepo.FetchAppByNameAndSpace(context.Background(), testClient, cfApp1.Spec.Name, space1.Name)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(appRecord.Name).To(Equal(appName))
-				Expect(appRecord.GUID).To(Equal(cfApp.Name))
-				Expect(appRecord.EtcdUID).To(Equal(cfApp.UID))
-				Expect(appRecord.SpaceGUID).To(Equal(namespace.Name))
-				Expect(appRecord.State).To(BeEquivalentTo("STOPPED"))
-				Expect(appRecord.Lifecycle).To(Equal(Lifecycle{Type: "buildpack"}))
+				Expect(appRecord.Name).To(Equal(cfApp1.Spec.Name))
+				Expect(appRecord.GUID).To(Equal(cfApp1.Name))
+				Expect(appRecord.EtcdUID).To(Equal(cfApp1.UID))
+				Expect(appRecord.SpaceGUID).To(Equal(space1.Name))
+				Expect(appRecord.State).To(BeEquivalentTo(cfApp1.Spec.DesiredState))
+				Expect(appRecord.Lifecycle.Type).To(BeEquivalentTo(cfApp1.Spec.Lifecycle.Type))
 				// Expect(appRecord.CreatedAt).To(Equal()) "",
 			})
 
 			When("the App doesn't exist in the Space (but is in another Space)", func() {
 				It("returns a NotFoundError", func() {
-					_, err := appRepo.FetchAppByNameAndSpace(context.Background(), testClient, appName, otherNamespace.Name)
+					_, err := appRepo.FetchAppByNameAndSpace(context.Background(), testClient, cfApp1.Spec.Name, space2.Name)
 					Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
 				})
 			})
@@ -256,11 +140,14 @@ var _ = Describe("AppRepository", func() {
 	})
 
 	Describe("FetchAppList", Serial, func() {
-		const defaultNamespaceName = "default"
-
-		var message AppListMessage
+		var (
+			message                   AppListMessage
+			userName                  string
+			spaceDeveloperClusterRole *rbacv1.ClusterRole
+		)
 
 		BeforeEach(func() {
+			userName = generateGUID()
 			message = AppListMessage{}
 
 			var cfAppList workloadsv1alpha1.CFAppList
@@ -273,6 +160,17 @@ var _ = Describe("AppRepository", func() {
 					testClient.Delete(context.Background(), &app),
 				).To(Succeed())
 			}
+
+			cert, key := obtainClientCert(userName)
+			authHeader := "clientCert " + encodeCertAndKey(cert, key)
+
+			var err error
+			testClient, err = BuildUserClient(k8sConfig, authHeader)
+			Expect(err).NotTo(HaveOccurred())
+
+			spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
+			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
+			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
 		})
 
 		Describe("when filters are NOT provided", func() {
@@ -285,117 +183,29 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			When("multiple Apps exist", func() {
-				var (
-					app1GUID string
-					app2GUID string
-				)
 				BeforeEach(func() {
-					beforeCtx := context.Background()
-					app1GUID = generateGUID()
-					app2GUID = generateGUID()
-					cfApp1 := &workloadsv1alpha1.CFApp{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      app1GUID,
-							Namespace: defaultNamespaceName,
-						},
-						Spec: workloadsv1alpha1.CFAppSpec{
-							Name:         "test-app1",
-							DesiredState: "STOPPED",
-							Lifecycle: workloadsv1alpha1.Lifecycle{
-								Type: "buildpack",
-								Data: workloadsv1alpha1.LifecycleData{
-									Buildpacks: []string{},
-									Stack:      "",
-								},
-							},
-						},
-					}
-					Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
-
-					cfApp2 := &workloadsv1alpha1.CFApp{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      app2GUID,
-							Namespace: defaultNamespaceName,
-						},
-						Spec: workloadsv1alpha1.CFAppSpec{
-							Name:         "test-app2",
-							DesiredState: "STOPPED",
-							Lifecycle: workloadsv1alpha1.Lifecycle{
-								Type: "buildpack",
-								Data: workloadsv1alpha1.LifecycleData{
-									Buildpacks: []string{"java"},
-									Stack:      "",
-								},
-							},
-						},
-					}
-					Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
+					cfApp1 = createApp(space1.Name)
+					cfApp2 = createApp(space2.Name)
+					createApp(space3.Name)
 				})
 
-				It("returns all the AppRecord CRs", func() {
+				It("returns all the AppRecord CRs where client has permission", func() {
 					appList, err := appRepo.FetchAppList(testCtx, testClient, message)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(appList).To(HaveLen(2))
-
-					for _, appRecord := range appList {
-						recordMatchesOneProcess := appRecord.GUID == app1GUID || appRecord.GUID == app2GUID
-						Expect(recordMatchesOneProcess).To(BeTrue(), "AppRecord GUID did not match one of the expected apps")
-					}
+					Expect(appList).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp1.Name)}),
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
+					))
 				})
 			})
 		})
 
 		Describe("when filters are provided", func() {
-			var (
-				app1GUID      string
-				app2GUID      string
-				app3GUID      string
-				namespaceGUID string
-			)
-
 			When("a name filter is provided", func() {
 				When("no Apps exist that match the filter", func() {
 					BeforeEach(func() {
-						beforeCtx := context.Background()
-						app1GUID = generateGUID()
-						app2GUID = generateGUID()
-						cfApp1 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app1GUID,
-								Namespace: defaultNamespaceName,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app1",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
-
-						cfApp2 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app2GUID,
-								Namespace: defaultNamespaceName,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app2",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{"java"},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
+						createApp(space1.Name)
+						createApp(space2.Name)
 					})
 
 					It("returns an empty list of apps", func() {
@@ -408,76 +218,19 @@ var _ = Describe("AppRepository", func() {
 
 				When("some Apps match the filter", func() {
 					BeforeEach(func() {
-						beforeCtx := context.Background()
-						app1GUID = generateGUID()
-						app2GUID = generateGUID()
-						app3GUID = generateGUID()
-						cfApp1 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app1GUID,
-								Namespace: defaultNamespaceName,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app1",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
-
-						cfApp2 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app2GUID,
-								Namespace: defaultNamespaceName,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app2",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{"java"},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
-
-						cfApp3 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app3GUID,
-								Namespace: defaultNamespaceName,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app3",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{"java"},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp3)).To(Succeed())
+						createApp(space1.Name)
+						cfApp2 = createApp(space2.Name)
+						cfApp3 = createApp(space1.Name)
 					})
 
 					It("returns the matching apps", func() {
-						message = AppListMessage{Names: []string{"test-app2", "test-app3"}}
+						message = AppListMessage{Names: []string{cfApp2.Spec.Name, cfApp3.Spec.Name}}
 						appList, err := appRepo.FetchAppList(testCtx, testClient, message)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(appList).To(HaveLen(2))
-
-						Expect(appList[0].GUID).To(BeElementOf(app2GUID, app3GUID))
-						Expect(appList[1].GUID).To(BeElementOf(app2GUID, app3GUID))
+						Expect(appList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp3.Name)}),
+						))
 					})
 				})
 			})
@@ -485,46 +238,8 @@ var _ = Describe("AppRepository", func() {
 			When("a space filter is provided", func() {
 				When("no Apps exist that match the filter", func() {
 					BeforeEach(func() {
-						beforeCtx := context.Background()
-						app1GUID = generateGUID()
-						app2GUID = generateGUID()
-						cfApp1 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app1GUID,
-								Namespace: defaultNamespaceName,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app1",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
-
-						cfApp2 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app2GUID,
-								Namespace: defaultNamespaceName,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app2",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{"java"},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
+						createApp(space1.Name)
+						createApp(space1.Name)
 					})
 
 					It("returns an empty list of apps", func() {
@@ -537,82 +252,19 @@ var _ = Describe("AppRepository", func() {
 
 				When("some Apps match the filter", func() {
 					BeforeEach(func() {
-						beforeCtx := context.Background()
-						app1GUID = generateGUID()
-						app2GUID = generateGUID()
-						app3GUID = generateGUID()
-						namespaceGUID = generateGUID()
-						namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceGUID}}
-						Expect(
-							k8sClient.Create(context.Background(), namespace),
-						).To(Succeed())
-
-						cfApp1 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app1GUID,
-								Namespace: defaultNamespaceName,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app1",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
-
-						cfApp2 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app2GUID,
-								Namespace: namespaceGUID,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app2",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{"java"},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
-
-						cfApp3 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app3GUID,
-								Namespace: namespaceGUID,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app3",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{"java"},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp3)).To(Succeed())
+						createApp(space1.Name)
+						cfApp2 = createApp(space2.Name)
+						cfApp3 = createApp(space2.Name)
 					})
 
 					It("returns the matching apps", func() {
-						message = AppListMessage{SpaceGuids: []string{namespaceGUID}}
+						message = AppListMessage{SpaceGuids: []string{space2.Name}}
 						appList, err := appRepo.FetchAppList(testCtx, testClient, message)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(appList).To(HaveLen(2))
-
-						Expect(appList[0].GUID).To(BeElementOf(app2GUID, app3GUID))
-						Expect(appList[1].GUID).To(BeElementOf(app2GUID, app3GUID))
+						Expect(appList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp3.Name)}),
+						))
 					})
 				})
 			})
@@ -620,51 +272,13 @@ var _ = Describe("AppRepository", func() {
 			When("both name and space filters are provided", func() {
 				When("no Apps exist that match the union of the filters", func() {
 					BeforeEach(func() {
-						beforeCtx := context.Background()
-						app1GUID = generateGUID()
-						app2GUID = generateGUID()
-						cfApp1 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app1GUID,
-								Namespace: defaultNamespaceName,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app1",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
-
-						cfApp2 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app2GUID,
-								Namespace: defaultNamespaceName,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app2",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{"java"},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
+						cfApp1 = createApp(space1.Name)
+						cfApp2 = createApp(space1.Name)
 					})
 
 					When("an App matches by Name but not by Space", func() {
 						It("returns an empty list of apps", func() {
-							message = AppListMessage{Names: []string{"test-app1"}, SpaceGuids: []string{"some-other-space-guid"}}
+							message = AppListMessage{Names: []string{cfApp1.Spec.Name}, SpaceGuids: []string{"some-other-space-guid"}}
 							appList, err := appRepo.FetchAppList(testCtx, testClient, message)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(appList).To(BeEmpty())
@@ -673,7 +287,7 @@ var _ = Describe("AppRepository", func() {
 
 					When("an App matches by Space but not by Name", func() {
 						It("returns an empty list of apps", func() {
-							message = AppListMessage{Names: []string{"fake-app-name"}, SpaceGuids: []string{defaultNamespaceName}}
+							message = AppListMessage{Names: []string{"fake-app-name"}, SpaceGuids: []string{space1.Name}}
 							appList, err := appRepo.FetchAppList(testCtx, testClient, message)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(appList).To(BeEmpty())
@@ -683,81 +297,18 @@ var _ = Describe("AppRepository", func() {
 
 				When("some Apps match the union of the filters", func() {
 					BeforeEach(func() {
-						beforeCtx := context.Background()
-						app1GUID = generateGUID()
-						app2GUID = generateGUID()
-						app3GUID = generateGUID()
-						namespaceGUID = generateGUID()
-						namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceGUID}}
-						Expect(
-							k8sClient.Create(context.Background(), namespace),
-						).To(Succeed())
-
-						cfApp1 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app1GUID,
-								Namespace: defaultNamespaceName,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app1",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
-
-						cfApp2 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app2GUID,
-								Namespace: namespaceGUID,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app2",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{"java"},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
-
-						cfApp3 := &workloadsv1alpha1.CFApp{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      app3GUID,
-								Namespace: namespaceGUID,
-							},
-							Spec: workloadsv1alpha1.CFAppSpec{
-								Name:         "test-app3",
-								DesiredState: "STOPPED",
-								Lifecycle: workloadsv1alpha1.Lifecycle{
-									Type: "buildpack",
-									Data: workloadsv1alpha1.LifecycleData{
-										Buildpacks: []string{"java"},
-										Stack:      "",
-									},
-								},
-							},
-						}
-						Expect(k8sClient.Create(beforeCtx, cfApp3)).To(Succeed())
+						cfApp1 = createApp(space1.Name)
+						cfApp2 = createApp(space2.Name)
+						cfApp3 = createApp(space2.Name)
 					})
 
 					It("returns the matching apps", func() {
-						message = AppListMessage{Names: []string{"test-app2"}, SpaceGuids: []string{namespaceGUID}}
+						message = AppListMessage{Names: []string{cfApp2.Spec.Name}, SpaceGuids: []string{space2.Name}}
 						appList, err := appRepo.FetchAppList(testCtx, testClient, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(HaveLen(1))
 
-						Expect(appList[0].GUID).To(Equal(app2GUID))
+						Expect(appList[0].GUID).To(Equal(cfApp2.Name))
 					})
 				})
 			})
@@ -1254,3 +805,32 @@ var _ = Describe("AppRepository", func() {
 		})
 	})
 })
+
+func createApp(space string) *workloadsv1alpha1.CFApp {
+	return createAppWithGUID(space, generateGUID())
+}
+
+func createAppWithGUID(space, guid string) *workloadsv1alpha1.CFApp {
+	cfApp := &workloadsv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      guid,
+			Namespace: space,
+		},
+		Spec: workloadsv1alpha1.CFAppSpec{
+			Name:         generateGUID(),
+			DesiredState: "STOPPED",
+			Lifecycle: workloadsv1alpha1.Lifecycle{
+				Type: "buildpack",
+				Data: workloadsv1alpha1.LifecycleData{
+					Buildpacks: []string{"java"},
+				},
+			},
+			CurrentDropletRef: corev1.LocalObjectReference{
+				Name: generateGUID(),
+			},
+		},
+	}
+	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+
+	return cfApp
+}

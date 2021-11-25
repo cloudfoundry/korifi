@@ -399,3 +399,30 @@ func httpReq(method, url, authHeader string, jsonBody interface{}) (*http.Respon
 
 	return resp, nil
 }
+
+func createApp(spaceGUID, name, authHeader string) presenter.AppResponse {
+	appsURL := apiServerRoot + apis.AppCreateEndpoint
+
+	payload := payloads.AppCreate{
+		Name: name,
+		Relationships: payloads.AppRelationships{
+			Space: payloads.Relationship{
+				Data: &payloads.RelationshipData{
+					GUID: spaceGUID,
+				},
+			},
+		},
+	}
+
+	resp, err := httpReq(http.MethodPost, appsURL, authHeader, payload)
+	Expect(err).NotTo(HaveOccurred())
+	defer resp.Body.Close()
+
+	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
+
+	app := presenter.AppResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&app)
+	Expect(err).NotTo(HaveOccurred())
+
+	return app
+}

@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"encoding/base64"
 	"path/filepath"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -108,4 +110,58 @@ func createSpaceAnchorAndNamespace(ctx context.Context, orgName, name string) *h
 	space, _ := createAnchorAndNamespace(ctx, orgName, name, repositories.SpaceNameLabel)
 
 	return space
+}
+
+func obtainClientCert(name string) (certData, keyData []byte) {
+	authUser, err := testEnv.ControlPlane.AddUser(envtest.User{Name: name}, k8sConfig)
+	Expect(err).NotTo(HaveOccurred())
+
+	userConfig := authUser.Config()
+
+	certData, keyData = userConfig.CertData, userConfig.KeyData
+	return certData, keyData
+}
+
+func encodeCertAndKey(certData, keyData []byte) string {
+	authHeader := []byte{}
+	authHeader = append(authHeader, certData...)
+	authHeader = append(authHeader, keyData...)
+
+	return base64.StdEncoding.EncodeToString(authHeader)
+}
+
+func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {
+	clusterRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: generateGUID(),
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				Verbs:     []string{"list"},
+				APIGroups: []string{"workloads.cloudfoundry.org"},
+				Resources: []string{"cfapps"},
+			},
+		},
+	}
+	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
+
+	return clusterRole
+}
+
+func createRoleBinding(ctx context.Context, userName, roleName, namespace string) {
+	roleBinding := rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      generateGUID(),
+			Namespace: namespace,
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind: rbacv1.UserKind,
+			Name: userName,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: roleName,
+		},
+	}
+	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
 }

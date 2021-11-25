@@ -39,8 +39,8 @@ func BuildUserClient(config *rest.Config, authorizationHeader string) (crclient.
 	case authorization.BearerScheme:
 		config.BearerToken = value
 	case authorization.CertScheme:
-		pemBytes, err := base64.StdEncoding.DecodeString(value)
-		if err != nil {
+		pemBytes, decodeErr := base64.StdEncoding.DecodeString(value)
+		if decodeErr != nil {
 			return nil, fmt.Errorf("failed to base64 decode auth header")
 		}
 		certBlock, rst := pem.Decode(pemBytes)

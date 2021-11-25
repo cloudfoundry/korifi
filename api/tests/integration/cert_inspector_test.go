@@ -24,7 +24,8 @@ var _ = Describe("CertInspector", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		certInspector = authorization.NewCertInspector(k8sConfig)
-		certPEMBase64 = obtainClientCert("alice")
+		certData, keyData := obtainClientCert("alice")
+		certPEMBase64 = encodeCertAndKey(certData, keyData)
 	})
 
 	JustBeforeEach(func() {
