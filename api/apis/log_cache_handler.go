@@ -23,7 +23,7 @@ func NewLogCacheHandler() *LogCacheHandler {
 
 func (h *LogCacheHandler) logCacheInfoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"version":"` + logCacheVersion + `","vm_uptime":"0"}`))
+	_, _ = w.Write([]byte(`{"version":"` + logCacheVersion + `","vm_uptime":"0"}`))
 }
 
 func (h *LogCacheHandler) logCacheEmptyReadHandler(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +31,7 @@ func (h *LogCacheHandler) logCacheEmptyReadHandler(w http.ResponseWriter, r *htt
 	// provided in the request. A full implementation of this endpoint needs to have the appropriate
 	// validity and authorization checks in place.
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"envelopes":{"batch":[]}}`))
+	_, _ = w.Write([]byte(`{"envelopes":{"batch":[]}}`))
 }
 
 func (h *LogCacheHandler) RegisterRoutes(router *mux.Router) {

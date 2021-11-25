@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -64,7 +63,7 @@ func (h *RoleHandler) roleCreateHandler(w http.ResponseWriter, r *http.Request) 
 	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		h.logger.Error(rme, "Failed to parse body")
-		writeErrorResponse(w, rme)
+		writeRequestMalformedErrorResponse(w, rme)
 
 		return
 	}
@@ -91,9 +90,8 @@ func (h *RoleHandler) roleCreateHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
 	roleResponse := presenter.ForCreateRole(record, h.apiBaseURL)
-	json.NewEncoder(w).Encode(roleResponse)
+	writeResponse(w, http.StatusCreated, roleResponse)
 }
 
 func (h *RoleHandler) RegisterRoutes(router *mux.Router) {

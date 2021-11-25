@@ -133,7 +133,7 @@ func (h *AppHandler) appGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +143,7 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 	var payload payloads.AppCreate
 	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
-		writeErrorResponse(w, rme)
+		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 
@@ -194,7 +194,7 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
@@ -254,7 +254,7 @@ func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.Request) {
@@ -266,7 +266,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.
 	var payload payloads.AppSetCurrentDroplet
 	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
-		writeErrorResponse(w, rme)
+		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 
@@ -326,7 +326,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appGetCurrentDropletHandler(w http.ResponseWriter, r *http.Request) {
@@ -381,7 +381,7 @@ func (h *AppHandler) appGetCurrentDropletHandler(w http.ResponseWriter, r *http.
 		writeUnknownErrorResponse(w)
 		return
 	}
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appStartHandler(w http.ResponseWriter, r *http.Request) {
@@ -437,7 +437,7 @@ func (h *AppHandler) appStartHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appStopHandler(w http.ResponseWriter, r *http.Request) {
@@ -488,7 +488,7 @@ func (h *AppHandler) appStopHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) getProcessesForAppHandler(w http.ResponseWriter, r *http.Request) {
@@ -535,7 +535,7 @@ func (h *AppHandler) getProcessesForAppHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) getRoutesForAppHandler(w http.ResponseWriter, r *http.Request) {
@@ -582,7 +582,7 @@ func (h *AppHandler) getRoutesForAppHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appScaleProcessHandler(w http.ResponseWriter, r *http.Request) {
@@ -596,7 +596,7 @@ func (h *AppHandler) appScaleProcessHandler(w http.ResponseWriter, r *http.Reque
 	var payload payloads.ProcessScale
 	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
-		writeErrorResponse(w, rme)
+		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 
@@ -631,7 +631,7 @@ func (h *AppHandler) appScaleProcessHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appRestartHandler(w http.ResponseWriter, r *http.Request) {
@@ -715,7 +715,7 @@ func (h *AppHandler) appRestartHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) lookupAppRouteAndDomainList(ctx context.Context, client client.Client, appGUID, spaceGUID string) ([]repositories.RouteRecord, error) {

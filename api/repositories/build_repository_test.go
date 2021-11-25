@@ -418,7 +418,7 @@ var _ = Describe("BuildRepository", func() {
 
 			AfterEach(func() {
 				afterCtx := context.Background()
-				cleanupBuild(afterCtx, client, buildCreateRecord.GUID, spaceGUID)
+				Expect(cleanupBuild(afterCtx, client, buildCreateRecord.GUID, spaceGUID)).To(Succeed())
 			})
 
 			It("does not return an error", func() {

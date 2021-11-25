@@ -63,7 +63,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(w http.ResponseWriter, r *ht
 	rme := decodeAndValidateYAMLPayload(r, &manifest)
 	if rme != nil {
 		w.Header().Set("Content-Type", "application/json")
-		writeErrorResponse(w, rme)
+		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 
@@ -92,7 +92,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(w http.ResponseWriter, r *ht
 func (h *SpaceManifestHandler) diffManifestHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
-	w.Write([]byte(`{"diff":[]}`))
+	_, _ = w.Write([]byte(`{"diff":[]}`))
 }
 
 func decodeAndValidateYAMLPayload(r *http.Request, object interface{}) *requestMalformedError {

@@ -118,7 +118,7 @@ func (h PackageHandler) packageCreateHandler(w http.ResponseWriter, req *http.Re
 	var payload payloads.PackageCreate
 	rme := decodeAndValidateJSONPayload(req, &payload)
 	if rme != nil {
-		writeErrorResponse(w, rme)
+		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 

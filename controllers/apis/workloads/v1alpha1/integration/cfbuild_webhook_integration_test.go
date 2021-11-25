@@ -78,7 +78,7 @@ var _ = Describe("CFBuildMutatingWebhook Integration Tests", func() {
 		AfterEach(func() {
 			afterCtx := context.Background()
 			// Cleaning up the created CFBuild resource
-			k8sClient.Delete(afterCtx, cfBuild)
+			Expect(k8sClient.Delete(afterCtx, cfBuild)).To(Succeed())
 		})
 
 		It("should have metadata labels for related resources", func() {

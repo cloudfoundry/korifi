@@ -63,7 +63,7 @@ var _ = Describe("CFProcessMutatingWebhook Integration Tests", func() {
 					Namespace: namespace,
 				},
 			}
-			k8sClient.Create(context.Background(), matchCFProcess)
+			Expect(k8sClient.Delete(context.Background(), matchCFProcess)).To(Succeed())
 		})
 
 		It("should add the appropriate labels", func() {

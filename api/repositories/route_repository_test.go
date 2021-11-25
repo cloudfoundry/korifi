@@ -102,9 +102,9 @@ var _ = Describe("RouteRepository", func() {
 
 		AfterEach(func() {
 			ctx := context.Background()
-			k8sClient.Delete(ctx, cfRoute1)
-			k8sClient.Delete(ctx, cfRoute2)
-			k8sClient.Delete(ctx, cfDomain)
+			Expect(k8sClient.Delete(ctx, cfRoute1)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, cfRoute2)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
 		})
 
 		When("multiple CFRoute resources exist", func() {
@@ -182,8 +182,8 @@ var _ = Describe("RouteRepository", func() {
 
 			AfterEach(func() {
 				afterCtx := context.Background()
-				k8sClient.Delete(afterCtx, cfRoute1A)
-				k8sClient.Delete(afterCtx, otherNamespace)
+				Expect(k8sClient.Delete(afterCtx, cfRoute1A)).To(Succeed())
+				Expect(k8sClient.Delete(afterCtx, otherNamespace)).To(Succeed())
 			})
 
 			It("returns an error", func() {
@@ -288,9 +288,9 @@ var _ = Describe("RouteRepository", func() {
 
 			AfterEach(func() {
 				ctx := context.Background()
-				k8sClient.Delete(ctx, cfRoute1)
-				k8sClient.Delete(ctx, cfRoute2)
-				k8sClient.Delete(ctx, cfDomain)
+				Expect(k8sClient.Delete(ctx, cfRoute1)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, cfRoute2)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
 			})
 
 			It("eventually returns a list of routeRecords for each CFRoute CR", func() {
@@ -451,8 +451,8 @@ var _ = Describe("RouteRepository", func() {
 
 		AfterEach(func() {
 			ctx := context.Background()
-			k8sClient.Delete(ctx, cfRoute1)
-			k8sClient.Delete(ctx, cfRoute2)
+			Expect(k8sClient.Delete(ctx, cfRoute1)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, cfRoute2)).To(Succeed())
 		})
 
 		When("multiple CFRoutes exist", func() {

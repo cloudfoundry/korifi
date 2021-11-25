@@ -30,7 +30,7 @@ func (h *RootHandler) rootGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(body))
+	_, _ = w.Write([]byte(body))
 }
 
 func (h *RootHandler) RegisterRoutes(router *mux.Router) {

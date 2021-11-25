@@ -56,7 +56,7 @@ var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFApp resource does not have any metadata.labels")
 
 			Expect(createdCFApp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
-			k8sClient.Delete(testCtx, cfApp)
+			Expect(k8sClient.Delete(testCtx, cfApp)).To(Succeed())
 		})
 	})
 })

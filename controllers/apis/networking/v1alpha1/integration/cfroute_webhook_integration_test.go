@@ -63,7 +63,7 @@ var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
 
 			Expect(createdCFRoute.ObjectMeta.Labels).To(HaveKeyWithValue(cfDomainLabelKey, cfDomainGUID))
 			Expect(createdCFRoute.ObjectMeta.Labels).To(HaveKeyWithValue(cfRouteLabelKey, cfRouteGUID))
-			k8sClient.Delete(testCtx, cfRoute)
+			Expect(k8sClient.Delete(testCtx, cfRoute)).To(Succeed())
 		})
 	})
 })

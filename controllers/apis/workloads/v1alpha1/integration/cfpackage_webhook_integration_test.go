@@ -52,7 +52,7 @@ var _ = Describe("CFPackageMutatingWebhook Integration Tests", func() {
 		})
 
 		AfterEach(func() {
-			k8sClient.Delete(context.Background(), cfApp)
+			Expect(k8sClient.Delete(context.Background(), cfApp)).To(Succeed())
 		})
 
 		When("a CFPackage record referencing the CFAPP is created", func() {
@@ -83,7 +83,7 @@ var _ = Describe("CFPackageMutatingWebhook Integration Tests", func() {
 						Namespace: namespace,
 					},
 				}
-				k8sClient.Delete(context.Background(), cfPackage)
+				Expect(k8sClient.Delete(context.Background(), cfPackage)).To(Succeed())
 			})
 
 			It("should have CFAppGUID metadata label on it and its value should matches spec.appRef", func() {

@@ -155,7 +155,7 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 	var routeCreateMessage payloads.RouteCreate
 	rme := decodeAndValidateJSONPayload(r, &routeCreateMessage)
 	if rme != nil {
-		writeErrorResponse(w, rme)
+		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 
@@ -220,7 +220,7 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *RouteHandler) routeAddDestinationsHandler(w http.ResponseWriter, r *http.Request) {
@@ -230,7 +230,7 @@ func (h *RouteHandler) routeAddDestinationsHandler(w http.ResponseWriter, r *htt
 	var destinationCreatePayload payloads.DestinationListCreate
 	rme := decodeAndValidateJSONPayload(r, &destinationCreatePayload)
 	if rme != nil {
-		writeErrorResponse(w, rme)
+		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 
@@ -274,7 +274,7 @@ func (h *RouteHandler) routeAddDestinationsHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *RouteHandler) RegisterRoutes(router *mux.Router) {

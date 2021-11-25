@@ -110,7 +110,7 @@ func (h *DomainHandler) DomainListHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.Write(responseBody)
+	_, _ = w.Write(responseBody)
 }
 
 func (h *DomainHandler) RegisterRoutes(router *mux.Router) {

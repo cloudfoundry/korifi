@@ -1,7 +1,6 @@
 package apis
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -49,7 +48,7 @@ func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request
 	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		h.logger.Error(rme, "Failed to decode and validate payload")
-		writeErrorResponse(w, rme)
+		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 
@@ -92,13 +91,8 @@ func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
 	spaceResponse := presenter.ForCreateSpace(record, h.apiBaseURL)
-
-	err = json.NewEncoder(w).Encode(spaceResponse)
-	if err != nil {
-		h.logger.Error(err, "Failed to write response")
-	}
+	writeResponse(w, http.StatusCreated, spaceResponse)
 }
 
 func (h *SpaceHandler) SpaceListHandler(w http.ResponseWriter, r *http.Request) {
@@ -139,7 +133,7 @@ func (h *SpaceHandler) SpaceListHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	spaceList := presenter.ForSpaceList(spaces, h.apiBaseURL)
-	json.NewEncoder(w).Encode(spaceList)
+	writeResponse(w, http.StatusOK, spaceList)
 }
 
 func (h *SpaceHandler) RegisterRoutes(router *mux.Router) {
