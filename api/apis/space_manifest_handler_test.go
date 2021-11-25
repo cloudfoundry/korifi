@@ -23,6 +23,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		clientBuilder       *fake.ClientBuilder
 		applyManifestAction *fake.ApplyManifestAction
 		spaceRepo           *repositoriesfake.CFSpaceRepository
+		req                 *http.Request
 	)
 
 	BeforeEach(func() {

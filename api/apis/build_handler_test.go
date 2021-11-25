@@ -38,6 +38,7 @@ var _ = Describe("BuildHandler", func() {
 		var (
 			buildRepo     *fake.CFBuildRepository
 			clientBuilder *fake.ClientBuilder
+			req           *http.Request
 		)
 
 		// set up happy path defaults

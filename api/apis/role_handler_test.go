@@ -22,14 +22,12 @@ const (
 
 var _ = Describe("RoleHandler", func() {
 	var (
-		ctx         context.Context
 		roleHandler *apis.RoleHandler
 		roleRepo    *fake.CFRoleRepository
 		now         time.Time
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
 
 		roleRepo = new(fake.CFRoleRepository)

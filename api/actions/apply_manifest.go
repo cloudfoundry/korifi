@@ -53,7 +53,9 @@ func (a *applyManifest) updateApp(ctx context.Context, c client.Client, spaceGUI
 
 	for _, processInfo := range appInfo.Processes {
 		exists := true
-		process, err := a.processRepo.FetchProcessByAppTypeAndSpace(ctx, c, appRecord.GUID, processInfo.Type, spaceGUID)
+
+		var process repositories.ProcessRecord
+		process, err = a.processRepo.FetchProcessByAppTypeAndSpace(ctx, c, appRecord.GUID, processInfo.Type, spaceGUID)
 		if err != nil {
 			if errors.As(err, new(repositories.NotFoundError)) {
 				exists = false

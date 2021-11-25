@@ -27,7 +27,7 @@ func UploadSourceImage(imageRef string, packageSrcFile multipart.File, credentia
 		return "", fmt.Errorf("error from io.Copy: %w", err)
 	}
 
-	if err := tmpFile.Close(); err != nil {
+	if err = tmpFile.Close(); err != nil {
 		return "", fmt.Errorf("error from ioutil.TempFile: %w", err)
 	}
 

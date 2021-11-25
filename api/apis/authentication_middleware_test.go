@@ -3,7 +3,6 @@ package apis_test
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
@@ -19,13 +18,11 @@ var _ = Describe("Authentication Middleware", func() {
 	var (
 		authMiddleware   *apis.AuthenticationMiddleware
 		nextHandler      http.Handler
-		rr               *httptest.ResponseRecorder
 		identityProvider *fake.IdentityProvider
 		requestPath      string
 	)
 
 	BeforeEach(func() {
-		rr = httptest.NewRecorder()
 		nextHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusTeapot) })
 
 		identityProvider = new(fake.IdentityProvider)

@@ -55,11 +55,6 @@ var _ = Describe("RoleRepository", func() {
 	}
 
 	Describe("Create Org Role", func() {
-		var (
-			createdRole repositories.RoleRecord
-			createErr   error
-		)
-
 		BeforeEach(func() {
 			roleRecord = repositories.RoleRecord{
 				GUID: uuid.NewString(),

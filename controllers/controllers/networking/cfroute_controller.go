@@ -81,9 +81,9 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		description := "Error adding finalizer"
 		r.Log.Error(err, description)
 		errMsg := fmt.Sprintf("%v", err)
-		if err := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.InvalidStatus, description, "AddFinalizer", errMsg); err != nil {
-			r.Log.Error(err, "Error when updating CFRoute status")
-			return ctrl.Result{}, err
+		if statusErr := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.InvalidStatus, description, "AddFinalizer", errMsg); statusErr != nil {
+			r.Log.Error(statusErr, "Error when updating CFRoute status")
+			return ctrl.Result{}, statusErr
 		}
 		return ctrl.Result{}, err
 	}
@@ -141,9 +141,9 @@ func (r *CFRouteReconciler) setRouteStatus(ctx context.Context, cfRoute *network
 func (r *CFRouteReconciler) setRouteErrorStatusAndReturn(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute, err error, description, reason string) (ctrl.Result, error) {
 	r.Log.Error(err, description)
 	errMsg := fmt.Sprintf("%v", err)
-	if err := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.InvalidStatus, description, reason, errMsg); err != nil {
-		r.Log.Error(err, "Error when updating CFRoute status")
-		return ctrl.Result{}, err
+	if statusErr := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.InvalidStatus, description, reason, errMsg); statusErr != nil {
+		r.Log.Error(statusErr, "Error when updating CFRoute status")
+		return ctrl.Result{}, statusErr
 	}
 	return ctrl.Result{}, err
 }

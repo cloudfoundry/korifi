@@ -53,8 +53,7 @@ var _ = Describe("DomainHandler", func() {
 
 		When("on the happy path", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("GET", "/v3/domains", nil)
+				req, err := http.NewRequest("GET", "/v3/domains", nil)
 				Expect(err).NotTo(HaveOccurred())
 				router.ServeHTTP(rr, req)
 			})
@@ -119,8 +118,7 @@ var _ = Describe("DomainHandler", func() {
 		When("no domain exists", func() {
 			BeforeEach(func() {
 				domainRepo.FetchDomainListReturns([]repositories.DomainRecord{}, nil)
-				var err error
-				req, err = http.NewRequest("GET", "/v3/domains", nil)
+				req, err := http.NewRequest("GET", "/v3/domains", nil)
 				Expect(err).NotTo(HaveOccurred())
 				router.ServeHTTP(rr, req)
 			})
@@ -159,8 +157,7 @@ var _ = Describe("DomainHandler", func() {
 		When("there is an error listing domains", func() {
 			BeforeEach(func() {
 				domainRepo.FetchDomainListReturns([]repositories.DomainRecord{}, errors.New("unexpected error!"))
-				var err error
-				req, err = http.NewRequest("GET", "/v3/domains", nil)
+				req, err := http.NewRequest("GET", "/v3/domains", nil)
 				Expect(err).NotTo(HaveOccurred())
 				router.ServeHTTP(rr, req)
 			})
@@ -172,8 +169,7 @@ var _ = Describe("DomainHandler", func() {
 
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("GET", "/v3/domains?foo=bar", nil)
+				req, err := http.NewRequest("GET", "/v3/domains?foo=bar", nil)
 				Expect(err).NotTo(HaveOccurred())
 				router.ServeHTTP(rr, req)
 			})

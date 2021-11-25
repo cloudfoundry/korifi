@@ -37,6 +37,7 @@ var _ = Describe("AppHandler", func() {
 		domainRepo          *fake.CFDomainRepository
 		podRepo             *fake.PodRepository
 		clientBuilder       *fake.ClientBuilder
+		req                 *http.Request
 	)
 
 	BeforeEach(func() {

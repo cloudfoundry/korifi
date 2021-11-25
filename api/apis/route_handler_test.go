@@ -20,27 +20,44 @@ import (
 )
 
 var _ = Describe("RouteHandler", func() {
+	const (
+		testDomainGUID = "test-domain-guid"
+		testRouteGUID  = "test-route-guid"
+		testRouteHost  = "test-route-host"
+		testSpaceGUID  = "test-space-guid"
+		testDomainName = "test-domain-name"
+		testRoutePath  = "/test-route-path"
+	)
+
+	var (
+		routeRepo     *fake.CFRouteRepository
+		domainRepo    *fake.CFDomainRepository
+		appRepo       *fake.CFAppRepository
+		clientBuilder *fake.ClientBuilder
+		routeRecord   repositories.RouteRecord
+		req           *http.Request
+	)
+
+	BeforeEach(func() {
+		routeRepo = new(fake.CFRouteRepository)
+		domainRepo = new(fake.CFDomainRepository)
+		appRepo = new(fake.CFAppRepository)
+		clientBuilder = new(fake.ClientBuilder)
+
+		routeHandler := NewRouteHandler(
+			logf.Log.WithName("TestRouteHandler"),
+			*serverURL,
+			routeRepo,
+			domainRepo,
+			appRepo,
+			clientBuilder.Spy,
+			&rest.Config{}, // required for k8s client (transitive dependency from route repo)
+		)
+		routeHandler.RegisterRoutes(router)
+	})
+
 	Describe("the GET /v3/routes/:guid endpoint", func() {
-		const (
-			testDomainGUID = "test-domain-guid"
-			testRouteGUID  = "test-route-guid"
-			testRouteHost  = "test-route-host"
-			testSpaceGUID  = "test-space-guid"
-		)
-
-		var (
-			routeRepo     *fake.CFRouteRepository
-			domainRepo    *fake.CFDomainRepository
-			appRepo       *fake.CFAppRepository
-			clientBuilder *fake.ClientBuilder
-		)
-
 		BeforeEach(func() {
-			routeRepo = new(fake.CFRouteRepository)
-			domainRepo = new(fake.CFDomainRepository)
-			appRepo = new(fake.CFAppRepository)
-			clientBuilder = new(fake.ClientBuilder)
-
 			routeRepo.FetchRouteReturns(repositories.RouteRecord{
 				GUID:      testRouteGUID,
 				SpaceGUID: testSpaceGUID,
@@ -57,17 +74,6 @@ var _ = Describe("RouteHandler", func() {
 				GUID: testDomainGUID,
 				Name: "example.org",
 			}, nil)
-
-			routeHandler := NewRouteHandler(
-				logf.Log.WithName("TestRouteHandler"),
-				*serverURL,
-				routeRepo,
-				domainRepo,
-				appRepo,
-				clientBuilder.Spy,
-				&rest.Config{}, // required for k8s client (transitive dependency from route repo)
-			)
-			routeHandler.RegisterRoutes(router)
 
 			var err error
 			req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s", testRouteGUID), nil)
@@ -185,30 +191,10 @@ var _ = Describe("RouteHandler", func() {
 	})
 
 	Describe("the GET /v3/routes endpoint", func() {
-		const (
-			testDomainGUID = "test-domain-guid"
-			testRouteGUID  = "test-route-guid"
-			testRouteHost  = "test-route-host"
-			testSpaceGUID  = "test-space-guid"
-		)
-
-		var (
-			routeRepo     *fake.CFRouteRepository
-			domainRepo    *fake.CFDomainRepository
-			appRepo       *fake.CFAppRepository
-			clientBuilder *fake.ClientBuilder
-
-			domainRecord *repositories.DomainRecord
-			routeRecord  *repositories.RouteRecord
-		)
+		var domainRecord *repositories.DomainRecord
 
 		BeforeEach(func() {
-			routeRepo = new(fake.CFRouteRepository)
-			domainRepo = new(fake.CFDomainRepository)
-			appRepo = new(fake.CFAppRepository)
-			clientBuilder = new(fake.ClientBuilder)
-
-			routeRecord = &repositories.RouteRecord{
+			routeRecord = repositories.RouteRecord{
 				GUID:      testRouteGUID,
 				SpaceGUID: testSpaceGUID,
 				Domain: repositories.DomainRecord{
@@ -224,7 +210,7 @@ var _ = Describe("RouteHandler", func() {
 				UpdatedAt:    "2019-05-10T17:17:48Z",
 			}
 			routeRepo.FetchRouteListReturns([]repositories.RouteRecord{
-				*routeRecord,
+				routeRecord,
 			}, nil)
 
 			domainRecord = &repositories.DomainRecord{
@@ -232,17 +218,6 @@ var _ = Describe("RouteHandler", func() {
 				Name: "example.org",
 			}
 			domainRepo.FetchDomainReturns(*domainRecord, nil)
-
-			routeHandler := NewRouteHandler(
-				logf.Log.WithName("TestRouteHandler"),
-				*serverURL,
-				routeRepo,
-				domainRepo,
-				appRepo,
-				clientBuilder.Spy,
-				&rest.Config{}, // required for k8s client (transitive dependency from route repo)
-			)
-			routeHandler.RegisterRoutes(router)
 
 			var err error
 			req, err = http.NewRequest("GET", "/v3/routes", nil)
@@ -381,46 +356,12 @@ var _ = Describe("RouteHandler", func() {
 	})
 
 	Describe("the POST /v3/routes endpoint", func() {
-		const (
-			testDomainGUID = "test-domain-guid"
-			testDomainName = "test-domain-name"
-			testRouteGUID  = "test-route-guid"
-			testRouteHost  = "test-route-host"
-			testRoutePath  = "/test-route-path"
-			testSpaceGUID  = "test-space-guid"
-		)
-
-		var (
-			routeRepo     *fake.CFRouteRepository
-			domainRepo    *fake.CFDomainRepository
-			appRepo       *fake.CFAppRepository
-			clientBuilder *fake.ClientBuilder
-		)
-
 		makePostRequest := func(requestBody string) {
-			req, err := http.NewRequest("POST", "/v3/routes", strings.NewReader(requestBody))
+			request, err := http.NewRequest("POST", "/v3/routes", strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
 
-			router.ServeHTTP(rr, req)
+			router.ServeHTTP(rr, request)
 		}
-
-		BeforeEach(func() {
-			routeRepo = new(fake.CFRouteRepository)
-			domainRepo = new(fake.CFDomainRepository)
-			appRepo = new(fake.CFAppRepository)
-			clientBuilder = new(fake.ClientBuilder)
-
-			apiHandler := NewRouteHandler(
-				logf.Log.WithName("TestRouteHandler"),
-				*serverURL,
-				routeRepo,
-				domainRepo,
-				appRepo,
-				clientBuilder.Spy,
-				&rest.Config{}, // required for k8s client (transitive dependency from route repo)
-			)
-			apiHandler.RegisterRoutes(router)
-		})
 
 		When("the space exists and the route does not exist and", func() {
 			When("a plain POST test route request is sent without metadata", func() {
@@ -847,27 +788,8 @@ var _ = Describe("RouteHandler", func() {
 	})
 
 	Describe("the GET /v3/routes/:guid/destinations endpoint", func() {
-		const (
-			testDomainGUID = "test-domain-guid"
-			testRouteGUID  = "test-route-guid"
-			testRouteHost  = "test-route-host"
-			testSpaceGUID  = "test-space-guid"
-		)
-
-		var (
-			routeRepo     *fake.CFRouteRepository
-			appRepo       *fake.CFAppRepository
-			clientBuilder *fake.ClientBuilder
-			routeRecord   *repositories.RouteRecord
-		)
-
 		BeforeEach(func() {
-			routeRepo = new(fake.CFRouteRepository)
-			domainRepo := new(fake.CFDomainRepository)
-			appRepo = new(fake.CFAppRepository)
-			clientBuilder = new(fake.ClientBuilder)
-
-			routeRecord = &repositories.RouteRecord{
+			routeRecord = repositories.RouteRecord{
 				GUID:      testRouteGUID,
 				SpaceGUID: testSpaceGUID,
 				Domain: repositories.DomainRecord{
@@ -892,18 +814,7 @@ var _ = Describe("RouteHandler", func() {
 				CreatedAt: "create-time",
 				UpdatedAt: "update-time",
 			}
-			routeRepo.FetchRouteReturns(*routeRecord, nil)
-
-			routeHandler := NewRouteHandler(
-				logf.Log.WithName("TestRouteHandler"),
-				*serverURL,
-				routeRepo,
-				domainRepo,
-				appRepo,
-				clientBuilder.Spy,
-				&rest.Config{}, // required for k8s client (transitive dependency from route repo)
-			)
-			routeHandler.RegisterRoutes(router)
+			routeRepo.FetchRouteReturns(routeRecord, nil)
 
 			var err error
 			req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s/destinations", testRouteGUID), nil)
@@ -1048,14 +959,7 @@ var _ = Describe("RouteHandler", func() {
 			destination2GUID        = "destination2-guid"
 		)
 
-		var (
-			routeRepo     *fake.CFRouteRepository
-			domainRepo    *fake.CFDomainRepository
-			appRepo       *fake.CFAppRepository
-			clientBuilder *fake.ClientBuilder
-			domain        repositories.DomainRecord
-			route         repositories.RouteRecord
-		)
+		var domain repositories.DomainRecord
 
 		makePostRequest := func(requestBody string, sprintfArgs ...interface{}) {
 			req, err := http.NewRequest("POST", "/v3/routes/"+routeGUID+"/destinations",
@@ -1069,23 +973,7 @@ var _ = Describe("RouteHandler", func() {
 		}
 
 		BeforeEach(func() {
-			routeRepo = new(fake.CFRouteRepository)
-			domainRepo = new(fake.CFDomainRepository)
-			appRepo = new(fake.CFAppRepository)
-			clientBuilder = new(fake.ClientBuilder)
-
-			apiHandler := NewRouteHandler(
-				logf.Log.WithName("TestRouteHandler"),
-				*serverURL,
-				routeRepo,
-				domainRepo,
-				appRepo,
-				clientBuilder.Spy,
-				&rest.Config{}, // required for k8s client (transitive dependency from route repo)
-			)
-			apiHandler.RegisterRoutes(router)
-
-			route = repositories.RouteRecord{
+			routeRecord = repositories.RouteRecord{
 				GUID:         routeGUID,
 				SpaceGUID:    spaceGUID,
 				Domain:       repositories.DomainRecord{GUID: domainGUID},
@@ -1100,13 +988,13 @@ var _ = Describe("RouteHandler", func() {
 				Name: "my-tld.com",
 			}
 
-			routeRepo.FetchRouteReturns(route, nil)
+			routeRepo.FetchRouteReturns(routeRecord, nil)
 			domainRepo.FetchDomainReturns(domain, nil)
 		})
 
 		When("the request body is valid", func() {
 			BeforeEach(func() {
-				updatedRoute := route
+				updatedRoute := routeRecord
 				updatedRoute.Domain = domain
 				updatedRoute.Destinations = []repositories.DestinationRecord{
 					{
@@ -1126,7 +1014,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			JustBeforeEach(func() {
-				makePostRequest(`{ 
+				makePostRequest(`{
 					"destinations": [
 						{
 							"app": {
