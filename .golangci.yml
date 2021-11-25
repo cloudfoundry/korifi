@@ -1,0 +1,23 @@
+run:
+  # increase timeout for cases when tests run in parallel with linters
+  timeout: 20m
+  # which dirs to skip: they won't be analyzed;
+  skip-dirs:
+    - vendor
+    - pkg
+  modules-download-mode: mod
+
+linters-settings:
+  govet:
+    # report about shadowed variables
+    check-shadowing: true
+
+linters:
+  # Maximum issues count per one linter. Set to 0 to disable.
+  max-per-linter: 0
+
+  # Maximum count of issues with the same text. Set to 0 to disable
+  max-same: 0
+
+  # Show only new issues
+  new: false

@@ -58,7 +58,10 @@ fmt: install-gofumpt install-shfmt
 vet: ## Run go vet against code.
 	go vet ./...
 
-test: test-controllers-api test-e2e
+lint:
+	golangci-lint run -v
+
+test: lint test-controllers-api test-e2e
 
 test-controllers-api: test-controllers test-api
 
