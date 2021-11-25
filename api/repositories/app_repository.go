@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/uuid"
@@ -167,14 +169,24 @@ func (f *AppRepo) CreateApp(ctx context.Context, userClient client.Client, appCr
 }
 
 func (f *AppRepo) FetchAppList(ctx context.Context, userClient client.Client, message AppListMessage) ([]AppRecord, error) {
-	// TODO: add checks for allowed namespaces with completion of initial auth work
-	// Currently we assume the client has full cluster access and naively returns all records
-	appList := &workloadsv1alpha1.CFAppList{}
-	err := f.privilegedClient.List(ctx, appList)
+	nsList := &corev1.NamespaceList{}
+	err := f.privilegedClient.List(ctx, nsList)
 	if err != nil {
-		return []AppRecord{}, err
+		return []AppRecord{}, fmt.Errorf("failed to list namespaces: %w", err)
 	}
-	filteredApps := f.applyAppListFilter(appList.Items, message)
+
+	var filteredApps []workloadsv1alpha1.CFApp
+	for _, ns := range nsList.Items {
+		appList := &workloadsv1alpha1.CFAppList{}
+		err := userClient.List(ctx, appList, client.InNamespace(ns.Name))
+		if apierrors.IsForbidden(err) {
+			continue
+		}
+		if err != nil {
+			return []AppRecord{}, fmt.Errorf("failed to list apps in namespace %s: %w", ns.Name, err)
+		}
+		filteredApps = append(filteredApps, f.applyAppListFilter(appList.Items, message)...)
+	}
 
 	return f.returnAppList(filteredApps), nil
 }

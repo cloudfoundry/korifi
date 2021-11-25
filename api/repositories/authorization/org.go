@@ -11,12 +11,12 @@ import (
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=list
 
 type Org struct {
-	k8sClient client.Client
+	privilegedClient client.Client
 }
 
-func NewOrg(k8sClient client.Client) *Org {
+func NewOrg(privilegedClient client.Client) *Org {
 	return &Org{
-		k8sClient: k8sClient,
+		privilegedClient: privilegedClient,
 	}
 }
 
@@ -24,7 +24,7 @@ func (o *Org) GetAuthorizedNamespaces(ctx context.Context, identity Identity) ([
 	var authorizedNamespaces []string
 
 	var rolebindings rbacv1.RoleBindingList
-	err := o.k8sClient.List(ctx, &rolebindings)
+	err := o.privilegedClient.List(ctx, &rolebindings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list rolebindings: %w", err)
 	}
@@ -46,7 +46,7 @@ func (o *Org) GetAuthorizedNamespaces(ctx context.Context, identity Identity) ([
 
 func (o *Org) AuthorizedIn(ctx context.Context, identity Identity, namespace string) (bool, error) {
 	var rolebindings rbacv1.RoleBindingList
-	err := o.k8sClient.List(ctx, &rolebindings, client.InNamespace(namespace))
+	err := o.privilegedClient.List(ctx, &rolebindings, client.InNamespace(namespace))
 	if err != nil {
 		return false, fmt.Errorf("failed to list rolebindings: %w", err)
 	}
