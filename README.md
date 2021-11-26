@@ -1,3 +1,5 @@
+![Build Status](https://github.com/cloudfoundry/cf-k8s-controllers/actions/workflows/test-build-push-main.yml/badge.svg) [![Maintainability](https://api.codeclimate.com/v1/badges/f8dff20cd9bab4fb4117/maintainability)](https://codeclimate.com/github/cloudfoundry/cf-k8s-controllers/maintainability) [![Test Coverage](https://api.codeclimate.com/v1/badges/f8dff20cd9bab4fb4117/test_coverage)](https://codeclimate.com/github/cloudfoundry/cf-k8s-controllers/test_coverage)
+
 # Initial Setup
 ## Clone this repo
 
