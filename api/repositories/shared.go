@@ -89,3 +89,5 @@ func getConditionValue(conditions *[]metav1.Condition, conditionType string) met
 	}
 	return conditionStatusValue
 }
+
+type IdentityProvider interface{}

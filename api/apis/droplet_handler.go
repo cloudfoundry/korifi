@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
@@ -23,7 +21,7 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFDropletRepository . CFDropletRepository
 type CFDropletRepository interface {
-	FetchDroplet(context.Context, client.Client, string) (repositories.DropletRecord, error)
+	FetchDroplet(ctx context.Context, authHeader string, dropletGUID string) (repositories.DropletRecord, error)
 }
 
 type DropletHandler struct {

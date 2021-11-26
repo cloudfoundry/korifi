@@ -18,7 +18,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -40,16 +39,20 @@ const (
 	AppStoppedState = "STOPPED"
 )
 
+type AuthInfo struct {
+	Token    string
+	CertData []byte
+	CertKey  []byte
+}
+
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
 type CFAppRepository interface {
-	FetchApp(context.Context, client.Client, string) (repositories.AppRecord, error)
-	FetchAppByNameAndSpace(context.Context, client.Client, string, string) (repositories.AppRecord, error)
-	FetchAppList(context.Context, client.Client, repositories.AppListMessage) ([]repositories.AppRecord, error)
-	FetchNamespace(context.Context, client.Client, string) (repositories.SpaceRecord, error)
-	CreateOrPatchAppEnvVars(context.Context, client.Client, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
-	CreateApp(context.Context, client.Client, repositories.AppCreateMessage) (repositories.AppRecord, error)
-	SetCurrentDroplet(context.Context, client.Client, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
-	SetAppDesiredState(context.Context, client.Client, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
+	FetchApp(ctx context.Context, authInfo AuthInfo, appGUID string) (repositories.AppRecord, error)
+	FetchAppList(ctx context.Context, authInfo AuthInfo, message repositories.AppListMessage) ([]repositories.AppRecord, error)
+	FetchNamespace(ctx context.Context, nsGUID string) (repositories.SpaceRecord, error)
+	CreateApp(ctx context.Context, authInfo AuthInfo, message repositories.AppCreateMessage) (repositories.AppRecord, error)
+	SetCurrentDroplet(ctx context.Context, authInfo AuthInfo, message repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
+	SetAppDesiredState(ctx context.Context, authInfo AuthInfo, message repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name ScaleAppProcess . ScaleAppProcess
@@ -65,8 +68,6 @@ type AppHandler struct {
 	domainRepo      CFDomainRepository
 	podRepo         PodRepository
 	scaleAppProcess ScaleAppProcess
-	buildClient     ClientBuilder
-	k8sConfig       *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
 func NewAppHandler(
@@ -78,9 +79,7 @@ func NewAppHandler(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	podRepo PodRepository,
-	scaleAppProcessFunc ScaleAppProcess,
-	buildClient ClientBuilder,
-	k8sConfig *rest.Config) *AppHandler {
+	scaleAppProcessFunc ScaleAppProcess) *AppHandler {
 	return &AppHandler{
 		logger:          logger,
 		serverURL:       serverURL,
@@ -91,8 +90,6 @@ func NewAppHandler(
 		domainRepo:      domainRepo,
 		podRepo:         podRepo,
 		scaleAppProcess: scaleAppProcessFunc,
-		buildClient:     buildClient,
-		k8sConfig:       k8sConfig,
 	}
 }
 
@@ -103,14 +100,14 @@ func (h *AppHandler) appGetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
+	authInfo, err := h.authHeaderParser.Parse(r.Header.Get(headers.Authorization))
 	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
-		writeUnknownErrorResponse(w)
+		h.logger.Error(err, "Failed to parse auth header")
+		writeInvalidAuthErrorResponse(w)
 		return
 	}
 
-	app, err := h.appRepo.FetchApp(ctx, client, appGUID)
+	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -145,17 +142,9 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client")
-		writeUnknownErrorResponse(w)
-		return
-	}
-
 	// TODO: Move this into the action or its own "filter"
 	namespaceGUID := payload.Relationships.Space.Data.GUID
-	_, err = h.appRepo.FetchNamespace(ctx, client, namespaceGUID)
-
+	_, err := h.appRepo.FetchNamespace(ctx, namespaceGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.PermissionDeniedOrNotFoundError:
@@ -169,7 +158,7 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	appRecord, err := h.appRepo.CreateApp(ctx, client, payload.ToAppCreateMessage())
+	appRecord, err := h.appRepo.CreateApp(ctx, r.Header.Get(headers.Authorization), payload.ToAppCreateMessage())
 	if err != nil {
 		if workloads.HasErrorCode(err, workloads.DuplicateAppError) {
 			errorDetail := fmt.Sprintf("App with the name '%s' already exists.", payload.Name)
@@ -227,14 +216,7 @@ func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client")
-		writeUnknownErrorResponse(w)
-		return
-	}
-
-	appList, err := h.appRepo.FetchAppList(ctx, client, appListFilter.ToMessage())
+	appList, err := h.appRepo.FetchAppList(ctx, r.Header.Get(headers.Authorization), appListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch app(s) from Kubernetes")
 		writeUnknownErrorResponse(w)
@@ -264,14 +246,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client")
-		writeUnknownErrorResponse(w)
-		return
-	}
-
-	app, err := h.appRepo.FetchApp(ctx, client, appGUID)
+	app, err := h.appRepo.FetchApp(ctx, r.Header.Get(headers.Authorization), appGUID)
 	if err != nil {
 		if errors.As(err, new(repositories.NotFoundError)) {
 			h.logger.Error(err, "App not found", "appGUID", app.GUID)
@@ -284,7 +259,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.
 	}
 
 	dropletGUID := payload.Data.GUID
-	droplet, err := h.dropletRepo.FetchDroplet(ctx, client, dropletGUID)
+	droplet, err := h.dropletRepo.FetchDroplet(ctx, r.Header.Get(headers.Authorization), dropletGUID)
 	if err != nil {
 		if errors.As(err, new(repositories.NotFoundError)) {
 			writeUnprocessableEntityError(w, invalidDropletMsg)

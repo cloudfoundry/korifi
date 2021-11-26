@@ -19,11 +19,27 @@ func BuildK8sClient(config *rest.Config) (k8sclient.Interface, error) {
 	return k8sclient.NewForConfig(config)
 }
 
-func BuildPrivilegedClient(config *rest.Config, _ string) (crclient.Client, error) {
-	return crclient.New(config, crclient.Options{Scheme: scheme.Scheme})
+type PrivilegedClientBuilder struct {
+	config *rest.Config
 }
 
-func BuildUserClient(config *rest.Config, authorizationHeader string) (crclient.Client, error) {
+func NewPrivilegedClientBuilder(config *rest.Config) PrivilegedClientBuilder {
+	return PrivilegedClientBuilder{config: config}
+}
+
+func (c PrivilegedClientBuilder) BuildClient(_ string) (crclient.Client, error) {
+	return crclient.New(c.config, crclient.Options{Scheme: scheme.Scheme})
+}
+
+type UserClientBuilder struct {
+	config *rest.Config
+}
+
+func NewUserClientBuilder(config *rest.Config) UserClientBuilder {
+	return UserClientBuilder{config: config}
+}
+
+func (c UserClientBuilder) BuildClient(authorizationHeader string) (crclient.Client, error) {
 	if authorizationHeader == "" {
 		return nil, authorization.NotAuthenticatedError{}
 	}
@@ -33,7 +49,7 @@ func BuildUserClient(config *rest.Config, authorizationHeader string) (crclient.
 		return nil, err
 	}
 
-	config = rest.AnonymousClientConfig(config)
+	config := rest.AnonymousClientConfig(c.config)
 
 	switch strings.ToLower(scheme) {
 	case authorization.BearerScheme:

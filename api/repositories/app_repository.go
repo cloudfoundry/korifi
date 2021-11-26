@@ -26,7 +26,9 @@ import (
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=create;patch;update
 
 type AppRepo struct {
-	privilegedClient client.Client
+	privilegedClient  client.Client
+	identityProvider  IdentityProvider
+	userClientFactory Build
 }
 
 func NewAppRepo(privilegedClient client.Client) *AppRepo {

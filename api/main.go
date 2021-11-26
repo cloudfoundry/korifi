@@ -85,9 +85,10 @@ func main() {
 
 	fetchProcessStatsAction := actions.NewFetchProcessStats(repositories.NewProcessRepo(privilegedCRClient), repositories.NewPodRepo(privilegedCRClient), repositories.NewAppRepo(privilegedCRClient))
 
-	buildUserClient := repositories.BuildPrivilegedClient
+	var userClientBuilder apis.ClientBuilder
+	userClientBuilder = repositories.NewPrivilegedClientBuilder(k8sClientConfig)
 	if config.AuthEnabled {
-		buildUserClient = repositories.BuildUserClient
+		userClientBuilder = repositories.NewUserClientBuilder(k8sClientConfig)
 	}
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
@@ -109,7 +110,7 @@ func main() {
 			repositories.NewDomainRepo(privilegedCRClient),
 			repositories.NewPodRepo(privilegedCRClient),
 			scaleAppProcessAction.Invoke,
-			buildUserClient,
+			userClientBuilder,
 			k8sClientConfig,
 		),
 		apis.NewRouteHandler(
@@ -118,7 +119,7 @@ func main() {
 			repositories.NewRouteRepo(privilegedCRClient),
 			repositories.NewDomainRepo(privilegedCRClient),
 			repositories.NewAppRepo(privilegedCRClient),
-			buildUserClient,
+			userClientBuilder,
 			k8sClientConfig,
 		),
 		apis.NewPackageHandler(
@@ -126,7 +127,7 @@ func main() {
 			*serverURL,
 			repositories.NewPackageRepo(privilegedCRClient),
 			repositories.NewAppRepo(privilegedCRClient),
-			buildUserClient,
+			userClientBuilder,
 			repositories.UploadSourceImage,
 			newRegistryAuthBuilder(privilegedK8sClient, config),
 			k8sClientConfig,
@@ -138,14 +139,14 @@ func main() {
 			*serverURL,
 			repositories.NewBuildRepo(privilegedCRClient),
 			repositories.NewPackageRepo(privilegedCRClient),
-			buildUserClient,
+			userClientBuilder,
 			k8sClientConfig,
 		),
 		apis.NewDropletHandler(
 			ctrl.Log.WithName("DropletHandler"),
 			*serverURL,
 			repositories.NewDropletRepo(privilegedCRClient),
-			buildUserClient,
+			userClientBuilder,
 			k8sClientConfig,
 		),
 		apis.NewProcessHandler(
@@ -154,14 +155,14 @@ func main() {
 			repositories.NewProcessRepo(privilegedCRClient),
 			fetchProcessStatsAction.Invoke,
 			scaleProcessAction.Invoke,
-			buildUserClient,
+			userClientBuilder,
 			k8sClientConfig,
 		),
 		apis.NewDomainHandler(
 			ctrl.Log.WithName("DomainHandler"),
 			*serverURL,
 			repositories.NewDomainRepo(privilegedCRClient),
-			buildUserClient,
+			userClientBuilder,
 			k8sClientConfig,
 		),
 		apis.NewJobHandler(
@@ -178,7 +179,7 @@ func main() {
 			*serverURL,
 			actions.NewApplyManifest(repositories.NewAppRepo(privilegedCRClient), repositories.NewProcessRepo(privilegedCRClient)).Invoke,
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
-			buildUserClient,
+			userClientBuilder,
 			k8sClientConfig,
 		),
 
