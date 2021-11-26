@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"

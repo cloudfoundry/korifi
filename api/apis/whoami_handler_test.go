@@ -1,12 +1,13 @@
 package apis_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -17,20 +18,19 @@ var _ = Describe("WhoAmI", func() {
 	const whoAmIBase = "/whoami"
 
 	var (
-		spaceHandler     *apis.WhoAmIHandler
+		whoAmIHandler    *apis.WhoAmIHandler
 		identityProvider *fake.IdentityProvider
 		requestMethod    string
-		authHeader       string
 		requestPath      string
 	)
 
 	BeforeEach(func() {
-		authHeader = "Bearer the-token-data"
 		requestPath = whoAmIBase
 		identityProvider = new(fake.IdentityProvider)
 		identityProvider.GetIdentityReturns(authorization.Identity{Name: "the-user", Kind: rbacv1.UserKind}, nil)
-		spaceHandler = apis.NewWhoAmI(identityProvider, *serverURL)
-		spaceHandler.RegisterRoutes(router)
+		ctx = authorization.NewContext(ctx, &authorization.Info{Token: "the-token"})
+		whoAmIHandler = apis.NewWhoAmI(identityProvider, *serverURL)
+		whoAmIHandler.RegisterRoutes(router)
 	})
 
 	JustBeforeEach(func() {
@@ -51,10 +51,10 @@ var _ = Describe("WhoAmI", func() {
             }`)))
 		})
 
-		It("calls the identity provider with the authorization header content", func() {
+		It("calls the identity provider with the authorization.Info from the request context", func() {
 			Expect(identityProvider.GetIdentityCallCount()).To(Equal(1))
-			_, actualHeader := identityProvider.GetIdentityArgsForCall(0)
-			Expect(actualHeader).To(Equal(authHeader))
+			_, actualAuthInfo := identityProvider.GetIdentityArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authorization.Info{Token: "the-token"}))
 		})
 
 		When("the identity provider returns an error", func() {
@@ -63,6 +63,16 @@ var _ = Describe("WhoAmI", func() {
 			})
 
 			It("returns an unknown response", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the request context does not contain an authorization.Info", func() {
+			BeforeEach(func() {
+				ctx = context.Background()
+			})
+
+			It("fails", func() {
 				expectUnknownError()
 			})
 		})

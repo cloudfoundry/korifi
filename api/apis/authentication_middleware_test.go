@@ -5,11 +5,13 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
+	apisfake "code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider/fake"
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 )
 
 const authHeader = "Authorization: something"
@@ -19,14 +21,20 @@ var _ = Describe("Authentication Middleware", func() {
 		authMiddleware   *apis.AuthenticationMiddleware
 		nextHandler      http.Handler
 		identityProvider *fake.IdentityProvider
+		authInfoParser   *apisfake.AuthInfoParser
 		requestPath      string
+		actualReq        *http.Request
 	)
 
 	BeforeEach(func() {
-		nextHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusTeapot) })
+		nextHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			actualReq = r
+			w.WriteHeader(http.StatusTeapot)
+		})
 
+		authInfoParser = new(apisfake.AuthInfoParser)
 		identityProvider = new(fake.IdentityProvider)
-		authMiddleware = apis.NewAuthenticationMiddleware(identityProvider)
+		authMiddleware = apis.NewAuthenticationMiddleware(authInfoParser, identityProvider)
 
 		requestPath = ""
 	})
@@ -47,6 +55,11 @@ var _ = Describe("Authentication Middleware", func() {
 			It("passes through", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
 			})
+
+			It("does not inject an authorization.Info in the context", func() {
+				_, ok := authorization.InfoFromContext(actualReq.Context())
+				Expect(ok).To(BeFalse())
+			})
 		})
 
 		Describe("/v3", func() {
@@ -57,36 +70,90 @@ var _ = Describe("Authentication Middleware", func() {
 			It("passes through", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
 			})
+
+			It("does not inject an authorization.Info in the context", func() {
+				_, ok := authorization.InfoFromContext(actualReq.Context())
+				Expect(ok).To(BeFalse())
+			})
 		})
 	})
 
 	Describe("endpoints requiring authentication", func() {
 		BeforeEach(func() {
 			requestPath = "/v3/apps"
+			authInfoParser.ParseReturns(authorization.Info{Token: "the-token"}, nil)
 			identityProvider.GetIdentityReturns(authorization.Identity{}, nil)
 		})
 
 		It("verifies authentication and passes through", func() {
+			Expect(authInfoParser.ParseCallCount()).To(Equal(1))
+			Expect(authInfoParser.ParseArgsForCall(0)).To(Equal(authHeader))
+
 			Expect(identityProvider.GetIdentityCallCount()).To(Equal(1))
-			_, actualAuthHeader := identityProvider.GetIdentityArgsForCall(0)
-			Expect(actualAuthHeader).To(Equal(authHeader))
+			_, actualAuthInfo := identityProvider.GetIdentityArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authorization.Info{Token: "the-token"}))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
+		})
+
+		It("parses the Authorization header into an authorization.Info and injects it in the request context", func() {
+			actualAuthInfo, ok := authorization.InfoFromContext(actualReq.Context())
+			Expect(ok).To(BeTrue())
+			Expect(actualAuthInfo).To(PointTo(Equal(authorization.Info{Token: "the-token"})))
+		})
+
+		When("the Authorization header is not well formed", func() {
+			BeforeEach(func() {
+				authInfoParser.ParseReturns(authorization.Info{}, authorization.InvalidAuthError{})
+			})
+
+			It("returns a CF-InvalidAuthToken error", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusUnauthorized))
+				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
+                    "errors": [
+                    {
+                        "detail": "Invalid Auth Token",
+                        "title": "CF-InvalidAuthToken",
+                        "code": 1000
+                    }
+                    ]
+                }`)))
+			})
+		})
+
+		When("Authorization header parsing fails for unknown reason", func() {
+			BeforeEach(func() {
+				authInfoParser.ParseReturns(authorization.Info{}, errors.New("what happened?"))
+			})
+
+			It("returns a CF-Unknown error", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusInternalServerError))
+				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
+                    "errors": [
+                    {
+                        "detail": "An unknown error occurred.",
+                        "title": "UnknownError",
+                        "code": 10001
+                    }
+                    ]
+                }`)))
+			})
 		})
 
 		When("authentication is not provided", func() {
 			BeforeEach(func() {
-				identityProvider.GetIdentityReturns(authorization.Identity{}, authorization.NotAuthenticatedError{})
+				authInfoParser.ParseReturns(authorization.Info{}, authorization.NotAuthenticatedError{})
 			})
 
 			It("returns a CF-NotAuthenticated error", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusUnauthorized))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
                     "errors": [
-                        {
-                            "detail": "Authentication error",
-                            "title": "CF-NotAuthenticated",
-                            "code": 10002
-                        }
+                    {
+                        "detail": "Authentication error",
+                        "title": "CF-NotAuthenticated",
+                        "code": 10002
+                    }
                     ]
                 }`)))
 			})
@@ -101,11 +168,11 @@ var _ = Describe("Authentication Middleware", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusUnauthorized))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
                     "errors": [
-                        {
-                            "detail": "Invalid Auth Token",
-                            "title": "CF-InvalidAuthToken",
-                            "code": 1000
-                        }
+                    {
+                        "detail": "Invalid Auth Token",
+                        "title": "CF-InvalidAuthToken",
+                        "code": 1000
+                    }
                     ]
                 }`)))
 			})
@@ -120,11 +187,11 @@ var _ = Describe("Authentication Middleware", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusInternalServerError))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
                     "errors": [
-                        {
-                            "detail": "An unknown error occurred.",
-                            "title": "UnknownError",
-                            "code": 10001
-                        }
+                    {
+                        "detail": "An unknown error occurred.",
+                        "title": "UnknownError",
+                        "code": 10001
+                    }
                     ]
                 }`)))
 			})

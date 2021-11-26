@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -14,7 +14,7 @@ import (
 var _ = Describe("TokenReviewer", func() {
 	var (
 		ctx                context.Context
-		tokenReviewer      authorization.IdentityInspector
+		tokenReviewer      *authorization.TokenReviewer
 		token              string
 		passErrConstraints types.GomegaMatcher
 		id                 authorization.Identity

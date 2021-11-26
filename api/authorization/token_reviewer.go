@@ -20,15 +20,15 @@ const (
 
 //+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 
-type tokenReviewer struct {
+type TokenReviewer struct {
 	privilegedClient client.Client
 }
 
-func NewTokenReviewer(privilegedClient client.Client) IdentityInspector {
-	return &tokenReviewer{privilegedClient: privilegedClient}
+func NewTokenReviewer(privilegedClient client.Client) *TokenReviewer {
+	return &TokenReviewer{privilegedClient: privilegedClient}
 }
 
-func (r *tokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, error) {
+func (r *TokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, error) {
 	tokenReview := &authv1.TokenReview{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "tokenReview",

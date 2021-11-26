@@ -3,7 +3,6 @@ package authorization
 import (
 	"context"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 
@@ -17,19 +16,14 @@ type CertInspector struct {
 	restConfig *rest.Config
 }
 
-func NewCertInspector(restConfig *rest.Config) CertInspector {
-	return CertInspector{
+func NewCertInspector(restConfig *rest.Config) *CertInspector {
+	return &CertInspector{
 		restConfig: restConfig,
 	}
 }
 
-func (c CertInspector) WhoAmI(ctx context.Context, certPEMB64 string) (Identity, error) {
-	pemBytes, err := base64.StdEncoding.DecodeString(certPEMB64)
-	if err != nil {
-		return Identity{}, fmt.Errorf("failed to base64 decode cert")
-	}
-
-	certBlock, rst := pem.Decode(pemBytes)
+func (c *CertInspector) WhoAmI(ctx context.Context, certPEM []byte) (Identity, error) {
+	certBlock, rst := pem.Decode(certPEM)
 	if certBlock == nil {
 		return Identity{}, fmt.Errorf("failed to decode cert PEM")
 	}

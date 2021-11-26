@@ -1,10 +1,11 @@
 package provider
 
 import (
+	"errors"
 	"net/http"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"github.com/go-http-utils/headers"
 )
 
 type SpaceRepositoryProvider struct {
@@ -25,7 +26,12 @@ func NewSpace(
 }
 
 func (p *SpaceRepositoryProvider) SpaceRepoForRequest(request *http.Request) (repositories.CFSpaceRepository, error) {
-	identity, err := p.identityProvider.GetIdentity(request.Context(), request.Header.Get(headers.Authorization))
+	authInfo, ok := authorization.InfoFromContext(request.Context())
+	if !ok {
+		return nil, errors.New("no authorization info in the request context")
+	}
+
+	identity, err := p.identityProvider.GetIdentity(request.Context(), *authInfo)
 	if err != nil {
 		return nil, err
 	}

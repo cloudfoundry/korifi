@@ -5,10 +5,10 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 )
 
-type IdentityInspector struct {
+type TokenIdentityInspector struct {
 	WhoAmIStub        func(context.Context, string) (authorization.Identity, error)
 	whoAmIMutex       sync.RWMutex
 	whoAmIArgsForCall []struct {
@@ -27,7 +27,7 @@ type IdentityInspector struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *IdentityInspector) WhoAmI(arg1 context.Context, arg2 string) (authorization.Identity, error) {
+func (fake *TokenIdentityInspector) WhoAmI(arg1 context.Context, arg2 string) (authorization.Identity, error) {
 	fake.whoAmIMutex.Lock()
 	ret, specificReturn := fake.whoAmIReturnsOnCall[len(fake.whoAmIArgsForCall)]
 	fake.whoAmIArgsForCall = append(fake.whoAmIArgsForCall, struct {
@@ -47,26 +47,26 @@ func (fake *IdentityInspector) WhoAmI(arg1 context.Context, arg2 string) (author
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *IdentityInspector) WhoAmICallCount() int {
+func (fake *TokenIdentityInspector) WhoAmICallCount() int {
 	fake.whoAmIMutex.RLock()
 	defer fake.whoAmIMutex.RUnlock()
 	return len(fake.whoAmIArgsForCall)
 }
 
-func (fake *IdentityInspector) WhoAmICalls(stub func(context.Context, string) (authorization.Identity, error)) {
+func (fake *TokenIdentityInspector) WhoAmICalls(stub func(context.Context, string) (authorization.Identity, error)) {
 	fake.whoAmIMutex.Lock()
 	defer fake.whoAmIMutex.Unlock()
 	fake.WhoAmIStub = stub
 }
 
-func (fake *IdentityInspector) WhoAmIArgsForCall(i int) (context.Context, string) {
+func (fake *TokenIdentityInspector) WhoAmIArgsForCall(i int) (context.Context, string) {
 	fake.whoAmIMutex.RLock()
 	defer fake.whoAmIMutex.RUnlock()
 	argsForCall := fake.whoAmIArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *IdentityInspector) WhoAmIReturns(result1 authorization.Identity, result2 error) {
+func (fake *TokenIdentityInspector) WhoAmIReturns(result1 authorization.Identity, result2 error) {
 	fake.whoAmIMutex.Lock()
 	defer fake.whoAmIMutex.Unlock()
 	fake.WhoAmIStub = nil
@@ -76,7 +76,7 @@ func (fake *IdentityInspector) WhoAmIReturns(result1 authorization.Identity, res
 	}{result1, result2}
 }
 
-func (fake *IdentityInspector) WhoAmIReturnsOnCall(i int, result1 authorization.Identity, result2 error) {
+func (fake *TokenIdentityInspector) WhoAmIReturnsOnCall(i int, result1 authorization.Identity, result2 error) {
 	fake.whoAmIMutex.Lock()
 	defer fake.whoAmIMutex.Unlock()
 	fake.WhoAmIStub = nil
@@ -92,7 +92,7 @@ func (fake *IdentityInspector) WhoAmIReturnsOnCall(i int, result1 authorization.
 	}{result1, result2}
 }
 
-func (fake *IdentityInspector) Invocations() map[string][][]interface{} {
+func (fake *TokenIdentityInspector) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.whoAmIMutex.RLock()
@@ -104,7 +104,7 @@ func (fake *IdentityInspector) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *IdentityInspector) recordInvocation(key string, args []interface{}) {
+func (fake *TokenIdentityInspector) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -116,4 +116,4 @@ func (fake *IdentityInspector) recordInvocation(key string, args []interface{}) 
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ authorization.IdentityInspector = new(IdentityInspector)
+var _ authorization.TokenIdentityInspector = new(TokenIdentityInspector)

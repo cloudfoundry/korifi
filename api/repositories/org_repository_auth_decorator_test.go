@@ -5,12 +5,11 @@ import (
 	"errors"
 	"net/http"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider"
 	providerfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider/fake"
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -43,18 +42,27 @@ var _ = Describe("OrgRepositoryAuthDecorator", func() {
 	})
 
 	Describe("creation", func() {
-		JustBeforeEach(func() {
-			orgRepoAuthDecorator, err = orgRepoProvider.OrgRepoForRequest(&http.Request{
-				Header: http.Header{
-					headers.Authorization: []string{"bearer the-token"},
-				},
-			})
+		var request *http.Request
+
+		BeforeEach(func() {
+			var reqErr error
+			request, reqErr = http.NewRequestWithContext(
+				authorization.NewContext(context.Background(), &authorization.Info{Token: "the-token"}),
+				"",
+				"",
+				nil,
+			)
+			Expect(reqErr).NotTo(HaveOccurred())
 		})
 
-		It("gets built from the Authorization header", func() {
+		JustBeforeEach(func() {
+			orgRepoAuthDecorator, err = orgRepoProvider.OrgRepoForRequest(request)
+		})
+
+		It("uses the authorization.Info from the request context to get the identity", func() {
 			Expect(identityProvider.GetIdentityCallCount()).To(Equal(1))
-			_, bearerToken := identityProvider.GetIdentityArgsForCall(0)
-			Expect(bearerToken).To(Equal("bearer the-token"))
+			_, authInfo := identityProvider.GetIdentityArgsForCall(0)
+			Expect(authInfo.Token).To(Equal("the-token"))
 		})
 
 		When("identity provider fails", func() {
@@ -66,16 +74,29 @@ var _ = Describe("OrgRepositoryAuthDecorator", func() {
 				Expect(err).To(MatchError("id-provider-failure"))
 			})
 		})
+
+		When("there is no authorization.Info in the request context", func() {
+			BeforeEach(func() {
+				request = &http.Request{}
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(HaveOccurred())
+			})
+		})
 	})
 
 	Describe("org repo itself", func() {
 		BeforeEach(func() {
-			orgRepoAuthDecorator, err = orgRepoProvider.OrgRepoForRequest(&http.Request{
-				Header: http.Header{
-					headers.Authorization: []string{"bearer the-token"},
-				},
-			})
-			Expect(err).NotTo(HaveOccurred())
+			request, setupErr := http.NewRequestWithContext(
+				authorization.NewContext(context.Background(), &authorization.Info{Token: "the-token"}),
+				"",
+				"",
+				nil,
+			)
+			Expect(setupErr).NotTo(HaveOccurred())
+			orgRepoAuthDecorator, setupErr = orgRepoProvider.OrgRepoForRequest(request)
+			Expect(setupErr).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
