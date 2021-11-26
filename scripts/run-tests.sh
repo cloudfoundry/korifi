@@ -15,7 +15,7 @@ if ! egrep -q e2e <(echo "$@"); then
   source "${ENVTEST_ASSETS_DIR}/setup-envtest.sh"
   fetch_envtest_tools "${ENVTEST_ASSETS_DIR}"
   setup_envtest_env "${ENVTEST_ASSETS_DIR}"
-  extra_args+=("-coverprofile=cover.out" "--skip-package=e2e")
+  extra_args+=("--skip-package=e2e" "--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/cf-k8s-controllers/...")
 else
   if [ -z "${SKIP_DEPLOY}" ]; then
     "${SCRIPT_DIR}/deploy-on-kind.sh" e2e

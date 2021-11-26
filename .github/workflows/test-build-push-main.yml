@@ -72,6 +72,12 @@ jobs:
     - name: Run Controllers tests
       run: make test-controllers
 
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v2
+      with:
+        name: controllers-coverage
+        path: "**/cover.out"
+
   api-unit-tests:
     runs-on: ubuntu-latest
     steps:
@@ -93,6 +99,12 @@ jobs:
     - name: Run API unit tests
       run: make test-api-unit
 
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v2
+      with:
+        name: api-unit-coverage
+        path: "**/cover.out"
+
   api-integration-tests:
     runs-on: ubuntu-latest
     steps:
@@ -113,6 +125,48 @@ jobs:
 
     - name: Run API integration tests
       run: make test-api-integration
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v2
+      with:
+        name: api-integration-coverage
+        path: "**/cover.out"
+
+  publish-code-coverage:
+    needs:
+    - controllers-tests
+    - api-unit-tests
+    - api-integration-tests
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Download controllers coverage
+      uses: actions/download-artifact@v2
+      with:
+        name: controllers-coverage
+        path: controllers-coverage
+
+    - name: Download api unit coverage
+      uses: actions/download-artifact@v2
+      with:
+        name: api-unit-coverage
+        path: api-unit-coverage
+
+    - name: Download api integration coverage
+      uses: actions/download-artifact@v2
+      with:
+        name: api-integration-coverage
+        path: api-integration-coverage
+
+    - name: Generate and publish code coverage report
+      uses: paambaati/codeclimate-action@v3.0.0
+      env:
+        CC_TEST_REPORTER_ID: eac10b59cb33cb6a2ae137260587e43e3e148c72f0d2a3b7cca35761cfe257ee
+      with:
+        coverageLocations: "**/cover.out:gocov"
+        prefix: "code.cloudfoundry.org/cf-k8s-controllers"
 
   build-api:
     runs-on: ubuntu-latest
