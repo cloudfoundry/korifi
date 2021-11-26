@@ -111,7 +111,7 @@ func encodeCertAndKey(certData, keyData []byte) string {
 	return base64.StdEncoding.EncodeToString(authHeader)
 }
 
-func generateUnsignedCert(name string) string {
+func generateUnsignedCert(name string) []byte {
 	cert := &x509.Certificate{
 		SerialNumber: big.NewInt(1658),
 		Subject: pkix.Name{
@@ -140,5 +140,5 @@ func generateUnsignedCert(name string) string {
 		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
 	})).To(Succeed())
 
-	return base64.StdEncoding.EncodeToString(buf.Bytes())
+	return buf.Bytes()
 }

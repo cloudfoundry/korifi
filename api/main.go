@@ -15,10 +15,10 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -191,7 +191,9 @@ func main() {
 	for _, handler := range handlers {
 		handler.RegisterRoutes(router)
 	}
-	router.Use(apis.NewAuthenticationMiddleware(identityProvider).Middleware)
+
+	authInfoParser := authorization.NewInfoParser()
+	router.Use(apis.NewAuthenticationMiddleware(authInfoParser, identityProvider).Middleware)
 
 	portString := fmt.Sprintf(":%v", config.ServerPort)
 	log.Println("Listening on ", portString)

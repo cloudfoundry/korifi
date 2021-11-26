@@ -5,12 +5,11 @@ import (
 	"errors"
 	"net/http"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider"
 	providerfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider/fake"
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -43,18 +42,37 @@ var _ = Describe("SpaceRepositoryAuthDecorator", func() {
 	})
 
 	Describe("creation", func() {
-		JustBeforeEach(func() {
-			spaceRepoAuthDecorator, err = spaceRepoProvider.SpaceRepoForRequest(&http.Request{
-				Header: http.Header{
-					headers.Authorization: []string{"bearer the-token"},
-				},
-			})
+		var request *http.Request
+
+		BeforeEach(func() {
+			var reqErr error
+			request, reqErr = http.NewRequestWithContext(
+				authorization.NewContext(context.Background(), &authorization.Info{Token: "the-token"}),
+				"",
+				"",
+				nil,
+			)
+			Expect(reqErr).NotTo(HaveOccurred())
 		})
 
-		It("gets built from the Authorization header", func() {
+		JustBeforeEach(func() {
+			spaceRepoAuthDecorator, err = spaceRepoProvider.SpaceRepoForRequest(request)
+		})
+
+		It("uses the authorization.Info to get the identity", func() {
 			Expect(identityProvider.GetIdentityCallCount()).To(Equal(1))
-			_, bearerToken := identityProvider.GetIdentityArgsForCall(0)
-			Expect(bearerToken).To(Equal("bearer the-token"))
+			_, authInfo := identityProvider.GetIdentityArgsForCall(0)
+			Expect(authInfo.Token).To(Equal("the-token"))
+		})
+
+		When("there is no authorization.Info in the request context", func() {
+			BeforeEach(func() {
+				request = &http.Request{}
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(HaveOccurred())
+			})
 		})
 
 		When("identity provider fails", func() {
@@ -70,12 +88,15 @@ var _ = Describe("SpaceRepositoryAuthDecorator", func() {
 
 	Describe("space repo itself", func() {
 		BeforeEach(func() {
-			spaceRepoAuthDecorator, err = spaceRepoProvider.SpaceRepoForRequest(&http.Request{
-				Header: http.Header{
-					headers.Authorization: []string{"bearer the-token"},
-				},
-			})
-			Expect(err).NotTo(HaveOccurred())
+			request, setupErr := http.NewRequestWithContext(
+				authorization.NewContext(context.Background(), &authorization.Info{Token: "the-token"}),
+				"",
+				"",
+				nil,
+			)
+			Expect(setupErr).NotTo(HaveOccurred())
+			spaceRepoAuthDecorator, setupErr = spaceRepoProvider.SpaceRepoForRequest(request)
+			Expect(setupErr).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {

@@ -6,9 +6,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	controllerruntime "sigs.k8s.io/controller-runtime"
@@ -21,7 +20,7 @@ const (
 //counterfeiter:generate -o fake -fake-name IdentityProvider . IdentityProvider
 
 type IdentityProvider interface {
-	GetIdentity(context.Context, string) (authorization.Identity, error)
+	GetIdentity(context.Context, authorization.Info) (authorization.Identity, error)
 }
 
 type WhoAmIHandler struct {
@@ -42,7 +41,13 @@ func (h *WhoAmIHandler) whoAmIHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
-	identity, err := h.identityProvider.GetIdentity(ctx, r.Header.Get(headers.Authorization))
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	identity, err := h.identityProvider.GetIdentity(ctx, *authInfo)
 	if err != nil {
 		writeUnknownErrorResponse(w)
 		return

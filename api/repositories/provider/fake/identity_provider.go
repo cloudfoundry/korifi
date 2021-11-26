@@ -5,16 +5,16 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider"
 )
 
 type IdentityProvider struct {
-	GetIdentityStub        func(context.Context, string) (authorization.Identity, error)
+	GetIdentityStub        func(context.Context, authorization.Info) (authorization.Identity, error)
 	getIdentityMutex       sync.RWMutex
 	getIdentityArgsForCall []struct {
 		arg1 context.Context
-		arg2 string
+		arg2 authorization.Info
 	}
 	getIdentityReturns struct {
 		result1 authorization.Identity
@@ -28,12 +28,12 @@ type IdentityProvider struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *IdentityProvider) GetIdentity(arg1 context.Context, arg2 string) (authorization.Identity, error) {
+func (fake *IdentityProvider) GetIdentity(arg1 context.Context, arg2 authorization.Info) (authorization.Identity, error) {
 	fake.getIdentityMutex.Lock()
 	ret, specificReturn := fake.getIdentityReturnsOnCall[len(fake.getIdentityArgsForCall)]
 	fake.getIdentityArgsForCall = append(fake.getIdentityArgsForCall, struct {
 		arg1 context.Context
-		arg2 string
+		arg2 authorization.Info
 	}{arg1, arg2})
 	stub := fake.GetIdentityStub
 	fakeReturns := fake.getIdentityReturns
@@ -54,13 +54,13 @@ func (fake *IdentityProvider) GetIdentityCallCount() int {
 	return len(fake.getIdentityArgsForCall)
 }
 
-func (fake *IdentityProvider) GetIdentityCalls(stub func(context.Context, string) (authorization.Identity, error)) {
+func (fake *IdentityProvider) GetIdentityCalls(stub func(context.Context, authorization.Info) (authorization.Identity, error)) {
 	fake.getIdentityMutex.Lock()
 	defer fake.getIdentityMutex.Unlock()
 	fake.GetIdentityStub = stub
 }
 
-func (fake *IdentityProvider) GetIdentityArgsForCall(i int) (context.Context, string) {
+func (fake *IdentityProvider) GetIdentityArgsForCall(i int) (context.Context, authorization.Info) {
 	fake.getIdentityMutex.RLock()
 	defer fake.getIdentityMutex.RUnlock()
 	argsForCall := fake.getIdentityArgsForCall[i]

@@ -2,17 +2,17 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/authorization"
-	"github.com/go-http-utils/headers"
 )
 
 //counterfeiter:generate -o fake -fake-name IdentityProvider . IdentityProvider
 
 type IdentityProvider interface {
-	GetIdentity(ctx context.Context, authorizationHeader string) (authorization.Identity, error)
+	GetIdentity(ctx context.Context, authInfo authorization.Info) (authorization.Identity, error)
 }
 
 type OrgRepositoryProvider struct {
@@ -33,7 +33,12 @@ func NewOrg(
 }
 
 func (p *OrgRepositoryProvider) OrgRepoForRequest(request *http.Request) (repositories.CFOrgRepository, error) {
-	identity, err := p.identityProvider.GetIdentity(request.Context(), request.Header.Get(headers.Authorization))
+	authInfo, ok := authorization.InfoFromContext(request.Context())
+	if !ok {
+		return nil, errors.New("no authorization info in the request context")
+	}
+
+	identity, err := p.identityProvider.GetIdentity(request.Context(), *authInfo)
 	if err != nil {
 		return nil, err
 	}
