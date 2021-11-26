@@ -172,9 +172,6 @@ jobs:
     - build-controllers
     - check-reference-api
     - check-reference-controllers
-    - api-unit-tests
-    - api-integration-tests
-    - controllers-tests
 
     runs-on: ubuntu-latest
 
