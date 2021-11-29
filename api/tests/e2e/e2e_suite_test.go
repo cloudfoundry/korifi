@@ -250,14 +250,14 @@ func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader
 	}
 
 	resp, err := httpReq(http.MethodPost, rolesURL, authHeader, payload)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(3, err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 
-	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
+	ExpectWithOffset(3, resp).To(HaveHTTPStatus(http.StatusCreated))
 
 	role := presenter.RoleResponse{}
 	err = json.NewDecoder(resp.Body).Decode(&role)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(3, err).NotTo(HaveOccurred())
 
 	return role
 }
