@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const authHeader = "Authorization: something"
@@ -34,7 +35,11 @@ var _ = Describe("Authentication Middleware", func() {
 
 		authInfoParser = new(apisfake.AuthInfoParser)
 		identityProvider = new(fake.IdentityProvider)
-		authMiddleware = apis.NewAuthenticationMiddleware(authInfoParser, identityProvider)
+		authMiddleware = apis.NewAuthenticationMiddleware(
+			log.Log.WithName("AuthenticationMiddlewareTest"),
+			authInfoParser,
+			identityProvider,
+		)
 
 		requestPath = ""
 	})

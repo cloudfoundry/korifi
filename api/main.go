@@ -193,7 +193,11 @@ func main() {
 	}
 
 	authInfoParser := authorization.NewInfoParser()
-	router.Use(apis.NewAuthenticationMiddleware(authInfoParser, identityProvider).Middleware)
+	router.Use(apis.NewAuthenticationMiddleware(
+		ctrl.Log.WithName("AuthenticationMiddleware"),
+		authInfoParser,
+		identityProvider,
+	).Middleware)
 
 	portString := fmt.Sprintf(":%v", config.ServerPort)
 	log.Println("Listening on ", portString)

@@ -5,9 +5,11 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"github.com/go-http-utils/headers"
+	"github.com/go-logr/logr"
 )
 
 type AuthenticationMiddleware struct {
+	logger                   logr.Logger
 	authInfoParser           AuthInfoParser
 	identityProvider         IdentityProvider
 	unauthenticatedEndpoints map[string]interface{}
@@ -19,8 +21,9 @@ type AuthInfoParser interface {
 	Parse(authHeader string) (authorization.Info, error)
 }
 
-func NewAuthenticationMiddleware(authInfoParser AuthInfoParser, identityProvider IdentityProvider) *AuthenticationMiddleware {
+func NewAuthenticationMiddleware(logger logr.Logger, authInfoParser AuthInfoParser, identityProvider IdentityProvider) *AuthenticationMiddleware {
 	return &AuthenticationMiddleware{
+		logger:           logger,
 		authInfoParser:   authInfoParser,
 		identityProvider: identityProvider,
 		unauthenticatedEndpoints: map[string]interface{}{
@@ -49,6 +52,7 @@ func (a *AuthenticationMiddleware) Middleware(next http.Handler) http.Handler {
 				return
 			}
 
+			a.logger.Error(err, "failed to parse auth info")
 			writeUnknownErrorResponse(w)
 			return
 		}
@@ -62,6 +66,7 @@ func (a *AuthenticationMiddleware) Middleware(next http.Handler) http.Handler {
 				return
 			}
 
+			a.logger.Error(err, "failed to get identity")
 			writeUnknownErrorResponse(w)
 			return
 		}
