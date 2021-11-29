@@ -87,7 +87,7 @@ var _ = Describe("AppHandler", func() {
 
 			var err error
 			req, err = http.NewRequest("GET", "/v3/apps/"+appGUID, nil)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(HaveOccurred())
 		})
 
 		When("on the happy path", func() {
@@ -579,6 +579,172 @@ var _ = Describe("AppHandler", func() {
 					}
 				]
 			}`, defaultServerURL)), "Response body matches response:")
+			})
+
+			When("name and space guid filters are provided", func() {
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				})
+
+				It("returns the Pagination Data and App Resources in the response", func() {
+					Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
+				"pagination": {
+				  "total_results": 2,
+				  "total_pages": 1,
+				  "first": {
+					"href": "%[1]s/v3/apps?page=1"
+				  },
+				  "last": {
+					"href": "%[1]s/v3/apps?page=1"
+				  },
+				  "next": null,
+				  "previous": null
+				},
+				"resources": [
+					{
+						"guid": "first-test-app-guid",
+						"created_at": "",
+						"updated_at": "",
+						"name": "first-test-app",
+						"state": "STOPPED",
+						"lifecycle": {
+						  "type": "buildpack",
+						  "data": {
+							"buildpacks": [],
+							"stack": ""
+						  }
+						},
+						"relationships": {
+						  "space": {
+							"data": {
+							  "guid": "test-space-guid"
+							}
+						  }
+						},
+						"metadata": {
+						  "labels": {},
+						  "annotations": {}
+						},
+						"links": {
+						  "self": {
+							"href": "%[1]s/v3/apps/first-test-app-guid"
+						  },
+						  "environment_variables": {
+							"href": "%[1]s/v3/apps/first-test-app-guid/environment_variables"
+						  },
+						  "space": {
+							"href": "%[1]s/v3/spaces/test-space-guid"
+						  },
+						  "processes": {
+							"href": "%[1]s/v3/apps/first-test-app-guid/processes"
+						  },
+						  "packages": {
+							"href": "%[1]s/v3/apps/first-test-app-guid/packages"
+						  },
+						  "current_droplet": {
+							"href": "%[1]s/v3/apps/first-test-app-guid/droplets/current"
+						  },
+						  "droplets": {
+							"href": "%[1]s/v3/apps/first-test-app-guid/droplets"
+						  },
+						  "tasks": {
+							"href": "%[1]s/v3/apps/first-test-app-guid/tasks"
+						  },
+						  "start": {
+							"href": "%[1]s/v3/apps/first-test-app-guid/actions/start",
+							"method": "POST"
+						  },
+						  "stop": {
+							"href": "%[1]s/v3/apps/first-test-app-guid/actions/stop",
+							"method": "POST"
+						  },
+						  "revisions": {
+							"href": "%[1]s/v3/apps/first-test-app-guid/revisions"
+						  },
+						  "deployed_revisions": {
+							"href": "%[1]s/v3/apps/first-test-app-guid/revisions/deployed"
+						  },
+						  "features": {
+							"href": "%[1]s/v3/apps/first-test-app-guid/features"
+						  }
+						}
+					},
+					{
+						"guid": "second-test-app-guid",
+						"created_at": "",
+						"updated_at": "",
+						"name": "second-test-app",
+						"state": "STOPPED",
+						"lifecycle": {
+						  "type": "buildpack",
+						  "data": {
+							"buildpacks": [],
+							"stack": ""
+						  }
+						},
+						"relationships": {
+						  "space": {
+							"data": {
+							  "guid": "test-space-guid"
+							}
+						  }
+						},
+						"metadata": {
+						  "labels": {},
+						  "annotations": {}
+						},
+						"links": {
+						  "self": {
+							"href": "%[1]s/v3/apps/second-test-app-guid"
+						  },
+						  "environment_variables": {
+							"href": "%[1]s/v3/apps/second-test-app-guid/environment_variables"
+						  },
+						  "space": {
+							"href": "%[1]s/v3/spaces/test-space-guid"
+						  },
+						  "processes": {
+							"href": "%[1]s/v3/apps/second-test-app-guid/processes"
+						  },
+						  "packages": {
+							"href": "%[1]s/v3/apps/second-test-app-guid/packages"
+						  },
+						  "current_droplet": {
+							"href": "%[1]s/v3/apps/second-test-app-guid/droplets/current"
+						  },
+						  "droplets": {
+							"href": "%[1]s/v3/apps/second-test-app-guid/droplets"
+						  },
+						  "tasks": {
+							"href": "%[1]s/v3/apps/second-test-app-guid/tasks"
+						  },
+						  "start": {
+							"href": "%[1]s/v3/apps/second-test-app-guid/actions/start",
+							"method": "POST"
+						  },
+						  "stop": {
+							"href": "%[1]s/v3/apps/second-test-app-guid/actions/stop",
+							"method": "POST"
+						  },
+						  "revisions": {
+							"href": "%[1]s/v3/apps/second-test-app-guid/revisions"
+						  },
+						  "deployed_revisions": {
+							"href": "%[1]s/v3/apps/second-test-app-guid/revisions/deployed"
+						  },
+						  "features": {
+							"href": "%[1]s/v3/apps/second-test-app-guid/features"
+						  }
+						}
+					}
+				]
+			}`, defaultServerURL)), "Response body matches response:")
+				})
 			})
 		})
 

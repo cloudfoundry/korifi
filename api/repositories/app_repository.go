@@ -11,10 +11,11 @@ import (
 
 	"github.com/google/uuid"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -156,7 +157,7 @@ func (f *AppRepo) CreateApp(ctx context.Context, client client.Client, appCreate
 	return cfAppToAppRecord(cfApp), err
 }
 
-func (f *AppRepo) FetchAppList(ctx context.Context, client client.Client) ([]AppRecord, error) {
+func (f *AppRepo) FetchAppList(ctx context.Context, client client.Client, nameFilters []string) ([]AppRecord, error) {
 	// TODO: add checks for allowed namespaces with completion of initial auth work
 	// Currently we assume the client has full cluster access and naively returns all records
 	appList := &workloadsv1alpha1.CFAppList{}
@@ -164,10 +165,23 @@ func (f *AppRepo) FetchAppList(ctx context.Context, client client.Client) ([]App
 	if err != nil {
 		return []AppRecord{}, err
 	}
-	allApps := appList.Items
 
-	appRecordList := make([]AppRecord, 0, len(allApps))
-	for _, app := range allApps {
+	var apps []workloadsv1alpha1.CFApp
+	if len(nameFilters) == 0 {
+		apps = appList.Items
+	} else {
+		for _, app := range appList.Items {
+			for _, nameFilter := range nameFilters {
+				if app.Spec.Name == nameFilter {
+					apps = append(apps, app)
+					break
+				}
+			}
+		}
+	}
+
+	appRecordList := make([]AppRecord, 0, len(apps))
+	for _, app := range apps {
 		appRecordList = append(appRecordList, cfAppToAppRecord(app))
 	}
 

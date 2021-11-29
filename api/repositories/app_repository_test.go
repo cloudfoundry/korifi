@@ -255,7 +255,7 @@ var _ = Describe("AppRepository", func() {
 		})
 	})
 
-	Describe("FetchAppList", Serial, func() {
+	Describe("FetchAppList", Focus, Serial, func() {
 		const namespace = "default"
 
 		BeforeEach(func() {
@@ -273,7 +273,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("no Apps exist", func() {
 			It("returns an error", func() {
-				_, err := appRepo.FetchAppList(testCtx, testClient)
+				_, err := appRepo.FetchAppList(testCtx, testClient, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -324,10 +324,19 @@ var _ = Describe("AppRepository", func() {
 
 			// TODO: Update this test annotation to reflect proper filtering by caller permissions when that is available
 			It("returns all the AppRecord CRs", func() {
-				appList, err := appRepo.FetchAppList(testCtx, testClient)
+				appList, err := appRepo.FetchAppList(testCtx, testClient, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(appList).To(HaveLen(2))
 				// TODO: Assert on equality for each expected appRecord? Could just hardcode checks for each app?
+			})
+
+			When("filtered by name", func() {
+				It("returns only matching records", func() {
+					appList, err := appRepo.FetchAppList(testCtx, testClient, []string{"test-app1"})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(appList).To(HaveLen(1))
+					Expect(appList[0].Name).To(Equal("test-app1"))
+				})
 			})
 		})
 	})

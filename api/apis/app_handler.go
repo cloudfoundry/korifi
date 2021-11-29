@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
@@ -42,7 +43,7 @@ const (
 type CFAppRepository interface {
 	FetchApp(context.Context, client.Client, string) (repositories.AppRecord, error)
 	FetchAppByNameAndSpace(context.Context, client.Client, string, string) (repositories.AppRecord, error)
-	FetchAppList(context.Context, client.Client) ([]repositories.AppRecord, error)
+	FetchAppList(ctx context.Context, client client.Client, nameFilters []string) ([]repositories.AppRecord, error)
 	FetchNamespace(context.Context, client.Client, string) (repositories.SpaceRecord, error)
 	CreateOrPatchAppEnvVars(context.Context, client.Client, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, client.Client, repositories.AppCreateMessage) (repositories.AppRecord, error)
@@ -208,7 +209,13 @@ func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	appList, err := h.appRepo.FetchAppList(ctx, client)
+	namesParam := r.URL.Query().Get("names")
+	var nameFilters []string
+	if namesParam != "" {
+		nameFilters = strings.Split(namesParam, ",")
+	}
+
+	appList, err := h.appRepo.FetchAppList(ctx, client, nameFilters)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch app(s) from Kubernetes")
 		writeUnknownErrorResponse(w)
