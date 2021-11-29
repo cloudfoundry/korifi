@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -14,16 +15,22 @@ import (
 
 var _ = Describe("CFAppValidatingWebhook", func() {
 	const (
-		testAppGUID        = "test-app-guid"
-		anotherTestAppGUID = "another-test-app-guid"
-		testAppName        = "test-app"
-		anotherTestAppName = "another-test-app"
-		namespace          = "default"
-		anotherNSName      = "another"
+		namespace     = "default"
+		anotherNSName = "another"
 	)
-	var ctx context.Context
+	var (
+		ctx                context.Context
+		testAppGUID        string
+		anotherTestAppGUID string
+		testAppName        string
+		anotherTestAppName string
+	)
 	BeforeEach(func() {
 		ctx = context.Background()
+		testAppGUID = "test-app-guid-" + uuid.NewString()
+		anotherTestAppGUID = "anothertest-app-guid-" + uuid.NewString()
+		testAppName = "test-app-" + uuid.NewString()
+		anotherTestAppName = "another-test-app-" + uuid.NewString()
 	})
 
 	When("creating a new CFApp record", func() {
