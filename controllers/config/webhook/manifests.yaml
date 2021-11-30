@@ -158,6 +158,7 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
+    - DELETE
     resources:
     - subnamespaceanchors
   sideEffects: None
