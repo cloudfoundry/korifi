@@ -72,6 +72,9 @@ jobs:
     - name: Run Controllers tests
       run: make test-controllers
 
+    - name: Sanitize coverage report
+      run: sed -i -E '/(fake|generated|vendor)/d' **/cover.out
+
     - name: Upload coverage report
       uses: actions/upload-artifact@v2
       with:
@@ -99,6 +102,9 @@ jobs:
     - name: Run API unit tests
       run: make test-api-unit
 
+    - name: Sanitize coverage report
+      run: sed -i -E '/(fake|generated|vendor)/d' **/cover.out
+
     - name: Upload coverage report
       uses: actions/upload-artifact@v2
       with:
@@ -125,6 +131,9 @@ jobs:
 
     - name: Run API integration tests
       run: make test-api-integration
+
+    - name: Sanitize coverage report
+      run: sed -i -E '/(fake|generated|vendor)/d' **/cover.out
 
     - name: Upload coverage report
       uses: actions/upload-artifact@v2
