@@ -4,6 +4,13 @@ IMG_API ?= cloudfoundry/cf-k8s-api:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
+# Run controllers tests with two nodes by default to (potentially) minimise
+# flakes.
+CONTROLLERS_GINKGO_NODES ?= 2
+ifdef GINKGO_NODES
+CONTROLLERS_GINKGO_NODES = $(GINKGO_NODES)
+endif
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -68,7 +75,7 @@ test-controllers-api: test-controllers test-api
 test-unit: test-controllers test-api-unit
 
 test-controllers: install-ginkgo manifests-controllers generate-controllers fmt vet ## Run tests.
-	cd controllers && ../scripts/run-tests.sh
+	cd controllers && GINKGO_NODES=$(CONTROLLERS_GINKGO_NODES) ../scripts/run-tests.sh
 
 test-api: test-api-unit test-api-integration
 

@@ -28,4 +28,8 @@ else
   extra_args+=("--slow-spec-threshold=30s")
 fi
 
-ginkgo -r -p --procs "${TEST_NUM_NODES:=2}" --randomize-all --randomize-suites "${extra_args[@]}" $@
+if [[ -n "$GINKGO_NODES" ]]; then
+  extra_args+=("--procs=${GINKGO_NODES}")
+fi
+
+ginkgo -r -p --randomize-all --randomize-suites "${extra_args[@]}" $@
