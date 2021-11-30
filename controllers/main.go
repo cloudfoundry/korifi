@@ -27,6 +27,7 @@ import (
 	networkingcontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/imageprocessfetcher"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
@@ -202,7 +203,10 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = workloads.NewSubnamespaceAnchorValidation(mgr.GetClient()).SetupWebhookWithManager(mgr); err != nil {
+		if err = workloads.NewSubnamespaceAnchorValidation(
+			coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType),
+			coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType),
+		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "SubnamespaceAnchors")
 			os.Exit(1)
 		}

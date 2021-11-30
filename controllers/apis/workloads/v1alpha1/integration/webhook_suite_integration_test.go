@@ -27,6 +27,7 @@ import (
 	"time"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
 	. "github.com/onsi/ginkgo"
@@ -96,7 +97,10 @@ var _ = BeforeSuite(func() {
 	cfAppValidatingWebhook := &workloads.CFAppValidation{Client: mgr.GetClient()}
 	Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
-	Expect(workloads.NewSubnamespaceAnchorValidation(mgr.GetClient()).SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect(workloads.NewSubnamespaceAnchorValidation(
+		coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType),
+		coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType),
+	).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect((&workloadsv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr)).To(Succeed())
 

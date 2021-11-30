@@ -1219,6 +1219,14 @@ rules:
   - update
   - watch
 - apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - patch
+- apiGroups:
   - eirini.cloudfoundry.org
   resources:
   - lrps
@@ -1229,13 +1237,6 @@ rules:
   - list
   - patch
   - update
-  - watch
-- apiGroups:
-  - hnc.x-k8s.io
-  resources:
-  - subnamespaceanchors
-  verbs:
-  - list
   - watch
 - apiGroups:
   - kpack.io
@@ -1863,6 +1864,7 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
+    - DELETE
     resources:
     - subnamespaceanchors
   sideEffects: None

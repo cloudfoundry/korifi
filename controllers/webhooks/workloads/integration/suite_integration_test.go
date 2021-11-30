@@ -10,12 +10,14 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	v1 "k8s.io/api/core/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,8 +63,9 @@ var _ = BeforeSuite(func() {
 	scheme := runtime.NewScheme()
 	Expect(v1alpha1.AddToScheme(scheme)).To(Succeed())
 	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
-	Expect(v1.AddToScheme(scheme)).To(Succeed())
+	Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	Expect(hnsv1alpha2.AddToScheme(scheme)).To(Succeed())
+	Expect(coordinationv1.AddToScheme(scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
 
@@ -87,7 +90,10 @@ var _ = BeforeSuite(func() {
 	cfAppValidatingWebhook := &workloads.CFAppValidation{Client: mgr.GetClient()}
 	Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
-	anchorValidationWebhook := workloads.NewSubnamespaceAnchorValidation(mgr.GetClient())
+	anchorValidationWebhook := workloads.NewSubnamespaceAnchorValidation(
+		coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType),
+		coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType),
+	)
 	Expect(anchorValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook

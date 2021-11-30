@@ -1,0 +1,123 @@
+package coordination
+
+import (
+	"context"
+	"crypto/sha1"
+	"fmt"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
+	coordinationv1 "k8s.io/api/coordination/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	hashedNamePrefix = "n-"
+
+	EntityTypeAnnotation = "coordination.cloudfoundry.org/entity-type"
+	NamespaceAnnotation  = "coordination.cloudfoundry.org/namespace"
+	NameAnnotation       = "coordination.cloudfoundry.org/name"
+)
+
+var (
+	unlockedIdentity = "none"
+	lockedIdentity   = "locked"
+)
+
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+//counterfeiter:generate -o fake -fake-name Client sigs.k8s.io/controller-runtime/pkg/client.Client
+
+type NameRegistry struct {
+	client     client.Client
+	entityType string
+}
+
+func NewNameRegistry(client client.Client, entityType string) NameRegistry {
+	return NameRegistry{
+		client:     client,
+		entityType: entityType,
+	}
+}
+
+func (r NameRegistry) RegisterName(ctx context.Context, namespace, name string) error {
+	lease := &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hashName(r.entityType, name),
+			Namespace: namespace,
+			Annotations: map[string]string{
+				EntityTypeAnnotation: r.entityType,
+				NamespaceAnnotation:  namespace,
+				NameAnnotation:       name,
+			},
+		},
+		Spec: coordinationv1.LeaseSpec{
+			HolderIdentity: &unlockedIdentity,
+		},
+	}
+
+	if err := r.client.Create(ctx, lease); err != nil {
+		return fmt.Errorf("creating a lease failed: %w", err)
+	}
+
+	return nil
+}
+
+func (r NameRegistry) DeregisterName(ctx context.Context, namespace, name string) error {
+	lease := &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hashName(r.entityType, name),
+			Namespace: namespace,
+		},
+	}
+	if err := r.client.Delete(ctx, lease); err != nil {
+		return fmt.Errorf("deleting a lease failed: %w", err)
+	}
+
+	return nil
+}
+
+func (r NameRegistry) TryLockName(ctx context.Context, namespace, name string) error {
+	lease := &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hashName(r.entityType, name),
+			Namespace: namespace,
+		},
+	}
+	jsonPatch := fmt.Sprintf(`[
+    {"op":"test", "path":"/spec/holderIdentity", "value": "%s"},
+    {"op":"replace", "path":"/spec/holderIdentity", "value": "%s"}
+    ]`, unlockedIdentity, lockedIdentity)
+
+	if err := r.client.Patch(ctx, lease, client.RawPatch(types.JSONPatchType, []byte(jsonPatch))); err != nil {
+		return fmt.Errorf("failed to acquire lock on lease: %w", err)
+	}
+
+	return nil
+}
+
+func (r NameRegistry) UnlockName(ctx context.Context, namespace, name string) error {
+	lease := &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hashName(r.entityType, name),
+			Namespace: namespace,
+		},
+	}
+
+	copy := lease.DeepCopy()
+	copy.Spec.HolderIdentity = &unlockedIdentity
+
+	if err := r.client.Patch(ctx, copy, client.MergeFrom(lease)); err != nil {
+		return fmt.Errorf("failed to unlock lease: %w", err)
+	}
+
+	return nil
+}
+
+func hashName(entityType, name string) string {
+	input := fmt.Sprintf("%s::%s", entityType, name)
+	return fmt.Sprintf("%s%x", hashedNamePrefix, sha1.Sum([]byte(input)))
+}
+
+// check we implement the interface
+var _ workloads.NameRegistry = NameRegistry{}

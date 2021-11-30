@@ -9,9 +9,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
@@ -24,9 +25,8 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 		ctx               context.Context
 		validatingWebhook *workloads.SubnamespaceAnchorValidation
 		namespace         string
-		lister            *fake.SubnamespaceAnchorLister
-		listResult        []hnsv1alpha2.SubnamespaceAnchor
-		listerError       error
+		orgNameRegistry   *fake.NameRegistry
+		spaceNameRegistry *fake.NameRegistry
 		anchor            *hnsv1alpha2.SubnamespaceAnchor
 		anchorJSON        []byte
 		request           admission.Request
@@ -36,10 +36,9 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		namespace = "my-namespace"
-		lister = new(fake.SubnamespaceAnchorLister)
-		listResult = []hnsv1alpha2.SubnamespaceAnchor{}
-		listerError = nil
-		validatingWebhook = workloads.NewSubnamespaceAnchorValidation(lister)
+		orgNameRegistry = new(fake.NameRegistry)
+		spaceNameRegistry = new(fake.NameRegistry)
+		validatingWebhook = workloads.NewSubnamespaceAnchorValidation(orgNameRegistry, spaceNameRegistry)
 
 		scheme := runtime.NewScheme()
 		err := hnsv1alpha2.AddToScheme(scheme)
@@ -54,12 +53,6 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 	})
 
 	JustBeforeEach(func() {
-		lister.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
-			cast := list.(*hnsv1alpha2.SubnamespaceAnchorList)
-			cast.Items = listResult
-			return listerError
-		}
-
 		if len(anchorJSON) == 0 {
 			var err error
 			anchorJSON, err = json.Marshal(anchor)
@@ -96,13 +89,12 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 				}
 			})
 
-			It("searches for matching org labels in the namespace", func() {
-				Expect(lister.ListCallCount()).To(Equal(1))
-				_, _, options := lister.ListArgsForCall(0)
-				Expect(options).To(ConsistOf(
-					client.InNamespace(namespace),
-					client.MatchingLabels{workloads.OrgNameLabel: "my-org"},
-				))
+			It("registers the name", func() {
+				Expect(spaceNameRegistry.RegisterNameCallCount()).To(Equal(0))
+				Expect(orgNameRegistry.RegisterNameCallCount()).To(Equal(1))
+				_, actualNamespace, name := orgNameRegistry.RegisterNameArgsForCall(0)
+				Expect(actualNamespace).To(Equal(namespace))
+				Expect(name).To(Equal("my-org"))
 			})
 
 			When("the org name is unique in the namespace", func() {
@@ -113,7 +105,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 			When("the org name already exists in the namespace", func() {
 				BeforeEach(func() {
-					listResult = []hnsv1alpha2.SubnamespaceAnchor{{}}
+					orgNameRegistry.RegisterNameReturns(k8serrors.NewAlreadyExists(schema.GroupResource{}, "foo"))
 				})
 
 				It("denies the request", func() {
@@ -135,13 +127,12 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 				}
 			})
 
-			It("searches for matching space labels in the namespace", func() {
-				Expect(lister.ListCallCount()).To(Equal(1))
-				_, _, options := lister.ListArgsForCall(0)
-				Expect(options).To(ConsistOf(
-					client.InNamespace(namespace),
-					client.MatchingLabels{workloads.SpaceNameLabel: "my-space"},
-				))
+			It("registers the space name", func() {
+				Expect(orgNameRegistry.RegisterNameCallCount()).To(Equal(0))
+				Expect(spaceNameRegistry.RegisterNameCallCount()).To(Equal(1))
+				_, actualNamespace, name := spaceNameRegistry.RegisterNameArgsForCall(0)
+				Expect(actualNamespace).To(Equal(namespace))
+				Expect(name).To(Equal("my-space"))
 			})
 
 			When("the space name is unique in the namespace", func() {
@@ -152,7 +143,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 			When("the space name already exists in the namespace", func() {
 				BeforeEach(func() {
-					listResult = []hnsv1alpha2.SubnamespaceAnchor{{}}
+					spaceNameRegistry.RegisterNameReturns(k8serrors.NewAlreadyExists(schema.GroupResource{}, "foo"))
 				})
 
 				It("denies the request", func() {
@@ -211,7 +202,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 				})
 			})
 
-			When("listing fails", func() {
+			When("the name registry fails", func() {
 				BeforeEach(func() {
 					anchor = &hnsv1alpha2.SubnamespaceAnchor{
 						ObjectMeta: metav1.ObjectMeta{
@@ -222,7 +213,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 							},
 						},
 					}
-					listerError = errors.New("oops")
+					orgNameRegistry.RegisterNameReturns(errors.New("another error"))
 				})
 
 				It("denies the request", func() {
@@ -271,24 +262,32 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 				newAnchor.Labels[workloads.OrgNameLabel] = "another-org"
 			})
 
-			It("searches for matching org labels in the namespace", func() {
-				Expect(lister.ListCallCount()).To(Equal(1))
-				_, _, options := lister.ListArgsForCall(0)
-				Expect(options).To(ConsistOf(
-					client.InNamespace(namespace),
-					client.MatchingLabels{workloads.OrgNameLabel: "another-org"},
-				))
-			})
+			When("the org name hasn't changed", func() {
+				BeforeEach(func() {
+					newAnchor.Labels[workloads.OrgNameLabel] = "my-org"
+					newAnchor.Labels["something"] = "else"
+				})
 
-			When("the new org name is unique in the namespace", func() {
-				It("allows the request", func() {
+				It("succeeds without consulting the registry", func() {
 					Expect(response.Allowed).To(BeTrue())
+					Expect(orgNameRegistry.RegisterNameCallCount()).To(Equal(0))
+					Expect(orgNameRegistry.TryLockNameCallCount()).To(Equal(0))
+					Expect(spaceNameRegistry.RegisterNameCallCount()).To(Equal(0))
+					Expect(spaceNameRegistry.TryLockNameCallCount()).To(Equal(0))
 				})
 			})
 
-			When("the new org name already exists in the namespace", func() {
+			It("takes a lock on the old name in the registry", func() {
+				Expect(orgNameRegistry.TryLockNameCallCount()).To(Equal(1))
+
+				_, actualNamespace, name := orgNameRegistry.TryLockNameArgsForCall(0)
+				Expect(actualNamespace).To(Equal(namespace))
+				Expect(name).To(Equal("my-org"))
+			})
+
+			When("it fails to get the lock on the old name", func() {
 				BeforeEach(func() {
-					listResult = []hnsv1alpha2.SubnamespaceAnchor{{}}
+					orgNameRegistry.TryLockNameReturns(errors.New("boom!"))
 				})
 
 				It("denies the request", func() {
@@ -296,15 +295,51 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 				})
 			})
 
-			When("the org name hasn't changed", func() {
-				BeforeEach(func() {
-					newAnchor.Labels[workloads.OrgNameLabel] = "my-org"
-					newAnchor.Labels["something"] = "else"
-					listResult = []hnsv1alpha2.SubnamespaceAnchor{*anchor}
+			It("registers the new name", func() {
+				Expect(orgNameRegistry.RegisterNameCallCount()).To(Equal(1))
+				_, actualNamespace, name := orgNameRegistry.RegisterNameArgsForCall(0)
+				Expect(actualNamespace).To(Equal(namespace))
+				Expect(name).To(Equal("another-org"))
+			})
+
+			When("the new org name is unique in the namespace", func() {
+				It("allows the request", func() {
+					Expect(response.Allowed).To(BeTrue())
 				})
 
-				It("succeeds", func() {
-					Expect(response.Allowed).To(BeTrue())
+				It("deletes the old name in the registry", func() {
+					Expect(orgNameRegistry.DeregisterNameCallCount()).To(Equal(1))
+				})
+			})
+
+			When("the new org name already exists in the namespace", func() {
+				BeforeEach(func() {
+					orgNameRegistry.RegisterNameReturns(k8serrors.NewAlreadyExists(schema.GroupResource{}, "foo"))
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+				})
+
+				It("releases the lock on the old name", func() {
+					Expect(orgNameRegistry.UnlockNameCallCount()).To(Equal(1))
+					_, actualNamespace, name := orgNameRegistry.UnlockNameArgsForCall(0)
+					Expect(actualNamespace).To(Equal(namespace))
+					Expect(name).To(Equal("my-org"))
+				})
+			})
+
+			When("registering the new name fails", func() {
+				BeforeEach(func() {
+					orgNameRegistry.RegisterNameReturns(errors.New("boom!"))
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+				})
+
+				It("releases the lock on the old name", func() {
+					Expect(orgNameRegistry.UnlockNameCallCount()).To(Equal(1))
 				})
 			})
 		})
@@ -324,24 +359,28 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 				newAnchor.Labels[workloads.SpaceNameLabel] = "another-space"
 			})
 
-			It("searches for matching space labels in the namespace", func() {
-				Expect(lister.ListCallCount()).To(Equal(1))
-				_, _, options := lister.ListArgsForCall(0)
-				Expect(options).To(ConsistOf(
-					client.InNamespace(namespace),
-					client.MatchingLabels{workloads.SpaceNameLabel: "another-space"},
-				))
-			})
+			When("the space name hasn't changed", func() {
+				BeforeEach(func() {
+					newAnchor.Labels[workloads.SpaceNameLabel] = "my-space"
+					newAnchor.Labels["something"] = "else"
+				})
 
-			When("the new space name is unique in the namespace", func() {
-				It("allows the request", func() {
+				It("succeeds", func() {
 					Expect(response.Allowed).To(BeTrue())
 				})
 			})
 
-			When("the new space name already exists in the namespace", func() {
+			It("takes a lock on the old name in the registry", func() {
+				Expect(spaceNameRegistry.TryLockNameCallCount()).To(Equal(1))
+
+				_, actualNamespace, name := spaceNameRegistry.TryLockNameArgsForCall(0)
+				Expect(actualNamespace).To(Equal(namespace))
+				Expect(name).To(Equal("my-space"))
+			})
+
+			When("it fails to get the lock on the old name", func() {
 				BeforeEach(func() {
-					listResult = []hnsv1alpha2.SubnamespaceAnchor{{}}
+					spaceNameRegistry.TryLockNameReturns(errors.New("boom!"))
 				})
 
 				It("denies the request", func() {
@@ -349,16 +388,143 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 				})
 			})
 
-			When("the space name hasn't changed", func() {
-				BeforeEach(func() {
-					newAnchor.Labels[workloads.SpaceNameLabel] = "my-space"
-					newAnchor.Labels["something"] = "else"
-					listResult = []hnsv1alpha2.SubnamespaceAnchor{*anchor}
-				})
+			It("registers the new name", func() {
+				Expect(spaceNameRegistry.RegisterNameCallCount()).To(Equal(1))
+				_, actualNamespace, name := spaceNameRegistry.RegisterNameArgsForCall(0)
+				Expect(actualNamespace).To(Equal(namespace))
+				Expect(name).To(Equal("another-space"))
+			})
 
-				It("succeeds", func() {
+			When("the new space name is unique in the namespace", func() {
+				It("allows the request", func() {
 					Expect(response.Allowed).To(BeTrue())
 				})
+
+				It("deletes the old name in the registry", func() {
+					Expect(spaceNameRegistry.DeregisterNameCallCount()).To(Equal(1))
+				})
+			})
+
+			When("the new space name already exists in the namespace", func() {
+				BeforeEach(func() {
+					spaceNameRegistry.RegisterNameReturns(k8serrors.NewAlreadyExists(schema.GroupResource{}, "foo"))
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+				})
+
+				It("releases the lock on the old name", func() {
+					Expect(spaceNameRegistry.UnlockNameCallCount()).To(Equal(1))
+				})
+			})
+
+			When("registering the new name fails", func() {
+				BeforeEach(func() {
+					spaceNameRegistry.RegisterNameReturns(errors.New("boom!"))
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+				})
+
+				It("releases the lock on the old name", func() {
+					Expect(spaceNameRegistry.UnlockNameCallCount()).To(Equal(1))
+				})
+			})
+		})
+	})
+
+	Describe("subnamespaceanchor deletion", func() {
+		JustBeforeEach(func() {
+			request = admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					Name:      anchor.Name,
+					Namespace: namespace,
+					Operation: admissionv1.Delete,
+					OldObject: runtime.RawExtension{
+						Raw: anchorJSON,
+					},
+				},
+			}
+
+			response = validatingWebhook.Handle(ctx, request)
+		})
+
+		Context("orgs", func() {
+			BeforeEach(func() {
+				anchor = &hnsv1alpha2.SubnamespaceAnchor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.NewString(),
+						Namespace: namespace,
+						Labels: map[string]string{
+							workloads.OrgNameLabel: "my-org",
+						},
+					},
+				}
+			})
+
+			It("removes the name from the registry", func() {
+				Expect(orgNameRegistry.DeregisterNameCallCount()).To(Equal(1))
+				_, actualNamespace, name := orgNameRegistry.DeregisterNameArgsForCall(0)
+				Expect(actualNamespace).To(Equal(namespace))
+				Expect(name).To(Equal("my-org"))
+			})
+
+			When("deregistering fails", func() {
+				BeforeEach(func() {
+					orgNameRegistry.DeregisterNameReturns(errors.New("boom!"))
+				})
+
+				It("allows the deletion anyway", func() {
+					Expect(response.Allowed).To(BeTrue())
+				})
+			})
+
+			When("the anchor has no org or space label", func() {
+				BeforeEach(func() {
+					delete(anchor.Labels, workloads.OrgNameLabel)
+				})
+
+				It("allows the deletion anyway", func() {
+					Expect(response.Allowed).To(BeTrue())
+				})
+			})
+
+			When("the org has a space label as well", func() {
+				BeforeEach(func() {
+					anchor.Labels[workloads.SpaceNameLabel] = "my-space"
+				})
+
+				It("allows the deletion anyway", func() {
+					Expect(response.Allowed).To(BeTrue())
+				})
+
+				It("does not attempt to deregister any names", func() {
+					Expect(orgNameRegistry.DeregisterNameCallCount()).To(Equal(0))
+					Expect(spaceNameRegistry.DeregisterNameCallCount()).To(Equal(0))
+				})
+			})
+		})
+
+		Context("spaces", func() {
+			BeforeEach(func() {
+				anchor = &hnsv1alpha2.SubnamespaceAnchor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.NewString(),
+						Namespace: namespace,
+						Labels: map[string]string{
+							workloads.SpaceNameLabel: "my-space",
+						},
+					},
+				}
+			})
+
+			It("removes the name from the registry", func() {
+				Expect(spaceNameRegistry.DeregisterNameCallCount()).To(Equal(1))
+				_, namespace, name := spaceNameRegistry.DeregisterNameArgsForCall(0)
+				Expect(namespace).To(Equal(namespace))
+				Expect(name).To(Equal("my-space"))
 			})
 		})
 	})
