@@ -64,7 +64,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 			return admission.Denied(UnknownError.Marshal())
 		}
 
-		if returnNow, response := v.validateLabels(anchor); returnNow {
+		if valid, response := v.validateLabels(anchor); !valid {
 			return response
 		}
 
@@ -83,7 +83,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 			return admission.Denied(UnknownError.Marshal())
 		}
 
-		if returnNow, response := v.validateLabels(anchor); returnNow {
+		if valid, response := v.validateLabels(anchor); !valid {
 			return response
 		}
 
@@ -113,7 +113,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 			return admission.Denied(UnknownError.Marshal())
 		}
 
-		if returnNow, _ := v.validateLabels(oldAnchor); returnNow {
+		if valid, _ := v.validateLabels(oldAnchor); !valid {
 			return admission.Allowed("")
 		}
 
@@ -132,15 +132,15 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 
 func (v *SubnamespaceAnchorValidation) validateLabels(anchor *v1alpha2.SubnamespaceAnchor) (bool, admission.Response) {
 	if anchor.Labels[OrgNameLabel] == "" && anchor.Labels[SpaceNameLabel] == "" {
-		return true, admission.Allowed("")
+		return false, admission.Allowed("")
 	}
 
 	if anchor.Labels[OrgNameLabel] != "" && anchor.Labels[SpaceNameLabel] != "" {
 		subnsLogger.Info("cannot have both org and space labels set", "anchor", anchor)
-		return true, admission.Denied(UnknownError.Marshal())
+		return false, admission.Denied(UnknownError.Marshal())
 	}
 
-	return false, admission.Response{}
+	return true, admission.Response{}
 }
 
 // newHandler must be called after v.validateLabels() has ensured only org or space label is non-empty

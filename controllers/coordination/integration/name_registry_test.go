@@ -142,7 +142,8 @@ var _ = Describe("Name Registry", func() {
 			})
 
 			It("succeeds anyway", func() {
-				Expect(nameRegistry.UnlockName(ctx, ns1.Name, name)).To(Succeed())
+				err := nameRegistry.UnlockName(ctx, ns1.Name, name)
+				Expect(err).To(MatchError(ContainSubstring("failed to release lock on lease")))
 			})
 		})
 

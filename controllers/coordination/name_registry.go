@@ -103,12 +103,13 @@ func (r NameRegistry) UnlockName(ctx context.Context, namespace, name string) er
 			Namespace: namespace,
 		},
 	}
+	jsonPatch := fmt.Sprintf(`[
+    {"op":"test", "path":"/spec/holderIdentity", "value": "%s"},
+    {"op":"replace", "path":"/spec/holderIdentity", "value": "%s"}
+    ]`, lockedIdentity, unlockedIdentity)
 
-	copy := lease.DeepCopy()
-	copy.Spec.HolderIdentity = &unlockedIdentity
-
-	if err := r.client.Patch(ctx, copy, client.MergeFrom(lease)); err != nil {
-		return fmt.Errorf("failed to unlock lease: %w", err)
+	if err := r.client.Patch(ctx, lease, client.RawPatch(types.JSONPatchType, []byte(jsonPatch))); err != nil {
+		return fmt.Errorf("failed to release lock on lease: %w", err)
 	}
 
 	return nil
