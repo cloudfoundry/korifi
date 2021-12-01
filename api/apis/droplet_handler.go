@@ -29,7 +29,7 @@ type CFDropletRepository interface {
 type DropletHandler struct {
 	serverURL   url.URL
 	dropletRepo CFDropletRepository
-	buildClient ClientBuilder
+	buildClient ClientBuilderFunc
 	logger      logr.Logger
 	k8sConfig   *rest.Config
 }
@@ -38,7 +38,7 @@ func NewDropletHandler(
 	logger logr.Logger,
 	serverURL url.URL,
 	dropletRepo CFDropletRepository,
-	buildClient ClientBuilder,
+	buildClient ClientBuilderFunc,
 	k8sConfig *rest.Config) *DropletHandler {
 	return &DropletHandler{
 		logger:      logger,

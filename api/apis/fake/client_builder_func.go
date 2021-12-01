@@ -9,7 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ClientBuilder struct {
+type ClientBuilderFunc struct {
 	Stub        func(*rest.Config, string) (client.Client, error)
 	mutex       sync.RWMutex
 	argsForCall []struct {
@@ -28,7 +28,7 @@ type ClientBuilder struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ClientBuilder) Spy(arg1 *rest.Config, arg2 string) (client.Client, error) {
+func (fake *ClientBuilderFunc) Spy(arg1 *rest.Config, arg2 string) (client.Client, error) {
 	fake.mutex.Lock()
 	ret, specificReturn := fake.returnsOnCall[len(fake.argsForCall)]
 	fake.argsForCall = append(fake.argsForCall, struct {
@@ -37,7 +37,7 @@ func (fake *ClientBuilder) Spy(arg1 *rest.Config, arg2 string) (client.Client, e
 	}{arg1, arg2})
 	stub := fake.Stub
 	returns := fake.returns
-	fake.recordInvocation("ClientBuilder", []interface{}{arg1, arg2})
+	fake.recordInvocation("ClientBuilderFunc", []interface{}{arg1, arg2})
 	fake.mutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -48,25 +48,25 @@ func (fake *ClientBuilder) Spy(arg1 *rest.Config, arg2 string) (client.Client, e
 	return returns.result1, returns.result2
 }
 
-func (fake *ClientBuilder) CallCount() int {
+func (fake *ClientBuilderFunc) CallCount() int {
 	fake.mutex.RLock()
 	defer fake.mutex.RUnlock()
 	return len(fake.argsForCall)
 }
 
-func (fake *ClientBuilder) Calls(stub func(*rest.Config, string) (client.Client, error)) {
+func (fake *ClientBuilderFunc) Calls(stub func(*rest.Config, string) (client.Client, error)) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = stub
 }
 
-func (fake *ClientBuilder) ArgsForCall(i int) (*rest.Config, string) {
+func (fake *ClientBuilderFunc) ArgsForCall(i int) (*rest.Config, string) {
 	fake.mutex.RLock()
 	defer fake.mutex.RUnlock()
 	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2
 }
 
-func (fake *ClientBuilder) Returns(result1 client.Client, result2 error) {
+func (fake *ClientBuilderFunc) Returns(result1 client.Client, result2 error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = nil
@@ -76,7 +76,7 @@ func (fake *ClientBuilder) Returns(result1 client.Client, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *ClientBuilder) ReturnsOnCall(i int, result1 client.Client, result2 error) {
+func (fake *ClientBuilderFunc) ReturnsOnCall(i int, result1 client.Client, result2 error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = nil
@@ -92,7 +92,7 @@ func (fake *ClientBuilder) ReturnsOnCall(i int, result1 client.Client, result2 e
 	}{result1, result2}
 }
 
-func (fake *ClientBuilder) Invocations() map[string][][]interface{} {
+func (fake *ClientBuilderFunc) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.mutex.RLock()
@@ -104,7 +104,7 @@ func (fake *ClientBuilder) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *ClientBuilder) recordInvocation(key string, args []interface{}) {
+func (fake *ClientBuilderFunc) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -116,4 +116,4 @@ func (fake *ClientBuilder) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ apis.ClientBuilder = new(ClientBuilder).Spy
+var _ apis.ClientBuilderFunc = new(ClientBuilderFunc).Spy

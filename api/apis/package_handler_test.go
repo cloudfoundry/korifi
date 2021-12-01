@@ -30,7 +30,7 @@ var _ = Describe("PackageHandler", func() {
 		var (
 			packageRepo   *fake.CFPackageRepository
 			appRepo       *fake.CFAppRepository
-			clientBuilder *fake.ClientBuilder
+			clientBuilder *fake.ClientBuilderFunc
 		)
 
 		const (
@@ -53,7 +53,7 @@ var _ = Describe("PackageHandler", func() {
 
 			appRepo = new(fake.CFAppRepository)
 
-			clientBuilder = new(fake.ClientBuilder)
+			clientBuilder = new(fake.ClientBuilderFunc)
 
 			apiHandler := NewPackageHandler(
 				logf.Log.WithName(testPackageHandlerLoggerName),
@@ -178,7 +178,7 @@ var _ = Describe("PackageHandler", func() {
 		var (
 			packageRepo   *fake.CFPackageRepository
 			appRepo       *fake.CFAppRepository
-			clientBuilder *fake.ClientBuilder
+			clientBuilder *fake.ClientBuilderFunc
 		)
 
 		makePostRequest := func(body string) {
@@ -223,7 +223,7 @@ var _ = Describe("PackageHandler", func() {
 				SpaceGUID: spaceGUID,
 			}, nil)
 
-			clientBuilder = new(fake.ClientBuilder)
+			clientBuilder = new(fake.ClientBuilderFunc)
 
 			apiHandler := NewPackageHandler(
 				logf.Log.WithName(testPackageHandlerLoggerName),
@@ -449,7 +449,7 @@ var _ = Describe("PackageHandler", func() {
 			uploadImageSource *fake.SourceImageUploader
 			buildRegistryAuth *fake.RegistryAuthBuilder
 			credentialOption  remote.Option
-			clientBuilder     *fake.ClientBuilder
+			clientBuilder     *fake.ClientBuilderFunc
 		)
 
 		makeUploadRequest := func(packageGUID string, file io.Reader) {
@@ -505,7 +505,7 @@ var _ = Describe("PackageHandler", func() {
 			uploadImageSource.Returns(imageRefWithDigest, nil)
 
 			appRepo = new(fake.CFAppRepository)
-			clientBuilder = new(fake.ClientBuilder)
+			clientBuilder = new(fake.ClientBuilderFunc)
 			credentialOption = remote.WithUserAgent("for-test-use-only") // real one should have credentials
 			buildRegistryAuth = new(fake.RegistryAuthBuilder)
 			buildRegistryAuth.Returns(credentialOption, nil)

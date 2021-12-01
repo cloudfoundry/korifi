@@ -26,7 +26,7 @@ var _ = Describe("ProcessHandler", func() {
 		processRepo       *fake.CFProcessRepository
 		fetchProcessStats *fake.FetchProcessStats
 		scaleProcessFunc  *fake.ScaleProcess
-		clientBuilder     *fake.ClientBuilder
+		clientBuilder     *fake.ClientBuilderFunc
 		req               *http.Request
 	)
 
@@ -34,7 +34,7 @@ var _ = Describe("ProcessHandler", func() {
 		processRepo = new(fake.CFProcessRepository)
 		fetchProcessStats = new(fake.FetchProcessStats)
 		scaleProcessFunc = new(fake.ScaleProcess)
-		clientBuilder = new(fake.ClientBuilder)
+		clientBuilder = new(fake.ClientBuilderFunc)
 
 		apiHandler := NewProcessHandler(
 			logf.Log.WithName(testAppHandlerLoggerName),

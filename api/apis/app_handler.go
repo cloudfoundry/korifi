@@ -12,6 +12,7 @@ import (
 	"github.com/go-http-utils/headers"
 	"github.com/gorilla/schema"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -44,7 +45,7 @@ const (
 type CFAppRepository interface {
 	FetchApp(context.Context, client.Client, string) (repositories.AppRecord, error)
 	FetchAppByNameAndSpace(context.Context, client.Client, string, string) (repositories.AppRecord, error)
-	FetchAppList(context.Context, client.Client, repositories.AppListMessage) ([]repositories.AppRecord, error)
+	FetchAppList(context.Context, authorization.Info, repositories.AppListMessage) ([]repositories.AppRecord, error)
 	FetchNamespace(context.Context, client.Client, string) (repositories.SpaceRecord, error)
 	CreateOrPatchAppEnvVars(context.Context, client.Client, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, client.Client, repositories.AppCreateMessage) (repositories.AppRecord, error)
@@ -65,7 +66,7 @@ type AppHandler struct {
 	domainRepo      CFDomainRepository
 	podRepo         PodRepository
 	scaleAppProcess ScaleAppProcess
-	buildClient     ClientBuilder
+	buildClient     ClientBuilderFunc
 	k8sConfig       *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
@@ -79,7 +80,7 @@ func NewAppHandler(
 	domainRepo CFDomainRepository,
 	podRepo PodRepository,
 	scaleAppProcessFunc ScaleAppProcess,
-	buildClient ClientBuilder,
+	buildClient ClientBuilderFunc,
 	k8sConfig *rest.Config) *AppHandler {
 	return &AppHandler{
 		logger:          logger,
@@ -227,14 +228,14 @@ func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client")
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	appList, err := h.appRepo.FetchAppList(ctx, client, appListFilter.ToMessage())
+	appList, err := h.appRepo.FetchAppList(ctx, *authInfo, appListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch app(s) from Kubernetes")
 		writeUnknownErrorResponse(w)

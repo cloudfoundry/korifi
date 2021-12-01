@@ -12,43 +12,6 @@ import (
 
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 
-type NotFoundError struct {
-	Err          error
-	ResourceType string
-}
-
-func (e NotFoundError) Error() string {
-	return "not found"
-}
-
-func (e NotFoundError) Unwrap() error {
-	return e.Err
-}
-
-type PermissionDeniedOrNotFoundError struct {
-	Err error
-}
-
-func (e PermissionDeniedOrNotFoundError) Error() string {
-	return "Resource not found or permission denied."
-}
-
-func (e PermissionDeniedOrNotFoundError) Unwrap() error {
-	return e.Err
-}
-
-type ResourceNotFoundError struct {
-	Err error
-}
-
-func (e ResourceNotFoundError) Error() string {
-	return "Resource not found."
-}
-
-func (e ResourceNotFoundError) Unwrap() error {
-	return e.Err
-}
-
 // getTimeLastUpdatedTimestamp takes the ObjectMeta from a CR and extracts the last updated time from its list of ManagedFields
 // Returns an error if the list is empty or the time could not be extracted
 func getTimeLastUpdatedTimestamp(metadata *metav1.ObjectMeta) (string, error) {
@@ -88,4 +51,41 @@ func getConditionValue(conditions *[]metav1.Condition, conditionType string) met
 		conditionStatusValue = conditionStatus.Status
 	}
 	return conditionStatusValue
+}
+
+type NotFoundError struct {
+	Err          error
+	ResourceType string
+}
+
+func (e NotFoundError) Error() string {
+	return "not found"
+}
+
+func (e NotFoundError) Unwrap() error {
+	return e.Err
+}
+
+type PermissionDeniedOrNotFoundError struct {
+	Err error
+}
+
+func (e PermissionDeniedOrNotFoundError) Error() string {
+	return "Resource not found or permission denied."
+}
+
+func (e PermissionDeniedOrNotFoundError) Unwrap() error {
+	return e.Err
+}
+
+type ResourceNotFoundError struct {
+	Err error
+}
+
+func (e ResourceNotFoundError) Error() string {
+	return "Resource not found."
+}
+
+func (e ResourceNotFoundError) Unwrap() error {
+	return e.Err
 }

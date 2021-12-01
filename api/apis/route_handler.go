@@ -45,7 +45,7 @@ type RouteHandler struct {
 	routeRepo   CFRouteRepository
 	domainRepo  CFDomainRepository
 	appRepo     CFAppRepository
-	buildClient ClientBuilder
+	buildClient ClientBuilderFunc
 	k8sConfig   *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
@@ -55,7 +55,7 @@ func NewRouteHandler(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	appRepo CFAppRepository,
-	buildClient ClientBuilder,
+	buildClient ClientBuilderFunc,
 	k8sConfig *rest.Config) *RouteHandler {
 	return &RouteHandler{
 		logger:      logger,

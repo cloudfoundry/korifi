@@ -48,7 +48,7 @@ type PackageHandler struct {
 	serverURL          url.URL
 	packageRepo        CFPackageRepository
 	appRepo            CFAppRepository
-	buildClient        ClientBuilder
+	buildClient        ClientBuilderFunc
 	uploadSourceImage  SourceImageUploader
 	buildRegistryAuth  RegistryAuthBuilder
 	k8sConfig          *rest.Config
@@ -61,7 +61,7 @@ func NewPackageHandler(
 	serverURL url.URL,
 	packageRepo CFPackageRepository,
 	appRepo CFAppRepository,
-	buildClient ClientBuilder,
+	buildClient ClientBuilderFunc,
 	uploadSourceImage SourceImageUploader,
 	buildRegistryAuth RegistryAuthBuilder,
 	k8sConfig *rest.Config,

@@ -8,8 +8,7 @@ import (
 	"strings"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/uuid"
@@ -27,12 +26,14 @@ import (
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=create;patch;update
 
 type AppRepo struct {
-	privilegedClient client.Client
+	privilegedClient  client.Client
+	userClientFactory UserK8sClientFactory
 }
 
-func NewAppRepo(privilegedClient client.Client) *AppRepo {
+func NewAppRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *AppRepo {
 	return &AppRepo{
-		privilegedClient: privilegedClient,
+		privilegedClient:  privilegedClient,
+		userClientFactory: userClientFactory,
 	}
 }
 
@@ -183,18 +184,23 @@ func (f *AppRepo) CreateApp(ctx context.Context, userClient client.Client, appCr
 	return cfAppToAppRecord(cfApp), err
 }
 
-func (f *AppRepo) FetchAppList(ctx context.Context, userClient client.Client, message AppListMessage) ([]AppRecord, error) {
+func (f *AppRepo) FetchAppList(ctx context.Context, authInfo authorization.Info, message AppListMessage) ([]AppRecord, error) {
 	nsList := &corev1.NamespaceList{}
 	err := f.privilegedClient.List(ctx, nsList)
 	if err != nil {
 		return []AppRecord{}, fmt.Errorf("failed to list namespaces: %w", err)
 	}
 
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return []AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
 	var filteredApps []workloadsv1alpha1.CFApp
 	for _, ns := range nsList.Items {
 		appList := &workloadsv1alpha1.CFAppList{}
 		err := userClient.List(ctx, appList, client.InNamespace(ns.Name))
-		if apierrors.IsForbidden(err) {
+		if k8serrors.IsForbidden(err) {
 			continue
 		}
 		if err != nil {

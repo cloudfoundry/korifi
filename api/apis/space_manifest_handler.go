@@ -27,7 +27,7 @@ type SpaceManifestHandler struct {
 	serverURL           url.URL
 	applyManifestAction ApplyManifestAction
 	spaceRepo           repositories.CFSpaceRepository
-	buildClient         ClientBuilder
+	buildClient         ClientBuilderFunc
 	k8sConfig           *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
@@ -39,7 +39,7 @@ func NewSpaceManifestHandler(
 	serverURL url.URL,
 	applyManifestAction ApplyManifestAction,
 	spaceRepo repositories.CFSpaceRepository,
-	buildClient ClientBuilder,
+	buildClient ClientBuilderFunc,
 	k8sConfig *rest.Config) *SpaceManifestHandler {
 	return &SpaceManifestHandler{
 		logger:              logger,

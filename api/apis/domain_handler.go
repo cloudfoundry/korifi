@@ -34,7 +34,7 @@ type DomainHandler struct {
 	logger      logr.Logger
 	serverURL   url.URL
 	domainRepo  CFDomainRepository
-	buildClient ClientBuilder
+	buildClient ClientBuilderFunc
 	k8sConfig   *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
@@ -42,7 +42,7 @@ func NewDomainHandler(
 	logger logr.Logger,
 	serverURL url.URL,
 	domainRepo CFDomainRepository,
-	buildClient ClientBuilder,
+	buildClient ClientBuilderFunc,
 	k8sConfig *rest.Config) *DomainHandler {
 	return &DomainHandler{
 		logger:      logger,

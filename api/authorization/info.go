@@ -19,3 +19,15 @@ func InfoFromContext(ctx context.Context) (*Info, bool) {
 	info, ok := ctx.Value(infoKey).(*Info)
 	return info, ok
 }
+
+func (i Info) Scheme() string {
+	if i.Token != "" {
+		return BearerScheme
+	}
+
+	if len(i.CertData) > 0 {
+		return CertScheme
+	}
+
+	return UnknownScheme
+}

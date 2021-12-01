@@ -2,7 +2,6 @@ package repositories_test
 
 import (
 	"context"
-	"encoding/base64"
 	"path/filepath"
 	"testing"
 
@@ -122,12 +121,11 @@ func obtainClientCert(name string) (certData, keyData []byte) {
 	return certData, keyData
 }
 
-func encodeCertAndKey(certData, keyData []byte) string {
+func encodeCertAndKey(certData, keyData []byte) []byte {
 	authHeader := []byte{}
 	authHeader = append(authHeader, certData...)
 	authHeader = append(authHeader, keyData...)
-
-	return base64.StdEncoding.EncodeToString(authHeader)
+	return authHeader
 }
 
 func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {
