@@ -29,7 +29,7 @@ var _ = Describe("DropletHandler", func() {
 		)
 		var (
 			dropletRepo   *fake.CFDropletRepository
-			clientBuilder *fake.ClientBuilder
+			clientBuilder *fake.ClientBuilderFunc
 			req           *http.Request
 		)
 
@@ -39,7 +39,7 @@ var _ = Describe("DropletHandler", func() {
 			req, err = http.NewRequest("GET", "/v3/droplets/"+dropletGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			clientBuilder = new(fake.ClientBuilder)
+			clientBuilder = new(fake.ClientBuilderFunc)
 
 			dropletHandler := NewDropletHandler(
 				logf.Log.WithName(testDropletHandlerLoggerName),

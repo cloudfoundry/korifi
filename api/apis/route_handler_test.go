@@ -33,7 +33,7 @@ var _ = Describe("RouteHandler", func() {
 		routeRepo     *fake.CFRouteRepository
 		domainRepo    *fake.CFDomainRepository
 		appRepo       *fake.CFAppRepository
-		clientBuilder *fake.ClientBuilder
+		clientBuilder *fake.ClientBuilderFunc
 		routeRecord   repositories.RouteRecord
 		req           *http.Request
 	)
@@ -42,7 +42,7 @@ var _ = Describe("RouteHandler", func() {
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
 		appRepo = new(fake.CFAppRepository)
-		clientBuilder = new(fake.ClientBuilder)
+		clientBuilder = new(fake.ClientBuilderFunc)
 
 		routeHandler := NewRouteHandler(
 			logf.Log.WithName("TestRouteHandler"),

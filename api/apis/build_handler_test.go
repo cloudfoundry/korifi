@@ -37,7 +37,7 @@ var _ = Describe("BuildHandler", func() {
 
 		var (
 			buildRepo     *fake.CFBuildRepository
-			clientBuilder *fake.ClientBuilder
+			clientBuilder *fake.ClientBuilderFunc
 			req           *http.Request
 		)
 
@@ -66,7 +66,7 @@ var _ = Describe("BuildHandler", func() {
 			req, err = http.NewRequest("GET", "/v3/builds/"+buildGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			clientBuilder = new(fake.ClientBuilder)
+			clientBuilder = new(fake.ClientBuilderFunc)
 
 			buildHandler := NewBuildHandler(
 				logf.Log.WithName(testBuildHandlerLoggerName),
@@ -337,7 +337,7 @@ var _ = Describe("BuildHandler", func() {
 		var (
 			packageRepo   *fake.CFPackageRepository
 			buildRepo     *fake.CFBuildRepository
-			clientBuilder *fake.ClientBuilder
+			clientBuilder *fake.ClientBuilderFunc
 		)
 
 		makePostRequest := func(body string) {
@@ -397,7 +397,7 @@ var _ = Describe("BuildHandler", func() {
 				AppGUID:     appGUID,
 			}, nil)
 
-			clientBuilder = new(fake.ClientBuilder)
+			clientBuilder = new(fake.ClientBuilderFunc)
 			buildHandler := NewBuildHandler(
 				logf.Log.WithName(testBuildHandlerLoggerName),
 				*serverURL,

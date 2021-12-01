@@ -25,15 +25,14 @@ import (
 
 var _ = Describe("POST /v3/apps endpoint", func() {
 	BeforeEach(func() {
-		client, err := repositories.BuildPrivilegedClient(k8sConfig, "")
-		Expect(err).NotTo(HaveOccurred())
+		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
 
-		appRepo := repositories.NewAppRepo(client)
-		dropletRepo := repositories.NewDropletRepo(client)
-		processRepo := repositories.NewProcessRepo(client)
-		routeRepo := repositories.NewRouteRepo(client)
-		domainRepo := repositories.NewDomainRepo(client)
-		podRepo := repositories.NewPodRepo(client)
+		appRepo := repositories.NewAppRepo(k8sClient, clientFactory)
+		dropletRepo := repositories.NewDropletRepo(k8sClient)
+		processRepo := repositories.NewProcessRepo(k8sClient)
+		routeRepo := repositories.NewRouteRepo(k8sClient)
+		domainRepo := repositories.NewDomainRepo(k8sClient)
+		podRepo := repositories.NewPodRepo(k8sClient)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
 

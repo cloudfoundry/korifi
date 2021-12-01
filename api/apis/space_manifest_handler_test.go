@@ -20,14 +20,14 @@ import (
 
 var _ = Describe("SpaceManifestHandler", func() {
 	var (
-		clientBuilder       *fake.ClientBuilder
+		clientBuilder       *fake.ClientBuilderFunc
 		applyManifestAction *fake.ApplyManifestAction
 		spaceRepo           *repositoriesfake.CFSpaceRepository
 		req                 *http.Request
 	)
 
 	BeforeEach(func() {
-		clientBuilder = new(fake.ClientBuilder)
+		clientBuilder = new(fake.ClientBuilderFunc)
 		applyManifestAction = new(fake.ApplyManifestAction)
 		spaceRepo = new(repositoriesfake.CFSpaceRepository)
 

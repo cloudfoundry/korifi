@@ -76,19 +76,29 @@ func main() {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
 
+	buildUserClientFunc := repositories.BuildPrivilegedClient
+	var buildUserClient repositories.UserK8sClientFactory = repositories.NewPrivilegedClientFactory(k8sClientConfig)
+	if config.AuthEnabled {
+		buildUserClientFunc = repositories.BuildUserClient
+		buildUserClient = repositories.NewUnprivilegedClientFactory(k8sClientConfig)
+	}
+
 	serverURL, err := url.Parse(config.ServerURL)
 	if err != nil {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
 	scaleProcessAction := actions.NewScaleProcess(repositories.NewProcessRepo(privilegedCRClient))
-	scaleAppProcessAction := actions.NewScaleAppProcess(repositories.NewAppRepo(privilegedCRClient), repositories.NewProcessRepo(privilegedCRClient), scaleProcessAction.Invoke)
+	scaleAppProcessAction := actions.NewScaleAppProcess(
+		repositories.NewAppRepo(privilegedCRClient, buildUserClient),
+		repositories.NewProcessRepo(privilegedCRClient),
+		scaleProcessAction.Invoke,
+	)
 
-	fetchProcessStatsAction := actions.NewFetchProcessStats(repositories.NewProcessRepo(privilegedCRClient), repositories.NewPodRepo(privilegedCRClient), repositories.NewAppRepo(privilegedCRClient))
-
-	buildUserClient := repositories.BuildPrivilegedClient
-	if config.AuthEnabled {
-		buildUserClient = repositories.BuildUserClient
-	}
+	fetchProcessStatsAction := actions.NewFetchProcessStats(
+		repositories.NewProcessRepo(privilegedCRClient),
+		repositories.NewPodRepo(privilegedCRClient),
+		repositories.NewAppRepo(privilegedCRClient, buildUserClient),
+	)
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout)
@@ -102,14 +112,14 @@ func main() {
 		apis.NewAppHandler(
 			ctrl.Log.WithName("AppHandler"),
 			*serverURL,
-			repositories.NewAppRepo(privilegedCRClient),
+			repositories.NewAppRepo(privilegedCRClient, buildUserClient),
 			repositories.NewDropletRepo(privilegedCRClient),
 			repositories.NewProcessRepo(privilegedCRClient),
 			repositories.NewRouteRepo(privilegedCRClient),
 			repositories.NewDomainRepo(privilegedCRClient),
 			repositories.NewPodRepo(privilegedCRClient),
 			scaleAppProcessAction.Invoke,
-			buildUserClient,
+			buildUserClientFunc,
 			k8sClientConfig,
 		),
 		apis.NewRouteHandler(
@@ -117,16 +127,16 @@ func main() {
 			*serverURL,
 			repositories.NewRouteRepo(privilegedCRClient),
 			repositories.NewDomainRepo(privilegedCRClient),
-			repositories.NewAppRepo(privilegedCRClient),
-			buildUserClient,
+			repositories.NewAppRepo(privilegedCRClient, buildUserClient),
+			buildUserClientFunc,
 			k8sClientConfig,
 		),
 		apis.NewPackageHandler(
 			ctrl.Log.WithName("PackageHandler"),
 			*serverURL,
 			repositories.NewPackageRepo(privilegedCRClient),
-			repositories.NewAppRepo(privilegedCRClient),
-			buildUserClient,
+			repositories.NewAppRepo(privilegedCRClient, buildUserClient),
+			buildUserClientFunc,
 			repositories.UploadSourceImage,
 			newRegistryAuthBuilder(privilegedK8sClient, config),
 			k8sClientConfig,
@@ -138,14 +148,14 @@ func main() {
 			*serverURL,
 			repositories.NewBuildRepo(privilegedCRClient),
 			repositories.NewPackageRepo(privilegedCRClient),
-			buildUserClient,
+			buildUserClientFunc,
 			k8sClientConfig,
 		),
 		apis.NewDropletHandler(
 			ctrl.Log.WithName("DropletHandler"),
 			*serverURL,
 			repositories.NewDropletRepo(privilegedCRClient),
-			buildUserClient,
+			buildUserClientFunc,
 			k8sClientConfig,
 		),
 		apis.NewProcessHandler(
@@ -154,14 +164,14 @@ func main() {
 			repositories.NewProcessRepo(privilegedCRClient),
 			fetchProcessStatsAction.Invoke,
 			scaleProcessAction.Invoke,
-			buildUserClient,
+			buildUserClientFunc,
 			k8sClientConfig,
 		),
 		apis.NewDomainHandler(
 			ctrl.Log.WithName("DomainHandler"),
 			*serverURL,
 			repositories.NewDomainRepo(privilegedCRClient),
-			buildUserClient,
+			buildUserClientFunc,
 			k8sClientConfig,
 		),
 		apis.NewJobHandler(
@@ -176,9 +186,9 @@ func main() {
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
-			actions.NewApplyManifest(repositories.NewAppRepo(privilegedCRClient), repositories.NewProcessRepo(privilegedCRClient)).Invoke,
+			actions.NewApplyManifest(repositories.NewAppRepo(privilegedCRClient, buildUserClient), repositories.NewProcessRepo(privilegedCRClient)).Invoke,
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
-			buildUserClient,
+			buildUserClientFunc,
 			k8sClientConfig,
 		),
 

@@ -52,7 +52,7 @@ type ProcessHandler struct {
 	processRepo       CFProcessRepository
 	fetchProcessStats FetchProcessStats
 	scaleProcess      ScaleProcess
-	buildClient       ClientBuilder
+	buildClient       ClientBuilderFunc
 	k8sConfig         *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
@@ -62,7 +62,7 @@ func NewProcessHandler(
 	processRepo CFProcessRepository,
 	fetchProcessStats FetchProcessStats,
 	scaleProcessFunc ScaleProcess,
-	buildClient ClientBuilder,
+	buildClient ClientBuilderFunc,
 	k8sConfig *rest.Config) *ProcessHandler {
 	return &ProcessHandler{
 		logger:            logger,

@@ -23,13 +23,13 @@ var _ = Describe("DomainHandler", func() {
 
 		var (
 			domainRepo    *fake.CFDomainRepository
-			clientBuilder *fake.ClientBuilder
+			clientBuilder *fake.ClientBuilderFunc
 			domainRecord  *repositories.DomainRecord
 		)
 
 		BeforeEach(func() {
 			domainRepo = new(fake.CFDomainRepository)
-			clientBuilder = new(fake.ClientBuilder)
+			clientBuilder = new(fake.ClientBuilderFunc)
 
 			domainRecord = &repositories.DomainRecord{
 				GUID:        testDomainGUID,

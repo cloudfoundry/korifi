@@ -28,8 +28,9 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 	BeforeEach(func() {
 		client, err := repositories.BuildPrivilegedClient(k8sConfig, "")
 		Expect(err).NotTo(HaveOccurred())
+		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
 
-		appRepo := repositories.NewAppRepo(client)
+		appRepo := repositories.NewAppRepo(client, clientFactory)
 		processRepo := repositories.NewProcessRepo(client)
 		apiHandler := NewSpaceManifestHandler(
 			logf.Log.WithName("integration tests"),

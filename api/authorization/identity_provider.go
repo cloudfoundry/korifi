@@ -6,8 +6,9 @@ import (
 )
 
 const (
-	BearerScheme string = "bearer"
-	CertScheme   string = "clientcert"
+	BearerScheme  string = "bearer"
+	CertScheme    string = "clientcert"
+	UnknownScheme string = "unknown"
 )
 
 //counterfeiter:generate -o fake -fake-name TokenIdentityInspector . TokenIdentityInspector

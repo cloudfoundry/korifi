@@ -32,7 +32,7 @@ type CFBuildRepository interface {
 type BuildHandler struct {
 	serverURL   url.URL
 	buildRepo   CFBuildRepository
-	buildClient ClientBuilder
+	buildClient ClientBuilderFunc
 	packageRepo CFPackageRepository
 	logger      logr.Logger
 	k8sConfig   *rest.Config
@@ -43,7 +43,7 @@ func NewBuildHandler(
 	serverURL url.URL,
 	buildRepo CFBuildRepository,
 	packageRepo CFPackageRepository,
-	buildClient ClientBuilder,
+	buildClient ClientBuilderFunc,
 	k8sConfig *rest.Config) *BuildHandler {
 	return &BuildHandler{
 		logger:      logger,

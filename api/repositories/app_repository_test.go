@@ -7,6 +7,8 @@ import (
 	"sort"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
@@ -25,6 +27,7 @@ var _ = Describe("AppRepository", func() {
 	var (
 		testCtx                context.Context
 		appRepo                *AppRepo
+		clientFactory          repositories.UserK8sClientFactory
 		testClient             client.Client
 		rootNamespace          string
 		org                    *v1alpha2.SubnamespaceAnchor
@@ -37,8 +40,10 @@ var _ = Describe("AppRepository", func() {
 
 		var err error
 		testClient, err = BuildPrivilegedClient(k8sConfig, "")
-		appRepo = NewAppRepo(testClient)
 		Expect(err).ToNot(HaveOccurred())
+
+		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
+		appRepo = NewAppRepo(k8sClient, clientFactory)
 
 		rootNamespace = generateGUID()
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
@@ -146,6 +151,7 @@ var _ = Describe("AppRepository", func() {
 			message                   AppListMessage
 			userName                  string
 			spaceDeveloperClusterRole *rbacv1.ClusterRole
+			authInfo                  authorization.Info
 		)
 
 		BeforeEach(func() {
@@ -164,11 +170,7 @@ var _ = Describe("AppRepository", func() {
 			}
 
 			cert, key := obtainClientCert(userName)
-			authHeader := "clientCert " + encodeCertAndKey(cert, key)
-
-			var err error
-			testClient, err = BuildUserClient(k8sConfig, authHeader)
-			Expect(err).NotTo(HaveOccurred())
+			authInfo.CertData = encodeCertAndKey(cert, key)
 
 			spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
 			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
@@ -178,7 +180,7 @@ var _ = Describe("AppRepository", func() {
 		Describe("when filters are NOT provided", func() {
 			When("no Apps exist", func() {
 				It("returns an empty list of apps", func() {
-					appList, err := appRepo.FetchAppList(testCtx, testClient, message)
+					appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(appList).To(BeEmpty())
 				})
@@ -192,7 +194,7 @@ var _ = Describe("AppRepository", func() {
 				})
 
 				It("returns all the AppRecord CRs where client has permission", func() {
-					appList, err := appRepo.FetchAppList(testCtx, testClient, message)
+					appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(appList).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp1.Name)}),
@@ -218,7 +220,7 @@ var _ = Describe("AppRepository", func() {
 
 					It("returns an empty list of apps", func() {
 						message = AppListMessage{Names: []string{"some-other-app"}}
-						appList, err := appRepo.FetchAppList(testCtx, testClient, message)
+						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(BeEmpty())
 					})
@@ -233,7 +235,7 @@ var _ = Describe("AppRepository", func() {
 
 					It("returns the matching apps", func() {
 						message = AppListMessage{Names: []string{cfApp2.Spec.Name, cfApp3.Spec.Name}}
-						appList, err := appRepo.FetchAppList(testCtx, testClient, message)
+						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
@@ -252,7 +254,7 @@ var _ = Describe("AppRepository", func() {
 
 					It("returns an empty list of apps", func() {
 						message = AppListMessage{SpaceGuids: []string{"some-other-space-guid"}}
-						appList, err := appRepo.FetchAppList(testCtx, testClient, message)
+						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(BeEmpty())
 					})
@@ -267,7 +269,7 @@ var _ = Describe("AppRepository", func() {
 
 					It("returns the matching apps", func() {
 						message = AppListMessage{SpaceGuids: []string{space2.Name}}
-						appList, err := appRepo.FetchAppList(testCtx, testClient, message)
+						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
@@ -287,7 +289,7 @@ var _ = Describe("AppRepository", func() {
 					When("an App matches by Name but not by Space", func() {
 						It("returns an empty list of apps", func() {
 							message = AppListMessage{Names: []string{cfApp1.Spec.Name}, SpaceGuids: []string{"some-other-space-guid"}}
-							appList, err := appRepo.FetchAppList(testCtx, testClient, message)
+							appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(appList).To(BeEmpty())
 						})
@@ -296,7 +298,7 @@ var _ = Describe("AppRepository", func() {
 					When("an App matches by Space but not by Name", func() {
 						It("returns an empty list of apps", func() {
 							message = AppListMessage{Names: []string{"fake-app-name"}, SpaceGuids: []string{space1.Name}}
-							appList, err := appRepo.FetchAppList(testCtx, testClient, message)
+							appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(appList).To(BeEmpty())
 						})
@@ -312,7 +314,7 @@ var _ = Describe("AppRepository", func() {
 
 					It("returns the matching apps", func() {
 						message = AppListMessage{Names: []string{cfApp2.Spec.Name}, SpaceGuids: []string{space2.Name}}
-						appList, err := appRepo.FetchAppList(testCtx, testClient, message)
+						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(HaveLen(1))
 

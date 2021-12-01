@@ -11,6 +11,7 @@ import (
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "github.com/onsi/ginkgo"
@@ -36,7 +37,7 @@ var _ = Describe("AppHandler", func() {
 		scaleAppProcessFunc *fake.ScaleAppProcess
 		domainRepo          *fake.CFDomainRepository
 		podRepo             *fake.PodRepository
-		clientBuilder       *fake.ClientBuilder
+		clientBuilder       *fake.ClientBuilderFunc
 		req                 *http.Request
 	)
 
@@ -48,7 +49,7 @@ var _ = Describe("AppHandler", func() {
 		domainRepo = new(fake.CFDomainRepository)
 		podRepo = new(fake.PodRepository)
 		scaleAppProcessFunc = new(fake.ScaleAppProcess)
-		clientBuilder = new(fake.ClientBuilder)
+		clientBuilder = new(fake.ClientBuilderFunc)
 
 		apiHandler := NewAppHandler(
 			logf.Log.WithName(testAppHandlerLoggerName),
@@ -412,8 +413,10 @@ var _ = Describe("AppHandler", func() {
 				},
 			}, nil)
 
+			ctx = authorization.NewContext(ctx, &authorization.Info{Token: "a-token"})
+
 			var err error
-			req, err = http.NewRequest("GET", "/v3/apps", nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -587,16 +590,36 @@ var _ = Describe("AppHandler", func() {
 			When("Query Parameters are provided", func() {
 				BeforeEach(func() {
 					var err error
-					req, err = http.NewRequest("GET", "/v3/apps?order_by=name", nil)
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps?order_by=name", nil)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				It("returns status 200 OK", func() {
 					Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
 				})
-
 			})
 
+			It("invokes the repository with the provided auth info", func() {
+				Expect(appRepo.FetchAppListCallCount()).To(Equal(1))
+				_, authInfo, _ := appRepo.FetchAppListArgsForCall(0)
+				Expect(authInfo).To(Equal(authorization.Info{Token: "a-token"}))
+			})
+
+			When("filtering query params are provided", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps?names=app1,app2&space_guids=space1,space2", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("passes them to the repository", func() {
+					Expect(appRepo.FetchAppListCallCount()).To(Equal(1))
+					_, _, message := appRepo.FetchAppListArgsForCall(0)
+
+					Expect(message.Names).To(ConsistOf("app1", "app2"))
+					Expect(message.SpaceGuids).To(ConsistOf("space1", "space2"))
+				})
+			})
 		})
 
 		When("no apps can be found", func() {
@@ -645,12 +668,24 @@ var _ = Describe("AppHandler", func() {
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
 				var err error
-				req, err = http.NewRequest("GET", "/v3/apps?foo=bar", nil)
+				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps?foo=bar", nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("returns an Unknown key error", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, space_guids, order_by'")
+			})
+		})
+
+		When("no auth info is present in the context", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("GET", "/v3/apps", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an Unknown error", func() {
+				expectUnknownError()
 			})
 		})
 	})
