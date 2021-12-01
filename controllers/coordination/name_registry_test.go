@@ -132,6 +132,7 @@ var _ = Describe("NameRegistry", func() {
 			Expect(string(data)).To(SatisfyAll(
 				ContainSubstring("test"),
 				ContainSubstring("replace"),
+				ContainSubstring("locked"),
 			))
 		})
 
@@ -164,11 +165,12 @@ var _ = Describe("NameRegistry", func() {
 			Expect(lease.Namespace).To(Equal(namespace))
 			Expect(lease.Name).To(HavePrefix("n-"))
 
-			Expect(patch.Type()).To(Equal(types.MergePatchType))
-			data, dataErr := patch.Data(lease)
+			Expect(patch.Type()).To(Equal(types.JSONPatchType))
+			data, dataErr := patch.Data(nil)
 			Expect(dataErr).NotTo(HaveOccurred())
 			Expect(string(data)).To(SatisfyAll(
-				ContainSubstring("holderIdentity"),
+				ContainSubstring("test"),
+				ContainSubstring("replace"),
 				ContainSubstring("none"),
 			))
 		})
@@ -181,7 +183,7 @@ var _ = Describe("NameRegistry", func() {
 			It("returns the error", func() {
 				Expect(err).To(MatchError(SatisfyAll(
 					ContainSubstring("boom!"),
-					ContainSubstring("failed to unlock lease"),
+					ContainSubstring("failed to release lock on lease"),
 				)))
 			})
 		})

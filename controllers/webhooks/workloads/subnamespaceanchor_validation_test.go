@@ -161,6 +161,11 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 				It("allows the request", func() {
 					Expect(response.Allowed).To(BeTrue())
 				})
+
+				It("does not attempt to register any names", func() {
+					Expect(orgNameRegistry.RegisterNameCallCount()).To(Equal(0))
+					Expect(spaceNameRegistry.RegisterNameCallCount()).To(Equal(0))
+				})
 			})
 
 			When("a subnamespace anchor has both org and space labels", func() {
@@ -180,6 +185,11 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 				It("denies the request", func() {
 					Expect(response.Allowed).To(BeFalse())
 				})
+
+				It("does not attempt to register any names", func() {
+					Expect(orgNameRegistry.RegisterNameCallCount()).To(Equal(0))
+					Expect(spaceNameRegistry.RegisterNameCallCount()).To(Equal(0))
+				})
 			})
 		})
 
@@ -189,6 +199,11 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 					request.Object.Raw = []byte(`"[1,`)
 					response = validatingWebhook.Handle(ctx, request)
 					Expect(response.Allowed).To(BeFalse())
+				})
+
+				It("does not attempt to register any names", func() {
+					Expect(orgNameRegistry.RegisterNameCallCount()).To(Equal(0))
+					Expect(spaceNameRegistry.RegisterNameCallCount()).To(Equal(0))
 				})
 			})
 
@@ -425,6 +440,76 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 				})
 			})
 		})
+
+		Context("malformed orgs and spaces", func() {
+			When("a subnamespace anchor has neither org nor space label", func() {
+				BeforeEach(func() {
+					newAnchor = &hnsv1alpha2.SubnamespaceAnchor{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      uuid.NewString(),
+							Namespace: namespace,
+							Labels: map[string]string{
+								"something": "else",
+							},
+						},
+					}
+				})
+
+				It("allows the request", func() {
+					Expect(response.Allowed).To(BeTrue())
+				})
+
+				It("does not attempt to register any names", func() {
+					Expect(orgNameRegistry.TryLockNameCallCount()).To(Equal(0))
+					Expect(spaceNameRegistry.TryLockNameCallCount()).To(Equal(0))
+				})
+			})
+
+			When("a subnamespace anchor has both org and space labels", func() {
+				BeforeEach(func() {
+					newAnchor = &hnsv1alpha2.SubnamespaceAnchor{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      uuid.NewString(),
+							Namespace: namespace,
+							Labels: map[string]string{
+								workloads.OrgNameLabel:   "my-org",
+								workloads.SpaceNameLabel: "my-space",
+							},
+						},
+					}
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+				})
+
+				It("does not attempt to register any names", func() {
+					Expect(orgNameRegistry.TryLockNameCallCount()).To(Equal(0))
+					Expect(spaceNameRegistry.TryLockNameCallCount()).To(Equal(0))
+				})
+			})
+		})
+
+		Context("failures", func() {
+			When("decoding fails", func() {
+				It("denies the request", func() {
+					request.Object.Raw = []byte(`"[1,`)
+					response = validatingWebhook.Handle(ctx, request)
+					Expect(response.Allowed).To(BeFalse())
+				})
+
+				It("does not attempt to lock any names", func() {
+					// ignore the calls from the JustBeforeEach()
+					orgTryLockCount := orgNameRegistry.TryLockNameCallCount()
+					spaceTryLockCount := spaceNameRegistry.TryLockNameCallCount()
+
+					request.Object.Raw = []byte(`"[1,`)
+					response = validatingWebhook.Handle(ctx, request)
+					Expect(orgNameRegistry.TryLockNameCallCount()).To(Equal(orgTryLockCount))
+					Expect(spaceNameRegistry.TryLockNameCallCount()).To(Equal(spaceTryLockCount))
+				})
+			})
+		})
 	})
 
 	Describe("subnamespaceanchor deletion", func() {
@@ -491,6 +576,11 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 				It("allows the deletion anyway", func() {
 					Expect(response.Allowed).To(BeTrue())
+				})
+
+				It("does not attempt to deregister any names", func() {
+					Expect(orgNameRegistry.DeregisterNameCallCount()).To(Equal(0))
+					Expect(spaceNameRegistry.DeregisterNameCallCount()).To(Equal(0))
 				})
 			})
 
