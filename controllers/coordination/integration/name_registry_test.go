@@ -92,10 +92,6 @@ var _ = Describe("Name Registry", func() {
 			})
 		})
 
-		It("can delete a registered name", func() {
-			Expect(nameRegistry.DeregisterName(ctx, ns1.Name, name)).To(Succeed())
-		})
-
 		It("can re-register a deleted name", func() {
 			Expect(nameRegistry.DeregisterName(ctx, ns1.Name, name)).To(Succeed())
 			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())

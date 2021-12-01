@@ -28,7 +28,6 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 		orgNameRegistry   *fake.NameRegistry
 		spaceNameRegistry *fake.NameRegistry
 		anchor            *hnsv1alpha2.SubnamespaceAnchor
-		anchorJSON        []byte
 		request           admission.Request
 		response          admission.Response
 	)
@@ -49,19 +48,13 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 		Expect(validatingWebhook.InjectDecoder(decoder)).To(Succeed())
 
 		anchor = &hnsv1alpha2.SubnamespaceAnchor{}
-		anchorJSON = []byte{}
-	})
-
-	JustBeforeEach(func() {
-		if len(anchorJSON) == 0 {
-			var err error
-			anchorJSON, err = json.Marshal(anchor)
-			Expect(err).NotTo(HaveOccurred())
-		}
 	})
 
 	Describe("subnamespace anchor creation", func() {
 		JustBeforeEach(func() {
+			anchorJSON, err := json.Marshal(anchor)
+			Expect(err).NotTo(HaveOccurred())
+
 			request = admission.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{
 					Name:      anchor.Name,
@@ -72,7 +65,6 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 					},
 				},
 			}
-
 			response = validatingWebhook.Handle(ctx, request)
 		})
 
@@ -193,11 +185,9 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 		Context("failures", func() {
 			When("decoding fails", func() {
-				BeforeEach(func() {
-					anchorJSON = []byte(`"[1,`)
-				})
-
 				It("denies the request", func() {
+					request.Object.Raw = []byte(`"[1,`)
+					response = validatingWebhook.Handle(ctx, request)
 					Expect(response.Allowed).To(BeFalse())
 				})
 			})
@@ -227,6 +217,9 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 		var newAnchor *hnsv1alpha2.SubnamespaceAnchor
 
 		JustBeforeEach(func() {
+			anchorJSON, err := json.Marshal(anchor)
+			Expect(err).NotTo(HaveOccurred())
+
 			newAnchorJSON, err := json.Marshal(newAnchor)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -243,7 +236,6 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 					},
 				},
 			}
-
 			response = validatingWebhook.Handle(ctx, request)
 		})
 
@@ -437,6 +429,8 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 	Describe("subnamespaceanchor deletion", func() {
 		JustBeforeEach(func() {
+			anchorJSON, err := json.Marshal(anchor)
+			Expect(err).NotTo(HaveOccurred())
 			request = admission.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{
 					Name:      anchor.Name,
@@ -447,7 +441,6 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 					},
 				},
 			}
-
 			response = validatingWebhook.Handle(ctx, request)
 		})
 
@@ -476,8 +469,18 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 					orgNameRegistry.DeregisterNameReturns(errors.New("boom!"))
 				})
 
-				It("allows the deletion anyway", func() {
-					Expect(response.Allowed).To(BeTrue())
+				It("denies the deletion", func() {
+					Expect(response.Allowed).To(BeFalse())
+				})
+
+				When("the failure is a not found error", func() {
+					BeforeEach(func() {
+						orgNameRegistry.DeregisterNameReturns(k8serrors.NewNotFound(schema.GroupResource{}, "jim"))
+					})
+
+					It("allows the deletion", func() {
+						Expect(response.Allowed).To(BeTrue())
+					})
 				})
 			})
 

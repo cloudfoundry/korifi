@@ -210,8 +210,10 @@ func (h subnamespaceAnchorHandler) handleUpdate(ctx context.Context, oldAnchor, 
 
 	err = h.nameRegistry.RegisterName(ctx, newAnchor.Namespace, h.getName(newAnchor))
 	if err != nil {
+		// cannot register new name, so unlock old registry entry allowing future renames
 		unlockErr := h.nameRegistry.UnlockName(ctx, oldAnchor.Namespace, h.getName(oldAnchor))
 		if unlockErr != nil {
+			// A locked registry entry will remain, so future name updates will fail until operator intervenes
 			h.logger.Error(unlockErr, "failed to release registry lock on old name",
 				"name", h.getName(oldAnchor),
 				"namespace", oldAnchor.Namespace,
@@ -236,6 +238,7 @@ func (h subnamespaceAnchorHandler) handleUpdate(ctx context.Context, oldAnchor, 
 
 	err = h.nameRegistry.DeregisterName(ctx, oldAnchor.Namespace, h.getName(oldAnchor))
 	if err != nil {
+		// We cannot unclaim the old name. It will remain claimed until an operator intervenes.
 		h.logger.Error(err, "failed to deregister old name during update",
 			"name", h.getName(newAnchor),
 			"namespace", newAnchor.Namespace,
@@ -246,11 +249,21 @@ func (h subnamespaceAnchorHandler) handleUpdate(ctx context.Context, oldAnchor, 
 }
 
 func (h subnamespaceAnchorHandler) handleDelete(ctx context.Context, oldAnchor *v1alpha2.SubnamespaceAnchor) admission.Response {
-	if err := h.nameRegistry.DeregisterName(ctx, oldAnchor.Namespace, h.getName(oldAnchor)); err != nil {
+	err := h.nameRegistry.DeregisterName(ctx, oldAnchor.Namespace, h.getName(oldAnchor))
+	if k8serrors.IsNotFound(err) {
+		h.logger.Info("cannot deregister name: registry entry for name not found",
+			"namespace", oldAnchor.Namespace,
+			"name", h.getName(oldAnchor),
+		)
+		return admission.Allowed("")
+	}
+
+	if err != nil {
 		h.logger.Error(err, "failed to deregister name during delete",
 			"namespace", oldAnchor.Namespace,
 			"name", h.getName(oldAnchor),
 		)
+		return admission.Denied(UnknownError.Marshal())
 	}
 
 	return admission.Allowed("")
