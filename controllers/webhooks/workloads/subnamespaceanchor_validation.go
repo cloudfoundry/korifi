@@ -55,11 +55,11 @@ func (v *SubnamespaceAnchorValidation) SetupWebhookWithManager(mgr ctrl.Manager)
 }
 
 func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	switch req.Operation {
-	case admissionv1.Create:
-		anchor := &v1alpha2.SubnamespaceAnchor{}
-		err := v.decoder.Decode(req, anchor)
-		if err != nil {
+	var handler subnamespaceAnchorHandler
+
+	anchor := &v1alpha2.SubnamespaceAnchor{}
+	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
+		if err := v.decoder.Decode(req, anchor); err != nil {
 			subnsLogger.Error(err, "failed to decode subnamespace anchor", "request", req)
 			return admission.Denied(UnknownError.Marshal())
 		}
@@ -68,47 +68,17 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 			return response
 		}
 
-		handler, err := v.newHandler(anchor)
+		var err error
+		handler, err = v.newHandler(anchor)
 		if err != nil {
 			return admission.Denied(UnknownError.Marshal())
 		}
 
-		return handler.handleCreate(ctx, anchor)
+	}
 
-	case admissionv1.Update:
-		anchor := &v1alpha2.SubnamespaceAnchor{}
-		err := v.decoder.Decode(req, anchor)
-		if err != nil {
-			subnsLogger.Error(err, "failed to decode subnamespace anchor", "request", req)
-			return admission.Denied(UnknownError.Marshal())
-		}
-
-		if valid, response := v.validateLabels(anchor); !valid {
-			return response
-		}
-
-		oldAnchor := &v1alpha2.SubnamespaceAnchor{}
-		err = v.decoder.DecodeRaw(req.OldObject, oldAnchor)
-		if err != nil {
-			subnsLogger.Error(err, "failed to decode old subnamespace anchor", "request", req)
-			return admission.Denied(UnknownError.Marshal())
-		}
-
-		handler, err := v.newHandler(anchor)
-		if err != nil {
-			return admission.Denied(UnknownError.Marshal())
-		}
-
-		if handler.nameHasNotChanged(oldAnchor, anchor) {
-			return admission.Allowed("")
-		}
-
-		return handler.handleUpdate(ctx, oldAnchor, anchor)
-
-	case admissionv1.Delete:
-		oldAnchor := &v1alpha2.SubnamespaceAnchor{}
-		err := v.decoder.DecodeRaw(req.OldObject, oldAnchor)
-		if err != nil {
+	oldAnchor := &v1alpha2.SubnamespaceAnchor{}
+	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
+		if err := v.decoder.DecodeRaw(req.OldObject, oldAnchor); err != nil {
 			subnsLogger.Error(err, "failed to decode old subnamespace anchor", "request", req)
 			return admission.Denied(UnknownError.Marshal())
 		}
@@ -117,13 +87,26 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 			return admission.Allowed("")
 		}
 
-		handler, err := v.newHandler(oldAnchor)
+		var err error
+		handler, err = v.newHandler(oldAnchor)
 		if err != nil {
 			return admission.Allowed("")
 		}
 
-		return handler.handleDelete(ctx, oldAnchor)
+	}
 
+	switch req.Operation {
+	case admissionv1.Create:
+		return handler.handleCreate(ctx, anchor)
+
+	case admissionv1.Update:
+		if handler.nameHasNotChanged(oldAnchor, anchor) {
+			return admission.Allowed("")
+		}
+		return handler.handleUpdate(ctx, oldAnchor, anchor)
+
+	case admissionv1.Delete:
+		return handler.handleDelete(ctx, oldAnchor)
 	}
 
 	subnsLogger.Info("unexpected operation", "operation", req.Operation)
