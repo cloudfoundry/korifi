@@ -216,4 +216,32 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 			})
 		})
 	})
+
+	Describe("deleting an org", func() {
+		var org *hnsv1alpha2.SubnamespaceAnchor
+
+		BeforeEach(func() {
+			var err error
+			org, err = createOrg(namespace.Name, "my-org")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("can delete the org", func() {
+			Expect(k8sClient.Delete(ctx, org)).To(Succeed())
+		})
+	})
+
+	Describe("deleting a space", func() {
+		var space *hnsv1alpha2.SubnamespaceAnchor
+
+		BeforeEach(func() {
+			var err error
+			space, err = createSpace(namespace.Name, "my-space")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("can delete the space", func() {
+			Expect(k8sClient.Delete(ctx, space)).To(Succeed())
+		})
+	})
 })
