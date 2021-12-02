@@ -23,6 +23,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
@@ -38,9 +40,6 @@ var (
 	k8sConfig *rest.Config
 	server    *http.Server
 	port      int
-)
-
-var (
 	rr        *httptest.ResponseRecorder
 	req       *http.Request
 	router    *mux.Router
@@ -78,7 +77,10 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	ctx = context.Background()
+	userName := generateGUID()
+	cert, key := helpers.ObtainClientCert(testEnv, userName)
+	authInfo := authorization.Info{CertData: helpers.JoinCertAndKey(cert, key)}
+	ctx = authorization.NewContext(context.Background(), &authInfo)
 	rr = httptest.NewRecorder()
 	router = mux.NewRouter()
 

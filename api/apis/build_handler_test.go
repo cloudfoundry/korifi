@@ -295,7 +295,8 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the authorization.Info is not available in the request context", func() {
 			BeforeEach(func() {
-				req, err := http.NewRequest("GET", "/v3/builds/"+buildGUID, nil)
+				var err error
+				req, err = http.NewRequest("GET", "/v3/builds/"+buildGUID, nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				router.ServeHTTP(rr, req)

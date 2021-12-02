@@ -12,7 +12,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("DropletRepository", func() {
@@ -20,7 +19,6 @@ var _ = Describe("DropletRepository", func() {
 		var (
 			testCtx     context.Context
 			dropletRepo *DropletRepo
-			client      client.Client
 			namespace   *corev1.Namespace
 			buildGUID   string
 			build       *workloadsv1alpha1.CFBuild
@@ -42,11 +40,7 @@ var _ = Describe("DropletRepository", func() {
 			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
 			Expect(k8sClient.Create(testCtx, namespace)).To(Succeed())
 
-			var err error
-			client, err = BuildPrivilegedClient(k8sConfig, "")
-			Expect(err).ToNot(HaveOccurred())
-
-			dropletRepo = NewDropletRepo(client)
+			dropletRepo = NewDropletRepo(k8sClient)
 
 			buildGUID = generateGUID()
 			build = &workloadsv1alpha1.CFBuild{
@@ -125,7 +119,7 @@ var _ = Describe("DropletRepository", func() {
 
 					Eventually(func() string {
 						var fetchErr error
-						dropletRecord, fetchErr = dropletRepo.FetchDroplet(testCtx, client, buildGUID)
+						dropletRecord, fetchErr = dropletRepo.FetchDroplet(testCtx, authInfo, buildGUID)
 						if fetchErr != nil {
 							return ""
 						}
@@ -191,7 +185,7 @@ var _ = Describe("DropletRepository", func() {
 
 					It("should eventually return a NotFound error", func() {
 						Eventually(func() error {
-							_, err := dropletRepo.FetchDroplet(testCtx, client, buildGUID)
+							_, err := dropletRepo.FetchDroplet(testCtx, authInfo, buildGUID)
 							return err
 						}, 10*time.Second, 250*time.Millisecond).Should(MatchError(NotFoundError{}))
 					})
@@ -215,7 +209,7 @@ var _ = Describe("DropletRepository", func() {
 
 					It("should eventually return a NotFound error", func() {
 						Eventually(func() error {
-							_, err := dropletRepo.FetchDroplet(testCtx, client, buildGUID)
+							_, err := dropletRepo.FetchDroplet(testCtx, authInfo, buildGUID)
 							return err
 						}, 10*time.Second, 250*time.Millisecond).Should(MatchError(NotFoundError{}))
 					})
@@ -239,7 +233,7 @@ var _ = Describe("DropletRepository", func() {
 
 					It("should eventually return a NotFound error", func() {
 						Eventually(func() error {
-							_, err := dropletRepo.FetchDroplet(testCtx, client, buildGUID)
+							_, err := dropletRepo.FetchDroplet(testCtx, authInfo, buildGUID)
 							return err
 						}, 10*time.Second, 250*time.Millisecond).Should(MatchError(NotFoundError{}))
 					})
@@ -249,7 +243,7 @@ var _ = Describe("DropletRepository", func() {
 
 		When("build does not exist", func() {
 			It("returns an error", func() {
-				_, err := dropletRepo.FetchDroplet(testCtx, client, "i don't exist")
+				_, err := dropletRepo.FetchDroplet(testCtx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{}))
 			})

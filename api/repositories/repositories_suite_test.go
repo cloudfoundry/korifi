@@ -19,7 +19,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
@@ -37,6 +39,8 @@ var (
 	testEnv   *envtest.Environment
 	k8sClient client.WithWatch
 	k8sConfig *rest.Config
+	userName  string
+	authInfo  authorization.Info
 )
 
 var _ = BeforeSuite(func() {
@@ -65,6 +69,10 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	userName = generateGUID()
+	cert, key := helpers.ObtainClientCert(testEnv, userName)
+	authInfo.CertData = helpers.JoinCertAndKey(cert, key)
 })
 
 var _ = AfterSuite(func() {
@@ -109,23 +117,6 @@ func createSpaceAnchorAndNamespace(ctx context.Context, orgName, name string) *h
 	space, _ := createAnchorAndNamespace(ctx, orgName, name, repositories.SpaceNameLabel)
 
 	return space
-}
-
-func obtainClientCert(name string) (certData, keyData []byte) {
-	authUser, err := testEnv.ControlPlane.AddUser(envtest.User{Name: name}, k8sConfig)
-	Expect(err).NotTo(HaveOccurred())
-
-	userConfig := authUser.Config()
-
-	certData, keyData = userConfig.CertData, userConfig.KeyData
-	return certData, keyData
-}
-
-func encodeCertAndKey(certData, keyData []byte) []byte {
-	authHeader := []byte{}
-	authHeader = append(authHeader, certData...)
-	authHeader = append(authHeader, keyData...)
-	return authHeader
 }
 
 func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {

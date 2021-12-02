@@ -2,9 +2,11 @@ package integration_test
 
 import (
 	"context"
+	"fmt"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,23 +17,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("BuildUserClient", func() {
+var _ = Describe("Unprivileged User Client Factory", func() {
 	var (
 		userClient     client.Client
 		buildClientErr error
-		authHeader     string
+		authInfo       authorization.Info
 		ctx            context.Context
 		userName       string
+		clientFactory  repositories.UnprivilegedClientFactory
 	)
 
 	BeforeEach(func() {
-		authHeader = ""
+		authInfo = authorization.Info{}
 		ctx = context.Background()
 		userName = uuid.NewString()
+		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
 	})
 
 	JustBeforeEach(func() {
-		userClient, buildClientErr = repositories.BuildUserClient(k8sConfig, authHeader)
+		userClient, buildClientErr = clientFactory.BuildClient(authInfo)
 	})
 
 	Describe("using the client", func() {
@@ -79,8 +83,8 @@ var _ = Describe("BuildUserClient", func() {
 
 		Context("certificates", func() {
 			BeforeEach(func() {
-				cert, key := obtainClientCert(userName)
-				authHeader = "clientcert " + encodeCertAndKey(cert, key)
+				cert, key := helpers.ObtainClientCert(testEnv, userName)
+				authInfo.CertData = helpers.JoinCertAndKey(cert, key)
 			})
 
 			It("succeeds and forbids access to the user", func() {
@@ -103,7 +107,7 @@ var _ = Describe("BuildUserClient", func() {
 		Context("tokens", func() {
 			BeforeEach(func() {
 				token := authProvider.GenerateJWTToken(userName)
-				authHeader = "bearer " + token
+				authInfo.Token = token
 			})
 
 			It("succeeds and forbids access to the user", func() {
@@ -124,39 +128,21 @@ var _ = Describe("BuildUserClient", func() {
 		})
 	})
 
-	Context("bad auth header content", func() {
-		When("no auth header is passed", func() {
+	Context("bad auth info content", func() {
+		When("auth info is empty", func() {
 			BeforeEach(func() {
-				authHeader = ""
+				authInfo = authorization.Info{}
 			})
+
 			It("fails", func() {
+				fmt.Printf("buildClientErr = %+v\n", buildClientErr)
 				Expect(authorization.IsNotAuthenticated(buildClientErr)).To(BeTrue())
-			})
-		})
-
-		When("auth header is not two values", func() {
-			BeforeEach(func() {
-				authHeader = "bearer"
-			})
-
-			It("fails", func() {
-				Expect(buildClientErr).To(HaveOccurred())
-			})
-		})
-
-		When("auth header scheme is not recognised", func() {
-			BeforeEach(func() {
-				authHeader = "superSecure xxx"
-			})
-
-			It("fails", func() {
-				Expect(buildClientErr).To(HaveOccurred())
 			})
 		})
 
 		When("the auth is not valid", func() {
 			BeforeEach(func() {
-				authHeader = "bearer xxx"
+				authInfo.Token = "xxx"
 			})
 
 			It("fails", func() {

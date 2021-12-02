@@ -26,12 +26,10 @@ import (
 
 var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", func() {
 	BeforeEach(func() {
-		client, err := repositories.BuildPrivilegedClient(k8sConfig, "")
-		Expect(err).NotTo(HaveOccurred())
 		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
 
-		appRepo := repositories.NewAppRepo(client, clientFactory)
-		processRepo := repositories.NewProcessRepo(client)
+		appRepo := repositories.NewAppRepo(k8sClient, clientFactory)
+		processRepo := repositories.NewProcessRepo(k8sClient)
 		apiHandler := NewSpaceManifestHandler(
 			logf.Log.WithName("integration tests"),
 			*serverURL,
@@ -44,7 +42,6 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 	When("on the happy path", func() {
 		var (
 			namespace      *corev1.Namespace
-			resp           *http.Response
 			requestEnvVars map[string]string
 			requestBody    string
 		)
@@ -74,7 +71,8 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 		JustBeforeEach(func() {
 			var err error
-			req, err = http.NewRequest(
+			req, err = http.NewRequestWithContext(
+				ctx,
 				"POST",
 				serverURI("/v3/spaces/", namespace.Name, "/actions/apply_manifest"),
 				strings.NewReader(requestBody),
@@ -82,8 +80,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			Expect(err).NotTo(HaveOccurred())
 
 			req.Header.Add("Content-type", "application/x-yaml")
-			resp, err = new(http.Client).Do(req)
-			Expect(err).NotTo(HaveOccurred())
+			router.ServeHTTP(rr, req)
 		})
 
 		When("no app with that name exists", func() {
@@ -116,13 +113,13 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			})
 
 			It("creates the applications in the manifest, the env var secret, and the processes, returns 202 and a job URI", func() {
-				Expect(resp.StatusCode).To(Equal(202))
+				Expect(rr.Code).To(Equal(202))
 
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := ioutil.ReadAll(rr.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(body).To(BeEmpty())
 
-				Expect(resp.Header.Get("Location")).To(Equal(serverURI("/v3/jobs/sync-space.apply_manifest-", namespace.Name)))
+				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/sync-space.apply_manifest-", namespace.Name)))
 
 				var appList v1alpha1.CFAppList
 				Eventually(func() []v1alpha1.CFApp {
@@ -307,13 +304,13 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			})
 
 			It("updates the app with the manifest changes and returns a 202", func() {
-				Expect(resp.StatusCode).To(Equal(202))
+				Expect(rr.Code).To(Equal(202))
 
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := ioutil.ReadAll(rr.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(body).To(BeEmpty())
 
-				Expect(resp.Header.Get("Location")).To(Equal(serverURI("/v3/jobs/sync-space.apply_manifest-", namespace.Name)))
+				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/sync-space.apply_manifest-", namespace.Name)))
 
 				var appList v1alpha1.CFAppList
 				Eventually(func() []v1alpha1.CFApp {

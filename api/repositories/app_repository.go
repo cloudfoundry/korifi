@@ -134,7 +134,7 @@ func (a ByName) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
-func (f *AppRepo) FetchApp(ctx context.Context, userClient client.Client, appGUID string) (AppRecord, error) {
+func (f *AppRepo) FetchApp(ctx context.Context, authInfo authorization.Info, appGUID string) (AppRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	appList := &workloadsv1alpha1.CFAppList{}
 	err := f.privilegedClient.List(ctx, appList)
@@ -147,7 +147,7 @@ func (f *AppRepo) FetchApp(ctx context.Context, userClient client.Client, appGUI
 	return returnApp(matches)
 }
 
-func (f *AppRepo) FetchAppByNameAndSpace(ctx context.Context, userClient client.Client, appName string, spaceGUID string) (AppRecord, error) {
+func (f *AppRepo) FetchAppByNameAndSpace(ctx context.Context, authInfo authorization.Info, appName string, spaceGUID string) (AppRecord, error) {
 	appList := new(workloadsv1alpha1.CFAppList)
 	err := f.privilegedClient.List(ctx, appList, client.InNamespace(spaceGUID))
 	if err != nil { // untested
@@ -163,7 +163,7 @@ func (f *AppRepo) FetchAppByNameAndSpace(ctx context.Context, userClient client.
 	return returnApp(matches)
 }
 
-func (f *AppRepo) CreateApp(ctx context.Context, userClient client.Client, appCreateMessage AppCreateMessage) (AppRecord, error) {
+func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, appCreateMessage AppCreateMessage) (AppRecord, error) {
 	cfApp := appCreateMessage.toCFApp()
 	err := f.privilegedClient.Create(ctx, &cfApp)
 	if err != nil {
@@ -176,7 +176,7 @@ func (f *AppRepo) CreateApp(ctx context.Context, userClient client.Client, appCr
 		SpaceGUID:            cfApp.Namespace,
 		EnvironmentVariables: appCreateMessage.EnvironmentVariables,
 	}
-	_, err = f.CreateOrPatchAppEnvVars(ctx, f.privilegedClient, envVarsMessage)
+	_, err = f.CreateOrPatchAppEnvVars(ctx, authInfo, envVarsMessage)
 	if err != nil {
 		return AppRecord{}, err
 	}
@@ -254,7 +254,7 @@ func (f *AppRepo) applyAppListFilter(appList []workloadsv1alpha1.CFApp, message 
 }
 
 func appBelongsToSpace(app workloadsv1alpha1.CFApp, spaceGUID string) bool {
-	return app.ObjectMeta.Namespace == spaceGUID
+	return app.Namespace == spaceGUID
 }
 
 func appMatchesName(app workloadsv1alpha1.CFApp, name string) bool {
@@ -270,7 +270,7 @@ func (f *AppRepo) returnAppList(appList []workloadsv1alpha1.CFApp) []AppRecord {
 	return appRecords
 }
 
-func (f *AppRepo) FetchNamespace(ctx context.Context, userClient client.Client, nsGUID string) (SpaceRecord, error) {
+func (f *AppRepo) FetchNamespace(ctx context.Context, authInfo authorization.Info, nsGUID string) (SpaceRecord, error) {
 	namespace := &corev1.Namespace{}
 	err := f.privilegedClient.Get(ctx, types.NamespacedName{Name: nsGUID}, namespace)
 	if err != nil {
@@ -286,7 +286,7 @@ func (f *AppRepo) FetchNamespace(ctx context.Context, userClient client.Client, 
 	return v1NamespaceToSpaceRecord(namespace), nil
 }
 
-func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, userClient client.Client, envVariables CreateOrPatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
+func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, authInfo authorization.Info, envVariables CreateOrPatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
 	secretObj := appEnvVarsRecordToSecret(envVariables)
 
 	_, err := controllerutil.CreateOrPatch(ctx, f.privilegedClient, &secretObj, func() error {
@@ -299,7 +299,7 @@ func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, userClient client
 	return appEnvVarsSecretToRecord(secretObj), nil
 }
 
-func (f *AppRepo) SetCurrentDroplet(ctx context.Context, userClient client.Client, message SetCurrentDropletMessage) (CurrentDropletRecord, error) {
+func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.Info, message SetCurrentDropletMessage) (CurrentDropletRecord, error) {
 	baseCFApp := &workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.AppGUID,
@@ -320,7 +320,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, userClient client.Clien
 	}, nil
 }
 
-func (f *AppRepo) SetAppDesiredState(ctx context.Context, userClient client.Client, message SetAppDesiredStateMessage) (AppRecord, error) {
+func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization.Info, message SetAppDesiredStateMessage) (AppRecord, error) {
 	baseCFApp := &workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.AppGUID,
@@ -406,7 +406,7 @@ func returnApp(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
 func filterAppsByMetadataName(apps []workloadsv1alpha1.CFApp, name string) []workloadsv1alpha1.CFApp {
 	var filtered []workloadsv1alpha1.CFApp
 	for i, app := range apps {
-		if app.ObjectMeta.Name == name {
+		if app.Name == name {
 			filtered = append(filtered, apps[i])
 		}
 	}

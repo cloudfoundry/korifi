@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
 	v1 "k8s.io/api/core/v1"
@@ -54,7 +55,7 @@ type FetchRouteListMessage struct {
 	AppGUIDs []string
 }
 
-func (f *RouteRepo) FetchRoute(ctx context.Context, userClient client.Client, routeGUID string) (RouteRecord, error) {
+func (f *RouteRepo) FetchRoute(ctx context.Context, authInfo authorization.Info, routeGUID string) (RouteRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
 	err := f.privilegedClient.List(ctx, cfRouteList)
@@ -69,7 +70,7 @@ func (f *RouteRepo) FetchRoute(ctx context.Context, userClient client.Client, ro
 	return toReturn, err
 }
 
-func (f *RouteRepo) FetchRouteList(ctx context.Context, userClient client.Client, message FetchRouteListMessage) ([]RouteRecord, error) {
+func (f *RouteRepo) FetchRouteList(ctx context.Context, authInfo authorization.Info, message FetchRouteListMessage) ([]RouteRecord, error) {
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
 	err := f.privilegedClient.List(ctx, cfRouteList)
 	if err != nil {
@@ -101,7 +102,7 @@ func applyFilter(routes []networkingv1alpha1.CFRoute, message FetchRouteListMess
 	return filtered
 }
 
-func (f *RouteRepo) FetchRoutesForApp(ctx context.Context, userClient client.Client, appGUID string, spaceGUID string) ([]RouteRecord, error) {
+func (f *RouteRepo) FetchRoutesForApp(ctx context.Context, authInfo authorization.Info, appGUID string, spaceGUID string) ([]RouteRecord, error) {
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
 	err := f.privilegedClient.List(ctx, cfRouteList, client.InNamespace(spaceGUID))
 	if err != nil {
@@ -199,7 +200,7 @@ func cfRouteDestinationToDestination(cfRouteDestination networkingv1alpha1.Desti
 	}
 }
 
-func (f *RouteRepo) CreateRoute(ctx context.Context, userClient client.Client, routeRecord RouteRecord) (RouteRecord, error) {
+func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info, routeRecord RouteRecord) (RouteRecord, error) {
 	cfRoute := f.routeRecordToCFRoute(routeRecord)
 	err := f.privilegedClient.Create(ctx, &cfRoute)
 	if err != nil {
@@ -231,7 +232,7 @@ func (f *RouteRepo) routeRecordToCFRoute(routeRecord RouteRecord) networkingv1al
 	}
 }
 
-func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, userClient client.Client, message RouteAddDestinationsMessage) (RouteRecord, error) {
+func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message RouteAddDestinationsMessage) (RouteRecord, error) {
 	baseCFRoute := &networkingv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.Route.GUID,

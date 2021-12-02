@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
@@ -22,17 +21,17 @@ var _ = Describe("ApplyManifest", func() {
 	)
 	var (
 		manifest    payloads.Manifest
-		action      func(context.Context, client.Client, string, payloads.Manifest) error
+		action      func(context.Context, authorization.Info, string, payloads.Manifest) error
 		appRepo     *fake.CFAppRepository
 		processRepo *fake.CFProcessRepository
-		k8sClient   *fake.Client
+		authInfo    authorization.Info
 	)
 
 	BeforeEach(func() {
 		appRepo = new(fake.CFAppRepository)
 		processRepo = new(fake.CFProcessRepository)
-		k8sClient = new(fake.Client)
 		action = NewApplyManifest(appRepo, processRepo).Invoke
+		authInfo = authorization.Info{Token: "a-token"}
 		manifest = payloads.Manifest{
 			Version: 1,
 			Applications: []payloads.ManifestApplication{
@@ -53,12 +52,12 @@ var _ = Describe("ApplyManifest", func() {
 
 		It("returns an error", func() {
 			Expect(
-				action(context.Background(), k8sClient, spaceGUID, manifest),
+				action(context.Background(), authInfo, spaceGUID, manifest),
 			).To(MatchError(ContainSubstring("boom")))
 		})
 
 		It("doesn't create an App", func() {
-			_ = action(context.Background(), k8sClient, spaceGUID, manifest)
+			_ = action(context.Background(), authInfo, spaceGUID, manifest)
 
 			Expect(appRepo.CreateAppCallCount()).To(Equal(0))
 		})
@@ -76,7 +75,7 @@ var _ = Describe("ApplyManifest", func() {
 
 			It("returns an error", func() {
 				Expect(
-					action(context.Background(), k8sClient, spaceGUID, manifest),
+					action(context.Background(), authInfo, spaceGUID, manifest),
 				).To(MatchError(ContainSubstring("boom")))
 			})
 		})
@@ -88,7 +87,7 @@ var _ = Describe("ApplyManifest", func() {
 
 			It("returns an error", func() {
 				Expect(
-					action(context.Background(), k8sClient, spaceGUID, manifest),
+					action(context.Background(), authInfo, spaceGUID, manifest),
 				).To(MatchError(ContainSubstring("boom")))
 			})
 		})
@@ -109,7 +108,7 @@ var _ = Describe("ApplyManifest", func() {
 
 			It("returns an error", func() {
 				Expect(
-					action(context.Background(), k8sClient, spaceGUID, manifest),
+					action(context.Background(), authInfo, spaceGUID, manifest),
 				).To(MatchError(ContainSubstring("boom")))
 			})
 		})
@@ -121,7 +120,7 @@ var _ = Describe("ApplyManifest", func() {
 
 			It("returns an error", func() {
 				Expect(
-					action(context.Background(), k8sClient, spaceGUID, manifest),
+					action(context.Background(), authInfo, spaceGUID, manifest),
 				).To(MatchError(ContainSubstring("boom")))
 			})
 		})
@@ -138,7 +137,7 @@ var _ = Describe("ApplyManifest", func() {
 
 				It("returns an error", func() {
 					Expect(
-						action(context.Background(), k8sClient, spaceGUID, manifest),
+						action(context.Background(), authInfo, spaceGUID, manifest),
 					).To(MatchError(ContainSubstring("boom")))
 				})
 			})
@@ -156,7 +155,7 @@ var _ = Describe("ApplyManifest", func() {
 
 				It("returns an error", func() {
 					Expect(
-						action(context.Background(), k8sClient, spaceGUID, manifest),
+						action(context.Background(), authInfo, spaceGUID, manifest),
 					).To(MatchError(ContainSubstring("boom")))
 				})
 			})

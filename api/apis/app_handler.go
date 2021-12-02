@@ -138,7 +138,7 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authInfo, ok := authorization.InfoFromContext(r.Context())
+	authInfo, ok := authorization.InfoFromContext(ctx)
 	if !ok {
 		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)

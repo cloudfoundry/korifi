@@ -46,7 +46,7 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 		f.config.KeyData = pem.EncodeToMemory(keyBlock)
 
 	default:
-		return nil, fmt.Errorf("unknown auth info scheme")
+		return nil, authorization.NotAuthenticatedError{}
 	}
 
 	// This does an API call within the controller-runtime code and is

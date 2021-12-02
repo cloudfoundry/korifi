@@ -687,15 +687,13 @@ var _ = Describe("ProcessHandler", func() {
 					Annotations: annotations,
 				},
 			}, nil)
-
 		})
 
 		When("on the happy path", func() {
-
 			When("Query Parameters are not provided", func() {
 				BeforeEach(func() {
 					var err error
-					req, err = http.NewRequest("GET", "/v3/processes", nil)
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes", nil)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("returns status 200 OK", func() {
@@ -775,7 +773,7 @@ var _ = Describe("ProcessHandler", func() {
 			When("Query Parameters are provided", func() {
 				BeforeEach(func() {
 					var err error
-					req, err = http.NewRequest("GET", "/v3/processes?app_guids=my-app-guid", nil)
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes?app_guids=my-app-guid", nil)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -789,7 +787,6 @@ var _ = Describe("ProcessHandler", func() {
 					Expect(message.AppGUID[0]).To(Equal("my-app-guid"))
 				})
 			})
-
 		})
 
 		When("invalid query parameters are provided", func() {
@@ -802,6 +799,5 @@ var _ = Describe("ProcessHandler", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids'")
 			})
 		})
-
 	})
 })

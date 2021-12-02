@@ -61,8 +61,8 @@ var _ = Describe("OrgRepositoryAuthDecorator", func() {
 
 		It("uses the authorization.Info from the request context to get the identity", func() {
 			Expect(identityProvider.GetIdentityCallCount()).To(Equal(1))
-			_, authInfo := identityProvider.GetIdentityArgsForCall(0)
-			Expect(authInfo.Token).To(Equal("the-token"))
+			_, actualAuthInfo := identityProvider.GetIdentityArgsForCall(0)
+			Expect(actualAuthInfo.Token).To(Equal("the-token"))
 		})
 
 		When("identity provider fails", func() {

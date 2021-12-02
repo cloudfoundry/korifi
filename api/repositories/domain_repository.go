@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,7 +36,7 @@ type DomainListMessage struct {
 	Names []string
 }
 
-func (f *DomainRepo) FetchDomain(ctx context.Context, userClient client.Client, domainGUID string) (DomainRecord, error) {
+func (f *DomainRepo) FetchDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) (DomainRecord, error) {
 	domain := &networkingv1alpha1.CFDomain{}
 	err := f.privilegedClient.Get(ctx, types.NamespacedName{Name: domainGUID}, domain)
 	if err != nil {
@@ -53,7 +54,7 @@ func (f *DomainRepo) FetchDomain(ctx context.Context, userClient client.Client, 
 	return cfDomainToDomainRecord(domain), nil
 }
 
-func (f *DomainRepo) FetchDomainList(ctx context.Context, userClient client.Client, message DomainListMessage) ([]DomainRecord, error) {
+func (f *DomainRepo) FetchDomainList(ctx context.Context, authInfo authorization.Info, message DomainListMessage) ([]DomainRecord, error) {
 	cfdomainList := &networkingv1alpha1.CFDomainList{}
 	err := f.privilegedClient.List(ctx, cfdomainList)
 	if err != nil {

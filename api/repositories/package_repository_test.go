@@ -16,33 +16,32 @@ import (
 )
 
 var _ = Describe("PackageRepository", func() {
+	const appGUID = "the-app-guid"
+
+	var (
+		packageRepo *PackageRepo
+		ctx         context.Context
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		packageRepo = NewPackageRepo(k8sClient)
+	})
+
 	Describe("CreatePackage", func() {
-		var (
-			packageRepo   *PackageRepo
-			client        client.Client
-			packageCreate PackageCreateMessage
-			ctx           context.Context
-		)
+		var packageCreate PackageCreateMessage
 
 		const (
-			appGUID   = "the-app-guid"
 			spaceGUID = "the-space-guid"
 		)
 
 		BeforeEach(func() {
-			var err error
-			client, err = BuildPrivilegedClient(k8sConfig, "")
-			Expect(err).NotTo(HaveOccurred())
-
-			packageRepo = NewPackageRepo(client)
-
 			packageCreate = PackageCreateMessage{
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
 			}
 
-			ctx = context.Background()
 			Expect(
 				k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
 			).To(Succeed())
@@ -55,7 +54,7 @@ var _ = Describe("PackageRepository", func() {
 		})
 
 		It("creates a Package record", func() {
-			returnedPackageRecord, err := packageRepo.CreatePackage(ctx, client, packageCreate)
+			returnedPackageRecord, err := packageRepo.CreatePackage(ctx, authInfo, packageCreate)
 			Expect(err).NotTo(HaveOccurred())
 
 			packageGUID := returnedPackageRecord.GUID
@@ -75,7 +74,7 @@ var _ = Describe("PackageRepository", func() {
 			packageNSName := types.NamespacedName{Name: packageGUID, Namespace: spaceGUID}
 			createdCFPackage := new(workloadsv1alpha1.CFPackage)
 			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), packageNSName, createdCFPackage)
+				err := k8sClient.Get(ctx, packageNSName, createdCFPackage)
 				return err == nil
 			}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
 
@@ -89,14 +88,7 @@ var _ = Describe("PackageRepository", func() {
 	})
 
 	Describe("FetchPackage", func() {
-		const (
-			appGUID = "the-app-guid"
-		)
-
 		var (
-			packageRepo *PackageRepo
-			testClient  client.Client
-
 			namespace1 *corev1.Namespace
 			namespace2 *corev1.Namespace
 		)
@@ -104,22 +96,16 @@ var _ = Describe("PackageRepository", func() {
 		BeforeEach(func() {
 			namespace1Name := generateGUID()
 			namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace1Name}}
-			Expect(k8sClient.Create(context.Background(), namespace1)).To(Succeed())
+			Expect(k8sClient.Create(ctx, namespace1)).To(Succeed())
 
 			namespace2Name := generateGUID()
 			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
-			Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
-
-			var err error
-			testClient, err = BuildPrivilegedClient(k8sConfig, "")
-			Expect(err).ToNot(HaveOccurred())
-
-			packageRepo = NewPackageRepo(testClient)
+			Expect(k8sClient.Create(ctx, namespace2)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(context.Background(), namespace1)).To(Succeed())
-			Expect(k8sClient.Delete(context.Background(), namespace2)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, namespace1)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, namespace2)).To(Succeed())
 		})
 
 		When("on the happy path", func() {
@@ -145,7 +131,7 @@ var _ = Describe("PackageRepository", func() {
 						},
 					},
 				}
-				Expect(k8sClient.Create(context.Background(), package1)).To(Succeed())
+				Expect(k8sClient.Create(ctx, package1)).To(Succeed())
 
 				package2 = &workloadsv1alpha1.CFPackage{
 					ObjectMeta: metav1.ObjectMeta{
@@ -159,16 +145,16 @@ var _ = Describe("PackageRepository", func() {
 						},
 					},
 				}
-				Expect(k8sClient.Create(context.Background(), package2)).To(Succeed())
+				Expect(k8sClient.Create(ctx, package2)).To(Succeed())
 			})
 
 			AfterEach(func() {
-				Expect(k8sClient.Delete(context.Background(), package1)).To(Succeed())
-				Expect(k8sClient.Delete(context.Background(), package2)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, package1)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, package2)).To(Succeed())
 			})
 
 			It("can fetch the PackageRecord we're looking for", func() {
-				record, err := packageRepo.FetchPackage(context.Background(), testClient, package2GUID)
+				record, err := packageRepo.FetchPackage(ctx, authInfo, package2GUID)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(record.GUID).To(Equal(package2GUID))
 				Expect(record.Type).To(Equal("bits"))
@@ -227,10 +213,10 @@ var _ = Describe("PackageRepository", func() {
 				When(tc.description, func() {
 					It("has state "+tc.expectedState, func() {
 						tc.setupFunc(cfPackage)
-						Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
-						defer func() { Expect(k8sClient.Delete(context.Background(), cfPackage)).To(Succeed()) }()
+						Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
+						defer func() { Expect(k8sClient.Delete(ctx, cfPackage)).To(Succeed()) }()
 
-						record, err := packageRepo.FetchPackage(context.Background(), testClient, cfPackage.Name)
+						record, err := packageRepo.FetchPackage(ctx, authInfo, cfPackage.Name)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(record.State).To(Equal(tc.expectedState))
 					})
@@ -259,7 +245,7 @@ var _ = Describe("PackageRepository", func() {
 						},
 					},
 				}
-				Expect(k8sClient.Create(context.Background(), cfPackage1)).To(Succeed())
+				Expect(k8sClient.Create(ctx, cfPackage1)).To(Succeed())
 
 				cfPackage2 = &workloadsv1alpha1.CFPackage{
 					ObjectMeta: metav1.ObjectMeta{
@@ -273,16 +259,16 @@ var _ = Describe("PackageRepository", func() {
 						},
 					},
 				}
-				Expect(k8sClient.Create(context.Background(), cfPackage2)).To(Succeed())
+				Expect(k8sClient.Create(ctx, cfPackage2)).To(Succeed())
 			})
 
 			AfterEach(func() {
-				Expect(k8sClient.Delete(context.Background(), cfPackage1)).To(Succeed())
-				Expect(k8sClient.Delete(context.Background(), cfPackage2)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, cfPackage1)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, cfPackage2)).To(Succeed())
 			})
 
 			It("returns an error", func() {
-				_, err := packageRepo.FetchPackage(context.Background(), testClient, packageGUID)
+				_, err := packageRepo.FetchPackage(ctx, authInfo, packageGUID)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("duplicate packages exist"))
 			})
@@ -290,7 +276,7 @@ var _ = Describe("PackageRepository", func() {
 
 		When("no packages exist", func() {
 			It("returns an error", func() {
-				_, err := packageRepo.FetchPackage(context.Background(), testClient, "i don't exist")
+				_, err := packageRepo.FetchPackage(ctx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{}))
 			})
@@ -299,8 +285,6 @@ var _ = Describe("PackageRepository", func() {
 
 	Describe("UpdatePackageSource", func() {
 		var (
-			packageRepo       *PackageRepo
-			client            client.Client
 			existingCFPackage workloadsv1alpha1.CFPackage
 			spaceGUID         string
 			updateMessage     PackageUpdateSourceMessage
@@ -308,20 +292,12 @@ var _ = Describe("PackageRepository", func() {
 
 		const (
 			packageGUID               = "the-package-guid"
-			appGUID                   = "the-app-guid"
 			packageSourceImageRef     = "my-org/" + packageGUID
 			packageRegistrySecretName = "image-pull-secret"
 		)
 
 		BeforeEach(func() {
 			spaceGUID = generateGUID()
-			ctx := context.Background()
-
-			var err error
-			client, err = BuildPrivilegedClient(k8sConfig, "")
-			Expect(err).NotTo(HaveOccurred())
-
-			packageRepo = NewPackageRepo(client)
 
 			existingCFPackage = workloadsv1alpha1.CFPackage{
 				TypeMeta: metav1.TypeMeta{
@@ -356,16 +332,16 @@ var _ = Describe("PackageRepository", func() {
 
 		AfterEach(func() {
 			Expect(
-				k8sClient.Delete(context.Background(), &existingCFPackage),
+				k8sClient.Delete(ctx, &existingCFPackage),
 			).To(Succeed())
 
 			Expect(
-				k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
+				k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
 			).To(Succeed())
 		})
 
 		It("returns an updated record", func() {
-			returnedPackageRecord, err := packageRepo.UpdatePackageSource(context.Background(), client, updateMessage)
+			returnedPackageRecord, err := packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(returnedPackageRecord.GUID).To(Equal(existingCFPackage.ObjectMeta.Name))
@@ -384,13 +360,13 @@ var _ = Describe("PackageRepository", func() {
 		})
 
 		It("updates only the Registry field of the existing CFPackage", func() {
-			_, err := packageRepo.UpdatePackageSource(context.Background(), client, updateMessage)
+			_, err := packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
 			Expect(err).NotTo(HaveOccurred())
 
 			packageNSName := types.NamespacedName{Name: packageGUID, Namespace: spaceGUID}
 			createdCFPackage := new(workloadsv1alpha1.CFPackage)
 			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), packageNSName, createdCFPackage)
+				err := k8sClient.Get(ctx, packageNSName, createdCFPackage)
 				return err == nil
 			}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
 

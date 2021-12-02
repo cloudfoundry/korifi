@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("BuildRepository", func() {
@@ -30,7 +29,6 @@ var _ = Describe("BuildRepository", func() {
 		var (
 			testCtx   context.Context
 			buildRepo *BuildRepo
-			client    client.Client
 
 			namespace1 *corev1.Namespace
 			namespace2 *corev1.Namespace
@@ -47,11 +45,7 @@ var _ = Describe("BuildRepository", func() {
 			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
 			Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
 
-			var err error
-			client, err = BuildPrivilegedClient(k8sConfig, "")
-			Expect(err).ToNot(HaveOccurred())
-
-			buildRepo = NewBuildRepo(client)
+			buildRepo = NewBuildRepo(k8sClient)
 		})
 
 		AfterEach(func() {
@@ -138,7 +132,7 @@ var _ = Describe("BuildRepository", func() {
 				)
 				When("no status.Conditions are set", func() {
 					BeforeEach(func() {
-						returnedBuildRecord, err := buildRepo.FetchBuild(testCtx, client, build2GUID)
+						returnedBuildRecord, err := buildRepo.FetchBuild(testCtx, authInfo, build2GUID)
 						buildRecord = &returnedBuildRecord
 						fetchError = err
 					})
@@ -216,7 +210,7 @@ var _ = Describe("BuildRepository", func() {
 					It("should eventually return a record with State: \"STAGED\", no StagingErrorMsg, and a DropletGUID that matches the BuildGUID", func() {
 						ctx := context.Background()
 						Eventually(func() string {
-							returnedBuildRecord, err := buildRepo.FetchBuild(ctx, client, build2GUID)
+							returnedBuildRecord, err := buildRepo.FetchBuild(ctx, authInfo, build2GUID)
 							buildRecord = &returnedBuildRecord
 							fetchError = err
 							if err != nil {
@@ -255,7 +249,7 @@ var _ = Describe("BuildRepository", func() {
 					It("should eventually return a record with State: \"FAILED\", no DropletGUID, and a Staging Error Message", func() {
 						ctx := context.Background()
 						Eventually(func() string {
-							returnedBuildRecord, err := buildRepo.FetchBuild(ctx, client, build2GUID)
+							returnedBuildRecord, err := buildRepo.FetchBuild(ctx, authInfo, build2GUID)
 							buildRecord = &returnedBuildRecord
 							fetchError = err
 							if err != nil {
@@ -336,7 +330,7 @@ var _ = Describe("BuildRepository", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := buildRepo.FetchBuild(testCtx, client, buildGUID)
+				_, err := buildRepo.FetchBuild(testCtx, authInfo, buildGUID)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("duplicate builds exist"))
 			})
@@ -344,7 +338,7 @@ var _ = Describe("BuildRepository", func() {
 
 		When("no builds exist", func() {
 			It("returns an error", func() {
-				_, err := buildRepo.FetchBuild(testCtx, client, "i don't exist")
+				_, err := buildRepo.FetchBuild(testCtx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{}))
 			})
@@ -367,7 +361,6 @@ var _ = Describe("BuildRepository", func() {
 
 		var (
 			buildRepo              *BuildRepo
-			client                 client.Client
 			buildCreateLabels      map[string]string
 			buildCreateAnnotations map[string]string
 			buildCreateMsg         BuildCreateMessage
@@ -375,11 +368,7 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		BeforeEach(func() {
-			var err error
-			client, err = BuildPrivilegedClient(k8sConfig, "")
-			Expect(err).NotTo(HaveOccurred())
-
-			buildRepo = NewBuildRepo(client)
+			buildRepo = NewBuildRepo(k8sClient)
 
 			beforeCtx := context.Background()
 			spaceGUID = generateGUID()
@@ -415,12 +404,12 @@ var _ = Describe("BuildRepository", func() {
 
 			BeforeEach(func() {
 				ctx := context.Background()
-				buildCreateRecord, buildCreateErr = buildRepo.CreateBuild(ctx, client, buildCreateMsg)
+				buildCreateRecord, buildCreateErr = buildRepo.CreateBuild(ctx, authInfo, buildCreateMsg)
 			})
 
 			AfterEach(func() {
 				afterCtx := context.Background()
-				Expect(cleanupBuild(afterCtx, client, buildCreateRecord.GUID, spaceGUID)).To(Succeed())
+				Expect(cleanupBuild(afterCtx, buildCreateRecord.GUID, spaceGUID)).To(Succeed())
 			})
 
 			It("does not return an error", func() {
@@ -489,7 +478,7 @@ var _ = Describe("BuildRepository", func() {
 	})
 })
 
-func cleanupBuild(ctx context.Context, k8sClient client.Client, buildGUID, namespace string) error {
+func cleanupBuild(ctx context.Context, buildGUID, namespace string) error {
 	cfBuild := workloadsv1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      buildGUID,

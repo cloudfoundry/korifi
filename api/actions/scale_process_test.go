@@ -6,6 +6,7 @@ import (
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "github.com/onsi/ginkgo"
@@ -28,8 +29,8 @@ var _ = Describe("ScaleProcessAction", func() {
 
 		scaleProcessAction *ScaleProcess
 
-		testClient *fake.Client
-		testScale  *repositories.ProcessScaleValues
+		authInfo  authorization.Info
+		testScale *repositories.ProcessScaleValues
 
 		responseRecord repositories.ProcessRecord
 		responseErr    error
@@ -37,7 +38,7 @@ var _ = Describe("ScaleProcessAction", func() {
 
 	BeforeEach(func() {
 		processRepo = new(fake.CFProcessRepository)
-		testClient = new(fake.Client)
+		authInfo = authorization.Info{Token: "a-token"}
 
 		processRepo.FetchProcessReturns(repositories.ProcessRecord{
 			GUID:             testProcessGUID,
@@ -82,7 +83,7 @@ var _ = Describe("ScaleProcessAction", func() {
 	})
 
 	JustBeforeEach(func() {
-		responseRecord, responseErr = scaleProcessAction.Invoke(context.Background(), testClient, testProcessGUID, *testScale)
+		responseRecord, responseErr = scaleProcessAction.Invoke(context.Background(), authInfo, testProcessGUID, *testScale)
 	})
 
 	When("on the happy path", func() {
@@ -97,7 +98,8 @@ var _ = Describe("ScaleProcessAction", func() {
 
 		It("fabricates a ProcessScaleValues using the inputs and the process GUID and looked-up space", func() {
 			Expect(processRepo.ScaleProcessCallCount()).ToNot(BeZero())
-			_, _, scaleProcessMessage := processRepo.ScaleProcessArgsForCall(0)
+			_, actualAuthInfo, scaleProcessMessage := processRepo.ScaleProcessArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(scaleProcessMessage.GUID).To(Equal(testProcessGUID))
 			Expect(scaleProcessMessage.SpaceGUID).To(Equal(testProcessSpaceGUID))
 			Expect(scaleProcessMessage.Instances).To(Equal(testScale.Instances))

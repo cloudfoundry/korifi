@@ -253,7 +253,7 @@ var _ = Describe("RouteHandler", func() {
 
 			It("provides the authorization.Info from the context to the routes repository", func() {
 				Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
-				_, actualAuthInfo := routeRepo.FetchRouteListArgsForCall(0)
+				_, actualAuthInfo, _ := routeRepo.FetchRouteListArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -336,7 +336,7 @@ var _ = Describe("RouteHandler", func() {
 			When("query parameters are provided", func() {
 				BeforeEach(func() {
 					var err error
-					req, err = http.NewRequest("GET", "/v3/routes?app_guids=my-app-guid", nil)
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?app_guids=my-app-guid", nil)
 					Expect(err).NotTo(HaveOccurred())
 				})
 

@@ -6,6 +6,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,7 +37,7 @@ func NewDropletRepo(privilegedClient client.Client) *DropletRepo {
 	return &DropletRepo{privilegedClient: privilegedClient}
 }
 
-func (r *DropletRepo) FetchDroplet(ctx context.Context, userClient client.Client, dropletGUID string) (DropletRecord, error) {
+func (r *DropletRepo) FetchDroplet(ctx context.Context, authInfo authorization.Info, dropletGUID string) (DropletRecord, error) {
 	buildList := &workloadsv1alpha1.CFBuildList{}
 	err := r.privilegedClient.List(ctx, buildList)
 	if err != nil { // untested
