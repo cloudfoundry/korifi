@@ -19,6 +19,7 @@ package workloads
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -200,7 +201,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
 	serviceAccountName := kpackServiceAccount
-	kpackImageTag := r.concatenateStrings("/", r.ControllerConfig.KpackImageTag, cfBuild.Name)
+	kpackImageTag := path.Join(r.ControllerConfig.KpackImageTag, cfBuild.Name)
 	kpackImageName := cfBuild.Name
 	kpackImageNamespace := cfBuild.Namespace
 	desiredKpackImage := buildv1alpha2.Image{

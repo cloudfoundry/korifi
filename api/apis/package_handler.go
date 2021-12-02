@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"path"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -210,7 +210,7 @@ func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	imageRef := fmt.Sprintf("%s/%s", h.registryBase, packageGUID)
+	imageRef := path.Join(h.registryBase, packageGUID)
 
 	uploadedImageRef, err := h.uploadSourceImage(imageRef, bitsFile, registryAuth)
 	if err != nil {
