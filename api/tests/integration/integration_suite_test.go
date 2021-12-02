@@ -7,7 +7,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/base64"
 	"encoding/pem"
 	"math/big"
 	"testing"
@@ -93,22 +92,6 @@ func startEnvTest(apiServerExtraArgs map[string]string) {
 func restartEnvTest(apiServerEtraArgs map[string]string) {
 	Expect(testEnv.Stop()).To(Succeed())
 	startEnvTest(apiServerEtraArgs)
-}
-
-func obtainClientCert(name string) ([]byte, []byte) {
-	authUser, err := testEnv.ControlPlane.AddUser(envtest.User{Name: name}, k8sConfig)
-	Expect(err).NotTo(HaveOccurred())
-
-	userConfig := authUser.Config()
-	return userConfig.CertData, userConfig.KeyData
-}
-
-func encodeCertAndKey(certData, keyData []byte) string {
-	authHeader := []byte{}
-	authHeader = append(authHeader, certData...)
-	authHeader = append(authHeader, keyData...)
-
-	return base64.StdEncoding.EncodeToString(authHeader)
 }
 
 func generateUnsignedCert(name string) []byte {

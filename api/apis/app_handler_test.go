@@ -624,8 +624,8 @@ var _ = Describe("AppHandler", func() {
 
 			It("invokes the repository with the provided auth info", func() {
 				Expect(appRepo.FetchAppListCallCount()).To(Equal(1))
-				_, authInfo, _ := appRepo.FetchAppListArgsForCall(0)
-				Expect(authInfo).To(Equal(authInfo))
+				_, actualAuthInfo, _ := appRepo.FetchAppListArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
 			When("filtering query params are provided", func() {

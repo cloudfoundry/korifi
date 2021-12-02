@@ -7,7 +7,6 @@ import (
 	"sort"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -19,7 +18,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
@@ -28,7 +26,6 @@ var _ = Describe("AppRepository", func() {
 		testCtx                context.Context
 		appRepo                *AppRepo
 		clientFactory          repositories.UserK8sClientFactory
-		testClient             client.Client
 		rootNamespace          string
 		org                    *v1alpha2.SubnamespaceAnchor
 		space1, space2, space3 *v1alpha2.SubnamespaceAnchor
@@ -37,10 +34,6 @@ var _ = Describe("AppRepository", func() {
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-
-		var err error
-		testClient, err = BuildPrivilegedClient(k8sConfig, "")
-		Expect(err).ToNot(HaveOccurred())
 
 		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
 		appRepo = NewAppRepo(k8sClient, clientFactory)
@@ -68,7 +61,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("can fetch the AppRecord CR we're looking for", func() {
-				app, err := appRepo.FetchApp(testCtx, testClient, cfApp2.Name)
+				app, err := appRepo.FetchApp(testCtx, authInfo, cfApp2.Name)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(app.GUID).To(Equal(cfApp2.Name))
@@ -99,7 +92,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := appRepo.FetchApp(testCtx, testClient, "test-guid")
+				_, err := appRepo.FetchApp(testCtx, authInfo, "test-guid")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("duplicate apps exist"))
 			})
@@ -107,7 +100,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("no Apps exist", func() {
 			It("returns an error", func() {
-				_, err := appRepo.FetchApp(testCtx, testClient, "i don't exist")
+				_, err := appRepo.FetchApp(testCtx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
 			})
@@ -125,7 +118,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the App exists in the Space", func() {
 			It("returns the record", func() {
-				appRecord, err := appRepo.FetchAppByNameAndSpace(context.Background(), testClient, cfApp1.Spec.Name, space1.Name)
+				appRecord, err := appRepo.FetchAppByNameAndSpace(context.Background(), authInfo, cfApp1.Spec.Name, space1.Name)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(appRecord.Name).To(Equal(cfApp1.Spec.Name))
@@ -139,7 +132,7 @@ var _ = Describe("AppRepository", func() {
 
 			When("the App doesn't exist in the Space (but is in another Space)", func() {
 				It("returns a NotFoundError", func() {
-					_, err := appRepo.FetchAppByNameAndSpace(context.Background(), testClient, cfApp1.Spec.Name, space2.Name)
+					_, err := appRepo.FetchAppByNameAndSpace(context.Background(), authInfo, cfApp1.Spec.Name, space2.Name)
 					Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
 				})
 			})
@@ -149,28 +142,22 @@ var _ = Describe("AppRepository", func() {
 	Describe("FetchAppList", Serial, func() {
 		var (
 			message                   AppListMessage
-			userName                  string
 			spaceDeveloperClusterRole *rbacv1.ClusterRole
-			authInfo                  authorization.Info
 		)
 
 		BeforeEach(func() {
-			userName = generateGUID()
 			message = AppListMessage{}
 
 			var cfAppList workloadsv1alpha1.CFAppList
 			Expect(
-				testClient.List(context.Background(), &cfAppList),
+				k8sClient.List(context.Background(), &cfAppList),
 			).To(Succeed())
 
 			for _, app := range cfAppList.Items {
 				Expect(
-					testClient.Delete(context.Background(), &app),
+					k8sClient.Delete(context.Background(), &app),
 				).To(Succeed())
 			}
-
-			cert, key := obtainClientCert(userName)
-			authInfo.CertData = encodeCertAndKey(cert, key)
 
 			spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
 			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
@@ -352,7 +339,7 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		It("creates a new app CR", func() {
-			createdAppRecord, err := appRepo.CreateApp(testCtx, testClient, appCreateMessage)
+			createdAppRecord, err := appRepo.CreateApp(testCtx, authInfo, appCreateMessage)
 			Expect(err).To(BeNil())
 			Expect(createdAppRecord).NotTo(BeNil())
 
@@ -364,7 +351,7 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		It("returns an AppRecord with correct fields", func() {
-			createdAppRecord, err := appRepo.CreateApp(context.Background(), testClient, appCreateMessage)
+			createdAppRecord, err := appRepo.CreateApp(context.Background(), authInfo, appCreateMessage)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createdAppRecord).NotTo(Equal(AppRecord{}))
 			Expect(createdAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
@@ -386,7 +373,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("creates an empty secret and sets the environment variable secret ref on the App", func() {
-				createdAppRecord, err := appRepo.CreateApp(testCtx, testClient, appCreateMessage)
+				createdAppRecord, err := appRepo.CreateApp(testCtx, authInfo, appCreateMessage)
 				Expect(err).To(BeNil())
 				Expect(createdAppRecord).NotTo(BeNil())
 
@@ -417,7 +404,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("creates an secret for the environment variables and sets the ref on the App", func() {
-				createdAppRecord, err := appRepo.CreateApp(testCtx, testClient, appCreateMessage)
+				createdAppRecord, err := appRepo.CreateApp(testCtx, authInfo, appCreateMessage)
 				Expect(err).To(BeNil())
 				Expect(createdAppRecord).NotTo(BeNil())
 
@@ -482,7 +469,7 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			returnedAppEnvVarsRecord, returnedErr = appRepo.CreateOrPatchAppEnvVars(context.Background(), testClient, testAppEnvSecret)
+			returnedAppEnvVarsRecord, returnedErr = appRepo.CreateOrPatchAppEnvVars(context.Background(), authInfo, testAppEnvSecret)
 		})
 
 		AfterEach(func() {
@@ -493,7 +480,7 @@ var _ = Describe("AppRepository", func() {
 				},
 			}
 			Expect(
-				testClient.Delete(context.Background(), &lookupSecretK8sResource),
+				k8sClient.Delete(context.Background(), &lookupSecretK8sResource),
 			).To(Succeed(), "Could not clean up the created App Env Secret")
 		})
 
@@ -513,7 +500,7 @@ var _ = Describe("AppRepository", func() {
 				// Used a strings.Trim to remove characters, which cause the behavior in Issue #103
 				testAppEnvSecret.AppGUID = "estringtrimmedguid"
 
-				returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateOrPatchAppEnvVars(testCtx, testClient, testAppEnvSecret)
+				returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateOrPatchAppEnvVars(testCtx, authInfo, testAppEnvSecret)
 				Expect(returnedUpdatedErr).ToNot(HaveOccurred())
 				Expect(returnedUpdatedAppEnvVarsRecord.AppGUID).To(Equal(testAppEnvSecret.AppGUID), "Expected App GUID to match after transform")
 			})
@@ -522,7 +509,7 @@ var _ = Describe("AppRepository", func() {
 				cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: defaultNamespace}
 				createdCFAppSecret := &corev1.Secret{}
 				Eventually(func() bool {
-					err := testClient.Get(context.Background(), cfAppSecretLookupKey, createdCFAppSecret)
+					err := k8sClient.Get(context.Background(), cfAppSecretLookupKey, createdCFAppSecret)
 					return err == nil
 				}, timeCheckThreshold*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not find the secret created by the repo")
 
@@ -566,7 +553,7 @@ var _ = Describe("AppRepository", func() {
 					StringData: originalEnvVars,
 				}
 				Expect(
-					testClient.Create(context.Background(), &originalSecret),
+					k8sClient.Create(context.Background(), &originalSecret),
 				).To(Succeed())
 			})
 
@@ -611,7 +598,7 @@ var _ = Describe("AppRepository", func() {
 	Describe("GetNamespace", func() {
 		When("space does not exist", func() {
 			It("returns an unauthorized or not found err", func() {
-				_, err := appRepo.FetchNamespace(context.Background(), testClient, "some-guid")
+				_, err := appRepo.FetchNamespace(context.Background(), authInfo, "some-guid")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("Resource not found or permission denied."))
 			})
@@ -645,7 +632,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("on the happy path", func() {
 			It("returns a CurrentDroplet record", func() {
-				record, err := appRepo.SetCurrentDroplet(testCtx, testClient, SetCurrentDropletMessage{
+				record, err := appRepo.SetCurrentDroplet(testCtx, authInfo, SetCurrentDropletMessage{
 					AppGUID:     appGUID,
 					DropletGUID: dropletGUID,
 					SpaceGUID:   spaceGUID,
@@ -658,7 +645,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("sets the spec.current_droplet_ref.name to the Droplet GUID", func() {
-				_, err := appRepo.SetCurrentDroplet(testCtx, testClient, SetCurrentDropletMessage{
+				_, err := appRepo.SetCurrentDroplet(testCtx, authInfo, SetCurrentDropletMessage{
 					AppGUID:     appGUID,
 					DropletGUID: dropletGUID,
 					SpaceGUID:   spaceGUID,
@@ -676,7 +663,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the app doesn't exist", func() {
 			It("errors", func() {
-				_, err := appRepo.SetCurrentDroplet(testCtx, testClient, SetCurrentDropletMessage{
+				_, err := appRepo.SetCurrentDroplet(testCtx, authInfo, SetCurrentDropletMessage{
 					AppGUID:     "no-such-app",
 					DropletGUID: dropletGUID,
 					SpaceGUID:   spaceGUID,
@@ -713,7 +700,7 @@ var _ = Describe("AppRepository", func() {
 
 				Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
 
-				appRecord, err := appRepo.SetAppDesiredState(context.Background(), testClient, SetAppDesiredStateMessage{
+				appRecord, err := appRepo.SetAppDesiredState(context.Background(), authInfo, SetAppDesiredStateMessage{
 					AppGUID:      appGUID,
 					SpaceGUID:    spaceGUID,
 					DesiredState: appStartedValue,
@@ -763,7 +750,7 @@ var _ = Describe("AppRepository", func() {
 
 				Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
 
-				appRecord, err := appRepo.SetAppDesiredState(context.Background(), testClient, SetAppDesiredStateMessage{
+				appRecord, err := appRepo.SetAppDesiredState(context.Background(), authInfo, SetAppDesiredStateMessage{
 					AppGUID:      appGUID,
 					SpaceGUID:    spaceGUID,
 					DesiredState: appStoppedValue,
@@ -804,7 +791,7 @@ var _ = Describe("AppRepository", func() {
 			It("returns an error", func() {
 				appGUID = "fake-app-guid"
 
-				_, err := appRepo.SetAppDesiredState(context.Background(), testClient, SetAppDesiredStateMessage{
+				_, err := appRepo.SetAppDesiredState(context.Background(), authInfo, SetAppDesiredStateMessage{
 					AppGUID:      appGUID,
 					SpaceGUID:    spaceGUID,
 					DesiredState: appStartedValue,

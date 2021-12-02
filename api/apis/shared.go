@@ -15,18 +15,12 @@ import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	en_translations "github.com/go-playground/validator/v10/translations/en"
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 var Logger = ctrl.Log.WithName("Shared Handler Functions")
-
-//counterfeiter:generate -o fake -fake-name ClientBuilderFunc . ClientBuilderFunc
-
-type ClientBuilderFunc func(cfg *rest.Config, authHeader string) (client.Client, error)
 
 type requestMalformedError struct {
 	httpStatus    int

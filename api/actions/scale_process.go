@@ -3,9 +3,8 @@ package actions
 import (
 	"context"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ScaleProcess struct {
@@ -18,8 +17,8 @@ func NewScaleProcess(processRepo CFProcessRepository) *ScaleProcess {
 	}
 }
 
-func (a *ScaleProcess) Invoke(ctx context.Context, client client.Client, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error) {
-	process, err := a.processRepo.FetchProcess(ctx, client, processGUID)
+func (a *ScaleProcess) Invoke(ctx context.Context, authInfo authorization.Info, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error) {
+	process, err := a.processRepo.FetchProcess(ctx, authInfo, processGUID)
 	if err != nil {
 		return repositories.ProcessRecord{}, err
 	}
@@ -28,5 +27,5 @@ func (a *ScaleProcess) Invoke(ctx context.Context, client client.Client, process
 		SpaceGUID:          process.SpaceGUID,
 		ProcessScaleValues: scale,
 	}
-	return a.processRepo.ScaleProcess(ctx, client, scaleMessage)
+	return a.processRepo.ScaleProcess(ctx, authInfo, scaleMessage)
 }

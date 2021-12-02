@@ -6,6 +6,7 @@ import (
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "github.com/onsi/ginkgo"
@@ -26,14 +27,14 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		appRepo     *fake.CFAppRepository
 		processRepo *fake.CFProcessRepository
 		processType string
+		authInfo    authorization.Info
 
 		updatedProcessRecord *repositories.ProcessRecord
 
 		scaleProcessAction    *fake.ScaleProcess
 		scaleAppProcessAction *ScaleAppProcess
 
-		testClient *fake.Client
-		testScale  *repositories.ProcessScaleValues
+		testScale *repositories.ProcessScaleValues
 
 		responseRecord repositories.ProcessRecord
 		responseErr    error
@@ -43,7 +44,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		appRepo = new(fake.CFAppRepository)
 		processRepo = new(fake.CFProcessRepository)
 		processType = "web"
-		testClient = new(fake.Client)
+		authInfo = authorization.Info{Token: "a-token"}
 
 		processRecord := repositories.ProcessRecord{
 			GUID:             testProcessGUID,
@@ -100,7 +101,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 	})
 
 	JustBeforeEach(func() {
-		responseRecord, responseErr = scaleAppProcessAction.Invoke(context.Background(), testClient, testAppGUID, processType, *testScale)
+		responseRecord, responseErr = scaleAppProcessAction.Invoke(context.Background(), authInfo, testAppGUID, processType, *testScale)
 	})
 
 	When("on the happy path", func() {
@@ -109,7 +110,8 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		})
 		It("fetches the app associated with the GUID", func() {
 			Expect(appRepo.FetchAppCallCount()).ToNot(BeZero())
-			_, _, appGUID := appRepo.FetchAppArgsForCall(0)
+			_, actualAuthInfo, appGUID := appRepo.FetchAppArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(appGUID).To(Equal(testAppGUID))
 		})
 		It("fetches the processes associated with the App GUID", func() {

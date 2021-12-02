@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,13 +15,17 @@ import (
 )
 
 var _ = Describe("DomainRepository", func() {
+	var (
+		testCtx    context.Context
+		domainRepo *repositories.DomainRepo
+	)
+
+	BeforeEach(func() {
+		testCtx = context.Background()
+		domainRepo = NewDomainRepo(k8sClient)
+	})
+
 	Describe("FetchDomain", func() {
-		var testCtx context.Context
-
-		BeforeEach(func() {
-			testCtx = context.Background()
-		})
-
 		When("multiple CFDomain resources exist", func() {
 			var (
 				cfDomain1 *networkingv1alpha1.CFDomain
@@ -53,13 +57,7 @@ var _ = Describe("DomainRepository", func() {
 			})
 
 			It("fetches the CFDomain CR we're looking for", func() {
-				client, err := BuildPrivilegedClient(k8sConfig, "")
-				Expect(err).ToNot(HaveOccurred())
-
-				domainRepo := NewDomainRepo(client)
-
-				var domain DomainRecord
-				domain, err = domainRepo.FetchDomain(testCtx, client, "domain-id-1")
+				domain, err := domainRepo.FetchDomain(testCtx, authInfo, "domain-id-1")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(domain.GUID).To(Equal("domain-id-1"))
@@ -75,35 +73,17 @@ var _ = Describe("DomainRepository", func() {
 
 		When("no CFDomain exists", func() {
 			It("returns an error", func() {
-				client, err := BuildPrivilegedClient(k8sConfig, "")
-				Expect(err).ToNot(HaveOccurred())
-
-				domainRepo := NewDomainRepo(client)
-
-				_, err = domainRepo.FetchDomain(testCtx, client, "non-existent-domain-guid")
+				_, err := domainRepo.FetchDomain(testCtx, authInfo, "non-existent-domain-guid")
 				Expect(err).To(MatchError("Resource not found or permission denied."))
 			})
 		})
 	})
 
 	Describe("FetchDomainList", func() {
-		var (
-			testCtx context.Context
-
-			domainRepo        *DomainRepo
-			domainClient      client.Client
-			domainListMessage DomainListMessage
-		)
+		var domainListMessage DomainListMessage
 
 		BeforeEach(func() {
-			testCtx = context.Background()
-
 			domainListMessage = DomainListMessage{}
-			var err error
-			domainClient, err = BuildPrivilegedClient(k8sConfig, "")
-			Expect(err).ToNot(HaveOccurred())
-
-			domainRepo = NewDomainRepo(domainClient)
 		})
 
 		When("multiple CFDomain exists and no filter is provided", func() {
@@ -123,8 +103,6 @@ var _ = Describe("DomainRepository", func() {
 				domainGUID1 = generateGUID()
 				domainGUID2 = generateGUID()
 
-				ctx := context.Background()
-
 				cfDomain1 = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: domainGUID1,
@@ -133,7 +111,7 @@ var _ = Describe("DomainRepository", func() {
 						Name: domainName1,
 					},
 				}
-				Expect(k8sClient.Create(ctx, cfDomain1)).To(Succeed())
+				Expect(k8sClient.Create(testCtx, cfDomain1)).To(Succeed())
 
 				cfDomain2 = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
@@ -143,19 +121,18 @@ var _ = Describe("DomainRepository", func() {
 						Name: domainName2,
 					},
 				}
-				Expect(k8sClient.Create(ctx, cfDomain2)).To(Succeed())
+				Expect(k8sClient.Create(testCtx, cfDomain2)).To(Succeed())
 			})
 
 			AfterEach(func() {
-				ctx := context.Background()
-				Expect(k8sClient.Delete(ctx, cfDomain1)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, cfDomain2)).To(Succeed())
+				Expect(k8sClient.Delete(testCtx, cfDomain1)).To(Succeed())
+				Expect(k8sClient.Delete(testCtx, cfDomain2)).To(Succeed())
 			})
 
 			It("eventually returns a list of domainRecords for each CFDomain CR", func() {
 				var domainRecords []DomainRecord
 				Eventually(func() []DomainRecord {
-					domainRecords, _ = domainRepo.FetchDomainList(testCtx, domainClient, domainListMessage)
+					domainRecords, _ = domainRepo.FetchDomainList(testCtx, authInfo, domainListMessage)
 					return domainRecords
 				}, timeCheckThreshold*time.Second).Should(HaveLen(2), "returned records count should equal number of created CRs")
 
@@ -204,7 +181,7 @@ var _ = Describe("DomainRepository", func() {
 
 		When("no CFDomain exist", func() {
 			It("returns an empty list and no error", func() {
-				domainRecords, err := domainRepo.FetchDomainList(testCtx, domainClient, domainListMessage)
+				domainRecords, err := domainRepo.FetchDomainList(testCtx, authInfo, domainListMessage)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domainRecords).To(BeEmpty())
 			})
@@ -254,16 +231,15 @@ var _ = Describe("DomainRepository", func() {
 			})
 
 			AfterEach(func() {
-				ctx := context.Background()
-				Expect(k8sClient.Delete(ctx, cfDomain1)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, cfDomain2)).To(Succeed())
+				Expect(k8sClient.Delete(testCtx, cfDomain1)).To(Succeed())
+				Expect(k8sClient.Delete(testCtx, cfDomain2)).To(Succeed())
 			})
 
 			When("a single value is provided for a key", func() {
 				It("eventually returns a list of domainRecords for each CFDomain CR that matches the key with value", func() {
 					var domainRecords []DomainRecord
 					Eventually(func() []DomainRecord {
-						domainRecords, _ = domainRepo.FetchDomainList(testCtx, domainClient, domainListMessage)
+						domainRecords, _ = domainRepo.FetchDomainList(testCtx, authInfo, domainListMessage)
 						return domainRecords
 					}, timeCheckThreshold*time.Second).Should(HaveLen(1), "returned records count should equal number of created CRs")
 
@@ -304,7 +280,7 @@ var _ = Describe("DomainRepository", func() {
 				It("eventually returns a list of domainRecords for each CFDomain CR that matches the key with value", func() {
 					var domainRecords []DomainRecord
 					Eventually(func() []DomainRecord {
-						domainRecords, _ = domainRepo.FetchDomainList(testCtx, domainClient, domainListMessage)
+						domainRecords, _ = domainRepo.FetchDomainList(testCtx, authInfo, domainListMessage)
 						return domainRecords
 					}, timeCheckThreshold*time.Second).Should(HaveLen(2), "returned records count should equal number of created CRs")
 

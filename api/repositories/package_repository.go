@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/uuid"
@@ -57,7 +58,7 @@ func NewPackageRepo(privilegedClient client.Client) *PackageRepo {
 	return &PackageRepo{privilegedClient: privilegedClient}
 }
 
-func (r *PackageRepo) CreatePackage(ctx context.Context, userClient client.Client, message PackageCreateMessage) (PackageRecord, error) {
+func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.Info, message PackageCreateMessage) (PackageRecord, error) {
 	cfPackage := packageCreateToCFPackage(message)
 	err := r.privilegedClient.Create(ctx, &cfPackage)
 	if err != nil {
@@ -66,7 +67,7 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, userClient client.Clien
 	return cfPackageToPackageRecord(cfPackage), nil
 }
 
-func (r *PackageRepo) FetchPackage(ctx context.Context, userClient client.Client, guid string) (PackageRecord, error) {
+func (r *PackageRepo) FetchPackage(ctx context.Context, authInfo authorization.Info, guid string) (PackageRecord, error) {
 	packageList := &workloadsv1alpha1.CFPackageList{}
 	err := r.privilegedClient.List(ctx, packageList)
 	if err != nil { // untested
@@ -78,7 +79,7 @@ func (r *PackageRepo) FetchPackage(ctx context.Context, userClient client.Client
 	return returnPackage(matches)
 }
 
-func (r *PackageRepo) UpdatePackageSource(ctx context.Context, userClient client.Client, message PackageUpdateSourceMessage) (PackageRecord, error) {
+func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message PackageUpdateSourceMessage) (PackageRecord, error) {
 	baseCFPackage := &workloadsv1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
@@ -125,8 +126,8 @@ func cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPackage) PackageReco
 		state = PackageStateReady
 	}
 	return PackageRecord{
-		GUID:      cfPackage.ObjectMeta.Name,
-		SpaceGUID: cfPackage.ObjectMeta.Namespace,
+		GUID:      cfPackage.Name,
+		SpaceGUID: cfPackage.Namespace,
 		Type:      string(cfPackage.Spec.Type),
 		AppGUID:   cfPackage.Spec.AppRef.Name,
 		State:     state,
@@ -138,7 +139,7 @@ func cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPackage) PackageReco
 func filterPackagesByMetadataName(packages []workloadsv1alpha1.CFPackage, name string) []workloadsv1alpha1.CFPackage {
 	var filtered []workloadsv1alpha1.CFPackage
 	for i, app := range packages {
-		if app.ObjectMeta.Name == name {
+		if app.Name == name {
 			filtered = append(filtered, packages[i])
 		}
 	}

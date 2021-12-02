@@ -6,16 +6,16 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type PodRepository struct {
-	FetchPodStatsByAppGUIDStub        func(context.Context, client.Client, repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)
+	FetchPodStatsByAppGUIDStub        func(context.Context, authorization.Info, repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)
 	fetchPodStatsByAppGUIDMutex       sync.RWMutex
 	fetchPodStatsByAppGUIDArgsForCall []struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 repositories.FetchPodStatsMessage
 	}
 	fetchPodStatsByAppGUIDReturns struct {
@@ -30,12 +30,12 @@ type PodRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *PodRepository) FetchPodStatsByAppGUID(arg1 context.Context, arg2 client.Client, arg3 repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error) {
+func (fake *PodRepository) FetchPodStatsByAppGUID(arg1 context.Context, arg2 authorization.Info, arg3 repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error) {
 	fake.fetchPodStatsByAppGUIDMutex.Lock()
 	ret, specificReturn := fake.fetchPodStatsByAppGUIDReturnsOnCall[len(fake.fetchPodStatsByAppGUIDArgsForCall)]
 	fake.fetchPodStatsByAppGUIDArgsForCall = append(fake.fetchPodStatsByAppGUIDArgsForCall, struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 repositories.FetchPodStatsMessage
 	}{arg1, arg2, arg3})
 	stub := fake.FetchPodStatsByAppGUIDStub
@@ -57,13 +57,13 @@ func (fake *PodRepository) FetchPodStatsByAppGUIDCallCount() int {
 	return len(fake.fetchPodStatsByAppGUIDArgsForCall)
 }
 
-func (fake *PodRepository) FetchPodStatsByAppGUIDCalls(stub func(context.Context, client.Client, repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)) {
+func (fake *PodRepository) FetchPodStatsByAppGUIDCalls(stub func(context.Context, authorization.Info, repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)) {
 	fake.fetchPodStatsByAppGUIDMutex.Lock()
 	defer fake.fetchPodStatsByAppGUIDMutex.Unlock()
 	fake.FetchPodStatsByAppGUIDStub = stub
 }
 
-func (fake *PodRepository) FetchPodStatsByAppGUIDArgsForCall(i int) (context.Context, client.Client, repositories.FetchPodStatsMessage) {
+func (fake *PodRepository) FetchPodStatsByAppGUIDArgsForCall(i int) (context.Context, authorization.Info, repositories.FetchPodStatsMessage) {
 	fake.fetchPodStatsByAppGUIDMutex.RLock()
 	defer fake.fetchPodStatsByAppGUIDMutex.RUnlock()
 	argsForCall := fake.fetchPodStatsByAppGUIDArgsForCall[i]

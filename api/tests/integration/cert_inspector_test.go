@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -23,7 +24,7 @@ var _ = Describe("CertInspector", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		certInspector = authorization.NewCertInspector(k8sConfig)
-		certData, keyData := obtainClientCert("alice")
+		certData, keyData := helpers.ObtainClientCert(testEnv, "alice")
 		certPEM = certData
 		certPEM = append(certPEM, keyData...)
 	})

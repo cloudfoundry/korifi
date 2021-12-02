@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type applyManifest struct {
@@ -22,10 +21,10 @@ func NewApplyManifest(appRepo CFAppRepository, processRepo CFProcessRepository) 
 	}
 }
 
-func (a *applyManifest) Invoke(ctx context.Context, c client.Client, spaceGUID string, manifest payloads.Manifest) error {
+func (a *applyManifest) Invoke(ctx context.Context, authInfo authorization.Info, spaceGUID string, manifest payloads.Manifest) error {
 	appInfo := manifest.Applications[0]
 	exists := true
-	appRecord, err := a.appRepo.FetchAppByNameAndSpace(ctx, c, appInfo.Name, spaceGUID)
+	appRecord, err := a.appRepo.FetchAppByNameAndSpace(ctx, authInfo, appInfo.Name, spaceGUID)
 	if err != nil {
 		if !errors.As(err, new(repositories.NotFoundError)) {
 			return err
@@ -34,14 +33,14 @@ func (a *applyManifest) Invoke(ctx context.Context, c client.Client, spaceGUID s
 	}
 
 	if exists {
-		return a.updateApp(ctx, c, spaceGUID, appRecord, appInfo)
+		return a.updateApp(ctx, authInfo, spaceGUID, appRecord, appInfo)
 	} else {
-		return a.createApp(ctx, c, spaceGUID, appInfo)
+		return a.createApp(ctx, authInfo, spaceGUID, appInfo)
 	}
 }
 
-func (a *applyManifest) updateApp(ctx context.Context, c client.Client, spaceGUID string, appRecord repositories.AppRecord, appInfo payloads.ManifestApplication) error {
-	_, err := a.appRepo.CreateOrPatchAppEnvVars(ctx, c, repositories.CreateOrPatchAppEnvVarsMessage{
+func (a *applyManifest) updateApp(ctx context.Context, authInfo authorization.Info, spaceGUID string, appRecord repositories.AppRecord, appInfo payloads.ManifestApplication) error {
+	_, err := a.appRepo.CreateOrPatchAppEnvVars(ctx, authInfo, repositories.CreateOrPatchAppEnvVarsMessage{
 		AppGUID:              appRecord.GUID,
 		AppEtcdUID:           appRecord.EtcdUID,
 		SpaceGUID:            appRecord.SpaceGUID,
@@ -55,7 +54,7 @@ func (a *applyManifest) updateApp(ctx context.Context, c client.Client, spaceGUI
 		exists := true
 
 		var process repositories.ProcessRecord
-		process, err = a.processRepo.FetchProcessByAppTypeAndSpace(ctx, c, appRecord.GUID, processInfo.Type, spaceGUID)
+		process, err = a.processRepo.FetchProcessByAppTypeAndSpace(ctx, authInfo, appRecord.GUID, processInfo.Type, spaceGUID)
 		if err != nil {
 			if errors.As(err, new(repositories.NotFoundError)) {
 				exists = false
@@ -65,9 +64,9 @@ func (a *applyManifest) updateApp(ctx context.Context, c client.Client, spaceGUI
 		}
 
 		if exists {
-			err = a.processRepo.PatchProcess(ctx, c, processInfo.ToProcessPatchMessage(process.GUID, spaceGUID))
+			err = a.processRepo.PatchProcess(ctx, authInfo, processInfo.ToProcessPatchMessage(process.GUID, spaceGUID))
 		} else {
-			err = a.processRepo.CreateProcess(ctx, c, processInfo.ToProcessCreateMessage(appRecord.GUID, spaceGUID))
+			err = a.processRepo.CreateProcess(ctx, authInfo, processInfo.ToProcessCreateMessage(appRecord.GUID, spaceGUID))
 		}
 		if err != nil {
 			return err
@@ -77,15 +76,15 @@ func (a *applyManifest) updateApp(ctx context.Context, c client.Client, spaceGUI
 	return err
 }
 
-func (a *applyManifest) createApp(ctx context.Context, c client.Client, spaceGUID string, appInfo payloads.ManifestApplication) error {
-	appRecord, err := a.appRepo.CreateApp(ctx, c, appInfo.ToAppCreateMessage(spaceGUID))
+func (a *applyManifest) createApp(ctx context.Context, authInfo authorization.Info, spaceGUID string, appInfo payloads.ManifestApplication) error {
+	appRecord, err := a.appRepo.CreateApp(ctx, authInfo, appInfo.ToAppCreateMessage(spaceGUID))
 	if err != nil {
 		return err
 	}
 
 	for _, processInfo := range appInfo.Processes {
 		message := processInfo.ToProcessCreateMessage(appRecord.GUID, spaceGUID)
-		err = a.processRepo.CreateProcess(ctx, c, message)
+		err = a.processRepo.CreateProcess(ctx, authInfo, message)
 		if err != nil {
 			return err
 		}

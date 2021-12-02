@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/uuid"
@@ -61,7 +62,7 @@ func NewBuildRepo(privilegedClient client.Client) *BuildRepo {
 	return &BuildRepo{privilegedClient: privilegedClient}
 }
 
-func (b *BuildRepo) FetchBuild(ctx context.Context, userClient client.Client, buildGUID string) (BuildRecord, error) {
+func (b *BuildRepo) FetchBuild(ctx context.Context, authInfo authorization.Info, buildGUID string) (BuildRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	buildList := &workloadsv1alpha1.CFBuildList{}
 	err := b.privilegedClient.List(ctx, buildList)
@@ -118,10 +119,11 @@ func (b *BuildRepo) cfBuildToBuildRecord(cfBuild workloadsv1alpha1.CFBuild) Buil
 	succeededStatus := getConditionValue(&cfBuild.Status.Conditions, SucceededConditionType)
 	// TODO: Consider moving this logic to CRDs repo in case Status Conditions change later?
 	if stagingStatus == metav1.ConditionFalse {
-		if succeededStatus == metav1.ConditionTrue {
+		switch succeededStatus {
+		case metav1.ConditionTrue:
 			toReturn.State = BuildStateStaged
 			toReturn.DropletGUID = cfBuild.Name
-		} else if succeededStatus == metav1.ConditionFalse {
+		case metav1.ConditionFalse:
 			toReturn.State = BuildStateFailed
 			conditionStatus := meta.FindStatusCondition(cfBuild.Status.Conditions, SucceededConditionType)
 			toReturn.StagingErrorMsg = fmt.Sprintf("%v: %v", conditionStatus.Reason, conditionStatus.Message)
@@ -134,14 +136,14 @@ func (b *BuildRepo) cfBuildToBuildRecord(cfBuild workloadsv1alpha1.CFBuild) Buil
 func filterBuildsByMetadataName(builds []workloadsv1alpha1.CFBuild, name string) []workloadsv1alpha1.CFBuild {
 	var filtered []workloadsv1alpha1.CFBuild
 	for i, build := range builds {
-		if build.ObjectMeta.Name == name {
+		if build.Name == name {
 			filtered = append(filtered, builds[i])
 		}
 	}
 	return filtered
 }
 
-func (b *BuildRepo) CreateBuild(ctx context.Context, userClient client.Client, message BuildCreateMessage) (BuildRecord, error) {
+func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info, message BuildCreateMessage) (BuildRecord, error) {
 	cfBuild := b.buildCreateToCFBuild(message)
 	err := b.privilegedClient.Create(ctx, &cfBuild)
 	if err != nil { // untested!!!

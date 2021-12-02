@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,7 +95,7 @@ func NewProcessRepo(privilegedClient client.Client) *ProcessRepo {
 	return &ProcessRepo{privilegedClient: privilegedClient}
 }
 
-func (r *ProcessRepo) FetchProcess(ctx context.Context, userClient client.Client, processGUID string) (ProcessRecord, error) {
+func (r *ProcessRepo) FetchProcess(ctx context.Context, authInfo authorization.Info, processGUID string) (ProcessRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	processList := &workloadsv1alpha1.CFProcessList{}
 	err := r.privilegedClient.List(ctx, processList)
@@ -106,7 +107,8 @@ func (r *ProcessRepo) FetchProcess(ctx context.Context, userClient client.Client
 
 	return returnProcess(matches)
 }
-func (r *ProcessRepo) FetchProcessList(ctx context.Context, userClient client.Client, message FetchProcessListMessage) ([]ProcessRecord, error) {
+
+func (r *ProcessRepo) FetchProcessList(ctx context.Context, authInfo authorization.Info, message FetchProcessListMessage) ([]ProcessRecord, error) {
 	processList := &workloadsv1alpha1.CFProcessList{}
 	var options []client.ListOption
 	if message.SpaceGUID != "" {
@@ -124,7 +126,7 @@ func (r *ProcessRepo) FetchProcessList(ctx context.Context, userClient client.Cl
 	return returnProcesses(matches)
 }
 
-func (r *ProcessRepo) ScaleProcess(ctx context.Context, userClient client.Client, scaleProcessMessage ProcessScaleMessage) (ProcessRecord, error) {
+func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage ProcessScaleMessage) (ProcessRecord, error) {
 	baseCFProcess := &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scaleProcessMessage.GUID,
@@ -151,7 +153,7 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, userClient client.Client
 	return record, nil
 }
 
-func (r *ProcessRepo) CreateProcess(ctx context.Context, userClient client.Client, message ProcessCreateMessage) error {
+func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.Info, message ProcessCreateMessage) error {
 	guid := uuid.NewString()
 	err := r.privilegedClient.Create(ctx, &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
@@ -175,7 +177,7 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, userClient client.Clien
 	return err
 }
 
-func (r *ProcessRepo) FetchProcessByAppTypeAndSpace(ctx context.Context, userClient client.Client, appGUID, processType, spaceGUID string) (ProcessRecord, error) {
+func (r *ProcessRepo) FetchProcessByAppTypeAndSpace(ctx context.Context, authInfo authorization.Info, appGUID, processType, spaceGUID string) (ProcessRecord, error) {
 	// Could narrow down process results via AppGUID label, but that is set up by a webhook that isn't configured in our integration tests
 	// For now, don't use labels
 	var processList workloadsv1alpha1.CFProcessList
@@ -193,7 +195,7 @@ func (r *ProcessRepo) FetchProcessByAppTypeAndSpace(ctx context.Context, userCli
 	return returnProcess(matches)
 }
 
-func (r *ProcessRepo) PatchProcess(ctx context.Context, userClient client.Client, message ProcessPatchMessage) error {
+func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.Info, message ProcessPatchMessage) error {
 	baseProcess := &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.ProcessGUID,
@@ -234,7 +236,7 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, userClient client.Client
 func filterProcessesByMetadataName(processes []workloadsv1alpha1.CFProcess, name string) []workloadsv1alpha1.CFProcess {
 	var filtered []workloadsv1alpha1.CFProcess
 	for _, process := range processes {
-		if process.ObjectMeta.Name == name {
+		if process.Name == name {
 			filtered = append(filtered, process)
 		}
 	}

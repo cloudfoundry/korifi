@@ -3,9 +3,8 @@ package actions
 import (
 	"context"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type FetchProcessStats struct {
@@ -22,12 +21,12 @@ func NewFetchProcessStats(processRepo CFProcessRepository, podRepo PodRepository
 	}
 }
 
-func (a *FetchProcessStats) Invoke(ctx context.Context, c client.Client, processGUID string) ([]repositories.PodStatsRecord, error) {
-	processRecord, err := a.processRepo.FetchProcess(ctx, c, processGUID)
+func (a *FetchProcessStats) Invoke(ctx context.Context, authInfo authorization.Info, processGUID string) ([]repositories.PodStatsRecord, error) {
+	processRecord, err := a.processRepo.FetchProcess(ctx, authInfo, processGUID)
 	if err != nil {
 		return nil, err
 	}
-	appRecord, err := a.appRepo.FetchApp(ctx, c, processRecord.AppGUID)
+	appRecord, err := a.appRepo.FetchApp(ctx, authInfo, processRecord.AppGUID)
 	if err != nil {
 		return nil, err
 	}
@@ -42,5 +41,5 @@ func (a *FetchProcessStats) Invoke(ctx context.Context, c client.Client, process
 		Instances:   processRecord.DesiredInstances,
 		ProcessType: processRecord.Type,
 	}
-	return a.podRepo.FetchPodStatsByAppGUID(ctx, c, message)
+	return a.podRepo.FetchPodStatsByAppGUID(ctx, authInfo, message)
 }

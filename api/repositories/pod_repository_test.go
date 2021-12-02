@@ -12,46 +12,53 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("PodRepository", func() {
+	const (
+		appGUID  = "the-app-guid"
+		pod1Name = "some-pod-1"
+		pod2Name = "some-pod-2"
+	)
+
+	var (
+		podRepo   *PodRepo
+		ctx       context.Context
+		spaceGUID string
+		namespace *corev1.Namespace
+		pod1      *corev1.Pod
+		pod2      *corev1.Pod
+	)
+
+	BeforeEach(func() {
+		spaceGUID = uuid.NewString()
+
+		podRepo = NewPodRepo(k8sClient)
+
+		ctx = context.Background()
+
+		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}
+		Expect(
+			k8sClient.Create(ctx, namespace),
+		).To(Succeed())
+
+		pod1 = createPodDef(pod1Name, spaceGUID, appGUID, "0")
+		pod2 = createPodDef(pod2Name, spaceGUID, appGUID, "1")
+	})
+
+	AfterEach(func() {
+		Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
+	})
+
 	Describe("FetchPodStatsByAppGUID", func() {
-		var (
-			podRepo    *PodRepo
-			testClient client.Client
-			ctx        context.Context
-			spaceGUID  string
-			pod1       *corev1.Pod
-			pod2       *corev1.Pod
-			pod3       *corev1.Pod
-			message    FetchPodStatsMessage
-		)
+		var message FetchPodStatsMessage
 
 		const (
-			appGUID  = "the-app-guid"
-			pod1Name = "some-pod-1"
-			pod2Name = "some-pod-2"
 			pod3Name = "some-other-pod-1"
 			pod4Name = "some-pod-4"
 		)
 
 		BeforeEach(func() {
-			spaceGUID = uuid.NewString()
-
-			var err error
-			testClient, err = BuildPrivilegedClient(k8sConfig, "")
-			Expect(err).NotTo(HaveOccurred())
-
-			podRepo = NewPodRepo(testClient)
-
-			ctx = context.Background()
-			Expect(
-				k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
-			).To(Succeed())
-
-			pod1 = createPodDef(pod1Name, spaceGUID, appGUID, "0")
-			pod2 = createPodDef(pod2Name, spaceGUID, appGUID, "1")
 			Expect(
 				k8sClient.Create(ctx, pod1),
 			).To(Succeed())
@@ -79,11 +86,6 @@ var _ = Describe("PodRepository", func() {
 			)
 		})
 
-		AfterEach(func() {
-			Expect(k8sClient.Delete(context.Background(), pod1)).To(Succeed())
-			Expect(k8sClient.Delete(context.Background(), pod2)).To(Succeed())
-		})
-
 		When("All required pods exists", func() {
 			BeforeEach(func() {
 				message = FetchPodStatsMessage{
@@ -94,7 +96,7 @@ var _ = Describe("PodRepository", func() {
 				}
 			})
 			It("Fetches all the pods and sets the appropriate state", func() {
-				records, err := podRepo.FetchPodStatsByAppGUID(ctx, testClient, message)
+				records, err := podRepo.FetchPodStatsByAppGUID(ctx, authInfo, message)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(records).To(HaveLen(2))
 				Expect(records).To(ConsistOf(
@@ -124,7 +126,7 @@ var _ = Describe("PodRepository", func() {
 				}
 			})
 			It("Fetches pods and sets the appropriate state", func() {
-				records, err := podRepo.FetchPodStatsByAppGUID(ctx, testClient, message)
+				records, err := podRepo.FetchPodStatsByAppGUID(ctx, authInfo, message)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(records).To(HaveLen(3))
 				Expect(records).To(ConsistOf(
@@ -150,6 +152,8 @@ var _ = Describe("PodRepository", func() {
 		})
 
 		When("A pod is in pending state", func() {
+			var pod3 *corev1.Pod
+
 			BeforeEach(func() {
 				message = FetchPodStatsMessage{
 					Namespace:   spaceGUID,
@@ -181,7 +185,7 @@ var _ = Describe("PodRepository", func() {
 			})
 
 			It("fetches pods and sets the appropriate state", func() {
-				records, err := podRepo.FetchPodStatsByAppGUID(ctx, testClient, message)
+				records, err := podRepo.FetchPodStatsByAppGUID(ctx, authInfo, message)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(records).To(HaveLen(3))
 				Expect(records).To(ConsistOf(
@@ -208,39 +212,7 @@ var _ = Describe("PodRepository", func() {
 	})
 
 	Describe("WatchPodsForTermination", func() {
-		var (
-			namespace  *corev1.Namespace
-			podRepo    *PodRepo
-			testClient client.Client
-			ctx        context.Context
-			spaceGUID  string
-			pod1       *corev1.Pod
-			pod2       *corev1.Pod
-		)
-
-		const (
-			appGUID  = "the-app-guid"
-			pod1Name = "some-pod-1"
-			pod2Name = "some-pod-2"
-		)
-
 		BeforeEach(func() {
-			spaceGUID = uuid.NewString()
-
-			var err error
-			testClient, err = BuildPrivilegedClient(k8sConfig, "")
-			Expect(err).NotTo(HaveOccurred())
-
-			podRepo = NewPodRepo(testClient)
-
-			ctx = context.Background()
-			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}
-			Expect(
-				k8sClient.Create(ctx, namespace),
-			).To(Succeed())
-
-			pod1 = createPodDef(pod1Name, spaceGUID, appGUID, "0")
-			pod2 = createPodDef(pod2Name, spaceGUID, appGUID, "1")
 			Expect(
 				k8sClient.Create(ctx, pod1),
 			).To(Succeed())
@@ -248,10 +220,6 @@ var _ = Describe("PodRepository", func() {
 			Expect(
 				k8sClient.Create(ctx, pod2),
 			).To(Succeed())
-		})
-
-		AfterEach(func() {
-			Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 		})
 
 		When("pods exist", func() {
@@ -263,7 +231,7 @@ var _ = Describe("PodRepository", func() {
 					Expect(k8sClient.Delete(context.Background(), pod2)).To(Succeed())
 				}()
 
-				terminated, err := podRepo.WatchForPodsTermination(ctx, testClient, appGUID, spaceGUID)
+				terminated, err := podRepo.WatchForPodsTermination(ctx, authInfo, appGUID, spaceGUID)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(terminated).To(BeTrue())
 			})
@@ -271,7 +239,7 @@ var _ = Describe("PodRepository", func() {
 
 		When("no pods exist", func() {
 			It("returns true", func() {
-				terminated, err := podRepo.WatchForPodsTermination(ctx, testClient, "i-dont-exist", spaceGUID)
+				terminated, err := podRepo.WatchForPodsTermination(ctx, authInfo, "i-dont-exist", spaceGUID)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(terminated).To(BeTrue())
 			})
@@ -284,7 +252,7 @@ var _ = Describe("PodRepository", func() {
 					time.Sleep(time.Millisecond * 200)
 					cancelfun()
 				}()
-				terminated, err := podRepo.WatchForPodsTermination(cctx, testClient, "i-dont-exist", spaceGUID)
+				terminated, err := podRepo.WatchForPodsTermination(cctx, authInfo, "i-dont-exist", spaceGUID)
 				Expect(err).To(HaveOccurred())
 				Expect(terminated).To(BeFalse())
 			})

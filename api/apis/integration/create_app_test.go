@@ -56,7 +56,6 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 		)
 		var (
 			namespace                *corev1.Namespace
-			resp                     *http.Response
 			testEnvironmentVariables map[string]string
 		)
 
@@ -82,13 +81,14 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 			}`, appName, namespaceGUID, envJSON)
 
 			var err error
-			req, err = http.NewRequest("POST", serverURI("/v3/apps"), strings.NewReader(requestBody))
+			req, err = http.NewRequestWithContext(ctx, "POST", serverURI("/v3/apps"), strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
 
 			req.Header.Add("Content-type", "application/json")
+		})
 
-			resp, err = new(http.Client).Do(req)
-			Expect(err).NotTo(HaveOccurred())
+		JustBeforeEach(func() {
+			router.ServeHTTP(rr, req)
 		})
 
 		AfterEach(func() {
@@ -96,10 +96,10 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 		})
 
 		It("creates a CFApp and Secret, returns 201 and an App object as JSON", func() {
-			Expect(resp.StatusCode).To(Equal(201))
+			Expect(rr.Code).To(Equal(201))
 
 			var parsedBody map[string]interface{}
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := ioutil.ReadAll(rr.Body)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(
