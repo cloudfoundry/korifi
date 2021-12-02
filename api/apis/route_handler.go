@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/gorilla/schema"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -31,7 +33,7 @@ const (
 
 type CFRouteRepository interface {
 	FetchRoute(context.Context, client.Client, string) (repositories.RouteRecord, error)
-	FetchRouteList(context.Context, client.Client) ([]repositories.RouteRecord, error)
+	FetchRouteList(context.Context, client.Client, repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error)
 	FetchRoutesForApp(context.Context, client.Client, string, string) ([]repositories.RouteRecord, error)
 	CreateRoute(context.Context, client.Client, repositories.RouteRecord) (repositories.RouteRecord, error)
 	AddDestinationsToRoute(ctx context.Context, c client.Client, message repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error)
@@ -108,6 +110,37 @@ func (h *RouteHandler) routeGetListHandler(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error(err, "Unable to parse request query parameters")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	routeListFilter := new(payloads.RouteList)
+	err := schema.NewDecoder().Decode(routeListFilter, r.Form)
+	if err != nil {
+		switch err.(type) {
+		case schema.MultiError:
+			multiError := err.(schema.MultiError)
+			for _, v := range multiError {
+				_, ok := v.(schema.UnknownKeyError)
+				if ok {
+					h.logger.Info("Unknown key used in Route filter")
+					writeUnknownKeyError(w, routeListFilter.SupportedFilterKeys())
+					return
+				}
+			}
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+			return
+
+		default:
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
 	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
 	if err != nil {
 		h.logger.Error(err, "failed to create kubernetes client")
@@ -115,7 +148,7 @@ func (h *RouteHandler) routeGetListHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	routes, err := h.lookupRouteAndDomainList(ctx, client)
+	routes, err := h.lookupRouteAndDomainList(ctx, client, routeListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch route or domains from Kubernetes")
 		writeUnknownErrorResponse(w)
@@ -323,8 +356,8 @@ func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, routeGUID strin
 	return route, nil
 }
 
-func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, client client.Client) ([]repositories.RouteRecord, error) {
-	routeRecords, err := h.routeRepo.FetchRouteList(ctx, client)
+func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, client client.Client, message repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error) {
+	routeRecords, err := h.routeRepo.FetchRouteList(ctx, client, message)
 	if err != nil {
 		return []repositories.RouteRecord{}, err
 	}

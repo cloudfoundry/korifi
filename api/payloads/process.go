@@ -15,3 +15,17 @@ func (p ProcessScale) ToRecord() repositories.ProcessScaleValues {
 		DiskMB:    p.DiskMB,
 	}
 }
+
+type ProcessList struct {
+	AppGUIDs string `schema:"app_guids"`
+}
+
+func (p *ProcessList) ToMessage() repositories.FetchProcessListMessage {
+	return repositories.FetchProcessListMessage{
+		AppGUID: parseArrayParam(p.AppGUIDs),
+	}
+}
+
+func (p *ProcessList) SupportedFilterKeys() []string {
+	return []string{"app_guids"}
+}

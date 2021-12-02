@@ -81,6 +81,11 @@ type HealthCheckData struct {
 	TimeoutSeconds           int64
 }
 
+type FetchProcessListMessage struct {
+	AppGUID   []string
+	SpaceGUID string
+}
+
 type ProcessRepo struct {
 	privilegedClient client.Client
 }
@@ -101,18 +106,20 @@ func (r *ProcessRepo) FetchProcess(ctx context.Context, userClient client.Client
 
 	return returnProcess(matches)
 }
-
-func (r *ProcessRepo) FetchProcessesForApp(ctx context.Context, userClient client.Client, appGUID, spaceGUID string) ([]ProcessRecord, error) {
+func (r *ProcessRepo) FetchProcessList(ctx context.Context, userClient client.Client, message FetchProcessListMessage) ([]ProcessRecord, error) {
 	processList := &workloadsv1alpha1.CFProcessList{}
-	options := []client.ListOption{
-		client.InNamespace(spaceGUID),
+	var options []client.ListOption
+	if message.SpaceGUID != "" {
+		options = []client.ListOption{
+			client.InNamespace(message.SpaceGUID),
+		}
 	}
 	err := r.privilegedClient.List(ctx, processList, options...)
 	if err != nil { // untested
 		return []ProcessRecord{}, err
 	}
 	allProcesses := processList.Items
-	matches := filterProcessesByAppGUID(allProcesses, appGUID)
+	matches := filterProcessesByAppGUID(allProcesses, message.AppGUID)
 
 	return returnProcesses(matches)
 }
@@ -245,11 +252,18 @@ func returnProcess(processes []workloadsv1alpha1.CFProcess) (ProcessRecord, erro
 	return cfProcessToProcessRecord(processes[0]), nil
 }
 
-func filterProcessesByAppGUID(processes []workloadsv1alpha1.CFProcess, appGUID string) []workloadsv1alpha1.CFProcess {
+func filterProcessesByAppGUID(processes []workloadsv1alpha1.CFProcess, appGUIDs []string) []workloadsv1alpha1.CFProcess {
+	if len(appGUIDs) == 0 {
+		return processes
+	}
+
 	var filtered []workloadsv1alpha1.CFProcess
 	for _, process := range processes {
-		if process.Spec.AppRef.Name == appGUID {
-			filtered = append(filtered, process)
+		for _, appGUID := range appGUIDs {
+			if process.Spec.AppRef.Name == appGUID {
+				filtered = append(filtered, process)
+				break
+			}
 		}
 	}
 	return filtered

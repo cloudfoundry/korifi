@@ -506,14 +506,19 @@ func (h *AppHandler) getProcessesForAppHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	processList, err := h.processRepo.FetchProcessesForApp(ctx, client, appGUID, app.SpaceGUID)
+	fetchProcessesForAppMessage := repositories.FetchProcessListMessage{
+		AppGUID:   []string{appGUID},
+		SpaceGUID: app.SpaceGUID,
+	}
+
+	processList, err := h.processRepo.FetchProcessList(ctx, client, fetchProcessesForAppMessage)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch app Process(es) from Kubernetes")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForProcessList(processList, h.serverURL, appGUID))
+	responseBody, err := json.Marshal(presenter.ForAppProcessList(processList, h.serverURL, appGUID))
 	if err != nil { // untested
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)

@@ -62,7 +62,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			SpaceGUID: testProcessSpaceGUID,
 		}, nil)
 
-		processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{processRecord}, nil)
+		processRepo.FetchProcessListReturns([]repositories.ProcessRecord{processRecord}, nil)
 
 		newInstances := 10
 		var newMemoryMB int64 = 256
@@ -113,10 +113,10 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			Expect(appGUID).To(Equal(testAppGUID))
 		})
 		It("fetches the processes associated with the App GUID", func() {
-			Expect(processRepo.FetchProcessesForAppCallCount()).ToNot(BeZero())
-			_, _, appGUID, calledNamespace := processRepo.FetchProcessesForAppArgsForCall(0)
-			Expect(appGUID).To(Equal(testAppGUID))
-			Expect(calledNamespace).To(Equal(testProcessSpaceGUID))
+			Expect(processRepo.FetchProcessListCallCount()).ToNot(BeZero())
+			_, _, message := processRepo.FetchProcessListArgsForCall(0)
+			Expect(message.AppGUID[0]).To(Equal(testAppGUID))
+			Expect(message.SpaceGUID).To(Equal(testProcessSpaceGUID))
 		})
 		It("fabricates a ProcessScaleValues using the inputs and the process GUID and looked-up space", func() {
 			Expect(scaleProcessAction.CallCount()).ToNot(BeZero())
@@ -166,7 +166,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = errors.New("some-other-error")
-				processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{}, toReturnErr)
+				processRepo.FetchProcessListReturns([]repositories.ProcessRecord{}, toReturnErr)
 			})
 			It("returns an empty record", func() {
 				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))

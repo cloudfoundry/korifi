@@ -418,17 +418,18 @@ var _ = Describe("AppHandler", func() {
 		})
 
 		When("on the happy path", func() {
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+			When("Query Parameters are not provided", func() {
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
 
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-			})
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				})
 
-			It("returns the Pagination Data and App Resources in the response", func() {
-				Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
+				It("returns the Pagination Data and App Resources in the response", func() {
+					Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
 				"pagination": {
 				  "total_results": 2,
 				  "total_pages": 1,
@@ -580,7 +581,22 @@ var _ = Describe("AppHandler", func() {
 					}
 				]
 			}`, defaultServerURL)), "Response body matches response:")
+				})
 			})
+
+			When("Query Parameters are provided", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequest("GET", "/v3/apps?order_by=name", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+			})
+
 		})
 
 		When("no apps can be found", func() {
@@ -634,7 +650,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, space_guids'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, space_guids, order_by'")
 			})
 		})
 	})
@@ -1352,7 +1368,7 @@ var _ = Describe("AppHandler", func() {
 
 			process1Record = &processRecord
 			process2Record = &processRecord2
-			processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{
+			processRepo.FetchProcessListReturns([]repositories.ProcessRecord{
 				processRecord,
 				processRecord2,
 			}, nil)
@@ -1483,7 +1499,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("The App does not have associated processes", func() {
 				BeforeEach(func() {
-					processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{}, nil)
+					processRepo.FetchProcessListReturns([]repositories.ProcessRecord{}, nil)
 				})
 
 				It("returns status 200 OK", func() {
@@ -1534,7 +1550,7 @@ var _ = Describe("AppHandler", func() {
 			})
 			When("there is some error fetching the app's processes", func() {
 				BeforeEach(func() {
-					processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{}, errors.New("unknown!"))
+					processRepo.FetchProcessListReturns([]repositories.ProcessRecord{}, errors.New("unknown!"))
 				})
 
 				It("returns an error", func() {

@@ -55,6 +55,7 @@ type AppSetCurrentDroplet struct {
 type AppList struct {
 	Names      string `schema:"names"`
 	SpaceGuids string `schema:"space_guids"`
+	OrderBy    string `schema:"order_by"`
 }
 
 func (a *AppList) ToMessage() repositories.AppListMessage {
@@ -65,5 +66,5 @@ func (a *AppList) ToMessage() repositories.AppListMessage {
 }
 
 func (a *AppList) SupportedFilterKeys() []string {
-	return []string{"names", "space_guids"}
+	return []string{"names", "space_guids", "order_by"}
 }

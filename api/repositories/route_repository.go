@@ -50,6 +50,10 @@ type RouteAddDestinationsMessage struct {
 	Destinations []DestinationRecord
 }
 
+type FetchRouteListMessage struct {
+	AppGUIDs []string
+}
+
 func (f *RouteRepo) FetchRoute(ctx context.Context, userClient client.Client, routeGUID string) (RouteRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
@@ -65,14 +69,36 @@ func (f *RouteRepo) FetchRoute(ctx context.Context, userClient client.Client, ro
 	return toReturn, err
 }
 
-func (f *RouteRepo) FetchRouteList(ctx context.Context, userClient client.Client) ([]RouteRecord, error) {
+func (f *RouteRepo) FetchRouteList(ctx context.Context, userClient client.Client, message FetchRouteListMessage) ([]RouteRecord, error) {
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
 	err := f.privilegedClient.List(ctx, cfRouteList)
 	if err != nil {
 		return []RouteRecord{}, err
 	}
 
-	return f.returnRouteList(cfRouteList.Items), nil
+	filtered := applyFilter(cfRouteList.Items, message)
+
+	return f.returnRouteList(filtered), nil
+}
+
+func applyFilter(routes []networkingv1alpha1.CFRoute, message FetchRouteListMessage) []networkingv1alpha1.CFRoute {
+	if len(message.AppGUIDs) == 0 {
+		return routes
+	}
+
+	var filtered []networkingv1alpha1.CFRoute
+
+	for _, route := range routes {
+		for _, destination := range route.Spec.Destinations {
+			for _, appGUID := range message.AppGUIDs {
+				if destination.AppRef.Name == appGUID {
+					filtered = append(filtered, route)
+					break
+				}
+			}
+		}
+	}
+	return filtered
 }
 
 func (f *RouteRepo) FetchRoutesForApp(ctx context.Context, userClient client.Client, appGUID string, spaceGUID string) ([]RouteRecord, error) {

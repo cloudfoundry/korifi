@@ -26,19 +26,18 @@ type CFProcessRepository struct {
 		result1 repositories.ProcessRecord
 		result2 error
 	}
-	FetchProcessesForAppStub        func(context.Context, client.Client, string, string) ([]repositories.ProcessRecord, error)
-	fetchProcessesForAppMutex       sync.RWMutex
-	fetchProcessesForAppArgsForCall []struct {
+	FetchProcessListStub        func(context.Context, client.Client, repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error)
+	fetchProcessListMutex       sync.RWMutex
+	fetchProcessListArgsForCall []struct {
 		arg1 context.Context
 		arg2 client.Client
-		arg3 string
-		arg4 string
+		arg3 repositories.FetchProcessListMessage
 	}
-	fetchProcessesForAppReturns struct {
+	fetchProcessListReturns struct {
 		result1 []repositories.ProcessRecord
 		result2 error
 	}
-	fetchProcessesForAppReturnsOnCall map[int]struct {
+	fetchProcessListReturnsOnCall map[int]struct {
 		result1 []repositories.ProcessRecord
 		result2 error
 	}
@@ -112,21 +111,20 @@ func (fake *CFProcessRepository) FetchProcessReturnsOnCall(i int, result1 reposi
 	}{result1, result2}
 }
 
-func (fake *CFProcessRepository) FetchProcessesForApp(arg1 context.Context, arg2 client.Client, arg3 string, arg4 string) ([]repositories.ProcessRecord, error) {
-	fake.fetchProcessesForAppMutex.Lock()
-	ret, specificReturn := fake.fetchProcessesForAppReturnsOnCall[len(fake.fetchProcessesForAppArgsForCall)]
-	fake.fetchProcessesForAppArgsForCall = append(fake.fetchProcessesForAppArgsForCall, struct {
+func (fake *CFProcessRepository) FetchProcessList(arg1 context.Context, arg2 client.Client, arg3 repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error) {
+	fake.fetchProcessListMutex.Lock()
+	ret, specificReturn := fake.fetchProcessListReturnsOnCall[len(fake.fetchProcessListArgsForCall)]
+	fake.fetchProcessListArgsForCall = append(fake.fetchProcessListArgsForCall, struct {
 		arg1 context.Context
 		arg2 client.Client
-		arg3 string
-		arg4 string
-	}{arg1, arg2, arg3, arg4})
-	stub := fake.FetchProcessesForAppStub
-	fakeReturns := fake.fetchProcessesForAppReturns
-	fake.recordInvocation("FetchProcessesForApp", []interface{}{arg1, arg2, arg3, arg4})
-	fake.fetchProcessesForAppMutex.Unlock()
+		arg3 repositories.FetchProcessListMessage
+	}{arg1, arg2, arg3})
+	stub := fake.FetchProcessListStub
+	fakeReturns := fake.fetchProcessListReturns
+	fake.recordInvocation("FetchProcessList", []interface{}{arg1, arg2, arg3})
+	fake.fetchProcessListMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -134,46 +132,46 @@ func (fake *CFProcessRepository) FetchProcessesForApp(arg1 context.Context, arg2
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFProcessRepository) FetchProcessesForAppCallCount() int {
-	fake.fetchProcessesForAppMutex.RLock()
-	defer fake.fetchProcessesForAppMutex.RUnlock()
-	return len(fake.fetchProcessesForAppArgsForCall)
+func (fake *CFProcessRepository) FetchProcessListCallCount() int {
+	fake.fetchProcessListMutex.RLock()
+	defer fake.fetchProcessListMutex.RUnlock()
+	return len(fake.fetchProcessListArgsForCall)
 }
 
-func (fake *CFProcessRepository) FetchProcessesForAppCalls(stub func(context.Context, client.Client, string, string) ([]repositories.ProcessRecord, error)) {
-	fake.fetchProcessesForAppMutex.Lock()
-	defer fake.fetchProcessesForAppMutex.Unlock()
-	fake.FetchProcessesForAppStub = stub
+func (fake *CFProcessRepository) FetchProcessListCalls(stub func(context.Context, client.Client, repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error)) {
+	fake.fetchProcessListMutex.Lock()
+	defer fake.fetchProcessListMutex.Unlock()
+	fake.FetchProcessListStub = stub
 }
 
-func (fake *CFProcessRepository) FetchProcessesForAppArgsForCall(i int) (context.Context, client.Client, string, string) {
-	fake.fetchProcessesForAppMutex.RLock()
-	defer fake.fetchProcessesForAppMutex.RUnlock()
-	argsForCall := fake.fetchProcessesForAppArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+func (fake *CFProcessRepository) FetchProcessListArgsForCall(i int) (context.Context, client.Client, repositories.FetchProcessListMessage) {
+	fake.fetchProcessListMutex.RLock()
+	defer fake.fetchProcessListMutex.RUnlock()
+	argsForCall := fake.fetchProcessListArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFProcessRepository) FetchProcessesForAppReturns(result1 []repositories.ProcessRecord, result2 error) {
-	fake.fetchProcessesForAppMutex.Lock()
-	defer fake.fetchProcessesForAppMutex.Unlock()
-	fake.FetchProcessesForAppStub = nil
-	fake.fetchProcessesForAppReturns = struct {
+func (fake *CFProcessRepository) FetchProcessListReturns(result1 []repositories.ProcessRecord, result2 error) {
+	fake.fetchProcessListMutex.Lock()
+	defer fake.fetchProcessListMutex.Unlock()
+	fake.FetchProcessListStub = nil
+	fake.fetchProcessListReturns = struct {
 		result1 []repositories.ProcessRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFProcessRepository) FetchProcessesForAppReturnsOnCall(i int, result1 []repositories.ProcessRecord, result2 error) {
-	fake.fetchProcessesForAppMutex.Lock()
-	defer fake.fetchProcessesForAppMutex.Unlock()
-	fake.FetchProcessesForAppStub = nil
-	if fake.fetchProcessesForAppReturnsOnCall == nil {
-		fake.fetchProcessesForAppReturnsOnCall = make(map[int]struct {
+func (fake *CFProcessRepository) FetchProcessListReturnsOnCall(i int, result1 []repositories.ProcessRecord, result2 error) {
+	fake.fetchProcessListMutex.Lock()
+	defer fake.fetchProcessListMutex.Unlock()
+	fake.FetchProcessListStub = nil
+	if fake.fetchProcessListReturnsOnCall == nil {
+		fake.fetchProcessListReturnsOnCall = make(map[int]struct {
 			result1 []repositories.ProcessRecord
 			result2 error
 		})
 	}
-	fake.fetchProcessesForAppReturnsOnCall[i] = struct {
+	fake.fetchProcessListReturnsOnCall[i] = struct {
 		result1 []repositories.ProcessRecord
 		result2 error
 	}{result1, result2}
@@ -184,8 +182,8 @@ func (fake *CFProcessRepository) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.fetchProcessMutex.RLock()
 	defer fake.fetchProcessMutex.RUnlock()
-	fake.fetchProcessesForAppMutex.RLock()
-	defer fake.fetchProcessesForAppMutex.RUnlock()
+	fake.fetchProcessListMutex.RLock()
+	defer fake.fetchProcessListMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

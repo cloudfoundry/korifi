@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/gorilla/schema"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -23,12 +25,13 @@ const (
 	ProcessGetSidecarsEndpoint = "/v3/processes/{guid}/sidecars"
 	ProcessScaleEndpoint       = "/v3/processes/{guid}/actions/scale"
 	ProcessGetStatsEndpoint    = "/v3/processes/{guid}/stats"
+	ProcessListEndpoint        = "/v3/processes"
 )
 
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
 type CFProcessRepository interface {
 	FetchProcess(context.Context, client.Client, string) (repositories.ProcessRecord, error)
-	FetchProcessesForApp(context.Context, client.Client, string, string) ([]repositories.ProcessRecord, error)
+	FetchProcessList(context.Context, client.Client, repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
@@ -213,6 +216,65 @@ func (h *ProcessHandler) processGetStatsHandler(w http.ResponseWriter, r *http.R
 	_, _ = w.Write(responseBody)
 }
 
+func (h *ProcessHandler) processListHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error(err, "Unable to parse request query parameters")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	processListFilter := new(payloads.ProcessList)
+	err := schema.NewDecoder().Decode(processListFilter, r.Form)
+	if err != nil {
+		switch err.(type) {
+		case schema.MultiError:
+			multiError := err.(schema.MultiError)
+			for _, v := range multiError {
+				_, ok := v.(schema.UnknownKeyError)
+				if ok {
+					h.logger.Info("Unknown key used in Process filter")
+					writeUnknownKeyError(w, processListFilter.SupportedFilterKeys())
+					return
+				}
+			}
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+			return
+
+		default:
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
+	if err != nil {
+		h.logger.Error(err, "Unable to create Kubernetes client")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	processList, err := h.processRepo.FetchProcessList(ctx, client, processListFilter.ToMessage())
+	if err != nil {
+		h.logger.Error(err, "Failed to fetch processes(s) from Kubernetes")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	responseBody, err := json.Marshal(presenter.ForProcessList(processList, h.serverURL, *processListFilter))
+	if err != nil {
+		h.logger.Error(err, "Failed to render response")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	_, _ = w.Write(responseBody)
+}
+
 func (h *ProcessHandler) LogError(w http.ResponseWriter, processGUID string, err error) {
 	switch tycerr := err.(type) {
 	case repositories.NotFoundError:
@@ -229,4 +291,5 @@ func (h *ProcessHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(ProcessGetSidecarsEndpoint).Methods("GET").HandlerFunc(h.processGetSidecarsHandler)
 	router.Path(ProcessScaleEndpoint).Methods("POST").HandlerFunc(h.processScaleHandler)
 	router.Path(ProcessGetStatsEndpoint).Methods("GET").HandlerFunc(h.processGetStatsHandler)
+	router.Path(ProcessListEndpoint).Methods("GET").HandlerFunc(h.processListHandler)
 }

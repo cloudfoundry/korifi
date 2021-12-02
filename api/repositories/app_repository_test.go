@@ -3,6 +3,8 @@ package repositories_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sort"
 	"time"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -196,6 +198,12 @@ var _ = Describe("AppRepository", func() {
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp1.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
 					))
+
+					sortedByName := sort.SliceIsSorted(appList, func(i, j int) bool {
+						return appList[i].Name < appList[j].Name
+					})
+
+					Expect(sortedByName).To(BeTrue(), fmt.Sprintf("AppList was not sorted by Name : App1 : %s , App2: %s", appList[0].Name, appList[1].Name))
 				})
 			})
 		})
