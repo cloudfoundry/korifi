@@ -6,6 +6,7 @@ import (
 	"time"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking/fake"
 
@@ -35,6 +36,7 @@ const (
 	testFQDN                 = testRouteHost + "." + testDomainName
 	testServiceGUID          = "s-" + testRouteDestinationGUID
 	routeGUIDLabelKey        = "networking.cloudfoundry.org/route-guid"
+	cfK8sControllerNamespace = "cf-k8s-controllers-system"
 )
 
 var _ = Describe("CFRouteReconciler.Reconcile", func() {
@@ -224,10 +226,14 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 		}
 
 		Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+
 		cfRouteReconciler = &CFRouteReconciler{
 			Client: fakeClient,
 			Scheme: scheme.Scheme,
 			Log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+			ControllerConfig: &config.ControllerConfig{
+				CFK8sControllerNamespace: cfK8sControllerNamespace,
+			},
 		}
 
 		ctx = context.Background()
@@ -241,7 +247,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 	When("the CFRoute is being created", func() {
 		When("on the happy path", func() {
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				reconcileResult, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
 			})
 
@@ -270,6 +276,50 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					createdObjectMatches(BeAssignableToTypeOf(new(contourv1.HTTPProxy))),
 					createdObjectMatches(BeAssignableToTypeOf(new(v1.Service))),
 				))
+			})
+
+			When("no workloadsTLSSecretName is set", func() {
+				BeforeEach(func() {
+					cfRouteReconciler.ControllerConfig.WorkloadsTLSSecretName = ""
+				})
+
+				It("doesn't set TLS on the FQDN HTTProxy", func() {
+					var fqdnProxy *contourv1.HTTPProxy
+					for _, createArgs := range fakeClient.Invocations()["Create"] {
+						if proxy, ok := createArgs[1].(*contourv1.HTTPProxy); ok {
+							if proxy.Spec.VirtualHost != nil {
+								fqdnProxy = proxy
+								break
+							}
+						}
+					}
+					Expect(fqdnProxy).NotTo(BeNil())
+
+					Expect(fqdnProxy.Spec.VirtualHost.TLS).To(BeNil())
+				})
+			})
+
+			When("a workloadsTLSSecretName is set", func() {
+				BeforeEach(func() {
+					cfRouteReconciler.ControllerConfig.WorkloadsTLSSecretName = "the-tls-secret"
+				})
+
+				It("set TLS on the FQDN HTTProxy", func() {
+					var fqdnProxy *contourv1.HTTPProxy
+					for _, createArgs := range fakeClient.Invocations()["Create"] {
+						if proxy, ok := createArgs[1].(*contourv1.HTTPProxy); ok {
+							if proxy.Spec.VirtualHost != nil {
+								fqdnProxy = proxy
+								break
+							}
+						}
+					}
+					Expect(fqdnProxy).NotTo(BeNil())
+
+					Expect(fqdnProxy.Spec.VirtualHost.TLS).To(PointTo(Equal(contourv1.TLS{
+						SecretName: cfK8sControllerNamespace + "/the-tls-secret",
+					})))
+				})
 			})
 		})
 

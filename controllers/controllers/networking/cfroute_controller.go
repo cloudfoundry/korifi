@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
+
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
@@ -42,9 +44,10 @@ const (
 
 // CFRouteReconciler reconciles a CFRoute object to create Contour resources
 type CFRouteReconciler struct {
-	Client client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
+	Client           client.Client
+	Scheme           *runtime.Scheme
+	Log              logr.Logger
+	ControllerConfig *config.ControllerConfig
 }
 
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
@@ -332,6 +335,10 @@ func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, cfRoute 
 	result, err := controllerutil.CreateOrPatch(ctx, r.Client, fqdnHTTPProxy, func() error {
 		fqdnHTTPProxy.Spec.VirtualHost = &contourv1.VirtualHost{
 			Fqdn: fqdn,
+		}
+
+		if tlsSecret := r.ControllerConfig.WorkloadsTLSSecretNameWithNamespace(); tlsSecret != "" {
+			fqdnHTTPProxy.Spec.VirtualHost.TLS = &contourv1.TLS{SecretName: tlsSecret}
 		}
 
 		routeAlreadyIncluded := false

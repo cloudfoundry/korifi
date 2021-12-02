@@ -166,9 +166,10 @@ func main() {
 	}
 
 	if err = (&networkingcontrollers.CFRouteReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFRoute"),
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Log:              ctrl.Log.WithName("controllers").WithName("CFRoute"),
+		ControllerConfig: controllerConfig,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
 		os.Exit(1)

@@ -139,6 +139,37 @@ Configuration file for cf-k8s-controllers is at `config/base/controllersconfig/c
 
 Note: Edit this file and set the `kpackImageTag` to be the registry location you want for storing the images.
 
+### Configure Workload Ingress TLS Certificate Secret
+Generate a self-signed certificate. If you are using openssl, or libressl v3.1.0 or later:
+```
+openssl req -x509 -newkey rsa:4096 \
+  -keyout tls.key -out tls.crt \
+  -nodes -subj '/CN=localhost' \
+  -addext "subjectAltName = DNS:localhost" \
+  -days 365
+```
+
+If you are using an older version of libressl (the default on OSX):
+```
+openssl req -x509 -newkey rsa:4096 \
+  -keyout tls.key -out tls.crt \
+  -nodes -subj '/CN=localhost' \
+  -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:localhost'")) \
+  -days 365
+```
+
+Create a TLS secret called `cf-k8s-workloads-ingress-cert` using the self-signed
+certificate generated above, or from your own existing certificate:
+```
+kubectl create secret tls \
+  cf-k8s-workloads-ingress-cert \
+  --cert=./tls.crt --key=./tls.key \
+  -n cf-k8s-controllers-system
+```
+
+**NOTE**: If you choose to generate a self-signed certificate, you will need to
+skip TLS validation when connecting to the your workload.
+
 ## Build, Install and Deploy to K8s cluster
 Set the $IMG_CONTROLLERS environment variable to a location you have push/pull access. For example:
 ```sh
@@ -278,8 +309,7 @@ kubectl create secret tls \
 ```
 
 **NOTE**: If you choose to generate a self-signed certificate, you will need to
-either skip TLS validation or use the `--cacert` flag with the generated
-certificate when connecting to the API.
+skip TLS validation when connecting to the API.
 
 ### Creating a CF Space
 As the current implementation of HNC does not correctly propagate ServiceAccounts, when we `cf create-space`, the ServiceAccount required for image building is absent. We must create the

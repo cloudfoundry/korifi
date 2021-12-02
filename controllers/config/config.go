@@ -11,8 +11,10 @@ import (
 )
 
 type ControllerConfig struct {
-	KpackImageTag     string            `yaml:"kpackImageTag"`
-	CFProcessDefaults CFProcessDefaults `yaml:"cfProcessDefaults"`
+	KpackImageTag            string            `yaml:"kpackImageTag"`
+	CFProcessDefaults        CFProcessDefaults `yaml:"cfProcessDefaults"`
+	CFK8sControllerNamespace string            `yaml:"cfk8s_controller_namespace"`
+	WorkloadsTLSSecretName   string            `yaml:"workloads_tls_secret_name"`
 }
 
 type CFProcessDefaults struct {
@@ -47,4 +49,11 @@ func LoadFromPath(path string) (*ControllerConfig, error) {
 	}
 
 	return &config, nil
+}
+
+func (c ControllerConfig) WorkloadsTLSSecretNameWithNamespace() string {
+	if c.WorkloadsTLSSecretName == "" {
+		return ""
+	}
+	return filepath.Join(c.CFK8sControllerNamespace, c.WorkloadsTLSSecretName)
 }
