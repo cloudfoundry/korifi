@@ -6,16 +6,16 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type CFPackageRepository struct {
-	CreatePackageStub        func(context.Context, client.Client, repositories.PackageCreateMessage) (repositories.PackageRecord, error)
+	CreatePackageStub        func(context.Context, authorization.Info, repositories.PackageCreateMessage) (repositories.PackageRecord, error)
 	createPackageMutex       sync.RWMutex
 	createPackageArgsForCall []struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 repositories.PackageCreateMessage
 	}
 	createPackageReturns struct {
@@ -26,11 +26,11 @@ type CFPackageRepository struct {
 		result1 repositories.PackageRecord
 		result2 error
 	}
-	FetchPackageStub        func(context.Context, client.Client, string) (repositories.PackageRecord, error)
+	FetchPackageStub        func(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
 	fetchPackageMutex       sync.RWMutex
 	fetchPackageArgsForCall []struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 string
 	}
 	fetchPackageReturns struct {
@@ -41,11 +41,11 @@ type CFPackageRepository struct {
 		result1 repositories.PackageRecord
 		result2 error
 	}
-	UpdatePackageSourceStub        func(context.Context, client.Client, repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)
+	UpdatePackageSourceStub        func(context.Context, authorization.Info, repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)
 	updatePackageSourceMutex       sync.RWMutex
 	updatePackageSourceArgsForCall []struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 repositories.PackageUpdateSourceMessage
 	}
 	updatePackageSourceReturns struct {
@@ -60,12 +60,12 @@ type CFPackageRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFPackageRepository) CreatePackage(arg1 context.Context, arg2 client.Client, arg3 repositories.PackageCreateMessage) (repositories.PackageRecord, error) {
+func (fake *CFPackageRepository) CreatePackage(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PackageCreateMessage) (repositories.PackageRecord, error) {
 	fake.createPackageMutex.Lock()
 	ret, specificReturn := fake.createPackageReturnsOnCall[len(fake.createPackageArgsForCall)]
 	fake.createPackageArgsForCall = append(fake.createPackageArgsForCall, struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 repositories.PackageCreateMessage
 	}{arg1, arg2, arg3})
 	stub := fake.CreatePackageStub
@@ -87,13 +87,13 @@ func (fake *CFPackageRepository) CreatePackageCallCount() int {
 	return len(fake.createPackageArgsForCall)
 }
 
-func (fake *CFPackageRepository) CreatePackageCalls(stub func(context.Context, client.Client, repositories.PackageCreateMessage) (repositories.PackageRecord, error)) {
+func (fake *CFPackageRepository) CreatePackageCalls(stub func(context.Context, authorization.Info, repositories.PackageCreateMessage) (repositories.PackageRecord, error)) {
 	fake.createPackageMutex.Lock()
 	defer fake.createPackageMutex.Unlock()
 	fake.CreatePackageStub = stub
 }
 
-func (fake *CFPackageRepository) CreatePackageArgsForCall(i int) (context.Context, client.Client, repositories.PackageCreateMessage) {
+func (fake *CFPackageRepository) CreatePackageArgsForCall(i int) (context.Context, authorization.Info, repositories.PackageCreateMessage) {
 	fake.createPackageMutex.RLock()
 	defer fake.createPackageMutex.RUnlock()
 	argsForCall := fake.createPackageArgsForCall[i]
@@ -126,12 +126,12 @@ func (fake *CFPackageRepository) CreatePackageReturnsOnCall(i int, result1 repos
 	}{result1, result2}
 }
 
-func (fake *CFPackageRepository) FetchPackage(arg1 context.Context, arg2 client.Client, arg3 string) (repositories.PackageRecord, error) {
+func (fake *CFPackageRepository) FetchPackage(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.PackageRecord, error) {
 	fake.fetchPackageMutex.Lock()
 	ret, specificReturn := fake.fetchPackageReturnsOnCall[len(fake.fetchPackageArgsForCall)]
 	fake.fetchPackageArgsForCall = append(fake.fetchPackageArgsForCall, struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 string
 	}{arg1, arg2, arg3})
 	stub := fake.FetchPackageStub
@@ -153,13 +153,13 @@ func (fake *CFPackageRepository) FetchPackageCallCount() int {
 	return len(fake.fetchPackageArgsForCall)
 }
 
-func (fake *CFPackageRepository) FetchPackageCalls(stub func(context.Context, client.Client, string) (repositories.PackageRecord, error)) {
+func (fake *CFPackageRepository) FetchPackageCalls(stub func(context.Context, authorization.Info, string) (repositories.PackageRecord, error)) {
 	fake.fetchPackageMutex.Lock()
 	defer fake.fetchPackageMutex.Unlock()
 	fake.FetchPackageStub = stub
 }
 
-func (fake *CFPackageRepository) FetchPackageArgsForCall(i int) (context.Context, client.Client, string) {
+func (fake *CFPackageRepository) FetchPackageArgsForCall(i int) (context.Context, authorization.Info, string) {
 	fake.fetchPackageMutex.RLock()
 	defer fake.fetchPackageMutex.RUnlock()
 	argsForCall := fake.fetchPackageArgsForCall[i]
@@ -192,12 +192,12 @@ func (fake *CFPackageRepository) FetchPackageReturnsOnCall(i int, result1 reposi
 	}{result1, result2}
 }
 
-func (fake *CFPackageRepository) UpdatePackageSource(arg1 context.Context, arg2 client.Client, arg3 repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error) {
+func (fake *CFPackageRepository) UpdatePackageSource(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error) {
 	fake.updatePackageSourceMutex.Lock()
 	ret, specificReturn := fake.updatePackageSourceReturnsOnCall[len(fake.updatePackageSourceArgsForCall)]
 	fake.updatePackageSourceArgsForCall = append(fake.updatePackageSourceArgsForCall, struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 repositories.PackageUpdateSourceMessage
 	}{arg1, arg2, arg3})
 	stub := fake.UpdatePackageSourceStub
@@ -219,13 +219,13 @@ func (fake *CFPackageRepository) UpdatePackageSourceCallCount() int {
 	return len(fake.updatePackageSourceArgsForCall)
 }
 
-func (fake *CFPackageRepository) UpdatePackageSourceCalls(stub func(context.Context, client.Client, repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)) {
+func (fake *CFPackageRepository) UpdatePackageSourceCalls(stub func(context.Context, authorization.Info, repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)) {
 	fake.updatePackageSourceMutex.Lock()
 	defer fake.updatePackageSourceMutex.Unlock()
 	fake.UpdatePackageSourceStub = stub
 }
 
-func (fake *CFPackageRepository) UpdatePackageSourceArgsForCall(i int) (context.Context, client.Client, repositories.PackageUpdateSourceMessage) {
+func (fake *CFPackageRepository) UpdatePackageSourceArgsForCall(i int) (context.Context, authorization.Info, repositories.PackageUpdateSourceMessage) {
 	fake.updatePackageSourceMutex.RLock()
 	defer fake.updatePackageSourceMutex.RUnlock()
 	argsForCall := fake.updatePackageSourceArgsForCall[i]

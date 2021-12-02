@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -24,6 +25,7 @@ var (
 	router    *mux.Router
 	serverURL *url.URL
 	ctx       context.Context
+	authInfo  authorization.Info
 )
 
 func TestApis(t *testing.T) {
@@ -32,7 +34,8 @@ func TestApis(t *testing.T) {
 }
 
 var _ = BeforeEach(func() {
-	ctx = context.Background()
+	authInfo = authorization.Info{Token: "a-token"}
+	ctx = authorization.NewContext(context.Background(), &authInfo)
 	rr = httptest.NewRecorder()
 	router = mux.NewRouter()
 

@@ -46,8 +46,6 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 			domainRepo,
 			podRepo,
 			scaleAppProcess,
-			repositories.BuildPrivilegedClient,
-			k8sConfig,
 		)
 		apiHandler.RegisterRoutes(router)
 	})

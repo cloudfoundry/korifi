@@ -1,6 +1,7 @@
 package apis_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -36,9 +36,8 @@ var _ = Describe("BuildHandler", func() {
 		)
 
 		var (
-			buildRepo     *fake.CFBuildRepository
-			clientBuilder *fake.ClientBuilderFunc
-			req           *http.Request
+			buildRepo *fake.CFBuildRepository
+			req       *http.Request
 		)
 
 		// set up happy path defaults
@@ -63,18 +62,14 @@ var _ = Describe("BuildHandler", func() {
 			}, nil)
 
 			var err error
-			req, err = http.NewRequest("GET", "/v3/builds/"+buildGUID, nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/builds/"+buildGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
-
-			clientBuilder = new(fake.ClientBuilderFunc)
 
 			buildHandler := NewBuildHandler(
 				logf.Log.WithName(testBuildHandlerLoggerName),
 				*serverURL,
 				buildRepo,
 				new(fake.CFPackageRepository),
-				clientBuilder.Spy,
-				&rest.Config{},
 			)
 			buildHandler.RegisterRoutes(router)
 		})
@@ -298,13 +293,15 @@ var _ = Describe("BuildHandler", func() {
 			})
 		})
 
-		When("building the k8s client errors", func() {
+		When("the authorization.Info is not available in the request context", func() {
 			BeforeEach(func() {
-				clientBuilder.Returns(nil, errors.New("boom"))
+				req, err := http.NewRequest("GET", "/v3/builds/"+buildGUID, nil)
+				Expect(err).NotTo(HaveOccurred())
+
 				router.ServeHTTP(rr, req)
 			})
 
-			It("returns an error", func() {
+			It("returns an unknown error", func() {
 				expectUnknownError()
 			})
 		})
@@ -335,13 +332,12 @@ var _ = Describe("BuildHandler", func() {
 	})
 	Describe("the POST /v3/builds endpoint", func() {
 		var (
-			packageRepo   *fake.CFPackageRepository
-			buildRepo     *fake.CFBuildRepository
-			clientBuilder *fake.ClientBuilderFunc
+			packageRepo *fake.CFPackageRepository
+			buildRepo   *fake.CFBuildRepository
 		)
 
 		makePostRequest := func(body string) {
-			req, err := http.NewRequest("POST", "/v3/builds", strings.NewReader(body))
+			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/builds", strings.NewReader(body))
 			Expect(err).NotTo(HaveOccurred())
 
 			router.ServeHTTP(rr, req)
@@ -397,14 +393,11 @@ var _ = Describe("BuildHandler", func() {
 				AppGUID:     appGUID,
 			}, nil)
 
-			clientBuilder = new(fake.ClientBuilderFunc)
 			buildHandler := NewBuildHandler(
 				logf.Log.WithName(testBuildHandlerLoggerName),
 				*serverURL,
 				buildRepo,
 				packageRepo,
-				clientBuilder.Spy,
-				&rest.Config{},
 			)
 			buildHandler.RegisterRoutes(router)
 		})
@@ -421,10 +414,6 @@ var _ = Describe("BuildHandler", func() {
 			It("returns Content-Type as JSON in header", func() {
 				contentTypeHeader := rr.Header().Get("Content-Type")
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("configures the client", func() {
-				Expect(clientBuilder.CallCount()).To(Equal(1))
 			})
 
 			When("examining the BuildCreate message", func() {
@@ -531,15 +520,16 @@ var _ = Describe("BuildHandler", func() {
 			itDoesntCreateABuild()
 		})
 
-		When("building the k8s client errors", func() {
+		When("the authorization.Info is not available in the request context", func() {
 			BeforeEach(func() {
-				clientBuilder.Returns(nil, errors.New("boom"))
+				ctx = context.Background()
 				makePostRequest(validBody)
 			})
 
-			It("returns an error", func() {
+			It("returns an unknown error", func() {
 				expectUnknownError()
 			})
+
 			itDoesntCreateABuild()
 		})
 

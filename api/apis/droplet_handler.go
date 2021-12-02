@@ -6,15 +6,12 @@ import (
 	"net/http"
 	"net/url"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -23,29 +20,24 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFDropletRepository . CFDropletRepository
 type CFDropletRepository interface {
-	FetchDroplet(context.Context, client.Client, string) (repositories.DropletRecord, error)
+	FetchDroplet(context.Context, authorization.Info, string) (repositories.DropletRecord, error)
 }
 
 type DropletHandler struct {
 	serverURL   url.URL
 	dropletRepo CFDropletRepository
-	buildClient ClientBuilderFunc
 	logger      logr.Logger
-	k8sConfig   *rest.Config
 }
 
 func NewDropletHandler(
 	logger logr.Logger,
 	serverURL url.URL,
 	dropletRepo CFDropletRepository,
-	buildClient ClientBuilderFunc,
-	k8sConfig *rest.Config) *DropletHandler {
+) *DropletHandler {
 	return &DropletHandler{
 		logger:      logger,
 		serverURL:   serverURL,
 		dropletRepo: dropletRepo,
-		buildClient: buildClient,
-		k8sConfig:   k8sConfig,
 	}
 }
 
@@ -56,14 +48,14 @@ func (h *DropletHandler) dropletGetHandler(w http.ResponseWriter, r *http.Reques
 	vars := mux.Vars(r)
 	dropletGUID := vars["guid"]
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client", "dropletGUID", dropletGUID)
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	droplet, err := h.dropletRepo.FetchDroplet(ctx, client, dropletGUID)
+	droplet, err := h.dropletRepo.FetchDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:

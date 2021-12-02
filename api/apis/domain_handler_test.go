@@ -11,7 +11,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -22,14 +21,12 @@ var _ = Describe("DomainHandler", func() {
 		)
 
 		var (
-			domainRepo    *fake.CFDomainRepository
-			clientBuilder *fake.ClientBuilderFunc
-			domainRecord  *repositories.DomainRecord
+			domainRepo   *fake.CFDomainRepository
+			domainRecord *repositories.DomainRecord
 		)
 
 		BeforeEach(func() {
 			domainRepo = new(fake.CFDomainRepository)
-			clientBuilder = new(fake.ClientBuilderFunc)
 
 			domainRecord = &repositories.DomainRecord{
 				GUID:        testDomainGUID,
@@ -45,15 +42,13 @@ var _ = Describe("DomainHandler", func() {
 				logf.Log.WithName("TestDomainHandler"),
 				*serverURL,
 				domainRepo,
-				clientBuilder.Spy,
-				&rest.Config{}, // required for k8s client (transitive dependency from route repo)
 			)
 			domainHandler.RegisterRoutes(router)
 		})
 
 		When("on the happy path", func() {
 			BeforeEach(func() {
-				req, err := http.NewRequest("GET", "/v3/domains", nil)
+				req, err := http.NewRequestWithContext(ctx, "GET", "/v3/domains", nil)
 				Expect(err).NotTo(HaveOccurred())
 				router.ServeHTTP(rr, req)
 			})
@@ -118,7 +113,7 @@ var _ = Describe("DomainHandler", func() {
 		When("no domain exists", func() {
 			BeforeEach(func() {
 				domainRepo.FetchDomainListReturns([]repositories.DomainRecord{}, nil)
-				req, err := http.NewRequest("GET", "/v3/domains", nil)
+				req, err := http.NewRequestWithContext(ctx, "GET", "/v3/domains", nil)
 				Expect(err).NotTo(HaveOccurred())
 				router.ServeHTTP(rr, req)
 			})
@@ -157,7 +152,7 @@ var _ = Describe("DomainHandler", func() {
 		When("there is an error listing domains", func() {
 			BeforeEach(func() {
 				domainRepo.FetchDomainListReturns([]repositories.DomainRecord{}, errors.New("unexpected error!"))
-				req, err := http.NewRequest("GET", "/v3/domains", nil)
+				req, err := http.NewRequestWithContext(ctx, "GET", "/v3/domains", nil)
 				Expect(err).NotTo(HaveOccurred())
 				router.ServeHTTP(rr, req)
 			})
@@ -169,7 +164,7 @@ var _ = Describe("DomainHandler", func() {
 
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
-				req, err := http.NewRequest("GET", "/v3/domains?foo=bar", nil)
+				req, err := http.NewRequestWithContext(ctx, "GET", "/v3/domains?foo=bar", nil)
 				Expect(err).NotTo(HaveOccurred())
 				router.ServeHTTP(rr, req)
 			})

@@ -6,16 +6,16 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ScaleAppProcess struct {
-	Stub        func(context.Context, client.Client, string, string, repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
+	Stub        func(context.Context, authorization.Info, string, string, repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
 	mutex       sync.RWMutex
 	argsForCall []struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 string
 		arg4 string
 		arg5 repositories.ProcessScaleValues
@@ -32,12 +32,12 @@ type ScaleAppProcess struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ScaleAppProcess) Spy(arg1 context.Context, arg2 client.Client, arg3 string, arg4 string, arg5 repositories.ProcessScaleValues) (repositories.ProcessRecord, error) {
+func (fake *ScaleAppProcess) Spy(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 string, arg5 repositories.ProcessScaleValues) (repositories.ProcessRecord, error) {
 	fake.mutex.Lock()
 	ret, specificReturn := fake.returnsOnCall[len(fake.argsForCall)]
 	fake.argsForCall = append(fake.argsForCall, struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 string
 		arg4 string
 		arg5 repositories.ProcessScaleValues
@@ -61,13 +61,13 @@ func (fake *ScaleAppProcess) CallCount() int {
 	return len(fake.argsForCall)
 }
 
-func (fake *ScaleAppProcess) Calls(stub func(context.Context, client.Client, string, string, repositories.ProcessScaleValues) (repositories.ProcessRecord, error)) {
+func (fake *ScaleAppProcess) Calls(stub func(context.Context, authorization.Info, string, string, repositories.ProcessScaleValues) (repositories.ProcessRecord, error)) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = stub
 }
 
-func (fake *ScaleAppProcess) ArgsForCall(i int) (context.Context, client.Client, string, string, repositories.ProcessScaleValues) {
+func (fake *ScaleAppProcess) ArgsForCall(i int) (context.Context, authorization.Info, string, string, repositories.ProcessScaleValues) {
 	fake.mutex.RLock()
 	defer fake.mutex.RUnlock()
 	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2, fake.argsForCall[i].arg3, fake.argsForCall[i].arg4, fake.argsForCall[i].arg5

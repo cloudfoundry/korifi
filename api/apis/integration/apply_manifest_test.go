@@ -37,8 +37,6 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			*serverURL,
 			actions.NewApplyManifest(appRepo, processRepo).Invoke,
 			repositories.NewOrgRepo("cf", k8sClient, 1*time.Minute),
-			repositories.BuildPrivilegedClient,
-			k8sConfig,
 		)
 		apiHandler.RegisterRoutes(router)
 	})

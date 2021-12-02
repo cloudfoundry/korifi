@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -28,25 +27,20 @@ var _ = Describe("DropletHandler", func() {
 			updatedAt = "1906-04-18T13:12:01Z"
 		)
 		var (
-			dropletRepo   *fake.CFDropletRepository
-			clientBuilder *fake.ClientBuilderFunc
-			req           *http.Request
+			dropletRepo *fake.CFDropletRepository
+			req         *http.Request
 		)
 
 		BeforeEach(func() {
 			dropletRepo = new(fake.CFDropletRepository)
 			var err error
-			req, err = http.NewRequest("GET", "/v3/droplets/"+dropletGUID, nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/droplets/"+dropletGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
-
-			clientBuilder = new(fake.ClientBuilderFunc)
 
 			dropletHandler := NewDropletHandler(
 				logf.Log.WithName(testDropletHandlerLoggerName),
 				*serverURL,
 				dropletRepo,
-				clientBuilder.Spy,
-				&rest.Config{},
 			)
 			dropletHandler.RegisterRoutes(router)
 		})
@@ -83,10 +77,6 @@ var _ = Describe("DropletHandler", func() {
 				It("returns Content-Type as JSON in header", func() {
 					contentTypeHeader := rr.Header().Get("Content-Type")
 					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-				})
-
-				It("configures the client", func() {
-					Expect(clientBuilder.CallCount()).To(Equal(1))
 				})
 
 				It("fetches the right droplet", func() {
@@ -148,16 +138,6 @@ var _ = Describe("DropletHandler", func() {
 					  }
 					}`), "Response body matches response:")
 				})
-			})
-		})
-		When("building the k8s client errors", func() {
-			BeforeEach(func() {
-				clientBuilder.Returns(nil, errors.New("boom"))
-				router.ServeHTTP(rr, req)
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
 			})
 		})
 

@@ -9,16 +9,14 @@ import (
 
 	"github.com/gorilla/schema"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -32,21 +30,19 @@ const (
 //counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository
 
 type CFRouteRepository interface {
-	FetchRoute(context.Context, client.Client, string) (repositories.RouteRecord, error)
-	FetchRouteList(context.Context, client.Client, repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error)
-	FetchRoutesForApp(context.Context, client.Client, string, string) ([]repositories.RouteRecord, error)
-	CreateRoute(context.Context, client.Client, repositories.RouteRecord) (repositories.RouteRecord, error)
-	AddDestinationsToRoute(ctx context.Context, c client.Client, message repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error)
+	FetchRoute(context.Context, authorization.Info, string) (repositories.RouteRecord, error)
+	FetchRouteList(context.Context, authorization.Info, repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error)
+	FetchRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
+	CreateRoute(context.Context, authorization.Info, repositories.RouteRecord) (repositories.RouteRecord, error)
+	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error)
 }
 
 type RouteHandler struct {
-	logger      logr.Logger
-	serverURL   url.URL
-	routeRepo   CFRouteRepository
-	domainRepo  CFDomainRepository
-	appRepo     CFAppRepository
-	buildClient ClientBuilderFunc
-	k8sConfig   *rest.Config // TODO: this would be global for all requests, not what we want
+	logger     logr.Logger
+	serverURL  url.URL
+	routeRepo  CFRouteRepository
+	domainRepo CFDomainRepository
+	appRepo    CFAppRepository
 }
 
 func NewRouteHandler(
@@ -55,16 +51,13 @@ func NewRouteHandler(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	appRepo CFAppRepository,
-	buildClient ClientBuilderFunc,
-	k8sConfig *rest.Config) *RouteHandler {
+) *RouteHandler {
 	return &RouteHandler{
-		logger:      logger,
-		serverURL:   serverURL,
-		routeRepo:   routeRepo,
-		domainRepo:  domainRepo,
-		appRepo:     appRepo,
-		buildClient: buildClient,
-		k8sConfig:   k8sConfig,
+		logger:     logger,
+		serverURL:  serverURL,
+		routeRepo:  routeRepo,
+		domainRepo: domainRepo,
+		appRepo:    appRepo,
 	}
 }
 
@@ -75,14 +68,14 @@ func (h *RouteHandler) routeGetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	routeGUID := vars["guid"]
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "failed to create kubernetes client")
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	route, err := h.lookupRouteAndDomain(ctx, routeGUID, client)
+	route, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -141,14 +134,14 @@ func (h *RouteHandler) routeGetListHandler(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "failed to create kubernetes client")
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	routes, err := h.lookupRouteAndDomainList(ctx, client, routeListFilter.ToMessage())
+	routes, err := h.lookupRouteAndDomainList(ctx, authInfo, routeListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch route or domains from Kubernetes")
 		writeUnknownErrorResponse(w)
@@ -172,14 +165,14 @@ func (h *RouteHandler) routeGetDestinationsHandler(w http.ResponseWriter, r *htt
 	vars := mux.Vars(r)
 	routeGUID := vars["guid"]
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "failed to create kubernetes client")
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	route, err := h.lookupRouteAndDomain(ctx, routeGUID, client)
+	route, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -214,15 +207,15 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client")
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
 	namespaceGUID := routeCreateMessage.Relationships.Space.Data.GUID
-	_, err = h.appRepo.FetchNamespace(ctx, client, namespaceGUID)
+	_, err := h.appRepo.FetchNamespace(ctx, authInfo, namespaceGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.PermissionDeniedOrNotFoundError:
@@ -237,7 +230,7 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	domainGUID := routeCreateMessage.Relationships.Domain.Data.GUID
-	domain, err := h.domainRepo.FetchDomain(ctx, client, domainGUID)
+	domain, err := h.domainRepo.FetchDomain(ctx, authInfo, domainGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.PermissionDeniedOrNotFoundError:
@@ -256,7 +249,7 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 	createRouteRecord := routeCreateMessage.ToRecord()
 	createRouteRecord.GUID = routeGUID
 
-	responseRouteRecord, err := h.routeRepo.CreateRoute(ctx, client, createRouteRecord)
+	responseRouteRecord, err := h.routeRepo.CreateRoute(ctx, authInfo, createRouteRecord)
 	if err != nil {
 		// TODO: Catch the error from the (unwritten) validating webhook
 		h.logger.Error(err, "Failed to create route", "Route Host", routeCreateMessage.Host)
@@ -290,14 +283,14 @@ func (h *RouteHandler) routeAddDestinationsHandler(w http.ResponseWriter, r *htt
 	vars := mux.Vars(r)
 	routeGUID := vars["guid"]
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "failed to create kubernetes client")
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	routeRecord, err := h.lookupRouteAndDomain(ctx, routeGUID, client)
+	routeRecord, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
 		if errors.As(err, new(repositories.NotFoundError)) {
 			h.logger.Info("Route not found", "RouteGUID", routeGUID)
@@ -311,7 +304,7 @@ func (h *RouteHandler) routeAddDestinationsHandler(w http.ResponseWriter, r *htt
 
 	destinationListCreateMessage := destinationCreatePayload.ToMessage(routeRecord)
 
-	responseRouteRecord, err := h.routeRepo.AddDestinationsToRoute(ctx, client, destinationListCreateMessage)
+	responseRouteRecord, err := h.routeRepo.AddDestinationsToRoute(ctx, authInfo, destinationListCreateMessage)
 	if err != nil {
 		h.logger.Error(err, "Failed to add destination on route", "Route GUID", routeRecord.GUID)
 		writeUnknownErrorResponse(w)
@@ -337,13 +330,13 @@ func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
 }
 
 // Fetch Route and compose related Domain information within
-func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, routeGUID string, client client.Client) (repositories.RouteRecord, error) {
-	route, err := h.routeRepo.FetchRoute(ctx, client, routeGUID)
+func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, routeGUID string, authInfo authorization.Info) (repositories.RouteRecord, error) {
+	route, err := h.routeRepo.FetchRoute(ctx, authInfo, routeGUID)
 	if err != nil {
 		return repositories.RouteRecord{}, err
 	}
 
-	domain, err := h.domainRepo.FetchDomain(ctx, client, route.Domain.GUID)
+	domain, err := h.domainRepo.FetchDomain(ctx, authInfo, route.Domain.GUID)
 	// We assume K8s controller will ensure valid data, so the only error case is due to eventually consistency.
 	// Return a generic retryable error.
 	if err != nil {
@@ -356,8 +349,8 @@ func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, routeGUID strin
 	return route, nil
 }
 
-func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, client client.Client, message repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error) {
-	routeRecords, err := h.routeRepo.FetchRouteList(ctx, client, message)
+func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, authInfo authorization.Info, message repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error) {
+	routeRecords, err := h.routeRepo.FetchRouteList(ctx, authInfo, message)
 	if err != nil {
 		return []repositories.RouteRecord{}, err
 	}
@@ -368,7 +361,7 @@ func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, client clie
 		currentDomainGUID := routeRecord.Domain.GUID
 		domainRecord, has := domainGUIDToDomainRecord[currentDomainGUID]
 		if !has {
-			domainRecord, err = h.domainRepo.FetchDomain(ctx, client, currentDomainGUID)
+			domainRecord, err = h.domainRepo.FetchDomain(ctx, authInfo, currentDomainGUID)
 			if err != nil {
 				err = errors.New("resource not found for route's specified domain ref")
 				return []repositories.RouteRecord{}, err
@@ -381,14 +374,14 @@ func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, client clie
 	return routeRecords, nil
 }
 
-func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, client client.Client, routeRecords []repositories.RouteRecord) ([]repositories.RouteRecord, error) {
+func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, authInfo authorization.Info, routeRecords []repositories.RouteRecord) ([]repositories.RouteRecord, error) {
 	domainGUIDToDomainRecord := make(map[string]repositories.DomainRecord)
 	for i, routeRecord := range routeRecords {
 		currentDomainGUID := routeRecord.Domain.GUID
 		domainRecord, has := domainGUIDToDomainRecord[currentDomainGUID]
 		if !has {
 			var err error
-			domainRecord, err = domainRepo.FetchDomain(ctx, client, currentDomainGUID)
+			domainRecord, err = domainRepo.FetchDomain(ctx, authInfo, currentDomainGUID)
 			if err != nil {
 				err = errors.New("resource not found for route's specified domain ref")
 				return []repositories.RouteRecord{}, err

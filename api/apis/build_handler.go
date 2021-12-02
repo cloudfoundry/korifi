@@ -6,16 +6,14 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -25,17 +23,15 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFBuildRepository . CFBuildRepository
 type CFBuildRepository interface {
-	FetchBuild(context.Context, client.Client, string) (repositories.BuildRecord, error)
-	CreateBuild(context.Context, client.Client, repositories.BuildCreateMessage) (repositories.BuildRecord, error)
+	FetchBuild(context.Context, authorization.Info, string) (repositories.BuildRecord, error)
+	CreateBuild(context.Context, authorization.Info, repositories.BuildCreateMessage) (repositories.BuildRecord, error)
 }
 
 type BuildHandler struct {
 	serverURL   url.URL
 	buildRepo   CFBuildRepository
-	buildClient ClientBuilderFunc
 	packageRepo CFPackageRepository
 	logger      logr.Logger
-	k8sConfig   *rest.Config
 }
 
 func NewBuildHandler(
@@ -43,15 +39,12 @@ func NewBuildHandler(
 	serverURL url.URL,
 	buildRepo CFBuildRepository,
 	packageRepo CFPackageRepository,
-	buildClient ClientBuilderFunc,
-	k8sConfig *rest.Config) *BuildHandler {
+) *BuildHandler {
 	return &BuildHandler{
 		logger:      logger,
 		serverURL:   serverURL,
 		buildRepo:   buildRepo,
 		packageRepo: packageRepo,
-		buildClient: buildClient,
-		k8sConfig:   k8sConfig,
 	}
 }
 
@@ -62,14 +55,14 @@ func (h *BuildHandler) buildGetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	buildGUID := vars["guid"]
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client", "BuildGUID", buildGUID)
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	build, err := h.buildRepo.FetchBuild(ctx, client, buildGUID)
+	build, err := h.buildRepo.FetchBuild(ctx, authInfo, buildGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -102,14 +95,14 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	client, err := h.buildClient(h.k8sConfig, req.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Info("Error building k8s client", "error", err.Error())
+	authInfo, ok := authorization.InfoFromContext(req.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	packageRecord, err := h.packageRepo.FetchPackage(req.Context(), client, payload.Package.GUID)
+	packageRecord, err := h.packageRepo.FetchPackage(req.Context(), authInfo, payload.Package.GUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -124,7 +117,7 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Reque
 
 	buildCreateMessage := payload.ToMessage(packageRecord.AppGUID, packageRecord.SpaceGUID)
 
-	record, err := h.buildRepo.CreateBuild(req.Context(), client, buildCreateMessage)
+	record, err := h.buildRepo.CreateBuild(req.Context(), authInfo, buildCreateMessage)
 	if err != nil {
 		h.logger.Info("Error creating build with repository", "error", err.Error())
 		writeUnknownErrorResponse(w)

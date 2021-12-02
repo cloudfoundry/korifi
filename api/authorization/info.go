@@ -15,9 +15,13 @@ func NewContext(ctx context.Context, info *Info) context.Context {
 	return context.WithValue(ctx, infoKey, info)
 }
 
-func InfoFromContext(ctx context.Context) (*Info, bool) {
+func InfoFromContext(ctx context.Context) (Info, bool) {
 	info, ok := ctx.Value(infoKey).(*Info)
-	return info, ok
+	if info == nil {
+		return Info{}, ok
+	}
+
+	return *info, ok
 }
 
 func (i Info) Scheme() string {
