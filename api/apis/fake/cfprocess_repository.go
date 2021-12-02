@@ -6,16 +6,16 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type CFProcessRepository struct {
-	FetchProcessStub        func(context.Context, client.Client, string) (repositories.ProcessRecord, error)
+	FetchProcessStub        func(context.Context, authorization.Info, string) (repositories.ProcessRecord, error)
 	fetchProcessMutex       sync.RWMutex
 	fetchProcessArgsForCall []struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 string
 	}
 	fetchProcessReturns struct {
@@ -26,11 +26,11 @@ type CFProcessRepository struct {
 		result1 repositories.ProcessRecord
 		result2 error
 	}
-	FetchProcessListStub        func(context.Context, client.Client, repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error)
+	FetchProcessListStub        func(context.Context, authorization.Info, repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error)
 	fetchProcessListMutex       sync.RWMutex
 	fetchProcessListArgsForCall []struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 repositories.FetchProcessListMessage
 	}
 	fetchProcessListReturns struct {
@@ -45,12 +45,12 @@ type CFProcessRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFProcessRepository) FetchProcess(arg1 context.Context, arg2 client.Client, arg3 string) (repositories.ProcessRecord, error) {
+func (fake *CFProcessRepository) FetchProcess(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.ProcessRecord, error) {
 	fake.fetchProcessMutex.Lock()
 	ret, specificReturn := fake.fetchProcessReturnsOnCall[len(fake.fetchProcessArgsForCall)]
 	fake.fetchProcessArgsForCall = append(fake.fetchProcessArgsForCall, struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 string
 	}{arg1, arg2, arg3})
 	stub := fake.FetchProcessStub
@@ -72,13 +72,13 @@ func (fake *CFProcessRepository) FetchProcessCallCount() int {
 	return len(fake.fetchProcessArgsForCall)
 }
 
-func (fake *CFProcessRepository) FetchProcessCalls(stub func(context.Context, client.Client, string) (repositories.ProcessRecord, error)) {
+func (fake *CFProcessRepository) FetchProcessCalls(stub func(context.Context, authorization.Info, string) (repositories.ProcessRecord, error)) {
 	fake.fetchProcessMutex.Lock()
 	defer fake.fetchProcessMutex.Unlock()
 	fake.FetchProcessStub = stub
 }
 
-func (fake *CFProcessRepository) FetchProcessArgsForCall(i int) (context.Context, client.Client, string) {
+func (fake *CFProcessRepository) FetchProcessArgsForCall(i int) (context.Context, authorization.Info, string) {
 	fake.fetchProcessMutex.RLock()
 	defer fake.fetchProcessMutex.RUnlock()
 	argsForCall := fake.fetchProcessArgsForCall[i]
@@ -111,12 +111,12 @@ func (fake *CFProcessRepository) FetchProcessReturnsOnCall(i int, result1 reposi
 	}{result1, result2}
 }
 
-func (fake *CFProcessRepository) FetchProcessList(arg1 context.Context, arg2 client.Client, arg3 repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error) {
+func (fake *CFProcessRepository) FetchProcessList(arg1 context.Context, arg2 authorization.Info, arg3 repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error) {
 	fake.fetchProcessListMutex.Lock()
 	ret, specificReturn := fake.fetchProcessListReturnsOnCall[len(fake.fetchProcessListArgsForCall)]
 	fake.fetchProcessListArgsForCall = append(fake.fetchProcessListArgsForCall, struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 repositories.FetchProcessListMessage
 	}{arg1, arg2, arg3})
 	stub := fake.FetchProcessListStub
@@ -138,13 +138,13 @@ func (fake *CFProcessRepository) FetchProcessListCallCount() int {
 	return len(fake.fetchProcessListArgsForCall)
 }
 
-func (fake *CFProcessRepository) FetchProcessListCalls(stub func(context.Context, client.Client, repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error)) {
+func (fake *CFProcessRepository) FetchProcessListCalls(stub func(context.Context, authorization.Info, repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error)) {
 	fake.fetchProcessListMutex.Lock()
 	defer fake.fetchProcessListMutex.Unlock()
 	fake.FetchProcessListStub = stub
 }
 
-func (fake *CFProcessRepository) FetchProcessListArgsForCall(i int) (context.Context, client.Client, repositories.FetchProcessListMessage) {
+func (fake *CFProcessRepository) FetchProcessListArgsForCall(i int) (context.Context, authorization.Info, repositories.FetchProcessListMessage) {
 	fake.fetchProcessListMutex.RLock()
 	defer fake.fetchProcessListMutex.RUnlock()
 	argsForCall := fake.fetchProcessListArgsForCall[i]

@@ -6,16 +6,16 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ApplyManifestAction struct {
-	Stub        func(context.Context, client.Client, string, payloads.Manifest) error
+	Stub        func(context.Context, authorization.Info, string, payloads.Manifest) error
 	mutex       sync.RWMutex
 	argsForCall []struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 string
 		arg4 payloads.Manifest
 	}
@@ -29,12 +29,12 @@ type ApplyManifestAction struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ApplyManifestAction) Spy(arg1 context.Context, arg2 client.Client, arg3 string, arg4 payloads.Manifest) error {
+func (fake *ApplyManifestAction) Spy(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 payloads.Manifest) error {
 	fake.mutex.Lock()
 	ret, specificReturn := fake.returnsOnCall[len(fake.argsForCall)]
 	fake.argsForCall = append(fake.argsForCall, struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 string
 		arg4 payloads.Manifest
 	}{arg1, arg2, arg3, arg4})
@@ -57,13 +57,13 @@ func (fake *ApplyManifestAction) CallCount() int {
 	return len(fake.argsForCall)
 }
 
-func (fake *ApplyManifestAction) Calls(stub func(context.Context, client.Client, string, payloads.Manifest) error) {
+func (fake *ApplyManifestAction) Calls(stub func(context.Context, authorization.Info, string, payloads.Manifest) error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = stub
 }
 
-func (fake *ApplyManifestAction) ArgsForCall(i int) (context.Context, client.Client, string, payloads.Manifest) {
+func (fake *ApplyManifestAction) ArgsForCall(i int) (context.Context, authorization.Info, string, payloads.Manifest) {
 	fake.mutex.RLock()
 	defer fake.mutex.RUnlock()
 	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2, fake.argsForCall[i].arg3, fake.argsForCall[i].arg4

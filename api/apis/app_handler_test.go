@@ -1,6 +1,7 @@
 package apis_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,13 +12,11 @@ import (
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -37,7 +36,6 @@ var _ = Describe("AppHandler", func() {
 		scaleAppProcessFunc *fake.ScaleAppProcess
 		domainRepo          *fake.CFDomainRepository
 		podRepo             *fake.PodRepository
-		clientBuilder       *fake.ClientBuilderFunc
 		req                 *http.Request
 	)
 
@@ -49,7 +47,6 @@ var _ = Describe("AppHandler", func() {
 		domainRepo = new(fake.CFDomainRepository)
 		podRepo = new(fake.PodRepository)
 		scaleAppProcessFunc = new(fake.ScaleAppProcess)
-		clientBuilder = new(fake.ClientBuilderFunc)
 
 		apiHandler := NewAppHandler(
 			logf.Log.WithName(testAppHandlerLoggerName),
@@ -61,8 +58,6 @@ var _ = Describe("AppHandler", func() {
 			domainRepo,
 			podRepo,
 			scaleAppProcessFunc.Spy,
-			clientBuilder.Spy,
-			&rest.Config{},
 		)
 		apiHandler.RegisterRoutes(router)
 	})
@@ -88,13 +83,19 @@ var _ = Describe("AppHandler", func() {
 			}, nil)
 
 			var err error
-			req, err = http.NewRequest("GET", "/v3/apps/"+appGUID, nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("on the happy path", func() {
 			It("returns status 200 OK", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("passes authInfo from context to FetchApp", func() {
+				Expect(appRepo.FetchAppCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := appRepo.FetchAppArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
 			It("returns the App in the response", func() {
@@ -191,6 +192,18 @@ var _ = Describe("AppHandler", func() {
 				expectUnknownError()
 			})
 		})
+
+		When("authInfo is not in the context", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("GET", "/v3/apps/"+appGUID, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
 	})
 
 	Describe("the POST /v3/apps endpoint", func() {
@@ -200,9 +213,21 @@ var _ = Describe("AppHandler", func() {
 
 		queuePostRequest := func(requestBody string) {
 			var err error
-			req, err = http.NewRequest("POST", "/v3/apps", strings.NewReader(requestBody))
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps", strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
 		}
+
+		When("authInfo is not passed in the context", func() {
+			BeforeEach(func() {
+				ctx = context.Background()
+				requestBody := initializeCreateAppRequestBody(testAppName, "no-such-guid", nil, nil, nil)
+				queuePostRequest(requestBody)
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
 
 		When("the request body is invalid json", func() {
 			BeforeEach(func() {
@@ -413,8 +438,6 @@ var _ = Describe("AppHandler", func() {
 				},
 			}, nil)
 
-			ctx = authorization.NewContext(ctx, &authorization.Info{Token: "a-token"})
-
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps", nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -602,7 +625,7 @@ var _ = Describe("AppHandler", func() {
 			It("invokes the repository with the provided auth info", func() {
 				Expect(appRepo.FetchAppListCallCount()).To(Equal(1))
 				_, authInfo, _ := appRepo.FetchAppListArgsForCall(0)
-				Expect(authInfo).To(Equal(authorization.Info{Token: "a-token"}))
+				Expect(authInfo).To(Equal(authInfo))
 			})
 
 			When("filtering query params are provided", func() {
@@ -712,7 +735,7 @@ var _ = Describe("AppHandler", func() {
 			}, nil)
 
 			var err error
-			req, err = http.NewRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
+			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
 					{ "data": { "guid": "`+dropletGUID+`" } }
                 `))
 			Expect(err).NotTo(HaveOccurred())
@@ -809,7 +832,7 @@ var _ = Describe("AppHandler", func() {
 		When("the guid is missing", func() {
 			BeforeEach(func() {
 				var err error
-				req, err = http.NewRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
+				req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
 					{ "data": {  } }
                 `))
 				Expect(err).NotTo(HaveOccurred())
@@ -818,17 +841,6 @@ var _ = Describe("AppHandler", func() {
 			It("returns an error", func() {
 				expectUnprocessableEntityError("GUID is a required field")
 			})
-		})
-
-		When("building the client errors", func() {
-			BeforeEach(func() {
-				clientBuilder.Returns(nil, errors.New("boom"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-			itDoesntSetTheCurrentDroplet()
 		})
 
 		When("fetching the App errors", func() {
@@ -886,7 +898,7 @@ var _ = Describe("AppHandler", func() {
 			appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
 
 			var err error
-			req, err = http.NewRequest("POST", "/v3/apps/"+appGUID+"/actions/start", nil)
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/"+appGUID+"/actions/start", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -1048,7 +1060,7 @@ var _ = Describe("AppHandler", func() {
 			appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
 
 			var err error
-			req, err = http.NewRequest("POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -1154,7 +1166,7 @@ var _ = Describe("AppHandler", func() {
 				appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
 
 				var err error
-				req, err = http.NewRequest("POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1409,7 +1421,7 @@ var _ = Describe("AppHandler", func() {
 			}, nil)
 
 			var err error
-			req, err = http.NewRequest("GET", "/v3/apps/"+appGUID+"/processes", nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/processes", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 		When("On the happy path and", func() {
@@ -1619,7 +1631,7 @@ var _ = Describe("AppHandler", func() {
 
 		queuePostRequest := func(requestBody string) {
 			var err error
-			req, err = http.NewRequest("POST", "/v3/apps/"+appGUID+"/processes/"+processType+"/actions/scale", strings.NewReader(requestBody))
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/"+appGUID+"/processes/"+processType+"/actions/scale", strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
 		}
 
@@ -1842,7 +1854,7 @@ var _ = Describe("AppHandler", func() {
 		When("the validating scale parameters", func() {
 			DescribeTable("returns validation",
 				func(requestBody string, status int) {
-					var tableTestRecorder *httptest.ResponseRecorder = httptest.NewRecorder()
+					tableTestRecorder := httptest.NewRecorder()
 					queuePostRequest(requestBody)
 					router.ServeHTTP(tableTestRecorder, req)
 					Expect(tableTestRecorder.Code).To(Equal(status))
@@ -1903,11 +1915,25 @@ var _ = Describe("AppHandler", func() {
 			domainRepo.FetchDomainReturns(*domainRecord, nil)
 
 			var err error
-			req, err = http.NewRequest("GET", "/v3/apps/"+appGUID+"/routes", nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/routes", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("on the happy path and", func() {
+			It("sends authInfo from the context to the repo methods", func() {
+				Expect(appRepo.FetchAppCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := appRepo.FetchAppArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+
+				Expect(routeRepo.FetchRoutesForAppCallCount()).To(Equal(1))
+				_, actualAuthInfo, _, _ = routeRepo.FetchRoutesForAppArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+
+				Expect(domainRepo.FetchDomainCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ = domainRepo.FetchDomainArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+
 			When("the App has associated routes", func() {
 				It("returns status 200 OK", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
@@ -2041,6 +2067,18 @@ var _ = Describe("AppHandler", func() {
 					expectUnknownError()
 				})
 			})
+
+			When("there is no authInfo in the context", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequest("GET", "/v3/apps/"+appGUID+"/routes", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
+			})
 		})
 	})
 
@@ -2084,13 +2122,23 @@ var _ = Describe("AppHandler", func() {
 			dropletRepo.FetchDropletReturns(droplet, nil)
 
 			var err error
-			req, err = http.NewRequest("GET", "/v3/apps/"+appGUID+"/droplets/current", nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/droplets/current", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("on the happy path", func() {
 			It("responds with a 200 code", func() {
 				Expect(rr.Code).To(Equal(200))
+			})
+
+			It("sends the authInfo from the context to the repo methods", func() {
+				Expect(appRepo.FetchAppCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := appRepo.FetchAppArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+
+				Expect(dropletRepo.FetchDropletCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ = dropletRepo.FetchDropletArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
 			It("responds with the current droplet encoded as JSON", func() {
@@ -2192,16 +2240,6 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("building the client errors", func() {
-			BeforeEach(func() {
-				clientBuilder.Returns(nil, errors.New("boom"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
 		When("fetching the App errors", func() {
 			BeforeEach(func() {
 				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("boom"))
@@ -2215,6 +2253,18 @@ var _ = Describe("AppHandler", func() {
 		When("fetching the Droplet errors", func() {
 			BeforeEach(func() {
 				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("there is no authInfo in the context", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("GET", "/v3/apps/"+appGUID+"/droplets/current", nil)
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("returns an error", func() {
@@ -2248,8 +2298,24 @@ var _ = Describe("AppHandler", func() {
 			podRepo.WatchForPodsTerminationReturns(true, nil)
 
 			var err error
-			req, err = http.NewRequest("POST", "/v3/apps/"+appGUID+"/actions/restart", nil)
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/"+appGUID+"/actions/restart", nil)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("sends the authInfo from the context to the repo methods", func() {
+			Expect(appRepo.FetchAppCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := appRepo.FetchAppArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+
+			Expect(appRepo.SetAppDesiredStateCallCount()).To(Equal(2))
+			_, actualAuthInfo, _ = appRepo.SetAppDesiredStateArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			_, actualAuthInfo, _ = appRepo.SetAppDesiredStateArgsForCall(1)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+
+			Expect(podRepo.WatchForPodsTerminationCallCount()).To(Equal(1))
+			_, actualAuthInfo, _, _ = podRepo.WatchForPodsTerminationArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
 		})
 
 		When("the app is in STARTED state", func() {
@@ -2514,6 +2580,18 @@ var _ = Describe("AppHandler", func() {
 		When("setDesiredAppState to STARTED returns an error", func() {
 			BeforeEach(func() {
 				appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, errors.New("some-error"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("there is no authInfo in the context", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("POST", "/v3/apps/"+appGUID+"/actions/restart", nil)
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("returns an error", func() {

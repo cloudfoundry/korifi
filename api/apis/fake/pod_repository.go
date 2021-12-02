@@ -6,16 +6,16 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type PodRepository struct {
-	FetchPodStatsByAppGUIDStub        func(context.Context, client.Client, repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)
+	FetchPodStatsByAppGUIDStub        func(context.Context, authorization.Info, repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)
 	fetchPodStatsByAppGUIDMutex       sync.RWMutex
 	fetchPodStatsByAppGUIDArgsForCall []struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 repositories.FetchPodStatsMessage
 	}
 	fetchPodStatsByAppGUIDReturns struct {
@@ -26,11 +26,11 @@ type PodRepository struct {
 		result1 []repositories.PodStatsRecord
 		result2 error
 	}
-	WatchForPodsTerminationStub        func(context.Context, client.Client, string, string) (bool, error)
+	WatchForPodsTerminationStub        func(context.Context, authorization.Info, string, string) (bool, error)
 	watchForPodsTerminationMutex       sync.RWMutex
 	watchForPodsTerminationArgsForCall []struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 string
 		arg4 string
 	}
@@ -46,12 +46,12 @@ type PodRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *PodRepository) FetchPodStatsByAppGUID(arg1 context.Context, arg2 client.Client, arg3 repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error) {
+func (fake *PodRepository) FetchPodStatsByAppGUID(arg1 context.Context, arg2 authorization.Info, arg3 repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error) {
 	fake.fetchPodStatsByAppGUIDMutex.Lock()
 	ret, specificReturn := fake.fetchPodStatsByAppGUIDReturnsOnCall[len(fake.fetchPodStatsByAppGUIDArgsForCall)]
 	fake.fetchPodStatsByAppGUIDArgsForCall = append(fake.fetchPodStatsByAppGUIDArgsForCall, struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 repositories.FetchPodStatsMessage
 	}{arg1, arg2, arg3})
 	stub := fake.FetchPodStatsByAppGUIDStub
@@ -73,13 +73,13 @@ func (fake *PodRepository) FetchPodStatsByAppGUIDCallCount() int {
 	return len(fake.fetchPodStatsByAppGUIDArgsForCall)
 }
 
-func (fake *PodRepository) FetchPodStatsByAppGUIDCalls(stub func(context.Context, client.Client, repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)) {
+func (fake *PodRepository) FetchPodStatsByAppGUIDCalls(stub func(context.Context, authorization.Info, repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)) {
 	fake.fetchPodStatsByAppGUIDMutex.Lock()
 	defer fake.fetchPodStatsByAppGUIDMutex.Unlock()
 	fake.FetchPodStatsByAppGUIDStub = stub
 }
 
-func (fake *PodRepository) FetchPodStatsByAppGUIDArgsForCall(i int) (context.Context, client.Client, repositories.FetchPodStatsMessage) {
+func (fake *PodRepository) FetchPodStatsByAppGUIDArgsForCall(i int) (context.Context, authorization.Info, repositories.FetchPodStatsMessage) {
 	fake.fetchPodStatsByAppGUIDMutex.RLock()
 	defer fake.fetchPodStatsByAppGUIDMutex.RUnlock()
 	argsForCall := fake.fetchPodStatsByAppGUIDArgsForCall[i]
@@ -112,12 +112,12 @@ func (fake *PodRepository) FetchPodStatsByAppGUIDReturnsOnCall(i int, result1 []
 	}{result1, result2}
 }
 
-func (fake *PodRepository) WatchForPodsTermination(arg1 context.Context, arg2 client.Client, arg3 string, arg4 string) (bool, error) {
+func (fake *PodRepository) WatchForPodsTermination(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 string) (bool, error) {
 	fake.watchForPodsTerminationMutex.Lock()
 	ret, specificReturn := fake.watchForPodsTerminationReturnsOnCall[len(fake.watchForPodsTerminationArgsForCall)]
 	fake.watchForPodsTerminationArgsForCall = append(fake.watchForPodsTerminationArgsForCall, struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 string
 		arg4 string
 	}{arg1, arg2, arg3, arg4})
@@ -140,13 +140,13 @@ func (fake *PodRepository) WatchForPodsTerminationCallCount() int {
 	return len(fake.watchForPodsTerminationArgsForCall)
 }
 
-func (fake *PodRepository) WatchForPodsTerminationCalls(stub func(context.Context, client.Client, string, string) (bool, error)) {
+func (fake *PodRepository) WatchForPodsTerminationCalls(stub func(context.Context, authorization.Info, string, string) (bool, error)) {
 	fake.watchForPodsTerminationMutex.Lock()
 	defer fake.watchForPodsTerminationMutex.Unlock()
 	fake.WatchForPodsTerminationStub = stub
 }
 
-func (fake *PodRepository) WatchForPodsTerminationArgsForCall(i int) (context.Context, client.Client, string, string) {
+func (fake *PodRepository) WatchForPodsTerminationArgsForCall(i int) (context.Context, authorization.Info, string, string) {
 	fake.watchForPodsTerminationMutex.RLock()
 	defer fake.watchForPodsTerminationMutex.RUnlock()
 	argsForCall := fake.watchForPodsTerminationArgsForCall[i]

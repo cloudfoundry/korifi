@@ -47,7 +47,7 @@ func (h *WhoAmIHandler) whoAmIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	identity, err := h.identityProvider.GetIdentity(ctx, *authInfo)
+	identity, err := h.identityProvider.GetIdentity(ctx, authInfo)
 	if err != nil {
 		writeUnknownErrorResponse(w)
 		return

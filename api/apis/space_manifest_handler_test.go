@@ -11,7 +11,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
@@ -20,14 +19,12 @@ import (
 
 var _ = Describe("SpaceManifestHandler", func() {
 	var (
-		clientBuilder       *fake.ClientBuilderFunc
 		applyManifestAction *fake.ApplyManifestAction
 		spaceRepo           *repositoriesfake.CFSpaceRepository
 		req                 *http.Request
 	)
 
 	BeforeEach(func() {
-		clientBuilder = new(fake.ClientBuilderFunc)
 		applyManifestAction = new(fake.ApplyManifestAction)
 		spaceRepo = new(repositoriesfake.CFSpaceRepository)
 
@@ -54,8 +51,6 @@ var _ = Describe("SpaceManifestHandler", func() {
 			*serverURL,
 			applyManifestAction.Spy,
 			spaceRepo,
-			clientBuilder.Spy,
-			&rest.Config{},
 		)
 		apiHandler.RegisterRoutes(router)
 	})
@@ -63,7 +58,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 	Describe("POST /v3/spaces/{spaceGUID}/actions/apply_manifest", func() {
 		BeforeEach(func() {
 			var err error
-			req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
                 version: 1
                 applications:
                   - name: app1
@@ -79,7 +74,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		When("unsupported fields are provided", func() {
 			BeforeEach(func() {
 				var err error
-				req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
                 version: 1
                 applications:
                 - name: app1
@@ -129,6 +124,12 @@ var _ = Describe("SpaceManifestHandler", func() {
 				req.Header.Add("Content-type", "application/x-yaml")
 			})
 
+			It("passes the authInfo from context to applyManifestAction", func() {
+				Expect(applyManifestAction.CallCount()).To(Equal(1))
+				_, actualAuthInfo, _, _ := applyManifestAction.ArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+
 			It("creates the record without erroring", func() {
 				Expect(rr.Code).To(Equal(http.StatusAccepted))
 				Expect(rr.Header().Get("Location")).To(Equal(defaultServerURI("/v3/jobs/sync-space.apply_manifest-", spaceGUID)))
@@ -139,7 +140,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		When("the manifest contains multiple apps", func() {
 			BeforeEach(func() {
 				var err error
-				req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
                 version: 1
                 applications:
                   - name: app1
@@ -161,7 +162,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		When("the application name is missing", func() {
 			BeforeEach(func() {
 				var err error
-				req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
                 version: 1
                 applications:
                 - {}
@@ -177,7 +178,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		When("the application process instance count is negative", func() {
 			BeforeEach(func() {
 				var err error
-				req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
                 version: 1
                 applications:
                 - name: test-app
@@ -196,7 +197,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		When("the application process disk is not a positive integer", func() {
 			BeforeEach(func() {
 				var err error
-				req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
                 version: 1
                 applications:
                 - name: test-app
@@ -215,7 +216,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		When("the application process memory is not a positive integer", func() {
 			BeforeEach(func() {
 				var err error
-				req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
                 version: 1
                 applications:
                 - name: test-app
@@ -231,19 +232,26 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 		})
 
-		When("building the k8s client errors", func() {
+		When("applying the manifest errors", func() {
 			BeforeEach(func() {
-				clientBuilder.Returns(nil, errors.New("boom"))
+				applyManifestAction.Returns(errors.New("boom"))
 			})
 
-			It("responds with Unknown Error", func() {
+			It("respond with Unknown Error", func() {
 				expectUnknownError()
 			})
 		})
 
-		When("applying the manifest errors", func() {
+		When("there is no authinfo in the context", func() {
 			BeforeEach(func() {
-				applyManifestAction.Returns(errors.New("boom"))
+				var err error
+				req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+                version: 1
+                applications:
+                  - name: app1
+            `))
+				Expect(err).NotTo(HaveOccurred())
+				req.Header.Add("Content-type", "application/x-yaml")
 			})
 
 			It("respond with Unknown Error", func() {
@@ -255,7 +263,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 	Describe("POST /v3/spaces/{spaceGUID}/manifest_diff", func() {
 		BeforeEach(func() {
 			var err error
-			req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/manifest_diff", strings.NewReader(`---
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/manifest_diff", strings.NewReader(`---
 				version: 1
 				applications:
 				  - name: app1
@@ -281,7 +289,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		When("the space is not found", func() {
 			BeforeEach(func() {
 				var err error
-				req, err = http.NewRequest("POST", "/v3/spaces/"+"fake-space-guid"+"/manifest_diff", strings.NewReader(`---
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+"fake-space-guid"+"/manifest_diff", strings.NewReader(`---
 				version: 1
 				applications:
 				  - name: app1

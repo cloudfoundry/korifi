@@ -2,6 +2,7 @@ package apis_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +18,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -28,9 +28,8 @@ const (
 var _ = Describe("PackageHandler", func() {
 	Describe("the GET /v3/packages/:guid endpoint", func() {
 		var (
-			packageRepo   *fake.CFPackageRepository
-			appRepo       *fake.CFAppRepository
-			clientBuilder *fake.ClientBuilderFunc
+			packageRepo *fake.CFPackageRepository
+			appRepo     *fake.CFAppRepository
 		)
 
 		const (
@@ -42,7 +41,7 @@ var _ = Describe("PackageHandler", func() {
 		)
 
 		makeGetRequest := func(guid string) {
-			req, err := http.NewRequest("GET", "/v3/packages/"+guid, nil)
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/packages/"+guid, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			router.ServeHTTP(rr, req)
@@ -53,17 +52,13 @@ var _ = Describe("PackageHandler", func() {
 
 			appRepo = new(fake.CFAppRepository)
 
-			clientBuilder = new(fake.ClientBuilderFunc)
-
 			apiHandler := NewPackageHandler(
 				logf.Log.WithName(testPackageHandlerLoggerName),
 				*serverURL,
 				packageRepo,
 				appRepo,
-				clientBuilder.Spy,
 				nil,
 				nil,
-				&rest.Config{},
 				"",
 				"",
 			)
@@ -94,8 +89,10 @@ var _ = Describe("PackageHandler", func() {
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 			})
 
-			It("configures the client", func() {
-				Expect(clientBuilder.CallCount()).To(Equal(1))
+			It("provides the authorization.Info from the request context to the package repository", func() {
+				Expect(packageRepo.FetchPackageCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := packageRepo.FetchPackageArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
 			It("returns a JSON body", func() {
@@ -154,10 +151,6 @@ var _ = Describe("PackageHandler", func() {
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type heaer:")
 			})
 
-			It("configures the client", func() {
-				Expect(clientBuilder.CallCount()).To(Equal(1))
-			})
-
 			It("returns a JSON body", func() {
 				Expect(rr.Body.String()).To(MatchJSON(`
 				{
@@ -172,17 +165,27 @@ var _ = Describe("PackageHandler", func() {
             `))
 			})
 		})
+
+		When("the authorization.Info is not set in the context", func() {
+			BeforeEach(func() {
+				ctx = context.Background()
+				makeGetRequest(packageGUID)
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
+			})
+		})
 	})
 
 	Describe("the POST /v3/packages endpoint", func() {
 		var (
-			packageRepo   *fake.CFPackageRepository
-			appRepo       *fake.CFAppRepository
-			clientBuilder *fake.ClientBuilderFunc
+			packageRepo *fake.CFPackageRepository
+			appRepo     *fake.CFAppRepository
 		)
 
 		makePostRequest := func(body string) {
-			req, err := http.NewRequest("POST", "/v3/packages", strings.NewReader(body))
+			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/packages", strings.NewReader(body))
 			Expect(err).NotTo(HaveOccurred())
 
 			router.ServeHTTP(rr, req)
@@ -223,16 +226,12 @@ var _ = Describe("PackageHandler", func() {
 				SpaceGUID: spaceGUID,
 			}, nil)
 
-			clientBuilder = new(fake.ClientBuilderFunc)
-
 			apiHandler := NewPackageHandler(
 				logf.Log.WithName(testPackageHandlerLoggerName),
 				*serverURL,
 				packageRepo,
 				appRepo,
-				clientBuilder.Spy,
 				nil, nil,
-				&rest.Config{},
 				"", "",
 			)
 			apiHandler.RegisterRoutes(router)
@@ -252,13 +251,10 @@ var _ = Describe("PackageHandler", func() {
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 			})
 
-			It("configures the client", func() {
-				Expect(clientBuilder.CallCount()).To(Equal(1))
-			})
-
 			It("creates a CFPackage", func() {
 				Expect(packageRepo.CreatePackageCallCount()).To(Equal(1))
-				_, _, actualCreate := packageRepo.CreatePackageArgsForCall(0)
+				_, actualAuthInfo, actualCreate := packageRepo.CreatePackageArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 				Expect(actualCreate).To(Equal(repositories.PackageCreateMessage{
 					Type:      "bits",
 					AppGUID:   appGUID,
@@ -418,18 +414,6 @@ var _ = Describe("PackageHandler", func() {
 			})
 		})
 
-		When("building the k8s client errors", func() {
-			BeforeEach(func() {
-				clientBuilder.Returns(nil, errors.New("boom"))
-				makePostRequest(validBody)
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-			itDoesntCreateAPackage()
-		})
-
 		When("creating the package in the repo errors", func() {
 			BeforeEach(func() {
 				packageRepo.CreatePackageReturns(repositories.PackageRecord{}, errors.New("boom"))
@@ -437,6 +421,17 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the authorization.Info is not set in the context", func() {
+			BeforeEach(func() {
+				ctx = context.Background()
+				makePostRequest(validBody)
+			})
+
+			It("returns an unknown error", func() {
 				expectUnknownError()
 			})
 		})
@@ -449,7 +444,6 @@ var _ = Describe("PackageHandler", func() {
 			uploadImageSource *fake.SourceImageUploader
 			buildRegistryAuth *fake.RegistryAuthBuilder
 			credentialOption  remote.Option
-			clientBuilder     *fake.ClientBuilderFunc
 		)
 
 		makeUploadRequest := func(packageGUID string, file io.Reader) {
@@ -462,7 +456,7 @@ var _ = Describe("PackageHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(writer.Close()).To(Succeed())
 
-			req, err := http.NewRequest("POST", fmt.Sprintf("/v3/packages/%s/upload", packageGUID), &b)
+			req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("/v3/packages/%s/upload", packageGUID), &b)
 			Expect(err).NotTo(HaveOccurred())
 			req.Header.Add("Content-Type", writer.FormDataContentType())
 
@@ -505,7 +499,6 @@ var _ = Describe("PackageHandler", func() {
 			uploadImageSource.Returns(imageRefWithDigest, nil)
 
 			appRepo = new(fake.CFAppRepository)
-			clientBuilder = new(fake.ClientBuilderFunc)
 			credentialOption = remote.WithUserAgent("for-test-use-only") // real one should have credentials
 			buildRegistryAuth = new(fake.RegistryAuthBuilder)
 			buildRegistryAuth.Returns(credentialOption, nil)
@@ -515,10 +508,8 @@ var _ = Describe("PackageHandler", func() {
 				*serverURL,
 				packageRepo,
 				appRepo,
-				clientBuilder.Spy,
 				uploadImageSource.Spy,
 				buildRegistryAuth.Spy,
-				&rest.Config{},
 				packageRegistryBase,
 				packageImagePullSecretName,
 			)
@@ -540,14 +531,11 @@ var _ = Describe("PackageHandler", func() {
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 			})
 
-			It("configures the client", func() {
-				Expect(clientBuilder.CallCount()).To(Equal(1))
-			})
-
 			It("fetches the right package", func() {
 				Expect(packageRepo.FetchPackageCallCount()).To(Equal(1))
 
-				_, _, actualPackageGUID := packageRepo.FetchPackageArgsForCall(0)
+				_, actualAuthInfo, actualPackageGUID := packageRepo.FetchPackageArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 				Expect(actualPackageGUID).To(Equal(packageGUID))
 			})
 
@@ -563,7 +551,8 @@ var _ = Describe("PackageHandler", func() {
 
 			It("saves the uploaded image reference on the package", func() {
 				Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(1))
-				_, _, message := packageRepo.UpdatePackageSourceArgsForCall(0)
+				_, actualAuthInfo, message := packageRepo.UpdatePackageSourceArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 				Expect(message.GUID).To(Equal(packageGUID))
 				Expect(message.ImageRef).To(Equal(imageRefWithDigest))
 				Expect(message.RegistrySecretName).To(Equal(packageImagePullSecretName))
@@ -636,14 +625,13 @@ var _ = Describe("PackageHandler", func() {
 			itDoesntUpdateAnyPackages()
 		})
 
-		When("building the client errors", func() {
+		When("the authorization.Info is not set in the request context", func() {
 			BeforeEach(func() {
-				clientBuilder.Returns(nil, errors.New("boom"))
-
+				ctx = context.Background()
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
-			It("returns an error", func() {
+			It("returns an unknown error", func() {
 				expectUnknownError()
 			})
 			itDoesntBuildAnImageFromSource()
@@ -670,7 +658,7 @@ var _ = Describe("PackageHandler", func() {
 				writer := multipart.NewWriter(&b)
 				Expect(writer.Close()).To(Succeed())
 
-				req, err := http.NewRequest("POST", fmt.Sprintf("/v3/packages/%s/upload", packageGUID), &b)
+				req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("/v3/packages/%s/upload", packageGUID), &b)
 				Expect(err).NotTo(HaveOccurred())
 				req.Header.Add("Content-Type", writer.FormDataContentType())
 

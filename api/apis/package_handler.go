@@ -9,16 +9,14 @@ import (
 	"net/url"
 	"path"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -30,9 +28,9 @@ const (
 //counterfeiter:generate -o fake -fake-name CFPackageRepository . CFPackageRepository
 
 type CFPackageRepository interface {
-	FetchPackage(context.Context, client.Client, string) (repositories.PackageRecord, error)
-	CreatePackage(context.Context, client.Client, repositories.PackageCreateMessage) (repositories.PackageRecord, error)
-	UpdatePackageSource(ctx context.Context, client client.Client, message repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)
+	FetchPackage(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
+	CreatePackage(context.Context, authorization.Info, repositories.PackageCreateMessage) (repositories.PackageRecord, error)
+	UpdatePackageSource(context.Context, authorization.Info, repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name SourceImageUploader . SourceImageUploader
@@ -48,10 +46,8 @@ type PackageHandler struct {
 	serverURL          url.URL
 	packageRepo        CFPackageRepository
 	appRepo            CFAppRepository
-	buildClient        ClientBuilderFunc
 	uploadSourceImage  SourceImageUploader
 	buildRegistryAuth  RegistryAuthBuilder
-	k8sConfig          *rest.Config
 	registryBase       string
 	registrySecretName string
 }
@@ -61,10 +57,8 @@ func NewPackageHandler(
 	serverURL url.URL,
 	packageRepo CFPackageRepository,
 	appRepo CFAppRepository,
-	buildClient ClientBuilderFunc,
 	uploadSourceImage SourceImageUploader,
 	buildRegistryAuth RegistryAuthBuilder,
-	k8sConfig *rest.Config,
 	registryBase string,
 	registrySecretName string) *PackageHandler {
 	return &PackageHandler{
@@ -72,10 +66,8 @@ func NewPackageHandler(
 		serverURL:          serverURL,
 		packageRepo:        packageRepo,
 		appRepo:            appRepo,
-		buildClient:        buildClient,
 		uploadSourceImage:  uploadSourceImage,
 		buildRegistryAuth:  buildRegistryAuth,
-		k8sConfig:          k8sConfig,
 		registryBase:       registryBase,
 		registrySecretName: registrySecretName,
 	}
@@ -84,15 +76,15 @@ func NewPackageHandler(
 func (h PackageHandler) packageGetHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	client, err := h.buildClient(h.k8sConfig, req.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Info("Error building k8s client", "error", err.Error())
+	authInfo, ok := authorization.InfoFromContext(req.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
 	packageGUID := mux.Vars(req)["guid"]
-	record, err := h.packageRepo.FetchPackage(req.Context(), client, packageGUID)
+	record, err := h.packageRepo.FetchPackage(req.Context(), authInfo, packageGUID)
 	if err != nil {
 		switch {
 		case errors.As(err, new(repositories.NotFoundError)):
@@ -123,14 +115,14 @@ func (h PackageHandler) packageCreateHandler(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	client, err := h.buildClient(h.k8sConfig, req.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Info("Error building k8s client", "error", err.Error())
+	authInfo, ok := authorization.InfoFromContext(req.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	appRecord, err := h.appRepo.FetchApp(req.Context(), client, payload.Relationships.App.Data.GUID)
+	appRecord, err := h.appRepo.FetchApp(req.Context(), authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -143,7 +135,7 @@ func (h PackageHandler) packageCreateHandler(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	record, err := h.packageRepo.CreatePackage(req.Context(), client, payload.ToMessage(appRecord.SpaceGUID))
+	record, err := h.packageRepo.CreatePackage(req.Context(), authInfo, payload.ToMessage(appRecord.SpaceGUID))
 	if err != nil {
 		h.logger.Info("Error creating package with repository", "error", err.Error())
 		writeUnknownErrorResponse(w)
@@ -178,14 +170,14 @@ func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Re
 	}
 	defer bitsFile.Close()
 
-	client, err := h.buildClient(h.k8sConfig, req.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Info("Error building k8s client", "error", err.Error())
+	authInfo, ok := authorization.InfoFromContext(req.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	record, err := h.packageRepo.FetchPackage(req.Context(), client, packageGUID)
+	record, err := h.packageRepo.FetchPackage(req.Context(), authInfo, packageGUID)
 	if err != nil {
 		switch {
 		case errors.As(err, new(repositories.NotFoundError)):
@@ -219,7 +211,7 @@ func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	record, err = h.packageRepo.UpdatePackageSource(req.Context(), client, repositories.PackageUpdateSourceMessage{
+	record, err = h.packageRepo.UpdatePackageSource(req.Context(), authInfo, repositories.PackageUpdateSourceMessage{
 		GUID:               packageGUID,
 		SpaceGUID:          record.SpaceGUID,
 		ImageRef:           uploadedImageRef,

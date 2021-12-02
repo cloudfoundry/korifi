@@ -6,17 +6,15 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
-	"k8s.io/client-go/rest"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -26,30 +24,25 @@ const (
 //counterfeiter:generate -o fake -fake-name CFDomainRepository . CFDomainRepository
 
 type CFDomainRepository interface {
-	FetchDomain(context.Context, client.Client, string) (repositories.DomainRecord, error)
-	FetchDomainList(context.Context, client.Client, repositories.DomainListMessage) ([]repositories.DomainRecord, error)
+	FetchDomain(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
+	FetchDomainList(context.Context, authorization.Info, repositories.DomainListMessage) ([]repositories.DomainRecord, error)
 }
 
 type DomainHandler struct {
-	logger      logr.Logger
-	serverURL   url.URL
-	domainRepo  CFDomainRepository
-	buildClient ClientBuilderFunc
-	k8sConfig   *rest.Config // TODO: this would be global for all requests, not what we want
+	logger     logr.Logger
+	serverURL  url.URL
+	domainRepo CFDomainRepository
 }
 
 func NewDomainHandler(
 	logger logr.Logger,
 	serverURL url.URL,
 	domainRepo CFDomainRepository,
-	buildClient ClientBuilderFunc,
-	k8sConfig *rest.Config) *DomainHandler {
+) *DomainHandler {
 	return &DomainHandler{
-		logger:      logger,
-		serverURL:   serverURL,
-		domainRepo:  domainRepo,
-		buildClient: buildClient,
-		k8sConfig:   k8sConfig,
+		logger:     logger,
+		serverURL:  serverURL,
+		domainRepo: domainRepo,
 	}
 }
 
@@ -88,14 +81,14 @@ func (h *DomainHandler) DomainListHandler(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client")
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	domainList, err := h.domainRepo.FetchDomainList(ctx, client, domainListFilter.ToMessage())
+	domainList, err := h.domainRepo.FetchDomainList(ctx, authInfo, domainListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch domain(s) from Kubernetes")
 		writeUnknownErrorResponse(w)

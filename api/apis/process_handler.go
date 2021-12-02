@@ -9,15 +9,13 @@ import (
 
 	"github.com/gorilla/schema"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -30,21 +28,21 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
 type CFProcessRepository interface {
-	FetchProcess(context.Context, client.Client, string) (repositories.ProcessRecord, error)
-	FetchProcessList(context.Context, client.Client, repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error)
+	FetchProcess(context.Context, authorization.Info, string) (repositories.ProcessRecord, error)
+	FetchProcessList(context.Context, authorization.Info, repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
 type PodRepository interface {
-	FetchPodStatsByAppGUID(context.Context, client.Client, repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)
-	WatchForPodsTermination(context.Context, client.Client, string, string) (bool, error)
+	FetchPodStatsByAppGUID(context.Context, authorization.Info, repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)
+	WatchForPodsTermination(context.Context, authorization.Info, string, string) (bool, error)
 }
 
 //counterfeiter:generate -o fake -fake-name ScaleProcess . ScaleProcess
-type ScaleProcess func(ctx context.Context, client client.Client, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
+type ScaleProcess func(ctx context.Context, authInfo authorization.Info, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
 
 //counterfeiter:generate -o fake -fake-name FetchProcessStats . FetchProcessStats
-type FetchProcessStats func(context.Context, client.Client, string) ([]repositories.PodStatsRecord, error)
+type FetchProcessStats func(context.Context, authorization.Info, string) ([]repositories.PodStatsRecord, error)
 
 type ProcessHandler struct {
 	logger            logr.Logger
@@ -52,8 +50,6 @@ type ProcessHandler struct {
 	processRepo       CFProcessRepository
 	fetchProcessStats FetchProcessStats
 	scaleProcess      ScaleProcess
-	buildClient       ClientBuilderFunc
-	k8sConfig         *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
 func NewProcessHandler(
@@ -62,16 +58,13 @@ func NewProcessHandler(
 	processRepo CFProcessRepository,
 	fetchProcessStats FetchProcessStats,
 	scaleProcessFunc ScaleProcess,
-	buildClient ClientBuilderFunc,
-	k8sConfig *rest.Config) *ProcessHandler {
+) *ProcessHandler {
 	return &ProcessHandler{
 		logger:            logger,
 		serverURL:         serverURL,
 		processRepo:       processRepo,
 		fetchProcessStats: fetchProcessStats,
 		scaleProcess:      scaleProcessFunc,
-		buildClient:       buildClient,
-		k8sConfig:         k8sConfig,
 	}
 }
 
@@ -82,14 +75,14 @@ func (h *ProcessHandler) processGetHandler(w http.ResponseWriter, r *http.Reques
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client", "ProcessGUID", processGUID)
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	process, err := h.processRepo.FetchProcess(ctx, client, processGUID)
+	process, err := h.processRepo.FetchProcess(ctx, authInfo, processGUID)
 	if err != nil {
 		h.LogError(w, processGUID, err)
 		return
@@ -112,14 +105,14 @@ func (h *ProcessHandler) processGetSidecarsHandler(w http.ResponseWriter, r *htt
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client", "ProcessGUID", processGUID)
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	_, err = h.processRepo.FetchProcess(ctx, client, processGUID)
+	_, err := h.processRepo.FetchProcess(ctx, authInfo, processGUID)
 	if err != nil {
 		h.LogError(w, processGUID, err)
 		return
@@ -156,14 +149,14 @@ func (h *ProcessHandler) processScaleHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client", "ProcessGUID", processGUID)
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	processRecord, err := h.scaleProcess(ctx, client, processGUID, payload.ToRecord())
+	processRecord, err := h.scaleProcess(ctx, authInfo, processGUID, payload.ToRecord())
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -194,14 +187,14 @@ func (h *ProcessHandler) processGetStatsHandler(w http.ResponseWriter, r *http.R
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client", "ProcessGUID", processGUID)
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	records, err := h.fetchProcessStats(ctx, client, processGUID)
+	records, err := h.fetchProcessStats(ctx, authInfo, processGUID)
 	if err != nil {
 		h.LogError(w, processGUID, err)
 		return
@@ -251,14 +244,14 @@ func (h *ProcessHandler) processListHandler(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
-		h.logger.Error(err, "Unable to create Kubernetes client")
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	processList, err := h.processRepo.FetchProcessList(ctx, client, processListFilter.ToMessage())
+	processList, err := h.processRepo.FetchProcessList(ctx, authInfo, processListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch processes(s) from Kubernetes")
 		writeUnknownErrorResponse(w)

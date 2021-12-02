@@ -11,7 +11,6 @@ import (
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -104,7 +103,7 @@ var _ = Describe("Authentication Middleware", func() {
 		It("parses the Authorization header into an authorization.Info and injects it in the request context", func() {
 			actualAuthInfo, ok := authorization.InfoFromContext(actualReq.Context())
 			Expect(ok).To(BeTrue())
-			Expect(actualAuthInfo).To(PointTo(Equal(authorization.Info{Token: "the-token"})))
+			Expect(actualAuthInfo).To(Equal(authorization.Info{Token: "the-token"}))
 		})
 
 		When("the Authorization header is not well formed", func() {

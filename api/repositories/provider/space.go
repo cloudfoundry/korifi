@@ -31,7 +31,7 @@ func (p *SpaceRepositoryProvider) SpaceRepoForRequest(request *http.Request) (re
 		return nil, errors.New("no authorization info in the request context")
 	}
 
-	identity, err := p.identityProvider.GetIdentity(request.Context(), *authInfo)
+	identity, err := p.identityProvider.GetIdentity(request.Context(), authInfo)
 	if err != nil {
 		return nil, err
 	}

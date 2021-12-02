@@ -6,13 +6,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	"gopkg.in/yaml.v3"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
@@ -27,27 +25,22 @@ type SpaceManifestHandler struct {
 	serverURL           url.URL
 	applyManifestAction ApplyManifestAction
 	spaceRepo           repositories.CFSpaceRepository
-	buildClient         ClientBuilderFunc
-	k8sConfig           *rest.Config // TODO: this would be global for all requests, not what we want
 }
 
 //counterfeiter:generate -o fake -fake-name ApplyManifestAction . ApplyManifestAction
-type ApplyManifestAction func(ctx context.Context, c client.Client, spaceGUID string, manifest payloads.Manifest) error
+type ApplyManifestAction func(ctx context.Context, authInfo authorization.Info, spaceGUID string, manifest payloads.Manifest) error
 
 func NewSpaceManifestHandler(
 	logger logr.Logger,
 	serverURL url.URL,
 	applyManifestAction ApplyManifestAction,
 	spaceRepo repositories.CFSpaceRepository,
-	buildClient ClientBuilderFunc,
-	k8sConfig *rest.Config) *SpaceManifestHandler {
+) *SpaceManifestHandler {
 	return &SpaceManifestHandler{
 		logger:              logger,
 		serverURL:           serverURL,
 		applyManifestAction: applyManifestAction,
 		spaceRepo:           spaceRepo,
-		buildClient:         buildClient,
-		k8sConfig:           k8sConfig,
 	}
 }
 
@@ -68,15 +61,15 @@ func (h *SpaceManifestHandler) applyManifestHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	client, err := h.buildClient(h.k8sConfig, r.Header.Get(headers.Authorization))
-	if err != nil {
+	authInfo, ok := authorization.InfoFromContext(r.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
 		w.Header().Set("Content-Type", "application/json")
-		h.logger.Error(err, "Unable to create Kubernetes client")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	err = h.applyManifestAction(r.Context(), client, spaceGUID, manifest)
+	err := h.applyManifestAction(r.Context(), authInfo, spaceGUID, manifest)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		h.logger.Error(err, "error applying the manifest")

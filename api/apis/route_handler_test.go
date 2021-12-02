@@ -1,6 +1,7 @@
 package apis_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,7 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -30,19 +30,17 @@ var _ = Describe("RouteHandler", func() {
 	)
 
 	var (
-		routeRepo     *fake.CFRouteRepository
-		domainRepo    *fake.CFDomainRepository
-		appRepo       *fake.CFAppRepository
-		clientBuilder *fake.ClientBuilderFunc
-		routeRecord   repositories.RouteRecord
-		req           *http.Request
+		routeRepo   *fake.CFRouteRepository
+		domainRepo  *fake.CFDomainRepository
+		appRepo     *fake.CFAppRepository
+		routeRecord repositories.RouteRecord
+		req         *http.Request
 	)
 
 	BeforeEach(func() {
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
 		appRepo = new(fake.CFAppRepository)
-		clientBuilder = new(fake.ClientBuilderFunc)
 
 		routeHandler := NewRouteHandler(
 			logf.Log.WithName("TestRouteHandler"),
@@ -50,8 +48,6 @@ var _ = Describe("RouteHandler", func() {
 			routeRepo,
 			domainRepo,
 			appRepo,
-			clientBuilder.Spy,
-			&rest.Config{}, // required for k8s client (transitive dependency from route repo)
 		)
 		routeHandler.RegisterRoutes(router)
 	})
@@ -76,7 +72,7 @@ var _ = Describe("RouteHandler", func() {
 			}, nil)
 
 			var err error
-			req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s", testRouteGUID), nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("/v3/routes/%s", testRouteGUID), nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -87,6 +83,12 @@ var _ = Describe("RouteHandler", func() {
 
 			It("returns status 200 OK", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("provides the authorization.Info from the context to the domain repository", func() {
+				Expect(domainRepo.FetchDomainCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := domainRepo.FetchDomainArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
 			It("returns Content-Type as JSON in header", func() {
@@ -188,6 +190,20 @@ var _ = Describe("RouteHandler", func() {
 				expectUnknownError()
 			})
 		})
+
+		When("the authorization.Info is not set in the request context", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s", testRouteGUID), nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				router.ServeHTTP(rr, req)
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
+			})
+		})
 	})
 
 	Describe("the GET /v3/routes endpoint", func() {
@@ -220,7 +236,7 @@ var _ = Describe("RouteHandler", func() {
 			domainRepo.FetchDomainReturns(*domainRecord, nil)
 
 			var err error
-			req, err = http.NewRequest("GET", "/v3/routes", nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -229,6 +245,22 @@ var _ = Describe("RouteHandler", func() {
 		})
 
 		When("on the happy path", func() {
+			It("provides the authorization.Info from the context to the domain repository", func() {
+				Expect(domainRepo.FetchDomainCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := domainRepo.FetchDomainArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+
+			It("provides the authorization.Info from the context to the routes repository", func() {
+				Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
+				_, actualAuthInfo := routeRepo.FetchRouteListArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
 
 			When("query parameters are not provided", func() {
 				It("returns status 200 OK", func() {
@@ -239,6 +271,7 @@ var _ = Describe("RouteHandler", func() {
 					contentTypeHeader := rr.Header().Get("Content-Type")
 					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 				})
+
 				It("returns the Pagination Data and App Resources in the response", func() {
 					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 				"pagination": {
@@ -317,7 +350,6 @@ var _ = Describe("RouteHandler", func() {
 					Expect(message.AppGUIDs[0]).To(Equal("my-app-guid"))
 				})
 			})
-
 		})
 
 		When("no routes exist", func() {
@@ -386,11 +418,23 @@ var _ = Describe("RouteHandler", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids'")
 			})
 		})
+
+		When("the authorization.Info is not set in the request context", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s", testRouteGUID), nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
+			})
+		})
 	})
 
 	Describe("the POST /v3/routes endpoint", func() {
 		makePostRequest := func(requestBody string) {
-			request, err := http.NewRequest("POST", "/v3/routes", strings.NewReader(requestBody))
+			request, err := http.NewRequestWithContext(ctx, "POST", "/v3/routes", strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
 
 			router.ServeHTTP(rr, request)
@@ -435,6 +479,18 @@ var _ = Describe("RouteHandler", func() {
 					Expect(domainRepo.FetchDomainCallCount()).To(Equal(1), "Repo FetchDomain was not called")
 					_, _, actualDomainGUID := domainRepo.FetchDomainArgsForCall(0)
 					Expect(actualDomainGUID).To(Equal(testDomainGUID), "FetchDomain was not passed the correct GUID")
+				})
+
+				It("provides the authorization.Info from the context to the domain repository", func() {
+					Expect(domainRepo.FetchDomainCallCount()).To(Equal(1))
+					_, actualAuthInfo, _ := domainRepo.FetchDomainArgsForCall(0)
+					Expect(actualAuthInfo).To(Equal(authInfo))
+				})
+
+				It("provides the authorization.Info from the context to the routes repository", func() {
+					Expect(routeRepo.CreateRouteCallCount()).To(Equal(1))
+					_, actualAuthInfo, _ := routeRepo.CreateRouteArgsForCall(0)
+					Expect(actualAuthInfo).To(Equal(authInfo))
 				})
 
 				It("invokes repo CreateRoute with a random GUID", func() {
@@ -719,19 +775,6 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("the client cannot be built", func() {
-			BeforeEach(func() {
-				clientBuilder.Returns(nil, errors.New("failed to build client"))
-
-				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, testDomainGUID, nil, nil)
-				makePostRequest(requestBody)
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
 		When("the space does not exist", func() {
 			BeforeEach(func() {
 				appRepo.FetchNamespaceReturns(repositories.SpaceRecord{},
@@ -818,6 +861,18 @@ var _ = Describe("RouteHandler", func() {
 				expectUnknownError()
 			})
 		})
+
+		When("authrorization.Info is not set in the request context", func() {
+			BeforeEach(func() {
+				ctx = context.Background()
+				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
+				makePostRequest(requestBody)
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
+			})
+		})
 	})
 
 	Describe("the GET /v3/routes/:guid/destinations endpoint", func() {
@@ -850,7 +905,7 @@ var _ = Describe("RouteHandler", func() {
 			routeRepo.FetchRouteReturns(routeRecord, nil)
 
 			var err error
-			req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s/destinations", testRouteGUID), nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("/v3/routes/%s/destinations", testRouteGUID), nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -862,6 +917,12 @@ var _ = Describe("RouteHandler", func() {
 			When("the Route has destinations", func() {
 				It("returns status 200 OK", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("provides the authorization.Info from the context to the routes repository", func() {
+					Expect(routeRepo.FetchRouteCallCount()).To(Equal(1))
+					_, actualAuthInfo, _ := routeRepo.FetchRouteArgsForCall(0)
+					Expect(actualAuthInfo).To(Equal(authInfo))
 				})
 
 				It("returns Content-Type as JSON in header", func() {
@@ -976,6 +1037,19 @@ var _ = Describe("RouteHandler", func() {
 				expectUnknownError()
 			})
 		})
+
+		When("authrorization.Info is not set in the request context", func() {
+			BeforeEach(func() {
+				ctx = context.Background()
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("/v3/routes/%s/destinations", testRouteGUID), nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
+			})
+		})
 	})
 
 	Describe("the POST /v3/routes/:guid/destinations endpoint", func() {
@@ -995,7 +1069,7 @@ var _ = Describe("RouteHandler", func() {
 		var domain repositories.DomainRecord
 
 		makePostRequest := func(requestBody string, sprintfArgs ...interface{}) {
-			req, err := http.NewRequest("POST", "/v3/routes/"+routeGUID+"/destinations",
+			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/routes/"+routeGUID+"/destinations",
 				strings.NewReader(
 					fmt.Sprintf(requestBody, sprintfArgs...),
 				),
@@ -1067,6 +1141,20 @@ var _ = Describe("RouteHandler", func() {
 						}
 					]
 				}`, destination1AppGUID, destination2AppGUID, destination2ProcessType, destination2Port)
+			})
+
+			It("passes the authInfo into the repo calls", func() {
+				Expect(routeRepo.FetchRouteCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := routeRepo.FetchRouteArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+
+				Expect(domainRepo.FetchDomainCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ = domainRepo.FetchDomainArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+
+				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ = routeRepo.AddDestinationsToRouteArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
 			It("returns a success and a valid response", func() {
@@ -1175,6 +1263,16 @@ var _ = Describe("RouteHandler", func() {
 			When("adding the destinations to the Route errors", func() {
 				BeforeEach(func() {
 					routeRepo.AddDestinationsToRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
+				})
+
+				It("responds with an Unknown Error", func() {
+					expectUnknownError()
+				})
+			})
+
+			When("auth info is not set in the context", func() {
+				BeforeEach(func() {
+					ctx = context.Background()
 				})
 
 				It("responds with an Unknown Error", func() {

@@ -1,6 +1,7 @@
 package apis_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -26,7 +26,6 @@ var _ = Describe("ProcessHandler", func() {
 		processRepo       *fake.CFProcessRepository
 		fetchProcessStats *fake.FetchProcessStats
 		scaleProcessFunc  *fake.ScaleProcess
-		clientBuilder     *fake.ClientBuilderFunc
 		req               *http.Request
 	)
 
@@ -34,7 +33,6 @@ var _ = Describe("ProcessHandler", func() {
 		processRepo = new(fake.CFProcessRepository)
 		fetchProcessStats = new(fake.FetchProcessStats)
 		scaleProcessFunc = new(fake.ScaleProcess)
-		clientBuilder = new(fake.ClientBuilderFunc)
 
 		apiHandler := NewProcessHandler(
 			logf.Log.WithName(testAppHandlerLoggerName),
@@ -42,8 +40,6 @@ var _ = Describe("ProcessHandler", func() {
 			processRepo,
 			fetchProcessStats.Spy,
 			scaleProcessFunc.Spy,
-			clientBuilder.Spy,
-			&rest.Config{},
 		)
 		apiHandler.RegisterRoutes(router)
 	})
@@ -95,13 +91,19 @@ var _ = Describe("ProcessHandler", func() {
 			}, nil)
 
 			var err error
-			req, err = http.NewRequest("GET", "/v3/processes/"+processGUID, nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes/"+processGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("on the happy path", func() {
 			It("returns status 200 OK", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("passes the authorization.Info to the process repository", func() {
+				Expect(processRepo.FetchProcessCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := processRepo.FetchProcessArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
 			It("returns a process", func() {
@@ -177,6 +179,18 @@ var _ = Describe("ProcessHandler", func() {
 					expectUnknownError()
 				})
 			})
+
+			When("the authorization.Info is not set in the request context", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequest("GET", "/v3/processes/"+processGUID, nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an unknown error", func() {
+					expectUnknownError()
+				})
+			})
 		})
 	})
 
@@ -185,13 +199,19 @@ var _ = Describe("ProcessHandler", func() {
 			processRepo.FetchProcessReturns(repositories.ProcessRecord{}, nil)
 
 			var err error
-			req, err = http.NewRequest("GET", "/v3/processes/"+processGUID+"/sidecars", nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes/"+processGUID+"/sidecars", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("on the happy path", func() {
 			It("returns status 200 OK", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("passes the authorization.Info to the process repository", func() {
+				Expect(processRepo.FetchProcessCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := processRepo.FetchProcessArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
 			It("returns a canned response with the processGUID in it", func() {
@@ -236,6 +256,18 @@ var _ = Describe("ProcessHandler", func() {
 					expectUnknownError()
 				})
 			})
+
+			When("the authorization.Info is not set in the request context", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequest("GET", "/v3/processes/"+processGUID, nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an unknown error", func() {
+					expectUnknownError()
+				})
+			})
 		})
 	})
 
@@ -263,7 +295,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		queuePostRequest := func(requestBody string) {
 			var err error
-			req, err = http.NewRequest("POST", "/v3/processes/"+processGUID+"/actions/scale", strings.NewReader(requestBody))
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/processes/"+processGUID+"/actions/scale", strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
 		}
 
@@ -295,6 +327,12 @@ var _ = Describe("ProcessHandler", func() {
 		})
 
 		When("on the happy path and", func() {
+			It("passes the authorization.Info to the scale func", func() {
+				Expect(scaleProcessFunc.CallCount()).To(Equal(1))
+				_, actualAuthInfo, _, _ := scaleProcessFunc.ArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+
 			When("all scale fields are set", func() {
 				It("returns status 200 OK", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
@@ -471,6 +509,22 @@ var _ = Describe("ProcessHandler", func() {
 					expectUnknownError()
 				})
 			})
+
+			When("authorization.Info is not set in the request context", func() {
+				BeforeEach(func() {
+					ctx = context.Background()
+
+					queuePostRequest(fmt.Sprintf(`{
+                        "instances": %[1]d,
+                        "memory_in_mb": %[2]d,
+                        "disk_in_mb": %[3]d
+                    }`, instances, memoryInMB, diskInMB))
+				})
+
+				It("returns an unknown error", func() {
+					expectUnknownError()
+				})
+			})
 		})
 
 		When("validating scale parameters", func() {
@@ -507,13 +561,19 @@ var _ = Describe("ProcessHandler", func() {
 			}, nil)
 
 			var err error
-			req, err = http.NewRequest("GET", "/v3/processes/"+processGUID+"/stats", nil)
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes/"+processGUID+"/stats", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("on the happy path", func() {
 			It("returns status 200 OK", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP reponse code:")
+			})
+
+			It("passes the authorization.Info to the fetch process stats func", func() {
+				Expect(fetchProcessStats.CallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := fetchProcessStats.ArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
 			It("returns a canned response with the processGUID in it", func() {
@@ -568,6 +628,18 @@ var _ = Describe("ProcessHandler", func() {
 			})
 			It("an error", func() {
 				expectNotFoundError("App not found")
+			})
+		})
+
+		When("authorization.Info is not set in the request context", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("GET", "/v3/processes/"+processGUID+"/stats", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
 			})
 		})
 	})

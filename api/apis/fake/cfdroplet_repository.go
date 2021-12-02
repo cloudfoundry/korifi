@@ -6,16 +6,16 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type CFDropletRepository struct {
-	FetchDropletStub        func(context.Context, client.Client, string) (repositories.DropletRecord, error)
+	FetchDropletStub        func(context.Context, authorization.Info, string) (repositories.DropletRecord, error)
 	fetchDropletMutex       sync.RWMutex
 	fetchDropletArgsForCall []struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 string
 	}
 	fetchDropletReturns struct {
@@ -30,12 +30,12 @@ type CFDropletRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFDropletRepository) FetchDroplet(arg1 context.Context, arg2 client.Client, arg3 string) (repositories.DropletRecord, error) {
+func (fake *CFDropletRepository) FetchDroplet(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.DropletRecord, error) {
 	fake.fetchDropletMutex.Lock()
 	ret, specificReturn := fake.fetchDropletReturnsOnCall[len(fake.fetchDropletArgsForCall)]
 	fake.fetchDropletArgsForCall = append(fake.fetchDropletArgsForCall, struct {
 		arg1 context.Context
-		arg2 client.Client
+		arg2 authorization.Info
 		arg3 string
 	}{arg1, arg2, arg3})
 	stub := fake.FetchDropletStub
@@ -57,13 +57,13 @@ func (fake *CFDropletRepository) FetchDropletCallCount() int {
 	return len(fake.fetchDropletArgsForCall)
 }
 
-func (fake *CFDropletRepository) FetchDropletCalls(stub func(context.Context, client.Client, string) (repositories.DropletRecord, error)) {
+func (fake *CFDropletRepository) FetchDropletCalls(stub func(context.Context, authorization.Info, string) (repositories.DropletRecord, error)) {
 	fake.fetchDropletMutex.Lock()
 	defer fake.fetchDropletMutex.Unlock()
 	fake.FetchDropletStub = stub
 }
 
-func (fake *CFDropletRepository) FetchDropletArgsForCall(i int) (context.Context, client.Client, string) {
+func (fake *CFDropletRepository) FetchDropletArgsForCall(i int) (context.Context, authorization.Info, string) {
 	fake.fetchDropletMutex.RLock()
 	defer fake.fetchDropletMutex.RUnlock()
 	argsForCall := fake.fetchDropletArgsForCall[i]
