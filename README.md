@@ -116,6 +116,34 @@ helm template eirini-controller "deployment/helm" \
   --namespace "eirini-controller" | kubectl apply -f -
 ```
 ---
+### Install Hierarchical Namespaces Controller
+```sh
+kubectl apply -f "https://github.com/kubernetes-sigs/hierarchical-namespaces/releases/download/v0.9.0/hnc-manager.yaml"
+```
+After running the above command, it will take up to 30s for HNC to refresh the
+certificates on its webhooks. In the meantime, install the kubectl HNC plugin as
+follows:
+
+```sh
+HNC_VERSION=v0.9.0
+HNC_PLATFORM=darwin_amd64 # also supported: linux_amd64, windows_amd64
+curl -L https://github.com/kubernetes-sigs/hierarchical-namespaces/releases/download/${HNC_VERSION}/kubectl-hns_${HNC_PLATFORM} -o ./kubectl-hns
+chmod +x ./kubectl-hns
+```
+Ensure the plugin is working:
+
+```sh
+kubectl hns
+```
+The help text should be displayed.
+
+Now use the hnc plugin to propagate the kpack image registry secret to
+subnamespaces.
+
+```sh
+kubectl hns config set-resource secrets --mode Propagate
+```
+---
 ## Development Workflow
 
 ## Running the tests
@@ -123,10 +151,10 @@ helm template eirini-controller "deployment/helm" \
 make test-controllers
 ```
 
-## Install all dependencies with hack script
+## Install all dependencies with script
 ```sh
 # modify kpack dependency files to point towards your registry
-hack/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
+scripts/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
 ```
 **Note**: This will not work by default on OSX with a `libressl` version prior to `v3.1.0`. You can install the latest version of `openssl` by running the following commands:
 ```sh
@@ -143,7 +171,7 @@ Note: Edit this file and set the `kpackImageTag` to be the registry location you
 Set the $IMG_CONTROLLERS environment variable to a location you have push/pull access. For example:
 ```sh
 export IMG_CONTROLLERS=foo/cf-k8s-controllers:bar #Replace this with your image ref
-make generate docker-build docker-push install deploy
+make generate-controllers docker-build docker-push deploy
 ```
 *This will generate the CRD bases, build and push an image with the repository and tag specified by the environment variable, install CRDs and deploy the controller manager. This should cover an entire development loop. Further fine grain instructions are below.*
 
@@ -161,7 +189,7 @@ export IMG_CONTROLLERS=foo/cf-k8s-controllers:bar #Replace this with your image 
 ```
 ### Generate CRD bases
 ```sh
-make generate
+make generate-controllers
 ```
 ### Build Docker image
 ```
@@ -173,7 +201,7 @@ make docker-push
 ```
 ### Install CRDs to K8s in current Kubernetes context
 ```
-make install
+make install-crds
 ```
 ### Deploy controller manager to K8s in current Kubernetes context
 ```
