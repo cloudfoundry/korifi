@@ -229,16 +229,18 @@ var _ = Describe("RouteHandler", func() {
 		})
 
 		When("on the happy path", func() {
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
 
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-			It("returns the Pagination Data and App Resources in the response", func() {
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+			When("query parameters are not provided", func() {
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				})
+				It("returns the Pagination Data and App Resources in the response", func() {
+					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 				"pagination": {
 					"total_results": 1,
 					"total_pages": 1,
@@ -295,7 +297,27 @@ var _ = Describe("RouteHandler", func() {
 					}
 				]
 				}`, defaultServerURL, routeRecord.GUID, routeRecord.Path, routeRecord.Protocol, routeRecord.Host, domainRecord.Name, routeRecord.CreatedAt, routeRecord.UpdatedAt, routeRecord.SpaceGUID, domainRecord.GUID)), "Response body matches response:")
+				})
 			})
+
+			When("query parameters are provided", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequest("GET", "/v3/routes?app_guids=my-app-guid", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("calls route with expected parameters", func() {
+					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
+					Expect(message.AppGUIDs).To(HaveLen(1))
+					Expect(message.AppGUIDs[0]).To(Equal("my-app-guid"))
+				})
+			})
+
 		})
 
 		When("no routes exist", func() {
@@ -351,6 +373,17 @@ var _ = Describe("RouteHandler", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+
+		When("invalid query parameters are provided", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("GET", "/v3/routes?foo=my-app-guid", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("returns an Unknown key error", func() {
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids'")
 			})
 		})
 	})

@@ -56,11 +56,12 @@ type CFRouteRepository struct {
 		result1 repositories.RouteRecord
 		result2 error
 	}
-	FetchRouteListStub        func(context.Context, client.Client) ([]repositories.RouteRecord, error)
+	FetchRouteListStub        func(context.Context, client.Client, repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error)
 	fetchRouteListMutex       sync.RWMutex
 	fetchRouteListArgsForCall []struct {
 		arg1 context.Context
 		arg2 client.Client
+		arg3 repositories.FetchRouteListMessage
 	}
 	fetchRouteListReturns struct {
 		result1 []repositories.RouteRecord
@@ -288,19 +289,20 @@ func (fake *CFRouteRepository) FetchRouteReturnsOnCall(i int, result1 repositori
 	}{result1, result2}
 }
 
-func (fake *CFRouteRepository) FetchRouteList(arg1 context.Context, arg2 client.Client) ([]repositories.RouteRecord, error) {
+func (fake *CFRouteRepository) FetchRouteList(arg1 context.Context, arg2 client.Client, arg3 repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error) {
 	fake.fetchRouteListMutex.Lock()
 	ret, specificReturn := fake.fetchRouteListReturnsOnCall[len(fake.fetchRouteListArgsForCall)]
 	fake.fetchRouteListArgsForCall = append(fake.fetchRouteListArgsForCall, struct {
 		arg1 context.Context
 		arg2 client.Client
-	}{arg1, arg2})
+		arg3 repositories.FetchRouteListMessage
+	}{arg1, arg2, arg3})
 	stub := fake.FetchRouteListStub
 	fakeReturns := fake.fetchRouteListReturns
-	fake.recordInvocation("FetchRouteList", []interface{}{arg1, arg2})
+	fake.recordInvocation("FetchRouteList", []interface{}{arg1, arg2, arg3})
 	fake.fetchRouteListMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -314,17 +316,17 @@ func (fake *CFRouteRepository) FetchRouteListCallCount() int {
 	return len(fake.fetchRouteListArgsForCall)
 }
 
-func (fake *CFRouteRepository) FetchRouteListCalls(stub func(context.Context, client.Client) ([]repositories.RouteRecord, error)) {
+func (fake *CFRouteRepository) FetchRouteListCalls(stub func(context.Context, client.Client, repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error)) {
 	fake.fetchRouteListMutex.Lock()
 	defer fake.fetchRouteListMutex.Unlock()
 	fake.FetchRouteListStub = stub
 }
 
-func (fake *CFRouteRepository) FetchRouteListArgsForCall(i int) (context.Context, client.Client) {
+func (fake *CFRouteRepository) FetchRouteListArgsForCall(i int) (context.Context, client.Client, repositories.FetchRouteListMessage) {
 	fake.fetchRouteListMutex.RLock()
 	defer fake.fetchRouteListMutex.RUnlock()
 	argsForCall := fake.fetchRouteListArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CFRouteRepository) FetchRouteListReturns(result1 []repositories.RouteRecord, result2 error) {

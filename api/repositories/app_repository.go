@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -118,6 +119,20 @@ type AppListMessage struct {
 	SpaceGuids []string
 }
 
+type ByName []AppRecord
+
+func (a ByName) Len() int {
+	return len(a)
+}
+
+func (a ByName) Less(i, j int) bool {
+	return a[i].Name < a[j].Name
+}
+
+func (a ByName) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+
 func (f *AppRepo) FetchApp(ctx context.Context, userClient client.Client, appGUID string) (AppRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	appList := &workloadsv1alpha1.CFAppList{}
@@ -188,7 +203,12 @@ func (f *AppRepo) FetchAppList(ctx context.Context, userClient client.Client, me
 		filteredApps = append(filteredApps, f.applyAppListFilter(appList.Items, message)...)
 	}
 
-	return f.returnAppList(filteredApps), nil
+	appRecords := f.returnAppList(filteredApps)
+
+	// By default sort it by App.Name
+	sort.Sort(ByName(appRecords))
+
+	return appRecords, nil
 }
 
 func (f *AppRepo) applyAppListFilter(appList []workloadsv1alpha1.CFApp, message AppListMessage) []workloadsv1alpha1.CFApp {

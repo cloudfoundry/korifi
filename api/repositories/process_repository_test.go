@@ -194,7 +194,7 @@ var _ = Describe("ProcessRepo", func() {
 		})
 	})
 
-	Describe("FetchProcessesForApp", func() {
+	Describe("FetchProcessesList", func() {
 		var (
 			app1GUID string
 			app2GUID string
@@ -228,22 +228,39 @@ var _ = Describe("ProcessRepo", func() {
 		})
 
 		When("on the happy path", func() {
-			It("returns Process records for the AppGUID we request", func() {
-				processes, err := processRepo.FetchProcessesForApp(testCtx, testClient, app1GUID, namespace.Name)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(processes)).To(Equal(2))
-				By("returning a process record for each process of the app", func() {
-					for _, processRecord := range processes {
-						recordMatchesOneProcess := processRecord.GUID == process1GUID || processRecord.GUID == process2GUID
-						Expect(recordMatchesOneProcess).To(BeTrue(), "ProcessRecord GUID did not match one of the expected processes")
-					}
+			When("spaceGUID is not empty", func() {
+				It("returns Process records for the AppGUID we request", func() {
+					processes, err := processRepo.FetchProcessList(testCtx, testClient, FetchProcessListMessage{AppGUID: []string{app1GUID}, SpaceGUID: namespace.Name})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(processes)).To(Equal(2))
+					By("returning a process record for each process of the app", func() {
+						for _, processRecord := range processes {
+							recordMatchesOneProcess := processRecord.GUID == process1GUID || processRecord.GUID == process2GUID
+							Expect(recordMatchesOneProcess).To(BeTrue(), "ProcessRecord GUID did not match one of the expected processes")
+						}
+					})
 				})
 			})
+
+			When("spaceGUID is empty", func() {
+				It("returns Process records for the AppGUID we request", func() {
+					processes, err := processRepo.FetchProcessList(testCtx, testClient, FetchProcessListMessage{AppGUID: []string{app1GUID}})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(processes)).To(Equal(2))
+					By("returning a process record for each process of the app", func() {
+						for _, processRecord := range processes {
+							recordMatchesOneProcess := processRecord.GUID == process1GUID || processRecord.GUID == process2GUID
+							Expect(recordMatchesOneProcess).To(BeTrue(), "ProcessRecord GUID did not match one of the expected processes")
+						}
+					})
+				})
+			})
+
 		})
 
 		When("no Processes exist for an app", func() {
 			It("returns an empty list", func() {
-				processes, err := processRepo.FetchProcessesForApp(testCtx, testClient, app2GUID, namespace.Name)
+				processes, err := processRepo.FetchProcessList(testCtx, testClient, FetchProcessListMessage{AppGUID: []string{app2GUID}, SpaceGUID: namespace.Name})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(processes).To(BeEmpty())
 				Expect(processes).ToNot(BeNil())
@@ -252,7 +269,7 @@ var _ = Describe("ProcessRepo", func() {
 
 		When("the app does not exist", func() {
 			It("returns an empty list", func() {
-				processes, err := processRepo.FetchProcessesForApp(testCtx, testClient, "I don't exist", namespace.Name)
+				processes, err := processRepo.FetchProcessList(testCtx, testClient, FetchProcessListMessage{AppGUID: []string{"I dont exist"}, SpaceGUID: namespace.Name})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(processes).To(BeEmpty())
 				Expect(processes).ToNot(BeNil())

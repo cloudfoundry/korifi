@@ -15,7 +15,7 @@ import (
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
 type CFProcessRepository interface {
 	FetchProcess(context.Context, client.Client, string) (repositories.ProcessRecord, error)
-	FetchProcessesForApp(context.Context, client.Client, string, string) ([]repositories.ProcessRecord, error)
+	FetchProcessList(context.Context, client.Client, repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error)
 	ScaleProcess(context.Context, client.Client, repositories.ProcessScaleMessage) (repositories.ProcessRecord, error)
 	CreateProcess(context.Context, client.Client, repositories.ProcessCreateMessage) error
 	FetchProcessByAppTypeAndSpace(context.Context, client.Client, string, string, string) (repositories.ProcessRecord, error)

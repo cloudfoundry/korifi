@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
@@ -149,7 +151,7 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 	}
 }
 
-func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL url.URL, appGUID string) ProcessListResponse {
+func ForAppProcessList(processRecordList []repositories.ProcessRecord, baseURL url.URL, appGUID string) ProcessListResponse {
 	processResponses := make([]ProcessResponse, 0, len(processRecordList))
 	for _, process := range processRecordList {
 		processResponse := ForProcess(process, baseURL)
@@ -158,6 +160,39 @@ func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL url.
 	}
 
 	pageHREF := buildURL(baseURL).appendPath(appsBase, appGUID, "processes").setQuery("page=1").build()
+	processListResponse := ProcessListResponse{
+		PaginationData: PaginationData{
+			TotalResults: len(processResponses),
+			TotalPages:   1,
+			First: PageRef{
+				HREF: pageHREF,
+			},
+			Last: PageRef{
+				HREF: pageHREF,
+			},
+		},
+		Resources: processResponses,
+	}
+
+	return processListResponse
+}
+
+func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL url.URL, processListFilter payloads.ProcessList) ProcessListResponse {
+	var queryParameter string
+	if processListFilter.AppGUIDs != "" {
+		queryParameter = "app_guids=" + processListFilter.AppGUIDs + "&page=1"
+	} else {
+		queryParameter = "page=1"
+	}
+
+	processResponses := make([]ProcessResponse, 0, len(processRecordList))
+	for _, process := range processRecordList {
+		processResponse := ForProcess(process, baseURL)
+		processResponse.Command = "[PRIVATE DATA HIDDEN IN LISTS]"
+		processResponses = append(processResponses, processResponse)
+	}
+
+	pageHREF := buildURL(baseURL).appendPath(processesBase).setQuery(queryParameter).build()
 	processListResponse := ProcessListResponse{
 		PaginationData: PaginationData{
 			TotalResults: len(processResponses),

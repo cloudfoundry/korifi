@@ -31,3 +31,17 @@ func (p RouteCreate) ToRecord() repositories.RouteRecord {
 		UpdatedAt:   "",
 	}
 }
+
+type RouteList struct {
+	AppGUIDs string `schema:"app_guids"`
+}
+
+func (p *RouteList) ToMessage() repositories.FetchRouteListMessage {
+	return repositories.FetchRouteListMessage{
+		AppGUIDs: parseArrayParam(p.AppGUIDs),
+	}
+}
+
+func (p *RouteList) SupportedFilterKeys() []string {
+	return []string{"app_guids"}
+}

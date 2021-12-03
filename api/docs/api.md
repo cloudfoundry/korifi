@@ -47,7 +47,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 | List App Routes | GET /v3/apps/\<guid>/routes |
 
 #### [List Apps](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-apps)
-**Filters:** Currently supports filtering by app `names` and `space_guids`.
+**Query Parameters:** Currently supports filtering by app `names` and `space_guids` and ordering by `name`.
 
 ```bash
 curl "http://localhost:9000/v3/apps?names=app1,app2&space_guids=ad0836b5-09f4-48c0-adb2-2c61e515562f,6030b015-f003-4c9f-8bb4-1ed7ae3d3659"
@@ -154,6 +154,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#processes
 | Get Process Sidecars | GET /v3/processes/\<guid>/sidecars |
 | Scale Process | POST /v3/processes/\<guid>/actions/scale |
 | Get Process Stats | POST /v3/processes/\<guid>/stats |
+| List Process | POST /v3/processes |
 
 #### [Scaling Processes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#scale-a-process)
 ```bash
@@ -166,6 +167,9 @@ curl "http://localhost:9000/v3/processes/<guid>/actions/scale" \
 Currently, we only support fetching stats using the process guid endpoint, i.e., POST /v3/processes/\<guid>/stats.
 This endpoint supports populating only the index and state details on the response.
 Support for populating other fields will come later.
+
+#### [List Processes](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#list-processes)
+**Query Parameters:** Currently supports filtering by `app_guids`.
 
 ### Domain
 
@@ -190,6 +194,9 @@ curl "http://localhost:9000/v3/domains?names=cf-apps.io" \
 | Get Route Destinations | GET /v3/routes/\<guid\>/destinations |
 | Create Route | POST /v3/routes |
 | Add Destinations to Route | POST /v3/routes/\<guid\>/destinations |
+
+#### [List Routes](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#list-routes)
+**Query Parameters:** Currently supports filtering by `app_guids`.
 
 #### [Creating Routes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-route)
 ```bash

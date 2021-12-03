@@ -31,7 +31,12 @@ func (a *ScaleAppProcess) Invoke(ctx context.Context, client client.Client, appG
 		return repositories.ProcessRecord{}, err
 	}
 
-	appProcesses, err := a.processRepo.FetchProcessesForApp(ctx, client, app.GUID, app.SpaceGUID)
+	fetchProcessMessage := repositories.FetchProcessListMessage{
+		AppGUID:   []string{app.GUID},
+		SpaceGUID: app.SpaceGUID,
+	}
+
+	appProcesses, err := a.processRepo.FetchProcessList(ctx, client, fetchProcessMessage)
 	if err != nil {
 		return repositories.ProcessRecord{}, err
 	}

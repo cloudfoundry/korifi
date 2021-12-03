@@ -284,7 +284,16 @@ var _ = Describe("RouteRepository", func() {
 						DomainRef: corev1.LocalObjectReference{
 							Name: domainGUID,
 						},
-						Destinations: []networkingv1alpha1.Destination{},
+						Destinations: []networkingv1alpha1.Destination{
+							{
+								GUID: "destination-guid-2",
+								Port: 8080,
+								AppRef: corev1.LocalObjectReference{
+									Name: "some-app-guid-2",
+								},
+								ProcessType: "web",
+							},
+						},
 					},
 				}
 				Expect(k8sClient.Create(ctx, cfRoute2)).To(Succeed())
@@ -297,78 +306,128 @@ var _ = Describe("RouteRepository", func() {
 				Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
 			})
 
-			It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-				var routeRecords []RouteRecord
-				Eventually(func() []RouteRecord {
-					routeRecords, _ = routeRepo.FetchRouteList(testCtx, repoClient)
-					return routeRecords
-				}, timeCheckThreshold*time.Second).Should(HaveLen(2), "returned records count should equal number of created CRs")
+			When("filters are not provided", func() {
+				It("eventually returns a list of routeRecords for each CFRoute CR", func() {
+					var routeRecords []RouteRecord
+					Eventually(func() []RouteRecord {
+						routeRecords, _ = routeRepo.FetchRouteList(testCtx, repoClient, FetchRouteListMessage{})
+						return routeRecords
+					}, timeCheckThreshold*time.Second).Should(HaveLen(2), "returned records count should equal number of created CRs")
 
-				var route1, route2 RouteRecord
-				for _, routeRecord := range routeRecords {
-					switch routeRecord.GUID {
-					case cfRoute1.Name:
-						route1 = routeRecord
-					case cfRoute2.Name:
-						route2 = routeRecord
-					default:
-						Fail(fmt.Sprintf("Unknown routeRecord: %v", routeRecord))
+					var route1, route2 RouteRecord
+					for _, routeRecord := range routeRecords {
+						switch routeRecord.GUID {
+						case cfRoute1.Name:
+							route1 = routeRecord
+						case cfRoute2.Name:
+							route2 = routeRecord
+						default:
+							Fail(fmt.Sprintf("Unknown routeRecord: %v", routeRecord))
+						}
 					}
-				}
 
-				Expect(route1).NotTo(BeZero())
-				Expect(route2).NotTo(BeZero())
+					Expect(route1).NotTo(BeZero())
+					Expect(route2).NotTo(BeZero())
 
-				By("returning a routeRecord in the list for one of the created CRs", func() {
-					Expect(route1.GUID).To(Equal(cfRoute1.Name))
-					Expect(route1.Host).To(Equal(cfRoute1.Spec.Host))
-					Expect(route1.SpaceGUID).To(Equal(cfRoute1.Namespace))
-					Expect(route1.Path).To(Equal(cfRoute1.Spec.Path))
-					Expect(route1.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
-					Expect(route1.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
+					By("returning a routeRecord in the list for one of the created CRs", func() {
+						Expect(route1.GUID).To(Equal(cfRoute1.Name))
+						Expect(route1.Host).To(Equal(cfRoute1.Spec.Host))
+						Expect(route1.SpaceGUID).To(Equal(cfRoute1.Namespace))
+						Expect(route1.Path).To(Equal(cfRoute1.Spec.Path))
+						Expect(route1.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
+						Expect(route1.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
 
-					Expect(route1.Destinations).To(Equal([]DestinationRecord{
-						{
-							GUID:        cfRoute1.Spec.Destinations[0].GUID,
-							AppGUID:     cfRoute1.Spec.Destinations[0].AppRef.Name,
-							Port:        cfRoute1.Spec.Destinations[0].Port,
-							ProcessType: cfRoute1.Spec.Destinations[0].ProcessType,
-						},
-					}))
+						Expect(route1.Destinations).To(Equal([]DestinationRecord{
+							{
+								GUID:        cfRoute1.Spec.Destinations[0].GUID,
+								AppGUID:     cfRoute1.Spec.Destinations[0].AppRef.Name,
+								Port:        cfRoute1.Spec.Destinations[0].Port,
+								ProcessType: cfRoute1.Spec.Destinations[0].ProcessType,
+							},
+						}))
 
-					createdAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+						createdAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 
-					updatedAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+						updatedAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+					})
+
+					By("returning a routeRecord in the list that matches another of the created CRs", func() {
+						Expect(route2.GUID).To(Equal(cfRoute2.Name))
+						Expect(route2.Host).To(Equal(cfRoute2.Spec.Host))
+						Expect(route2.SpaceGUID).To(Equal(cfRoute2.Namespace))
+						Expect(route2.Path).To(Equal(cfRoute2.Spec.Path))
+						Expect(route2.Protocol).To(Equal(string(cfRoute2.Spec.Protocol)))
+						Expect(route2.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
+
+						Expect(route2.Destinations).To(Equal([]DestinationRecord{
+							{
+								GUID:        cfRoute2.Spec.Destinations[0].GUID,
+								AppGUID:     cfRoute2.Spec.Destinations[0].AppRef.Name,
+								Port:        cfRoute2.Spec.Destinations[0].Port,
+								ProcessType: cfRoute2.Spec.Destinations[0].ProcessType,
+							},
+						}))
+
+						createdAt, err := time.Parse(time.RFC3339, route2.CreatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+
+						updatedAt, err := time.Parse(time.RFC3339, route2.CreatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+					})
 				})
+			})
 
-				By("returning a routeRecord in the list that matches another of the created CRs", func() {
-					Expect(route2.GUID).To(Equal(cfRoute2.Name))
-					Expect(route2.Host).To(Equal(cfRoute2.Spec.Host))
-					Expect(route2.SpaceGUID).To(Equal(cfRoute2.Namespace))
-					Expect(route2.Path).To(Equal(cfRoute2.Spec.Path))
-					Expect(route2.Protocol).To(Equal(string(cfRoute2.Spec.Protocol)))
-					Expect(route2.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
+			When("filters are provided", func() {
+				It("eventually returns a list of routeRecords for each CFRoute CR", func() {
+					var routeRecords []RouteRecord
+					Eventually(func() []RouteRecord {
+						routeRecords, _ = routeRepo.FetchRouteList(testCtx, repoClient, FetchRouteListMessage{AppGUIDs: []string{"some-app-guid"}})
+						return routeRecords
+					}, timeCheckThreshold*time.Second).Should(HaveLen(1))
 
-					Expect(route2.Destinations).To(BeEmpty())
+					route1 := routeRecords[0]
 
-					createdAt, err := time.Parse(time.RFC3339, route2.CreatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+					Expect(route1).NotTo(BeZero())
 
-					updatedAt, err := time.Parse(time.RFC3339, route2.CreatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+					By("returning a routeRecord in the list for one of the created CRs", func() {
+						Expect(route1.GUID).To(Equal(cfRoute1.Name))
+						Expect(route1.Host).To(Equal(cfRoute1.Spec.Host))
+						Expect(route1.SpaceGUID).To(Equal(cfRoute1.Namespace))
+						Expect(route1.Path).To(Equal(cfRoute1.Spec.Path))
+						Expect(route1.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
+						Expect(route1.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
+
+						Expect(route1.Destinations).To(Equal([]DestinationRecord{
+							{
+								GUID:        cfRoute1.Spec.Destinations[0].GUID,
+								AppGUID:     cfRoute1.Spec.Destinations[0].AppRef.Name,
+								Port:        cfRoute1.Spec.Destinations[0].Port,
+								ProcessType: cfRoute1.Spec.Destinations[0].ProcessType,
+							},
+						}))
+
+						createdAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+
+						updatedAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+					})
+
 				})
 			})
 		})
 
 		When("no CFRoutes exist", func() {
 			It("returns an empty list and no error", func() {
-				routeRecords, err := routeRepo.FetchRouteList(testCtx, repoClient)
+				routeRecords, err := routeRepo.FetchRouteList(testCtx, repoClient, FetchRouteListMessage{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(routeRecords).To(BeEmpty())
 			})

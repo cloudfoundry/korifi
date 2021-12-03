@@ -571,4 +571,165 @@ var _ = Describe("ProcessHandler", func() {
 			})
 		})
 	})
+
+	Describe("the GET /v3/processes endpoint", func() {
+		const (
+			processGUID     = "process-guid"
+			spaceGUID       = "space-guid"
+			appGUID         = "app-guid"
+			createdAt       = "1906-04-18T13:12:00Z"
+			updatedAt       = "1906-04-18T13:12:01Z"
+			processType     = "web"
+			command         = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
+			memoryInMB      = 256
+			diskInMB        = 1024
+			healthcheckType = "port"
+			instances       = 1
+
+			baseURL = "https://api.example.org"
+		)
+
+		var (
+			labels      = map[string]string{}
+			annotations = map[string]string{}
+		)
+
+		BeforeEach(func() {
+			processRepo.FetchProcessListReturns([]repositories.ProcessRecord{
+				{
+					GUID:             processGUID,
+					SpaceGUID:        spaceGUID,
+					AppGUID:          appGUID,
+					CreatedAt:        createdAt,
+					UpdatedAt:        updatedAt,
+					Type:             processType,
+					Command:          command,
+					DesiredInstances: instances,
+					MemoryMB:         memoryInMB,
+					DiskQuotaMB:      diskInMB,
+					HealthCheck: repositories.HealthCheck{
+						Type: healthcheckType,
+						Data: repositories.HealthCheckData{},
+					},
+					Labels:      labels,
+					Annotations: annotations,
+				},
+			}, nil)
+
+		})
+
+		When("on the happy path", func() {
+
+			When("Query Parameters are not provided", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequest("GET", "/v3/processes", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				})
+				It("returns the Pagination Data and Process Resources in the response", func() {
+					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+				"pagination": {
+					"total_results": 1,
+					"total_pages": 1,
+					"first": {
+						"href": "`+baseURL+`/v3/processes?page=1"
+					},
+					"last": {
+						"href": "`+baseURL+`/v3/processes?page=1"
+					},
+					"next": null,
+					"previous": null
+				},
+				"resources": [
+					{
+					"guid": "`+processGUID+`",
+					"created_at": "`+createdAt+`",
+					"updated_at": "`+updatedAt+`",
+					"type": "web",
+					"command": "[PRIVATE DATA HIDDEN IN LISTS]",
+					"instances": `+fmt.Sprint(instances)+`,
+					"memory_in_mb": `+fmt.Sprint(memoryInMB)+`,
+					"disk_in_mb": `+fmt.Sprint(diskInMB)+`,
+					"health_check": {
+					   "type": "`+healthcheckType+`",
+					   "data": {
+						  "timeout": null,
+						  "invocation_timeout": null
+					   }
+					},
+					"relationships": {
+					   "app": {
+						  "data": {
+							 "guid": "`+appGUID+`"
+						  }
+					   }
+					},
+					"metadata": {
+					   "labels": {},
+					   "annotations": {}
+					},
+					"links": {
+					   "self": {
+						  "href": "`+baseURL+`/v3/processes/`+processGUID+`"
+					   },
+					   "scale": {
+						  "href": "`+baseURL+`/v3/processes/`+processGUID+`/actions/scale",
+						  "method": "POST"
+					   },
+					   "app": {
+						  "href": "`+baseURL+`/v3/apps/`+appGUID+`"
+					   },
+					   "space": {
+						  "href": "`+baseURL+`/v3/spaces/`+spaceGUID+`"
+					   },
+					   "stats": {
+						  "href": "`+baseURL+`/v3/processes/`+processGUID+`/stats"
+					   }
+					}
+				 }
+				]
+				}`)), "Response body matches response:")
+				})
+			})
+
+			When("Query Parameters are provided", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequest("GET", "/v3/processes?app_guids=my-app-guid", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("invokes process repository with correct args", func() {
+					_, _, message := processRepo.FetchProcessListArgsForCall(0)
+					Expect(message.AppGUID).To(HaveLen(1))
+					Expect(message.AppGUID[0]).To(Equal("my-app-guid"))
+				})
+			})
+
+		})
+
+		When("invalid query parameters are provided", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("GET", "/v3/processes?foo=my-app-guid", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("returns an Unknown key error", func() {
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids'")
+			})
+		})
+
+	})
 })
