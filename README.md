@@ -121,14 +121,13 @@ helm template eirini-controller "deployment/helm" \
 kubectl apply -f "https://github.com/kubernetes-sigs/hierarchical-namespaces/releases/download/v0.9.0/hnc-manager.yaml"
 ```
 After running the above command, it will take up to 30s for HNC to refresh the
-certificates on its webhooks. In the meantime, install the kubectl HNC plugin as
-follows:
+certificates on its webhooks. In the meantime, install the kubectl HNC plugin to some location in your `PATH`:
 
 ```sh
 HNC_VERSION=v0.9.0
 HNC_PLATFORM=darwin_amd64 # also supported: linux_amd64, windows_amd64
-curl -L https://github.com/kubernetes-sigs/hierarchical-namespaces/releases/download/${HNC_VERSION}/kubectl-hns_${HNC_PLATFORM} -o ./kubectl-hns
-chmod +x ./kubectl-hns
+curl -L https://github.com/kubernetes-sigs/hierarchical-namespaces/releases/download/${HNC_VERSION}/kubectl-hns_${HNC_PLATFORM} -o /usr/local/bin/kubectl-hns
+chmod +x /usr/local/bin/kubectl-hns
 ```
 Ensure the plugin is working:
 
