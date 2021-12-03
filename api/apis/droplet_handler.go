@@ -9,7 +9,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 )
@@ -21,6 +20,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFDropletRepository . CFDropletRepository
 type CFDropletRepository interface {
 	FetchDroplet(context.Context, authorization.Info, string) (repositories.DropletRecord, error)
+	FetchDropletList(context.Context, authorization.Info, repositories.DropletListMessage) ([]repositories.DropletRecord, error)
 }
 
 type DropletHandler struct {

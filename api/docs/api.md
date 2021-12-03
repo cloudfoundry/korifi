@@ -104,7 +104,9 @@ curl "http://localhost:9000/v3/apps/<app-guid>/actions/restart" \
 | Resource | Endpoint |
 |--|--|
 | Create Package | POST /v3/packages |
+| List Package | GET /v3/packages |
 | Upload Package Bits | POST /v3/packages/<guid>/upload |
+| [List Droplets for Package](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#list-droplets-for-a-package) | GET /v3/packages/<guid>/droplets |
 
 #### [Creating Packages](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-package)
 ```bash
@@ -118,6 +120,13 @@ curl "http://localhost:9000/v3/packages" \
 curl "http://localhost:9000/v3/packages/<guid>/upload" \
   -X POST \
   -F bits=@"<path-to-app-source.zip>"
+```
+
+#### [List Package](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#list-packages)
+**Query Parameters:** Currently supports filtering by `app_guids`.
+
+```bash
+curl "http://localhost:9000/v3/packages" 
 ```
 
 ### Builds

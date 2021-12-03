@@ -17,18 +17,22 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 )
 
 const (
-	PackageGetEndpoint    = "/v3/packages/{guid}"
-	PackageCreateEndpoint = "/v3/packages"
-	PackageUploadEndpoint = "/v3/packages/{guid}/upload"
+	PackageGetEndpoint          = "/v3/packages/{guid}"
+	PackageListEndpoint         = "/v3/packages"
+	PackageCreateEndpoint       = "/v3/packages"
+	PackageUploadEndpoint       = "/v3/packages/{guid}/upload"
+	PackageListDropletsEndpoint = "/v3/packages/{guid}/droplets"
 )
 
 //counterfeiter:generate -o fake -fake-name CFPackageRepository . CFPackageRepository
 
 type CFPackageRepository interface {
 	FetchPackage(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
+	FetchPackageList(context.Context, authorization.Info, repositories.PackageListMessage) ([]repositories.PackageRecord, error)
 	CreatePackage(context.Context, authorization.Info, repositories.PackageCreateMessage) (repositories.PackageRecord, error)
 	UpdatePackageSource(context.Context, authorization.Info, repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)
 }
@@ -46,6 +50,7 @@ type PackageHandler struct {
 	serverURL          url.URL
 	packageRepo        CFPackageRepository
 	appRepo            CFAppRepository
+	dropletRepo        CFDropletRepository
 	uploadSourceImage  SourceImageUploader
 	buildRegistryAuth  RegistryAuthBuilder
 	registryBase       string
@@ -57,6 +62,7 @@ func NewPackageHandler(
 	serverURL url.URL,
 	packageRepo CFPackageRepository,
 	appRepo CFAppRepository,
+	dropletRepo CFDropletRepository,
 	uploadSourceImage SourceImageUploader,
 	buildRegistryAuth RegistryAuthBuilder,
 	registryBase string,
@@ -66,6 +72,7 @@ func NewPackageHandler(
 		serverURL:          serverURL,
 		packageRepo:        packageRepo,
 		appRepo:            appRepo,
+		dropletRepo:        dropletRepo,
 		uploadSourceImage:  uploadSourceImage,
 		buildRegistryAuth:  buildRegistryAuth,
 		registryBase:       registryBase,
@@ -100,6 +107,63 @@ func (h PackageHandler) packageGetHandler(w http.ResponseWriter, req *http.Reque
 	err = json.NewEncoder(w).Encode(res)
 	if err != nil {
 		h.logger.Info("Error encoding JSON response", "error", err.Error())
+		writeUnknownErrorResponse(w)
+		return
+	}
+}
+
+func (h PackageHandler) packageListHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := req.ParseForm(); err != nil {
+		h.logger.Error(err, "Unable to parse request query parameters")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	packageListQueryParameters := new(payloads.PackageListQueryParameters)
+	err := schema.NewDecoder().Decode(packageListQueryParameters, req.Form)
+	if err != nil {
+		switch err.(type) {
+		case schema.MultiError:
+			multiError := err.(schema.MultiError)
+			for _, v := range multiError {
+				_, ok := v.(schema.UnknownKeyError)
+				if ok {
+					h.logger.Info("Unknown key used in Package filter")
+					writeUnknownKeyError(w, packageListQueryParameters.SupportedQueryParameters())
+					return
+				}
+			}
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+			return
+
+		default:
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	authInfo, ok := authorization.InfoFromContext(req.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	records, err := h.packageRepo.FetchPackageList(req.Context(), authInfo, packageListQueryParameters.ToMessage())
+	if err != nil {
+		h.logger.Error(err, "Error fetching package with repository", "error")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	res := presenter.ForPackageList(records, h.serverURL)
+	err = json.NewEncoder(w).Encode(res)
+	if err != nil {
+		h.logger.Error(err, "Error encoding JSON response", "error")
 		writeUnknownErrorResponse(w)
 		return
 	}
@@ -232,8 +296,85 @@ func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Re
 	}
 }
 
+func (h PackageHandler) packageListDropletsHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := req.ParseForm(); err != nil {
+		h.logger.Error(err, "Unable to parse request query parameters")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	packageListDropletsQueryParams := new(payloads.PackageListDropletsQueryParameters)
+	err := schema.NewDecoder().Decode(packageListDropletsQueryParams, req.Form)
+	if err != nil {
+		switch err.(type) {
+		case schema.MultiError:
+			multiError := err.(schema.MultiError)
+			for _, v := range multiError {
+				_, ok := v.(schema.UnknownKeyError)
+				if ok {
+					h.logger.Info("Unknown key used in Package filter")
+					writeUnknownKeyError(w, packageListDropletsQueryParams.SupportedQueryParameters())
+					return
+				}
+			}
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+			return
+
+		default:
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	authInfo, ok := authorization.InfoFromContext(req.Context())
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	packageGUID := mux.Vars(req)["guid"]
+	_, err = h.packageRepo.FetchPackage(req.Context(), authInfo, packageGUID)
+	if err != nil {
+		switch {
+		case errors.As(err, new(repositories.NotFoundError)):
+			writeNotFoundErrorResponse(w, "Package")
+		default:
+			h.logger.Info("Error fetching package with repository", "error", err.Error())
+			writeUnknownErrorResponse(w)
+		}
+		return
+	}
+
+	dropletListMessage := packageListDropletsQueryParams.ToMessage([]string{packageGUID})
+
+	dropletList, err := h.dropletRepo.FetchDropletList(req.Context(), authInfo, dropletListMessage)
+	if err != nil {
+		h.logger.Info("Error fetching droplet list with repository", "error", err.Error())
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	dropletBaseURL := "/v3/packages/" + packageGUID + "/droplets"
+	responseBody, err := json.Marshal(presenter.ForDropletList(dropletList, h.serverURL, dropletBaseURL))
+	if err != nil {
+		// Untested
+		h.logger.Error(err, "Failed to render response")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	_, _ = w.Write(responseBody)
+}
+
 func (h *PackageHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(PackageGetEndpoint).Methods("GET").HandlerFunc(h.packageGetHandler)
+	router.Path(PackageListEndpoint).Methods("GET").HandlerFunc(h.packageListHandler)
 	router.Path(PackageCreateEndpoint).Methods("POST").HandlerFunc(h.packageCreateHandler)
 	router.Path(PackageUploadEndpoint).Methods("POST").HandlerFunc(h.packageUploadHandler)
+	router.Path(PackageListDropletsEndpoint).Methods("GET").HandlerFunc(h.packageListDropletsHandler)
 }

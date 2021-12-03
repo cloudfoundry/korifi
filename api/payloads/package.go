@@ -18,3 +18,37 @@ func (m PackageCreate) ToMessage(spaceGUID string) repositories.PackageCreateMes
 		SpaceGUID: spaceGUID,
 	}
 }
+
+type PackageListQueryParameters struct {
+	AppGUIDs string `schema:"app_guids"`
+
+	// Below parameters are ignored, but must be included to ignore as query parameters
+	OrderBy string `schema:"order_by"`
+	PerPage string `schema:"per_page"`
+}
+
+func (p *PackageListQueryParameters) ToMessage() repositories.PackageListMessage {
+	return repositories.PackageListMessage{
+		AppGUIDs: parseArrayParam(p.AppGUIDs),
+	}
+}
+
+func (p *PackageListQueryParameters) SupportedQueryParameters() []string {
+	return []string{"app_guids", "order_by", "per_page"}
+}
+
+type PackageListDropletsQueryParameters struct {
+	// Below parameters are ignored, but must be included to ignore as query parameters
+	States  string `schema:"states"`
+	PerPage string `schema:"per_page"`
+}
+
+func (p *PackageListDropletsQueryParameters) ToMessage(packageGUIDs []string) repositories.DropletListMessage {
+	return repositories.DropletListMessage{
+		PackageGUIDs: packageGUIDs,
+	}
+}
+
+func (p *PackageListDropletsQueryParameters) SupportedQueryParameters() []string {
+	return []string{"states", "per_page"}
+}

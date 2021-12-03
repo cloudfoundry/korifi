@@ -10,13 +10,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/go-containerregistry/pkg/v1/remote"
-	. "github.com/onsi/ginkgo"
-
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -26,12 +25,43 @@ const (
 )
 
 var _ = Describe("PackageHandler", func() {
-	Describe("the GET /v3/packages/:guid endpoint", func() {
-		var (
-			packageRepo *fake.CFPackageRepository
-			appRepo     *fake.CFAppRepository
+	var (
+		packageRepo                *fake.CFPackageRepository
+		appRepo                    *fake.CFAppRepository
+		dropletRepo                *fake.CFDropletRepository
+		uploadImageSource          *fake.SourceImageUploader
+		buildRegistryAuth          *fake.RegistryAuthBuilder
+		packageRegistryBase        string
+		packageImagePullSecretName string
+	)
+
+	BeforeEach(func() {
+		packageRepo = new(fake.CFPackageRepository)
+		appRepo = new(fake.CFAppRepository)
+		dropletRepo = new(fake.CFDropletRepository)
+		uploadImageSource = new(fake.SourceImageUploader)
+		buildRegistryAuth = new(fake.RegistryAuthBuilder)
+		packageRegistryBase = ""
+		packageImagePullSecretName = ""
+	})
+
+	JustBeforeEach(func() {
+		apiHandler := NewPackageHandler(
+			logf.Log.WithName(testPackageHandlerLoggerName),
+			*serverURL,
+			packageRepo,
+			appRepo,
+			dropletRepo,
+			uploadImageSource.Spy,
+			buildRegistryAuth.Spy,
+			packageRegistryBase,
+			packageImagePullSecretName,
 		)
 
+		apiHandler.RegisterRoutes(router)
+	})
+
+	Describe("the GET /v3/packages/:guid endpoint", func() {
 		const (
 			packageGUID = "the-package-guid"
 			appGUID     = "the-app-guid"
@@ -47,25 +77,6 @@ var _ = Describe("PackageHandler", func() {
 			router.ServeHTTP(rr, req)
 		}
 
-		BeforeEach(func() {
-			packageRepo = new(fake.CFPackageRepository)
-
-			appRepo = new(fake.CFAppRepository)
-
-			apiHandler := NewPackageHandler(
-				logf.Log.WithName(testPackageHandlerLoggerName),
-				*serverURL,
-				packageRepo,
-				appRepo,
-				nil,
-				nil,
-				"",
-				"",
-			)
-
-			apiHandler.RegisterRoutes(router)
-		})
-
 		When("on the happy path", func() {
 			BeforeEach(func() {
 				packageRepo.FetchPackageReturns(repositories.PackageRecord{
@@ -77,6 +88,9 @@ var _ = Describe("PackageHandler", func() {
 					CreatedAt: createdAt,
 					UpdatedAt: updatedAt,
 				}, nil)
+			})
+
+			JustBeforeEach(func() {
 				makeGetRequest(packageGUID)
 			})
 
@@ -139,6 +153,9 @@ var _ = Describe("PackageHandler", func() {
 		When("on the sad path", func() {
 			BeforeEach(func() {
 				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+			})
+
+			JustBeforeEach(func() {
 				makeGetRequest("invalid-package-guid")
 			})
 
@@ -167,7 +184,7 @@ var _ = Describe("PackageHandler", func() {
 		})
 
 		When("the authorization.Info is not set in the context", func() {
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				ctx = context.Background()
 				makeGetRequest(packageGUID)
 			})
@@ -178,12 +195,255 @@ var _ = Describe("PackageHandler", func() {
 		})
 	})
 
-	Describe("the POST /v3/packages endpoint", func() {
-		var (
-			packageRepo *fake.CFPackageRepository
-			appRepo     *fake.CFAppRepository
+	Describe("the GET /v3/packages endpoint", func() {
+		var req *http.Request
+
+		const (
+			package1GUID = "the-package-guid"
+			appGUID      = "the-app-guid"
+			spaceGUID    = "the-space-guid"
+			createdAt1   = "1906-04-18T13:12:00Z"
+			updatedAt1   = "1906-04-18T13:12:01Z"
+			package2GUID = "the-package-guid-2"
+			createdAt2   = "1906-06-18T13:12:00Z"
+			updatedAt2   = "1906-06-18T13:12:01Z"
 		)
 
+		BeforeEach(func() {
+			packageRepo.FetchPackageListReturns([]repositories.PackageRecord{
+				{
+					GUID:      package1GUID,
+					Type:      "bits",
+					AppGUID:   appGUID,
+					SpaceGUID: spaceGUID,
+					State:     "AWAITING_UPLOAD",
+					CreatedAt: createdAt1,
+					UpdatedAt: updatedAt1,
+				},
+				{
+					GUID:      package2GUID,
+					Type:      "bits",
+					AppGUID:   appGUID,
+					SpaceGUID: spaceGUID,
+					State:     "READY",
+					CreatedAt: createdAt2,
+					UpdatedAt: updatedAt2,
+				},
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		JustBeforeEach(func() {
+			router.ServeHTTP(rr, req)
+		})
+
+		When("on the happy path and", func() {
+			When("multiple packages exist", func() {
+				When("no query parameters are provided", func() {
+					It("returns status 200", func() {
+						Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					})
+
+					It("returns Content-Type as JSON in header", func() {
+						contentTypeHeader := rr.Header().Get("Content-Type")
+						Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+					})
+
+					It("returns a JSON body", func() {
+						Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(
+							` {
+							"pagination": {
+								"total_results":2,
+								"total_pages": 1,
+								"first": {
+									"href": "%[1]s/v3/packages"
+								},
+								"last": {
+									"href": "%[1]s/v3/packages"
+								},
+								"next": null,
+								"previous": null
+							},
+							"resources": [
+								{
+									"guid": "%[2]s",
+									"type": "bits",
+									"data": {},
+									"state": "AWAITING_UPLOAD",
+									"created_at": "%[3]s",
+									"updated_at": "%[4]s",
+									"relationships": {
+										"app": {
+											"data": {
+												"guid": "%[5]s"
+											}
+										}
+									},
+									"links": {
+										"self": {
+											"href": "%[1]s/v3/packages/%[2]s"
+										},
+										"upload": {
+											"href": "%[1]s/v3/packages/%[2]s/upload",
+											"method": "POST"
+										},
+										"download": {
+											"href": "%[1]s/v3/packages/%[2]s/download",
+											"method": "GET"
+										},
+										"app": {
+											"href": "%[1]s/v3/apps/%[5]s"
+										}
+									},
+									"metadata": {
+										"labels": {},
+										"annotations": {}
+									}
+								},
+								{
+									"guid": "%[6]s",
+									"type": "bits",
+									"data": {},
+									"state": "READY",
+									"created_at": "%[7]s",
+									"updated_at": "%[8]s",
+									"relationships": {
+										"app": {
+											"data": {
+												"guid": "%[5]s"
+											}
+										}
+									},
+									"links": {
+										"self": {
+											"href": "%[1]s/v3/packages/%[6]s"
+										},
+										"upload": {
+											"href": "%[1]s/v3/packages/%[6]s/upload",
+											"method": "POST"
+										},
+										"download": {
+											"href": "%[1]s/v3/packages/%[6]s/download",
+											"method": "GET"
+										},
+										"app": {
+											"href": "%[1]s/v3/apps/%[5]s"
+										}
+									},
+									"metadata": {
+										"labels": {},
+										"annotations": {}
+									}
+								}
+							]
+						}`, defaultServerURL, package1GUID, createdAt1, updatedAt1, appGUID, package2GUID, createdAt2, updatedAt2,
+						)))
+					})
+				})
+
+				When("the app_guids query parameter is provided", func() {
+					BeforeEach(func() {
+						var err error
+						req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages?app_guids="+appGUID, nil)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("returns status 200", func() {
+						Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					})
+
+					It("calls the package repository with expected arguments", func() {
+						_, _, message := packageRepo.FetchPackageListArgsForCall(0)
+						Expect(message).To(Equal(repositories.PackageListMessage{AppGUIDs: []string{appGUID}}))
+					})
+				})
+
+				When("the \"order_by\" parameter is sent", func() {
+					BeforeEach(func() {
+						var err error
+						req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages?order_by=some_weird_value", nil)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("ignores it and returns status 200", func() {
+						Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					})
+				})
+
+				When("the \"per_page\" parameter is sent", func() {
+					BeforeEach(func() {
+						var err error
+						req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages?per_page=some_weird_value", nil)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("ignores it and returns status 200", func() {
+						Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					})
+				})
+			})
+			When("no packages exist", func() {
+				BeforeEach(func() {
+					packageRepo.FetchPackageListReturns([]repositories.PackageRecord{}, nil)
+				})
+
+				It("returns status 200", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				})
+
+				It("returns a JSON body", func() {
+					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(
+						` {
+							"pagination": {
+								"total_results": 0,
+								"total_pages": 1,
+								"first": {
+									"href": "%[1]s/v3/packages"
+								},
+								"last": {
+									"href": "%[1]s/v3/packages"
+								},
+								"next": null,
+								"previous": null
+							},
+							"resources": []
+						}`, defaultServerURL,
+					)))
+				})
+			})
+		})
+
+		When("there is an unknown issue with the Package Repo", func() {
+			BeforeEach(func() {
+				packageRepo.FetchPackageListReturns([]repositories.PackageRecord{}, errors.New("some-error"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("unsupported query parameters are provided", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages?foo=my-app-guid", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("returns an Unknown key error", func() {
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, order_by, per_page'")
+			})
+		})
+	})
+
+	Describe("the POST /v3/packages endpoint", func() {
 		makePostRequest := func(body string) {
 			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/packages", strings.NewReader(body))
 			Expect(err).NotTo(HaveOccurred())
@@ -196,21 +456,20 @@ var _ = Describe("PackageHandler", func() {
 			appGUID     = "the-app-guid"
 			spaceGUID   = "the-space-guid"
 			validBody   = `{
-			"type": "bits",
-			"relationships": {
-				"app": {
-					"data": {
-						"guid": "` + appGUID + `"
+				"type": "bits",
+				"relationships": {
+					"app": {
+						"data": {
+							"guid": "` + appGUID + `"
+						}
 					}
 				}
-        	}
-		}`
+			}`
 			createdAt = "1906-04-18T13:12:00Z"
 			updatedAt = "1906-04-18T13:12:01Z"
 		)
 
 		BeforeEach(func() {
-			packageRepo = new(fake.CFPackageRepository)
 			packageRepo.CreatePackageReturns(repositories.PackageRecord{
 				Type:      "bits",
 				AppGUID:   appGUID,
@@ -221,24 +480,13 @@ var _ = Describe("PackageHandler", func() {
 				UpdatedAt: updatedAt,
 			}, nil)
 
-			appRepo = new(fake.CFAppRepository)
 			appRepo.FetchAppReturns(repositories.AppRecord{
 				SpaceGUID: spaceGUID,
 			}, nil)
-
-			apiHandler := NewPackageHandler(
-				logf.Log.WithName(testPackageHandlerLoggerName),
-				*serverURL,
-				packageRepo,
-				appRepo,
-				nil, nil,
-				"", "",
-			)
-			apiHandler.RegisterRoutes(router)
 		})
 
 		When("on the happy path", func() {
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				makePostRequest(validBody)
 			})
 
@@ -312,7 +560,9 @@ var _ = Describe("PackageHandler", func() {
 		When("the app doesn't exist", func() {
 			BeforeEach(func() {
 				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+			})
 
+			JustBeforeEach(func() {
 				makePostRequest(validBody)
 			})
 
@@ -325,7 +575,9 @@ var _ = Describe("PackageHandler", func() {
 		When("the app exists check returns an error", func() {
 			BeforeEach(func() {
 				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("boom"))
+			})
 
+			JustBeforeEach(func() {
 				makePostRequest(validBody)
 			})
 
@@ -349,7 +601,7 @@ var _ = Describe("PackageHandler", func() {
 				}`
 			)
 
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				makePostRequest(bodyWithInvalidType)
 			})
 
@@ -359,7 +611,7 @@ var _ = Describe("PackageHandler", func() {
 		})
 
 		When("the relationship field is completely omitted", func() {
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				makePostRequest(`{ "type": "bits" }`)
 			})
 
@@ -378,7 +630,7 @@ var _ = Describe("PackageHandler", func() {
 				}
 			}`
 
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				makePostRequest(bodyWithoutAppRelationship)
 			})
 
@@ -388,7 +640,7 @@ var _ = Describe("PackageHandler", func() {
 		})
 
 		When("the JSON body is invalid", func() {
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				makePostRequest(`{`)
 			})
 
@@ -417,6 +669,9 @@ var _ = Describe("PackageHandler", func() {
 		When("creating the package in the repo errors", func() {
 			BeforeEach(func() {
 				packageRepo.CreatePackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+			})
+
+			JustBeforeEach(func() {
 				makePostRequest(validBody)
 			})
 
@@ -428,6 +683,9 @@ var _ = Describe("PackageHandler", func() {
 		When("the authorization.Info is not set in the context", func() {
 			BeforeEach(func() {
 				ctx = context.Background()
+			})
+
+			JustBeforeEach(func() {
 				makePostRequest(validBody)
 			})
 
@@ -438,13 +696,7 @@ var _ = Describe("PackageHandler", func() {
 	})
 
 	Describe("the POST /v3/packages/upload endpoint", func() {
-		var (
-			packageRepo       *fake.CFPackageRepository
-			appRepo           *fake.CFAppRepository
-			uploadImageSource *fake.SourceImageUploader
-			buildRegistryAuth *fake.RegistryAuthBuilder
-			credentialOption  remote.Option
-		)
+		var credentialOption remote.Option
 
 		makeUploadRequest := func(packageGUID string, file io.Reader) {
 			var b bytes.Buffer
@@ -464,18 +716,15 @@ var _ = Describe("PackageHandler", func() {
 		}
 
 		const (
-			packageGUID                = "the-package-guid"
-			appGUID                    = "the-app-guid"
-			createdAt                  = "1906-04-18T13:12:00Z"
-			updatedAt                  = "1906-04-18T13:12:01Z"
-			imageRefWithDigest         = "some-org/the-package-guid@SHA256:some-sha-256"
-			srcFileContents            = "the-src-file-contents"
-			packageRegistryBase        = "some-org"
-			packageImagePullSecretName = "package-image-pull-secret"
+			packageGUID        = "the-package-guid"
+			appGUID            = "the-app-guid"
+			createdAt          = "1906-04-18T13:12:00Z"
+			updatedAt          = "1906-04-18T13:12:01Z"
+			imageRefWithDigest = "some-org/the-package-guid@SHA256:some-sha-256"
+			srcFileContents    = "the-src-file-contents"
 		)
 
 		BeforeEach(func() {
-			packageRepo = new(fake.CFPackageRepository)
 			packageRepo.FetchPackageReturns(repositories.PackageRecord{
 				Type:      "bits",
 				AppGUID:   appGUID,
@@ -485,6 +734,7 @@ var _ = Describe("PackageHandler", func() {
 				CreatedAt: createdAt,
 				UpdatedAt: updatedAt,
 			}, nil)
+
 			packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{
 				Type:      "bits",
 				AppGUID:   appGUID,
@@ -495,30 +745,17 @@ var _ = Describe("PackageHandler", func() {
 				UpdatedAt: updatedAt,
 			}, nil)
 
-			uploadImageSource = new(fake.SourceImageUploader)
+			packageRegistryBase = "some-org"
+			packageImagePullSecretName = "package-image-pull-secret"
+
 			uploadImageSource.Returns(imageRefWithDigest, nil)
 
-			appRepo = new(fake.CFAppRepository)
 			credentialOption = remote.WithUserAgent("for-test-use-only") // real one should have credentials
-			buildRegistryAuth = new(fake.RegistryAuthBuilder)
 			buildRegistryAuth.Returns(credentialOption, nil)
-
-			apiHandler := NewPackageHandler(
-				logf.Log.WithName(testPackageHandlerLoggerName),
-				*serverURL,
-				packageRepo,
-				appRepo,
-				uploadImageSource.Spy,
-				buildRegistryAuth.Spy,
-				packageRegistryBase,
-				packageImagePullSecretName,
-			)
-
-			apiHandler.RegisterRoutes(router)
 		})
 
 		When("on the happy path", func() {
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				makeUploadRequest(packageGUID, strings.NewReader(srcFileContents))
 			})
 
@@ -614,7 +851,9 @@ var _ = Describe("PackageHandler", func() {
 		When("the record doesn't exist", func() {
 			BeforeEach(func() {
 				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+			})
 
+			JustBeforeEach(func() {
 				makeUploadRequest("no-such-package-guid", strings.NewReader("the-zip-contents"))
 			})
 
@@ -626,7 +865,7 @@ var _ = Describe("PackageHandler", func() {
 		})
 
 		When("the authorization.Info is not set in the request context", func() {
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				ctx = context.Background()
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
@@ -641,7 +880,9 @@ var _ = Describe("PackageHandler", func() {
 		When("fetching the package errors", func() {
 			BeforeEach(func() {
 				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+			})
 
+			JustBeforeEach(func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
@@ -653,7 +894,7 @@ var _ = Describe("PackageHandler", func() {
 		})
 
 		When("no bits file is given", func() {
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				var b bytes.Buffer
 				writer := multipart.NewWriter(&b)
 				Expect(writer.Close()).To(Succeed())
@@ -675,7 +916,9 @@ var _ = Describe("PackageHandler", func() {
 		When("building the image credentials errors", func() {
 			BeforeEach(func() {
 				buildRegistryAuth.Returns(nil, errors.New("boom"))
+			})
 
+			JustBeforeEach(func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
@@ -689,7 +932,9 @@ var _ = Describe("PackageHandler", func() {
 		When("uploading the source image errors", func() {
 			BeforeEach(func() {
 				uploadImageSource.Returns("", errors.New("boom"))
+			})
 
+			JustBeforeEach(func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
@@ -702,7 +947,9 @@ var _ = Describe("PackageHandler", func() {
 		When("updating the package source registry errors", func() {
 			BeforeEach(func() {
 				packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{}, errors.New("boom"))
+			})
 
+			JustBeforeEach(func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
@@ -722,7 +969,9 @@ var _ = Describe("PackageHandler", func() {
 					CreatedAt: createdAt,
 					UpdatedAt: updatedAt,
 				}, nil)
+			})
 
+			JustBeforeEach(func() {
 				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 			})
 
@@ -743,6 +992,222 @@ var _ = Describe("PackageHandler", func() {
 						}
 					]
 				}`), "Response body matches response:")
+			})
+		})
+	})
+
+	Describe("the GET /v3/packages/:guid/droplets endpoint", func() {
+		var req *http.Request
+
+		const (
+			packageGUID = "the-package-guid"
+			dropletGUID = "the-droplet-guid"
+			appGUID     = "the-app-guid"
+			// spaceGUID    = "the-space-guid"
+			createdAt = "1906-04-18T13:12:00Z"
+			updatedAt = "1906-04-18T13:12:01Z"
+			// package2GUID = "the-package-guid-2"
+			// createdAt2   = "1906-06-18T13:12:00Z"
+			// updatedAt2   = "1906-06-18T13:12:01Z"
+		)
+
+		BeforeEach(func() {
+			packageRepo.FetchPackageReturns(repositories.PackageRecord{
+				GUID: packageGUID,
+			}, nil)
+
+			dropletRepo.FetchDropletListReturns([]repositories.DropletRecord{
+				{
+					GUID:      dropletGUID,
+					State:     "STAGED",
+					CreatedAt: createdAt,
+					UpdatedAt: updatedAt,
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+					Stack: "cflinuxfs3",
+					ProcessTypes: map[string]string{
+						"web": "bundle exec rackup config.ru -p $PORT",
+					},
+					AppGUID:     appGUID,
+					PackageGUID: packageGUID,
+				},
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages/"+packageGUID+"/droplets", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		JustBeforeEach(func() {
+			router.ServeHTTP(rr, req)
+		})
+
+		When("on the happy path and", func() {
+			When("multiple droplets exist", func() {
+				It("returns status 200", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				})
+
+				It("fetches the right package", func() {
+					Expect(packageRepo.FetchPackageCallCount()).To(Equal(1))
+
+					_, _, actualPackageGUID := packageRepo.FetchPackageArgsForCall(0)
+					Expect(actualPackageGUID).To(Equal(packageGUID))
+				})
+
+				It("retrieves the droplets for the specified package", func() {
+					Expect(dropletRepo.FetchDropletListCallCount()).To(Equal(1))
+
+					_, _, dropletListMessage := dropletRepo.FetchDropletListArgsForCall(0)
+					Expect(dropletListMessage).To(Equal(repositories.DropletListMessage{
+						PackageGUIDs: []string{packageGUID},
+					}))
+				})
+
+				It("returns the droplet in the response", func() {
+					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+						"pagination": {
+							"total_results": 1,
+							"total_pages": 1,
+							"first": {
+								"href": "%[1]s/v3/packages/%[2]s/droplets"
+							},
+							"last": {
+								"href": "%[1]s/v3/packages/%[2]s/droplets"
+							},
+							"next": null,
+							"previous": null
+						},
+						"resources": [
+							{
+								"guid": "%[4]s",
+								"state": "STAGED",
+								"error": null,
+								"lifecycle": {
+									"type": "buildpack",
+									"data": {
+										"buildpacks": [],
+										"stack": ""
+									}
+								},
+								"execution_metadata": "",
+								"process_types": {
+									"web": "bundle exec rackup config.ru -p $PORT"
+								},
+								"checksum": null,
+								"buildpacks": [],
+								"stack": "cflinuxfs3",
+								"image": null,
+								"created_at": "%[5]s",
+								"updated_at": "%[6]s",
+								"relationships": {
+									"app": {
+										"data": {
+											"guid": "%[3]s"
+										}
+									}
+								},
+								"links": {
+									"self": {
+										"href": "%[1]s/v3/droplets/%[4]s"
+									},
+									"package": {
+										"href": "%[1]s/v3/packages/%[2]s"
+									},
+									"app": {
+										"href": "%[1]s/v3/apps/%[3]s"
+									},
+									"assign_current_droplet": {
+										"href": "%[1]s/v3/apps/%[3]s/relationships/current_droplet",
+										"method": "PATCH"
+									},
+									"download": null
+								},
+								"metadata": {
+									"labels": {},
+									"annotations": {}
+								}
+							}
+						]
+					}`, defaultServerURL, packageGUID, appGUID, dropletGUID, createdAt, updatedAt)), "Response body matches response:")
+				})
+			})
+
+			When("the \"states\" query parameter is provided", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages/"+packageGUID+"/droplets?states=SOME_WEIRD_VALUE", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("ignores it and returns status 200", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+			})
+
+			When("the \"per_page\" query parameter is provided", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages/"+packageGUID+"/droplets?per_page=SOME_WEIRD_VALUE", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("ignores it and returns status 200", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+			})
+		})
+
+		When("on the sad path and", func() {
+			When("the package does not exist", func() {
+				BeforeEach(func() {
+					packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+				})
+
+				It("returns the error", func() {
+					expectNotFoundError("Package not found")
+				})
+			})
+
+			When("an error occurs while fetching the package", func() {
+				BeforeEach(func() {
+					packageRepo.FetchPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+				})
+
+				It("returns the error", func() {
+					expectUnknownError()
+				})
+			})
+
+			When("an error occurs while fetching the droplets for the package", func() {
+				BeforeEach(func() {
+					dropletRepo.FetchDropletListReturns([]repositories.DropletRecord{}, errors.New("boom"))
+				})
+
+				It("returns the error", func() {
+					expectUnknownError()
+				})
+			})
+
+			When("unsupported query parameters are provided", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages/"+packageGUID+"/droplets?foo=my-app-guid", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+				It("returns an Unknown key error", func() {
+					expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'states, per_page'")
+				})
 			})
 		})
 	})

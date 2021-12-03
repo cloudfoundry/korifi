@@ -41,6 +41,21 @@ type CFPackageRepository struct {
 		result1 repositories.PackageRecord
 		result2 error
 	}
+	FetchPackageListStub        func(context.Context, authorization.Info, repositories.PackageListMessage) ([]repositories.PackageRecord, error)
+	fetchPackageListMutex       sync.RWMutex
+	fetchPackageListArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PackageListMessage
+	}
+	fetchPackageListReturns struct {
+		result1 []repositories.PackageRecord
+		result2 error
+	}
+	fetchPackageListReturnsOnCall map[int]struct {
+		result1 []repositories.PackageRecord
+		result2 error
+	}
 	UpdatePackageSourceStub        func(context.Context, authorization.Info, repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)
 	updatePackageSourceMutex       sync.RWMutex
 	updatePackageSourceArgsForCall []struct {
@@ -192,6 +207,72 @@ func (fake *CFPackageRepository) FetchPackageReturnsOnCall(i int, result1 reposi
 	}{result1, result2}
 }
 
+func (fake *CFPackageRepository) FetchPackageList(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PackageListMessage) ([]repositories.PackageRecord, error) {
+	fake.fetchPackageListMutex.Lock()
+	ret, specificReturn := fake.fetchPackageListReturnsOnCall[len(fake.fetchPackageListArgsForCall)]
+	fake.fetchPackageListArgsForCall = append(fake.fetchPackageListArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PackageListMessage
+	}{arg1, arg2, arg3})
+	stub := fake.FetchPackageListStub
+	fakeReturns := fake.fetchPackageListReturns
+	fake.recordInvocation("FetchPackageList", []interface{}{arg1, arg2, arg3})
+	fake.fetchPackageListMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFPackageRepository) FetchPackageListCallCount() int {
+	fake.fetchPackageListMutex.RLock()
+	defer fake.fetchPackageListMutex.RUnlock()
+	return len(fake.fetchPackageListArgsForCall)
+}
+
+func (fake *CFPackageRepository) FetchPackageListCalls(stub func(context.Context, authorization.Info, repositories.PackageListMessage) ([]repositories.PackageRecord, error)) {
+	fake.fetchPackageListMutex.Lock()
+	defer fake.fetchPackageListMutex.Unlock()
+	fake.FetchPackageListStub = stub
+}
+
+func (fake *CFPackageRepository) FetchPackageListArgsForCall(i int) (context.Context, authorization.Info, repositories.PackageListMessage) {
+	fake.fetchPackageListMutex.RLock()
+	defer fake.fetchPackageListMutex.RUnlock()
+	argsForCall := fake.fetchPackageListArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFPackageRepository) FetchPackageListReturns(result1 []repositories.PackageRecord, result2 error) {
+	fake.fetchPackageListMutex.Lock()
+	defer fake.fetchPackageListMutex.Unlock()
+	fake.FetchPackageListStub = nil
+	fake.fetchPackageListReturns = struct {
+		result1 []repositories.PackageRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFPackageRepository) FetchPackageListReturnsOnCall(i int, result1 []repositories.PackageRecord, result2 error) {
+	fake.fetchPackageListMutex.Lock()
+	defer fake.fetchPackageListMutex.Unlock()
+	fake.FetchPackageListStub = nil
+	if fake.fetchPackageListReturnsOnCall == nil {
+		fake.fetchPackageListReturnsOnCall = make(map[int]struct {
+			result1 []repositories.PackageRecord
+			result2 error
+		})
+	}
+	fake.fetchPackageListReturnsOnCall[i] = struct {
+		result1 []repositories.PackageRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFPackageRepository) UpdatePackageSource(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error) {
 	fake.updatePackageSourceMutex.Lock()
 	ret, specificReturn := fake.updatePackageSourceReturnsOnCall[len(fake.updatePackageSourceArgsForCall)]
@@ -265,6 +346,8 @@ func (fake *CFPackageRepository) Invocations() map[string][][]interface{} {
 	defer fake.createPackageMutex.RUnlock()
 	fake.fetchPackageMutex.RLock()
 	defer fake.fetchPackageMutex.RUnlock()
+	fake.fetchPackageListMutex.RLock()
+	defer fake.fetchPackageListMutex.RUnlock()
 	fake.updatePackageSourceMutex.RLock()
 	defer fake.updatePackageSourceMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

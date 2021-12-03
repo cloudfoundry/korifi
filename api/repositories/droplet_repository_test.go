@@ -249,4 +249,123 @@ var _ = Describe("DropletRepository", func() {
 			})
 		})
 	})
+
+	Describe("FetchDropletList", func() {
+		var (
+			testCtx     context.Context
+			dropletRepo *DropletRepo
+			namespace   *corev1.Namespace
+			buildGUID   string
+			build       *workloadsv1alpha1.CFBuild
+		)
+
+		const (
+			appGUID             = "app-1-guid"
+			packageGUID         = "fetch-package-droplets-guid"
+			stagingMemory       = 1024
+			stagingDisk         = 2048
+			dropletStack        = "cflinuxfs3"
+			registryImage       = "registry/image:tag"
+			registryImageSecret = "secret-key"
+		)
+
+		BeforeEach(func() {
+			testCtx = context.Background()
+			namespaceName := generateGUID()
+			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
+			Expect(k8sClient.Create(testCtx, namespace)).To(Succeed())
+
+			var err error
+			Expect(err).ToNot(HaveOccurred())
+
+			dropletRepo = NewDropletRepo(k8sClient)
+
+			buildGUID = generateGUID()
+			build = &workloadsv1alpha1.CFBuild{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      buildGUID,
+					Namespace: namespace.Name,
+				},
+				Spec: workloadsv1alpha1.CFBuildSpec{
+					PackageRef: corev1.LocalObjectReference{
+						Name: packageGUID,
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+					StagingMemoryMB: stagingMemory,
+					StagingDiskMB:   stagingDisk,
+					Lifecycle: workloadsv1alpha1.Lifecycle{
+						Type: "buildpack",
+						Data: workloadsv1alpha1.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(testCtx, build)).To(Succeed())
+			meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
+				Type:    "Staging",
+				Status:  metav1.ConditionFalse,
+				Reason:  "kpack",
+				Message: "kpack",
+			})
+			meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
+				Type:    "Succeeded",
+				Status:  metav1.ConditionTrue,
+				Reason:  "Unknown",
+				Message: "Unknown",
+			})
+			build.Status.BuildDropletStatus = &workloadsv1alpha1.BuildDropletStatus{
+				Stack: dropletStack,
+				Registry: workloadsv1alpha1.Registry{
+					Image: registryImage,
+					ImagePullSecrets: []corev1.LocalObjectReference{
+						{
+							Name: registryImageSecret,
+						},
+					},
+				},
+				ProcessTypes: []workloadsv1alpha1.ProcessType{
+					{
+						Type:    "rake",
+						Command: "bundle exec rake",
+					},
+					{
+						Type:    "web",
+						Command: "bundle exec rackup config.ru -p $PORT",
+					},
+				},
+				Ports: []int32{8080, 443},
+			}
+			// Update Build Status based on changes made to local copy
+			Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.Delete(testCtx, namespace)).To(Succeed())
+		})
+
+		When("on the happy path and", func() {
+			When("the packageGUIDs message parameter is provided", func() {
+				It("eventually returns a list of droplet records with the packageGUID label set on them", func() {
+					var dropletRecords []DropletRecord
+
+					Eventually(func() string {
+						var fetchErr error
+						dropletRecords, fetchErr = dropletRepo.FetchDropletList(testCtx, authInfo, DropletListMessage{
+							PackageGUIDs: []string{packageGUID},
+						})
+						if fetchErr != nil || len(dropletRecords) == 0 {
+							return ""
+						}
+						return dropletRecords[0].State
+					}, 10*time.Second, 250*time.Millisecond).Should(Equal("STAGED"), "the returned record State was not \"STAGED\"")
+					Expect(dropletRecords).To(HaveLen(1))
+					Expect(dropletRecords[0].GUID).To(Equal(buildGUID))
+				})
+			})
+		})
+	})
 })

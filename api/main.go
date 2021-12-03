@@ -130,6 +130,7 @@ func main() {
 			*serverURL,
 			repositories.NewPackageRepo(privilegedCRClient),
 			repositories.NewAppRepo(privilegedCRClient, buildUserClient),
+			repositories.NewDropletRepo(privilegedCRClient),
 			repositories.UploadSourceImage,
 			newRegistryAuthBuilder(privilegedK8sClient, config),
 			config.PackageRegistryBase,

@@ -36,6 +36,11 @@ type BuildpackData struct {
 	Version       string `json:"version"`
 }
 
+type DropletListResponse struct {
+	PaginationData PaginationData    `json:"pagination"`
+	Resources      []DropletResponse `json:"resources"`
+}
+
 func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL) DropletResponse {
 	toReturn := DropletResponse{
 		GUID:      dropletRecord.GUID,
@@ -85,4 +90,28 @@ func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL) Dropl
 		toReturn.Error = &dropletRecord.DropletErrorMsg
 	}
 	return toReturn
+}
+
+func ForDropletList(dropletRecordList []repositories.DropletRecord, baseURL url.URL, dropletBase string) DropletListResponse {
+	dropletResponses := make([]DropletResponse, 0, len(dropletRecordList))
+	for _, droplet := range dropletRecordList {
+		dropletResponses = append(dropletResponses, ForDroplet(droplet, baseURL))
+	}
+	// https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#list-droplets-for-a-package
+	// https://api.example.org/v3/packages/7b34f1cf-7e73-428a-bb5a-8a17a8058396/droplets
+	dropletListResponse := DropletListResponse{
+		PaginationData: PaginationData{
+			TotalResults: len(dropletResponses),
+			TotalPages:   1,
+			First: PageRef{
+				HREF: buildURL(baseURL).appendPath(dropletBase).build(),
+			},
+			Last: PageRef{
+				HREF: buildURL(baseURL).appendPath(dropletBase).build(),
+			},
+		},
+		Resources: dropletResponses,
+	}
+
+	return dropletListResponse
 }
