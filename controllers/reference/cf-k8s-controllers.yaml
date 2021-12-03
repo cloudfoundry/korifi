@@ -1646,11 +1646,11 @@ spec:
           periodSeconds: 10
         resources:
           limits:
-            cpu: 100m
-            memory: 30Mi
+            cpu: 1000m
+            memory: 1Gi
           requests:
-            cpu: 100m
-            memory: 20Mi
+            cpu: 500m
+            memory: 500Mi
         securityContext:
           allowPrivilegeEscalation: false
         volumeMounts:
