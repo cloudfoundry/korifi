@@ -170,12 +170,16 @@ jobs:
         path: api-integration-coverage
 
     - name: Generate and publish code coverage report
-      uses: paambaati/codeclimate-action@v3.0.0
       env:
         CC_TEST_REPORTER_ID: eac10b59cb33cb6a2ae137260587e43e3e148c72f0d2a3b7cca35761cfe257ee
-      with:
-        coverageLocations: "**/cover.out:gocov"
-        prefix: "code.cloudfoundry.org/cf-k8s-controllers"
+      run: |
+        curl -sL https://github.com/eirini-forks/test-reporter/releases/download/pr-fix-gocov-formatting/test-reporter -o ./test-reporter
+        chmod +x ./test-reporter
+        ./test-reporter format-coverage api-unit-coverage/api/cover.out -t gocov -o codeclimate.0.json --prefix code.cloudfoundry.org/cf-k8s-controllers
+        ./test-reporter format-coverage api-integration-coverage/api/cover.out -t gocov -o codeclimate.1.json --prefix code.cloudfoundry.org/cf-k8s-controllers
+        ./test-reporter format-coverage controllers-coverage/controllers/cover.out -t gocov -o codeclimate.2.json --prefix code.cloudfoundry.org/cf-k8s-controllers
+        ./test-reporter sum-coverage codeclimate.0.json codeclimate.1.json codeclimate.2.json -p 3 -o coverage.total.json
+        ./test-reporter upload-coverage -i coverage.total.json
 
   build-api:
     runs-on: ubuntu-latest
