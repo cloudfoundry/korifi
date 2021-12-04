@@ -355,42 +355,67 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			When("filters are provided", func() {
-				It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-					var routeRecords []RouteRecord
+				var routeRecords []RouteRecord
+				var message FetchRouteListMessage
+
+				JustBeforeEach(func() {
 					Eventually(func() []RouteRecord {
-						routeRecords, _ = routeRepo.FetchRouteList(testCtx, authInfo, FetchRouteListMessage{AppGUIDs: []string{"some-app-guid"}})
+						routeRecords, _ = routeRepo.FetchRouteList(testCtx, authInfo, message)
 						return routeRecords
-					}, timeCheckThreshold*time.Second).Should(HaveLen(1))
+					}, timeCheckThreshold*time.Second).ShouldNot(BeEmpty())
+				})
 
-					route1 := routeRecords[0]
-
-					Expect(route1).NotTo(BeZero())
-
-					By("returning a routeRecord in the list for one of the created CRs", func() {
-						Expect(route1.GUID).To(Equal(cfRoute1.Name))
-						Expect(route1.Host).To(Equal(cfRoute1.Spec.Host))
-						Expect(route1.SpaceGUID).To(Equal(cfRoute1.Namespace))
-						Expect(route1.Path).To(Equal(cfRoute1.Spec.Path))
-						Expect(route1.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
-						Expect(route1.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
-
-						Expect(route1.Destinations).To(Equal([]DestinationRecord{
-							{
-								GUID:        cfRoute1.Spec.Destinations[0].GUID,
-								AppGUID:     cfRoute1.Spec.Destinations[0].AppRef.Name,
-								Port:        cfRoute1.Spec.Destinations[0].Port,
-								ProcessType: cfRoute1.Spec.Destinations[0].ProcessType,
-							},
-						}))
-
-						createdAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-						updatedAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				When("space_guid filters are provided", func() {
+					BeforeEach(func() {
+						message = FetchRouteListMessage{SpaceGUIDs: []string{"default"}}
 					})
+					It("eventually returns a list of routeRecords for each CFRoute CR", func() {
+						Expect(routeRecords).To(HaveLen(2))
+					})
+				})
+				When("app_guid filters are provided", func() {
+					BeforeEach(func() {
+						message = FetchRouteListMessage{AppGUIDs: []string{"some-app-guid"}}
+					})
+					It("eventually returns a list of routeRecords for each CFRoute CR", func() {
+						route1 := routeRecords[0]
+
+						Expect(route1).NotTo(BeZero())
+
+						By("returning a routeRecord in the list for one of the created CRs", func() {
+							Expect(route1.GUID).To(Equal(cfRoute1.Name))
+							Expect(route1.Host).To(Equal(cfRoute1.Spec.Host))
+							Expect(route1.SpaceGUID).To(Equal(cfRoute1.Namespace))
+							Expect(route1.Path).To(Equal(cfRoute1.Spec.Path))
+							Expect(route1.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
+							Expect(route1.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
+
+							Expect(route1.Destinations).To(Equal([]DestinationRecord{
+								{
+									GUID:        cfRoute1.Spec.Destinations[0].GUID,
+									AppGUID:     cfRoute1.Spec.Destinations[0].AppRef.Name,
+									Port:        cfRoute1.Spec.Destinations[0].Port,
+									ProcessType: cfRoute1.Spec.Destinations[0].ProcessType,
+								},
+							}))
+
+							createdAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+
+							updatedAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+						})
+					})
+				})
+			})
+			When("non-matching space_guid filters are provided", func() {
+				It("eventually returns a list of routeRecords for each CFRoute CR", func() {
+					message := FetchRouteListMessage{SpaceGUIDs: []string{"something-not-matching"}}
+					routeRecords, err := routeRepo.FetchRouteList(testCtx, authInfo, message)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(routeRecords).To(BeEmpty())
 				})
 			})
 		})

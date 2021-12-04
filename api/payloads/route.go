@@ -34,14 +34,16 @@ func (p RouteCreate) ToRecord() repositories.RouteRecord {
 
 type RouteList struct {
 	AppGUIDs string `schema:"app_guids"`
+	SpaceGUIDs string `schema:"space_guids"`
 }
 
 func (p *RouteList) ToMessage() repositories.FetchRouteListMessage {
 	return repositories.FetchRouteListMessage{
 		AppGUIDs: parseArrayParam(p.AppGUIDs),
+		SpaceGUIDs: parseArrayParam(p.SpaceGUIDs),
 	}
 }
 
 func (p *RouteList) SupportedFilterKeys() []string {
-	return []string{"app_guids"}
+	return []string{"app_guids", "space_guids"}
 }

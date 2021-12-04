@@ -52,7 +52,8 @@ type RouteAddDestinationsMessage struct {
 }
 
 type FetchRouteListMessage struct {
-	AppGUIDs []string
+	AppGUIDs   []string
+	SpaceGUIDs []string
 }
 
 func (f *RouteRepo) FetchRoute(ctx context.Context, authInfo authorization.Info, routeGUID string) (RouteRecord, error) {
@@ -83,23 +84,42 @@ func (f *RouteRepo) FetchRouteList(ctx context.Context, authInfo authorization.I
 }
 
 func applyFilter(routes []networkingv1alpha1.CFRoute, message FetchRouteListMessage) []networkingv1alpha1.CFRoute {
-	if len(message.AppGUIDs) == 0 {
-		return routes
+	appGuidFilterSpecified := len(message.AppGUIDs) > 0
+	spaceGuidFilterSpecified := len(message.SpaceGUIDs) > 0
+
+	var appFiltered []networkingv1alpha1.CFRoute
+
+	if appGuidFilterSpecified {
+		for _, route := range routes {
+			for _, destination := range route.Spec.Destinations {
+				for _, appGUID := range message.AppGUIDs {
+					if destination.AppRef.Name == appGUID {
+						appFiltered = append(appFiltered, route)
+						break
+					}
+				}
+			}
+		}
+	} else {
+		appFiltered = routes
 	}
 
-	var filtered []networkingv1alpha1.CFRoute
+	var spaceFiltered []networkingv1alpha1.CFRoute
 
-	for _, route := range routes {
-		for _, destination := range route.Spec.Destinations {
-			for _, appGUID := range message.AppGUIDs {
-				if destination.AppRef.Name == appGUID {
-					filtered = append(filtered, route)
+	if !spaceGuidFilterSpecified {
+		return appFiltered
+	} else {
+		for _, route := range appFiltered {
+			for _, spaceGUID := range message.SpaceGUIDs {
+				if route.Namespace == spaceGUID {
+					spaceFiltered = append(spaceFiltered, route)
 					break
 				}
 			}
 		}
 	}
-	return filtered
+
+	return spaceFiltered
 }
 
 func (f *RouteRepo) FetchRoutesForApp(ctx context.Context, authInfo authorization.Info, appGUID string, spaceGUID string) ([]RouteRecord, error) {
