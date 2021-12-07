@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -26,6 +27,10 @@ const (
 
 //+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
+
+type PackageListMessage struct {
+	AppGUIDs []string
+}
 
 type PackageCreateMessage struct {
 	Type      string
@@ -77,6 +82,42 @@ func (r *PackageRepo) FetchPackage(ctx context.Context, authInfo authorization.I
 	matches := filterPackagesByMetadataName(allPackages, guid)
 
 	return returnPackage(matches)
+}
+
+func (r *PackageRepo) FetchPackageList(ctx context.Context, authInfo authorization.Info, message PackageListMessage) ([]PackageRecord, error) {
+	packageList := &workloadsv1alpha1.CFPackageList{}
+	err := r.privilegedClient.List(ctx, packageList)
+	if err != nil { // untested
+		return []PackageRecord{}, err
+	}
+
+	filteredPackages := applyPackageFiltersAndOrder(packageList.Items, message)
+
+	return returnPackageList(filteredPackages), nil
+}
+
+func applyPackageFiltersAndOrder(packages []workloadsv1alpha1.CFPackage, message PackageListMessage) []workloadsv1alpha1.CFPackage {
+	var filtered []workloadsv1alpha1.CFPackage
+	if len(message.AppGUIDs) > 0 {
+		for _, currentPackage := range packages {
+			for _, appGUID := range message.AppGUIDs {
+				if currentPackage.Spec.AppRef.Name == appGUID {
+					filtered = append(filtered, currentPackage)
+					break
+				}
+			}
+		}
+	} else {
+		filtered = packages
+	}
+
+	// TODO: use the future message.Order fields to reorder the list of results
+	// For now, we order by created_at by default- if you really want to optimize runtime you can use bucketsort
+	sort.Slice(filtered, func(i, j int) bool {
+		return !filtered[i].CreationTimestamp.Before(&filtered[j].CreationTimestamp)
+	})
+
+	return filtered
 }
 
 func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message PackageUpdateSourceMessage) (PackageRecord, error) {
@@ -146,13 +187,22 @@ func filterPackagesByMetadataName(packages []workloadsv1alpha1.CFPackage, name s
 	return filtered
 }
 
-func returnPackage(apps []workloadsv1alpha1.CFPackage) (PackageRecord, error) {
-	if len(apps) == 0 {
+func returnPackage(packages []workloadsv1alpha1.CFPackage) (PackageRecord, error) {
+	if len(packages) == 0 {
 		return PackageRecord{}, NotFoundError{}
 	}
-	if len(apps) > 1 {
+	if len(packages) > 1 {
 		return PackageRecord{}, errors.New("duplicate packages exist")
 	}
 
-	return cfPackageToPackageRecord(apps[0]), nil
+	return cfPackageToPackageRecord(packages[0]), nil
+}
+
+func returnPackageList(packages []workloadsv1alpha1.CFPackage) []PackageRecord {
+	packageRecords := make([]PackageRecord, 0, len(packages))
+
+	for _, currentPackage := range packages {
+		packageRecords = append(packageRecords, cfPackageToPackageRecord(currentPackage))
+	}
+	return packageRecords
 }

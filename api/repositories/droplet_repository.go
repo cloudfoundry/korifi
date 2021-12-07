@@ -14,6 +14,10 @@ import (
 
 // No kubebuilder RBAC tags required, because Build and Droplet are the same CR
 
+type DropletListMessage struct {
+	PackageGUIDs []string
+}
+
 type DropletRecord struct {
 	GUID            string
 	State           string
@@ -94,4 +98,54 @@ func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {
 		Labels:       cfBuild.Labels,
 		Annotations:  cfBuild.Annotations,
 	}
+}
+
+func (r *DropletRepo) FetchDropletList(ctx context.Context, authInfo authorization.Info, message DropletListMessage) ([]DropletRecord, error) {
+	buildList := &workloadsv1alpha1.CFBuildList{}
+	err := r.privilegedClient.List(ctx, buildList)
+	if err != nil { // untested
+		return []DropletRecord{}, err
+	}
+	allBuilds := buildList.Items
+	matches := applyDropletFilters(allBuilds, message)
+
+	return returnDropletList(matches), nil
+}
+
+func returnDropletList(droplets []workloadsv1alpha1.CFBuild) []DropletRecord {
+	dropletRecords := make([]DropletRecord, 0, len(droplets))
+
+	for _, currentBuild := range droplets {
+		dropletRecords = append(dropletRecords, cfBuildToDropletRecord(currentBuild))
+	}
+	return dropletRecords
+}
+
+func applyDropletFilters(builds []workloadsv1alpha1.CFBuild, message DropletListMessage) []workloadsv1alpha1.CFBuild {
+	var filtered []workloadsv1alpha1.CFBuild
+	for i, build := range builds {
+
+		stagingStatus := getConditionValue(&build.Status.Conditions, StagingConditionType)
+		succeededStatus := getConditionValue(&build.Status.Conditions, SucceededConditionType)
+		if stagingStatus != metav1.ConditionFalse ||
+			succeededStatus != metav1.ConditionTrue {
+			continue
+		}
+
+		if len(message.PackageGUIDs) > 0 {
+			foundMatch := false
+			for _, packageGUID := range message.PackageGUIDs {
+				if build.Spec.PackageRef.Name == packageGUID {
+					foundMatch = true
+					break
+				}
+			}
+			if !foundMatch {
+				continue
+			}
+		}
+
+		filtered = append(filtered, builds[i])
+	}
+	return filtered
 }

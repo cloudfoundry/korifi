@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	. "github.com/onsi/gomega/gstruct"
+
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
@@ -279,6 +281,163 @@ var _ = Describe("PackageRepository", func() {
 				_, err := packageRepo.FetchPackage(ctx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{}))
+			})
+		})
+	})
+
+	Describe("FetchPackageList", Serial, func() {
+		const (
+			appGUID1 = "the-app-guid-1"
+			appGUID2 = "the-app-guid-2"
+		)
+
+		var (
+			namespace1 *corev1.Namespace
+			namespace2 *corev1.Namespace
+		)
+
+		BeforeEach(func() {
+			namespace1Name := generateGUID()
+			namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace1Name}}
+			Expect(k8sClient.Create(context.Background(), namespace1)).To(Succeed())
+			namespace2Name := generateGUID()
+			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
+			Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.Delete(context.Background(), namespace1)).To(Succeed())
+			Expect(k8sClient.Delete(context.Background(), namespace2)).To(Succeed())
+		})
+
+		When("multiple packages exist in different namespaces", func() {
+			var (
+				package1GUID string
+				package2GUID string
+				package1     *workloadsv1alpha1.CFPackage
+				package2     *workloadsv1alpha1.CFPackage
+			)
+
+			BeforeEach(func() {
+				package1GUID = generateGUID()
+				package2GUID = generateGUID()
+				package1 = &workloadsv1alpha1.CFPackage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      package1GUID,
+						Namespace: namespace1.Name,
+					},
+					Spec: workloadsv1alpha1.CFPackageSpec{
+						Type: "bits",
+						AppRef: corev1.LocalObjectReference{
+							Name: appGUID1,
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), package1)).To(Succeed())
+
+				package2 = &workloadsv1alpha1.CFPackage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      package2GUID,
+						Namespace: namespace2.Name,
+					},
+					Spec: workloadsv1alpha1.CFPackageSpec{
+						Type: "bits",
+						AppRef: corev1.LocalObjectReference{
+							Name: appGUID2,
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), package2)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				Expect(k8sClient.Delete(context.Background(), package1)).To(Succeed())
+				Expect(k8sClient.Delete(context.Background(), package2)).To(Succeed())
+			})
+
+			When("no filters are specified", func() {
+				It("fetches all PackageRecords", func() {
+					packageList, err := packageRepo.FetchPackageList(context.Background(), authInfo, PackageListMessage{})
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(packageList).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"GUID":    Equal(package1GUID),
+							"AppGUID": Equal(appGUID1),
+						}),
+						MatchFields(IgnoreExtras, Fields{
+							"GUID":    Equal(package2GUID),
+							"AppGUID": Equal(appGUID2),
+						}),
+					))
+				})
+
+				When("three packages exist", func() {
+					var (
+						package3GUID string
+						package3     *workloadsv1alpha1.CFPackage
+					)
+
+					BeforeEach(func() {
+						package3GUID = generateGUID()
+						package3 = &workloadsv1alpha1.CFPackage{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      package3GUID,
+								Namespace: namespace1.Name,
+							},
+							Spec: workloadsv1alpha1.CFPackageSpec{
+								Type: "bits",
+								AppRef: corev1.LocalObjectReference{
+									Name: appGUID1,
+								},
+							},
+						}
+						// add a small delay to test ordering on created_by
+						time.Sleep(time.Second * 1)
+						Expect(k8sClient.Create(context.Background(), package3)).To(Succeed())
+					})
+
+					AfterEach(func() {
+						Expect(k8sClient.Delete(context.Background(), package3)).To(Succeed())
+					})
+
+					It("orders the results in descending created_at order by default", func() {
+						packageList, err := packageRepo.FetchPackageList(context.Background(), authInfo, PackageListMessage{})
+						Expect(err).NotTo(HaveOccurred())
+						Expect(packageList).To(HaveLen(3))
+						for i := 0; i < len(packageList)-1; i++ {
+							currentRecordCreatedAt, err := time.Parse(time.RFC3339, packageList[i].CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+
+							nextRecordCreatedAt, err := time.Parse(time.RFC3339, packageList[i+1].CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+
+							Expect(currentRecordCreatedAt).To(BeTemporally(">=", nextRecordCreatedAt))
+						}
+					})
+				})
+			})
+
+			When("app_guids filter is provided", func() {
+				It("fetches all PackageRecords", func() {
+					packageList, err := packageRepo.FetchPackageList(context.Background(), authInfo, PackageListMessage{AppGUIDs: []string{appGUID1}})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(packageList).To(HaveLen(1))
+					Expect(packageList[0]).To(
+						MatchFields(IgnoreExtras, Fields{
+							"GUID":    Equal(package1GUID),
+							"AppGUID": Equal(appGUID1),
+						}),
+					)
+				})
+			})
+		})
+
+		When("no packages exist", func() {
+			It("returns an empty list of PackageRecords", func() {
+				packageList, err := packageRepo.FetchPackageList(context.Background(), authInfo, PackageListMessage{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(packageList).To(BeEmpty())
 			})
 		})
 	})
