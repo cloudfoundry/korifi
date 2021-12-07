@@ -1545,11 +1545,13 @@ subjects:
 ---
 apiVersion: v1
 data:
-  cf_k8s_controllers_config.yaml: |-
+  cf_k8s_controllers_config.yaml: |
     kpackImageTag: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
     cfProcessDefaults:
       memoryMB: 500
       diskQuotaMB: 512
+    cfk8s_controller_namespace: cf-k8s-controllers-system
+    workloads_tls_secret_name: cf-k8s-workloads-ingress-cert
 kind: ConfigMap
 metadata:
   name: cf-k8s-controllers-config
@@ -1704,6 +1706,17 @@ metadata:
   namespace: cf-k8s-controllers-system
 spec:
   selfSigned: {}
+---
+apiVersion: projectcontour.io/v1
+kind: TLSCertificateDelegation
+metadata:
+  name: cf-k8s-controllers-workloads-fallback-delegation
+  namespace: cf-k8s-controllers-system
+spec:
+  delegations:
+  - secretName: cf-k8s-workloads-ingress-cert
+    targetNamespaces:
+    - '*'
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration

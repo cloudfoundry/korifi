@@ -7,6 +7,7 @@ import (
 	"time"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
 
 	. "github.com/onsi/ginkgo"
@@ -81,6 +82,15 @@ var _ = BeforeSuite(func() {
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
 		Log:    ctrl.Log.WithName("controllers").WithName("CFRoute"),
+		ControllerConfig: &config.ControllerConfig{
+			KpackImageTag: "image/registry/tag",
+			CFProcessDefaults: config.CFProcessDefaults{
+				MemoryMB:           500,
+				DefaultDiskQuotaMB: 512,
+			},
+			CFK8sControllerNamespace: "cf-k8s-controllers-system",
+			WorkloadsTLSSecretName:   "cf-k8s-workloads-ingress-cert",
+		},
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

@@ -5,3 +5,6 @@ configMapGenerator:
   - files:
       - controllersconfig/cf_k8s_controllers_config.yaml
     name: config
+
+resources:
+  - workloads_tls_delegation.yaml
