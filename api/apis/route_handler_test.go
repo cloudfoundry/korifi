@@ -333,7 +333,7 @@ var _ = Describe("RouteHandler", func() {
 				})
 			})
 
-			When("query parameters are provided", func() {
+			When("app_guid query parameters are provided", func() {
 				BeforeEach(func() {
 					var err error
 					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?app_guids=my-app-guid", nil)
@@ -348,6 +348,24 @@ var _ = Describe("RouteHandler", func() {
 					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
 					Expect(message.AppGUIDs).To(HaveLen(1))
 					Expect(message.AppGUIDs[0]).To(Equal("my-app-guid"))
+				})
+			})
+			When("space_guid query parameters are provided", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?space_guids=my-space-guid", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("calls route with expected parameters", func() {
+					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
+					Expect(message.AppGUIDs).To(HaveLen(0))
+					Expect(message.SpaceGUIDs).To(HaveLen(1))
+					Expect(message.SpaceGUIDs[0]).To(Equal("my-space-guid"))
 				})
 			})
 		})
@@ -415,7 +433,7 @@ var _ = Describe("RouteHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, space_guids'")
 			})
 		})
 

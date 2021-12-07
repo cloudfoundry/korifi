@@ -117,6 +117,7 @@ type SetAppDesiredStateMessage struct {
 
 type AppListMessage struct {
 	Names      []string
+	Guids      []string
 	SpaceGuids []string
 }
 
@@ -219,13 +220,34 @@ func (f *AppRepo) FetchAppList(ctx context.Context, authInfo authorization.Info,
 
 func (f *AppRepo) applyAppListFilter(appList []workloadsv1alpha1.CFApp, message AppListMessage) []workloadsv1alpha1.CFApp {
 	nameFilterSpecified := len(message.Names) > 0
+	guidsFilterSpecified := len(message.Guids) > 0
 	spaceGUIDFilterSpecified := len(message.SpaceGuids) > 0
+
+	var filtered []workloadsv1alpha1.CFApp
+
+	if guidsFilterSpecified {
+		for _, app := range appList {
+			for _, guid := range message.Guids {
+				if appMatchesGUID(app, guid) {
+					filtered = append(filtered, app)
+				}
+			}
+		}
+	}
+
+	if guidsFilterSpecified && len(filtered) == 0 {
+		return filtered
+	}
+
+	if len(filtered) > 0 {
+		appList = filtered
+		filtered = []workloadsv1alpha1.CFApp{}
+	}
 
 	if !nameFilterSpecified && !spaceGUIDFilterSpecified {
 		return appList
 	}
 
-	var filtered []workloadsv1alpha1.CFApp
 	for _, app := range appList {
 		if nameFilterSpecified && spaceGUIDFilterSpecified {
 			for _, name := range message.Names {
@@ -259,6 +281,10 @@ func appBelongsToSpace(app workloadsv1alpha1.CFApp, spaceGUID string) bool {
 
 func appMatchesName(app workloadsv1alpha1.CFApp, name string) bool {
 	return app.Spec.Name == name
+}
+
+func appMatchesGUID(app workloadsv1alpha1.CFApp, guid string) bool {
+	return app.ObjectMeta.Name == guid
 }
 
 func (f *AppRepo) returnAppList(appList []workloadsv1alpha1.CFApp) []AppRecord {
