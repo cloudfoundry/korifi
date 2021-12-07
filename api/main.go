@@ -125,6 +125,10 @@ func main() {
 			repositories.NewDomainRepo(privilegedCRClient),
 			repositories.NewAppRepo(privilegedCRClient, buildUserClient),
 		),
+		apis.NewServiceRouteBindingHandler(
+			ctrl.Log.WithName("ServiceRouteBinding"),
+			*serverURL,
+		),
 		apis.NewPackageHandler(
 			ctrl.Log.WithName("PackageHandler"),
 			*serverURL,
