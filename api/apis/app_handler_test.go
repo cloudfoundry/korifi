@@ -696,7 +696,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, space_guids, order_by'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, guids, space_guids, order_by'")
 			})
 		})
 

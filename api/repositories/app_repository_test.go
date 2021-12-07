@@ -232,6 +232,40 @@ var _ = Describe("AppRepository", func() {
 				})
 			})
 
+			When("a guid filter is provided", func() {
+				When("no Apps exist that match the filter", func() {
+					BeforeEach(func() {
+						createApp(space1.Name)
+						createApp(space2.Name)
+					})
+
+					It("returns an empty list of apps", func() {
+						message = AppListMessage{Guids: []string{"some-other-app-guid"}}
+						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(appList).To(BeEmpty())
+					})
+				})
+
+				When("some Apps match the filter", func() {
+					BeforeEach(func() {
+						createApp(space1.Name)
+						cfApp2 = createAppWithGUID(space2.Name, "app-guid-2")
+						cfApp3 = createAppWithGUID(space1.Name, "app-guid-3")
+					})
+
+					It("returns the matching apps", func() {
+						message = AppListMessage{Guids: []string{"app-guid-2", "app-guid-3"}}
+						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(appList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp3.Name)}),
+						))
+					})
+				})
+			})
+
 			When("a space filter is provided", func() {
 				When("no Apps exist that match the filter", func() {
 					BeforeEach(func() {
