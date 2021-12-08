@@ -85,17 +85,22 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&CFAppReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFApp"),
-		ControllerConfig: &config.ControllerConfig{
-			KpackImageTag: "image/registry/tag",
-			CFProcessDefaults: config.CFProcessDefaults{
-				MemoryMB:           500,
-				DefaultDiskQuotaMB: 512,
-			},
+	controllerConfig := &config.ControllerConfig{
+		KpackImageTag:      "image/registry/tag",
+		ClusterBuilderName: "cf-kpack-builder",
+		CFProcessDefaults: config.CFProcessDefaults{
+			MemoryMB:           500,
+			DefaultDiskQuotaMB: 512,
 		},
+		CFK8sControllerNamespace: "cf-k8s-controllers-system",
+		WorkloadsTLSSecretName:   "cf-k8s-workloads-ingress-cert",
+	}
+
+	err = (&CFAppReconciler{
+		Client:           k8sManager.GetClient(),
+		Scheme:           k8sManager.GetScheme(),
+		Log:              ctrl.Log.WithName("controllers").WithName("CFApp"),
+		ControllerConfig: controllerConfig,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -103,12 +108,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(registryAuthFetcherClient).NotTo(BeNil())
 	cfBuildReconciler = &CFBuildReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFBuild"),
-		ControllerConfig: &config.ControllerConfig{
-			KpackImageTag: "image/registry/tag",
-		},
+		Client:              k8sManager.GetClient(),
+		Scheme:              k8sManager.GetScheme(),
+		Log:                 ctrl.Log.WithName("controllers").WithName("CFBuild"),
+		ControllerConfig:    controllerConfig,
 		RegistryAuthFetcher: NewRegistryAuthFetcher(registryAuthFetcherClient),
 	}
 	err = (cfBuildReconciler).SetupWithManager(k8sManager)
@@ -120,6 +123,7 @@ var _ = BeforeSuite(func() {
 		Log:    ctrl.Log.WithName("controllers").WithName("CFProcess"),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
+
 	// Add new reconcilers here
 
 	go func() {

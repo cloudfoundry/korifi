@@ -47,11 +47,10 @@ import (
 )
 
 const (
-	kpackReadyConditionType   = "Ready"
-	clusterBuilderKind        = "ClusterBuilder"
-	clusterBuilderAPIVersion  = "kpack.io/v1alpha2"
-	kpackServiceAccount       = "kpack-service-account"
-	cfKpackClusterBuilderName = "cf-kpack-cluster-builder"
+	kpackReadyConditionType  = "Ready"
+	clusterBuilderKind       = "ClusterBuilder"
+	clusterBuilderAPIVersion = "kpack.io/v1alpha2"
+	kpackServiceAccount      = "kpack-service-account"
 )
 
 //counterfeiter:generate -o fake -fake-name RegistryAuthFetcher . RegistryAuthFetcher
@@ -217,7 +216,7 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 			Tag: kpackImageTag,
 			Builder: corev1.ObjectReference{
 				Kind:       clusterBuilderKind,
-				Name:       cfKpackClusterBuilderName,
+				Name:       r.ControllerConfig.ClusterBuilderName,
 				APIVersion: clusterBuilderAPIVersion,
 			},
 			ServiceAccountName: serviceAccountName,

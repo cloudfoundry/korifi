@@ -105,6 +105,7 @@ var _ = Describe("CFBuildReconciler", func() {
 						APIVersion: "workloads.cloudfoundry.org/v1alpha1",
 						Name:       desiredCFBuild.Name,
 					}))
+					Expect(createdKpackImage.Spec.Builder.Name).To(Equal("cf-kpack-builder"))
 					Expect(k8sClient.Delete(testCtx, createdKpackImage)).To(Succeed())
 				})
 
