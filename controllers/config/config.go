@@ -12,6 +12,7 @@ import (
 
 type ControllerConfig struct {
 	KpackImageTag            string            `yaml:"kpackImageTag"`
+	ClusterBuilderName       string            `yaml:"clusterBuilderName"`
 	CFProcessDefaults        CFProcessDefaults `yaml:"cfProcessDefaults"`
 	CFK8sControllerNamespace string            `yaml:"cfk8s_controller_namespace"`
 	WorkloadsTLSSecretName   string            `yaml:"workloads_tls_secret_name"`

@@ -162,9 +162,13 @@ ln -s /usr/local/opt/openssl@3/bin/openssl /usr/local/bin/openssl
 ```
 
 ## Configure cf-k8s-controllers
-Configuration file for cf-k8s-controllers is at `config/base/controllersconfig/cf_k8s_controllers_k8s.yaml`
+Configuration file for cf-k8s-controllers is at `controllers/config/base/controllersconfig/cf_k8s_controllers_k8s.yaml`
 
-Note: Edit this file and set the `kpackImageTag` to be the registry location you want for storing the images.
+### Configure kpack
+
+Edit the configuration file 
+- (required) set the `kpackImageTag` to be the registry location you want for storing the images.
+- (optional) set the `clusterBuilderName`, if you want to use a different cluster builder with kpack.  
 
 ### Configure Workload Ingress TLS Certificate Secret
 Generate a self-signed certificate. If you are using openssl, or libressl v3.1.0 or later:

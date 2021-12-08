@@ -1547,6 +1547,7 @@ apiVersion: v1
 data:
   cf_k8s_controllers_config.yaml: |
     kpackImageTag: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
+    clusterBuilderName: cf-kpack-cluster-builder
     cfProcessDefaults:
       memoryMB: 500
       diskQuotaMB: 512
