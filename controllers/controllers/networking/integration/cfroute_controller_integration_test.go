@@ -185,6 +185,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 							},
 							ProcessType: "web",
 							Port:        80,
+							Protocol:    "http1",
 						},
 					},
 				},
@@ -326,6 +327,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 							},
 							ProcessType: "web",
 							Port:        80,
+							Protocol:    "http1",
 						},
 					},
 				},
@@ -360,6 +362,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 							},
 							ProcessType: "web",
 							Port:        80,
+							Protocol:    "http1",
 						},
 					},
 				},
@@ -449,6 +452,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 							},
 							ProcessType: "web",
 							Port:        80,
+							Protocol:    "http1",
 						},
 					},
 				},
@@ -470,6 +474,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				},
 				ProcessType: "web",
 				Port:        8080,
+				Protocol:    "http1",
 			})
 			Expect(k8sClient.Patch(ctx, cfRoute, client.MergeFrom(originalCFRoute))).To(Succeed())
 		})
@@ -575,6 +580,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 								},
 								ProcessType: "web",
 								Port:        80,
+								Protocol:    "http1",
 							},
 						},
 					},

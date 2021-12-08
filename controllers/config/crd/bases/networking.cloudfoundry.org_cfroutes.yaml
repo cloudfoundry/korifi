@@ -60,10 +60,16 @@ spec:
                     processType:
                       description: Process type is required, part of the identity of a running process to which traffic may be routed We use process type instead of processRef because a process of the type may not exist at time of destination creation
                       type: string
+                    protocol:
+                      description: Protocol is required, must be "http1"
+                      enum:
+                      - http1
+                      type: string
                   required:
                   - appRef
                   - guid
                   - processType
+                  - protocol
                   type: object
                 type: array
               domainRef:
