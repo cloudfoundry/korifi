@@ -909,12 +909,14 @@ var _ = Describe("RouteHandler", func() {
 						AppGUID:     "1cb006ee-fb05-47e1-b541-c34179ddc446",
 						ProcessType: "web",
 						Port:        8080,
+						Protocol:    "http1",
 					},
 					{
 						GUID:        "fbef10a2-8ee7-11e9-aa2d-abeeaf7b83c5",
 						AppGUID:     "01856e12-8ee8-11e9-98a5-bb397dbc818f",
 						ProcessType: "api",
 						Port:        9000,
+						Protocol:    "http1",
 					},
 				},
 				CreatedAt: "create-time",
@@ -1104,7 +1106,7 @@ var _ = Describe("RouteHandler", func() {
 				Domain:       repositories.DomainRecord{GUID: domainGUID},
 				Host:         routeHost,
 				Path:         "",
-				Protocol:     "http1",
+				Protocol:     "http",
 				Destinations: nil,
 			}
 
@@ -1118,6 +1120,8 @@ var _ = Describe("RouteHandler", func() {
 		})
 
 		When("the request body is valid", func() {
+			var destinationPayload string
+
 			BeforeEach(func() {
 				updatedRoute := routeRecord
 				updatedRoute.Domain = domain
@@ -1127,19 +1131,19 @@ var _ = Describe("RouteHandler", func() {
 						AppGUID:     destination1AppGUID,
 						ProcessType: "web",
 						Port:        8080,
+						Protocol:    "http1",
 					},
 					{
 						GUID:        destination2GUID,
 						AppGUID:     destination2AppGUID,
 						ProcessType: destination2ProcessType,
 						Port:        destination2Port,
+						Protocol:    "http1",
 					},
 				}
 				routeRepo.AddDestinationsToRouteReturns(updatedRoute, nil)
-			})
 
-			JustBeforeEach(func() {
-				makePostRequest(`{
+				destinationPayload = `{
 					"destinations": [
 						{
 							"app": {
@@ -1158,7 +1162,11 @@ var _ = Describe("RouteHandler", func() {
 							"protocol": "http1"
 						}
 					]
-				}`, destination1AppGUID, destination2AppGUID, destination2ProcessType, destination2Port)
+				}`
+			})
+
+			JustBeforeEach(func() {
+				makePostRequest(destinationPayload, destination1AppGUID, destination2AppGUID, destination2ProcessType, destination2Port)
 			})
 
 			It("passes the authInfo into the repo calls", func() {
@@ -1230,7 +1238,7 @@ var _ = Describe("RouteHandler", func() {
 					Domain:       domain,
 					Host:         routeHost,
 					Path:         "",
-					Protocol:     "http1",
+					Protocol:     "http",
 					Destinations: nil,
 				}))
 
@@ -1240,12 +1248,14 @@ var _ = Describe("RouteHandler", func() {
 						"AppGUID":     Equal(destination1AppGUID),
 						"ProcessType": Equal("web"),
 						"Port":        Equal(8080),
+						"Protocol":    Equal("http1"),
 					}),
 					MatchAllFields(Fields{
 						"GUID":        Not(BeEmpty()),
 						"AppGUID":     Equal(destination2AppGUID),
 						"ProcessType": Equal(destination2ProcessType),
 						"Port":        Equal(destination2Port),
+						"Protocol":    Equal("http1"),
 					}),
 				))
 			})
@@ -1264,6 +1274,46 @@ var _ = Describe("RouteHandler", func() {
 				})
 			})
 
+			When("the destination protocol is not provided", func() {
+				BeforeEach(func() {
+					destinationPayload = `{
+						"destinations": [
+							{
+								"app": {
+									"guid": %q
+								}
+							},
+							{
+								"app": {
+									"guid": %q,
+									"process": {
+										"type": %q
+									}
+								},
+								"port": %d
+							}
+						]
+					}`
+				})
+
+				It("defaults the protocol to `http1`", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+
+					var parsedBody map[string]interface{}
+					Expect(
+						json.Unmarshal(rr.Body.Bytes(), &parsedBody),
+					).To(Succeed())
+
+					var destination map[string]interface{}
+
+					Expect(parsedBody["destinations"]).To(HaveLen(2))
+					destination = parsedBody["destinations"].([]interface{})[0].(map[string]interface{})
+					Expect(destination["protocol"]).To(Equal("http1"))
+
+					destination = parsedBody["destinations"].([]interface{})[1].(map[string]interface{})
+					Expect(destination["protocol"]).To(Equal("http1"))
+				})
+			})
 			When("fetching the route errors", func() {
 				BeforeEach(func() {
 					routeRepo.FetchRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
@@ -1392,7 +1442,7 @@ var _ = Describe("RouteHandler", func() {
 				})
 			})
 
-			When("destination protocol is not http or http1", func() {
+			When("destination protocol is not http1", func() {
 				BeforeEach(func() {
 					makePostRequest(`{
 						"destinations": [
@@ -1401,14 +1451,14 @@ var _ = Describe("RouteHandler", func() {
 							  "guid": "01856e12-8ee8-11e9-98a5-bb397dbc818f"
 							},
 							"port": 9000,
-							"protocol": "xyz"
+							"protocol": "http"
 						  }
 						]
 					}`)
 				})
 
 				It("returns a status 422 Unprocessable Entity ", func() {
-					expectUnprocessableEntityError("Protocol must be one of [http http1]")
+					expectUnprocessableEntityError("Protocol must be one of [http1]")
 				})
 
 				It("doesn't add any destinations to a route", func() {

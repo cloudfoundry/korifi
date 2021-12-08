@@ -29,7 +29,8 @@ type DestinationRecord struct {
 	AppGUID     string
 	ProcessType string
 	Port        int
-	// Weight and Protocol intentionally omitted as experimental features
+	Protocol    string
+	// Weight intentionally omitted as experimental features
 }
 
 type RouteRecord struct {

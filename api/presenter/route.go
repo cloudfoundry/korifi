@@ -170,7 +170,7 @@ func forDestination(destination repositories.DestinationRecord) routeDestination
 		},
 		Weight:   nil,
 		Port:     destination.Port,
-		Protocol: "http1",
+		Protocol: destination.Protocol,
 	}
 }
 

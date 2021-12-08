@@ -13,7 +13,7 @@ type DestinationListCreate struct {
 type Destination struct {
 	App      *AppResource `json:"app" validate:"required"`
 	Port     *int         `json:"port"`
-	Protocol string       `json:"protocol" validate:"oneof=http http1"`
+	Protocol *string      `json:"protocol" validate:"omitempty,oneof=http1"`
 }
 
 type AppResource struct {
@@ -38,11 +38,17 @@ func (dc DestinationListCreate) ToMessage(routeRecord repositories.RouteRecord) 
 			port = *destination.Port
 		}
 
+		protocol := "http1"
+		if destination.Protocol != nil {
+			protocol = *destination.Protocol
+		}
+
 		destinationRecords = append(destinationRecords, repositories.DestinationRecord{
 			GUID:        uuid.NewString(),
 			AppGUID:     destination.App.GUID,
 			ProcessType: processType,
 			Port:        port,
+			Protocol:    protocol,
 		})
 	}
 	return repositories.RouteAddDestinationsMessage{
