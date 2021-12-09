@@ -205,7 +205,7 @@ curl "http://localhost:9000/v3/domains?names=cf-apps.io" \
 | Add Destinations to Route | POST /v3/routes/\<guid\>/destinations |
 
 #### [List Routes](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#list-routes)
-**Query Parameters:** Currently supports filtering by `app_guids`.
+**Query Parameters:** Currently supports filtering by `app_guids`, `space_guids`, `domain_guids`, `hosts` and `paths`.
 
 #### [Creating Routes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-route)
 ```bash

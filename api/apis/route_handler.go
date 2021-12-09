@@ -148,7 +148,7 @@ func (h *RouteHandler) routeGetListHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForRouteList(routes, h.serverURL))
+	responseBody, err := json.Marshal(presenter.ForRouteList(routes, h.serverURL, r.URL))
 	if err != nil {
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)

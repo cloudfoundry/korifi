@@ -251,7 +251,7 @@ var _ = Describe("RouteRepository", func() {
 					},
 					Spec: networkingv1alpha1.CFRouteSpec{
 						Host:     "my-subdomain-2",
-						Path:     "",
+						Path:     "/some/path",
 						Protocol: "http",
 						DomainRef: corev1.LocalObjectReference{
 							Name: domainGUID,
@@ -373,6 +373,34 @@ var _ = Describe("RouteRepository", func() {
 						Expect(routeRecords).To(HaveLen(2))
 					})
 				})
+
+				When("domain_guid filters are provided", func() {
+					BeforeEach(func() {
+						message = FetchRouteListMessage{DomainGUIDs: []string{domainGUID}}
+					})
+					It("eventually returns a list of routeRecords for each CFRoute CR", func() {
+						Expect(routeRecords).To(HaveLen(2))
+					})
+				})
+
+				When("host filters are provided", func() {
+					BeforeEach(func() {
+						message = FetchRouteListMessage{Hosts: []string{"my-subdomain-1"}}
+					})
+					It("eventually returns a list of routeRecords for one of the CFRoute CRs", func() {
+						Expect(routeRecords).To(HaveLen(1))
+					})
+				})
+
+				When("path filters are provided", func() {
+					BeforeEach(func() {
+						message = FetchRouteListMessage{Paths: []string{"/some/path"}}
+					})
+					It("eventually returns a list of routeRecords for one of the CFRoute CRs", func() {
+						Expect(routeRecords).To(HaveLen(1))
+					})
+				})
+
 				When("app_guid filters are provided", func() {
 					BeforeEach(func() {
 						message = FetchRouteListMessage{AppGUIDs: []string{"some-app-guid"}}
@@ -410,9 +438,19 @@ var _ = Describe("RouteRepository", func() {
 					})
 				})
 			})
+
 			When("non-matching space_guid filters are provided", func() {
 				It("eventually returns a list of routeRecords for each CFRoute CR", func() {
 					message := FetchRouteListMessage{SpaceGUIDs: []string{"something-not-matching"}}
+					routeRecords, err := routeRepo.FetchRouteList(testCtx, authInfo, message)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(routeRecords).To(BeEmpty())
+				})
+			})
+
+			When("non-matching domain_guid filters are provided", func() {
+				It("eventually returns a list of routeRecords for each CFRoute CR", func() {
+					message := FetchRouteListMessage{DomainGUIDs: []string{"something-not-matching"}}
 					routeRecords, err := routeRepo.FetchRouteList(testCtx, authInfo, message)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(routeRecords).To(BeEmpty())

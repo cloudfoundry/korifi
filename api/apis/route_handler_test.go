@@ -278,10 +278,10 @@ var _ = Describe("RouteHandler", func() {
 					"total_results": 1,
 					"total_pages": 1,
 					"first": {
-						"href": "%[1]s/v3/routes?page=1"
+						"href": "%[1]s/v3/routes"
 					},
 					"last": {
-						"href": "%[1]s/v3/routes?page=1"
+						"href": "%[1]s/v3/routes"
 					},
 					"next": null,
 					"previous": null
@@ -333,7 +333,7 @@ var _ = Describe("RouteHandler", func() {
 				})
 			})
 
-			When("app_guid query parameters are provided", func() {
+			When("app_guids query parameters are provided", func() {
 				BeforeEach(func() {
 					var err error
 					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?app_guids=my-app-guid", nil)
@@ -344,13 +344,19 @@ var _ = Describe("RouteHandler", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 				})
 
+				It("returns the Pagination Data with the app_guids filter", func() {
+					Expect(rr.Body.String()).To(ContainSubstring("https://api.example.org/v3/routes?app_guids=my-app-guid"))
+				})
+
 				It("calls route with expected parameters", func() {
+					Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
 					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
 					Expect(message.AppGUIDs).To(HaveLen(1))
 					Expect(message.AppGUIDs[0]).To(Equal("my-app-guid"))
 				})
 			})
-			When("space_guid query parameters are provided", func() {
+
+			When("space_guids query parameters are provided", func() {
 				BeforeEach(func() {
 					var err error
 					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?space_guids=my-space-guid", nil)
@@ -361,11 +367,88 @@ var _ = Describe("RouteHandler", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 				})
 
+				It("returns the Pagination Data with the space_guids filter", func() {
+					Expect(rr.Body.String()).To(ContainSubstring("https://api.example.org/v3/routes?space_guids=my-space-guid"))
+				})
+
 				It("calls route with expected parameters", func() {
+					Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
 					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
 					Expect(message.AppGUIDs).To(HaveLen(0))
 					Expect(message.SpaceGUIDs).To(HaveLen(1))
 					Expect(message.SpaceGUIDs[0]).To(Equal("my-space-guid"))
+				})
+			})
+
+			When("domain_guids query parameters are provided", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?domain_guids=my-domain-guid", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns the Pagination Data with the domain_guids filter", func() {
+					Expect(rr.Body.String()).To(ContainSubstring("https://api.example.org/v3/routes?domain_guids=my-domain-guid"))
+				})
+
+				It("calls route with expected parameters", func() {
+					Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
+					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
+					Expect(message.AppGUIDs).To(HaveLen(0))
+					Expect(message.DomainGUIDs).To(HaveLen(1))
+					Expect(message.DomainGUIDs[0]).To(Equal("my-domain-guid"))
+				})
+			})
+
+			When("hosts query parameters are provided", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?hosts=my-host", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns the Pagination Data with the hosts filter", func() {
+					Expect(rr.Body.String()).To(ContainSubstring("https://api.example.org/v3/routes?hosts=my-host"))
+				})
+
+				It("calls route with expected parameters", func() {
+					Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
+					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
+					Expect(message.AppGUIDs).To(HaveLen(0))
+					Expect(message.Hosts).To(HaveLen(1))
+					Expect(message.Hosts[0]).To(Equal("my-host"))
+				})
+			})
+
+			When("paths query parameters are provided", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?paths=/some/path", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns the Pagination Data with the paths filter", func() {
+					Expect(rr.Body.String()).To(ContainSubstring("https://api.example.org/v3/routes?paths=/some/path"))
+				})
+
+				It("calls route with expected parameters", func() {
+					Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
+					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
+					Expect(message.AppGUIDs).To(HaveLen(0))
+					Expect(message.Paths).To(HaveLen(1))
+					Expect(message.Paths[0]).To(Equal("/some/path"))
 				})
 			})
 		})
@@ -390,10 +473,10 @@ var _ = Describe("RouteHandler", func() {
 						"total_results": 0,
 						"total_pages": 1,
 						"first": {
-							"href": "%[1]s/v3/routes?page=1"
+							"href": "%[1]s/v3/routes"
 						},
 						"last": {
-							"href": "%[1]s/v3/routes?page=1"
+							"href": "%[1]s/v3/routes"
 						},
 						"next": null,
 						"previous": null
@@ -433,7 +516,7 @@ var _ = Describe("RouteHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, space_guids'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, space_guids, domain_guids, hosts, paths'")
 			})
 		})
 

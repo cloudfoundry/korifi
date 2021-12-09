@@ -113,7 +113,7 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 	}
 }
 
-func ForRouteList(routeRecordList []repositories.RouteRecord, baseURL url.URL) RouteListResponse {
+func ForRouteList(routeRecordList []repositories.RouteRecord, baseURL url.URL, requestURI *url.URL) RouteListResponse {
 	routeResponses := make([]RouteResponse, 0, len(routeRecordList))
 	for _, routeRecord := range routeRecordList {
 		routeResponses = append(routeResponses, ForRoute(routeRecord, baseURL))
@@ -124,10 +124,10 @@ func ForRouteList(routeRecordList []repositories.RouteRecord, baseURL url.URL) R
 			TotalResults: len(routeResponses),
 			TotalPages:   1,
 			First: PageRef{
-				HREF: buildURL(baseURL).appendPath(routesBase).setQuery("page=1").build(),
+				HREF: buildURL(baseURL).appendPath(requestURI.Path).setQuery(requestURI.RawQuery).build(),
 			},
 			Last: PageRef{
-				HREF: buildURL(baseURL).appendPath(routesBase).setQuery("page=1").build(),
+				HREF: buildURL(baseURL).appendPath(requestURI.Path).setQuery(requestURI.RawQuery).build(),
 			},
 		},
 		Resources: routeResponses,

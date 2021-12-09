@@ -53,8 +53,11 @@ type RouteAddDestinationsMessage struct {
 }
 
 type FetchRouteListMessage struct {
-	AppGUIDs   []string
-	SpaceGUIDs []string
+	AppGUIDs    []string
+	SpaceGUIDs  []string
+	DomainGUIDs []string
+	Hosts       []string
+	Paths       []string
 }
 
 func (f *RouteRepo) FetchRoute(ctx context.Context, authInfo authorization.Info, routeGUID string) (RouteRecord, error) {
@@ -85,12 +88,9 @@ func (f *RouteRepo) FetchRouteList(ctx context.Context, authInfo authorization.I
 }
 
 func applyFilter(routes []networkingv1alpha1.CFRoute, message FetchRouteListMessage) []networkingv1alpha1.CFRoute {
-	appGuidFilterSpecified := len(message.AppGUIDs) > 0
-	spaceGuidFilterSpecified := len(message.SpaceGUIDs) > 0
-
 	var appFiltered []networkingv1alpha1.CFRoute
 
-	if appGuidFilterSpecified {
+	if len(message.AppGUIDs) > 0 {
 		for _, route := range routes {
 			for _, destination := range route.Spec.Destinations {
 				for _, appGUID := range message.AppGUIDs {
@@ -107,9 +107,7 @@ func applyFilter(routes []networkingv1alpha1.CFRoute, message FetchRouteListMess
 
 	var spaceFiltered []networkingv1alpha1.CFRoute
 
-	if !spaceGuidFilterSpecified {
-		return appFiltered
-	} else {
+	if len(message.SpaceGUIDs) > 0 {
 		for _, route := range appFiltered {
 			for _, spaceGUID := range message.SpaceGUIDs {
 				if route.Namespace == spaceGUID {
@@ -118,9 +116,56 @@ func applyFilter(routes []networkingv1alpha1.CFRoute, message FetchRouteListMess
 				}
 			}
 		}
+	} else {
+		spaceFiltered = appFiltered
 	}
 
-	return spaceFiltered
+	var domainFiltered []networkingv1alpha1.CFRoute
+
+	if len(message.DomainGUIDs) > 0 {
+		for _, route := range spaceFiltered {
+			for _, domainGUID := range message.DomainGUIDs {
+				if route.Spec.DomainRef.Name == domainGUID {
+					domainFiltered = append(domainFiltered, route)
+					break
+				}
+			}
+		}
+	} else {
+		domainFiltered = spaceFiltered
+	}
+
+	var hostFiltered []networkingv1alpha1.CFRoute
+
+	if len(message.Hosts) > 0 {
+		for _, route := range domainFiltered {
+			for _, host := range message.Hosts {
+				if route.Spec.Host == host {
+					hostFiltered = append(hostFiltered, route)
+					break
+				}
+			}
+		}
+	} else {
+		hostFiltered = domainFiltered
+	}
+
+	var pathFiltered []networkingv1alpha1.CFRoute
+
+	if len(message.Paths) > 0 {
+		for _, route := range hostFiltered {
+			for _, path := range message.Paths {
+				if route.Spec.Path == path {
+					pathFiltered = append(pathFiltered, route)
+					break
+				}
+			}
+		}
+	} else {
+		pathFiltered = hostFiltered
+	}
+
+	return pathFiltered
 }
 
 func (f *RouteRepo) FetchRoutesForApp(ctx context.Context, authInfo authorization.Info, appGUID string, spaceGUID string) ([]RouteRecord, error) {
