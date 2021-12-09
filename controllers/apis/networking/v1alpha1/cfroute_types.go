@@ -41,6 +41,9 @@ type Destination struct {
 	// Process type is required, part of the identity of a running process to which traffic may be routed
 	// We use process type instead of processRef because a process of the type may not exist at time of destination creation
 	ProcessType string `json:"processType"`
+	// Protocol is required, must be "http1"
+	// +kubebuilder:validation:Enum=http1
+	Protocol string `json:"protocol"`
 }
 
 // Protocol defines the transport protocol of the route

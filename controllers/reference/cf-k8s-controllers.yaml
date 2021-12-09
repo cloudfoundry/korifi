@@ -995,10 +995,16 @@ spec:
                         process type instead of processRef because a process of the
                         type may not exist at time of destination creation
                       type: string
+                    protocol:
+                      description: Protocol is required, must be "http1"
+                      enum:
+                      - http1
+                      type: string
                   required:
                   - appRef
                   - guid
                   - processType
+                  - protocol
                   type: object
                 type: array
               domainRef:

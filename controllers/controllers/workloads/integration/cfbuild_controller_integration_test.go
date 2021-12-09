@@ -315,7 +315,7 @@ var _ = Describe("CFBuildReconciler", func() {
 					}
 					return createdCFBuild.Status.BuildDropletStatus
 				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeNil(), "BuildStatusDroplet was nil on CFBuild")
-				Expect(fakeImageProcessFetcher.CallCount()).To(Equal(1), "Build Controller imageProcessFetcher was not called just once")
+				Expect(fakeImageProcessFetcher.CallCount()).NotTo(Equal(0), "Build Controller imageProcessFetcher was not called")
 				Expect(createdCFBuild.Status.BuildDropletStatus.Registry.Image).To(Equal(kpackBuildImageRef), "droplet registry image does not match kpack image latestImage")
 				Expect(createdCFBuild.Status.BuildDropletStatus.Stack).To(Equal(kpackImageLatestStack), "droplet stack does not match kpack image latestStack")
 				Expect(createdCFBuild.Status.BuildDropletStatus.Registry.ImagePullSecrets).To(Equal(desiredCFPackage.Spec.Source.Registry.ImagePullSecrets))

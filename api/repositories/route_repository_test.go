@@ -81,6 +81,7 @@ var _ = Describe("RouteRepository", func() {
 								Name: "some-app-guid",
 							},
 							ProcessType: "web",
+							Protocol:    "http1",
 						},
 					},
 				},
@@ -129,6 +130,7 @@ var _ = Describe("RouteRepository", func() {
 					Expect(destinationRecord.AppGUID).To(Equal(cfRoute1.Spec.Destinations[0].AppRef.Name))
 					Expect(destinationRecord.Port).To(Equal(cfRoute1.Spec.Destinations[0].Port))
 					Expect(destinationRecord.ProcessType).To(Equal(cfRoute1.Spec.Destinations[0].ProcessType))
+					Expect(destinationRecord.Protocol).To(Equal(cfRoute1.Spec.Destinations[0].Protocol))
 				})
 
 				By("returning a record where the CreatedAt and UpdatedAt match the CR creation time", func() {
@@ -238,6 +240,7 @@ var _ = Describe("RouteRepository", func() {
 									Name: "some-app-guid",
 								},
 								ProcessType: "web",
+								Protocol:    "http1",
 							},
 						},
 					},
@@ -264,6 +267,7 @@ var _ = Describe("RouteRepository", func() {
 									Name: "some-app-guid-2",
 								},
 								ProcessType: "web",
+								Protocol:    "http1",
 							},
 						},
 					},
@@ -314,6 +318,7 @@ var _ = Describe("RouteRepository", func() {
 								AppGUID:     cfRoute1.Spec.Destinations[0].AppRef.Name,
 								Port:        cfRoute1.Spec.Destinations[0].Port,
 								ProcessType: cfRoute1.Spec.Destinations[0].ProcessType,
+								Protocol:    cfRoute1.Spec.Destinations[0].Protocol,
 							},
 						}))
 
@@ -340,6 +345,7 @@ var _ = Describe("RouteRepository", func() {
 								AppGUID:     cfRoute2.Spec.Destinations[0].AppRef.Name,
 								Port:        cfRoute2.Spec.Destinations[0].Port,
 								ProcessType: cfRoute2.Spec.Destinations[0].ProcessType,
+								Protocol:    cfRoute2.Spec.Destinations[0].Protocol,
 							},
 						}))
 
@@ -424,6 +430,7 @@ var _ = Describe("RouteRepository", func() {
 									AppGUID:     cfRoute1.Spec.Destinations[0].AppRef.Name,
 									Port:        cfRoute1.Spec.Destinations[0].Port,
 									ProcessType: cfRoute1.Spec.Destinations[0].ProcessType,
+									Protocol:    cfRoute1.Spec.Destinations[0].Protocol,
 								},
 							}))
 
@@ -501,6 +508,7 @@ var _ = Describe("RouteRepository", func() {
 								Name: appGUID,
 							},
 							ProcessType: "web",
+							Protocol:    "http1",
 						},
 					},
 				},
@@ -569,6 +577,7 @@ var _ = Describe("RouteRepository", func() {
 						Expect(destinationRecord.AppGUID).To(Equal(cfRoute1.Spec.Destinations[0].AppRef.Name))
 						Expect(destinationRecord.Port).To(Equal(cfRoute1.Spec.Destinations[0].Port))
 						Expect(destinationRecord.ProcessType).To(Equal(cfRoute1.Spec.Destinations[0].ProcessType))
+						Expect(destinationRecord.Protocol).To(Equal(cfRoute1.Spec.Destinations[0].Protocol))
 					})
 
 					By("returning a record where the CreatedAt and UpdatedAt match the CR creation time", func() {
@@ -715,27 +724,30 @@ var _ = Describe("RouteRepository", func() {
 					destinationGUID2   string
 					appGUID1           string
 					appGUID2           string
-					destionationRecord []DestinationRecord
+					destinationRecord  []DestinationRecord
 					patchedRouteRecord RouteRecord
 					addDestinationErr  error
 				)
+
 				BeforeEach(func() {
 					destinationGUID1 = generateGUID()
 					destinationGUID2 = generateGUID()
 					appGUID1 = generateGUID()
 					appGUID2 = generateGUID()
-					destionationRecord = []DestinationRecord{
+					destinationRecord = []DestinationRecord{
 						{
 							GUID:        destinationGUID1,
 							AppGUID:     appGUID1,
 							ProcessType: "web",
 							Port:        8080,
+							Protocol:    "http1",
 						},
 						{
 							GUID:        destinationGUID2,
 							AppGUID:     appGUID2,
 							ProcessType: "worker",
 							Port:        9000,
+							Protocol:    "http1",
 						},
 					}
 
@@ -743,7 +755,7 @@ var _ = Describe("RouteRepository", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					// initialize a DestinationListMessage
-					destinationListCreateMessage := initializeDestinationListMessage(routeRecord, destionationRecord)
+					destinationListCreateMessage := initializeDestinationListMessage(routeRecord, destinationRecord)
 					patchedRouteRecord, addDestinationErr = routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
 					Expect(addDestinationErr).NotTo(HaveOccurred())
 				})
@@ -767,6 +779,7 @@ var _ = Describe("RouteRepository", func() {
 								Name: appGUID1,
 							},
 							ProcessType: "web",
+							Protocol:    "http1",
 						},
 						{
 							GUID: destinationGUID2,
@@ -775,12 +788,37 @@ var _ = Describe("RouteRepository", func() {
 								Name: appGUID2,
 							},
 							ProcessType: "worker",
+							Protocol:    "http1",
 						},
 					}))
 				})
 
 				It("returns RouteRecord with new destinations", func() {
-					Expect(patchedRouteRecord.Destinations).To(ConsistOf(destionationRecord))
+					Expect(patchedRouteRecord.Destinations).To(ConsistOf(destinationRecord))
+				})
+			})
+
+			When("the route destination has an invalid protocol", func() {
+				It("returns an error", func() {
+					destinationGUID := generateGUID()
+					appGUID := generateGUID()
+					destinationRecord := []DestinationRecord{
+						{
+							GUID:        destinationGUID,
+							AppGUID:     appGUID,
+							ProcessType: "web",
+							Port:        8080,
+							Protocol:    "bad-protocol",
+						},
+					}
+
+					routeRecord, err := routeRepo.FetchRoute(testCtx, authInfo, route1GUID)
+					Expect(err).NotTo(HaveOccurred())
+
+					// initialize a DestinationListMessage
+					destinationListCreateMessage := initializeDestinationListMessage(routeRecord, destinationRecord)
+					_, addDestinationErr := routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
+					Expect(addDestinationErr.Error()).To(ContainSubstring("Unsupported value: \"bad-protocol\": supported values: \"http1\""))
 				})
 			})
 		})
@@ -819,6 +857,7 @@ var _ = Describe("RouteRepository", func() {
 						Name: appGUID,
 					},
 					ProcessType: "web",
+					Protocol:    "http1",
 				}
 
 				cfRoute.Spec.Destinations = []networkingv1alpha1.Destination{routeDestination}
@@ -852,12 +891,14 @@ var _ = Describe("RouteRepository", func() {
 							AppGUID:     appGUID1,
 							ProcessType: "web",
 							Port:        8080,
+							Protocol:    "http1",
 						},
 						{
 							GUID:        destinationGUID2,
 							AppGUID:     appGUID2,
 							ProcessType: "worker",
 							Port:        9000,
+							Protocol:    "http1",
 						},
 					}
 
@@ -889,6 +930,7 @@ var _ = Describe("RouteRepository", func() {
 								Name: appGUID1,
 							},
 							ProcessType: "web",
+							Protocol:    "http1",
 						},
 						{
 							GUID: destinationGUID2,
@@ -897,6 +939,7 @@ var _ = Describe("RouteRepository", func() {
 								Name: appGUID2,
 							},
 							ProcessType: "worker",
+							Protocol:    "http1",
 						},
 						{
 							GUID: destinationGUID,
@@ -905,6 +948,7 @@ var _ = Describe("RouteRepository", func() {
 								Name: appGUID,
 							},
 							ProcessType: "web",
+							Protocol:    "http1",
 						},
 					}))
 				})
@@ -915,6 +959,7 @@ var _ = Describe("RouteRepository", func() {
 						AppGUID:     appGUID,
 						ProcessType: "web",
 						Port:        8000,
+						Protocol:    "http1",
 					})))
 				})
 			})

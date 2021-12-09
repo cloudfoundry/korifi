@@ -263,6 +263,7 @@ func cfRouteDestinationToDestination(cfRouteDestination networkingv1alpha1.Desti
 		AppGUID:     cfRouteDestination.AppRef.Name,
 		ProcessType: cfRouteDestination.ProcessType,
 		Port:        cfRouteDestination.Port,
+		Protocol:    cfRouteDestination.Protocol,
 	}
 }
 
@@ -330,6 +331,7 @@ func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) 
 				Name: destinationRecord.AppGUID,
 			},
 			ProcessType: destinationRecord.ProcessType,
+			Protocol:    destinationRecord.Protocol,
 		})
 	}
 
