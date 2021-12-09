@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strconv"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -46,4 +48,24 @@ func (r *CFApp) Default() {
 	}
 	appLabels[CFAppGUIDLabelKey] = r.Name
 	r.ObjectMeta.SetLabels(appLabels)
+
+	appAnnotations := r.ObjectMeta.GetAnnotations()
+	if appAnnotations == nil {
+		appAnnotations = make(map[string]string)
+	}
+	_, hasRevAnnotation := appAnnotations[CFAppRevisionKey]
+	if !hasRevAnnotation {
+		appAnnotations[CFAppRevisionKey] = CFAppRevisionKeyDefault
+	}
+
+	if (r.Spec.DesiredState == StoppedState) && (r.Status.ObservedDesiredState != "") && (r.Spec.DesiredState != r.Status.ObservedDesiredState) {
+		currentRevValue := appAnnotations[CFAppRevisionKey]
+		revValue, err := strconv.Atoi(currentRevValue)
+		if err != nil {
+			appAnnotations[CFAppRevisionKey] = CFAppRevisionKeyDefault
+		} else {
+			appAnnotations[CFAppRevisionKey] = strconv.Itoa(revValue + 1)
+		}
+	}
+	r.ObjectMeta.SetAnnotations(appAnnotations)
 }

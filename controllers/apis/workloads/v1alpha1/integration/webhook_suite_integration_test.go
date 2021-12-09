@@ -43,9 +43,10 @@ import (
 )
 
 var (
-	cancel    context.CancelFunc
-	testEnv   *envtest.Environment
-	k8sClient client.Client
+	cancel                       context.CancelFunc
+	testEnv                      *envtest.Environment
+	k8sClient                    client.Client
+	cfAppValidatingWebhookClient client.Client
 )
 
 func TestWorkloadsMutatingWebhooks(t *testing.T) {
@@ -94,7 +95,8 @@ var _ = BeforeSuite(func() {
 
 	Expect((&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	cfAppValidatingWebhook := &workloads.CFAppValidation{Client: mgr.GetClient()}
+	cfAppValidatingWebhookClient = mgr.GetClient()
+	cfAppValidatingWebhook := &workloads.CFAppValidation{Client: cfAppValidatingWebhookClient}
 	Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect(workloads.NewSubnamespaceAnchorValidation(
@@ -135,3 +137,13 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+func getMapKeyValue(m map[string]string, k string) string {
+	if m == nil {
+		return ""
+	}
+	if v, has := m[k]; has {
+		return v
+	}
+	return ""
+}

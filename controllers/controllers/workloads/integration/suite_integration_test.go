@@ -179,3 +179,13 @@ func patchAppWithDroplet(ctx context.Context, k8sClient client.Client, appGUID, 
 	Expect(k8sClient.Patch(ctx, patchedCFApp, client.MergeFrom(baseCFApp))).To(Succeed())
 	return baseCFApp
 }
+
+func getMapKeyValue(m map[string]string, k string) string {
+	if m == nil {
+		return ""
+	}
+	if v, has := m[k]; has {
+		return v
+	}
+	return ""
+}

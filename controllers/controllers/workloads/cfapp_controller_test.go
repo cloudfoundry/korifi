@@ -137,7 +137,7 @@ var _ = Describe("CFAppReconciler", func() {
 				cast, ok := updatedCFApp.(*workloadsv1alpha1.CFApp)
 				Expect(ok).To(BeTrue(), "Cast to workloadsv1alpha1.CFApp failed")
 				Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRunning)).To(BeTrue(), "Status Condition "+StatusConditionRunning+" was not False as expected")
-				Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRestarting)).To(BeTrue(), "Status Condition "+StatusConditionRestarting+" was not False as expected")
+				Expect(cast.Status.ObservedDesiredState).To(Equal(cast.Spec.DesiredState))
 			})
 		})
 
@@ -216,7 +216,6 @@ var _ = Describe("CFAppReconciler", func() {
 				cast, ok := updatedCFApp.(*workloadsv1alpha1.CFApp)
 				Expect(ok).To(BeTrue(), "Cast to workloadsv1alpha1.CFApp failed")
 				Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRunning)).To(BeTrue(), "Status Condition "+StatusConditionRunning+" was not False as expected")
-				Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRestarting)).To(BeTrue(), "Status Condition "+StatusConditionRestarting+" was not False as expected")
 			})
 		})
 

@@ -14,6 +14,7 @@ import (
 
 const (
 	CFAppLabelKey         = "workloads.cloudfoundry.org/app-guid"
+	cfAppRevisionKey      = "workloads.cloudfoundry.org/app-rev"
 	CFProcessGUIDLabelKey = "workloads.cloudfoundry.org/process-guid"
 	CFProcessTypeLabelKey = "workloads.cloudfoundry.org/process-type"
 )
@@ -35,6 +36,9 @@ func BuildCFAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFA
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
 			Namespace: spaceGUID,
+			Annotations: map[string]string{
+				cfAppRevisionKey: "0",
+			},
 		},
 		Spec: workloadsv1alpha1.CFAppSpec{
 			Name:         "test-app-name",

@@ -33,7 +33,7 @@ const (
 	testPackageGUID    = "test-package-guid"
 )
 
-var _ = Describe("CFRouteReconciler Unit Tests", func() {
+var _ = Describe("CFProcessReconciler Unit Tests", func() {
 	var (
 		fakeClient *fake.Client
 
@@ -47,6 +47,7 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 		cfProcessError    error
 		appEnvSecretError error
 		lrpError          error
+		lrpListError      error
 
 		cfProcessReconciler *CFProcessReconciler
 		ctx                 context.Context
@@ -67,6 +68,7 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 		cfProcessError = nil
 		appEnvSecretError = nil
 		lrpError = nil
+		lrpListError = nil
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
@@ -85,6 +87,20 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 			case *eiriniv1.LRP:
 				lrp.DeepCopyInto(obj)
 				return lrpError
+			default:
+				panic("TestClient Get provided a weird obj")
+			}
+		}
+
+		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
+			switch listObj := list.(type) {
+			case *eiriniv1.LRPList:
+				lrpList := eiriniv1.LRPList{Items: []eiriniv1.LRP{}}
+				if lrp != nil {
+					lrpList.Items = append(lrpList.Items, *lrp)
+				}
+				lrpList.DeepCopyInto(listObj)
+				return lrpListError
 			default:
 				panic("TestClient Get provided a weird obj")
 			}
@@ -126,6 +142,9 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 							Name:         testProcessGUID,
 							GenerateName: "",
 							Namespace:    testNamespace,
+							Labels: map[string]string{
+								workloadsv1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
+							},
 						},
 						Spec: eiriniv1.LRPSpec{
 							GUID:        testProcessGUID,
@@ -179,6 +198,17 @@ var _ = Describe("CFRouteReconciler Unit Tests", func() {
 			When("fetch CFApp returns an error", func() {
 				BeforeEach(func() {
 					cfAppError = errors.New(failsOnPurposeErrorMessage)
+					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
+				})
+
+				It("should return an error", func() {
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
+				})
+			})
+
+			When("fetch LRPList returns an error", func() {
+				BeforeEach(func() {
+					lrpListError = errors.New(failsOnPurposeErrorMessage)
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 

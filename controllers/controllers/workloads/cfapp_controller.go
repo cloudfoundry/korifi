@@ -52,8 +52,8 @@ type CFAppReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var cfApp workloadsv1alpha1.CFApp
-	err := r.Client.Get(ctx, req.NamespacedName, &cfApp)
+	cfApp := &workloadsv1alpha1.CFApp{}
+	err := r.Client.Get(ctx, req.NamespacedName, cfApp)
 	if err != nil {
 		r.Log.Error(err, "unable to fetch CFApp")
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
@@ -102,25 +102,20 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 	}
 
-	// set the status.conditions "Running" and "Restarting" to false
+	// set the status.conditions "Running" to false
 	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
 		Type:    StatusConditionRunning,
 		Status:  metav1.ConditionFalse,
 		Reason:  "unimplemented",
 		Message: "",
 	})
-	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-		Type:    StatusConditionRestarting,
-		Status:  metav1.ConditionFalse,
-		Reason:  "unimplemented",
-		Message: "",
-	})
+	cfApp.Status.ObservedDesiredState = cfApp.Spec.DesiredState
 
 	// Update CF App Status Conditions based on local copy
-	if err := r.Client.Status().Update(ctx, &cfApp); err != nil {
-		r.Log.Error(err, "unable to update CFApp status")
+	if statusErr := r.Client.Status().Update(ctx, cfApp); statusErr != nil {
+		r.Log.Error(statusErr, "unable to update CFApp status")
 		r.Log.Info(fmt.Sprintf("CFApps status: %+v", cfApp.Status))
-		return ctrl.Result{}, err
+		return ctrl.Result{}, statusErr
 	}
 	return ctrl.Result{}, nil
 }
