@@ -52,7 +52,7 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	org := payload.ToRecord()
+	org := payload.ToMessage()
 	org.GUID = uuid.NewString()
 
 	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest(r)

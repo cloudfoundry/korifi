@@ -1,8 +1,6 @@
 package payloads
 
-import (
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-)
+import "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 type OrgCreate struct {
 	Name      string   `json:"name" validate:"required"`
@@ -10,8 +8,8 @@ type OrgCreate struct {
 	Metadata  Metadata `json:"metadata"`
 }
 
-func (p OrgCreate) ToRecord() repositories.OrgRecord {
-	return repositories.OrgRecord{
+func (p OrgCreate) ToMessage() repositories.OrgCreateMessage {
+	return repositories.OrgCreateMessage{
 		Name:        p.Name,
 		Suspended:   p.Suspended,
 		Labels:      p.Metadata.Labels,

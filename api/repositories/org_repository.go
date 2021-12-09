@@ -18,12 +18,12 @@ import (
 //counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
 
 type CFOrgRepository interface {
-	CreateOrg(context context.Context, org OrgRecord) (OrgRecord, error)
+	CreateOrg(context context.Context, org OrgCreateMessage) (OrgRecord, error)
 	FetchOrgs(context context.Context, orgNames []string) ([]OrgRecord, error)
 }
 
 type CFSpaceRepository interface {
-	CreateSpace(context.Context, SpaceRecord) (SpaceRecord, error)
+	CreateSpace(context.Context, SpaceCreateMessage) (SpaceRecord, error)
 	FetchSpaces(context.Context, []string, []string) ([]SpaceRecord, error)
 }
 
@@ -31,6 +31,20 @@ const (
 	OrgNameLabel   = "cloudfoundry.org/org-name"
 	SpaceNameLabel = "cloudfoundry.org/space-name"
 )
+
+type OrgCreateMessage struct {
+	Name        string
+	GUID        string
+	Suspended   bool
+	Labels      map[string]string
+	Annotations map[string]string
+}
+
+type SpaceCreateMessage struct {
+	Name             string
+	GUID             string
+	OrganizationGUID string
+}
 
 type OrgRecord struct {
 	Name        string
@@ -66,7 +80,7 @@ func NewOrgRepo(rootNamespace string, privilegedClient client.WithWatch, timeout
 	}
 }
 
-func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, error) {
+func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgCreateMessage) (OrgRecord, error) {
 	anchor, err := r.createSubnamespaceAnchor(ctx, &v1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      org.GUID,
@@ -80,20 +94,26 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, erro
 		return OrgRecord{}, err
 	}
 
-	org.GUID = anchor.Name
-	org.CreatedAt = anchor.CreationTimestamp.Time
-	org.UpdatedAt = anchor.CreationTimestamp.Time
+	orgRecord := OrgRecord{
+		Name:        org.Name,
+		GUID:        anchor.Name,
+		Suspended:   org.Suspended,
+		Labels:      org.Labels,
+		Annotations: org.Annotations,
+		CreatedAt:   anchor.CreationTimestamp.Time,
+		UpdatedAt:   anchor.CreationTimestamp.Time,
+	}
 
-	return org, nil
+	return orgRecord, nil
 }
 
-func (r *OrgRepo) CreateSpace(ctx context.Context, space SpaceRecord) (SpaceRecord, error) {
+func (r *OrgRepo) CreateSpace(ctx context.Context, message SpaceCreateMessage) (SpaceRecord, error) {
 	anchor, err := r.createSubnamespaceAnchor(ctx, &v1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      space.GUID,
-			Namespace: space.OrganizationGUID,
+			Name:      message.GUID,
+			Namespace: message.OrganizationGUID,
 			Labels: map[string]string{
-				SpaceNameLabel: space.Name,
+				SpaceNameLabel: message.Name,
 			},
 		},
 	})
@@ -101,11 +121,19 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, space SpaceRecord) (SpaceReco
 		return SpaceRecord{}, err
 	}
 
-	space.GUID = anchor.Name
-	space.CreatedAt = anchor.CreationTimestamp.Time
-	space.UpdatedAt = anchor.CreationTimestamp.Time
+	// TODO: Insert Service Account creation
+	// createKpackServiceAccount()
+	// createEiriniServiceAccount()
 
-	return space, nil
+	record := SpaceRecord{
+		Name:             message.Name,
+		GUID:             anchor.Name,
+		OrganizationGUID: message.OrganizationGUID,
+		CreatedAt:        anchor.CreationTimestamp.Time,
+		UpdatedAt:        anchor.CreationTimestamp.Time,
+	}
+
+	return record, nil
 }
 
 func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context, anchor *v1alpha2.SubnamespaceAnchor) (*v1alpha2.SubnamespaceAnchor, error) {

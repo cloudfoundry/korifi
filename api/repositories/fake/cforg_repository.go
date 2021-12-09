@@ -9,11 +9,11 @@ import (
 )
 
 type CFOrgRepository struct {
-	CreateOrgStub        func(context.Context, repositories.OrgRecord) (repositories.OrgRecord, error)
+	CreateOrgStub        func(context.Context, repositories.OrgCreateMessage) (repositories.OrgRecord, error)
 	createOrgMutex       sync.RWMutex
 	createOrgArgsForCall []struct {
 		arg1 context.Context
-		arg2 repositories.OrgRecord
+		arg2 repositories.OrgCreateMessage
 	}
 	createOrgReturns struct {
 		result1 repositories.OrgRecord
@@ -41,12 +41,12 @@ type CFOrgRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFOrgRepository) CreateOrg(arg1 context.Context, arg2 repositories.OrgRecord) (repositories.OrgRecord, error) {
+func (fake *CFOrgRepository) CreateOrg(arg1 context.Context, arg2 repositories.OrgCreateMessage) (repositories.OrgRecord, error) {
 	fake.createOrgMutex.Lock()
 	ret, specificReturn := fake.createOrgReturnsOnCall[len(fake.createOrgArgsForCall)]
 	fake.createOrgArgsForCall = append(fake.createOrgArgsForCall, struct {
 		arg1 context.Context
-		arg2 repositories.OrgRecord
+		arg2 repositories.OrgCreateMessage
 	}{arg1, arg2})
 	stub := fake.CreateOrgStub
 	fakeReturns := fake.createOrgReturns
@@ -67,13 +67,13 @@ func (fake *CFOrgRepository) CreateOrgCallCount() int {
 	return len(fake.createOrgArgsForCall)
 }
 
-func (fake *CFOrgRepository) CreateOrgCalls(stub func(context.Context, repositories.OrgRecord) (repositories.OrgRecord, error)) {
+func (fake *CFOrgRepository) CreateOrgCalls(stub func(context.Context, repositories.OrgCreateMessage) (repositories.OrgRecord, error)) {
 	fake.createOrgMutex.Lock()
 	defer fake.createOrgMutex.Unlock()
 	fake.CreateOrgStub = stub
 }
 
-func (fake *CFOrgRepository) CreateOrgArgsForCall(i int) (context.Context, repositories.OrgRecord) {
+func (fake *CFOrgRepository) CreateOrgArgsForCall(i int) (context.Context, repositories.OrgCreateMessage) {
 	fake.createOrgMutex.RLock()
 	defer fake.createOrgMutex.RUnlock()
 	argsForCall := fake.createOrgArgsForCall[i]

@@ -56,10 +56,16 @@ var _ = Describe("OrgHandler", func() {
 		}
 
 		BeforeEach(func() {
-			orgRepo.CreateOrgStub = func(_ context.Context, record repositories.OrgRecord) (repositories.OrgRecord, error) {
-				record.GUID = "t-h-e-o-r-g"
-				record.CreatedAt = now
-				record.UpdatedAt = now
+			orgRepo.CreateOrgStub = func(_ context.Context, message repositories.OrgCreateMessage) (repositories.OrgRecord, error) {
+				record := repositories.OrgRecord{
+					Name:        message.Name,
+					GUID:        "t-h-e-o-r-g",
+					Suspended:   message.Suspended,
+					Labels:      message.Labels,
+					Annotations: message.Annotations,
+					CreatedAt:   now,
+					UpdatedAt:   now,
+				}
 				return record, nil
 			}
 		})

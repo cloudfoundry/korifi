@@ -55,7 +55,7 @@ var _ = Describe("OrgRepository", func() {
 		Describe("Org", func() {
 			It("creates a subnamespace anchor in the root namespace", func() {
 				go updateStatus(rootNamespace, "some-guid")
-				org, err := orgRepo.CreateOrg(ctx, repositories.OrgRecord{
+				org, err := orgRepo.CreateOrg(ctx, repositories.OrgCreateMessage{
 					GUID: "some-guid",
 					Name: "our-org",
 				})
@@ -79,7 +79,7 @@ var _ = Describe("OrgRepository", func() {
 			When("the org isn't ready in the timeout", func() {
 				It("returns an error", func() {
 					// we do not call updateStatus() to set state = ok
-					_, err := orgRepo.CreateOrg(ctx, repositories.OrgRecord{
+					_, err := orgRepo.CreateOrg(ctx, repositories.OrgCreateMessage{
 						GUID: "some-guid",
 						Name: "our-org",
 					})
@@ -89,7 +89,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the client fails to create the org", func() {
 				It("returns an error", func() {
-					_, err := orgRepo.CreateOrg(ctx, repositories.OrgRecord{
+					_, err := orgRepo.CreateOrg(ctx, repositories.OrgCreateMessage{
 						Name: "this-string-has-illegal-characters-ц",
 					})
 					Expect(err).To(HaveOccurred())
@@ -104,35 +104,38 @@ var _ = Describe("OrgRepository", func() {
 				org = createOrgAnchorAndNamespace(ctx, rootNamespace, "org")
 			})
 
-			It("creates a subnamespace anchor in the org namespace", func() {
+			It("creates a Space", func() {
 				go updateStatus(org.Name, "some-guid")
 
-				space, err := orgRepo.CreateSpace(ctx, repositories.SpaceRecord{
+				space, err := orgRepo.CreateSpace(ctx, repositories.SpaceCreateMessage{
 					GUID:             "some-guid",
 					Name:             "our-space",
 					OrganizationGUID: org.Name,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				namesRequirement, err := labels.NewRequirement(repositories.SpaceNameLabel, selection.Equals, []string{"our-space"})
-				Expect(err).NotTo(HaveOccurred())
-				anchorList := hnsv1alpha2.SubnamespaceAnchorList{}
-				err = k8sClient.List(ctx, &anchorList, client.InNamespace(org.Name), client.MatchingLabelsSelector{
-					Selector: labels.NewSelector().Add(*namesRequirement),
-				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(anchorList.Items).To(HaveLen(1))
+				By("Creating a SubnamespaceAnchor in the Org namespace", func() {
+					var namesRequirement *labels.Requirement
+					namesRequirement, err = labels.NewRequirement(repositories.SpaceNameLabel, selection.Equals, []string{"our-space"})
+					Expect(err).NotTo(HaveOccurred())
+					anchorList := hnsv1alpha2.SubnamespaceAnchorList{}
+					err = k8sClient.List(ctx, &anchorList, client.InNamespace(org.Name), client.MatchingLabelsSelector{
+						Selector: labels.NewSelector().Add(*namesRequirement),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(anchorList.Items).To(HaveLen(1))
 
-				Expect(space.Name).To(Equal("our-space"))
-				Expect(space.GUID).To(Equal("some-guid"))
-				Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(space.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+					Expect(space.Name).To(Equal("our-space"))
+					Expect(space.GUID).To(Equal("some-guid"))
+					Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+					Expect(space.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+				})
 			})
 
 			When("the space isn't ready in the timeout", func() {
 				It("returns an error", func() {
 					// we do not call updateStatus() to set state = ok
-					_, err := orgRepo.CreateSpace(ctx, repositories.SpaceRecord{
+					_, err := orgRepo.CreateSpace(ctx, repositories.SpaceCreateMessage{
 						GUID:             "some-guid",
 						Name:             "our-org",
 						OrganizationGUID: org.Name,
@@ -143,7 +146,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the client fails to create the space", func() {
 				It("returns an error", func() {
-					_, err := orgRepo.CreateSpace(ctx, repositories.SpaceRecord{
+					_, err := orgRepo.CreateSpace(ctx, repositories.SpaceCreateMessage{
 						GUID:             "some-guid",
 						Name:             "this-string-has-illegal-characters-ц",
 						OrganizationGUID: org.Name,

@@ -35,6 +35,15 @@ type AuthorizedInChecker interface {
 
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create
 
+type RoleCreateMessage struct {
+	GUID  string
+	Type  string
+	Space string
+	Org   string
+	User  string
+	Kind  string
+}
+
 type RoleRecord struct {
 	GUID      string
 	CreatedAt time.Time
@@ -60,7 +69,7 @@ func NewRoleRepo(privilegedClient client.Client, authorizedInChecker AuthorizedI
 	}
 }
 
-func (r *RoleRepo) CreateRole(ctx context.Context, role RoleRecord) (RoleRecord, error) {
+func (r *RoleRepo) CreateRole(ctx context.Context, role RoleCreateMessage) (RoleRecord, error) {
 	k8sRoleConfig, ok := r.roleMappings[role.Type]
 	if !ok {
 		return RoleRecord{}, fmt.Errorf("invalid role type: %q", role.Type)
@@ -126,10 +135,18 @@ func (r *RoleRepo) CreateRole(ctx context.Context, role RoleRecord) (RoleRecord,
 		return RoleRecord{}, fmt.Errorf("failed to assign user %q to role %q: %w", role.User, role.Type, err)
 	}
 
-	role.CreatedAt = roleBinding.CreationTimestamp.Time
-	role.UpdatedAt = roleBinding.CreationTimestamp.Time
+	roleRecord := RoleRecord{
+		GUID:      role.GUID,
+		CreatedAt: roleBinding.CreationTimestamp.Time,
+		UpdatedAt: roleBinding.CreationTimestamp.Time,
+		Type:      role.Type,
+		Space:     role.Space,
+		Org:       role.Org,
+		User:      role.User,
+		Kind:      role.Kind,
+	}
 
-	return role, nil
+	return roleRecord, nil
 }
 
 func (r *RoleRepo) getOrgName(ctx context.Context, spaceGUID string) (string, error) {
@@ -152,7 +169,7 @@ func (r *RoleRepo) getOrgName(ctx context.Context, spaceGUID string) (string, er
 	return orgName, nil
 }
 
-func calculateRoleBindingName(role RoleRecord) string {
+func calculateRoleBindingName(role RoleCreateMessage) string {
 	plain := []byte(role.Type + "::" + role.User)
 	sum := sha256.Sum256(plain)
 

@@ -1,8 +1,6 @@
 package payloads
 
-import (
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-)
+import "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 type SpaceCreate struct {
 	Name          string             `json:"name" validate:"required"`
@@ -14,11 +12,9 @@ type SpaceRelationships struct {
 	Org Relationship `json:"organization" validate:"required"`
 }
 
-func (p SpaceCreate) ToRecord() repositories.SpaceRecord {
-	return repositories.SpaceRecord{
+func (p SpaceCreate) ToMessage() repositories.SpaceCreateMessage {
+	return repositories.SpaceCreateMessage{
 		Name:             p.Name,
 		OrganizationGUID: p.Relationships.Org.Data.GUID,
-		Labels:           p.Metadata.Labels,
-		Annotations:      p.Metadata.Annotations,
 	}
 }

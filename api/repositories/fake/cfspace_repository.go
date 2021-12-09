@@ -9,11 +9,11 @@ import (
 )
 
 type CFSpaceRepository struct {
-	CreateSpaceStub        func(context.Context, repositories.SpaceRecord) (repositories.SpaceRecord, error)
+	CreateSpaceStub        func(context.Context, repositories.SpaceCreateMessage) (repositories.SpaceRecord, error)
 	createSpaceMutex       sync.RWMutex
 	createSpaceArgsForCall []struct {
 		arg1 context.Context
-		arg2 repositories.SpaceRecord
+		arg2 repositories.SpaceCreateMessage
 	}
 	createSpaceReturns struct {
 		result1 repositories.SpaceRecord
@@ -42,12 +42,12 @@ type CFSpaceRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFSpaceRepository) CreateSpace(arg1 context.Context, arg2 repositories.SpaceRecord) (repositories.SpaceRecord, error) {
+func (fake *CFSpaceRepository) CreateSpace(arg1 context.Context, arg2 repositories.SpaceCreateMessage) (repositories.SpaceRecord, error) {
 	fake.createSpaceMutex.Lock()
 	ret, specificReturn := fake.createSpaceReturnsOnCall[len(fake.createSpaceArgsForCall)]
 	fake.createSpaceArgsForCall = append(fake.createSpaceArgsForCall, struct {
 		arg1 context.Context
-		arg2 repositories.SpaceRecord
+		arg2 repositories.SpaceCreateMessage
 	}{arg1, arg2})
 	stub := fake.CreateSpaceStub
 	fakeReturns := fake.createSpaceReturns
@@ -68,13 +68,13 @@ func (fake *CFSpaceRepository) CreateSpaceCallCount() int {
 	return len(fake.createSpaceArgsForCall)
 }
 
-func (fake *CFSpaceRepository) CreateSpaceCalls(stub func(context.Context, repositories.SpaceRecord) (repositories.SpaceRecord, error)) {
+func (fake *CFSpaceRepository) CreateSpaceCalls(stub func(context.Context, repositories.SpaceCreateMessage) (repositories.SpaceRecord, error)) {
 	fake.createSpaceMutex.Lock()
 	defer fake.createSpaceMutex.Unlock()
 	fake.CreateSpaceStub = stub
 }
 
-func (fake *CFSpaceRepository) CreateSpaceArgsForCall(i int) (context.Context, repositories.SpaceRecord) {
+func (fake *CFSpaceRepository) CreateSpaceArgsForCall(i int) (context.Context, repositories.SpaceCreateMessage) {
 	fake.createSpaceMutex.RLock()
 	defer fake.createSpaceMutex.RUnlock()
 	argsForCall := fake.createSpaceArgsForCall[i]

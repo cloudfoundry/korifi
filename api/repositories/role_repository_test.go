@@ -23,8 +23,8 @@ var _ = Describe("RoleRepository", func() {
 	var (
 		ctx                 context.Context
 		rootNamespace       string
+		roleCreateMessage   repositories.RoleCreateMessage
 		roleRepo            *repositories.RoleRepo
-		roleRecord          repositories.RoleRecord
 		orgAnchor           *hnsv1alpha2.SubnamespaceAnchor
 		createdRole         repositories.RoleRecord
 		authorizedInChecker *fake.AuthorizedInChecker
@@ -42,7 +42,7 @@ var _ = Describe("RoleRepository", func() {
 			"organization_user":    {Name: "cf-org-user-role"},
 		})
 
-		roleRecord = repositories.RoleRecord{}
+		roleCreateMessage = repositories.RoleCreateMessage{}
 		orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, uuid.NewString())
 	})
 
@@ -56,7 +56,7 @@ var _ = Describe("RoleRepository", func() {
 
 	Describe("Create Org Role", func() {
 		BeforeEach(func() {
-			roleRecord = repositories.RoleRecord{
+			roleCreateMessage = repositories.RoleCreateMessage{
 				GUID: uuid.NewString(),
 				Type: "organization_manager",
 				User: "myuser@example.com",
@@ -66,7 +66,7 @@ var _ = Describe("RoleRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			createdRole, createErr = roleRepo.CreateRole(ctx, roleRecord)
+			createdRole, createErr = roleRepo.CreateRole(ctx, roleCreateMessage)
 		})
 
 		It("succeeds", func() {
@@ -78,7 +78,7 @@ var _ = Describe("RoleRepository", func() {
 
 			// Sha256 sum of "organization_manager::myuser@example.com"
 			Expect(roleBinding.Name).To(Equal("cf-172b9594a1f617258057870643bce8476179a4078845cb4d9d44171d7a8b648b"))
-			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleRecord.GUID))
+			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleCreateMessage.GUID))
 			Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(roleBinding.RoleRef.Name).To(Equal("cf-org-mgr-role"))
 			Expect(roleBinding.Subjects).To(HaveLen(1))
@@ -95,7 +95,7 @@ var _ = Describe("RoleRepository", func() {
 		Describe("Role propagation", func() {
 			When("the org role has propagation enabled", func() {
 				BeforeEach(func() {
-					roleRecord.Type = "organization_manager"
+					roleCreateMessage.Type = "organization_manager"
 				})
 
 				It("enables the role binding propagation", func() {
@@ -105,7 +105,7 @@ var _ = Describe("RoleRepository", func() {
 
 			When("the org role has propagation disabled", func() {
 				BeforeEach(func() {
-					roleRecord.Type = "organization_user"
+					roleCreateMessage.Type = "organization_user"
 				})
 
 				It("enables the role binding propagation", func() {
@@ -116,8 +116,8 @@ var _ = Describe("RoleRepository", func() {
 
 		When("using a service account identity", func() {
 			BeforeEach(func() {
-				roleRecord.Kind = rbacv1.ServiceAccountKind
-				roleRecord.User = "my-service-account"
+				roleCreateMessage.Kind = rbacv1.ServiceAccountKind
+				roleCreateMessage.User = "my-service-account"
 			})
 
 			It("succeeds and uses a service account subject kind", func() {
@@ -132,7 +132,7 @@ var _ = Describe("RoleRepository", func() {
 
 		When("the org does not exist", func() {
 			BeforeEach(func() {
-				roleRecord.Org = "i-do-not-exist"
+				roleCreateMessage.Org = "i-do-not-exist"
 			})
 
 			It("returns an error", func() {
@@ -142,7 +142,7 @@ var _ = Describe("RoleRepository", func() {
 
 		When("the role type is invalid", func() {
 			BeforeEach(func() {
-				roleRecord.Type = "i-am-invalid"
+				roleCreateMessage.Type = "i-am-invalid"
 			})
 
 			It("returns an error", func() {
@@ -152,14 +152,14 @@ var _ = Describe("RoleRepository", func() {
 
 		When("the user is already bound to that role", func() {
 			It("returns an error", func() {
-				anotherRoleRecord := repositories.RoleRecord{
+				anotherRoleCreateMessage := repositories.RoleCreateMessage{
 					GUID: uuid.NewString(),
 					Type: "organization_manager",
 					User: "myuser@example.com",
 					Kind: rbacv1.UserKind,
-					Org:  roleRecord.Org,
+					Org:  roleCreateMessage.Org,
 				}
-				_, createErr = roleRepo.CreateRole(ctx, anotherRoleRecord)
+				_, createErr = roleRepo.CreateRole(ctx, anotherRoleCreateMessage)
 				Expect(createErr).To(Equal(repositories.ErrorDuplicateRoleBinding))
 			})
 		})
@@ -172,7 +172,7 @@ var _ = Describe("RoleRepository", func() {
 			authorizedInChecker.AuthorizedInReturns(true, nil)
 			spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, uuid.NewString())
 
-			roleRecord = repositories.RoleRecord{
+			roleCreateMessage = repositories.RoleCreateMessage{
 				GUID:  uuid.NewString(),
 				Type:  "space_developer",
 				User:  "myuser@example.com",
@@ -189,8 +189,8 @@ var _ = Describe("RoleRepository", func() {
 				},
 				Subjects: []rbacv1.Subject{
 					{
-						Kind: roleRecord.Kind,
-						Name: roleRecord.User,
+						Kind: roleCreateMessage.Kind,
+						Name: roleCreateMessage.User,
 					},
 				},
 				RoleRef: rbacv1.RoleRef{
@@ -199,7 +199,7 @@ var _ = Describe("RoleRepository", func() {
 				},
 			})).To(Succeed())
 
-			createdRole, createErr = roleRepo.CreateRole(ctx, roleRecord)
+			createdRole, createErr = roleRepo.CreateRole(ctx, roleCreateMessage)
 		})
 
 		It("succeeds", func() {
@@ -211,7 +211,7 @@ var _ = Describe("RoleRepository", func() {
 
 			// Sha256 sum of "space_developer::myuser@example.com"
 			Expect(roleBinding.Name).To(Equal("cf-94662df3659074e12fbb2a05fbda554db8fd0bf2f59394874412ebb0dddf6ba4"))
-			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleRecord.GUID))
+			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleCreateMessage.GUID))
 			Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(roleBinding.RoleRef.Name).To(Equal("cf-space-dev-role"))
 			Expect(roleBinding.Subjects).To(HaveLen(1))
@@ -235,8 +235,8 @@ var _ = Describe("RoleRepository", func() {
 
 		When("using service accounts", func() {
 			BeforeEach(func() {
-				roleRecord.Kind = rbacv1.ServiceAccountKind
-				roleRecord.User = "my-service-account"
+				roleCreateMessage.Kind = rbacv1.ServiceAccountKind
+				roleCreateMessage.User = "my-service-account"
 			})
 
 			It("sends the service account kind to the authorized in checker", func() {
@@ -279,7 +279,7 @@ var _ = Describe("RoleRepository", func() {
 
 		When("the space does not exist", func() {
 			BeforeEach(func() {
-				roleRecord.Space = "i-do-not-exist"
+				roleCreateMessage.Space = "i-do-not-exist"
 			})
 
 			It("returns an error", func() {
@@ -289,7 +289,7 @@ var _ = Describe("RoleRepository", func() {
 
 		When("the role type is invalid", func() {
 			BeforeEach(func() {
-				roleRecord.Type = "i-am-invalid"
+				roleCreateMessage.Type = "i-am-invalid"
 			})
 
 			It("returns an error", func() {
@@ -299,14 +299,14 @@ var _ = Describe("RoleRepository", func() {
 
 		When("the user is already bound to that role", func() {
 			It("returns an error", func() {
-				anotherRoleRecord := repositories.RoleRecord{
+				anotherRoleCreateMessage := repositories.RoleCreateMessage{
 					GUID:  uuid.NewString(),
 					Type:  "space_developer",
 					User:  "myuser@example.com",
 					Kind:  rbacv1.UserKind,
-					Space: roleRecord.Space,
+					Space: roleCreateMessage.Space,
 				}
-				_, createErr = roleRepo.CreateRole(ctx, anotherRoleRecord)
+				_, createErr = roleRepo.CreateRole(ctx, anotherRoleCreateMessage)
 				Expect(createErr).To(Equal(repositories.ErrorDuplicateRoleBinding))
 			})
 		})

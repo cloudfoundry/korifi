@@ -170,6 +170,7 @@ func main() {
 		apis.NewLogCacheHandler(),
 
 		apis.NewOrgHandler(*serverURL, wireOrgRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, identityProvider)),
+		// TODO: Pass through config.PackageRegistrySecretName here
 		apis.NewSpaceHandler(*serverURL, wireSpaceRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, identityProvider)),
 
 		apis.NewSpaceManifestHandler(

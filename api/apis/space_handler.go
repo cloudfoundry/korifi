@@ -37,7 +37,7 @@ func NewSpaceHandler(apiBaseURL url.URL, spaceRepoProvider SpaceRepositoryProvid
 	return &SpaceHandler{
 		apiBaseURL:        apiBaseURL,
 		spaceRepoProvider: spaceRepoProvider,
-		logger:            controllerruntime.Log.WithName("Org Handler"),
+		logger:            controllerruntime.Log.WithName("Space Handler"),
 	}
 }
 
@@ -52,7 +52,8 @@ func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	space := payload.ToRecord()
+	space := payload.ToMessage()
+	// TODO: Move this GUID generation down to the repository layer?
 	space.GUID = uuid.NewString()
 
 	spaceRepo, err := h.spaceRepoProvider.SpaceRepoForRequest(r)
@@ -77,6 +78,7 @@ func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// TODO: Convert space to a SpaceRecord or update repo to accept message payload?
 	record, err := spaceRepo.CreateSpace(ctx, space)
 	if err != nil {
 		if workloads.HasErrorCode(err, workloads.DuplicateSpaceNameError) {

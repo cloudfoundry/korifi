@@ -26,8 +26,8 @@ type RoleRelationships struct {
 	Organization             *Relationship     `json:"organization"`
 }
 
-func (p RoleCreate) ToRecord() repositories.RoleRecord {
-	record := repositories.RoleRecord{
+func (p RoleCreate) ToMessage() repositories.RoleCreateMessage {
+	record := repositories.RoleCreateMessage{
 		Type: p.Type,
 	}
 
