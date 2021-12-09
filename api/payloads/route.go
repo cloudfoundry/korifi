@@ -33,17 +33,23 @@ func (p RouteCreate) ToRecord() repositories.RouteRecord {
 }
 
 type RouteList struct {
-	AppGUIDs string `schema:"app_guids"`
-	SpaceGUIDs string `schema:"space_guids"`
+	AppGUIDs    string `schema:"app_guids"`
+	SpaceGUIDs  string `schema:"space_guids"`
+	DomainGUIDs string `schema:"domain_guids"`
+	Hosts       string `schema:"hosts"`
+	Paths       string `schema:"paths"`
 }
 
 func (p *RouteList) ToMessage() repositories.FetchRouteListMessage {
 	return repositories.FetchRouteListMessage{
-		AppGUIDs: parseArrayParam(p.AppGUIDs),
-		SpaceGUIDs: parseArrayParam(p.SpaceGUIDs),
+		AppGUIDs:    parseArrayParam(p.AppGUIDs),
+		SpaceGUIDs:  parseArrayParam(p.SpaceGUIDs),
+		DomainGUIDs: parseArrayParam(p.DomainGUIDs),
+		Hosts:       parseArrayParam(p.Hosts),
+		Paths:       parseArrayParam(p.Paths),
 	}
 }
 
 func (p *RouteList) SupportedFilterKeys() []string {
-	return []string{"app_guids", "space_guids"}
+	return []string{"app_guids", "space_guids", "domain_guids", "hosts", "paths"}
 }
