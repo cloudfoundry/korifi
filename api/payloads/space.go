@@ -12,9 +12,10 @@ type SpaceRelationships struct {
 	Org Relationship `json:"organization" validate:"required"`
 }
 
-func (p SpaceCreate) ToMessage() repositories.SpaceCreateMessage {
+func (p SpaceCreate) ToMessage(imageRegistryCredentialSecret string) repositories.SpaceCreateMessage {
 	return repositories.SpaceCreateMessage{
-		Name:             p.Name,
-		OrganizationGUID: p.Relationships.Org.Data.GUID,
+		Name:                     p.Name,
+		OrganizationGUID:         p.Relationships.Org.Data.GUID,
+		ImageRegistryCredentials: imageRegistryCredentialSecret,
 	}
 }

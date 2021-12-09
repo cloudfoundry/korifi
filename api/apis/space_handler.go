@@ -28,16 +28,18 @@ type SpaceRepositoryProvider interface {
 }
 
 type SpaceHandler struct {
-	spaceRepoProvider SpaceRepositoryProvider
-	logger            logr.Logger
-	apiBaseURL        url.URL
+	spaceRepoProvider       SpaceRepositoryProvider
+	logger                  logr.Logger
+	apiBaseURL              url.URL
+	imageRegistrySecretName string
 }
 
-func NewSpaceHandler(apiBaseURL url.URL, spaceRepoProvider SpaceRepositoryProvider) *SpaceHandler {
+func NewSpaceHandler(apiBaseURL url.URL, imageRegistrySecretName string, spaceRepoProvider SpaceRepositoryProvider) *SpaceHandler {
 	return &SpaceHandler{
-		apiBaseURL:        apiBaseURL,
-		spaceRepoProvider: spaceRepoProvider,
-		logger:            controllerruntime.Log.WithName("Space Handler"),
+		apiBaseURL:              apiBaseURL,
+		imageRegistrySecretName: imageRegistrySecretName,
+		spaceRepoProvider:       spaceRepoProvider,
+		logger:                  controllerruntime.Log.WithName("Space Handler"),
 	}
 }
 
@@ -52,7 +54,7 @@ func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	space := payload.ToMessage()
+	space := payload.ToMessage(h.imageRegistrySecretName)
 	// TODO: Move this GUID generation down to the repository layer?
 	space.GUID = uuid.NewString()
 
@@ -78,7 +80,6 @@ func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// TODO: Convert space to a SpaceRecord or update repo to accept message payload?
 	record, err := spaceRepo.CreateSpace(ctx, space)
 	if err != nil {
 		if workloads.HasErrorCode(err, workloads.DuplicateSpaceNameError) {

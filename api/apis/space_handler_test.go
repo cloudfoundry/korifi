@@ -21,6 +21,7 @@ import (
 
 var _ = Describe("Spaces", func() {
 	const spacesBase = "/v3/spaces"
+	const registryCredentialsSecretName = "image-registry-credentials"
 
 	var (
 		now               time.Time
@@ -39,7 +40,7 @@ var _ = Describe("Spaces", func() {
 		spaceRepo = new(repositoriesfake.CFSpaceRepository)
 		spaceRepoProvider = new(fake.SpaceRepositoryProvider)
 		spaceRepoProvider.SpaceRepoForRequestReturns(spaceRepo, nil)
-		spaceHandler = apis.NewSpaceHandler(*serverURL, spaceRepoProvider)
+		spaceHandler = apis.NewSpaceHandler(*serverURL, registryCredentialsSecretName, spaceRepoProvider)
 		spaceHandler.RegisterRoutes(router)
 	})
 

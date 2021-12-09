@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -13,6 +15,7 @@ import (
 )
 
 //+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;create;watch
+//+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;create;delete;watch
 
 //counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
 //counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
@@ -41,9 +44,10 @@ type OrgCreateMessage struct {
 }
 
 type SpaceCreateMessage struct {
-	Name             string
-	GUID             string
-	OrganizationGUID string
+	Name                     string
+	GUID                     string
+	OrganizationGUID         string
+	ImageRegistryCredentials string
 }
 
 type OrgRecord struct {
@@ -121,9 +125,33 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, message SpaceCreateMessage) (
 		return SpaceRecord{}, err
 	}
 
-	// TODO: Insert Service Account creation
-	// createKpackServiceAccount()
-	// createEiriniServiceAccount()
+	kpackServiceAccount := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kpack-service-account",
+			Namespace: message.GUID,
+		},
+		ImagePullSecrets: []corev1.LocalObjectReference{
+			{Name: message.ImageRegistryCredentials},
+		},
+		Secrets: []corev1.ObjectReference{
+			{Name: message.ImageRegistryCredentials},
+		},
+	}
+	err = r.privilegedClient.Create(ctx, &kpackServiceAccount)
+	if err != nil {
+		return SpaceRecord{}, err
+	}
+
+	eiriniServiceAccount := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "eirini",
+			Namespace: message.GUID,
+		},
+	}
+	err = r.privilegedClient.Create(ctx, &eiriniServiceAccount)
+	if err != nil {
+		return SpaceRecord{}, err
+	}
 
 	record := SpaceRecord{
 		Name:             message.Name,

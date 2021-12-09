@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -99,18 +100,25 @@ var _ = Describe("OrgRepository", func() {
 
 		Describe("Space", func() {
 			var org *hnsv1alpha2.SubnamespaceAnchor
+			var spaceGUID string
+			imageRegistryCredentials := "image-registry-credentials"
 
 			BeforeEach(func() {
+				spaceGUID = generateGUID()
 				org = createOrgAnchorAndNamespace(ctx, rootNamespace, "org")
+				// In the absence of HNC reconciling the SubnamespaceAnchor into a namespace, we must manually create
+				// for subsequent use by the Repository createSpace function.
+				_ = createNamespace(ctx, "org", spaceGUID)
 			})
 
 			It("creates a Space", func() {
-				go updateStatus(org.Name, "some-guid")
+				go updateStatus(org.Name, spaceGUID)
 
 				space, err := orgRepo.CreateSpace(ctx, repositories.SpaceCreateMessage{
-					GUID:             "some-guid",
-					Name:             "our-space",
-					OrganizationGUID: org.Name,
+					GUID:                     spaceGUID,
+					Name:                     "our-space",
+					OrganizationGUID:         org.Name,
+					ImageRegistryCredentials: imageRegistryCredentials,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -126,9 +134,31 @@ var _ = Describe("OrgRepository", func() {
 					Expect(anchorList.Items).To(HaveLen(1))
 
 					Expect(space.Name).To(Equal("our-space"))
-					Expect(space.GUID).To(Equal("some-guid"))
+					Expect(space.GUID).To(Equal(spaceGUID))
 					Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 					Expect(space.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+				})
+
+				By("Creating ServiceAccounts in the Space namespace", func() {
+					serviceAccountList := corev1.ServiceAccountList{}
+					Eventually(func() []corev1.ServiceAccount {
+						err = k8sClient.List(ctx, &serviceAccountList, client.InNamespace(spaceGUID))
+						if err != nil {
+							return []corev1.ServiceAccount{}
+						}
+						return serviceAccountList.Items
+					}, timeCheckThreshold*time.Second, 250*time.Millisecond).Should(HaveLen(2), "could not find the service accounts created by the repo")
+					Expect(err).NotTo(HaveOccurred())
+
+					sort.Slice(serviceAccountList.Items, func(i, j int) bool {
+						return serviceAccountList.Items[i].Name < serviceAccountList.Items[j].Name
+					})
+					serviceAccount := serviceAccountList.Items[0]
+					Expect(serviceAccount.Name).To(Equal("eirini"))
+					serviceAccount = serviceAccountList.Items[1]
+					Expect(serviceAccount.Name).To(Equal("kpack-service-account"))
+					Expect(serviceAccount.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: imageRegistryCredentials}))
+					Expect(serviceAccount.Secrets).To(ConsistOf(corev1.ObjectReference{Name: imageRegistryCredentials}))
 				})
 			})
 
