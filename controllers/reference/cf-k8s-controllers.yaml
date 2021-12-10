@@ -178,8 +178,15 @@ spec:
                   - type
                   type: object
                 type: array
+              observedDesiredState:
+                description: DesiredState defines the desired state of CFApp.
+                enum:
+                - STOPPED
+                - STARTED
+                type: string
             required:
             - conditions
+            - observedDesiredState
             type: object
         type: object
     served: true

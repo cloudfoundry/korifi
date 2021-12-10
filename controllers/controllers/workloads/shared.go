@@ -36,4 +36,14 @@ func generateGUID() string {
 	return uuid.NewString()
 }
 
+func getMapKeyValue(m map[string]string, k string) string {
+	if m == nil {
+		return ""
+	}
+	if v, has := m[k]; has {
+		return v
+	}
+	return ""
+}
+
 //counterfeiter:generate -o fake -fake-name StatusWriter sigs.k8s.io/controller-runtime/pkg/client.StatusWriter

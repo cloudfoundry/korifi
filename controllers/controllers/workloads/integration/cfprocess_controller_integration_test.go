@@ -2,10 +2,9 @@ package integration_test
 
 import (
 	"context"
+	"crypto/sha1"
 	"fmt"
 	"time"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
@@ -14,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -34,6 +33,11 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	)
 
 	const (
+		CFAppGUIDLabelKey     = "workloads.cloudfoundry.org/app-guid"
+		cfAppRevisionKey      = "workloads.cloudfoundry.org/app-rev"
+		CFProcessGUIDLabelKey = "workloads.cloudfoundry.org/process-guid"
+		CFProcessTypeLabelKey = "workloads.cloudfoundry.org/process-type"
+
 		defaultEventuallyTimeoutSeconds = 2
 		processTypeWeb                  = "web"
 		processTypeWebCommand           = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
@@ -103,15 +107,32 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			var lrp eiriniv1.LRP
 
 			Eventually(func() string {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: testNamespace}, &lrp)
-				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to get LRP/%s in namespace %s", testProcessGUID, testNamespace))
-				return lrp.GetName()
+				var lrps eiriniv1.LRPList
+				err := k8sClient.List(ctx, &lrps, client.InNamespace(testNamespace))
+				if err != nil {
+					return ""
+				}
+
+				for _, currentLRP := range lrps.Items {
+					if getMapKeyValue(currentLRP.Labels, workloadsv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+						lrp = currentLRP
+						return lrp.GetName()
+					}
+				}
+
+				return ""
 			}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
 			Expect(lrp.OwnerReferences).To(HaveLen(1), "expected length of ownerReferences to be 1")
 			Expect(lrp.OwnerReferences[0].Name).To(Equal(cfProcess.Name))
 
+			Expect(lrp.ObjectMeta.Labels).To(HaveKeyWithValue(CFAppGUIDLabelKey, testAppGUID))
+			Expect(lrp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppRevisionKey, cfApp.Annotations[cfAppRevisionKey]))
+			Expect(lrp.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessGUIDLabelKey, testProcessGUID))
+			Expect(lrp.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessTypeLabelKey, cfProcess.Spec.ProcessType))
+
 			Expect(lrp.Spec.GUID).To(Equal(cfProcess.Name), "Expected lrp spec GUID to match cfProcess GUID")
+			Expect(lrp.Spec.Version).To(Equal(cfApp.Annotations[cfAppRevisionKey]), "Expected lrp version to match cfApp's app-rev annotation")
 			Expect(lrp.Spec.DiskMB).To(Equal(cfProcess.Spec.DiskQuotaMB), "lrp DiskMB does not match")
 			Expect(lrp.Spec.MemoryMB).To(Equal(cfProcess.Spec.MemoryMB), "lrp MemoryMB does not match")
 			Expect(lrp.Spec.Image).To(Equal(cfBuild.Status.BuildDropletStatus.Registry.Image), "lrp Image does not match Droplet")
@@ -132,10 +153,19 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 				// Wait for LRP to exist before updating CFApp
 				Eventually(func() string {
-					var lrp eiriniv1.LRP
-					err := k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: testNamespace}, &lrp)
-					Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to get LRP/%s in namespace %s", testProcessGUID, testNamespace))
-					return lrp.GetName()
+					var lrps eiriniv1.LRPList
+					err := k8sClient.List(ctx, &lrps, client.InNamespace(testNamespace))
+					if err != nil {
+						return ""
+					}
+
+					for _, currentLRP := range lrps.Items {
+						if getMapKeyValue(currentLRP.Labels, workloadsv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+							return currentLRP.GetName()
+						}
+					}
+
+					return ""
 				}, defaultEventuallyTimeoutSeconds*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
 				originalCFApp := cfApp.DeepCopy()
@@ -147,11 +177,109 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				ctx := context.Background()
 
 				Eventually(func() bool {
-					var lrp eiriniv1.LRP
-					err := k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: testNamespace}, &lrp)
-					return apierrors.IsNotFound(err)
-				}, defaultEventuallyTimeoutSeconds*time.Second).Should(BeTrue(), "Timed out waiting for deletion of LRP/%s in namespace %s to cause NotFound error", testProcessGUID, testNamespace)
+					var lrps eiriniv1.LRPList
+					err := k8sClient.List(ctx, &lrps, client.InNamespace(testNamespace))
+					if err != nil {
+						return false
+					}
+
+					for _, currentLRP := range lrps.Items {
+						if getMapKeyValue(currentLRP.Labels, workloadsv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+							return false
+						}
+					}
+
+					return true
+				}, 10*time.Second).Should(BeTrue(), "Timed out waiting for deletion of LRP/%s in namespace %s to cause NotFound error", testProcessGUID, testNamespace)
 			})
+		})
+	})
+
+	When("the CFApp has an LRP and is restarted by bumping the \"rev\" annotation", func() {
+		var newRevValue string
+		BeforeEach(func() {
+			ctx := context.Background()
+
+			appRev := cfApp.Annotations[cfAppRevisionKey]
+			h := sha1.New()
+			h.Write([]byte(appRev))
+			appRevHash := h.Sum(nil)
+			lrp1Name := testProcessGUID + fmt.Sprintf("-%x", appRevHash)[:5]
+			// Create the rev1 LRP
+			rev1LRP := &eiriniv1.LRP{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      lrp1Name,
+					Namespace: testNamespace,
+					Labels: map[string]string{
+						CFAppGUIDLabelKey:     cfApp.Name,
+						cfAppRevisionKey:      appRev,
+						CFProcessGUIDLabelKey: testProcessGUID,
+						CFProcessTypeLabelKey: cfProcess.Spec.ProcessType,
+					},
+				},
+				Spec: eiriniv1.LRPSpec{
+					MemoryMB: 1,
+					DiskMB:   1,
+				},
+			}
+			Expect(
+				k8sClient.Create(ctx, rev1LRP),
+			).To(Succeed())
+
+			// Set CFApp annotation.rev 0->1 & set state to started to trigger reconcile
+			newRevValue = "1"
+			cfApp.Annotations[cfAppRevisionKey] = newRevValue
+			cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
+			Expect(
+				k8sClient.Create(ctx, cfApp),
+			).To(Succeed())
+		})
+
+		It("deletes the old LRP, and creates a new LRP for the current revision", func() {
+			// check that LRP rev1 is eventually created
+			ctx := context.Background()
+
+			var rev2LRP *eiriniv1.LRP
+			Eventually(func() bool {
+				var lrps eiriniv1.LRPList
+				err := k8sClient.List(ctx, &lrps, client.InNamespace(testNamespace))
+				if err != nil {
+					return false
+				}
+
+				for _, currentLRP := range lrps.Items {
+					if processGUIDLabel, has := currentLRP.Labels[CFProcessGUIDLabelKey]; has && processGUIDLabel == testProcessGUID {
+						if revLabel, has := currentLRP.Labels[cfAppRevisionKey]; has && revLabel == newRevValue {
+							rev2LRP = &currentLRP
+							return true
+						}
+					}
+				}
+				return false
+			}, defaultEventuallyTimeoutSeconds*time.Second).Should(BeTrue(), "Timed out waiting for creation of LRP/%s in namespace %s", testProcessGUID, testNamespace)
+
+			Expect(rev2LRP.ObjectMeta.Labels).To(HaveKeyWithValue(CFAppGUIDLabelKey, testAppGUID))
+			Expect(rev2LRP.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppRevisionKey, cfApp.Annotations[cfAppRevisionKey]))
+			Expect(rev2LRP.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessGUIDLabelKey, testProcessGUID))
+			Expect(rev2LRP.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessTypeLabelKey, cfProcess.Spec.ProcessType))
+
+			// check that LRP rev0 is eventually deleted
+			Eventually(func() bool {
+				var lrps eiriniv1.LRPList
+				err := k8sClient.List(ctx, &lrps, client.InNamespace(testNamespace))
+				if err != nil {
+					return true
+				}
+
+				for _, currentLRP := range lrps.Items {
+					if processGUIDLabel, has := currentLRP.Labels[CFProcessGUIDLabelKey]; has && processGUIDLabel == testProcessGUID {
+						if revLabel, has := currentLRP.Labels[cfAppRevisionKey]; has && revLabel == workloadsv1alpha1.CFAppRevisionKeyDefault {
+							return true
+						}
+					}
+				}
+				return false
+			}, defaultEventuallyTimeoutSeconds*time.Second).Should(BeFalse(), "Timed out waiting for deletion of LRP/%s in namespace %s", testProcessGUID, testNamespace)
 		})
 	})
 
@@ -176,9 +304,20 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			var lrp eiriniv1.LRP
 
 			Eventually(func() string {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: testNamespace}, &lrp)
-				Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), fmt.Sprintf("Failed to get LRP/%s in namespace %s", testProcessGUID, testNamespace))
-				return lrp.GetName()
+				var lrps eiriniv1.LRPList
+				err := k8sClient.List(ctx, &lrps, client.InNamespace(testNamespace))
+				if err != nil {
+					return ""
+				}
+
+				for _, currentLRP := range lrps.Items {
+					if getMapKeyValue(currentLRP.Labels, workloadsv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+						lrp = currentLRP
+						return currentLRP.GetName()
+					}
+				}
+
+				return ""
 			}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
 			Expect(lrp.Spec.Health.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))

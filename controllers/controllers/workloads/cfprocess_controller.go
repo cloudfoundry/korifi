@@ -18,12 +18,14 @@ package workloads
 
 import (
 	"context"
+	"crypto/sha1"
 	"errors"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -58,7 +60,6 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	cfProcess := workloadsv1alpha1.CFProcess{}
 	var err error
 	err = r.Client.Get(ctx, req.NamespacedName, &cfProcess)
-
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch CFProcess %s/%s", req.Namespace, req.Name))
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -66,24 +67,26 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	cfApp := workloadsv1alpha1.CFApp{}
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfProcess.Spec.AppRef.Name, Namespace: cfProcess.Namespace}, &cfApp)
-
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch CFApp %s/%s", req.Namespace, cfProcess.Spec.AppRef.Name))
 		return ctrl.Result{}, err
 	}
 
-	lrp := eiriniv1.LRP{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cfProcess.Namespace,
-			Name:      cfProcess.Name,
-		},
+	cfAppRev := workloadsv1alpha1.CFAppRevisionKeyDefault
+	if foundValue, ok := cfApp.GetAnnotations()[workloadsv1alpha1.CFAppRevisionKey]; ok {
+		cfAppRev = foundValue
 	}
 
-	switch cfApp.Spec.DesiredState {
-	case workloadsv1alpha1.StartedState:
+	lrpsForProcess, err := r.fetchLRPsForProcess(ctx, cfProcess)
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch LRPs for Process %s/%s", req.Namespace, cfProcess.Name))
+		return ctrl.Result{}, err
+	}
+
+	if cfApp.Spec.DesiredState == workloadsv1alpha1.StartedState {
+
 		cfBuild := workloadsv1alpha1.CFBuild{}
 		err = r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfProcess.Namespace}, &cfBuild)
-
 		if err != nil {
 			r.Log.Error(err, fmt.Sprintf("Error when trying to fetch CFBuild %s/%s", req.Namespace, cfApp.Spec.CurrentDropletRef.Name))
 			return ctrl.Result{}, err
@@ -103,51 +106,138 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 
-		var lrpHealthCheckPort int32 = 0
-		if len(cfProcess.Spec.Ports) > 0 {
-			lrpHealthCheckPort = cfProcess.Spec.Ports[0]
+		actualLRP := &eiriniv1.LRP{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfProcess.Namespace,
+				Name:      generateLRPName(cfAppRev, cfProcess.Name),
+			},
 		}
-		_, err = controllerutil.CreateOrPatch(ctx, r.Client, &lrp, func() error {
-			lrp.Spec.GUID = cfProcess.Name
-			lrp.Spec.DiskMB = cfProcess.Spec.DiskQuotaMB
-			lrp.Spec.MemoryMB = cfProcess.Spec.MemoryMB
-			lrp.Spec.ProcessType = cfProcess.Spec.ProcessType
-			lrp.Spec.Command = commandForProcess(&cfProcess, &cfApp)
-			lrp.Spec.AppName = cfApp.Spec.Name
-			lrp.Spec.AppGUID = cfApp.Name
-			lrp.Spec.Image = cfBuild.Status.BuildDropletStatus.Registry.Image
-			lrp.Spec.Ports = cfProcess.Spec.Ports
-			lrp.Spec.Instances = cfProcess.Spec.DesiredInstances
-			lrp.Spec.Env = secretDataToEnvMap(appEnvSecret.Data)
-			lrp.Spec.Health = eiriniv1.Healthcheck{
-				Type:      string(cfProcess.Spec.HealthCheck.Type),
-				Port:      lrpHealthCheckPort,
-				Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
-				TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
-			}
-			lrp.Spec.CPUWeight = 0
-			lrp.Spec.Sidecars = nil
 
-			err = controllerutil.SetOwnerReference(&cfProcess, &lrp, r.Scheme)
-			if err != nil {
-				r.Log.Error(err, "failed to set OwnerRef on LRP")
-				return err
-			}
+		var desiredLRP *eiriniv1.LRP
+		desiredLRP, err = r.generateLRP(*actualLRP, cfApp, cfProcess, cfBuild, appEnvSecret)
+		if err != nil {
+			// untested
+			r.Log.Error(err, "Error when initializing LRP")
+			return ctrl.Result{}, err
+		}
 
-			return nil
-		})
+		_, err = controllerutil.CreateOrPatch(ctx, r.Client, actualLRP, lrpMutateFunction(actualLRP, desiredLRP))
 		if err != nil {
 			r.Log.Error(err, "Error calling CreateOrPatch on lrp")
 			return ctrl.Result{}, err
 		}
-	case workloadsv1alpha1.StoppedState:
-		err = r.Client.Delete(ctx, &lrp)
-		if err != nil {
-			r.Log.Info(fmt.Sprintf("Error occurred deleting LRP: %s, %s", cfProcess.Name, err))
-			return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Cleanup LRPs
+	err = r.cleanUpLRPs(ctx, lrpsForProcess, cfApp.Spec.DesiredState, cfAppRev)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *CFProcessReconciler) cleanUpLRPs(ctx context.Context, lrpsForProcess []eiriniv1.LRP, desiredState workloadsv1alpha1.DesiredState, cfAppRev string) error {
+	for _, currentLRP := range lrpsForProcess {
+		toDelete := true
+		if desiredState != workloadsv1alpha1.StoppedState {
+			if getMapKeyValue(currentLRP.Labels, workloadsv1alpha1.CFAppRevisionKey) == cfAppRev {
+				toDelete = false
+			}
+		}
+
+		if toDelete {
+			err := r.Client.Delete(ctx, &currentLRP)
+			if err != nil {
+				r.Log.Info(fmt.Sprintf("Error occurred deleting LRP: %s, %s", currentLRP.Name, err))
+				return err
+			}
 		}
 	}
-	return ctrl.Result{}, nil
+	return nil
+}
+
+func lrpMutateFunction(actuallrp, desiredlrp *eiriniv1.LRP) controllerutil.MutateFn {
+	return func() error {
+		actuallrp.ObjectMeta.Labels = desiredlrp.ObjectMeta.Labels
+		actuallrp.ObjectMeta.Annotations = desiredlrp.ObjectMeta.Annotations
+		actuallrp.ObjectMeta.OwnerReferences = desiredlrp.ObjectMeta.OwnerReferences
+		actuallrp.Spec = desiredlrp.Spec
+		return nil
+	}
+}
+
+func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workloadsv1alpha1.CFApp, cfProcess workloadsv1alpha1.CFProcess, cfBuild workloadsv1alpha1.CFBuild, appEnvSecret corev1.Secret) (*eiriniv1.LRP, error) {
+	var desiredLRP eiriniv1.LRP
+	actualLRP.DeepCopyInto(&desiredLRP)
+
+	var lrpHealthCheckPort int32 = 0
+	if len(cfProcess.Spec.Ports) > 0 {
+		lrpHealthCheckPort = cfProcess.Spec.Ports[0]
+	}
+
+	desiredLRP.Labels = make(map[string]string)
+	desiredLRP.Labels[workloadsv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
+	cfAppRevisionKeyValue := workloadsv1alpha1.CFAppRevisionKeyDefault
+	if cfApp.Annotations != nil {
+		if foundValue, has := cfApp.Annotations[workloadsv1alpha1.CFAppRevisionKey]; has {
+			cfAppRevisionKeyValue = foundValue
+		}
+	}
+	desiredLRP.Labels[workloadsv1alpha1.CFAppRevisionKey] = cfAppRevisionKeyValue
+	desiredLRP.Labels[workloadsv1alpha1.CFProcessGUIDLabelKey] = cfProcess.Name
+	desiredLRP.Labels[workloadsv1alpha1.CFProcessTypeLabelKey] = cfProcess.Spec.ProcessType
+
+	desiredLRP.Spec.GUID = cfProcess.Name
+	desiredLRP.Spec.Version = cfAppRevisionKeyValue
+	desiredLRP.Spec.DiskMB = cfProcess.Spec.DiskQuotaMB
+	desiredLRP.Spec.MemoryMB = cfProcess.Spec.MemoryMB
+	desiredLRP.Spec.ProcessType = cfProcess.Spec.ProcessType
+	desiredLRP.Spec.Command = commandForProcess(&cfProcess, &cfApp)
+	desiredLRP.Spec.AppName = cfApp.Spec.Name
+	desiredLRP.Spec.AppGUID = cfApp.Name
+	desiredLRP.Spec.Image = cfBuild.Status.BuildDropletStatus.Registry.Image
+	desiredLRP.Spec.Ports = cfProcess.Spec.Ports
+	desiredLRP.Spec.Instances = cfProcess.Spec.DesiredInstances
+	desiredLRP.Spec.Env = secretDataToEnvMap(appEnvSecret.Data)
+	desiredLRP.Spec.Health = eiriniv1.Healthcheck{
+		Type:      string(cfProcess.Spec.HealthCheck.Type),
+		Port:      lrpHealthCheckPort,
+		Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
+		TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
+	}
+	desiredLRP.Spec.CPUWeight = 0
+	desiredLRP.Spec.Sidecars = nil
+
+	err := controllerutil.SetOwnerReference(&cfProcess, &desiredLRP, r.Scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	return &desiredLRP, err
+}
+
+func generateLRPName(cfAppRev string, processGUID string) string {
+	h := sha1.New()
+	h.Write([]byte(cfAppRev))
+	appRevHash := h.Sum(nil)
+	lrpName := processGUID + fmt.Sprintf("-%x", appRevHash)[:5]
+	return lrpName
+}
+
+func (r *CFProcessReconciler) fetchLRPsForProcess(ctx context.Context, cfProcess workloadsv1alpha1.CFProcess) ([]eiriniv1.LRP, error) {
+	allLRPs := &eiriniv1.LRPList{}
+	err := r.Client.List(ctx, allLRPs, client.InNamespace(cfProcess.Namespace))
+	if err != nil {
+		return []eiriniv1.LRP{}, err
+	}
+	var lrpsForProcess []eiriniv1.LRP
+	for _, currentLRP := range allLRPs.Items {
+		if processGUID, has := currentLRP.Labels[workloadsv1alpha1.CFProcessGUIDLabelKey]; has && processGUID == cfProcess.Name {
+			lrpsForProcess = append(lrpsForProcess, currentLRP)
+		}
+	}
+	return lrpsForProcess, err
 }
 
 func secretDataToEnvMap(secretData map[string][]byte) map[string]string {

@@ -61,19 +61,17 @@ var _ = Describe("CFAppReconciler", func() {
 			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}
 			createdCFApp := new(workloadsv1alpha1.CFApp)
 
-			Eventually(func() []metav1.Condition {
+			Eventually(func() string {
 				err := k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)
 				if err != nil {
-					return nil
+					return ""
 				}
-				return createdCFApp.Status.Conditions
-			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty())
+				return string(createdCFApp.Status.ObservedDesiredState)
+			}, 10*time.Second, 250*time.Millisecond).Should(Equal(string(cfApp.Spec.DesiredState)))
 
 			runningConditionFalse := meta.IsStatusConditionFalse(createdCFApp.Status.Conditions, "Running")
 			Expect(runningConditionFalse).To(BeTrue())
-
-			restartingConditionFalse := meta.IsStatusConditionFalse(createdCFApp.Status.Conditions, "Restarting")
-			Expect(restartingConditionFalse).To(BeTrue())
+			Expect(createdCFApp.Status.ObservedDesiredState).To(Equal(createdCFApp.Spec.DesiredState))
 		})
 	})
 	When("a CFApp resource exists and", func() {

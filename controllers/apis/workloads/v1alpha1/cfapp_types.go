@@ -51,6 +51,8 @@ type DesiredState string
 type CFAppStatus struct {
 	// Conditions capture the current status of the App
 	Conditions []metav1.Condition `json:"conditions"`
+
+	ObservedDesiredState DesiredState `json:"observedDesiredState"`
 }
 
 //+kubebuilder:object:root=true
