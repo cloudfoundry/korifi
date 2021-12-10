@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -55,7 +56,7 @@ var _ = Describe("OrgRepository", func() {
 		Describe("Org", func() {
 			It("creates a subnamespace anchor in the root namespace", func() {
 				go updateStatus(rootNamespace, "some-guid")
-				org, err := orgRepo.CreateOrg(ctx, repositories.OrgRecord{
+				org, err := orgRepo.CreateOrg(ctx, repositories.OrgCreateMessage{
 					GUID: "some-guid",
 					Name: "our-org",
 				})
@@ -79,7 +80,7 @@ var _ = Describe("OrgRepository", func() {
 			When("the org isn't ready in the timeout", func() {
 				It("returns an error", func() {
 					// we do not call updateStatus() to set state = ok
-					_, err := orgRepo.CreateOrg(ctx, repositories.OrgRecord{
+					_, err := orgRepo.CreateOrg(ctx, repositories.OrgCreateMessage{
 						GUID: "some-guid",
 						Name: "our-org",
 					})
@@ -89,7 +90,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the client fails to create the org", func() {
 				It("returns an error", func() {
-					_, err := orgRepo.CreateOrg(ctx, repositories.OrgRecord{
+					_, err := orgRepo.CreateOrg(ctx, repositories.OrgCreateMessage{
 						Name: "this-string-has-illegal-characters-ц",
 					})
 					Expect(err).To(HaveOccurred())
@@ -99,40 +100,72 @@ var _ = Describe("OrgRepository", func() {
 
 		Describe("Space", func() {
 			var org *hnsv1alpha2.SubnamespaceAnchor
+			var spaceGUID string
+			imageRegistryCredentials := "image-registry-credentials"
 
 			BeforeEach(func() {
+				spaceGUID = generateGUID()
 				org = createOrgAnchorAndNamespace(ctx, rootNamespace, "org")
+				// In the absence of HNC reconciling the SubnamespaceAnchor into a namespace, we must manually create
+				// for subsequent use by the Repository createSpace function.
+				_ = createNamespace(ctx, "org", spaceGUID)
 			})
 
-			It("creates a subnamespace anchor in the org namespace", func() {
-				go updateStatus(org.Name, "some-guid")
+			It("creates a Space", func() {
+				go updateStatus(org.Name, spaceGUID)
 
-				space, err := orgRepo.CreateSpace(ctx, repositories.SpaceRecord{
-					GUID:             "some-guid",
-					Name:             "our-space",
-					OrganizationGUID: org.Name,
+				space, err := orgRepo.CreateSpace(ctx, repositories.SpaceCreateMessage{
+					GUID:                     spaceGUID,
+					Name:                     "our-space",
+					OrganizationGUID:         org.Name,
+					ImageRegistryCredentials: imageRegistryCredentials,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				namesRequirement, err := labels.NewRequirement(repositories.SpaceNameLabel, selection.Equals, []string{"our-space"})
-				Expect(err).NotTo(HaveOccurred())
-				anchorList := hnsv1alpha2.SubnamespaceAnchorList{}
-				err = k8sClient.List(ctx, &anchorList, client.InNamespace(org.Name), client.MatchingLabelsSelector{
-					Selector: labels.NewSelector().Add(*namesRequirement),
-				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(anchorList.Items).To(HaveLen(1))
+				By("Creating a SubnamespaceAnchor in the Org namespace", func() {
+					var namesRequirement *labels.Requirement
+					namesRequirement, err = labels.NewRequirement(repositories.SpaceNameLabel, selection.Equals, []string{"our-space"})
+					Expect(err).NotTo(HaveOccurred())
+					anchorList := hnsv1alpha2.SubnamespaceAnchorList{}
+					err = k8sClient.List(ctx, &anchorList, client.InNamespace(org.Name), client.MatchingLabelsSelector{
+						Selector: labels.NewSelector().Add(*namesRequirement),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(anchorList.Items).To(HaveLen(1))
 
-				Expect(space.Name).To(Equal("our-space"))
-				Expect(space.GUID).To(Equal("some-guid"))
-				Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(space.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+					Expect(space.Name).To(Equal("our-space"))
+					Expect(space.GUID).To(Equal(spaceGUID))
+					Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+					Expect(space.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+				})
+
+				By("Creating ServiceAccounts in the Space namespace", func() {
+					serviceAccountList := corev1.ServiceAccountList{}
+					Eventually(func() []corev1.ServiceAccount {
+						err = k8sClient.List(ctx, &serviceAccountList, client.InNamespace(spaceGUID))
+						if err != nil {
+							return []corev1.ServiceAccount{}
+						}
+						return serviceAccountList.Items
+					}, timeCheckThreshold*time.Second, 250*time.Millisecond).Should(HaveLen(2), "could not find the service accounts created by the repo")
+					Expect(err).NotTo(HaveOccurred())
+
+					sort.Slice(serviceAccountList.Items, func(i, j int) bool {
+						return serviceAccountList.Items[i].Name < serviceAccountList.Items[j].Name
+					})
+					serviceAccount := serviceAccountList.Items[0]
+					Expect(serviceAccount.Name).To(Equal("eirini"))
+					serviceAccount = serviceAccountList.Items[1]
+					Expect(serviceAccount.Name).To(Equal("kpack-service-account"))
+					Expect(serviceAccount.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: imageRegistryCredentials}))
+					Expect(serviceAccount.Secrets).To(ConsistOf(corev1.ObjectReference{Name: imageRegistryCredentials}))
+				})
 			})
 
 			When("the space isn't ready in the timeout", func() {
 				It("returns an error", func() {
 					// we do not call updateStatus() to set state = ok
-					_, err := orgRepo.CreateSpace(ctx, repositories.SpaceRecord{
+					_, err := orgRepo.CreateSpace(ctx, repositories.SpaceCreateMessage{
 						GUID:             "some-guid",
 						Name:             "our-org",
 						OrganizationGUID: org.Name,
@@ -143,7 +176,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the client fails to create the space", func() {
 				It("returns an error", func() {
-					_, err := orgRepo.CreateSpace(ctx, repositories.SpaceRecord{
+					_, err := orgRepo.CreateSpace(ctx, repositories.SpaceCreateMessage{
 						GUID:             "some-guid",
 						Name:             "this-string-has-illegal-characters-ц",
 						OrganizationGUID: org.Name,

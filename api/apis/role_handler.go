@@ -39,7 +39,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFRoleRepository . CFRoleRepository
 
 type CFRoleRepository interface {
-	CreateRole(ctx context.Context, role repositories.RoleRecord) (repositories.RoleRecord, error)
+	CreateRole(ctx context.Context, role repositories.RoleCreateMessage) (repositories.RoleRecord, error)
 }
 
 type RoleHandler struct {
@@ -68,7 +68,7 @@ func (h *RoleHandler) roleCreateHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	role := payload.ToRecord()
+	role := payload.ToMessage()
 	role.GUID = uuid.NewString()
 
 	record, err := h.roleRepo.CreateRole(r.Context(), role)

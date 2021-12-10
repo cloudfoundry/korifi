@@ -10,11 +10,11 @@ import (
 )
 
 type CFRoleRepository struct {
-	CreateRoleStub        func(context.Context, repositories.RoleRecord) (repositories.RoleRecord, error)
+	CreateRoleStub        func(context.Context, repositories.RoleCreateMessage) (repositories.RoleRecord, error)
 	createRoleMutex       sync.RWMutex
 	createRoleArgsForCall []struct {
 		arg1 context.Context
-		arg2 repositories.RoleRecord
+		arg2 repositories.RoleCreateMessage
 	}
 	createRoleReturns struct {
 		result1 repositories.RoleRecord
@@ -28,12 +28,12 @@ type CFRoleRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFRoleRepository) CreateRole(arg1 context.Context, arg2 repositories.RoleRecord) (repositories.RoleRecord, error) {
+func (fake *CFRoleRepository) CreateRole(arg1 context.Context, arg2 repositories.RoleCreateMessage) (repositories.RoleRecord, error) {
 	fake.createRoleMutex.Lock()
 	ret, specificReturn := fake.createRoleReturnsOnCall[len(fake.createRoleArgsForCall)]
 	fake.createRoleArgsForCall = append(fake.createRoleArgsForCall, struct {
 		arg1 context.Context
-		arg2 repositories.RoleRecord
+		arg2 repositories.RoleCreateMessage
 	}{arg1, arg2})
 	stub := fake.CreateRoleStub
 	fakeReturns := fake.createRoleReturns
@@ -54,13 +54,13 @@ func (fake *CFRoleRepository) CreateRoleCallCount() int {
 	return len(fake.createRoleArgsForCall)
 }
 
-func (fake *CFRoleRepository) CreateRoleCalls(stub func(context.Context, repositories.RoleRecord) (repositories.RoleRecord, error)) {
+func (fake *CFRoleRepository) CreateRoleCalls(stub func(context.Context, repositories.RoleCreateMessage) (repositories.RoleRecord, error)) {
 	fake.createRoleMutex.Lock()
 	defer fake.createRoleMutex.Unlock()
 	fake.CreateRoleStub = stub
 }
 
-func (fake *CFRoleRepository) CreateRoleArgsForCall(i int) (context.Context, repositories.RoleRecord) {
+func (fake *CFRoleRepository) CreateRoleArgsForCall(i int) (context.Context, repositories.RoleCreateMessage) {
 	fake.createRoleMutex.RLock()
 	defer fake.createRoleMutex.RUnlock()
 	argsForCall := fake.createRoleArgsForCall[i]
