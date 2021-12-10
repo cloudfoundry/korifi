@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
@@ -151,7 +149,7 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 	}
 }
 
-func ForAppProcessList(processRecordList []repositories.ProcessRecord, baseURL url.URL, appGUID string) ProcessListResponse {
+func ForAppProcessList(processRecordList []repositories.ProcessRecord, baseURL, requestURL url.URL) ProcessListResponse {
 	processResponses := make([]ProcessResponse, 0, len(processRecordList))
 	for _, process := range processRecordList {
 		processResponse := ForProcess(process, baseURL)
@@ -159,7 +157,7 @@ func ForAppProcessList(processRecordList []repositories.ProcessRecord, baseURL u
 		processResponses = append(processResponses, processResponse)
 	}
 
-	pageHREF := buildURL(baseURL).appendPath(appsBase, appGUID, "processes").setQuery("page=1").build()
+	pageHREF := buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build()
 	processListResponse := ProcessListResponse{
 		PaginationData: PaginationData{
 			TotalResults: len(processResponses),
@@ -177,14 +175,7 @@ func ForAppProcessList(processRecordList []repositories.ProcessRecord, baseURL u
 	return processListResponse
 }
 
-func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL url.URL, processListFilter payloads.ProcessList) ProcessListResponse {
-	var queryParameter string
-	if processListFilter.AppGUIDs != "" {
-		queryParameter = "app_guids=" + processListFilter.AppGUIDs + "&page=1"
-	} else {
-		queryParameter = "page=1"
-	}
-
+func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL, requestURL url.URL) ProcessListResponse {
 	processResponses := make([]ProcessResponse, 0, len(processRecordList))
 	for _, process := range processRecordList {
 		processResponse := ForProcess(process, baseURL)
@@ -192,7 +183,7 @@ func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL url.
 		processResponses = append(processResponses, processResponse)
 	}
 
-	pageHREF := buildURL(baseURL).appendPath(processesBase).setQuery(queryParameter).build()
+	pageHREF := buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build()
 	processListResponse := ProcessListResponse{
 		PaginationData: PaginationData{
 			TotalResults: len(processResponses),

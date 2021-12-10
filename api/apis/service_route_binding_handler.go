@@ -1,14 +1,12 @@
 package apis
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/url"
 
-	"github.com/go-logr/logr"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
+	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 )
 
@@ -33,14 +31,11 @@ func NewServiceRouteBindingHandler(
 func (h *ServiceRouteBindingHandler) serviceRouteBindingsListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	responseBody, err := json.Marshal(presenter.ForServiceRouteBindingsList(h.serverURL))
+	err := writeJsonResponse(w, presenter.ForServiceRouteBindingsList(h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *ServiceRouteBindingHandler) RegisterRoutes(router *mux.Router) {

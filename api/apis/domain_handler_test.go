@@ -66,10 +66,10 @@ var _ = Describe("DomainHandler", func() {
 					"total_results": 1,
 					"total_pages": 1,
 					"first": {
-						"href": "%[1]s/v3/domains?page=1"
+						"href": "%[1]s/v3/domains"
 					},
 					"last": {
-						"href": "%[1]s/v3/domains?page=1"
+						"href": "%[1]s/v3/domains"
 					},
 					"next": null,
 					"previous": null
@@ -133,10 +133,10 @@ var _ = Describe("DomainHandler", func() {
 						"total_results": 0,
 						"total_pages": 1,
 						"first": {
-							"href": "%[1]s/v3/domains?page=1"
+							"href": "%[1]s/v3/domains"
 						},
 						"last": {
-							"href": "%[1]s/v3/domains?page=1"
+							"href": "%[1]s/v3/domains"
 						},
 						"next": null,
 						"previous": null

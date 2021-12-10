@@ -61,7 +61,7 @@ func ForCreateOrg(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
 	return toOrgResponse(org, apiBaseURL)
 }
 
-func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL url.URL) OrgListResponse {
+func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL, requestURL url.URL) OrgListResponse {
 	orgResponses := []OrgResponse{}
 
 	for _, org := range orgs {
@@ -73,10 +73,10 @@ func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL url.URL) OrgListRespon
 			TotalResults: len(orgs),
 			TotalPages:   1,
 			First: PageRef{
-				HREF: buildURL(apiBaseURL).appendPath(orgsBase).setQuery("page=1").build(),
+				HREF: buildURL(apiBaseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
 			},
 			Last: PageRef{
-				HREF: buildURL(apiBaseURL).appendPath(orgsBase).setQuery("page=1").build(),
+				HREF: buildURL(apiBaseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
 			},
 		},
 		Resources: orgResponses,
@@ -87,14 +87,14 @@ func ForCreateSpace(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceRes
 	return toSpaceResponse(space, apiBaseURL)
 }
 
-func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL url.URL) SpaceListResponse {
+func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL, requestURL url.URL) SpaceListResponse {
 	spaceResponses := []SpaceResponse{}
 
 	for _, space := range spaces {
 		spaceResponses = append(spaceResponses, toSpaceResponse(space, apiBaseURL))
 	}
 
-	paginationURL := buildURL(apiBaseURL).appendPath(spacesBase).setQuery("page=1").build()
+	paginationURL := buildURL(apiBaseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build()
 	return SpaceListResponse{
 		Pagination: PaginationData{
 			TotalResults: len(spaces),

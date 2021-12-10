@@ -135,7 +135,7 @@ func (h *SpaceHandler) SpaceListHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	spaceList := presenter.ForSpaceList(spaces, h.apiBaseURL)
+	spaceList := presenter.ForSpaceList(spaces, h.apiBaseURL, *r.URL)
 	writeResponse(w, http.StatusOK, spaceList)
 }
 

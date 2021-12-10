@@ -90,8 +90,11 @@ func (h *RoleHandler) roleCreateHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	roleResponse := presenter.ForCreateRole(record, h.apiBaseURL)
-	writeResponse(w, http.StatusCreated, roleResponse)
+	err = writeJsonResponse(w, presenter.ForCreateRole(record, h.apiBaseURL), http.StatusCreated)
+	if err != nil {
+		h.logger.Error(err, "Failed to render response", "User/Role", role.User+"/"+role.Type)
+		writeUnknownErrorResponse(w)
+	}
 }
 
 func (h *RoleHandler) RegisterRoutes(router *mux.Router) {

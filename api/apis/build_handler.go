@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/url"
 
@@ -76,13 +75,11 @@ func (h *BuildHandler) buildGetHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	responseBody, err := json.Marshal(presenter.ForBuild(build, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForBuild(build, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "BuildGUID", buildGUID)
 		writeUnknownErrorResponse(w)
-		return
 	}
-	_, _ = w.Write(responseBody)
 }
 
 func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Request) {
@@ -124,13 +121,10 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	res := presenter.ForBuild(record, h.serverURL)
-	w.WriteHeader(http.StatusCreated)
-	err = json.NewEncoder(w).Encode(res)
+	err = writeJsonResponse(w, presenter.ForBuild(record, h.serverURL), http.StatusCreated)
 	if err != nil { // untested
 		h.logger.Info("Error encoding JSON response", "error", err.Error())
 		writeUnknownErrorResponse(w)
-		return
 	}
 }
 

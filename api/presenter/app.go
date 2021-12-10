@@ -115,7 +115,7 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 	}
 }
 
-func ForAppList(appRecordList []repositories.AppRecord, baseURL url.URL) AppListResponse {
+func ForAppList(appRecordList []repositories.AppRecord, baseURL, requestURL url.URL) AppListResponse {
 	appResponses := make([]AppResponse, 0, len(appRecordList))
 	for _, app := range appRecordList {
 		appResponses = append(appResponses, ForApp(app, baseURL))
@@ -126,10 +126,10 @@ func ForAppList(appRecordList []repositories.AppRecord, baseURL url.URL) AppList
 			TotalResults: len(appResponses),
 			TotalPages:   1,
 			First: PageRef{
-				HREF: buildURL(baseURL).appendPath(appsBase).setQuery("page=1").build(),
+				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
 			},
 			Last: PageRef{
-				HREF: buildURL(baseURL).appendPath(appsBase).setQuery("page=1").build(),
+				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
 			},
 		},
 		Resources: appResponses,

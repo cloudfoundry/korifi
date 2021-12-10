@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"mime/multipart"
 	"net/http"
@@ -103,12 +102,10 @@ func (h PackageHandler) packageGetHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	res := presenter.ForPackage(record, h.serverURL)
-	err = json.NewEncoder(w).Encode(res)
+	err = writeJsonResponse(w, presenter.ForPackage(record, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Info("Error encoding JSON response", "error", err.Error())
 		writeUnknownErrorResponse(w)
-		return
 	}
 }
 
@@ -160,12 +157,10 @@ func (h PackageHandler) packageListHandler(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	res := presenter.ForPackageList(records, h.serverURL)
-	err = json.NewEncoder(w).Encode(res)
+	err = writeJsonResponse(w, presenter.ForPackageList(records, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Error encoding JSON response", "error")
 		writeUnknownErrorResponse(w)
-		return
 	}
 }
 
@@ -206,13 +201,10 @@ func (h PackageHandler) packageCreateHandler(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	res := presenter.ForPackage(record, h.serverURL)
-	w.WriteHeader(http.StatusCreated)
-	err = json.NewEncoder(w).Encode(res)
+	err = writeJsonResponse(w, presenter.ForPackage(record, h.serverURL), http.StatusCreated)
 	if err != nil { // untested
 		h.logger.Info("Error encoding JSON response", "error", err.Error())
 		writeUnknownErrorResponse(w)
-		return
 	}
 }
 
@@ -287,12 +279,10 @@ func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	res := presenter.ForPackage(record, h.serverURL)
-	err = json.NewEncoder(w).Encode(res)
+	err = writeJsonResponse(w, presenter.ForPackage(record, h.serverURL), http.StatusOK)
 	if err != nil { // untested
 		h.logger.Info("Error encoding JSON response", "error", err.Error())
 		writeUnknownErrorResponse(w)
-		return
 	}
 }
 
@@ -360,15 +350,11 @@ func (h PackageHandler) packageListDropletsHandler(w http.ResponseWriter, req *h
 	}
 
 	dropletBaseURL := "/v3/packages/" + packageGUID + "/droplets"
-	responseBody, err := json.Marshal(presenter.ForDropletList(dropletList, h.serverURL, dropletBaseURL))
-	if err != nil {
-		// Untested
+	err = writeJsonResponse(w, presenter.ForDropletList(dropletList, h.serverURL, dropletBaseURL), http.StatusOK)
+	if err != nil { // Untested
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *PackageHandler) RegisterRoutes(router *mux.Router) {

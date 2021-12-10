@@ -224,9 +224,25 @@ func writeResponse(w http.ResponseWriter, status int, responseBody interface{}) 
 
 	err := json.NewEncoder(w).Encode(responseBody)
 	if err != nil {
-		Logger.Error(err, "failed to encode and wire response")
+		Logger.Error(err, "failed to encode and write response")
 		return
 	}
+}
+
+func writeJsonResponse(w http.ResponseWriter, payload interface{}, successStatus int) error {
+	responseBody := strings.Builder{}
+	encoder := json.NewEncoder(&responseBody)
+	encoder.SetEscapeHTML(false)
+
+	err := encoder.Encode(payload)
+	if err != nil {
+		return err
+	}
+
+	w.WriteHeader(successStatus)
+	_, _ = w.Write([]byte(responseBody.String()))
+
+	return nil
 }
 
 // Custom field validators

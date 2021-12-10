@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/url"
 
@@ -95,14 +94,11 @@ func (h *DomainHandler) DomainListHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForDomainList(domainList, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForDomainList(domainList, h.serverURL, *r.URL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *DomainHandler) RegisterRoutes(router *mux.Router) {

@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/url"
 
@@ -69,13 +68,11 @@ func (h *DropletHandler) dropletGetHandler(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	responseBody, err := json.Marshal(presenter.ForDroplet(droplet, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForDroplet(droplet, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "dropletGUID", dropletGUID)
 		writeUnknownErrorResponse(w)
-		return
 	}
-	_, _ = w.Write(responseBody)
 }
 
 func (h *DropletHandler) RegisterRoutes(router *mux.Router) {
