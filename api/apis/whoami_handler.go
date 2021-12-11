@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/url"
 
@@ -53,12 +52,10 @@ func (h *WhoAmIHandler) whoAmIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	identityResponse := presenter.ForWhoAmI(identity)
-
-	err = json.NewEncoder(w).Encode(identityResponse)
+	err = writeJsonResponse(w, presenter.ForWhoAmI(identity), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to write response")
+		writeUnknownErrorResponse(w)
 	}
 }
 

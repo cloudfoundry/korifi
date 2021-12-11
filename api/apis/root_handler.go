@@ -1,7 +1,6 @@
 package apis
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -23,14 +22,12 @@ func NewRootHandler(logger logr.Logger, serverURL string) *RootHandler {
 }
 
 func (h *RootHandler) rootGetHandler(w http.ResponseWriter, r *http.Request) {
-	body, err := json.Marshal(presenter.GetRootResponse(h.serverURL))
+	w.Header().Set("Content-Type", "application/json")
+	err := writeJsonResponse(w, presenter.GetRootResponse(h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
-		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(body))
 }
 
 func (h *RootHandler) RegisterRoutes(router *mux.Router) {

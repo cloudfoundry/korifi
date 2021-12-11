@@ -248,10 +248,10 @@ var _ = Describe("Spaces", func() {
                     "total_results": 2,
                     "total_pages": 1,
                     "first": {
-                        "href": "%[1]s/v3/spaces?page=1"
+                        "href": "%[1]s/v3/spaces"
                     },
                     "last": {
-                        "href": "%[1]s/v3/spaces?page=1"
+                        "href": "%[1]s/v3/spaces"
                     },
                     "next": null,
                     "previous": null

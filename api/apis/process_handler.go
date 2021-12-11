@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -88,14 +87,11 @@ func (h *ProcessHandler) processGetHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForProcess(process, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForProcess(process, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "ProcessGUID", processGUID)
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *ProcessHandler) processGetSidecarsHandler(w http.ResponseWriter, r *http.Request) {
@@ -123,10 +119,10 @@ func (h *ProcessHandler) processGetSidecarsHandler(w http.ResponseWriter, r *htt
 						"total_results": 0,
 						"total_pages": 1,
 						"first": {
-							"href": "%[1]s/v3/processes/%[2]s/sidecars?page=1"
+							"href": "%[1]s/v3/processes/%[2]s/sidecars"
 						},
 						"last": {
-							"href": "%[1]s/v3/processes/%[2]s/sidecars?page=1"
+							"href": "%[1]s/v3/processes/%[2]s/sidecars"
 						},
 						"next": null,
 						"previous": null
@@ -170,14 +166,11 @@ func (h *ProcessHandler) processScaleHandler(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	responseBody, err := json.Marshal(presenter.ForProcess(processRecord, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForProcess(processRecord, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "ProcessGUID", processGUID)
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *ProcessHandler) processGetStatsHandler(w http.ResponseWriter, r *http.Request) {
@@ -200,13 +193,10 @@ func (h *ProcessHandler) processGetStatsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForProcessStats(records))
+	err = writeJsonResponse(w, presenter.ForProcessStats(records), http.StatusOK)
 	if err != nil {
 		h.LogError(w, processGUID, err)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *ProcessHandler) processListHandler(w http.ResponseWriter, r *http.Request) {
@@ -258,14 +248,11 @@ func (h *ProcessHandler) processListHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForProcessList(processList, h.serverURL, *processListFilter))
+	err = writeJsonResponse(w, presenter.ForProcessList(processList, h.serverURL, *r.URL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *ProcessHandler) LogError(w http.ResponseWriter, processGUID string, err error) {

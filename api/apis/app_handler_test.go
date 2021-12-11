@@ -460,10 +460,10 @@ var _ = Describe("AppHandler", func() {
 				  "total_results": 2,
 				  "total_pages": 1,
 				  "first": {
-					"href": "%[1]s/v3/apps?page=1"
+					"href": "%[1]s/v3/apps"
 				  },
 				  "last": {
-					"href": "%[1]s/v3/apps?page=1"
+					"href": "%[1]s/v3/apps"
 				  },
 				  "next": null,
 				  "previous": null
@@ -642,6 +642,10 @@ var _ = Describe("AppHandler", func() {
 					Expect(message.Names).To(ConsistOf("app1", "app2"))
 					Expect(message.SpaceGuids).To(ConsistOf("space1", "space2"))
 				})
+
+				It("correctly sets query parameters in response pagination links", func() {
+					Expect(rr.Body.String()).To(ContainSubstring("https://api.example.org/v3/apps?names=app1,app2&space_guids=space1,space2"))
+				})
 			})
 		})
 
@@ -665,10 +669,10 @@ var _ = Describe("AppHandler", func() {
 				  "total_results": 0,
 				  "total_pages": 1,
 				  "first": {
-					"href": "%[1]s/v3/apps?page=1"
+					"href": "%[1]s/v3/apps"
 				  },
 				  "last": {
-					"href": "%[1]s/v3/apps?page=1"
+					"href": "%[1]s/v3/apps"
 				  },
 				  "next": null,
 				  "previous": null
@@ -1439,10 +1443,10 @@ var _ = Describe("AppHandler", func() {
 						  "total_results": 2,
 						  "total_pages": 1,
 						  "first": {
-							"href": "%[1]s/v3/apps/%[2]s/processes?page=1"
+							"href": "%[1]s/v3/apps/%[2]s/processes"
 						  },
 						  "last": {
-							"href": "%[1]s/v3/apps/%[2]s/processes?page=1"
+							"href": "%[1]s/v3/apps/%[2]s/processes"
 						  },
 						  "next": null,
 						  "previous": null
@@ -1562,10 +1566,10 @@ var _ = Describe("AppHandler", func() {
 						  "total_results": 0,
 						  "total_pages": 1,
 						  "first": {
-							"href": "%[1]s/v3/apps/%[2]s/processes?page=1"
+							"href": "%[1]s/v3/apps/%[2]s/processes"
 						  },
 						  "last": {
-							"href": "%[1]s/v3/apps/%[2]s/processes?page=1"
+							"href": "%[1]s/v3/apps/%[2]s/processes"
 						  },
 						  "next": null,
 						  "previous": null
@@ -1950,10 +1954,10 @@ var _ = Describe("AppHandler", func() {
 							"total_results": 1,
 							"total_pages": 1,
 							"first": {
-								"href": "%[1]s/v3/apps/%[2]s/routes?page=1"
+								"href": "%[1]s/v3/apps/%[2]s/routes"
 							},
 							"last": {
-								"href": "%[1]s/v3/apps/%[2]s/routes?page=1"
+								"href": "%[1]s/v3/apps/%[2]s/routes"
 							},
 							"next": null,
 							"previous": null
@@ -2023,10 +2027,10 @@ var _ = Describe("AppHandler", func() {
 						  "total_results": 0,
 						  "total_pages": 1,
 						  "first": {
-							"href": "%[1]s/v3/apps/%[2]s/routes?page=1"
+							"href": "%[1]s/v3/apps/%[2]s/routes"
 						  },
 						  "last": {
-							"href": "%[1]s/v3/apps/%[2]s/routes?page=1"
+							"href": "%[1]s/v3/apps/%[2]s/routes"
 						  },
 						  "next": null,
 						  "previous": null

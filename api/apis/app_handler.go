@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -117,14 +116,11 @@ func (h *AppHandler) appGetHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	responseBody, err := json.Marshal(presenter.ForApp(app, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForApp(app, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -173,15 +169,11 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForApp(appRecord, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForApp(appRecord, h.serverURL), http.StatusCreated)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "App Name", payload.Name)
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	w.WriteHeader(http.StatusCreated)
-	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
@@ -232,14 +224,11 @@ func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForAppList(appList, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForAppList(appList, h.serverURL, *r.URL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.Request) {
@@ -302,14 +291,11 @@ func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForCurrentDroplet(currentDroplet, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForCurrentDroplet(currentDroplet, h.serverURL), http.StatusOK)
 	if err != nil { // untested
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appGetCurrentDropletHandler(w http.ResponseWriter, r *http.Request) {
@@ -356,13 +342,11 @@ func (h *AppHandler) appGetCurrentDropletHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
-	responseBody, err := json.Marshal(presenter.ForDroplet(droplet, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForDroplet(droplet, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "dropletGUID", app.DropletGUID)
 		writeUnknownErrorResponse(w)
-		return
 	}
-	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appStartHandler(w http.ResponseWriter, r *http.Request) {
@@ -409,14 +393,11 @@ func (h *AppHandler) appStartHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForApp(app, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForApp(app, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appStopHandler(w http.ResponseWriter, r *http.Request) {
@@ -458,14 +439,11 @@ func (h *AppHandler) appStopHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForApp(app, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForApp(app, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) getProcessesForAppHandler(w http.ResponseWriter, r *http.Request) {
@@ -508,14 +486,11 @@ func (h *AppHandler) getProcessesForAppHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForAppProcessList(processList, h.serverURL, appGUID))
+	err = writeJsonResponse(w, presenter.ForAppProcessList(processList, h.serverURL, *r.URL), http.StatusOK)
 	if err != nil { // untested
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) getRoutesForAppHandler(w http.ResponseWriter, r *http.Request) {
@@ -553,14 +528,11 @@ func (h *AppHandler) getRoutesForAppHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForAppRouteList(routes, h.serverURL, app.GUID))
+	err = writeJsonResponse(w, presenter.ForAppRouteList(routes, h.serverURL, *r.URL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appScaleProcessHandler(w http.ResponseWriter, r *http.Request) {
@@ -600,14 +572,11 @@ func (h *AppHandler) appScaleProcessHandler(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	responseBody, err := json.Marshal(presenter.ForProcess(processRecord, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForProcess(processRecord, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "ProcessGUID", appGUID)
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) appRestartHandler(w http.ResponseWriter, r *http.Request) {
@@ -683,14 +652,11 @@ func (h *AppHandler) appRestartHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForApp(app, h.serverURL))
+	err = writeJsonResponse(w, presenter.ForApp(app, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	_, _ = w.Write(responseBody)
 }
 
 func (h *AppHandler) lookupAppRouteAndDomainList(ctx context.Context, authInfo authorization.Info, appGUID, spaceGUID string) ([]repositories.RouteRecord, error) {

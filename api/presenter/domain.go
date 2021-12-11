@@ -82,7 +82,7 @@ func ForDomain(responseDomain repositories.DomainRecord, baseURL url.URL) Domain
 	}
 }
 
-func ForDomainList(domainListRecords []repositories.DomainRecord, baseURL url.URL) DomainListResponse {
+func ForDomainList(domainListRecords []repositories.DomainRecord, baseURL, requestURL url.URL) DomainListResponse {
 	domainResponses := make([]DomainResponse, 0, len(domainListRecords))
 	for _, domain := range domainListRecords {
 		domainResponses = append(domainResponses, ForDomain(domain, baseURL))
@@ -93,10 +93,10 @@ func ForDomainList(domainListRecords []repositories.DomainRecord, baseURL url.UR
 			TotalResults: len(domainResponses),
 			TotalPages:   1,
 			First: PageRef{
-				HREF: buildURL(baseURL).appendPath(domainsBase).setQuery("page=1").build(),
+				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
 			},
 			Last: PageRef{
-				HREF: buildURL(baseURL).appendPath(domainsBase).setQuery("page=1").build(),
+				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
 			},
 		},
 		Resources: domainResponses,

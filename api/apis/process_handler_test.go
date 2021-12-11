@@ -223,10 +223,10 @@ var _ = Describe("ProcessHandler", func() {
 						"total_results": 0,
 						"total_pages": 1,
 						"first": {
-							"href": "%[1]s/v3/processes/%[2]s/sidecars?page=1"
+							"href": "%[1]s/v3/processes/%[2]s/sidecars"
 						},
 						"last": {
-							"href": "%[1]s/v3/processes/%[2]s/sidecars?page=1"
+							"href": "%[1]s/v3/processes/%[2]s/sidecars"
 						},
 						"next": null,
 						"previous": null
@@ -710,10 +710,10 @@ var _ = Describe("ProcessHandler", func() {
 					"total_results": 1,
 					"total_pages": 1,
 					"first": {
-						"href": "`+baseURL+`/v3/processes?page=1"
+						"href": "`+baseURL+`/v3/processes"
 					},
 					"last": {
-						"href": "`+baseURL+`/v3/processes?page=1"
+						"href": "`+baseURL+`/v3/processes"
 					},
 					"next": null,
 					"previous": null

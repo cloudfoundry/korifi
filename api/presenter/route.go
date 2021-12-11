@@ -113,7 +113,7 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 	}
 }
 
-func ForRouteList(routeRecordList []repositories.RouteRecord, baseURL url.URL, requestURI *url.URL) RouteListResponse {
+func ForRouteList(routeRecordList []repositories.RouteRecord, baseURL, requestURL url.URL) RouteListResponse {
 	routeResponses := make([]RouteResponse, 0, len(routeRecordList))
 	for _, routeRecord := range routeRecordList {
 		routeResponses = append(routeResponses, ForRoute(routeRecord, baseURL))
@@ -124,10 +124,10 @@ func ForRouteList(routeRecordList []repositories.RouteRecord, baseURL url.URL, r
 			TotalResults: len(routeResponses),
 			TotalPages:   1,
 			First: PageRef{
-				HREF: buildURL(baseURL).appendPath(requestURI.Path).setQuery(requestURI.RawQuery).build(),
+				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
 			},
 			Last: PageRef{
-				HREF: buildURL(baseURL).appendPath(requestURI.Path).setQuery(requestURI.RawQuery).build(),
+				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
 			},
 		},
 		Resources: routeResponses,
@@ -136,7 +136,7 @@ func ForRouteList(routeRecordList []repositories.RouteRecord, baseURL url.URL, r
 	return routeListResponse
 }
 
-func ForAppRouteList(routeRecordList []repositories.RouteRecord, baseURL url.URL, appGUID string) RouteListResponse {
+func ForAppRouteList(routeRecordList []repositories.RouteRecord, baseURL, requestURL url.URL) RouteListResponse {
 	routeResponses := make([]RouteResponse, 0, len(routeRecordList))
 	for _, routeRecord := range routeRecordList {
 		routeResponses = append(routeResponses, ForRoute(routeRecord, baseURL))
@@ -147,10 +147,10 @@ func ForAppRouteList(routeRecordList []repositories.RouteRecord, baseURL url.URL
 			TotalResults: len(routeResponses),
 			TotalPages:   1,
 			First: PageRef{
-				HREF: buildURL(baseURL).appendPath(appsBase, appGUID, "routes").setQuery("page=1").build(),
+				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
 			},
 			Last: PageRef{
-				HREF: buildURL(baseURL).appendPath(appsBase, appGUID, "routes").setQuery("page=1").build(),
+				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
 			},
 		},
 		Resources: routeResponses,

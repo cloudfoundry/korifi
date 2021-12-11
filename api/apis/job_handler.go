@@ -1,7 +1,6 @@
 package apis
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
@@ -42,15 +41,11 @@ func (h *JobHandler) jobGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseBody, err := json.Marshal(presenter.ForJob(jobGUID, spaceGUID, h.serverURL))
+	err := writeJsonResponse(w, presenter.ForJob(jobGUID, spaceGUID, h.serverURL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "Job GUID", jobGUID)
 		writeUnknownErrorResponse(w)
-		return
 	}
-
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(responseBody)
 }
 
 func getSpaceGUID(jobGUID string) string {
