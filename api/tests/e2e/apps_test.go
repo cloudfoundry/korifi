@@ -2,11 +2,14 @@ package e2e_test
 
 import (
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-	"github.com/go-http-utils/headers"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -49,34 +52,53 @@ var _ = Describe("Listing Apps", func() {
 	})
 
 	It("returns apps only in authorized spaces", func() {
-		apps := listApps(certAuthHeader)
-		appNames := []string{}
-
-		for _, app := range apps.Resources {
-			appNames = append(appNames, app.Name)
-		}
-
-		Expect(appNames).To(ConsistOf(app1.Name, app2.Name, app5.Name, app6.Name))
+		Eventually(getAppsFn(certAuthHeader)).Should(SatisfyAll(
+			HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 4))),
+			HaveKeyWithValue("resources", ContainElements(
+				HaveKeyWithValue("name", app1.Name),
+				HaveKeyWithValue("name", app2.Name),
+				HaveKeyWithValue("name", app5.Name),
+				HaveKeyWithValue("name", app6.Name),
+			))))
+		Consistently(getAppsFn(certAuthHeader), "5s").ShouldNot(
+			HaveKeyWithValue("resources", ContainElements(
+				HaveKeyWithValue("name", app3.Name),
+				HaveKeyWithValue("name", app4.Name),
+			)))
 	})
 })
 
-func listApps(authHeader string) presenter.AppListResponse {
-	appsURL := apiServerRoot + apis.AppListEndpoint
+func getAppsFn(authHeaderValue string) func() (map[string]interface{}, error) {
+	return func() (map[string]interface{}, error) {
+		appsURL, err := url.Parse(apiServerRoot)
+		if err != nil {
+			return nil, err
+		}
 
-	req, err := http.NewRequest(http.MethodGet, appsURL, nil)
-	Expect(err).NotTo(HaveOccurred())
+		appsURL.Path = apis.AppListEndpoint
 
-	req.Header.Add(headers.Authorization, authHeader)
+		resp, err := httpReq(http.MethodGet, appsURL.String(), authHeaderValue, nil)
+		if err != nil {
+			return nil, err
+		}
 
-	resp, err := http.DefaultClient.Do(req)
-	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
+		defer resp.Body.Close()
 
-	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
+		}
 
-	apps := presenter.AppListResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&apps)
-	Expect(err).NotTo(HaveOccurred())
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
 
-	return apps
+		response := map[string]interface{}{}
+		err = json.Unmarshal(bodyBytes, &response)
+		if err != nil {
+			return nil, err
+		}
+
+		return response, nil
+	}
 }

@@ -27,11 +27,6 @@ type RouteResponse struct {
 	Links         routeLinks    `json:"links"`
 }
 
-type RouteListResponse struct {
-	PaginationData PaginationData  `json:"pagination"`
-	Resources      []RouteResponse `json:"resources"`
-}
-
 type RouteDestinationsResponse struct {
 	Destinations []routeDestination     `json:"destinations"`
 	Links        routeDestinationsLinks `json:"links"`
@@ -113,50 +108,13 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 	}
 }
 
-func ForRouteList(routeRecordList []repositories.RouteRecord, baseURL, requestURL url.URL) RouteListResponse {
-	routeResponses := make([]RouteResponse, 0, len(routeRecordList))
+func ForRouteList(routeRecordList []repositories.RouteRecord, baseURL, requestURL url.URL) ListResponse {
+	routeResponses := make([]interface{}, 0, len(routeRecordList))
 	for _, routeRecord := range routeRecordList {
 		routeResponses = append(routeResponses, ForRoute(routeRecord, baseURL))
 	}
 
-	routeListResponse := RouteListResponse{
-		PaginationData: PaginationData{
-			TotalResults: len(routeResponses),
-			TotalPages:   1,
-			First: PageRef{
-				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
-			},
-			Last: PageRef{
-				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
-			},
-		},
-		Resources: routeResponses,
-	}
-
-	return routeListResponse
-}
-
-func ForAppRouteList(routeRecordList []repositories.RouteRecord, baseURL, requestURL url.URL) RouteListResponse {
-	routeResponses := make([]RouteResponse, 0, len(routeRecordList))
-	for _, routeRecord := range routeRecordList {
-		routeResponses = append(routeResponses, ForRoute(routeRecord, baseURL))
-	}
-
-	routeListResponse := RouteListResponse{
-		PaginationData: PaginationData{
-			TotalResults: len(routeResponses),
-			TotalPages:   1,
-			First: PageRef{
-				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
-			},
-			Last: PageRef{
-				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
-			},
-		},
-		Resources: routeResponses,
-	}
-
-	return routeListResponse
+	return ForList(routeResponses, baseURL, requestURL)
 }
 
 func forDestination(destination repositories.DestinationRecord) routeDestination {

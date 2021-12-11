@@ -30,11 +30,6 @@ type DomainLinks struct {
 	RouterGroup       *Link `json:"router_group"`
 }
 
-type DomainListResponse struct {
-	PaginationData PaginationData   `json:"pagination"`
-	Resources      []DomainResponse `json:"resources"`
-}
-
 type DomainRelationships struct {
 	Organization        `json:"organization"`
 	SharedOrganizations `json:"shared_organizations"`
@@ -82,25 +77,11 @@ func ForDomain(responseDomain repositories.DomainRecord, baseURL url.URL) Domain
 	}
 }
 
-func ForDomainList(domainListRecords []repositories.DomainRecord, baseURL, requestURL url.URL) DomainListResponse {
-	domainResponses := make([]DomainResponse, 0, len(domainListRecords))
+func ForDomainList(domainListRecords []repositories.DomainRecord, baseURL, requestURL url.URL) ListResponse {
+	domainResponses := make([]interface{}, 0, len(domainListRecords))
 	for _, domain := range domainListRecords {
 		domainResponses = append(domainResponses, ForDomain(domain, baseURL))
 	}
 
-	domainListResponse := DomainListResponse{
-		PaginationData: PaginationData{
-			TotalResults: len(domainResponses),
-			TotalPages:   1,
-			First: PageRef{
-				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
-			},
-			Last: PageRef{
-				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
-			},
-		},
-		Resources: domainResponses,
-	}
-
-	return domainListResponse
+	return ForList(domainResponses, baseURL, requestURL)
 }

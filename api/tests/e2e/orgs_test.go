@@ -6,18 +6,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
-
-	. "github.com/onsi/gomega/gstruct"
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"net/url"
+	"strconv"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Orgs", func() {
@@ -90,28 +89,34 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("returns all 3 orgs that the service account has a role in", func() {
-				Eventually(getOrgsFn(tokenAuthHeader)).Should(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(org1.Name)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(org2.Name)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(org3.Name)}),
-				))
+				Eventually(getOrgsFn(tokenAuthHeader, nil)).Should(SatisfyAll(
+					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
+					HaveKeyWithValue("resources", ContainElements(
+						HaveKeyWithValue("name", org1.Name),
+						HaveKeyWithValue("name", org2.Name),
+						HaveKeyWithValue("name", org3.Name),
+					))))
 			})
 
 			It("does not return orgs the service account does not have a role in", func() {
-				Consistently(getOrgsFn(tokenAuthHeader)).ShouldNot(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(org4.Name)}),
-				))
+				Consistently(getOrgsFn(tokenAuthHeader, nil), "5s").ShouldNot(
+					HaveKeyWithValue("resources", ContainElements(
+						HaveKeyWithValue("name", org4.Name),
+					)))
 			})
 
 			When("org names are filtered", func() {
 				It("returns orgs 1 & 3", func() {
-					Eventually(getOrgsFn(tokenAuthHeader, org1.Name, org3.Name)).Should(ContainElements(
-						MatchFields(IgnoreExtras, Fields{"Name": Equal(org1.Name)}),
-						MatchFields(IgnoreExtras, Fields{"Name": Equal(org3.Name)}),
-					))
-					Consistently(getOrgsFn(tokenAuthHeader, org1.Name, org3.Name), "2s").ShouldNot(ContainElement(
-						MatchFields(IgnoreExtras, Fields{"Name": Equal(org2.Name)}),
-					))
+					Eventually(getOrgsFn(tokenAuthHeader, map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)})).Should(SatisfyAll(
+						HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 2))),
+						HaveKeyWithValue("resources", ContainElements(
+							HaveKeyWithValue("name", org1.Name),
+							HaveKeyWithValue("name", org3.Name),
+						))))
+					Consistently(getOrgsFn(tokenAuthHeader, map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)}), "5s").ShouldNot(
+						HaveKeyWithValue("resources", ContainElements(
+							HaveKeyWithValue("name", org2.Name),
+						)))
 				})
 			})
 		})
@@ -124,59 +129,65 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("returns all 3 orgs that the service account has a role in", func() {
-				Eventually(getOrgsFn(certAuthHeader)).Should(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(org1.Name)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(org2.Name)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(org3.Name)}),
-				))
+				Eventually(getOrgsFn(certAuthHeader, nil)).Should(SatisfyAll(
+					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
+					HaveKeyWithValue("resources", ContainElements(
+						HaveKeyWithValue("name", org1.Name),
+						HaveKeyWithValue("name", org2.Name),
+						HaveKeyWithValue("name", org3.Name),
+					))))
 			})
 
 			It("does not return orgs the service account does not have a role in", func() {
-				Consistently(getOrgsFn(certAuthHeader)).ShouldNot(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(org4.Name)}),
-				))
+				Consistently(getOrgsFn(certAuthHeader, nil), "5s").ShouldNot(
+					HaveKeyWithValue("resources", ContainElements(
+						HaveKeyWithValue("name", org4.Name),
+					)))
 			})
 
 			When("org names are filtered", func() {
 				It("returns orgs 1 & 3", func() {
-					Eventually(getOrgsFn(certAuthHeader, org1.Name, org3.Name)).Should(ContainElements(
-						MatchFields(IgnoreExtras, Fields{"Name": Equal(org1.Name)}),
-						MatchFields(IgnoreExtras, Fields{"Name": Equal(org3.Name)}),
-					))
-					Consistently(getOrgsFn(certAuthHeader, org1.Name, org3.Name), "2s").ShouldNot(ContainElement(
-						MatchFields(IgnoreExtras, Fields{"Name": Equal(org2.Name)}),
-					))
+					Eventually(getOrgsFn(certAuthHeader, map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)})).Should(SatisfyAll(
+						HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 2))),
+						HaveKeyWithValue("resources", ContainElements(
+							HaveKeyWithValue("name", org1.Name),
+							HaveKeyWithValue("name", org3.Name),
+						))))
+					Consistently(getOrgsFn(certAuthHeader, map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)}), "5s").ShouldNot(
+						HaveKeyWithValue("resources", ContainElements(
+							HaveKeyWithValue("name", org2.Name),
+						)))
 				})
 			})
 		})
 
 		When("no Authorization header is available in the request", func() {
 			It("returns unauthorized error", func() {
-				orgsUrl := apiServerRoot + apis.OrgsEndpoint
-				req, err := http.NewRequest(http.MethodGet, orgsUrl, nil)
-				Expect(err).NotTo(HaveOccurred())
-				resp, err := http.DefaultClient.Do(req)
-				Expect(err).NotTo(HaveOccurred())
-				defer resp.Body.Close()
-				Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+				_, err := getOrgsFn("", nil)()
+				Expect(err).To(MatchError(ContainSubstring(strconv.Itoa(http.StatusUnauthorized))))
 			})
 		})
 	})
 })
 
-func getOrgsFn(authHeaderValue string, names ...string) func() ([]presenter.OrgResponse, error) {
-	return func() ([]presenter.OrgResponse, error) {
-		orgsUrl := apiServerRoot + apis.OrgsEndpoint
-
-		if len(names) > 0 {
-			orgsUrl += "?names=" + strings.Join(names, ",")
-		}
-
-		resp, err := httpReq(http.MethodGet, orgsUrl, authHeaderValue, nil)
+func getOrgsFn(authHeaderValue string, query map[string]string) func() (map[string]interface{}, error) {
+	return func() (map[string]interface{}, error) {
+		orgsUrl, err := url.Parse(apiServerRoot)
 		if err != nil {
 			return nil, err
 		}
 
+		orgsUrl.Path = apis.OrgsEndpoint
+		values := url.Values{}
+		for key, val := range query {
+			values.Set(key, val)
+		}
+		orgsUrl.RawQuery = values.Encode()
+
+		resp, err := httpReq(http.MethodGet, orgsUrl.String(), authHeaderValue, nil)
+		if err != nil {
+			return nil, err
+		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
@@ -188,12 +199,12 @@ func getOrgsFn(authHeaderValue string, names ...string) func() ([]presenter.OrgR
 			return nil, err
 		}
 
-		orgList := presenter.OrgListResponse{}
-		err = json.Unmarshal(bodyBytes, &orgList)
+		response := map[string]interface{}{}
+		err = json.Unmarshal(bodyBytes, &response)
 		if err != nil {
 			return nil, err
 		}
 
-		return orgList.Resources, nil
+		return response, nil
 	}
 }

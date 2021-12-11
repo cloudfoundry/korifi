@@ -39,11 +39,6 @@ type AppLinks struct {
 	Features             Link `json:"features"`
 }
 
-type AppListResponse struct {
-	PaginationData PaginationData `json:"pagination"`
-	Resources      []AppResponse  `json:"resources"`
-}
-
 func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 	return AppResponse{
 		Name:      responseApp.Name,
@@ -115,27 +110,13 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 	}
 }
 
-func ForAppList(appRecordList []repositories.AppRecord, baseURL, requestURL url.URL) AppListResponse {
-	appResponses := make([]AppResponse, 0, len(appRecordList))
+func ForAppList(appRecordList []repositories.AppRecord, baseURL, requestURL url.URL) ListResponse {
+	appResponses := make([]interface{}, 0, len(appRecordList))
 	for _, app := range appRecordList {
 		appResponses = append(appResponses, ForApp(app, baseURL))
 	}
 
-	appListResponse := AppListResponse{
-		PaginationData: PaginationData{
-			TotalResults: len(appResponses),
-			TotalPages:   1,
-			First: PageRef{
-				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
-			},
-			Last: PageRef{
-				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
-			},
-		},
-		Resources: appResponses,
-	}
-
-	return appListResponse
+	return ForList(appResponses, baseURL, requestURL)
 }
 
 type CurrentDropletResponse struct {

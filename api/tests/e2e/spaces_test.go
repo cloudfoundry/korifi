@@ -9,13 +9,14 @@ import (
 	"net/url"
 	"strconv"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Spaces", func() {
@@ -157,7 +158,7 @@ var _ = Describe("Spaces", func() {
 		})
 
 		It("lists the spaces the user has role in", func() {
-			Eventually(getSpacesFn()).Should(SatisfyAll(
+			Eventually(getSpacesFn(tokenAuthHeader)).Should(SatisfyAll(
 				HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 6))),
 				HaveKeyWithValue("resources", ContainElements(
 					HaveKeyWithValue("name", space11.Name),
@@ -167,7 +168,7 @@ var _ = Describe("Spaces", func() {
 					HaveKeyWithValue("name", space31.Name),
 					HaveKeyWithValue("name", space32.Name),
 				))))
-			Consistently(getSpacesFn(), "5s").ShouldNot(
+			Consistently(getSpacesFn(tokenAuthHeader), "5s").ShouldNot(
 				HaveKeyWithValue("resources", ContainElements(
 					HaveKeyWithValue("name", space13.Name),
 					HaveKeyWithValue("name", space23.Name),
@@ -181,14 +182,14 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns an unauthorized error", func() {
-				_, err := getSpacesFn()()
+				_, err := getSpacesFn(tokenAuthHeader)()
 				Expect(err).To(MatchError(ContainSubstring(strconv.Itoa(http.StatusUnauthorized))))
 			})
 		})
 
 		When("filtering by organization GUIDs", func() {
 			It("only lists spaces beloging to the orgs", func() {
-				Eventually(getSpacesWithQueryFn(map[string]string{"organization_guids": fmt.Sprintf("%s,%s", org1.GUID, org3.GUID)})).Should(
+				Eventually(getSpacesWithQueryFn(tokenAuthHeader, map[string]string{"organization_guids": fmt.Sprintf("%s,%s", org1.GUID, org3.GUID)})).Should(
 					HaveKeyWithValue("resources", ConsistOf(
 						HaveKeyWithValue("name", space11.Name),
 						HaveKeyWithValue("name", space12.Name),
@@ -200,25 +201,25 @@ var _ = Describe("Spaces", func() {
 	})
 })
 
-func getSpacesFn() func() (map[string]interface{}, error) {
-	return getSpacesWithQueryFn(nil)
+func getSpacesFn(authHeaderValue string) func() (map[string]interface{}, error) {
+	return getSpacesWithQueryFn(authHeaderValue, nil)
 }
 
-func getSpacesWithQueryFn(query map[string]string) func() (map[string]interface{}, error) {
+func getSpacesWithQueryFn(authHeaderValue string, query map[string]string) func() (map[string]interface{}, error) {
 	return func() (map[string]interface{}, error) {
 		spacesUrl, err := url.Parse(apiServerRoot)
 		if err != nil {
 			return nil, err
 		}
 
-		spacesUrl.Path = "/v3/spaces"
+		spacesUrl.Path = apis.SpacesEndpoint
 		values := url.Values{}
 		for key, val := range query {
 			values.Set(key, val)
 		}
 		spacesUrl.RawQuery = values.Encode()
 
-		resp, err := httpReq(http.MethodGet, spacesUrl.String(), tokenAuthHeader, nil)
+		resp, err := httpReq(http.MethodGet, spacesUrl.String(), authHeaderValue, nil)
 		if err != nil {
 			return nil, err
 		}
