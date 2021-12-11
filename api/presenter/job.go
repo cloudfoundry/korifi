@@ -13,12 +13,13 @@ type JobResponse struct {
 	Links     JobLinks `json:"links"`
 }
 
+// TODO: Generalize job links or just omit missing links for jobs that do not require them?
 type JobLinks struct {
-	Self  Link `json:"self"`
-	Space Link `json:"space"`
+	Self  Link  `json:"self"`
+	Space *Link `json:"space,omitempty"`
 }
 
-func ForJob(jobGUID string, spaceGUID string, baseURL url.URL) JobResponse {
+func ForManifestApplyJob(jobGUID string, spaceGUID string, baseURL url.URL) JobResponse {
 	return JobResponse{
 		GUID:      jobGUID,
 		Errors:    nil,
@@ -31,8 +32,25 @@ func ForJob(jobGUID string, spaceGUID string, baseURL url.URL) JobResponse {
 			Self: Link{
 				HREF: buildURL(baseURL).appendPath("/v3/jobs", jobGUID).build(),
 			},
-			Space: Link{
+			Space: &Link{
 				HREF: buildURL(baseURL).appendPath("/v3/spaces", spaceGUID).build(),
+			},
+		},
+	}
+}
+
+func ForAppDeleteJob(jobGUID string, baseURL url.URL) JobResponse {
+	return JobResponse{
+		GUID:      jobGUID,
+		Errors:    nil,
+		Warnings:  nil,
+		Operation: "app.delete",
+		State:     "COMPLETE",
+		CreatedAt: "",
+		UpdatedAt: "",
+		Links: JobLinks{
+			Self: Link{
+				HREF: buildURL(baseURL).appendPath("/v3/jobs", jobGUID).build(),
 			},
 		},
 	}
