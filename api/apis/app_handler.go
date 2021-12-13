@@ -31,6 +31,7 @@ const (
 	AppStartEndpoint             = "/v3/apps/{guid}/actions/start"
 	AppStopEndpoint              = "/v3/apps/{guid}/actions/stop"
 	AppRestartEndpoint           = "/v3/apps/{guid}/actions/restart"
+	AppDeleteEndpoint            = "/v3/apps/{guid}"
 	invalidDropletMsg            = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
 	AppStartedState = "STARTED"
@@ -47,6 +48,7 @@ type CFAppRepository interface {
 	CreateApp(context.Context, authorization.Info, repositories.AppCreateMessage) (repositories.AppRecord, error)
 	SetCurrentDroplet(context.Context, authorization.Info, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
 	SetAppDesiredState(context.Context, authorization.Info, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
+	DeleteApp(context.Context, authorization.Info, repositories.AppDeleteMessage) error
 }
 
 //counterfeiter:generate -o fake -fake-name ScaleAppProcess . ScaleAppProcess
@@ -659,6 +661,48 @@ func (h *AppHandler) appRestartHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *AppHandler) appDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+
+	authInfo, ok := authorization.InfoFromContext(ctx)
+	if !ok {
+		h.logger.Error(nil, "unable to get auth info")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("App not found", "AppGUID", appGUID)
+			writeNotFoundErrorResponse(w, "App")
+			return
+		default:
+			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	err = h.appRepo.DeleteApp(ctx, authInfo, repositories.AppDeleteMessage{
+		AppGUID:   appGUID,
+		SpaceGUID: app.SpaceGUID,
+	})
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		h.logger.Error(err, "Failed to delete app", "AppGUID", appGUID)
+		writeUnknownErrorResponse(w)
+	}
+
+	w.Header().Set("Location", fmt.Sprintf("%s/v3/jobs/app.delete-%s", h.serverURL.String(), appGUID))
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (h *AppHandler) lookupAppRouteAndDomainList(ctx context.Context, authInfo authorization.Info, appGUID, spaceGUID string) ([]repositories.RouteRecord, error) {
 	routeRecords, err := h.routeRepo.FetchRoutesForApp(ctx, authInfo, appGUID, spaceGUID)
 	if err != nil {
@@ -680,4 +724,5 @@ func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(AppProcessScaleEndpoint).Methods("POST").HandlerFunc(h.appScaleProcessHandler)
 	router.Path(AppGetProcessesEndpoint).Methods("GET").HandlerFunc(h.getProcessesForAppHandler)
 	router.Path(AppGetRoutesEndpoint).Methods("GET").HandlerFunc(h.getRoutesForAppHandler)
+	router.Path(AppDeleteEndpoint).Methods("DELETE").HandlerFunc(h.appDeleteHandler)
 }
