@@ -93,11 +93,6 @@ type ProcessResponseProcessHealthCheckData struct {
 	Timeout *int64 `json:"timeout"`
 }
 
-type ProcessListResponse struct {
-	PaginationData PaginationData    `json:"pagination"`
-	Resources      []ProcessResponse `json:"resources"`
-}
-
 func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) ProcessResponse {
 	return ProcessResponse{
 		GUID:        responseProcess.GUID,
@@ -149,54 +144,13 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 	}
 }
 
-func ForAppProcessList(processRecordList []repositories.ProcessRecord, baseURL, requestURL url.URL) ProcessListResponse {
-	processResponses := make([]ProcessResponse, 0, len(processRecordList))
+func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL, requestURL url.URL) ListResponse {
+	processResponses := make([]interface{}, 0, len(processRecordList))
 	for _, process := range processRecordList {
 		processResponse := ForProcess(process, baseURL)
 		processResponse.Command = "[PRIVATE DATA HIDDEN IN LISTS]"
 		processResponses = append(processResponses, processResponse)
 	}
 
-	pageHREF := buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build()
-	processListResponse := ProcessListResponse{
-		PaginationData: PaginationData{
-			TotalResults: len(processResponses),
-			TotalPages:   1,
-			First: PageRef{
-				HREF: pageHREF,
-			},
-			Last: PageRef{
-				HREF: pageHREF,
-			},
-		},
-		Resources: processResponses,
-	}
-
-	return processListResponse
-}
-
-func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL, requestURL url.URL) ProcessListResponse {
-	processResponses := make([]ProcessResponse, 0, len(processRecordList))
-	for _, process := range processRecordList {
-		processResponse := ForProcess(process, baseURL)
-		processResponse.Command = "[PRIVATE DATA HIDDEN IN LISTS]"
-		processResponses = append(processResponses, processResponse)
-	}
-
-	pageHREF := buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build()
-	processListResponse := ProcessListResponse{
-		PaginationData: PaginationData{
-			TotalResults: len(processResponses),
-			TotalPages:   1,
-			First: PageRef{
-				HREF: pageHREF,
-			},
-			Last: PageRef{
-				HREF: pageHREF,
-			},
-		},
-		Resources: processResponses,
-	}
-
-	return processListResponse
+	return ForList(processResponses, baseURL, requestURL)
 }

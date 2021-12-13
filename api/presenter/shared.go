@@ -35,6 +35,11 @@ type Link struct {
 	Method string `json:"method,omitempty"`
 }
 
+type ListResponse struct {
+	PaginationData PaginationData `json:"pagination"`
+	Resources      []interface{}  `json:"resources"`
+}
+
 type PaginationData struct {
 	TotalResults int     `json:"total_results"`
 	TotalPages   int     `json:"total_pages"`
@@ -46,6 +51,22 @@ type PaginationData struct {
 
 type PageRef struct {
 	HREF string `json:"href"`
+}
+
+func ForList(resources []interface{}, baseURL, requestURL url.URL) ListResponse {
+	return ListResponse{
+		PaginationData: PaginationData{
+			TotalResults: len(resources),
+			TotalPages:   1,
+			First: PageRef{
+				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
+			},
+			Last: PageRef{
+				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
+			},
+		},
+		Resources: resources,
+	}
 }
 
 type buildURL url.URL

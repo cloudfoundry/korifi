@@ -486,7 +486,7 @@ func (h *AppHandler) getProcessesForAppHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForAppProcessList(processList, h.serverURL, *r.URL), http.StatusOK)
+	err = writeJsonResponse(w, presenter.ForProcessList(processList, h.serverURL, *r.URL), http.StatusOK)
 	if err != nil { // untested
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
@@ -528,7 +528,7 @@ func (h *AppHandler) getRoutesForAppHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForAppRouteList(routes, h.serverURL, *r.URL), http.StatusOK)
+	err = writeJsonResponse(w, presenter.ForRouteList(routes, h.serverURL, *r.URL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)

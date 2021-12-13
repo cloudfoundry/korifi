@@ -82,24 +82,24 @@ func (h *BuildHandler) buildGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Request) {
+func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.BuildCreate
-	rme := decodeAndValidateJSONPayload(req, &payload)
+	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 
-	authInfo, ok := authorization.InfoFromContext(req.Context())
+	authInfo, ok := authorization.InfoFromContext(r.Context())
 	if !ok {
 		h.logger.Error(nil, "unable to get auth info")
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	packageRecord, err := h.packageRepo.FetchPackage(req.Context(), authInfo, payload.Package.GUID)
+	packageRecord, err := h.packageRepo.FetchPackage(r.Context(), authInfo, payload.Package.GUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -114,7 +114,7 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Reque
 
 	buildCreateMessage := payload.ToMessage(packageRecord.AppGUID, packageRecord.SpaceGUID)
 
-	record, err := h.buildRepo.CreateBuild(req.Context(), authInfo, buildCreateMessage)
+	record, err := h.buildRepo.CreateBuild(r.Context(), authInfo, buildCreateMessage)
 	if err != nil {
 		h.logger.Info("Error creating build with repository", "error", err.Error())
 		writeUnknownErrorResponse(w)

@@ -31,7 +31,7 @@ func NewServiceRouteBindingHandler(
 func (h *ServiceRouteBindingHandler) serviceRouteBindingsListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	err := writeJsonResponse(w, presenter.ForServiceRouteBindingsList(h.serverURL), http.StatusOK)
+	err := writeJsonResponse(w, presenter.ForServiceRouteBindingsList(h.serverURL, *r.URL), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response")
 		writeUnknownErrorResponse(w)
