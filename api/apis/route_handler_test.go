@@ -1310,26 +1310,17 @@ var _ = Describe("RouteHandler", func() {
 			It("adds the new destinations to the Route", func() {
 				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
 				_, _, message := routeRepo.AddDestinationsToRouteArgsForCall(0)
-				Expect(message.Route).To(Equal(repositories.RouteRecord{
-					GUID:         routeGUID,
-					SpaceGUID:    spaceGUID,
-					Domain:       domain,
-					Host:         routeHost,
-					Path:         "",
-					Protocol:     "http",
-					Destinations: nil,
-				}))
+				Expect(message.RouteGUID).To(Equal(routeGUID))
+				Expect(message.SpaceGUID).To(Equal(spaceGUID))
 
-				Expect(message.Destinations).To(ConsistOf(
+				Expect(message.AddDestinations).To(ConsistOf(
 					MatchAllFields(Fields{
-						"GUID":        Not(BeEmpty()),
 						"AppGUID":     Equal(destination1AppGUID),
 						"ProcessType": Equal("web"),
 						"Port":        Equal(8080),
 						"Protocol":    Equal("http1"),
 					}),
 					MatchAllFields(Fields{
-						"GUID":        Not(BeEmpty()),
 						"AppGUID":     Equal(destination2AppGUID),
 						"ProcessType": Equal(destination2ProcessType),
 						"Port":        Equal(destination2Port),

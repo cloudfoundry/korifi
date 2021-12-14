@@ -49,9 +49,19 @@ type RouteRecord struct {
 	UpdatedAt    string
 }
 
-type RouteAddDestinationsMessage struct {
-	Route        RouteRecord
-	Destinations []DestinationRecord
+type AddDestinationsToRouteMessage struct {
+	RouteGUID            string
+	SpaceGUID            string
+	ExistingDestinations []DestinationRecord
+	AddDestinations      []DestinationMessage
+}
+
+type DestinationMessage struct {
+	AppGUID     string
+	ProcessType string
+	Port        int
+	Protocol    string
+	// Weight intentionally omitted as experimental features
 }
 
 type FetchRouteListMessage struct {
@@ -310,19 +320,19 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 	return cfRouteToRouteRecord(cfRoute), err
 }
 
-func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message RouteAddDestinationsMessage) (RouteRecord, error) {
+func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message AddDestinationsToRouteMessage) (RouteRecord, error) {
 	baseCFRoute := &networkingv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.Route.GUID,
-			Namespace: message.Route.SpaceGUID,
+			Name:      message.RouteGUID,
+			Namespace: message.SpaceGUID,
 		},
 		Spec: networkingv1alpha1.CFRouteSpec{
-			Destinations: destinationRecordsToCFDestinations(message.Route.Destinations),
+			Destinations: destinationRecordsToCFDestinations(message.ExistingDestinations),
 		},
 	}
 
 	cfRoute := baseCFRoute.DeepCopy()
-	cfRoute.Spec.Destinations = append(cfRoute.Spec.Destinations, destinationRecordsToCFDestinations(message.Destinations)...)
+	cfRoute.Spec.Destinations = append(cfRoute.Spec.Destinations, destinationMessagesToCFDestinations(message.AddDestinations)...)
 
 	err := f.privilegedClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
 	if err != nil { // untested
@@ -343,6 +353,23 @@ func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) 
 			},
 			ProcessType: destinationRecord.ProcessType,
 			Protocol:    destinationRecord.Protocol,
+		})
+	}
+
+	return destinations
+}
+
+func destinationMessagesToCFDestinations(destinationMessages []DestinationMessage) []networkingv1alpha1.Destination {
+	var destinations []networkingv1alpha1.Destination
+	for _, destinationMessage := range destinationMessages {
+		destinations = append(destinations, networkingv1alpha1.Destination{
+			GUID: uuid.NewString(),
+			Port: destinationMessage.Port,
+			AppRef: v1.LocalObjectReference{
+				Name: destinationMessage.AppGUID,
+			},
+			ProcessType: destinationMessage.ProcessType,
+			Protocol:    destinationMessage.Protocol,
 		})
 	}
 

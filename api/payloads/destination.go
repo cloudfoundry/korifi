@@ -1,8 +1,6 @@
 package payloads
 
 import (
-	"github.com/google/uuid"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
@@ -25,8 +23,8 @@ type DestinationAppProcess struct {
 	Type string `json:"type" validate:"required"`
 }
 
-func (dc DestinationListCreate) ToMessage(routeRecord repositories.RouteRecord) repositories.RouteAddDestinationsMessage {
-	destinationRecords := make([]repositories.DestinationRecord, 0, len(dc.Destinations))
+func (dc DestinationListCreate) ToMessage(routeRecord repositories.RouteRecord) repositories.AddDestinationsToRouteMessage {
+	addDestinations := make([]repositories.DestinationMessage, 0, len(dc.Destinations))
 	for _, destination := range dc.Destinations {
 		processType := "web"
 		if destination.App.Process != nil {
@@ -43,16 +41,17 @@ func (dc DestinationListCreate) ToMessage(routeRecord repositories.RouteRecord) 
 			protocol = *destination.Protocol
 		}
 
-		destinationRecords = append(destinationRecords, repositories.DestinationRecord{
-			GUID:        uuid.NewString(),
+		addDestinations = append(addDestinations, repositories.DestinationMessage{
 			AppGUID:     destination.App.GUID,
 			ProcessType: processType,
 			Port:        port,
 			Protocol:    protocol,
 		})
 	}
-	return repositories.RouteAddDestinationsMessage{
-		Route:        routeRecord,
-		Destinations: destinationRecords,
+	return repositories.AddDestinationsToRouteMessage{
+		RouteGUID:            routeRecord.GUID,
+		SpaceGUID:            routeRecord.SpaceGUID,
+		ExistingDestinations: routeRecord.Destinations,
+		AddDestinations:      addDestinations,
 	}
 }

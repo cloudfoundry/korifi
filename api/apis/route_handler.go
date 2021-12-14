@@ -31,7 +31,7 @@ type CFRouteRepository interface {
 	FetchRouteList(context.Context, authorization.Info, repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error)
 	FetchRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
 	CreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
-	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error)
+	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
 }
 
 type RouteHandler struct {
