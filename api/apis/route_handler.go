@@ -12,7 +12,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	"github.com/go-logr/logr"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 )
@@ -31,7 +30,7 @@ type CFRouteRepository interface {
 	FetchRoute(context.Context, authorization.Info, string) (repositories.RouteRecord, error)
 	FetchRouteList(context.Context, authorization.Info, repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error)
 	FetchRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
-	CreateRoute(context.Context, authorization.Info, repositories.RouteRecord) (repositories.RouteRecord, error)
+	CreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
 	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error)
 }
 
@@ -168,14 +167,14 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
-	var routeCreateMessage payloads.RouteCreate
-	rme := decodeAndValidateJSONPayload(r, &routeCreateMessage)
+	var payload payloads.RouteCreate
+	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 
-	namespaceGUID := routeCreateMessage.Relationships.Space.Data.GUID
+	namespaceGUID := payload.Relationships.Space.Data.GUID
 	_, err := h.appRepo.FetchNamespace(ctx, authInfo, namespaceGUID)
 	if err != nil {
 		switch err.(type) {
@@ -190,7 +189,7 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 		}
 	}
 
-	domainGUID := routeCreateMessage.Relationships.Domain.Data.GUID
+	domainGUID := payload.Relationships.Domain.Data.GUID
 	domain, err := h.domainRepo.FetchDomain(ctx, authInfo, domainGUID)
 	if err != nil {
 		switch err.(type) {
@@ -205,15 +204,12 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 		}
 	}
 
-	routeGUID := uuid.NewString()
+	createRouteMessage := payload.ToMessage()
 
-	createRouteRecord := routeCreateMessage.ToRecord()
-	createRouteRecord.GUID = routeGUID
-
-	responseRouteRecord, err := h.routeRepo.CreateRoute(ctx, authInfo, createRouteRecord)
+	responseRouteRecord, err := h.routeRepo.CreateRoute(ctx, authInfo, createRouteMessage)
 	if err != nil {
 		// TODO: Catch the error from the (unwritten) validating webhook
-		h.logger.Error(err, "Failed to create route", "Route Host", routeCreateMessage.Host)
+		h.logger.Error(err, "Failed to create route", "Route Host", payload.Host)
 		writeUnknownErrorResponse(w)
 		return
 	}
@@ -222,7 +218,7 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 
 	err = writeJsonResponse(w, presenter.ForRoute(responseRouteRecord, h.serverURL), http.StatusOK)
 	if err != nil {
-		h.logger.Error(err, "Failed to render response", "Route Host", routeCreateMessage.Host)
+		h.logger.Error(err, "Failed to render response", "Route Host", payload.Host)
 		writeUnknownErrorResponse(w)
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
@@ -58,6 +60,37 @@ type FetchRouteListMessage struct {
 	DomainGUIDs []string
 	Hosts       []string
 	Paths       []string
+}
+
+type CreateRouteMessage struct {
+	Host        string
+	Path        string
+	SpaceGUID   string
+	DomainGUID  string
+	Labels      map[string]string
+	Annotations map[string]string
+}
+
+func (m CreateRouteMessage) toCFRoute() networkingv1alpha1.CFRoute {
+	return networkingv1alpha1.CFRoute{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       Kind,
+			APIVersion: APIVersion,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        uuid.NewString(),
+			Namespace:   m.SpaceGUID,
+			Labels:      m.Labels,
+			Annotations: m.Annotations,
+		},
+		Spec: networkingv1alpha1.CFRouteSpec{
+			Host: m.Host,
+			Path: m.Path,
+			DomainRef: v1.LocalObjectReference{
+				Name: m.DomainGUID,
+			},
+		},
+	}
 }
 
 func (f *RouteRepo) FetchRoute(ctx context.Context, authInfo authorization.Info, routeGUID string) (RouteRecord, error) {
@@ -267,36 +300,14 @@ func cfRouteDestinationToDestination(cfRouteDestination networkingv1alpha1.Desti
 	}
 }
 
-func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info, routeRecord RouteRecord) (RouteRecord, error) {
-	cfRoute := f.routeRecordToCFRoute(routeRecord)
+func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
+	cfRoute := message.toCFRoute()
 	err := f.privilegedClient.Create(ctx, &cfRoute)
 	if err != nil {
 		return RouteRecord{}, err
 	}
 
 	return cfRouteToRouteRecord(cfRoute), err
-}
-
-func (f *RouteRepo) routeRecordToCFRoute(routeRecord RouteRecord) networkingv1alpha1.CFRoute {
-	return networkingv1alpha1.CFRoute{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       Kind,
-			APIVersion: APIVersion,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        routeRecord.GUID,
-			Namespace:   routeRecord.SpaceGUID,
-			Labels:      routeRecord.Labels,
-			Annotations: routeRecord.Annotations,
-		},
-		Spec: networkingv1alpha1.CFRouteSpec{
-			Host: routeRecord.Host,
-			Path: routeRecord.Path,
-			DomainRef: v1.LocalObjectReference{
-				Name: routeRecord.Domain.GUID,
-			},
-		},
-	}
 }
 
 func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message RouteAddDestinationsMessage) (RouteRecord, error) {
