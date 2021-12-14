@@ -79,15 +79,8 @@ func NewPackageHandler(
 	}
 }
 
-func (h PackageHandler) packageGetHandler(w http.ResponseWriter, req *http.Request) {
+func (h PackageHandler) packageGetHandler(authInfo authorization.Info, w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
-	authInfo, ok := authorization.InfoFromContext(req.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	packageGUID := mux.Vars(req)["guid"]
 	record, err := h.packageRepo.FetchPackage(req.Context(), authInfo, packageGUID)
@@ -109,7 +102,7 @@ func (h PackageHandler) packageGetHandler(w http.ResponseWriter, req *http.Reque
 	}
 }
 
-func (h PackageHandler) packageListHandler(w http.ResponseWriter, req *http.Request) {
+func (h PackageHandler) packageListHandler(authInfo authorization.Info, w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := req.ParseForm(); err != nil {
@@ -143,13 +136,6 @@ func (h PackageHandler) packageListHandler(w http.ResponseWriter, req *http.Requ
 		}
 	}
 
-	authInfo, ok := authorization.InfoFromContext(req.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
-
 	records, err := h.packageRepo.FetchPackageList(req.Context(), authInfo, packageListQueryParameters.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Error fetching package with repository", "error")
@@ -164,20 +150,13 @@ func (h PackageHandler) packageListHandler(w http.ResponseWriter, req *http.Requ
 	}
 }
 
-func (h PackageHandler) packageCreateHandler(w http.ResponseWriter, req *http.Request) {
+func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.PackageCreate
 	rme := decodeAndValidateJSONPayload(req, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
-		return
-	}
-
-	authInfo, ok := authorization.InfoFromContext(req.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
 		return
 	}
 
@@ -208,7 +187,7 @@ func (h PackageHandler) packageCreateHandler(w http.ResponseWriter, req *http.Re
 	}
 }
 
-func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Request) {
+func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	packageGUID := mux.Vars(req)["guid"]
 	err := req.ParseForm()
@@ -225,13 +204,6 @@ func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Re
 		return
 	}
 	defer bitsFile.Close()
-
-	authInfo, ok := authorization.InfoFromContext(req.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	record, err := h.packageRepo.FetchPackage(req.Context(), authInfo, packageGUID)
 	if err != nil {
@@ -286,7 +258,7 @@ func (h PackageHandler) packageUploadHandler(w http.ResponseWriter, req *http.Re
 	}
 }
 
-func (h PackageHandler) packageListDropletsHandler(w http.ResponseWriter, req *http.Request) {
+func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := req.ParseForm(); err != nil {
@@ -320,13 +292,6 @@ func (h PackageHandler) packageListDropletsHandler(w http.ResponseWriter, req *h
 		}
 	}
 
-	authInfo, ok := authorization.InfoFromContext(req.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
-
 	packageGUID := mux.Vars(req)["guid"]
 	_, err = h.packageRepo.FetchPackage(req.Context(), authInfo, packageGUID)
 	if err != nil {
@@ -358,9 +323,10 @@ func (h PackageHandler) packageListDropletsHandler(w http.ResponseWriter, req *h
 }
 
 func (h *PackageHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(PackageGetEndpoint).Methods("GET").HandlerFunc(h.packageGetHandler)
-	router.Path(PackageListEndpoint).Methods("GET").HandlerFunc(h.packageListHandler)
-	router.Path(PackageCreateEndpoint).Methods("POST").HandlerFunc(h.packageCreateHandler)
-	router.Path(PackageUploadEndpoint).Methods("POST").HandlerFunc(h.packageUploadHandler)
-	router.Path(PackageListDropletsEndpoint).Methods("GET").HandlerFunc(h.packageListDropletsHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(PackageGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.packageGetHandler))
+	router.Path(PackageListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.packageListHandler))
+	router.Path(PackageCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.packageCreateHandler))
+	router.Path(PackageUploadEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.packageUploadHandler))
+	router.Path(PackageListDropletsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.packageListDropletsHandler))
 }

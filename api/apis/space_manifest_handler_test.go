@@ -241,23 +241,6 @@ var _ = Describe("SpaceManifestHandler", func() {
 				expectUnknownError()
 			})
 		})
-
-		When("there is no authinfo in the context", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
-                version: 1
-                applications:
-                  - name: app1
-            `))
-				Expect(err).NotTo(HaveOccurred())
-				req.Header.Add("Content-type", "application/x-yaml")
-			})
-
-			It("respond with Unknown Error", func() {
-				expectUnknownError()
-			})
-		})
 	})
 
 	Describe("POST /v3/spaces/{spaceGUID}/manifest_diff", func() {

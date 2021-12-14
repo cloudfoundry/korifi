@@ -88,19 +88,12 @@ func NewAppHandler(
 	}
 }
 
-func (h *AppHandler) appGetHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appGetHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -123,7 +116,7 @@ func (h *AppHandler) appGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -134,12 +127,6 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authInfo, ok := authorization.InfoFromContext(ctx)
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 	// TODO: Move this into the action or its own "filter"
 	namespaceGUID := payload.Relationships.Space.Data.GUID
 	_, err := h.appRepo.FetchNamespace(ctx, authInfo, namespaceGUID)
@@ -176,7 +163,7 @@ func (h *AppHandler) appCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -210,13 +197,6 @@ func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
-
 	appList, err := h.appRepo.FetchAppList(ctx, authInfo, appListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch app(s) from Kubernetes")
@@ -231,7 +211,7 @@ func (h *AppHandler) appListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
@@ -241,13 +221,6 @@ func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.
 	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
-		return
-	}
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
 		return
 	}
 
@@ -298,18 +271,12 @@ func (h *AppHandler) appSetCurrentDropletHandler(w http.ResponseWriter, r *http.
 	}
 }
 
-func (h *AppHandler) appGetCurrentDropletHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appGetCurrentDropletHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
 	if err != nil {
 		if errors.As(err, new(repositories.NotFoundError)) {
@@ -349,19 +316,12 @@ func (h *AppHandler) appGetCurrentDropletHandler(w http.ResponseWriter, r *http.
 	}
 }
 
-func (h *AppHandler) appStartHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appStartHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -400,19 +360,12 @@ func (h *AppHandler) appStartHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *AppHandler) appStopHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appStopHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -446,19 +399,12 @@ func (h *AppHandler) appStopHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *AppHandler) getProcessesForAppHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) getProcessesForAppHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -493,19 +439,12 @@ func (h *AppHandler) getProcessesForAppHandler(w http.ResponseWriter, r *http.Re
 	}
 }
 
-func (h *AppHandler) getRoutesForAppHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) getRoutesForAppHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -535,7 +474,7 @@ func (h *AppHandler) getRoutesForAppHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-func (h *AppHandler) appScaleProcessHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appScaleProcessHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -547,13 +486,6 @@ func (h *AppHandler) appScaleProcessHandler(w http.ResponseWriter, r *http.Reque
 	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
-		return
-	}
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
 		return
 	}
 
@@ -579,19 +511,12 @@ func (h *AppHandler) appScaleProcessHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-func (h *AppHandler) appRestartHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appRestartHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -669,15 +594,16 @@ func (h *AppHandler) lookupAppRouteAndDomainList(ctx context.Context, authInfo a
 }
 
 func (h *AppHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(AppGetEndpoint).Methods("GET").HandlerFunc(h.appGetHandler)
-	router.Path(AppListEndpoint).Methods("GET").HandlerFunc(h.appListHandler)
-	router.Path(AppCreateEndpoint).Methods("POST").HandlerFunc(h.appCreateHandler)
-	router.Path(AppSetCurrentDropletEndpoint).Methods("PATCH").HandlerFunc(h.appSetCurrentDropletHandler)
-	router.Path(AppGetCurrentDropletEndpoint).Methods("GET").HandlerFunc(h.appGetCurrentDropletHandler)
-	router.Path(AppStartEndpoint).Methods("POST").HandlerFunc(h.appStartHandler)
-	router.Path(AppStopEndpoint).Methods("POST").HandlerFunc(h.appStopHandler)
-	router.Path(AppRestartEndpoint).Methods("POST").HandlerFunc(h.appRestartHandler)
-	router.Path(AppProcessScaleEndpoint).Methods("POST").HandlerFunc(h.appScaleProcessHandler)
-	router.Path(AppGetProcessesEndpoint).Methods("GET").HandlerFunc(h.getProcessesForAppHandler)
-	router.Path(AppGetRoutesEndpoint).Methods("GET").HandlerFunc(h.getRoutesForAppHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(AppGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appGetHandler))
+	router.Path(AppListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appListHandler))
+	router.Path(AppCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appCreateHandler))
+	router.Path(AppSetCurrentDropletEndpoint).Methods("PATCH").HandlerFunc(w.Wrap(h.appSetCurrentDropletHandler))
+	router.Path(AppGetCurrentDropletEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appGetCurrentDropletHandler))
+	router.Path(AppStartEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appStartHandler))
+	router.Path(AppStopEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appStopHandler))
+	router.Path(AppRestartEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appRestartHandler))
+	router.Path(AppProcessScaleEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appScaleProcessHandler))
+	router.Path(AppGetProcessesEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.getProcessesForAppHandler))
+	router.Path(AppGetRoutesEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.getRoutesForAppHandler))
 }

@@ -59,19 +59,12 @@ func NewRouteHandler(
 	}
 }
 
-func (h *RouteHandler) routeGetHandler(w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) routeGetHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	routeGUID := vars["guid"]
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	route, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
@@ -94,7 +87,7 @@ func (h *RouteHandler) routeGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *RouteHandler) routeGetListHandler(w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) routeGetListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -129,13 +122,6 @@ func (h *RouteHandler) routeGetListHandler(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
-
 	routes, err := h.lookupRouteAndDomainList(ctx, authInfo, routeListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch route or domains from Kubernetes")
@@ -150,19 +136,12 @@ func (h *RouteHandler) routeGetListHandler(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-func (h *RouteHandler) routeGetDestinationsHandler(w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) routeGetDestinationsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	routeGUID := vars["guid"]
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	route, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
@@ -185,7 +164,7 @@ func (h *RouteHandler) routeGetDestinationsHandler(w http.ResponseWriter, r *htt
 	}
 }
 
-func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -193,13 +172,6 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 	rme := decodeAndValidateJSONPayload(r, &routeCreateMessage)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
-		return
-	}
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
 		return
 	}
 
@@ -255,7 +227,7 @@ func (h *RouteHandler) routeCreateHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
-func (h *RouteHandler) routeAddDestinationsHandler(w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -268,13 +240,6 @@ func (h *RouteHandler) routeAddDestinationsHandler(w http.ResponseWriter, r *htt
 
 	vars := mux.Vars(r)
 	routeGUID := vars["guid"]
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	routeRecord, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
@@ -305,11 +270,12 @@ func (h *RouteHandler) routeAddDestinationsHandler(w http.ResponseWriter, r *htt
 }
 
 func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(RouteGetEndpoint).Methods("GET").HandlerFunc(h.routeGetHandler)
-	router.Path(RouteGetListEndpoint).Methods("GET").HandlerFunc(h.routeGetListHandler)
-	router.Path(RouteGetDestinationsEndpoint).Methods("GET").HandlerFunc(h.routeGetDestinationsHandler)
-	router.Path(RouteCreateEndpoint).Methods("POST").HandlerFunc(h.routeCreateHandler)
-	router.Path(RouteAddDestinationsEndpoint).Methods("POST").HandlerFunc(h.routeAddDestinationsHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(RouteGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.routeGetHandler))
+	router.Path(RouteGetListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.routeGetListHandler))
+	router.Path(RouteGetDestinationsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.routeGetDestinationsHandler))
+	router.Path(RouteCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.routeCreateHandler))
+	router.Path(RouteAddDestinationsEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.routeAddDestinationsHandler))
 }
 
 // Fetch Route and compose related Domain information within

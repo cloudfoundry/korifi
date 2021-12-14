@@ -792,7 +792,7 @@ var _ = Describe("ProcessHandler", func() {
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
 				var err error
-				req, err = http.NewRequest("GET", "/v3/processes?foo=my-app-guid", nil)
+				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes?foo=my-app-guid", nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("returns an Unknown key error", func() {
