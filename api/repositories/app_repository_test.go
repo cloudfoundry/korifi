@@ -835,6 +835,45 @@ var _ = Describe("AppRepository", func() {
 			})
 		})
 	})
+
+	Describe("DeleteApp", func() {
+		var (
+			appGUID                   string
+			appCR                     *workloadsv1alpha1.CFApp
+			spaceDeveloperClusterRole *rbacv1.ClusterRole
+		)
+
+		BeforeEach(func() {
+			appGUID = generateGUID()
+			appCR = initializeAppCR("some-app", appGUID, space1.Name)
+
+			spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
+			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
+
+			Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
+		})
+
+		When("on the happy path", func() {
+			It("deletes the CFApp resource", func() {
+				err := appRepo.DeleteApp(testCtx, authInfo, repositories.AppDeleteMessage{
+					AppGUID:   appGUID,
+					SpaceGUID: space1.Name,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		When("the app doesn't exist", func() {
+			It("errors", func() {
+				err := appRepo.DeleteApp(testCtx, authInfo, AppDeleteMessage{
+					AppGUID:   "no-such-app",
+					SpaceGUID: space1.Name,
+				})
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("not found")))
+			})
+		})
+	})
 })
 
 func createApp(space string) *workloadsv1alpha1.CFApp {

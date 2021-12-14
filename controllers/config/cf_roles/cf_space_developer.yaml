@@ -9,4 +9,5 @@ rules:
   resources:
   - cfapps
   verbs:
+  - delete
   - list

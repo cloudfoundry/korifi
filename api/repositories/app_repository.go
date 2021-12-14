@@ -96,6 +96,11 @@ type AppCreateMessage struct {
 	EnvironmentVariables map[string]string
 }
 
+type AppDeleteMessage struct {
+	AppGUID   string
+	SpaceGUID string
+}
+
 type CreateOrPatchAppEnvVarsMessage struct {
 	AppGUID              string
 	AppEtcdUID           types.UID
@@ -361,6 +366,21 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 		return AppRecord{}, fmt.Errorf("err in client.Patch: %w", err)
 	}
 	return cfAppToAppRecord(*cfApp), nil
+}
+
+func (f *AppRepo) DeleteApp(ctx context.Context, authInfo authorization.Info, message AppDeleteMessage) error {
+	cfApp := &workloadsv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.AppGUID,
+			Namespace: message.SpaceGUID,
+		},
+	}
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	return userClient.Delete(ctx, cfApp)
 }
 
 func generateEnvSecretName(appGUID string) string {
