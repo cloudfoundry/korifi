@@ -594,12 +594,6 @@ var _ = Describe("RouteHandler", func() {
 					Expect(actualAuthInfo).To(Equal(authInfo))
 				})
 
-				It("invokes repo CreateRoute with a random GUID", func() {
-					Expect(routeRepo.CreateRouteCallCount()).To(Equal(1), "Repo CreateRoute count was not called")
-					_, _, createRouteRecord := routeRepo.CreateRouteArgsForCall(0)
-					Expect(createRouteRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "CreateRoute record GUID was not a 36 character guid")
-				})
-
 				It("returns status 200 OK", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 				})

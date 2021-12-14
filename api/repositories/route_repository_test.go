@@ -627,9 +627,10 @@ var _ = Describe("RouteRepository", func() {
 				err := k8sClient.Create(context.Background(), cfDomain)
 				Expect(err).NotTo(HaveOccurred())
 
-				routeRecord := initializeRouteRecord(testRouteHost, testRoutePath, route1GUID, domainGUID, testNamespace)
-				createdRouteRecord, createdRouteErr = routeRepo.CreateRoute(testCtx, authInfo, routeRecord)
+				createRouteMessage := buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, testNamespace)
+				createdRouteRecord, createdRouteErr = routeRepo.CreateRoute(testCtx, authInfo, createRouteMessage)
 				Expect(createdRouteErr).NotTo(HaveOccurred())
+				route1GUID = createdRouteRecord.GUID
 			})
 
 			AfterEach(func() {
@@ -669,8 +670,8 @@ var _ = Describe("RouteRepository", func() {
 		When("route creation fails", func() {
 			When("namespace doesn't exist", func() {
 				It("returns an error", func() {
-					routeRecord := RouteRecord{}
-					_, err := routeRepo.CreateRoute(testCtx, authInfo, routeRecord)
+					// TODO: improve this test so that the message is valid other than the namespace not existing
+					_, err := routeRepo.CreateRoute(testCtx, authInfo, CreateRouteMessage{})
 					Expect(err).To(MatchError("an empty namespace may not be set during creation"))
 				})
 			})
@@ -990,15 +991,12 @@ func initializeDestinationListMessage(routeRecord RouteRecord, destinationRecord
 	}
 }
 
-func initializeRouteRecord(routeHost, routePath, routeGUID, domainGUID, spaceGUID string) RouteRecord {
-	return RouteRecord{
-		GUID:      routeGUID,
-		Host:      routeHost,
-		Path:      routePath,
-		SpaceGUID: spaceGUID,
-		Domain: DomainRecord{
-			GUID: domainGUID,
-		},
+func buildCreateRouteMessage(routeHost, routePath, domainGUID, spaceGUID string) CreateRouteMessage {
+	return CreateRouteMessage{
+		Host:       routeHost,
+		Path:       routePath,
+		SpaceGUID:  spaceGUID,
+		DomainGUID: domainGUID,
 	}
 }
 
