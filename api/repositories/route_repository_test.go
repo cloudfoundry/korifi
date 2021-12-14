@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	. "github.com/onsi/gomega/gstruct"
+
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -721,30 +723,24 @@ var _ = Describe("RouteRepository", func() {
 
 			When("route is updated to add new destinations", func() {
 				var (
-					destinationGUID1   string
-					destinationGUID2   string
-					appGUID1           string
-					appGUID2           string
-					destinationRecord  []DestinationRecord
-					patchedRouteRecord RouteRecord
-					addDestinationErr  error
+					appGUID1            string
+					appGUID2            string
+					destinationMessages []DestinationMessage
+					patchedRouteRecord  RouteRecord
+					addDestinationErr   error
 				)
 
 				BeforeEach(func() {
-					destinationGUID1 = generateGUID()
-					destinationGUID2 = generateGUID()
 					appGUID1 = generateGUID()
 					appGUID2 = generateGUID()
-					destinationRecord = []DestinationRecord{
+					destinationMessages = []DestinationMessage{
 						{
-							GUID:        destinationGUID1,
 							AppGUID:     appGUID1,
 							ProcessType: "web",
 							Port:        8080,
 							Protocol:    "http1",
 						},
 						{
-							GUID:        destinationGUID2,
 							AppGUID:     appGUID2,
 							ProcessType: "worker",
 							Port:        9000,
@@ -756,7 +752,7 @@ var _ = Describe("RouteRepository", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					// initialize a DestinationListMessage
-					destinationListCreateMessage := initializeDestinationListMessage(routeRecord, destinationRecord)
+					destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, destinationMessages)
 					patchedRouteRecord, addDestinationErr = routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
 					Expect(addDestinationErr).NotTo(HaveOccurred())
 				})
@@ -772,40 +768,61 @@ var _ = Describe("RouteRepository", func() {
 						return createdCFRoute.Spec.Destinations
 					}, 5*time.Second).Should(HaveLen(2), "could not retrieve cfRoute having exactly 2 destinations")
 
-					Expect(createdCFRoute.Spec.Destinations).To(ConsistOf([]networkingv1alpha1.Destination{
-						{
-							GUID: destinationGUID1,
-							Port: 8080,
-							AppRef: corev1.LocalObjectReference{
-								Name: appGUID1,
+					Expect(createdCFRoute.Spec.Destinations).To(ConsistOf(
+						MatchAllFields(
+							Fields{
+								"GUID": Not(BeEmpty()),
+								"Port": Equal(8080),
+								"AppRef": Equal(corev1.LocalObjectReference{
+									Name: appGUID1,
+								}),
+								"ProcessType": Equal("web"),
+								"Protocol":    Equal("http1"),
 							},
-							ProcessType: "web",
-							Protocol:    "http1",
-						},
-						{
-							GUID: destinationGUID2,
-							Port: 9000,
-							AppRef: corev1.LocalObjectReference{
-								Name: appGUID2,
+						),
+						MatchAllFields(
+							Fields{
+								"GUID": Not(BeEmpty()),
+								"Port": Equal(9000),
+								"AppRef": Equal(corev1.LocalObjectReference{
+									Name: appGUID2,
+								}),
+								"ProcessType": Equal("worker"),
+								"Protocol":    Equal("http1"),
 							},
-							ProcessType: "worker",
-							Protocol:    "http1",
-						},
-					}))
+						),
+					))
 				})
 
 				It("returns RouteRecord with new destinations", func() {
-					Expect(patchedRouteRecord.Destinations).To(ConsistOf(destinationRecord))
+					Expect(patchedRouteRecord.Destinations).To(ConsistOf(
+						MatchAllFields(
+							Fields{
+								"GUID":        Not(BeEmpty()),
+								"Port":        Equal(8080),
+								"AppGUID":     Equal(appGUID1),
+								"ProcessType": Equal("web"),
+								"Protocol":    Equal("http1"),
+							},
+						),
+						MatchAllFields(
+							Fields{
+								"GUID":        Not(BeEmpty()),
+								"Port":        Equal(9000),
+								"AppGUID":     Equal(appGUID2),
+								"ProcessType": Equal("worker"),
+								"Protocol":    Equal("http1"),
+							},
+						),
+					))
 				})
 			})
 
 			When("the route destination has an invalid protocol", func() {
 				It("returns an error", func() {
-					destinationGUID := generateGUID()
 					appGUID := generateGUID()
-					destinationRecord := []DestinationRecord{
+					destinationMessages := []DestinationMessage{
 						{
-							GUID:        destinationGUID,
 							AppGUID:     appGUID,
 							ProcessType: "web",
 							Port:        8080,
@@ -817,7 +834,7 @@ var _ = Describe("RouteRepository", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					// initialize a DestinationListMessage
-					destinationListCreateMessage := initializeDestinationListMessage(routeRecord, destinationRecord)
+					destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, destinationMessages)
 					_, addDestinationErr := routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
 					Expect(addDestinationErr.Error()).To(ContainSubstring("Unsupported value: \"bad-protocol\": supported values: \"http1\""))
 				})
@@ -872,30 +889,24 @@ var _ = Describe("RouteRepository", func() {
 
 			When("route is updated to append new destinations", func() {
 				var (
-					destinationGUID1   string
-					destinationGUID2   string
-					appGUID1           string
-					appGUID2           string
-					destinationRecord  []DestinationRecord
-					patchedRouteRecord RouteRecord
-					addDestinationErr  error
+					appGUID1            string
+					appGUID2            string
+					destinationMessages []DestinationMessage
+					patchedRouteRecord  RouteRecord
+					addDestinationErr   error
 				)
 
 				BeforeEach(func() {
-					destinationGUID1 = generateGUID()
-					destinationGUID2 = generateGUID()
 					appGUID1 = generateGUID()
 					appGUID2 = generateGUID()
-					destinationRecord = []DestinationRecord{
+					destinationMessages = []DestinationMessage{
 						{
-							GUID:        destinationGUID1,
 							AppGUID:     appGUID1,
 							ProcessType: "web",
 							Port:        8080,
 							Protocol:    "http1",
 						},
 						{
-							GUID:        destinationGUID2,
 							AppGUID:     appGUID2,
 							ProcessType: "worker",
 							Port:        9000,
@@ -906,7 +917,7 @@ var _ = Describe("RouteRepository", func() {
 					routeRecord, err := routeRepo.FetchRoute(testCtx, authInfo, route1GUID)
 					Expect(err).NotTo(HaveOccurred())
 
-					destinationListCreateMessage := initializeDestinationListMessage(routeRecord, destinationRecord)
+					destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, destinationMessages)
 					patchedRouteRecord, addDestinationErr = routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
 					Expect(addDestinationErr).NotTo(HaveOccurred())
 				})
@@ -923,45 +934,73 @@ var _ = Describe("RouteRepository", func() {
 						return createdCFRoute.Spec.Destinations
 					}, 5*time.Second).Should(HaveLen(3), "could not retrieve cfRoute having exactly 3 destinations")
 
-					Expect(createdCFRoute.Spec.Destinations).To(ConsistOf([]networkingv1alpha1.Destination{
-						{
-							GUID: destinationGUID1,
-							Port: 8080,
-							AppRef: corev1.LocalObjectReference{
-								Name: appGUID1,
+					Expect(createdCFRoute.Spec.Destinations).To(ConsistOf(
+						MatchAllFields(
+							Fields{
+								"GUID": Not(BeEmpty()),
+								"Port": Equal(8080),
+								"AppRef": Equal(corev1.LocalObjectReference{
+									Name: appGUID1,
+								}),
+								"ProcessType": Equal("web"),
+								"Protocol":    Equal("http1"),
 							},
-							ProcessType: "web",
-							Protocol:    "http1",
-						},
-						{
-							GUID: destinationGUID2,
-							Port: 9000,
-							AppRef: corev1.LocalObjectReference{
-								Name: appGUID2,
+						),
+						MatchAllFields(
+							Fields{
+								"GUID": Not(BeEmpty()),
+								"Port": Equal(9000),
+								"AppRef": Equal(corev1.LocalObjectReference{
+									Name: appGUID2,
+								}),
+								"ProcessType": Equal("worker"),
+								"Protocol":    Equal("http1"),
 							},
-							ProcessType: "worker",
-							Protocol:    "http1",
-						},
-						{
-							GUID: destinationGUID,
-							Port: 8000,
-							AppRef: corev1.LocalObjectReference{
-								Name: appGUID,
+						),
+						MatchAllFields(
+							Fields{
+								"GUID": Equal(destinationGUID),
+								"Port": Equal(8000),
+								"AppRef": Equal(corev1.LocalObjectReference{
+									Name: appGUID,
+								}),
+								"ProcessType": Equal("web"),
+								"Protocol":    Equal("http1"),
 							},
-							ProcessType: "web",
-							Protocol:    "http1",
-						},
-					}))
+						),
+					))
 				})
 
 				It("returns RouteRecord with new destinations", func() {
-					Expect(patchedRouteRecord.Destinations).To(ConsistOf(append(destinationRecord, DestinationRecord{
-						GUID:        destinationGUID,
-						AppGUID:     appGUID,
-						ProcessType: "web",
-						Port:        8000,
-						Protocol:    "http1",
-					})))
+					Expect(patchedRouteRecord.Destinations).To(ConsistOf(
+						MatchAllFields(
+							Fields{
+								"GUID":        Not(BeEmpty()),
+								"Port":        Equal(8080),
+								"AppGUID":     Equal(appGUID1),
+								"ProcessType": Equal("web"),
+								"Protocol":    Equal("http1"),
+							},
+						),
+						MatchAllFields(
+							Fields{
+								"GUID":        Not(BeEmpty()),
+								"Port":        Equal(9000),
+								"AppGUID":     Equal(appGUID2),
+								"ProcessType": Equal("worker"),
+								"Protocol":    Equal("http1"),
+							},
+						),
+						MatchAllFields(
+							Fields{
+								"GUID":        Equal(destinationGUID),
+								"Port":        Equal(8000),
+								"AppGUID":     Equal(appGUID),
+								"ProcessType": Equal("web"),
+								"Protocol":    Equal("http1"),
+							},
+						),
+					))
 				})
 			})
 		})
@@ -984,10 +1023,12 @@ func initializeRouteCR(routeHost, routePath, routeGUID, domainGUID, spaceGUID st
 	}
 }
 
-func initializeDestinationListMessage(routeRecord RouteRecord, destinationRecords []DestinationRecord) RouteAddDestinationsMessage {
-	return RouteAddDestinationsMessage{
-		Route:        routeRecord,
-		Destinations: destinationRecords,
+func initializeDestinationListMessage(routeGUID string, spaceGUID string, existingDestinations []DestinationRecord, addDestinations []DestinationMessage) AddDestinationsToRouteMessage {
+	return AddDestinationsToRouteMessage{
+		RouteGUID:            routeGUID,
+		SpaceGUID:            spaceGUID,
+		ExistingDestinations: existingDestinations,
+		AddDestinations:      addDestinations,
 	}
 }
 
