@@ -2605,9 +2605,7 @@ var _ = Describe("AppHandler", func() {
 	})
 
 	Describe("the DELETE /v3/apps/:guid endpoint", func() {
-		var (
-			app repositories.AppRecord
-		)
+		var app repositories.AppRecord
 
 		BeforeEach(func() {
 			app = repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID}
