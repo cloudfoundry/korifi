@@ -3,22 +3,22 @@ package workloads_test
 import (
 	"context"
 	"errors"
+	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
-
-	v1 "k8s.io/api/core/v1"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,10 +42,14 @@ var _ = Describe("CFAppReconciler", func() {
 		cfBuildGUID   string
 		cfPackageGUID string
 
-		cfBuild      *workloadsv1alpha1.CFBuild
-		cfBuildError error
-		cfApp        *workloadsv1alpha1.CFApp
-		cfAppError   error
+		cfBuild       *workloadsv1alpha1.CFBuild
+		cfBuildError  error
+		cfApp         *workloadsv1alpha1.CFApp
+		cfAppError    error
+		cfAppPatchErr error
+
+		cfRoutePatchErr error
+		cfRouteListErr  error
 
 		cfAppReconciler *CFAppReconciler
 		ctx             context.Context
@@ -64,9 +68,13 @@ var _ = Describe("CFAppReconciler", func() {
 
 		cfApp = BuildCFAppCRObject(cfAppGUID, defaultNamespace)
 		cfAppError = nil
+		cfAppPatchErr = nil
 		cfBuild = BuildCFBuildObject(cfBuildGUID, defaultNamespace, cfPackageGUID, cfAppGUID)
 		UpdateCFBuildWithDropletStatus(cfBuild)
 		cfBuildError = nil
+
+		cfRoutePatchErr = nil
+		cfRouteListErr = nil
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
@@ -87,9 +95,67 @@ var _ = Describe("CFAppReconciler", func() {
 		fakeClient.StatusReturns(fakeStatusWriter)
 
 		cfProcessList := workloadsv1alpha1.CFProcessList{}
+		cfRouteList := networkingv1alpha1.CFRouteList{
+			Items: []networkingv1alpha1.CFRoute{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cfRouteGUID",
+						Namespace: defaultNamespace,
+					},
+					Spec: networkingv1alpha1.CFRouteSpec{
+						Host:     "testRouteHost",
+						Path:     "",
+						Protocol: "http",
+						DomainRef: v1.LocalObjectReference{
+							Name: "testDomainGUID",
+						},
+						Destinations: []networkingv1alpha1.Destination{
+							{
+								GUID: "destination-1-guid",
+								Port: 0,
+								AppRef: v1.LocalObjectReference{
+									Name: cfAppGUID,
+								},
+								ProcessType: "web",
+								Protocol:    "http1",
+							},
+							{
+								GUID: "destination-2-guid",
+								Port: 0,
+								AppRef: v1.LocalObjectReference{
+									Name: "some-other-app-guid",
+								},
+								ProcessType: "worked",
+								Protocol:    "http1",
+							},
+						},
+					},
+				},
+			},
+		}
+
 		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
-			cfProcessList.DeepCopyInto(list.(*workloadsv1alpha1.CFProcessList))
-			return nil
+			switch list := list.(type) {
+			case *workloadsv1alpha1.CFProcessList:
+				cfProcessList.DeepCopyInto(list)
+				return nil
+			case *networkingv1alpha1.CFRouteList:
+				cfRouteList.DeepCopyInto(list)
+				return cfRouteListErr
+			default:
+				panic("TestClient List provided a weird obj")
+			}
+		}
+
+		fakeClient.PatchStub = func(ctx context.Context, object client.Object, patch client.Patch, option ...client.PatchOption) error {
+			switch object.(type) {
+			case *networkingv1alpha1.CFRoute:
+				return cfRoutePatchErr
+			case *workloadsv1alpha1.CFApp:
+				return cfAppPatchErr
+			default:
+				panic("TestClient Patch provided an unexpected object type")
+			}
 		}
 
 		// configure a CFAppReconciler with the client
@@ -305,6 +371,83 @@ var _ = Describe("CFAppReconciler", func() {
 
 				It("should returns an error", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
+				})
+			})
+
+			When("adding the finalizer to the CFApp returns an error", func() {
+				BeforeEach(func() {
+					cfApp.ObjectMeta.Finalizers = []string{}
+					cfAppPatchErr = errors.New("failed to patch CFApp")
+					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
+				})
+
+				It("return the error", func() {
+					Expect(reconcileErr).To(MatchError("failed to patch CFApp"))
+				})
+			})
+		})
+	})
+
+	When("a CFApp is being deleted", func() {
+		BeforeEach(func() {
+			cfApp.ObjectMeta.DeletionTimestamp = &metav1.Time{
+				Time: time.Now(),
+			}
+		})
+
+		When("on the happy path", func() {
+			BeforeEach(func() {
+				reconcileResult, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
+			})
+
+			It("returns an empty result and does not return error", func() {
+				Expect(reconcileResult).To(Equal(ctrl.Result{}))
+				Expect(reconcileErr).NotTo(HaveOccurred())
+			})
+
+			It("removes the finalizer from the CFApp", func() {
+				_, requestObject, _, _ := fakeClient.PatchArgsForCall(1)
+				requestApp, ok := requestObject.(*workloadsv1alpha1.CFApp)
+				Expect(ok).To(BeTrue(), "Cast to workloadsv1alpha1.CFApp failed")
+				Expect(requestApp.ObjectMeta.Finalizers).To(HaveLen(0), "CFApp finalizer count mismatch")
+			})
+
+			It("does not attempt to create any resources", func() {
+				Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
+			})
+		})
+
+		When("on the unhappy path", func() {
+			When("fetching CFRoutes return an error", func() {
+				BeforeEach(func() {
+					cfRouteListErr = errors.New("failed to list CFRoute")
+					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
+				})
+
+				It("return the error", func() {
+					Expect(reconcileErr).To(MatchError("failed to list CFRoute"))
+				})
+			})
+
+			When("patching cfRoute returns an error", func() {
+				BeforeEach(func() {
+					cfRoutePatchErr = errors.New("failed to patch CFRoute")
+					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
+				})
+
+				It("return the error", func() {
+					Expect(reconcileErr).To(MatchError("failed to patch CFRoute"))
+				})
+			})
+
+			When("patching cfApp returns an error", func() {
+				BeforeEach(func() {
+					cfAppPatchErr = errors.New("failed to patch CFApp")
+					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
+				})
+
+				It("return the error", func() {
+					Expect(reconcileErr).To(MatchError("failed to patch CFApp"))
 				})
 			})
 		})

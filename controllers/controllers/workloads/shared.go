@@ -19,6 +19,8 @@ type CFClient interface {
 	Get(ctx context.Context, key client.ObjectKey, obj client.Object) error
 	Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error
 	List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error
+	Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error
+	Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error
 	Status() client.StatusWriter
 }
 

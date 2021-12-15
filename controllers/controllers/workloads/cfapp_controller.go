@@ -5,22 +5,21 @@ import (
 	"errors"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/labels"
-
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
-
-	corev1 "k8s.io/api/core/v1"
-
-	"k8s.io/apimachinery/pkg/types"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -28,6 +27,7 @@ const (
 	StatusConditionRunning    = "Running"
 	processHealthCheckType    = "process"
 	processTypeWeb            = "web"
+	finalizerName             = "cfApp.workloads.cloudfoundry.org"
 )
 
 // CFAppReconciler reconciles a CFApp object
@@ -60,6 +60,16 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	err = r.addFinalizer(ctx, cfApp)
+	if err != nil {
+		r.Log.Error(err, "Error adding finalizer for cfApp")
+		return ctrl.Result{}, err
+	}
+
+	if isFinalizing(cfApp) {
+		return r.finalizeCFApp(ctx, cfApp)
 	}
 
 	// Create CFProcesses if current droplet reference is not empty.
@@ -179,6 +189,90 @@ func getDesiredInstanceCount(processType string) int {
 		return 1
 	}
 	return 0
+}
+
+func (r *CFAppReconciler) addFinalizer(ctx context.Context, cfApp *workloadsv1alpha1.CFApp) error {
+	if controllerutil.ContainsFinalizer(cfApp, finalizerName) {
+		return nil
+	}
+
+	originalCFApp := cfApp.DeepCopy()
+	controllerutil.AddFinalizer(cfApp, finalizerName)
+
+	err := r.Client.Patch(ctx, cfApp, client.MergeFrom(originalCFApp))
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error adding finalizer to CFApp/%s", cfApp.Name))
+		return err
+	}
+
+	r.Log.Info(fmt.Sprintf("Finalizer added to CFApp/%s", cfApp.Name))
+	return nil
+}
+
+func isFinalizing(cfApp *workloadsv1alpha1.CFApp) bool {
+	return cfApp.ObjectMeta.DeletionTimestamp != nil && !cfApp.ObjectMeta.DeletionTimestamp.IsZero()
+}
+
+func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *workloadsv1alpha1.CFApp) (ctrl.Result, error) {
+	r.Log.Info(fmt.Sprintf("Reconciling deletion of CFApp/%s", cfApp.Name))
+
+	if !controllerutil.ContainsFinalizer(cfApp, finalizerName) {
+		return ctrl.Result{}, nil
+	}
+
+	cfRoutes, err := r.getCFRoutes(ctx, cfApp.Name, cfApp.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = r.removeRouteDestinations(ctx, cfApp.Name, cfRoutes)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	originalCFApp := cfApp.DeepCopy()
+	controllerutil.RemoveFinalizer(cfApp, finalizerName)
+
+	if err = r.Client.Patch(ctx, cfApp, client.MergeFrom(originalCFApp)); err != nil {
+		r.Log.Error(err, "Failed to remove finalizer on cfApp")
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+
+}
+
+func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []networkingv1alpha1.CFRoute) error {
+	for _, cfRoute := range cfRoutes {
+		originalCFRoute := cfRoute.DeepCopy()
+		if cfRoute.Spec.Destinations != nil {
+			for idx, destination := range cfRoute.Spec.Destinations {
+				if destination.AppRef.Name == cfAppGUID {
+					r.Log.Info(fmt.Sprintf("Removing destination for cfapp %s from cfroute %s", cfAppGUID, cfRoute.Name))
+					cfRoute.Spec.Destinations[idx] = cfRoute.Spec.Destinations[len(cfRoute.Spec.Destinations)-1]
+					cfRoute.Spec.Destinations = cfRoute.Spec.Destinations[:len(cfRoute.Spec.Destinations)-1]
+				}
+			}
+		}
+		err := r.Client.Patch(ctx, &cfRoute, client.MergeFrom(originalCFRoute))
+		if err != nil {
+			r.Log.Error(err, "failed to patch cfRoute to remove a destination")
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfAppNamespace string) ([]networkingv1alpha1.CFRoute, error) {
+
+	var foundRoutes networkingv1alpha1.CFRouteList
+	matchingFields := client.MatchingFields{DestinationAppName: cfAppGUID}
+	err := r.Client.List(context.Background(), &foundRoutes, client.InNamespace(cfAppNamespace), matchingFields)
+	if err != nil {
+		return []networkingv1alpha1.CFRoute{}, err
+	}
+
+	return foundRoutes.Items, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
