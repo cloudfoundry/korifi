@@ -4,12 +4,14 @@ import (
 	"context"
 	"time"
 
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -234,6 +236,88 @@ var _ = Describe("CFAppReconciler", func() {
 					}
 				})
 			})
+		})
+	})
+	When("a CFApp resource is deleted", func() {
+		var (
+			cfAppGUID   string
+			cfRouteGUID string
+			cfApp       *workloadsv1alpha1.CFApp
+			cfRoute     *networkingv1alpha1.CFRoute
+		)
+
+		BeforeEach(func() {
+			cfAppGUID = GenerateGUID()
+			cfApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
+			Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+
+			cfRouteGUID = GenerateGUID()
+			cfRoute = &networkingv1alpha1.CFRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cfRouteGUID,
+					Namespace: namespaceGUID,
+				},
+				Spec: networkingv1alpha1.CFRouteSpec{
+					Host:     "testRouteHost",
+					Path:     "",
+					Protocol: "http",
+					DomainRef: corev1.LocalObjectReference{
+						Name: "testDomainGUID",
+					},
+					Destinations: []networkingv1alpha1.Destination{
+						{
+							GUID: "destination-1-guid",
+							Port: 0,
+							AppRef: corev1.LocalObjectReference{
+								Name: cfAppGUID,
+							},
+							ProcessType: "web",
+							Protocol:    "http1",
+						},
+						{
+							GUID: "destination-2-guid",
+							Port: 0,
+							AppRef: corev1.LocalObjectReference{
+								Name: "some-other-app-guid",
+							},
+							ProcessType: "worked",
+							Protocol:    "http1",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), cfRoute)).To(Succeed())
+
+			Expect(k8sClient.Delete(context.Background(), cfApp))
+		})
+
+		It("eventually deletes the CFApp", func() {
+			Eventually(func() bool {
+				var createdCFApp workloadsv1alpha1.CFApp
+				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}, &createdCFApp)
+				return apierrors.IsNotFound(err)
+			}).Should(BeTrue(), "timed out waiting for app to be deleted")
+		})
+
+		It("eventually deletes the destination on the CFRoute", func() {
+			var createdCFRoute networkingv1alpha1.CFRoute
+			Eventually(func() []networkingv1alpha1.Destination {
+				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfRouteGUID, Namespace: namespaceGUID}, &createdCFRoute)
+				if err != nil {
+					return []networkingv1alpha1.Destination{}
+				}
+				return createdCFRoute.Spec.Destinations
+			}, 5*time.Second).Should(HaveLen(1), "expecting length of destinations to be 1 after cfapp delete")
+
+			Expect(createdCFRoute.Spec.Destinations).Should(ConsistOf(networkingv1alpha1.Destination{
+				GUID: "destination-2-guid",
+				Port: 0,
+				AppRef: corev1.LocalObjectReference{
+					Name: "some-other-app-guid",
+				},
+				ProcessType: "worked",
+				Protocol:    "http1",
+			}))
 		})
 	})
 })

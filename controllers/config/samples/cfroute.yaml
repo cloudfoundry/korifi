@@ -16,3 +16,4 @@ spec:
       appRef:
         name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
       processType: web
+      protocol: http1
