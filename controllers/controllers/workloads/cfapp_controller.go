@@ -243,17 +243,19 @@ func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *workloadsv1a
 }
 
 func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []networkingv1alpha1.CFRoute) error {
+	var updatedDestinations []networkingv1alpha1.Destination
 	for _, cfRoute := range cfRoutes {
 		originalCFRoute := cfRoute.DeepCopy()
 		if cfRoute.Spec.Destinations != nil {
-			for idx, destination := range cfRoute.Spec.Destinations {
-				if destination.AppRef.Name == cfAppGUID {
+			for _, destination := range cfRoute.Spec.Destinations {
+				if destination.AppRef.Name != cfAppGUID {
+					updatedDestinations = append(updatedDestinations, destination)
+				} else {
 					r.Log.Info(fmt.Sprintf("Removing destination for cfapp %s from cfroute %s", cfAppGUID, cfRoute.Name))
-					cfRoute.Spec.Destinations[idx] = cfRoute.Spec.Destinations[len(cfRoute.Spec.Destinations)-1]
-					cfRoute.Spec.Destinations = cfRoute.Spec.Destinations[:len(cfRoute.Spec.Destinations)-1]
 				}
 			}
 		}
+		cfRoute.Spec.Destinations = updatedDestinations
 		err := r.Client.Patch(ctx, &cfRoute, client.MergeFrom(originalCFRoute))
 		if err != nil {
 			r.Log.Error(err, "failed to patch cfRoute to remove a destination")
