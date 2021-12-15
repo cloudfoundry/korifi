@@ -34,3 +34,16 @@ type CFAppRepository interface {
 type PodRepository interface {
 	FetchPodStatsByAppGUID(ctx context.Context, authInfo authorization.Info, message repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)
 }
+
+//counterfeiter:generate -o fake -fake-name CFDomainRepository . CFDomainRepository
+
+type CFDomainRepository interface {
+	FetchDomainByName(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
+}
+
+//counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository
+
+type CFRouteRepository interface {
+	FetchOrCreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
+	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
+}

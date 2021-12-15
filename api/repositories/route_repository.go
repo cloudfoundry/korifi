@@ -53,7 +53,7 @@ type AddDestinationsToRouteMessage struct {
 	RouteGUID            string
 	SpaceGUID            string
 	ExistingDestinations []DestinationRecord
-	AddDestinations      []DestinationMessage
+	NewDestinations      []DestinationMessage
 }
 
 type DestinationMessage struct {
@@ -94,8 +94,9 @@ func (m CreateRouteMessage) toCFRoute() networkingv1alpha1.CFRoute {
 			Annotations: m.Annotations,
 		},
 		Spec: networkingv1alpha1.CFRouteSpec{
-			Host: m.Host,
-			Path: m.Path,
+			Host:     m.Host,
+			Path:     m.Path,
+			Protocol: "http",
 			DomainRef: v1.LocalObjectReference{
 				Name: m.DomainGUID,
 			},
@@ -131,6 +132,7 @@ func (f *RouteRepo) FetchRouteList(ctx context.Context, authInfo authorization.I
 }
 
 func applyFilter(routes []networkingv1alpha1.CFRoute, message FetchRouteListMessage) []networkingv1alpha1.CFRoute {
+	// TODO: refactor this to be less repetitive
 	var appFiltered []networkingv1alpha1.CFRoute
 
 	if len(message.AppGUIDs) > 0 {
@@ -320,19 +322,29 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 	return cfRouteToRouteRecord(cfRoute), err
 }
 
+func (f *RouteRepo) FetchOrCreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
+	existingRecord, exists, err := f.fetchRouteByFields(ctx, authInfo, message)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("FetchOrCreateRoute: %w", err)
+	}
+
+	if exists {
+		return existingRecord, nil
+	}
+
+	return f.CreateRoute(ctx, authInfo, message)
+}
+
 func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message AddDestinationsToRouteMessage) (RouteRecord, error) {
 	baseCFRoute := &networkingv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.RouteGUID,
 			Namespace: message.SpaceGUID,
 		},
-		Spec: networkingv1alpha1.CFRouteSpec{
-			Destinations: destinationRecordsToCFDestinations(message.ExistingDestinations),
-		},
 	}
 
 	cfRoute := baseCFRoute.DeepCopy()
-	cfRoute.Spec.Destinations = append(cfRoute.Spec.Destinations, destinationMessagesToCFDestinations(message.AddDestinations)...)
+	cfRoute.Spec.Destinations = mergeDestinations(message.ExistingDestinations, message.NewDestinations)
 
 	err := f.privilegedClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
 	if err != nil { // untested
@@ -340,6 +352,43 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 	}
 
 	return cfRouteToRouteRecord(*cfRoute), err
+}
+
+func mergeDestinations(existingDestinations []DestinationRecord, newDestinations []DestinationMessage) []networkingv1alpha1.Destination {
+	result := destinationRecordsToCFDestinations(existingDestinations)
+
+outer:
+	for _, newDest := range newDestinations {
+		for _, oldDest := range result {
+			if newDest.AppGUID == oldDest.AppRef.Name &&
+				newDest.ProcessType == oldDest.ProcessType &&
+				newDest.Port == oldDest.Port &&
+				newDest.Protocol == oldDest.Protocol {
+				continue outer
+			}
+		}
+		result = append(result, destinationMessageToCFDestination(newDest))
+	}
+
+	return result
+}
+
+func (f *RouteRepo) fetchRouteByFields(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, bool, error) {
+	matches, err := f.FetchRouteList(ctx, authInfo, FetchRouteListMessage{
+		SpaceGUIDs:  []string{message.SpaceGUID},
+		DomainGUIDs: []string{message.DomainGUID},
+		Hosts:       []string{message.Host},
+		Paths:       []string{message.Path},
+	})
+	if err != nil {
+		return RouteRecord{}, false, err
+	}
+
+	if len(matches) == 0 {
+		return RouteRecord{}, false, nil
+	}
+
+	return matches[0], true, nil
 }
 
 func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) []networkingv1alpha1.Destination {
@@ -359,19 +408,14 @@ func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) 
 	return destinations
 }
 
-func destinationMessagesToCFDestinations(destinationMessages []DestinationMessage) []networkingv1alpha1.Destination {
-	var destinations []networkingv1alpha1.Destination
-	for _, destinationMessage := range destinationMessages {
-		destinations = append(destinations, networkingv1alpha1.Destination{
-			GUID: uuid.NewString(),
-			Port: destinationMessage.Port,
-			AppRef: v1.LocalObjectReference{
-				Name: destinationMessage.AppGUID,
-			},
-			ProcessType: destinationMessage.ProcessType,
-			Protocol:    destinationMessage.Protocol,
-		})
+func destinationMessageToCFDestination(destinationMessage DestinationMessage) networkingv1alpha1.Destination {
+	return networkingv1alpha1.Destination{
+		GUID: uuid.NewString(),
+		Port: destinationMessage.Port,
+		AppRef: v1.LocalObjectReference{
+			Name: destinationMessage.AppGUID,
+		},
+		ProcessType: destinationMessage.ProcessType,
+		Protocol:    destinationMessage.Protocol,
 	}
-
-	return destinations
 }

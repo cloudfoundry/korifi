@@ -176,7 +176,12 @@ func main() {
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
-			actions.NewApplyManifest(repositories.NewAppRepo(privilegedCRClient, buildUserClient), repositories.NewProcessRepo(privilegedCRClient)).Invoke,
+			actions.NewApplyManifest(
+				repositories.NewAppRepo(privilegedCRClient, buildUserClient),
+				repositories.NewDomainRepo(privilegedCRClient),
+				repositories.NewProcessRepo(privilegedCRClient),
+				repositories.NewRouteRepo(privilegedCRClient),
+			).Invoke,
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
 		),
 

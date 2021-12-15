@@ -23,14 +23,18 @@ var _ = Describe("ApplyManifest", func() {
 		manifest    payloads.Manifest
 		action      func(context.Context, authorization.Info, string, payloads.Manifest) error
 		appRepo     *fake.CFAppRepository
+		domainRepo  *fake.CFDomainRepository
 		processRepo *fake.CFProcessRepository
+		routeRepo   *fake.CFRouteRepository
 		authInfo    authorization.Info
 	)
 
 	BeforeEach(func() {
 		appRepo = new(fake.CFAppRepository)
+		domainRepo = new(fake.CFDomainRepository)
 		processRepo = new(fake.CFProcessRepository)
-		action = NewApplyManifest(appRepo, processRepo).Invoke
+		routeRepo = new(fake.CFRouteRepository)
+		action = NewApplyManifest(appRepo, domainRepo, processRepo, routeRepo).Invoke
 		authInfo = authorization.Info{Token: "a-token"}
 		manifest = payloads.Manifest{
 			Version: 1,
@@ -161,4 +165,67 @@ var _ = Describe("ApplyManifest", func() {
 			})
 		})
 	})
+
+	When("a route is specified for the app", func() {
+		BeforeEach(func() {
+			manifest.Applications[0].Routes = []payloads.ManifestRoute{
+				{Route: stringPointer("my-app.my-domain.com/path")},
+			}
+		})
+
+		When("fetching the domain errors", func() {
+			BeforeEach(func() {
+				domainRepo.FetchDomainByNameReturns(repositories.DomainRecord{}, errors.New("boom"))
+			})
+
+			It("doesn't create the route", func() {
+				_ = action(context.Background(), authInfo, spaceGUID, manifest)
+				Expect(routeRepo.FetchOrCreateRouteCallCount()).To(Equal(0))
+			})
+
+			It("doesn't add destinations to a route", func() {
+				_ = action(context.Background(), authInfo, spaceGUID, manifest)
+				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+			})
+
+			It("errors", func() {
+				Expect(
+					action(context.Background(), authInfo, spaceGUID, manifest),
+				).To(MatchError(ContainSubstring("boom")))
+			})
+		})
+
+		When("fetching/creating the route errors", func() {
+			BeforeEach(func() {
+				routeRepo.FetchOrCreateRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
+			})
+
+			It("doesn't add destinations to a route", func() {
+				_ = action(context.Background(), authInfo, spaceGUID, manifest)
+				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+			})
+
+			It("errors", func() {
+				Expect(
+					action(context.Background(), authInfo, spaceGUID, manifest),
+				).To(MatchError(ContainSubstring("boom")))
+			})
+		})
+
+		When("adding the destination to the route errors", func() {
+			BeforeEach(func() {
+				routeRepo.AddDestinationsToRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
+			})
+
+			It("errors", func() {
+				Expect(
+					action(context.Background(), authInfo, spaceGUID, manifest),
+				).To(MatchError(ContainSubstring("boom")))
+			})
+		})
+	})
 })
+
+func stringPointer(s string) *string {
+	return &s
+}

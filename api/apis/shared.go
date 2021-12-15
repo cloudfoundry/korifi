@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
@@ -70,8 +71,9 @@ func validatePayload(object interface{}) *requestMalformedError {
 	trans := registerDefaultTranslator(v)
 
 	// Register custom validators
-	_ = v.RegisterValidation("routepathstartswithslash", routePathStartsWithSlash)
 	_ = v.RegisterValidation("megabytestring", megabyteFormattedString, true)
+	_ = v.RegisterValidation("route", routeString)
+	_ = v.RegisterValidation("routepathstartswithslash", routePathStartsWithSlash)
 
 	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
 	_ = v.RegisterTranslation("cannot_have_both_org_and_space_set", trans, func(ut ut.Translator) error {
@@ -84,6 +86,12 @@ func validatePayload(object interface{}) *requestMalformedError {
 		return ut.Add("valid_role", "{0} is not a valid role", false)
 	}, func(ut ut.Translator, fe validator.FieldError) string {
 		t, _ := ut.T("valid_role", fmt.Sprintf("%v", fe.Value()))
+		return t
+	})
+	_ = v.RegisterTranslation("route", trans, func(ut ut.Translator) error {
+		return ut.Add("invalid_route", `"{0}" is not a valid route URI`, false)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("invalid_route", fmt.Sprintf("%v", fe.Value()))
 		return t
 	})
 
@@ -298,9 +306,17 @@ func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
 func megabyteFormattedString(fl validator.FieldLevel) bool {
 	val, ok := fl.Field().Interface().(string)
 	if !ok {
-		return true
+		return true // the value is optional, and is set to nil
 	}
 
 	_, err := bytefmt.ToMegabytes(val)
 	return err == nil
+}
+
+func routeString(fl validator.FieldLevel) bool {
+	val := fl.Field().String()
+	routeRegex := regexp.MustCompile(
+		`^(?:https?://|tcp://)?(?:(?:[\w-]+\.)|(?:[*]\.))+\w+(?:\:\d+)?(?:/.*)*(?:\.\w+)?$`,
+	)
+	return routeRegex.MatchString(val)
 }

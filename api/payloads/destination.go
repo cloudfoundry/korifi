@@ -52,6 +52,6 @@ func (dc DestinationListCreate) ToMessage(routeRecord repositories.RouteRecord) 
 		RouteGUID:            routeRecord.GUID,
 		SpaceGUID:            routeRecord.SpaceGUID,
 		ExistingDestinations: routeRecord.Destinations,
-		AddDestinations:      addDestinations,
+		NewDestinations:      addDestinations,
 	}
 }
