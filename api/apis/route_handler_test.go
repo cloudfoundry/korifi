@@ -1312,7 +1312,7 @@ var _ = Describe("RouteHandler", func() {
 				Expect(message.RouteGUID).To(Equal(routeGUID))
 				Expect(message.SpaceGUID).To(Equal(spaceGUID))
 
-				Expect(message.AddDestinations).To(ConsistOf(
+				Expect(message.NewDestinations).To(ConsistOf(
 					MatchAllFields(Fields{
 						"AppGUID":     Equal(destination1AppGUID),
 						"ProcessType": Equal("web"),

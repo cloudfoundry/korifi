@@ -40,7 +40,7 @@ var _ = Describe("DomainRepository", func() {
 						Name: "domain-id-1",
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
-						Name: "my-domain-1",
+						Name: "my-domain-1.com",
 					},
 				}
 				Expect(k8sClient.Create(beforeCtx, cfDomain1)).To(Succeed())
@@ -50,7 +50,7 @@ var _ = Describe("DomainRepository", func() {
 						Name: "domain-id-2",
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
-						Name: "my-domain-2",
+						Name: "my-domain-2.com",
 					},
 				}
 				Expect(k8sClient.Create(beforeCtx, cfDomain2)).To(Succeed())
@@ -61,7 +61,7 @@ var _ = Describe("DomainRepository", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(domain.GUID).To(Equal("domain-id-1"))
-				Expect(domain.Name).To(Equal("my-domain-1"))
+				Expect(domain.Name).To(Equal("my-domain-1.com"))
 			})
 
 			AfterEach(func() {
@@ -325,6 +325,68 @@ var _ = Describe("DomainRepository", func() {
 						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 					})
 				})
+			})
+		})
+	})
+
+	Describe("FetchDomainByName", func() {
+		const (
+			domainName = "fetchdomainbyname.test"
+		)
+
+		var (
+			cfDomain   *networkingv1alpha1.CFDomain
+			domainGUID string
+		)
+
+		BeforeEach(func() {
+			beforeCtx := context.Background()
+
+			domainGUID = generateGUID()
+			cfDomain = &networkingv1alpha1.CFDomain{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: domainGUID,
+				},
+				Spec: networkingv1alpha1.CFDomainSpec{
+					Name: domainName,
+				},
+			}
+			Expect(
+				k8sClient.Create(beforeCtx, cfDomain),
+			).To(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(context.Background(), cfDomain)
+			})
+
+			cfDomain2 := &networkingv1alpha1.CFDomain{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: generateGUID(),
+				},
+				Spec: networkingv1alpha1.CFDomainSpec{
+					Name: "some-other-domain.com",
+				},
+			}
+			Expect(
+				k8sClient.Create(beforeCtx, cfDomain2),
+			).To(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(context.Background(), cfDomain2)
+			})
+		})
+
+		When("One match exists for the provided name", func() {
+			It("returns a domainRecord that matches the specified domain name, and no error", func() {
+				domainRecord, err := domainRepo.FetchDomainByName(context.Background(), authInfo, domainName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(domainRecord.GUID).To(Equal(domainGUID))
+				Expect(domainRecord.Name).To(Equal(domainName))
+			})
+		})
+
+		When("No matches exist for the provided name", func() {
+			It("returns a domainRecord that matches the specified domain name, and no error", func() {
+				_, err := domainRepo.FetchDomainByName(context.Background(), authInfo, "i-dont-exist")
+				Expect(err).To(MatchError(NotFoundError{ResourceType: "Domain"}))
 			})
 		})
 	})
