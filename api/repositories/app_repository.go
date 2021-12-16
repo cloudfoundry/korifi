@@ -51,6 +51,7 @@ type AppRecord struct {
 	Name          string
 	GUID          string
 	EtcdUID       types.UID
+	Revision      string
 	SpaceGUID     string
 	DropletGUID   string
 	Labels        map[string]string
@@ -417,6 +418,7 @@ func cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 	return AppRecord{
 		GUID:        cfApp.Name,
 		EtcdUID:     cfApp.GetUID(),
+		Revision:    getLabelOrAnnotation(cfApp.GetAnnotations(), workloadsv1alpha1.CFAppRevisionKey),
 		Name:        cfApp.Spec.Name,
 		SpaceGUID:   cfApp.Namespace,
 		DropletGUID: cfApp.Spec.CurrentDropletRef.Name,

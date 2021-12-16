@@ -40,6 +40,7 @@ func (a *FetchProcessStats) Invoke(ctx context.Context, authInfo authorization.I
 		AppGUID:     processRecord.AppGUID,
 		Instances:   processRecord.DesiredInstances,
 		ProcessType: processRecord.Type,
+		AppRevision: appRecord.Revision,
 	}
 	return a.podRepo.FetchPodStatsByAppGUID(ctx, authInfo, message)
 }

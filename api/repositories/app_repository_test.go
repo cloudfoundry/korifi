@@ -21,6 +21,11 @@ import (
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
+const (
+	CFAppRevisionKey   = "workloads.cloudfoundry.org/app-rev"
+	CFAppRevisionValue = "1"
+)
+
 var _ = Describe("AppRepository", func() {
 	var (
 		testCtx                context.Context
@@ -66,6 +71,7 @@ var _ = Describe("AppRepository", func() {
 
 				Expect(app.GUID).To(Equal(cfApp2.Name))
 				Expect(app.EtcdUID).To(Equal(cfApp2.GetUID()))
+				Expect(app.Revision).To(Equal(CFAppRevisionValue))
 				Expect(app.Name).To(Equal(cfApp2.Spec.Name))
 				Expect(app.SpaceGUID).To(Equal(space2.Name))
 				Expect(app.State).To(Equal(DesiredState("STOPPED")))
@@ -885,6 +891,9 @@ func createAppWithGUID(space, guid string) *workloadsv1alpha1.CFApp {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: space,
+			Annotations: map[string]string{
+				CFAppRevisionKey: CFAppRevisionValue,
+			},
 		},
 		Spec: workloadsv1alpha1.CFAppSpec{
 			Name:         generateGUID(),

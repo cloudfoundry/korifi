@@ -26,10 +26,13 @@ var _ = Describe("FetchProcessStatsAction", func() {
 
 		fetchProcessStatsAction *FetchProcessStats
 
-		appGUID         string
-		spaceGUID       string
-		responseRecords []repositories.PodStatsRecord
-		responseErr     error
+		appGUID          string
+		appRevision      string
+		spaceGUID        string
+		desiredInstances int
+		processType      string
+		responseRecords  []repositories.PodStatsRecord
+		responseErr      error
 	)
 
 	BeforeEach(func() {
@@ -39,22 +42,30 @@ var _ = Describe("FetchProcessStatsAction", func() {
 		authInfo = authorization.Info{Token: "a-token"}
 
 		appGUID = "some-app-guid"
+		appRevision = "1"
 		spaceGUID = "some-space-guid"
+		desiredInstances = 1
+		processType = "web"
 
 		processRepo.FetchProcessReturns(repositories.ProcessRecord{
-			AppGUID:   appGUID,
-			SpaceGUID: spaceGUID,
+			AppGUID:          appGUID,
+			SpaceGUID:        spaceGUID,
+			DesiredInstances: desiredInstances,
+			Type:             processType,
 		}, nil)
 
 		podRepo.FetchPodStatsByAppGUIDReturns([]repositories.PodStatsRecord{
 			{
-				Type:  "web",
+				Type:  processType,
 				Index: 0,
 				State: "RUNNING",
 			},
 		}, nil)
 
-		appRepo.FetchAppReturns(repositories.AppRecord{State: "STARTED"}, nil)
+		appRepo.FetchAppReturns(repositories.AppRecord{
+			State:    "STARTED",
+			Revision: appRevision,
+		}, nil)
 
 		fetchProcessStatsAction = NewFetchProcessStats(processRepo, podRepo, appRepo)
 	})
@@ -72,6 +83,17 @@ var _ = Describe("FetchProcessStatsAction", func() {
 			Expect(appRepo.FetchAppCallCount()).To(Equal(1))
 			_, actualAuthInfo, _ := appRepo.FetchAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+		})
+
+		It("calls the fetch pod stats with expected message data", func() {
+			_, _, message := podRepo.FetchPodStatsByAppGUIDArgsForCall(0)
+			Expect(message).To(Equal(repositories.FetchPodStatsMessage{
+				Namespace:   spaceGUID,
+				AppGUID:     appGUID,
+				Instances:   desiredInstances,
+				ProcessType: processType,
+				AppRevision: appRevision,
+			}))
 		})
 
 		It("fetches the stats for a process associated with the GUID", func() {
