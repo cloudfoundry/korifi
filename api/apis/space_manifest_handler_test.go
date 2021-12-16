@@ -124,6 +124,11 @@ var _ = Describe("SpaceManifestHandler", func() {
 				req.Header.Add("Content-type", "application/x-yaml")
 			})
 
+			It("returns 202 with an empty diff", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Location", Not(BeEmpty())))
+			})
+
 			It("passes the authInfo from context to applyManifestAction", func() {
 				Expect(applyManifestAction.CallCount()).To(Equal(1))
 				_, actualAuthInfo, _, _ := applyManifestAction.ArgsForCall(0)
@@ -172,6 +177,24 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 			It("responds 422", func() {
 				expectUnprocessableEntityError("Name is a required field")
+			})
+		})
+
+		When("the application route is invalid", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+                version: 1
+                applications:
+                - name: my-app
+                  routes:
+                  - route: not-a-uri?
+            `))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("responds 422", func() {
+				expectUnprocessableEntityError(`"not-a-uri?" is not a valid route URI`)
 			})
 		})
 

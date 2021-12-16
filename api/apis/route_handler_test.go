@@ -595,12 +595,6 @@ var _ = Describe("RouteHandler", func() {
 					Expect(actualAuthInfo).To(Equal(authInfo))
 				})
 
-				It("invokes repo CreateRoute with a random GUID", func() {
-					Expect(routeRepo.CreateRouteCallCount()).To(Equal(1), "Repo CreateRoute count was not called")
-					_, _, createRouteRecord := routeRepo.CreateRouteArgsForCall(0)
-					Expect(createRouteRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "CreateRoute record GUID was not a 36 character guid")
-				})
-
 				It("returns status 200 OK", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 				})
@@ -1316,26 +1310,17 @@ var _ = Describe("RouteHandler", func() {
 			It("adds the new destinations to the Route", func() {
 				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
 				_, _, message := routeRepo.AddDestinationsToRouteArgsForCall(0)
-				Expect(message.Route).To(Equal(repositories.RouteRecord{
-					GUID:         routeGUID,
-					SpaceGUID:    spaceGUID,
-					Domain:       domain,
-					Host:         routeHost,
-					Path:         "",
-					Protocol:     "http",
-					Destinations: nil,
-				}))
+				Expect(message.RouteGUID).To(Equal(routeGUID))
+				Expect(message.SpaceGUID).To(Equal(spaceGUID))
 
-				Expect(message.Destinations).To(ConsistOf(
+				Expect(message.NewDestinations).To(ConsistOf(
 					MatchAllFields(Fields{
-						"GUID":        Not(BeEmpty()),
 						"AppGUID":     Equal(destination1AppGUID),
 						"ProcessType": Equal("web"),
 						"Port":        Equal(8080),
 						"Protocol":    Equal("http1"),
 					}),
 					MatchAllFields(Fields{
-						"GUID":        Not(BeEmpty()),
 						"AppGUID":     Equal(destination2AppGUID),
 						"ProcessType": Equal(destination2ProcessType),
 						"Port":        Equal(destination2Port),

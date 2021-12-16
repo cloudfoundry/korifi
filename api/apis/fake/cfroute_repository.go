@@ -11,12 +11,12 @@ import (
 )
 
 type CFRouteRepository struct {
-	AddDestinationsToRouteStub        func(context.Context, authorization.Info, repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error)
+	AddDestinationsToRouteStub        func(context.Context, authorization.Info, repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
 	addDestinationsToRouteMutex       sync.RWMutex
 	addDestinationsToRouteArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.RouteAddDestinationsMessage
+		arg3 repositories.AddDestinationsToRouteMessage
 	}
 	addDestinationsToRouteReturns struct {
 		result1 repositories.RouteRecord
@@ -26,12 +26,12 @@ type CFRouteRepository struct {
 		result1 repositories.RouteRecord
 		result2 error
 	}
-	CreateRouteStub        func(context.Context, authorization.Info, repositories.RouteRecord) (repositories.RouteRecord, error)
+	CreateRouteStub        func(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
 	createRouteMutex       sync.RWMutex
 	createRouteArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.RouteRecord
+		arg3 repositories.CreateRouteMessage
 	}
 	createRouteReturns struct {
 		result1 repositories.RouteRecord
@@ -91,13 +91,13 @@ type CFRouteRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFRouteRepository) AddDestinationsToRoute(arg1 context.Context, arg2 authorization.Info, arg3 repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error) {
+func (fake *CFRouteRepository) AddDestinationsToRoute(arg1 context.Context, arg2 authorization.Info, arg3 repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error) {
 	fake.addDestinationsToRouteMutex.Lock()
 	ret, specificReturn := fake.addDestinationsToRouteReturnsOnCall[len(fake.addDestinationsToRouteArgsForCall)]
 	fake.addDestinationsToRouteArgsForCall = append(fake.addDestinationsToRouteArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.RouteAddDestinationsMessage
+		arg3 repositories.AddDestinationsToRouteMessage
 	}{arg1, arg2, arg3})
 	stub := fake.AddDestinationsToRouteStub
 	fakeReturns := fake.addDestinationsToRouteReturns
@@ -118,13 +118,13 @@ func (fake *CFRouteRepository) AddDestinationsToRouteCallCount() int {
 	return len(fake.addDestinationsToRouteArgsForCall)
 }
 
-func (fake *CFRouteRepository) AddDestinationsToRouteCalls(stub func(context.Context, authorization.Info, repositories.RouteAddDestinationsMessage) (repositories.RouteRecord, error)) {
+func (fake *CFRouteRepository) AddDestinationsToRouteCalls(stub func(context.Context, authorization.Info, repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)) {
 	fake.addDestinationsToRouteMutex.Lock()
 	defer fake.addDestinationsToRouteMutex.Unlock()
 	fake.AddDestinationsToRouteStub = stub
 }
 
-func (fake *CFRouteRepository) AddDestinationsToRouteArgsForCall(i int) (context.Context, authorization.Info, repositories.RouteAddDestinationsMessage) {
+func (fake *CFRouteRepository) AddDestinationsToRouteArgsForCall(i int) (context.Context, authorization.Info, repositories.AddDestinationsToRouteMessage) {
 	fake.addDestinationsToRouteMutex.RLock()
 	defer fake.addDestinationsToRouteMutex.RUnlock()
 	argsForCall := fake.addDestinationsToRouteArgsForCall[i]
@@ -157,13 +157,13 @@ func (fake *CFRouteRepository) AddDestinationsToRouteReturnsOnCall(i int, result
 	}{result1, result2}
 }
 
-func (fake *CFRouteRepository) CreateRoute(arg1 context.Context, arg2 authorization.Info, arg3 repositories.RouteRecord) (repositories.RouteRecord, error) {
+func (fake *CFRouteRepository) CreateRoute(arg1 context.Context, arg2 authorization.Info, arg3 repositories.CreateRouteMessage) (repositories.RouteRecord, error) {
 	fake.createRouteMutex.Lock()
 	ret, specificReturn := fake.createRouteReturnsOnCall[len(fake.createRouteArgsForCall)]
 	fake.createRouteArgsForCall = append(fake.createRouteArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.RouteRecord
+		arg3 repositories.CreateRouteMessage
 	}{arg1, arg2, arg3})
 	stub := fake.CreateRouteStub
 	fakeReturns := fake.createRouteReturns
@@ -184,13 +184,13 @@ func (fake *CFRouteRepository) CreateRouteCallCount() int {
 	return len(fake.createRouteArgsForCall)
 }
 
-func (fake *CFRouteRepository) CreateRouteCalls(stub func(context.Context, authorization.Info, repositories.RouteRecord) (repositories.RouteRecord, error)) {
+func (fake *CFRouteRepository) CreateRouteCalls(stub func(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)) {
 	fake.createRouteMutex.Lock()
 	defer fake.createRouteMutex.Unlock()
 	fake.CreateRouteStub = stub
 }
 
-func (fake *CFRouteRepository) CreateRouteArgsForCall(i int) (context.Context, authorization.Info, repositories.RouteRecord) {
+func (fake *CFRouteRepository) CreateRouteArgsForCall(i int) (context.Context, authorization.Info, repositories.CreateRouteMessage) {
 	fake.createRouteMutex.RLock()
 	defer fake.createRouteMutex.RUnlock()
 	argsForCall := fake.createRouteArgsForCall[i]

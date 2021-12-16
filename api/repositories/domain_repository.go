@@ -36,9 +36,9 @@ type DomainListMessage struct {
 	Names []string
 }
 
-func (f *DomainRepo) FetchDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) (DomainRecord, error) {
+func (r *DomainRepo) FetchDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) (DomainRecord, error) {
 	domain := &networkingv1alpha1.CFDomain{}
-	err := f.privilegedClient.Get(ctx, types.NamespacedName{Name: domainGUID}, domain)
+	err := r.privilegedClient.Get(ctx, types.NamespacedName{Name: domainGUID}, domain)
 	if err != nil {
 		switch errtype := err.(type) {
 		case *k8serrors.StatusError:
@@ -54,19 +54,37 @@ func (f *DomainRepo) FetchDomain(ctx context.Context, authInfo authorization.Inf
 	return cfDomainToDomainRecord(domain), nil
 }
 
-func (f *DomainRepo) FetchDomainList(ctx context.Context, authInfo authorization.Info, message DomainListMessage) ([]DomainRecord, error) {
+func (r *DomainRepo) FetchDomainList(ctx context.Context, authInfo authorization.Info, message DomainListMessage) ([]DomainRecord, error) {
 	cfdomainList := &networkingv1alpha1.CFDomainList{}
-	err := f.privilegedClient.List(ctx, cfdomainList)
+	err := r.privilegedClient.List(ctx, cfdomainList)
 	if err != nil {
 		return []DomainRecord{}, err
 	}
 
-	filtered := f.applyDomainListFilter(cfdomainList.Items, message)
+	filtered := r.applyDomainListFilter(cfdomainList.Items, message)
 
-	return f.returnDomainList(filtered), nil
+	return r.returnDomainList(filtered), nil
 }
 
-func (f *DomainRepo) applyDomainListFilter(domainList []networkingv1alpha1.CFDomain, message DomainListMessage) []networkingv1alpha1.CFDomain {
+func (r *DomainRepo) FetchDomainByName(ctx context.Context, authInfo authorization.Info, domainName string) (DomainRecord, error) {
+	domainRecords, err := r.FetchDomainList(ctx, authInfo, DomainListMessage{
+		Names: []string{domainName},
+	})
+	if err != nil {
+		return DomainRecord{}, err
+	}
+
+	if len(domainRecords) == 0 {
+		return DomainRecord{}, NotFoundError{
+			Err:          err,
+			ResourceType: "Domain",
+		}
+	}
+
+	return domainRecords[0], nil
+}
+
+func (r *DomainRepo) applyDomainListFilter(domainList []networkingv1alpha1.CFDomain, message DomainListMessage) []networkingv1alpha1.CFDomain {
 	if len(message.Names) == 0 {
 		return domainList
 	}
@@ -83,7 +101,7 @@ func (f *DomainRepo) applyDomainListFilter(domainList []networkingv1alpha1.CFDom
 	return filtered
 }
 
-func (f *DomainRepo) returnDomainList(domainList []networkingv1alpha1.CFDomain) []DomainRecord {
+func (r *DomainRepo) returnDomainList(domainList []networkingv1alpha1.CFDomain) []DomainRecord {
 	domainRecords := make([]DomainRecord, 0, len(domainList))
 
 	for _, domain := range domainList {

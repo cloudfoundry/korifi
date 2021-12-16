@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
@@ -47,9 +49,19 @@ type RouteRecord struct {
 	UpdatedAt    string
 }
 
-type RouteAddDestinationsMessage struct {
-	Route        RouteRecord
-	Destinations []DestinationRecord
+type AddDestinationsToRouteMessage struct {
+	RouteGUID            string
+	SpaceGUID            string
+	ExistingDestinations []DestinationRecord
+	NewDestinations      []DestinationMessage
+}
+
+type DestinationMessage struct {
+	AppGUID     string
+	ProcessType string
+	Port        int
+	Protocol    string
+	// Weight intentionally omitted as experimental features
 }
 
 type FetchRouteListMessage struct {
@@ -58,6 +70,38 @@ type FetchRouteListMessage struct {
 	DomainGUIDs []string
 	Hosts       []string
 	Paths       []string
+}
+
+type CreateRouteMessage struct {
+	Host        string
+	Path        string
+	SpaceGUID   string
+	DomainGUID  string
+	Labels      map[string]string
+	Annotations map[string]string
+}
+
+func (m CreateRouteMessage) toCFRoute() networkingv1alpha1.CFRoute {
+	return networkingv1alpha1.CFRoute{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       Kind,
+			APIVersion: APIVersion,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        uuid.NewString(),
+			Namespace:   m.SpaceGUID,
+			Labels:      m.Labels,
+			Annotations: m.Annotations,
+		},
+		Spec: networkingv1alpha1.CFRouteSpec{
+			Host:     m.Host,
+			Path:     m.Path,
+			Protocol: "http",
+			DomainRef: v1.LocalObjectReference{
+				Name: m.DomainGUID,
+			},
+		},
+	}
 }
 
 func (f *RouteRepo) FetchRoute(ctx context.Context, authInfo authorization.Info, routeGUID string) (RouteRecord, error) {
@@ -88,6 +132,7 @@ func (f *RouteRepo) FetchRouteList(ctx context.Context, authInfo authorization.I
 }
 
 func applyFilter(routes []networkingv1alpha1.CFRoute, message FetchRouteListMessage) []networkingv1alpha1.CFRoute {
+	// TODO: refactor this to be less repetitive
 	var appFiltered []networkingv1alpha1.CFRoute
 
 	if len(message.AppGUIDs) > 0 {
@@ -267,8 +312,8 @@ func cfRouteDestinationToDestination(cfRouteDestination networkingv1alpha1.Desti
 	}
 }
 
-func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info, routeRecord RouteRecord) (RouteRecord, error) {
-	cfRoute := f.routeRecordToCFRoute(routeRecord)
+func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
+	cfRoute := message.toCFRoute()
 	err := f.privilegedClient.Create(ctx, &cfRoute)
 	if err != nil {
 		return RouteRecord{}, err
@@ -277,41 +322,29 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 	return cfRouteToRouteRecord(cfRoute), err
 }
 
-func (f *RouteRepo) routeRecordToCFRoute(routeRecord RouteRecord) networkingv1alpha1.CFRoute {
-	return networkingv1alpha1.CFRoute{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       Kind,
-			APIVersion: APIVersion,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        routeRecord.GUID,
-			Namespace:   routeRecord.SpaceGUID,
-			Labels:      routeRecord.Labels,
-			Annotations: routeRecord.Annotations,
-		},
-		Spec: networkingv1alpha1.CFRouteSpec{
-			Host: routeRecord.Host,
-			Path: routeRecord.Path,
-			DomainRef: v1.LocalObjectReference{
-				Name: routeRecord.Domain.GUID,
-			},
-		},
+func (f *RouteRepo) FetchOrCreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
+	existingRecord, exists, err := f.fetchRouteByFields(ctx, authInfo, message)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("FetchOrCreateRoute: %w", err)
 	}
+
+	if exists {
+		return existingRecord, nil
+	}
+
+	return f.CreateRoute(ctx, authInfo, message)
 }
 
-func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message RouteAddDestinationsMessage) (RouteRecord, error) {
+func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message AddDestinationsToRouteMessage) (RouteRecord, error) {
 	baseCFRoute := &networkingv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.Route.GUID,
-			Namespace: message.Route.SpaceGUID,
-		},
-		Spec: networkingv1alpha1.CFRouteSpec{
-			Destinations: destinationRecordsToCFDestinations(message.Route.Destinations),
+			Name:      message.RouteGUID,
+			Namespace: message.SpaceGUID,
 		},
 	}
 
 	cfRoute := baseCFRoute.DeepCopy()
-	cfRoute.Spec.Destinations = append(cfRoute.Spec.Destinations, destinationRecordsToCFDestinations(message.Destinations)...)
+	cfRoute.Spec.Destinations = mergeDestinations(message.ExistingDestinations, message.NewDestinations)
 
 	err := f.privilegedClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
 	if err != nil { // untested
@@ -319,6 +352,43 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 	}
 
 	return cfRouteToRouteRecord(*cfRoute), err
+}
+
+func mergeDestinations(existingDestinations []DestinationRecord, newDestinations []DestinationMessage) []networkingv1alpha1.Destination {
+	result := destinationRecordsToCFDestinations(existingDestinations)
+
+outer:
+	for _, newDest := range newDestinations {
+		for _, oldDest := range result {
+			if newDest.AppGUID == oldDest.AppRef.Name &&
+				newDest.ProcessType == oldDest.ProcessType &&
+				newDest.Port == oldDest.Port &&
+				newDest.Protocol == oldDest.Protocol {
+				continue outer
+			}
+		}
+		result = append(result, destinationMessageToCFDestination(newDest))
+	}
+
+	return result
+}
+
+func (f *RouteRepo) fetchRouteByFields(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, bool, error) {
+	matches, err := f.FetchRouteList(ctx, authInfo, FetchRouteListMessage{
+		SpaceGUIDs:  []string{message.SpaceGUID},
+		DomainGUIDs: []string{message.DomainGUID},
+		Hosts:       []string{message.Host},
+		Paths:       []string{message.Path},
+	})
+	if err != nil {
+		return RouteRecord{}, false, err
+	}
+
+	if len(matches) == 0 {
+		return RouteRecord{}, false, nil
+	}
+
+	return matches[0], true, nil
 }
 
 func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) []networkingv1alpha1.Destination {
@@ -336,4 +406,16 @@ func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) 
 	}
 
 	return destinations
+}
+
+func destinationMessageToCFDestination(destinationMessage DestinationMessage) networkingv1alpha1.Destination {
+	return networkingv1alpha1.Destination{
+		GUID: uuid.NewString(),
+		Port: destinationMessage.Port,
+		AppRef: v1.LocalObjectReference{
+			Name: destinationMessage.AppGUID,
+		},
+		ProcessType: destinationMessage.ProcessType,
+		Protocol:    destinationMessage.Protocol,
+	}
 }
