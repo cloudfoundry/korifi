@@ -26,6 +26,7 @@ const (
 
 type BuildCreateMessage struct {
 	AppGUID         string
+	OwnerRef        metav1.OwnerReference
 	PackageGUID     string
 	SpaceGUID       string
 	StagingMemoryMB int
@@ -160,6 +161,9 @@ func (b *BuildRepo) buildCreateToCFBuild(message BuildCreateMessage) workloadsv1
 			Namespace:   message.SpaceGUID,
 			Labels:      message.Labels,
 			Annotations: message.Annotations,
+			OwnerReferences: []metav1.OwnerReference{
+				message.OwnerRef,
+			},
 		},
 		Spec: workloadsv1alpha1.CFBuildSpec{
 			PackageRef: corev1.LocalObjectReference{

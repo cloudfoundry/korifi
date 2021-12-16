@@ -19,6 +19,7 @@ import (
 
 var _ = Describe("PackageRepository", func() {
 	const appGUID = "the-app-guid"
+	const appUID = "the-app-uid"
 
 	var (
 		packageRepo *PackageRepo
@@ -42,6 +43,12 @@ var _ = Describe("PackageRepository", func() {
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
+				OwnerRef: metav1.OwnerReference{
+					APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+					Kind:       "CFApp",
+					Name:       appGUID,
+					UID:        appUID,
+				},
 			}
 
 			Expect(
@@ -84,6 +91,15 @@ var _ = Describe("PackageRepository", func() {
 			Expect(createdCFPackage.Namespace).To(Equal(spaceGUID))
 			Expect(createdCFPackage.Spec.Type).To(Equal(workloadsv1alpha1.PackageType("bits")))
 			Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(appGUID))
+			Expect(createdCFPackage.ObjectMeta.OwnerReferences).To(Equal(
+				[]metav1.OwnerReference{
+					{
+						APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+						Kind:       "CFApp",
+						Name:       appGUID,
+						UID:        appUID,
+					},
+				}))
 
 			Expect(cleanupPackage(ctx, k8sClient, packageGUID, spaceGUID)).To(Succeed())
 		})

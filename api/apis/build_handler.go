@@ -112,7 +112,7 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	buildCreateMessage := payload.ToMessage(packageRecord.AppGUID, packageRecord.SpaceGUID)
+	buildCreateMessage := payload.ToMessage(packageRecord)
 
 	record, err := h.buildRepo.CreateBuild(r.Context(), authInfo, buildCreateMessage)
 	if err != nil {

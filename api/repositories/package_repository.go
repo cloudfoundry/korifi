@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
@@ -36,6 +38,7 @@ type PackageCreateMessage struct {
 	Type      string
 	AppGUID   string
 	SpaceGUID string
+	OwnerRef  metav1.OwnerReference
 }
 
 type PackageUpdateSourceMessage struct {
@@ -47,6 +50,7 @@ type PackageUpdateSourceMessage struct {
 
 type PackageRecord struct {
 	GUID      string
+	UID       types.UID
 	Type      string
 	AppGUID   string
 	SpaceGUID string
@@ -148,8 +152,9 @@ func packageCreateToCFPackage(message PackageCreateMessage) workloadsv1alpha1.CF
 			APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      guid,
-			Namespace: message.SpaceGUID,
+			Name:            guid,
+			Namespace:       message.SpaceGUID,
+			OwnerReferences: []metav1.OwnerReference{message.OwnerRef},
 		},
 		Spec: workloadsv1alpha1.CFPackageSpec{
 			Type: workloadsv1alpha1.PackageType(message.Type),
@@ -168,6 +173,7 @@ func cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPackage) PackageReco
 	}
 	return PackageRecord{
 		GUID:      cfPackage.Name,
+		UID:       cfPackage.UID,
 		SpaceGUID: cfPackage.Namespace,
 		Type:      string(cfPackage.Spec.Type),
 		AppGUID:   cfPackage.Spec.AppRef.Name,

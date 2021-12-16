@@ -348,6 +348,7 @@ var _ = Describe("BuildRepository", func() {
 	Describe("CreateBuild", func() {
 		const (
 			appGUID     = "the-app-guid"
+			packageUID  = "the-package-uid"
 			packageGUID = "the-package-guid"
 
 			buildStagingState = "STAGING"
@@ -393,6 +394,12 @@ var _ = Describe("BuildRepository", func() {
 				},
 				Labels:      buildCreateLabels,
 				Annotations: buildCreateAnnotations,
+				OwnerRef: metav1.OwnerReference{
+					APIVersion: APIVersion,
+					Kind:       "CFPackage",
+					Name:       packageGUID,
+					UID:        packageUID,
+				},
 			}
 		})
 
@@ -473,6 +480,15 @@ var _ = Describe("BuildRepository", func() {
 					err := k8sClient.Get(context.Background(), cfBuildLookupKey, createdCFBuild)
 					return err == nil
 				}, 5*time.Second, 250*time.Millisecond).Should(BeTrue(), "A CFBuild CR was not eventually created")
+
+				Expect(createdCFBuild.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+					{
+						APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+						Kind:       "CFPackage",
+						Name:       packageGUID,
+						UID:        packageUID,
+					},
+				}))
 			})
 		})
 	})
