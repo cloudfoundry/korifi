@@ -239,7 +239,6 @@ func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *workloadsv1a
 	}
 
 	return ctrl.Result{}, nil
-
 }
 
 func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []networkingv1alpha1.CFRoute) error {
@@ -266,7 +265,6 @@ func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID
 }
 
 func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfAppNamespace string) ([]networkingv1alpha1.CFRoute, error) {
-
 	var foundRoutes networkingv1alpha1.CFRouteList
 	matchingFields := client.MatchingFields{DestinationAppName: cfAppGUID}
 	err := r.Client.List(context.Background(), &foundRoutes, client.InNamespace(cfAppNamespace), matchingFields)

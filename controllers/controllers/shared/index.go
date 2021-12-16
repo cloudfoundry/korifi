@@ -12,7 +12,6 @@ import (
 const DestinationAppName = "destinationAppName"
 
 func SetupIndexWithManager(mgr manager.Manager) error {
-
 	// Generate indexes for CFRoute on field spec.Destination.AppRef.Name for efficient querying.
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &networkingv1alpha1.CFRoute{}, DestinationAppName,
 		func(rawObj client.Object) []string {
