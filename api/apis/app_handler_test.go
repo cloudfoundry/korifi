@@ -1,7 +1,6 @@
 package apis_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -192,18 +191,6 @@ var _ = Describe("AppHandler", func() {
 				expectUnknownError()
 			})
 		})
-
-		When("authInfo is not in the context", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("GET", "/v3/apps/"+appGUID, nil)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
 	})
 
 	Describe("the POST /v3/apps endpoint", func() {
@@ -216,18 +203,6 @@ var _ = Describe("AppHandler", func() {
 			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps", strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
 		}
-
-		When("authInfo is not passed in the context", func() {
-			BeforeEach(func() {
-				ctx = context.Background()
-				requestBody := initializeCreateAppRequestBody(testAppName, "no-such-guid", nil, nil, nil)
-				queuePostRequest(requestBody)
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
 
 		When("the request body is invalid json", func() {
 			BeforeEach(func() {
@@ -2071,18 +2046,6 @@ var _ = Describe("AppHandler", func() {
 					expectUnknownError()
 				})
 			})
-
-			When("there is no authInfo in the context", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequest("GET", "/v3/apps/"+appGUID+"/routes", nil)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns an error", func() {
-					expectUnknownError()
-				})
-			})
 		})
 	})
 
@@ -2257,18 +2220,6 @@ var _ = Describe("AppHandler", func() {
 		When("fetching the Droplet errors", func() {
 			BeforeEach(func() {
 				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, errors.New("boom"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("there is no authInfo in the context", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("GET", "/v3/apps/"+appGUID+"/droplets/current", nil)
-				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("returns an error", func() {
@@ -2584,18 +2535,6 @@ var _ = Describe("AppHandler", func() {
 		When("setDesiredAppState to STARTED returns an error", func() {
 			BeforeEach(func() {
 				appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, errors.New("some-error"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("there is no authInfo in the context", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("POST", "/v3/apps/"+appGUID+"/actions/restart", nil)
-				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("returns an error", func() {

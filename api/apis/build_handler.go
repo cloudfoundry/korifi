@@ -47,19 +47,12 @@ func NewBuildHandler(
 	}
 }
 
-func (h *BuildHandler) buildGetHandler(w http.ResponseWriter, r *http.Request) {
+func (h *BuildHandler) buildGetHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	buildGUID := vars["guid"]
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	build, err := h.buildRepo.FetchBuild(ctx, authInfo, buildGUID)
 	if err != nil {
@@ -82,20 +75,13 @@ func (h *BuildHandler) buildGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.BuildCreate
 	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
-		return
-	}
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
 		return
 	}
 
@@ -129,6 +115,7 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (h *BuildHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(BuildGetEndpoint).Methods("GET").HandlerFunc(h.buildGetHandler)
-	router.Path(BuildCreateEndpoint).Methods("POST").HandlerFunc(h.buildCreateHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(BuildGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.buildGetHandler))
+	router.Path(BuildCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.buildCreateHandler))
 }

@@ -36,15 +36,9 @@ func NewWhoAmI(identityProvider IdentityProvider, apiBaseURL url.URL) *WhoAmIHan
 	}
 }
 
-func (h *WhoAmIHandler) whoAmIHandler(w http.ResponseWriter, r *http.Request) {
+func (h *WhoAmIHandler) whoAmIHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	identity, err := h.identityProvider.GetIdentity(ctx, authInfo)
 	if err != nil {
@@ -60,5 +54,6 @@ func (h *WhoAmIHandler) whoAmIHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WhoAmIHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(WhoAmIEndpoint).Methods("GET").HandlerFunc(h.whoAmIHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(WhoAmIEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.whoAmIHandler))
 }

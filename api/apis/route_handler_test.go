@@ -512,9 +512,10 @@ var _ = Describe("RouteHandler", func() {
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
 				var err error
-				req, err = http.NewRequest("GET", "/v3/routes?foo=my-app-guid", nil)
+				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?foo=my-app-guid", nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
+
 			It("returns an Unknown key error", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, space_guids, domain_guids, hosts, paths'")
 			})

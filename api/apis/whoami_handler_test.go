@@ -1,7 +1,6 @@
 package apis_test
 
 import (
-	"context"
 	"errors"
 	"net/http"
 
@@ -63,16 +62,6 @@ var _ = Describe("WhoAmI", func() {
 			})
 
 			It("returns an unknown response", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("the request context does not contain an authorization.Info", func() {
-			BeforeEach(func() {
-				ctx = context.Background()
-			})
-
-			It("fails", func() {
 				expectUnknownError()
 			})
 		})

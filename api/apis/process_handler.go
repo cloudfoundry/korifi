@@ -67,23 +67,16 @@ func NewProcessHandler(
 	}
 }
 
-func (h *ProcessHandler) processGetHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProcessHandler) processGetHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
-
 	process, err := h.processRepo.FetchProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		h.LogError(w, processGUID, err)
+		h.logError(w, processGUID, err)
 		return
 	}
 
@@ -94,23 +87,16 @@ func (h *ProcessHandler) processGetHandler(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-func (h *ProcessHandler) processGetSidecarsHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProcessHandler) processGetSidecarsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
-
 	_, err := h.processRepo.FetchProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		h.LogError(w, processGUID, err)
+		h.logError(w, processGUID, err)
 		return
 	}
 
@@ -131,7 +117,7 @@ func (h *ProcessHandler) processGetSidecarsHandler(w http.ResponseWriter, r *htt
 				}`, h.serverURL.String(), processGUID)))
 }
 
-func (h *ProcessHandler) processScaleHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProcessHandler) processScaleHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -142,13 +128,6 @@ func (h *ProcessHandler) processScaleHandler(w http.ResponseWriter, r *http.Requ
 	rme := decodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
-		return
-	}
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
 		return
 	}
 
@@ -173,33 +152,26 @@ func (h *ProcessHandler) processScaleHandler(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-func (h *ProcessHandler) processGetStatsHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProcessHandler) processGetStatsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
-
 	records, err := h.fetchProcessStats(ctx, authInfo, processGUID)
 	if err != nil {
-		h.LogError(w, processGUID, err)
+		h.logError(w, processGUID, err)
 		return
 	}
 
 	err = writeJsonResponse(w, presenter.ForProcessStats(records), http.StatusOK)
 	if err != nil {
-		h.LogError(w, processGUID, err)
+		h.logError(w, processGUID, err)
 	}
 }
 
-func (h *ProcessHandler) processListHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProcessHandler) processListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -234,13 +206,6 @@ func (h *ProcessHandler) processListHandler(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
-
 	processList, err := h.processRepo.FetchProcessList(ctx, authInfo, processListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch processes(s) from Kubernetes")
@@ -255,7 +220,7 @@ func (h *ProcessHandler) processListHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-func (h *ProcessHandler) LogError(w http.ResponseWriter, processGUID string, err error) {
+func (h *ProcessHandler) logError(w http.ResponseWriter, processGUID string, err error) {
 	switch tycerr := err.(type) {
 	case repositories.NotFoundError:
 		h.logger.Info(fmt.Sprintf("%s not found", tycerr.ResourceType), "ProcessGUID", processGUID)
@@ -267,9 +232,10 @@ func (h *ProcessHandler) LogError(w http.ResponseWriter, processGUID string, err
 }
 
 func (h *ProcessHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(ProcessGetEndpoint).Methods("GET").HandlerFunc(h.processGetHandler)
-	router.Path(ProcessGetSidecarsEndpoint).Methods("GET").HandlerFunc(h.processGetSidecarsHandler)
-	router.Path(ProcessScaleEndpoint).Methods("POST").HandlerFunc(h.processScaleHandler)
-	router.Path(ProcessGetStatsEndpoint).Methods("GET").HandlerFunc(h.processGetStatsHandler)
-	router.Path(ProcessListEndpoint).Methods("GET").HandlerFunc(h.processListHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(ProcessGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.processGetHandler))
+	router.Path(ProcessGetSidecarsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.processGetSidecarsHandler))
+	router.Path(ProcessScaleEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.processScaleHandler))
+	router.Path(ProcessGetStatsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.processGetStatsHandler))
+	router.Path(ProcessListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.processListHandler))
 }

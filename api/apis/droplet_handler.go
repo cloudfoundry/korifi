@@ -40,19 +40,12 @@ func NewDropletHandler(
 	}
 }
 
-func (h *DropletHandler) dropletGetHandler(w http.ResponseWriter, r *http.Request) {
+func (h *DropletHandler) dropletGetHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	dropletGUID := vars["guid"]
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
 
 	droplet, err := h.dropletRepo.FetchDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
@@ -76,5 +69,6 @@ func (h *DropletHandler) dropletGetHandler(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *DropletHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(DropletGetEndpoint).Methods("GET").HandlerFunc(h.dropletGetHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(DropletGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.dropletGetHandler))
 }

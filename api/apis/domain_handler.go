@@ -45,7 +45,7 @@ func NewDomainHandler(
 	}
 }
 
-func (h *DomainHandler) DomainListHandler(w http.ResponseWriter, r *http.Request) {
+func (h *DomainHandler) DomainListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -80,13 +80,6 @@ func (h *DomainHandler) DomainListHandler(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		writeUnknownErrorResponse(w)
-		return
-	}
-
 	domainList, err := h.domainRepo.FetchDomainList(ctx, authInfo, domainListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch domain(s) from Kubernetes")
@@ -102,5 +95,6 @@ func (h *DomainHandler) DomainListHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (h *DomainHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(DomainListEndpoint).Methods("GET").HandlerFunc(h.DomainListHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(DomainListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.DomainListHandler))
 }
