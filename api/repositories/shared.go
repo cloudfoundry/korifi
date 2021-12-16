@@ -53,6 +53,13 @@ func getConditionValue(conditions *[]metav1.Condition, conditionType string) met
 	return conditionStatusValue
 }
 
+func getLabelOrAnnotation(mapObj map[string]string, key string) string {
+	if mapObj == nil {
+		return ""
+	}
+	return mapObj[key]
+}
+
 type NotFoundError struct {
 	Err          error
 	ResourceType string

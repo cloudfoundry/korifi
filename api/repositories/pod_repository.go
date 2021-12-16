@@ -20,9 +20,10 @@ import (
 const (
 	workloadsContainerName = "opi"
 	cfInstanceIndexKey     = "CF_INSTANCE_INDEX"
+	eiriniLabelVersionKey  = "workloads.cloudfoundry.org/version"
 	RunningState           = "RUNNING"
+	pendingState           = "STARTING"
 	// All below statuses changed to "DOWN" until we decide what statuses we want to support in the future
-	pendingState = "STARTING"
 	crashedState = "DOWN"
 	unknownState = "DOWN"
 )
@@ -36,6 +37,7 @@ type PodStatsRecord struct {
 type FetchPodStatsMessage struct {
 	Namespace   string
 	AppGUID     string
+	AppRevision string
 	Instances   int
 	ProcessType string
 }
@@ -49,7 +51,10 @@ func NewPodRepo(privilegedClient client.Client) *PodRepo {
 }
 
 func (r *PodRepo) FetchPodStatsByAppGUID(ctx context.Context, authInfo authorization.Info, message FetchPodStatsMessage) ([]PodStatsRecord, error) {
-	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{workloadsv1alpha1.CFAppGUIDLabelKey: message.AppGUID})
+	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
+		workloadsv1alpha1.CFAppGUIDLabelKey: message.AppGUID,
+		eiriniLabelVersionKey:               message.AppRevision,
+	})
 	if err != nil {
 		return nil, err
 	}

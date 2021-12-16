@@ -14,36 +14,37 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const eiriniLabelVersionKey = "workloads.cloudfoundry.org/version"
+
 var _ = Describe("PodRepository", func() {
 	const (
-		appGUID  = "the-app-guid"
-		pod1Name = "some-pod-1"
-		pod2Name = "some-pod-2"
+		appGUID             = "the-app-guid"
+		pod1Name            = "some-pod-1"
+		pod2Name            = "some-pod-2"
+		podOtherVersionName = "other-version-2"
 	)
 
 	var (
-		podRepo   *PodRepo
-		ctx       context.Context
-		spaceGUID string
-		namespace *corev1.Namespace
-		pod1      *corev1.Pod
-		pod2      *corev1.Pod
+		podRepo         *PodRepo
+		ctx             context.Context
+		spaceGUID       string
+		namespace       *corev1.Namespace
+		pod1            *corev1.Pod
+		pod2            *corev1.Pod
+		podOtherVersion *corev1.Pod
 	)
 
 	BeforeEach(func() {
-		spaceGUID = uuid.NewString()
-
-		podRepo = NewPodRepo(k8sClient)
-
 		ctx = context.Background()
-
+		spaceGUID = uuid.NewString()
+		podRepo = NewPodRepo(k8sClient)
 		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}
-		Expect(
-			k8sClient.Create(ctx, namespace),
-		).To(Succeed())
 
-		pod1 = createPodDef(pod1Name, spaceGUID, appGUID, "0")
-		pod2 = createPodDef(pod2Name, spaceGUID, appGUID, "1")
+		Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
+
+		pod1 = createPodDef(pod1Name, spaceGUID, appGUID, "0", "1")
+		pod2 = createPodDef(pod2Name, spaceGUID, appGUID, "1", "1")
+		podOtherVersion = createPodDef(podOtherVersionName, spaceGUID, appGUID, "1", "2")
 	})
 
 	AfterEach(func() {
@@ -59,9 +60,12 @@ var _ = Describe("PodRepository", func() {
 		)
 
 		BeforeEach(func() {
-			Expect(
-				k8sClient.Create(ctx, pod1),
-			).To(Succeed())
+			Expect(k8sClient.Create(ctx, pod1)).To(Succeed())
+			Expect(k8sClient.Create(ctx, pod2)).To(Succeed())
+			Expect(k8sClient.Create(ctx, podOtherVersion)).To(Succeed())
+
+			pod3 := createPodDef(pod3Name, spaceGUID, uuid.NewString(), "0", "1")
+			Expect(k8sClient.Create(ctx, pod3)).To(Succeed())
 
 			pod1.Status = corev1.PodStatus{
 				Phase: corev1.PodRunning,
@@ -74,16 +78,7 @@ var _ = Describe("PodRepository", func() {
 					},
 				},
 			}
-			Expect(
-				k8sClient.Status().Update(ctx, pod1),
-			).To(Succeed())
-
-			Expect(
-				k8sClient.Create(ctx, pod2),
-			).To(Succeed())
-			Expect(
-				k8sClient.Create(ctx, createPodDef(pod3Name, spaceGUID, uuid.NewString(), "0")),
-			)
+			Expect(k8sClient.Status().Update(ctx, pod1)).To(Succeed())
 		})
 
 		When("All required pods exists", func() {
@@ -93,6 +88,7 @@ var _ = Describe("PodRepository", func() {
 					AppGUID:     "the-app-guid",
 					Instances:   2,
 					ProcessType: "web",
+					AppRevision: "1",
 				}
 			})
 			It("Fetches all the pods and sets the appropriate state", func() {
@@ -123,6 +119,7 @@ var _ = Describe("PodRepository", func() {
 					AppGUID:     "the-app-guid",
 					Instances:   3,
 					ProcessType: "web",
+					AppRevision: "1",
 				}
 			})
 			It("Fetches pods and sets the appropriate state", func() {
@@ -152,20 +149,17 @@ var _ = Describe("PodRepository", func() {
 		})
 
 		When("A pod is in pending state", func() {
-			var pod3 *corev1.Pod
-
 			BeforeEach(func() {
 				message = FetchPodStatsMessage{
 					Namespace:   spaceGUID,
 					AppGUID:     "the-app-guid",
 					Instances:   3,
 					ProcessType: "web",
+					AppRevision: "1",
 				}
 
-				pod3 = createPodDef(pod4Name, spaceGUID, appGUID, "2")
-				Expect(
-					k8sClient.Create(ctx, pod3),
-				).To(Succeed())
+				pod3 := createPodDef(pod4Name, spaceGUID, appGUID, "2", "1")
+				Expect(k8sClient.Create(ctx, pod3)).To(Succeed())
 
 				pod3.Status = corev1.PodStatus{
 					Phase: corev1.PodPending,
@@ -179,9 +173,7 @@ var _ = Describe("PodRepository", func() {
 					},
 				}
 
-				Expect(
-					k8sClient.Status().Update(ctx, pod3),
-				).To(Succeed())
+				Expect(k8sClient.Status().Update(ctx, pod3)).To(Succeed())
 			})
 
 			It("fetches pods and sets the appropriate state", func() {
@@ -213,13 +205,8 @@ var _ = Describe("PodRepository", func() {
 
 	Describe("WatchPodsForTermination", func() {
 		BeforeEach(func() {
-			Expect(
-				k8sClient.Create(ctx, pod1),
-			).To(Succeed())
-
-			Expect(
-				k8sClient.Create(ctx, pod2),
-			).To(Succeed())
+			Expect(k8sClient.Create(ctx, pod1)).To(Succeed())
+			Expect(k8sClient.Create(ctx, pod2)).To(Succeed())
 		})
 
 		When("pods exist", func() {
@@ -260,7 +247,7 @@ var _ = Describe("PodRepository", func() {
 	})
 })
 
-func createPodDef(name, namespace, appGUID, index string) *corev1.Pod {
+func createPodDef(name, namespace, appGUID, index, version string) *corev1.Pod {
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
@@ -269,7 +256,10 @@ func createPodDef(name, namespace, appGUID, index string) *corev1.Pod {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels:    map[string]string{workloadsv1alpha1.CFAppGUIDLabelKey: appGUID},
+			Labels: map[string]string{
+				workloadsv1alpha1.CFAppGUIDLabelKey: appGUID,
+				eiriniLabelVersionKey:               version,
+			},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
