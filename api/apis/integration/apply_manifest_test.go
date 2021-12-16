@@ -64,7 +64,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			).To(Succeed())
 
 			DeferCleanup(func() {
-				k8sClient.Delete(context.Background(), namespace)
+				_ = k8sClient.Delete(context.Background(), namespace)
 			})
 
 			requestEnvVars = map[string]string{
@@ -82,7 +82,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			).To(Succeed())
 
 			DeferCleanup(func() {
-				k8sClient.Delete(context.Background(), domain)
+				_ = k8sClient.Delete(context.Background(), domain)
 			})
 		})
 
@@ -100,16 +100,15 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			router.ServeHTTP(rr, req)
 		})
 
-		When("no app with that name exists and", func() {
+		When("no app with that name exists", func() {
 			const (
 				host        = "custom"
 				path        = "/path"
 				routeString = host + "." + domainName + path
 			)
-			When("route is specified in the manifest", func() {
 
-				BeforeEach(func() {
-					requestBody = fmt.Sprintf(`---
+			BeforeEach(func() {
+				requestBody = fmt.Sprintf(`---
                   version: 1
                   applications:
                   - name: %s
@@ -136,221 +135,137 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
                       health-check-http-endpoint: /things
                       health-check-invocation-timeout: 90
                       timeout: 90`, appName, key1, requestEnvVars[key1], key2, requestEnvVars[key2], routeString)
+			})
+
+			It("creates the applications in the manifest, the env var secret, the processes, and the route, then returns 202 and a job URI", func() {
+				Expect(rr.Code).To(Equal(202))
+
+				body, err := ioutil.ReadAll(rr.Body)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(body).To(BeEmpty())
+
+				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/sync-space.apply_manifest-", namespace.Name)))
+
+				var app1 workloadsv1alpha1.CFApp
+				By("confirming that the app was created", func() {
+					var appList workloadsv1alpha1.CFAppList
+					Eventually(func() []workloadsv1alpha1.CFApp {
+						Expect(
+							k8sClient.List(context.Background(), &appList, client.InNamespace(namespace.Name)),
+						).To(Succeed())
+						return appList.Items
+					}).Should(HaveLen(1))
+
+					app1 = appList.Items[0]
+					Expect(app1.Spec.Name).To(Equal(appName))
+					Expect(app1.Spec.DesiredState).To(BeEquivalentTo("STOPPED"))
+					Expect(app1.Spec.Lifecycle.Type).To(BeEquivalentTo("buildpack"))
+					Expect(app1.Spec.EnvSecretName).NotTo(BeEmpty())
 				})
 
-				It("creates the applications in the manifest, the env var secret, the processes, and the route, then returns 202 and a job URI", func() {
-					Expect(rr.Code).To(Equal(202))
+				By("confirming that the secret was created", func() {
+					secretNSName := types.NamespacedName{
+						Name:      app1.Spec.EnvSecretName,
+						Namespace: namespace.Name,
+					}
+					var secretRecord corev1.Secret
+					Eventually(func() error {
+						return k8sClient.Get(context.Background(), secretNSName, &secretRecord)
+					}).Should(Succeed())
+					Expect(secretRecord.Data).To(HaveLen(len(requestEnvVars)))
 
-					body, err := ioutil.ReadAll(rr.Body)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(body).To(BeEmpty())
-
-					Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/sync-space.apply_manifest-", namespace.Name)))
-
-					var app1 workloadsv1alpha1.CFApp
-					By("confirming that the app was created", func() {
-						var appList workloadsv1alpha1.CFAppList
-						Eventually(func() []workloadsv1alpha1.CFApp {
-							Expect(
-								k8sClient.List(context.Background(), &appList, client.InNamespace(namespace.Name)),
-							).To(Succeed())
-							return appList.Items
-						}).Should(HaveLen(1))
-
-						app1 = appList.Items[0]
-						Expect(app1.Spec.Name).To(Equal(appName))
-						Expect(app1.Spec.DesiredState).To(BeEquivalentTo("STOPPED"))
-						Expect(app1.Spec.Lifecycle.Type).To(BeEquivalentTo("buildpack"))
-						Expect(app1.Spec.EnvSecretName).NotTo(BeEmpty())
-					})
-
-					By("confirming that the secret was created", func() {
-						secretNSName := types.NamespacedName{
-							Name:      app1.Spec.EnvSecretName,
-							Namespace: namespace.Name,
-						}
-						var secretRecord corev1.Secret
-						Eventually(func() error {
-							return k8sClient.Get(context.Background(), secretNSName, &secretRecord)
-						}).Should(Succeed())
-						Expect(secretRecord.Data).To(HaveLen(len(requestEnvVars)))
-
-						for k, v := range requestEnvVars {
-							Expect(secretRecord.Data).To(HaveKeyWithValue(k, BeEquivalentTo(v)))
-						}
-					})
-
-					By("confirming that the processes from the manifest were created", func() {
-						var processList workloadsv1alpha1.CFProcessList
-						Eventually(func() []workloadsv1alpha1.CFProcess {
-							Expect(
-								k8sClient.List(context.Background(), &processList, client.InNamespace(namespace.Name)),
-							).To(Succeed())
-							return processList.Items
-						}).Should(HaveLen(2))
-
-						Expect(processList.Items).To(ConsistOf(
-							MatchFields(IgnoreExtras, Fields{
-								"Spec": Equal(workloadsv1alpha1.CFProcessSpec{
-									AppRef:      corev1.LocalObjectReference{Name: app1.Name},
-									ProcessType: "web",
-									Command:     "start-web.sh",
-									HealthCheck: workloadsv1alpha1.HealthCheck{
-										Type: "http",
-										Data: workloadsv1alpha1.HealthCheckData{
-											HTTPEndpoint:             "/stuff",
-											InvocationTimeoutSeconds: 60,
-											TimeoutSeconds:           60,
-										},
-									},
-									DesiredInstances: 3,
-									MemoryMB:         500,
-									DiskQuotaMB:      512,
-									Ports:            []int32{},
-								}),
-							}),
-							MatchFields(IgnoreExtras, Fields{
-								"Spec": Equal(workloadsv1alpha1.CFProcessSpec{
-									AppRef:      corev1.LocalObjectReference{Name: app1.Name},
-									ProcessType: "worker",
-									Command:     "start-worker.sh",
-									HealthCheck: workloadsv1alpha1.HealthCheck{
-										Type: "http",
-										Data: workloadsv1alpha1.HealthCheckData{
-											HTTPEndpoint:             "/things",
-											InvocationTimeoutSeconds: 90,
-											TimeoutSeconds:           90,
-										},
-									},
-									DesiredInstances: 0, // default value, since we didn't specify in manifest
-									MemoryMB:         256,
-									DiskQuotaMB:      1024,
-									Ports:            []int32{},
-								}),
-							}),
-						))
-					})
+					for k, v := range requestEnvVars {
+						Expect(secretRecord.Data).To(HaveKeyWithValue(k, BeEquivalentTo(v)))
+					}
 				})
 
-				When("the route doesn't exist", func() {
-					It("creates the route from the manifest", func() {
-						var app workloadsv1alpha1.CFApp
-						var appList workloadsv1alpha1.CFAppList
-						Eventually(func() []workloadsv1alpha1.CFApp {
-							Expect(
-								k8sClient.List(context.Background(), &appList, client.InNamespace(namespace.Name)),
-							).To(Succeed())
-							return appList.Items
-						}).Should(HaveLen(1))
+				By("confirming that the processes from the manifest were created", func() {
+					var processList workloadsv1alpha1.CFProcessList
+					Eventually(func() []workloadsv1alpha1.CFProcess {
+						Expect(
+							k8sClient.List(context.Background(), &processList, client.InNamespace(namespace.Name)),
+						).To(Succeed())
+						return processList.Items
+					}).Should(HaveLen(2))
 
-						app = appList.Items[0]
-
-						var routeList networkingv1alpha1.CFRouteList
-						Eventually(func() []networkingv1alpha1.CFRoute {
-							Expect(
-								k8sClient.List(context.Background(), &routeList, client.InNamespace(namespace.Name)),
-							).To(Succeed())
-							return routeList.Items
-						}).Should(HaveLen(1))
-
-						route := routeList.Items[0]
-						Expect(route.Spec).To(MatchAllFields(Fields{
-							"DomainRef": Equal(corev1.LocalObjectReference{Name: domainGUID}),
-							"Host":      Equal(host),
-							"Path":      Equal(path),
-							"Protocol":  BeEquivalentTo("http"),
-							"Destinations": ConsistOf(MatchAllFields(Fields{
-								"GUID":        Not(BeEmpty()),
-								"Port":        Equal(8080),
-								"AppRef":      Equal(corev1.LocalObjectReference{Name: app.Name}),
-								"ProcessType": Equal("web"),
-								"Protocol":    Equal("http1"),
-							})),
-						}))
-					})
+					Expect(processList.Items).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"Spec": Equal(workloadsv1alpha1.CFProcessSpec{
+								AppRef:      corev1.LocalObjectReference{Name: app1.Name},
+								ProcessType: "web",
+								Command:     "start-web.sh",
+								HealthCheck: workloadsv1alpha1.HealthCheck{
+									Type: "http",
+									Data: workloadsv1alpha1.HealthCheckData{
+										HTTPEndpoint:             "/stuff",
+										InvocationTimeoutSeconds: 60,
+										TimeoutSeconds:           60,
+									},
+								},
+								DesiredInstances: 3,
+								MemoryMB:         500,
+								DiskQuotaMB:      512,
+								Ports:            []int32{},
+							}),
+						}),
+						MatchFields(IgnoreExtras, Fields{
+							"Spec": Equal(workloadsv1alpha1.CFProcessSpec{
+								AppRef:      corev1.LocalObjectReference{Name: app1.Name},
+								ProcessType: "worker",
+								Command:     "start-worker.sh",
+								HealthCheck: workloadsv1alpha1.HealthCheck{
+									Type: "http",
+									Data: workloadsv1alpha1.HealthCheckData{
+										HTTPEndpoint:             "/things",
+										InvocationTimeoutSeconds: 90,
+										TimeoutSeconds:           90,
+									},
+								},
+								DesiredInstances: 0, // default value, since we didn't specify in manifest
+								MemoryMB:         256,
+								DiskQuotaMB:      1024,
+								Ports:            []int32{},
+							}),
+						}),
+					))
 				})
 			})
 
-			FWhen("default-route: true is specified in the manifest", func() {
-				BeforeEach(func() {
-					requestBody = fmt.Sprintf(`---
-                  version: 1
-                  applications:
-                  - name: %s
-                    env:
-                      %s: %s
-                      %s: %s
-                    default-route: true
-                    processes:
-                    - type: web
-                      command: start-web.sh
-                      disk_quota: 512M
-                      instances: 3
-                      memory: 500M
-                      health-check-type: http
-                      health-check-http-endpoint: /stuff
-                      health-check-invocation-timeout: 60
-                      timeout: 60
-                    - type: worker
-                      command: start-worker.sh
-                      disk_quota: 1G
-                      memory: 256M
-                      health-check-type: http
-                      health-check-http-endpoint: /things
-                      health-check-invocation-timeout: 90
-                      timeout: 90`, appName, key1, requestEnvVars[key1], key2, requestEnvVars[key2])
-				})
+			When("the route doesn't exist", func() {
+				It("creates the route from the manifest", func() {
+					var app workloadsv1alpha1.CFApp
+					var appList workloadsv1alpha1.CFAppList
+					Eventually(func() []workloadsv1alpha1.CFApp {
+						Expect(
+							k8sClient.List(context.Background(), &appList, client.InNamespace(namespace.Name)),
+						).To(Succeed())
+						return appList.Items
+					}).Should(HaveLen(1))
 
-				It("creates the applications in the manifest, the env var secret, and the processes, returns 202 and a job URI", func() {
-					Expect(rr.Code).To(Equal(202))
+					app = appList.Items[0]
 
-					body, err := ioutil.ReadAll(rr.Body)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(body).To(BeEmpty())
+					var routeList networkingv1alpha1.CFRouteList
+					Eventually(func() []networkingv1alpha1.CFRoute {
+						Expect(
+							k8sClient.List(context.Background(), &routeList, client.InNamespace(namespace.Name)),
+						).To(Succeed())
+						return routeList.Items
+					}).Should(HaveLen(1))
 
-					Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/sync-space.apply_manifest-", namespace.Name)))
-
-					var app1 workloadsv1alpha1.CFApp
-					By("confirming that the app was created", func() {
-						var appList workloadsv1alpha1.CFAppList
-						Eventually(func() []workloadsv1alpha1.CFApp {
-							Expect(
-								k8sClient.List(context.Background(), &appList, client.InNamespace(namespace.Name)),
-							).To(Succeed())
-							return appList.Items
-						}).Should(HaveLen(1))
-
-						app1 = appList.Items[0]
-						Expect(app1.Spec.Name).To(Equal(appName))
-						Expect(app1.Spec.DesiredState).To(BeEquivalentTo("STOPPED"))
-						Expect(app1.Spec.Lifecycle.Type).To(BeEquivalentTo("buildpack"))
-						Expect(app1.Spec.EnvSecretName).NotTo(BeEmpty())
-					})
-
-					By("confirming that the route was created", func() {
-						var routeList networkingv1alpha1.CFRouteList
-						Eventually(func() []networkingv1alpha1.CFRoute {
-							Expect(
-								k8sClient.List(context.Background(), &routeList, client.InNamespace(namespace.Name)),
-							).To(Succeed())
-							return routeList.Items
-						}).Should(HaveLen(1))
-
-						route := routeList.Items[0]
-						Expect(route.Spec).To(MatchAllFields(Fields{
-							"DomainRef": Equal(corev1.LocalObjectReference{Name: domainGUID}),
-							"Host":      Equal(appName),
-							"Path":      Equal(""),
-							"Protocol":  BeEquivalentTo("http"),
-							"Destinations": ConsistOf(MatchAllFields(Fields{
-								"GUID":        Not(BeEmpty()),
-								"Port":        Equal(8080),
-								"AppRef":      Equal(corev1.LocalObjectReference{Name: app1.Name}),
-								"ProcessType": Equal("web"),
-								"Protocol":    Equal("http1"),
-							})),
-						}))
-					})
+					route := routeList.Items[0]
+					Expect(route.Spec).To(MatchAllFields(Fields{
+						"DomainRef": Equal(corev1.LocalObjectReference{Name: domainGUID}),
+						"Host":      Equal(host),
+						"Path":      Equal(path),
+						"Protocol":  BeEquivalentTo("http"),
+						"Destinations": ConsistOf(MatchAllFields(Fields{
+							"GUID":        Not(BeEmpty()),
+							"Port":        Equal(8080),
+							"AppRef":      Equal(corev1.LocalObjectReference{Name: app.Name}),
+							"ProcessType": Equal("web"),
+							"Protocol":    Equal("http1"),
+						})),
+					}))
 				})
 			})
 

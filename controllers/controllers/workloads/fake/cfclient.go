@@ -50,6 +50,20 @@ type CFClient struct {
 	listReturnsOnCall map[int]struct {
 		result1 error
 	}
+	PatchStub        func(context.Context, client.Object, client.Patch, ...client.PatchOption) error
+	patchMutex       sync.RWMutex
+	patchArgsForCall []struct {
+		arg1 context.Context
+		arg2 client.Object
+		arg3 client.Patch
+		arg4 []client.PatchOption
+	}
+	patchReturns struct {
+		result1 error
+	}
+	patchReturnsOnCall map[int]struct {
+		result1 error
+	}
 	StatusStub        func() client.StatusWriter
 	statusMutex       sync.RWMutex
 	statusArgsForCall []struct {
@@ -59,6 +73,19 @@ type CFClient struct {
 	}
 	statusReturnsOnCall map[int]struct {
 		result1 client.StatusWriter
+	}
+	UpdateStub        func(context.Context, client.Object, ...client.UpdateOption) error
+	updateMutex       sync.RWMutex
+	updateArgsForCall []struct {
+		arg1 context.Context
+		arg2 client.Object
+		arg3 []client.UpdateOption
+	}
+	updateReturns struct {
+		result1 error
+	}
+	updateReturnsOnCall map[int]struct {
+		result1 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -253,6 +280,70 @@ func (fake *CFClient) ListReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *CFClient) Patch(arg1 context.Context, arg2 client.Object, arg3 client.Patch, arg4 ...client.PatchOption) error {
+	fake.patchMutex.Lock()
+	ret, specificReturn := fake.patchReturnsOnCall[len(fake.patchArgsForCall)]
+	fake.patchArgsForCall = append(fake.patchArgsForCall, struct {
+		arg1 context.Context
+		arg2 client.Object
+		arg3 client.Patch
+		arg4 []client.PatchOption
+	}{arg1, arg2, arg3, arg4})
+	stub := fake.PatchStub
+	fakeReturns := fake.patchReturns
+	fake.recordInvocation("Patch", []interface{}{arg1, arg2, arg3, arg4})
+	fake.patchMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4...)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFClient) PatchCallCount() int {
+	fake.patchMutex.RLock()
+	defer fake.patchMutex.RUnlock()
+	return len(fake.patchArgsForCall)
+}
+
+func (fake *CFClient) PatchCalls(stub func(context.Context, client.Object, client.Patch, ...client.PatchOption) error) {
+	fake.patchMutex.Lock()
+	defer fake.patchMutex.Unlock()
+	fake.PatchStub = stub
+}
+
+func (fake *CFClient) PatchArgsForCall(i int) (context.Context, client.Object, client.Patch, []client.PatchOption) {
+	fake.patchMutex.RLock()
+	defer fake.patchMutex.RUnlock()
+	argsForCall := fake.patchArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *CFClient) PatchReturns(result1 error) {
+	fake.patchMutex.Lock()
+	defer fake.patchMutex.Unlock()
+	fake.PatchStub = nil
+	fake.patchReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFClient) PatchReturnsOnCall(i int, result1 error) {
+	fake.patchMutex.Lock()
+	defer fake.patchMutex.Unlock()
+	fake.PatchStub = nil
+	if fake.patchReturnsOnCall == nil {
+		fake.patchReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.patchReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *CFClient) Status() client.StatusWriter {
 	fake.statusMutex.Lock()
 	ret, specificReturn := fake.statusReturnsOnCall[len(fake.statusArgsForCall)]
@@ -306,6 +397,69 @@ func (fake *CFClient) StatusReturnsOnCall(i int, result1 client.StatusWriter) {
 	}{result1}
 }
 
+func (fake *CFClient) Update(arg1 context.Context, arg2 client.Object, arg3 ...client.UpdateOption) error {
+	fake.updateMutex.Lock()
+	ret, specificReturn := fake.updateReturnsOnCall[len(fake.updateArgsForCall)]
+	fake.updateArgsForCall = append(fake.updateArgsForCall, struct {
+		arg1 context.Context
+		arg2 client.Object
+		arg3 []client.UpdateOption
+	}{arg1, arg2, arg3})
+	stub := fake.UpdateStub
+	fakeReturns := fake.updateReturns
+	fake.recordInvocation("Update", []interface{}{arg1, arg2, arg3})
+	fake.updateMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3...)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFClient) UpdateCallCount() int {
+	fake.updateMutex.RLock()
+	defer fake.updateMutex.RUnlock()
+	return len(fake.updateArgsForCall)
+}
+
+func (fake *CFClient) UpdateCalls(stub func(context.Context, client.Object, ...client.UpdateOption) error) {
+	fake.updateMutex.Lock()
+	defer fake.updateMutex.Unlock()
+	fake.UpdateStub = stub
+}
+
+func (fake *CFClient) UpdateArgsForCall(i int) (context.Context, client.Object, []client.UpdateOption) {
+	fake.updateMutex.RLock()
+	defer fake.updateMutex.RUnlock()
+	argsForCall := fake.updateArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFClient) UpdateReturns(result1 error) {
+	fake.updateMutex.Lock()
+	defer fake.updateMutex.Unlock()
+	fake.UpdateStub = nil
+	fake.updateReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFClient) UpdateReturnsOnCall(i int, result1 error) {
+	fake.updateMutex.Lock()
+	defer fake.updateMutex.Unlock()
+	fake.UpdateStub = nil
+	if fake.updateReturnsOnCall == nil {
+		fake.updateReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.updateReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *CFClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -315,8 +469,12 @@ func (fake *CFClient) Invocations() map[string][][]interface{} {
 	defer fake.getMutex.RUnlock()
 	fake.listMutex.RLock()
 	defer fake.listMutex.RUnlock()
+	fake.patchMutex.RLock()
+	defer fake.patchMutex.RUnlock()
 	fake.statusMutex.RLock()
 	defer fake.statusMutex.RUnlock()
+	fake.updateMutex.RLock()
+	defer fake.updateMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

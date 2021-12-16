@@ -17,6 +17,7 @@ const (
 	cfAppRevisionKey      = "workloads.cloudfoundry.org/app-rev"
 	CFProcessGUIDLabelKey = "workloads.cloudfoundry.org/process-guid"
 	CFProcessTypeLabelKey = "workloads.cloudfoundry.org/process-type"
+	appFinalizerName      = "cfApp.workloads.cloudfoundry.org"
 )
 
 func GenerateGUID() string {
@@ -38,6 +39,9 @@ func BuildCFAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFA
 			Namespace: spaceGUID,
 			Annotations: map[string]string{
 				cfAppRevisionKey: "0",
+			},
+			Finalizers: []string{
+				appFinalizerName,
 			},
 		},
 		Spec: workloadsv1alpha1.CFAppSpec{

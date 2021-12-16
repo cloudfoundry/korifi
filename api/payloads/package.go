@@ -1,6 +1,9 @@
 package payloads
 
-import "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+import (
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 type PackageCreate struct {
 	Type          string                `json:"type" validate:"required,oneof='bits'"`
@@ -11,11 +14,17 @@ type PackageRelationships struct {
 	App *Relationship `json:"app" validate:"required"`
 }
 
-func (m PackageCreate) ToMessage(spaceGUID string) repositories.PackageCreateMessage {
+func (m PackageCreate) ToMessage(record repositories.AppRecord) repositories.PackageCreateMessage {
 	return repositories.PackageCreateMessage{
 		Type:      m.Type,
-		AppGUID:   m.Relationships.App.Data.GUID,
-		SpaceGUID: spaceGUID,
+		AppGUID:   record.GUID,
+		SpaceGUID: record.SpaceGUID,
+		OwnerRef: metav1.OwnerReference{
+			APIVersion: repositories.APIVersion,
+			Kind:       "CFApp",
+			Name:       record.GUID,
+			UID:        record.EtcdUID,
+		},
 	}
 }
 

@@ -355,7 +355,7 @@ var _ = Describe("DomainRepository", func() {
 				k8sClient.Create(beforeCtx, cfDomain),
 			).To(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(context.Background(), cfDomain)
+				_ = k8sClient.Delete(context.Background(), cfDomain)
 			})
 
 			cfDomain2 := &networkingv1alpha1.CFDomain{
@@ -370,7 +370,7 @@ var _ = Describe("DomainRepository", func() {
 				k8sClient.Create(beforeCtx, cfDomain2),
 			).To(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(context.Background(), cfDomain2)
+				_ = k8sClient.Delete(context.Background(), cfDomain2)
 			})
 		})
 

@@ -45,11 +45,12 @@ func NewSpaceManifestHandler(
 }
 
 func (h *SpaceManifestHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(SpaceManifestApplyEndpoint).Methods("POST").HandlerFunc(h.applyManifestHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(SpaceManifestApplyEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.applyManifestHandler))
 	router.Path(SpaceManifestDiffEndpoint).Methods("POST").HandlerFunc(h.validateSpaceVisible(h.diffManifestHandler))
 }
 
-func (h *SpaceManifestHandler) applyManifestHandler(w http.ResponseWriter, r *http.Request) {
+func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	spaceGUID := vars["spaceGUID"]
 
@@ -58,14 +59,6 @@ func (h *SpaceManifestHandler) applyManifestHandler(w http.ResponseWriter, r *ht
 	if rme != nil {
 		w.Header().Set("Content-Type", "application/json")
 		writeRequestMalformedErrorResponse(w, rme)
-		return
-	}
-
-	authInfo, ok := authorization.InfoFromContext(r.Context())
-	if !ok {
-		h.logger.Error(nil, "unable to get auth info")
-		w.Header().Set("Content-Type", "application/json")
-		writeUnknownErrorResponse(w)
 		return
 	}
 

@@ -1508,6 +1508,7 @@ rules:
   resources:
   - cfapps
   verbs:
+  - delete
   - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1

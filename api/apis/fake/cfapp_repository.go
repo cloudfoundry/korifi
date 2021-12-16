@@ -41,6 +41,19 @@ type CFAppRepository struct {
 		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}
+	DeleteAppStub        func(context.Context, authorization.Info, repositories.AppDeleteMessage) error
+	deleteAppMutex       sync.RWMutex
+	deleteAppArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.AppDeleteMessage
+	}
+	deleteAppReturns struct {
+		result1 error
+	}
+	deleteAppReturnsOnCall map[int]struct {
+		result1 error
+	}
 	FetchAppStub        func(context.Context, authorization.Info, string) (repositories.AppRecord, error)
 	fetchAppMutex       sync.RWMutex
 	fetchAppArgsForCall []struct {
@@ -266,6 +279,69 @@ func (fake *CFAppRepository) CreateOrPatchAppEnvVarsReturnsOnCall(i int, result1
 		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *CFAppRepository) DeleteApp(arg1 context.Context, arg2 authorization.Info, arg3 repositories.AppDeleteMessage) error {
+	fake.deleteAppMutex.Lock()
+	ret, specificReturn := fake.deleteAppReturnsOnCall[len(fake.deleteAppArgsForCall)]
+	fake.deleteAppArgsForCall = append(fake.deleteAppArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.AppDeleteMessage
+	}{arg1, arg2, arg3})
+	stub := fake.DeleteAppStub
+	fakeReturns := fake.deleteAppReturns
+	fake.recordInvocation("DeleteApp", []interface{}{arg1, arg2, arg3})
+	fake.deleteAppMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFAppRepository) DeleteAppCallCount() int {
+	fake.deleteAppMutex.RLock()
+	defer fake.deleteAppMutex.RUnlock()
+	return len(fake.deleteAppArgsForCall)
+}
+
+func (fake *CFAppRepository) DeleteAppCalls(stub func(context.Context, authorization.Info, repositories.AppDeleteMessage) error) {
+	fake.deleteAppMutex.Lock()
+	defer fake.deleteAppMutex.Unlock()
+	fake.DeleteAppStub = stub
+}
+
+func (fake *CFAppRepository) DeleteAppArgsForCall(i int) (context.Context, authorization.Info, repositories.AppDeleteMessage) {
+	fake.deleteAppMutex.RLock()
+	defer fake.deleteAppMutex.RUnlock()
+	argsForCall := fake.deleteAppArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFAppRepository) DeleteAppReturns(result1 error) {
+	fake.deleteAppMutex.Lock()
+	defer fake.deleteAppMutex.Unlock()
+	fake.DeleteAppStub = nil
+	fake.deleteAppReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFAppRepository) DeleteAppReturnsOnCall(i int, result1 error) {
+	fake.deleteAppMutex.Lock()
+	defer fake.deleteAppMutex.Unlock()
+	fake.DeleteAppStub = nil
+	if fake.deleteAppReturnsOnCall == nil {
+		fake.deleteAppReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteAppReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *CFAppRepository) FetchApp(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.AppRecord, error) {
@@ -672,6 +748,8 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.createAppMutex.RUnlock()
 	fake.createOrPatchAppEnvVarsMutex.RLock()
 	defer fake.createOrPatchAppEnvVarsMutex.RUnlock()
+	fake.deleteAppMutex.RLock()
+	defer fake.deleteAppMutex.RUnlock()
 	fake.fetchAppMutex.RLock()
 	defer fake.fetchAppMutex.RUnlock()
 	fake.fetchAppByNameAndSpaceMutex.RLock()
