@@ -1,6 +1,7 @@
 package apis
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,6 +15,7 @@ import (
 const (
 	JobGetEndpoint  = "/v3/jobs/{guid}"
 	syncSpacePrefix = "sync-space.apply_manifest-"
+	appDeletePrefix = "app.delete-"
 )
 
 type JobHandler struct {
@@ -34,26 +36,26 @@ func (h *JobHandler) jobGetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	jobGUID := vars["guid"]
 
-	spaceGUID := getSpaceGUID(jobGUID)
-	if spaceGUID == "" {
+	var jobResponse presenter.JobResponse
+	if strings.HasPrefix(jobGUID, syncSpacePrefix) {
+		spaceGUID := strings.Replace(jobGUID, syncSpacePrefix, "", 1)
+		jobResponse = presenter.ForManifestApplyJob(jobGUID, spaceGUID, h.serverURL)
+	} else if strings.HasPrefix(jobGUID, appDeletePrefix) {
+		jobResponse = presenter.ForAppDeleteJob(jobGUID, h.serverURL)
+	} else {
 		h.logger.Info("Invalid Job GUID")
 		writeNotFoundErrorResponse(w, "Job")
 		return
 	}
 
-	err := writeJsonResponse(w, presenter.ForJob(jobGUID, spaceGUID, h.serverURL), http.StatusOK)
+	responseBody, err := json.Marshal(jobResponse)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "Job GUID", jobGUID)
 		writeUnknownErrorResponse(w)
+		return
 	}
-}
 
-func getSpaceGUID(jobGUID string) string {
-	if strings.HasPrefix(jobGUID, syncSpacePrefix) {
-		spaceGUID := strings.Replace(jobGUID, syncSpacePrefix, "", 1)
-		return spaceGUID
-	}
-	return ""
+	_, _ = w.Write(responseBody)
 }
 
 func (h *JobHandler) RegisterRoutes(router *mux.Router) {

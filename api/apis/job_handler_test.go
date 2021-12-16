@@ -15,22 +15,26 @@ var _ = Describe("JobHandler", func() {
 	Describe("GET /v3/jobs endpoint", func() {
 		const (
 			spaceGUID = "my-space-guid"
-			jobGUID   = "sync-space.apply_manifest-" + spaceGUID
+			appGUID   = "my-app-guid"
 		)
 
-		BeforeEach(func() {
+		var jobGUID string
+
+		JustBeforeEach(func() {
 			jobsHandler := apis.NewJobHandler(
 				logf.Log.WithName("TestRootHandler"),
 				*serverURL,
 			)
 			jobsHandler.RegisterRoutes(router)
+
+			req, err := http.NewRequest("GET", "/v3/jobs/"+jobGUID, nil)
+			Expect(err).NotTo(HaveOccurred())
+			router.ServeHTTP(rr, req)
 		})
 
-		When("on the happy path", func() {
+		When("getting an existing job", func() {
 			BeforeEach(func() {
-				req, err := http.NewRequest("GET", "/v3/jobs/"+jobGUID, nil)
-				Expect(err).NotTo(HaveOccurred())
-				router.ServeHTTP(rr, req)
+				jobGUID = "sync-space.apply_manifest-" + spaceGUID
 			})
 			It("returns status 200 OK", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
@@ -41,8 +45,12 @@ var _ = Describe("JobHandler", func() {
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 			})
 
-			It("matches the expected response body format", func() {
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+			When("the existing job operation is sync-space.apply-manifest", func() {
+				BeforeEach(func() {
+					jobGUID = "sync-space.apply_manifest-" + spaceGUID
+				})
+				It("returns the job", func() {
+					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 				  "created_at": "",
 				  "errors": null,
 				  "guid": "%[2]s",
@@ -59,15 +67,37 @@ var _ = Describe("JobHandler", func() {
 				  "updated_at": "",
 				  "warnings": null
 				}`, defaultServerURL, jobGUID, spaceGUID)), "Response body matches response:")
+				})
+			})
+
+			When("the existing job operation is app.delete", func() {
+				BeforeEach(func() {
+					jobGUID = "app.delete-" + appGUID
+				})
+				It("returns the job", func() {
+					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+				  "created_at": "",
+				  "errors": null,
+				  "guid": "%[2]s",
+				  "links": {
+					"self": {
+					  "href": "%[1]s/v3/jobs/%[2]s"
+					}
+				  },
+				  "operation": "app.delete",
+				  "state": "COMPLETE",
+				  "updated_at": "",
+				  "warnings": null
+				}`, defaultServerURL, jobGUID)), "Response body matches response:")
+				})
 			})
 		})
 
 		When("guid provided is not a valid job guid", func() {
 			BeforeEach(func() {
-				req, err := http.NewRequest("GET", "/v3/jobs/some-guid", nil)
-				Expect(err).NotTo(HaveOccurred())
-				router.ServeHTTP(rr, req)
+				jobGUID = "some-guid"
 			})
+
 			It("return an error", func() {
 				expectNotFoundError("Job not found")
 			})
