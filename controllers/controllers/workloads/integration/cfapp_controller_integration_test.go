@@ -145,6 +145,15 @@ var _ = Describe("CFAppReconciler", func() {
 							Expect(createdCFProcess.Spec.Command).To(Equal(process.Command), "cfprocess command does not match with droplet command")
 							Expect(createdCFProcess.Spec.AppRef.Name).To(Equal(cfAppGUID), "cfprocess app ref does not match app-guid")
 							Expect(createdCFProcess.Spec.Ports).To(Equal(droplet.Ports), "cfprocess ports does not match ports on droplet")
+
+							Expect(createdCFProcess.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+								{
+									APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+									Kind:       "CFApp",
+									Name:       cfApp.Name,
+									UID:        cfApp.GetUID(),
+								},
+							}))
 						}
 					})
 				})

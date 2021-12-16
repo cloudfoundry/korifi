@@ -103,7 +103,7 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 			// Only if CFProcess does no exist for a given process type, invoke create
 			if !processExistsForType {
-				err = r.createCFProcess(ctx, process, droplet.Ports, cfApp.Name, cfApp.Namespace)
+				err = r.createCFProcess(ctx, process, droplet.Ports, cfApp)
 				if err != nil {
 					r.Log.Error(err, fmt.Sprintf("Error creating CFProcess for Type: %s", process.Type))
 					return ctrl.Result{}, err
@@ -130,21 +130,21 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	return ctrl.Result{}, nil
 }
 
-func (r *CFAppReconciler) createCFProcess(ctx context.Context, process workloadsv1alpha1.ProcessType, ports []int32, cfAppGUID string, namespace string) error {
+func (r *CFAppReconciler) createCFProcess(ctx context.Context, process workloadsv1alpha1.ProcessType, ports []int32, cfApp *workloadsv1alpha1.CFApp) error {
 	cfProcessGUID := generateGUID()
 
 	desiredCFProcess := workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfProcessGUID,
-			Namespace: namespace,
+			Namespace: cfApp.Namespace,
 			Labels: map[string]string{
-				workloadsv1alpha1.CFAppGUIDLabelKey:     cfAppGUID,
+				workloadsv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
 				workloadsv1alpha1.CFProcessGUIDLabelKey: cfProcessGUID,
 				workloadsv1alpha1.CFProcessTypeLabelKey: process.Type,
 			},
 		},
 		Spec: workloadsv1alpha1.CFProcessSpec{
-			AppRef:      corev1.LocalObjectReference{Name: cfAppGUID},
+			AppRef:      corev1.LocalObjectReference{Name: cfApp.Name},
 			ProcessType: process.Type,
 			Command:     process.Command,
 			HealthCheck: workloadsv1alpha1.HealthCheck{
@@ -159,6 +159,12 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process workloads
 			DiskQuotaMB:      r.ControllerConfig.CFProcessDefaults.DefaultDiskQuotaMB,
 			Ports:            ports,
 		},
+	}
+
+	err := controllerutil.SetOwnerReference(cfApp, &desiredCFProcess, r.Scheme)
+	if err != nil {
+		r.Log.Error(err, "failed to set OwnerRef on CFProcess")
+		return err
 	}
 
 	return r.Client.Create(ctx, &desiredCFProcess)
@@ -239,7 +245,6 @@ func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *workloadsv1a
 	}
 
 	return ctrl.Result{}, nil
-
 }
 
 func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []networkingv1alpha1.CFRoute) error {
@@ -266,7 +271,6 @@ func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID
 }
 
 func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfAppNamespace string) ([]networkingv1alpha1.CFRoute, error) {
-
 	var foundRoutes networkingv1alpha1.CFRouteList
 	matchingFields := client.MatchingFields{DestinationAppName: cfAppGUID}
 	err := r.Client.List(context.Background(), &foundRoutes, client.InNamespace(cfAppNamespace), matchingFields)

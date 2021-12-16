@@ -194,7 +194,7 @@ func (h PackageHandler) packageCreateHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	record, err := h.packageRepo.CreatePackage(r.Context(), authInfo, payload.ToMessage(appRecord.SpaceGUID))
+	record, err := h.packageRepo.CreatePackage(r.Context(), authInfo, payload.ToMessage(appRecord))
 	if err != nil {
 		h.logger.Info("Error creating package with repository", "error", err.Error())
 		writeUnknownErrorResponse(w)
