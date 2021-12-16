@@ -13,10 +13,11 @@ type Manifest struct {
 }
 
 type ManifestApplication struct {
-	Name      string                       `yaml:"name" validate:"required"`
-	Env       map[string]string            `yaml:"env"`
-	Processes []ManifestApplicationProcess `yaml:"processes" validate:"dive"`
-	Routes    []ManifestRoute              `yaml:"routes" validate:"dive"`
+	Name         string                       `yaml:"name" validate:"required"`
+	Env          map[string]string            `yaml:"env"`
+	Processes    []ManifestApplicationProcess `yaml:"processes" validate:"dive"`
+	DefaultRoute bool                         `yaml:"default-route"`
+	Routes       []ManifestRoute              `yaml:"routes" validate:"dive"`
 }
 
 type ManifestApplicationProcess struct {

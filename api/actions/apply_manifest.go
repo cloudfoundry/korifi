@@ -47,6 +47,26 @@ func (a *applyManifest) Invoke(ctx context.Context, authInfo authorization.Info,
 	if err != nil {
 		return err
 	}
+
+	// If the default-route is true and routes is not set
+	if appInfo.DefaultRoute && len(appInfo.Routes) == 0 {
+		// If the app has no routes yet
+		existingRoutes, err := a.routeRepo.FetchRoutesForApp(ctx, authInfo, spaceGUID, appRecord.GUID)
+		if err != nil {
+			panic("TODO")
+		}
+		if len(existingRoutes) > 0 {
+			panic("TODO")
+		}
+		// FindDefaultDomain
+		defaultDomainName := "my-domain.fun"
+		defaultRoute := payloads.ManifestRoute{
+			Route: appInfo.Name + "." + defaultDomainName,
+		}
+		// set the route field of the manifest with app-name . default domain
+		appInfo.Routes = append(appInfo.Routes, defaultRoute)
+	}
+
 	return a.createOrUpdateRoutes(ctx, authInfo, appRecord, appInfo.Routes)
 }
 
