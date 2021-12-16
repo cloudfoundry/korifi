@@ -101,12 +101,12 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 		})
 
 		When("no app with that name exists and", func() {
+			const (
+				host        = "custom"
+				path        = "/path"
+				routeString = host + "." + domainName + path
+			)
 			When("route is specified in the manifest", func() {
-				const (
-					host        = "custom"
-					path        = "/path"
-					routeString = host + "." + domainName + path
-				)
 
 				BeforeEach(func() {
 					requestBody = fmt.Sprintf(`---
@@ -270,6 +270,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					})
 				})
 			})
+
 			FWhen("default-route: true is specified in the manifest", func() {
 				BeforeEach(func() {
 					requestBody = fmt.Sprintf(`---

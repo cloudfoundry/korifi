@@ -84,6 +84,23 @@ func (r *DomainRepo) FetchDomainByName(ctx context.Context, authInfo authorizati
 	return domainRecords[0], nil
 }
 
+// TODO: write tests for this
+func (r *DomainRepo) FetchDefaultDomain(ctx context.Context, authInfo authorization.Info) (DomainRecord, error) {
+	domainRecords, err := r.FetchDomainList(ctx, authInfo, DomainListMessage{})
+	if err != nil {
+		return DomainRecord{}, err
+	}
+
+	if len(domainRecords) == 0 {
+		return DomainRecord{}, NotFoundError{
+			Err:          err,
+			ResourceType: "Domain",
+		}
+	}
+
+	return domainRecords[0], nil
+}
+
 func (r *DomainRepo) applyDomainListFilter(domainList []networkingv1alpha1.CFDomain, message DomainListMessage) []networkingv1alpha1.CFDomain {
 	if len(message.Names) == 0 {
 		return domainList

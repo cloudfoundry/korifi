@@ -59,9 +59,14 @@ func (a *applyManifest) Invoke(ctx context.Context, authInfo authorization.Info,
 			panic("TODO")
 		}
 		// FindDefaultDomain
-		defaultDomainName := "my-domain.fun"
+		defaultDomainRecord, err := a.domainRepo.FetchDefaultDomain(ctx, authInfo)
+		if err != nil {
+			panic("TODO")
+		}
+		defaultDomainName := defaultDomainRecord.Name //"my-domain.fun"
+		defaultRouteString := appInfo.Name + "." + defaultDomainName
 		defaultRoute := payloads.ManifestRoute{
-			Route: appInfo.Name + "." + defaultDomainName,
+			Route: &defaultRouteString,
 		}
 		// set the route field of the manifest with app-name . default domain
 		appInfo.Routes = append(appInfo.Routes, defaultRoute)
