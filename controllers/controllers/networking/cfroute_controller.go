@@ -207,15 +207,15 @@ func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *networ
 
 func (r *CFRouteReconciler) finalizeFQDNProxy(ctx context.Context, cfRouteName string, fqdnProxy *contourv1.HTTPProxy) error {
 	originalFQDNProxy := fqdnProxy.DeepCopy()
-
-	for idx, include := range fqdnProxy.Spec.Includes {
-		if include.Name == cfRouteName {
+	var retainedIncludes []contourv1.Include
+	for _, include := range fqdnProxy.Spec.Includes {
+		if include.Name != cfRouteName {
+			retainedIncludes = append(retainedIncludes, include)
+		} else {
 			r.Log.Info(fmt.Sprintf("Removing sub-HTTPProxy for route %s from FQDN HTTPProxy", cfRouteName))
-			fqdnProxy.Spec.Includes[idx] = fqdnProxy.Spec.Includes[len(fqdnProxy.Spec.Includes)-1]
-			fqdnProxy.Spec.Includes = fqdnProxy.Spec.Includes[:len(fqdnProxy.Spec.Includes)-1]
 		}
 	}
-
+	fqdnProxy.Spec.Includes = retainedIncludes
 	err := r.Client.Patch(ctx, fqdnProxy, client.MergeFrom(originalFQDNProxy))
 	if err != nil {
 		r.Log.Error(err, "failed to patch FQDN HTTPProxy to remove sub HTTPProxy")

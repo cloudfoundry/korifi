@@ -22,11 +22,6 @@ type PackageResponse struct {
 	UpdatedAt     string        `json:"updated_at"`
 }
 
-type PackageListResponse struct {
-	PaginationData PaginationData    `json:"pagination"`
-	Resources      []PackageResponse `json:"resources"`
-}
-
 type PackageData struct{}
 
 type PackageLinks struct {
@@ -73,25 +68,11 @@ func ForPackage(record repositories.PackageRecord, baseURL url.URL) PackageRespo
 	}
 }
 
-func ForPackageList(packageRecordList []repositories.PackageRecord, baseURL url.URL) PackageListResponse {
-	packageResponses := make([]PackageResponse, 0, len(packageRecordList))
+func ForPackageList(packageRecordList []repositories.PackageRecord, baseURL, requestURL url.URL) ListResponse {
+	packageResponses := make([]interface{}, 0, len(packageRecordList))
 	for _, currentPackage := range packageRecordList {
 		packageResponses = append(packageResponses, ForPackage(currentPackage, baseURL))
 	}
 
-	packageListResponse := PackageListResponse{
-		PaginationData: PaginationData{
-			TotalResults: len(packageResponses),
-			TotalPages:   1,
-			First: PageRef{
-				HREF: buildURL(baseURL).appendPath(packagesBase).build(),
-			},
-			Last: PageRef{
-				HREF: buildURL(baseURL).appendPath(packagesBase).build(),
-			},
-		},
-		Resources: packageResponses,
-	}
-
-	return packageListResponse
+	return ForList(packageResponses, baseURL, requestURL)
 }

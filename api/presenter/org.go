@@ -13,11 +13,6 @@ const (
 	spacesBase = "/v3/spaces"
 )
 
-type OrgListResponse struct {
-	Pagination PaginationData `json:"pagination"`
-	Resources  []OrgResponse  `json:"resources"`
-}
-
 type OrgResponse struct {
 	Name string `json:"name"`
 	GUID string `json:"guid"`
@@ -35,11 +30,6 @@ type OrgLinks struct {
 	Domains       *Link `json:"domains,omitempty"`
 	DefaultDomain *Link `json:"default_domain,omitempty"`
 	Quota         *Link `json:"quota,omitempty"`
-}
-
-type SpaceListResponse struct {
-	Pagination PaginationData  `json:"pagination"`
-	Resources  []SpaceResponse `json:"resources"`
 }
 
 type SpaceResponse struct {
@@ -61,53 +51,26 @@ func ForCreateOrg(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
 	return toOrgResponse(org, apiBaseURL)
 }
 
-func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL, requestURL url.URL) OrgListResponse {
-	orgResponses := []OrgResponse{}
-
+func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL, requestURL url.URL) ListResponse {
+	orgResponses := make([]interface{}, 0, len(orgs))
 	for _, org := range orgs {
 		orgResponses = append(orgResponses, toOrgResponse(org, apiBaseURL))
 	}
 
-	return OrgListResponse{
-		Pagination: PaginationData{
-			TotalResults: len(orgs),
-			TotalPages:   1,
-			First: PageRef{
-				HREF: buildURL(apiBaseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
-			},
-			Last: PageRef{
-				HREF: buildURL(apiBaseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
-			},
-		},
-		Resources: orgResponses,
-	}
+	return ForList(orgResponses, apiBaseURL, requestURL)
 }
 
 func ForCreateSpace(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceResponse {
 	return toSpaceResponse(space, apiBaseURL)
 }
 
-func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL, requestURL url.URL) SpaceListResponse {
-	spaceResponses := []SpaceResponse{}
-
+func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL, requestURL url.URL) ListResponse {
+	spaceResponses := make([]interface{}, 0, len(spaces))
 	for _, space := range spaces {
 		spaceResponses = append(spaceResponses, toSpaceResponse(space, apiBaseURL))
 	}
 
-	paginationURL := buildURL(apiBaseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build()
-	return SpaceListResponse{
-		Pagination: PaginationData{
-			TotalResults: len(spaces),
-			TotalPages:   1,
-			First: PageRef{
-				HREF: paginationURL,
-			},
-			Last: PageRef{
-				HREF: paginationURL,
-			},
-		},
-		Resources: spaceResponses,
-	}
+	return ForList(spaceResponses, apiBaseURL, requestURL)
 }
 
 func toSpaceResponse(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceResponse {

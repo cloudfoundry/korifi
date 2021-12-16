@@ -45,6 +45,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 | List App Processes | GET /v3/apps/\<guid>/processes |
 | Scale App Process | POST /v3/apps/<guid>/processes/<type>/actions/scale |
 | List App Routes | GET /v3/apps/\<guid>/routes |
+| Delete App | [DELETE /v3/apps/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#delete-an-app) |
 
 #### [List Apps](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-apps)
 **Query Parameters:** Currently supports filtering by app `names` and `space_guids` and ordering by `name`.
@@ -79,7 +80,6 @@ curl "http://localhost:9000/v3/apps/<guid>/processes/<type>/actions/scale" \
   -X POST \
   -d '{ "instances": 5, "memory_in_mb": 256, "disk_in_mb": 1024 }'
 ```
-
 
 #### [Start an app](https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#start-an-app)
 ```bash

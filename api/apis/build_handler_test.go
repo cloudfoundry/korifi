@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
@@ -346,6 +348,7 @@ var _ = Describe("BuildHandler", func() {
 
 		const (
 			packageGUID = "the-package-guid"
+			packageUID  = "the-package-uid"
 			appGUID     = "the-app-guid"
 			buildGUID   = "test-build-guid"
 
@@ -370,6 +373,7 @@ var _ = Describe("BuildHandler", func() {
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
 				GUID:      packageGUID,
+				UID:       packageUID,
 				State:     "READY",
 				CreatedAt: createdAt,
 				UpdatedAt: updatedAt,
@@ -442,6 +446,14 @@ var _ = Describe("BuildHandler", func() {
 					Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
 					Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal([]string{}))
 					Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
+				})
+				It("fills the OwnerRef with a reference to the CFPackage", func() {
+					Expect(actualCreate.OwnerRef).To(Equal(metav1.OwnerReference{
+						APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+						Kind:       "CFPackage",
+						Name:       packageGUID,
+						UID:        packageUID,
+					}))
 				})
 			})
 

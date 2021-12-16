@@ -139,7 +139,7 @@ func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				Verbs:     []string{"list"},
+				Verbs:     []string{"list", "delete"},
 				APIGroups: []string{"workloads.cloudfoundry.org"},
 				Resources: []string{"cfapps"},
 			},

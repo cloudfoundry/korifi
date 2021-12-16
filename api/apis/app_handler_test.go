@@ -2542,6 +2542,74 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 	})
+
+	Describe("the DELETE /v3/apps/:guid endpoint", func() {
+		var app repositories.AppRecord
+
+		BeforeEach(func() {
+			app = repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID}
+
+			appRepo.FetchAppReturns(app, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "DELETE", "/v3/apps/"+appGUID, nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("on the happy path", func() {
+			It("responds with a 202 accepted response", func() {
+				Expect(rr.Code).To(Equal(http.StatusAccepted))
+			})
+
+			It("responds with a job URL in a location header", func() {
+				locationHeader := rr.Header().Get("Location")
+				Expect(locationHeader).To(Equal("https://api.example.org/v3/jobs/app.delete-"+appGUID), "Matching Location header")
+			})
+
+			It("fetches the right App", func() {
+				Expect(appRepo.FetchAppCallCount()).To(Equal(1))
+				_, _, actualAppGUID := appRepo.FetchAppArgsForCall(0)
+				Expect(actualAppGUID).To(Equal(appGUID))
+			})
+
+			It("deletes the K8s record via the repository", func() {
+				Expect(appRepo.DeleteAppCallCount()).To(Equal(1))
+				_, _, message := appRepo.DeleteAppArgsForCall(0)
+				Expect(message.AppGUID).To(Equal(appGUID))
+				Expect(message.SpaceGUID).To(Equal(spaceGUID))
+			})
+		})
+
+		When("the App doesn't exist", func() {
+			BeforeEach(func() {
+				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("fetching the App errors", func() {
+			BeforeEach(func() {
+				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("deleting the App errors", func() {
+			BeforeEach(func() {
+				appRepo.DeleteAppReturns(errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
 })
 
 func initializeCreateAppRequestBody(appName, spaceGUID string, envVars, labels, annotations map[string]string) string {

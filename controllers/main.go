@@ -25,6 +25,7 @@ import (
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 	networkingcontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/imageprocessfetcher"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
@@ -172,6 +173,13 @@ func main() {
 		ControllerConfig: controllerConfig,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
+		os.Exit(1)
+	}
+
+	// Setup Index with Manager
+	err = shared.SetupIndexWithManager(mgr)
+	if err != nil {
+		setupLog.Error(err, "unable to setup index on manager")
 		os.Exit(1)
 	}
 

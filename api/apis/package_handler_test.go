@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -454,6 +456,7 @@ var _ = Describe("PackageHandler", func() {
 		const (
 			packageGUID = "the-package-guid"
 			appGUID     = "the-app-guid"
+			appUID      = "the-app-uid"
 			spaceGUID   = "the-space-guid"
 			validBody   = `{
 				"type": "bits",
@@ -482,6 +485,8 @@ var _ = Describe("PackageHandler", func() {
 
 			appRepo.FetchAppReturns(repositories.AppRecord{
 				SpaceGUID: spaceGUID,
+				GUID:      appGUID,
+				EtcdUID:   appUID,
 			}, nil)
 		})
 
@@ -507,6 +512,12 @@ var _ = Describe("PackageHandler", func() {
 					Type:      "bits",
 					AppGUID:   appGUID,
 					SpaceGUID: spaceGUID,
+					OwnerRef: metav1.OwnerReference{
+						APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+						Kind:       "CFApp",
+						Name:       appGUID,
+						UID:        appUID,
+					},
 				}))
 			})
 

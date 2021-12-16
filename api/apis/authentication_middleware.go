@@ -2,6 +2,7 @@ package apis
 
 import (
 	"net/http"
+	"regexp"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"github.com/go-http-utils/headers"
@@ -27,15 +28,16 @@ func NewAuthenticationMiddleware(logger logr.Logger, authInfoParser AuthInfoPars
 		authInfoParser:   authInfoParser,
 		identityProvider: identityProvider,
 		unauthenticatedEndpoints: map[string]interface{}{
-			"/":   struct{}{},
-			"/v3": struct{}{},
+			"/":            struct{}{},
+			"/v3":          struct{}{},
+			"/api/v1/info": struct{}{},
 		},
 	}
 }
 
 func (a *AuthenticationMiddleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, authNotRequired := a.unauthenticatedEndpoints[r.URL.Path]; authNotRequired {
+		if a.isUnauthenticatedEndpoint(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -73,4 +75,15 @@ func (a *AuthenticationMiddleware) Middleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// Eventually we will want to authenticate the log-cache read endpoint and go back to using the simple
+// unauthenticatedEndpoints map. For now though we need to do a more complicated regexp match against
+// the path since the log-cache read endpoint includes an arbitrary guid as part of its path
+var logCacheReadEndpointRegexp = regexp.MustCompile(`\/api\/v1\/read\/[0-9a-fA-F\-]*$`)
+
+func (a *AuthenticationMiddleware) isUnauthenticatedEndpoint(p string) bool {
+	_, authNotRequired := a.unauthenticatedEndpoints[p]
+
+	return authNotRequired || logCacheReadEndpointRegexp.MatchString(p)
 }

@@ -2,6 +2,7 @@ package apis_test
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
@@ -9,6 +10,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider/fake"
 	"github.com/go-http-utils/headers"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -78,6 +80,39 @@ var _ = Describe("Authentication Middleware", func() {
 			It("does not inject an authorization.Info in the context", func() {
 				_, ok := authorization.InfoFromContext(actualReq.Context())
 				Expect(ok).To(BeFalse())
+			})
+		})
+
+		Describe("/api/v1/info", func() {
+			BeforeEach(func() {
+				requestPath = "/api/v1/info"
+			})
+
+			It("passes through", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
+			})
+
+			It("does not inject an authorization.Info in the context", func() {
+				_, ok := authorization.InfoFromContext(actualReq.Context())
+				Expect(ok).To(BeFalse())
+			})
+		})
+
+		Describe("/api/v1/read/:guid", func() {
+			When("given an arbitrary guid", func() {
+				BeforeEach(func() {
+					guid := uuid.NewString()
+					requestPath = fmt.Sprintf("/api/v1/read/%s", guid)
+				})
+
+				It("passes through", func() {
+					Expect(rr).To(HaveHTTPStatus(http.StatusTeapot), fmt.Sprintf("Request path: %s", requestPath))
+				})
+
+				It("does not inject an authorization.Info in the context", func() {
+					_, ok := authorization.InfoFromContext(actualReq.Context())
+					Expect(ok).To(BeFalse(), fmt.Sprintf("Request path: %s", requestPath))
+				})
 			})
 		})
 	})
