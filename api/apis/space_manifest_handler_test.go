@@ -2,7 +2,6 @@ package apis_test
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -280,7 +279,6 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 
 			It("passes through the default-route payload to the action", func() {
-				fmt.Println(rr)
 				Expect(applyManifestAction.CallCount()).To(Equal(1))
 				_, _, _, payload := applyManifestAction.ArgsForCall(0)
 				Expect(payload.Applications[0].DefaultRoute).To(BeTrue())
