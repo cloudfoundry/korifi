@@ -2,6 +2,7 @@ package apis_test
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -262,6 +263,27 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 			It("respond with Unknown Error", func() {
 				expectUnknownError()
+			})
+		})
+
+		When("a manifest with default-route: true is applied", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+                version: 1
+                applications:
+                  - name: app1
+                    default-route: true
+            `))
+				Expect(err).NotTo(HaveOccurred())
+				req.Header.Add("Content-type", "application/x-yaml")
+			})
+
+			It("passes through the default-route payload to the action", func() {
+				fmt.Println(rr)
+				Expect(applyManifestAction.CallCount()).To(Equal(1))
+				_, _, _, payload := applyManifestAction.ArgsForCall(0)
+				Expect(payload.Applications[0].DefaultRoute).To(BeTrue())
 			})
 		})
 	})

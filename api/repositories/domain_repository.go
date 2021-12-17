@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"sort"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
@@ -61,7 +62,7 @@ func (r *DomainRepo) FetchDomainList(ctx context.Context, authInfo authorization
 		return []DomainRecord{}, err
 	}
 
-	filtered := r.applyDomainListFilter(cfdomainList.Items, message)
+	filtered := r.applyDomainListFilterAndOrder(cfdomainList.Items, message)
 
 	return r.returnDomainList(filtered), nil
 }
@@ -83,24 +84,37 @@ func (r *DomainRepo) FetchDomainByName(ctx context.Context, authInfo authorizati
 
 	return domainRecords[0], nil
 }
-func (r *DomainRepo) FetchDefaultDomain(ctx context.Context, authInfo authorization.Info) (DomainRecord, error) {
 
-	return DomainRecord{}, nil
+func (r *DomainRepo) FetchDefaultDomain(ctx context.Context, authInfo authorization.Info) (DomainRecord, error) {
+	domainList, err := r.FetchDomainList(ctx, authInfo, DomainListMessage{})
+	if err != nil { // untested
+		return DomainRecord{}, err
+	}
+	if len(domainList) == 0 {
+		return DomainRecord{}, NotFoundError{ResourceType: "Domain"}
+	}
+	return domainList[0], nil
 }
 
-func (r *DomainRepo) applyDomainListFilter(domainList []networkingv1alpha1.CFDomain, message DomainListMessage) []networkingv1alpha1.CFDomain {
-	if len(message.Names) == 0 {
-		return domainList
-	}
-
+func (r *DomainRepo) applyDomainListFilterAndOrder(domainList []networkingv1alpha1.CFDomain, message DomainListMessage) []networkingv1alpha1.CFDomain {
 	var filtered []networkingv1alpha1.CFDomain
-	for _, domain := range domainList {
-		for _, name := range message.Names {
-			if domain.Spec.Name == name {
-				filtered = append(filtered, domain)
+	if len(message.Names) > 0 {
+		for _, domain := range domainList {
+			for _, name := range message.Names {
+				if domain.Spec.Name == name {
+					filtered = append(filtered, domain)
+				}
 			}
 		}
+	} else {
+		filtered = domainList
 	}
+
+	// TODO: use the future message.Order fields to reorder the list of results
+	// For now, we order by created_at by default- if you really want to optimize runtime you can use bucketsort
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].CreationTimestamp.Before(&filtered[j].CreationTimestamp)
+	})
 
 	return filtered
 }

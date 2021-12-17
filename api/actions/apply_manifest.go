@@ -48,31 +48,41 @@ func (a *applyManifest) Invoke(ctx context.Context, authInfo authorization.Info,
 		return err
 	}
 
-	// If the default-route is true and routes is not set
-	if appInfo.DefaultRoute && len(appInfo.Routes) == 0 {
-		// If the app has no routes yet
-		existingRoutes, err := a.routeRepo.FetchRoutesForApp(ctx, authInfo, spaceGUID, appRecord.GUID)
-		if err != nil {
-			panic("TODO")
-		}
-		if len(existingRoutes) > 0 {
-			panic("TODO")
-		}
-		// FindDefaultDomain
-		defaultDomainRecord, err := a.domainRepo.FetchDefaultDomain(ctx, authInfo)
-		if err != nil {
-			panic("TODO")
-		}
-		defaultDomainName := defaultDomainRecord.Name //"my-domain.fun"
-		defaultRouteString := appInfo.Name + "." + defaultDomainName
-		defaultRoute := payloads.ManifestRoute{
-			Route: &defaultRouteString,
-		}
-		// set the route field of the manifest with app-name . default domain
-		appInfo.Routes = append(appInfo.Routes, defaultRoute)
+	err = a.checkAndUpdateDefaultRoute(ctx, authInfo, appRecord, &appInfo)
+	if err != nil {
+		return err
 	}
 
 	return a.createOrUpdateRoutes(ctx, authInfo, appRecord, appInfo.Routes)
+}
+
+// checkAndUpdateDefaultRoute may set the default route on the manifest when DefaultRoute is true
+func (a *applyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, appInfo *payloads.ManifestApplication) error {
+	if !appInfo.DefaultRoute || len(appInfo.Routes) > 0 {
+		return nil
+	}
+
+	existingRoutes, err := a.routeRepo.FetchRoutesForApp(ctx, authInfo, appRecord.SpaceGUID, appRecord.GUID)
+	if err != nil {
+		return err
+	}
+	if len(existingRoutes) > 0 {
+		return nil
+	}
+
+	defaultDomainRecord, err := a.domainRepo.FetchDefaultDomain(ctx, authInfo)
+	if err != nil {
+		return err
+	}
+	defaultDomainName := defaultDomainRecord.Name
+	defaultRouteString := appInfo.Name + "." + defaultDomainName
+	defaultRoute := payloads.ManifestRoute{
+		Route: &defaultRouteString,
+	}
+	// set the route field of the manifest with app-name . default domain
+	appInfo.Routes = append(appInfo.Routes, defaultRoute)
+
+	return nil
 }
 
 func (a *applyManifest) updateApp(ctx context.Context, authInfo authorization.Info, spaceGUID string, appRecord repositories.AppRecord, appInfo payloads.ManifestApplication) error {

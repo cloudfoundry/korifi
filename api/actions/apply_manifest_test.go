@@ -16,8 +16,11 @@ import (
 
 var _ = Describe("ApplyManifest", func() {
 	const (
-		spaceGUID = "test-space-guid"
-		appName   = "my-app"
+		spaceGUID         = "test-space-guid"
+		appName           = "my-app"
+		appGUID           = "my-app-guid"
+		defaultDomainName = "default-domain.com"
+		defaultDomainGUID = "default-domain-guid"
 	)
 	var (
 		manifest    payloads.Manifest
@@ -31,7 +34,18 @@ var _ = Describe("ApplyManifest", func() {
 
 	BeforeEach(func() {
 		appRepo = new(fake.CFAppRepository)
+		appRepo.FetchAppByNameAndSpaceReturns(repositories.AppRecord{
+			Name: appName,
+			GUID: appGUID,
+		}, nil)
 		domainRepo = new(fake.CFDomainRepository)
+		defaultDomainRecord := repositories.DomainRecord{
+			Name: defaultDomainName,
+			GUID: defaultDomainGUID,
+		}
+		domainRepo.FetchDefaultDomainReturns(defaultDomainRecord, nil)
+		domainRepo.FetchDomainByNameReturns(defaultDomainRecord, nil)
+
 		processRepo = new(fake.CFProcessRepository)
 		routeRepo = new(fake.CFRouteRepository)
 		action = NewApplyManifest(appRepo, domainRepo, processRepo, routeRepo).Invoke
@@ -166,6 +180,66 @@ var _ = Describe("ApplyManifest", func() {
 		})
 	})
 
+	When("default route is specified for the app, and no routes are specified", func() {
+		BeforeEach(func() {
+			manifest.Applications[0].DefaultRoute = true
+		})
+
+		When("the app has no existing route destinations", func() {
+			It("fetches the default domain, and calls create route for the default destination", func() {
+				Expect(
+					action(context.Background(), authInfo, spaceGUID, manifest),
+				).To(Succeed())
+				Expect(routeRepo.FetchOrCreateRouteCallCount()).To(Equal(1))
+				_, _, createMessage := routeRepo.FetchOrCreateRouteArgsForCall(0)
+				Expect(createMessage.Host).To(Equal(appName))
+				Expect(createMessage.Path).To(Equal(""))
+				Expect(createMessage.DomainGUID).To(Equal(defaultDomainGUID))
+
+				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
+				_, _, destinationsMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)
+				Expect(destinationsMessage.NewDestinations).To(HaveLen(1))
+				Expect(destinationsMessage.NewDestinations[0].AppGUID).To(Equal(appGUID))
+			})
+
+			When("fetching the destinations for the app fails", func() {
+				BeforeEach(func() {
+					routeRepo.FetchRoutesForAppReturns([]repositories.RouteRecord{}, errors.New("fail-on-purpose"))
+				})
+				It("returns an error", func() {
+					Expect(
+						action(context.Background(), authInfo, spaceGUID, manifest),
+					).NotTo(Succeed())
+				})
+			})
+
+			When("fetching the default domain fails", func() {
+				BeforeEach(func() {
+					domainRepo.FetchDefaultDomainReturns(repositories.DomainRecord{}, errors.New("fail-on-purpose"))
+				})
+				It("returns an error", func() {
+					Expect(
+						action(context.Background(), authInfo, spaceGUID, manifest),
+					).NotTo(Succeed())
+				})
+			})
+		})
+		When("the app already has a route destination", func() {
+			BeforeEach(func() {
+				routeRepo.FetchRoutesForAppReturns([]repositories.RouteRecord{{
+					GUID: "some-other-route-guid",
+				}}, nil)
+			})
+			It("does not call FetchOrCreateRoute, but does not return an error", func() {
+				Expect(
+					action(context.Background(), authInfo, spaceGUID, manifest),
+				).To(Succeed())
+				Expect(routeRepo.FetchOrCreateRouteCallCount()).To(Equal(0))
+				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+			})
+		})
+	})
+
 	When("a route is specified for the app", func() {
 		BeforeEach(func() {
 			manifest.Applications[0].Routes = []payloads.ManifestRoute{
@@ -221,6 +295,29 @@ var _ = Describe("ApplyManifest", func() {
 				Expect(
 					action(context.Background(), authInfo, spaceGUID, manifest),
 				).To(MatchError(ContainSubstring("boom")))
+			})
+		})
+
+		When("defaultRoute:true is set on the manifest along with the routes", func() {
+			BeforeEach(func() {
+				manifest.Applications[0].Routes = []payloads.ManifestRoute{
+					{Route: stringPointer("NOT-MY-APP.my-domain.com/path")},
+				}
+				manifest.Applications[0].DefaultRoute = true
+			})
+			It("is ignored, and AddDestinationsToRouteCallCount is called without adding a default destination to the existing route list", func() {
+				Expect(
+					action(context.Background(), authInfo, spaceGUID, manifest),
+				).To(Succeed())
+				Expect(routeRepo.FetchOrCreateRouteCallCount()).To(Equal(len(manifest.Applications[0].Routes)))
+				_, _, createMessage := routeRepo.FetchOrCreateRouteArgsForCall(0)
+				Expect(createMessage.Host).To(Equal("NOT-MY-APP"))
+				Expect(createMessage.Path).To(Equal("/path"))
+				Expect(createMessage.DomainGUID).To(Equal(defaultDomainGUID))
+
+				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
+				_, _, destinationsMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)
+				Expect(destinationsMessage.NewDestinations).To(HaveLen(1))
 			})
 		})
 	})
