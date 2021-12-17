@@ -53,7 +53,6 @@ func (h *SpaceManifestHandler) RegisterRoutes(router *mux.Router) {
 func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	spaceGUID := vars["spaceGUID"]
-
 	var manifest payloads.Manifest
 	rme := decodeAndValidateYAMLPayload(r, &manifest)
 	if rme != nil {

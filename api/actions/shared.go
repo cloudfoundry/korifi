@@ -39,11 +39,13 @@ type PodRepository interface {
 
 type CFDomainRepository interface {
 	FetchDomainByName(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
+	FetchDefaultDomain(context.Context, authorization.Info) (repositories.DomainRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository
 
 type CFRouteRepository interface {
 	FetchOrCreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
+	FetchRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
 	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
 }
