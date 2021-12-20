@@ -1,4 +1,4 @@
-kpackImageTag: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
+kpackImageTag: localregistry-docker-registry.default.svc.cluster.local:30050/cf-k8s-controllers/kpack/images
 
 clusterBuilderName: cf-kpack-cluster-builder
 cfProcessDefaults:

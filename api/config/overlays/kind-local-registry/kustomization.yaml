@@ -1,0 +1,24 @@
+configMapGenerator:
+- behavior: merge
+  files:
+  - apiconfig/cf_k8s_api_config.yaml
+  name: config
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../base
+
+patches:
+- target:
+    group: projectcontour.io
+    version: v1
+    kind: HTTPProxy
+    name: proxy
+  patch: |-
+    - op: replace
+      path: /spec/virtualhost/fqdn
+      value: "localhost"
+    - op: remove
+      path: /spec/virtualhost/tls
