@@ -36,8 +36,8 @@ type ManifestRoute struct {
 	Route *string `yaml:"route" validate:"route"`
 }
 
-func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.AppCreateMessage {
-	return repositories.AppCreateMessage{
+func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.CreateAppMessage {
+	return repositories.CreateAppMessage{
 		Name:      a.Name,
 		SpaceGUID: spaceGUID,
 		Lifecycle: repositories.Lifecycle{
@@ -48,7 +48,7 @@ func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.A
 	}
 }
 
-func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID string) repositories.ProcessCreateMessage {
+func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID string) repositories.CreateProcessMessage {
 	var (
 		command                      string
 		healthCheckType              string
@@ -97,13 +97,13 @@ func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID st
 		memoryQuotaMB, _ = bytefmt.ToMegabytes(*p.Memory)
 	}
 
-	return repositories.ProcessCreateMessage{
+	return repositories.CreateProcessMessage{
 		AppGUID:     appGUID,
 		SpaceGUID:   spaceGUID,
 		Type:        p.Type,
 		Command:     command,
 		DiskQuotaMB: int64(diskQuotaMB),
-		Healthcheck: repositories.HealthCheck{
+		HealthCheck: repositories.HealthCheck{
 			Type: healthCheckType,
 			Data: repositories.HealthCheckData{
 				HTTPEndpoint:             healthCheckHTTPEndpoint,
@@ -116,12 +116,12 @@ func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID st
 	}
 }
 
-func (p ManifestApplicationProcess) ToProcessPatchMessage(processGUID, spaceGUID string) repositories.ProcessPatchMessage {
-	message := repositories.ProcessPatchMessage{
+func (p ManifestApplicationProcess) ToProcessPatchMessage(processGUID, spaceGUID string) repositories.PatchProcessMessage {
+	message := repositories.PatchProcessMessage{
 		ProcessGUID:                         processGUID,
 		SpaceGUID:                           spaceGUID,
 		Command:                             p.Command,
-		HealthcheckType:                     p.HealthCheckType,
+		HealthCheckType:                     p.HealthCheckType,
 		HealthCheckHTTPEndpoint:             p.HealthCheckHTTPEndpoint,
 		HealthCheckInvocationTimeoutSeconds: p.HealthCheckInvocationTimeout,
 		HealthCheckTimeoutSeconds:           p.Timeout,

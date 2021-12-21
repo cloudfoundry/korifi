@@ -27,7 +27,7 @@ var _ = Describe("DomainRepository", func() {
 		domainRepo = NewDomainRepo(k8sClient)
 	})
 
-	Describe("FetchDomain", func() {
+	Describe("GetDomain", func() {
 		When("multiple CFDomain resources exist", func() {
 			var (
 				cfDomain1 *networkingv1alpha1.CFDomain
@@ -59,7 +59,7 @@ var _ = Describe("DomainRepository", func() {
 			})
 
 			It("fetches the CFDomain CR we're looking for", func() {
-				domain, err := domainRepo.FetchDomain(testCtx, authInfo, "domain-id-1")
+				domain, err := domainRepo.GetDomain(testCtx, authInfo, "domain-id-1")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(domain.GUID).To(Equal("domain-id-1"))
@@ -75,17 +75,17 @@ var _ = Describe("DomainRepository", func() {
 
 		When("no CFDomain exists", func() {
 			It("returns an error", func() {
-				_, err := domainRepo.FetchDomain(testCtx, authInfo, "non-existent-domain-guid")
+				_, err := domainRepo.GetDomain(testCtx, authInfo, "non-existent-domain-guid")
 				Expect(err).To(MatchError("Resource not found or permission denied."))
 			})
 		})
 	})
 
-	Describe("FetchDomainList", func() {
-		var domainListMessage DomainListMessage
+	Describe("ListDomains", func() {
+		var domainListMessage ListDomainsMessage
 
 		BeforeEach(func() {
-			domainListMessage = DomainListMessage{}
+			domainListMessage = ListDomainsMessage{}
 		})
 
 		When("multiple CFDomains exist and no filter is provided", func() {
@@ -154,7 +154,7 @@ var _ = Describe("DomainRepository", func() {
 			It("eventually returns an ordered list(oldest to newest) of domainRecords for each CFDomain CR", func() {
 				var domainRecords []DomainRecord
 				Eventually(func() []DomainRecord {
-					domainRecords, _ = domainRepo.FetchDomainList(testCtx, authInfo, domainListMessage)
+					domainRecords, _ = domainRepo.ListDomains(testCtx, authInfo, domainListMessage)
 					return domainRecords
 				}, timeCheckThreshold*time.Second).Should(ContainElements(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID1)}),
@@ -176,7 +176,7 @@ var _ = Describe("DomainRepository", func() {
 
 		When("no CFDomains exist", func() {
 			It("returns an empty list and no error", func() {
-				domainRecords, err := domainRepo.FetchDomainList(testCtx, authInfo, domainListMessage)
+				domainRecords, err := domainRepo.ListDomains(testCtx, authInfo, domainListMessage)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domainRecords).To(BeEmpty())
 			})
@@ -200,7 +200,7 @@ var _ = Describe("DomainRepository", func() {
 				domainGUID2 = generateGUID()
 
 				ctx := context.Background()
-				domainListMessage = DomainListMessage{
+				domainListMessage = ListDomainsMessage{
 					Names: []string{domainName1},
 				}
 
@@ -234,7 +234,7 @@ var _ = Describe("DomainRepository", func() {
 				It("eventually returns a list of domainRecords for each CFDomain CR that matches the key with value", func() {
 					var domainRecords []DomainRecord
 					Eventually(func() []DomainRecord {
-						domainRecords, _ = domainRepo.FetchDomainList(testCtx, authInfo, domainListMessage)
+						domainRecords, _ = domainRepo.ListDomains(testCtx, authInfo, domainListMessage)
 						return domainRecords
 					}, timeCheckThreshold*time.Second).Should(HaveLen(1), "returned records count should equal number of created CRs")
 
@@ -267,7 +267,7 @@ var _ = Describe("DomainRepository", func() {
 
 			When("a multiple value is provided for a key", func() {
 				BeforeEach(func() {
-					domainListMessage = DomainListMessage{
+					domainListMessage = ListDomainsMessage{
 						Names: []string{domainName1, domainName2},
 					}
 				})
@@ -275,7 +275,7 @@ var _ = Describe("DomainRepository", func() {
 				It("eventually returns a list of domainRecords for each CFDomain CR that matches the key with value", func() {
 					var domainRecords []DomainRecord
 					Eventually(func() []DomainRecord {
-						domainRecords, _ = domainRepo.FetchDomainList(testCtx, authInfo, domainListMessage)
+						domainRecords, _ = domainRepo.ListDomains(testCtx, authInfo, domainListMessage)
 						return domainRecords
 					}, timeCheckThreshold*time.Second).Should(HaveLen(2), "returned records count should equal number of created CRs")
 
@@ -324,7 +324,7 @@ var _ = Describe("DomainRepository", func() {
 		})
 	})
 
-	Describe("FetchDomainByName", func() {
+	Describe("GetDomainByName", func() {
 		const (
 			domainName = "fetchdomainbyname.test"
 		)
@@ -371,7 +371,7 @@ var _ = Describe("DomainRepository", func() {
 
 		When("One match exists for the provided name", func() {
 			It("returns a domainRecord that matches the specified domain name, and no error", func() {
-				domainRecord, err := domainRepo.FetchDomainByName(context.Background(), authInfo, domainName)
+				domainRecord, err := domainRepo.GetDomainByName(context.Background(), authInfo, domainName)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(domainRecord.GUID).To(Equal(domainGUID))
 				Expect(domainRecord.Name).To(Equal(domainName))
@@ -380,13 +380,13 @@ var _ = Describe("DomainRepository", func() {
 
 		When("No matches exist for the provided name", func() {
 			It("returns a domainRecord that matches the specified domain name, and no error", func() {
-				_, err := domainRepo.FetchDomainByName(context.Background(), authInfo, "i-dont-exist")
+				_, err := domainRepo.GetDomainByName(context.Background(), authInfo, "i-dont-exist")
 				Expect(err).To(MatchError(NotFoundError{ResourceType: "Domain"}))
 			})
 		})
 	})
 
-	Describe("FetchDefaultDomain", func() {
+	Describe("GetDefaultDomain", func() {
 		When("multiple domains exist", func() {
 			const (
 				domainName1 = "my-domain-name-1"
@@ -452,7 +452,7 @@ var _ = Describe("DomainRepository", func() {
 				})
 
 				Eventually(func() []DomainRecord {
-					domainRecords, _ = domainRepo.FetchDomainList(testCtx, authInfo, DomainListMessage{})
+					domainRecords, _ = domainRepo.ListDomains(testCtx, authInfo, ListDomainsMessage{})
 					return domainRecords
 				}, timeCheckThreshold*time.Second).Should(ContainElements(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID1)}),
@@ -462,7 +462,7 @@ var _ = Describe("DomainRepository", func() {
 			})
 
 			It("returns the oldest domain it can find and no error", func() {
-				defaultDomainRecord, err := domainRepo.FetchDefaultDomain(context.Background(), authInfo)
+				defaultDomainRecord, err := domainRepo.GetDefaultDomain(context.Background(), authInfo)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(defaultDomainRecord).To(Equal(domainRecords[0]))
 			})
@@ -470,7 +470,7 @@ var _ = Describe("DomainRepository", func() {
 
 		When("no domains exist", Serial, func() {
 			It("returns a not found error", func() {
-				_, err := domainRepo.FetchDefaultDomain(context.Background(), authInfo)
+				_, err := domainRepo.GetDefaultDomain(context.Background(), authInfo)
 				Expect(err).To(MatchError(NotFoundError{ResourceType: "Domain"}))
 			})
 		})

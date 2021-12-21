@@ -33,11 +33,11 @@ type DomainRecord struct {
 	UpdatedAt   string
 }
 
-type DomainListMessage struct {
+type ListDomainsMessage struct {
 	Names []string
 }
 
-func (r *DomainRepo) FetchDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) (DomainRecord, error) {
+func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) (DomainRecord, error) {
 	domain := &networkingv1alpha1.CFDomain{}
 	err := r.privilegedClient.Get(ctx, types.NamespacedName{Name: domainGUID}, domain)
 	if err != nil {
@@ -55,20 +55,20 @@ func (r *DomainRepo) FetchDomain(ctx context.Context, authInfo authorization.Inf
 	return cfDomainToDomainRecord(domain), nil
 }
 
-func (r *DomainRepo) FetchDomainList(ctx context.Context, authInfo authorization.Info, message DomainListMessage) ([]DomainRecord, error) {
+func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Info, message ListDomainsMessage) ([]DomainRecord, error) {
 	cfdomainList := &networkingv1alpha1.CFDomainList{}
 	err := r.privilegedClient.List(ctx, cfdomainList)
 	if err != nil {
 		return []DomainRecord{}, err
 	}
 
-	filtered := r.applyDomainListFilterAndOrder(cfdomainList.Items, message)
+	filtered := applyDomainListFilterAndOrder(cfdomainList.Items, message)
 
-	return r.returnDomainList(filtered), nil
+	return returnDomainList(filtered), nil
 }
 
-func (r *DomainRepo) FetchDomainByName(ctx context.Context, authInfo authorization.Info, domainName string) (DomainRecord, error) {
-	domainRecords, err := r.FetchDomainList(ctx, authInfo, DomainListMessage{
+func (r *DomainRepo) GetDomainByName(ctx context.Context, authInfo authorization.Info, domainName string) (DomainRecord, error) {
+	domainRecords, err := r.ListDomains(ctx, authInfo, ListDomainsMessage{
 		Names: []string{domainName},
 	})
 	if err != nil {
@@ -85,8 +85,9 @@ func (r *DomainRepo) FetchDomainByName(ctx context.Context, authInfo authorizati
 	return domainRecords[0], nil
 }
 
-func (r *DomainRepo) FetchDefaultDomain(ctx context.Context, authInfo authorization.Info) (DomainRecord, error) {
-	domainList, err := r.FetchDomainList(ctx, authInfo, DomainListMessage{})
+// TODO: GetDefaultDomain?
+func (r *DomainRepo) GetDefaultDomain(ctx context.Context, authInfo authorization.Info) (DomainRecord, error) {
+	domainList, err := r.ListDomains(ctx, authInfo, ListDomainsMessage{})
 	if err != nil { // untested
 		return DomainRecord{}, err
 	}
@@ -96,7 +97,7 @@ func (r *DomainRepo) FetchDefaultDomain(ctx context.Context, authInfo authorizat
 	return domainList[0], nil
 }
 
-func (r *DomainRepo) applyDomainListFilterAndOrder(domainList []networkingv1alpha1.CFDomain, message DomainListMessage) []networkingv1alpha1.CFDomain {
+func applyDomainListFilterAndOrder(domainList []networkingv1alpha1.CFDomain, message ListDomainsMessage) []networkingv1alpha1.CFDomain {
 	var filtered []networkingv1alpha1.CFDomain
 	if len(message.Names) > 0 {
 		for _, domain := range domainList {
@@ -119,7 +120,7 @@ func (r *DomainRepo) applyDomainListFilterAndOrder(domainList []networkingv1alph
 	return filtered
 }
 
-func (r *DomainRepo) returnDomainList(domainList []networkingv1alpha1.CFDomain) []DomainRecord {
+func returnDomainList(domainList []networkingv1alpha1.CFDomain) []DomainRecord {
 	domainRecords := make([]DomainRecord, 0, len(domainList))
 
 	for _, domain := range domainList {

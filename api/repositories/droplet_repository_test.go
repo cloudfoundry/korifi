@@ -15,7 +15,7 @@ import (
 )
 
 var _ = Describe("DropletRepository", func() {
-	Describe("FetchDroplet", func() {
+	Describe("GetDroplet", func() {
 		var (
 			testCtx     context.Context
 			dropletRepo *DropletRepo
@@ -119,7 +119,7 @@ var _ = Describe("DropletRepository", func() {
 
 					Eventually(func() string {
 						var fetchErr error
-						dropletRecord, fetchErr = dropletRepo.FetchDroplet(testCtx, authInfo, buildGUID)
+						dropletRecord, fetchErr = dropletRepo.GetDroplet(testCtx, authInfo, buildGUID)
 						if fetchErr != nil {
 							return ""
 						}
@@ -185,7 +185,7 @@ var _ = Describe("DropletRepository", func() {
 
 					It("should eventually return a NotFound error", func() {
 						Eventually(func() error {
-							_, err := dropletRepo.FetchDroplet(testCtx, authInfo, buildGUID)
+							_, err := dropletRepo.GetDroplet(testCtx, authInfo, buildGUID)
 							return err
 						}, 10*time.Second, 250*time.Millisecond).Should(MatchError(NotFoundError{}))
 					})
@@ -209,7 +209,7 @@ var _ = Describe("DropletRepository", func() {
 
 					It("should eventually return a NotFound error", func() {
 						Eventually(func() error {
-							_, err := dropletRepo.FetchDroplet(testCtx, authInfo, buildGUID)
+							_, err := dropletRepo.GetDroplet(testCtx, authInfo, buildGUID)
 							return err
 						}, 10*time.Second, 250*time.Millisecond).Should(MatchError(NotFoundError{}))
 					})
@@ -233,7 +233,7 @@ var _ = Describe("DropletRepository", func() {
 
 					It("should eventually return a NotFound error", func() {
 						Eventually(func() error {
-							_, err := dropletRepo.FetchDroplet(testCtx, authInfo, buildGUID)
+							_, err := dropletRepo.GetDroplet(testCtx, authInfo, buildGUID)
 							return err
 						}, 10*time.Second, 250*time.Millisecond).Should(MatchError(NotFoundError{}))
 					})
@@ -243,14 +243,14 @@ var _ = Describe("DropletRepository", func() {
 
 		When("build does not exist", func() {
 			It("returns an error", func() {
-				_, err := dropletRepo.FetchDroplet(testCtx, authInfo, "i don't exist")
+				_, err := dropletRepo.GetDroplet(testCtx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{}))
 			})
 		})
 	})
 
-	Describe("FetchDropletList", func() {
+	Describe("ListDroplets", func() {
 		var (
 			testCtx     context.Context
 			dropletRepo *DropletRepo
@@ -354,7 +354,7 @@ var _ = Describe("DropletRepository", func() {
 
 					Eventually(func() string {
 						var fetchErr error
-						dropletRecords, fetchErr = dropletRepo.FetchDropletList(testCtx, authInfo, DropletListMessage{
+						dropletRecords, fetchErr = dropletRepo.ListDroplets(testCtx, authInfo, ListDropletsMessage{
 							PackageGUIDs: []string{packageGUID},
 						})
 						if fetchErr != nil || len(dropletRecords) == 0 {

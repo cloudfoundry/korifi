@@ -22,8 +22,8 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFBuildRepository . CFBuildRepository
 type CFBuildRepository interface {
-	FetchBuild(context.Context, authorization.Info, string) (repositories.BuildRecord, error)
-	CreateBuild(context.Context, authorization.Info, repositories.BuildCreateMessage) (repositories.BuildRecord, error)
+	GetBuild(context.Context, authorization.Info, string) (repositories.BuildRecord, error)
+	CreateBuild(context.Context, authorization.Info, repositories.CreateBuildMessage) (repositories.BuildRecord, error)
 }
 
 type BuildHandler struct {
@@ -54,7 +54,7 @@ func (h *BuildHandler) buildGetHandler(authInfo authorization.Info, w http.Respo
 	vars := mux.Vars(r)
 	buildGUID := vars["guid"]
 
-	build, err := h.buildRepo.FetchBuild(ctx, authInfo, buildGUID)
+	build, err := h.buildRepo.GetBuild(ctx, authInfo, buildGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -85,7 +85,7 @@ func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, w http.Re
 		return
 	}
 
-	packageRecord, err := h.packageRepo.FetchPackage(r.Context(), authInfo, payload.Package.GUID)
+	packageRecord, err := h.packageRepo.GetPackage(r.Context(), authInfo, payload.Package.GUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:

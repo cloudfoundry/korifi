@@ -54,7 +54,7 @@ var _ = Describe("RouteHandler", func() {
 
 	Describe("the GET /v3/routes/:guid endpoint", func() {
 		BeforeEach(func() {
-			routeRepo.FetchRouteReturns(repositories.RouteRecord{
+			routeRepo.GetRouteReturns(repositories.RouteRecord{
 				GUID:      testRouteGUID,
 				SpaceGUID: testSpaceGUID,
 				Domain: repositories.DomainRecord{
@@ -66,7 +66,7 @@ var _ = Describe("RouteHandler", func() {
 				UpdatedAt: "update-time",
 			}, nil)
 
-			domainRepo.FetchDomainReturns(repositories.DomainRecord{
+			domainRepo.GetDomainReturns(repositories.DomainRecord{
 				GUID: testDomainGUID,
 				Name: "example.org",
 			}, nil)
@@ -86,8 +86,8 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("provides the authorization.Info from the context to the domain repository", func() {
-				Expect(domainRepo.FetchDomainCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := domainRepo.FetchDomainArgsForCall(0)
+				Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := domainRepo.GetDomainArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -143,21 +143,21 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("fetches the correct route", func() {
-				Expect(routeRepo.FetchRouteCallCount()).To(Equal(1), "Repo FetchRoute was not called")
-				_, _, actualRouteGUID := routeRepo.FetchRouteArgsForCall(0)
-				Expect(actualRouteGUID).To(Equal(testRouteGUID), "FetchRoute was not passed the correct GUID")
+				Expect(routeRepo.GetRouteCallCount()).To(Equal(1), "Repo GetRoute was not called")
+				_, _, actualRouteGUID := routeRepo.GetRouteArgsForCall(0)
+				Expect(actualRouteGUID).To(Equal(testRouteGUID), "GetRoute was not passed the correct GUID")
 			})
 
 			It("fetches the correct domain", func() {
-				Expect(domainRepo.FetchDomainCallCount()).To(Equal(1), "Repo FetchDomain was not called")
-				_, _, actualDomainGUID := domainRepo.FetchDomainArgsForCall(0)
-				Expect(actualDomainGUID).To(Equal(testDomainGUID), "FetchDomain was not passed the correct GUID")
+				Expect(domainRepo.GetDomainCallCount()).To(Equal(1), "Repo GetDomain was not called")
+				_, _, actualDomainGUID := domainRepo.GetDomainArgsForCall(0)
+				Expect(actualDomainGUID).To(Equal(testDomainGUID), "GetDomain was not passed the correct GUID")
 			})
 		})
 
 		When("the route cannot be found", func() {
 			BeforeEach(func() {
-				routeRepo.FetchRouteReturns(repositories.RouteRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
 
 				router.ServeHTTP(rr, req)
 			})
@@ -169,7 +169,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the route's domain cannot be found", func() {
 			BeforeEach(func() {
-				domainRepo.FetchDomainReturns(repositories.DomainRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
 
 				router.ServeHTTP(rr, req)
 			})
@@ -181,7 +181,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("there is some other error fetching the route", func() {
 			BeforeEach(func() {
-				routeRepo.FetchRouteReturns(repositories.RouteRecord{}, errors.New("unknown!"))
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("unknown!"))
 
 				router.ServeHTTP(rr, req)
 			})
@@ -225,7 +225,7 @@ var _ = Describe("RouteHandler", func() {
 				CreatedAt:    "2019-05-10T17:17:48Z",
 				UpdatedAt:    "2019-05-10T17:17:48Z",
 			}
-			routeRepo.FetchRouteListReturns([]repositories.RouteRecord{
+			routeRepo.ListRoutesReturns([]repositories.RouteRecord{
 				routeRecord,
 			}, nil)
 
@@ -233,7 +233,7 @@ var _ = Describe("RouteHandler", func() {
 				GUID: testDomainGUID,
 				Name: "example.org",
 			}
-			domainRepo.FetchDomainReturns(*domainRecord, nil)
+			domainRepo.GetDomainReturns(*domainRecord, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes", nil)
@@ -246,14 +246,14 @@ var _ = Describe("RouteHandler", func() {
 
 		When("on the happy path", func() {
 			It("provides the authorization.Info from the context to the domain repository", func() {
-				Expect(domainRepo.FetchDomainCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := domainRepo.FetchDomainArgsForCall(0)
+				Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := domainRepo.GetDomainArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
 			It("provides the authorization.Info from the context to the routes repository", func() {
-				Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := routeRepo.FetchRouteListArgsForCall(0)
+				Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := routeRepo.ListRoutesArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -349,8 +349,8 @@ var _ = Describe("RouteHandler", func() {
 				})
 
 				It("calls route with expected parameters", func() {
-					Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
-					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
+					Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+					_, _, message := routeRepo.ListRoutesArgsForCall(0)
 					Expect(message.AppGUIDs).To(HaveLen(1))
 					Expect(message.AppGUIDs[0]).To(Equal("my-app-guid"))
 				})
@@ -372,8 +372,8 @@ var _ = Describe("RouteHandler", func() {
 				})
 
 				It("calls route with expected parameters", func() {
-					Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
-					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
+					Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+					_, _, message := routeRepo.ListRoutesArgsForCall(0)
 					Expect(message.AppGUIDs).To(HaveLen(0))
 					Expect(message.SpaceGUIDs).To(HaveLen(1))
 					Expect(message.SpaceGUIDs[0]).To(Equal("my-space-guid"))
@@ -396,8 +396,8 @@ var _ = Describe("RouteHandler", func() {
 				})
 
 				It("calls route with expected parameters", func() {
-					Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
-					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
+					Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+					_, _, message := routeRepo.ListRoutesArgsForCall(0)
 					Expect(message.AppGUIDs).To(HaveLen(0))
 					Expect(message.DomainGUIDs).To(HaveLen(1))
 					Expect(message.DomainGUIDs[0]).To(Equal("my-domain-guid"))
@@ -420,8 +420,8 @@ var _ = Describe("RouteHandler", func() {
 				})
 
 				It("calls route with expected parameters", func() {
-					Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
-					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
+					Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+					_, _, message := routeRepo.ListRoutesArgsForCall(0)
 					Expect(message.AppGUIDs).To(HaveLen(0))
 					Expect(message.Hosts).To(HaveLen(1))
 					Expect(message.Hosts[0]).To(Equal("my-host"))
@@ -444,8 +444,8 @@ var _ = Describe("RouteHandler", func() {
 				})
 
 				It("calls route with expected parameters", func() {
-					Expect(routeRepo.FetchRouteListCallCount()).To(Equal(1))
-					_, _, message := routeRepo.FetchRouteListArgsForCall(0)
+					Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+					_, _, message := routeRepo.ListRoutesArgsForCall(0)
 					Expect(message.AppGUIDs).To(HaveLen(0))
 					Expect(message.Paths).To(HaveLen(1))
 					Expect(message.Paths[0]).To(Equal("/some/path"))
@@ -455,7 +455,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("no routes exist", func() {
 			BeforeEach(func() {
-				routeRepo.FetchRouteListReturns([]repositories.RouteRecord{}, nil)
+				routeRepo.ListRoutesReturns([]repositories.RouteRecord{}, nil)
 			})
 
 			It("returns status 200 OK", func() {
@@ -491,7 +491,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("there is a failure Listing Routes", func() {
 			BeforeEach(func() {
-				routeRepo.FetchRouteListReturns([]repositories.RouteRecord{}, errors.New("unknown!"))
+				routeRepo.ListRoutesReturns([]repositories.RouteRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -501,7 +501,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("there is a failure finding a Domain", func() {
 			BeforeEach(func() {
-				domainRepo.FetchDomainReturns(repositories.DomainRecord{}, errors.New("unknown!"))
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -545,11 +545,11 @@ var _ = Describe("RouteHandler", func() {
 		When("the space exists and the route does not exist and", func() {
 			When("a plain POST test route request is sent without metadata", func() {
 				BeforeEach(func() {
-					appRepo.FetchNamespaceReturns(repositories.SpaceRecord{
+					appRepo.GetNamespaceReturns(repositories.SpaceRecord{
 						Name: testSpaceGUID,
 					}, nil)
 
-					domainRepo.FetchDomainReturns(repositories.DomainRecord{
+					domainRepo.GetDomainReturns(repositories.DomainRecord{
 						GUID: testDomainGUID,
 						Name: testDomainName,
 					}, nil)
@@ -572,20 +572,20 @@ var _ = Describe("RouteHandler", func() {
 				})
 
 				It("checks that the specified namespace exists", func() {
-					Expect(appRepo.FetchNamespaceCallCount()).To(Equal(1), "Repo FetchNamespace was not called")
-					_, _, actualSpaceGUID := appRepo.FetchNamespaceArgsForCall(0)
-					Expect(actualSpaceGUID).To(Equal(testSpaceGUID), "FetchNamespace was not passed the correct GUID")
+					Expect(appRepo.GetNamespaceCallCount()).To(Equal(1), "Repo GetNamespace was not called")
+					_, _, actualSpaceGUID := appRepo.GetNamespaceArgsForCall(0)
+					Expect(actualSpaceGUID).To(Equal(testSpaceGUID), "GetNamespace was not passed the correct GUID")
 				})
 
 				It("checks that the specified domain exists", func() {
-					Expect(domainRepo.FetchDomainCallCount()).To(Equal(1), "Repo FetchDomain was not called")
-					_, _, actualDomainGUID := domainRepo.FetchDomainArgsForCall(0)
-					Expect(actualDomainGUID).To(Equal(testDomainGUID), "FetchDomain was not passed the correct GUID")
+					Expect(domainRepo.GetDomainCallCount()).To(Equal(1), "Repo GetDomain was not called")
+					_, _, actualDomainGUID := domainRepo.GetDomainArgsForCall(0)
+					Expect(actualDomainGUID).To(Equal(testDomainGUID), "GetDomain was not passed the correct GUID")
 				})
 
 				It("provides the authorization.Info from the context to the domain repository", func() {
-					Expect(domainRepo.FetchDomainCallCount()).To(Equal(1))
-					_, actualAuthInfo, _ := domainRepo.FetchDomainArgsForCall(0)
+					Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
+					_, actualAuthInfo, _ := domainRepo.GetDomainArgsForCall(0)
 					Expect(actualAuthInfo).To(Equal(authInfo))
 				})
 
@@ -873,7 +873,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the space does not exist", func() {
 			BeforeEach(func() {
-				appRepo.FetchNamespaceReturns(repositories.SpaceRecord{},
+				appRepo.GetNamespaceReturns(repositories.SpaceRecord{},
 					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")})
 
 				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, "no-such-space", testDomainGUID, nil, nil)
@@ -885,9 +885,9 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("FetchNamespace returns an unknown error", func() {
+		When("GetNamespace returns an unknown error", func() {
 			BeforeEach(func() {
-				appRepo.FetchNamespaceReturns(repositories.SpaceRecord{},
+				appRepo.GetNamespaceReturns(repositories.SpaceRecord{},
 					errors.New("random error"))
 
 				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, "no-such-space", testDomainGUID, nil, nil)
@@ -901,11 +901,11 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the domain does not exist", func() {
 			BeforeEach(func() {
-				appRepo.FetchNamespaceReturns(repositories.SpaceRecord{
+				appRepo.GetNamespaceReturns(repositories.SpaceRecord{
 					Name: testSpaceGUID,
 				}, nil)
 
-				domainRepo.FetchDomainReturns(repositories.DomainRecord{},
+				domainRepo.GetDomainReturns(repositories.DomainRecord{},
 					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")})
 
 				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
@@ -917,13 +917,13 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("FetchDomain returns an unknown error", func() {
+		When("GetDomain returns an unknown error", func() {
 			BeforeEach(func() {
-				appRepo.FetchNamespaceReturns(repositories.SpaceRecord{
+				appRepo.GetNamespaceReturns(repositories.SpaceRecord{
 					Name: testSpaceGUID,
 				}, nil)
 
-				domainRepo.FetchDomainReturns(repositories.DomainRecord{},
+				domainRepo.GetDomainReturns(repositories.DomainRecord{},
 					errors.New("random error"))
 
 				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
@@ -937,11 +937,11 @@ var _ = Describe("RouteHandler", func() {
 
 		When("CreateRoute returns an unknown error", func() {
 			BeforeEach(func() {
-				appRepo.FetchNamespaceReturns(repositories.SpaceRecord{
+				appRepo.GetNamespaceReturns(repositories.SpaceRecord{
 					Name: testSpaceGUID,
 				}, nil)
 
-				domainRepo.FetchDomainReturns(repositories.DomainRecord{
+				domainRepo.GetDomainReturns(repositories.DomainRecord{
 					GUID: testDomainGUID,
 					Name: testDomainName,
 				}, nil)
@@ -1000,7 +1000,7 @@ var _ = Describe("RouteHandler", func() {
 				CreatedAt: "create-time",
 				UpdatedAt: "update-time",
 			}
-			routeRepo.FetchRouteReturns(routeRecord, nil)
+			routeRepo.GetRouteReturns(routeRecord, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("/v3/routes/%s/destinations", testRouteGUID), nil)
@@ -1018,8 +1018,8 @@ var _ = Describe("RouteHandler", func() {
 				})
 
 				It("provides the authorization.Info from the context to the routes repository", func() {
-					Expect(routeRepo.FetchRouteCallCount()).To(Equal(1))
-					_, actualAuthInfo, _ := routeRepo.FetchRouteArgsForCall(0)
+					Expect(routeRepo.GetRouteCallCount()).To(Equal(1))
+					_, actualAuthInfo, _ := routeRepo.GetRouteArgsForCall(0)
 					Expect(actualAuthInfo).To(Equal(authInfo))
 				})
 
@@ -1074,7 +1074,7 @@ var _ = Describe("RouteHandler", func() {
 
 			When("the Route has no destinations", func() {
 				BeforeEach(func() {
-					routeRepo.FetchRouteReturns(
+					routeRepo.GetRouteReturns(
 						repositories.RouteRecord{
 							GUID:      testRouteGUID,
 							SpaceGUID: testSpaceGUID,
@@ -1118,7 +1118,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the route cannot be found", func() {
 			BeforeEach(func() {
-				routeRepo.FetchRouteReturns(repositories.RouteRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
 			})
 
 			It("returns an error", func() {
@@ -1128,7 +1128,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("there is some other issue fetching the route", func() {
 			BeforeEach(func() {
-				routeRepo.FetchRouteReturns(repositories.RouteRecord{}, errors.New("unknown!"))
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an errror", func() {
@@ -1193,8 +1193,8 @@ var _ = Describe("RouteHandler", func() {
 				Name: "my-tld.com",
 			}
 
-			routeRepo.FetchRouteReturns(routeRecord, nil)
-			domainRepo.FetchDomainReturns(domain, nil)
+			routeRepo.GetRouteReturns(routeRecord, nil)
+			domainRepo.GetDomainReturns(domain, nil)
 		})
 
 		When("the request body is valid", func() {
@@ -1248,12 +1248,12 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("passes the authInfo into the repo calls", func() {
-				Expect(routeRepo.FetchRouteCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := routeRepo.FetchRouteArgsForCall(0)
+				Expect(routeRepo.GetRouteCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := routeRepo.GetRouteArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 
-				Expect(domainRepo.FetchDomainCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ = domainRepo.FetchDomainArgsForCall(0)
+				Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ = domainRepo.GetDomainArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 
 				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
@@ -1331,7 +1331,7 @@ var _ = Describe("RouteHandler", func() {
 
 			When("the route doesn't exist", func() {
 				BeforeEach(func() {
-					routeRepo.FetchRouteReturns(repositories.RouteRecord{}, repositories.NotFoundError{})
+					routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NotFoundError{})
 				})
 
 				It("responds with 422 and an error", func() {
@@ -1385,7 +1385,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 			When("fetching the route errors", func() {
 				BeforeEach(func() {
-					routeRepo.FetchRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
+					routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
 				})
 
 				It("responds with an Unknown Error", func() {

@@ -24,8 +24,8 @@ func NewSpaceRepoAuthDecorator(
 	}
 }
 
-func (r *SpaceRepoAuthDecorator) FetchSpaces(ctx context.Context, orgUIDs []string, spaceNames []string) ([]SpaceRecord, error) {
-	spaces, err := r.CFSpaceRepository.FetchSpaces(ctx, orgUIDs, spaceNames)
+func (r *SpaceRepoAuthDecorator) ListSpaces(ctx context.Context, orgUIDs []string, spaceNames []string) ([]SpaceRecord, error) {
+	spaces, err := r.CFSpaceRepository.ListSpaces(ctx, orgUIDs, spaceNames)
 	if err != nil {
 		return nil, err
 	}

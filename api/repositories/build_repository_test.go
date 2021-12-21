@@ -132,7 +132,7 @@ var _ = Describe("BuildRepository", func() {
 				)
 				When("no status.Conditions are set", func() {
 					BeforeEach(func() {
-						returnedBuildRecord, err := buildRepo.FetchBuild(testCtx, authInfo, build2GUID)
+						returnedBuildRecord, err := buildRepo.GetBuild(testCtx, authInfo, build2GUID)
 						buildRecord = &returnedBuildRecord
 						fetchError = err
 					})
@@ -210,7 +210,7 @@ var _ = Describe("BuildRepository", func() {
 					It("should eventually return a record with State: \"STAGED\", no StagingErrorMsg, and a DropletGUID that matches the BuildGUID", func() {
 						ctx := context.Background()
 						Eventually(func() string {
-							returnedBuildRecord, err := buildRepo.FetchBuild(ctx, authInfo, build2GUID)
+							returnedBuildRecord, err := buildRepo.GetBuild(ctx, authInfo, build2GUID)
 							buildRecord = &returnedBuildRecord
 							fetchError = err
 							if err != nil {
@@ -249,7 +249,7 @@ var _ = Describe("BuildRepository", func() {
 					It("should eventually return a record with State: \"FAILED\", no DropletGUID, and a Staging Error Message", func() {
 						ctx := context.Background()
 						Eventually(func() string {
-							returnedBuildRecord, err := buildRepo.FetchBuild(ctx, authInfo, build2GUID)
+							returnedBuildRecord, err := buildRepo.GetBuild(ctx, authInfo, build2GUID)
 							buildRecord = &returnedBuildRecord
 							fetchError = err
 							if err != nil {
@@ -330,7 +330,7 @@ var _ = Describe("BuildRepository", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := buildRepo.FetchBuild(testCtx, authInfo, buildGUID)
+				_, err := buildRepo.GetBuild(testCtx, authInfo, buildGUID)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("duplicate builds exist"))
 			})
@@ -338,7 +338,7 @@ var _ = Describe("BuildRepository", func() {
 
 		When("no builds exist", func() {
 			It("returns an error", func() {
-				_, err := buildRepo.FetchBuild(testCtx, authInfo, "i don't exist")
+				_, err := buildRepo.GetBuild(testCtx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{}))
 			})
@@ -364,7 +364,7 @@ var _ = Describe("BuildRepository", func() {
 			buildRepo              *BuildRepo
 			buildCreateLabels      map[string]string
 			buildCreateAnnotations map[string]string
-			buildCreateMsg         BuildCreateMessage
+			buildCreateMsg         CreateBuildMessage
 			spaceGUID              string
 		)
 
@@ -379,7 +379,7 @@ var _ = Describe("BuildRepository", func() {
 
 			buildCreateLabels = nil
 			buildCreateAnnotations = nil
-			buildCreateMsg = BuildCreateMessage{
+			buildCreateMsg = CreateBuildMessage{
 				AppGUID:         appGUID,
 				PackageGUID:     packageGUID,
 				SpaceGUID:       spaceGUID,
@@ -425,7 +425,7 @@ var _ = Describe("BuildRepository", func() {
 
 			When("examining the returned record", func() {
 				It("is not empty", func() {
-					Expect(buildCreateRecord).ToNot(Equal(BuildCreateMessage{}))
+					Expect(buildCreateRecord).ToNot(Equal(CreateBuildMessage{}))
 				})
 				It("contains a GUID", func() {
 					Expect(buildCreateRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")

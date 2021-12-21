@@ -34,7 +34,7 @@ var _ = Describe("ApplyManifest", func() {
 
 	BeforeEach(func() {
 		appRepo = new(fake.CFAppRepository)
-		appRepo.FetchAppByNameAndSpaceReturns(repositories.AppRecord{
+		appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{
 			Name: appName,
 			GUID: appGUID,
 		}, nil)
@@ -43,8 +43,8 @@ var _ = Describe("ApplyManifest", func() {
 			Name: defaultDomainName,
 			GUID: defaultDomainGUID,
 		}
-		domainRepo.FetchDefaultDomainReturns(defaultDomainRecord, nil)
-		domainRepo.FetchDomainByNameReturns(defaultDomainRecord, nil)
+		domainRepo.GetDefaultDomainReturns(defaultDomainRecord, nil)
+		domainRepo.GetDomainByNameReturns(defaultDomainRecord, nil)
 
 		processRepo = new(fake.CFProcessRepository)
 		routeRepo = new(fake.CFRouteRepository)
@@ -65,7 +65,7 @@ var _ = Describe("ApplyManifest", func() {
 
 	When("fetching the app errors", func() {
 		BeforeEach(func() {
-			appRepo.FetchAppByNameAndSpaceReturns(repositories.AppRecord{}, errors.New("boom"))
+			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, errors.New("boom"))
 		})
 
 		It("returns an error", func() {
@@ -83,7 +83,7 @@ var _ = Describe("ApplyManifest", func() {
 
 	When("the app does not exist", func() {
 		BeforeEach(func() {
-			appRepo.FetchAppByNameAndSpaceReturns(repositories.AppRecord{}, repositories.NotFoundError{ResourceType: "App"})
+			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, repositories.NotFoundError{ResourceType: "App"})
 		})
 
 		When("creating the app errors", func() {
@@ -116,7 +116,7 @@ var _ = Describe("ApplyManifest", func() {
 
 		BeforeEach(func() {
 			appRecord = repositories.AppRecord{GUID: "my-app-guid", Name: appName, SpaceGUID: spaceGUID}
-			appRepo.FetchAppByNameAndSpaceReturns(appRecord, nil)
+			appRepo.GetAppByNameAndSpaceReturns(appRecord, nil)
 		})
 
 		When("updating the env vars errors", func() {
@@ -133,7 +133,7 @@ var _ = Describe("ApplyManifest", func() {
 
 		When("checking if the process exists errors", func() {
 			BeforeEach(func() {
-				processRepo.FetchProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, errors.New("boom"))
+				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, errors.New("boom"))
 			})
 
 			It("returns an error", func() {
@@ -145,7 +145,7 @@ var _ = Describe("ApplyManifest", func() {
 
 		When("the process already exists", func() {
 			BeforeEach(func() {
-				processRepo.FetchProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{GUID: "totes-real"}, nil)
+				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{GUID: "totes-real"}, nil)
 			})
 
 			When("patching the process errors", func() {
@@ -163,7 +163,7 @@ var _ = Describe("ApplyManifest", func() {
 
 		When("the process doesn't exist", func() {
 			BeforeEach(func() {
-				processRepo.FetchProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
+				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
 			})
 
 			When("creating the process errors", func() {
@@ -190,8 +190,8 @@ var _ = Describe("ApplyManifest", func() {
 				Expect(
 					action(context.Background(), authInfo, spaceGUID, manifest),
 				).To(Succeed())
-				Expect(routeRepo.FetchOrCreateRouteCallCount()).To(Equal(1))
-				_, _, createMessage := routeRepo.FetchOrCreateRouteArgsForCall(0)
+				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(1))
+				_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
 				Expect(createMessage.Host).To(Equal(appName))
 				Expect(createMessage.Path).To(Equal(""))
 				Expect(createMessage.DomainGUID).To(Equal(defaultDomainGUID))
@@ -204,7 +204,7 @@ var _ = Describe("ApplyManifest", func() {
 
 			When("fetching the destinations for the app fails", func() {
 				BeforeEach(func() {
-					routeRepo.FetchRoutesForAppReturns([]repositories.RouteRecord{}, errors.New("fail-on-purpose"))
+					routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{}, errors.New("fail-on-purpose"))
 				})
 				It("returns an error", func() {
 					Expect(
@@ -215,7 +215,7 @@ var _ = Describe("ApplyManifest", func() {
 
 			When("fetching the default domain fails", func() {
 				BeforeEach(func() {
-					domainRepo.FetchDefaultDomainReturns(repositories.DomainRecord{}, errors.New("fail-on-purpose"))
+					domainRepo.GetDefaultDomainReturns(repositories.DomainRecord{}, errors.New("fail-on-purpose"))
 				})
 				It("returns an error", func() {
 					Expect(
@@ -226,15 +226,15 @@ var _ = Describe("ApplyManifest", func() {
 		})
 		When("the app already has a route destination", func() {
 			BeforeEach(func() {
-				routeRepo.FetchRoutesForAppReturns([]repositories.RouteRecord{{
+				routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{{
 					GUID: "some-other-route-guid",
 				}}, nil)
 			})
-			It("does not call FetchOrCreateRoute, but does not return an error", func() {
+			It("does not call GetOrCreateRoute, but does not return an error", func() {
 				Expect(
 					action(context.Background(), authInfo, spaceGUID, manifest),
 				).To(Succeed())
-				Expect(routeRepo.FetchOrCreateRouteCallCount()).To(Equal(0))
+				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(0))
 				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
 			})
 		})
@@ -249,12 +249,12 @@ var _ = Describe("ApplyManifest", func() {
 
 		When("fetching the domain errors", func() {
 			BeforeEach(func() {
-				domainRepo.FetchDomainByNameReturns(repositories.DomainRecord{}, errors.New("boom"))
+				domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, errors.New("boom"))
 			})
 
 			It("doesn't create the route", func() {
 				_ = action(context.Background(), authInfo, spaceGUID, manifest)
-				Expect(routeRepo.FetchOrCreateRouteCallCount()).To(Equal(0))
+				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(0))
 			})
 
 			It("doesn't add destinations to a route", func() {
@@ -271,7 +271,7 @@ var _ = Describe("ApplyManifest", func() {
 
 		When("fetching/creating the route errors", func() {
 			BeforeEach(func() {
-				routeRepo.FetchOrCreateRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
+				routeRepo.GetOrCreateRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
 			})
 
 			It("doesn't add destinations to a route", func() {
@@ -309,8 +309,8 @@ var _ = Describe("ApplyManifest", func() {
 				Expect(
 					action(context.Background(), authInfo, spaceGUID, manifest),
 				).To(Succeed())
-				Expect(routeRepo.FetchOrCreateRouteCallCount()).To(Equal(len(manifest.Applications[0].Routes)))
-				_, _, createMessage := routeRepo.FetchOrCreateRouteArgsForCall(0)
+				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(len(manifest.Applications[0].Routes)))
+				_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
 				Expect(createMessage.Host).To(Equal("NOT-MY-APP"))
 				Expect(createMessage.Path).To(Equal("/path"))
 				Expect(createMessage.DomainGUID).To(Equal(defaultDomainGUID))

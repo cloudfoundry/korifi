@@ -25,6 +25,16 @@ import (
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfapps/status,verbs=get
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=create;patch;update
 
+const (
+	StartedState DesiredState = "STARTED"
+	StoppedState DesiredState = "STOPPED"
+
+	Kind            string = "CFApp"
+	APIVersion      string = "workloads.cloudfoundry.org/v1alpha1"
+	TimestampFormat string = time.RFC3339
+	CFAppGUIDLabel  string = "workloads.cloudfoundry.org/app-guid"
+)
+
 type AppRepo struct {
 	privilegedClient  client.Client
 	userClientFactory UserK8sClientFactory
@@ -36,16 +46,6 @@ func NewAppRepo(privilegedClient client.Client, userClientFactory UserK8sClientF
 		userClientFactory: userClientFactory,
 	}
 }
-
-const (
-	StartedState DesiredState = "STARTED"
-	StoppedState DesiredState = "STOPPED"
-
-	Kind            string = "CFApp"
-	APIVersion      string = "workloads.cloudfoundry.org/v1alpha1"
-	TimestampFormat string = time.RFC3339
-	CFAppGUIDLabel  string = "workloads.cloudfoundry.org/app-guid"
-)
 
 type AppRecord struct {
 	Name          string
@@ -87,7 +87,7 @@ type CurrentDropletRecord struct {
 	DropletGUID string
 }
 
-type AppCreateMessage struct {
+type CreateAppMessage struct {
 	Name                 string
 	SpaceGUID            string
 	Labels               map[string]string
@@ -97,7 +97,7 @@ type AppCreateMessage struct {
 	EnvironmentVariables map[string]string
 }
 
-type AppDeleteMessage struct {
+type DeleteAppMessage struct {
 	AppGUID   string
 	SpaceGUID string
 }
@@ -121,27 +121,27 @@ type SetAppDesiredStateMessage struct {
 	DesiredState string
 }
 
-type AppListMessage struct {
+type ListAppsMessage struct {
 	Names      []string
 	Guids      []string
 	SpaceGuids []string
 }
 
-type ByName []AppRecord
+type byName []AppRecord
 
-func (a ByName) Len() int {
+func (a byName) Len() int {
 	return len(a)
 }
 
-func (a ByName) Less(i, j int) bool {
+func (a byName) Less(i, j int) bool {
 	return a[i].Name < a[j].Name
 }
 
-func (a ByName) Swap(i, j int) {
+func (a byName) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
-func (f *AppRepo) FetchApp(ctx context.Context, authInfo authorization.Info, appGUID string) (AppRecord, error) {
+func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGUID string) (AppRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	appList := &workloadsv1alpha1.CFAppList{}
 	err := f.privilegedClient.List(ctx, appList)
@@ -154,7 +154,7 @@ func (f *AppRepo) FetchApp(ctx context.Context, authInfo authorization.Info, app
 	return returnApp(matches)
 }
 
-func (f *AppRepo) FetchAppByNameAndSpace(ctx context.Context, authInfo authorization.Info, appName string, spaceGUID string) (AppRecord, error) {
+func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorization.Info, appName string, spaceGUID string) (AppRecord, error) {
 	appList := new(workloadsv1alpha1.CFAppList)
 	err := f.privilegedClient.List(ctx, appList, client.InNamespace(spaceGUID))
 	if err != nil { // untested
@@ -170,7 +170,7 @@ func (f *AppRepo) FetchAppByNameAndSpace(ctx context.Context, authInfo authoriza
 	return returnApp(matches)
 }
 
-func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, appCreateMessage AppCreateMessage) (AppRecord, error) {
+func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, appCreateMessage CreateAppMessage) (AppRecord, error) {
 	cfApp := appCreateMessage.toCFApp()
 	err := f.privilegedClient.Create(ctx, &cfApp)
 	if err != nil {
@@ -191,7 +191,7 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 	return cfAppToAppRecord(cfApp), err
 }
 
-func (f *AppRepo) FetchAppList(ctx context.Context, authInfo authorization.Info, message AppListMessage) ([]AppRecord, error) {
+func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
 	nsList := &corev1.NamespaceList{}
 	err := f.privilegedClient.List(ctx, nsList)
 	if err != nil {
@@ -213,18 +213,18 @@ func (f *AppRepo) FetchAppList(ctx context.Context, authInfo authorization.Info,
 		if err != nil {
 			return []AppRecord{}, fmt.Errorf("failed to list apps in namespace %s: %w", ns.Name, err)
 		}
-		filteredApps = append(filteredApps, f.applyAppListFilter(appList.Items, message)...)
+		filteredApps = append(filteredApps, applyAppListFilter(appList.Items, message)...)
 	}
 
-	appRecords := f.returnAppList(filteredApps)
+	appRecords := returnAppList(filteredApps)
 
 	// By default sort it by App.Name
-	sort.Sort(ByName(appRecords))
+	sort.Sort(byName(appRecords))
 
 	return appRecords, nil
 }
 
-func (f *AppRepo) applyAppListFilter(appList []workloadsv1alpha1.CFApp, message AppListMessage) []workloadsv1alpha1.CFApp {
+func applyAppListFilter(appList []workloadsv1alpha1.CFApp, message ListAppsMessage) []workloadsv1alpha1.CFApp {
 	nameFilterSpecified := len(message.Names) > 0
 	guidsFilterSpecified := len(message.Guids) > 0
 	spaceGUIDFilterSpecified := len(message.SpaceGuids) > 0
@@ -293,7 +293,7 @@ func appMatchesGUID(app workloadsv1alpha1.CFApp, guid string) bool {
 	return app.ObjectMeta.Name == guid
 }
 
-func (f *AppRepo) returnAppList(appList []workloadsv1alpha1.CFApp) []AppRecord {
+func returnAppList(appList []workloadsv1alpha1.CFApp) []AppRecord {
 	appRecords := make([]AppRecord, 0, len(appList))
 
 	for _, app := range appList {
@@ -302,7 +302,7 @@ func (f *AppRepo) returnAppList(appList []workloadsv1alpha1.CFApp) []AppRecord {
 	return appRecords
 }
 
-func (f *AppRepo) FetchNamespace(ctx context.Context, authInfo authorization.Info, nsGUID string) (SpaceRecord, error) {
+func (f *AppRepo) GetNamespace(ctx context.Context, authInfo authorization.Info, nsGUID string) (SpaceRecord, error) {
 	namespace := &corev1.Namespace{}
 	err := f.privilegedClient.Get(ctx, types.NamespacedName{Name: nsGUID}, namespace)
 	if err != nil {
@@ -369,7 +369,7 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 	return cfAppToAppRecord(*cfApp), nil
 }
 
-func (f *AppRepo) DeleteApp(ctx context.Context, authInfo authorization.Info, message AppDeleteMessage) error {
+func (f *AppRepo) DeleteApp(ctx context.Context, authInfo authorization.Info, message DeleteAppMessage) error {
 	cfApp := &workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.AppGUID,
@@ -388,7 +388,7 @@ func generateEnvSecretName(appGUID string) string {
 	return appGUID + "-env"
 }
 
-func (m *AppCreateMessage) toCFApp() workloadsv1alpha1.CFApp {
+func (m *CreateAppMessage) toCFApp() workloadsv1alpha1.CFApp {
 	guid := uuid.NewString()
 	return workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{

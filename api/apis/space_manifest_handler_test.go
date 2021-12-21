@@ -29,7 +29,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		spaceRepo = new(repositoriesfake.CFSpaceRepository)
 
 		now := time.Unix(1631892190, 0)
-		spaceRepo.FetchSpacesReturns([]repositories.SpaceRecord{
+		spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
 			{
 				Name:             "my-test-space",
 				GUID:             spaceGUID,

@@ -7,8 +7,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 	"github.com/gorilla/schema"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
@@ -40,15 +41,15 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
 type CFAppRepository interface {
-	FetchApp(context.Context, authorization.Info, string) (repositories.AppRecord, error)
-	FetchAppByNameAndSpace(context.Context, authorization.Info, string, string) (repositories.AppRecord, error)
-	FetchAppList(context.Context, authorization.Info, repositories.AppListMessage) ([]repositories.AppRecord, error)
-	FetchNamespace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
+	GetApp(context.Context, authorization.Info, string) (repositories.AppRecord, error)
+	GetAppByNameAndSpace(context.Context, authorization.Info, string, string) (repositories.AppRecord, error)
+	ListApps(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
+	GetNamespace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	CreateOrPatchAppEnvVars(context.Context, authorization.Info, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
-	CreateApp(context.Context, authorization.Info, repositories.AppCreateMessage) (repositories.AppRecord, error)
+	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
 	SetCurrentDroplet(context.Context, authorization.Info, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
 	SetAppDesiredState(context.Context, authorization.Info, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
-	DeleteApp(context.Context, authorization.Info, repositories.AppDeleteMessage) error
+	DeleteApp(context.Context, authorization.Info, repositories.DeleteAppMessage) error
 }
 
 //counterfeiter:generate -o fake -fake-name ScaleAppProcess . ScaleAppProcess
@@ -97,7 +98,7 @@ func (h *AppHandler) appGetHandler(authInfo authorization.Info, w http.ResponseW
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -131,7 +132,7 @@ func (h *AppHandler) appCreateHandler(authInfo authorization.Info, w http.Respon
 
 	// TODO: Move this into the action or its own "filter"
 	namespaceGUID := payload.Relationships.Space.Data.GUID
-	_, err := h.appRepo.FetchNamespace(ctx, authInfo, namespaceGUID)
+	_, err := h.appRepo.GetNamespace(ctx, authInfo, namespaceGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.PermissionDeniedOrNotFoundError:
@@ -199,7 +200,7 @@ func (h *AppHandler) appListHandler(authInfo authorization.Info, w http.Response
 		return
 	}
 
-	appList, err := h.appRepo.FetchAppList(ctx, authInfo, appListFilter.ToMessage())
+	appList, err := h.appRepo.ListApps(ctx, authInfo, appListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch app(s) from Kubernetes")
 		writeUnknownErrorResponse(w)
@@ -226,7 +227,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 		return
 	}
 
-	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		if errors.As(err, new(repositories.NotFoundError)) {
 			h.logger.Error(err, "App not found", "appGUID", app.GUID)
@@ -239,7 +240,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 	}
 
 	dropletGUID := payload.Data.GUID
-	droplet, err := h.dropletRepo.FetchDroplet(ctx, authInfo, dropletGUID)
+	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
 		if errors.As(err, new(repositories.NotFoundError)) {
 			writeUnprocessableEntityError(w, invalidDropletMsg)
@@ -279,7 +280,7 @@ func (h *AppHandler) appGetCurrentDropletHandler(authInfo authorization.Info, w 
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		if errors.As(err, new(repositories.NotFoundError)) {
 			h.logger.Error(err, "App not found", "appGUID", app.GUID)
@@ -297,7 +298,7 @@ func (h *AppHandler) appGetCurrentDropletHandler(authInfo authorization.Info, w 
 		return
 	}
 
-	droplet, err := h.dropletRepo.FetchDroplet(ctx, authInfo, app.DropletGUID)
+	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, app.DropletGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -325,7 +326,7 @@ func (h *AppHandler) appStartHandler(authInfo authorization.Info, w http.Respons
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -369,7 +370,7 @@ func (h *AppHandler) appStopHandler(authInfo authorization.Info, w http.Response
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -408,7 +409,7 @@ func (h *AppHandler) getProcessesForAppHandler(authInfo authorization.Info, w ht
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -422,12 +423,12 @@ func (h *AppHandler) getProcessesForAppHandler(authInfo authorization.Info, w ht
 		}
 	}
 
-	fetchProcessesForAppMessage := repositories.FetchProcessListMessage{
+	fetchProcessesForAppMessage := repositories.ListProcessesMessage{
 		AppGUID:   []string{appGUID},
 		SpaceGUID: app.SpaceGUID,
 	}
 
-	processList, err := h.processRepo.FetchProcessList(ctx, authInfo, fetchProcessesForAppMessage)
+	processList, err := h.processRepo.ListProcesses(ctx, authInfo, fetchProcessesForAppMessage)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch app Process(es) from Kubernetes")
 		writeUnknownErrorResponse(w)
@@ -448,7 +449,7 @@ func (h *AppHandler) getRoutesForAppHandler(authInfo authorization.Info, w http.
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -520,7 +521,7 @@ func (h *AppHandler) appRestartHandler(authInfo authorization.Info, w http.Respo
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -591,7 +592,7 @@ func (h *AppHandler) appDeleteHandler(authInfo authorization.Info, w http.Respon
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	app, err := h.appRepo.FetchApp(ctx, authInfo, appGUID)
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -607,7 +608,7 @@ func (h *AppHandler) appDeleteHandler(authInfo authorization.Info, w http.Respon
 		}
 	}
 
-	err = h.appRepo.DeleteApp(ctx, authInfo, repositories.AppDeleteMessage{
+	err = h.appRepo.DeleteApp(ctx, authInfo, repositories.DeleteAppMessage{
 		AppGUID:   appGUID,
 		SpaceGUID: app.SpaceGUID,
 	})
@@ -622,7 +623,7 @@ func (h *AppHandler) appDeleteHandler(authInfo authorization.Info, w http.Respon
 }
 
 func (h *AppHandler) lookupAppRouteAndDomainList(ctx context.Context, authInfo authorization.Info, appGUID, spaceGUID string) ([]repositories.RouteRecord, error) {
-	routeRecords, err := h.routeRepo.FetchRoutesForApp(ctx, authInfo, appGUID, spaceGUID)
+	routeRecords, err := h.routeRepo.ListRoutesForApp(ctx, authInfo, appGUID, spaceGUID)
 	if err != nil {
 		return []repositories.RouteRecord{}, err
 	}

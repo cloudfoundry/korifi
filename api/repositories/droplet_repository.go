@@ -14,8 +14,12 @@ import (
 
 // No kubebuilder RBAC tags required, because Build and Droplet are the same CR
 
-type DropletListMessage struct {
-	PackageGUIDs []string
+type DropletRepo struct {
+	privilegedClient client.Client
+}
+
+func NewDropletRepo(privilegedClient client.Client) *DropletRepo {
+	return &DropletRepo{privilegedClient: privilegedClient}
 }
 
 type DropletRecord struct {
@@ -33,15 +37,11 @@ type DropletRecord struct {
 	Annotations     map[string]string
 }
 
-type DropletRepo struct {
-	privilegedClient client.Client
+type ListDropletsMessage struct {
+	PackageGUIDs []string
 }
 
-func NewDropletRepo(privilegedClient client.Client) *DropletRepo {
-	return &DropletRepo{privilegedClient: privilegedClient}
-}
-
-func (r *DropletRepo) FetchDroplet(ctx context.Context, authInfo authorization.Info, dropletGUID string) (DropletRecord, error) {
+func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Info, dropletGUID string) (DropletRecord, error) {
 	buildList := &workloadsv1alpha1.CFBuildList{}
 	err := r.privilegedClient.List(ctx, buildList)
 	if err != nil { // untested
@@ -50,10 +50,10 @@ func (r *DropletRepo) FetchDroplet(ctx context.Context, authInfo authorization.I
 	allBuilds := buildList.Items
 	matches := filterBuildsByMetadataName(allBuilds, dropletGUID)
 
-	return r.returnDroplet(matches)
+	return returnDroplet(matches)
 }
 
-func (r *DropletRepo) returnDroplet(builds []workloadsv1alpha1.CFBuild) (DropletRecord, error) {
+func returnDroplet(builds []workloadsv1alpha1.CFBuild) (DropletRecord, error) {
 	if len(builds) == 0 {
 		return DropletRecord{}, NotFoundError{}
 	}
@@ -100,7 +100,7 @@ func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {
 	}
 }
 
-func (r *DropletRepo) FetchDropletList(ctx context.Context, authInfo authorization.Info, message DropletListMessage) ([]DropletRecord, error) {
+func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) ([]DropletRecord, error) {
 	buildList := &workloadsv1alpha1.CFBuildList{}
 	err := r.privilegedClient.List(ctx, buildList)
 	if err != nil { // untested
@@ -121,7 +121,7 @@ func returnDropletList(droplets []workloadsv1alpha1.CFBuild) []DropletRecord {
 	return dropletRecords
 }
 
-func applyDropletFilters(builds []workloadsv1alpha1.CFBuild, message DropletListMessage) []workloadsv1alpha1.CFBuild {
+func applyDropletFilters(builds []workloadsv1alpha1.CFBuild, message ListDropletsMessage) []workloadsv1alpha1.CFBuild {
 	var filtered []workloadsv1alpha1.CFBuild
 	for i, build := range builds {
 

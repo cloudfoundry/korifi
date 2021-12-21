@@ -30,8 +30,8 @@ func NewOrgRepoAuthDecorator(
 	}
 }
 
-func (r *OrgRepoAuthDecorator) FetchOrgs(ctx context.Context, names []string) ([]OrgRecord, error) {
-	orgs, err := r.CFOrgRepository.FetchOrgs(ctx, names)
+func (r *OrgRepoAuthDecorator) ListOrgs(ctx context.Context, names []string) ([]OrgRecord, error) {
+	orgs, err := r.CFOrgRepository.ListOrgs(ctx, names)
 	if err != nil {
 		return nil, err
 	}

@@ -40,7 +40,7 @@ var _ = Describe("ScaleProcessAction", func() {
 		processRepo = new(fake.CFProcessRepository)
 		authInfo = authorization.Info{Token: "a-token"}
 
-		processRepo.FetchProcessReturns(repositories.ProcessRecord{
+		processRepo.GetProcessReturns(repositories.ProcessRecord{
 			GUID:             testProcessGUID,
 			SpaceGUID:        testProcessSpaceGUID,
 			DesiredInstances: initialInstances,
@@ -91,8 +91,8 @@ var _ = Describe("ScaleProcessAction", func() {
 			Expect(responseErr).ToNot(HaveOccurred())
 		})
 		It("fetches the process associated with the GUID", func() {
-			Expect(processRepo.FetchProcessCallCount()).ToNot(BeZero())
-			_, _, processGUID := processRepo.FetchProcessArgsForCall(0)
+			Expect(processRepo.GetProcessCallCount()).ToNot(BeZero())
+			_, _, processGUID := processRepo.GetProcessArgsForCall(0)
 			Expect(processGUID).To(Equal(testProcessGUID))
 		})
 
@@ -116,7 +116,7 @@ var _ = Describe("ScaleProcessAction", func() {
 			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = repositories.NotFoundError{}
-				processRepo.FetchProcessReturns(repositories.ProcessRecord{}, toReturnErr)
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, toReturnErr)
 			})
 			It("returns an empty record", func() {
 				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
@@ -130,7 +130,7 @@ var _ = Describe("ScaleProcessAction", func() {
 			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = errors.New("some-other-error")
-				processRepo.FetchProcessReturns(repositories.ProcessRecord{}, toReturnErr)
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, toReturnErr)
 			})
 			It("returns an empty record", func() {
 				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))

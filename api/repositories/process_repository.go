@@ -18,6 +18,14 @@ import (
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfprocesses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfprocesses/status,verbs=get
 
+func NewProcessRepo(privilegedClient client.Client) *ProcessRepo {
+	return &ProcessRepo{privilegedClient: privilegedClient}
+}
+
+type ProcessRepo struct {
+	privilegedClient client.Client
+}
+
 type ProcessRecord struct {
 	GUID             string
 	SpaceGUID        string
@@ -35,42 +43,6 @@ type ProcessRecord struct {
 	UpdatedAt        string
 }
 
-type ProcessScaleMessage struct {
-	GUID      string
-	SpaceGUID string
-	ProcessScaleValues
-}
-
-type ProcessScaleValues struct {
-	Instances *int
-	MemoryMB  *int64
-	DiskMB    *int64
-}
-
-type ProcessCreateMessage struct {
-	AppGUID          string
-	SpaceGUID        string
-	Type             string
-	Command          string
-	DiskQuotaMB      int64
-	Healthcheck      HealthCheck
-	DesiredInstances int
-	MemoryMB         int64
-}
-
-type ProcessPatchMessage struct {
-	SpaceGUID                           string
-	ProcessGUID                         string
-	Command                             *string
-	DiskQuotaMB                         *int64
-	HealthCheckHTTPEndpoint             *string
-	HealthCheckInvocationTimeoutSeconds *int64
-	HealthCheckTimeoutSeconds           *int64
-	HealthcheckType                     *string
-	DesiredInstances                    *int
-	MemoryMB                            *int64
-}
-
 type HealthCheck struct {
 	Type string
 	Data HealthCheckData
@@ -82,20 +54,48 @@ type HealthCheckData struct {
 	TimeoutSeconds           int64
 }
 
-type FetchProcessListMessage struct {
+type ScaleProcessMessage struct {
+	GUID      string
+	SpaceGUID string
+	ProcessScaleValues
+}
+
+type ProcessScaleValues struct {
+	Instances *int
+	MemoryMB  *int64
+	DiskMB    *int64
+}
+
+type CreateProcessMessage struct {
+	AppGUID          string
+	SpaceGUID        string
+	Type             string
+	Command          string
+	DiskQuotaMB      int64
+	HealthCheck      HealthCheck
+	DesiredInstances int
+	MemoryMB         int64
+}
+
+type PatchProcessMessage struct {
+	SpaceGUID                           string
+	ProcessGUID                         string
+	Command                             *string
+	DiskQuotaMB                         *int64
+	HealthCheckHTTPEndpoint             *string
+	HealthCheckInvocationTimeoutSeconds *int64
+	HealthCheckTimeoutSeconds           *int64
+	HealthCheckType                     *string
+	DesiredInstances                    *int
+	MemoryMB                            *int64
+}
+
+type ListProcessesMessage struct {
 	AppGUID   []string
 	SpaceGUID string
 }
 
-type ProcessRepo struct {
-	privilegedClient client.Client
-}
-
-func NewProcessRepo(privilegedClient client.Client) *ProcessRepo {
-	return &ProcessRepo{privilegedClient: privilegedClient}
-}
-
-func (r *ProcessRepo) FetchProcess(ctx context.Context, authInfo authorization.Info, processGUID string) (ProcessRecord, error) {
+func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Info, processGUID string) (ProcessRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	processList := &workloadsv1alpha1.CFProcessList{}
 	err := r.privilegedClient.List(ctx, processList)
@@ -108,7 +108,7 @@ func (r *ProcessRepo) FetchProcess(ctx context.Context, authInfo authorization.I
 	return returnProcess(matches)
 }
 
-func (r *ProcessRepo) FetchProcessList(ctx context.Context, authInfo authorization.Info, message FetchProcessListMessage) ([]ProcessRecord, error) {
+func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.Info, message ListProcessesMessage) ([]ProcessRecord, error) {
 	processList := &workloadsv1alpha1.CFProcessList{}
 	var options []client.ListOption
 	if message.SpaceGUID != "" {
@@ -126,7 +126,7 @@ func (r *ProcessRepo) FetchProcessList(ctx context.Context, authInfo authorizati
 	return returnProcesses(matches)
 }
 
-func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage ProcessScaleMessage) (ProcessRecord, error) {
+func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage ScaleProcessMessage) (ProcessRecord, error) {
 	baseCFProcess := &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scaleProcessMessage.GUID,
@@ -153,7 +153,7 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.I
 	return record, nil
 }
 
-func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.Info, message ProcessCreateMessage) error {
+func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.Info, message CreateProcessMessage) error {
 	guid := uuid.NewString()
 	err := r.privilegedClient.Create(ctx, &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
@@ -165,8 +165,8 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 			ProcessType: message.Type,
 			Command:     message.Command,
 			HealthCheck: workloadsv1alpha1.HealthCheck{
-				Type: workloadsv1alpha1.HealthCheckType(message.Healthcheck.Type),
-				Data: workloadsv1alpha1.HealthCheckData(message.Healthcheck.Data),
+				Type: workloadsv1alpha1.HealthCheckType(message.HealthCheck.Type),
+				Data: workloadsv1alpha1.HealthCheckData(message.HealthCheck.Data),
 			},
 			DesiredInstances: message.DesiredInstances,
 			MemoryMB:         message.MemoryMB,
@@ -177,7 +177,7 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 	return err
 }
 
-func (r *ProcessRepo) FetchProcessByAppTypeAndSpace(ctx context.Context, authInfo authorization.Info, appGUID, processType, spaceGUID string) (ProcessRecord, error) {
+func (r *ProcessRepo) GetProcessByAppTypeAndSpace(ctx context.Context, authInfo authorization.Info, appGUID, processType, spaceGUID string) (ProcessRecord, error) {
 	// Could narrow down process results via AppGUID label, but that is set up by a webhook that isn't configured in our integration tests
 	// For now, don't use labels
 	var processList workloadsv1alpha1.CFProcessList
@@ -195,7 +195,7 @@ func (r *ProcessRepo) FetchProcessByAppTypeAndSpace(ctx context.Context, authInf
 	return returnProcess(matches)
 }
 
-func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.Info, message ProcessPatchMessage) error {
+func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.Info, message PatchProcessMessage) error {
 	baseProcess := &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.ProcessGUID,
@@ -215,9 +215,9 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 	if message.DiskQuotaMB != nil {
 		updatedProcess.Spec.DiskQuotaMB = *message.DiskQuotaMB
 	}
-	if message.HealthcheckType != nil {
+	if message.HealthCheckType != nil {
 		// TODO: how do we handle when the type changes? Clear the HTTPEndpoint when type != http? Should we require the endpoint when type == http?
-		updatedProcess.Spec.HealthCheck.Type = workloadsv1alpha1.HealthCheckType(*message.HealthcheckType)
+		updatedProcess.Spec.HealthCheck.Type = workloadsv1alpha1.HealthCheckType(*message.HealthCheckType)
 	}
 	if message.HealthCheckHTTPEndpoint != nil {
 		updatedProcess.Spec.HealthCheck.Data.HTTPEndpoint = *message.HealthCheckHTTPEndpoint

@@ -7,16 +7,17 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	repositoriesfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Spaces", func() {
@@ -222,7 +223,7 @@ var _ = Describe("Spaces", func() {
 	Describe("Listing Spaces", func() {
 		BeforeEach(func() {
 			requestMethod = http.MethodGet
-			spaceRepo.FetchSpacesReturns([]repositories.SpaceRecord{
+			spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
 				{
 					Name:             "alice",
 					GUID:             "a-l-i-c-e",
@@ -310,8 +311,8 @@ var _ = Describe("Spaces", func() {
                 ]
             }`, defaultServerURL)))
 
-			Expect(spaceRepo.FetchSpacesCallCount()).To(Equal(1))
-			_, organizationGUIDs, names := spaceRepo.FetchSpacesArgsForCall(0)
+			Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
+			_, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
 			Expect(organizationGUIDs).To(BeEmpty())
 			Expect(names).To(BeEmpty())
 		})
@@ -357,7 +358,7 @@ var _ = Describe("Spaces", func() {
 
 		When("fetching the spaces fails", func() {
 			BeforeEach(func() {
-				spaceRepo.FetchSpacesReturns(nil, errors.New("boom!"))
+				spaceRepo.ListSpacesReturns(nil, errors.New("boom!"))
 			})
 
 			It("returns an error", func() {
@@ -371,8 +372,8 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("filters spaces by them", func() {
-				Expect(spaceRepo.FetchSpacesCallCount()).To(Equal(1))
-				_, organizationGUIDs, names := spaceRepo.FetchSpacesArgsForCall(0)
+				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
+				_, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
 				Expect(organizationGUIDs).To(ConsistOf("foo", "bar"))
 				Expect(names).To(BeEmpty())
 			})
@@ -384,8 +385,8 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("filters spaces by them", func() {
-				Expect(spaceRepo.FetchSpacesCallCount()).To(Equal(1))
-				_, organizationGUIDs, names := spaceRepo.FetchSpacesArgsForCall(0)
+				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
+				_, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
 				Expect(organizationGUIDs).To(ConsistOf("org1"))
 				Expect(names).To(ConsistOf("foo", "bar"))
 			})

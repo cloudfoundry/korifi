@@ -67,7 +67,7 @@ var _ = Describe("AppHandler", func() {
 
 	Describe("the GET /v3/apps/:guid endpoint", func() {
 		BeforeEach(func() {
-			appRepo.FetchAppReturns(repositories.AppRecord{
+			appRepo.GetAppReturns(repositories.AppRecord{
 				GUID:      appGUID,
 				Name:      "test-app",
 				SpaceGUID: spaceGUID,
@@ -91,9 +91,9 @@ var _ = Describe("AppHandler", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
 
-			It("passes authInfo from context to FetchApp", func() {
-				Expect(appRepo.FetchAppCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := appRepo.FetchAppArgsForCall(0)
+			It("passes authInfo from context to GetApp", func() {
+				Expect(appRepo.GetAppCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -173,7 +173,7 @@ var _ = Describe("AppHandler", func() {
 		})
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -184,7 +184,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("there is some other error fetching the app", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -322,7 +322,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the space does not exist", func() {
 			BeforeEach(func() {
-				appRepo.FetchNamespaceReturns(
+				appRepo.GetNamespaceReturns(
 					repositories.SpaceRecord{},
 					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")},
 				)
@@ -384,7 +384,7 @@ var _ = Describe("AppHandler", func() {
 
 	Describe("the GET /v3/apps endpoint", func() {
 		BeforeEach(func() {
-			appRepo.FetchAppListReturns([]repositories.AppRecord{
+			appRepo.ListAppsReturns([]repositories.AppRecord{
 				{
 					GUID:      "first-test-app-guid",
 					Name:      "first-test-app",
@@ -598,8 +598,8 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("invokes the repository with the provided auth info", func() {
-				Expect(appRepo.FetchAppListCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := appRepo.FetchAppListArgsForCall(0)
+				Expect(appRepo.ListAppsCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := appRepo.ListAppsArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -611,8 +611,8 @@ var _ = Describe("AppHandler", func() {
 				})
 
 				It("passes them to the repository", func() {
-					Expect(appRepo.FetchAppListCallCount()).To(Equal(1))
-					_, _, message := appRepo.FetchAppListArgsForCall(0)
+					Expect(appRepo.ListAppsCallCount()).To(Equal(1))
+					_, _, message := appRepo.ListAppsArgsForCall(0)
 
 					Expect(message.Names).To(ConsistOf("app1", "app2"))
 					Expect(message.SpaceGuids).To(ConsistOf("space1", "space2"))
@@ -626,7 +626,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("no apps can be found", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppListReturns([]repositories.AppRecord{}, nil)
+				appRepo.ListAppsReturns([]repositories.AppRecord{}, nil)
 			})
 
 			It("returns status 200 OK", func() {
@@ -659,7 +659,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("there is some other error fetching apps", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppListReturns([]repositories.AppRecord{}, errors.New("unknown!"))
+				appRepo.ListAppsReturns([]repositories.AppRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -706,8 +706,8 @@ var _ = Describe("AppHandler", func() {
 			app = repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID}
 			droplet = repositories.DropletRecord{GUID: dropletGUID, AppGUID: appGUID}
 
-			appRepo.FetchAppReturns(app, nil)
-			dropletRepo.FetchDropletReturns(droplet, nil)
+			appRepo.GetAppReturns(app, nil)
+			dropletRepo.GetDropletReturns(droplet, nil)
 			appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{
 				AppGUID:     appGUID,
 				DropletGUID: dropletGUID,
@@ -759,21 +759,21 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("fetches the right App", func() {
-				Expect(appRepo.FetchAppCallCount()).To(Equal(1))
-				_, _, actualAppGUID := appRepo.FetchAppArgsForCall(0)
+				Expect(appRepo.GetAppCallCount()).To(Equal(1))
+				_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
 				Expect(actualAppGUID).To(Equal(appGUID))
 			})
 
 			It("fetches the right Droplet", func() {
-				Expect(dropletRepo.FetchDropletCallCount()).To(Equal(1))
-				_, _, actualDropletGUID := dropletRepo.FetchDropletArgsForCall(0)
+				Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
+				_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
 				Expect(actualDropletGUID).To(Equal(dropletGUID))
 			})
 		})
 
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 			})
 
 			It("returns an error", func() {
@@ -784,7 +784,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the Droplet doesn't exist", func() {
 			BeforeEach(func() {
-				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
 			})
 
 			It("returns an error", func() {
@@ -796,7 +796,7 @@ var _ = Describe("AppHandler", func() {
 		When("the Droplet belongs to a different App", func() {
 			BeforeEach(func() {
 				droplet.AppGUID = "a-different-app-guid"
-				dropletRepo.FetchDropletReturns(repositories.DropletRecord{
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{
 					GUID:    dropletGUID,
 					AppGUID: "a-different-app-guid",
 				}, nil)
@@ -824,7 +824,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("fetching the App errors", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("boom"))
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
 			})
 
 			It("returns an error", func() {
@@ -835,7 +835,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("fetching the Droplet errors", func() {
 			BeforeEach(func() {
-				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, errors.New("boom"))
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, errors.New("boom"))
 			})
 
 			It("returns an error", func() {
@@ -871,7 +871,7 @@ var _ = Describe("AppHandler", func() {
 					},
 				},
 			}
-			appRepo.FetchAppReturns(fetchAppRecord, nil)
+			appRepo.GetAppReturns(fetchAppRecord, nil)
 			setAppDesiredStateRecord := fetchAppRecord
 			setAppDesiredStateRecord.State = "STARTED"
 			appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
@@ -963,7 +963,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -974,7 +974,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("there is some other error fetching the app", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -998,7 +998,7 @@ var _ = Describe("AppHandler", func() {
 						},
 					},
 				}
-				appRepo.FetchAppReturns(fetchAppRecord, nil)
+				appRepo.GetAppReturns(fetchAppRecord, nil)
 			})
 
 			It("returns an error", func() {
@@ -1033,7 +1033,7 @@ var _ = Describe("AppHandler", func() {
 					},
 				},
 			}
-			appRepo.FetchAppReturns(fetchAppRecord, nil)
+			appRepo.GetAppReturns(fetchAppRecord, nil)
 			setAppDesiredStateRecord := fetchAppRecord
 			setAppDesiredStateRecord.State = "STOPPED"
 			appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
@@ -1139,7 +1139,7 @@ var _ = Describe("AppHandler", func() {
 						},
 					},
 				}
-				appRepo.FetchAppReturns(fetchAppRecord, nil)
+				appRepo.GetAppReturns(fetchAppRecord, nil)
 				setAppDesiredStateRecord := fetchAppRecord
 				setAppDesiredStateRecord.State = "STOPPED"
 				appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
@@ -1230,7 +1230,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 			})
 
 			It("returns an error", func() {
@@ -1240,7 +1240,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("there is some other error fetching the app", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -1264,7 +1264,7 @@ var _ = Describe("AppHandler", func() {
 						},
 					},
 				}
-				appRepo.FetchAppReturns(fetchAppRecord, nil)
+				appRepo.GetAppReturns(fetchAppRecord, nil)
 			})
 
 			It("returns status 200 OK", func() {
@@ -1394,7 +1394,7 @@ var _ = Describe("AppHandler", func() {
 
 			process1Record = &processRecord
 			process2Record = &processRecord2
-			processRepo.FetchProcessListReturns([]repositories.ProcessRecord{
+			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
 				processRecord,
 				processRecord2,
 			}, nil)
@@ -1525,7 +1525,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("The App does not have associated processes", func() {
 				BeforeEach(func() {
-					processRepo.FetchProcessListReturns([]repositories.ProcessRecord{}, nil)
+					processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, nil)
 				})
 
 				It("returns status 200 OK", func() {
@@ -1557,7 +1557,7 @@ var _ = Describe("AppHandler", func() {
 		When("On the sad path and", func() {
 			When("the app cannot be found", func() {
 				BeforeEach(func() {
-					appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 				})
 
 				It("returns an error", func() {
@@ -1567,7 +1567,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("there is some other error fetching the app", func() {
 				BeforeEach(func() {
-					appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+					appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 				})
 
 				It("returns an error", func() {
@@ -1576,7 +1576,7 @@ var _ = Describe("AppHandler", func() {
 			})
 			When("there is some error fetching the app's processes", func() {
 				BeforeEach(func() {
-					processRepo.FetchProcessListReturns([]repositories.ProcessRecord{}, errors.New("unknown!"))
+					processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, errors.New("unknown!"))
 				})
 
 				It("returns an error", func() {
@@ -1863,7 +1863,7 @@ var _ = Describe("AppHandler", func() {
 		)
 
 		BeforeEach(func() {
-			appRepo.FetchAppReturns(repositories.AppRecord{GUID: appGUID, SpaceGUID: testSpaceGUID}, nil)
+			appRepo.GetAppReturns(repositories.AppRecord{GUID: appGUID, SpaceGUID: testSpaceGUID}, nil)
 
 			routeRecord := repositories.RouteRecord{
 				GUID:      testRouteGUID,
@@ -1883,7 +1883,7 @@ var _ = Describe("AppHandler", func() {
 			}
 
 			route1Record = &routeRecord
-			routeRepo.FetchRoutesForAppReturns([]repositories.RouteRecord{
+			routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{
 				routeRecord,
 			}, nil)
 
@@ -1891,7 +1891,7 @@ var _ = Describe("AppHandler", func() {
 				GUID: testDomainGUID,
 				Name: "example.org",
 			}
-			domainRepo.FetchDomainReturns(*domainRecord, nil)
+			domainRepo.GetDomainReturns(*domainRecord, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/routes", nil)
@@ -1900,16 +1900,16 @@ var _ = Describe("AppHandler", func() {
 
 		When("on the happy path and", func() {
 			It("sends authInfo from the context to the repo methods", func() {
-				Expect(appRepo.FetchAppCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := appRepo.FetchAppArgsForCall(0)
+				Expect(appRepo.GetAppCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 
-				Expect(routeRepo.FetchRoutesForAppCallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _ = routeRepo.FetchRoutesForAppArgsForCall(0)
+				Expect(routeRepo.ListRoutesForAppCallCount()).To(Equal(1))
+				_, actualAuthInfo, _, _ = routeRepo.ListRoutesForAppArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 
-				Expect(domainRepo.FetchDomainCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ = domainRepo.FetchDomainArgsForCall(0)
+				Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ = domainRepo.GetDomainArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -1986,7 +1986,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("The App does not have associated routes", func() {
 				BeforeEach(func() {
-					routeRepo.FetchRoutesForAppReturns([]repositories.RouteRecord{}, nil)
+					routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{}, nil)
 				})
 
 				It("returns status 200 OK", func() {
@@ -2019,7 +2019,7 @@ var _ = Describe("AppHandler", func() {
 		When("on the sad path and", func() {
 			When("the app cannot be found", func() {
 				BeforeEach(func() {
-					appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 				})
 
 				It("returns an error", func() {
@@ -2029,7 +2029,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("there is some other error fetching the app", func() {
 				BeforeEach(func() {
-					appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+					appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 				})
 
 				It("returns an error", func() {
@@ -2039,7 +2039,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("there is some error fetching the app's routes", func() {
 				BeforeEach(func() {
-					routeRepo.FetchRoutesForAppReturns([]repositories.RouteRecord{}, errors.New("unknown!"))
+					routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{}, errors.New("unknown!"))
 				})
 
 				It("returns an error", func() {
@@ -2085,8 +2085,8 @@ var _ = Describe("AppHandler", func() {
 				PackageGUID: packageGUID,
 			}
 
-			appRepo.FetchAppReturns(app, nil)
-			dropletRepo.FetchDropletReturns(droplet, nil)
+			appRepo.GetAppReturns(app, nil)
+			dropletRepo.GetDropletReturns(droplet, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/droplets/current", nil)
@@ -2099,12 +2099,12 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("sends the authInfo from the context to the repo methods", func() {
-				Expect(appRepo.FetchAppCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := appRepo.FetchAppArgsForCall(0)
+				Expect(appRepo.GetAppCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 
-				Expect(dropletRepo.FetchDropletCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ = dropletRepo.FetchDropletArgsForCall(0)
+				Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ = dropletRepo.GetDropletArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -2165,21 +2165,21 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("fetches the correct App", func() {
-				Expect(appRepo.FetchAppCallCount()).To(Equal(1))
-				_, _, actualAppGUID := appRepo.FetchAppArgsForCall(0)
+				Expect(appRepo.GetAppCallCount()).To(Equal(1))
+				_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
 				Expect(actualAppGUID).To(Equal(appGUID))
 			})
 
 			It("fetches the correct Droplet", func() {
-				Expect(dropletRepo.FetchDropletCallCount()).To(Equal(1))
-				_, _, actualDropletGUID := dropletRepo.FetchDropletArgsForCall(0)
+				Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
+				_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
 				Expect(actualDropletGUID).To(Equal(dropletGUID))
 			})
 		})
 
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 			})
 
 			It("returns an error", func() {
@@ -2189,7 +2189,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App doesn't have a current droplet assigned", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID, DropletGUID: ""}, nil)
+				appRepo.GetAppReturns(repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID, DropletGUID: ""}, nil)
 			})
 
 			It("returns an error", func() {
@@ -2199,7 +2199,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the Droplet doesn't exist", func() {
 			BeforeEach(func() {
-				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
 			})
 
 			It("returns an error", func() {
@@ -2209,7 +2209,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("fetching the App errors", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("boom"))
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
 			})
 
 			It("returns an error", func() {
@@ -2219,7 +2219,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("fetching the Droplet errors", func() {
 			BeforeEach(func() {
-				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, errors.New("boom"))
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, errors.New("boom"))
 			})
 
 			It("returns an error", func() {
@@ -2245,7 +2245,7 @@ var _ = Describe("AppHandler", func() {
 					},
 				},
 			}
-			appRepo.FetchAppReturns(fetchAppRecord, nil)
+			appRepo.GetAppReturns(fetchAppRecord, nil)
 			setAppDesiredStateRecord := fetchAppRecord
 			setAppDesiredStateRecord.State = "STARTED"
 			appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
@@ -2258,8 +2258,8 @@ var _ = Describe("AppHandler", func() {
 		})
 
 		It("sends the authInfo from the context to the repo methods", func() {
-			Expect(appRepo.FetchAppCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := appRepo.FetchAppArgsForCall(0)
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 
 			Expect(appRepo.SetAppDesiredStateCallCount()).To(Equal(2))
@@ -2370,7 +2370,7 @@ var _ = Describe("AppHandler", func() {
 		When("the app is in STOPPED state", func() {
 			BeforeEach(func() {
 				fetchAppRecord.State = "STOPPED"
-				appRepo.FetchAppReturns(fetchAppRecord, nil)
+				appRepo.GetAppReturns(fetchAppRecord, nil)
 			})
 			It("responds with a 200 code", func() {
 				Expect(rr.Code).To(Equal(200))
@@ -2459,7 +2459,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -2470,7 +2470,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("there is some other error fetching the app", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -2494,7 +2494,7 @@ var _ = Describe("AppHandler", func() {
 						},
 					},
 				}
-				appRepo.FetchAppReturns(fetchAppRecord, nil)
+				appRepo.GetAppReturns(fetchAppRecord, nil)
 			})
 
 			It("returns an error", func() {
@@ -2549,7 +2549,7 @@ var _ = Describe("AppHandler", func() {
 		BeforeEach(func() {
 			app = repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID}
 
-			appRepo.FetchAppReturns(app, nil)
+			appRepo.GetAppReturns(app, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "DELETE", "/v3/apps/"+appGUID, nil)
@@ -2567,8 +2567,8 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("fetches the right App", func() {
-				Expect(appRepo.FetchAppCallCount()).To(Equal(1))
-				_, _, actualAppGUID := appRepo.FetchAppArgsForCall(0)
+				Expect(appRepo.GetAppCallCount()).To(Equal(1))
+				_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
 				Expect(actualAppGUID).To(Equal(appGUID))
 			})
 
@@ -2582,7 +2582,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 			})
 
 			It("returns an error", func() {
@@ -2592,7 +2592,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("fetching the App errors", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("boom"))
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
 			})
 
 			It("returns an error", func() {

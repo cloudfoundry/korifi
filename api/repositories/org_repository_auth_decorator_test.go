@@ -5,14 +5,15 @@ import (
 	"errors"
 	"net/http"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	rbacv1 "k8s.io/api/rbac/v1"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider"
 	providerfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider/fake"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("OrgRepositoryAuthDecorator", func() {
@@ -33,7 +34,7 @@ var _ = Describe("OrgRepositoryAuthDecorator", func() {
 		identityProvider.GetIdentityReturns(identity, nil)
 		orgRepo = new(fake.CFOrgRepository)
 		nsProvider = new(fake.AuthorizedNamespacesProvider)
-		orgRepo.FetchOrgsReturns([]repositories.OrgRecord{
+		orgRepo.ListOrgsReturns([]repositories.OrgRecord{
 			{GUID: "org1"},
 			{GUID: "org2"},
 		}, nil)
@@ -100,7 +101,7 @@ var _ = Describe("OrgRepositoryAuthDecorator", func() {
 		})
 
 		JustBeforeEach(func() {
-			orgs, err = orgRepoAuthDecorator.FetchOrgs(context.Background(), []string{"foo", "bar"})
+			orgs, err = orgRepoAuthDecorator.ListOrgs(context.Background(), []string{"foo", "bar"})
 		})
 
 		It("fetches orgs associated with the identity only", func() {
@@ -110,7 +111,7 @@ var _ = Describe("OrgRepositoryAuthDecorator", func() {
 
 		When("fetching orgs fails", func() {
 			BeforeEach(func() {
-				orgRepo.FetchOrgsReturns(nil, errors.New("fetch-orgs-failed"))
+				orgRepo.ListOrgsReturns(nil, errors.New("fetch-orgs-failed"))
 			})
 
 			It("returns the error", func() {

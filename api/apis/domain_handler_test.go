@@ -36,7 +36,7 @@ var _ = Describe("DomainHandler", func() {
 				CreatedAt:   "2019-05-10T17:17:48Z",
 				UpdatedAt:   "2019-05-10T17:17:48Z",
 			}
-			domainRepo.FetchDomainListReturns([]repositories.DomainRecord{*domainRecord}, nil)
+			domainRepo.ListDomainsReturns([]repositories.DomainRecord{*domainRecord}, nil)
 
 			domainHandler := NewDomainHandler(
 				logf.Log.WithName("TestDomainHandler"),
@@ -112,7 +112,7 @@ var _ = Describe("DomainHandler", func() {
 
 		When("no domain exists", func() {
 			BeforeEach(func() {
-				domainRepo.FetchDomainListReturns([]repositories.DomainRecord{}, nil)
+				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, nil)
 				req, err := http.NewRequestWithContext(ctx, "GET", "/v3/domains", nil)
 				Expect(err).NotTo(HaveOccurred())
 				router.ServeHTTP(rr, req)
@@ -151,7 +151,7 @@ var _ = Describe("DomainHandler", func() {
 
 		When("there is an error listing domains", func() {
 			BeforeEach(func() {
-				domainRepo.FetchDomainListReturns([]repositories.DomainRecord{}, errors.New("unexpected error!"))
+				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, errors.New("unexpected error!"))
 				req, err := http.NewRequestWithContext(ctx, "GET", "/v3/domains", nil)
 				Expect(err).NotTo(HaveOccurred())
 				router.ServeHTTP(rr, req)

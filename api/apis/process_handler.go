@@ -27,13 +27,13 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
 type CFProcessRepository interface {
-	FetchProcess(context.Context, authorization.Info, string) (repositories.ProcessRecord, error)
-	FetchProcessList(context.Context, authorization.Info, repositories.FetchProcessListMessage) ([]repositories.ProcessRecord, error)
+	GetProcess(context.Context, authorization.Info, string) (repositories.ProcessRecord, error)
+	ListProcesses(context.Context, authorization.Info, repositories.ListProcessesMessage) ([]repositories.ProcessRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
 type PodRepository interface {
-	FetchPodStatsByAppGUID(context.Context, authorization.Info, repositories.FetchPodStatsMessage) ([]repositories.PodStatsRecord, error)
+	ListPodStats(context.Context, authorization.Info, repositories.ListPodStatsMessage) ([]repositories.PodStatsRecord, error)
 	WatchForPodsTermination(context.Context, authorization.Info, string, string) (bool, error)
 }
 
@@ -74,7 +74,7 @@ func (h *ProcessHandler) processGetHandler(authInfo authorization.Info, w http.R
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
-	process, err := h.processRepo.FetchProcess(ctx, authInfo, processGUID)
+	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
 		h.logError(w, processGUID, err)
 		return
@@ -94,7 +94,7 @@ func (h *ProcessHandler) processGetSidecarsHandler(authInfo authorization.Info, 
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
-	_, err := h.processRepo.FetchProcess(ctx, authInfo, processGUID)
+	_, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
 		h.logError(w, processGUID, err)
 		return
@@ -206,7 +206,7 @@ func (h *ProcessHandler) processListHandler(authInfo authorization.Info, w http.
 		}
 	}
 
-	processList, err := h.processRepo.FetchProcessList(ctx, authInfo, processListFilter.ToMessage())
+	processList, err := h.processRepo.ListProcesses(ctx, authInfo, processListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch processes(s) from Kubernetes")
 		writeUnknownErrorResponse(w)

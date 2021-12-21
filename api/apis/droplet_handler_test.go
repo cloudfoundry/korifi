@@ -6,11 +6,12 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 )
 
 var _ = Describe("DropletHandler", func() {
@@ -47,7 +48,7 @@ var _ = Describe("DropletHandler", func() {
 		When("on the happy path", func() {
 			When("build staging is successful", func() {
 				BeforeEach(func() {
-					dropletRepo.FetchDropletReturns(repositories.DropletRecord{
+					dropletRepo.GetDropletReturns(repositories.DropletRecord{
 						GUID:      dropletGUID,
 						State:     "STAGED",
 						CreatedAt: createdAt,
@@ -80,9 +81,9 @@ var _ = Describe("DropletHandler", func() {
 				})
 
 				It("fetches the right droplet", func() {
-					Expect(dropletRepo.FetchDropletCallCount()).To(Equal(1))
+					Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
 
-					_, _, actualDropletGUID := dropletRepo.FetchDropletArgsForCall(0)
+					_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
 					Expect(actualDropletGUID).To(Equal(dropletGUID))
 				})
 
@@ -143,7 +144,7 @@ var _ = Describe("DropletHandler", func() {
 
 		When("the droplet cannot be found", func() {
 			BeforeEach(func() {
-				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
 				router.ServeHTTP(rr, req)
 			})
 
@@ -154,7 +155,7 @@ var _ = Describe("DropletHandler", func() {
 
 		When("there is some other error fetching the droplet", func() {
 			BeforeEach(func() {
-				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, errors.New("unknown!"))
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, errors.New("unknown!"))
 
 				router.ServeHTTP(rr, req)
 			})

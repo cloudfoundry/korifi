@@ -81,7 +81,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("on the happy path", func() {
 			BeforeEach(func() {
-				packageRepo.FetchPackageReturns(repositories.PackageRecord{
+				packageRepo.GetPackageReturns(repositories.PackageRecord{
 					GUID:      packageGUID,
 					Type:      "bits",
 					AppGUID:   appGUID,
@@ -106,8 +106,8 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("provides the authorization.Info from the request context to the package repository", func() {
-				Expect(packageRepo.FetchPackageCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := packageRepo.FetchPackageArgsForCall(0)
+				Expect(packageRepo.GetPackageCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := packageRepo.GetPackageArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -154,7 +154,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("on the sad path", func() {
 			BeforeEach(func() {
-				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
 			})
 
 			JustBeforeEach(func() {
@@ -167,7 +167,7 @@ var _ = Describe("PackageHandler", func() {
 
 			It("returns Content-Type as JSON in header", func() {
 				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type heaer:")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 			})
 
 			It("returns a JSON body", func() {
@@ -212,7 +212,7 @@ var _ = Describe("PackageHandler", func() {
 		)
 
 		BeforeEach(func() {
-			packageRepo.FetchPackageListReturns([]repositories.PackageRecord{
+			packageRepo.ListPackagesReturns([]repositories.PackageRecord{
 				{
 					GUID:      package1GUID,
 					Type:      "bits",
@@ -358,8 +358,8 @@ var _ = Describe("PackageHandler", func() {
 					})
 
 					It("calls the package repository with expected arguments", func() {
-						_, _, message := packageRepo.FetchPackageListArgsForCall(0)
-						Expect(message).To(Equal(repositories.PackageListMessage{AppGUIDs: []string{appGUID}}))
+						_, _, message := packageRepo.ListPackagesArgsForCall(0)
+						Expect(message).To(Equal(repositories.ListPackagesMessage{AppGUIDs: []string{appGUID}}))
 					})
 				})
 
@@ -389,7 +389,7 @@ var _ = Describe("PackageHandler", func() {
 			})
 			When("no packages exist", func() {
 				BeforeEach(func() {
-					packageRepo.FetchPackageListReturns([]repositories.PackageRecord{}, nil)
+					packageRepo.ListPackagesReturns([]repositories.PackageRecord{}, nil)
 				})
 
 				It("returns status 200", func() {
@@ -425,7 +425,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("there is an unknown issue with the Package Repo", func() {
 			BeforeEach(func() {
-				packageRepo.FetchPackageListReturns([]repositories.PackageRecord{}, errors.New("some-error"))
+				packageRepo.ListPackagesReturns([]repositories.PackageRecord{}, errors.New("some-error"))
 			})
 
 			It("returns an error", func() {
@@ -483,7 +483,7 @@ var _ = Describe("PackageHandler", func() {
 				UpdatedAt: updatedAt,
 			}, nil)
 
-			appRepo.FetchAppReturns(repositories.AppRecord{
+			appRepo.GetAppReturns(repositories.AppRecord{
 				SpaceGUID: spaceGUID,
 				GUID:      appGUID,
 				EtcdUID:   appUID,
@@ -508,7 +508,7 @@ var _ = Describe("PackageHandler", func() {
 				Expect(packageRepo.CreatePackageCallCount()).To(Equal(1))
 				_, actualAuthInfo, actualCreate := packageRepo.CreatePackageArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
-				Expect(actualCreate).To(Equal(repositories.PackageCreateMessage{
+				Expect(actualCreate).To(Equal(repositories.CreatePackageMessage{
 					Type:      "bits",
 					AppGUID:   appGUID,
 					SpaceGUID: spaceGUID,
@@ -570,7 +570,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the app doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 			})
 
 			JustBeforeEach(func() {
@@ -585,7 +585,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the app exists check returns an error", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("boom"))
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
 			})
 
 			JustBeforeEach(func() {
@@ -736,7 +736,7 @@ var _ = Describe("PackageHandler", func() {
 		)
 
 		BeforeEach(func() {
-			packageRepo.FetchPackageReturns(repositories.PackageRecord{
+			packageRepo.GetPackageReturns(repositories.PackageRecord{
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
@@ -780,9 +780,9 @@ var _ = Describe("PackageHandler", func() {
 			})
 
 			It("fetches the right package", func() {
-				Expect(packageRepo.FetchPackageCallCount()).To(Equal(1))
+				Expect(packageRepo.GetPackageCallCount()).To(Equal(1))
 
-				_, actualAuthInfo, actualPackageGUID := packageRepo.FetchPackageArgsForCall(0)
+				_, actualAuthInfo, actualPackageGUID := packageRepo.GetPackageArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 				Expect(actualPackageGUID).To(Equal(packageGUID))
 			})
@@ -861,7 +861,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the record doesn't exist", func() {
 			BeforeEach(func() {
-				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
 			})
 
 			JustBeforeEach(func() {
@@ -890,7 +890,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("fetching the package errors", func() {
 			BeforeEach(func() {
-				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
 			})
 
 			JustBeforeEach(func() {
@@ -971,7 +971,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the package has already been uploaded", func() {
 			BeforeEach(func() {
-				packageRepo.FetchPackageReturns(repositories.PackageRecord{
+				packageRepo.GetPackageReturns(repositories.PackageRecord{
 					Type:      "bits",
 					AppGUID:   appGUID,
 					SpaceGUID: spaceGUID,
@@ -1023,11 +1023,11 @@ var _ = Describe("PackageHandler", func() {
 		)
 
 		BeforeEach(func() {
-			packageRepo.FetchPackageReturns(repositories.PackageRecord{
+			packageRepo.GetPackageReturns(repositories.PackageRecord{
 				GUID: packageGUID,
 			}, nil)
 
-			dropletRepo.FetchDropletListReturns([]repositories.DropletRecord{
+			dropletRepo.ListDropletsReturns([]repositories.DropletRecord{
 				{
 					GUID:      dropletGUID,
 					State:     "STAGED",
@@ -1070,17 +1070,17 @@ var _ = Describe("PackageHandler", func() {
 				})
 
 				It("fetches the right package", func() {
-					Expect(packageRepo.FetchPackageCallCount()).To(Equal(1))
+					Expect(packageRepo.GetPackageCallCount()).To(Equal(1))
 
-					_, _, actualPackageGUID := packageRepo.FetchPackageArgsForCall(0)
+					_, _, actualPackageGUID := packageRepo.GetPackageArgsForCall(0)
 					Expect(actualPackageGUID).To(Equal(packageGUID))
 				})
 
 				It("retrieves the droplets for the specified package", func() {
-					Expect(dropletRepo.FetchDropletListCallCount()).To(Equal(1))
+					Expect(dropletRepo.ListDropletsCallCount()).To(Equal(1))
 
-					_, _, dropletListMessage := dropletRepo.FetchDropletListArgsForCall(0)
-					Expect(dropletListMessage).To(Equal(repositories.DropletListMessage{
+					_, _, dropletListMessage := dropletRepo.ListDropletsArgsForCall(0)
+					Expect(dropletListMessage).To(Equal(repositories.ListDropletsMessage{
 						PackageGUIDs: []string{packageGUID},
 					}))
 				})
@@ -1182,7 +1182,7 @@ var _ = Describe("PackageHandler", func() {
 		When("on the sad path and", func() {
 			When("the package does not exist", func() {
 				BeforeEach(func() {
-					packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+					packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
 				})
 
 				It("returns the error", func() {
@@ -1192,7 +1192,7 @@ var _ = Describe("PackageHandler", func() {
 
 			When("an error occurs while fetching the package", func() {
 				BeforeEach(func() {
-					packageRepo.FetchPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+					packageRepo.GetPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
 				})
 
 				It("returns the error", func() {
@@ -1202,7 +1202,7 @@ var _ = Describe("PackageHandler", func() {
 
 			When("an error occurs while fetching the droplets for the package", func() {
 				BeforeEach(func() {
-					dropletRepo.FetchDropletListReturns([]repositories.DropletRecord{}, errors.New("boom"))
+					dropletRepo.ListDropletsReturns([]repositories.DropletRecord{}, errors.New("boom"))
 				})
 
 				It("returns the error", func() {

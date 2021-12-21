@@ -82,8 +82,8 @@ func initializeDropletCR(dropletGUID, appGUID, spaceGUID string) workloadsv1alph
 	}
 }
 
-func initializeAppCreateMessage(appName string, spaceGUID string) AppCreateMessage {
-	return AppCreateMessage{
+func initializeAppCreateMessage(appName string, spaceGUID string) CreateAppMessage {
+	return CreateAppMessage{
 		Name:      appName,
 		SpaceGUID: spaceGUID,
 		State:     "STOPPED",

@@ -39,7 +39,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFRoleRepository . CFRoleRepository
 
 type CFRoleRepository interface {
-	CreateRole(ctx context.Context, role repositories.RoleCreateMessage) (repositories.RoleRecord, error)
+	CreateRole(ctx context.Context, role repositories.CreateRoleMessage) (repositories.RoleRecord, error)
 }
 
 type RoleHandler struct {

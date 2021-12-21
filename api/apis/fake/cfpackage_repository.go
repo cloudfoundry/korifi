@@ -11,12 +11,12 @@ import (
 )
 
 type CFPackageRepository struct {
-	CreatePackageStub        func(context.Context, authorization.Info, repositories.PackageCreateMessage) (repositories.PackageRecord, error)
+	CreatePackageStub        func(context.Context, authorization.Info, repositories.CreatePackageMessage) (repositories.PackageRecord, error)
 	createPackageMutex       sync.RWMutex
 	createPackageArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.PackageCreateMessage
+		arg3 repositories.CreatePackageMessage
 	}
 	createPackageReturns struct {
 		result1 repositories.PackageRecord
@@ -26,42 +26,42 @@ type CFPackageRepository struct {
 		result1 repositories.PackageRecord
 		result2 error
 	}
-	FetchPackageStub        func(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
-	fetchPackageMutex       sync.RWMutex
-	fetchPackageArgsForCall []struct {
+	GetPackageStub        func(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
+	getPackageMutex       sync.RWMutex
+	getPackageArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
 		arg3 string
 	}
-	fetchPackageReturns struct {
+	getPackageReturns struct {
 		result1 repositories.PackageRecord
 		result2 error
 	}
-	fetchPackageReturnsOnCall map[int]struct {
+	getPackageReturnsOnCall map[int]struct {
 		result1 repositories.PackageRecord
 		result2 error
 	}
-	FetchPackageListStub        func(context.Context, authorization.Info, repositories.PackageListMessage) ([]repositories.PackageRecord, error)
-	fetchPackageListMutex       sync.RWMutex
-	fetchPackageListArgsForCall []struct {
+	ListPackagesStub        func(context.Context, authorization.Info, repositories.ListPackagesMessage) ([]repositories.PackageRecord, error)
+	listPackagesMutex       sync.RWMutex
+	listPackagesArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.PackageListMessage
+		arg3 repositories.ListPackagesMessage
 	}
-	fetchPackageListReturns struct {
+	listPackagesReturns struct {
 		result1 []repositories.PackageRecord
 		result2 error
 	}
-	fetchPackageListReturnsOnCall map[int]struct {
+	listPackagesReturnsOnCall map[int]struct {
 		result1 []repositories.PackageRecord
 		result2 error
 	}
-	UpdatePackageSourceStub        func(context.Context, authorization.Info, repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)
+	UpdatePackageSourceStub        func(context.Context, authorization.Info, repositories.UpdatePackageSourceMessage) (repositories.PackageRecord, error)
 	updatePackageSourceMutex       sync.RWMutex
 	updatePackageSourceArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.PackageUpdateSourceMessage
+		arg3 repositories.UpdatePackageSourceMessage
 	}
 	updatePackageSourceReturns struct {
 		result1 repositories.PackageRecord
@@ -75,13 +75,13 @@ type CFPackageRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFPackageRepository) CreatePackage(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PackageCreateMessage) (repositories.PackageRecord, error) {
+func (fake *CFPackageRepository) CreatePackage(arg1 context.Context, arg2 authorization.Info, arg3 repositories.CreatePackageMessage) (repositories.PackageRecord, error) {
 	fake.createPackageMutex.Lock()
 	ret, specificReturn := fake.createPackageReturnsOnCall[len(fake.createPackageArgsForCall)]
 	fake.createPackageArgsForCall = append(fake.createPackageArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.PackageCreateMessage
+		arg3 repositories.CreatePackageMessage
 	}{arg1, arg2, arg3})
 	stub := fake.CreatePackageStub
 	fakeReturns := fake.createPackageReturns
@@ -102,13 +102,13 @@ func (fake *CFPackageRepository) CreatePackageCallCount() int {
 	return len(fake.createPackageArgsForCall)
 }
 
-func (fake *CFPackageRepository) CreatePackageCalls(stub func(context.Context, authorization.Info, repositories.PackageCreateMessage) (repositories.PackageRecord, error)) {
+func (fake *CFPackageRepository) CreatePackageCalls(stub func(context.Context, authorization.Info, repositories.CreatePackageMessage) (repositories.PackageRecord, error)) {
 	fake.createPackageMutex.Lock()
 	defer fake.createPackageMutex.Unlock()
 	fake.CreatePackageStub = stub
 }
 
-func (fake *CFPackageRepository) CreatePackageArgsForCall(i int) (context.Context, authorization.Info, repositories.PackageCreateMessage) {
+func (fake *CFPackageRepository) CreatePackageArgsForCall(i int) (context.Context, authorization.Info, repositories.CreatePackageMessage) {
 	fake.createPackageMutex.RLock()
 	defer fake.createPackageMutex.RUnlock()
 	argsForCall := fake.createPackageArgsForCall[i]
@@ -141,18 +141,18 @@ func (fake *CFPackageRepository) CreatePackageReturnsOnCall(i int, result1 repos
 	}{result1, result2}
 }
 
-func (fake *CFPackageRepository) FetchPackage(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.PackageRecord, error) {
-	fake.fetchPackageMutex.Lock()
-	ret, specificReturn := fake.fetchPackageReturnsOnCall[len(fake.fetchPackageArgsForCall)]
-	fake.fetchPackageArgsForCall = append(fake.fetchPackageArgsForCall, struct {
+func (fake *CFPackageRepository) GetPackage(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.PackageRecord, error) {
+	fake.getPackageMutex.Lock()
+	ret, specificReturn := fake.getPackageReturnsOnCall[len(fake.getPackageArgsForCall)]
+	fake.getPackageArgsForCall = append(fake.getPackageArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
 		arg3 string
 	}{arg1, arg2, arg3})
-	stub := fake.FetchPackageStub
-	fakeReturns := fake.fetchPackageReturns
-	fake.recordInvocation("FetchPackage", []interface{}{arg1, arg2, arg3})
-	fake.fetchPackageMutex.Unlock()
+	stub := fake.GetPackageStub
+	fakeReturns := fake.getPackageReturns
+	fake.recordInvocation("GetPackage", []interface{}{arg1, arg2, arg3})
+	fake.getPackageMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
 	}
@@ -162,63 +162,63 @@ func (fake *CFPackageRepository) FetchPackage(arg1 context.Context, arg2 authori
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFPackageRepository) FetchPackageCallCount() int {
-	fake.fetchPackageMutex.RLock()
-	defer fake.fetchPackageMutex.RUnlock()
-	return len(fake.fetchPackageArgsForCall)
+func (fake *CFPackageRepository) GetPackageCallCount() int {
+	fake.getPackageMutex.RLock()
+	defer fake.getPackageMutex.RUnlock()
+	return len(fake.getPackageArgsForCall)
 }
 
-func (fake *CFPackageRepository) FetchPackageCalls(stub func(context.Context, authorization.Info, string) (repositories.PackageRecord, error)) {
-	fake.fetchPackageMutex.Lock()
-	defer fake.fetchPackageMutex.Unlock()
-	fake.FetchPackageStub = stub
+func (fake *CFPackageRepository) GetPackageCalls(stub func(context.Context, authorization.Info, string) (repositories.PackageRecord, error)) {
+	fake.getPackageMutex.Lock()
+	defer fake.getPackageMutex.Unlock()
+	fake.GetPackageStub = stub
 }
 
-func (fake *CFPackageRepository) FetchPackageArgsForCall(i int) (context.Context, authorization.Info, string) {
-	fake.fetchPackageMutex.RLock()
-	defer fake.fetchPackageMutex.RUnlock()
-	argsForCall := fake.fetchPackageArgsForCall[i]
+func (fake *CFPackageRepository) GetPackageArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getPackageMutex.RLock()
+	defer fake.getPackageMutex.RUnlock()
+	argsForCall := fake.getPackageArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFPackageRepository) FetchPackageReturns(result1 repositories.PackageRecord, result2 error) {
-	fake.fetchPackageMutex.Lock()
-	defer fake.fetchPackageMutex.Unlock()
-	fake.FetchPackageStub = nil
-	fake.fetchPackageReturns = struct {
+func (fake *CFPackageRepository) GetPackageReturns(result1 repositories.PackageRecord, result2 error) {
+	fake.getPackageMutex.Lock()
+	defer fake.getPackageMutex.Unlock()
+	fake.GetPackageStub = nil
+	fake.getPackageReturns = struct {
 		result1 repositories.PackageRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFPackageRepository) FetchPackageReturnsOnCall(i int, result1 repositories.PackageRecord, result2 error) {
-	fake.fetchPackageMutex.Lock()
-	defer fake.fetchPackageMutex.Unlock()
-	fake.FetchPackageStub = nil
-	if fake.fetchPackageReturnsOnCall == nil {
-		fake.fetchPackageReturnsOnCall = make(map[int]struct {
+func (fake *CFPackageRepository) GetPackageReturnsOnCall(i int, result1 repositories.PackageRecord, result2 error) {
+	fake.getPackageMutex.Lock()
+	defer fake.getPackageMutex.Unlock()
+	fake.GetPackageStub = nil
+	if fake.getPackageReturnsOnCall == nil {
+		fake.getPackageReturnsOnCall = make(map[int]struct {
 			result1 repositories.PackageRecord
 			result2 error
 		})
 	}
-	fake.fetchPackageReturnsOnCall[i] = struct {
+	fake.getPackageReturnsOnCall[i] = struct {
 		result1 repositories.PackageRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFPackageRepository) FetchPackageList(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PackageListMessage) ([]repositories.PackageRecord, error) {
-	fake.fetchPackageListMutex.Lock()
-	ret, specificReturn := fake.fetchPackageListReturnsOnCall[len(fake.fetchPackageListArgsForCall)]
-	fake.fetchPackageListArgsForCall = append(fake.fetchPackageListArgsForCall, struct {
+func (fake *CFPackageRepository) ListPackages(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListPackagesMessage) ([]repositories.PackageRecord, error) {
+	fake.listPackagesMutex.Lock()
+	ret, specificReturn := fake.listPackagesReturnsOnCall[len(fake.listPackagesArgsForCall)]
+	fake.listPackagesArgsForCall = append(fake.listPackagesArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.PackageListMessage
+		arg3 repositories.ListPackagesMessage
 	}{arg1, arg2, arg3})
-	stub := fake.FetchPackageListStub
-	fakeReturns := fake.fetchPackageListReturns
-	fake.recordInvocation("FetchPackageList", []interface{}{arg1, arg2, arg3})
-	fake.fetchPackageListMutex.Unlock()
+	stub := fake.ListPackagesStub
+	fakeReturns := fake.listPackagesReturns
+	fake.recordInvocation("ListPackages", []interface{}{arg1, arg2, arg3})
+	fake.listPackagesMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
 	}
@@ -228,58 +228,58 @@ func (fake *CFPackageRepository) FetchPackageList(arg1 context.Context, arg2 aut
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFPackageRepository) FetchPackageListCallCount() int {
-	fake.fetchPackageListMutex.RLock()
-	defer fake.fetchPackageListMutex.RUnlock()
-	return len(fake.fetchPackageListArgsForCall)
+func (fake *CFPackageRepository) ListPackagesCallCount() int {
+	fake.listPackagesMutex.RLock()
+	defer fake.listPackagesMutex.RUnlock()
+	return len(fake.listPackagesArgsForCall)
 }
 
-func (fake *CFPackageRepository) FetchPackageListCalls(stub func(context.Context, authorization.Info, repositories.PackageListMessage) ([]repositories.PackageRecord, error)) {
-	fake.fetchPackageListMutex.Lock()
-	defer fake.fetchPackageListMutex.Unlock()
-	fake.FetchPackageListStub = stub
+func (fake *CFPackageRepository) ListPackagesCalls(stub func(context.Context, authorization.Info, repositories.ListPackagesMessage) ([]repositories.PackageRecord, error)) {
+	fake.listPackagesMutex.Lock()
+	defer fake.listPackagesMutex.Unlock()
+	fake.ListPackagesStub = stub
 }
 
-func (fake *CFPackageRepository) FetchPackageListArgsForCall(i int) (context.Context, authorization.Info, repositories.PackageListMessage) {
-	fake.fetchPackageListMutex.RLock()
-	defer fake.fetchPackageListMutex.RUnlock()
-	argsForCall := fake.fetchPackageListArgsForCall[i]
+func (fake *CFPackageRepository) ListPackagesArgsForCall(i int) (context.Context, authorization.Info, repositories.ListPackagesMessage) {
+	fake.listPackagesMutex.RLock()
+	defer fake.listPackagesMutex.RUnlock()
+	argsForCall := fake.listPackagesArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFPackageRepository) FetchPackageListReturns(result1 []repositories.PackageRecord, result2 error) {
-	fake.fetchPackageListMutex.Lock()
-	defer fake.fetchPackageListMutex.Unlock()
-	fake.FetchPackageListStub = nil
-	fake.fetchPackageListReturns = struct {
+func (fake *CFPackageRepository) ListPackagesReturns(result1 []repositories.PackageRecord, result2 error) {
+	fake.listPackagesMutex.Lock()
+	defer fake.listPackagesMutex.Unlock()
+	fake.ListPackagesStub = nil
+	fake.listPackagesReturns = struct {
 		result1 []repositories.PackageRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFPackageRepository) FetchPackageListReturnsOnCall(i int, result1 []repositories.PackageRecord, result2 error) {
-	fake.fetchPackageListMutex.Lock()
-	defer fake.fetchPackageListMutex.Unlock()
-	fake.FetchPackageListStub = nil
-	if fake.fetchPackageListReturnsOnCall == nil {
-		fake.fetchPackageListReturnsOnCall = make(map[int]struct {
+func (fake *CFPackageRepository) ListPackagesReturnsOnCall(i int, result1 []repositories.PackageRecord, result2 error) {
+	fake.listPackagesMutex.Lock()
+	defer fake.listPackagesMutex.Unlock()
+	fake.ListPackagesStub = nil
+	if fake.listPackagesReturnsOnCall == nil {
+		fake.listPackagesReturnsOnCall = make(map[int]struct {
 			result1 []repositories.PackageRecord
 			result2 error
 		})
 	}
-	fake.fetchPackageListReturnsOnCall[i] = struct {
+	fake.listPackagesReturnsOnCall[i] = struct {
 		result1 []repositories.PackageRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFPackageRepository) UpdatePackageSource(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error) {
+func (fake *CFPackageRepository) UpdatePackageSource(arg1 context.Context, arg2 authorization.Info, arg3 repositories.UpdatePackageSourceMessage) (repositories.PackageRecord, error) {
 	fake.updatePackageSourceMutex.Lock()
 	ret, specificReturn := fake.updatePackageSourceReturnsOnCall[len(fake.updatePackageSourceArgsForCall)]
 	fake.updatePackageSourceArgsForCall = append(fake.updatePackageSourceArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.PackageUpdateSourceMessage
+		arg3 repositories.UpdatePackageSourceMessage
 	}{arg1, arg2, arg3})
 	stub := fake.UpdatePackageSourceStub
 	fakeReturns := fake.updatePackageSourceReturns
@@ -300,13 +300,13 @@ func (fake *CFPackageRepository) UpdatePackageSourceCallCount() int {
 	return len(fake.updatePackageSourceArgsForCall)
 }
 
-func (fake *CFPackageRepository) UpdatePackageSourceCalls(stub func(context.Context, authorization.Info, repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)) {
+func (fake *CFPackageRepository) UpdatePackageSourceCalls(stub func(context.Context, authorization.Info, repositories.UpdatePackageSourceMessage) (repositories.PackageRecord, error)) {
 	fake.updatePackageSourceMutex.Lock()
 	defer fake.updatePackageSourceMutex.Unlock()
 	fake.UpdatePackageSourceStub = stub
 }
 
-func (fake *CFPackageRepository) UpdatePackageSourceArgsForCall(i int) (context.Context, authorization.Info, repositories.PackageUpdateSourceMessage) {
+func (fake *CFPackageRepository) UpdatePackageSourceArgsForCall(i int) (context.Context, authorization.Info, repositories.UpdatePackageSourceMessage) {
 	fake.updatePackageSourceMutex.RLock()
 	defer fake.updatePackageSourceMutex.RUnlock()
 	argsForCall := fake.updatePackageSourceArgsForCall[i]
@@ -344,10 +344,10 @@ func (fake *CFPackageRepository) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.createPackageMutex.RLock()
 	defer fake.createPackageMutex.RUnlock()
-	fake.fetchPackageMutex.RLock()
-	defer fake.fetchPackageMutex.RUnlock()
-	fake.fetchPackageListMutex.RLock()
-	defer fake.fetchPackageListMutex.RUnlock()
+	fake.getPackageMutex.RLock()
+	defer fake.getPackageMutex.RUnlock()
+	fake.listPackagesMutex.RLock()
+	defer fake.listPackagesMutex.RUnlock()
 	fake.updatePackageSourceMutex.RLock()
 	defer fake.updatePackageSourceMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

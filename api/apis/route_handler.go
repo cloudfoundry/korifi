@@ -27,9 +27,9 @@ const (
 //counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository
 
 type CFRouteRepository interface {
-	FetchRoute(context.Context, authorization.Info, string) (repositories.RouteRecord, error)
-	FetchRouteList(context.Context, authorization.Info, repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error)
-	FetchRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
+	GetRoute(context.Context, authorization.Info, string) (repositories.RouteRecord, error)
+	ListRoutes(context.Context, authorization.Info, repositories.ListRoutesMessage) ([]repositories.RouteRecord, error)
+	ListRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
 	CreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
 	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
 }
@@ -175,7 +175,7 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 	}
 
 	namespaceGUID := payload.Relationships.Space.Data.GUID
-	_, err := h.appRepo.FetchNamespace(ctx, authInfo, namespaceGUID)
+	_, err := h.appRepo.GetNamespace(ctx, authInfo, namespaceGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.PermissionDeniedOrNotFoundError:
@@ -190,7 +190,7 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 	}
 
 	domainGUID := payload.Relationships.Domain.Data.GUID
-	domain, err := h.domainRepo.FetchDomain(ctx, authInfo, domainGUID)
+	domain, err := h.domainRepo.GetDomain(ctx, authInfo, domainGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.PermissionDeniedOrNotFoundError:
@@ -276,12 +276,12 @@ func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
 
 // Fetch Route and compose related Domain information within
 func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, routeGUID string, authInfo authorization.Info) (repositories.RouteRecord, error) {
-	route, err := h.routeRepo.FetchRoute(ctx, authInfo, routeGUID)
+	route, err := h.routeRepo.GetRoute(ctx, authInfo, routeGUID)
 	if err != nil {
 		return repositories.RouteRecord{}, err
 	}
 
-	domain, err := h.domainRepo.FetchDomain(ctx, authInfo, route.Domain.GUID)
+	domain, err := h.domainRepo.GetDomain(ctx, authInfo, route.Domain.GUID)
 	// We assume K8s controller will ensure valid data, so the only error case is due to eventually consistency.
 	// Return a generic retryable error.
 	if err != nil {
@@ -294,8 +294,8 @@ func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, routeGUID strin
 	return route, nil
 }
 
-func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, authInfo authorization.Info, message repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error) {
-	routeRecords, err := h.routeRepo.FetchRouteList(ctx, authInfo, message)
+func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, authInfo authorization.Info, message repositories.ListRoutesMessage) ([]repositories.RouteRecord, error) {
+	routeRecords, err := h.routeRepo.ListRoutes(ctx, authInfo, message)
 	if err != nil {
 		return []repositories.RouteRecord{}, err
 	}
@@ -306,7 +306,7 @@ func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, authInfo au
 		currentDomainGUID := routeRecord.Domain.GUID
 		domainRecord, has := domainGUIDToDomainRecord[currentDomainGUID]
 		if !has {
-			domainRecord, err = h.domainRepo.FetchDomain(ctx, authInfo, currentDomainGUID)
+			domainRecord, err = h.domainRepo.GetDomain(ctx, authInfo, currentDomainGUID)
 			if err != nil {
 				err = errors.New("resource not found for route's specified domain ref")
 				return []repositories.RouteRecord{}, err
@@ -326,7 +326,7 @@ func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, aut
 		domainRecord, has := domainGUIDToDomainRecord[currentDomainGUID]
 		if !has {
 			var err error
-			domainRecord, err = domainRepo.FetchDomain(ctx, authInfo, currentDomainGUID)
+			domainRecord, err = domainRepo.GetDomain(ctx, authInfo, currentDomainGUID)
 			if err != nil {
 				err = errors.New("resource not found for route's specified domain ref")
 				return []repositories.RouteRecord{}, err

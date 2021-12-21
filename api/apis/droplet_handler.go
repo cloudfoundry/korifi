@@ -5,11 +5,12 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/go-logr/logr"
+	"github.com/gorilla/mux"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 )
 
 const (
@@ -18,8 +19,8 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFDropletRepository . CFDropletRepository
 type CFDropletRepository interface {
-	FetchDroplet(context.Context, authorization.Info, string) (repositories.DropletRecord, error)
-	FetchDropletList(context.Context, authorization.Info, repositories.DropletListMessage) ([]repositories.DropletRecord, error)
+	GetDroplet(context.Context, authorization.Info, string) (repositories.DropletRecord, error)
+	ListDroplets(context.Context, authorization.Info, repositories.ListDropletsMessage) ([]repositories.DropletRecord, error)
 }
 
 type DropletHandler struct {
@@ -47,7 +48,7 @@ func (h *DropletHandler) dropletGetHandler(authInfo authorization.Info, w http.R
 	vars := mux.Vars(r)
 	dropletGUID := vars["guid"]
 
-	droplet, err := h.dropletRepo.FetchDroplet(ctx, authInfo, dropletGUID)
+	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:

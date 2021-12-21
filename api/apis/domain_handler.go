@@ -23,8 +23,8 @@ const (
 //counterfeiter:generate -o fake -fake-name CFDomainRepository . CFDomainRepository
 
 type CFDomainRepository interface {
-	FetchDomain(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
-	FetchDomainList(context.Context, authorization.Info, repositories.DomainListMessage) ([]repositories.DomainRecord, error)
+	GetDomain(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
+	ListDomains(context.Context, authorization.Info, repositories.ListDomainsMessage) ([]repositories.DomainRecord, error)
 }
 
 type DomainHandler struct {
@@ -80,7 +80,7 @@ func (h *DomainHandler) DomainListHandler(authInfo authorization.Info, w http.Re
 		}
 	}
 
-	domainList, err := h.domainRepo.FetchDomainList(ctx, authInfo, domainListFilter.ToMessage())
+	domainList, err := h.domainRepo.ListDomains(ctx, authInfo, domainListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch domain(s) from Kubernetes")
 		writeUnknownErrorResponse(w)

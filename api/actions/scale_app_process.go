@@ -25,17 +25,17 @@ func NewScaleAppProcess(appRepo CFAppRepository, processRepo CFProcessRepository
 }
 
 func (a *ScaleAppProcess) Invoke(ctx context.Context, authInfo authorization.Info, appGUID string, processType string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error) {
-	app, err := a.appRepo.FetchApp(ctx, authInfo, appGUID)
+	app, err := a.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		return repositories.ProcessRecord{}, err
 	}
 
-	fetchProcessMessage := repositories.FetchProcessListMessage{
+	fetchProcessMessage := repositories.ListProcessesMessage{
 		AppGUID:   []string{app.GUID},
 		SpaceGUID: app.SpaceGUID,
 	}
 
-	appProcesses, err := a.processRepo.FetchProcessList(ctx, authInfo, fetchProcessMessage)
+	appProcesses, err := a.processRepo.ListProcesses(ctx, authInfo, fetchProcessMessage)
 	if err != nil {
 		return repositories.ProcessRecord{}, err
 	}

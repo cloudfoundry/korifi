@@ -25,7 +25,7 @@ type AppRelationships struct {
 	Space Relationship `json:"space" validate:"required"`
 }
 
-func (p AppCreate) ToAppCreateMessage() repositories.AppCreateMessage {
+func (p AppCreate) ToAppCreateMessage() repositories.CreateAppMessage {
 	lifecycleBlock := repositories.Lifecycle{
 		Type: DefaultLifecycleConfig.Type,
 		Data: repositories.LifecycleData{
@@ -37,7 +37,7 @@ func (p AppCreate) ToAppCreateMessage() repositories.AppCreateMessage {
 		lifecycleBlock.Data.Buildpacks = p.Lifecycle.Data.Buildpacks
 	}
 
-	return repositories.AppCreateMessage{
+	return repositories.CreateAppMessage{
 		Name:                 p.Name,
 		SpaceGUID:            p.Relationships.Space.Data.GUID,
 		Labels:               p.Metadata.Labels,
@@ -59,8 +59,8 @@ type AppList struct {
 	OrderBy    string `schema:"order_by"`
 }
 
-func (a *AppList) ToMessage() repositories.AppListMessage {
-	return repositories.AppListMessage{
+func (a *AppList) ToMessage() repositories.ListAppsMessage {
+	return repositories.ListAppsMessage{
 		Names:      parseArrayParam(a.Names),
 		Guids:      parseArrayParam(a.GUIDs),
 		SpaceGuids: parseArrayParam(a.SpaceGuids),

@@ -41,49 +41,49 @@ type CFRouteRepository struct {
 		result1 repositories.RouteRecord
 		result2 error
 	}
-	FetchRouteStub        func(context.Context, authorization.Info, string) (repositories.RouteRecord, error)
-	fetchRouteMutex       sync.RWMutex
-	fetchRouteArgsForCall []struct {
+	GetRouteStub        func(context.Context, authorization.Info, string) (repositories.RouteRecord, error)
+	getRouteMutex       sync.RWMutex
+	getRouteArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
 		arg3 string
 	}
-	fetchRouteReturns struct {
+	getRouteReturns struct {
 		result1 repositories.RouteRecord
 		result2 error
 	}
-	fetchRouteReturnsOnCall map[int]struct {
+	getRouteReturnsOnCall map[int]struct {
 		result1 repositories.RouteRecord
 		result2 error
 	}
-	FetchRouteListStub        func(context.Context, authorization.Info, repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error)
-	fetchRouteListMutex       sync.RWMutex
-	fetchRouteListArgsForCall []struct {
+	ListRoutesStub        func(context.Context, authorization.Info, repositories.ListRoutesMessage) ([]repositories.RouteRecord, error)
+	listRoutesMutex       sync.RWMutex
+	listRoutesArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.FetchRouteListMessage
+		arg3 repositories.ListRoutesMessage
 	}
-	fetchRouteListReturns struct {
+	listRoutesReturns struct {
 		result1 []repositories.RouteRecord
 		result2 error
 	}
-	fetchRouteListReturnsOnCall map[int]struct {
+	listRoutesReturnsOnCall map[int]struct {
 		result1 []repositories.RouteRecord
 		result2 error
 	}
-	FetchRoutesForAppStub        func(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
-	fetchRoutesForAppMutex       sync.RWMutex
-	fetchRoutesForAppArgsForCall []struct {
+	ListRoutesForAppStub        func(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
+	listRoutesForAppMutex       sync.RWMutex
+	listRoutesForAppArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
 		arg3 string
 		arg4 string
 	}
-	fetchRoutesForAppReturns struct {
+	listRoutesForAppReturns struct {
 		result1 []repositories.RouteRecord
 		result2 error
 	}
-	fetchRoutesForAppReturnsOnCall map[int]struct {
+	listRoutesForAppReturnsOnCall map[int]struct {
 		result1 []repositories.RouteRecord
 		result2 error
 	}
@@ -223,18 +223,18 @@ func (fake *CFRouteRepository) CreateRouteReturnsOnCall(i int, result1 repositor
 	}{result1, result2}
 }
 
-func (fake *CFRouteRepository) FetchRoute(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.RouteRecord, error) {
-	fake.fetchRouteMutex.Lock()
-	ret, specificReturn := fake.fetchRouteReturnsOnCall[len(fake.fetchRouteArgsForCall)]
-	fake.fetchRouteArgsForCall = append(fake.fetchRouteArgsForCall, struct {
+func (fake *CFRouteRepository) GetRoute(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.RouteRecord, error) {
+	fake.getRouteMutex.Lock()
+	ret, specificReturn := fake.getRouteReturnsOnCall[len(fake.getRouteArgsForCall)]
+	fake.getRouteArgsForCall = append(fake.getRouteArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
 		arg3 string
 	}{arg1, arg2, arg3})
-	stub := fake.FetchRouteStub
-	fakeReturns := fake.fetchRouteReturns
-	fake.recordInvocation("FetchRoute", []interface{}{arg1, arg2, arg3})
-	fake.fetchRouteMutex.Unlock()
+	stub := fake.GetRouteStub
+	fakeReturns := fake.getRouteReturns
+	fake.recordInvocation("GetRoute", []interface{}{arg1, arg2, arg3})
+	fake.getRouteMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
 	}
@@ -244,63 +244,63 @@ func (fake *CFRouteRepository) FetchRoute(arg1 context.Context, arg2 authorizati
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFRouteRepository) FetchRouteCallCount() int {
-	fake.fetchRouteMutex.RLock()
-	defer fake.fetchRouteMutex.RUnlock()
-	return len(fake.fetchRouteArgsForCall)
+func (fake *CFRouteRepository) GetRouteCallCount() int {
+	fake.getRouteMutex.RLock()
+	defer fake.getRouteMutex.RUnlock()
+	return len(fake.getRouteArgsForCall)
 }
 
-func (fake *CFRouteRepository) FetchRouteCalls(stub func(context.Context, authorization.Info, string) (repositories.RouteRecord, error)) {
-	fake.fetchRouteMutex.Lock()
-	defer fake.fetchRouteMutex.Unlock()
-	fake.FetchRouteStub = stub
+func (fake *CFRouteRepository) GetRouteCalls(stub func(context.Context, authorization.Info, string) (repositories.RouteRecord, error)) {
+	fake.getRouteMutex.Lock()
+	defer fake.getRouteMutex.Unlock()
+	fake.GetRouteStub = stub
 }
 
-func (fake *CFRouteRepository) FetchRouteArgsForCall(i int) (context.Context, authorization.Info, string) {
-	fake.fetchRouteMutex.RLock()
-	defer fake.fetchRouteMutex.RUnlock()
-	argsForCall := fake.fetchRouteArgsForCall[i]
+func (fake *CFRouteRepository) GetRouteArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getRouteMutex.RLock()
+	defer fake.getRouteMutex.RUnlock()
+	argsForCall := fake.getRouteArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFRouteRepository) FetchRouteReturns(result1 repositories.RouteRecord, result2 error) {
-	fake.fetchRouteMutex.Lock()
-	defer fake.fetchRouteMutex.Unlock()
-	fake.FetchRouteStub = nil
-	fake.fetchRouteReturns = struct {
+func (fake *CFRouteRepository) GetRouteReturns(result1 repositories.RouteRecord, result2 error) {
+	fake.getRouteMutex.Lock()
+	defer fake.getRouteMutex.Unlock()
+	fake.GetRouteStub = nil
+	fake.getRouteReturns = struct {
 		result1 repositories.RouteRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFRouteRepository) FetchRouteReturnsOnCall(i int, result1 repositories.RouteRecord, result2 error) {
-	fake.fetchRouteMutex.Lock()
-	defer fake.fetchRouteMutex.Unlock()
-	fake.FetchRouteStub = nil
-	if fake.fetchRouteReturnsOnCall == nil {
-		fake.fetchRouteReturnsOnCall = make(map[int]struct {
+func (fake *CFRouteRepository) GetRouteReturnsOnCall(i int, result1 repositories.RouteRecord, result2 error) {
+	fake.getRouteMutex.Lock()
+	defer fake.getRouteMutex.Unlock()
+	fake.GetRouteStub = nil
+	if fake.getRouteReturnsOnCall == nil {
+		fake.getRouteReturnsOnCall = make(map[int]struct {
 			result1 repositories.RouteRecord
 			result2 error
 		})
 	}
-	fake.fetchRouteReturnsOnCall[i] = struct {
+	fake.getRouteReturnsOnCall[i] = struct {
 		result1 repositories.RouteRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFRouteRepository) FetchRouteList(arg1 context.Context, arg2 authorization.Info, arg3 repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error) {
-	fake.fetchRouteListMutex.Lock()
-	ret, specificReturn := fake.fetchRouteListReturnsOnCall[len(fake.fetchRouteListArgsForCall)]
-	fake.fetchRouteListArgsForCall = append(fake.fetchRouteListArgsForCall, struct {
+func (fake *CFRouteRepository) ListRoutes(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListRoutesMessage) ([]repositories.RouteRecord, error) {
+	fake.listRoutesMutex.Lock()
+	ret, specificReturn := fake.listRoutesReturnsOnCall[len(fake.listRoutesArgsForCall)]
+	fake.listRoutesArgsForCall = append(fake.listRoutesArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.FetchRouteListMessage
+		arg3 repositories.ListRoutesMessage
 	}{arg1, arg2, arg3})
-	stub := fake.FetchRouteListStub
-	fakeReturns := fake.fetchRouteListReturns
-	fake.recordInvocation("FetchRouteList", []interface{}{arg1, arg2, arg3})
-	fake.fetchRouteListMutex.Unlock()
+	stub := fake.ListRoutesStub
+	fakeReturns := fake.listRoutesReturns
+	fake.recordInvocation("ListRoutes", []interface{}{arg1, arg2, arg3})
+	fake.listRoutesMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
 	}
@@ -310,64 +310,64 @@ func (fake *CFRouteRepository) FetchRouteList(arg1 context.Context, arg2 authori
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFRouteRepository) FetchRouteListCallCount() int {
-	fake.fetchRouteListMutex.RLock()
-	defer fake.fetchRouteListMutex.RUnlock()
-	return len(fake.fetchRouteListArgsForCall)
+func (fake *CFRouteRepository) ListRoutesCallCount() int {
+	fake.listRoutesMutex.RLock()
+	defer fake.listRoutesMutex.RUnlock()
+	return len(fake.listRoutesArgsForCall)
 }
 
-func (fake *CFRouteRepository) FetchRouteListCalls(stub func(context.Context, authorization.Info, repositories.FetchRouteListMessage) ([]repositories.RouteRecord, error)) {
-	fake.fetchRouteListMutex.Lock()
-	defer fake.fetchRouteListMutex.Unlock()
-	fake.FetchRouteListStub = stub
+func (fake *CFRouteRepository) ListRoutesCalls(stub func(context.Context, authorization.Info, repositories.ListRoutesMessage) ([]repositories.RouteRecord, error)) {
+	fake.listRoutesMutex.Lock()
+	defer fake.listRoutesMutex.Unlock()
+	fake.ListRoutesStub = stub
 }
 
-func (fake *CFRouteRepository) FetchRouteListArgsForCall(i int) (context.Context, authorization.Info, repositories.FetchRouteListMessage) {
-	fake.fetchRouteListMutex.RLock()
-	defer fake.fetchRouteListMutex.RUnlock()
-	argsForCall := fake.fetchRouteListArgsForCall[i]
+func (fake *CFRouteRepository) ListRoutesArgsForCall(i int) (context.Context, authorization.Info, repositories.ListRoutesMessage) {
+	fake.listRoutesMutex.RLock()
+	defer fake.listRoutesMutex.RUnlock()
+	argsForCall := fake.listRoutesArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFRouteRepository) FetchRouteListReturns(result1 []repositories.RouteRecord, result2 error) {
-	fake.fetchRouteListMutex.Lock()
-	defer fake.fetchRouteListMutex.Unlock()
-	fake.FetchRouteListStub = nil
-	fake.fetchRouteListReturns = struct {
+func (fake *CFRouteRepository) ListRoutesReturns(result1 []repositories.RouteRecord, result2 error) {
+	fake.listRoutesMutex.Lock()
+	defer fake.listRoutesMutex.Unlock()
+	fake.ListRoutesStub = nil
+	fake.listRoutesReturns = struct {
 		result1 []repositories.RouteRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFRouteRepository) FetchRouteListReturnsOnCall(i int, result1 []repositories.RouteRecord, result2 error) {
-	fake.fetchRouteListMutex.Lock()
-	defer fake.fetchRouteListMutex.Unlock()
-	fake.FetchRouteListStub = nil
-	if fake.fetchRouteListReturnsOnCall == nil {
-		fake.fetchRouteListReturnsOnCall = make(map[int]struct {
+func (fake *CFRouteRepository) ListRoutesReturnsOnCall(i int, result1 []repositories.RouteRecord, result2 error) {
+	fake.listRoutesMutex.Lock()
+	defer fake.listRoutesMutex.Unlock()
+	fake.ListRoutesStub = nil
+	if fake.listRoutesReturnsOnCall == nil {
+		fake.listRoutesReturnsOnCall = make(map[int]struct {
 			result1 []repositories.RouteRecord
 			result2 error
 		})
 	}
-	fake.fetchRouteListReturnsOnCall[i] = struct {
+	fake.listRoutesReturnsOnCall[i] = struct {
 		result1 []repositories.RouteRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFRouteRepository) FetchRoutesForApp(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 string) ([]repositories.RouteRecord, error) {
-	fake.fetchRoutesForAppMutex.Lock()
-	ret, specificReturn := fake.fetchRoutesForAppReturnsOnCall[len(fake.fetchRoutesForAppArgsForCall)]
-	fake.fetchRoutesForAppArgsForCall = append(fake.fetchRoutesForAppArgsForCall, struct {
+func (fake *CFRouteRepository) ListRoutesForApp(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 string) ([]repositories.RouteRecord, error) {
+	fake.listRoutesForAppMutex.Lock()
+	ret, specificReturn := fake.listRoutesForAppReturnsOnCall[len(fake.listRoutesForAppArgsForCall)]
+	fake.listRoutesForAppArgsForCall = append(fake.listRoutesForAppArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
 		arg3 string
 		arg4 string
 	}{arg1, arg2, arg3, arg4})
-	stub := fake.FetchRoutesForAppStub
-	fakeReturns := fake.fetchRoutesForAppReturns
-	fake.recordInvocation("FetchRoutesForApp", []interface{}{arg1, arg2, arg3, arg4})
-	fake.fetchRoutesForAppMutex.Unlock()
+	stub := fake.ListRoutesForAppStub
+	fakeReturns := fake.listRoutesForAppReturns
+	fake.recordInvocation("ListRoutesForApp", []interface{}{arg1, arg2, arg3, arg4})
+	fake.listRoutesForAppMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3, arg4)
 	}
@@ -377,46 +377,46 @@ func (fake *CFRouteRepository) FetchRoutesForApp(arg1 context.Context, arg2 auth
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFRouteRepository) FetchRoutesForAppCallCount() int {
-	fake.fetchRoutesForAppMutex.RLock()
-	defer fake.fetchRoutesForAppMutex.RUnlock()
-	return len(fake.fetchRoutesForAppArgsForCall)
+func (fake *CFRouteRepository) ListRoutesForAppCallCount() int {
+	fake.listRoutesForAppMutex.RLock()
+	defer fake.listRoutesForAppMutex.RUnlock()
+	return len(fake.listRoutesForAppArgsForCall)
 }
 
-func (fake *CFRouteRepository) FetchRoutesForAppCalls(stub func(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)) {
-	fake.fetchRoutesForAppMutex.Lock()
-	defer fake.fetchRoutesForAppMutex.Unlock()
-	fake.FetchRoutesForAppStub = stub
+func (fake *CFRouteRepository) ListRoutesForAppCalls(stub func(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)) {
+	fake.listRoutesForAppMutex.Lock()
+	defer fake.listRoutesForAppMutex.Unlock()
+	fake.ListRoutesForAppStub = stub
 }
 
-func (fake *CFRouteRepository) FetchRoutesForAppArgsForCall(i int) (context.Context, authorization.Info, string, string) {
-	fake.fetchRoutesForAppMutex.RLock()
-	defer fake.fetchRoutesForAppMutex.RUnlock()
-	argsForCall := fake.fetchRoutesForAppArgsForCall[i]
+func (fake *CFRouteRepository) ListRoutesForAppArgsForCall(i int) (context.Context, authorization.Info, string, string) {
+	fake.listRoutesForAppMutex.RLock()
+	defer fake.listRoutesForAppMutex.RUnlock()
+	argsForCall := fake.listRoutesForAppArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
-func (fake *CFRouteRepository) FetchRoutesForAppReturns(result1 []repositories.RouteRecord, result2 error) {
-	fake.fetchRoutesForAppMutex.Lock()
-	defer fake.fetchRoutesForAppMutex.Unlock()
-	fake.FetchRoutesForAppStub = nil
-	fake.fetchRoutesForAppReturns = struct {
+func (fake *CFRouteRepository) ListRoutesForAppReturns(result1 []repositories.RouteRecord, result2 error) {
+	fake.listRoutesForAppMutex.Lock()
+	defer fake.listRoutesForAppMutex.Unlock()
+	fake.ListRoutesForAppStub = nil
+	fake.listRoutesForAppReturns = struct {
 		result1 []repositories.RouteRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFRouteRepository) FetchRoutesForAppReturnsOnCall(i int, result1 []repositories.RouteRecord, result2 error) {
-	fake.fetchRoutesForAppMutex.Lock()
-	defer fake.fetchRoutesForAppMutex.Unlock()
-	fake.FetchRoutesForAppStub = nil
-	if fake.fetchRoutesForAppReturnsOnCall == nil {
-		fake.fetchRoutesForAppReturnsOnCall = make(map[int]struct {
+func (fake *CFRouteRepository) ListRoutesForAppReturnsOnCall(i int, result1 []repositories.RouteRecord, result2 error) {
+	fake.listRoutesForAppMutex.Lock()
+	defer fake.listRoutesForAppMutex.Unlock()
+	fake.ListRoutesForAppStub = nil
+	if fake.listRoutesForAppReturnsOnCall == nil {
+		fake.listRoutesForAppReturnsOnCall = make(map[int]struct {
 			result1 []repositories.RouteRecord
 			result2 error
 		})
 	}
-	fake.fetchRoutesForAppReturnsOnCall[i] = struct {
+	fake.listRoutesForAppReturnsOnCall[i] = struct {
 		result1 []repositories.RouteRecord
 		result2 error
 	}{result1, result2}
@@ -429,12 +429,12 @@ func (fake *CFRouteRepository) Invocations() map[string][][]interface{} {
 	defer fake.addDestinationsToRouteMutex.RUnlock()
 	fake.createRouteMutex.RLock()
 	defer fake.createRouteMutex.RUnlock()
-	fake.fetchRouteMutex.RLock()
-	defer fake.fetchRouteMutex.RUnlock()
-	fake.fetchRouteListMutex.RLock()
-	defer fake.fetchRouteListMutex.RUnlock()
-	fake.fetchRoutesForAppMutex.RLock()
-	defer fake.fetchRoutesForAppMutex.RUnlock()
+	fake.getRouteMutex.RLock()
+	defer fake.getRouteMutex.RUnlock()
+	fake.listRoutesMutex.RLock()
+	defer fake.listRoutesMutex.RUnlock()
+	fake.listRoutesForAppMutex.RLock()
+	defer fake.listRoutesForAppMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

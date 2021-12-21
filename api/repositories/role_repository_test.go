@@ -23,7 +23,7 @@ var _ = Describe("RoleRepository", func() {
 	var (
 		ctx                 context.Context
 		rootNamespace       string
-		roleCreateMessage   repositories.RoleCreateMessage
+		roleCreateMessage   repositories.CreateRoleMessage
 		roleRepo            *repositories.RoleRepo
 		orgAnchor           *hnsv1alpha2.SubnamespaceAnchor
 		createdRole         repositories.RoleRecord
@@ -42,7 +42,7 @@ var _ = Describe("RoleRepository", func() {
 			"organization_user":    {Name: "cf-org-user-role"},
 		})
 
-		roleCreateMessage = repositories.RoleCreateMessage{}
+		roleCreateMessage = repositories.CreateRoleMessage{}
 		orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, uuid.NewString())
 	})
 
@@ -56,7 +56,7 @@ var _ = Describe("RoleRepository", func() {
 
 	Describe("Create Org Role", func() {
 		BeforeEach(func() {
-			roleCreateMessage = repositories.RoleCreateMessage{
+			roleCreateMessage = repositories.CreateRoleMessage{
 				GUID: uuid.NewString(),
 				Type: "organization_manager",
 				User: "myuser@example.com",
@@ -152,7 +152,7 @@ var _ = Describe("RoleRepository", func() {
 
 		When("the user is already bound to that role", func() {
 			It("returns an error", func() {
-				anotherRoleCreateMessage := repositories.RoleCreateMessage{
+				anotherRoleCreateMessage := repositories.CreateRoleMessage{
 					GUID: uuid.NewString(),
 					Type: "organization_manager",
 					User: "myuser@example.com",
@@ -172,7 +172,7 @@ var _ = Describe("RoleRepository", func() {
 			authorizedInChecker.AuthorizedInReturns(true, nil)
 			spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, uuid.NewString())
 
-			roleCreateMessage = repositories.RoleCreateMessage{
+			roleCreateMessage = repositories.CreateRoleMessage{
 				GUID:  uuid.NewString(),
 				Type:  "space_developer",
 				User:  "myuser@example.com",
@@ -299,7 +299,7 @@ var _ = Describe("RoleRepository", func() {
 
 		When("the user is already bound to that role", func() {
 			It("returns an error", func() {
-				anotherRoleCreateMessage := repositories.RoleCreateMessage{
+				anotherRoleCreateMessage := repositories.CreateRoleMessage{
 					GUID:  uuid.NewString(),
 					Type:  "space_developer",
 					User:  "myuser@example.com",

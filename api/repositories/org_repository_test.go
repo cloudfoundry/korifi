@@ -56,7 +56,7 @@ var _ = Describe("OrgRepository", func() {
 		Describe("Org", func() {
 			It("creates a subnamespace anchor in the root namespace", func() {
 				go updateStatus(rootNamespace, "some-guid")
-				org, err := orgRepo.CreateOrg(ctx, repositories.OrgCreateMessage{
+				org, err := orgRepo.CreateOrg(ctx, repositories.CreateOrgMessage{
 					GUID: "some-guid",
 					Name: "our-org",
 				})
@@ -80,7 +80,7 @@ var _ = Describe("OrgRepository", func() {
 			When("the org isn't ready in the timeout", func() {
 				It("returns an error", func() {
 					// we do not call updateStatus() to set state = ok
-					_, err := orgRepo.CreateOrg(ctx, repositories.OrgCreateMessage{
+					_, err := orgRepo.CreateOrg(ctx, repositories.CreateOrgMessage{
 						GUID: "some-guid",
 						Name: "our-org",
 					})
@@ -90,7 +90,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the client fails to create the org", func() {
 				It("returns an error", func() {
-					_, err := orgRepo.CreateOrg(ctx, repositories.OrgCreateMessage{
+					_, err := orgRepo.CreateOrg(ctx, repositories.CreateOrgMessage{
 						Name: "this-string-has-illegal-characters-ц",
 					})
 					Expect(err).To(HaveOccurred())
@@ -114,7 +114,7 @@ var _ = Describe("OrgRepository", func() {
 			It("creates a Space", func() {
 				go updateStatus(org.Name, spaceGUID)
 
-				space, err := orgRepo.CreateSpace(ctx, repositories.SpaceCreateMessage{
+				space, err := orgRepo.CreateSpace(ctx, repositories.CreateSpaceMessage{
 					GUID:                     spaceGUID,
 					Name:                     "our-space",
 					OrganizationGUID:         org.Name,
@@ -165,7 +165,7 @@ var _ = Describe("OrgRepository", func() {
 			When("the space isn't ready in the timeout", func() {
 				It("returns an error", func() {
 					// we do not call updateStatus() to set state = ok
-					_, err := orgRepo.CreateSpace(ctx, repositories.SpaceCreateMessage{
+					_, err := orgRepo.CreateSpace(ctx, repositories.CreateSpaceMessage{
 						GUID:             "some-guid",
 						Name:             "our-org",
 						OrganizationGUID: org.Name,
@@ -176,7 +176,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the client fails to create the space", func() {
 				It("returns an error", func() {
-					_, err := orgRepo.CreateSpace(ctx, repositories.SpaceCreateMessage{
+					_, err := orgRepo.CreateSpace(ctx, repositories.CreateSpaceMessage{
 						GUID:             "some-guid",
 						Name:             "this-string-has-illegal-characters-ц",
 						OrganizationGUID: org.Name,
@@ -204,7 +204,7 @@ var _ = Describe("OrgRepository", func() {
 
 		Describe("Orgs", func() {
 			It("returns the 3 orgs", func() {
-				orgs, err := orgRepo.FetchOrgs(ctx, nil)
+				orgs, err := orgRepo.ListOrgs(ctx, nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(orgs).To(ConsistOf(
@@ -237,7 +237,7 @@ var _ = Describe("OrgRepository", func() {
 				})
 
 				It("does not list it", func() {
-					orgs, err := orgRepo.FetchOrgs(ctx, nil)
+					orgs, err := orgRepo.ListOrgs(ctx, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(orgs).NotTo(ContainElement(
@@ -253,7 +253,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("we filter for org1 and org3", func() {
 				It("returns just those", func() {
-					orgs, err := orgRepo.FetchOrgs(ctx, []string{"org1", "org3"})
+					orgs, err := orgRepo.ListOrgs(ctx, []string{"org1", "org3"})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(orgs).To(ConsistOf(
@@ -289,7 +289,7 @@ var _ = Describe("OrgRepository", func() {
 			})
 
 			It("returns the 6 spaces", func() {
-				spaces, err := orgRepo.FetchSpaces(ctx, []string{}, []string{})
+				spaces, err := orgRepo.ListSpaces(ctx, []string{}, []string{})
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(spaces).To(ConsistOf(
@@ -346,7 +346,7 @@ var _ = Describe("OrgRepository", func() {
 				})
 
 				It("does not list it", func() {
-					spaces, err := orgRepo.FetchSpaces(ctx, []string{}, []string{})
+					spaces, err := orgRepo.ListSpaces(ctx, []string{}, []string{})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(spaces).NotTo(ContainElement(
@@ -363,7 +363,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("filtering by org guids", func() {
 				It("only retruns the spaces belonging to the specified org guids", func() {
-					spaces, err := orgRepo.FetchSpaces(ctx, []string{string(org1Anchor.Name), string(org3Anchor.Name), "does-not-exist"}, []string{})
+					spaces, err := orgRepo.ListSpaces(ctx, []string{string(org1Anchor.Name), string(org3Anchor.Name), "does-not-exist"}, []string{})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
@@ -382,7 +382,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("filtering by space names", func() {
 				It("only retruns the spaces matching the specified names", func() {
-					spaces, err := orgRepo.FetchSpaces(ctx, []string{}, []string{"space1", "space3", "does-not-exist"})
+					spaces, err := orgRepo.ListSpaces(ctx, []string{}, []string{"space1", "space3", "does-not-exist"})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
@@ -404,7 +404,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("filtering by org guids and space names", func() {
 				It("only retruns the spaces matching the specified names", func() {
-					spaces, err := orgRepo.FetchSpaces(ctx, []string{string(org1Anchor.Name), string(org2Anchor.Name)}, []string{"space1", "space2", "space4"})
+					spaces, err := orgRepo.ListSpaces(ctx, []string{string(org1Anchor.Name), string(org2Anchor.Name)}, []string{"space1", "space2", "space4"})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
@@ -422,7 +422,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("filtering by space names that don't exist", func() {
 				It("only retruns the spaces matching the specified names", func() {
-					spaces, err := orgRepo.FetchSpaces(ctx, []string{}, []string{"does-not-exist", "still-does-not-exist"})
+					spaces, err := orgRepo.ListSpaces(ctx, []string{}, []string{"does-not-exist", "still-does-not-exist"})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(BeEmpty())
 				})
@@ -430,7 +430,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("filtering by org uids that don't exist", func() {
 				It("only retruns the spaces matching the specified names", func() {
-					spaces, err := orgRepo.FetchSpaces(ctx, []string{"does-not-exist", "still-does-not-exist"}, []string{})
+					spaces, err := orgRepo.ListSpaces(ctx, []string{"does-not-exist", "still-does-not-exist"}, []string{})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(BeEmpty())
 				})

@@ -71,7 +71,7 @@ var _ = Describe("ProcessHandler", func() {
 		)
 
 		BeforeEach(func() {
-			processRepo.FetchProcessReturns(repositories.ProcessRecord{
+			processRepo.GetProcessReturns(repositories.ProcessRecord{
 				GUID:             processGUID,
 				SpaceGUID:        spaceGUID,
 				AppGUID:          appGUID,
@@ -101,8 +101,8 @@ var _ = Describe("ProcessHandler", func() {
 			})
 
 			It("passes the authorization.Info to the process repository", func() {
-				Expect(processRepo.FetchProcessCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := processRepo.FetchProcessArgsForCall(0)
+				Expect(processRepo.GetProcessCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := processRepo.GetProcessArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -162,7 +162,7 @@ var _ = Describe("ProcessHandler", func() {
 		When("on the sad path and", func() {
 			When("the process doesn't exist", func() {
 				BeforeEach(func() {
-					processRepo.FetchProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
+					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
 				})
 
 				It("returns an error", func() {
@@ -172,7 +172,7 @@ var _ = Describe("ProcessHandler", func() {
 
 			When("there is some other error fetching the process", func() {
 				BeforeEach(func() {
-					processRepo.FetchProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
+					processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
 				})
 
 				It("returns an error", func() {
@@ -196,7 +196,7 @@ var _ = Describe("ProcessHandler", func() {
 
 	Describe("the GET /v3/processes/:guid/sidecars endpoint", func() {
 		BeforeEach(func() {
-			processRepo.FetchProcessReturns(repositories.ProcessRecord{}, nil)
+			processRepo.GetProcessReturns(repositories.ProcessRecord{}, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes/"+processGUID+"/sidecars", nil)
@@ -209,8 +209,8 @@ var _ = Describe("ProcessHandler", func() {
 			})
 
 			It("passes the authorization.Info to the process repository", func() {
-				Expect(processRepo.FetchProcessCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := processRepo.FetchProcessArgsForCall(0)
+				Expect(processRepo.GetProcessCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := processRepo.GetProcessArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -239,7 +239,7 @@ var _ = Describe("ProcessHandler", func() {
 		When("on the sad path and", func() {
 			When("the process doesn't exist", func() {
 				BeforeEach(func() {
-					processRepo.FetchProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
+					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
 				})
 
 				It("returns an error", func() {
@@ -249,7 +249,7 @@ var _ = Describe("ProcessHandler", func() {
 
 			When("there is some other error fetching the process", func() {
 				BeforeEach(func() {
-					processRepo.FetchProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
+					processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
 				})
 
 				It("returns an error", func() {
@@ -667,7 +667,7 @@ var _ = Describe("ProcessHandler", func() {
 		)
 
 		BeforeEach(func() {
-			processRepo.FetchProcessListReturns([]repositories.ProcessRecord{
+			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
 				{
 					GUID:             processGUID,
 					SpaceGUID:        spaceGUID,
@@ -782,7 +782,7 @@ var _ = Describe("ProcessHandler", func() {
 				})
 
 				It("invokes process repository with correct args", func() {
-					_, _, message := processRepo.FetchProcessListArgsForCall(0)
+					_, _, message := processRepo.ListProcessesArgsForCall(0)
 					Expect(message.AppGUID).To(HaveLen(1))
 					Expect(message.AppGUID[0]).To(Equal("my-app-guid"))
 				})

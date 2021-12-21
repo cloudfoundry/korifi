@@ -24,18 +24,6 @@ const (
 	SucceededConditionType = "Succeeded"
 )
 
-type BuildCreateMessage struct {
-	AppGUID         string
-	OwnerRef        metav1.OwnerReference
-	PackageGUID     string
-	SpaceGUID       string
-	StagingMemoryMB int
-	StagingDiskMB   int
-	Lifecycle       Lifecycle
-	Labels          map[string]string
-	Annotations     map[string]string
-}
-
 type BuildRecord struct {
 	GUID            string
 	State           string
@@ -63,7 +51,7 @@ func NewBuildRepo(privilegedClient client.Client) *BuildRepo {
 	return &BuildRepo{privilegedClient: privilegedClient}
 }
 
-func (b *BuildRepo) FetchBuild(ctx context.Context, authInfo authorization.Info, buildGUID string) (BuildRecord, error) {
+func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, buildGUID string) (BuildRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	buildList := &workloadsv1alpha1.CFBuildList{}
 	err := b.privilegedClient.List(ctx, buildList)
@@ -73,10 +61,10 @@ func (b *BuildRepo) FetchBuild(ctx context.Context, authInfo authorization.Info,
 	allBuilds := buildList.Items
 	matches := filterBuildsByMetadataName(allBuilds, buildGUID)
 
-	return b.returnBuild(matches)
+	return returnBuild(matches)
 }
 
-func (b *BuildRepo) returnBuild(builds []workloadsv1alpha1.CFBuild) (BuildRecord, error) {
+func returnBuild(builds []workloadsv1alpha1.CFBuild) (BuildRecord, error) {
 	if len(builds) == 0 {
 		return BuildRecord{}, NotFoundError{}
 	}
@@ -84,10 +72,10 @@ func (b *BuildRepo) returnBuild(builds []workloadsv1alpha1.CFBuild) (BuildRecord
 		return BuildRecord{}, errors.New("duplicate builds exist")
 	}
 
-	return b.cfBuildToBuildRecord(builds[0]), nil
+	return cfBuildToBuildRecord(builds[0]), nil
 }
 
-func (b *BuildRepo) cfBuildToBuildRecord(cfBuild workloadsv1alpha1.CFBuild) BuildRecord {
+func cfBuildToBuildRecord(cfBuild workloadsv1alpha1.CFBuild) BuildRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfBuild.ObjectMeta)
 
 	toReturn := BuildRecord{
@@ -144,41 +132,53 @@ func filterBuildsByMetadataName(builds []workloadsv1alpha1.CFBuild, name string)
 	return filtered
 }
 
-func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info, message BuildCreateMessage) (BuildRecord, error) {
-	cfBuild := b.buildCreateToCFBuild(message)
+func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info, message CreateBuildMessage) (BuildRecord, error) {
+	cfBuild := message.toCFBuild()
 	err := b.privilegedClient.Create(ctx, &cfBuild)
 	if err != nil { // untested!!!
 		return BuildRecord{}, err
 	}
-	return b.cfBuildToBuildRecord(cfBuild), nil
+	return cfBuildToBuildRecord(cfBuild), nil
 }
 
-func (b *BuildRepo) buildCreateToCFBuild(message BuildCreateMessage) workloadsv1alpha1.CFBuild {
+type CreateBuildMessage struct {
+	AppGUID         string
+	OwnerRef        metav1.OwnerReference
+	PackageGUID     string
+	SpaceGUID       string
+	StagingMemoryMB int
+	StagingDiskMB   int
+	Lifecycle       Lifecycle
+	Labels          map[string]string
+	Annotations     map[string]string
+}
+
+func (m CreateBuildMessage) toCFBuild() workloadsv1alpha1.CFBuild {
 	guid := uuid.NewString()
 	return workloadsv1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        guid,
-			Namespace:   message.SpaceGUID,
-			Labels:      message.Labels,
-			Annotations: message.Annotations,
+			Namespace:   m.SpaceGUID,
+			Labels:      m.Labels,
+			Annotations: m.Annotations,
 			OwnerReferences: []metav1.OwnerReference{
-				message.OwnerRef,
+				m.OwnerRef,
 			},
 		},
 		Spec: workloadsv1alpha1.CFBuildSpec{
 			PackageRef: corev1.LocalObjectReference{
-				Name: message.PackageGUID,
+				Name: m.PackageGUID,
 			},
 			AppRef: corev1.LocalObjectReference{
-				Name: message.AppGUID,
+				Name: m.AppGUID,
 			},
-			StagingMemoryMB: message.StagingMemoryMB,
-			StagingDiskMB:   message.StagingDiskMB,
+			StagingMemoryMB: m.StagingMemoryMB,
+			StagingDiskMB:   m.StagingDiskMB,
 			Lifecycle: workloadsv1alpha1.Lifecycle{
-				Type: workloadsv1alpha1.LifecycleType(message.Lifecycle.Type),
+				Type: workloadsv1alpha1.LifecycleType(m.Lifecycle.Type),
 				Data: workloadsv1alpha1.LifecycleData{
-					Buildpacks: message.Lifecycle.Data.Buildpacks,
-					Stack:      message.Lifecycle.Data.Stack,
+					Buildpacks: m.Lifecycle.Data.Buildpacks,
+					Stack:      m.Lifecycle.Data.Stack,
 				},
 			},
 		},

@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("FetchProcessStatsAction", func() {
+var _ = Describe("GetProcessStatsAction", func() {
 	const (
 		processGUID = "test-process-guid"
 	)
@@ -47,14 +47,14 @@ var _ = Describe("FetchProcessStatsAction", func() {
 		desiredInstances = 1
 		processType = "web"
 
-		processRepo.FetchProcessReturns(repositories.ProcessRecord{
+		processRepo.GetProcessReturns(repositories.ProcessRecord{
 			AppGUID:          appGUID,
 			SpaceGUID:        spaceGUID,
 			DesiredInstances: desiredInstances,
 			Type:             processType,
 		}, nil)
 
-		podRepo.FetchPodStatsByAppGUIDReturns([]repositories.PodStatsRecord{
+		podRepo.ListPodStatsReturns([]repositories.PodStatsRecord{
 			{
 				Type:  processType,
 				Index: 0,
@@ -62,7 +62,7 @@ var _ = Describe("FetchProcessStatsAction", func() {
 			},
 		}, nil)
 
-		appRepo.FetchAppReturns(repositories.AppRecord{
+		appRepo.GetAppReturns(repositories.AppRecord{
 			State:    "STARTED",
 			Revision: appRevision,
 		}, nil)
@@ -80,14 +80,14 @@ var _ = Describe("FetchProcessStatsAction", func() {
 		})
 
 		It("passes the authInfo to the repo call", func() {
-			Expect(appRepo.FetchAppCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := appRepo.FetchAppArgsForCall(0)
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 		})
 
 		It("calls the fetch pod stats with expected message data", func() {
-			_, _, message := podRepo.FetchPodStatsByAppGUIDArgsForCall(0)
-			Expect(message).To(Equal(repositories.FetchPodStatsMessage{
+			_, _, message := podRepo.ListPodStatsArgsForCall(0)
+			Expect(message).To(Equal(repositories.ListPodStatsMessage{
 				Namespace:   spaceGUID,
 				AppGUID:     appGUID,
 				Instances:   desiredInstances,
@@ -107,7 +107,7 @@ var _ = Describe("FetchProcessStatsAction", func() {
 
 		When("the app is STOPPED", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{State: "STOPPED"}, nil)
+				appRepo.GetAppReturns(repositories.AppRecord{State: "STOPPED"}, nil)
 				responseRecords, responseErr = fetchProcessStatsAction.Invoke(context.Background(), authInfo, processGUID)
 			})
 
@@ -118,9 +118,9 @@ var _ = Describe("FetchProcessStatsAction", func() {
 	})
 
 	When("on the unhappy path", func() {
-		When("FetchProcess responds with some error", func() {
+		When("GetProcess responds with some error", func() {
 			BeforeEach(func() {
-				processRepo.FetchProcessReturns(repositories.ProcessRecord{}, errors.New("some-error"))
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("some-error"))
 				responseRecords, responseErr = fetchProcessStatsAction.Invoke(context.Background(), authInfo, processGUID)
 			})
 
@@ -130,9 +130,9 @@ var _ = Describe("FetchProcessStatsAction", func() {
 			})
 		})
 
-		When("FetchApp responds with some error", func() {
+		When("GetApp responds with some error", func() {
 			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("some-error"))
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("some-error"))
 				responseRecords, responseErr = fetchProcessStatsAction.Invoke(context.Background(), authInfo, processGUID)
 			})
 

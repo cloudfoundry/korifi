@@ -53,7 +53,7 @@ var _ = Describe("AppRepository", func() {
 		space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, generateGUID())
 	})
 
-	Describe("FetchApp", func() {
+	Describe("GetApp", func() {
 		When("on the happy path", func() {
 			BeforeEach(func() {
 				cfApp1 = createApp(space1.Name)
@@ -66,7 +66,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("can fetch the AppRecord CR we're looking for", func() {
-				app, err := appRepo.FetchApp(testCtx, authInfo, cfApp2.Name)
+				app, err := appRepo.GetApp(testCtx, authInfo, cfApp2.Name)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(app.GUID).To(Equal(cfApp2.Name))
@@ -98,7 +98,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := appRepo.FetchApp(testCtx, authInfo, "test-guid")
+				_, err := appRepo.GetApp(testCtx, authInfo, "test-guid")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("duplicate apps exist"))
 			})
@@ -106,14 +106,14 @@ var _ = Describe("AppRepository", func() {
 
 		When("no Apps exist", func() {
 			It("returns an error", func() {
-				_, err := appRepo.FetchApp(testCtx, authInfo, "i don't exist")
+				_, err := appRepo.GetApp(testCtx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
 			})
 		})
 	})
 
-	Describe("FetchAppByNameAndSpace", func() {
+	Describe("GetAppByNameAndSpace", func() {
 		BeforeEach(func() {
 			cfApp1 = createApp(space1.Name)
 		})
@@ -124,7 +124,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the App exists in the Space", func() {
 			It("returns the record", func() {
-				appRecord, err := appRepo.FetchAppByNameAndSpace(context.Background(), authInfo, cfApp1.Spec.Name, space1.Name)
+				appRecord, err := appRepo.GetAppByNameAndSpace(context.Background(), authInfo, cfApp1.Spec.Name, space1.Name)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(appRecord.Name).To(Equal(cfApp1.Spec.Name))
@@ -138,21 +138,21 @@ var _ = Describe("AppRepository", func() {
 
 			When("the App doesn't exist in the Space (but is in another Space)", func() {
 				It("returns a NotFoundError", func() {
-					_, err := appRepo.FetchAppByNameAndSpace(context.Background(), authInfo, cfApp1.Spec.Name, space2.Name)
+					_, err := appRepo.GetAppByNameAndSpace(context.Background(), authInfo, cfApp1.Spec.Name, space2.Name)
 					Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
 				})
 			})
 		})
 	})
 
-	Describe("FetchAppList", Serial, func() {
+	Describe("ListApps", Serial, func() {
 		var (
-			message                   AppListMessage
+			message                   ListAppsMessage
 			spaceDeveloperClusterRole *rbacv1.ClusterRole
 		)
 
 		BeforeEach(func() {
-			message = AppListMessage{}
+			message = ListAppsMessage{}
 
 			var cfAppList workloadsv1alpha1.CFAppList
 			Expect(
@@ -173,7 +173,7 @@ var _ = Describe("AppRepository", func() {
 		Describe("when filters are NOT provided", func() {
 			When("no Apps exist", func() {
 				It("returns an empty list of apps", func() {
-					appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+					appList, err := appRepo.ListApps(testCtx, authInfo, message)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(appList).To(BeEmpty())
 				})
@@ -187,7 +187,7 @@ var _ = Describe("AppRepository", func() {
 				})
 
 				It("returns all the AppRecord CRs where client has permission", func() {
-					appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+					appList, err := appRepo.ListApps(testCtx, authInfo, message)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(appList).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp1.Name)}),
@@ -212,8 +212,8 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns an empty list of apps", func() {
-						message = AppListMessage{Names: []string{"some-other-app"}}
-						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+						message = ListAppsMessage{Names: []string{"some-other-app"}}
+						appList, err := appRepo.ListApps(testCtx, authInfo, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(BeEmpty())
 					})
@@ -227,8 +227,8 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns the matching apps", func() {
-						message = AppListMessage{Names: []string{cfApp2.Spec.Name, cfApp3.Spec.Name}}
-						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+						message = ListAppsMessage{Names: []string{cfApp2.Spec.Name, cfApp3.Spec.Name}}
+						appList, err := appRepo.ListApps(testCtx, authInfo, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
@@ -246,8 +246,8 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns an empty list of apps", func() {
-						message = AppListMessage{Guids: []string{"some-other-app-guid"}}
-						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+						message = ListAppsMessage{Guids: []string{"some-other-app-guid"}}
+						appList, err := appRepo.ListApps(testCtx, authInfo, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(BeEmpty())
 					})
@@ -261,8 +261,8 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns the matching apps", func() {
-						message = AppListMessage{Guids: []string{"app-guid-2", "app-guid-3"}}
-						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+						message = ListAppsMessage{Guids: []string{"app-guid-2", "app-guid-3"}}
+						appList, err := appRepo.ListApps(testCtx, authInfo, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
@@ -280,8 +280,8 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns an empty list of apps", func() {
-						message = AppListMessage{SpaceGuids: []string{"some-other-space-guid"}}
-						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+						message = ListAppsMessage{SpaceGuids: []string{"some-other-space-guid"}}
+						appList, err := appRepo.ListApps(testCtx, authInfo, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(BeEmpty())
 					})
@@ -295,8 +295,8 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns the matching apps", func() {
-						message = AppListMessage{SpaceGuids: []string{space2.Name}}
-						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+						message = ListAppsMessage{SpaceGuids: []string{space2.Name}}
+						appList, err := appRepo.ListApps(testCtx, authInfo, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
@@ -315,8 +315,8 @@ var _ = Describe("AppRepository", func() {
 
 					When("an App matches by Name but not by Space", func() {
 						It("returns an empty list of apps", func() {
-							message = AppListMessage{Names: []string{cfApp1.Spec.Name}, SpaceGuids: []string{"some-other-space-guid"}}
-							appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+							message = ListAppsMessage{Names: []string{cfApp1.Spec.Name}, SpaceGuids: []string{"some-other-space-guid"}}
+							appList, err := appRepo.ListApps(testCtx, authInfo, message)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(appList).To(BeEmpty())
 						})
@@ -324,8 +324,8 @@ var _ = Describe("AppRepository", func() {
 
 					When("an App matches by Space but not by Name", func() {
 						It("returns an empty list of apps", func() {
-							message = AppListMessage{Names: []string{"fake-app-name"}, SpaceGuids: []string{space1.Name}}
-							appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+							message = ListAppsMessage{Names: []string{"fake-app-name"}, SpaceGuids: []string{space1.Name}}
+							appList, err := appRepo.ListApps(testCtx, authInfo, message)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(appList).To(BeEmpty())
 						})
@@ -340,8 +340,8 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns the matching apps", func() {
-						message = AppListMessage{Names: []string{cfApp2.Spec.Name}, SpaceGuids: []string{space2.Name}}
-						appList, err := appRepo.FetchAppList(testCtx, authInfo, message)
+						message = ListAppsMessage{Names: []string{cfApp2.Spec.Name}, SpaceGuids: []string{space2.Name}}
+						appList, err := appRepo.ListApps(testCtx, authInfo, message)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(HaveLen(1))
 
@@ -357,7 +357,7 @@ var _ = Describe("AppRepository", func() {
 			testAppName = "test-app-name"
 		)
 		var (
-			appCreateMessage AppCreateMessage
+			appCreateMessage CreateAppMessage
 			spaceGUID        string
 		)
 
@@ -638,7 +638,7 @@ var _ = Describe("AppRepository", func() {
 	Describe("GetNamespace", func() {
 		When("space does not exist", func() {
 			It("returns an unauthorized or not found err", func() {
-				_, err := appRepo.FetchNamespace(context.Background(), authInfo, "some-guid")
+				_, err := appRepo.GetNamespace(context.Background(), authInfo, "some-guid")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("Resource not found or permission denied."))
 			})
@@ -861,7 +861,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("on the happy path", func() {
 			It("deletes the CFApp resource", func() {
-				err := appRepo.DeleteApp(testCtx, authInfo, repositories.AppDeleteMessage{
+				err := appRepo.DeleteApp(testCtx, authInfo, repositories.DeleteAppMessage{
 					AppGUID:   appGUID,
 					SpaceGUID: space1.Name,
 				})
@@ -871,7 +871,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the app doesn't exist", func() {
 			It("errors", func() {
-				err := appRepo.DeleteApp(testCtx, authInfo, AppDeleteMessage{
+				err := appRepo.DeleteApp(testCtx, authInfo, DeleteAppMessage{
 					AppGUID:   "no-such-app",
 					SpaceGUID: space1.Name,
 				})

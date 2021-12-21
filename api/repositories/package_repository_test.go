@@ -32,14 +32,14 @@ var _ = Describe("PackageRepository", func() {
 	})
 
 	Describe("CreatePackage", func() {
-		var packageCreate PackageCreateMessage
+		var packageCreate CreatePackageMessage
 
 		const (
 			spaceGUID = "the-space-guid"
 		)
 
 		BeforeEach(func() {
-			packageCreate = PackageCreateMessage{
+			packageCreate = CreatePackageMessage{
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
@@ -105,7 +105,7 @@ var _ = Describe("PackageRepository", func() {
 		})
 	})
 
-	Describe("FetchPackage", func() {
+	Describe("GetPackage", func() {
 		var (
 			namespace1 *corev1.Namespace
 			namespace2 *corev1.Namespace
@@ -172,7 +172,7 @@ var _ = Describe("PackageRepository", func() {
 			})
 
 			It("can fetch the PackageRecord we're looking for", func() {
-				record, err := packageRepo.FetchPackage(ctx, authInfo, package2GUID)
+				record, err := packageRepo.GetPackage(ctx, authInfo, package2GUID)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(record.GUID).To(Equal(package2GUID))
 				Expect(record.Type).To(Equal("bits"))
@@ -234,7 +234,7 @@ var _ = Describe("PackageRepository", func() {
 						Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
 						defer func() { Expect(k8sClient.Delete(ctx, cfPackage)).To(Succeed()) }()
 
-						record, err := packageRepo.FetchPackage(ctx, authInfo, cfPackage.Name)
+						record, err := packageRepo.GetPackage(ctx, authInfo, cfPackage.Name)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(record.State).To(Equal(tc.expectedState))
 					})
@@ -286,7 +286,7 @@ var _ = Describe("PackageRepository", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := packageRepo.FetchPackage(ctx, authInfo, packageGUID)
+				_, err := packageRepo.GetPackage(ctx, authInfo, packageGUID)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("duplicate packages exist"))
 			})
@@ -294,14 +294,14 @@ var _ = Describe("PackageRepository", func() {
 
 		When("no packages exist", func() {
 			It("returns an error", func() {
-				_, err := packageRepo.FetchPackage(ctx, authInfo, "i don't exist")
+				_, err := packageRepo.GetPackage(ctx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{}))
 			})
 		})
 	})
 
-	Describe("FetchPackageList", Serial, func() {
+	Describe("ListPackages", Serial, func() {
 		const (
 			appGUID1 = "the-app-guid-1"
 			appGUID2 = "the-app-guid-2"
@@ -373,7 +373,7 @@ var _ = Describe("PackageRepository", func() {
 
 			When("no filters are specified", func() {
 				It("fetches all PackageRecords", func() {
-					packageList, err := packageRepo.FetchPackageList(context.Background(), authInfo, PackageListMessage{})
+					packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(packageList).To(ConsistOf(
@@ -418,7 +418,7 @@ var _ = Describe("PackageRepository", func() {
 					})
 
 					It("orders the results in descending created_at order by default", func() {
-						packageList, err := packageRepo.FetchPackageList(context.Background(), authInfo, PackageListMessage{})
+						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{})
 						Expect(err).NotTo(HaveOccurred())
 						Expect(packageList).To(HaveLen(3))
 						for i := 0; i < len(packageList)-1; i++ {
@@ -436,7 +436,7 @@ var _ = Describe("PackageRepository", func() {
 
 			When("app_guids filter is provided", func() {
 				It("fetches all PackageRecords", func() {
-					packageList, err := packageRepo.FetchPackageList(context.Background(), authInfo, PackageListMessage{AppGUIDs: []string{appGUID1}})
+					packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{AppGUIDs: []string{appGUID1}})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(packageList).To(HaveLen(1))
 					Expect(packageList[0]).To(
@@ -451,7 +451,7 @@ var _ = Describe("PackageRepository", func() {
 
 		When("no packages exist", func() {
 			It("returns an empty list of PackageRecords", func() {
-				packageList, err := packageRepo.FetchPackageList(context.Background(), authInfo, PackageListMessage{})
+				packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(packageList).To(BeEmpty())
 			})
@@ -462,7 +462,7 @@ var _ = Describe("PackageRepository", func() {
 		var (
 			existingCFPackage workloadsv1alpha1.CFPackage
 			spaceGUID         string
-			updateMessage     PackageUpdateSourceMessage
+			updateMessage     UpdatePackageSourceMessage
 		)
 
 		const (
@@ -489,7 +489,7 @@ var _ = Describe("PackageRepository", func() {
 				},
 			}
 
-			updateMessage = PackageUpdateSourceMessage{
+			updateMessage = UpdatePackageSourceMessage{
 				GUID:               packageGUID,
 				SpaceGUID:          spaceGUID,
 				ImageRef:           packageSourceImageRef,

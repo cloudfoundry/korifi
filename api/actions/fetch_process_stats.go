@@ -22,11 +22,11 @@ func NewFetchProcessStats(processRepo CFProcessRepository, podRepo PodRepository
 }
 
 func (a *FetchProcessStats) Invoke(ctx context.Context, authInfo authorization.Info, processGUID string) ([]repositories.PodStatsRecord, error) {
-	processRecord, err := a.processRepo.FetchProcess(ctx, authInfo, processGUID)
+	processRecord, err := a.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
 		return nil, err
 	}
-	appRecord, err := a.appRepo.FetchApp(ctx, authInfo, processRecord.AppGUID)
+	appRecord, err := a.appRepo.GetApp(ctx, authInfo, processRecord.AppGUID)
 	if err != nil {
 		return nil, err
 	}
@@ -35,12 +35,12 @@ func (a *FetchProcessStats) Invoke(ctx context.Context, authInfo authorization.I
 		return []repositories.PodStatsRecord{}, nil
 	}
 
-	message := repositories.FetchPodStatsMessage{
+	message := repositories.ListPodStatsMessage{
 		Namespace:   processRecord.SpaceGUID,
 		AppGUID:     processRecord.AppGUID,
 		Instances:   processRecord.DesiredInstances,
 		ProcessType: processRecord.Type,
 		AppRevision: appRecord.Revision,
 	}
-	return a.podRepo.FetchPodStatsByAppGUID(ctx, authInfo, message)
+	return a.podRepo.ListPodStats(ctx, authInfo, message)
 }
