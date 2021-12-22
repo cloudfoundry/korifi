@@ -4,4 +4,4 @@ metadata:
   name: 5b5032ab-7fc8-4da5-b853-821fd1879201
   namespace: cf
 spec:
-  name: cf-apps.io
+  name: vcap.me
