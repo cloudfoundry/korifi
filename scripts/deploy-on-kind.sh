@@ -57,7 +57,7 @@ ensure_local_registry() {
   # reconfigure containerd to allow insecure connection to our local registry
   docker cp ${cluster}-control-plane:/etc/containerd/config.toml /tmp/config.toml
   if ! grep -q localregistry-docker-registry\.default\.svc\.cluster\.local /tmp/config.toml; then
-    cat <<EOF >> /tmp/config.toml
+    cat <<EOF >>/tmp/config.toml
 
 [plugins."io.containerd.grpc.v1.cri".registry]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
