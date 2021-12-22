@@ -1,0 +1,10 @@
+serverURL: http://localhost
+serverPort: 9000
+rootNamespace: cf
+defaultLifecycleConfig:
+  type: buildpack
+  stack: cflinuxfs3
+  stagingMemoryMB: 1024
+  stagingDiskMB: 1024
+packageRegistryBase: localregistry-docker-registry.default.svc.cluster.local:30050/kpack/packages
+packageRegistrySecretName: image-registry-credentials

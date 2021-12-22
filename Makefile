@@ -135,17 +135,25 @@ deploy: install-crds deploy-controllers deploy-api
 
 deploy-kind: install-crds deploy-controllers-kind deploy-api-kind-auth
 
+deploy-kind-local: install-crds deploy-controllers-kind-local deploy-api-kind-local
+
 deploy-controllers: install-kustomize build-reference-controllers
 	$(KUSTOMIZE) build controllers/config/default | kubectl apply -f -
 
 deploy-controllers-kind: install-kustomize build-reference-controllers
 	$(KUSTOMIZE) build controllers/config/overlays/kind | kubectl apply -f -
 
+deploy-controllers-kind-local: install-kustomize build-reference-controllers
+	$(KUSTOMIZE) build controllers/config/overlays/kind-local-registry | kubectl apply -f -
+
 deploy-api: install-kustomize build-reference-api
 	$(KUSTOMIZE) build api/config/base | kubectl apply -f -
 
 deploy-api-kind-auth: install-kustomize build-reference-api
 	$(KUSTOMIZE) build api/config/overlays/kind-auth-enabled | kubectl apply -f -
+
+deploy-api-kind-local: install-kustomize build-reference-api
+	$(KUSTOMIZE) build api/config/overlays/kind-local-registry | kubectl apply -f -
 
 undeploy-controllers: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build controllers/config/default | kubectl delete -f -
