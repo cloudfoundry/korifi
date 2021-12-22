@@ -77,7 +77,7 @@ EOF
 deploy_cf_k8s_controllers() {
   pushd $ROOT_DIR >/dev/null
   {
-    if [ -n "$use_local_registry" ]; then
+    if [[ -n "$use_local_registry" ]]; then
       export DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
       export DOCKER_USERNAME="whatevs"
       export DOCKER_PASSWORD="whatevs"
@@ -94,7 +94,7 @@ deploy_cf_k8s_controllers() {
     fi
     kind load docker-image --name "$cluster" "$IMG_CONTROLLERS"
     make install-crds
-    if [ -n "$use_local_registry" ]; then
+    if [[ -n "$use_local_registry" ]]; then
       make deploy-controllers-kind-local
     else
       make deploy-controllers-kind
@@ -112,7 +112,7 @@ deploy_cf_k8s_api() {
       make docker-build-api
     fi
     kind load docker-image --name "$cluster" "$IMG_API"
-    if [ -n "$use_local_registry" ]; then
+    if [[ -n "$use_local_registry" ]]; then
       make deploy-api-kind-local
     else
       make deploy-api-kind-auth
@@ -123,8 +123,8 @@ deploy_cf_k8s_api() {
 
 cluster=${1:?specify cluster name}
 ensure_kind_cluster "$cluster"
-use_local_registry=${2}
-if [ -n "$use_local_registry" ]; then
+use_local_registry=${2:-}
+if [[ -n "$use_local_registry" ]]; then
   ensure_local_registry
 fi
 export KUBECONFIG="$HOME/.kube/$cluster.yml"
