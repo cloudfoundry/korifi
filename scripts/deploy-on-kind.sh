@@ -48,6 +48,7 @@ EOF
 }
 
 ensure_local_registry() {
+  helm repo add twuni https://helm.twun.io
   helm upgrade --install localregistry twuni/docker-registry --set service.type=NodePort,service.nodePort=30050,service.port=30050
 
   # TODO-maybe we don't need to add the /etc/hosts hack if we configure the mirror below to redirect to 127.0.0.1?
