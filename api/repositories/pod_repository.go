@@ -28,20 +28,6 @@ const (
 	unknownState = "DOWN"
 )
 
-type PodStatsRecord struct {
-	Type  string
-	Index int
-	State string `default:"DOWN"`
-}
-
-type FetchPodStatsMessage struct {
-	Namespace   string
-	AppGUID     string
-	AppRevision string
-	Instances   int
-	ProcessType string
-}
-
 type PodRepo struct {
 	privilegedClient client.Client
 }
@@ -50,7 +36,21 @@ func NewPodRepo(privilegedClient client.Client) *PodRepo {
 	return &PodRepo{privilegedClient: privilegedClient}
 }
 
-func (r *PodRepo) FetchPodStatsByAppGUID(ctx context.Context, authInfo authorization.Info, message FetchPodStatsMessage) ([]PodStatsRecord, error) {
+type PodStatsRecord struct {
+	Type  string
+	Index int
+	State string `default:"DOWN"`
+}
+
+type ListPodStatsMessage struct {
+	Namespace   string
+	AppGUID     string
+	AppRevision string
+	Instances   int
+	ProcessType string
+}
+
+func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info, message ListPodStatsMessage) ([]PodStatsRecord, error) {
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
 		workloadsv1alpha1.CFAppGUIDLabelKey: message.AppGUID,
 		eiriniLabelVersionKey:               message.AppRevision,
@@ -60,7 +60,7 @@ func (r *PodRepo) FetchPodStatsByAppGUID(ctx context.Context, authInfo authoriza
 	}
 	listOpts := &client.ListOptions{Namespace: message.Namespace, LabelSelector: labelSelector}
 
-	pods, err := r.FetchPods(ctx, authInfo, *listOpts)
+	pods, err := r.ListPods(ctx, authInfo, *listOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (r *PodRepo) FetchPodStatsByAppGUID(ctx context.Context, authInfo authoriza
 	return records, nil
 }
 
-func (r *PodRepo) FetchPods(ctx context.Context, authInfo authorization.Info, listOpts client.ListOptions) ([]corev1.Pod, error) {
+func (r *PodRepo) ListPods(ctx context.Context, authInfo authorization.Info, listOpts client.ListOptions) ([]corev1.Pod, error) {
 	podList := corev1.PodList{}
 	err := r.privilegedClient.List(ctx, &podList, &listOpts)
 	if err != nil {

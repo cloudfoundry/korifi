@@ -5,14 +5,15 @@ import (
 	"errors"
 	"net/http"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	rbacv1 "k8s.io/api/rbac/v1"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider"
 	providerfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider/fake"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("SpaceRepositoryAuthDecorator", func() {
@@ -33,7 +34,7 @@ var _ = Describe("SpaceRepositoryAuthDecorator", func() {
 		identityProvider.GetIdentityReturns(identity, nil)
 		spaceRepo = new(fake.CFSpaceRepository)
 		nsProvider = new(fake.AuthorizedNamespacesProvider)
-		spaceRepo.FetchSpacesReturns([]repositories.SpaceRecord{
+		spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
 			{GUID: "space1"},
 			{GUID: "space2"},
 		}, nil)
@@ -100,7 +101,7 @@ var _ = Describe("SpaceRepositoryAuthDecorator", func() {
 		})
 
 		JustBeforeEach(func() {
-			spaces, err = spaceRepoAuthDecorator.FetchSpaces(context.Background(), []string{"boo", "baz"}, []string{"foo", "bar"})
+			spaces, err = spaceRepoAuthDecorator.ListSpaces(context.Background(), []string{"boo", "baz"}, []string{"foo", "bar"})
 		})
 
 		It("fetches spaces associated with the identity only", func() {
@@ -109,15 +110,15 @@ var _ = Describe("SpaceRepositoryAuthDecorator", func() {
 		})
 
 		It("calls the space repo with the right parameters", func() {
-			Expect(spaceRepo.FetchSpacesCallCount()).To(Equal(1))
-			_, orgIDs, names := spaceRepo.FetchSpacesArgsForCall(0)
+			Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
+			_, orgIDs, names := spaceRepo.ListSpacesArgsForCall(0)
 			Expect(orgIDs).To(ConsistOf("boo", "baz"))
 			Expect(names).To(ConsistOf("foo", "bar"))
 		})
 
 		When("fetching spaces fails", func() {
 			BeforeEach(func() {
-				spaceRepo.FetchSpacesReturns(nil, errors.New("fetch-spaces-failed"))
+				spaceRepo.ListSpacesReturns(nil, errors.New("fetch-spaces-failed"))
 			})
 
 			It("returns the error", func() {

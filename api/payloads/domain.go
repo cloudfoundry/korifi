@@ -8,8 +8,8 @@ type DomainList struct {
 	Names string `schema:"names"`
 }
 
-func (d *DomainList) ToMessage() repositories.DomainListMessage {
-	return repositories.DomainListMessage{
+func (d *DomainList) ToMessage() repositories.ListDomainsMessage {
+	return repositories.ListDomainsMessage{
 		Names: parseArrayParam(d.Names),
 	}
 }

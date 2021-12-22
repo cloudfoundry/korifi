@@ -30,10 +30,10 @@ const (
 //counterfeiter:generate -o fake -fake-name CFPackageRepository . CFPackageRepository
 
 type CFPackageRepository interface {
-	FetchPackage(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
-	FetchPackageList(context.Context, authorization.Info, repositories.PackageListMessage) ([]repositories.PackageRecord, error)
-	CreatePackage(context.Context, authorization.Info, repositories.PackageCreateMessage) (repositories.PackageRecord, error)
-	UpdatePackageSource(context.Context, authorization.Info, repositories.PackageUpdateSourceMessage) (repositories.PackageRecord, error)
+	GetPackage(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
+	ListPackages(context.Context, authorization.Info, repositories.ListPackagesMessage) ([]repositories.PackageRecord, error)
+	CreatePackage(context.Context, authorization.Info, repositories.CreatePackageMessage) (repositories.PackageRecord, error)
+	UpdatePackageSource(context.Context, authorization.Info, repositories.UpdatePackageSourceMessage) (repositories.PackageRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name SourceImageUploader . SourceImageUploader
@@ -83,7 +83,7 @@ func (h PackageHandler) packageGetHandler(authInfo authorization.Info, w http.Re
 	w.Header().Set("Content-Type", "application/json")
 
 	packageGUID := mux.Vars(r)["guid"]
-	record, err := h.packageRepo.FetchPackage(r.Context(), authInfo, packageGUID)
+	record, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
 		switch {
 		case errors.As(err, new(repositories.NotFoundError)):
@@ -136,7 +136,7 @@ func (h PackageHandler) packageListHandler(authInfo authorization.Info, w http.R
 		}
 	}
 
-	records, err := h.packageRepo.FetchPackageList(r.Context(), authInfo, packageListQueryParameters.ToMessage())
+	records, err := h.packageRepo.ListPackages(r.Context(), authInfo, packageListQueryParameters.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Error fetching package with repository", "error")
 		writeUnknownErrorResponse(w)
@@ -160,7 +160,7 @@ func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http
 		return
 	}
 
-	appRecord, err := h.appRepo.FetchApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
+	appRecord, err := h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -205,7 +205,7 @@ func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, w http
 	}
 	defer bitsFile.Close()
 
-	record, err := h.packageRepo.FetchPackage(r.Context(), authInfo, packageGUID)
+	record, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
 		switch {
 		case errors.As(err, new(repositories.NotFoundError)):
@@ -239,7 +239,7 @@ func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, w http
 		return
 	}
 
-	record, err = h.packageRepo.UpdatePackageSource(r.Context(), authInfo, repositories.PackageUpdateSourceMessage{
+	record, err = h.packageRepo.UpdatePackageSource(r.Context(), authInfo, repositories.UpdatePackageSourceMessage{
 		GUID:               packageGUID,
 		SpaceGUID:          record.SpaceGUID,
 		ImageRef:           uploadedImageRef,
@@ -293,7 +293,7 @@ func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, 
 	}
 
 	packageGUID := mux.Vars(r)["guid"]
-	_, err = h.packageRepo.FetchPackage(r.Context(), authInfo, packageGUID)
+	_, err = h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
 		switch {
 		case errors.As(err, new(repositories.NotFoundError)):
@@ -307,7 +307,7 @@ func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, 
 
 	dropletListMessage := packageListDropletsQueryParams.ToMessage([]string{packageGUID})
 
-	dropletList, err := h.dropletRepo.FetchDropletList(r.Context(), authInfo, dropletListMessage)
+	dropletList, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, dropletListMessage)
 	if err != nil {
 		h.logger.Info("Error fetching droplet list with repository", "error", err.Error())
 		writeUnknownErrorResponse(w)

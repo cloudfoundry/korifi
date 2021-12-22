@@ -91,7 +91,7 @@ var _ = Describe("RoleHandler", func() {
 		var createRoleRequestBody string
 
 		BeforeEach(func() {
-			roleRepo.CreateRoleStub = func(_ context.Context, message repositories.RoleCreateMessage) (repositories.RoleRecord, error) {
+			roleRepo.CreateRoleStub = func(_ context.Context, message repositories.CreateRoleMessage) (repositories.RoleRecord, error) {
 				roleRecord := repositories.RoleRecord{
 					GUID:      "t-h-e-r-o-l-e",
 					CreatedAt: now,

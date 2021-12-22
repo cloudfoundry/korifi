@@ -31,16 +31,16 @@ var _ = Describe("ManifestApplicationProcess", func() {
 				}
 			})
 
-			It("returns a ProcessCreateMessage with those values", func() {
+			It("returns a CreateProcessMessage with those values", func() {
 				message := applicationInfo.ToProcessCreateMessage(appGUID, spaceGUID)
 
-				Expect(message).To(Equal(repositories.ProcessCreateMessage{
+				Expect(message).To(Equal(repositories.CreateProcessMessage{
 					AppGUID:     appGUID,
 					SpaceGUID:   spaceGUID,
 					Type:        "web",
 					Command:     "start-web.sh",
 					DiskQuotaMB: 512,
-					Healthcheck: repositories.HealthCheck{
+					HealthCheck: repositories.HealthCheck{
 						Type: "http",
 						Data: repositories.HealthCheckData{
 							HTTPEndpoint:             "/stuff",
@@ -64,17 +64,17 @@ var _ = Describe("ManifestApplicationProcess", func() {
 					applicationInfo.Type = "web"
 				})
 
-				It("returns a ProcessCreateMessage with defaulted values", func() {
+				It("returns a CreateProcessMessage with defaulted values", func() {
 					message := applicationInfo.ToProcessCreateMessage(appGUID, spaceGUID)
 
-					Expect(message).To(Equal(repositories.ProcessCreateMessage{
+					Expect(message).To(Equal(repositories.CreateProcessMessage{
 						Type:             "web",
 						AppGUID:          appGUID,
 						SpaceGUID:        spaceGUID,
 						DesiredInstances: 1,
 						Command:          "",
 						DiskQuotaMB:      1024,
-						Healthcheck: repositories.HealthCheck{
+						HealthCheck: repositories.HealthCheck{
 							Type: "port",
 							Data: repositories.HealthCheckData{
 								HTTPEndpoint:             "",
@@ -92,17 +92,17 @@ var _ = Describe("ManifestApplicationProcess", func() {
 					applicationInfo.Type = "worker"
 				})
 
-				It("returns a ProcessCreateMessage with defaulted values", func() {
+				It("returns a CreateProcessMessage with defaulted values", func() {
 					message := applicationInfo.ToProcessCreateMessage(appGUID, spaceGUID)
 
-					Expect(message).To(Equal(repositories.ProcessCreateMessage{
+					Expect(message).To(Equal(repositories.CreateProcessMessage{
 						Type:             "worker",
 						AppGUID:          appGUID,
 						SpaceGUID:        spaceGUID,
 						DesiredInstances: 0,
 						Command:          "",
 						DiskQuotaMB:      1024,
-						Healthcheck: repositories.HealthCheck{
+						HealthCheck: repositories.HealthCheck{
 							Type: "process",
 							Data: repositories.HealthCheckData{
 								HTTPEndpoint:             "",

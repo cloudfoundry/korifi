@@ -108,7 +108,7 @@ var _ = Describe("RouteRepository", func() {
 
 		When("multiple CFRoute resources exist", func() {
 			It("fetches the CFRoute CR we're looking for", func() {
-				route, err := routeRepo.FetchRoute(testCtx, authInfo, route1GUID)
+				route, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(route.GUID).To(Equal(cfRoute1.Name))
@@ -143,7 +143,7 @@ var _ = Describe("RouteRepository", func() {
 
 		When("the CFRoute doesn't exist", func() {
 			It("returns an error", func() {
-				_, err := routeRepo.FetchRoute(testCtx, authInfo, "non-existent-route-guid")
+				_, err := routeRepo.GetRoute(testCtx, authInfo, "non-existent-route-guid")
 				Expect(err).To(MatchError(NotFoundError{}))
 			})
 		})
@@ -189,7 +189,7 @@ var _ = Describe("RouteRepository", func() {
 				// Assumption: when unit testing, we can ignore webhooks that might turn the uniqueness constraint into a race condition
 				// If assumption is invalidated, we can implement the setup by mocking a fake client to return the non-unique ids
 
-				_, err := routeRepo.FetchRoute(testCtx, authInfo, route1GUID)
+				_, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
 				Expect(err).To(MatchError("duplicate route GUID exists"))
 			})
 		})
@@ -279,7 +279,7 @@ var _ = Describe("RouteRepository", func() {
 				It("eventually returns a list of routeRecords for each CFRoute CR", func() {
 					var routeRecords []RouteRecord
 					Eventually(func() []RouteRecord {
-						routeRecords, _ = routeRepo.FetchRouteList(testCtx, authInfo, FetchRouteListMessage{})
+						routeRecords, _ = routeRepo.ListRoutes(testCtx, authInfo, ListRoutesMessage{})
 						return routeRecords
 					}, timeCheckThreshold*time.Second).Should(ContainElements(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute1.Name)}),
@@ -358,18 +358,18 @@ var _ = Describe("RouteRepository", func() {
 
 			When("filters are provided", func() {
 				var routeRecords []RouteRecord
-				var message FetchRouteListMessage
+				var message ListRoutesMessage
 
 				JustBeforeEach(func() {
 					Eventually(func() []RouteRecord {
-						routeRecords, _ = routeRepo.FetchRouteList(testCtx, authInfo, message)
+						routeRecords, _ = routeRepo.ListRoutes(testCtx, authInfo, message)
 						return routeRecords
 					}, timeCheckThreshold*time.Second).ShouldNot(BeEmpty())
 				})
 
 				When("space_guid filters are provided", func() {
 					BeforeEach(func() {
-						message = FetchRouteListMessage{SpaceGUIDs: []string{"default"}}
+						message = ListRoutesMessage{SpaceGUIDs: []string{"default"}}
 					})
 					It("eventually returns a list of routeRecords for each CFRoute CR", func() {
 						Expect(routeRecords).To(HaveLen(2))
@@ -378,7 +378,7 @@ var _ = Describe("RouteRepository", func() {
 
 				When("domain_guid filters are provided", func() {
 					BeforeEach(func() {
-						message = FetchRouteListMessage{DomainGUIDs: []string{domainGUID}}
+						message = ListRoutesMessage{DomainGUIDs: []string{domainGUID}}
 					})
 					It("eventually returns a list of routeRecords for each CFRoute CR", func() {
 						Expect(routeRecords).To(HaveLen(2))
@@ -387,7 +387,7 @@ var _ = Describe("RouteRepository", func() {
 
 				When("host filters are provided", func() {
 					BeforeEach(func() {
-						message = FetchRouteListMessage{Hosts: []string{"my-subdomain-1"}}
+						message = ListRoutesMessage{Hosts: []string{"my-subdomain-1"}}
 					})
 					It("eventually returns a list of routeRecords for one of the CFRoute CRs", func() {
 						Expect(routeRecords).To(HaveLen(1))
@@ -396,7 +396,7 @@ var _ = Describe("RouteRepository", func() {
 
 				When("path filters are provided", func() {
 					BeforeEach(func() {
-						message = FetchRouteListMessage{Paths: []string{"/some/path"}}
+						message = ListRoutesMessage{Paths: []string{"/some/path"}}
 					})
 					It("eventually returns a list of routeRecords for one of the CFRoute CRs", func() {
 						Expect(routeRecords).To(HaveLen(1))
@@ -405,7 +405,7 @@ var _ = Describe("RouteRepository", func() {
 
 				When("app_guid filters are provided", func() {
 					BeforeEach(func() {
-						message = FetchRouteListMessage{AppGUIDs: []string{"some-app-guid"}}
+						message = ListRoutesMessage{AppGUIDs: []string{"some-app-guid"}}
 					})
 					It("eventually returns a list of routeRecords for each CFRoute CR", func() {
 						route1 := routeRecords[0]
@@ -444,8 +444,8 @@ var _ = Describe("RouteRepository", func() {
 
 			When("non-matching space_guid filters are provided", func() {
 				It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-					message := FetchRouteListMessage{SpaceGUIDs: []string{"something-not-matching"}}
-					routeRecords, err := routeRepo.FetchRouteList(testCtx, authInfo, message)
+					message := ListRoutesMessage{SpaceGUIDs: []string{"something-not-matching"}}
+					routeRecords, err := routeRepo.ListRoutes(testCtx, authInfo, message)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(routeRecords).To(BeEmpty())
 				})
@@ -453,8 +453,8 @@ var _ = Describe("RouteRepository", func() {
 
 			When("non-matching domain_guid filters are provided", func() {
 				It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-					message := FetchRouteListMessage{DomainGUIDs: []string{"something-not-matching"}}
-					routeRecords, err := routeRepo.FetchRouteList(testCtx, authInfo, message)
+					message := ListRoutesMessage{DomainGUIDs: []string{"something-not-matching"}}
+					routeRecords, err := routeRepo.ListRoutes(testCtx, authInfo, message)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(routeRecords).To(BeEmpty())
 				})
@@ -464,7 +464,7 @@ var _ = Describe("RouteRepository", func() {
 		When("no CFRoutes exist", Serial, func() {
 			It("returns an empty list and no error", func() {
 				Eventually(func() []RouteRecord {
-					routeRecords, err := routeRepo.FetchRouteList(testCtx, authInfo, FetchRouteListMessage{})
+					routeRecords, err := routeRepo.ListRoutes(testCtx, authInfo, ListRoutesMessage{})
 					Expect(err).ToNot(HaveOccurred())
 					return routeRecords
 				}, timeCheckThreshold*time.Second).Should(BeEmpty())
@@ -540,7 +540,7 @@ var _ = Describe("RouteRepository", func() {
 			It("eventually returns a list of routeRecords for each CFRoute CR", func() {
 				var routeRecords []RouteRecord
 				Eventually(func() int {
-					routeRecords, _ = routeRepo.FetchRoutesForApp(testCtx, authInfo, appGUID, testNamespace)
+					routeRecords, _ = routeRepo.ListRoutesForApp(testCtx, authInfo, appGUID, testNamespace)
 					return len(routeRecords)
 				}, timeCheckThreshold*time.Second).Should(Equal(1), "returned records count should equal number of created CRs with destinations to the App")
 
@@ -593,7 +593,7 @@ var _ = Describe("RouteRepository", func() {
 
 		When("no CFRoutes exist for the app", func() {
 			It("returns an empty list and no error", func() {
-				routeRecords, err := routeRepo.FetchRoutesForApp(testCtx, authInfo, "i-dont-exist", testNamespace)
+				routeRecords, err := routeRepo.ListRoutesForApp(testCtx, authInfo, "i-dont-exist", testNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(routeRecords).To(BeEmpty())
 			})
@@ -676,7 +676,7 @@ var _ = Describe("RouteRepository", func() {
 		})
 	})
 
-	Describe("FetchOrCreateRoute", func() {
+	Describe("GetOrCreateRoute", func() {
 		const (
 			testRouteHost = "test-route-host"
 			testRoutePath = "/test/route/path"
@@ -714,7 +714,7 @@ var _ = Describe("RouteRepository", func() {
 			)
 
 			BeforeEach(func() {
-				createdRouteRecord, createdRouteErr = routeRepo.FetchOrCreateRoute(testCtx, authInfo, createRouteMessage)
+				createdRouteRecord, createdRouteErr = routeRepo.GetOrCreateRoute(testCtx, authInfo, createRouteMessage)
 				Expect(createdRouteErr).NotTo(HaveOccurred())
 				route1GUID = createdRouteRecord.GUID
 			})
@@ -765,7 +765,7 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			It("doesn't create a new route", func() {
-				_, err := routeRepo.FetchOrCreateRoute(testCtx, authInfo, createRouteMessage)
+				_, err := routeRepo.GetOrCreateRoute(testCtx, authInfo, createRouteMessage)
 				Expect(err).NotTo(HaveOccurred())
 
 				var routeList networkingv1alpha1.CFRouteList
@@ -777,7 +777,7 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			It("returns the existing record", func() {
-				returnedRecord, err := routeRepo.FetchOrCreateRoute(testCtx, authInfo, createRouteMessage)
+				returnedRecord, err := routeRepo.GetOrCreateRoute(testCtx, authInfo, createRouteMessage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(returnedRecord).To(Equal(existingRecord))
 			})
@@ -866,7 +866,7 @@ var _ = Describe("RouteRepository", func() {
 						},
 					}
 
-					routeRecord, err := routeRepo.FetchRoute(testCtx, authInfo, route1GUID)
+					routeRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
 					Expect(err).NotTo(HaveOccurred())
 
 					// initialize a DestinationListMessage
@@ -948,7 +948,7 @@ var _ = Describe("RouteRepository", func() {
 						},
 					}
 
-					routeRecord, err := routeRepo.FetchRoute(testCtx, authInfo, route1GUID)
+					routeRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
 					Expect(err).NotTo(HaveOccurred())
 
 					// initialize a DestinationListMessage
@@ -1022,7 +1022,7 @@ var _ = Describe("RouteRepository", func() {
 						},
 					}
 
-					routeRecord, err := routeRepo.FetchRoute(testCtx, authInfo, route1GUID)
+					routeRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
 					Expect(err).NotTo(HaveOccurred())
 
 					destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, destinationMessages)
@@ -1136,7 +1136,7 @@ var _ = Describe("RouteRepository", func() {
 						},
 					}
 
-					routeRecord, err := routeRepo.FetchRoute(testCtx, authInfo, route1GUID)
+					routeRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
 					Expect(err).NotTo(HaveOccurred())
 
 					destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, addDestinationMessages)

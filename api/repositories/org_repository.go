@@ -21,13 +21,13 @@ import (
 //counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
 
 type CFOrgRepository interface {
-	CreateOrg(context context.Context, org OrgCreateMessage) (OrgRecord, error)
-	FetchOrgs(context context.Context, orgNames []string) ([]OrgRecord, error)
+	CreateOrg(context context.Context, org CreateOrgMessage) (OrgRecord, error)
+	ListOrgs(context context.Context, orgNames []string) ([]OrgRecord, error)
 }
 
 type CFSpaceRepository interface {
-	CreateSpace(context.Context, SpaceCreateMessage) (SpaceRecord, error)
-	FetchSpaces(context.Context, []string, []string) ([]SpaceRecord, error)
+	CreateSpace(context.Context, CreateSpaceMessage) (SpaceRecord, error)
+	ListSpaces(context.Context, []string, []string) ([]SpaceRecord, error)
 }
 
 const (
@@ -35,7 +35,7 @@ const (
 	SpaceNameLabel = "cloudfoundry.org/space-name"
 )
 
-type OrgCreateMessage struct {
+type CreateOrgMessage struct {
 	Name        string
 	GUID        string
 	Suspended   bool
@@ -43,7 +43,7 @@ type OrgCreateMessage struct {
 	Annotations map[string]string
 }
 
-type SpaceCreateMessage struct {
+type CreateSpaceMessage struct {
 	Name                     string
 	GUID                     string
 	OrganizationGUID         string
@@ -84,7 +84,7 @@ func NewOrgRepo(rootNamespace string, privilegedClient client.WithWatch, timeout
 	}
 }
 
-func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgCreateMessage) (OrgRecord, error) {
+func (r *OrgRepo) CreateOrg(ctx context.Context, org CreateOrgMessage) (OrgRecord, error) {
 	anchor, err := r.createSubnamespaceAnchor(ctx, &v1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      org.GUID,
@@ -111,7 +111,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgCreateMessage) (OrgRecor
 	return orgRecord, nil
 }
 
-func (r *OrgRepo) CreateSpace(ctx context.Context, message SpaceCreateMessage) (SpaceRecord, error) {
+func (r *OrgRepo) CreateSpace(ctx context.Context, message CreateSpaceMessage) (SpaceRecord, error) {
 	anchor, err := r.createSubnamespaceAnchor(ctx, &v1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
@@ -204,7 +204,7 @@ func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context, anchor *v1alpha2
 	return createdAnchor, nil
 }
 
-func (r *OrgRepo) FetchOrgs(ctx context.Context, names []string) ([]OrgRecord, error) {
+func (r *OrgRepo) ListOrgs(ctx context.Context, names []string) ([]OrgRecord, error) {
 	subnamespaceAnchorList := &v1alpha2.SubnamespaceAnchorList{}
 
 	options := []client.ListOption{client.InNamespace(r.rootNamespace)}
@@ -241,7 +241,7 @@ func (r *OrgRepo) FetchOrgs(ctx context.Context, names []string) ([]OrgRecord, e
 	return records, nil
 }
 
-func (r *OrgRepo) FetchSpaces(ctx context.Context, organizationGUIDs, names []string) ([]SpaceRecord, error) {
+func (r *OrgRepo) ListSpaces(ctx context.Context, organizationGUIDs, names []string) ([]SpaceRecord, error) {
 	subnamespaceAnchorList := &v1alpha2.SubnamespaceAnchorList{}
 
 	err := r.privilegedClient.List(ctx, subnamespaceAnchorList)

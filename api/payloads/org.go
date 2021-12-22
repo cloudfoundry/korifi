@@ -8,8 +8,8 @@ type OrgCreate struct {
 	Metadata  Metadata `json:"metadata"`
 }
 
-func (p OrgCreate) ToMessage() repositories.OrgCreateMessage {
-	return repositories.OrgCreateMessage{
+func (p OrgCreate) ToMessage() repositories.CreateOrgMessage {
+	return repositories.CreateOrgMessage{
 		Name:        p.Name,
 		Suspended:   p.Suspended,
 		Labels:      p.Metadata.Labels,

@@ -30,7 +30,7 @@ func NewApplyManifest(appRepo CFAppRepository, domainRepo CFDomainRepository, pr
 func (a *applyManifest) Invoke(ctx context.Context, authInfo authorization.Info, spaceGUID string, manifest payloads.Manifest) error {
 	appInfo := manifest.Applications[0]
 	exists := true
-	appRecord, err := a.appRepo.FetchAppByNameAndSpace(ctx, authInfo, appInfo.Name, spaceGUID)
+	appRecord, err := a.appRepo.GetAppByNameAndSpace(ctx, authInfo, appInfo.Name, spaceGUID)
 	if err != nil {
 		if !errors.As(err, new(repositories.NotFoundError)) {
 			return err
@@ -62,7 +62,7 @@ func (a *applyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo
 		return nil
 	}
 
-	existingRoutes, err := a.routeRepo.FetchRoutesForApp(ctx, authInfo, appRecord.SpaceGUID, appRecord.GUID)
+	existingRoutes, err := a.routeRepo.ListRoutesForApp(ctx, authInfo, appRecord.SpaceGUID, appRecord.GUID)
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func (a *applyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo
 		return nil
 	}
 
-	defaultDomainRecord, err := a.domainRepo.FetchDefaultDomain(ctx, authInfo)
+	defaultDomainRecord, err := a.domainRepo.GetDefaultDomain(ctx, authInfo)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func (a *applyManifest) updateApp(ctx context.Context, authInfo authorization.In
 		exists := true
 
 		var process repositories.ProcessRecord
-		process, err = a.processRepo.FetchProcessByAppTypeAndSpace(ctx, authInfo, appRecord.GUID, processInfo.Type, spaceGUID)
+		process, err = a.processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, appRecord.GUID, processInfo.Type, spaceGUID)
 		if err != nil {
 			if errors.As(err, new(repositories.NotFoundError)) {
 				exists = false
@@ -147,12 +147,12 @@ func (a *applyManifest) createOrUpdateRoutes(ctx context.Context, authInfo autho
 	routeString := *routes[0].Route
 	hostName, domainName, path := splitRoute(routeString)
 
-	domainRecord, err := a.domainRepo.FetchDomainByName(ctx, authInfo, domainName)
+	domainRecord, err := a.domainRepo.GetDomainByName(ctx, authInfo, domainName)
 	if err != nil {
 		return fmt.Errorf("createOrUpdateRoutes: %w", err)
 	}
 
-	routeRecord, err := a.routeRepo.FetchOrCreateRoute(ctx, authInfo, repositories.CreateRouteMessage{
+	routeRecord, err := a.routeRepo.GetOrCreateRoute(ctx, authInfo, repositories.CreateRouteMessage{
 		Host:       hostName,
 		Path:       path,
 		SpaceGUID:  appRecord.SpaceGUID,

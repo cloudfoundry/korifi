@@ -45,7 +45,7 @@ var _ = Describe("BuildHandler", func() {
 		// set up happy path defaults
 		BeforeEach(func() {
 			buildRepo = new(fake.CFBuildRepository)
-			buildRepo.FetchBuildReturns(repositories.BuildRecord{
+			buildRepo.GetBuildReturns(repositories.BuildRecord{
 				GUID:            buildGUID,
 				State:           "STAGING",
 				CreatedAt:       createdAt,
@@ -136,7 +136,7 @@ var _ = Describe("BuildHandler", func() {
 			})
 			When("build staging is successful", func() {
 				BeforeEach(func() {
-					buildRepo.FetchBuildReturns(repositories.BuildRecord{
+					buildRepo.GetBuildReturns(repositories.BuildRecord{
 						GUID:            buildGUID,
 						State:           "STAGED",
 						CreatedAt:       createdAt,
@@ -219,7 +219,7 @@ var _ = Describe("BuildHandler", func() {
 					stagingErrorMsg = "StagingError: something went wrong during staging"
 				)
 				BeforeEach(func() {
-					buildRepo.FetchBuildReturns(repositories.BuildRecord{
+					buildRepo.GetBuildReturns(repositories.BuildRecord{
 						GUID:            buildGUID,
 						State:           "FAILED",
 						CreatedAt:       createdAt,
@@ -311,7 +311,7 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the build cannot be found", func() {
 			BeforeEach(func() {
-				buildRepo.FetchBuildReturns(repositories.BuildRecord{}, repositories.NotFoundError{})
+				buildRepo.GetBuildReturns(repositories.BuildRecord{}, repositories.NotFoundError{})
 
 				router.ServeHTTP(rr, req)
 			})
@@ -323,7 +323,7 @@ var _ = Describe("BuildHandler", func() {
 
 		When("there is some other error fetching the build", func() {
 			BeforeEach(func() {
-				buildRepo.FetchBuildReturns(repositories.BuildRecord{}, errors.New("unknown!"))
+				buildRepo.GetBuildReturns(repositories.BuildRecord{}, errors.New("unknown!"))
 
 				router.ServeHTTP(rr, req)
 			})
@@ -368,7 +368,7 @@ var _ = Describe("BuildHandler", func() {
 
 		BeforeEach(func() {
 			packageRepo = new(fake.CFPackageRepository)
-			packageRepo.FetchPackageReturns(repositories.PackageRecord{
+			packageRepo.GetPackageReturns(repositories.PackageRecord{
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
@@ -422,7 +422,7 @@ var _ = Describe("BuildHandler", func() {
 			})
 
 			When("examining the BuildCreate message", func() {
-				var actualCreate repositories.BuildCreateMessage
+				var actualCreate repositories.CreateBuildMessage
 				BeforeEach(func() {
 					Expect(buildRepo.CreateBuildCallCount()).To(Equal(1), "buildRepo CreateBuild was not called")
 					_, _, actualCreate = buildRepo.CreateBuildArgsForCall(0)
@@ -509,7 +509,7 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the package doesn't exist", func() {
 			BeforeEach(func() {
-				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
 				makePostRequest(validBody)
 			})
 
@@ -522,7 +522,7 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the package exists check returns an error", func() {
 			BeforeEach(func() {
-				packageRepo.FetchPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
 
 				makePostRequest(validBody)
 			})

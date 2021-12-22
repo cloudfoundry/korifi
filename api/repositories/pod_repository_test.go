@@ -51,8 +51,8 @@ var _ = Describe("PodRepository", func() {
 		Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 	})
 
-	Describe("FetchPodStatsByAppGUID", func() {
-		var message FetchPodStatsMessage
+	Describe("ListPodStats", func() {
+		var message ListPodStatsMessage
 
 		const (
 			pod3Name = "some-other-pod-1"
@@ -83,7 +83,7 @@ var _ = Describe("PodRepository", func() {
 
 		When("All required pods exists", func() {
 			BeforeEach(func() {
-				message = FetchPodStatsMessage{
+				message = ListPodStatsMessage{
 					Namespace:   spaceGUID,
 					AppGUID:     "the-app-guid",
 					Instances:   2,
@@ -92,7 +92,7 @@ var _ = Describe("PodRepository", func() {
 				}
 			})
 			It("Fetches all the pods and sets the appropriate state", func() {
-				records, err := podRepo.FetchPodStatsByAppGUID(ctx, authInfo, message)
+				records, err := podRepo.ListPodStats(ctx, authInfo, message)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(records).To(HaveLen(2))
 				Expect(records).To(ConsistOf(
@@ -114,7 +114,7 @@ var _ = Describe("PodRepository", func() {
 
 		When("Some pods are missing", func() {
 			BeforeEach(func() {
-				message = FetchPodStatsMessage{
+				message = ListPodStatsMessage{
 					Namespace:   spaceGUID,
 					AppGUID:     "the-app-guid",
 					Instances:   3,
@@ -123,7 +123,7 @@ var _ = Describe("PodRepository", func() {
 				}
 			})
 			It("Fetches pods and sets the appropriate state", func() {
-				records, err := podRepo.FetchPodStatsByAppGUID(ctx, authInfo, message)
+				records, err := podRepo.ListPodStats(ctx, authInfo, message)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(records).To(HaveLen(3))
 				Expect(records).To(ConsistOf(
@@ -150,7 +150,7 @@ var _ = Describe("PodRepository", func() {
 
 		When("A pod is in pending state", func() {
 			BeforeEach(func() {
-				message = FetchPodStatsMessage{
+				message = ListPodStatsMessage{
 					Namespace:   spaceGUID,
 					AppGUID:     "the-app-guid",
 					Instances:   3,
@@ -177,7 +177,7 @@ var _ = Describe("PodRepository", func() {
 			})
 
 			It("fetches pods and sets the appropriate state", func() {
-				records, err := podRepo.FetchPodStatsByAppGUID(ctx, authInfo, message)
+				records, err := podRepo.ListPodStats(ctx, authInfo, message)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(records).To(HaveLen(3))
 				Expect(records).To(ConsistOf(

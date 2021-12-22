@@ -30,22 +30,12 @@ const (
 //+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
 
-type PackageListMessage struct {
-	AppGUIDs []string
+type PackageRepo struct {
+	privilegedClient client.Client
 }
 
-type PackageCreateMessage struct {
-	Type      string
-	AppGUID   string
-	SpaceGUID string
-	OwnerRef  metav1.OwnerReference
-}
-
-type PackageUpdateSourceMessage struct {
-	GUID               string
-	SpaceGUID          string
-	ImageRef           string
-	RegistrySecretName string
+func NewPackageRepo(privilegedClient client.Client) *PackageRepo {
+	return &PackageRepo{privilegedClient: privilegedClient}
 }
 
 type PackageRecord struct {
@@ -59,16 +49,47 @@ type PackageRecord struct {
 	UpdatedAt string
 }
 
-type PackageRepo struct {
-	privilegedClient client.Client
+type ListPackagesMessage struct {
+	AppGUIDs []string
 }
 
-func NewPackageRepo(privilegedClient client.Client) *PackageRepo {
-	return &PackageRepo{privilegedClient: privilegedClient}
+type CreatePackageMessage struct {
+	Type      string
+	AppGUID   string
+	SpaceGUID string
+	OwnerRef  metav1.OwnerReference
 }
 
-func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.Info, message PackageCreateMessage) (PackageRecord, error) {
-	cfPackage := packageCreateToCFPackage(message)
+func (message CreatePackageMessage) toCFPackage() workloadsv1alpha1.CFPackage {
+	guid := uuid.NewString()
+	return workloadsv1alpha1.CFPackage{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       kind,
+			APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            guid,
+			Namespace:       message.SpaceGUID,
+			OwnerReferences: []metav1.OwnerReference{message.OwnerRef},
+		},
+		Spec: workloadsv1alpha1.CFPackageSpec{
+			Type: workloadsv1alpha1.PackageType(message.Type),
+			AppRef: corev1.LocalObjectReference{
+				Name: message.AppGUID,
+			},
+		},
+	}
+}
+
+type UpdatePackageSourceMessage struct {
+	GUID               string
+	SpaceGUID          string
+	ImageRef           string
+	RegistrySecretName string
+}
+
+func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.Info, message CreatePackageMessage) (PackageRecord, error) {
+	cfPackage := message.toCFPackage()
 	err := r.privilegedClient.Create(ctx, &cfPackage)
 	if err != nil {
 		return PackageRecord{}, err
@@ -76,7 +97,7 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 	return cfPackageToPackageRecord(cfPackage), nil
 }
 
-func (r *PackageRepo) FetchPackage(ctx context.Context, authInfo authorization.Info, guid string) (PackageRecord, error) {
+func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Info, guid string) (PackageRecord, error) {
 	packageList := &workloadsv1alpha1.CFPackageList{}
 	err := r.privilegedClient.List(ctx, packageList)
 	if err != nil { // untested
@@ -88,7 +109,7 @@ func (r *PackageRepo) FetchPackage(ctx context.Context, authInfo authorization.I
 	return returnPackage(matches)
 }
 
-func (r *PackageRepo) FetchPackageList(ctx context.Context, authInfo authorization.Info, message PackageListMessage) ([]PackageRecord, error) {
+func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.Info, message ListPackagesMessage) ([]PackageRecord, error) {
 	packageList := &workloadsv1alpha1.CFPackageList{}
 	err := r.privilegedClient.List(ctx, packageList)
 	if err != nil { // untested
@@ -100,7 +121,7 @@ func (r *PackageRepo) FetchPackageList(ctx context.Context, authInfo authorizati
 	return returnPackageList(filteredPackages), nil
 }
 
-func applyPackageFiltersAndOrder(packages []workloadsv1alpha1.CFPackage, message PackageListMessage) []workloadsv1alpha1.CFPackage {
+func applyPackageFiltersAndOrder(packages []workloadsv1alpha1.CFPackage, message ListPackagesMessage) []workloadsv1alpha1.CFPackage {
 	var filtered []workloadsv1alpha1.CFPackage
 	if len(message.AppGUIDs) > 0 {
 		for _, currentPackage := range packages {
@@ -124,7 +145,7 @@ func applyPackageFiltersAndOrder(packages []workloadsv1alpha1.CFPackage, message
 	return filtered
 }
 
-func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message PackageUpdateSourceMessage) (PackageRecord, error) {
+func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message UpdatePackageSourceMessage) (PackageRecord, error) {
 	baseCFPackage := &workloadsv1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
@@ -142,27 +163,6 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 
 	record := cfPackageToPackageRecord(*cfPackage)
 	return record, nil
-}
-
-func packageCreateToCFPackage(message PackageCreateMessage) workloadsv1alpha1.CFPackage {
-	guid := uuid.NewString()
-	return workloadsv1alpha1.CFPackage{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       kind,
-			APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            guid,
-			Namespace:       message.SpaceGUID,
-			OwnerReferences: []metav1.OwnerReference{message.OwnerRef},
-		},
-		Spec: workloadsv1alpha1.CFPackageSpec{
-			Type: workloadsv1alpha1.PackageType(message.Type),
-			AppRef: corev1.LocalObjectReference{
-				Name: message.AppGUID,
-			},
-		},
-	}
 }
 
 func cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPackage) PackageRecord {

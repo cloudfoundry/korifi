@@ -57,13 +57,13 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			DiskQuotaMB:      initialDiskQuotaMB,
 		}
 
-		appRepo.FetchAppReturns(repositories.AppRecord{
+		appRepo.GetAppReturns(repositories.AppRecord{
 			Name:      testAppGUID,
 			GUID:      testAppGUID,
 			SpaceGUID: testProcessSpaceGUID,
 		}, nil)
 
-		processRepo.FetchProcessListReturns([]repositories.ProcessRecord{processRecord}, nil)
+		processRepo.ListProcessesReturns([]repositories.ProcessRecord{processRecord}, nil)
 
 		newInstances := 10
 		var newMemoryMB int64 = 256
@@ -109,14 +109,14 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			Expect(responseErr).ToNot(HaveOccurred())
 		})
 		It("fetches the app associated with the GUID", func() {
-			Expect(appRepo.FetchAppCallCount()).ToNot(BeZero())
-			_, actualAuthInfo, appGUID := appRepo.FetchAppArgsForCall(0)
+			Expect(appRepo.GetAppCallCount()).ToNot(BeZero())
+			_, actualAuthInfo, appGUID := appRepo.GetAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(appGUID).To(Equal(testAppGUID))
 		})
 		It("fetches the processes associated with the App GUID", func() {
-			Expect(processRepo.FetchProcessListCallCount()).ToNot(BeZero())
-			_, _, message := processRepo.FetchProcessListArgsForCall(0)
+			Expect(processRepo.ListProcessesCallCount()).ToNot(BeZero())
+			_, _, message := processRepo.ListProcessesArgsForCall(0)
 			Expect(message.AppGUID[0]).To(Equal(testAppGUID))
 			Expect(message.SpaceGUID).To(Equal(testProcessSpaceGUID))
 		})
@@ -138,7 +138,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = repositories.NotFoundError{ResourceType: "App"}
-				appRepo.FetchAppReturns(repositories.AppRecord{}, toReturnErr)
+				appRepo.GetAppReturns(repositories.AppRecord{}, toReturnErr)
 			})
 			It("returns an empty record", func() {
 				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
@@ -152,7 +152,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = errors.New("some-other-error")
-				appRepo.FetchAppReturns(repositories.AppRecord{}, toReturnErr)
+				appRepo.GetAppReturns(repositories.AppRecord{}, toReturnErr)
 			})
 			It("returns an empty record", func() {
 				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
@@ -168,7 +168,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = errors.New("some-other-error")
-				processRepo.FetchProcessListReturns([]repositories.ProcessRecord{}, toReturnErr)
+				processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, toReturnErr)
 			})
 			It("returns an empty record", func() {
 				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))

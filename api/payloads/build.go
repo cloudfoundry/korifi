@@ -1,8 +1,9 @@
 package payloads
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 type BuildCreate struct {
@@ -13,8 +14,8 @@ type BuildCreate struct {
 	Metadata        Metadata          `json:"metadata"`
 }
 
-func (c *BuildCreate) ToMessage(record repositories.PackageRecord) repositories.BuildCreateMessage {
-	toReturn := repositories.BuildCreateMessage{
+func (c *BuildCreate) ToMessage(record repositories.PackageRecord) repositories.CreateBuildMessage {
+	toReturn := repositories.CreateBuildMessage{
 		AppGUID:         record.AppGUID,
 		PackageGUID:     c.Package.GUID,
 		SpaceGUID:       record.SpaceGUID,

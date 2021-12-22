@@ -35,8 +35,8 @@ type RouteList struct {
 	Paths       string `schema:"paths"`
 }
 
-func (p *RouteList) ToMessage() repositories.FetchRouteListMessage {
-	return repositories.FetchRouteListMessage{
+func (p *RouteList) ToMessage() repositories.ListRoutesMessage {
+	return repositories.ListRoutesMessage{
 		AppGUIDs:    parseArrayParam(p.AppGUIDs),
 		SpaceGUIDs:  parseArrayParam(p.SpaceGUIDs),
 		DomainGUIDs: parseArrayParam(p.DomainGUIDs),

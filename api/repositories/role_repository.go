@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
 )
 
 var (
@@ -35,7 +36,7 @@ type AuthorizedInChecker interface {
 
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create
 
-type RoleCreateMessage struct {
+type CreateRoleMessage struct {
 	GUID  string
 	Type  string
 	Space string
@@ -69,7 +70,7 @@ func NewRoleRepo(privilegedClient client.Client, authorizedInChecker AuthorizedI
 	}
 }
 
-func (r *RoleRepo) CreateRole(ctx context.Context, role RoleCreateMessage) (RoleRecord, error) {
+func (r *RoleRepo) CreateRole(ctx context.Context, role CreateRoleMessage) (RoleRecord, error) {
 	k8sRoleConfig, ok := r.roleMappings[role.Type]
 	if !ok {
 		return RoleRecord{}, fmt.Errorf("invalid role type: %q", role.Type)
@@ -169,7 +170,7 @@ func (r *RoleRepo) getOrgName(ctx context.Context, spaceGUID string) (string, er
 	return orgName, nil
 }
 
-func calculateRoleBindingName(role RoleCreateMessage) string {
+func calculateRoleBindingName(role CreateRoleMessage) string {
 	plain := []byte(role.Type + "::" + role.User)
 	sum := sha256.Sum256(plain)
 

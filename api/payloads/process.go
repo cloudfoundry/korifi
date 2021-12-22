@@ -20,8 +20,8 @@ type ProcessList struct {
 	AppGUIDs string `schema:"app_guids"`
 }
 
-func (p *ProcessList) ToMessage() repositories.FetchProcessListMessage {
-	return repositories.FetchProcessListMessage{
+func (p *ProcessList) ToMessage() repositories.ListProcessesMessage {
+	return repositories.ListProcessesMessage{
 		AppGUID: parseArrayParam(p.AppGUIDs),
 	}
 }

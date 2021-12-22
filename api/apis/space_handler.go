@@ -6,15 +6,16 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-logr/logr"
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
+	controllerruntime "sigs.k8s.io/controller-runtime"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
-	"github.com/go-logr/logr"
-	"github.com/google/uuid"
-	"github.com/gorilla/mux"
-	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -127,7 +128,7 @@ func (h *SpaceHandler) SpaceListHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	spaces, err := spaceRepo.FetchSpaces(ctx, orgUIDs, names)
+	spaces, err := spaceRepo.ListSpaces(ctx, orgUIDs, names)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch spaces")
 		writeUnknownErrorResponse(w)

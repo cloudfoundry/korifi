@@ -9,17 +9,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-http-utils/headers"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	repositoriesfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
-	"github.com/go-http-utils/headers"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -56,7 +57,7 @@ var _ = Describe("OrgHandler", func() {
 		}
 
 		BeforeEach(func() {
-			orgRepo.CreateOrgStub = func(_ context.Context, message repositories.OrgCreateMessage) (repositories.OrgRecord, error) {
+			orgRepo.CreateOrgStub = func(_ context.Context, message repositories.CreateOrgMessage) (repositories.OrgRecord, error) {
 				record := repositories.OrgRecord{
 					Name:        message.Name,
 					GUID:        "t-h-e-o-r-g",
@@ -315,7 +316,7 @@ var _ = Describe("OrgHandler", func() {
 	Describe("Listing Orgs", func() {
 		var req *http.Request
 		BeforeEach(func() {
-			orgRepo.FetchOrgsReturns([]repositories.OrgRecord{
+			orgRepo.ListOrgsReturns([]repositories.OrgRecord{
 				{
 					Name:      "alice",
 					GUID:      "a-l-i-c-e",
@@ -355,8 +356,8 @@ var _ = Describe("OrgHandler", func() {
 			})
 
 			It("lists orgs using the repository", func() {
-				Expect(orgRepo.FetchOrgsCallCount()).To(Equal(1))
-				_, names := orgRepo.FetchOrgsArgsForCall(0)
+				Expect(orgRepo.ListOrgsCallCount()).To(Equal(1))
+				_, names := orgRepo.ListOrgsArgsForCall(0)
 				Expect(names).To(BeEmpty())
 			})
 
@@ -427,15 +428,15 @@ var _ = Describe("OrgHandler", func() {
 			})
 
 			It("filters by them", func() {
-				Expect(orgRepo.FetchOrgsCallCount()).To(Equal(1))
-				_, names := orgRepo.FetchOrgsArgsForCall(0)
+				Expect(orgRepo.ListOrgsCallCount()).To(Equal(1))
+				_, names := orgRepo.ListOrgsArgsForCall(0)
 				Expect(names).To(ConsistOf("foo", "bar"))
 			})
 		})
 
 		When("fetching the orgs fails", func() {
 			BeforeEach(func() {
-				orgRepo.FetchOrgsReturns(nil, errors.New("boom!"))
+				orgRepo.ListOrgsReturns(nil, errors.New("boom!"))
 				router.ServeHTTP(rr, req)
 			})
 

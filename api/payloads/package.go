@@ -1,8 +1,9 @@
 package payloads
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 type PackageCreate struct {
@@ -14,8 +15,8 @@ type PackageRelationships struct {
 	App *Relationship `json:"app" validate:"required"`
 }
 
-func (m PackageCreate) ToMessage(record repositories.AppRecord) repositories.PackageCreateMessage {
-	return repositories.PackageCreateMessage{
+func (m PackageCreate) ToMessage(record repositories.AppRecord) repositories.CreatePackageMessage {
+	return repositories.CreatePackageMessage{
 		Type:      m.Type,
 		AppGUID:   record.GUID,
 		SpaceGUID: record.SpaceGUID,
@@ -36,8 +37,8 @@ type PackageListQueryParameters struct {
 	PerPage string `schema:"per_page"`
 }
 
-func (p *PackageListQueryParameters) ToMessage() repositories.PackageListMessage {
-	return repositories.PackageListMessage{
+func (p *PackageListQueryParameters) ToMessage() repositories.ListPackagesMessage {
+	return repositories.ListPackagesMessage{
 		AppGUIDs: parseArrayParam(p.AppGUIDs),
 	}
 }
@@ -52,8 +53,8 @@ type PackageListDropletsQueryParameters struct {
 	PerPage string `schema:"per_page"`
 }
 
-func (p *PackageListDropletsQueryParameters) ToMessage(packageGUIDs []string) repositories.DropletListMessage {
-	return repositories.DropletListMessage{
+func (p *PackageListDropletsQueryParameters) ToMessage(packageGUIDs []string) repositories.ListDropletsMessage {
+	return repositories.ListDropletsMessage{
 		PackageGUIDs: packageGUIDs,
 	}
 }
