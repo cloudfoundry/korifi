@@ -162,9 +162,22 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 	})
 
 	When("the CFRoute includes destinations", func() {
+		var destinations []networkingv1alpha1.Destination
+
 		BeforeEach(func() {
 			ctx := context.Background()
 
+			destinations = []networkingv1alpha1.Destination{
+				{
+					GUID: GenerateGUID(),
+					AppRef: corev1.LocalObjectReference{
+						Name: "the-app-guid",
+					},
+					ProcessType: "web",
+					Port:        80,
+					Protocol:    "http1",
+				},
+			}
 			cfRoute = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testRouteGUID,
@@ -177,17 +190,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					DomainRef: corev1.LocalObjectReference{
 						Name: testDomainGUID,
 					},
-					Destinations: []networkingv1alpha1.Destination{
-						{
-							GUID: GenerateGUID(),
-							AppRef: corev1.LocalObjectReference{
-								Name: "the-app-guid",
-							},
-							ProcessType: "web",
-							Port:        80,
-							Protocol:    "http1",
-						},
-					},
+					Destinations: destinations,
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
@@ -295,6 +298,16 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				Expect(err).NotTo(HaveOccurred())
 				return cfRoute.Status.URI
 			}).Should(Equal(testFQDN + "/test/path"))
+		})
+
+		It("eventually adds the Destinations status field to the CFRoute", func() {
+			ctx := context.Background()
+
+			Eventually(func() []networkingv1alpha1.Destination {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)
+				Expect(err).NotTo(HaveOccurred())
+				return cfRoute.Status.Destinations
+			}).Should(Equal(destinations))
 		})
 	})
 

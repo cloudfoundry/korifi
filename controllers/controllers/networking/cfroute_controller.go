@@ -118,6 +118,8 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// setCFRouteCFDomainStatusFields
 	cfRoute.Status.FQDN = cfRoute.Spec.Host + "." + cfDomain.Spec.Name
 	cfRoute.Status.URI = cfRoute.Status.FQDN + cfRoute.Spec.Path
+	cfRoute.Status.Destinations = cfRoute.Spec.Destinations
+
 	if err := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.ValidStatus, "Valid CFRoute", "Valid", "Valid CFRoute"); err != nil {
 		r.Log.Error(err, "Error when updating CFRoute status")
 		return ctrl.Result{}, err

@@ -149,6 +149,39 @@ spec:
                 type: string
               description:
                 type: string
+              destinations:
+                description: Destinations capture the observed state of the destinations mainly for recording the target port of the underlying service
+                items:
+                  description: Destination defines a target for a CFRoute, does not carry meaning outside of a CF context
+                  properties:
+                    appRef:
+                      description: App ref is required, part of the identity of a running process to which traffic may be routed We use a ref because the app must exist
+                      properties:
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                          type: string
+                      type: object
+                    guid:
+                      description: GUID is required to support CF V3 Destination endpoints
+                      type: string
+                    port:
+                      description: Port is optional, defaults to ProcessModel::DEFAULT_HTTP_PORT
+                      type: integer
+                    processType:
+                      description: Process type is required, part of the identity of a running process to which traffic may be routed We use process type instead of processRef because a process of the type may not exist at time of destination creation
+                      type: string
+                    protocol:
+                      description: Protocol is required, must be "http1"
+                      enum:
+                      - http1
+                      type: string
+                  required:
+                  - appRef
+                  - guid
+                  - processType
+                  - protocol
+                  type: object
+                type: array
               fqdn:
                 description: FQDN captures the fully-qualified domain name for the route
                 type: string

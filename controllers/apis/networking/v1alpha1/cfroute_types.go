@@ -77,6 +77,10 @@ type CFRouteStatus struct {
 	// URI captures the URI (FQDN + path) for the route
 	URI string `json:"uri,omitempty"`
 
+	// Destinations capture the observed state of the destinations
+	// mainly for recording the target port of the underlying service
+	Destinations []Destination `json:"destinations,omitempty"`
+
 	// Conditions capture the current status of the route
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
