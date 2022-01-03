@@ -10,7 +10,7 @@ import (
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking/fake"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	gomegaTypes "github.com/onsi/gomega/types"

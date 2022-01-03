@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	repositoriesfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 

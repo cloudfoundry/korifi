@@ -10,7 +10,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	"k8s.io/client-go/kubernetes/scheme"

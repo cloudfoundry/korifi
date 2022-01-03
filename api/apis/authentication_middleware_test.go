@@ -11,7 +11,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider/fake"
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )

@@ -5,7 +5,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 	"github.com/google/uuid"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

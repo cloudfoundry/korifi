@@ -11,7 +11,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"github.com/gorilla/mux"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
