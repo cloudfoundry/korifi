@@ -471,7 +471,7 @@ var _ = Describe("DomainRepository", func() {
 		When("no domains exist", Serial, func() {
 			It("returns a not found error", func() {
 				_, err := domainRepo.GetDefaultDomain(context.Background(), authInfo)
-				Expect(err).To(MatchError(NotFoundError{ResourceType: "Domain"}))
+				Expect(err).To(MatchError(NotFoundError{ResourceType: "Default Domain"}))
 			})
 		})
 	})
