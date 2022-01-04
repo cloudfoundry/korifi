@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
 
@@ -144,6 +146,9 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			Expect(lrp.Spec.CPUWeight).To(BeZero(), "expected cpu to always be 0")
 			Expect(lrp.Spec.Sidecars).To(BeNil(), "expected sidecars to always be nil")
 			Expect(lrp.Spec.Env).To(HaveKeyWithValue("test-env-key", "test-env-val"))
+			Expect(lrp.Spec.Env).To(HaveKeyWithValue("VCAP_APP_HOST", "0.0.0.0"))
+			Expect(lrp.Spec.Env).To(HaveKeyWithValue("VCAP_APP_PORT", "8080"))
+			Expect(lrp.Spec.Env).To(HaveKeyWithValue("PORT", "8080"))
 			Expect(lrp.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", processTypeWebCommand))
 		})
 
@@ -192,6 +197,76 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					return true
 				}, 10*time.Second).Should(BeTrue(), "Timed out waiting for deletion of LRP/%s in namespace %s to cause NotFound error", testProcessGUID, testNamespace)
 			})
+		})
+	})
+
+	When("a CFRoute destination specifying a different port already exists before the app is started", func() {
+		var ()
+		BeforeEach(func() {
+			wrongDestination := networkingv1alpha1.Destination{
+				GUID:        "destination1-guid",
+				AppRef:      corev1.LocalObjectReference{Name: "some-other-guid"},
+				ProcessType: processTypeWeb,
+				Port:        12,
+				Protocol:    "http1",
+			}
+			destination := networkingv1alpha1.Destination{
+				GUID:        "destination2-guid",
+				AppRef:      corev1.LocalObjectReference{Name: cfApp.Name},
+				ProcessType: processTypeWeb,
+				Port:        port9000,
+				Protocol:    "http1",
+			}
+			cfRoute := &networkingv1alpha1.CFRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      GenerateGUID(),
+					Namespace: testNamespace,
+				},
+				Spec: networkingv1alpha1.CFRouteSpec{
+					Host:     "test-host",
+					Path:     "",
+					Protocol: "http",
+					DomainRef: corev1.LocalObjectReference{
+						Name: GenerateGUID(),
+					},
+					Destinations: []networkingv1alpha1.Destination{wrongDestination, destination},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), cfRoute)).To(Succeed())
+			cfRoute.Status = networkingv1alpha1.CFRouteStatus{
+				CurrentStatus: "valid",
+				Description:   "ok",
+				Destinations:  []networkingv1alpha1.Destination{wrongDestination, destination},
+			}
+			Expect(k8sClient.Status().Update(context.Background(), cfRoute)).To(Succeed())
+
+			cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
+			Expect(
+				k8sClient.Create(context.Background(), cfApp),
+			).To(Succeed())
+		})
+		var lrp eiriniv1.LRP
+
+		It("eventually reconciles the CFProcess into an LRP with VCAP env set according to the destination port", func() {
+			Eventually(func() string {
+				var lrps eiriniv1.LRPList
+				err := k8sClient.List(context.Background(), &lrps, client.InNamespace(testNamespace))
+				if err != nil {
+					return ""
+				}
+
+				for _, currentLRP := range lrps.Items {
+					if getMapKeyValue(currentLRP.Labels, workloadsv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+						lrp = currentLRP
+						return lrp.GetName()
+					}
+				}
+
+				return ""
+			}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
+
+			Expect(lrp.Spec.Env).To(HaveKeyWithValue("VCAP_APP_PORT", "9000"))
+			Expect(lrp.Spec.Env).To(HaveKeyWithValue("PORT", "9000"))
 		})
 	})
 

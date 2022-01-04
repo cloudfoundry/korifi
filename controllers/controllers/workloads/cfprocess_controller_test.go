@@ -3,6 +3,10 @@ package workloads_test
 import (
 	"context"
 	"errors"
+	"strconv"
+	"time"
+
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
@@ -41,6 +45,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		cfProcess *workloadsv1alpha1.CFProcess
 		cfApp     *workloadsv1alpha1.CFApp
 		lrp       *eiriniv1.LRP
+		routes    []networkingv1alpha1.CFRoute
 
 		cfBuildError      error
 		cfAppError        error
@@ -48,6 +53,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		appEnvSecretError error
 		lrpError          error
 		lrpListError      error
+		routeListError    error
 
 		cfProcessReconciler *CFProcessReconciler
 		ctx                 context.Context
@@ -85,7 +91,9 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 			case *corev1.Secret:
 				return appEnvSecretError
 			case *eiriniv1.LRP:
-				lrp.DeepCopyInto(obj)
+				if lrpError == nil {
+					lrp.DeepCopyInto(obj)
+				}
 				return lrpError
 			default:
 				panic("TestClient Get provided a weird obj")
@@ -101,6 +109,11 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				}
 				lrpList.DeepCopyInto(listObj)
 				return lrpListError
+			case *networkingv1alpha1.CFRouteList:
+				routeList := networkingv1alpha1.CFRouteList{Items: routes}
+
+				routeList.DeepCopyInto(listObj)
+				return routeListError
 			default:
 				panic("TestClient Get provided a weird obj")
 			}
@@ -166,6 +179,66 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				})
 				It("deletes any existing LRPs for the CFApp", func() {
 					Expect(fakeClient.DeleteCallCount()).To(Equal(1), "Client.Delete call count mismatch")
+				})
+			})
+
+			When("the CFApp is started and there are existing routes matching", func() {
+				const testPort = 1234
+				BeforeEach(func() {
+					cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
+					lrpError = apierrors.NewNotFound(schema.GroupResource{}, "some-guid")
+
+					routes = []networkingv1alpha1.CFRoute{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								CreationTimestamp: metav1.Time{
+									Time: time.Now(),
+								},
+							},
+							Status: networkingv1alpha1.CFRouteStatus{
+								Destinations: []networkingv1alpha1.Destination{
+									{
+										GUID: "some-other-guid",
+										Port: testPort + 1000,
+										AppRef: corev1.LocalObjectReference{
+											Name: testAppGUID,
+										},
+										ProcessType: testProcessType,
+										Protocol:    "http1",
+									},
+								},
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								CreationTimestamp: metav1.Time{
+									Time: time.Now().Add(-5 * time.Second),
+								},
+							},
+							Status: networkingv1alpha1.CFRouteStatus{
+								Destinations: []networkingv1alpha1.Destination{
+									{
+										GUID: "some-guid",
+										Port: testPort,
+										AppRef: corev1.LocalObjectReference{
+											Name: testAppGUID,
+										},
+										ProcessType: testProcessType,
+										Protocol:    "http1",
+									},
+								},
+							},
+						},
+					}
+				})
+				It("Chooses the oldest matching route", func() {
+					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
+					Expect(reconcileErr).ToNot(HaveOccurred())
+
+					_, obj, _ := fakeClient.CreateArgsForCall(0)
+					returnedLRP := obj.(*eiriniv1.LRP)
+					Expect(returnedLRP.Spec.Env).To(HaveKeyWithValue("PORT", strconv.Itoa(testPort)))
+					Expect(returnedLRP.Spec.Env).To(HaveKeyWithValue("VCAP_APP_PORT", strconv.Itoa(testPort)))
 				})
 			})
 		})

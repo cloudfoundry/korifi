@@ -21,6 +21,11 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
+
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -76,13 +81,11 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if foundValue, ok := cfApp.GetAnnotations()[workloadsv1alpha1.CFAppRevisionKey]; ok {
 		cfAppRev = foundValue
 	}
-
 	lrpsForProcess, err := r.fetchLRPsForProcess(ctx, cfProcess)
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch LRPs for Process %s/%s", req.Namespace, cfProcess.Name))
 		return ctrl.Result{}, err
 	}
-
 	if cfApp.Spec.DesiredState == workloadsv1alpha1.StartedState {
 
 		cfBuild := workloadsv1alpha1.CFBuild{}
@@ -105,6 +108,12 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return ctrl.Result{}, err
 			}
 		}
+		var appPort int
+		appPort, err = r.getPort(ctx, cfProcess, cfApp)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("Error when trying to fetch routes for CFApp %s/%s", req.Namespace, cfApp.Spec.Name))
+			return ctrl.Result{}, err
+		}
 
 		actualLRP := &eiriniv1.LRP{
 			ObjectMeta: metav1.ObjectMeta{
@@ -114,7 +123,7 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		var desiredLRP *eiriniv1.LRP
-		desiredLRP, err = r.generateLRP(*actualLRP, cfApp, cfProcess, cfBuild, appEnvSecret)
+		desiredLRP, err = r.generateLRP(*actualLRP, cfApp, cfProcess, cfBuild, appEnvSecret, appPort)
 		if err != nil {
 			// untested
 			r.Log.Error(err, "Error when initializing LRP")
@@ -167,7 +176,7 @@ func lrpMutateFunction(actuallrp, desiredlrp *eiriniv1.LRP) controllerutil.Mutat
 	}
 }
 
-func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workloadsv1alpha1.CFApp, cfProcess workloadsv1alpha1.CFProcess, cfBuild workloadsv1alpha1.CFBuild, appEnvSecret corev1.Secret) (*eiriniv1.LRP, error) {
+func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workloadsv1alpha1.CFApp, cfProcess workloadsv1alpha1.CFProcess, cfBuild workloadsv1alpha1.CFBuild, appEnvSecret corev1.Secret, appPort int) (*eiriniv1.LRP, error) {
 	var desiredLRP eiriniv1.LRP
 	actualLRP.DeepCopyInto(&desiredLRP)
 
@@ -199,7 +208,7 @@ func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workload
 	desiredLRP.Spec.Image = cfBuild.Status.BuildDropletStatus.Registry.Image
 	desiredLRP.Spec.Ports = cfProcess.Spec.Ports
 	desiredLRP.Spec.Instances = cfProcess.Spec.DesiredInstances
-	desiredLRP.Spec.Env = secretDataToEnvMap(appEnvSecret.Data)
+	desiredLRP.Spec.Env = generateEnvMap(appEnvSecret.Data, appPort)
 	desiredLRP.Spec.Health = eiriniv1.Healthcheck{
 		Type:      string(cfProcess.Spec.HealthCheck.Type),
 		Port:      lrpHealthCheckPort,
@@ -240,11 +249,43 @@ func (r *CFProcessReconciler) fetchLRPsForProcess(ctx context.Context, cfProcess
 	return lrpsForProcess, err
 }
 
-func secretDataToEnvMap(secretData map[string][]byte) map[string]string {
+func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess workloadsv1alpha1.CFProcess, cfApp workloadsv1alpha1.CFApp) (int, error) {
+	// Get Routes for the process
+	var cfRoutesForProcess networkingv1alpha1.CFRouteList
+	err := r.Client.List(ctx, &cfRoutesForProcess, client.InNamespace(cfApp.GetNamespace()), client.MatchingFields{shared.DestinationAppName: cfApp.Name})
+	if err != nil {
+		return 0, err
+	}
+
+	// In case there are multiple routes, prefer the oldest one
+	sort.Slice(cfRoutesForProcess.Items, func(i, j int) bool {
+		return cfRoutesForProcess.Items[i].CreationTimestamp.Before(&cfRoutesForProcess.Items[j].CreationTimestamp)
+	})
+
+	// Filter those destinations
+	for _, cfRoute := range cfRoutesForProcess.Items {
+		for _, destination := range cfRoute.Status.Destinations {
+			if destination.AppRef.Name == cfApp.Name && destination.ProcessType == cfProcess.Spec.ProcessType && destination.Port != 0 {
+				// Just use the first candidate port
+				return destination.Port, nil
+			}
+		}
+	}
+
+	return 8080, nil
+}
+
+func generateEnvMap(secretData map[string][]byte, port int) map[string]string {
 	convertedMap := make(map[string]string)
 	for k, v := range secretData {
 		convertedMap[k] = string(v)
 	}
+
+	portString := strconv.Itoa(port)
+	convertedMap["VCAP_APP_HOST"] = "0.0.0.0"
+	convertedMap["VCAP_APP_PORT"] = portString
+	convertedMap["PORT"] = portString
+
 	return convertedMap
 }
 
