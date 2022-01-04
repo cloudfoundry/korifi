@@ -51,9 +51,6 @@ ensure_local_registry() {
   helm repo add twuni https://helm.twun.io
   helm upgrade --install localregistry twuni/docker-registry --set service.type=NodePort,service.nodePort=30050,service.port=30050
 
-  # TODO-maybe we don't need to add the /etc/hosts hack if we configure the mirror below to redirect to 127.0.0.1?
-  docker exec "${cluster}-control-plane" bash -c 'echo "127.0.0.1 localregistry-docker-registry.default.svc.cluster.local" >> /etc/hosts'
-
   # reconfigure containerd to allow insecure connection to our local registry
   docker cp ${cluster}-control-plane:/etc/containerd/config.toml /tmp/config.toml
   if ! grep -q localregistry-docker-registry\.default\.svc\.cluster\.local /tmp/config.toml; then
@@ -62,15 +59,15 @@ ensure_local_registry() {
 [plugins."io.containerd.grpc.v1.cri".registry]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
     [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localregistry-docker-registry.default.svc.cluster.local:30050"]
-      endpoint = ["http://localregistry-docker-registry.default.svc.cluster.local:30050"]
+      endpoint = ["http://127.0.0.1:30050"]
   [plugins."io.containerd.grpc.v1.cri".registry.configs]
-    [plugins."io.containerd.grpc.v1.cri".registry.configs."localregistry-docker-registry.default.svc.cluster.local:30050".tls]
+    [plugins."io.containerd.grpc.v1.cri".registry.configs."127.0.0.1:30050".tls]
       insecure_skip_verify = true
 EOF
     docker cp /tmp/config.toml ${cluster}-control-plane:/etc/containerd/config.toml
     docker exec "${cluster}-control-plane" bash -c "systemctl restart containerd"
     echo "waiting for containerd to restart..."
-    sleep 30
+    sleep 10
   fi
 }
 
