@@ -21,6 +21,7 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
@@ -255,10 +256,16 @@ func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess workloadsv1
 	if err != nil {
 		return 0, err
 	}
+
+	// In case there are multiple routes, prefer the oldest one
+	sort.Slice(cfRoutesForProcess.Items, func(i, j int) bool {
+		return cfRoutesForProcess.Items[i].CreationTimestamp.Before(&cfRoutesForProcess.Items[j].CreationTimestamp)
+	})
+
 	// Filter those destinations
 	for _, cfRoute := range cfRoutesForProcess.Items {
 		for _, destination := range cfRoute.Status.Destinations {
-			if destination.ProcessType == cfProcess.Spec.ProcessType && destination.Port != 0 {
+			if destination.AppRef.Name == cfApp.Name && destination.ProcessType == cfProcess.Spec.ProcessType && destination.Port != 0 {
 				// Just use the first candidate port
 				return destination.Port, nil
 			}

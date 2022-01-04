@@ -200,9 +200,18 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		})
 	})
 
-	When("a CFRoute destination specififying a different port already exists before the app is started", func() {
+	When("a CFRoute destination specifying a different port already exists before the app is started", func() {
+		var ()
 		BeforeEach(func() {
+			wrongDestination := networkingv1alpha1.Destination{
+				GUID:        "destination1-guid",
+				AppRef:      corev1.LocalObjectReference{Name: "some-other-guid"},
+				ProcessType: processTypeWeb,
+				Port:        12,
+				Protocol:    "http1",
+			}
 			destination := networkingv1alpha1.Destination{
+				GUID:        "destination2-guid",
 				AppRef:      corev1.LocalObjectReference{Name: cfApp.Name},
 				ProcessType: processTypeWeb,
 				Port:        port9000,
@@ -220,26 +229,16 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					DomainRef: corev1.LocalObjectReference{
 						Name: GenerateGUID(),
 					},
-					Destinations: []networkingv1alpha1.Destination{destination},
+					Destinations: []networkingv1alpha1.Destination{wrongDestination, destination},
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), cfRoute)).To(Succeed())
 			cfRoute.Status = networkingv1alpha1.CFRouteStatus{
 				CurrentStatus: "valid",
 				Description:   "ok",
-				Destinations:  []networkingv1alpha1.Destination{destination},
+				Destinations:  []networkingv1alpha1.Destination{wrongDestination, destination},
 			}
 			Expect(k8sClient.Status().Update(context.Background(), cfRoute)).To(Succeed())
-
-			Eventually(func() int {
-				var cfRoutesForProcess networkingv1alpha1.CFRouteList
-				err := k8sClient.List(context.Background(), &cfRoutesForProcess, client.InNamespace(testNamespace))
-				Expect(err).NotTo(HaveOccurred())
-				if len(cfRoutesForProcess.Items) > 0 && len(cfRoutesForProcess.Items[0].Status.Destinations) > 0 {
-					return cfRoutesForProcess.Items[0].Status.Destinations[0].Port
-				}
-				return -1
-			}, 5*time.Second).Should(Equal(9000), "Timed out waiting for route to be updated")
 
 			cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
 			Expect(
