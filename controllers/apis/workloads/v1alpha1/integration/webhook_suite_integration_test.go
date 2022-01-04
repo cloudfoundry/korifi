@@ -30,7 +30,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"

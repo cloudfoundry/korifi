@@ -11,7 +11,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
 	"github.com/google/uuid"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
