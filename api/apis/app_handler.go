@@ -552,21 +552,6 @@ func (h *AppHandler) appRestartHandler(authInfo authorization.Info, w http.Respo
 			writeUnknownErrorResponse(w)
 			return
 		}
-
-		var terminated bool
-		terminated, err = h.podRepo.WatchForPodsTermination(ctx, authInfo, app.GUID, app.SpaceGUID)
-		if err != nil {
-			h.logger.Error(err, "Failed to fetch pods for app in Kubernetes", "AppGUID", appGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
-
-		// Terminated can only be false if the user cancels the context.
-		if !terminated {
-			h.logger.Error(err, "Timed out waiting for pods to terminate for app", "AppGUID", appGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
 	}
 
 	app, err = h.appRepo.SetAppDesiredState(ctx, authInfo, repositories.SetAppDesiredStateMessage{

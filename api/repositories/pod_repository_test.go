@@ -2,7 +2,6 @@ package repositories_test
 
 import (
 	"context"
-	"time"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -199,49 +198,6 @@ var _ = Describe("PodRepository", func() {
 						},
 					},
 				))
-			})
-		})
-	})
-
-	Describe("WatchPodsForTermination", func() {
-		BeforeEach(func() {
-			Expect(k8sClient.Create(ctx, pod1)).To(Succeed())
-			Expect(k8sClient.Create(ctx, pod2)).To(Succeed())
-		})
-
-		When("pods exist", func() {
-			It("returns true when pods are deleted", func() {
-				go func() {
-					defer GinkgoRecover()
-					time.Sleep(time.Millisecond * 200)
-					Expect(k8sClient.Delete(context.Background(), pod1)).To(Succeed())
-					Expect(k8sClient.Delete(context.Background(), pod2)).To(Succeed())
-				}()
-
-				terminated, err := podRepo.WatchForPodsTermination(ctx, authInfo, appGUID, spaceGUID)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(terminated).To(BeTrue())
-			})
-		})
-
-		When("no pods exist", func() {
-			It("returns true", func() {
-				terminated, err := podRepo.WatchForPodsTermination(ctx, authInfo, "i-dont-exist", spaceGUID)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(terminated).To(BeTrue())
-			})
-		})
-
-		When(" pods exist and context is cancelled", func() {
-			It("returns false", func() {
-				cctx, cancelfun := context.WithCancel(context.Background())
-				go func() {
-					time.Sleep(time.Millisecond * 200)
-					cancelfun()
-				}()
-				terminated, err := podRepo.WatchForPodsTermination(cctx, authInfo, "i-dont-exist", spaceGUID)
-				Expect(err).To(HaveOccurred())
-				Expect(terminated).To(BeFalse())
 			})
 		})
 	})

@@ -2250,8 +2250,6 @@ var _ = Describe("AppHandler", func() {
 			setAppDesiredStateRecord.State = "STARTED"
 			appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
 
-			podRepo.WatchForPodsTerminationReturns(true, nil)
-
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/"+appGUID+"/actions/restart", nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -2266,10 +2264,6 @@ var _ = Describe("AppHandler", func() {
 			_, actualAuthInfo, _ = appRepo.SetAppDesiredStateArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			_, actualAuthInfo, _ = appRepo.SetAppDesiredStateArgsForCall(1)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-
-			Expect(podRepo.WatchForPodsTerminationCallCount()).To(Equal(1))
-			_, actualAuthInfo, _, _ = podRepo.WatchForPodsTerminationArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 		})
 
@@ -2286,10 +2280,6 @@ var _ = Describe("AppHandler", func() {
 
 				_, _, appDesiredStateMessage = appRepo.SetAppDesiredStateArgsForCall(1)
 				Expect(appDesiredStateMessage.DesiredState).To(Equal("STARTED"))
-			})
-
-			It("calls WatchForPodsTermination to wait before starting the app", func() {
-				Expect(podRepo.WatchForPodsTerminationCallCount()).To(Equal(1))
 			})
 
 			It("returns the App in the response with a state of STARTED", func() {
@@ -2499,26 +2489,6 @@ var _ = Describe("AppHandler", func() {
 
 			It("returns an error", func() {
 				expectUnprocessableEntityError(`Assign a droplet before starting this app.`)
-			})
-		})
-
-		When("watching for pod termination results in a error", func() {
-			BeforeEach(func() {
-				podRepo.WatchForPodsTerminationReturns(false, errors.New("some-error"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("watching for pod termination returns false and no error", func() {
-			BeforeEach(func() {
-				podRepo.WatchForPodsTerminationReturns(false, nil)
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
 			})
 		})
 

@@ -3,14 +3,12 @@ package repositories
 import (
 	"context"
 	"strconv"
-	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -94,30 +92,6 @@ func (r *PodRepo) ListPods(ctx context.Context, authInfo authorization.Info, lis
 		return nil, err
 	}
 	return podList.Items, nil
-}
-
-func (r *PodRepo) WatchForPodsTermination(ctx context.Context, authInfo authorization.Info, appGUID, namespace string) (bool, error) {
-	err := wait.PollUntilWithContext(ctx, time.Second*1, func(ctx context.Context) (done bool, err error) {
-		podList := corev1.PodList{}
-		labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{workloadsv1alpha1.CFAppGUIDLabelKey: appGUID})
-		if err != nil {
-			return false, err
-		}
-		listOpts := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
-		err = r.privilegedClient.List(ctx, &podList, listOpts)
-		if err != nil {
-			return false, err
-		}
-		if len(podList.Items) == 0 {
-			return true, nil
-		}
-		return false, nil
-	})
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
 }
 
 func setPodState(record *PodStatsRecord, pod corev1.Pod) {
