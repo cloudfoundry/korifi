@@ -87,7 +87,7 @@ var _ = BeforeSuite(func() {
 
 	Expect((&v1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	cfAppValidatingWebhook := &workloads.CFAppValidation{Client: mgr.GetClient()}
+	cfAppValidatingWebhook := workloads.NewCFAppValidation(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType))
 	Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 	anchorValidationWebhook := workloads.NewSubnamespaceAnchorValidation(

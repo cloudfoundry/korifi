@@ -205,9 +205,9 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (&workloads.CFAppValidation{
-			Client: mgr.GetClient(),
-		}).SetupWebhookWithManager(mgr); err != nil {
+		if err = workloads.NewCFAppValidation(
+			coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType),
+		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
 			os.Exit(1)
 		}
