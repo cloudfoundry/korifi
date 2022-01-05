@@ -165,6 +165,14 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - servicebinding.io
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps

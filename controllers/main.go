@@ -41,6 +41,7 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	servicebindingv1alpha3 "github.com/servicebinding/service-binding-controller/apis/v1alpha3"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -62,6 +63,7 @@ func init() {
 	utilruntime.Must(contourv1.AddToScheme(scheme))
 	utilruntime.Must(eiriniv1.AddToScheme(scheme))
 	utilruntime.Must(hnsv1alpha2.AddToScheme(scheme))
+	utilruntime.Must(servicebindingv1alpha3.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

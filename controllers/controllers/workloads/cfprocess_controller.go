@@ -19,6 +19,7 @@ package workloads
 import (
 	"context"
 	"crypto/sha1"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -44,6 +45,8 @@ import (
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
+
+	servicebindingv1alpha3 "github.com/servicebinding/service-binding-controller/apis/v1alpha3"
 )
 
 // CFProcessReconciler reconciles a CFProcess object
@@ -58,6 +61,7 @@ type CFProcessReconciler struct {
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfprocesses/finalizers,verbs=update
 //+kubebuilder:rbac:groups="eirini.cloudfoundry.org",resources=lrps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups=servicebinding.io,resources=*,verbs=get;list;watch
 
 func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
@@ -108,6 +112,7 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return ctrl.Result{}, err
 			}
 		}
+
 		var appPort int
 		appPort, err = r.getPort(ctx, cfProcess, cfApp)
 		if err != nil {
@@ -122,8 +127,13 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			},
 		}
 
+		vcapService, err := r.getServiceBindings(ctx, cfProcess.Namespace)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
 		var desiredLRP *eiriniv1.LRP
-		desiredLRP, err = r.generateLRP(*actualLRP, cfApp, cfProcess, cfBuild, appEnvSecret, appPort)
+		desiredLRP, err = r.generateLRP(*actualLRP, cfApp, cfProcess, cfBuild, appEnvSecret, appPort, vcapService)
 		if err != nil {
 			// untested
 			r.Log.Error(err, "Error when initializing LRP")
@@ -144,6 +154,46 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *CFProcessReconciler) getServiceBindings(ctx context.Context, namespace string) (string, error) {
+	sbList := servicebindingv1alpha3.ServiceBindingList{}
+	err := r.Client.List(ctx, &sbList, &client.ListOptions{Namespace: namespace})
+	if err != nil {
+		r.Log.Error(err, "Error listing service bindings")
+		return "", err
+	}
+
+	if len(sbList.Items) == 0 {
+		return "{}", nil
+	}
+
+	serviceBindingSecret := corev1.Secret{}
+	err = r.Client.Get(ctx, types.NamespacedName{Name: sbList.Items[0].Status.Binding.Name, Namespace: namespace}, &serviceBindingSecret)
+	if err != nil {
+		r.Log.Error(err, "Error fetching secret associated with service binding")
+		return "", err
+	}
+
+	return r.getVCAPSERVICEEnvJson(sbList.Items[0], serviceBindingSecret), nil
+}
+
+func (r *CFProcessReconciler) getVCAPSERVICEEnvJson(servicebinding servicebindingv1alpha3.ServiceBinding, secret corev1.Secret) string {
+	convertedMap := make(map[string]string)
+	for k, v := range secret.Data {
+		convertedMap[k] = string(v)
+	}
+
+	vcapservice := map[string]interface{}{
+		"name":        servicebinding.Name,
+		"credentials": convertedMap,
+	}
+
+	vcapservicebyte, err := json.Marshal(vcapservice)
+	if err != nil {
+		r.Log.Error(err, "Error marshalling json")
+	}
+	return string(vcapservicebyte)
 }
 
 func (r *CFProcessReconciler) cleanUpLRPs(ctx context.Context, lrpsForProcess []eiriniv1.LRP, desiredState workloadsv1alpha1.DesiredState, cfAppRev string) error {
@@ -176,7 +226,7 @@ func lrpMutateFunction(actuallrp, desiredlrp *eiriniv1.LRP) controllerutil.Mutat
 	}
 }
 
-func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workloadsv1alpha1.CFApp, cfProcess workloadsv1alpha1.CFProcess, cfBuild workloadsv1alpha1.CFBuild, appEnvSecret corev1.Secret, appPort int) (*eiriniv1.LRP, error) {
+func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workloadsv1alpha1.CFApp, cfProcess workloadsv1alpha1.CFProcess, cfBuild workloadsv1alpha1.CFBuild, appEnvSecret corev1.Secret, appPort int, vcapservice string) (*eiriniv1.LRP, error) {
 	var desiredLRP eiriniv1.LRP
 	actualLRP.DeepCopyInto(&desiredLRP)
 
@@ -208,7 +258,7 @@ func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workload
 	desiredLRP.Spec.Image = cfBuild.Status.BuildDropletStatus.Registry.Image
 	desiredLRP.Spec.Ports = cfProcess.Spec.Ports
 	desiredLRP.Spec.Instances = cfProcess.Spec.DesiredInstances
-	desiredLRP.Spec.Env = generateEnvMap(appEnvSecret.Data, appPort)
+	desiredLRP.Spec.Env = generateEnvMap(appEnvSecret.Data, appPort, vcapservice)
 	desiredLRP.Spec.Health = eiriniv1.Healthcheck{
 		Type:      string(cfProcess.Spec.HealthCheck.Type),
 		Port:      lrpHealthCheckPort,
@@ -275,7 +325,7 @@ func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess workloadsv1
 	return 8080, nil
 }
 
-func generateEnvMap(secretData map[string][]byte, port int) map[string]string {
+func generateEnvMap(secretData map[string][]byte, port int, vcapservice string) map[string]string {
 	convertedMap := make(map[string]string)
 	for k, v := range secretData {
 		convertedMap[k] = string(v)
@@ -285,6 +335,7 @@ func generateEnvMap(secretData map[string][]byte, port int) map[string]string {
 	convertedMap["VCAP_APP_HOST"] = "0.0.0.0"
 	convertedMap["VCAP_APP_PORT"] = portString
 	convertedMap["PORT"] = portString
+	convertedMap["VCAP_SERVICES"] = vcapservice
 
 	return convertedMap
 }
