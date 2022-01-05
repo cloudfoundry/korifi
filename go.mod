@@ -18,7 +18,6 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.4.1
-	github.com/onsi/ginkgo v1.16.6-0.20211115182015-aec53805973a
 	github.com/onsi/ginkgo/v2 v2.0.0
 	github.com/onsi/gomega v1.17.0
 	github.com/pivotal/kpack v0.5.0
@@ -62,7 +61,6 @@ require (
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/go-logr/zapr v0.4.0 // indirect
-	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/gobuffalo/flect v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -71,7 +69,6 @@ require (
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210610160139-c086c7f16d4e // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/pprof v0.0.0-20210715191844-86eeefc3e471 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/heroku/color v0.0.6 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
@@ -85,6 +82,7 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/onsi/ginkgo v1.16.6-0.20211115182015-aec53805973a // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
