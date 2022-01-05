@@ -178,6 +178,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&workloadscontrollers.CFServiceInstanceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
+		os.Exit(1)
+	}
+
 	// Setup Index with Manager
 	err = shared.SetupIndexWithManager(mgr)
 	if err != nil {

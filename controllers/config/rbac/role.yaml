@@ -276,3 +276,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfserviceinstances/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfserviceinstances/status
+  verbs:
+  - get
+  - patch
+  - update

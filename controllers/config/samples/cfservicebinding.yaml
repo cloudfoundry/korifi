@@ -1,0 +1,16 @@
+---
+apiVersion: servicebinding.io/v1alpha3
+kind: ServiceBinding
+metadata:
+  name: eac00a00-2843-466d-aca0-1d9837f0d8a5-binding
+  namespace: cf
+spec:
+  name: eac00a00-2843-466d-aca0-1d9837f0d8a5
+  service:
+    apiVersion: v1alpha1
+    kind: cfserviceinstance
+    name: eac00a00-2843-466d-aca0-1d9837f0d8a5
+  workload:
+    apiVersion: v1alpha1
+    kind: cfapp
+    name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a

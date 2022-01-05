@@ -6,6 +6,7 @@ resources:
 - bases/workloads.cloudfoundry.org_cfpackages.yaml
 - bases/workloads.cloudfoundry.org_cfprocesses.yaml
 - bases/workloads.cloudfoundry.org_cfbuilds.yaml
+- bases/workloads.cloudfoundry.org_cfserviceinstances.yaml
 - bases/networking.cloudfoundry.org_cfroutes.yaml
 - bases/networking.cloudfoundry.org_cfdomains.yaml
 #+kubebuilder:scaffold:crdkustomizeresource

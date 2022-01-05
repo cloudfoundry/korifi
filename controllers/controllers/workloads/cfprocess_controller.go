@@ -168,8 +168,16 @@ func (r *CFProcessReconciler) getServiceBindings(ctx context.Context, namespace 
 		return "{}", nil
 	}
 
+	serviceInstance := workloadsv1alpha1.CFServiceInstance{}
+	// Todo: get the name from the status once we have a real controller for service bindings
+	err = r.Client.Get(ctx, types.NamespacedName{Name: sbList.Items[0].Spec.Service.Name, Namespace: namespace}, &serviceInstance)
+	if err != nil {
+		r.Log.Error(err, "Error fetching secret associated with service binding")
+		return "", err
+	}
+
 	serviceBindingSecret := corev1.Secret{}
-	err = r.Client.Get(ctx, types.NamespacedName{Name: sbList.Items[0].Status.Binding.Name, Namespace: namespace}, &serviceBindingSecret)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: serviceInstance.Status.Binding.Name, Namespace: namespace}, &serviceBindingSecret)
 	if err != nil {
 		r.Log.Error(err, "Error fetching secret associated with service binding")
 		return "", err
