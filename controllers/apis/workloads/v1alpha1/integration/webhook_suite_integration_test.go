@@ -33,6 +33,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,10 +44,9 @@ import (
 )
 
 var (
-	cancel                       context.CancelFunc
-	testEnv                      *envtest.Environment
-	k8sClient                    client.Client
-	cfAppValidatingWebhookClient client.Client
+	cancel    context.CancelFunc
+	testEnv   *envtest.Environment
+	k8sClient client.Client
 )
 
 func TestWorkloadsMutatingWebhooks(t *testing.T) {
@@ -74,8 +74,8 @@ var _ = BeforeSuite(func() {
 
 	scheme := runtime.NewScheme()
 	Expect(workloadsv1alpha1.AddToScheme(scheme)).To(Succeed())
-
 	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
+	Expect(coordinationv1.AddToScheme(scheme)).To(Succeed())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -95,9 +95,9 @@ var _ = BeforeSuite(func() {
 
 	Expect((&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	cfAppValidatingWebhookClient = mgr.GetClient()
-	cfAppValidatingWebhook := &workloads.CFAppValidation{Client: cfAppValidatingWebhookClient}
-	Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect(workloads.NewCFAppValidation(
+		coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType),
+	).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect(workloads.NewSubnamespaceAnchorValidation(
 		coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType),

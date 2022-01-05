@@ -137,6 +137,7 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
+    - DELETE
     resources:
     - cfapps
   sideEffects: None

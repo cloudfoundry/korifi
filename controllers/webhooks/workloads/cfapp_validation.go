@@ -4,87 +4,156 @@ import (
 	"context"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	v1 "k8s.io/api/admission/v1"
+	admissionv1 "k8s.io/api/admission/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
-
-const specNameKey = "spec.name"
+const (
+	AppEntityType = "app"
+)
 
 var cfapplog = logf.Log.WithName("cfapp-validate")
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-workloads-cloudfoundry-org-v1alpha1-cfapp,mutating=false,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cfapps,verbs=create;update,versions=v1alpha1,name=vcfapp.workloads.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-workloads-cloudfoundry-org-v1alpha1-cfapp,mutating=false,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cfapps,verbs=create;update;delete,versions=v1alpha1,name=vcfapp.workloads.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFAppValidation struct {
-	Client  CFAppClient
-	decoder *admission.Decoder
+	decoder         *admission.Decoder
+	appNameRegistry NameRegistry
 }
 
-//counterfeiter:generate -o fake -fake-name CFAppClient . CFAppClient
-type CFAppClient interface {
-	List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error
+func NewCFAppValidation(appNameRegistry NameRegistry) *CFAppValidation {
+	return &CFAppValidation{
+		appNameRegistry: appNameRegistry,
+	}
 }
 
 func (v *CFAppValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	// Register validate webhook endpoint with kubernetes manager
 	mgr.GetWebhookServer().Register("/validate-workloads-cloudfoundry-org-v1alpha1-cfapp", &webhook.Admission{Handler: v})
 
-	// Generate indexes for CFApp on field spec.name for efficient querying.
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.CFApp{}, specNameKey,
-		func(rawObj client.Object) []string {
-			app := rawObj.(*v1alpha1.CFApp)
-			return []string{app.Spec.Name}
-		}); err != nil {
-		return err
-	}
 	return nil
 }
 
 func (v *CFAppValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
 	cfapplog.Info("Validate", "name", req.Name)
 
-	cfApp := v1alpha1.CFApp{}
-	err := v.decoder.Decode(req, &cfApp)
-	if err != nil {
-		errMessage := "Error while decoding CFApp object"
-		cfapplog.Error(err, errMessage)
-		return admission.Denied(errMessage)
+	var cfApp, oldCFApp v1alpha1.CFApp
+	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
+		err := v.decoder.Decode(req, &cfApp)
+		if err != nil {
+			errMessage := "Error while decoding CFApp object"
+			cfapplog.Error(err, errMessage)
+
+			return admission.Denied(errMessage)
+		}
 	}
-	foundApps := &v1alpha1.CFAppList{}
-	matchingFields := client.MatchingFields{specNameKey: cfApp.Spec.Name}
-	err = v.Client.List(context.Background(), foundApps, client.InNamespace(cfApp.Namespace), matchingFields)
-	if err != nil {
-		errMessage := "Error while fetching CFApps using K8SClient"
-		cfapplog.Error(err, errMessage)
-		return admission.Denied(errMessage)
+	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
+		err := v.decoder.DecodeRaw(req.OldObject, &oldCFApp)
+		if err != nil {
+			errMessage := "Error while decoding old CFApp object"
+			cfapplog.Error(err, errMessage)
+
+			return admission.Denied(errMessage)
+		}
 	}
 
-	if req.Operation == v1.Create {
-		if len(foundApps.Items) > 0 {
-			e := DuplicateAppError
-			cfapplog.Info(e.GetMessage(), "name", req.Name)
-			return admission.Denied(e.Marshal())
+	switch req.Operation {
+	case admissionv1.Create:
+		err := v.appNameRegistry.RegisterName(ctx, cfApp.Namespace, cfApp.Spec.Name)
+		if k8serrors.IsAlreadyExists(err) {
+			cfapplog.Info("app name already exists",
+				"name", cfApp.Name,
+				"namespace", cfApp.Namespace,
+				"app-name", cfApp.Spec.Name,
+			)
+
+			return admission.Denied(DuplicateAppError.Marshal())
 		}
-	} else if req.Operation == v1.Update {
-		for _, foundCfApp := range foundApps.Items {
-			if foundCfApp.Name != cfApp.Name {
-				e := DuplicateAppError
-				cfapplog.Info(e.GetMessage(), "name", req.Name)
-				return admission.Denied(e.Marshal())
+		if err != nil {
+			cfapplog.Error(err, "failed to register name")
+
+			return admission.Denied(UnknownError.Marshal())
+		}
+
+	case admissionv1.Update:
+		if oldCFApp.Spec.Name == cfApp.Spec.Name {
+			return admission.Allowed("")
+		}
+
+		err := v.appNameRegistry.TryLockName(ctx, oldCFApp.Namespace, oldCFApp.Spec.Name)
+		if err != nil {
+			cfapplog.Info("failed to acquire lock on old name during update",
+				"error", err,
+				"name", oldCFApp.Spec.Name,
+				"namespace", oldCFApp.Namespace,
+			)
+			return admission.Denied(UnknownError.Marshal())
+		}
+
+		err = v.appNameRegistry.RegisterName(ctx, cfApp.Namespace, cfApp.Spec.Name)
+		if err != nil {
+			unlockErr := v.appNameRegistry.UnlockName(ctx, oldCFApp.Namespace, oldCFApp.Spec.Name)
+			if unlockErr != nil {
+				// A locked registry entry will remain, so future name updates will fail until operator intervenes
+				cfapplog.Error(unlockErr, "failed to release registry lock on old name",
+					"namespace", oldCFApp.Namespace,
+					"name", oldCFApp.Spec.Name,
+				)
 			}
+
+			if k8serrors.IsAlreadyExists(err) {
+				cfapplog.Info("app name already exists",
+					"name", cfApp.Name,
+					"namespace", cfApp.Namespace,
+					"app-name", cfApp.Spec.Name,
+				)
+				return admission.Denied(DuplicateAppError.Marshal())
+			}
+
+			cfapplog.Info("failed to acquire lock on old name during update",
+				"error", err,
+				"name", oldCFApp.Spec.Name,
+				"namespace", oldCFApp.Namespace,
+			)
+			return admission.Denied(UnknownError.Marshal())
+		}
+
+		err = v.appNameRegistry.DeregisterName(ctx, oldCFApp.Namespace, oldCFApp.Spec.Name)
+		if err != nil {
+			// We cannot unclaim the old name. It will remain claimed until an operator intervenes.
+			cfapplog.Error(err, "failed to deregister old name during update",
+				"namespace", oldCFApp.Namespace,
+				"name", oldCFApp.Spec.Name,
+			)
+		}
+
+	case admissionv1.Delete:
+		err := v.appNameRegistry.DeregisterName(ctx, oldCFApp.Namespace, oldCFApp.Spec.Name)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				cfapplog.Info("cannot deregister name: registry entry for name not found",
+					"namespace", oldCFApp.Namespace,
+					"name", oldCFApp.Spec.Name,
+				)
+
+				return admission.Allowed("")
+			}
+
+			cfapplog.Error(err, "failed to deregister name during delete",
+				"namespace", oldCFApp.Namespace,
+				"name", oldCFApp.Spec.Name,
+			)
+
+			return admission.Denied(UnknownError.Marshal())
 		}
 	}
 
 	return admission.Allowed("")
 }
 
-// InjectDecoder injects the decoder.
 func (v *CFAppValidation) InjectDecoder(d *admission.Decoder) error {
 	v.decoder = d
 	return nil

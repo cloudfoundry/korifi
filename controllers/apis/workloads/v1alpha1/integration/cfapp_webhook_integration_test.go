@@ -108,7 +108,7 @@ var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 
 			Eventually(func() string {
 				updatedCFApp := &v1alpha1.CFApp{}
-				err := cfAppValidatingWebhookClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: namespace}, updatedCFApp)
+				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: namespace}, updatedCFApp)
 				if err != nil {
 					return ""
 				}

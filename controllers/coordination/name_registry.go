@@ -28,6 +28,8 @@ var (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 //counterfeiter:generate -o fake -fake-name Client sigs.k8s.io/controller-runtime/pkg/client.Client
 
+//+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;patch;delete
+
 type NameRegistry struct {
 	client     client.Client
 	entityType string
