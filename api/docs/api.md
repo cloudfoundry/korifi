@@ -6,7 +6,7 @@
 
 ### Root
 
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#root
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#root
 
 | Resource | Endpoint |
 |--|--|
@@ -15,17 +15,62 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#root
 
 ### Resource Matches
 
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#resource-matches
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#resource-matches
 
 | Resource | Endpoint |
 |--|--|
 | Create a Resource Match | POST /v3/resource_matches |
 
-#### [Create a Resource Match](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-resource-match)
+#### [Create a Resource Match](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#create-a-resource-match)
 ```bash
 curl "http://localhost:9000/v3/resource_matches" \
   -X POST \
   -d '{}'
+```
+
+### Orgs
+
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#organizations
+
+| Resource | Endpoint |
+|--|--|
+| List Orgs | GET /v3/apps |
+| Create Org | POST /v3/apps |
+
+#### [List Orgs](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-organizations)
+**Query Parameters:** Currently only supports filtering by organization `names`.
+```bash
+curl "http://localhost:9000/v3/organizations?names=org1,org2"
+```
+#### [Creating Orgs](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#create-an-organization)
+```bash
+curl "http://localhost:9000/v3/organizations" \
+  -X POST \
+  -d '{"name": "my-organization"}'
+```
+
+### Spaces
+
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#spaces
+
+| Resource | Endpoint |
+|--|--|
+| List Spaces | GET /v3/spaces |
+| Create Spaces | POST /v3/spaces |
+
+#### [List Spaces](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-spaces)
+**Query Parameters:** Currently supports filtering by space `names` and `organization_guids`.
+
+```bash
+curl "http://localhost:9000/v3/spaces?names=space1,space2&organization_guids=ad0836b5-09f4-48c0-adb2-2c61e515562f,6030b015-f003-4c9f-8bb4-1ed7ae3d3659"
+```
+
+#### [Creating Spaces](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#create-a-space)
+
+```bash
+curl "http://localhost:9000/v3/spaces" \
+  -X POST \
+  -d '{"name":"my-space","relationships":{"organization":{"data":{"guid":"<organization-guid>"}}}}'
 ```
 
 ### Apps
@@ -54,12 +99,12 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 curl "http://localhost:9000/v3/apps?names=app1,app2&space_guids=ad0836b5-09f4-48c0-adb2-2c61e515562f,6030b015-f003-4c9f-8bb4-1ed7ae3d3659"
 ```
 
-#### [Creating Apps](https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#the-app-object)
+#### [Creating Apps](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#create-an-app)
 Note : `namespace` needs to exist before creating the app.
 ```bash
 curl "http://localhost:9000/v3/apps" \
   -X POST \
-  -d '{"name":"my-app","relationships":{"space":{"data":{"guid":"<namespace-name>"}}}}'
+  -d '{"name":"my-app","relationships":{"space":{"data":{"guid":"<space-guid>"}}}}'
 ```
 
 #### [Setting App's Current Droplet](https://v3-apidocs.cloudfoundry.org/version/3.108.0/index.html#update-a-droplet)
