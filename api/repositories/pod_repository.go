@@ -19,6 +19,7 @@ const (
 	workloadsContainerName = "opi"
 	cfInstanceIndexKey     = "CF_INSTANCE_INDEX"
 	eiriniLabelVersionKey  = "workloads.cloudfoundry.org/version"
+	cfProcessGuidKey       = "workloads.cloudfoundry.org/guid"
 	RunningState           = "RUNNING"
 	pendingState           = "STARTING"
 	// All below statuses changed to "DOWN" until we decide what statuses we want to support in the future
@@ -45,6 +46,7 @@ type ListPodStatsMessage struct {
 	AppGUID     string
 	AppRevision string
 	Instances   int
+	ProcessGUID string
 	ProcessType string
 }
 
@@ -52,6 +54,7 @@ func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info,
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
 		workloadsv1alpha1.CFAppGUIDLabelKey: message.AppGUID,
 		eiriniLabelVersionKey:               message.AppRevision,
+		cfProcessGuidKey:                    message.ProcessGUID,
 	})
 	if err != nil {
 		return nil, err
