@@ -9,19 +9,17 @@ import (
 )
 
 type SpaceRepositoryProvider struct {
-	spaceRepo        repositories.CFSpaceRepository
-	authNsProvider   repositories.AuthorizedNamespacesProvider
-	identityProvider IdentityProvider
+	spaceRepo      repositories.CFSpaceRepository
+	authNsProvider repositories.AuthorizedNamespacesProvider
 }
 
 func NewSpace(
 	spaceRepo repositories.CFSpaceRepository,
 	authNsProvider repositories.AuthorizedNamespacesProvider,
-	identityProvider IdentityProvider) *SpaceRepositoryProvider {
+) *SpaceRepositoryProvider {
 	return &SpaceRepositoryProvider{
-		spaceRepo:        spaceRepo,
-		authNsProvider:   authNsProvider,
-		identityProvider: identityProvider,
+		spaceRepo:      spaceRepo,
+		authNsProvider: authNsProvider,
 	}
 }
 
@@ -31,12 +29,7 @@ func (p *SpaceRepositoryProvider) SpaceRepoForRequest(request *http.Request) (re
 		return nil, errors.New("no authorization info in the request context")
 	}
 
-	identity, err := p.identityProvider.GetIdentity(request.Context(), authInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	return repositories.NewSpaceRepoAuthDecorator(p.spaceRepo, identity, p.authNsProvider), nil
+	return repositories.NewSpaceRepoAuthDecorator(p.spaceRepo, authInfo, p.authNsProvider), nil
 }
 
 type PrivilegedSpaceRepositoryProvider struct {

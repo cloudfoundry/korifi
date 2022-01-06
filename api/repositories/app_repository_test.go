@@ -7,6 +7,7 @@ import (
 	"sort"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -31,7 +32,7 @@ var _ = Describe("AppRepository", func() {
 		testCtx                context.Context
 		appRepo                *AppRepo
 		clientFactory          repositories.UserK8sClientFactory
-		rootNamespace          string
+		identityProvider       authorization.IdentityProvider
 		org                    *v1alpha2.SubnamespaceAnchor
 		space1, space2, space3 *v1alpha2.SubnamespaceAnchor
 		cfApp1, cfApp2, cfApp3 *workloadsv1alpha1.CFApp
@@ -41,9 +42,12 @@ var _ = Describe("AppRepository", func() {
 		testCtx = context.Background()
 
 		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
-		appRepo = NewAppRepo(k8sClient, clientFactory)
+		tokenInspector := authorization.NewTokenReviewer(k8sClient)
+		certInspector := authorization.NewCertInspector(k8sConfig)
+		identityProvider = authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
+		authPerms := authorization.NewNamespacePermissions(k8sClient, identityProvider, rootNamespace)
+		appRepo = NewAppRepo(k8sClient, clientFactory, authPerms)
 
-		rootNamespace = generateGUID()
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
 		Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
 
@@ -149,6 +153,7 @@ var _ = Describe("AppRepository", func() {
 		var (
 			message                   ListAppsMessage
 			spaceDeveloperClusterRole *rbacv1.ClusterRole
+			nonCFNamespace            string
 		)
 
 		BeforeEach(func() {
@@ -165,9 +170,16 @@ var _ = Describe("AppRepository", func() {
 				).To(Succeed())
 			}
 
+			nonCFNamespace = prefixedGUID("non-cf")
+			Expect(k8sClient.Create(
+				testCtx,
+				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
+			)).To(Succeed())
+
 			spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
 			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
 			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
+			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, nonCFNamespace)
 		})
 
 		Describe("when filters are NOT provided", func() {
@@ -184,6 +196,7 @@ var _ = Describe("AppRepository", func() {
 					cfApp1 = createApp(space1.Name)
 					cfApp2 = createApp(space2.Name)
 					createApp(space3.Name)
+					createApp(nonCFNamespace)
 				})
 
 				It("returns all the AppRecord CRs where client has permission", func() {

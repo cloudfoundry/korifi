@@ -10,6 +10,8 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -27,8 +29,10 @@ import (
 var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", func() {
 	BeforeEach(func() {
 		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
+		identityProvider := new(fake.IdentityProvider)
+		namespacePermissions := authorization.NewNamespacePermissions(k8sClient, identityProvider, "root-ns")
 
-		appRepo := repositories.NewAppRepo(k8sClient, clientFactory)
+		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, namespacePermissions)
 		domainRepo := repositories.NewDomainRepo(k8sClient)
 		processRepo := repositories.NewProcessRepo(k8sClient)
 		routeRepo := repositories.NewRouteRepo(k8sClient)

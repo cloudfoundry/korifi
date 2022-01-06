@@ -17,6 +17,10 @@ func generateGUID() string {
 	return uuid.NewString()
 }
 
+func prefixedGUID(prefix string) string {
+	return prefix + "-" + uuid.NewString()[:8]
+}
+
 func initializeAppCR(appName string, appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp {
 	return &workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{

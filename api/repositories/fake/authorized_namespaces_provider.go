@@ -10,17 +10,31 @@ import (
 )
 
 type AuthorizedNamespacesProvider struct {
-	GetAuthorizedNamespacesStub        func(context.Context, authorization.Identity) ([]string, error)
-	getAuthorizedNamespacesMutex       sync.RWMutex
-	getAuthorizedNamespacesArgsForCall []struct {
+	GetAuthorizedOrgNamespacesStub        func(context.Context, authorization.Info) ([]string, error)
+	getAuthorizedOrgNamespacesMutex       sync.RWMutex
+	getAuthorizedOrgNamespacesArgsForCall []struct {
 		arg1 context.Context
-		arg2 authorization.Identity
+		arg2 authorization.Info
 	}
-	getAuthorizedNamespacesReturns struct {
+	getAuthorizedOrgNamespacesReturns struct {
 		result1 []string
 		result2 error
 	}
-	getAuthorizedNamespacesReturnsOnCall map[int]struct {
+	getAuthorizedOrgNamespacesReturnsOnCall map[int]struct {
+		result1 []string
+		result2 error
+	}
+	GetAuthorizedSpaceNamespacesStub        func(context.Context, authorization.Info) ([]string, error)
+	getAuthorizedSpaceNamespacesMutex       sync.RWMutex
+	getAuthorizedSpaceNamespacesArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+	}
+	getAuthorizedSpaceNamespacesReturns struct {
+		result1 []string
+		result2 error
+	}
+	getAuthorizedSpaceNamespacesReturnsOnCall map[int]struct {
 		result1 []string
 		result2 error
 	}
@@ -28,17 +42,17 @@ type AuthorizedNamespacesProvider struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *AuthorizedNamespacesProvider) GetAuthorizedNamespaces(arg1 context.Context, arg2 authorization.Identity) ([]string, error) {
-	fake.getAuthorizedNamespacesMutex.Lock()
-	ret, specificReturn := fake.getAuthorizedNamespacesReturnsOnCall[len(fake.getAuthorizedNamespacesArgsForCall)]
-	fake.getAuthorizedNamespacesArgsForCall = append(fake.getAuthorizedNamespacesArgsForCall, struct {
+func (fake *AuthorizedNamespacesProvider) GetAuthorizedOrgNamespaces(arg1 context.Context, arg2 authorization.Info) ([]string, error) {
+	fake.getAuthorizedOrgNamespacesMutex.Lock()
+	ret, specificReturn := fake.getAuthorizedOrgNamespacesReturnsOnCall[len(fake.getAuthorizedOrgNamespacesArgsForCall)]
+	fake.getAuthorizedOrgNamespacesArgsForCall = append(fake.getAuthorizedOrgNamespacesArgsForCall, struct {
 		arg1 context.Context
-		arg2 authorization.Identity
+		arg2 authorization.Info
 	}{arg1, arg2})
-	stub := fake.GetAuthorizedNamespacesStub
-	fakeReturns := fake.getAuthorizedNamespacesReturns
-	fake.recordInvocation("GetAuthorizedNamespaces", []interface{}{arg1, arg2})
-	fake.getAuthorizedNamespacesMutex.Unlock()
+	stub := fake.GetAuthorizedOrgNamespacesStub
+	fakeReturns := fake.getAuthorizedOrgNamespacesReturns
+	fake.recordInvocation("GetAuthorizedOrgNamespaces", []interface{}{arg1, arg2})
+	fake.getAuthorizedOrgNamespacesMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
 	}
@@ -48,46 +62,111 @@ func (fake *AuthorizedNamespacesProvider) GetAuthorizedNamespaces(arg1 context.C
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *AuthorizedNamespacesProvider) GetAuthorizedNamespacesCallCount() int {
-	fake.getAuthorizedNamespacesMutex.RLock()
-	defer fake.getAuthorizedNamespacesMutex.RUnlock()
-	return len(fake.getAuthorizedNamespacesArgsForCall)
+func (fake *AuthorizedNamespacesProvider) GetAuthorizedOrgNamespacesCallCount() int {
+	fake.getAuthorizedOrgNamespacesMutex.RLock()
+	defer fake.getAuthorizedOrgNamespacesMutex.RUnlock()
+	return len(fake.getAuthorizedOrgNamespacesArgsForCall)
 }
 
-func (fake *AuthorizedNamespacesProvider) GetAuthorizedNamespacesCalls(stub func(context.Context, authorization.Identity) ([]string, error)) {
-	fake.getAuthorizedNamespacesMutex.Lock()
-	defer fake.getAuthorizedNamespacesMutex.Unlock()
-	fake.GetAuthorizedNamespacesStub = stub
+func (fake *AuthorizedNamespacesProvider) GetAuthorizedOrgNamespacesCalls(stub func(context.Context, authorization.Info) ([]string, error)) {
+	fake.getAuthorizedOrgNamespacesMutex.Lock()
+	defer fake.getAuthorizedOrgNamespacesMutex.Unlock()
+	fake.GetAuthorizedOrgNamespacesStub = stub
 }
 
-func (fake *AuthorizedNamespacesProvider) GetAuthorizedNamespacesArgsForCall(i int) (context.Context, authorization.Identity) {
-	fake.getAuthorizedNamespacesMutex.RLock()
-	defer fake.getAuthorizedNamespacesMutex.RUnlock()
-	argsForCall := fake.getAuthorizedNamespacesArgsForCall[i]
+func (fake *AuthorizedNamespacesProvider) GetAuthorizedOrgNamespacesArgsForCall(i int) (context.Context, authorization.Info) {
+	fake.getAuthorizedOrgNamespacesMutex.RLock()
+	defer fake.getAuthorizedOrgNamespacesMutex.RUnlock()
+	argsForCall := fake.getAuthorizedOrgNamespacesArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *AuthorizedNamespacesProvider) GetAuthorizedNamespacesReturns(result1 []string, result2 error) {
-	fake.getAuthorizedNamespacesMutex.Lock()
-	defer fake.getAuthorizedNamespacesMutex.Unlock()
-	fake.GetAuthorizedNamespacesStub = nil
-	fake.getAuthorizedNamespacesReturns = struct {
+func (fake *AuthorizedNamespacesProvider) GetAuthorizedOrgNamespacesReturns(result1 []string, result2 error) {
+	fake.getAuthorizedOrgNamespacesMutex.Lock()
+	defer fake.getAuthorizedOrgNamespacesMutex.Unlock()
+	fake.GetAuthorizedOrgNamespacesStub = nil
+	fake.getAuthorizedOrgNamespacesReturns = struct {
 		result1 []string
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *AuthorizedNamespacesProvider) GetAuthorizedNamespacesReturnsOnCall(i int, result1 []string, result2 error) {
-	fake.getAuthorizedNamespacesMutex.Lock()
-	defer fake.getAuthorizedNamespacesMutex.Unlock()
-	fake.GetAuthorizedNamespacesStub = nil
-	if fake.getAuthorizedNamespacesReturnsOnCall == nil {
-		fake.getAuthorizedNamespacesReturnsOnCall = make(map[int]struct {
+func (fake *AuthorizedNamespacesProvider) GetAuthorizedOrgNamespacesReturnsOnCall(i int, result1 []string, result2 error) {
+	fake.getAuthorizedOrgNamespacesMutex.Lock()
+	defer fake.getAuthorizedOrgNamespacesMutex.Unlock()
+	fake.GetAuthorizedOrgNamespacesStub = nil
+	if fake.getAuthorizedOrgNamespacesReturnsOnCall == nil {
+		fake.getAuthorizedOrgNamespacesReturnsOnCall = make(map[int]struct {
 			result1 []string
 			result2 error
 		})
 	}
-	fake.getAuthorizedNamespacesReturnsOnCall[i] = struct {
+	fake.getAuthorizedOrgNamespacesReturnsOnCall[i] = struct {
+		result1 []string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *AuthorizedNamespacesProvider) GetAuthorizedSpaceNamespaces(arg1 context.Context, arg2 authorization.Info) ([]string, error) {
+	fake.getAuthorizedSpaceNamespacesMutex.Lock()
+	ret, specificReturn := fake.getAuthorizedSpaceNamespacesReturnsOnCall[len(fake.getAuthorizedSpaceNamespacesArgsForCall)]
+	fake.getAuthorizedSpaceNamespacesArgsForCall = append(fake.getAuthorizedSpaceNamespacesArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+	}{arg1, arg2})
+	stub := fake.GetAuthorizedSpaceNamespacesStub
+	fakeReturns := fake.getAuthorizedSpaceNamespacesReturns
+	fake.recordInvocation("GetAuthorizedSpaceNamespaces", []interface{}{arg1, arg2})
+	fake.getAuthorizedSpaceNamespacesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *AuthorizedNamespacesProvider) GetAuthorizedSpaceNamespacesCallCount() int {
+	fake.getAuthorizedSpaceNamespacesMutex.RLock()
+	defer fake.getAuthorizedSpaceNamespacesMutex.RUnlock()
+	return len(fake.getAuthorizedSpaceNamespacesArgsForCall)
+}
+
+func (fake *AuthorizedNamespacesProvider) GetAuthorizedSpaceNamespacesCalls(stub func(context.Context, authorization.Info) ([]string, error)) {
+	fake.getAuthorizedSpaceNamespacesMutex.Lock()
+	defer fake.getAuthorizedSpaceNamespacesMutex.Unlock()
+	fake.GetAuthorizedSpaceNamespacesStub = stub
+}
+
+func (fake *AuthorizedNamespacesProvider) GetAuthorizedSpaceNamespacesArgsForCall(i int) (context.Context, authorization.Info) {
+	fake.getAuthorizedSpaceNamespacesMutex.RLock()
+	defer fake.getAuthorizedSpaceNamespacesMutex.RUnlock()
+	argsForCall := fake.getAuthorizedSpaceNamespacesArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *AuthorizedNamespacesProvider) GetAuthorizedSpaceNamespacesReturns(result1 []string, result2 error) {
+	fake.getAuthorizedSpaceNamespacesMutex.Lock()
+	defer fake.getAuthorizedSpaceNamespacesMutex.Unlock()
+	fake.GetAuthorizedSpaceNamespacesStub = nil
+	fake.getAuthorizedSpaceNamespacesReturns = struct {
+		result1 []string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *AuthorizedNamespacesProvider) GetAuthorizedSpaceNamespacesReturnsOnCall(i int, result1 []string, result2 error) {
+	fake.getAuthorizedSpaceNamespacesMutex.Lock()
+	defer fake.getAuthorizedSpaceNamespacesMutex.Unlock()
+	fake.GetAuthorizedSpaceNamespacesStub = nil
+	if fake.getAuthorizedSpaceNamespacesReturnsOnCall == nil {
+		fake.getAuthorizedSpaceNamespacesReturnsOnCall = make(map[int]struct {
+			result1 []string
+			result2 error
+		})
+	}
+	fake.getAuthorizedSpaceNamespacesReturnsOnCall[i] = struct {
 		result1 []string
 		result2 error
 	}{result1, result2}
@@ -96,8 +175,10 @@ func (fake *AuthorizedNamespacesProvider) GetAuthorizedNamespacesReturnsOnCall(i
 func (fake *AuthorizedNamespacesProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getAuthorizedNamespacesMutex.RLock()
-	defer fake.getAuthorizedNamespacesMutex.RUnlock()
+	fake.getAuthorizedOrgNamespacesMutex.RLock()
+	defer fake.getAuthorizedOrgNamespacesMutex.RUnlock()
+	fake.getAuthorizedSpaceNamespacesMutex.RLock()
+	defer fake.getAuthorizedSpaceNamespacesMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

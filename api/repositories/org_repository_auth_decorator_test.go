@@ -7,13 +7,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rbacv1 "k8s.io/api/rbac/v1"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider"
-	providerfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider/fake"
 )
 
 var _ = Describe("OrgRepositoryAuthDecorator", func() {
@@ -22,24 +20,19 @@ var _ = Describe("OrgRepositoryAuthDecorator", func() {
 		orgRepoAuthDecorator repositories.CFOrgRepository
 		orgRepoProvider      *provider.OrgRepositoryProvider
 		nsProvider           *fake.AuthorizedNamespacesProvider
-		identity             authorization.Identity
-		identityProvider     *providerfake.IdentityProvider
 		orgs                 []repositories.OrgRecord
 		err                  error
 	)
 
 	BeforeEach(func() {
-		identity = authorization.Identity{Kind: rbacv1.UserKind, Name: "alice"}
-		identityProvider = new(providerfake.IdentityProvider)
-		identityProvider.GetIdentityReturns(identity, nil)
 		orgRepo = new(fake.CFOrgRepository)
 		nsProvider = new(fake.AuthorizedNamespacesProvider)
 		orgRepo.ListOrgsReturns([]repositories.OrgRecord{
 			{GUID: "org1"},
 			{GUID: "org2"},
 		}, nil)
-		nsProvider.GetAuthorizedNamespacesReturns([]string{"org2"}, nil)
-		orgRepoProvider = provider.NewOrg(orgRepo, nsProvider, identityProvider)
+		nsProvider.GetAuthorizedOrgNamespacesReturns([]string{"org2"}, nil)
+		orgRepoProvider = provider.NewOrg(orgRepo, nsProvider)
 	})
 
 	Describe("creation", func() {
@@ -58,22 +51,6 @@ var _ = Describe("OrgRepositoryAuthDecorator", func() {
 
 		JustBeforeEach(func() {
 			orgRepoAuthDecorator, err = orgRepoProvider.OrgRepoForRequest(request)
-		})
-
-		It("uses the authorization.Info from the request context to get the identity", func() {
-			Expect(identityProvider.GetIdentityCallCount()).To(Equal(1))
-			_, actualAuthInfo := identityProvider.GetIdentityArgsForCall(0)
-			Expect(actualAuthInfo.Token).To(Equal("the-token"))
-		})
-
-		When("identity provider fails", func() {
-			BeforeEach(func() {
-				identityProvider.GetIdentityReturns(authorization.Identity{}, errors.New("id-provider-failure"))
-			})
-
-			It("returns the error", func() {
-				Expect(err).To(MatchError("id-provider-failure"))
-			})
 		})
 
 		When("there is no authorization.Info in the request context", func() {
@@ -121,7 +98,7 @@ var _ = Describe("OrgRepositoryAuthDecorator", func() {
 
 		When("fetching authorized namespaces fails", func() {
 			BeforeEach(func() {
-				nsProvider.GetAuthorizedNamespacesReturns(nil, errors.New("fetch-auth-ns-failed"))
+				nsProvider.GetAuthorizedOrgNamespacesReturns(nil, errors.New("fetch-auth-ns-failed"))
 			})
 
 			It("returns the error", func() {

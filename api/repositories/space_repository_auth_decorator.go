@@ -8,18 +8,18 @@ import (
 
 type SpaceRepoAuthDecorator struct {
 	CFSpaceRepository
-	identity   authorization.Identity
+	authInfo   authorization.Info
 	nsProvider AuthorizedNamespacesProvider
 }
 
 func NewSpaceRepoAuthDecorator(
 	repo CFSpaceRepository,
-	identity authorization.Identity,
+	authInfo authorization.Info,
 	nsProvider AuthorizedNamespacesProvider,
 ) *SpaceRepoAuthDecorator {
 	return &SpaceRepoAuthDecorator{
 		CFSpaceRepository: repo,
-		identity:          identity,
+		authInfo:          authInfo,
 		nsProvider:        nsProvider,
 	}
 }
@@ -30,7 +30,7 @@ func (r *SpaceRepoAuthDecorator) ListSpaces(ctx context.Context, orgUIDs []strin
 		return nil, err
 	}
 
-	authorizedNamespaces, err := r.nsProvider.GetAuthorizedNamespaces(ctx, r.identity)
+	authorizedNamespaces, err := r.nsProvider.GetAuthorizedSpaceNamespaces(ctx, r.authInfo)
 	if err != nil {
 		return nil, err
 	}

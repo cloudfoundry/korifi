@@ -27,19 +27,19 @@ type CertIdentityInspector interface {
 	WhoAmI(context.Context, []byte) (Identity, error)
 }
 
-type IdentityProvider struct {
+type CertTokenIdentityProvider struct {
 	tokenInspector TokenIdentityInspector
 	certInspector  CertIdentityInspector
 }
 
-func NewIdentityProvider(tokenInspector TokenIdentityInspector, certInspector CertIdentityInspector) *IdentityProvider {
-	return &IdentityProvider{
+func NewCertTokenIdentityProvider(tokenInspector TokenIdentityInspector, certInspector CertIdentityInspector) *CertTokenIdentityProvider {
+	return &CertTokenIdentityProvider{
 		tokenInspector: tokenInspector,
 		certInspector:  certInspector,
 	}
 }
 
-func (p *IdentityProvider) GetIdentity(ctx context.Context, info Info) (Identity, error) {
+func (p *CertTokenIdentityProvider) GetIdentity(ctx context.Context, info Info) (Identity, error) {
 	if info.Token != "" {
 		return p.tokenInspector.WhoAmI(ctx, info.Token)
 	}

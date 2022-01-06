@@ -81,13 +81,16 @@ func main() {
 		buildUserClient = repositories.NewUnprivilegedClientFactory(k8sClientConfig)
 	}
 
+	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
+	nsPermissions := authorization.NewNamespacePermissions(privilegedCRClient, identityProvider, config.RootNamespace)
+
 	serverURL, err := url.Parse(config.ServerURL)
 	if err != nil {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
 	scaleProcessAction := actions.NewScaleProcess(repositories.NewProcessRepo(privilegedCRClient))
 	scaleAppProcessAction := actions.NewScaleAppProcess(
-		repositories.NewAppRepo(privilegedCRClient, buildUserClient),
+		repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
 		repositories.NewProcessRepo(privilegedCRClient),
 		scaleProcessAction.Invoke,
 	)
@@ -95,10 +98,9 @@ func main() {
 	fetchProcessStatsAction := actions.NewFetchProcessStats(
 		repositories.NewProcessRepo(privilegedCRClient),
 		repositories.NewPodRepo(privilegedCRClient),
-		repositories.NewAppRepo(privilegedCRClient, buildUserClient),
+		repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
 	)
 
-	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout)
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
@@ -110,7 +112,7 @@ func main() {
 		apis.NewAppHandler(
 			ctrl.Log.WithName("AppHandler"),
 			*serverURL,
-			repositories.NewAppRepo(privilegedCRClient, buildUserClient),
+			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
 			repositories.NewDropletRepo(privilegedCRClient),
 			repositories.NewProcessRepo(privilegedCRClient),
 			repositories.NewRouteRepo(privilegedCRClient),
@@ -123,7 +125,7 @@ func main() {
 			*serverURL,
 			repositories.NewRouteRepo(privilegedCRClient),
 			repositories.NewDomainRepo(privilegedCRClient),
-			repositories.NewAppRepo(privilegedCRClient, buildUserClient),
+			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
 		),
 		apis.NewServiceRouteBindingHandler(
 			ctrl.Log.WithName("ServiceRouteBinding"),
@@ -133,7 +135,7 @@ func main() {
 			ctrl.Log.WithName("PackageHandler"),
 			*serverURL,
 			repositories.NewPackageRepo(privilegedCRClient),
-			repositories.NewAppRepo(privilegedCRClient, buildUserClient),
+			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
 			repositories.NewDropletRepo(privilegedCRClient),
 			repositories.UploadSourceImage,
 			newRegistryAuthBuilder(privilegedK8sClient, config),
@@ -169,15 +171,15 @@ func main() {
 		),
 		apis.NewLogCacheHandler(),
 
-		apis.NewOrgHandler(*serverURL, wireOrgRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, identityProvider)),
+		apis.NewOrgHandler(*serverURL, wireOrgRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, identityProvider, config.RootNamespace)),
 		// TODO: Pass through config.PackageRegistrySecretName here (do we use the SpaceRepoProvider or the Handler?
-		apis.NewSpaceHandler(*serverURL, config.PackageRegistrySecretName, wireSpaceRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, identityProvider)),
+		apis.NewSpaceHandler(*serverURL, config.PackageRegistrySecretName, wireSpaceRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, identityProvider, config.RootNamespace)),
 
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
 			actions.NewApplyManifest(
-				repositories.NewAppRepo(privilegedCRClient, buildUserClient),
+				repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
 				repositories.NewDomainRepo(privilegedCRClient),
 				repositories.NewProcessRepo(privilegedCRClient),
 				repositories.NewRouteRepo(privilegedCRClient),
@@ -185,7 +187,7 @@ func main() {
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
 		),
 
-		apis.NewRoleHandler(*serverURL, repositories.NewRoleRepo(privilegedCRClient, authorization.NewOrg(privilegedCRClient), config.RoleMappings)),
+		apis.NewRoleHandler(*serverURL, repositories.NewRoleRepo(privilegedCRClient, authorization.NewNamespacePermissions(privilegedCRClient, identityProvider, config.RootNamespace), config.RoleMappings)),
 
 		apis.NewWhoAmI(identityProvider, *serverURL),
 	}
@@ -225,26 +227,38 @@ func newRegistryAuthBuilder(privilegedK8sClient k8sclient.Interface, config *con
 	}
 }
 
-func wireOrgRepoProvider(orgRepo *repositories.OrgRepo, client client.Client, authEnabled bool, identityProvider *authorization.IdentityProvider) apis.OrgRepositoryProvider {
+func wireOrgRepoProvider(
+	orgRepo *repositories.OrgRepo,
+	client client.Client,
+	authEnabled bool,
+	identityProvider authorization.IdentityProvider,
+	rootNamespace string,
+) apis.OrgRepositoryProvider {
 	if !authEnabled {
 		return provider.NewPrivilegedOrg(orgRepo)
 	}
 
-	authNsProvider := authorization.NewOrg(client)
-	return provider.NewOrg(orgRepo, authNsProvider, identityProvider)
+	authNsProvider := authorization.NewNamespacePermissions(client, identityProvider, rootNamespace)
+	return provider.NewOrg(orgRepo, authNsProvider)
 }
 
-func wireSpaceRepoProvider(orgRepo *repositories.OrgRepo, client client.Client, authEnabled bool, identityProvider *authorization.IdentityProvider) apis.SpaceRepositoryProvider {
+func wireSpaceRepoProvider(
+	orgRepo *repositories.OrgRepo,
+	client client.Client,
+	authEnabled bool,
+	identityProvider authorization.IdentityProvider,
+	rootNamespace string,
+) apis.SpaceRepositoryProvider {
 	if !authEnabled {
 		return provider.NewPrivilegedSpace(orgRepo)
 	}
 
-	authNsProvider := authorization.NewOrg(client)
-	return provider.NewSpace(orgRepo, authNsProvider, identityProvider)
+	authNsProvider := authorization.NewNamespacePermissions(client, identityProvider, rootNamespace)
+	return provider.NewSpace(orgRepo, authNsProvider)
 }
 
-func wireIdentityProvider(client client.Client, restConfig *rest.Config) *authorization.IdentityProvider {
+func wireIdentityProvider(client client.Client, restConfig *rest.Config) authorization.IdentityProvider {
 	tokenReviewer := authorization.NewTokenReviewer(client)
 	certInspector := authorization.NewCertInspector(restConfig)
-	return authorization.NewIdentityProvider(tokenReviewer, certInspector)
+	return authorization.NewCertTokenIdentityProvider(tokenReviewer, certInspector)
 }
