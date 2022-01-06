@@ -2,7 +2,6 @@
 package fake
 
 import (
-	"net/http"
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
@@ -10,10 +9,9 @@ import (
 )
 
 type OrgRepositoryProvider struct {
-	OrgRepoForRequestStub        func(*http.Request) (repositories.CFOrgRepository, error)
+	OrgRepoForRequestStub        func() (repositories.CFOrgRepository, error)
 	orgRepoForRequestMutex       sync.RWMutex
 	orgRepoForRequestArgsForCall []struct {
-		arg1 *http.Request
 	}
 	orgRepoForRequestReturns struct {
 		result1 repositories.CFOrgRepository
@@ -27,18 +25,17 @@ type OrgRepositoryProvider struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *OrgRepositoryProvider) OrgRepoForRequest(arg1 *http.Request) (repositories.CFOrgRepository, error) {
+func (fake *OrgRepositoryProvider) OrgRepoForRequest() (repositories.CFOrgRepository, error) {
 	fake.orgRepoForRequestMutex.Lock()
 	ret, specificReturn := fake.orgRepoForRequestReturnsOnCall[len(fake.orgRepoForRequestArgsForCall)]
 	fake.orgRepoForRequestArgsForCall = append(fake.orgRepoForRequestArgsForCall, struct {
-		arg1 *http.Request
-	}{arg1})
+	}{})
 	stub := fake.OrgRepoForRequestStub
 	fakeReturns := fake.orgRepoForRequestReturns
-	fake.recordInvocation("OrgRepoForRequest", []interface{}{arg1})
+	fake.recordInvocation("OrgRepoForRequest", []interface{}{})
 	fake.orgRepoForRequestMutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub()
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -52,17 +49,10 @@ func (fake *OrgRepositoryProvider) OrgRepoForRequestCallCount() int {
 	return len(fake.orgRepoForRequestArgsForCall)
 }
 
-func (fake *OrgRepositoryProvider) OrgRepoForRequestCalls(stub func(*http.Request) (repositories.CFOrgRepository, error)) {
+func (fake *OrgRepositoryProvider) OrgRepoForRequestCalls(stub func() (repositories.CFOrgRepository, error)) {
 	fake.orgRepoForRequestMutex.Lock()
 	defer fake.orgRepoForRequestMutex.Unlock()
 	fake.OrgRepoForRequestStub = stub
-}
-
-func (fake *OrgRepositoryProvider) OrgRepoForRequestArgsForCall(i int) *http.Request {
-	fake.orgRepoForRequestMutex.RLock()
-	defer fake.orgRepoForRequestMutex.RUnlock()
-	argsForCall := fake.orgRepoForRequestArgsForCall[i]
-	return argsForCall.arg1
 }
 
 func (fake *OrgRepositoryProvider) OrgRepoForRequestReturns(result1 repositories.CFOrgRepository, result2 error) {

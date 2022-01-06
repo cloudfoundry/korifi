@@ -1,10 +1,6 @@
 package provider
 
 import (
-	"errors"
-	"net/http"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
@@ -23,13 +19,8 @@ func NewOrg(
 	}
 }
 
-func (p *OrgRepositoryProvider) OrgRepoForRequest(request *http.Request) (repositories.CFOrgRepository, error) {
-	authInfo, ok := authorization.InfoFromContext(request.Context())
-	if !ok {
-		return nil, errors.New("no authorization info in the request context")
-	}
-
-	return repositories.NewOrgRepoAuthDecorator(p.orgRepo, authInfo, p.authNsProvider), nil
+func (p *OrgRepositoryProvider) OrgRepoForRequest() (repositories.CFOrgRepository, error) {
+	return repositories.NewOrgRepoAuthDecorator(p.orgRepo, p.authNsProvider), nil
 }
 
 type PrivilegedOrgRepositoryProvider struct {
@@ -42,6 +33,6 @@ func NewPrivilegedOrg(orgRepo repositories.CFOrgRepository) *PrivilegedOrgReposi
 	}
 }
 
-func (p *PrivilegedOrgRepositoryProvider) OrgRepoForRequest(_ *http.Request) (repositories.CFOrgRepository, error) {
+func (p *PrivilegedOrgRepositoryProvider) OrgRepoForRequest() (repositories.CFOrgRepository, error) {
 	return p.orgRepo, nil
 }

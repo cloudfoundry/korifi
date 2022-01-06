@@ -57,7 +57,7 @@ var _ = Describe("OrgHandler", func() {
 		}
 
 		BeforeEach(func() {
-			orgRepo.CreateOrgStub = func(_ context.Context, message repositories.CreateOrgMessage) (repositories.OrgRecord, error) {
+			orgRepo.CreateOrgStub = func(_ context.Context, info authorization.Info, message repositories.CreateOrgMessage) (repositories.OrgRecord, error) {
 				record := repositories.OrgRecord{
 					Name:        message.Name,
 					GUID:        "t-h-e-o-r-g",
@@ -100,7 +100,8 @@ var _ = Describe("OrgHandler", func() {
 
 			It("invokes the repo org create function with expected parameters", func() {
 				Expect(orgRepo.CreateOrgCallCount()).To(Equal(1))
-				_, orgRecord := orgRepo.CreateOrgArgsForCall(0)
+				_, info, orgRecord := orgRepo.CreateOrgArgsForCall(0)
+				Expect(info).To(Equal(authInfo))
 				Expect(orgRecord.Name).To(Equal("the-org"))
 				Expect(orgRecord.Suspended).To(BeFalse())
 				Expect(orgRecord.Labels).To(BeEmpty())
@@ -151,7 +152,8 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(orgRepo.CreateOrgCallCount()).To(Equal(1))
-				_, orgRecord := orgRepo.CreateOrgArgsForCall(0)
+				_, info, orgRecord := orgRepo.CreateOrgArgsForCall(0)
+				Expect(info).To(Equal(authInfo))
 				Expect(orgRecord.Name).To(Equal("the-org"))
 				Expect(orgRecord.Suspended).To(BeTrue())
 				Expect(orgRecord.Labels).To(And(HaveLen(1), HaveKeyWithValue("foo", "bar")))
@@ -352,12 +354,12 @@ var _ = Describe("OrgHandler", func() {
 
 			It("creates org repository for the request", func() {
 				Expect(orgRepoProvider.OrgRepoForRequestCallCount()).To(Equal(1))
-				Expect(orgRepoProvider.OrgRepoForRequestArgsForCall(0).Method).To(Equal(http.MethodGet))
 			})
 
 			It("lists orgs using the repository", func() {
 				Expect(orgRepo.ListOrgsCallCount()).To(Equal(1))
-				_, names := orgRepo.ListOrgsArgsForCall(0)
+				_, info, names := orgRepo.ListOrgsArgsForCall(0)
+				Expect(info).To(Equal(authInfo))
 				Expect(names).To(BeEmpty())
 			})
 
@@ -429,7 +431,8 @@ var _ = Describe("OrgHandler", func() {
 
 			It("filters by them", func() {
 				Expect(orgRepo.ListOrgsCallCount()).To(Equal(1))
-				_, names := orgRepo.ListOrgsArgsForCall(0)
+				_, info, names := orgRepo.ListOrgsArgsForCall(0)
+				Expect(info).To(Equal(authInfo))
 				Expect(names).To(ConsistOf("foo", "bar"))
 			})
 		})

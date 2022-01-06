@@ -108,7 +108,8 @@ var _ = Describe("Spaces", func() {
 
 		It("uses the space repo to create the space", func() {
 			Expect(spaceRepo.CreateSpaceCallCount()).To(Equal(1))
-			_, spaceRecord := spaceRepo.CreateSpaceArgsForCall(0)
+			_, info, spaceRecord := spaceRepo.CreateSpaceArgsForCall(0)
+			Expect(info).To(Equal(authInfo))
 			Expect(spaceRecord.Name).To(Equal("the-space"))
 		})
 
@@ -312,7 +313,8 @@ var _ = Describe("Spaces", func() {
             }`, defaultServerURL)))
 
 			Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
-			_, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
+			_, info, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
+			Expect(info).To(Equal(authInfo))
 			Expect(organizationGUIDs).To(BeEmpty())
 			Expect(names).To(BeEmpty())
 		})
@@ -373,7 +375,8 @@ var _ = Describe("Spaces", func() {
 
 			It("filters spaces by them", func() {
 				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
-				_, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
+				_, info, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
+				Expect(info).To(Equal(authInfo))
 				Expect(organizationGUIDs).To(ConsistOf("foo", "bar"))
 				Expect(names).To(BeEmpty())
 			})
@@ -386,7 +389,8 @@ var _ = Describe("Spaces", func() {
 
 			It("filters spaces by them", func() {
 				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
-				_, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
+				_, info, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
+				Expect(info).To(Equal(authInfo))
 				Expect(organizationGUIDs).To(ConsistOf("org1"))
 				Expect(names).To(ConsistOf("foo", "bar"))
 			})

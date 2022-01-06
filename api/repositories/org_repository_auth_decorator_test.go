@@ -3,7 +3,6 @@ package repositories_test
 import (
 	"context"
 	"errors"
-	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,49 +35,20 @@ var _ = Describe("OrgRepositoryAuthDecorator", func() {
 	})
 
 	Describe("creation", func() {
-		var request *http.Request
-
-		BeforeEach(func() {
-			var reqErr error
-			request, reqErr = http.NewRequestWithContext(
-				authorization.NewContext(context.Background(), &authorization.Info{Token: "the-token"}),
-				"",
-				"",
-				nil,
-			)
-			Expect(reqErr).NotTo(HaveOccurred())
-		})
-
 		JustBeforeEach(func() {
-			orgRepoAuthDecorator, err = orgRepoProvider.OrgRepoForRequest(request)
-		})
-
-		When("there is no authorization.Info in the request context", func() {
-			BeforeEach(func() {
-				request = &http.Request{}
-			})
-
-			It("returns an error", func() {
-				Expect(err).To(HaveOccurred())
-			})
+			orgRepoAuthDecorator, err = orgRepoProvider.OrgRepoForRequest()
 		})
 	})
 
 	Describe("org repo itself", func() {
 		BeforeEach(func() {
-			request, setupErr := http.NewRequestWithContext(
-				authorization.NewContext(context.Background(), &authorization.Info{Token: "the-token"}),
-				"",
-				"",
-				nil,
-			)
-			Expect(setupErr).NotTo(HaveOccurred())
-			orgRepoAuthDecorator, setupErr = orgRepoProvider.OrgRepoForRequest(request)
+			var setupErr error
+			orgRepoAuthDecorator, setupErr = orgRepoProvider.OrgRepoForRequest()
 			Expect(setupErr).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
-			orgs, err = orgRepoAuthDecorator.ListOrgs(context.Background(), []string{"foo", "bar"})
+			orgs, err = orgRepoAuthDecorator.ListOrgs(context.Background(), authorization.Info{}, []string{"foo", "bar"})
 		})
 
 		It("fetches orgs associated with the identity only", func() {

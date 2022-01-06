@@ -5,15 +5,17 @@ import (
 	"context"
 	"sync"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 type CFSpaceRepository struct {
-	CreateSpaceStub        func(context.Context, repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)
+	CreateSpaceStub        func(context.Context, authorization.Info, repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)
 	createSpaceMutex       sync.RWMutex
 	createSpaceArgsForCall []struct {
 		arg1 context.Context
-		arg2 repositories.CreateSpaceMessage
+		arg2 authorization.Info
+		arg3 repositories.CreateSpaceMessage
 	}
 	createSpaceReturns struct {
 		result1 repositories.SpaceRecord
@@ -23,12 +25,13 @@ type CFSpaceRepository struct {
 		result1 repositories.SpaceRecord
 		result2 error
 	}
-	ListSpacesStub        func(context.Context, []string, []string) ([]repositories.SpaceRecord, error)
+	ListSpacesStub        func(context.Context, authorization.Info, []string, []string) ([]repositories.SpaceRecord, error)
 	listSpacesMutex       sync.RWMutex
 	listSpacesArgsForCall []struct {
 		arg1 context.Context
-		arg2 []string
+		arg2 authorization.Info
 		arg3 []string
+		arg4 []string
 	}
 	listSpacesReturns struct {
 		result1 []repositories.SpaceRecord
@@ -42,19 +45,20 @@ type CFSpaceRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFSpaceRepository) CreateSpace(arg1 context.Context, arg2 repositories.CreateSpaceMessage) (repositories.SpaceRecord, error) {
+func (fake *CFSpaceRepository) CreateSpace(arg1 context.Context, arg2 authorization.Info, arg3 repositories.CreateSpaceMessage) (repositories.SpaceRecord, error) {
 	fake.createSpaceMutex.Lock()
 	ret, specificReturn := fake.createSpaceReturnsOnCall[len(fake.createSpaceArgsForCall)]
 	fake.createSpaceArgsForCall = append(fake.createSpaceArgsForCall, struct {
 		arg1 context.Context
-		arg2 repositories.CreateSpaceMessage
-	}{arg1, arg2})
+		arg2 authorization.Info
+		arg3 repositories.CreateSpaceMessage
+	}{arg1, arg2, arg3})
 	stub := fake.CreateSpaceStub
 	fakeReturns := fake.createSpaceReturns
-	fake.recordInvocation("CreateSpace", []interface{}{arg1, arg2})
+	fake.recordInvocation("CreateSpace", []interface{}{arg1, arg2, arg3})
 	fake.createSpaceMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -68,17 +72,17 @@ func (fake *CFSpaceRepository) CreateSpaceCallCount() int {
 	return len(fake.createSpaceArgsForCall)
 }
 
-func (fake *CFSpaceRepository) CreateSpaceCalls(stub func(context.Context, repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)) {
+func (fake *CFSpaceRepository) CreateSpaceCalls(stub func(context.Context, authorization.Info, repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)) {
 	fake.createSpaceMutex.Lock()
 	defer fake.createSpaceMutex.Unlock()
 	fake.CreateSpaceStub = stub
 }
 
-func (fake *CFSpaceRepository) CreateSpaceArgsForCall(i int) (context.Context, repositories.CreateSpaceMessage) {
+func (fake *CFSpaceRepository) CreateSpaceArgsForCall(i int) (context.Context, authorization.Info, repositories.CreateSpaceMessage) {
 	fake.createSpaceMutex.RLock()
 	defer fake.createSpaceMutex.RUnlock()
 	argsForCall := fake.createSpaceArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CFSpaceRepository) CreateSpaceReturns(result1 repositories.SpaceRecord, result2 error) {
@@ -107,30 +111,31 @@ func (fake *CFSpaceRepository) CreateSpaceReturnsOnCall(i int, result1 repositor
 	}{result1, result2}
 }
 
-func (fake *CFSpaceRepository) ListSpaces(arg1 context.Context, arg2 []string, arg3 []string) ([]repositories.SpaceRecord, error) {
-	var arg2Copy []string
-	if arg2 != nil {
-		arg2Copy = make([]string, len(arg2))
-		copy(arg2Copy, arg2)
-	}
+func (fake *CFSpaceRepository) ListSpaces(arg1 context.Context, arg2 authorization.Info, arg3 []string, arg4 []string) ([]repositories.SpaceRecord, error) {
 	var arg3Copy []string
 	if arg3 != nil {
 		arg3Copy = make([]string, len(arg3))
 		copy(arg3Copy, arg3)
 	}
+	var arg4Copy []string
+	if arg4 != nil {
+		arg4Copy = make([]string, len(arg4))
+		copy(arg4Copy, arg4)
+	}
 	fake.listSpacesMutex.Lock()
 	ret, specificReturn := fake.listSpacesReturnsOnCall[len(fake.listSpacesArgsForCall)]
 	fake.listSpacesArgsForCall = append(fake.listSpacesArgsForCall, struct {
 		arg1 context.Context
-		arg2 []string
+		arg2 authorization.Info
 		arg3 []string
-	}{arg1, arg2Copy, arg3Copy})
+		arg4 []string
+	}{arg1, arg2, arg3Copy, arg4Copy})
 	stub := fake.ListSpacesStub
 	fakeReturns := fake.listSpacesReturns
-	fake.recordInvocation("ListSpaces", []interface{}{arg1, arg2Copy, arg3Copy})
+	fake.recordInvocation("ListSpaces", []interface{}{arg1, arg2, arg3Copy, arg4Copy})
 	fake.listSpacesMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -144,17 +149,17 @@ func (fake *CFSpaceRepository) ListSpacesCallCount() int {
 	return len(fake.listSpacesArgsForCall)
 }
 
-func (fake *CFSpaceRepository) ListSpacesCalls(stub func(context.Context, []string, []string) ([]repositories.SpaceRecord, error)) {
+func (fake *CFSpaceRepository) ListSpacesCalls(stub func(context.Context, authorization.Info, []string, []string) ([]repositories.SpaceRecord, error)) {
 	fake.listSpacesMutex.Lock()
 	defer fake.listSpacesMutex.Unlock()
 	fake.ListSpacesStub = stub
 }
 
-func (fake *CFSpaceRepository) ListSpacesArgsForCall(i int) (context.Context, []string, []string) {
+func (fake *CFSpaceRepository) ListSpacesArgsForCall(i int) (context.Context, authorization.Info, []string, []string) {
 	fake.listSpacesMutex.RLock()
 	defer fake.listSpacesMutex.RUnlock()
 	argsForCall := fake.listSpacesArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
 func (fake *CFSpaceRepository) ListSpacesReturns(result1 []repositories.SpaceRecord, result2 error) {

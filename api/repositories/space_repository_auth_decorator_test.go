@@ -3,7 +3,6 @@ package repositories_test
 import (
 	"context"
 	"errors"
-	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,50 +34,20 @@ var _ = Describe("SpaceRepositoryAuthDecorator", func() {
 		spaceRepoProvider = provider.NewSpace(spaceRepo, nsProvider)
 	})
 
-	Describe("creation", func() {
-		var request *http.Request
-
-		BeforeEach(func() {
-			var reqErr error
-			request, reqErr = http.NewRequestWithContext(
-				authorization.NewContext(context.Background(), &authorization.Info{Token: "the-token"}),
-				"",
-				"",
-				nil,
-			)
-			Expect(reqErr).NotTo(HaveOccurred())
-		})
-
-		JustBeforeEach(func() {
-			spaceRepoAuthDecorator, err = spaceRepoProvider.SpaceRepoForRequest(request)
-		})
-
-		When("there is no authorization.Info in the request context", func() {
-			BeforeEach(func() {
-				request = &http.Request{}
-			})
-
-			It("returns an error", func() {
-				Expect(err).To(HaveOccurred())
-			})
-		})
-	})
-
 	Describe("space repo itself", func() {
+		var info authorization.Info
+
 		BeforeEach(func() {
-			request, setupErr := http.NewRequestWithContext(
-				authorization.NewContext(context.Background(), &authorization.Info{Token: "the-token"}),
-				"",
-				"",
-				nil,
-			)
+			var setupErr error
+			spaceRepoAuthDecorator, setupErr = spaceRepoProvider.SpaceRepoForRequest()
 			Expect(setupErr).NotTo(HaveOccurred())
-			spaceRepoAuthDecorator, setupErr = spaceRepoProvider.SpaceRepoForRequest(request)
-			Expect(setupErr).NotTo(HaveOccurred())
+			info = authorization.Info{
+				Token: "hello",
+			}
 		})
 
 		JustBeforeEach(func() {
-			spaces, err = spaceRepoAuthDecorator.ListSpaces(context.Background(), []string{"boo", "baz"}, []string{"foo", "bar"})
+			spaces, err = spaceRepoAuthDecorator.ListSpaces(context.Background(), info, []string{"boo", "baz"}, []string{"foo", "bar"})
 		})
 
 		It("fetches spaces associated with the identity only", func() {
@@ -88,7 +57,8 @@ var _ = Describe("SpaceRepositoryAuthDecorator", func() {
 
 		It("calls the space repo with the right parameters", func() {
 			Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
-			_, orgIDs, names := spaceRepo.ListSpacesArgsForCall(0)
+			_, actualInfo, orgIDs, names := spaceRepo.ListSpacesArgsForCall(0)
+			Expect(actualInfo).To(Equal(info))
 			Expect(orgIDs).To(ConsistOf("boo", "baz"))
 			Expect(names).To(ConsistOf("foo", "bar"))
 		})
