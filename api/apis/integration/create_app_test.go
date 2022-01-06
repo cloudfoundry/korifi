@@ -20,14 +20,18 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 var _ = Describe("POST /v3/apps endpoint", func() {
 	BeforeEach(func() {
 		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
+		identityProvider := new(fake.IdentityProvider)
+		nsPermissions := authorization.NewNamespacePermissions(k8sClient, identityProvider, "root-ns")
 
-		appRepo := repositories.NewAppRepo(k8sClient, clientFactory)
+		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
 		dropletRepo := repositories.NewDropletRepo(k8sClient)
 		processRepo := repositories.NewProcessRepo(k8sClient)
 		routeRepo := repositories.NewRouteRepo(k8sClient)

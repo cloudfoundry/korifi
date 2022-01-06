@@ -7,7 +7,6 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -21,13 +20,11 @@ import (
 
 var _ = Describe("OrgRepository", func() {
 	var (
-		ctx           context.Context
-		rootNamespace string
-		orgRepo       *repositories.OrgRepo
+		ctx     context.Context
+		orgRepo *repositories.OrgRepo
 	)
 
 	BeforeEach(func() {
-		rootNamespace = uuid.NewString()
 		ctx = context.Background()
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, time.Millisecond*500)

@@ -36,14 +36,20 @@ const (
 )
 
 type AppRepo struct {
-	privilegedClient  client.Client
-	userClientFactory UserK8sClientFactory
+	privilegedClient     client.Client
+	userClientFactory    UserK8sClientFactory
+	namespacePermissions *authorization.NamespacePermissions
 }
 
-func NewAppRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *AppRepo {
+func NewAppRepo(
+	privilegedClient client.Client,
+	userClientFactory UserK8sClientFactory,
+	authPerms *authorization.NamespacePermissions,
+) *AppRepo {
 	return &AppRepo{
-		privilegedClient:  privilegedClient,
-		userClientFactory: userClientFactory,
+		privilegedClient:     privilegedClient,
+		userClientFactory:    userClientFactory,
+		namespacePermissions: authPerms,
 	}
 }
 
@@ -192,10 +198,9 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 }
 
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
-	nsList := &corev1.NamespaceList{}
-	err := f.privilegedClient.List(ctx, nsList)
+	nsList, err := f.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
-		return []AppRecord{}, fmt.Errorf("failed to list namespaces: %w", err)
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
 
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
@@ -204,14 +209,14 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 	}
 
 	var filteredApps []workloadsv1alpha1.CFApp
-	for _, ns := range nsList.Items {
+	for _, ns := range nsList {
 		appList := &workloadsv1alpha1.CFAppList{}
-		err := userClient.List(ctx, appList, client.InNamespace(ns.Name))
+		err := userClient.List(ctx, appList, client.InNamespace(ns))
 		if k8serrors.IsForbidden(err) {
 			continue
 		}
 		if err != nil {
-			return []AppRecord{}, fmt.Errorf("failed to list apps in namespace %s: %w", ns.Name, err)
+			return []AppRecord{}, fmt.Errorf("failed to list apps in namespace %s: %w", ns, err)
 		}
 		filteredApps = append(filteredApps, applyAppListFilter(appList.Items, message)...)
 	}

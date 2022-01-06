@@ -36,11 +36,12 @@ func TestRepositories(t *testing.T) {
 }
 
 var (
-	testEnv   *envtest.Environment
-	k8sClient client.WithWatch
-	k8sConfig *rest.Config
-	userName  string
-	authInfo  authorization.Info
+	testEnv       *envtest.Environment
+	k8sClient     client.WithWatch
+	k8sConfig     *rest.Config
+	userName      string
+	authInfo      authorization.Info
+	rootNamespace string
 )
 
 var _ = BeforeSuite(func() {
@@ -79,6 +80,10 @@ var _ = AfterSuite(func() {
 	Expect(testEnv.Stop()).To(Succeed())
 })
 
+var _ = BeforeEach(func() {
+	rootNamespace = prefixedGUID("root-ns")
+})
+
 func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLabel string) (*hnsv1alpha2.SubnamespaceAnchor, *corev1.Namespace) {
 	guid := uuid.NewString()
 	anchor := &hnsv1alpha2.SubnamespaceAnchor{
@@ -94,9 +99,17 @@ func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLa
 
 	Expect(k8sClient.Create(ctx, anchor)).To(Succeed())
 
+	depth := "1"
+	if orgSpaceLabel == repositories.SpaceNameLabel {
+		depth = "2"
+	}
+
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: anchor.Name,
+			Labels: map[string]string{
+				rootNamespace + hnsv1alpha2.LabelTreeDepthSuffix: depth,
+			},
 			Annotations: map[string]string{
 				hnsv1alpha2.SubnamespaceOf: inNamespace,
 			},

@@ -6,9 +6,8 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	apisfake "code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider/fake"
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -23,7 +22,7 @@ var _ = Describe("Authentication Middleware", func() {
 		authMiddleware   *apis.AuthenticationMiddleware
 		nextHandler      http.Handler
 		identityProvider *fake.IdentityProvider
-		authInfoParser   *apisfake.AuthInfoParser
+		authInfoParser   *fake.AuthInfoParser
 		requestPath      string
 		actualReq        *http.Request
 	)
@@ -34,7 +33,7 @@ var _ = Describe("Authentication Middleware", func() {
 			w.WriteHeader(http.StatusTeapot)
 		})
 
-		authInfoParser = new(apisfake.AuthInfoParser)
+		authInfoParser = new(fake.AuthInfoParser)
 		identityProvider = new(fake.IdentityProvider)
 		authMiddleware = apis.NewAuthenticationMiddleware(
 			log.Log.WithName("AuthenticationMiddlewareTest"),

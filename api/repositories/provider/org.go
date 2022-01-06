@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"context"
 	"errors"
 	"net/http"
 
@@ -9,26 +8,18 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
-//counterfeiter:generate -o fake -fake-name IdentityProvider . IdentityProvider
-
-type IdentityProvider interface {
-	GetIdentity(ctx context.Context, authInfo authorization.Info) (authorization.Identity, error)
-}
-
 type OrgRepositoryProvider struct {
-	orgRepo          repositories.CFOrgRepository
-	authNsProvider   repositories.AuthorizedNamespacesProvider
-	identityProvider IdentityProvider
+	orgRepo        repositories.CFOrgRepository
+	authNsProvider repositories.AuthorizedNamespacesProvider
 }
 
 func NewOrg(
 	orgRepo repositories.CFOrgRepository,
 	authNsProvider repositories.AuthorizedNamespacesProvider,
-	identityProvider IdentityProvider) *OrgRepositoryProvider {
+) *OrgRepositoryProvider {
 	return &OrgRepositoryProvider{
-		orgRepo:          orgRepo,
-		authNsProvider:   authNsProvider,
-		identityProvider: identityProvider,
+		orgRepo:        orgRepo,
+		authNsProvider: authNsProvider,
 	}
 }
 
@@ -38,12 +29,7 @@ func (p *OrgRepositoryProvider) OrgRepoForRequest(request *http.Request) (reposi
 		return nil, errors.New("no authorization info in the request context")
 	}
 
-	identity, err := p.identityProvider.GetIdentity(request.Context(), authInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	return repositories.NewOrgRepoAuthDecorator(p.orgRepo, identity, p.authNsProvider), nil
+	return repositories.NewOrgRepoAuthDecorator(p.orgRepo, authInfo, p.authNsProvider), nil
 }
 
 type PrivilegedOrgRepositoryProvider struct {

@@ -9,23 +9,20 @@ import (
 //counterfeiter:generate -o fake -fake-name AuthorizedNamespacesProvider . AuthorizedNamespacesProvider
 
 type AuthorizedNamespacesProvider interface {
-	GetAuthorizedNamespaces(context.Context, authorization.Identity) ([]string, error)
+	GetAuthorizedOrgNamespaces(context.Context, authorization.Info) ([]string, error)
+	GetAuthorizedSpaceNamespaces(context.Context, authorization.Info) ([]string, error)
 }
 
 type OrgRepoAuthDecorator struct {
 	CFOrgRepository
-	identity   authorization.Identity
+	authInfo   authorization.Info
 	nsProvider AuthorizedNamespacesProvider
 }
 
-func NewOrgRepoAuthDecorator(
-	repo CFOrgRepository,
-	identity authorization.Identity,
-	nsProvider AuthorizedNamespacesProvider,
-) *OrgRepoAuthDecorator {
+func NewOrgRepoAuthDecorator(repo CFOrgRepository, authInfo authorization.Info, nsProvider AuthorizedNamespacesProvider) *OrgRepoAuthDecorator {
 	return &OrgRepoAuthDecorator{
 		CFOrgRepository: repo,
-		identity:        identity,
+		authInfo:        authInfo,
 		nsProvider:      nsProvider,
 	}
 }
@@ -36,7 +33,7 @@ func (r *OrgRepoAuthDecorator) ListOrgs(ctx context.Context, names []string) ([]
 		return nil, err
 	}
 
-	authorizedNamespaces, err := r.nsProvider.GetAuthorizedNamespaces(ctx, r.identity)
+	authorizedNamespaces, err := r.nsProvider.GetAuthorizedOrgNamespaces(ctx, r.authInfo)
 	if err != nil {
 		return nil, err
 	}

@@ -7,13 +7,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rbacv1 "k8s.io/api/rbac/v1"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider"
-	providerfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider/fake"
 )
 
 var _ = Describe("SpaceRepositoryAuthDecorator", func() {
@@ -22,24 +20,19 @@ var _ = Describe("SpaceRepositoryAuthDecorator", func() {
 		spaceRepoAuthDecorator repositories.CFSpaceRepository
 		spaceRepoProvider      *provider.SpaceRepositoryProvider
 		nsProvider             *fake.AuthorizedNamespacesProvider
-		identity               authorization.Identity
-		identityProvider       *providerfake.IdentityProvider
 		spaces                 []repositories.SpaceRecord
 		err                    error
 	)
 
 	BeforeEach(func() {
-		identity = authorization.Identity{Kind: rbacv1.UserKind, Name: "alice"}
-		identityProvider = new(providerfake.IdentityProvider)
-		identityProvider.GetIdentityReturns(identity, nil)
 		spaceRepo = new(fake.CFSpaceRepository)
 		nsProvider = new(fake.AuthorizedNamespacesProvider)
 		spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
 			{GUID: "space1"},
 			{GUID: "space2"},
 		}, nil)
-		nsProvider.GetAuthorizedNamespacesReturns([]string{"space2"}, nil)
-		spaceRepoProvider = provider.NewSpace(spaceRepo, nsProvider, identityProvider)
+		nsProvider.GetAuthorizedSpaceNamespacesReturns([]string{"space2"}, nil)
+		spaceRepoProvider = provider.NewSpace(spaceRepo, nsProvider)
 	})
 
 	Describe("creation", func() {
@@ -60,12 +53,6 @@ var _ = Describe("SpaceRepositoryAuthDecorator", func() {
 			spaceRepoAuthDecorator, err = spaceRepoProvider.SpaceRepoForRequest(request)
 		})
 
-		It("uses the authorization.Info to get the identity", func() {
-			Expect(identityProvider.GetIdentityCallCount()).To(Equal(1))
-			_, authInfo := identityProvider.GetIdentityArgsForCall(0)
-			Expect(authInfo.Token).To(Equal("the-token"))
-		})
-
 		When("there is no authorization.Info in the request context", func() {
 			BeforeEach(func() {
 				request = &http.Request{}
@@ -73,16 +60,6 @@ var _ = Describe("SpaceRepositoryAuthDecorator", func() {
 
 			It("returns an error", func() {
 				Expect(err).To(HaveOccurred())
-			})
-		})
-
-		When("identity provider fails", func() {
-			BeforeEach(func() {
-				identityProvider.GetIdentityReturns(authorization.Identity{}, errors.New("id-provider-failure"))
-			})
-
-			It("returns the error", func() {
-				Expect(err).To(MatchError("id-provider-failure"))
 			})
 		})
 	})
@@ -128,7 +105,7 @@ var _ = Describe("SpaceRepositoryAuthDecorator", func() {
 
 		When("fetching authorized namespaces fails", func() {
 			BeforeEach(func() {
-				nsProvider.GetAuthorizedNamespacesReturns(nil, errors.New("fetch-auth-ns-failed"))
+				nsProvider.GetAuthorizedSpaceNamespacesReturns(nil, errors.New("fetch-auth-ns-failed"))
 			})
 
 			It("returns the error", func() {

@@ -16,7 +16,7 @@ var _ = Describe("IdentityProvider", func() {
 		authInfo       authorization.Info
 		tokenInspector *fake.TokenIdentityInspector
 		certInspector  *fake.CertIdentityInspector
-		idProvider     *authorization.IdentityProvider
+		idProvider     *authorization.CertTokenIdentityProvider
 		aliceId, id    authorization.Identity
 		err            error
 	)
@@ -28,7 +28,7 @@ var _ = Describe("IdentityProvider", func() {
 	BeforeEach(func() {
 		tokenInspector = new(fake.TokenIdentityInspector)
 		certInspector = new(fake.CertIdentityInspector)
-		idProvider = authorization.NewIdentityProvider(tokenInspector, certInspector)
+		idProvider = authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
 		aliceId = authorization.Identity{Kind: rbacv1.UserKind, Name: "alice"}
 		authInfo = authorization.Info{}
 	})
