@@ -25,7 +25,7 @@ const (
 //counterfeiter:generate -o fake -fake-name SpaceRepositoryProvider . SpaceRepositoryProvider
 
 type SpaceRepositoryProvider interface {
-	SpaceRepoForRequest(request *http.Request) (repositories.CFSpaceRepository, error)
+	SpaceRepoForRequest() (repositories.CFSpaceRepository, error)
 }
 
 type SpaceHandler struct {
@@ -44,7 +44,7 @@ func NewSpaceHandler(apiBaseURL url.URL, imageRegistrySecretName string, spaceRe
 	}
 }
 
-func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (h *SpaceHandler) SpaceCreateHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 	var payload payloads.SpaceCreate
@@ -59,7 +59,7 @@ func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request
 	// TODO: Move this GUID generation down to the repository layer?
 	space.GUID = uuid.NewString()
 
-	spaceRepo, err := h.spaceRepoProvider.SpaceRepoForRequest(r)
+	spaceRepo, err := h.spaceRepoProvider.SpaceRepoForRequest()
 	if err != nil {
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to create spaces")
@@ -81,7 +81,7 @@ func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	record, err := spaceRepo.CreateSpace(ctx, space)
+	record, err := spaceRepo.CreateSpace(ctx, info, space)
 	if err != nil {
 		if workloads.HasErrorCode(err, workloads.DuplicateSpaceNameError) {
 			errorDetail := fmt.Sprintf("Space '%s' already exists.", space.Name)
@@ -99,14 +99,14 @@ func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request
 	writeResponse(w, http.StatusCreated, spaceResponse)
 }
 
-func (h *SpaceHandler) SpaceListHandler(w http.ResponseWriter, r *http.Request) {
+func (h *SpaceHandler) SpaceListHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	orgUIDs := parseCommaSeparatedList(r.URL.Query().Get("organization_guids"))
 	names := parseCommaSeparatedList(r.URL.Query().Get("names"))
 
-	spaceRepo, err := h.spaceRepoProvider.SpaceRepoForRequest(r)
+	spaceRepo, err := h.spaceRepoProvider.SpaceRepoForRequest()
 	if err != nil {
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to list spaces")
@@ -128,7 +128,7 @@ func (h *SpaceHandler) SpaceListHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	spaces, err := spaceRepo.ListSpaces(ctx, orgUIDs, names)
+	spaces, err := spaceRepo.ListSpaces(ctx, info, orgUIDs, names)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch spaces")
 		writeUnknownErrorResponse(w)
@@ -141,8 +141,9 @@ func (h *SpaceHandler) SpaceListHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *SpaceHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(SpacesEndpoint).Methods("GET").HandlerFunc(h.SpaceListHandler)
-	router.Path(SpacesEndpoint).Methods("POST").HandlerFunc(h.SpaceCreateHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(SpacesEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.SpaceListHandler))
+	router.Path(SpacesEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.SpaceCreateHandler))
 }
 
 func parseCommaSeparatedList(list string) []string {

@@ -15,25 +15,23 @@ type AuthorizedNamespacesProvider interface {
 
 type OrgRepoAuthDecorator struct {
 	CFOrgRepository
-	authInfo   authorization.Info
 	nsProvider AuthorizedNamespacesProvider
 }
 
-func NewOrgRepoAuthDecorator(repo CFOrgRepository, authInfo authorization.Info, nsProvider AuthorizedNamespacesProvider) *OrgRepoAuthDecorator {
+func NewOrgRepoAuthDecorator(repo CFOrgRepository, nsProvider AuthorizedNamespacesProvider) *OrgRepoAuthDecorator {
 	return &OrgRepoAuthDecorator{
 		CFOrgRepository: repo,
-		authInfo:        authInfo,
 		nsProvider:      nsProvider,
 	}
 }
 
-func (r *OrgRepoAuthDecorator) ListOrgs(ctx context.Context, names []string) ([]OrgRecord, error) {
-	orgs, err := r.CFOrgRepository.ListOrgs(ctx, names)
+func (r *OrgRepoAuthDecorator) ListOrgs(ctx context.Context, info authorization.Info, names []string) ([]OrgRecord, error) {
+	orgs, err := r.CFOrgRepository.ListOrgs(ctx, info, names)
 	if err != nil {
 		return nil, err
 	}
 
-	authorizedNamespaces, err := r.nsProvider.GetAuthorizedOrgNamespaces(ctx, r.authInfo)
+	authorizedNamespaces, err := r.nsProvider.GetAuthorizedOrgNamespaces(ctx, info)
 	if err != nil {
 		return nil, err
 	}

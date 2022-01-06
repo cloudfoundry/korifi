@@ -2,7 +2,6 @@
 package fake
 
 import (
-	"net/http"
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
@@ -10,10 +9,9 @@ import (
 )
 
 type SpaceRepositoryProvider struct {
-	SpaceRepoForRequestStub        func(*http.Request) (repositories.CFSpaceRepository, error)
+	SpaceRepoForRequestStub        func() (repositories.CFSpaceRepository, error)
 	spaceRepoForRequestMutex       sync.RWMutex
 	spaceRepoForRequestArgsForCall []struct {
-		arg1 *http.Request
 	}
 	spaceRepoForRequestReturns struct {
 		result1 repositories.CFSpaceRepository
@@ -27,18 +25,17 @@ type SpaceRepositoryProvider struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SpaceRepositoryProvider) SpaceRepoForRequest(arg1 *http.Request) (repositories.CFSpaceRepository, error) {
+func (fake *SpaceRepositoryProvider) SpaceRepoForRequest() (repositories.CFSpaceRepository, error) {
 	fake.spaceRepoForRequestMutex.Lock()
 	ret, specificReturn := fake.spaceRepoForRequestReturnsOnCall[len(fake.spaceRepoForRequestArgsForCall)]
 	fake.spaceRepoForRequestArgsForCall = append(fake.spaceRepoForRequestArgsForCall, struct {
-		arg1 *http.Request
-	}{arg1})
+	}{})
 	stub := fake.SpaceRepoForRequestStub
 	fakeReturns := fake.spaceRepoForRequestReturns
-	fake.recordInvocation("SpaceRepoForRequest", []interface{}{arg1})
+	fake.recordInvocation("SpaceRepoForRequest", []interface{}{})
 	fake.spaceRepoForRequestMutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub()
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -52,17 +49,10 @@ func (fake *SpaceRepositoryProvider) SpaceRepoForRequestCallCount() int {
 	return len(fake.spaceRepoForRequestArgsForCall)
 }
 
-func (fake *SpaceRepositoryProvider) SpaceRepoForRequestCalls(stub func(*http.Request) (repositories.CFSpaceRepository, error)) {
+func (fake *SpaceRepositoryProvider) SpaceRepoForRequestCalls(stub func() (repositories.CFSpaceRepository, error)) {
 	fake.spaceRepoForRequestMutex.Lock()
 	defer fake.spaceRepoForRequestMutex.Unlock()
 	fake.SpaceRepoForRequestStub = stub
-}
-
-func (fake *SpaceRepositoryProvider) SpaceRepoForRequestArgsForCall(i int) *http.Request {
-	fake.spaceRepoForRequestMutex.RLock()
-	defer fake.spaceRepoForRequestMutex.RUnlock()
-	argsForCall := fake.spaceRepoForRequestArgsForCall[i]
-	return argsForCall.arg1
 }
 
 func (fake *SpaceRepositoryProvider) SpaceRepoForRequestReturns(result1 repositories.CFSpaceRepository, result2 error) {

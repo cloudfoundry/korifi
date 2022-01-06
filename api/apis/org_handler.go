@@ -25,7 +25,7 @@ const (
 //counterfeiter:generate -o fake -fake-name OrgRepositoryProvider . OrgRepositoryProvider
 
 type OrgRepositoryProvider interface {
-	OrgRepoForRequest(request *http.Request) (repositories.CFOrgRepository, error)
+	OrgRepoForRequest() (repositories.CFOrgRepository, error)
 }
 
 type OrgHandler struct {
@@ -42,7 +42,7 @@ func NewOrgHandler(apiBaseURL url.URL, orgRepoProvider OrgRepositoryProvider) *O
 	}
 }
 
-func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (h *OrgHandler) orgCreateHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.OrgCreate
@@ -56,7 +56,7 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 	org := payload.ToMessage()
 	org.GUID = uuid.NewString()
 
-	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest(r)
+	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest()
 	if err != nil {
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to create org")
@@ -78,7 +78,7 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	record, err := orgRepo.CreateOrg(r.Context(), org)
+	record, err := orgRepo.CreateOrg(r.Context(), info, org)
 	if err != nil {
 		if workloads.HasErrorCode(err, workloads.DuplicateOrgNameError) {
 			errorDetail := fmt.Sprintf("Organization '%s' already exists.", org.Name)
@@ -98,7 +98,7 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *OrgHandler) orgListHandler(w http.ResponseWriter, r *http.Request) {
+func (h *OrgHandler) orgListHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
@@ -108,7 +108,7 @@ func (h *OrgHandler) orgListHandler(w http.ResponseWriter, r *http.Request) {
 		names = strings.Split(namesList, ",")
 	}
 
-	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest(r)
+	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest()
 	if err != nil {
 		if authorization.IsNotAuthenticated(err) {
 			h.logger.Error(err, "unauthorized to list orgs")
@@ -130,7 +130,7 @@ func (h *OrgHandler) orgListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orgs, err := orgRepo.ListOrgs(ctx, names)
+	orgs, err := orgRepo.ListOrgs(ctx, info, names)
 	if err != nil {
 		h.logger.Error(err, "failed to fetch orgs")
 		writeUnknownErrorResponse(w)
@@ -146,6 +146,7 @@ func (h *OrgHandler) orgListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OrgHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(OrgsEndpoint).Methods("GET").HandlerFunc(h.orgListHandler)
-	router.Path(OrgsEndpoint).Methods("POST").HandlerFunc(h.orgCreateHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(OrgsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.orgListHandler))
+	router.Path(OrgsEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.orgCreateHandler))
 }

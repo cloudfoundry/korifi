@@ -47,7 +47,7 @@ func NewSpaceManifestHandler(
 func (h *SpaceManifestHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
 	router.Path(SpaceManifestApplyEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.applyManifestHandler))
-	router.Path(SpaceManifestDiffEndpoint).Methods("POST").HandlerFunc(h.validateSpaceVisible(h.diffManifestHandler))
+	router.Path(SpaceManifestDiffEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.validateSpaceVisible(h.diffManifestHandler)))
 }
 
 func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -73,7 +73,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info,
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (h *SpaceManifestHandler) diffManifestHandler(w http.ResponseWriter, r *http.Request) {
+func (h *SpaceManifestHandler) diffManifestHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 	_, _ = w.Write([]byte(`{"diff":[]}`))
@@ -95,13 +95,13 @@ func decodeAndValidateYAMLPayload(r *http.Request, object interface{}) *requestM
 	return validatePayload(object)
 }
 
-func (h *SpaceManifestHandler) validateSpaceVisible(hf http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func (h *SpaceManifestHandler) validateSpaceVisible(hf AuthAwareHandlerFunc) AuthAwareHandlerFunc {
+	return func(info authorization.Info, w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		spaceGUID := vars["spaceGUID"]
 		w.Header().Set("Content-Type", "application/json")
 
-		spaces, err := h.spaceRepo.ListSpaces(r.Context(), []string{}, []string{})
+		spaces, err := h.spaceRepo.ListSpaces(r.Context(), info, []string{}, []string{})
 		if err != nil {
 			h.logger.Error(err, "Failed to list spaces")
 			writeUnknownErrorResponse(w)
@@ -121,6 +121,6 @@ func (h *SpaceManifestHandler) validateSpaceVisible(hf http.HandlerFunc) http.Ha
 			return
 		}
 
-		hf.ServeHTTP(w, r)
-	})
+		hf(info, w, r)
+	}
 }
