@@ -37,15 +37,15 @@ func NewNamespacePermissions(privilegedClient client.Client, identityProvider Id
 	}
 }
 
-func (o *NamespacePermissions) GetAuthorizedOrgNamespaces(ctx context.Context, info Info) ([]string, error) {
+func (o *NamespacePermissions) GetAuthorizedOrgNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
 	return o.getAuthorizedNamespaces(ctx, info, orgLevel)
 }
 
-func (o *NamespacePermissions) GetAuthorizedSpaceNamespaces(ctx context.Context, info Info) ([]string, error) {
+func (o *NamespacePermissions) GetAuthorizedSpaceNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
 	return o.getAuthorizedNamespaces(ctx, info, spaceLevel)
 }
 
-func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info Info, orgSpaceLevel string) ([]string, error) {
+func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info Info, orgSpaceLevel string) (map[string]bool, error) {
 	identity, err := o.identityProvider.GetIdentity(ctx, info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get identity: %w", err)
@@ -68,15 +68,13 @@ func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info
 		cfNamespaces[ns.Name] = true
 	}
 
-	var authorizedNamespaces []string
-	alreadyFound := map[string]bool{}
+	authorizedNamespaces := map[string]bool{}
 
 	for _, roleBinding := range rolebindings.Items {
 		for _, subject := range roleBinding.Subjects {
 			if subject.Kind == identity.Kind && subject.Name == identity.Name {
-				if !alreadyFound[roleBinding.Namespace] && cfNamespaces[roleBinding.Namespace] {
-					authorizedNamespaces = append(authorizedNamespaces, roleBinding.Namespace)
-					alreadyFound[roleBinding.Namespace] = true
+				if cfNamespaces[roleBinding.Namespace] {
+					authorizedNamespaces[roleBinding.Namespace] = true
 				}
 			}
 		}

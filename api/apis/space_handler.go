@@ -1,6 +1,7 @@
 package apis
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -22,24 +23,25 @@ const (
 	SpacesEndpoint = "/v3/spaces"
 )
 
-//counterfeiter:generate -o fake -fake-name SpaceRepositoryProvider . SpaceRepositoryProvider
+//counterfeiter:generate -o fake -fake-name SpaceRepository . SpaceRepository
 
-type SpaceRepositoryProvider interface {
-	SpaceRepoForRequest() (repositories.CFSpaceRepository, error)
+type SpaceRepository interface {
+	CreateSpace(ctx context.Context, info authorization.Info, space repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)
+	ListSpaces(ctx context.Context, info authorization.Info, orgUIDs []string, spaceNames []string) ([]repositories.SpaceRecord, error)
 }
 
 type SpaceHandler struct {
-	spaceRepoProvider       SpaceRepositoryProvider
+	spaceRepo               SpaceRepository
 	logger                  logr.Logger
 	apiBaseURL              url.URL
 	imageRegistrySecretName string
 }
 
-func NewSpaceHandler(apiBaseURL url.URL, imageRegistrySecretName string, spaceRepoProvider SpaceRepositoryProvider) *SpaceHandler {
+func NewSpaceHandler(apiBaseURL url.URL, imageRegistrySecretName string, spaceRepo SpaceRepository) *SpaceHandler {
 	return &SpaceHandler{
 		apiBaseURL:              apiBaseURL,
 		imageRegistrySecretName: imageRegistrySecretName,
-		spaceRepoProvider:       spaceRepoProvider,
+		spaceRepo:               spaceRepo,
 		logger:                  controllerruntime.Log.WithName("Space Handler"),
 	}
 }
@@ -59,8 +61,15 @@ func (h *SpaceHandler) SpaceCreateHandler(info authorization.Info, w http.Respon
 	// TODO: Move this GUID generation down to the repository layer?
 	space.GUID = uuid.NewString()
 
-	spaceRepo, err := h.spaceRepoProvider.SpaceRepoForRequest()
+	record, err := h.spaceRepo.CreateSpace(ctx, info, space)
 	if err != nil {
+		if workloads.HasErrorCode(err, workloads.DuplicateSpaceNameError) {
+			errorDetail := fmt.Sprintf("Space '%s' already exists.", space.Name)
+			h.logger.Info(errorDetail)
+			writeUnprocessableEntityError(w, errorDetail)
+			return
+		}
+
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to create spaces")
 			writeInvalidAuthErrorResponse(w)
@@ -72,21 +81,6 @@ func (h *SpaceHandler) SpaceCreateHandler(info authorization.Info, w http.Respon
 			h.logger.Error(err, "unauthorized to create spaces")
 			writeNotAuthenticatedErrorResponse(w)
 
-			return
-		}
-
-		h.logger.Error(err, "Failed to provide space repo")
-		writeUnknownErrorResponse(w)
-
-		return
-	}
-
-	record, err := spaceRepo.CreateSpace(ctx, info, space)
-	if err != nil {
-		if workloads.HasErrorCode(err, workloads.DuplicateSpaceNameError) {
-			errorDetail := fmt.Sprintf("Space '%s' already exists.", space.Name)
-			h.logger.Info(errorDetail)
-			writeUnprocessableEntityError(w, errorDetail)
 			return
 		}
 
@@ -106,7 +100,7 @@ func (h *SpaceHandler) SpaceListHandler(info authorization.Info, w http.Response
 	orgUIDs := parseCommaSeparatedList(r.URL.Query().Get("organization_guids"))
 	names := parseCommaSeparatedList(r.URL.Query().Get("names"))
 
-	spaceRepo, err := h.spaceRepoProvider.SpaceRepoForRequest()
+	spaces, err := h.spaceRepo.ListSpaces(ctx, info, orgUIDs, names)
 	if err != nil {
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to list spaces")
@@ -122,14 +116,6 @@ func (h *SpaceHandler) SpaceListHandler(info authorization.Info, w http.Response
 			return
 		}
 
-		h.logger.Error(err, "Failed to provide space repo")
-		writeUnknownErrorResponse(w)
-
-		return
-	}
-
-	spaces, err := spaceRepo.ListSpaces(ctx, info, orgUIDs, names)
-	if err != nil {
 		h.logger.Error(err, "Failed to fetch spaces")
 		writeUnknownErrorResponse(w)
 

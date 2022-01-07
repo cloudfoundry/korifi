@@ -21,7 +21,7 @@ var _ = Describe("Namespace Permissions", func() {
 	var (
 		ctx              context.Context
 		nsPerms          *authorization.NamespacePermissions
-		namespaces       []string
+		namespaces       map[string]bool
 		getErr           error
 		authInfo         authorization.Info
 		identity         authorization.Identity
@@ -139,7 +139,7 @@ var _ = Describe("Namespace Permissions", func() {
 
 		It("lists the namespaces with bindings for current user", func() {
 			Expect(getErr).NotTo(HaveOccurred())
-			Expect(namespaces).To(ConsistOf(org1NS))
+			Expect(namespaces).To(Equal(map[string]bool{org1NS: true}))
 		})
 
 		When("the id provider fails", func() {
@@ -203,7 +203,7 @@ var _ = Describe("Namespace Permissions", func() {
 
 		It("lists the namespaces with bindings for current user", func() {
 			Expect(getErr).NotTo(HaveOccurred())
-			Expect(namespaces).To(ConsistOf(space1NS))
+			Expect(namespaces).To(Equal(map[string]bool{space1NS: true}))
 		})
 
 		When("the user does not have a rolebinding associated with it", func() {

@@ -23,15 +23,15 @@ var _ = Describe("OrgRepository", func() {
 	var (
 		ctx     context.Context
 		orgRepo *repositories.OrgRepo
-		info    authorization.Info
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
+
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, time.Millisecond*500)
-		info = authorization.Info{Token: "a-token"}
+		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, nsPerms, time.Millisecond*500, true)
 	})
+
 	Describe("Create", func() {
 		updateStatus := func(anchorNamespace, anchorName string) {
 			defer GinkgoRecover()
@@ -55,7 +55,7 @@ var _ = Describe("OrgRepository", func() {
 		Describe("Org", func() {
 			It("creates a subnamespace anchor in the root namespace", func() {
 				go updateStatus(rootNamespace, "some-guid")
-				org, err := orgRepo.CreateOrg(ctx, info, repositories.CreateOrgMessage{
+				org, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
 					GUID: "some-guid",
 					Name: "our-org",
 				})
@@ -79,7 +79,7 @@ var _ = Describe("OrgRepository", func() {
 			When("the org isn't ready in the timeout", func() {
 				It("returns an error", func() {
 					// we do not call updateStatus() to set state = ok
-					_, err := orgRepo.CreateOrg(ctx, info, repositories.CreateOrgMessage{
+					_, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
 						GUID: "some-guid",
 						Name: "our-org",
 					})
@@ -89,7 +89,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the client fails to create the org", func() {
 				It("returns an error", func() {
-					_, err := orgRepo.CreateOrg(ctx, info, repositories.CreateOrgMessage{
+					_, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
 						Name: "this-string-has-illegal-characters-ц",
 					})
 					Expect(err).To(HaveOccurred())
@@ -113,7 +113,7 @@ var _ = Describe("OrgRepository", func() {
 			It("creates a Space", func() {
 				go updateStatus(org.Name, spaceGUID)
 
-				space, err := orgRepo.CreateSpace(ctx, info, repositories.CreateSpaceMessage{
+				space, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
 					GUID:                     spaceGUID,
 					Name:                     "our-space",
 					OrganizationGUID:         org.Name,
@@ -164,7 +164,7 @@ var _ = Describe("OrgRepository", func() {
 			When("the space isn't ready in the timeout", func() {
 				It("returns an error", func() {
 					// we do not call updateStatus() to set state = ok
-					_, err := orgRepo.CreateSpace(ctx, info, repositories.CreateSpaceMessage{
+					_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
 						GUID:             "some-guid",
 						Name:             "our-org",
 						OrganizationGUID: org.Name,
@@ -175,7 +175,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the client fails to create the space", func() {
 				It("returns an error", func() {
-					_, err := orgRepo.CreateSpace(ctx, info, repositories.CreateSpaceMessage{
+					_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
 						GUID:             "some-guid",
 						Name:             "this-string-has-illegal-characters-ц",
 						OrganizationGUID: org.Name,
@@ -190,20 +190,25 @@ var _ = Describe("OrgRepository", func() {
 		var (
 			ctx context.Context
 
-			org1Anchor, org2Anchor, org3Anchor *hnsv1alpha2.SubnamespaceAnchor
+			org1Anchor, org2Anchor, org3Anchor, org4Anchor *hnsv1alpha2.SubnamespaceAnchor
 		)
 
 		BeforeEach(func() {
 			ctx = context.Background()
 
+			spaceDeveloperClusterRole := createSpaceDeveloperClusterRole(ctx)
 			org1Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org1")
+			createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, org1Anchor.Name)
 			org2Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org2")
+			createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, org2Anchor.Name)
 			org3Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org3")
+			createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, org3Anchor.Name)
+			org4Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org4")
 		})
 
 		Describe("Orgs", func() {
 			It("returns the 3 orgs", func() {
-				orgs, err := orgRepo.ListOrgs(ctx, info, nil)
+				orgs, err := orgRepo.ListOrgs(ctx, authInfo, nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(orgs).To(ConsistOf(
@@ -228,6 +233,44 @@ var _ = Describe("OrgRepository", func() {
 				))
 			})
 
+			When("auth is disabled", func() {
+				BeforeEach(func() {
+					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, nsPerms, time.Millisecond*500, false)
+				})
+
+				It("returns all orgs", func() {
+					orgs, err := orgRepo.ListOrgs(ctx, authInfo, nil)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(orgs).To(ConsistOf(
+						repositories.OrgRecord{
+							Name:      "org1",
+							CreatedAt: org1Anchor.CreationTimestamp.Time,
+							UpdatedAt: org1Anchor.CreationTimestamp.Time,
+							GUID:      org1Anchor.Name,
+						},
+						repositories.OrgRecord{
+							Name:      "org2",
+							CreatedAt: org2Anchor.CreationTimestamp.Time,
+							UpdatedAt: org2Anchor.CreationTimestamp.Time,
+							GUID:      org2Anchor.Name,
+						},
+						repositories.OrgRecord{
+							Name:      "org3",
+							CreatedAt: org3Anchor.CreationTimestamp.Time,
+							UpdatedAt: org3Anchor.CreationTimestamp.Time,
+							GUID:      org3Anchor.Name,
+						},
+						repositories.OrgRecord{
+							Name:      "org4",
+							CreatedAt: org4Anchor.CreationTimestamp.Time,
+							UpdatedAt: org4Anchor.CreationTimestamp.Time,
+							GUID:      org4Anchor.Name,
+						},
+					))
+				})
+			})
+
 			When("the org anchor is not ready", func() {
 				BeforeEach(func() {
 					org1AnchorCopy := org1Anchor.DeepCopy()
@@ -236,7 +279,7 @@ var _ = Describe("OrgRepository", func() {
 				})
 
 				It("does not list it", func() {
-					orgs, err := orgRepo.ListOrgs(ctx, info, nil)
+					orgs, err := orgRepo.ListOrgs(ctx, authInfo, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(orgs).NotTo(ContainElement(
@@ -252,7 +295,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("we filter for org1 and org3", func() {
 				It("returns just those", func() {
-					orgs, err := orgRepo.ListOrgs(ctx, info, []string{"org1", "org3"})
+					orgs, err := orgRepo.ListOrgs(ctx, authInfo, []string{"org1", "org3"})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(orgs).To(ConsistOf(
@@ -271,24 +314,46 @@ var _ = Describe("OrgRepository", func() {
 					))
 				})
 			})
+
+			When("fetching authorized namespaces fails", func() {
+				var listErr error
+
+				BeforeEach(func() {
+					_, listErr = orgRepo.ListOrgs(ctx, authorization.Info{}, []string{"org1", "org3"})
+				})
+
+				It("returns the error", func() {
+					Expect(listErr).To(MatchError(ContainSubstring("failed to get identity")))
+				})
+			})
 		})
 
 		Describe("Spaces", func() {
-			var space11Anchor, space12Anchor, space21Anchor, space22Anchor, space31Anchor, space32Anchor *hnsv1alpha2.SubnamespaceAnchor
+			var space11Anchor, space12Anchor, space21Anchor, space22Anchor, space31Anchor, space32Anchor, space33Anchor *hnsv1alpha2.SubnamespaceAnchor
 
 			BeforeEach(func() {
+				spaceDeveloperClusterRole := createSpaceDeveloperClusterRole(ctx)
+
 				space11Anchor = createSpaceAnchorAndNamespace(ctx, org1Anchor.Name, "space1")
+				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space11Anchor.Name)
 				space12Anchor = createSpaceAnchorAndNamespace(ctx, org1Anchor.Name, "space2")
+				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space12Anchor.Name)
 
 				space21Anchor = createSpaceAnchorAndNamespace(ctx, org2Anchor.Name, "space1")
+				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space21Anchor.Name)
 				space22Anchor = createSpaceAnchorAndNamespace(ctx, org2Anchor.Name, "space3")
+				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space22Anchor.Name)
 
 				space31Anchor = createSpaceAnchorAndNamespace(ctx, org3Anchor.Name, "space1")
+				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space31Anchor.Name)
 				space32Anchor = createSpaceAnchorAndNamespace(ctx, org3Anchor.Name, "space4")
+				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space32Anchor.Name)
+
+				space33Anchor = createSpaceAnchorAndNamespace(ctx, org3Anchor.Name, "space5")
 			})
 
 			It("returns the 6 spaces", func() {
-				spaces, err := orgRepo.ListSpaces(ctx, info, []string{}, []string{})
+				spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{}, []string{})
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(spaces).To(ConsistOf(
@@ -337,6 +402,28 @@ var _ = Describe("OrgRepository", func() {
 				))
 			})
 
+			When("auth is disabled", func() {
+				BeforeEach(func() {
+					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, nsPerms, time.Millisecond*500, false)
+				})
+
+				It("includes spaces without role bindings", func() {
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{}, []string{})
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(spaces).To(HaveLen(7))
+					Expect(spaces).To(ContainElement(
+						repositories.SpaceRecord{
+							Name:             "space5",
+							CreatedAt:        space33Anchor.CreationTimestamp.Time,
+							UpdatedAt:        space33Anchor.CreationTimestamp.Time,
+							GUID:             space33Anchor.Name,
+							OrganizationGUID: org3Anchor.Name,
+						},
+					))
+				})
+			})
+
 			When("the space anchor is not ready", func() {
 				BeforeEach(func() {
 					space11AnchorCopy := space11Anchor.DeepCopy()
@@ -345,7 +432,7 @@ var _ = Describe("OrgRepository", func() {
 				})
 
 				It("does not list it", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, info, []string{}, []string{})
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{}, []string{})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(spaces).NotTo(ContainElement(
@@ -362,7 +449,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("filtering by org guids", func() {
 				It("only retruns the spaces belonging to the specified org guids", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, info, []string{string(org1Anchor.Name), string(org3Anchor.Name), "does-not-exist"}, []string{})
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{string(org1Anchor.Name), string(org3Anchor.Name), "does-not-exist"}, []string{})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
@@ -381,7 +468,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("filtering by space names", func() {
 				It("only retruns the spaces matching the specified names", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, info, []string{}, []string{"space1", "space3", "does-not-exist"})
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{}, []string{"space1", "space3", "does-not-exist"})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
@@ -403,7 +490,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("filtering by org guids and space names", func() {
 				It("only retruns the spaces matching the specified names", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, info, []string{string(org1Anchor.Name), string(org2Anchor.Name)}, []string{"space1", "space2", "space4"})
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{string(org1Anchor.Name), string(org2Anchor.Name)}, []string{"space1", "space2", "space4"})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
@@ -421,7 +508,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("filtering by space names that don't exist", func() {
 				It("only retruns the spaces matching the specified names", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, info, []string{}, []string{"does-not-exist", "still-does-not-exist"})
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{}, []string{"does-not-exist", "still-does-not-exist"})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(BeEmpty())
 				})
@@ -429,7 +516,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("filtering by org uids that don't exist", func() {
 				It("only retruns the spaces matching the specified names", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, info, []string{"does-not-exist", "still-does-not-exist"}, []string{})
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{"does-not-exist", "still-does-not-exist"}, []string{})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(BeEmpty())
 				})

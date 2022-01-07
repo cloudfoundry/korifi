@@ -42,6 +42,8 @@ var (
 	userName      string
 	authInfo      authorization.Info
 	rootNamespace string
+	idProvider    authorization.IdentityProvider
+	nsPerms       *authorization.NamespacePermissions
 )
 
 var _ = BeforeSuite(func() {
@@ -70,10 +72,6 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-
-	userName = generateGUID()
-	cert, key := helpers.ObtainClientCert(testEnv, userName)
-	authInfo.CertData = helpers.JoinCertAndKey(cert, key)
 })
 
 var _ = AfterSuite(func() {
@@ -81,7 +79,14 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
+	userName = generateGUID()
+	cert, key := helpers.ObtainClientCert(testEnv, userName)
+	authInfo.CertData = helpers.JoinCertAndKey(cert, key)
 	rootNamespace = prefixedGUID("root-ns")
+	tokenInspector := authorization.NewTokenReviewer(k8sClient)
+	certInspector := authorization.NewCertInspector(k8sConfig)
+	idProvider = authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
+	nsPerms = authorization.NewNamespacePermissions(k8sClient, idProvider, rootNamespace)
 })
 
 func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLabel string) (*hnsv1alpha2.SubnamespaceAnchor, *corev1.Namespace) {

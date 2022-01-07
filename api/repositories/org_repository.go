@@ -74,14 +74,24 @@ type SpaceRecord struct {
 type OrgRepo struct {
 	rootNamespace    string
 	privilegedClient client.WithWatch
+	nsPerms          *authorization.NamespacePermissions
 	timeout          time.Duration
+	authEnabled      bool
 }
 
-func NewOrgRepo(rootNamespace string, privilegedClient client.WithWatch, timeout time.Duration) *OrgRepo {
+func NewOrgRepo(
+	rootNamespace string,
+	privilegedClient client.WithWatch,
+	nsPerms *authorization.NamespacePermissions,
+	timeout time.Duration,
+	authEnabled bool,
+) *OrgRepo {
 	return &OrgRepo{
 		rootNamespace:    rootNamespace,
 		privilegedClient: privilegedClient,
+		nsPerms:          nsPerms,
 		timeout:          timeout,
+		authEnabled:      authEnabled,
 	}
 }
 
@@ -239,7 +249,25 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, names [
 		})
 	}
 
-	return records, nil
+	if !r.authEnabled {
+		return records, nil
+	}
+
+	authorizedNamespaces, err := r.nsPerms.GetAuthorizedOrgNamespaces(ctx, info)
+	if err != nil {
+		return nil, err
+	}
+
+	result := []OrgRecord{}
+	for _, org := range records {
+		if !authorizedNamespaces[org.GUID] {
+			continue
+		}
+
+		result = append(result, org)
+	}
+
+	return result, nil
 }
 
 func (r *OrgRepo) ListSpaces(ctx context.Context, info authorization.Info, organizationGUIDs, names []string) ([]SpaceRecord, error) {
@@ -289,7 +317,25 @@ func (r *OrgRepo) ListSpaces(ctx context.Context, info authorization.Info, organ
 		})
 	}
 
-	return records, nil
+	if !r.authEnabled {
+		return records, nil
+	}
+
+	authorizedNamespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, info)
+	if err != nil {
+		return nil, err
+	}
+
+	result := []SpaceRecord{}
+	for _, space := range records {
+		if !authorizedNamespaces[space.GUID] {
+			continue
+		}
+
+		result = append(result, space)
+	}
+
+	return result, nil
 }
 
 func matchFilter(filter map[string]struct{}, value string) bool {

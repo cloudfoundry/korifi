@@ -1,6 +1,7 @@
 package apis
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -22,23 +23,24 @@ const (
 	OrgsEndpoint = "/v3/organizations"
 )
 
-//counterfeiter:generate -o fake -fake-name OrgRepositoryProvider . OrgRepositoryProvider
+//counterfeiter:generate -o fake -fake-name OrgRepository . OrgRepository
 
-type OrgRepositoryProvider interface {
-	OrgRepoForRequest() (repositories.CFOrgRepository, error)
+type OrgRepository interface {
+	CreateOrg(ctx context.Context, info authorization.Info, org repositories.CreateOrgMessage) (repositories.OrgRecord, error)
+	ListOrgs(ctx context.Context, info authorization.Info, names []string) ([]repositories.OrgRecord, error)
 }
 
 type OrgHandler struct {
-	logger          logr.Logger
-	apiBaseURL      url.URL
-	orgRepoProvider OrgRepositoryProvider
+	logger     logr.Logger
+	apiBaseURL url.URL
+	orgRepo    OrgRepository
 }
 
-func NewOrgHandler(apiBaseURL url.URL, orgRepoProvider OrgRepositoryProvider) *OrgHandler {
+func NewOrgHandler(apiBaseURL url.URL, orgRepo OrgRepository) *OrgHandler {
 	return &OrgHandler{
-		logger:          controllerruntime.Log.WithName("Org Handler"),
-		apiBaseURL:      apiBaseURL,
-		orgRepoProvider: orgRepoProvider,
+		logger:     controllerruntime.Log.WithName("Org Handler"),
+		apiBaseURL: apiBaseURL,
+		orgRepo:    orgRepo,
 	}
 }
 
@@ -56,8 +58,15 @@ func (h *OrgHandler) orgCreateHandler(info authorization.Info, w http.ResponseWr
 	org := payload.ToMessage()
 	org.GUID = uuid.NewString()
 
-	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest()
+	record, err := h.orgRepo.CreateOrg(r.Context(), info, org)
 	if err != nil {
+		if workloads.HasErrorCode(err, workloads.DuplicateOrgNameError) {
+			errorDetail := fmt.Sprintf("Organization '%s' already exists.", org.Name)
+			h.logger.Info(errorDetail)
+			writeUnprocessableEntityError(w, errorDetail)
+			return
+		}
+
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to create org")
 			writeInvalidAuthErrorResponse(w)
@@ -72,20 +81,6 @@ func (h *OrgHandler) orgCreateHandler(info authorization.Info, w http.ResponseWr
 			return
 		}
 
-		h.logger.Error(err, "failed to create org repo for the authorization header")
-		writeUnknownErrorResponse(w)
-
-		return
-	}
-
-	record, err := orgRepo.CreateOrg(r.Context(), info, org)
-	if err != nil {
-		if workloads.HasErrorCode(err, workloads.DuplicateOrgNameError) {
-			errorDetail := fmt.Sprintf("Organization '%s' already exists.", org.Name)
-			h.logger.Info(errorDetail)
-			writeUnprocessableEntityError(w, errorDetail)
-			return
-		}
 		h.logger.Error(err, "Failed to create org", "Org Name", payload.Name)
 		writeUnknownErrorResponse(w)
 		return
@@ -108,15 +103,8 @@ func (h *OrgHandler) orgListHandler(info authorization.Info, w http.ResponseWrit
 		names = strings.Split(namesList, ",")
 	}
 
-	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest()
+	orgs, err := h.orgRepo.ListOrgs(ctx, info, names)
 	if err != nil {
-		if authorization.IsNotAuthenticated(err) {
-			h.logger.Error(err, "unauthorized to list orgs")
-			writeNotAuthenticatedErrorResponse(w)
-
-			return
-		}
-
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to list orgs")
 			writeInvalidAuthErrorResponse(w)
@@ -124,14 +112,13 @@ func (h *OrgHandler) orgListHandler(info authorization.Info, w http.ResponseWrit
 			return
 		}
 
-		h.logger.Error(err, "failed to create org repo for the authorization header")
-		writeUnknownErrorResponse(w)
+		if authorization.IsNotAuthenticated(err) {
+			h.logger.Error(err, "unauthorized to list orgs")
+			writeNotAuthenticatedErrorResponse(w)
 
-		return
-	}
+			return
+		}
 
-	orgs, err := orgRepo.ListOrgs(ctx, info, names)
-	if err != nil {
 		h.logger.Error(err, "failed to fetch orgs")
 		writeUnknownErrorResponse(w)
 
