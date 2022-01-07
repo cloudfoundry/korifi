@@ -20,6 +20,7 @@ import (
 
 const (
 	OrgsEndpoint = "/v3/organizations"
+	OrgPrefix    = "cforg-"
 )
 
 //counterfeiter:generate -o fake -fake-name OrgRepositoryProvider . OrgRepositoryProvider
@@ -54,7 +55,7 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	org := payload.ToMessage()
-	org.GUID = uuid.NewString()
+	org.GUID = OrgPrefix + uuid.NewString()
 
 	orgRepo, err := h.orgRepoProvider.OrgRepoForRequest(r)
 	if err != nil {

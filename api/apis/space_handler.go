@@ -20,6 +20,7 @@ import (
 
 const (
 	SpacesEndpoint = "/v3/spaces"
+	SpacePrefix    = "cfspace-"
 )
 
 //counterfeiter:generate -o fake -fake-name SpaceRepositoryProvider . SpaceRepositoryProvider
@@ -57,7 +58,7 @@ func (h *SpaceHandler) SpaceCreateHandler(w http.ResponseWriter, r *http.Request
 
 	space := payload.ToMessage(h.imageRegistrySecretName)
 	// TODO: Move this GUID generation down to the repository layer?
-	space.GUID = uuid.NewString()
+	space.GUID = SpacePrefix + uuid.NewString()
 
 	spaceRepo, err := h.spaceRepoProvider.SpaceRepoForRequest(r)
 	if err != nil {
