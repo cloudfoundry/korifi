@@ -7,7 +7,6 @@ import (
 	"sort"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -32,7 +31,6 @@ var _ = Describe("AppRepository", func() {
 		testCtx                context.Context
 		appRepo                *AppRepo
 		clientFactory          repositories.UserK8sClientFactory
-		identityProvider       authorization.IdentityProvider
 		org                    *v1alpha2.SubnamespaceAnchor
 		space1, space2, space3 *v1alpha2.SubnamespaceAnchor
 		cfApp1, cfApp2, cfApp3 *workloadsv1alpha1.CFApp
@@ -42,11 +40,7 @@ var _ = Describe("AppRepository", func() {
 		testCtx = context.Background()
 
 		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
-		tokenInspector := authorization.NewTokenReviewer(k8sClient)
-		certInspector := authorization.NewCertInspector(k8sConfig)
-		identityProvider = authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
-		authPerms := authorization.NewNamespacePermissions(k8sClient, identityProvider, rootNamespace)
-		appRepo = NewAppRepo(k8sClient, clientFactory, authPerms)
+		appRepo = NewAppRepo(k8sClient, clientFactory, nsPerms)
 
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
 		Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())

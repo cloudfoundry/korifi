@@ -209,7 +209,7 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 	}
 
 	var filteredApps []workloadsv1alpha1.CFApp
-	for _, ns := range nsList {
+	for ns := range nsList {
 		appList := &workloadsv1alpha1.CFAppList{}
 		err := userClient.List(ctx, appList, client.InNamespace(ns))
 		if k8serrors.IsForbidden(err) {

@@ -16,7 +16,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	repositoriesfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 )
 
@@ -25,23 +24,20 @@ var _ = Describe("Spaces", func() {
 	const registryCredentialsSecretName = "image-registry-credentials"
 
 	var (
-		now               time.Time
-		spaceHandler      *apis.SpaceHandler
-		spaceRepo         *repositoriesfake.CFSpaceRepository
-		spaceRepoProvider *fake.SpaceRepositoryProvider
-		requestMethod     string
-		requestBody       string
-		requestPath       string
+		now           time.Time
+		spaceHandler  *apis.SpaceHandler
+		spaceRepo     *fake.SpaceRepository
+		requestMethod string
+		requestBody   string
+		requestPath   string
 	)
 
 	BeforeEach(func() {
 		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
 		requestBody = ""
 		requestPath = spacesBase
-		spaceRepo = new(repositoriesfake.CFSpaceRepository)
-		spaceRepoProvider = new(fake.SpaceRepositoryProvider)
-		spaceRepoProvider.SpaceRepoForRequestReturns(spaceRepo, nil)
-		spaceHandler = apis.NewSpaceHandler(*serverURL, registryCredentialsSecretName, spaceRepoProvider)
+		spaceRepo = new(fake.SpaceRepository)
+		spaceHandler = apis.NewSpaceHandler(*serverURL, registryCredentialsSecretName, spaceRepo)
 		spaceHandler.RegisterRoutes(router)
 	})
 
@@ -115,7 +111,7 @@ var _ = Describe("Spaces", func() {
 
 		When("authentication is invalid", func() {
 			BeforeEach(func() {
-				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.InvalidAuthError{})
+				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, authorization.InvalidAuthError{})
 			})
 
 			It("returns Unauthorized error", func() {
@@ -134,7 +130,7 @@ var _ = Describe("Spaces", func() {
 
 		When("authentication is not provided", func() {
 			BeforeEach(func() {
-				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.NotAuthenticatedError{})
+				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, authorization.NotAuthenticatedError{})
 			})
 
 			It("returns Unauthorized error", func() {
@@ -144,7 +140,7 @@ var _ = Describe("Spaces", func() {
 
 		When("providing the space repository fails", func() {
 			BeforeEach(func() {
-				spaceRepoProvider.SpaceRepoForRequestReturns(nil, errors.New("space-repo-provisioning-failed"))
+				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, errors.New("space-repo-provisioning-failed"))
 			})
 
 			It("returns unknown error", func() {
@@ -321,7 +317,7 @@ var _ = Describe("Spaces", func() {
 
 		When("authentication is invalid", func() {
 			BeforeEach(func() {
-				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.InvalidAuthError{})
+				spaceRepo.ListSpacesReturns(nil, authorization.InvalidAuthError{})
 			})
 
 			It("returns Unauthorized error", func() {
@@ -340,7 +336,7 @@ var _ = Describe("Spaces", func() {
 
 		When("authentication is not provided", func() {
 			BeforeEach(func() {
-				spaceRepoProvider.SpaceRepoForRequestReturns(nil, authorization.NotAuthenticatedError{})
+				spaceRepo.ListSpacesReturns(nil, authorization.NotAuthenticatedError{})
 			})
 
 			It("returns Unauthorized error", func() {
@@ -350,7 +346,7 @@ var _ = Describe("Spaces", func() {
 
 		When("providing the space repository fails", func() {
 			BeforeEach(func() {
-				spaceRepoProvider.SpaceRepoForRequestReturns(nil, errors.New("space-repo-provisioning-failed"))
+				spaceRepo.ListSpacesReturns(nil, errors.New("space-repo-provisioning-failed"))
 			})
 
 			It("returns unknown error", func() {

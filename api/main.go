@@ -19,7 +19,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/provider"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
@@ -101,7 +100,7 @@ func main() {
 		repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
 	)
 
-	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout)
+	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, nsPermissions, createTimeout, config.AuthEnabled)
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
 		apis.NewRootHandler(
@@ -171,9 +170,9 @@ func main() {
 		),
 		apis.NewLogCacheHandler(),
 
-		apis.NewOrgHandler(*serverURL, wireOrgRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, identityProvider, config.RootNamespace)),
+		apis.NewOrgHandler(*serverURL, orgRepo),
 		// TODO: Pass through config.PackageRegistrySecretName here (do we use the SpaceRepoProvider or the Handler?
-		apis.NewSpaceHandler(*serverURL, config.PackageRegistrySecretName, wireSpaceRepoProvider(orgRepo, privilegedCRClient, config.AuthEnabled, identityProvider, config.RootNamespace)),
+		apis.NewSpaceHandler(*serverURL, config.PackageRegistrySecretName, orgRepo),
 
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
@@ -184,7 +183,7 @@ func main() {
 				repositories.NewProcessRepo(privilegedCRClient),
 				repositories.NewRouteRepo(privilegedCRClient),
 			).Invoke,
-			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, createTimeout),
+			orgRepo,
 		),
 
 		apis.NewRoleHandler(*serverURL, repositories.NewRoleRepo(privilegedCRClient, authorization.NewNamespacePermissions(privilegedCRClient, identityProvider, config.RootNamespace), config.RoleMappings)),
@@ -225,36 +224,6 @@ func newRegistryAuthBuilder(privilegedK8sClient k8sclient.Interface, config *con
 
 		return remote.WithAuthFromKeychain(keychain), nil
 	}
-}
-
-func wireOrgRepoProvider(
-	orgRepo *repositories.OrgRepo,
-	client client.Client,
-	authEnabled bool,
-	identityProvider authorization.IdentityProvider,
-	rootNamespace string,
-) apis.OrgRepositoryProvider {
-	if !authEnabled {
-		return provider.NewPrivilegedOrg(orgRepo)
-	}
-
-	authNsProvider := authorization.NewNamespacePermissions(client, identityProvider, rootNamespace)
-	return provider.NewOrg(orgRepo, authNsProvider)
-}
-
-func wireSpaceRepoProvider(
-	orgRepo *repositories.OrgRepo,
-	client client.Client,
-	authEnabled bool,
-	identityProvider authorization.IdentityProvider,
-	rootNamespace string,
-) apis.SpaceRepositoryProvider {
-	if !authEnabled {
-		return provider.NewPrivilegedSpace(orgRepo)
-	}
-
-	authNsProvider := authorization.NewNamespacePermissions(client, identityProvider, rootNamespace)
-	return provider.NewSpace(orgRepo, authNsProvider)
 }
 
 func wireIdentityProvider(client client.Client, restConfig *rest.Config) authorization.IdentityProvider {

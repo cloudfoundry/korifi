@@ -19,7 +19,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	repositoriesfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 )
 
@@ -30,20 +29,17 @@ const (
 
 var _ = Describe("OrgHandler", func() {
 	var (
-		orgHandler      *apis.OrgHandler
-		orgRepoProvider *fake.OrgRepositoryProvider
-		orgRepo         *repositoriesfake.CFOrgRepository
-		now             time.Time
+		orgHandler *apis.OrgHandler
+		orgRepo    *fake.OrgRepository
+		now        time.Time
 	)
 
 	BeforeEach(func() {
 		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
 
-		orgRepoProvider = new(fake.OrgRepositoryProvider)
-		orgRepo = new(repositoriesfake.CFOrgRepository)
-		orgRepoProvider.OrgRepoForRequestReturns(orgRepo, nil)
+		orgRepo = new(fake.OrgRepository)
 
-		orgHandler = apis.NewOrgHandler(*serverURL, orgRepoProvider)
+		orgHandler = apis.NewOrgHandler(*serverURL, orgRepo)
 		orgHandler.RegisterRoutes(router)
 	})
 
@@ -265,7 +261,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("authentication is invalid", func() {
 			BeforeEach(func() {
-				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.InvalidAuthError{})
+				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, authorization.InvalidAuthError{})
 				makePostRequest(`{"name": "the-org"}`)
 			})
 
@@ -285,7 +281,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("authentication is not provided", func() {
 			BeforeEach(func() {
-				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.NotAuthenticatedError{})
+				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, authorization.NotAuthenticatedError{})
 				makePostRequest(`{"name": "the-org"}`)
 			})
 
@@ -296,7 +292,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("providing the repository fails", func() {
 			BeforeEach(func() {
-				orgRepoProvider.OrgRepoForRequestReturns(nil, errors.New("boom"))
+				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, errors.New("boom!"))
 				makePostRequest(`{"name": "the-org"}`)
 			})
 
@@ -350,10 +346,6 @@ var _ = Describe("OrgHandler", func() {
 
 			It("sets json content type", func() {
 				Expect(rr.Header().Get("Content-Type")).To(Equal("application/json"))
-			})
-
-			It("creates org repository for the request", func() {
-				Expect(orgRepoProvider.OrgRepoForRequestCallCount()).To(Equal(1))
 			})
 
 			It("lists orgs using the repository", func() {
@@ -450,7 +442,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("authentication is invalid", func() {
 			BeforeEach(func() {
-				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.InvalidAuthError{})
+				orgRepo.ListOrgsReturns(nil, authorization.InvalidAuthError{})
 				router.ServeHTTP(rr, req)
 			})
 
@@ -470,7 +462,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("authentication is not provided", func() {
 			BeforeEach(func() {
-				orgRepoProvider.OrgRepoForRequestReturns(nil, authorization.NotAuthenticatedError{})
+				orgRepo.ListOrgsReturns(nil, authorization.NotAuthenticatedError{})
 				router.ServeHTTP(rr, req)
 			})
 
@@ -481,7 +473,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("providing the repository fails", func() {
 			BeforeEach(func() {
-				orgRepoProvider.OrgRepoForRequestReturns(nil, errors.New("boom"))
+				orgRepo.ListOrgsReturns(nil, errors.New("boom"))
 				router.ServeHTTP(rr, req)
 			})
 
