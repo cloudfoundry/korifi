@@ -177,7 +177,7 @@ func createOrg(orgName, authHeader string) presenter.OrgResponse {
 }
 
 func createSpaceRaw(spaceName, orgGUID, authHeader string) (*http.Response, error) {
-	spacesURL := apiServerRoot + apis.SpacesEndpoint
+	spacesURL := apiServerRoot + apis.SpaceCreateEndpoint
 	payload := payloads.SpaceCreate{
 		Name: spaceName,
 		Relationships: payloads.SpaceRelationships{

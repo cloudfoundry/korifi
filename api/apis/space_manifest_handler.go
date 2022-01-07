@@ -101,7 +101,7 @@ func (h *SpaceManifestHandler) validateSpaceVisible(hf AuthAwareHandlerFunc) Aut
 		spaceGUID := vars["spaceGUID"]
 		w.Header().Set("Content-Type", "application/json")
 
-		spaces, err := h.spaceRepo.ListSpaces(r.Context(), info, []string{}, []string{})
+		spaces, err := h.spaceRepo.ListSpaces(r.Context(), info, repositories.ListSpacesMessage{})
 		if err != nil {
 			h.logger.Error(err, "Failed to list spaces")
 			writeUnknownErrorResponse(w)

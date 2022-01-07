@@ -212,7 +212,7 @@ func getSpacesWithQueryFn(authHeaderValue string, query map[string]string) func(
 			return nil, err
 		}
 
-		spacesUrl.Path = apis.SpacesEndpoint
+		spacesUrl.Path = apis.SpaceListEndpoint
 		values := url.Values{}
 		for key, val := range query {
 			values.Set(key, val)

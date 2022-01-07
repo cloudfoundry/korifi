@@ -56,7 +56,8 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#spaces
 | Resource | Endpoint |
 |--|--|
 | List Spaces | GET /v3/spaces |
-| Create Spaces | POST /v3/spaces |
+| Create Space | POST /v3/spaces |
+| Delete Space | [DELETE /v3/spaces/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#delete-a-space) |
 
 #### [List Spaces](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-spaces)
 **Query Parameters:** Currently supports filtering by space `names` and `organization_guids`.
