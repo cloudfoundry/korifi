@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	JobGetEndpoint  = "/v3/jobs/{guid}"
-	syncSpacePrefix = "sync-space.apply_manifest-"
-	appDeletePrefix = "app.delete-"
+	JobGetEndpoint    = "/v3/jobs/{guid}"
+	syncSpacePrefix   = "sync-space.apply_manifest-"
+	appDeletePrefix   = "app.delete-"
+	spaceDeletePrefix = "space.delete-"
 )
 
 type JobHandler struct {
@@ -42,6 +43,8 @@ func (h *JobHandler) jobGetHandler(w http.ResponseWriter, r *http.Request) {
 		jobResponse = presenter.ForManifestApplyJob(jobGUID, spaceGUID, h.serverURL)
 	} else if strings.HasPrefix(jobGUID, appDeletePrefix) {
 		jobResponse = presenter.ForAppDeleteJob(jobGUID, h.serverURL)
+	} else if strings.HasPrefix(jobGUID, spaceDeletePrefix) {
+		jobResponse = presenter.ForSpaceDeleteJob(jobGUID, h.serverURL)
 	} else {
 		h.logger.Info("Invalid Job GUID")
 		writeNotFoundErrorResponse(w, "Job")

@@ -40,11 +40,19 @@ func ForManifestApplyJob(jobGUID string, spaceGUID string, baseURL url.URL) JobR
 }
 
 func ForAppDeleteJob(jobGUID string, baseURL url.URL) JobResponse {
+	return forDeleteJob(jobGUID, "app.delete", baseURL)
+}
+
+func ForSpaceDeleteJob(jobGUID string, baseURL url.URL) JobResponse {
+	return forDeleteJob(jobGUID, "space.delete", baseURL)
+}
+
+func forDeleteJob(jobGUID string, operation string, baseURL url.URL) JobResponse {
 	return JobResponse{
 		GUID:      jobGUID,
 		Errors:    nil,
 		Warnings:  nil,
-		Operation: "app.delete",
+		Operation: operation,
 		State:     "COMPLETE",
 		CreatedAt: "",
 		UpdatedAt: "",
