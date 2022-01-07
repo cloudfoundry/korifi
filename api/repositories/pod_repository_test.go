@@ -13,7 +13,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const eiriniLabelVersionKey = "workloads.cloudfoundry.org/version"
+const (
+	eiriniLabelVersionKey = "workloads.cloudfoundry.org/version"
+	cfProcessGuidKey      = "workloads.cloudfoundry.org/guid"
+)
 
 var _ = Describe("PodRepository", func() {
 	const (
@@ -27,6 +30,7 @@ var _ = Describe("PodRepository", func() {
 		podRepo         *PodRepo
 		ctx             context.Context
 		spaceGUID       string
+		processGUID     string
 		namespace       *corev1.Namespace
 		pod1            *corev1.Pod
 		pod2            *corev1.Pod
@@ -36,14 +40,15 @@ var _ = Describe("PodRepository", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		spaceGUID = uuid.NewString()
+		processGUID = uuid.NewString()
 		podRepo = NewPodRepo(k8sClient)
 		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}
 
 		Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 
-		pod1 = createPodDef(pod1Name, spaceGUID, appGUID, "0", "1")
-		pod2 = createPodDef(pod2Name, spaceGUID, appGUID, "1", "1")
-		podOtherVersion = createPodDef(podOtherVersionName, spaceGUID, appGUID, "1", "2")
+		pod1 = createPodDef(pod1Name, spaceGUID, appGUID, processGUID, "0", "1")
+		pod2 = createPodDef(pod2Name, spaceGUID, appGUID, processGUID, "1", "1")
+		podOtherVersion = createPodDef(podOtherVersionName, spaceGUID, appGUID, processGUID, "1", "2")
 	})
 
 	AfterEach(func() {
@@ -63,7 +68,7 @@ var _ = Describe("PodRepository", func() {
 			Expect(k8sClient.Create(ctx, pod2)).To(Succeed())
 			Expect(k8sClient.Create(ctx, podOtherVersion)).To(Succeed())
 
-			pod3 := createPodDef(pod3Name, spaceGUID, uuid.NewString(), "0", "1")
+			pod3 := createPodDef(pod3Name, spaceGUID, uuid.NewString(), processGUID, "0", "1")
 			Expect(k8sClient.Create(ctx, pod3)).To(Succeed())
 
 			pod1.Status = corev1.PodStatus{
@@ -85,6 +90,7 @@ var _ = Describe("PodRepository", func() {
 				message = ListPodStatsMessage{
 					Namespace:   spaceGUID,
 					AppGUID:     "the-app-guid",
+					ProcessGUID: processGUID,
 					Instances:   2,
 					ProcessType: "web",
 					AppRevision: "1",
@@ -116,6 +122,7 @@ var _ = Describe("PodRepository", func() {
 				message = ListPodStatsMessage{
 					Namespace:   spaceGUID,
 					AppGUID:     "the-app-guid",
+					ProcessGUID: processGUID,
 					Instances:   3,
 					ProcessType: "web",
 					AppRevision: "1",
@@ -152,12 +159,13 @@ var _ = Describe("PodRepository", func() {
 				message = ListPodStatsMessage{
 					Namespace:   spaceGUID,
 					AppGUID:     "the-app-guid",
+					ProcessGUID: processGUID,
 					Instances:   3,
 					ProcessType: "web",
 					AppRevision: "1",
 				}
 
-				pod3 := createPodDef(pod4Name, spaceGUID, appGUID, "2", "1")
+				pod3 := createPodDef(pod4Name, spaceGUID, appGUID, processGUID, "2", "1")
 				Expect(k8sClient.Create(ctx, pod3)).To(Succeed())
 
 				pod3.Status = corev1.PodStatus{
@@ -201,9 +209,28 @@ var _ = Describe("PodRepository", func() {
 			})
 		})
 	})
+
+	When("A process has zero instances", func() {
+		It("fetches no pods", func() {
+			message := ListPodStatsMessage{
+				Namespace:   spaceGUID,
+				AppGUID:     "the-app-guid",
+				ProcessGUID: uuid.NewString(),
+				Instances:   0,
+				ProcessType: "web",
+				AppRevision: "1",
+			}
+			records, err := podRepo.ListPodStats(ctx, authInfo, message)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(records).To(HaveLen(0))
+			Expect(records).To(ConsistOf(
+				[]PodStatsRecord{},
+			))
+		})
+	})
 })
 
-func createPodDef(name, namespace, appGUID, index, version string) *corev1.Pod {
+func createPodDef(name, namespace, appGUID, processGUID, index, version string) *corev1.Pod {
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
@@ -215,6 +242,7 @@ func createPodDef(name, namespace, appGUID, index, version string) *corev1.Pod {
 			Labels: map[string]string{
 				workloadsv1alpha1.CFAppGUIDLabelKey: appGUID,
 				eiriniLabelVersionKey:               version,
+				cfProcessGuidKey:                    processGUID,
 			},
 		},
 		Spec: corev1.PodSpec{

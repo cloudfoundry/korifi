@@ -38,9 +38,10 @@ func (a *FetchProcessStats) Invoke(ctx context.Context, authInfo authorization.I
 	message := repositories.ListPodStatsMessage{
 		Namespace:   processRecord.SpaceGUID,
 		AppGUID:     processRecord.AppGUID,
-		Instances:   processRecord.DesiredInstances,
-		ProcessType: processRecord.Type,
 		AppRevision: appRecord.Revision,
+		Instances:   processRecord.DesiredInstances,
+		ProcessGUID: processRecord.GUID,
+		ProcessType: processRecord.Type,
 	}
 	return a.podRepo.ListPodStats(ctx, authInfo, message)
 }
