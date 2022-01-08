@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 const (
 	processesBase = "/v3/processes"
+	processPrefix = "cfprocess-"
 )
 
 type ProcessResponse struct {
@@ -94,8 +96,10 @@ type ProcessResponseProcessHealthCheckData struct {
 }
 
 func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) ProcessResponse {
+	processGUID := strings.TrimPrefix(responseProcess.GUID, processPrefix)
+	spaceGUID := strings.TrimPrefix(responseProcess.SpaceGUID, spacePrefix)
 	return ProcessResponse{
-		GUID:        responseProcess.GUID,
+		GUID:        processGUID,
 		Type:        responseProcess.Type,
 		Command:     responseProcess.Command,
 		Instances:   responseProcess.DesiredInstances,
@@ -125,20 +129,20 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 		UpdatedAt: responseProcess.UpdatedAt,
 		Links: ProcessLinks{
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID).build(),
+				HREF: buildURL(baseURL).appendPath(processesBase, processGUID).build(),
 			},
 			Scale: Link{
-				HREF:   buildURL(baseURL).appendPath(processesBase, responseProcess.GUID, "actions", "scale").build(),
+				HREF:   buildURL(baseURL).appendPath(processesBase, processGUID, "actions", "scale").build(),
 				Method: http.MethodPost,
 			},
 			App: Link{
 				HREF: buildURL(baseURL).appendPath(appsBase, responseProcess.AppGUID).build(),
 			},
 			Space: Link{
-				HREF: buildURL(baseURL).appendPath(spacesBase, responseProcess.SpaceGUID).build(),
+				HREF: buildURL(baseURL).appendPath(spacesBase, spaceGUID).build(),
 			},
 			Stats: Link{
-				HREF: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID, "stats").build(),
+				HREF: buildURL(baseURL).appendPath(processesBase, processGUID, "stats").build(),
 			},
 		},
 	}

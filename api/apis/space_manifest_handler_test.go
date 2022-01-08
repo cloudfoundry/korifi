@@ -32,15 +32,15 @@ var _ = Describe("SpaceManifestHandler", func() {
 		spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
 			{
 				Name:             "my-test-space",
-				GUID:             spaceGUID,
-				OrganizationGUID: "org-guid-1",
+				GUID:             "cfspace-" + spaceGUID,
+				OrganizationGUID: "cforg-org-guid-1",
 				CreatedAt:        now,
 				UpdatedAt:        now,
 			},
 			{
 				Name:             "bob",
-				GUID:             "b-o-b",
-				OrganizationGUID: "org-guid-2",
+				GUID:             "cfspace-b-o-b",
+				OrganizationGUID: "cforg-org-guid-2",
 				CreatedAt:        now,
 				UpdatedAt:        now,
 			},
@@ -131,8 +131,9 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 			It("passes the authInfo from context to applyManifestAction", func() {
 				Expect(applyManifestAction.CallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _ := applyManifestAction.ArgsForCall(0)
+				_, actualAuthInfo, actualSpaceGUID, _ := applyManifestAction.ArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualSpaceGUID).To(Equal("cfspace-" + spaceGUID))
 			})
 
 			It("creates the record without erroring", func() {

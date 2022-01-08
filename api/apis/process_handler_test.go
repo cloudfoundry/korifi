@@ -72,8 +72,8 @@ var _ = Describe("ProcessHandler", func() {
 
 		BeforeEach(func() {
 			processRepo.GetProcessReturns(repositories.ProcessRecord{
-				GUID:             processGUID,
-				SpaceGUID:        spaceGUID,
+				GUID:             "cfprocess-" + processGUID,
+				SpaceGUID:        "cfspace-" + spaceGUID,
 				AppGUID:          appGUID,
 				CreatedAt:        createdAt,
 				UpdatedAt:        updatedAt,
@@ -208,10 +208,11 @@ var _ = Describe("ProcessHandler", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
 
-			It("passes the authorization.Info to the process repository", func() {
+			It("passes the authorization.Info and annotated GUID to the process repository", func() {
 				Expect(processRepo.GetProcessCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := processRepo.GetProcessArgsForCall(0)
+				_, actualAuthInfo, actualProcGUID := processRepo.GetProcessArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualProcGUID).To(Equal("cfprocess-" + processGUID))
 			})
 
 			It("returns a canned response with the processGUID in it", func() {

@@ -23,6 +23,7 @@ const (
 	ProcessScaleEndpoint       = "/v3/processes/{guid}/actions/scale"
 	ProcessGetStatsEndpoint    = "/v3/processes/{guid}/stats"
 	ProcessListEndpoint        = "/v3/processes"
+	ProcessPrefix              = "cfprocess-"
 )
 
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
@@ -73,7 +74,7 @@ func (h *ProcessHandler) processGetHandler(authInfo authorization.Info, w http.R
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
-	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
+	process, err := h.processRepo.GetProcess(ctx, authInfo, ProcessPrefix+processGUID)
 	if err != nil {
 		h.logError(w, processGUID, err)
 		return
@@ -93,7 +94,7 @@ func (h *ProcessHandler) processGetSidecarsHandler(authInfo authorization.Info, 
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
-	_, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
+	_, err := h.processRepo.GetProcess(ctx, authInfo, ProcessPrefix+processGUID)
 	if err != nil {
 		h.logError(w, processGUID, err)
 		return
@@ -130,7 +131,7 @@ func (h *ProcessHandler) processScaleHandler(authInfo authorization.Info, w http
 		return
 	}
 
-	processRecord, err := h.scaleProcess(ctx, authInfo, processGUID, payload.ToRecord())
+	processRecord, err := h.scaleProcess(ctx, authInfo, ProcessPrefix+processGUID, payload.ToRecord())
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -158,7 +159,7 @@ func (h *ProcessHandler) processGetStatsHandler(authInfo authorization.Info, w h
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
-	records, err := h.fetchProcessStats(ctx, authInfo, processGUID)
+	records, err := h.fetchProcessStats(ctx, authInfo, ProcessPrefix+processGUID)
 	if err != nil {
 		h.logError(w, processGUID, err)
 		return

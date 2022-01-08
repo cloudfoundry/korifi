@@ -1,6 +1,10 @@
 package payloads
 
-import "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+import (
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+)
+
+const orgPrefix = "cforg-"
 
 type SpaceCreate struct {
 	Name          string             `json:"name" validate:"required"`
@@ -15,7 +19,7 @@ type SpaceRelationships struct {
 func (p SpaceCreate) ToMessage(imageRegistryCredentialSecret string) repositories.CreateSpaceMessage {
 	return repositories.CreateSpaceMessage{
 		Name:                     p.Name,
-		OrganizationGUID:         p.Relationships.Org.Data.GUID,
+		OrganizationGUID:         orgPrefix + p.Relationships.Org.Data.GUID,
 		ImageRegistryCredentials: imageRegistryCredentialSecret,
 	}
 }

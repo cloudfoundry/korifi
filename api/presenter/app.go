@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
@@ -49,7 +50,7 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 		Relationships: Relationships{
 			"space": Relationship{
 				Data: &RelationshipData{
-					GUID: responseApp.SpaceGUID,
+					GUID: strings.TrimPrefix(responseApp.SpaceGUID, spacePrefix),
 				},
 			},
 		},
@@ -69,7 +70,7 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID).build(),
 			},
 			Space: Link{
-				HREF: buildURL(baseURL).appendPath(spacesBase, responseApp.SpaceGUID).build(),
+				HREF: buildURL(baseURL).appendPath(spacesBase, strings.TrimPrefix(responseApp.SpaceGUID, spacePrefix)).build(),
 			},
 			Processes: Link{
 				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "processes").build(),

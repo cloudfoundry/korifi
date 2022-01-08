@@ -104,8 +104,8 @@ func (h *SpaceHandler) SpaceListHandler(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
-	orgUIDs := parseCommaSeparatedList(r.URL.Query().Get("organization_guids"))
-	names := parseCommaSeparatedList(r.URL.Query().Get("names"))
+	orgUIDs := parseCommaSeparatedList(r.URL.Query().Get("organization_guids"), OrgPrefix)
+	names := parseCommaSeparatedList(r.URL.Query().Get("names"), "")
 
 	spaceRepo, err := h.spaceRepoProvider.SpaceRepoForRequest(r)
 	if err != nil {
@@ -146,11 +146,11 @@ func (h *SpaceHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(SpacesEndpoint).Methods("POST").HandlerFunc(h.SpaceCreateHandler)
 }
 
-func parseCommaSeparatedList(list string) []string {
+func parseCommaSeparatedList(list, prefix string) []string {
 	var elements []string
 	for _, element := range strings.Split(list, ",") {
 		if element != "" {
-			elements = append(elements, element)
+			elements = append(elements, prefix+element)
 		}
 	}
 

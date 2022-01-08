@@ -61,7 +61,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info,
 		return
 	}
 
-	err := h.applyManifestAction(r.Context(), authInfo, spaceGUID, manifest)
+	err := h.applyManifestAction(r.Context(), authInfo, SpacePrefix+spaceGUID, manifest)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		h.logger.Error(err, "error applying the manifest")
@@ -98,7 +98,7 @@ func decodeAndValidateYAMLPayload(r *http.Request, object interface{}) *requestM
 func (h *SpaceManifestHandler) validateSpaceVisible(hf http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		spaceGUID := vars["spaceGUID"]
+		spaceGUID := SpacePrefix + vars["spaceGUID"]
 		w.Header().Set("Content-Type", "application/json")
 
 		spaces, err := h.spaceRepo.ListSpaces(r.Context(), []string{}, []string{})

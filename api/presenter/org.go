@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -9,8 +10,10 @@ import (
 
 const (
 	// TODO: repetition with handler endpoint?
-	orgsBase   = "/v3/organizations"
-	spacesBase = "/v3/spaces"
+	orgsBase    = "/v3/organizations"
+	spacesBase  = "/v3/spaces"
+	spacePrefix = "cfspace-"
+	orgPrefix   = "cforg-"
 )
 
 type OrgResponse struct {
@@ -74,9 +77,10 @@ func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL, requestURL url.
 }
 
 func toSpaceResponse(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceResponse {
+
 	return SpaceResponse{
 		Name:      space.Name,
-		GUID:      space.GUID,
+		GUID:      strings.TrimPrefix(space.GUID, spacePrefix),
 		CreatedAt: space.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt: space.CreatedAt.UTC().Format(time.RFC3339),
 		Metadata: Metadata{
@@ -86,25 +90,26 @@ func toSpaceResponse(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceRe
 		Relationships: Relationships{
 			"organization": Relationship{
 				Data: &RelationshipData{
-					GUID: space.OrganizationGUID,
+					GUID: strings.TrimPrefix(space.OrganizationGUID, orgPrefix),
 				},
 			},
 		},
 		Links: SpaceLinks{
 			Self: &Link{
-				HREF: buildURL(apiBaseURL).appendPath(spacesBase, space.GUID).build(),
+				HREF: buildURL(apiBaseURL).appendPath(spacesBase, strings.TrimPrefix(space.GUID, spacePrefix)).build(),
 			},
 			Organization: &Link{
-				HREF: buildURL(apiBaseURL).appendPath(orgsBase, space.OrganizationGUID).build(),
+				HREF: buildURL(apiBaseURL).appendPath(orgsBase, strings.TrimPrefix(space.OrganizationGUID, orgPrefix)).build(),
 			},
 		},
 	}
 }
 
 func toOrgResponse(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
+
 	return OrgResponse{
 		Name:      org.Name,
-		GUID:      org.GUID,
+		GUID:      strings.TrimPrefix(org.GUID, orgPrefix),
 		CreatedAt: org.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt: org.CreatedAt.UTC().Format(time.RFC3339),
 		Suspended: org.Suspended,
@@ -115,7 +120,7 @@ func toOrgResponse(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
 		Relationships: Relationships{},
 		Links: OrgLinks{
 			Self: &Link{
-				HREF: buildURL(apiBaseURL).appendPath(orgsBase, org.GUID).build(),
+				HREF: buildURL(apiBaseURL).appendPath(orgsBase, strings.TrimPrefix(org.GUID, orgPrefix)).build(),
 			},
 		},
 	}

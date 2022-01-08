@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -50,16 +51,18 @@ func toRoleResponse(role repositories.RoleRecord, apiBaseURL url.URL) RoleRespon
 	}
 
 	if role.Org != "" {
-		resp.Relationships["organization"] = Relationship{Data: &RelationshipData{GUID: role.Org}}
+		orgGUID := strings.TrimPrefix(role.Org, orgPrefix)
+		resp.Relationships["organization"] = Relationship{Data: &RelationshipData{GUID: orgGUID}}
 		resp.Links.Organization = &Link{
-			HREF: buildURL(apiBaseURL).appendPath(orgsBase, role.Org).build(),
+			HREF: buildURL(apiBaseURL).appendPath(orgsBase, orgGUID).build(),
 		}
 	}
 
 	if role.Space != "" {
-		resp.Relationships["space"] = Relationship{Data: &RelationshipData{GUID: role.Space}}
+		spaceGUID := strings.TrimPrefix(role.Space, spacePrefix)
+		resp.Relationships["space"] = Relationship{Data: &RelationshipData{GUID: spaceGUID}}
 		resp.Links.Space = &Link{
-			HREF: buildURL(apiBaseURL).appendPath(spacesBase, role.Space).build(),
+			HREF: buildURL(apiBaseURL).appendPath(spacesBase, spaceGUID).build(),
 		}
 	}
 

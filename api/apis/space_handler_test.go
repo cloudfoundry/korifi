@@ -58,8 +58,8 @@ var _ = Describe("Spaces", func() {
 
 			spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{
 				Name:             "the-space",
-				GUID:             "t-h-e-s-p-a-c-e",
-				OrganizationGUID: "the-org",
+				GUID:             "cfspace-t-h-e-s-p-a-c-e",
+				OrganizationGUID: "cforg-the-org",
 				CreatedAt:        now,
 				UpdatedAt:        now,
 			}, nil)
@@ -69,7 +69,7 @@ var _ = Describe("Spaces", func() {
                 "relationships": {
                     "organization": {
                         "data": {
-                            "guid": "[org-guid]"
+                            "guid": "the-org"
                         }
                     }
                 }
@@ -110,6 +110,7 @@ var _ = Describe("Spaces", func() {
 			Expect(spaceRepo.CreateSpaceCallCount()).To(Equal(1))
 			_, spaceRecord := spaceRepo.CreateSpaceArgsForCall(0)
 			Expect(spaceRecord.Name).To(Equal("the-space"))
+			Expect(spaceRecord.OrganizationGUID).To(Equal("cforg-the-org"))
 		})
 
 		When("authentication is invalid", func() {
@@ -226,15 +227,15 @@ var _ = Describe("Spaces", func() {
 			spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
 				{
 					Name:             "alice",
-					GUID:             "a-l-i-c-e",
-					OrganizationGUID: "org-guid-1",
+					GUID:             "cfspace-a-l-i-c-e",
+					OrganizationGUID: "cforg-org-guid-1",
 					CreatedAt:        now,
 					UpdatedAt:        now,
 				},
 				{
 					Name:             "bob",
-					GUID:             "b-o-b",
-					OrganizationGUID: "org-guid-2",
+					GUID:             "cfspace-b-o-b",
+					OrganizationGUID: "cforg-org-guid-2",
 					CreatedAt:        now,
 					UpdatedAt:        now,
 				},
@@ -374,7 +375,7 @@ var _ = Describe("Spaces", func() {
 			It("filters spaces by them", func() {
 				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
 				_, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
-				Expect(organizationGUIDs).To(ConsistOf("foo", "bar"))
+				Expect(organizationGUIDs).To(ConsistOf("cforg-foo", "cforg-bar"))
 				Expect(names).To(BeEmpty())
 			})
 		})
@@ -387,7 +388,7 @@ var _ = Describe("Spaces", func() {
 			It("filters spaces by them", func() {
 				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
 				_, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
-				Expect(organizationGUIDs).To(ConsistOf("org1"))
+				Expect(organizationGUIDs).To(ConsistOf("cforg-org1"))
 				Expect(names).To(ConsistOf("foo", "bar"))
 			})
 		})

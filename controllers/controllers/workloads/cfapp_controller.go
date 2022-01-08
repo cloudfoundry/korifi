@@ -28,7 +28,7 @@ const (
 	processHealthCheckType    = "process"
 	processTypeWeb            = "web"
 	finalizerName             = "cfApp.workloads.cloudfoundry.org"
-	appPrefix                 = "cfapp-"
+	processPrefix             = "cfprocess-"
 )
 
 // CFAppReconciler reconciles a CFApp object
@@ -132,7 +132,7 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 func (r *CFAppReconciler) createCFProcess(ctx context.Context, process workloadsv1alpha1.ProcessType, ports []int32, cfApp *workloadsv1alpha1.CFApp) error {
-	cfProcessGUID := appPrefix + generateGUID()
+	cfProcessGUID := processPrefix + generateGUID()
 
 	desiredCFProcess := workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{

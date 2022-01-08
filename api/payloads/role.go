@@ -5,6 +5,10 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
+const (
+	spacePrefix = "cfspace-"
+)
+
 type RoleCreate struct {
 	Type          string            `json:"type" validate:"required"`
 	Relationships RoleRelationships `json:"relationships" validate:"required"`
@@ -32,11 +36,11 @@ func (p RoleCreate) ToMessage() repositories.CreateRoleMessage {
 	}
 
 	if p.Relationships.Space != nil {
-		record.Space = p.Relationships.Space.Data.GUID
+		record.Space = spacePrefix + p.Relationships.Space.Data.GUID
 	}
 
 	if p.Relationships.Organization != nil {
-		record.Org = p.Relationships.Organization.Data.GUID
+		record.Org = orgPrefix + p.Relationships.Organization.Data.GUID
 	}
 
 	if p.Relationships.User != nil {

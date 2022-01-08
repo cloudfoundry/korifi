@@ -60,7 +60,7 @@ var _ = Describe("OrgHandler", func() {
 			orgRepo.CreateOrgStub = func(_ context.Context, message repositories.CreateOrgMessage) (repositories.OrgRecord, error) {
 				record := repositories.OrgRecord{
 					Name:        message.Name,
-					GUID:        "t-h-e-o-r-g",
+					GUID:        "cforg-t-h-e-o-r-g",
 					Suspended:   message.Suspended,
 					Labels:      message.Labels,
 					Annotations: message.Annotations,
@@ -319,13 +319,13 @@ var _ = Describe("OrgHandler", func() {
 			orgRepo.ListOrgsReturns([]repositories.OrgRecord{
 				{
 					Name:      "alice",
-					GUID:      "a-l-i-c-e",
+					GUID:      "cforg-a-l-i-c-e",
 					CreatedAt: now,
 					UpdatedAt: now,
 				},
 				{
 					Name:      "bob",
-					GUID:      "b-o-b",
+					GUID:      "cforg-b-o-b",
 					CreatedAt: now,
 					UpdatedAt: now,
 				},

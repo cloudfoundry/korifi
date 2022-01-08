@@ -70,7 +70,7 @@ var _ = Describe("AppHandler", func() {
 			appRepo.GetAppReturns(repositories.AppRecord{
 				GUID:      appGUID,
 				Name:      "test-app",
-				SpaceGUID: spaceGUID,
+				SpaceGUID: "cfspace-" + spaceGUID,
 				State:     "STOPPED",
 				Lifecycle: repositories.Lifecycle{
 					Type: "buildpack",
