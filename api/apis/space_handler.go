@@ -20,14 +20,18 @@ import (
 )
 
 const (
-	SpacesEndpoint = "/v3/spaces"
+	SpaceCreateEndpoint = "/v3/spaces"
+	SpaceDeleteEnpoint  = "/v3/spaces/{guid}"
+	SpaceListEndpoint   = "/v3/spaces"
 )
 
 //counterfeiter:generate -o fake -fake-name SpaceRepository . SpaceRepository
 
 type SpaceRepository interface {
-	CreateSpace(ctx context.Context, info authorization.Info, space repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)
-	ListSpaces(ctx context.Context, info authorization.Info, orgUIDs []string, spaceNames []string) ([]repositories.SpaceRecord, error)
+	CreateSpace(context.Context, authorization.Info, repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)
+	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) ([]repositories.SpaceRecord, error)
+	GetSpace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
+	DeleteSpace(context.Context, authorization.Info, repositories.DeleteSpaceMessage) error
 }
 
 type SpaceHandler struct {
@@ -100,7 +104,10 @@ func (h *SpaceHandler) SpaceListHandler(info authorization.Info, w http.Response
 	orgUIDs := parseCommaSeparatedList(r.URL.Query().Get("organization_guids"))
 	names := parseCommaSeparatedList(r.URL.Query().Get("names"))
 
-	spaces, err := h.spaceRepo.ListSpaces(ctx, info, orgUIDs, names)
+	spaces, err := h.spaceRepo.ListSpaces(ctx, info, repositories.ListSpacesMessage{
+		OrganizationGUIDs: orgUIDs,
+		Names:             names,
+	})
 	if err != nil {
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to list spaces")
@@ -126,10 +133,77 @@ func (h *SpaceHandler) SpaceListHandler(info authorization.Info, w http.Response
 	writeResponse(w, http.StatusOK, spaceList)
 }
 
+func (h *SpaceHandler) spaceDeleteHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	spaceGUID := vars["guid"]
+
+	spaceRecord, err := h.spaceRepo.GetSpace(ctx, info, spaceGUID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+
+		if authorization.IsInvalidAuth(err) {
+			h.logger.Error(err, "unauthorized to get spaces")
+			writeInvalidAuthErrorResponse(w)
+
+			return
+		}
+
+		if authorization.IsNotAuthenticated(err) {
+			h.logger.Error(err, "unauthorized to get spaces")
+			writeNotAuthenticatedErrorResponse(w)
+
+			return
+		}
+
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("Space not found", "SpaceGUID", spaceGUID)
+			writeNotFoundErrorResponse(w, "Space")
+			return
+		default:
+			h.logger.Error(err, "Failed to fetch space", "SpaceGUID", spaceGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	deleteSpaceMessage := repositories.DeleteSpaceMessage{
+		GUID:             spaceRecord.GUID,
+		OrganizationGUID: spaceRecord.OrganizationGUID,
+	}
+	err = h.spaceRepo.DeleteSpace(ctx, info, deleteSpaceMessage)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+
+		if authorization.IsInvalidAuth(err) {
+			h.logger.Error(err, "unauthorized to delete spaces")
+			writeInvalidAuthErrorResponse(w)
+
+			return
+		}
+
+		if authorization.IsNotAuthenticated(err) {
+			h.logger.Error(err, "unauthorized to delete spaces")
+			writeNotAuthenticatedErrorResponse(w)
+
+			return
+		}
+
+		h.logger.Error(err, "Failed to delete space", "SpaceGUID", spaceGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	w.Header().Set("Location", fmt.Sprintf("%s/v3/jobs/space.delete-%s", h.apiBaseURL.String(), spaceGUID))
+	writeResponse(w, http.StatusAccepted, "")
+}
+
 func (h *SpaceHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(SpacesEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.SpaceListHandler))
-	router.Path(SpacesEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.SpaceCreateHandler))
+	router.Path(SpaceListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.SpaceListHandler))
+	router.Path(SpaceCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.SpaceCreateHandler))
+	router.Path(SpaceDeleteEnpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.spaceDeleteHandler))
 }
 
 func parseCommaSeparatedList(list string) []string {

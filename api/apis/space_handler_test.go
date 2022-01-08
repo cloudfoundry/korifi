@@ -309,10 +309,10 @@ var _ = Describe("Spaces", func() {
             }`, defaultServerURL)))
 
 			Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
-			_, info, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
+			_, info, message := spaceRepo.ListSpacesArgsForCall(0)
 			Expect(info).To(Equal(authInfo))
-			Expect(organizationGUIDs).To(BeEmpty())
-			Expect(names).To(BeEmpty())
+			Expect(message.OrganizationGUIDs).To(BeEmpty())
+			Expect(message.Names).To(BeEmpty())
 		})
 
 		When("authentication is invalid", func() {
@@ -371,10 +371,10 @@ var _ = Describe("Spaces", func() {
 
 			It("filters spaces by them", func() {
 				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
-				_, info, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
+				_, info, message := spaceRepo.ListSpacesArgsForCall(0)
 				Expect(info).To(Equal(authInfo))
-				Expect(organizationGUIDs).To(ConsistOf("foo", "bar"))
-				Expect(names).To(BeEmpty())
+				Expect(message.OrganizationGUIDs).To(ConsistOf("foo", "bar"))
+				Expect(message.Names).To(BeEmpty())
 			})
 		})
 
@@ -385,10 +385,127 @@ var _ = Describe("Spaces", func() {
 
 			It("filters spaces by them", func() {
 				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
-				_, info, organizationGUIDs, names := spaceRepo.ListSpacesArgsForCall(0)
+				_, info, message := spaceRepo.ListSpacesArgsForCall(0)
 				Expect(info).To(Equal(authInfo))
-				Expect(organizationGUIDs).To(ConsistOf("org1"))
-				Expect(names).To(ConsistOf("foo", "bar"))
+				Expect(message.OrganizationGUIDs).To(ConsistOf("org1"))
+				Expect(message.Names).To(ConsistOf("foo", "bar"))
+			})
+		})
+	})
+
+	Describe("Deleting a Space", func() {
+		const (
+			spaceGUID = "spaceGUID"
+			orgGUID   = "orgGUID"
+		)
+
+		BeforeEach(func() {
+			requestMethod = http.MethodDelete
+			requestPath = spacesBase + "/" + spaceGUID
+
+			space := repositories.SpaceRecord{
+				GUID:             spaceGUID,
+				OrganizationGUID: orgGUID,
+			}
+
+			spaceRepo.GetSpaceReturns(space, nil)
+			spaceRepo.DeleteSpaceReturns(nil)
+		})
+
+		When("on the happy path", func() {
+			It("responds with a 202 accepted response", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+			})
+
+			It("responds with a job URL in a location header", func() {
+				Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/space.delete-"+spaceGUID))
+			})
+
+			It("fetches the right space", func() {
+				Expect(spaceRepo.GetSpaceCallCount()).To(Equal(1))
+				_, info, actualSpaceGUID := spaceRepo.GetSpaceArgsForCall(0)
+				Expect(info).To(Equal(authInfo))
+				Expect(actualSpaceGUID).To(Equal(spaceGUID))
+			})
+
+			It("deletes the K8s record via the repository", func() {
+				Expect(spaceRepo.DeleteSpaceCallCount()).To(Equal(1))
+				_, info, message := spaceRepo.DeleteSpaceArgsForCall(0)
+				Expect(info).To(Equal(authInfo))
+				Expect(message).To(Equal(repositories.DeleteSpaceMessage{
+					GUID:             spaceGUID,
+					OrganizationGUID: orgGUID,
+				}))
+			})
+		})
+
+		When("authentication is invalid", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, authorization.InvalidAuthError{})
+			})
+
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+	                "errors": [
+						{
+							"detail": "Invalid Auth Token",
+							"title": "CF-InvalidAuthToken",
+							"code": 1000
+						}
+	                ]
+	            }`))
+			})
+		})
+
+		When("authentication is not provided", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, authorization.NotAuthenticatedError{})
+			})
+
+			It("returns Unauthorized error", func() {
+				expectUnauthorizedError()
+			})
+		})
+
+		When("providing the space repository fails", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("space-repo-provisioning-failed"))
+			})
+
+			It("returns unknown error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the space doesn't exist", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Space not found")
+			})
+		})
+
+		When("fetching the space errors", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("deleting the space errors", func() {
+			BeforeEach(func() {
+				spaceRepo.DeleteSpaceReturns(errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})

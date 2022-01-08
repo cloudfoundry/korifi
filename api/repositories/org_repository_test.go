@@ -353,7 +353,7 @@ var _ = Describe("OrgRepository", func() {
 			})
 
 			It("returns the 6 spaces", func() {
-				spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{}, []string{})
+				spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(spaces).To(ConsistOf(
@@ -408,7 +408,7 @@ var _ = Describe("OrgRepository", func() {
 				})
 
 				It("includes spaces without role bindings", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{}, []string{})
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(spaces).To(HaveLen(7))
@@ -432,7 +432,7 @@ var _ = Describe("OrgRepository", func() {
 				})
 
 				It("does not list it", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{}, []string{})
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(spaces).NotTo(ContainElement(
@@ -449,7 +449,9 @@ var _ = Describe("OrgRepository", func() {
 
 			When("filtering by org guids", func() {
 				It("only retruns the spaces belonging to the specified org guids", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{string(org1Anchor.Name), string(org3Anchor.Name), "does-not-exist"}, []string{})
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
+						OrganizationGUIDs: []string{string(org1Anchor.Name), string(org3Anchor.Name), "does-not-exist"},
+					})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
@@ -467,8 +469,10 @@ var _ = Describe("OrgRepository", func() {
 			})
 
 			When("filtering by space names", func() {
-				It("only retruns the spaces matching the specified names", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{}, []string{"space1", "space3", "does-not-exist"})
+				It("only returns the spaces matching the specified names", func() {
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
+						Names: []string{"space1", "space3", "does-not-exist"},
+					})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
@@ -488,9 +492,11 @@ var _ = Describe("OrgRepository", func() {
 				})
 			})
 
-			When("filtering by org guids and space names", func() {
-				It("only retruns the spaces matching the specified names", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{string(org1Anchor.Name), string(org2Anchor.Name)}, []string{"space1", "space2", "space4"})
+			When("filtering by space guids", func() {
+				It("only returns the spaces matching the specified guids", func() {
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
+						GUIDs: []string{string(space11Anchor.Name), string(space21Anchor.Name), "does-not-exist"},
+					})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
@@ -501,14 +507,36 @@ var _ = Describe("OrgRepository", func() {
 							"Name":             Equal("space1"),
 							"OrganizationGUID": Equal(string(org2Anchor.Name)),
 						}),
-						MatchFields(IgnoreExtras, Fields{"Name": Equal("space2")}),
+					))
+				})
+			})
+
+			When("filtering by org guids, space names and space guids", func() {
+				It("only retruns the spaces matching the specified names", func() {
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
+						OrganizationGUIDs: []string{string(org1Anchor.Name), string(org2Anchor.Name)},
+						Names:             []string{"space1", "space2", "space4"},
+						GUIDs:             []string{string(space11Anchor.Name), string(space21Anchor.Name)},
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(spaces).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"Name":             Equal("space1"),
+							"OrganizationGUID": Equal(string(org1Anchor.Name)),
+						}),
+						MatchFields(IgnoreExtras, Fields{
+							"Name":             Equal("space1"),
+							"OrganizationGUID": Equal(string(org2Anchor.Name)),
+						}),
 					))
 				})
 			})
 
 			When("filtering by space names that don't exist", func() {
 				It("only retruns the spaces matching the specified names", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{}, []string{"does-not-exist", "still-does-not-exist"})
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
+						Names: []string{"does-not-exist", "still-does-not-exist"},
+					})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(BeEmpty())
 				})
@@ -516,9 +544,99 @@ var _ = Describe("OrgRepository", func() {
 
 			When("filtering by org uids that don't exist", func() {
 				It("only retruns the spaces matching the specified names", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, authInfo, []string{"does-not-exist", "still-does-not-exist"}, []string{})
+					spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
+						OrganizationGUIDs: []string{"does-not-exist", "still-does-not-exist"},
+					})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(BeEmpty())
+				})
+			})
+		})
+	})
+
+	Describe("Get", func() {
+		var (
+			ctx context.Context
+
+			orgAnchor *hnsv1alpha2.SubnamespaceAnchor
+		)
+
+		BeforeEach(func() {
+			ctx = context.Background()
+
+			orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "the-org")
+		})
+
+		Describe("Space", func() {
+			var spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
+
+			BeforeEach(func() {
+				spaceDeveloperClusterRole := createSpaceDeveloperClusterRole(ctx)
+
+				spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, "the-space")
+				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, spaceAnchor.Name)
+			})
+
+			When("on the happy path", func() {
+				It("gets the subns resource", func() {
+					spaceRecord, err := orgRepo.GetSpace(ctx, authInfo, spaceAnchor.Name)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(spaceRecord.Name).To(Equal("the-space"))
+					Expect(spaceRecord.OrganizationGUID).To(Equal(orgAnchor.Name))
+				})
+			})
+
+			When("the space doesn't exist", func() {
+				It("errors", func() {
+					_, err := orgRepo.GetSpace(ctx, authInfo, "non-existent-space")
+					Expect(err).To(MatchError(ContainSubstring("not found")))
+				})
+			})
+		})
+	})
+
+	Describe("Delete", func() {
+		var (
+			ctx context.Context
+
+			orgAnchor *hnsv1alpha2.SubnamespaceAnchor
+		)
+
+		BeforeEach(func() {
+			ctx = context.Background()
+
+			orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "the-org")
+		})
+
+		Describe("Space", func() {
+			var spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
+
+			BeforeEach(func() {
+				spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, "the-space")
+			})
+
+			When("on the happy path", func() {
+				It("deletes the subns resource", func() {
+					err := orgRepo.DeleteSpace(ctx, authInfo, repositories.DeleteSpaceMessage{
+						GUID:             spaceAnchor.Name,
+						OrganizationGUID: orgAnchor.Name,
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					Eventually(func() error {
+						anchor := &hnsv1alpha2.SubnamespaceAnchor{}
+						return k8sClient.Get(ctx, client.ObjectKey{Namespace: orgAnchor.Name, Name: spaceAnchor.Name}, anchor)
+					}).Should(MatchError(ContainSubstring("not found")))
+				})
+			})
+
+			When("the space doesn't exist", func() {
+				It("errors", func() {
+					err := orgRepo.DeleteSpace(ctx, authInfo, repositories.DeleteSpaceMessage{
+						GUID:             "non-existent-space",
+						OrganizationGUID: orgAnchor.Name,
+					})
+					Expect(err).To(MatchError(ContainSubstring("not found")))
 				})
 			})
 		})

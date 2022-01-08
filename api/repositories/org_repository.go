@@ -19,16 +19,19 @@ import (
 //+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;create;delete;watch
 
 //counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
-//counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
 
 type CFOrgRepository interface {
 	CreateOrg(ctx context.Context, info authorization.Info, org CreateOrgMessage) (OrgRecord, error)
 	ListOrgs(ctx context.Context, info authorization.Info, orgNames []string) ([]OrgRecord, error)
 }
 
+//counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
+
 type CFSpaceRepository interface {
-	CreateSpace(ctx context.Context, info authorization.Info, space CreateSpaceMessage) (SpaceRecord, error)
-	ListSpaces(ctx context.Context, info authorization.Info, orgUIDs []string, spaceNames []string) ([]SpaceRecord, error)
+	CreateSpace(context.Context, authorization.Info, CreateSpaceMessage) (SpaceRecord, error)
+	ListSpaces(context.Context, authorization.Info, ListSpacesMessage) ([]SpaceRecord, error)
+	GetSpace(context.Context, authorization.Info, string) (SpaceRecord, error)
+	DeleteSpace(context.Context, authorization.Info, DeleteSpaceMessage) error
 }
 
 const (
@@ -49,6 +52,17 @@ type CreateSpaceMessage struct {
 	GUID                     string
 	OrganizationGUID         string
 	ImageRegistryCredentials string
+}
+
+type ListSpacesMessage struct {
+	Names             []string
+	GUIDs             []string
+	OrganizationGUIDs []string
+}
+
+type DeleteSpaceMessage struct {
+	GUID             string
+	OrganizationGUID string
 }
 
 type OrgRecord struct {
@@ -270,7 +284,7 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, names [
 	return result, nil
 }
 
-func (r *OrgRepo) ListSpaces(ctx context.Context, info authorization.Info, organizationGUIDs, names []string) ([]SpaceRecord, error) {
+func (r *OrgRepo) ListSpaces(ctx context.Context, info authorization.Info, message ListSpacesMessage) ([]SpaceRecord, error) {
 	subnamespaceAnchorList := &v1alpha2.SubnamespaceAnchorList{}
 
 	err := r.privilegedClient.List(ctx, subnamespaceAnchorList)
@@ -278,7 +292,7 @@ func (r *OrgRepo) ListSpaces(ctx context.Context, info authorization.Info, organ
 		return nil, err
 	}
 
-	orgsFilter := toMap(organizationGUIDs)
+	orgsFilter := toMap(message.OrganizationGUIDs)
 	orgUIDs := map[string]struct{}{}
 	for _, anchor := range subnamespaceAnchorList.Items {
 		if anchor.Namespace != r.rootNamespace {
@@ -292,7 +306,8 @@ func (r *OrgRepo) ListSpaces(ctx context.Context, info authorization.Info, organ
 		orgUIDs[anchor.Name] = struct{}{}
 	}
 
-	nameFilter := toMap(names)
+	nameFilter := toMap(message.Names)
+	guidFilter := toMap(message.GUIDs)
 	records := []SpaceRecord{}
 	for _, anchor := range subnamespaceAnchorList.Items {
 		if anchor.Status.State != v1alpha2.Ok {
@@ -301,6 +316,10 @@ func (r *OrgRepo) ListSpaces(ctx context.Context, info authorization.Info, organ
 
 		spaceName := anchor.Labels[SpaceNameLabel]
 		if !matchFilter(nameFilter, spaceName) {
+			continue
+		}
+
+		if !matchFilter(guidFilter, anchor.Name) {
 			continue
 		}
 
@@ -354,4 +373,26 @@ func toMap(elements []string) map[string]struct{} {
 	}
 
 	return result
+}
+
+func (r *OrgRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGUID string) (SpaceRecord, error) {
+	spaceRecords, err := r.ListSpaces(ctx, info, ListSpacesMessage{GUIDs: []string{spaceGUID}})
+	if err != nil {
+		return SpaceRecord{}, err
+	}
+
+	if len(spaceRecords) == 0 {
+		return SpaceRecord{}, NotFoundError{ResourceType: "Space"}
+	}
+
+	return spaceRecords[0], nil
+}
+
+func (r *OrgRepo) DeleteSpace(ctx context.Context, info authorization.Info, message DeleteSpaceMessage) error {
+	return r.privilegedClient.Delete(ctx, &v1alpha2.SubnamespaceAnchor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.GUID,
+			Namespace: message.OrganizationGUID,
+		},
+	})
 }
