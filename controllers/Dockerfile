@@ -1,5 +1,5 @@
 # syntax = docker/dockerfile:experimental
-FROM golang:1.17.5 as builder
+FROM golang:1.17.6 as builder
 
 WORKDIR /workspace
 
