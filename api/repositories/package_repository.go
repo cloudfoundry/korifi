@@ -50,7 +50,10 @@ type PackageRecord struct {
 }
 
 type ListPackagesMessage struct {
-	AppGUIDs []string
+	AppGUIDs        []string
+	SortBy          string
+	DescendingOrder bool
+	State           string
 }
 
 type CreatePackageMessage struct {
@@ -137,9 +140,12 @@ func applyPackageFiltersAndOrder(packages []workloadsv1alpha1.CFPackage, message
 	}
 
 	// TODO: use the future message.Order fields to reorder the list of results
-	// For now, we order by created_at by default- if you really want to optimize runtime you can use bucketsort
 	sort.Slice(filtered, func(i, j int) bool {
-		return !filtered[i].CreationTimestamp.Before(&filtered[j].CreationTimestamp)
+		if message.SortBy == "created_at" && message.DescendingOrder {
+			return !filtered[i].CreationTimestamp.Before(&filtered[j].CreationTimestamp)
+		}
+		// For now, we order by created_at by default- if you really want to optimize runtime you can use bucketsort
+		return filtered[i].CreationTimestamp.Before(&filtered[j].CreationTimestamp)
 	})
 
 	return filtered

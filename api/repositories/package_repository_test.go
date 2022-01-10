@@ -351,6 +351,9 @@ var _ = Describe("PackageRepository", func() {
 				}
 				Expect(k8sClient.Create(context.Background(), package1)).To(Succeed())
 
+				// add a small delay to test ordering on created_by
+				time.Sleep(1 * time.Second)
+
 				package2 = &workloadsv1alpha1.CFPackage{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      package2GUID,
@@ -417,19 +420,28 @@ var _ = Describe("PackageRepository", func() {
 						Expect(k8sClient.Delete(context.Background(), package3)).To(Succeed())
 					})
 
-					It("orders the results in descending created_at order by default", func() {
+					It("orders the results in ascending created_at order by default", func() {
 						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{})
 						Expect(err).NotTo(HaveOccurred())
 						Expect(packageList).To(HaveLen(3))
-						for i := 0; i < len(packageList)-1; i++ {
-							currentRecordCreatedAt, err := time.Parse(time.RFC3339, packageList[i].CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
+						Expect(packageList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package1GUID),
+								"AppGUID": Equal(appGUID1),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package2GUID),
+								"AppGUID": Equal(appGUID2),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package3GUID),
+								"AppGUID": Equal(appGUID1),
+							}),
+						))
 
-							nextRecordCreatedAt, err := time.Parse(time.RFC3339, packageList[i+1].CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-
-							Expect(currentRecordCreatedAt).To(BeTemporally(">=", nextRecordCreatedAt))
-						}
+						Expect(packageList[0].GUID).To(Equal(package1GUID))
+						Expect(packageList[1].GUID).To(Equal(package2GUID))
+						Expect(packageList[2].GUID).To(Equal(package3GUID))
 					})
 				})
 			})
@@ -446,6 +458,89 @@ var _ = Describe("PackageRepository", func() {
 						}),
 					)
 				})
+			})
+
+			When("SortBy is provided and value is created_at", func() {
+				var (
+					package3GUID string
+					package3     *workloadsv1alpha1.CFPackage
+				)
+				BeforeEach(func() {
+					package3GUID = generateGUID()
+					package3 = &workloadsv1alpha1.CFPackage{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      package3GUID,
+							Namespace: namespace2.Name,
+						},
+						Spec: workloadsv1alpha1.CFPackageSpec{
+							Type: "bits",
+							AppRef: corev1.LocalObjectReference{
+								Name: appGUID1,
+							},
+						},
+					}
+					// add a small delay to test ordering on created_by
+					time.Sleep(1 * time.Second)
+
+					Expect(k8sClient.Create(context.Background(), package3)).To(Succeed())
+
+					DeferCleanup(func() {
+						_ = k8sClient.Delete(context.Background(), package3)
+					})
+				})
+
+				When("descending order is false", func() {
+					It("fetches packages sorted by created_at in ascending order", func() {
+						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{SortBy: "created_at", DescendingOrder: false})
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(packageList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package1GUID),
+								"AppGUID": Equal(appGUID1),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package2GUID),
+								"AppGUID": Equal(appGUID2),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package3GUID),
+								"AppGUID": Equal(appGUID1),
+							}),
+						))
+
+						Expect(packageList[0].GUID).To(Equal(package1GUID))
+						Expect(packageList[1].GUID).To(Equal(package2GUID))
+						Expect(packageList[2].GUID).To(Equal(package3GUID))
+					})
+				})
+
+				When("descending order is true", func() {
+					It("fetches packages sorted by created_at in descending order", func() {
+						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{SortBy: "created_at", DescendingOrder: true})
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(packageList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package1GUID),
+								"AppGUID": Equal(appGUID1),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package2GUID),
+								"AppGUID": Equal(appGUID2),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package3GUID),
+								"AppGUID": Equal(appGUID1),
+							}),
+						))
+
+						Expect(packageList[0].GUID).To(Equal(package3GUID))
+						Expect(packageList[1].GUID).To(Equal(package2GUID))
+						Expect(packageList[2].GUID).To(Equal(package1GUID))
+					})
+				})
+
 			})
 		})
 

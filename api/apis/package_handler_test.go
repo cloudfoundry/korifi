@@ -363,7 +363,7 @@ var _ = Describe("PackageHandler", func() {
 					})
 				})
 
-				When("the \"order_by\" parameter is sent", func() {
+				When("an invalid \"order_by\" parameter is sent", func() {
 					BeforeEach(func() {
 						var err error
 						req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages?order_by=some_weird_value", nil)
@@ -372,6 +372,52 @@ var _ = Describe("PackageHandler", func() {
 
 					It("ignores it and returns status 200", func() {
 						Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					})
+				})
+
+				When("an valid \"order_by\" parameter is sent", func() {
+					When("sort order is ascending", func() {
+						BeforeEach(func() {
+							var err error
+							req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages?order_by=created_at", nil)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("calls repository ListPackage with the correct message object", func() {
+							_, _, message := packageRepo.ListPackagesArgsForCall(0)
+							Expect(message).To(Equal(repositories.ListPackagesMessage{
+								AppGUIDs:        []string{},
+								SortBy:          "created_at",
+								DescendingOrder: false,
+								State:           "",
+							}))
+						})
+
+						It("returns status 200", func() {
+							Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+						})
+					})
+
+					When("sort order is descending", func() {
+						BeforeEach(func() {
+							var err error
+							req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages?order_by=-created_at", nil)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("calls repository ListPackage with the correct message object", func() {
+							_, _, message := packageRepo.ListPackagesArgsForCall(0)
+							Expect(message).To(Equal(repositories.ListPackagesMessage{
+								AppGUIDs:        []string{},
+								SortBy:          "created_at",
+								DescendingOrder: true,
+								State:           "",
+							}))
+						})
+
+						It("returns status 200", func() {
+							Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+						})
 					})
 				})
 
