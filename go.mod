@@ -5,7 +5,7 @@ go 1.17
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 	code.cloudfoundry.org/eirini-controller v0.1.0
-	github.com/buildpacks/lifecycle v0.13.1
+	github.com/buildpacks/lifecycle v0.13.2
 	github.com/buildpacks/pack v0.23.0
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
 	github.com/go-logr/logr v0.4.0
