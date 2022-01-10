@@ -56,9 +56,8 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	err := r.Client.Get(ctx, req.NamespacedName, cfApp)
 	if err != nil {
 		r.Log.Error(err, "unable to fetch CFApp")
-		// we'll ignore not-found errors, since they can't be fixed by an immediate
-		// requeue (we'll need to wait for a new notification), and we can get them
-		// on deleted requests.
+		// ignore not-found errors, since they can't be fixed by an immediate requeue
+		// (we'll need to wait for a new notification), and we can get them on deleted requests
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -72,7 +71,6 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return r.finalizeCFApp(ctx, cfApp)
 	}
 
-	// Create CFProcesses if current droplet reference is not empty.
 	if cfApp.Spec.CurrentDropletRef.Name != "" {
 		var cfBuild workloadsv1alpha1.CFBuild
 		err = r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfApp.Namespace}, &cfBuild)
@@ -81,8 +79,6 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return ctrl.Result{}, err
 		}
 
-		// CFBuildDropletStatus is nil when build has not completed staging or that it has failed.
-		// In such cases return error.
 		if cfBuild.Status.BuildDropletStatus == nil {
 			err = errors.New("status field CFBuildDropletStatus is nil on CFBuild")
 			r.Log.Error(err, "CFBuildDropletStatus is nil on CFBuild.Status, check if referenced Build/Droplet was successfully staged")
@@ -91,9 +87,7 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		droplet := cfBuild.Status.BuildDropletStatus
 
-		// Iterate over the processTypes array on the droplet
-		for _, process := range droplet.ProcessTypes {
-			// Check if CFProcess exists for a given process type
+		for _, process := range addWebIfMissing(droplet.ProcessTypes) {
 			var processExistsForType bool
 			processExistsForType, err = r.checkCFProcessExistsForType(ctx, cfApp.Name, cfApp.Namespace, process.Type)
 			if err != nil {
@@ -101,7 +95,6 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				return ctrl.Result{}, err
 			}
 
-			// Only if CFProcess does no exist for a given process type, invoke create
 			if !processExistsForType {
 				err = r.createCFProcess(ctx, process, droplet.Ports, cfApp)
 				if err != nil {
@@ -112,7 +105,6 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 	}
 
-	// set the status.conditions "Running" to false
 	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
 		Type:    StatusConditionRunning,
 		Status:  metav1.ConditionFalse,
@@ -121,13 +113,21 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	})
 	cfApp.Status.ObservedDesiredState = cfApp.Spec.DesiredState
 
-	// Update CF App Status Conditions based on local copy
 	if statusErr := r.Client.Status().Update(ctx, cfApp); statusErr != nil {
 		r.Log.Error(statusErr, "unable to update CFApp status")
 		r.Log.Info(fmt.Sprintf("CFApps status: %+v", cfApp.Status))
 		return ctrl.Result{}, statusErr
 	}
 	return ctrl.Result{}, nil
+}
+
+func addWebIfMissing(processTypes []workloadsv1alpha1.ProcessType) []workloadsv1alpha1.ProcessType {
+	for _, p := range processTypes {
+		if p.Type == processTypeWeb {
+			return processTypes
+		}
+	}
+	return append([]workloadsv1alpha1.ProcessType{{Type: processTypeWeb}}, processTypes...)
 }
 
 func (r *CFAppReconciler) createCFProcess(ctx context.Context, process workloadsv1alpha1.ProcessType, ports []int32, cfApp *workloadsv1alpha1.CFApp) error {
