@@ -346,8 +346,9 @@ github.com/buildpacks/imgutil v0.0.0-20210818180451-66aea982d5dc/go.mod h1:ZfCbs
 github.com/buildpacks/imgutil v0.0.0-20211203200417-76206845baac h1:XrKr6axRUBHEQdyyo7uffYDwWurOdeyH8MpNRJuBdIw=
 github.com/buildpacks/imgutil v0.0.0-20211203200417-76206845baac/go.mod h1:YZReWjuSxwyvuN92Vlcul+WgaCXylpecgFn7T3rNang=
 github.com/buildpacks/lifecycle v0.10.2/go.mod h1:8qFbbL4AvcB8hrb1wFuaf5H86JF9Njkag5BIQP5qlmM=
-github.com/buildpacks/lifecycle v0.13.1 h1:G8bRMLaVDaeaC/zOeQesxc+HXUAZp8RxkitOGTZpKok=
 github.com/buildpacks/lifecycle v0.13.1/go.mod h1:ZikXQStJ/G23CbtcfdrT8xoZ/A8sZqtONjWwIjw7PME=
+github.com/buildpacks/lifecycle v0.13.2 h1:aZHoVF/2XQxEIg1MpTz2SmCYlEc8HGW3a2uMkkozbas=
+github.com/buildpacks/lifecycle v0.13.2/go.mod h1:ZikXQStJ/G23CbtcfdrT8xoZ/A8sZqtONjWwIjw7PME=
 github.com/buildpacks/pack v0.23.0 h1:VYeHWwR7TV0NWfb8dOmRM7YsjuF8pBmQ+/5GPr6+19w=
 github.com/buildpacks/pack v0.23.0/go.mod h1:eNVcFMwQ4INr/ZBU+L5SFVZWCr2eU3nv3aBxzhqmsrk=
 github.com/bytecodealliance/wasmtime-go v0.28.0/go.mod h1:q320gUxqyI8yB+ZqRuaJOEnGkAnHh6WtJjMaT2CW4wI=
