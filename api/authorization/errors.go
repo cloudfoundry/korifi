@@ -2,7 +2,9 @@ package authorization
 
 import "errors"
 
-type InvalidAuthError struct{}
+type InvalidAuthError struct {
+	Err error
+}
 
 func (e InvalidAuthError) Error() string {
 	return "unauthorized"

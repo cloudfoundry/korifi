@@ -40,7 +40,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			logf.Log.WithName("integration tests"),
 			*serverURL,
 			actions.NewApplyManifest(appRepo, domainRepo, processRepo, routeRepo).Invoke,
-			repositories.NewOrgRepo("cf", k8sClient, namespacePermissions, 1*time.Minute, true),
+			repositories.NewOrgRepo("cf", k8sClient, clientFactory, namespacePermissions, 1*time.Minute, true),
 		)
 		apiHandler.RegisterRoutes(router)
 	})

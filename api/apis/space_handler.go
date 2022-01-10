@@ -176,23 +176,16 @@ func (h *SpaceHandler) spaceDeleteHandler(info authorization.Info, w http.Respon
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 
-		if authorization.IsInvalidAuth(err) {
+		switch err.(type) {
+		case authorization.InvalidAuthError:
 			h.logger.Error(err, "unauthorized to delete spaces")
-			writeInvalidAuthErrorResponse(w)
-
+			writeNotAuthorizedErrorResponse(w)
+			return
+		default:
+			h.logger.Error(err, "Failed to delete space", "SpaceGUID", spaceGUID)
+			writeUnknownErrorResponse(w)
 			return
 		}
-
-		if authorization.IsNotAuthenticated(err) {
-			h.logger.Error(err, "unauthorized to delete spaces")
-			writeNotAuthenticatedErrorResponse(w)
-
-			return
-		}
-
-		h.logger.Error(err, "Failed to delete space", "SpaceGUID", spaceGUID)
-		writeUnknownErrorResponse(w)
-		return
 	}
 
 	w.Header().Set("Location", fmt.Sprintf("%s/v3/jobs/space.delete-%s", h.apiBaseURL.String(), spaceGUID))

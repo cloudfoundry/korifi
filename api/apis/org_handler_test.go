@@ -286,7 +286,7 @@ var _ = Describe("OrgHandler", func() {
 			})
 
 			It("returns Unauthorized error", func() {
-				expectUnauthorizedError()
+				expectNotAuthenticatedError()
 			})
 		})
 
@@ -467,7 +467,7 @@ var _ = Describe("OrgHandler", func() {
 			})
 
 			It("returns Unauthorized error", func() {
-				expectUnauthorizedError()
+				expectNotAuthenticatedError()
 			})
 		})
 

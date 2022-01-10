@@ -66,6 +66,18 @@ func expectUnknownError() {
 		}`)
 }
 
+func expectUnauthorizedError() {
+	expectJSONResponse(http.StatusForbidden, `{
+			"errors": [
+				{
+					"code": 10003,
+					"title": "CF-NotAuthorized",
+					"detail": "You are not authorized to perform the requested action"
+				}
+			]
+		}`)
+}
+
 func expectNotFoundError(detail string) {
 	expectJSONResponse(http.StatusNotFound, fmt.Sprintf(`{
 			"errors": [
@@ -114,7 +126,7 @@ func expectUnknownKeyError(detail string) {
 	}`, detail))
 }
 
-func expectUnauthorizedError() {
+func expectNotAuthenticatedError() {
 	expectJSONResponse(http.StatusUnauthorized, `{
         "errors": [
             {
