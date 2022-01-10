@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euxo pipefail
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$SCRIPT_DIR/.."
@@ -8,6 +8,77 @@ API_DIR="$ROOT_DIR/api"
 CTRL_DIR="$ROOT_DIR/controllers"
 EIRINI_CONTROLLER_DIR="$ROOT_DIR/../eirini-controller"
 export PATH="$PATH:$API_DIR/bin"
+
+function usage_text() {
+  cat <<EOF
+Usage:
+  $(basename "$0") <kind cluster name>
+
+flags:
+  -l, --use-local-registry
+      Deploys a local container registry to the kind cluster.
+
+  -v, --verbose
+      Verbose output (bash -x).
+
+  -c, --controllers-only
+      Skips all steps except for building and installing
+      controllers. (This will fail unless the script is
+      being re-run.)
+
+  -a, --api-only
+      Skips all steps except for building and installing
+      the API shim. (This will fail unless the script is
+      being re-run.)
+
+EOF
+  exit 1
+}
+
+cluster=""
+use_local_registry=""
+controllers_only=""
+api_only=""
+while [[ $# -gt 0 ]]; do
+  i=$1
+  case $i in
+  -l | --use-local-registry)
+    use_local_registry="true"
+    shift
+    ;;
+  -c | --controllers-only)
+    controllers_only="true"
+    shift
+    ;;
+  -a | --api-only)
+    api_only="true"
+    shift
+    ;;
+  -v | --verbose)
+    set -x
+    shift
+    ;;
+  -h | --help | help)
+    usage_text >&2
+    exit 0
+    ;;
+  *)
+    if [[ -n "$cluster" ]]; then
+      echo -e "Error: Unexpected argument: ${i/=*/}\n" >&2
+      usage_text >&2
+      exit 1
+    fi
+    cluster=$1
+    shift
+    ;;
+  esac
+done
+
+if [[ -z "$cluster" ]]; then
+  echo -e "Error: missing argument <kind cluster name>" >&2
+  usage_text >&2
+  exit 1
+fi
 
 # undo *_IMG changes in config and reference
 clean_up_img_refs() {
@@ -19,8 +90,11 @@ clean_up_img_refs() {
 trap clean_up_img_refs EXIT
 
 ensure_kind_cluster() {
+  if [[ -n "$controllers_only" ]]; then return 0; fi
+  if [[ -n "$api_only" ]]; then return 0; fi
+
   if ! kind get clusters | grep -q "$cluster"; then
-    current_cluster="$(kubectl config current-context)" || true
+    current_cluster="$(kubectl config current-context 2> /dev/null)" || true
     cat <<EOF | kind create cluster --name "$cluster" --wait 5m --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -39,6 +113,9 @@ nodes:
   - containerPort: 443
     hostPort: 443
     protocol: TCP
+  - containerPort: 30050
+    hostPort: 30050
+    protocol: TCP
 EOF
     if [[ -n "$current_cluster" ]]; then
       kubectl config use-context "$current_cluster"
@@ -48,10 +125,14 @@ EOF
 }
 
 ensure_local_registry() {
+  if [[ -z "$use_local_registry" ]]; then return 0; fi
+  if [[ -n "$controllers_only" ]]; then return 0; fi
+  if [[ -n "$api_only" ]]; then return 0; fi
+
   helm repo add twuni https://helm.twun.io
   helm upgrade --install localregistry twuni/docker-registry --set service.type=NodePort,service.nodePort=30050,service.port=30050
 
-  # reconfigure containerd to allow insecure connection to our local registry
+  # reconfigure containerd to allow insecure connection to our local registry on localhost
   docker cp ${cluster}-control-plane:/etc/containerd/config.toml /tmp/config.toml
   if ! grep -q localregistry-docker-registry\.default\.svc\.cluster\.local /tmp/config.toml; then
     cat <<EOF >>/tmp/config.toml
@@ -71,7 +152,10 @@ EOF
   fi
 }
 
-deploy_cf_k8s_controllers() {
+install_dependencies() {
+  if [[ -n "$controllers_only" ]]; then return 0; fi
+  if [[ -n "$api_only" ]]; then return 0; fi
+
   pushd $ROOT_DIR >/dev/null
   {
     if [[ -n "$use_local_registry" ]]; then
@@ -81,7 +165,15 @@ deploy_cf_k8s_controllers() {
     fi
 
     "$SCRIPT_DIR/install-dependencies.sh"
-    export KUBEBUILDER_ASSETS=$ROOT_DIR/testbin/bin
+  }
+  popd >/dev/null
+}
+
+deploy_cf_k8s_controllers() {
+  if [[ -n "$api_only" ]]; then return 0; fi
+
+  pushd $ROOT_DIR >/dev/null
+  {    export KUBEBUILDER_ASSETS=$ROOT_DIR/testbin/bin
     echo $PWD
     make generate-controllers
     IMG_CONTROLLERS=${IMG_CONTROLLERS:-"cf-k8s-controllers:$(uuidgen)"}
@@ -98,9 +190,15 @@ deploy_cf_k8s_controllers() {
     fi
   }
   popd >/dev/null
+
+
+  # note: we may want to make the default domain configurable. For now it is "vcap.me"
+  kubectl apply -f ${CTRL_DIR}/config/samples/cfdomain.yaml
 }
 
 deploy_cf_k8s_api() {
+  if [[ -n "$controllers_only" ]]; then return 0; fi
+
   pushd $ROOT_DIR >/dev/null
   {
     IMG_API=${IMG_API:-"cf-k8s-api:$(uuidgen)"}
@@ -118,12 +216,9 @@ deploy_cf_k8s_api() {
   popd >/dev/null
 }
 
-cluster=${1:?specify cluster name}
 ensure_kind_cluster "$cluster"
-use_local_registry=${2:-}
-if [[ -n "$use_local_registry" ]]; then
-  ensure_local_registry
-fi
 export KUBECONFIG="$HOME/.kube/$cluster.yml"
+ensure_local_registry
+install_dependencies
 deploy_cf_k8s_controllers
 deploy_cf_k8s_api
