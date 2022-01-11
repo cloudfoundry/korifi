@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -37,41 +38,41 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 		userClient, buildClientErr = clientFactory.BuildClient(authInfo)
 	})
 
+	allowListingPods := func(user string) {
+		listPodClusterRole := rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: userName + "-list-pods",
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					Verbs:     []string{"list"},
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, &listPodClusterRole)).To(Succeed())
+
+		Expect(k8sClient.Create(ctx, &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: userName,
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind: rbacv1.UserKind,
+					Name: user,
+				},
+			},
+			RoleRef: rbacv1.RoleRef{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "ClusterRole",
+				Name:     listPodClusterRole.Name,
+			},
+		})).To(Succeed())
+	}
+
 	Describe("using the client", func() {
 		var podListErr error
-
-		allowListingPods := func(user string) {
-			listPodClusterRole := rbacv1.ClusterRole{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: userName + "-list-pods",
-				},
-				Rules: []rbacv1.PolicyRule{
-					{
-						Verbs:     []string{"list"},
-						APIGroups: []string{""},
-						Resources: []string{"pods"},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, &listPodClusterRole)).To(Succeed())
-
-			Expect(k8sClient.Create(ctx, &rbacv1.ClusterRoleBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: userName,
-				},
-				Subjects: []rbacv1.Subject{
-					{
-						Kind: rbacv1.UserKind,
-						Name: user,
-					},
-				},
-				RoleRef: rbacv1.RoleRef{
-					APIGroup: "rbac.authorization.k8s.io",
-					Kind:     "ClusterRole",
-					Name:     listPodClusterRole.Name,
-				},
-			})).To(Succeed())
-		}
 
 		JustBeforeEach(func() {
 			Expect(buildClientErr).NotTo(HaveOccurred())
@@ -123,6 +124,65 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 					Expect(buildClientErr).NotTo(HaveOccurred())
 					Expect(podListErr).NotTo(HaveOccurred())
 				})
+			})
+		})
+	})
+
+	Context("isolation", func() {
+		When("two clients are created simulaneously", func() {
+			var (
+				name1     string
+				name2     string
+				authInfo1 authorization.Info
+				authInfo2 authorization.Info
+				client1   client.Client
+				client2   client.Client
+			)
+
+			BeforeEach(func() {
+				name1 = uuid.NewString()
+				name2 = uuid.NewString()
+				cert1, key1 := helpers.ObtainClientCert(testEnv, name1)
+				cert2, key2 := helpers.ObtainClientCert(testEnv, name2)
+				authInfo1.CertData = helpers.JoinCertAndKey(cert1, key1)
+				authInfo2.CertData = helpers.JoinCertAndKey(cert2, key2)
+				allowListingPods(name1)
+			})
+
+			It("doesn't muddle up their config", func() {
+				for i := 0; i < 50; i++ {
+					var wg sync.WaitGroup
+					wg.Add(2)
+
+					go func() {
+						defer GinkgoRecover()
+						defer wg.Done()
+
+						var err error
+						client1, err = clientFactory.BuildClient(authInfo1)
+						Expect(err).NotTo(HaveOccurred(), "iteration: %d", i)
+					}()
+
+					go func() {
+						defer GinkgoRecover()
+						defer wg.Done()
+
+						var err error
+						client2, err = clientFactory.BuildClient(authInfo2)
+						Expect(err).NotTo(HaveOccurred(), "iteration: %d", i)
+					}()
+
+					wg.Wait()
+
+					podList := &corev1.PodList{}
+					err := client1.List(ctx, podList)
+					Expect(err).ToNot(HaveOccurred(), "expected user: %s, iteration: %d", name1, i)
+
+					client2, err = clientFactory.BuildClient(authInfo2)
+					Expect(err).NotTo(HaveOccurred())
+					err = client2.List(ctx, podList)
+					Expect(err).To(HaveOccurred(), "iteration: %d", i)
+				}
 			})
 		})
 	})
