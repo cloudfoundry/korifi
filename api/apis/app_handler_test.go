@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -378,6 +379,20 @@ var _ = Describe("AppHandler", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+
+		When("the action errors due to an authorization error", func() {
+			BeforeEach(func() {
+				repoError := k8serrors.NewForbidden(schema.GroupResource{}, "forbidden", errors.New("foo"))
+				appRepo.CreateAppReturns(repositories.AppRecord{}, repoError)
+
+				requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
+				queuePostRequest(requestBody)
+			})
+
+			It("returns an error", func() {
+				expectUnauthorizedError()
 			})
 		})
 	})

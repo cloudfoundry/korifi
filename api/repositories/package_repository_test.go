@@ -545,7 +545,6 @@ var _ = Describe("PackageRepository", func() {
 						Expect(packageList[2].GUID).To(Equal(package1GUID))
 					})
 				})
-
 			})
 
 			When("State filter is provided", func() {
@@ -598,7 +597,6 @@ var _ = Describe("PackageRepository", func() {
 						))
 					})
 				})
-
 			})
 		})
 

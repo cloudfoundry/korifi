@@ -124,7 +124,6 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 	packageRecords := convertToPackageRecords(orderedPackages)
 
 	return applyPackageFilter(packageRecords, message), nil
-
 }
 
 func orderPackages(packages []workloadsv1alpha1.CFPackage, message ListPackagesMessage) []workloadsv1alpha1.CFPackage {
