@@ -1,6 +1,8 @@
 package payloads
 
 import (
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -31,20 +33,30 @@ func (m PackageCreate) ToMessage(record repositories.AppRecord) repositories.Cre
 
 type PackageListQueryParameters struct {
 	AppGUIDs string `schema:"app_guids"`
+	OrderBy  string `schema:"order_by"`
+	States   string `schema:"states"`
 
 	// Below parameters are ignored, but must be included to ignore as query parameters
-	OrderBy string `schema:"order_by"`
 	PerPage string `schema:"per_page"`
 }
 
 func (p *PackageListQueryParameters) ToMessage() repositories.ListPackagesMessage {
+	var descendingOrder bool
+
+	if strings.HasPrefix(p.OrderBy, "-") {
+		descendingOrder = true
+	}
+
 	return repositories.ListPackagesMessage{
-		AppGUIDs: parseArrayParam(p.AppGUIDs),
+		AppGUIDs:        parseArrayParam(p.AppGUIDs),
+		SortBy:          strings.TrimPrefix(p.OrderBy, "-"),
+		DescendingOrder: descendingOrder,
+		States:          parseArrayParam(p.States),
 	}
 }
 
 func (p *PackageListQueryParameters) SupportedQueryParameters() []string {
-	return []string{"app_guids", "order_by", "per_page"}
+	return []string{"app_guids", "order_by", "per_page", "states"}
 }
 
 type PackageListDropletsQueryParameters struct {

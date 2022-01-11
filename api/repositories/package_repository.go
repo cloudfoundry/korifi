@@ -50,7 +50,10 @@ type PackageRecord struct {
 }
 
 type ListPackagesMessage struct {
-	AppGUIDs []string
+	AppGUIDs        []string
+	SortBy          string
+	DescendingOrder bool
+	States          []string
 }
 
 type CreatePackageMessage struct {
@@ -116,33 +119,56 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 		return []PackageRecord{}, err
 	}
 
-	filteredPackages := applyPackageFiltersAndOrder(packageList.Items, message)
+	orderedPackages := orderPackages(packageList.Items, message)
 
-	return returnPackageList(filteredPackages), nil
+	packageRecords := convertToPackageRecords(orderedPackages)
+
+	return applyPackageFilter(packageRecords, message), nil
+
 }
 
-func applyPackageFiltersAndOrder(packages []workloadsv1alpha1.CFPackage, message ListPackagesMessage) []workloadsv1alpha1.CFPackage {
-	var filtered []workloadsv1alpha1.CFPackage
+func orderPackages(packages []workloadsv1alpha1.CFPackage, message ListPackagesMessage) []workloadsv1alpha1.CFPackage {
+	sort.Slice(packages, func(i, j int) bool {
+		if message.SortBy == "created_at" && message.DescendingOrder {
+			return !packages[i].CreationTimestamp.Before(&packages[j].CreationTimestamp)
+		}
+		// For now, we order by created_at by default- if you really want to optimize runtime you can use bucketsort
+		return packages[i].CreationTimestamp.Before(&packages[j].CreationTimestamp)
+	})
+
+	return packages
+}
+
+func applyPackageFilter(packages []PackageRecord, message ListPackagesMessage) []PackageRecord {
+	var appFiltered []PackageRecord
 	if len(message.AppGUIDs) > 0 {
 		for _, currentPackage := range packages {
 			for _, appGUID := range message.AppGUIDs {
-				if currentPackage.Spec.AppRef.Name == appGUID {
-					filtered = append(filtered, currentPackage)
+				if currentPackage.AppGUID == appGUID {
+					appFiltered = append(appFiltered, currentPackage)
 					break
 				}
 			}
 		}
 	} else {
-		filtered = packages
+		appFiltered = packages
 	}
 
-	// TODO: use the future message.Order fields to reorder the list of results
-	// For now, we order by created_at by default- if you really want to optimize runtime you can use bucketsort
-	sort.Slice(filtered, func(i, j int) bool {
-		return !filtered[i].CreationTimestamp.Before(&filtered[j].CreationTimestamp)
-	})
+	var stateFiltered []PackageRecord
+	if len(message.States) > 0 {
+		for _, currentPackage := range appFiltered {
+			for _, state := range message.States {
+				if currentPackage.State == state {
+					stateFiltered = append(stateFiltered, currentPackage)
+					break
+				}
+			}
+		}
+	} else {
+		stateFiltered = appFiltered
+	}
 
-	return filtered
+	return stateFiltered
 }
 
 func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message UpdatePackageSourceMessage) (PackageRecord, error) {
@@ -204,7 +230,7 @@ func returnPackage(packages []workloadsv1alpha1.CFPackage) (PackageRecord, error
 	return cfPackageToPackageRecord(packages[0]), nil
 }
 
-func returnPackageList(packages []workloadsv1alpha1.CFPackage) []PackageRecord {
+func convertToPackageRecords(packages []workloadsv1alpha1.CFPackage) []PackageRecord {
 	packageRecords := make([]PackageRecord, 0, len(packages))
 
 	for _, currentPackage := range packages {
