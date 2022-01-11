@@ -2960,8 +2960,9 @@ sigs.k8s.io/controller-runtime v0.11.0 h1:DqO+c8mywcZLFJWILq4iktoECTyn30Bkj0Cwgq
 sigs.k8s.io/controller-runtime v0.11.0/go.mod h1:KKwLiTooNGu+JmLZGn9Sl3Gjmfj66eMbCQznLP5zcqA=
 sigs.k8s.io/controller-tools v0.5.0/go.mod h1:JTsstrMpxs+9BUj6eGuAaEb6SDSPTeVtUyp0jmnAM/I=
 sigs.k8s.io/controller-tools v0.6.0/go.mod h1:baRMVPrctU77F+rfAuH2uPqW93k6yQnZA2dhUOr7ihc=
-sigs.k8s.io/controller-tools v0.7.0 h1:iZIz1vEcavyEfxjcTLs1WH/MPf4vhPCtTKhoHqV8/G0=
 sigs.k8s.io/controller-tools v0.7.0/go.mod h1:bpBAo0VcSDDLuWt47evLhMLPxRPxMDInTEH/YbdeMK0=
+sigs.k8s.io/controller-tools v0.8.0 h1:uUkfTGEwrguqYYfcI2RRGUnC8mYdCFDqfwPKUcNJh1o=
+sigs.k8s.io/controller-tools v0.8.0/go.mod h1:qE2DXhVOiEq5ijmINcFbqi9GZrrUjzB1TuJU0xa6eoY=
 sigs.k8s.io/gateway-api v0.3.0/go.mod h1:Wb8bx7QhGVZxOSEU3i9vw/JqTB5Nlai9MLMYVZeDmRQ=
 sigs.k8s.io/hierarchical-namespaces v0.9.0 h1:GbNkRITpJ8SwnZoO3ZillHDn0D/AySP5Fosa2ZPEol0=
 sigs.k8s.io/hierarchical-namespaces v0.9.0/go.mod h1:qHqqjgYqzMPg7BwpkndOkK7dwmzBdUj0tvSSrmQzouk=
