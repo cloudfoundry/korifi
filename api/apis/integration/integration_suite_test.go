@@ -16,6 +16,8 @@ import (
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,6 +46,7 @@ var (
 	req       *http.Request
 	router    *mux.Router
 	serverURL *url.URL
+	userName  string
 	ctx       context.Context
 )
 
@@ -77,7 +80,7 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	userName := generateGUID()
+	userName = generateGUID()
 	cert, key := helpers.ObtainClientCert(testEnv, userName)
 	authInfo := authorization.Info{CertData: helpers.JoinCertAndKey(cert, key)}
 	ctx = authorization.NewContext(context.Background(), &authInfo)
@@ -112,4 +115,40 @@ func serverURI(paths ...string) string {
 
 func generateGUID() string {
 	return uuid.NewString()
+}
+
+func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {
+	clusterRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: generateGUID(),
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				Verbs:     []string{"list", "create", "delete"},
+				APIGroups: []string{"workloads.cloudfoundry.org"},
+				Resources: []string{"cfapps"},
+			},
+		},
+	}
+	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
+
+	return clusterRole
+}
+
+func createRoleBinding(ctx context.Context, userName, roleName, namespace string) {
+	roleBinding := rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      generateGUID(),
+			Namespace: namespace,
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind: rbacv1.UserKind,
+			Name: userName,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: roleName,
+		},
+	}
+	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
 }

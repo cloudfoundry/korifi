@@ -70,6 +70,9 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 				k8sClient.Create(context.Background(), namespace),
 			).To(Succeed())
 
+			role := createSpaceDeveloperClusterRole(ctx)
+			createRoleBinding(ctx, userName, role.Name, namespaceGUID)
+
 			testEnvironmentVariables = map[string]string{"foo": "foo", "bar": "bar"}
 			envJSON, _ := json.Marshal(&testEnvironmentVariables)
 			requestBody := fmt.Sprintf(`{

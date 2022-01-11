@@ -119,7 +119,7 @@ func ensureServerIsUp() {
 func generateGUID(prefix string) string {
 	guid := uuid.NewString()
 
-	return fmt.Sprintf("%s-%s", prefix, guid[:6])
+	return fmt.Sprintf("%s-%s", prefix, guid[:13])
 }
 
 func waitForNamespaceDeletion(parent, ns string) {
@@ -401,7 +401,7 @@ func httpReq(method, url, authHeader string, jsonBody interface{}) (*http.Respon
 	return resp, nil
 }
 
-func createApp(spaceGUID, name, authHeader string) presenter.AppResponse {
+func createAppRaw(spaceGUID, name, authHeader string) (*http.Response, error) {
 	appsURL := apiServerRoot + apis.AppCreateEndpoint
 
 	payload := payloads.AppCreate{
@@ -415,7 +415,11 @@ func createApp(spaceGUID, name, authHeader string) presenter.AppResponse {
 		},
 	}
 
-	resp, err := httpReq(http.MethodPost, appsURL, authHeader, payload)
+	return httpReq(http.MethodPost, appsURL, authHeader, payload)
+}
+
+func createApp(spaceGUID, name, authHeader string) presenter.AppResponse {
+	resp, err := createAppRaw(spaceGUID, name, authHeader)
 	Expect(err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 

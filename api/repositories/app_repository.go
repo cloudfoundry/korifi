@@ -177,8 +177,13 @@ func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorizati
 }
 
 func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, appCreateMessage CreateAppMessage) (AppRecord, error) {
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
 	cfApp := appCreateMessage.toCFApp()
-	err := f.privilegedClient.Create(ctx, &cfApp)
+	err = userClient.Create(ctx, &cfApp)
 	if err != nil {
 		return AppRecord{}, err
 	}

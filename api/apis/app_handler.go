@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/gorilla/schema"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
@@ -154,6 +156,13 @@ func (h *AppHandler) appCreateHandler(authInfo authorization.Info, w http.Respon
 			writeUniquenessError(w, errorDetail)
 			return
 		}
+
+		if k8serrors.IsForbidden(err) {
+			h.logger.Error(err, "Not authorized to create app", "App Name", payload.Name)
+			writeNotAuthorizedErrorResponse(w)
+			return
+		}
+
 		h.logger.Error(err, "Failed to create app", "App Name", payload.Name)
 		writeUnknownErrorResponse(w)
 		return

@@ -28,12 +28,13 @@ const (
 
 var _ = Describe("AppRepository", func() {
 	var (
-		testCtx                context.Context
-		appRepo                *AppRepo
-		clientFactory          repositories.UserK8sClientFactory
-		org                    *v1alpha2.SubnamespaceAnchor
-		space1, space2, space3 *v1alpha2.SubnamespaceAnchor
-		cfApp1, cfApp2, cfApp3 *workloadsv1alpha1.CFApp
+		testCtx                   context.Context
+		appRepo                   *AppRepo
+		clientFactory             repositories.UserK8sClientFactory
+		org                       *v1alpha2.SubnamespaceAnchor
+		space1, space2, space3    *v1alpha2.SubnamespaceAnchor
+		cfApp1, cfApp2, cfApp3    *workloadsv1alpha1.CFApp
+		spaceDeveloperClusterRole *rbacv1.ClusterRole
 	)
 
 	BeforeEach(func() {
@@ -145,9 +146,8 @@ var _ = Describe("AppRepository", func() {
 
 	Describe("ListApps", Serial, func() {
 		var (
-			message                   ListAppsMessage
-			spaceDeveloperClusterRole *rbacv1.ClusterRole
-			nonCFNamespace            string
+			message        ListAppsMessage
+			nonCFNamespace string
 		)
 
 		BeforeEach(func() {
@@ -374,6 +374,9 @@ var _ = Describe("AppRepository", func() {
 			Expect(k8sClient.Create(testCtx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{Name: spaceGUID},
 			})).To(Succeed())
+
+			spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
+			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, spaceGUID)
 
 			appCreateMessage = initializeAppCreateMessage(testAppName, spaceGUID)
 		})
@@ -851,9 +854,8 @@ var _ = Describe("AppRepository", func() {
 
 	Describe("DeleteApp", func() {
 		var (
-			appGUID                   string
-			appCR                     *workloadsv1alpha1.CFApp
-			spaceDeveloperClusterRole *rbacv1.ClusterRole
+			appGUID string
+			appCR   *workloadsv1alpha1.CFApp
 		)
 
 		BeforeEach(func() {

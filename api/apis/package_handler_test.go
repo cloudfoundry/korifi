@@ -457,7 +457,6 @@ var _ = Describe("PackageHandler", func() {
 						Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 					})
 				})
-
 			})
 			When("no packages exist", func() {
 				BeforeEach(func() {
