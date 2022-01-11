@@ -1,8 +1,10 @@
 package apis
 
 import (
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -208,7 +210,12 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 
 	responseRouteRecord, err := h.routeRepo.CreateRoute(ctx, authInfo, createRouteMessage)
 	if err != nil {
-		// TODO: Catch the error from the (unwritten) validating webhook
+		if networking.HasErrorCode(err, networking.DuplicateRouteError) {
+			errorDetail := fmt.Sprintf("Route with the host '%s' already exists.", payload.Host)
+			h.logger.Error(err, errorDetail, "Route Host", payload.Host)
+			writeUniquenessError(w, errorDetail)
+			return
+		}
 		h.logger.Error(err, "Failed to create route", "Route Host", payload.Host)
 		writeUnknownErrorResponse(w)
 		return

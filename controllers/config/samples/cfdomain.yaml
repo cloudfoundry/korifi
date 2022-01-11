@@ -1,7 +1,7 @@
 apiVersion: networking.cloudfoundry.org/v1alpha1
 kind: CFDomain
 metadata:
-  name: 5b5032ab-7fc8-4da5-b853-821fd1879201
+  name: 6b5032ab-7fc8-4da5-b853-821fd1879201
   namespace: cf
 spec:
   name: vcap.me

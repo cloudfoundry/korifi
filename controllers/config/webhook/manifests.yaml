@@ -163,3 +163,25 @@ webhooks:
     resources:
     - subnamespaceanchors
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-cloudfoundry-org-v1alpha1-cfroute
+  failurePolicy: Fail
+  name: vcfroute.networking.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - networking.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cfroutes
+  sideEffects: None

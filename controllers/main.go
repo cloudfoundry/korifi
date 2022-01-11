@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking"
 	"flag"
 	"fmt"
 	"os"
@@ -209,6 +210,13 @@ func main() {
 			coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
+			os.Exit(1)
+		}
+
+		if err = networking.NewCFRouteValidation(
+			coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
 			os.Exit(1)
 		}
 

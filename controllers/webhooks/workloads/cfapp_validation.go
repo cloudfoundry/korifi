@@ -21,7 +21,8 @@ var cfapplog = logf.Log.WithName("cfapp-validate")
 //+kubebuilder:webhook:path=/validate-workloads-cloudfoundry-org-v1alpha1-cfapp,mutating=false,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cfapps,verbs=create;update;delete,versions=v1alpha1,name=vcfapp.workloads.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFAppValidation struct {
-	decoder         *admission.Decoder
+	decoder *admission.Decoder
+
 	appNameRegistry NameRegistry
 }
 
