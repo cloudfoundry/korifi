@@ -27,9 +27,11 @@ func NewUnprivilegedClientFactory(config *rest.Config) UnprivilegedClientFactory
 }
 
 func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (client.Client, error) {
+	config := rest.CopyConfig(f.config)
+
 	switch strings.ToLower(authInfo.Scheme()) {
 	case authorization.BearerScheme:
-		f.config.BearerToken = authInfo.Token
+		config.BearerToken = authInfo.Token
 
 	case authorization.CertScheme:
 		certBlock, rst := pem.Decode(authInfo.CertData)
@@ -42,8 +44,8 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 			return nil, fmt.Errorf("failed to decode key PEM")
 		}
 
-		f.config.CertData = pem.EncodeToMemory(certBlock)
-		f.config.KeyData = pem.EncodeToMemory(keyBlock)
+		config.CertData = pem.EncodeToMemory(certBlock)
+		config.KeyData = pem.EncodeToMemory(keyBlock)
 
 	default:
 		return nil, authorization.NotAuthenticatedError{}
@@ -52,7 +54,7 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 	// This does an API call within the controller-runtime code and is
 	// sufficient to determine whether the auth is valid and accepted by the
 	// cluster
-	userClient, err := client.New(f.config, client.Options{})
+	userClient, err := client.New(config, client.Options{})
 	if err != nil {
 		if k8serrors.IsUnauthorized(err) {
 			return nil, authorization.InvalidAuthError{}

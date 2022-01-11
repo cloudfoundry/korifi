@@ -30,4 +30,4 @@ if [[ -n "$GINKGO_NODES" ]]; then
   extra_args+=("--procs=${GINKGO_NODES}")
 fi
 
-ginkgo -r -p --randomize-all --randomize-suites "${extra_args[@]}" $@
+ginkgo --race -r -p --randomize-all --randomize-suites "${extra_args[@]}" $@
