@@ -173,6 +173,15 @@ func writeNotAuthenticatedErrorResponse(w http.ResponseWriter) {
 	writeResponse(w, http.StatusUnauthorized, response)
 }
 
+func writeNotAuthorizedErrorResponse(w http.ResponseWriter) {
+	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
+		Title:  "CF-NotAuthorized",
+		Detail: "You are not authorized to perform the requested action",
+		Code:   10003,
+	}}}
+	writeResponse(w, http.StatusForbidden, response)
+}
+
 func writeInvalidAuthErrorResponse(w http.ResponseWriter) {
 	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "CF-InvalidAuthToken",

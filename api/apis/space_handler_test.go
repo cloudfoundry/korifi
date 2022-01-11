@@ -134,7 +134,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns Unauthorized error", func() {
-				expectUnauthorizedError()
+				expectNotAuthenticatedError()
 			})
 		})
 
@@ -340,7 +340,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns Unauthorized error", func() {
-				expectUnauthorizedError()
+				expectNotAuthenticatedError()
 			})
 		})
 
@@ -465,7 +465,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns Unauthorized error", func() {
-				expectUnauthorizedError()
+				expectNotAuthenticatedError()
 			})
 		})
 
@@ -496,6 +496,16 @@ var _ = Describe("Spaces", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+
+		When("deleting the space is not authorized", func() {
+			BeforeEach(func() {
+				spaceRepo.DeleteSpaceReturns(authorization.InvalidAuthError{Err: errors.New("boom")})
+			})
+
+			It("returns a 403 error", func() {
+				expectUnauthorizedError()
 			})
 		})
 

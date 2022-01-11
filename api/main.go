@@ -100,7 +100,7 @@ func main() {
 		repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
 	)
 
-	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, nsPermissions, createTimeout, config.AuthEnabled)
+	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, buildUserClient, nsPermissions, createTimeout, config.AuthEnabled)
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
 		apis.NewRootHandler(

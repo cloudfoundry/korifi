@@ -185,3 +185,21 @@ func createRoleBinding(ctx context.Context, userName, roleName, namespace string
 	}
 	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
 }
+
+func createOrgManagerClusterRole(ctx context.Context) *rbacv1.ClusterRole {
+	clusterRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: generateGUID(),
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				Verbs:     []string{"list", "delete"},
+				APIGroups: []string{"hnc.x-k8s.io"},
+				Resources: []string{"subnamespaceanchors"},
+			},
+		},
+	}
+	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
+
+	return clusterRole
+}

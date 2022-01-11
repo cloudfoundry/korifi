@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	corev1 "k8s.io/api/core/v1"
 
@@ -86,26 +88,29 @@ type SpaceRecord struct {
 }
 
 type OrgRepo struct {
-	rootNamespace    string
-	privilegedClient client.WithWatch
-	nsPerms          *authorization.NamespacePermissions
-	timeout          time.Duration
-	authEnabled      bool
+	rootNamespace     string
+	privilegedClient  client.WithWatch
+	userClientFactory UserK8sClientFactory
+	nsPerms           *authorization.NamespacePermissions
+	timeout           time.Duration
+	authEnabled       bool
 }
 
 func NewOrgRepo(
 	rootNamespace string,
 	privilegedClient client.WithWatch,
+	userClientFactory UserK8sClientFactory,
 	nsPerms *authorization.NamespacePermissions,
 	timeout time.Duration,
 	authEnabled bool,
 ) *OrgRepo {
 	return &OrgRepo{
-		rootNamespace:    rootNamespace,
-		privilegedClient: privilegedClient,
-		nsPerms:          nsPerms,
-		timeout:          timeout,
-		authEnabled:      authEnabled,
+		rootNamespace:     rootNamespace,
+		privilegedClient:  privilegedClient,
+		userClientFactory: userClientFactory,
+		nsPerms:           nsPerms,
+		timeout:           timeout,
+		authEnabled:       authEnabled,
 	}
 }
 
@@ -389,6 +394,30 @@ func (r *OrgRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGU
 }
 
 func (r *OrgRepo) DeleteSpace(ctx context.Context, info authorization.Info, message DeleteSpaceMessage) error {
+	if r.authEnabled {
+		userClient, err := r.userClientFactory.BuildClient(info)
+		if err != nil {
+			return fmt.Errorf("failed to build user client: %w", err)
+		}
+		err = userClient.Delete(ctx, &v1alpha2.SubnamespaceAnchor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      message.GUID,
+				Namespace: message.OrganizationGUID,
+			},
+		})
+		if err == nil {
+			return nil
+		}
+
+		if apierrors.IsForbidden(err) {
+			return authorization.InvalidAuthError{
+				Err: err,
+			}
+		}
+
+		return err
+	}
+
 	return r.privilegedClient.Delete(ctx, &v1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
