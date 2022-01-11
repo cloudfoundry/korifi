@@ -359,7 +359,10 @@ var _ = Describe("PackageHandler", func() {
 
 					It("calls the package repository with expected arguments", func() {
 						_, _, message := packageRepo.ListPackagesArgsForCall(0)
-						Expect(message).To(Equal(repositories.ListPackagesMessage{AppGUIDs: []string{appGUID}}))
+						Expect(message).To(Equal(repositories.ListPackagesMessage{
+							AppGUIDs: []string{appGUID},
+							States:   []string{},
+						}))
 					})
 				})
 
@@ -389,7 +392,7 @@ var _ = Describe("PackageHandler", func() {
 								AppGUIDs:        []string{},
 								SortBy:          "created_at",
 								DescendingOrder: false,
-								State:           "",
+								States:          []string{},
 							}))
 						})
 
@@ -411,7 +414,7 @@ var _ = Describe("PackageHandler", func() {
 								AppGUIDs:        []string{},
 								SortBy:          "created_at",
 								DescendingOrder: true,
-								State:           "",
+								States:          []string{},
 							}))
 						})
 
@@ -432,6 +435,29 @@ var _ = Describe("PackageHandler", func() {
 						Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 					})
 				})
+
+				When("the \"states\" parameter is sent", func() {
+					BeforeEach(func() {
+						var err error
+						req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages?states=READY,AWAITING_UPLOAD", nil)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("calls repository ListPackage with the correct message object", func() {
+						_, _, message := packageRepo.ListPackagesArgsForCall(0)
+						Expect(message).To(Equal(repositories.ListPackagesMessage{
+							AppGUIDs:        []string{},
+							SortBy:          "",
+							DescendingOrder: false,
+							States:          []string{"READY", "AWAITING_UPLOAD"},
+						}))
+					})
+
+					It("returns status 200", func() {
+						Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					})
+				})
+
 			})
 			When("no packages exist", func() {
 				BeforeEach(func() {
@@ -486,7 +512,7 @@ var _ = Describe("PackageHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, order_by, per_page'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, order_by, per_page, states'")
 			})
 		})
 	})

@@ -364,6 +364,11 @@ var _ = Describe("PackageRepository", func() {
 						AppRef: corev1.LocalObjectReference{
 							Name: appGUID2,
 						},
+						Source: workloadsv1alpha1.PackageSource{
+							Registry: workloadsv1alpha1.Registry{
+								Image: "my-image-url",
+							},
+						},
 					},
 				}
 				Expect(k8sClient.Create(context.Background(), package2)).To(Succeed())
@@ -538,6 +543,59 @@ var _ = Describe("PackageRepository", func() {
 						Expect(packageList[0].GUID).To(Equal(package3GUID))
 						Expect(packageList[1].GUID).To(Equal(package2GUID))
 						Expect(packageList[2].GUID).To(Equal(package1GUID))
+					})
+				})
+
+			})
+
+			When("State filter is provided", func() {
+				When("filtering by State=READY", func() {
+					It("filters the packages", func() {
+						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{States: []string{"READY"}})
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(packageList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package2GUID),
+								"AppGUID": Equal(appGUID2),
+								"State":   Equal("READY"),
+							}),
+						))
+					})
+				})
+
+				When("filtering by State=AWAITING_UPLOAD", func() {
+					It("filters the packages", func() {
+						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{States: []string{"AWAITING_UPLOAD"}})
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(packageList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package1GUID),
+								"AppGUID": Equal(appGUID1),
+								"State":   Equal("AWAITING_UPLOAD"),
+							}),
+						))
+					})
+				})
+
+				When("filtering by State=AWAITING_UPLOAD,READY", func() {
+					It("filters the packages", func() {
+						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{States: []string{"AWAITING_UPLOAD", "READY"}})
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(packageList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package1GUID),
+								"AppGUID": Equal(appGUID1),
+								"State":   Equal("AWAITING_UPLOAD"),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package2GUID),
+								"AppGUID": Equal(appGUID2),
+								"State":   Equal("READY"),
+							}),
+						))
 					})
 				})
 
