@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"net/url"
 	"strconv"
 	"sync"
 
@@ -163,7 +161,7 @@ var _ = Describe("Spaces", func() {
 		})
 
 		It("lists the spaces the user has role in", func() {
-			spaces, err := getSpaces(tokenAuthHeader)
+			spaces, err := get(apis.SpaceListEndpoint, tokenAuthHeader)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(spaces).To(SatisfyAll(
 				HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 6))),
@@ -189,14 +187,20 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns an unauthorized error", func() {
-				_, err := getSpaces(tokenAuthHeader)
+				_, err := get(apis.SpaceListEndpoint, tokenAuthHeader)
 				Expect(err).To(MatchError(ContainSubstring(strconv.Itoa(http.StatusUnauthorized))))
 			})
 		})
 
 		When("filtering by organization GUIDs", func() {
 			It("only lists spaces beloging to the orgs", func() {
-				spaces, err := getSpacesWithQueryFn(tokenAuthHeader, map[string]string{"organization_guids": fmt.Sprintf("%s,%s", org1.GUID, org3.GUID)})
+				spaces, err := getWithQuery(
+					apis.SpaceListEndpoint,
+					tokenAuthHeader,
+					map[string]string{
+						"organization_guids": fmt.Sprintf("%s,%s", org1.GUID, org3.GUID),
+					},
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spaces).To(
 					HaveKeyWithValue("resources", ConsistOf(
@@ -209,45 +213,3 @@ var _ = Describe("Spaces", func() {
 		})
 	})
 })
-
-func getSpaces(authHeaderValue string) (map[string]interface{}, error) {
-	return getSpacesWithQueryFn(authHeaderValue, nil)
-}
-
-func getSpacesWithQueryFn(authHeaderValue string, query map[string]string) (map[string]interface{}, error) {
-	spacesUrl, err := url.Parse(apiServerRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	spacesUrl.Path = apis.SpaceListEndpoint
-	values := url.Values{}
-	for key, val := range query {
-		values.Set(key, val)
-	}
-	spacesUrl.RawQuery = values.Encode()
-
-	resp, err := httpReq(http.MethodGet, spacesUrl.String(), authHeaderValue, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
-	}
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	response := map[string]interface{}{}
-	err = json.Unmarshal(bodyBytes, &response)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
-}
