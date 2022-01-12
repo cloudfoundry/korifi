@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -56,8 +57,12 @@ var _ = Describe("Apps", func() {
 		})
 
 		AfterEach(func() {
-			deleteSubnamespace(org.GUID, space2.GUID)
-			deleteSubnamespace(org.GUID, space3.GUID)
+			var wg sync.WaitGroup
+			wg.Add(2)
+			for _, id := range []string{space2.GUID, space3.GUID} {
+				asyncDeleteSubnamespace(org.GUID, id, &wg)
+			}
+			wg.Wait()
 		})
 
 		It("returns apps only in authorized spaces", func() {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -75,10 +76,12 @@ var _ = Describe("Orgs", func() {
 		})
 
 		AfterEach(func() {
-			deleteSubnamespace(rootNamespace, org1.GUID)
-			deleteSubnamespace(rootNamespace, org2.GUID)
-			deleteSubnamespace(rootNamespace, org3.GUID)
-			deleteSubnamespace(rootNamespace, org4.GUID)
+			var wg sync.WaitGroup
+			wg.Add(4)
+			for _, id := range []string{org1.GUID, org2.GUID, org3.GUID, org4.GUID} {
+				asyncDeleteSubnamespace(rootNamespace, id, &wg)
+			}
+			wg.Wait()
 		})
 
 		Context("with a bearer token auth header", func() {

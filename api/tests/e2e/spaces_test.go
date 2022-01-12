@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -35,15 +36,21 @@ var _ = Describe("Spaces", func() {
 		})
 
 		AfterEach(func() {
+			ids := []string{}
 			if space.GUID != "" {
-				deleteSubnamespace(org.GUID, space.GUID)
-				waitForNamespaceDeletion(org.GUID, space.GUID)
+				ids = append(ids, space.GUID)
 			}
 
 			if extraSpaceGUID != "" {
-				deleteSubnamespace(org.GUID, extraSpaceGUID)
-				waitForNamespaceDeletion(org.GUID, extraSpaceGUID)
+				ids = append(ids, extraSpaceGUID)
 			}
+
+			var wg sync.WaitGroup
+			wg.Add(len(ids))
+			for _, id := range ids {
+				asyncDeleteSubnamespace(org.GUID, id, &wg)
+			}
+			wg.Wait()
 
 			deleteSubnamespace(rootNamespace, org.GUID)
 		})
@@ -134,27 +141,25 @@ var _ = Describe("Spaces", func() {
 		})
 
 		AfterEach(func() {
-			deleteSubnamespace(org1.GUID, space11.GUID)
-			deleteSubnamespace(org1.GUID, space12.GUID)
-			deleteSubnamespace(org1.GUID, space13.GUID)
-			deleteSubnamespace(org2.GUID, space21.GUID)
-			deleteSubnamespace(org2.GUID, space22.GUID)
-			deleteSubnamespace(org2.GUID, space23.GUID)
-			deleteSubnamespace(org3.GUID, space31.GUID)
-			deleteSubnamespace(org3.GUID, space32.GUID)
-			deleteSubnamespace(org3.GUID, space33.GUID)
-			waitForNamespaceDeletion(org1.GUID, space11.GUID)
-			waitForNamespaceDeletion(org1.GUID, space12.GUID)
-			waitForNamespaceDeletion(org1.GUID, space13.GUID)
-			waitForNamespaceDeletion(org2.GUID, space21.GUID)
-			waitForNamespaceDeletion(org2.GUID, space22.GUID)
-			waitForNamespaceDeletion(org2.GUID, space23.GUID)
-			waitForNamespaceDeletion(org3.GUID, space31.GUID)
-			waitForNamespaceDeletion(org3.GUID, space32.GUID)
-			waitForNamespaceDeletion(org3.GUID, space33.GUID)
-			deleteSubnamespace(rootNamespace, org1.GUID)
-			deleteSubnamespace(rootNamespace, org2.GUID)
-			deleteSubnamespace(rootNamespace, org3.GUID)
+			var wg1 sync.WaitGroup
+			ids := map[string]string{
+				space11.GUID: org1.GUID, space12.GUID: org1.GUID, space13.GUID: org1.GUID,
+				space21.GUID: org2.GUID, space22.GUID: org2.GUID, space23.GUID: org2.GUID,
+				space31.GUID: org3.GUID, space32.GUID: org3.GUID, space33.GUID: org3.GUID,
+			}
+			wg1.Add(len(ids))
+			for spaceID, orgID := range ids {
+				asyncDeleteSubnamespace(orgID, spaceID, &wg1)
+			}
+			wg1.Wait()
+
+			orgIDs := []string{org1.GUID, org2.GUID, org3.GUID}
+			var wg2 sync.WaitGroup
+			wg2.Add(len(orgIDs))
+			for _, id := range orgIDs {
+				asyncDeleteSubnamespace(rootNamespace, id, &wg2)
+			}
+			wg2.Wait()
 		})
 
 		It("lists the spaces the user has role in", func() {

@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -126,17 +127,6 @@ func generateGUID(prefix string) string {
 	guid := uuid.NewString()
 
 	return fmt.Sprintf("%s-%s", prefix, guid[:13])
-}
-
-func waitForNamespaceDeletion(parent, ns string) {
-	Eventually(func() (bool, error) {
-		err := k8sClient.Get(context.Background(), client.ObjectKey{Namespace: parent, Name: ns}, &hnsv1alpha2.SubnamespaceAnchor{})
-		if errors.IsNotFound(err) {
-			return true, nil
-		}
-
-		return false, err
-	}, "30s").Should(BeTrue())
 }
 
 func deleteSubnamespace(parent, name string) {
@@ -436,4 +426,13 @@ func createApp(spaceGUID, name, authHeader string) presenter.AppResponse {
 	Expect(err).NotTo(HaveOccurred())
 
 	return app
+}
+
+func asyncDeleteSubnamespace(orgID, spaceID string, wg *sync.WaitGroup) {
+	go func() {
+		defer GinkgoRecover()
+		defer wg.Done()
+
+		deleteSubnamespace(orgID, spaceID)
+	}()
 }
