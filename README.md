@@ -158,7 +158,7 @@ kubectl hns config set-resource secrets --mode Propagate
 
 # Installation
 ## Configure cf-k8s-controllers
-Configuration file for cf-k8s-controllers is at `controllers/config/base/controllersconfig/cf_k8s_controllers_k8s.yaml`
+Configuration file for cf-k8s-controllers is at `controllers/config/base/controllersconfig/cf_k8s_controllers_config.yaml`
 
 ### Configure kpack
 Edit the configuration file
