@@ -92,7 +92,9 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("returns all 3 orgs that the service account has a role in", func() {
-				Eventually(getOrgsFn(tokenAuthHeader, nil)).Should(SatisfyAll(
+				orgs, err := getOrgs(tokenAuthHeader, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(orgs).To(SatisfyAll(
 					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
 					HaveKeyWithValue("resources", ContainElements(
 						HaveKeyWithValue("name", org1.Name),
@@ -102,7 +104,9 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("does not return orgs the service account does not have a role in", func() {
-				Consistently(getOrgsFn(tokenAuthHeader, nil), "5s").ShouldNot(
+				orgs, err := getOrgs(tokenAuthHeader, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(orgs).ToNot(
 					HaveKeyWithValue("resources", ContainElements(
 						HaveKeyWithValue("name", org4.Name),
 					)))
@@ -110,13 +114,15 @@ var _ = Describe("Orgs", func() {
 
 			When("org names are filtered", func() {
 				It("returns orgs 1 & 3", func() {
-					Eventually(getOrgsFn(tokenAuthHeader, map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)})).Should(SatisfyAll(
+					orgs, err := getOrgs(tokenAuthHeader, map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(orgs).To(SatisfyAll(
 						HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 2))),
 						HaveKeyWithValue("resources", ContainElements(
 							HaveKeyWithValue("name", org1.Name),
 							HaveKeyWithValue("name", org3.Name),
 						))))
-					Consistently(getOrgsFn(tokenAuthHeader, map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)}), "5s").ShouldNot(
+					Expect(orgs).ToNot(
 						HaveKeyWithValue("resources", ContainElements(
 							HaveKeyWithValue("name", org2.Name),
 						)))
@@ -132,7 +138,9 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("returns all 3 orgs that the service account has a role in", func() {
-				Eventually(getOrgsFn(certAuthHeader, nil)).Should(SatisfyAll(
+				orgs, err := getOrgs(certAuthHeader, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(orgs).To(SatisfyAll(
 					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
 					HaveKeyWithValue("resources", ContainElements(
 						HaveKeyWithValue("name", org1.Name),
@@ -142,7 +150,9 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("does not return orgs the service account does not have a role in", func() {
-				Consistently(getOrgsFn(certAuthHeader, nil), "5s").ShouldNot(
+				orgs, err := getOrgs(certAuthHeader, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(orgs).ToNot(
 					HaveKeyWithValue("resources", ContainElements(
 						HaveKeyWithValue("name", org4.Name),
 					)))
@@ -150,13 +160,15 @@ var _ = Describe("Orgs", func() {
 
 			When("org names are filtered", func() {
 				It("returns orgs 1 & 3", func() {
-					Eventually(getOrgsFn(certAuthHeader, map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)})).Should(SatisfyAll(
+					orgs, err := getOrgs(certAuthHeader, map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(orgs).To(SatisfyAll(
 						HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 2))),
 						HaveKeyWithValue("resources", ContainElements(
 							HaveKeyWithValue("name", org1.Name),
 							HaveKeyWithValue("name", org3.Name),
 						))))
-					Consistently(getOrgsFn(certAuthHeader, map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)}), "5s").ShouldNot(
+					Expect(orgs).ToNot(
 						HaveKeyWithValue("resources", ContainElements(
 							HaveKeyWithValue("name", org2.Name),
 						)))
@@ -166,48 +178,46 @@ var _ = Describe("Orgs", func() {
 
 		When("no Authorization header is available in the request", func() {
 			It("returns unauthorized error", func() {
-				_, err := getOrgsFn("", nil)()
+				_, err := getOrgs("", nil)
 				Expect(err).To(MatchError(ContainSubstring(strconv.Itoa(http.StatusUnauthorized))))
 			})
 		})
 	})
 })
 
-func getOrgsFn(authHeaderValue string, query map[string]string) func() (map[string]interface{}, error) {
-	return func() (map[string]interface{}, error) {
-		orgsUrl, err := url.Parse(apiServerRoot)
-		if err != nil {
-			return nil, err
-		}
-
-		orgsUrl.Path = apis.OrgsEndpoint
-		values := url.Values{}
-		for key, val := range query {
-			values.Set(key, val)
-		}
-		orgsUrl.RawQuery = values.Encode()
-
-		resp, err := httpReq(http.MethodGet, orgsUrl.String(), authHeaderValue, nil)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
-		}
-
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		response := map[string]interface{}{}
-		err = json.Unmarshal(bodyBytes, &response)
-		if err != nil {
-			return nil, err
-		}
-
-		return response, nil
+func getOrgs(authHeaderValue string, query map[string]string) (map[string]interface{}, error) {
+	orgsUrl, err := url.Parse(apiServerRoot)
+	if err != nil {
+		return nil, err
 	}
+
+	orgsUrl.Path = apis.OrgsEndpoint
+	values := url.Values{}
+	for key, val := range query {
+		values.Set(key, val)
+	}
+	orgsUrl.RawQuery = values.Encode()
+
+	resp, err := httpReq(http.MethodGet, orgsUrl.String(), authHeaderValue, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
+	}
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	response := map[string]interface{}{}
+	err = json.Unmarshal(bodyBytes, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }

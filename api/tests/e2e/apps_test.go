@@ -66,7 +66,9 @@ var _ = Describe("Apps", func() {
 		})
 
 		It("returns apps only in authorized spaces", func() {
-			Eventually(getAppsFn(certAuthHeader)).Should(SatisfyAll(
+			apps, err := getApps(certAuthHeader)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(apps).To(SatisfyAll(
 				HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 4))),
 				HaveKeyWithValue("resources", ContainElements(
 					HaveKeyWithValue("name", app1.Name),
@@ -74,7 +76,8 @@ var _ = Describe("Apps", func() {
 					HaveKeyWithValue("name", app5.Name),
 					HaveKeyWithValue("name", app6.Name),
 				))))
-			Consistently(getAppsFn(certAuthHeader), "5s").ShouldNot(
+
+			Expect(apps).ToNot(
 				HaveKeyWithValue("resources", ContainElements(
 					HaveKeyWithValue("name", app3.Name),
 					HaveKeyWithValue("name", app4.Name),
@@ -114,37 +117,35 @@ var _ = Describe("Apps", func() {
 	})
 })
 
-func getAppsFn(authHeaderValue string) func() (map[string]interface{}, error) {
-	return func() (map[string]interface{}, error) {
-		appsURL, err := url.Parse(apiServerRoot)
-		if err != nil {
-			return nil, err
-		}
-
-		appsURL.Path = apis.AppListEndpoint
-
-		resp, err := httpReq(http.MethodGet, appsURL.String(), authHeaderValue, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
-		}
-
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		response := map[string]interface{}{}
-		err = json.Unmarshal(bodyBytes, &response)
-		if err != nil {
-			return nil, err
-		}
-
-		return response, nil
+func getApps(authHeaderValue string) (map[string]interface{}, error) {
+	appsURL, err := url.Parse(apiServerRoot)
+	if err != nil {
+		return nil, err
 	}
+
+	appsURL.Path = apis.AppListEndpoint
+
+	resp, err := httpReq(http.MethodGet, appsURL.String(), authHeaderValue, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
+	}
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	response := map[string]interface{}{}
+	err = json.Unmarshal(bodyBytes, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }

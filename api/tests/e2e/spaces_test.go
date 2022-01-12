@@ -163,7 +163,9 @@ var _ = Describe("Spaces", func() {
 		})
 
 		It("lists the spaces the user has role in", func() {
-			Eventually(getSpacesFn(tokenAuthHeader)).Should(SatisfyAll(
+			spaces, err := getSpaces(tokenAuthHeader)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(spaces).To(SatisfyAll(
 				HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 6))),
 				HaveKeyWithValue("resources", ContainElements(
 					HaveKeyWithValue("name", space11.Name),
@@ -173,7 +175,7 @@ var _ = Describe("Spaces", func() {
 					HaveKeyWithValue("name", space31.Name),
 					HaveKeyWithValue("name", space32.Name),
 				))))
-			Consistently(getSpacesFn(tokenAuthHeader), "5s").ShouldNot(
+			Expect(spaces).ToNot(
 				HaveKeyWithValue("resources", ContainElements(
 					HaveKeyWithValue("name", space13.Name),
 					HaveKeyWithValue("name", space23.Name),
@@ -187,14 +189,16 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns an unauthorized error", func() {
-				_, err := getSpacesFn(tokenAuthHeader)()
+				_, err := getSpaces(tokenAuthHeader)
 				Expect(err).To(MatchError(ContainSubstring(strconv.Itoa(http.StatusUnauthorized))))
 			})
 		})
 
 		When("filtering by organization GUIDs", func() {
 			It("only lists spaces beloging to the orgs", func() {
-				Eventually(getSpacesWithQueryFn(tokenAuthHeader, map[string]string{"organization_guids": fmt.Sprintf("%s,%s", org1.GUID, org3.GUID)})).Should(
+				spaces, err := getSpacesWithQueryFn(tokenAuthHeader, map[string]string{"organization_guids": fmt.Sprintf("%s,%s", org1.GUID, org3.GUID)})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(spaces).To(
 					HaveKeyWithValue("resources", ConsistOf(
 						HaveKeyWithValue("name", space11.Name),
 						HaveKeyWithValue("name", space12.Name),
@@ -206,46 +210,44 @@ var _ = Describe("Spaces", func() {
 	})
 })
 
-func getSpacesFn(authHeaderValue string) func() (map[string]interface{}, error) {
+func getSpaces(authHeaderValue string) (map[string]interface{}, error) {
 	return getSpacesWithQueryFn(authHeaderValue, nil)
 }
 
-func getSpacesWithQueryFn(authHeaderValue string, query map[string]string) func() (map[string]interface{}, error) {
-	return func() (map[string]interface{}, error) {
-		spacesUrl, err := url.Parse(apiServerRoot)
-		if err != nil {
-			return nil, err
-		}
-
-		spacesUrl.Path = apis.SpaceListEndpoint
-		values := url.Values{}
-		for key, val := range query {
-			values.Set(key, val)
-		}
-		spacesUrl.RawQuery = values.Encode()
-
-		resp, err := httpReq(http.MethodGet, spacesUrl.String(), authHeaderValue, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
-		}
-
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		response := map[string]interface{}{}
-		err = json.Unmarshal(bodyBytes, &response)
-		if err != nil {
-			return nil, err
-		}
-
-		return response, nil
+func getSpacesWithQueryFn(authHeaderValue string, query map[string]string) (map[string]interface{}, error) {
+	spacesUrl, err := url.Parse(apiServerRoot)
+	if err != nil {
+		return nil, err
 	}
+
+	spacesUrl.Path = apis.SpaceListEndpoint
+	values := url.Values{}
+	for key, val := range query {
+		values.Set(key, val)
+	}
+	spacesUrl.RawQuery = values.Encode()
+
+	resp, err := httpReq(http.MethodGet, spacesUrl.String(), authHeaderValue, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
+	}
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	response := map[string]interface{}{}
+	err = json.Unmarshal(bodyBytes, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
