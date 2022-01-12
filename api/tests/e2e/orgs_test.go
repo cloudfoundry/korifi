@@ -68,10 +68,10 @@ var _ = Describe("Orgs", func() {
 		var org1, org2, org3, org4 presenter.OrgResponse
 
 		BeforeEach(func() {
-			org1 = createOrg(generateGUID("org1"), tokenAuthHeader)
-			org2 = createOrg(generateGUID("org2"), tokenAuthHeader)
-			org3 = createOrg(generateGUID("org3"), tokenAuthHeader)
-			org4 = createOrg(generateGUID("org4"), tokenAuthHeader)
+			org1 = createOrg(generateGUID("org1"), adminAuthHeader)
+			org2 = createOrg(generateGUID("org2"), adminAuthHeader)
+			org3 = createOrg(generateGUID("org3"), adminAuthHeader)
+			org4 = createOrg(generateGUID("org4"), adminAuthHeader)
 		})
 
 		AfterEach(func() {
@@ -83,9 +83,9 @@ var _ = Describe("Orgs", func() {
 
 		Context("with a bearer token auth header", func() {
 			BeforeEach(func() {
-				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, tokenAuthHeader)
-				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID, tokenAuthHeader)
-				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID, tokenAuthHeader)
+				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, adminAuthHeader)
+				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID, adminAuthHeader)
+				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID, adminAuthHeader)
 			})
 
 			It("returns all 3 orgs that the service account has a role in", func() {
@@ -123,9 +123,9 @@ var _ = Describe("Orgs", func() {
 
 		Context("with a client certificate auth header", func() {
 			BeforeEach(func() {
-				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org1.GUID, certAuthHeader)
-				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org2.GUID, certAuthHeader)
-				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org3.GUID, certAuthHeader)
+				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org1.GUID, adminAuthHeader)
+				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org2.GUID, adminAuthHeader)
+				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org3.GUID, adminAuthHeader)
 			})
 
 			It("returns all 3 orgs that the service account has a role in", func() {

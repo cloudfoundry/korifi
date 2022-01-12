@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -18,29 +17,6 @@ var _ = Describe("Roles", func() {
 		ctx      context.Context
 		userName string
 	)
-
-	createBinding := func(namespace, userName, roleName string) *rbacv1.RoleBinding {
-		binding := &rbacv1.RoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      uuid.NewString(),
-				Namespace: namespace,
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind: rbacv1.UserKind,
-					Name: userName,
-				},
-			},
-			RoleRef: rbacv1.RoleRef{
-				Kind: "ClusterRole",
-				Name: roleName,
-			},
-		}
-
-		Expect(k8sClient.Create(ctx, binding)).To(Succeed())
-
-		return binding
-	}
 
 	BeforeEach(func() {
 		ctx = context.Background()
@@ -51,7 +27,7 @@ var _ = Describe("Roles", func() {
 		var org presenter.OrgResponse
 
 		BeforeEach(func() {
-			org = createOrg(uuid.NewString(), tokenAuthHeader)
+			org = createOrg(uuid.NewString(), adminAuthHeader)
 		})
 
 		AfterEach(func() {
@@ -90,9 +66,9 @@ var _ = Describe("Roles", func() {
 		)
 
 		BeforeEach(func() {
-			org = createOrg(uuid.NewString(), tokenAuthHeader)
-			space = createSpace(uuid.NewString(), org.GUID, tokenAuthHeader)
-			createBinding(org.GUID, userName, "basic-user")
+			org = createOrg(uuid.NewString(), adminAuthHeader)
+			createOrgRole("organization_user", rbacv1.UserKind, userName, org.GUID, adminAuthHeader)
+			space = createSpace(uuid.NewString(), org.GUID, adminAuthHeader)
 		})
 
 		AfterEach(func() {
