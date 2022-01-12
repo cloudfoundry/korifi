@@ -37,22 +37,11 @@ var _ = Describe("Roles", func() {
 		It("creates a role binding", func() {
 			role := createOrgRole("organization_manager", rbacv1.UserKind, userName, org.GUID, tokenAuthHeader)
 
-			roleBindingList := &rbacv1.RoleBindingList{}
-			Eventually(func() ([]rbacv1.RoleBinding, error) {
-				err := k8sClient.List(ctx, roleBindingList,
-					client.InNamespace(org.GUID),
-					client.MatchingLabels{repositories.RoleGuidLabel: role.GUID},
-				)
-				if err != nil {
-					return nil, err
-				}
-				return roleBindingList.Items, nil
-			}).Should(HaveLen(1))
-
-			binding := roleBindingList.Items[0]
+			binding := getOrgRoleBinding(ctx, org.GUID, role.GUID)
 			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-organization-manager"))
 			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(binding.Subjects).To(HaveLen(1))
+
 			subject := binding.Subjects[0]
 			Expect(subject.Name).To(Equal(userName))
 			Expect(subject.Kind).To(Equal(rbacv1.UserKind))
@@ -79,25 +68,25 @@ var _ = Describe("Roles", func() {
 		It("creates a role binding", func() {
 			role := createSpaceRole("space_developer", rbacv1.UserKind, userName, space.GUID, tokenAuthHeader)
 
-			roleBindingList := &rbacv1.RoleBindingList{}
-			Eventually(func() ([]rbacv1.RoleBinding, error) {
-				err := k8sClient.List(ctx, roleBindingList,
-					client.InNamespace(space.GUID),
-					client.MatchingLabels{repositories.RoleGuidLabel: role.GUID},
-				)
-				if err != nil {
-					return nil, err
-				}
-				return roleBindingList.Items, nil
-			}).Should(HaveLen(1))
-
-			binding := roleBindingList.Items[0]
+			binding := getOrgRoleBinding(ctx, space.GUID, role.GUID)
 			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-space-developer"))
 			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(binding.Subjects).To(HaveLen(1))
+
 			subject := binding.Subjects[0]
 			Expect(subject.Name).To(Equal(userName))
 			Expect(subject.Kind).To(Equal(rbacv1.UserKind))
 		})
 	})
 })
+
+func getOrgRoleBinding(ctx context.Context, orgGuid, roleGuid string) rbacv1.RoleBinding {
+	roleBindingList := &rbacv1.RoleBindingList{}
+	Expect(k8sClient.List(ctx, roleBindingList,
+		client.InNamespace(orgGuid),
+		client.MatchingLabels{repositories.RoleGuidLabel: roleGuid},
+	)).To(Succeed())
+	Expect(roleBindingList.Items).To(HaveLen(1))
+
+	return roleBindingList.Items[0]
+}
