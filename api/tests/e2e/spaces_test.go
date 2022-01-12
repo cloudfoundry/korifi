@@ -30,8 +30,8 @@ var _ = Describe("Spaces", func() {
 
 		BeforeEach(func() {
 			spaceName = generateGUID("space")
-			org = createOrg(generateGUID("org"), tokenAuthHeader)
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org.GUID, tokenAuthHeader)
+			org = createOrg(generateGUID("org"), adminAuthHeader)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org.GUID, adminAuthHeader)
 		})
 
 		AfterEach(func() {
@@ -106,31 +106,31 @@ var _ = Describe("Spaces", func() {
 		)
 
 		BeforeEach(func() {
-			org1 = createOrg(generateGUID("org1"), tokenAuthHeader)
-			org2 = createOrg(generateGUID("org2"), tokenAuthHeader)
-			org3 = createOrg(generateGUID("org3"), tokenAuthHeader)
+			org1 = createOrg(generateGUID("org1"), adminAuthHeader)
+			org2 = createOrg(generateGUID("org2"), adminAuthHeader)
+			org3 = createOrg(generateGUID("org3"), adminAuthHeader)
 
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, tokenAuthHeader)
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID, tokenAuthHeader)
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID, tokenAuthHeader)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, adminAuthHeader)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID, adminAuthHeader)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID, adminAuthHeader)
 
-			space11 = createSpace(generateGUID("space1"), org1.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space11.GUID, tokenAuthHeader)
-			space12 = createSpace(generateGUID("space2"), org1.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space12.GUID, tokenAuthHeader)
-			space13 = createSpace(generateGUID("space3"), org1.GUID, tokenAuthHeader)
+			space11 = createSpace(generateGUID("space1"), org1.GUID, adminAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space11.GUID, adminAuthHeader)
+			space12 = createSpace(generateGUID("space2"), org1.GUID, adminAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space12.GUID, adminAuthHeader)
+			space13 = createSpace(generateGUID("space3"), org1.GUID, adminAuthHeader)
 
-			space21 = createSpace(generateGUID("space1"), org2.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space21.GUID, tokenAuthHeader)
-			space22 = createSpace(generateGUID("space2"), org2.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space22.GUID, tokenAuthHeader)
-			space23 = createSpace(generateGUID("space3"), org2.GUID, tokenAuthHeader)
+			space21 = createSpace(generateGUID("space1"), org2.GUID, adminAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space21.GUID, adminAuthHeader)
+			space22 = createSpace(generateGUID("space2"), org2.GUID, adminAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space22.GUID, adminAuthHeader)
+			space23 = createSpace(generateGUID("space3"), org2.GUID, adminAuthHeader)
 
-			space31 = createSpace(generateGUID("space1"), org3.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space31.GUID, tokenAuthHeader)
-			space32 = createSpace(generateGUID("space2"), org3.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space32.GUID, tokenAuthHeader)
-			space33 = createSpace(generateGUID("space3"), org3.GUID, tokenAuthHeader)
+			space31 = createSpace(generateGUID("space1"), org3.GUID, adminAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space31.GUID, adminAuthHeader)
+			space32 = createSpace(generateGUID("space2"), org3.GUID, adminAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space32.GUID, adminAuthHeader)
+			space33 = createSpace(generateGUID("space3"), org3.GUID, adminAuthHeader)
 		})
 
 		AfterEach(func() {

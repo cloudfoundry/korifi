@@ -51,6 +51,7 @@ var (
 	certUserName        string
 	certSigningReq      *certsv1.CertificateSigningRequest
 	certAuthHeader      string
+	adminAuthHeader     string
 )
 
 func TestE2E(t *testing.T) {
@@ -68,6 +69,11 @@ var _ = BeforeSuite(func() {
 
 	config, err := controllerruntime.GetConfig()
 	Expect(err).NotTo(HaveOccurred())
+
+	// fine for Kind cluster; might need work for other cluster types
+	cert := config.CertData
+	cert = append(cert, config.KeyData...)
+	adminAuthHeader = "ClientCert " + base64.StdEncoding.EncodeToString(cert)
 
 	k8sClient, err = client.New(config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())

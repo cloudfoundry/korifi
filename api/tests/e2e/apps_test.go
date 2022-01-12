@@ -22,9 +22,9 @@ var _ = Describe("Apps", func() {
 	)
 
 	BeforeEach(func() {
-		org = createOrg(generateGUID("org"), tokenAuthHeader)
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, org.GUID, tokenAuthHeader)
-		space1 = createSpace(generateGUID("space1"), org.GUID, tokenAuthHeader)
+		org = createOrg(generateGUID("org"), adminAuthHeader)
+		createOrgRole("organization_user", rbacv1.UserKind, certUserName, org.GUID, adminAuthHeader)
+		space1 = createSpace(generateGUID("space1"), org.GUID, adminAuthHeader)
 	})
 
 	AfterEach(func() {
@@ -39,18 +39,18 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			space2 = createSpace(generateGUID("space2"), org.GUID, tokenAuthHeader)
-			space3 = createSpace(generateGUID("space3"), org.GUID, tokenAuthHeader)
+			space2 = createSpace(generateGUID("space2"), org.GUID, adminAuthHeader)
+			space3 = createSpace(generateGUID("space3"), org.GUID, adminAuthHeader)
 
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, tokenAuthHeader)
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space3.GUID, tokenAuthHeader)
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space3.GUID, adminAuthHeader)
 
-			app1 = createApp(space1.GUID, generateGUID("app1"), tokenAuthHeader)
-			app2 = createApp(space1.GUID, generateGUID("app2"), tokenAuthHeader)
-			app3 = createApp(space2.GUID, generateGUID("app3"), tokenAuthHeader)
-			app4 = createApp(space2.GUID, generateGUID("app4"), tokenAuthHeader)
-			app5 = createApp(space3.GUID, generateGUID("app5"), tokenAuthHeader)
-			app6 = createApp(space3.GUID, generateGUID("app6"), tokenAuthHeader)
+			app1 = createApp(space1.GUID, generateGUID("app1"), adminAuthHeader)
+			app2 = createApp(space1.GUID, generateGUID("app2"), adminAuthHeader)
+			app3 = createApp(space2.GUID, generateGUID("app3"), adminAuthHeader)
+			app4 = createApp(space2.GUID, generateGUID("app4"), adminAuthHeader)
+			app5 = createApp(space3.GUID, generateGUID("app5"), adminAuthHeader)
+			app6 = createApp(space3.GUID, generateGUID("app6"), adminAuthHeader)
 
 			_, _ = app3, app4
 		})
@@ -97,7 +97,7 @@ var _ = Describe("Apps", func() {
 
 		When("the user has space developer role in the space", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, tokenAuthHeader)
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
 			})
 
 			It("succeeds", func() {
