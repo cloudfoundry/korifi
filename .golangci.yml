@@ -21,3 +21,12 @@ linters:
 
   # Show only new issues
   new: false
+
+  enable:
+    - dupl
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+      - dupl
