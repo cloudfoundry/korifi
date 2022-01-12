@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"k8s.io/apimachinery/pkg/types"
@@ -9,6 +10,12 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+type BuildpackRepository struct {
+	privilegedClient  client.Client
+	userClientFactory UserK8sClientFactory
+	authEnabled       bool
+}
 
 type BuildpackRecord struct {
 	Name      string
@@ -19,21 +26,40 @@ type BuildpackRecord struct {
 	UpdatedAt string
 }
 
-type BuildpackRepository struct {
-	privilegedClient client.Client
+type ListBuildpacksMessage struct {
+	OrderBy []string
 }
 
-func NewBuildpackRepository(privilegedClient client.Client) *BuildpackRepository {
-	return &BuildpackRepository{privilegedClient: privilegedClient}
+func NewBuildpackRepository(
+	privilegedClient client.Client,
+	userClientFactory UserK8sClientFactory,
+	authEnabled bool,
+) *BuildpackRepository {
+	return &BuildpackRepository{
+		privilegedClient:  privilegedClient,
+		userClientFactory: userClientFactory,
+		authEnabled:       authEnabled,
+	}
 }
 
 func (r *BuildpackRepository) GetBuildpacksForBuilder(ctx context.Context, authInfo authorization.Info, builderName string) ([]BuildpackRecord, error) {
 	clusterBuilder := &buildv1alpha2.ClusterBuilder{}
-	err := r.privilegedClient.Get(ctx, types.NamespacedName{Name: builderName}, clusterBuilder)
-	if err != nil {
-		return []BuildpackRecord{}, err
-	}
 
+	if !r.authEnabled {
+		err := r.privilegedClient.Get(ctx, types.NamespacedName{Name: builderName}, clusterBuilder)
+		if err != nil {
+			return []BuildpackRecord{}, err
+		}
+	} else {
+		userClient, err := r.userClientFactory.BuildClient(authInfo)
+		if err != nil {
+			return []BuildpackRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		}
+		err = userClient.Get(ctx, types.NamespacedName{Name: builderName}, clusterBuilder)
+		if err != nil {
+			return []BuildpackRecord{}, err
+		}
+	}
 	return clusterBuilderToBuildpackRecords(clusterBuilder), nil
 }
 

@@ -324,6 +324,17 @@ Content-Type: application/json
 }
 ```
 
+### Buildpacks
+| Resource | Endpoint |
+|--|--|
+| List Buildpacks | GET /v3/buildpacks |
+
+#### [List Buildpacks](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#list-buildpacks)
+```bash
+curl "http://localhost:9000/v3/buildpacks?order_by=postion" \
+  -X GET
+```
+
 ### Log-Cache API
 We support basic, unauthenticated versions of the following [log-cache](https://github.com/cloudfoundry/log-cache) APIs that return hard-coded responses.
 

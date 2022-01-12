@@ -33,12 +33,14 @@ import (
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 )
 
 var createTimeout = time.Second * 30
 
 func init() {
 	utilruntime.Must(workloadsv1alpha1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(buildv1alpha2.AddToScheme(scheme.Scheme))
 	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(hnsv1alpha2.AddToScheme(scheme.Scheme))
 }
@@ -171,7 +173,7 @@ func main() {
 		apis.NewLogCacheHandler(),
 
 		apis.NewOrgHandler(*serverURL, orgRepo),
-		// TODO: Pass through config.PackageRegistrySecretName here (do we use the SpaceRepoProvider or the Handler?
+
 		apis.NewSpaceHandler(*serverURL, config.PackageRegistrySecretName, orgRepo),
 
 		apis.NewSpaceManifestHandler(
@@ -189,6 +191,12 @@ func main() {
 		apis.NewRoleHandler(*serverURL, repositories.NewRoleRepo(privilegedCRClient, authorization.NewNamespacePermissions(privilegedCRClient, identityProvider, config.RootNamespace), config.RoleMappings)),
 
 		apis.NewWhoAmI(identityProvider, *serverURL),
+
+		apis.NewBuildpackHandler(
+			ctrl.Log.WithName("BuildpackHandler"),
+			*serverURL,
+			repositories.NewBuildpackRepository(privilegedCRClient, buildUserClient, config.AuthEnabled),
+		),
 	}
 
 	router := mux.NewRouter()
