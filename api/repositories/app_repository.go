@@ -115,6 +115,12 @@ type CreateOrPatchAppEnvVarsMessage struct {
 	EnvironmentVariables map[string]string
 }
 
+type PatchAppEnvVarsMessage struct {
+	AppGUID              string
+	SpaceGUID            string
+	EnvironmentVariables map[string]*string
+}
+
 type SetCurrentDropletMessage struct {
 	AppGUID     string
 	DropletGUID string
@@ -326,6 +332,37 @@ func (f *AppRepo) GetNamespace(ctx context.Context, authInfo authorization.Info,
 		return SpaceRecord{}, err
 	}
 	return v1NamespaceToSpaceRecord(namespace), nil
+}
+
+func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
+	secretObj := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      generateEnvSecretName(message.AppGUID),
+			Namespace: message.SpaceGUID,
+		},
+	}
+
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return AppEnvVarsRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	_, err = controllerutil.CreateOrPatch(ctx, userClient, &secretObj, func() error {
+		secretObj.StringData = map[string]string{}
+		for k, v := range message.EnvironmentVariables {
+			if v == nil {
+				delete(secretObj.Data, k)
+			} else {
+				secretObj.StringData[k] = *v
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return AppEnvVarsRecord{}, err
+	}
+
+	return appEnvVarsSecretToRecord(secretObj), nil
 }
 
 func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, authInfo authorization.Info, envVariables CreateOrPatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
