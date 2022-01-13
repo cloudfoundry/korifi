@@ -34,8 +34,9 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#organizatio
 
 | Resource   | Endpoint      |
 | ---------- | ------------- |
-| List Orgs  | GET /v3/apps  |
-| Create Org | POST /v3/apps |
+| List Orgs  | GET /v3/organizations  |
+| Create Org | POST /v3/organizations |
+| Delete Space | [DELETE /v3/organizations/:guid](https://v3-apidocs.cloudfoundry.org/version/3.113.0/index.html#delete-an-organization)
 
 #### [List Orgs](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-organizations)
 **Query Parameters:** Currently only supports filtering by organization `names`.

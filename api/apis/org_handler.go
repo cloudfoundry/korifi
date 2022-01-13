@@ -1,7 +1,6 @@
 package apis
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -20,23 +19,19 @@ import (
 )
 
 const (
-	OrgsEndpoint = "/v3/organizations"
+	OrgsEndpoint     = "/v3/organizations"
+	OrgDeleteEnpoint = "/v3/organizations/{guid}"
 )
 
-//counterfeiter:generate -o fake -fake-name OrgRepository . OrgRepository
-
-type OrgRepository interface {
-	CreateOrg(ctx context.Context, info authorization.Info, org repositories.CreateOrgMessage) (repositories.OrgRecord, error)
-	ListOrgs(ctx context.Context, info authorization.Info, names []string) ([]repositories.OrgRecord, error)
-}
+//counterfeiter:generate -o fake -fake-name OrgRepository ../repositories CFOrgRepository
 
 type OrgHandler struct {
 	logger     logr.Logger
 	apiBaseURL url.URL
-	orgRepo    OrgRepository
+	orgRepo    repositories.CFOrgRepository
 }
 
-func NewOrgHandler(apiBaseURL url.URL, orgRepo OrgRepository) *OrgHandler {
+func NewOrgHandler(apiBaseURL url.URL, orgRepo repositories.CFOrgRepository) *OrgHandler {
 	return &OrgHandler{
 		logger:     controllerruntime.Log.WithName("Org Handler"),
 		apiBaseURL: apiBaseURL,
@@ -93,6 +88,38 @@ func (h *OrgHandler) orgCreateHandler(info authorization.Info, w http.ResponseWr
 	}
 }
 
+func (h *OrgHandler) orgDeleteHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	orgGUID := vars["guid"]
+
+	deleteOrgMessage := repositories.DeleteOrgMessage{
+		GUID: orgGUID,
+	}
+	err := h.orgRepo.DeleteOrg(ctx, info, deleteOrgMessage)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch err.(type) {
+		case authorization.InvalidAuthError:
+			h.logger.Error(err, "unauthorized to delete org", "OrgGUID", orgGUID)
+			writeNotAuthorizedErrorResponse(w)
+			return
+		case repositories.NotFoundError:
+			h.logger.Info("Org not found", "OrgGUID", orgGUID)
+			writeNotFoundErrorResponse(w, "Org")
+			return
+		default:
+			h.logger.Error(err, "Failed to delete org", "OrgGUID", orgGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	w.Header().Set("Location", fmt.Sprintf("%s/v3/jobs/org.delete-%s", h.apiBaseURL.String(), orgGUID))
+	writeResponse(w, http.StatusAccepted, "")
+}
+
 func (h *OrgHandler) orgListHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
@@ -135,5 +162,6 @@ func (h *OrgHandler) orgListHandler(info authorization.Info, w http.ResponseWrit
 func (h *OrgHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
 	router.Path(OrgsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.orgListHandler))
+	router.Path(OrgDeleteEnpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.orgDeleteHandler))
 	router.Path(OrgsEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.orgCreateHandler))
 }

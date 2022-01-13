@@ -491,4 +491,76 @@ var _ = Describe("OrgHandler", func() {
 			})
 		})
 	})
+
+	Describe("Delete Org", func() {
+		const (
+			orgGUID = "orgGUID"
+		)
+		var (
+			request *http.Request
+			err     error
+		)
+
+		BeforeEach(func() {
+			request, err = http.NewRequestWithContext(ctx, http.MethodDelete, orgsBase+"/"+orgGUID, nil)
+			Expect(err).NotTo(HaveOccurred())
+			request.Header.Add(headers.Authorization, "Bearer my-token")
+		})
+
+		When("on the happy path", func() {
+			BeforeEach(func() {
+				router.ServeHTTP(rr, request)
+			})
+			It("responds with a 202 accepted response", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+			})
+
+			It("responds with a job URL in a location header", func() {
+				Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/org.delete-"+orgGUID))
+			})
+
+			It("deletes the K8s record via the repository", func() {
+				Expect(orgRepo.DeleteOrgCallCount()).To(Equal(1))
+				_, info, message := orgRepo.DeleteOrgArgsForCall(0)
+				Expect(info).To(Equal(authInfo))
+				Expect(message).To(Equal(repositories.DeleteOrgMessage{
+					GUID: orgGUID,
+				}))
+			})
+		})
+
+		When("deleting the org is not authorized", func() {
+			BeforeEach(func() {
+				orgRepo.DeleteOrgReturns(authorization.InvalidAuthError{})
+				router.ServeHTTP(rr, request)
+			})
+
+			It("returns Unauthorized error", func() {
+				expectUnauthorizedError()
+			})
+		})
+
+		When("invoking the delete org repository fails", func() {
+			BeforeEach(func() {
+				orgRepo.DeleteOrgReturns(errors.New("unknown-error"))
+				router.ServeHTTP(rr, request)
+			})
+
+			It("returns unknown error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the org doesn't exist", func() {
+			BeforeEach(func() {
+				orgRepo.DeleteOrgReturns(repositories.NotFoundError{})
+				router.ServeHTTP(rr, request)
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Org not found")
+			})
+		})
+
+	})
 })
