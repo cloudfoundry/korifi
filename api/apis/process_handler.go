@@ -170,7 +170,7 @@ func (h *ProcessHandler) processGetStatsHandler(authInfo authorization.Info, w h
 	}
 }
 
-func (h *ProcessHandler) processListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *ProcessHandler) processListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) { //nolint:dupl
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 

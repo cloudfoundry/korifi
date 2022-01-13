@@ -4,15 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"net/url"
 	"strconv"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -92,7 +90,7 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("returns all 3 orgs that the service account has a role in", func() {
-				orgs, err := getOrgs(tokenAuthHeader, nil)
+				orgs, err := get(apis.OrgsEndpoint, tokenAuthHeader)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(orgs).To(SatisfyAll(
 					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
@@ -104,7 +102,7 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("does not return orgs the service account does not have a role in", func() {
-				orgs, err := getOrgs(tokenAuthHeader, nil)
+				orgs, err := get(apis.OrgsEndpoint, tokenAuthHeader)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(orgs).ToNot(
 					HaveKeyWithValue("resources", ContainElements(
@@ -114,7 +112,13 @@ var _ = Describe("Orgs", func() {
 
 			When("org names are filtered", func() {
 				It("returns orgs 1 & 3", func() {
-					orgs, err := getOrgs(tokenAuthHeader, map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)})
+					orgs, err := getWithQuery(
+						apis.OrgsEndpoint,
+						tokenAuthHeader,
+						map[string]string{
+							"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name),
+						},
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(orgs).To(SatisfyAll(
 						HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 2))),
@@ -138,7 +142,7 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("returns all 3 orgs that the service account has a role in", func() {
-				orgs, err := getOrgs(certAuthHeader, nil)
+				orgs, err := get(apis.OrgsEndpoint, certAuthHeader)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(orgs).To(SatisfyAll(
 					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
@@ -150,7 +154,7 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("does not return orgs the service account does not have a role in", func() {
-				orgs, err := getOrgs(certAuthHeader, nil)
+				orgs, err := get(apis.OrgsEndpoint, certAuthHeader)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(orgs).ToNot(
 					HaveKeyWithValue("resources", ContainElements(
@@ -160,7 +164,13 @@ var _ = Describe("Orgs", func() {
 
 			When("org names are filtered", func() {
 				It("returns orgs 1 & 3", func() {
-					orgs, err := getOrgs(certAuthHeader, map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)})
+					orgs, err := getWithQuery(
+						apis.OrgsEndpoint,
+						certAuthHeader,
+						map[string]string{
+							"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name),
+						},
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(orgs).To(SatisfyAll(
 						HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 2))),
@@ -178,46 +188,9 @@ var _ = Describe("Orgs", func() {
 
 		When("no Authorization header is available in the request", func() {
 			It("returns unauthorized error", func() {
-				_, err := getOrgs("", nil)
+				_, err := get(apis.OrgsEndpoint, "")
 				Expect(err).To(MatchError(ContainSubstring(strconv.Itoa(http.StatusUnauthorized))))
 			})
 		})
 	})
 })
-
-func getOrgs(authHeaderValue string, query map[string]string) (map[string]interface{}, error) {
-	orgsUrl, err := url.Parse(apiServerRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	orgsUrl.Path = apis.OrgsEndpoint
-	values := url.Values{}
-	for key, val := range query {
-		values.Set(key, val)
-	}
-	orgsUrl.RawQuery = values.Encode()
-
-	resp, err := httpReq(http.MethodGet, orgsUrl.String(), authHeaderValue, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
-	}
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	response := map[string]interface{}{}
-	err = json.Unmarshal(bodyBytes, &response)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
-}

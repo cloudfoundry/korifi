@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -18,6 +16,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads/integration/helpers"
 )
 
 var _ = Describe("SubnamespaceanchorValidation", func() {
@@ -70,15 +69,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 		Context("orgs", func() {
 			BeforeEach(func() {
-				anchor = &hnsv1alpha2.SubnamespaceAnchor{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.NewString(),
-						Namespace: namespace,
-						Labels: map[string]string{
-							workloads.OrgNameLabel: "my-org",
-						},
-					},
-				}
+				anchor = helpers.MakeOrg(namespace, "my-org")
 			})
 
 			It("registers the name", func() {
@@ -108,15 +99,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 		Context("spaces", func() {
 			BeforeEach(func() {
-				anchor = &hnsv1alpha2.SubnamespaceAnchor{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.NewString(),
-						Namespace: namespace,
-						Labels: map[string]string{
-							workloads.SpaceNameLabel: "my-space",
-						},
-					},
-				}
+				anchor = helpers.MakeSpace(namespace, "my-space")
 			})
 
 			It("registers the space name", func() {
@@ -147,15 +130,9 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 		Context("malformed orgs and spaces", func() {
 			When("a subnamespace anchor has neither org nor space label", func() {
 				BeforeEach(func() {
-					anchor = &hnsv1alpha2.SubnamespaceAnchor{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      uuid.NewString(),
-							Namespace: namespace,
-							Labels: map[string]string{
-								"something": "else",
-							},
-						},
-					}
+					anchor = helpers.MakeSubnamespaceAnchor(namespace, map[string]string{
+						"something": "else",
+					})
 				})
 
 				It("allows the request", func() {
@@ -170,16 +147,10 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 			When("a subnamespace anchor has both org and space labels", func() {
 				BeforeEach(func() {
-					anchor = &hnsv1alpha2.SubnamespaceAnchor{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      uuid.NewString(),
-							Namespace: namespace,
-							Labels: map[string]string{
-								workloads.OrgNameLabel:   "my-org",
-								workloads.SpaceNameLabel: "my-space",
-							},
-						},
-					}
+					anchor = helpers.MakeSubnamespaceAnchor(namespace, map[string]string{
+						workloads.OrgNameLabel:   "my-org",
+						workloads.SpaceNameLabel: "my-space",
+					})
 				})
 
 				It("denies the request", func() {
@@ -209,15 +180,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 			When("the name registry fails", func() {
 				BeforeEach(func() {
-					anchor = &hnsv1alpha2.SubnamespaceAnchor{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      uuid.NewString(),
-							Namespace: namespace,
-							Labels: map[string]string{
-								workloads.OrgNameLabel: "my-org",
-							},
-						},
-					}
+					anchor = helpers.MakeOrg(namespace, "my-org")
 					orgNameRegistry.RegisterNameReturns(errors.New("another error"))
 				})
 
@@ -256,17 +219,8 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 		Context("orgs", func() {
 			BeforeEach(func() {
-				anchor = &hnsv1alpha2.SubnamespaceAnchor{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.NewString(),
-						Namespace: namespace,
-						Labels: map[string]string{
-							workloads.OrgNameLabel: "my-org",
-						},
-					},
-				}
-				newAnchor = anchor.DeepCopy()
-				newAnchor.Labels[workloads.OrgNameLabel] = "another-org"
+				anchor = helpers.MakeOrg(namespace, "my-org")
+				newAnchor = helpers.MakeOrg(namespace, "another-org")
 			})
 
 			When("the org name hasn't changed", func() {
@@ -353,17 +307,8 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 		Context("spaces", func() {
 			BeforeEach(func() {
-				anchor = &hnsv1alpha2.SubnamespaceAnchor{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.NewString(),
-						Namespace: namespace,
-						Labels: map[string]string{
-							workloads.SpaceNameLabel: "my-space",
-						},
-					},
-				}
-				newAnchor = anchor.DeepCopy()
-				newAnchor.Labels[workloads.SpaceNameLabel] = "another-space"
+				anchor = helpers.MakeSpace(namespace, "my-space")
+				newAnchor = helpers.MakeSpace(namespace, "another-space")
 			})
 
 			When("the space name hasn't changed", func() {
@@ -444,15 +389,9 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 		Context("malformed orgs and spaces", func() {
 			When("a subnamespace anchor has neither org nor space label", func() {
 				BeforeEach(func() {
-					newAnchor = &hnsv1alpha2.SubnamespaceAnchor{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      uuid.NewString(),
-							Namespace: namespace,
-							Labels: map[string]string{
-								"something": "else",
-							},
-						},
-					}
+					newAnchor = helpers.MakeSubnamespaceAnchor(namespace, map[string]string{
+						"something": "else",
+					})
 				})
 
 				It("allows the request", func() {
@@ -467,16 +406,10 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 			When("a subnamespace anchor has both org and space labels", func() {
 				BeforeEach(func() {
-					newAnchor = &hnsv1alpha2.SubnamespaceAnchor{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      uuid.NewString(),
-							Namespace: namespace,
-							Labels: map[string]string{
-								workloads.OrgNameLabel:   "my-org",
-								workloads.SpaceNameLabel: "my-space",
-							},
-						},
-					}
+					newAnchor = helpers.MakeSubnamespaceAnchor(namespace, map[string]string{
+						workloads.OrgNameLabel:   "my-org",
+						workloads.SpaceNameLabel: "my-space",
+					})
 				})
 
 				It("denies the request", func() {
@@ -531,15 +464,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 		Context("orgs", func() {
 			BeforeEach(func() {
-				anchor = &hnsv1alpha2.SubnamespaceAnchor{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.NewString(),
-						Namespace: namespace,
-						Labels: map[string]string{
-							workloads.OrgNameLabel: "my-org",
-						},
-					},
-				}
+				anchor = helpers.MakeOrg(namespace, "my-org")
 			})
 
 			It("removes the name from the registry", func() {
@@ -602,15 +527,7 @@ var _ = Describe("SubnamespaceanchorValidation", func() {
 
 		Context("spaces", func() {
 			BeforeEach(func() {
-				anchor = &hnsv1alpha2.SubnamespaceAnchor{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.NewString(),
-						Namespace: namespace,
-						Labels: map[string]string{
-							workloads.SpaceNameLabel: "my-space",
-						},
-					},
-				}
+				anchor = helpers.MakeSpace(namespace, "my-space")
 			})
 
 			It("removes the name from the registry", func() {

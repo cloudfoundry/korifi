@@ -45,7 +45,7 @@ func NewDomainHandler(
 	}
 }
 
-func (h *DomainHandler) DomainListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *DomainHandler) DomainListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) { //nolint:dupl
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 

@@ -29,6 +29,30 @@ var _ = Describe("RouteRepository", func() {
 		routeRepo  *RouteRepo
 	)
 
+	validateRoute := func(route RouteRecord, expectedRoute *networkingv1alpha1.CFRoute) {
+		By("returning a routeRecord in the list for one of the created CRs", func() {
+			Expect(route.GUID).To(Equal(expectedRoute.Name))
+			Expect(route.Host).To(Equal(expectedRoute.Spec.Host))
+			Expect(route.SpaceGUID).To(Equal(expectedRoute.Namespace))
+			Expect(route.Path).To(Equal(expectedRoute.Spec.Path))
+			Expect(route.Protocol).To(Equal(string(expectedRoute.Spec.Protocol)))
+			Expect(route.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
+
+			Expect(route.Destinations).To(Equal([]DestinationRecord{
+				{
+					GUID:        expectedRoute.Spec.Destinations[0].GUID,
+					AppGUID:     expectedRoute.Spec.Destinations[0].AppRef.Name,
+					Port:        expectedRoute.Spec.Destinations[0].Port,
+					ProcessType: expectedRoute.Spec.Destinations[0].ProcessType,
+					Protocol:    expectedRoute.Spec.Destinations[0].Protocol,
+				},
+			}))
+
+			validateTimestamp(route.CreatedAt, timeCheckThreshold*time.Second)
+			validateTimestamp(route.UpdatedAt, timeCheckThreshold*time.Second)
+		})
+	}
+
 	BeforeEach(func() {
 		testCtx = context.Background()
 		route1GUID = generateGUID()
@@ -128,13 +152,8 @@ var _ = Describe("RouteRepository", func() {
 				})
 
 				By("returning a record where the CreatedAt and UpdatedAt match the CR creation time", func() {
-					createdAt, err := time.Parse(time.RFC3339, route.CreatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-					updatedAt, err := time.Parse(time.RFC3339, route.CreatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+					validateTimestamp(route.CreatedAt, timeCheckThreshold*time.Second)
+					validateTimestamp(route.UpdatedAt, timeCheckThreshold*time.Second)
 				})
 
 				Expect(route.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
@@ -300,59 +319,8 @@ var _ = Describe("RouteRepository", func() {
 					Expect(route1).NotTo(BeZero())
 					Expect(route2).NotTo(BeZero())
 
-					By("returning a routeRecord in the list for one of the created CRs", func() {
-						Expect(route1.GUID).To(Equal(cfRoute1.Name))
-						Expect(route1.Host).To(Equal(cfRoute1.Spec.Host))
-						Expect(route1.SpaceGUID).To(Equal(cfRoute1.Namespace))
-						Expect(route1.Path).To(Equal(cfRoute1.Spec.Path))
-						Expect(route1.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
-						Expect(route1.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
-
-						Expect(route1.Destinations).To(Equal([]DestinationRecord{
-							{
-								GUID:        cfRoute1.Spec.Destinations[0].GUID,
-								AppGUID:     cfRoute1.Spec.Destinations[0].AppRef.Name,
-								Port:        cfRoute1.Spec.Destinations[0].Port,
-								ProcessType: cfRoute1.Spec.Destinations[0].ProcessType,
-								Protocol:    cfRoute1.Spec.Destinations[0].Protocol,
-							},
-						}))
-
-						createdAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-						updatedAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-					})
-
-					By("returning a routeRecord in the list that matches another of the created CRs", func() {
-						Expect(route2.GUID).To(Equal(cfRoute2.Name))
-						Expect(route2.Host).To(Equal(cfRoute2.Spec.Host))
-						Expect(route2.SpaceGUID).To(Equal(cfRoute2.Namespace))
-						Expect(route2.Path).To(Equal(cfRoute2.Spec.Path))
-						Expect(route2.Protocol).To(Equal(string(cfRoute2.Spec.Protocol)))
-						Expect(route2.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
-
-						Expect(route2.Destinations).To(Equal([]DestinationRecord{
-							{
-								GUID:        cfRoute2.Spec.Destinations[0].GUID,
-								AppGUID:     cfRoute2.Spec.Destinations[0].AppRef.Name,
-								Port:        cfRoute2.Spec.Destinations[0].Port,
-								ProcessType: cfRoute2.Spec.Destinations[0].ProcessType,
-								Protocol:    cfRoute2.Spec.Destinations[0].Protocol,
-							},
-						}))
-
-						createdAt, err := time.Parse(time.RFC3339, route2.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-						updatedAt, err := time.Parse(time.RFC3339, route2.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-					})
+					validateRoute(route1, cfRoute1)
+					validateRoute(route2, cfRoute2)
 				})
 			})
 
@@ -411,33 +379,7 @@ var _ = Describe("RouteRepository", func() {
 						route1 := routeRecords[0]
 
 						Expect(route1).NotTo(BeZero())
-
-						By("returning a routeRecord in the list for one of the created CRs", func() {
-							Expect(route1.GUID).To(Equal(cfRoute1.Name))
-							Expect(route1.Host).To(Equal(cfRoute1.Spec.Host))
-							Expect(route1.SpaceGUID).To(Equal(cfRoute1.Namespace))
-							Expect(route1.Path).To(Equal(cfRoute1.Spec.Path))
-							Expect(route1.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
-							Expect(route1.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
-
-							Expect(route1.Destinations).To(Equal([]DestinationRecord{
-								{
-									GUID:        cfRoute1.Spec.Destinations[0].GUID,
-									AppGUID:     cfRoute1.Spec.Destinations[0].AppRef.Name,
-									Port:        cfRoute1.Spec.Destinations[0].Port,
-									ProcessType: cfRoute1.Spec.Destinations[0].ProcessType,
-									Protocol:    cfRoute1.Spec.Destinations[0].Protocol,
-								},
-							}))
-
-							createdAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-							Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-							updatedAt, err := time.Parse(time.RFC3339, route1.CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-							Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-						})
+						validateRoute(route1, cfRoute1)
 					})
 				})
 			})
@@ -579,13 +521,8 @@ var _ = Describe("RouteRepository", func() {
 					})
 
 					By("returning a record where the CreatedAt and UpdatedAt match the CR creation time", func() {
-						createdAt, err := time.Parse(time.RFC3339, route.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-						updatedAt, err := time.Parse(time.RFC3339, route.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+						validateTimestamp(route.CreatedAt, timeCheckThreshold*time.Second)
+						validateTimestamp(route.UpdatedAt, timeCheckThreshold*time.Second)
 					})
 				})
 			})
@@ -655,13 +592,8 @@ var _ = Describe("RouteRepository", func() {
 				Expect(createdRouteRecord.SpaceGUID).To(Equal(testNamespace), "Route Space GUID in record did not match input")
 				Expect(createdRouteRecord.Domain).To(Equal(DomainRecord{GUID: domainGUID}), "Route Domain in record did not match created domain")
 
-				recordCreatedTime, err := time.Parse(TimestampFormat, createdRouteRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred(), "There was an error converting the createRouteRecord CreatedTime to string")
-				recordUpdatedTime, err := time.Parse(TimestampFormat, createdRouteRecord.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred(), "There was an error converting the createRouteRecord UpdatedTime to string")
-
-				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
+				validateTimestamp(createdRouteRecord.CreatedAt, 2*time.Second)
+				validateTimestamp(createdRouteRecord.UpdatedAt, 2*time.Second)
 			})
 		})
 
@@ -742,13 +674,8 @@ var _ = Describe("RouteRepository", func() {
 				Expect(createdRouteRecord.SpaceGUID).To(Equal(testNamespace), "Route Space GUID in record did not match input")
 				Expect(createdRouteRecord.Domain).To(Equal(DomainRecord{GUID: domainGUID}), "Route Domain in record did not match created domain")
 
-				recordCreatedTime, err := time.Parse(TimestampFormat, createdRouteRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred(), "There was an error converting the createRouteRecord CreatedTime to string")
-				recordUpdatedTime, err := time.Parse(TimestampFormat, createdRouteRecord.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred(), "There was an error converting the createRouteRecord UpdatedTime to string")
-
-				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
+				validateTimestamp(createdRouteRecord.CreatedAt, 2*time.Second)
+				validateTimestamp(createdRouteRecord.UpdatedAt, 2*time.Second)
 			})
 		})
 
@@ -1252,4 +1179,10 @@ func cleanupDomain(k8sClient client.Client, ctx context.Context, domainGUID stri
 			Name: domainGUID,
 		},
 	})
+}
+
+func validateTimestamp(timestamp string, interval time.Duration) {
+	recordCreatedTime, err := time.Parse(TimestampFormat, timestamp)
+	Expect(err).NotTo(HaveOccurred(), "There was an error converting the createRouteRecord CreatedTime to string")
+	Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), interval))
 }

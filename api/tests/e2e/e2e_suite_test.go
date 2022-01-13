@@ -12,7 +12,9 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"testing"
@@ -435,4 +437,46 @@ func asyncDeleteSubnamespace(orgID, spaceID string, wg *sync.WaitGroup) {
 
 		deleteSubnamespace(orgID, spaceID)
 	}()
+}
+
+func get(endpoint string, authHeaderValue string) (map[string]interface{}, error) {
+	return getWithQuery(endpoint, authHeaderValue, nil)
+}
+
+func getWithQuery(endpoint string, authHeaderValue string, query map[string]string) (map[string]interface{}, error) {
+	serverUrl, err := url.Parse(apiServerRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	serverUrl.Path = endpoint
+	values := url.Values{}
+	for key, val := range query {
+		values.Set(key, val)
+	}
+	serverUrl.RawQuery = values.Encode()
+
+	resp, err := httpReq(http.MethodGet, serverUrl.String(), authHeaderValue, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
+	}
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	response := map[string]interface{}{}
+	err = json.Unmarshal(bodyBytes, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
