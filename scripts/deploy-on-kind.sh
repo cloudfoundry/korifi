@@ -94,7 +94,7 @@ ensure_kind_cluster() {
   if [[ -n "$api_only" ]]; then return 0; fi
 
   if ! kind get clusters | grep -q "$cluster"; then
-    current_cluster="$(kubectl config current-context 2> /dev/null)" || true
+    current_cluster="$(kubectl config current-context 2>/dev/null)" || true
     cat <<EOF | kind create cluster --name "$cluster" --wait 5m --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -173,7 +173,8 @@ deploy_cf_k8s_controllers() {
   if [[ -n "$api_only" ]]; then return 0; fi
 
   pushd $ROOT_DIR >/dev/null
-  {    export KUBEBUILDER_ASSETS=$ROOT_DIR/testbin/bin
+  {
+    export KUBEBUILDER_ASSETS=$ROOT_DIR/testbin/bin
     echo $PWD
     make generate-controllers
     IMG_CONTROLLERS=${IMG_CONTROLLERS:-"cf-k8s-controllers:$(uuidgen)"}
@@ -190,7 +191,6 @@ deploy_cf_k8s_controllers() {
     fi
   }
   popd >/dev/null
-
 
   # note: we may want to make the default domain configurable. For now it is "vcap.me"
   kubectl apply -f ${CTRL_DIR}/config/samples/cfdomain.yaml
