@@ -196,6 +196,7 @@ func main() {
 			ctrl.Log.WithName("BuildpackHandler"),
 			*serverURL,
 			repositories.NewBuildpackRepository(privilegedCRClient, buildUserClient, config.AuthEnabled),
+			config.ClusterBuilderName,
 		),
 	}
 

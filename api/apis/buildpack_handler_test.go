@@ -30,6 +30,7 @@ var _ = Describe("BuildpackHandler", func() {
 			logf.Log.WithName(testBuildpackHandlerLoggerName),
 			*serverURL,
 			buildpackRepo,
+			"cf-kpack-cluster-builder",
 		)
 		apiHandler.RegisterRoutes(router)
 	})

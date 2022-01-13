@@ -9,3 +9,4 @@ defaultLifecycleConfig:
 packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
 packageRegistrySecretName: image-registry-credentials
 authEnabled: true
+clusterBuilderName: cf-kpack-cluster-builder
