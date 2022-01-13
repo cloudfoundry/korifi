@@ -8,3 +8,4 @@ defaultLifecycleConfig:
   stagingDiskMB: 1024
 packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
 packageRegistrySecretName: image-registry-credentials
+clusterBuilderName: cf-kpack-cluster-builder

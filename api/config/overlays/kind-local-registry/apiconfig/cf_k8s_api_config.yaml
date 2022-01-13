@@ -8,3 +8,4 @@ defaultLifecycleConfig:
   stagingDiskMB: 1024
 packageRegistryBase: localregistry-docker-registry.default.svc.cluster.local:30050/kpack/packages
 packageRegistrySecretName: image-registry-credentials
+clusterBuilderName: cf-kpack-cluster-builder

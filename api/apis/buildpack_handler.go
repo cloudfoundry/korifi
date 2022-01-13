@@ -27,17 +27,20 @@ type BuildpackHandler struct {
 	logger        logr.Logger
 	serverURL     url.URL
 	buildpackRepo BuildpackRepository
+	clusterBuilderName string
 }
 
 func NewBuildpackHandler(
 	logger logr.Logger,
 	serverURL url.URL,
 	buildpackRepo BuildpackRepository,
+	clusterBuilderName string,
 ) *BuildpackHandler {
 	return &BuildpackHandler{
 		logger:        logger,
 		serverURL:     serverURL,
 		buildpackRepo: buildpackRepo,
+		clusterBuilderName: clusterBuilderName,
 	}
 }
 
@@ -76,7 +79,7 @@ func (h *BuildpackHandler) buildpackListHandler(authInfo authorization.Info, w h
 		return
 	}
 
-	buildpacks, err := h.buildpackRepo.GetBuildpacksForBuilder(ctx, authInfo, "cf-kpack-cluster-builder")
+	buildpacks, err := h.buildpackRepo.GetBuildpacksForBuilder(ctx, authInfo, h.clusterBuilderName)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch buildpacks from Kubernetes")
 		writeUnknownErrorResponse(w)
