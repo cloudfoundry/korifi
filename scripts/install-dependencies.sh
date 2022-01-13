@@ -89,7 +89,7 @@ kubectl apply -f "${DEP_DIR}/kpack/cluster_stack.yaml" \
   -f "${DEP_DIR}/kpack/cluster_store.yaml"
 
 if [[ -n "${DOCKER_SERVER:=}" ]]; then
-  cat dependencies/kpack/cluster_builder.yaml | sed "s/tag: gcr.io/tag: ${DOCKER_SERVER}/g" > /tmp/clusterbuilder.yml
+  cat dependencies/kpack/cluster_builder.yaml | sed "s/tag: gcr.io/tag: ${DOCKER_SERVER}/g" >/tmp/clusterbuilder.yml
   kubectl apply -f /tmp/clusterbuilder.yml
 else
   kubectl apply -f "${DEP_DIR}/kpack/cluster_builder.yaml"
