@@ -5,9 +5,18 @@ import (
 	"path/filepath"
 	"testing"
 
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,13 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
 const (
@@ -54,6 +56,11 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "..", "controllers", "config", "crd", "bases"),
 			filepath.Join("fixtures", "vendor", "hierarchical-namespaces", "config", "crd", "bases"),
 		},
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{
+				filepath.Join("..", "..", "dependencies", "kpack-release-0.5.0.yaml"),
+			},
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -67,6 +74,8 @@ var _ = BeforeSuite(func() {
 	err = networkingv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = hnsv1alpha2.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = buildv1alpha2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
@@ -161,6 +170,11 @@ func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {
 				APIGroups: []string{"workloads.cloudfoundry.org"},
 				Resources: []string{"cfapps"},
 			},
+			{
+				Verbs:     []string{"get"},
+				APIGroups: []string{"kpack.io"},
+				Resources: []string{"clusterbuilders"},
+			},
 		},
 	}
 	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
@@ -184,6 +198,23 @@ func createRoleBinding(ctx context.Context, userName, roleName, namespace string
 		},
 	}
 	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
+}
+
+func createClusterRoleBinding(ctx context.Context, userName, roleName string) {
+	clusterRoleBinding := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: generateGUID(),
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind: rbacv1.UserKind,
+			Name: userName,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: roleName,
+		},
+	}
+	Expect(k8sClient.Create(ctx, &clusterRoleBinding)).To(Succeed())
 }
 
 func createOrgManagerClusterRole(ctx context.Context) *rbacv1.ClusterRole {
