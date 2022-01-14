@@ -480,6 +480,120 @@ var _ = Describe("AppRepository", func() {
 		})
 	})
 
+	Describe("PatchAppEnvVars", func() {
+		const (
+			testAppName      = "some-app-name"
+			defaultNamespace = "default"
+			key0             = "KEY0"
+			key1             = "KEY1"
+			key2             = "KEY2"
+		)
+
+		var (
+			testAppGUID              string
+			testAppEnvSecretName     string
+			cfAppCR                  *workloadsv1alpha1.CFApp
+			originalEnvVars          map[string]string
+			requestEnvVars           map[string]*string
+			expectedEnvVars          map[string]string
+			testAppEnvSecretPatchMsg PatchAppEnvVarsMessage
+		)
+
+		BeforeEach(func() {
+			testAppGUID = generateGUID()
+			testAppEnvSecretName = generateAppEnvSecretName(testAppGUID)
+			cfAppCR = initializeAppCR(testAppName, testAppGUID, defaultNamespace)
+			Expect(
+				k8sClient.Create(testCtx, cfAppCR),
+			).To(Succeed())
+			DeferCleanup(func() {
+				Expect(
+					k8sClient.Delete(testCtx, cfAppCR),
+				).To(Succeed())
+			})
+
+			originalEnvVars = map[string]string{
+				key0: "VAL0",
+				key1: "original-value",
+			}
+			appEnvSecretCreateMessage := CreateOrPatchAppEnvVarsMessage{
+				AppGUID:              testAppGUID,
+				AppEtcdUID:           cfAppCR.GetUID(),
+				SpaceGUID:            defaultNamespace,
+				EnvironmentVariables: originalEnvVars,
+			}
+			_, err := appRepo.CreateOrPatchAppEnvVars(testCtx, authInfo, appEnvSecretCreateMessage)
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() {
+				lookupSecretK8sResource := corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      testAppEnvSecretName,
+						Namespace: defaultNamespace,
+					},
+				}
+
+				Expect(
+					k8sClient.Delete(context.Background(), &lookupSecretK8sResource),
+				).To(Succeed())
+			})
+
+			var value1 *string
+			value2 := "VAL2"
+
+			requestEnvVars = map[string]*string{
+				key1: value1,
+				key2: &value2,
+			}
+			testAppEnvSecretPatchMsg = PatchAppEnvVarsMessage{
+				AppGUID:              testAppGUID,
+				SpaceGUID:            defaultNamespace,
+				EnvironmentVariables: requestEnvVars,
+			}
+
+			expectedEnvVars = map[string]string{
+				key0: originalEnvVars[key0],
+				key2: *requestEnvVars[key2],
+			}
+
+			spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
+			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, defaultNamespace)
+		})
+
+		When("on the happy path, an app exists with a secret", func() {
+			var secretRecord AppEnvVarsRecord
+
+			BeforeEach(func() {
+				var err error
+				secretRecord, err = appRepo.PatchAppEnvVars(context.Background(), authInfo, testAppEnvSecretPatchMsg)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns the updated secret record", func() {
+				Expect(secretRecord.EnvironmentVariables).To(Equal(expectedEnvVars))
+			})
+
+			It("eventually patches the underlying secret", func() {
+				cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: defaultNamespace}
+
+				var updatedSecret corev1.Secret
+				Eventually(func() map[string][]byte {
+					err := k8sClient.Get(context.Background(), cfAppSecretLookupKey, &updatedSecret)
+					if err != nil {
+						return map[string][]byte{}
+					}
+					return updatedSecret.Data
+				}, timeCheckThreshold*time.Second).Should(HaveKey(key2))
+
+				Expect(updatedSecret.Data).To(HaveLen(len(expectedEnvVars)))
+				Expect(updatedSecret.Data).To(HaveKey(key0))
+				Expect(string(updatedSecret.Data[key0])).To(Equal(expectedEnvVars[key0]))
+				Expect(updatedSecret.Data).NotTo(HaveKey(key1))
+				Expect(updatedSecret.Data).To(HaveKey(key2))
+				Expect(string(updatedSecret.Data[key2])).To(Equal(expectedEnvVars[key2]))
+			})
+		})
+	})
+
 	Describe("CreateOrPatchAppEnvVars", func() {
 		const (
 			testAppName      = "some-app-name"

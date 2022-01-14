@@ -35,6 +35,7 @@ const (
 	AppStopEndpoint              = "/v3/apps/{guid}/actions/stop"
 	AppRestartEndpoint           = "/v3/apps/{guid}/actions/restart"
 	AppDeleteEndpoint            = "/v3/apps/{guid}"
+	AppPatchEnvVarsEndpoint      = "/v3/apps/{guid}/environment_variables"
 	invalidDropletMsg            = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
 	AppStartedState = "STARTED"
@@ -48,6 +49,7 @@ type CFAppRepository interface {
 	ListApps(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
 	GetNamespace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	CreateOrPatchAppEnvVars(context.Context, authorization.Info, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
+	PatchAppEnvVars(context.Context, authorization.Info, repositories.PatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
 	SetCurrentDroplet(context.Context, authorization.Info, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
 	SetAppDesiredState(context.Context, authorization.Info, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
@@ -625,6 +627,49 @@ func (h *AppHandler) lookupAppRouteAndDomainList(ctx context.Context, authInfo a
 	return getDomainsForRoutes(ctx, h.domainRepo, authInfo, routeRecords)
 }
 
+func (h *AppHandler) appPatchEnvVarsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+
+	var payload payloads.AppPatchEnvVars
+	rme := decodeAndValidateJSONPayload(r, &payload)
+	if rme != nil {
+		writeRequestMalformedErrorResponse(w, rme)
+		return
+	}
+
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
+	if err != nil {
+
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("App not found", "AppGUID", appGUID)
+			writeNotFoundErrorResponse(w, "App")
+			return
+		default:
+			h.logger.Error(err, "Failed to fetch app", "AppGUID", appGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	envVarsRecord, err := h.appRepo.PatchAppEnvVars(ctx, authInfo, payload.ToMessage(appGUID, app.SpaceGUID))
+	if err != nil {
+		h.logger.Error(err, "Error updating app environment variables")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	err = writeJsonResponse(w, presenter.ForAppEnvVars(envVarsRecord, h.serverURL), http.StatusOK)
+	if err != nil { // untested
+		h.logger.Error(err, "Failed to render response")
+		writeUnknownErrorResponse(w)
+	}
+}
+
 func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
 	router.Path(AppGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appGetHandler))
@@ -639,4 +684,5 @@ func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(AppGetProcessesEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.getProcessesForAppHandler))
 	router.Path(AppGetRoutesEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.getRoutesForAppHandler))
 	router.Path(AppDeleteEndpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.appDeleteHandler))
+	router.Path(AppPatchEnvVarsEndpoint).Methods("PATCH").HandlerFunc(w.Wrap(h.appPatchEnvVarsHandler))
 }

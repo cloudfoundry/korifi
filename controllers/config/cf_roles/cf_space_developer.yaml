@@ -5,6 +5,13 @@ metadata:
   name: space-developer
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - patch
+  - get
+- apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps

@@ -2595,6 +2595,169 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 	})
+
+	Describe("the PATCH /v3/apps/:guid/environment_variables", func() {
+		const (
+			key0 = "KEY0"
+			key1 = "KEY1"
+			key2 = "KEY2"
+		)
+
+		queuePatchRequest := func(appGUID, requestBody string) {
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(requestBody))
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		var (
+			appReturns       repositories.AppRecord
+			appSecretReturns repositories.AppEnvVarsRecord
+			appEnvVars       map[string]string
+		)
+
+		BeforeEach(func() {
+			appReturns = repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID}
+			appRepo.GetAppReturns(appReturns, nil)
+
+			appEnvVars = map[string]string{
+				key0: "VAL0",
+				key2: "VAL2",
+			}
+			appSecretReturns = repositories.AppEnvVarsRecord{
+				Name:                 appGUID + "-env",
+				AppGUID:              appGUID,
+				SpaceGUID:            spaceGUID,
+				EnvironmentVariables: appEnvVars,
+			}
+			appRepo.PatchAppEnvVarsReturns(appSecretReturns, nil)
+			queuePatchRequest(appGUID, `{ "var": { "`+key1+`": null, "`+key2+`": "VAL2" } }`)
+		})
+
+		When("on the happy path", func() {
+			It("responds with a 200 code", func() {
+				Expect(rr.Code).To(Equal(200))
+			})
+
+			It("responds with JSON", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+					"var": {
+						"KEY0": "VAL0",
+						"KEY2": "VAL2"
+					},
+					"links": {
+						"self": {
+							"href": "%[1]s/v3/apps/%[2]s/environment_variables"
+						},
+						"app": {
+							"href": "%[1]s/v3/apps/%[2]s"
+						}
+					}
+				}`, defaultServerURL, appGUID)))
+			})
+
+			It("fetches the right App", func() {
+				Expect(appRepo.GetAppCallCount()).To(Equal(1))
+				_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
+				Expect(actualAppGUID).To(Equal(appGUID))
+			})
+
+			It("updates the k8s record via the repository", func() {
+				Expect(appRepo.PatchAppEnvVarsCallCount()).To(Equal(1))
+				_, _, message := appRepo.PatchAppEnvVarsArgsForCall(0)
+				Expect(message.AppGUID).To(Equal(appGUID))
+				Expect(message.SpaceGUID).To(Equal(spaceGUID))
+				var value1 *string
+				value2 := "VAL2"
+				Expect(message.EnvironmentVariables).To(Equal(map[string]*string{
+					key1: value1,
+					key2: &value2,
+				}))
+			})
+		})
+
+		When("the validating env vars", func() {
+			DescribeTable("returns response code",
+				func(requestBody string, status int) {
+					tableTestRecorder := httptest.NewRecorder()
+					queuePatchRequest(appGUID, requestBody)
+					router.ServeHTTP(tableTestRecorder, req)
+					Expect(tableTestRecorder.Code).To(Equal(status))
+				},
+				Entry("contains a null value", `{ "var": { "key": null } }`, http.StatusOK),
+				Entry("contains an int value", `{ "var": { "key": 9999 } }`, http.StatusOK),
+				Entry("contains an float value", `{ "var": { "key": 9999.9 } }`, http.StatusOK),
+				Entry("contains an bool value", `{ "var": { "key": true } }`, http.StatusOK),
+				Entry("contains an string value", `{ "var": { "key": "string" } }`, http.StatusOK),
+				Entry("contains a PORT key", `{ "var": { "PORT": 9000 } }`, http.StatusUnprocessableEntity),
+				Entry("contains a VPORT key", `{ "var": { "VPORT": 9000 } }`, http.StatusOK),
+				Entry("contains a PORTO key", `{ "var": { "PORTO": 9000 } }`, http.StatusOK),
+				Entry("contains a VCAP_ key prefix", `{ "var": {"VCAP_POTATO":"foo" } }`, http.StatusUnprocessableEntity),
+				Entry("contains a VMC_ key prefix", `{ "var": {"VMC_APPLE":"bar" } }`, http.StatusUnprocessableEntity),
+			)
+		})
+
+		When("on the sad path and", func() {
+			When("the request JSON is invalid", func() {
+				BeforeEach(func() {
+					queuePatchRequest(appGUID, `{`)
+				})
+
+				It("returns a status 400 Bad Request ", func() {
+					Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+				})
+
+				It("has the expected error response body", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+					Expect(rr.Body.String()).To(MatchJSON(`{
+						"errors": [
+							{
+								"title": "CF-MessageParseError",
+								"detail": "Request invalid due to parse error: invalid request body",
+								"code": 1001
+							}
+						]
+					}`), "Response body matches response:")
+				})
+			})
+
+			When("the app cannot be found", func() {
+				BeforeEach(func() {
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				})
+
+				// TODO: should we return code 100004 instead?
+				It("returns an error", func() {
+					expectNotFoundError("App not found")
+				})
+			})
+
+			When("there is some other error fetching the app", func() {
+				BeforeEach(func() {
+					appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
+			})
+
+			When("there is some error updating the app environment variables", func() {
+				BeforeEach(func() {
+					appRepo.PatchAppEnvVarsReturns(repositories.AppEnvVarsRecord{}, errors.New("unknown!"))
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
+			})
+
+		})
+	})
 })
 
 func initializeCreateAppRequestBody(appName, spaceGUID string, envVars, labels, annotations map[string]string) string {

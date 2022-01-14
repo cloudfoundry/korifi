@@ -115,6 +115,21 @@ type CFAppRepository struct {
 		result1 []repositories.AppRecord
 		result2 error
 	}
+	PatchAppEnvVarsStub        func(context.Context, authorization.Info, repositories.PatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
+	patchAppEnvVarsMutex       sync.RWMutex
+	patchAppEnvVarsArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchAppEnvVarsMessage
+	}
+	patchAppEnvVarsReturns struct {
+		result1 repositories.AppEnvVarsRecord
+		result2 error
+	}
+	patchAppEnvVarsReturnsOnCall map[int]struct {
+		result1 repositories.AppEnvVarsRecord
+		result2 error
+	}
 	SetAppDesiredStateStub        func(context.Context, authorization.Info, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 	setAppDesiredStateMutex       sync.RWMutex
 	setAppDesiredStateArgsForCall []struct {
@@ -609,6 +624,72 @@ func (fake *CFAppRepository) ListAppsReturnsOnCall(i int, result1 []repositories
 	}{result1, result2}
 }
 
+func (fake *CFAppRepository) PatchAppEnvVars(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error) {
+	fake.patchAppEnvVarsMutex.Lock()
+	ret, specificReturn := fake.patchAppEnvVarsReturnsOnCall[len(fake.patchAppEnvVarsArgsForCall)]
+	fake.patchAppEnvVarsArgsForCall = append(fake.patchAppEnvVarsArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchAppEnvVarsMessage
+	}{arg1, arg2, arg3})
+	stub := fake.PatchAppEnvVarsStub
+	fakeReturns := fake.patchAppEnvVarsReturns
+	fake.recordInvocation("PatchAppEnvVars", []interface{}{arg1, arg2, arg3})
+	fake.patchAppEnvVarsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFAppRepository) PatchAppEnvVarsCallCount() int {
+	fake.patchAppEnvVarsMutex.RLock()
+	defer fake.patchAppEnvVarsMutex.RUnlock()
+	return len(fake.patchAppEnvVarsArgsForCall)
+}
+
+func (fake *CFAppRepository) PatchAppEnvVarsCalls(stub func(context.Context, authorization.Info, repositories.PatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)) {
+	fake.patchAppEnvVarsMutex.Lock()
+	defer fake.patchAppEnvVarsMutex.Unlock()
+	fake.PatchAppEnvVarsStub = stub
+}
+
+func (fake *CFAppRepository) PatchAppEnvVarsArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchAppEnvVarsMessage) {
+	fake.patchAppEnvVarsMutex.RLock()
+	defer fake.patchAppEnvVarsMutex.RUnlock()
+	argsForCall := fake.patchAppEnvVarsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFAppRepository) PatchAppEnvVarsReturns(result1 repositories.AppEnvVarsRecord, result2 error) {
+	fake.patchAppEnvVarsMutex.Lock()
+	defer fake.patchAppEnvVarsMutex.Unlock()
+	fake.PatchAppEnvVarsStub = nil
+	fake.patchAppEnvVarsReturns = struct {
+		result1 repositories.AppEnvVarsRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) PatchAppEnvVarsReturnsOnCall(i int, result1 repositories.AppEnvVarsRecord, result2 error) {
+	fake.patchAppEnvVarsMutex.Lock()
+	defer fake.patchAppEnvVarsMutex.Unlock()
+	fake.PatchAppEnvVarsStub = nil
+	if fake.patchAppEnvVarsReturnsOnCall == nil {
+		fake.patchAppEnvVarsReturnsOnCall = make(map[int]struct {
+			result1 repositories.AppEnvVarsRecord
+			result2 error
+		})
+	}
+	fake.patchAppEnvVarsReturnsOnCall[i] = struct {
+		result1 repositories.AppEnvVarsRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFAppRepository) SetAppDesiredState(arg1 context.Context, arg2 authorization.Info, arg3 repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error) {
 	fake.setAppDesiredStateMutex.Lock()
 	ret, specificReturn := fake.setAppDesiredStateReturnsOnCall[len(fake.setAppDesiredStateArgsForCall)]
@@ -758,6 +839,8 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.getNamespaceMutex.RUnlock()
 	fake.listAppsMutex.RLock()
 	defer fake.listAppsMutex.RUnlock()
+	fake.patchAppEnvVarsMutex.RLock()
+	defer fake.patchAppEnvVarsMutex.RUnlock()
 	fake.setAppDesiredStateMutex.RLock()
 	defer fake.setAppDesiredStateMutex.RUnlock()
 	fake.setCurrentDropletMutex.RLock()

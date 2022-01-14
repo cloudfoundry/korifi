@@ -146,3 +146,27 @@ func ForCurrentDroplet(record repositories.CurrentDropletRecord, baseURL url.URL
 		},
 	}
 }
+
+type AppEnvVarsResponse struct {
+	Var map[string]string `json:"var"`
+	Links AppEnvVarsLinks `json:"links"`
+}
+
+type AppEnvVarsLinks struct {
+	Self    Link `json:"self"`
+	App 	Link `json:"app"`
+}
+
+func ForAppEnvVars(record repositories.AppEnvVarsRecord, baseURL url.URL) AppEnvVarsResponse {
+	return AppEnvVarsResponse{
+		Var: record.EnvironmentVariables,
+		Links: AppEnvVarsLinks{
+			Self: Link{
+				HREF: buildURL(baseURL).appendPath(appsBase, record.AppGUID, "environment_variables").build(),
+			},
+			App: Link{
+				HREF: buildURL(baseURL).appendPath(appsBase, record.AppGUID).build(),
+			},
+		},
+	}
+}

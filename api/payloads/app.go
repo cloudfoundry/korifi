@@ -1,6 +1,8 @@
 package payloads
 
 import (
+	"fmt"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
@@ -69,4 +71,36 @@ func (a *AppList) ToMessage() repositories.ListAppsMessage {
 
 func (a *AppList) SupportedFilterKeys() []string {
 	return []string{"names", "guids", "space_guids", "order_by"}
+}
+
+type AppPatchEnvVars struct {
+	Var map[string]interface{} `json:"var" validate:"required,dive,keys,startsnotwith=VCAP_,startsnotwith=VMC_,ne=PORT,endkeys"`
+}
+
+func (a *AppPatchEnvVars) ToMessage(appGUID, spaceGUID string) repositories.PatchAppEnvVarsMessage {
+	message := repositories.PatchAppEnvVarsMessage{
+		AppGUID:              appGUID,
+		SpaceGUID:            spaceGUID,
+		EnvironmentVariables: map[string]*string{},
+	}
+
+	for k, v := range a.Var {
+		switch v := v.(type) {
+		case nil:
+			message.EnvironmentVariables[k] = nil
+		case bool:
+			stringVar := fmt.Sprintf("%t", v)
+			message.EnvironmentVariables[k] = &stringVar
+		case float32:
+			stringVar := fmt.Sprintf("%f", v)
+			message.EnvironmentVariables[k] = &stringVar
+		case int:
+			stringVar := fmt.Sprintf("%d", v)
+			message.EnvironmentVariables[k] = &stringVar
+		case string:
+			message.EnvironmentVariables[k] = &v
+		}
+	}
+
+	return message
 }
