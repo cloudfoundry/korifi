@@ -18,6 +18,9 @@ For more details see [our exploration (Issue #2)](https://github.com/cloudfoundr
 
 ## Decision
 We’ve decided to generate globally unique, non-deterministic GUIDs for resources we create. This GUID will be used as a resource’s name on Kubernetes. This aligns more closely with what existing Cloud Foundry clients expect and avoids encoding extra information in the identifier that may be difficult for us to work with long term.
+> **NOTE:** in [ADR 0004](0004-resource-name-prefixes.md) we somewhat modified
+> this decision to include a prefix on generated GUIDs for orgs, spaces and
+> CFProcesses.
 
 We believe we can address some of the performance implications here by using an in-memory cache on the CF API shim that maps known GUIDs to the Kubernetes namespace in which the object lives.
 
