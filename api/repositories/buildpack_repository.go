@@ -11,6 +11,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders,verbs=get;list;watch;
+//+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders/status,verbs=get
+
 type BuildpackRepository struct {
 	privilegedClient  client.Client
 	userClientFactory UserK8sClientFactory
