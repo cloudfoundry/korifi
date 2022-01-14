@@ -507,7 +507,9 @@ var _ = Describe("AppRepository", func() {
 				k8sClient.Create(testCtx, cfAppCR),
 			).To(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(testCtx, cfAppCR)
+				Expect(
+					k8sClient.Delete(testCtx, cfAppCR),
+				).To(Succeed())
 			})
 
 			originalEnvVars = map[string]string{
@@ -529,7 +531,10 @@ var _ = Describe("AppRepository", func() {
 						Namespace: defaultNamespace,
 					},
 				}
-				k8sClient.Delete(context.Background(), &lookupSecretK8sResource)
+
+				Expect(
+					k8sClient.Delete(context.Background(), &lookupSecretK8sResource),
+				).To(Succeed())
 			})
 
 			var value1 *string

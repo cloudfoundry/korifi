@@ -1545,6 +1545,13 @@ metadata:
   name: cf-k8s-controllers-space-developer
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - patch
+  - get
+- apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
