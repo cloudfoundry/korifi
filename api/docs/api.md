@@ -8,17 +8,17 @@
 
 Docs: https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#root
 
-| Resource | Endpoint |
-|--|--|
-| Global API Root | GET / |
-| V3 API Root | GET /v3 |
+| Resource        | Endpoint |
+| --------------- | -------- |
+| Global API Root | GET /    |
+| V3 API Root     | GET /v3  |
 
 ### Resource Matches
 
 Docs: https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#resource-matches
 
-| Resource | Endpoint |
-|--|--|
+| Resource                | Endpoint                  |
+| ----------------------- | ------------------------- |
 | Create a Resource Match | POST /v3/resource_matches |
 
 #### [Create a Resource Match](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#create-a-resource-match)
@@ -32,9 +32,9 @@ curl "http://localhost:9000/v3/resource_matches" \
 
 Docs: https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#organizations
 
-| Resource | Endpoint |
-|--|--|
-| List Orgs | GET /v3/apps |
+| Resource   | Endpoint      |
+| ---------- | ------------- |
+| List Orgs  | GET /v3/apps  |
 | Create Org | POST /v3/apps |
 
 #### [List Orgs](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-organizations)
@@ -53,10 +53,10 @@ curl "http://localhost:9000/v3/organizations" \
 
 Docs: https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#spaces
 
-| Resource | Endpoint |
-|--|--|
-| List Spaces | GET /v3/spaces |
-| Create Space | POST /v3/spaces |
+| Resource     | Endpoint                                                                                                   |
+| ------------ | ---------------------------------------------------------------------------------------------------------- |
+| List Spaces  | GET /v3/spaces                                                                                             |
+| Create Space | POST /v3/spaces                                                                                            |
 | Delete Space | [DELETE /v3/spaces/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#delete-a-space) |
 
 #### [List Spaces](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-spaces)
@@ -78,20 +78,21 @@ curl "http://localhost:9000/v3/spaces" \
 
 Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 
-| Resource | Endpoint |
-|--|--|
-| List Apps | GET /v3/apps |
-| Get App | GET /v3/apps/\<guid> |
-| Create App | POST /v3/apps |
-| Set App's Current Droplet | PATCH /v3/apps/\<guid>/relationships/current_droplet |
-| Get App's Current Droplet | GET /v3/apps/\<guid>/droplets/current |
-| Start App | POST /v3/apps/\<guid>/actions/start |
-| Stop App | POST /v3/apps/\<guid>/actions/stop |
-| Restart App | POST /v3/apps/\<guid>/actions/restart |
-| List App Processes | GET /v3/apps/\<guid>/processes |
-| Scale App Process | POST /v3/apps/<guid>/processes/<type>/actions/scale |
-| List App Routes | GET /v3/apps/\<guid>/routes |
-| Delete App | [DELETE /v3/apps/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#delete-an-app) |
+| Resource                           | Endpoint                                                                                                |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| List Apps                          | GET /v3/apps                                                                                            |
+| Get App                            | GET /v3/apps/\<guid>                                                                                    |
+| Create App                         | POST /v3/apps                                                                                           |
+| Set App's Current Droplet          | PATCH /v3/apps/\<guid>/relationships/current_droplet                                                    |
+| Get App's Current Droplet          | GET /v3/apps/\<guid>/droplets/current                                                                   |
+| Start App                          | POST /v3/apps/\<guid>/actions/start                                                                     |
+| Stop App                           | POST /v3/apps/\<guid>/actions/stop                                                                      |
+| Restart App                        | POST /v3/apps/\<guid>/actions/restart                                                                   |
+| List App Processes                 | GET /v3/apps/\<guid>/processes                                                                          |
+| Scale App Process                  | POST /v3/apps/<guid>/processes/<type>/actions/scale                                                     |
+| List App Routes                    | GET /v3/apps/\<guid>/routes                                                                             |
+| Delete App                         | [DELETE /v3/apps/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#delete-an-app) |
+| Update App's Environment Variables | PATCH /v3/apps/\<guid>/environment_variables                                                            |
 
 #### [List Apps](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-apps)
 **Query Parameters:** Currently supports filtering by app `names` and `space_guids` and ordering by `name`.
@@ -145,13 +146,21 @@ curl "http://localhost:9000/v3/apps/<app-guid>/actions/restart" \
   -X POST
 ```
 
+
+#### [Update App's Environment Variables](https://v3-apidocs.cloudfoundry.org/version/3.113.0/index.html#update-environment-variables-for-an-app)
+```bash
+curl "http://localhost:9000/v3/apps/<app-guid>/environment_variables" \
+  -X PATCH \
+  -d '{ "var": { "DEBUG": "false", "USER": null }'
+```
+
 ### Packages
 
-| Resource | Endpoint |
-|--|--|
-| Create Package | POST /v3/packages |
-| List Package | GET /v3/packages |
-| Upload Package Bits | POST /v3/packages/<guid>/upload |
+| Resource                                                                                                                | Endpoint                         |
+| ----------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Create Package                                                                                                          | POST /v3/packages                |
+| List Package                                                                                                            | GET /v3/packages                 |
+| Upload Package Bits                                                                                                     | POST /v3/packages/<guid>/upload  |
 | [List Droplets for Package](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#list-droplets-for-a-package) | GET /v3/packages/<guid>/droplets |
 
 #### [Creating Packages](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-package)
@@ -179,10 +188,10 @@ curl "http://localhost:9000/v3/packages"
 
 Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#builds
 
-| Resource | Endpoint |
-|--|--|
-| Get Build | GET /v3/builds/\<guid> |
-| Create Build | POST /v3/builds|
+| Resource     | Endpoint               |
+| ------------ | ---------------------- |
+| Get Build    | GET /v3/builds/\<guid> |
+| Create Build | POST /v3/builds        |
 
 #### [Creating Builds](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-build)
 ```bash
@@ -195,21 +204,21 @@ curl "http://localhost:9000/v3/builds" \
 
 Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#droplets
 
-| Resource | Endpoint |
-|--|--|
+| Resource    | Endpoint                 |
+| ----------- | ------------------------ |
 | Get Droplet | GET /v3/droplets/\<guid> |
 
 ### Process
 
 Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#processes
 
-| Resource | Endpoint |
-|--|--|
-| Get Process | GET /v3/processes/\<guid>/sidecars |
-| Get Process Sidecars | GET /v3/processes/\<guid>/sidecars |
-| Scale Process | POST /v3/processes/\<guid>/actions/scale |
-| Get Process Stats | POST /v3/processes/\<guid>/stats |
-| List Process | POST /v3/processes |
+| Resource             | Endpoint                                 |
+| -------------------- | ---------------------------------------- |
+| Get Process          | GET /v3/processes/\<guid>/sidecars       |
+| Get Process Sidecars | GET /v3/processes/\<guid>/sidecars       |
+| Scale Process        | POST /v3/processes/\<guid>/actions/scale |
+| Get Process Stats    | POST /v3/processes/\<guid>/stats         |
+| List Process         | POST /v3/processes                       |
 
 #### [Scaling Processes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#scale-a-process)
 ```bash
@@ -230,8 +239,8 @@ Support for populating other fields will come later.
 
 https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#domains
 
-| Resource | Endpoint |
-|--|--|
+| Resource     | Endpoint        |
+| ------------ | --------------- |
 | List Domains | GET /v3/domains |
 
 #### [List Domains](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#list-domains)
@@ -242,12 +251,12 @@ curl "http://localhost:9000/v3/domains?names=cf-apps.io" \
 
 ### Routes
 
-| Resource | Endpoint |
-|--|--|
-| Get Route | GET /v3/routes/\<guid> |
-| Get Route List | GET /v3/routes |
-| Get Route Destinations | GET /v3/routes/\<guid\>/destinations |
-| Create Route | POST /v3/routes |
+| Resource                  | Endpoint                              |
+| ------------------------- | ------------------------------------- |
+| Get Route                 | GET /v3/routes/\<guid>                |
+| Get Route List            | GET /v3/routes                        |
+| Get Route Destinations    | GET /v3/routes/\<guid\>/destinations  |
+| Create Route              | POST /v3/routes                       |
 | Add Destinations to Route | POST /v3/routes/\<guid\>/destinations |
 
 #### [List Routes](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#list-routes)
@@ -287,8 +296,8 @@ curl "http://localhost:9000/v3/routes" \
 
 ### Manifest
 
-| Resource | Endpoint |
-|--|--|
+| Resource         | Endpoint                                             |
+| ---------------- | ---------------------------------------------------- |
 | Apply a manifest | POST /v3/spaces/\<space-guid>/actions/apply_manifest |
 
 #### [Applying a manifest](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-route)
@@ -299,8 +308,8 @@ curl "http://localhost:9000/v3/spaces/<space-guid>/actions/apply_manifest" \
   --data-binary @<path-to-manifest.yml>
 ```
 
-| Resource | Endpoint |
-|--|--|
+| Resource                           | Endpoint                                    |
+| ---------------------------------- | ------------------------------------------- |
 | Create a manifest diff for a space | POST /v3/spaces/\<space-guid>/manifest_diff |
 
 #### [Create a manifest diff for a space](https://v3-apidocs.cloudfoundry.org/version/3.109.0/index.html#create-a-manifest-diff-for-a-space-experimental)
@@ -329,14 +338,14 @@ We support basic, unauthenticated versions of the following [log-cache](https://
 
 #### [Log-Cache Info](https://github.com/cloudfoundry/log-cache#get-apiv1info)
 
-| Resource | Endpoint |
-|--|--|
+| Resource                     | Endpoint         |
+| ---------------------------- | ---------------- |
 | Retrieve version information | GET /api/v1/info |
 
 #### [Log-Cache Read](https://github.com/cloudfoundry/log-cache#get-apiv1readsource-id)
 
-| Resource | Endpoint |
-|--|--|
+| Resource                                                                                        | Endpoint                     |
+| ----------------------------------------------------------------------------------------------- | ---------------------------- |
 | Retrieve data by source-id. Currently returns a hard-coded empty list of Loggregator envelopes. | GET /api/v1/read/<source-id> |
 
 ### User Identity
