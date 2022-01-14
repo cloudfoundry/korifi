@@ -1,6 +1,5 @@
 # Strategy for Testing Frameworks
 
-
 Date: 2021-08-27
 
 ## Status
@@ -47,7 +46,5 @@ Comparing the two, we had the following questions and concerns:
 
 The cf-k8s-controller project will use spec as its testing framework and gomega for matching.
 
-
 ## Consequences
 * Kubebuilder generates ginkgo tests by default, there will be inital overhead to convert them to spec.
-

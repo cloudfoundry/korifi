@@ -1,4 +1,4 @@
-# 3. CF Package Source Image Format Decision
+# CF Package Source Image Format Decision
 
 Date: 2021-09-20
 
