@@ -7,7 +7,6 @@ require (
 	code.cloudfoundry.org/eirini-controller v0.2.0
 	github.com/buildpacks/lifecycle v0.13.2
 	github.com/buildpacks/pack v0.23.0
-	github.com/containerd/containerd v1.5.8
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
 	github.com/go-logr/logr v1.2.2
 	github.com/go-playground/locales v0.14.0
@@ -28,6 +27,7 @@ require (
 	k8s.io/api v0.23.1
 	k8s.io/apimachinery v0.23.1
 	k8s.io/client-go v0.23.1
+	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
 	sigs.k8s.io/controller-runtime v0.11.0
 	sigs.k8s.io/controller-tools v0.8.0
 	sigs.k8s.io/hierarchical-namespaces v0.9.0
@@ -51,7 +51,6 @@ require (
 	github.com/buildpacks/imgutil v0.0.0-20211203200417-76206845baac // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.10.1 // indirect
-	github.com/containerd/ttrpc v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/cli v20.10.12+incompatible // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
@@ -112,8 +111,6 @@ require (
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20211208223120-3a66f561d7aa // indirect
-	google.golang.org/grpc v1.43.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -122,7 +119,6 @@ require (
 	k8s.io/klog/v2 v2.30.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect
 	k8s.io/legacy-cloud-providers v0.19.7 // indirect
-	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b // indirect
 	knative.dev/pkg v0.0.0-20210902173607-844a6bc45596 // indirect
 	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.0 // indirect

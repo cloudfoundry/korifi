@@ -24,6 +24,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -83,7 +84,8 @@ func main() {
 	}
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
-	nsPermissions := authorization.NewNamespacePermissions(privilegedCRClient, identityProvider, config.RootNamespace)
+	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
+	nsPermissions := authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider, config.RootNamespace)
 
 	serverURL, err := url.Parse(config.ServerURL)
 	if err != nil {
@@ -188,9 +190,9 @@ func main() {
 			orgRepo,
 		),
 
-		apis.NewRoleHandler(*serverURL, repositories.NewRoleRepo(privilegedCRClient, authorization.NewNamespacePermissions(privilegedCRClient, identityProvider, config.RootNamespace), config.RoleMappings)),
+		apis.NewRoleHandler(*serverURL, repositories.NewRoleRepo(privilegedCRClient, authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider, config.RootNamespace), config.RoleMappings)),
 
-		apis.NewWhoAmI(identityProvider, *serverURL),
+		apis.NewWhoAmI(cachingIdentityProvider, *serverURL),
 
 		apis.NewBuildpackHandler(
 			ctrl.Log.WithName("BuildpackHandler"),
@@ -209,7 +211,7 @@ func main() {
 	router.Use(apis.NewAuthenticationMiddleware(
 		ctrl.Log.WithName("AuthenticationMiddleware"),
 		authInfoParser,
-		identityProvider,
+		cachingIdentityProvider,
 	).Middleware)
 
 	portString := fmt.Sprintf(":%v", config.ServerPort)
