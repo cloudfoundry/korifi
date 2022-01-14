@@ -5,6 +5,7 @@ import (
 	"context"
 	"sync"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
@@ -285,4 +286,4 @@ func (fake *OrgRepository) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ repositories.CFOrgRepository = new(OrgRepository)
+var _ apis.CFOrgRepository = new(OrgRepository)

@@ -1,6 +1,7 @@
 package apis
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -23,15 +24,20 @@ const (
 	OrgDeleteEnpoint = "/v3/organizations/{guid}"
 )
 
-//counterfeiter:generate -o fake -fake-name OrgRepository ../repositories CFOrgRepository
+//counterfeiter:generate -o fake -fake-name OrgRepository . CFOrgRepository
+type CFOrgRepository interface {
+	CreateOrg(context.Context, authorization.Info, repositories.CreateOrgMessage) (repositories.OrgRecord, error)
+	ListOrgs(context.Context, authorization.Info, []string) ([]repositories.OrgRecord, error)
+	DeleteOrg(context.Context, authorization.Info, repositories.DeleteOrgMessage) error
+}
 
 type OrgHandler struct {
 	logger     logr.Logger
 	apiBaseURL url.URL
-	orgRepo    repositories.CFOrgRepository
+	orgRepo    CFOrgRepository
 }
 
-func NewOrgHandler(apiBaseURL url.URL, orgRepo repositories.CFOrgRepository) *OrgHandler {
+func NewOrgHandler(apiBaseURL url.URL, orgRepo CFOrgRepository) *OrgHandler {
 	return &OrgHandler{
 		logger:     controllerruntime.Log.WithName("Org Handler"),
 		apiBaseURL: apiBaseURL,
