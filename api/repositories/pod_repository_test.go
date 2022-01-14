@@ -3,6 +3,8 @@ package repositories_test
 import (
 	"context"
 
+	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
+
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
@@ -41,7 +43,9 @@ var _ = Describe("PodRepository", func() {
 		ctx = context.Background()
 		spaceGUID = uuid.NewString()
 		processGUID = uuid.NewString()
-		podRepo = NewPodRepo(k8sClient)
+		podRepo = NewPodRepo(k8sClient, func(ctx context.Context, namespace, name string) (*v1beta1.PodMetrics, error) {
+			return &v1beta1.PodMetrics{}, nil
+		})
 		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}
 
 		Expect(k8sClient.Create(ctx, namespace)).To(Succeed())

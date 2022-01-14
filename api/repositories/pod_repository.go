@@ -2,7 +2,12 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+
+	"k8s.io/apimachinery/pkg/api/resource"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -10,10 +15,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	"k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=pods/status,verbs=get
+//+kubebuilder:rbac:groups="metrics.k8s.io",resources=pods,verbs=get;list;watch
 
 const (
 	workloadsContainerName = "opi"
@@ -29,10 +38,11 @@ const (
 
 type PodRepo struct {
 	privilegedClient client.Client
+	metricsFetcher   MetricsFetcherFn
 }
 
-func NewPodRepo(privilegedClient client.Client) *PodRepo {
-	return &PodRepo{privilegedClient: privilegedClient}
+func NewPodRepo(privilegedClient client.Client, fn MetricsFetcherFn) *PodRepo {
+	return &PodRepo{privilegedClient: privilegedClient, metricsFetcher: fn}
 }
 
 type PodStatsRecord struct {
@@ -83,6 +93,16 @@ func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info,
 		}
 		if index >= 0 {
 			setPodState(&records[index], p)
+			podMetrics, err := r.metricsFetcher(ctx, p.Namespace, p.Name)
+			if err != nil {
+				return nil, err
+			}
+			metricsMap := aggregateContainerMetrics(podMetrics.Containers)
+			quantity := metricsMap["cpu"]
+			value := float64(quantity.ScaledValue(resource.Nano))
+			percentage := value / 1e7
+			r2 := metricsMap["memory"]
+			fmt.Printf("=========================================================\nCPU (in %% of a core): %f\nMemory: %s\nraw CPU: %#v\n=========================================================\n", percentage, r2.String(), quantity)
 		}
 	}
 	return records, nil
@@ -221,4 +241,39 @@ func containersRunning(statuses []corev1.ContainerStatus) bool {
 	}
 
 	return true
+}
+
+type MetricsFetcherFn func(ctx context.Context, namespace, name string) (*v1beta1.PodMetrics, error)
+
+func CreateMetricsFetcher() (MetricsFetcherFn, error) {
+	restConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := versioned.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return func(ctx context.Context, namespace, name string) (*v1beta1.PodMetrics, error) {
+		return c.MetricsV1beta1().PodMetricses(namespace).Get(ctx, name, v1.GetOptions{})
+	}, nil
+}
+
+func aggregateContainerMetrics(containers []v1beta1.ContainerMetrics) map[string]resource.Quantity {
+	metrics := map[string]resource.Quantity{}
+
+	for _, container := range containers {
+		for k, v := range container.Usage {
+			if value, ok := metrics[string(k)]; ok {
+				value.Add(v)
+				metrics[string(k)] = value
+			} else {
+				metrics[string(k)] = v
+			}
+		}
+	}
+
+	return metrics
 }

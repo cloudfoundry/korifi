@@ -96,9 +96,13 @@ func main() {
 		scaleProcessAction.Invoke,
 	)
 
+	fetcher, err := repositories.CreateMetricsFetcher()
+	if err != nil {
+		panic(fmt.Sprintf("could not create metrics fetcher: %v", err))
+	}
 	fetchProcessStatsAction := actions.NewFetchProcessStats(
 		repositories.NewProcessRepo(privilegedCRClient),
-		repositories.NewPodRepo(privilegedCRClient),
+		repositories.NewPodRepo(privilegedCRClient, fetcher),
 		repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
 	)
 
@@ -118,7 +122,7 @@ func main() {
 			repositories.NewProcessRepo(privilegedCRClient),
 			repositories.NewRouteRepo(privilegedCRClient),
 			repositories.NewDomainRepo(privilegedCRClient),
-			repositories.NewPodRepo(privilegedCRClient),
+			repositories.NewPodRepo(privilegedCRClient, fetcher),
 			scaleAppProcessAction.Invoke,
 		),
 		apis.NewRouteHandler(
