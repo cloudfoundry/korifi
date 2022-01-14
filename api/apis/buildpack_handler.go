@@ -24,9 +24,9 @@ type BuildpackRepository interface {
 }
 
 type BuildpackHandler struct {
-	logger        logr.Logger
-	serverURL     url.URL
-	buildpackRepo BuildpackRepository
+	logger             logr.Logger
+	serverURL          url.URL
+	buildpackRepo      BuildpackRepository
 	clusterBuilderName string
 }
 
@@ -37,9 +37,9 @@ func NewBuildpackHandler(
 	clusterBuilderName string,
 ) *BuildpackHandler {
 	return &BuildpackHandler{
-		logger:        logger,
-		serverURL:     serverURL,
-		buildpackRepo: buildpackRepo,
+		logger:             logger,
+		serverURL:          serverURL,
+		buildpackRepo:      buildpackRepo,
 		clusterBuilderName: clusterBuilderName,
 	}
 }

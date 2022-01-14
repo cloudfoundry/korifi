@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -94,7 +95,8 @@ var _ = BeforeEach(func() {
 	rootNamespace = prefixedGUID("root-ns")
 	tokenInspector := authorization.NewTokenReviewer(k8sClient)
 	certInspector := authorization.NewCertInspector(k8sConfig)
-	idProvider = authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
+	baseIDProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
+	idProvider = authorization.NewCachingIdentityProvider(baseIDProvider, cache.NewExpiring())
 	nsPerms = authorization.NewNamespacePermissions(k8sClient, idProvider, rootNamespace)
 })
 

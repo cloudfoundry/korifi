@@ -1,6 +1,10 @@
 package authorization
 
-import "context"
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+)
 
 type Info struct {
 	Token    string
@@ -34,4 +38,10 @@ func (i Info) Scheme() string {
 	}
 
 	return UnknownScheme
+}
+
+func (i Info) Hash() string {
+	key := append([]byte(i.Token), i.CertData...)
+	hasher := sha256.New()
+	return hex.EncodeToString(hasher.Sum(key))
 }
