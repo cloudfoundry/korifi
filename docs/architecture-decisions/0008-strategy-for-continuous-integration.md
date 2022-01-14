@@ -30,11 +30,8 @@ The options considered below are pulled from popular options for CI in Kubernete
 
 For now, Github Actions is nice to keep everything together and publicly accessible. This ties into using Github Projects as well.
 
----
-
 ## Decision
 Start with Github Actions for CI, this might cover all we need, but can reevaluate again later. When commercial options are needed, use Runway CI.
-
 
 ## Consequences
 * We can take advantage of close integration with Github Projects, to keep everything centralized in Github. We hope that this will make it easier for contributors to onboard and find everything as we ramp up.

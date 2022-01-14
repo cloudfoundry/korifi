@@ -1,4 +1,4 @@
-# 8. Merge CF on K8s Repositories
+# Merge CF on K8s Repositories
 
 Date: 2021-10-26
 

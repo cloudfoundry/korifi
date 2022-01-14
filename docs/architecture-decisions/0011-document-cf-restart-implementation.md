@@ -1,4 +1,4 @@
-# 9. Implement CF Restart in CF Workloads Controllers
+# Implement CF Restart in CF Workloads Controllers
 
 Date: 2021-12-10
 
@@ -58,8 +58,3 @@ This design requires multiple changes to CF Controller components, detailed belo
 
 #### CF API Shim
 - The API Shim `process/stats` endpoint needs to be updated to account for multiple potential revisions
-
-
-
-
-
