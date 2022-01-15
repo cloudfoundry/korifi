@@ -69,6 +69,20 @@ rules:
   - list
   - watch
 - apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders/status
+  verbs:
+  - get
+- apiGroups:
   - networking.cloudfoundry.org
   resources:
   - cfdomains

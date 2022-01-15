@@ -19,3 +19,11 @@ rules:
   - create
   - delete
   - list
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders
+  verbs:
+  - get
+  - list
+  - watch
