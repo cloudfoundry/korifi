@@ -67,10 +67,14 @@ var _ = Describe("Orgs", func() {
 		var org1, org2, org3, org4 presenter.OrgResponse
 
 		BeforeEach(func() {
-			org1 = createOrg(generateGUID("org1"), adminAuthHeader)
-			org2 = createOrg(generateGUID("org2"), adminAuthHeader)
-			org3 = createOrg(generateGUID("org3"), adminAuthHeader)
-			org4 = createOrg(generateGUID("org4"), adminAuthHeader)
+			var wg sync.WaitGroup
+
+			wg.Add(4)
+			asyncCreateOrg(generateGUID("org1"), adminAuthHeader, &org1, &wg)
+			asyncCreateOrg(generateGUID("org2"), adminAuthHeader, &org2, &wg)
+			asyncCreateOrg(generateGUID("org3"), adminAuthHeader, &org3, &wg)
+			asyncCreateOrg(generateGUID("org4"), adminAuthHeader, &org4, &wg)
+			wg.Wait()
 		})
 
 		AfterEach(func() {

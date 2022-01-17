@@ -174,6 +174,15 @@ func createOrg(orgName, authHeader string) presenter.OrgResponse {
 	return org
 }
 
+func asyncCreateOrg(orgName, authHeader string, createdOrg *presenter.OrgResponse, wg *sync.WaitGroup) {
+	go func() {
+		defer GinkgoRecover()
+		defer wg.Done()
+
+		*createdOrg = createOrg(orgName, authHeader)
+	}()
+}
+
 func createSpaceRaw(spaceName, orgGUID, authHeader string) (*http.Response, error) {
 	spacesURL := apiServerRoot + apis.SpaceCreateEndpoint
 	payload := payloads.SpaceCreate{
@@ -204,6 +213,15 @@ func createSpace(spaceName, orgGUID, authHeader string) presenter.SpaceResponse 
 	Expect(err).NotTo(HaveOccurred())
 
 	return space
+}
+
+func asyncCreateSpace(spaceName, orgGUID, authHeader string, createdSpace *presenter.SpaceResponse, wg *sync.WaitGroup) {
+	go func() {
+		defer GinkgoRecover()
+		defer wg.Done()
+
+		*createdSpace = createSpace(spaceName, orgGUID, authHeader)
+	}()
 }
 
 // createRole creates an org or space role
