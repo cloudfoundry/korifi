@@ -1556,6 +1556,7 @@ rules:
   resources:
   - cfapps
   verbs:
+  - get
   - create
   - delete
   - list

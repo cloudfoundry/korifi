@@ -1,14 +1,9 @@
 package e2e_test
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"net/http"
-	"net/url"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -66,7 +61,7 @@ var _ = Describe("Apps", func() {
 		})
 
 		It("returns apps only in authorized spaces", func() {
-			apps, err := getApps(certAuthHeader)
+			apps, err := get("/v3/apps", certAuthHeader)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apps).To(SatisfyAll(
 				HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 4))),
@@ -115,37 +110,22 @@ var _ = Describe("Apps", func() {
 			})
 		})
 	})
+
+	Describe("Fetch App", func() {
+		var app presenter.AppResponse
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
+			app = createApp(space1.GUID, generateGUID("app1"), adminAuthHeader)
+		})
+
+		It("can fetch the app", func() {
+			appResponse, err := get("/v3/apps/"+app.GUID, certAuthHeader)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(appResponse).To(SatisfyAll(
+				HaveKeyWithValue("name", app.Name),
+				HaveKeyWithValue("guid", app.GUID),
+			))
+		})
+	})
 })
-
-func getApps(authHeaderValue string) (map[string]interface{}, error) {
-	appsURL, err := url.Parse(apiServerRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	appsURL.Path = apis.AppListEndpoint
-
-	resp, err := httpReq(http.MethodGet, appsURL.String(), authHeaderValue, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
-	}
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	response := map[string]interface{}{}
-	err = json.Unmarshal(bodyBytes, &response)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
-}
