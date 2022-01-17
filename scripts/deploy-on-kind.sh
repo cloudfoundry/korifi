@@ -121,6 +121,8 @@ EOF
       kubectl config use-context "$current_cluster"
     fi
   fi
+
+  "$SCRIPT_DIR"/create-new-user.sh admin
   kind export kubeconfig --name "$cluster" --kubeconfig "$HOME/.kube/$cluster.yml"
 }
 
