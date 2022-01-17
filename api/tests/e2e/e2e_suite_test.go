@@ -73,10 +73,7 @@ var _ = BeforeSuite(func() {
 	config, err := controllerruntime.GetConfig()
 	Expect(err).NotTo(HaveOccurred())
 
-	// fine for Kind cluster; might need work for other cluster types
-	cert := config.CertData
-	cert = append(cert, config.KeyData...)
-	adminAuthHeader = "ClientCert " + base64.StdEncoding.EncodeToString(cert)
+	adminAuthHeader = "ClientCert " + obtainAdminUserCert()
 
 	k8sClient, err = client.New(config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -386,6 +383,15 @@ func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) 
 	})).To(Succeed())
 
 	return k8sCSR, base64.StdEncoding.EncodeToString(buf.Bytes())
+}
+
+func obtainAdminUserCert() string {
+	crtBytes, err := base64.StdEncoding.DecodeString(mustHaveEnv("CF_ADMIN_CERT"))
+	Expect(err).NotTo(HaveOccurred())
+	keyBytes, err := base64.StdEncoding.DecodeString(mustHaveEnv("CF_ADMIN_KEY"))
+	Expect(err).NotTo(HaveOccurred())
+
+	return base64.StdEncoding.EncodeToString(append(crtBytes, keyBytes...))
 }
 
 func deleteCSR(csr *certsv1.CertificateSigningRequest) {

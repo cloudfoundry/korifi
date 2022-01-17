@@ -1,4 +1,5 @@
 resources:
+- cf_admin.yaml
 - cf_space_developer.yaml
 - cf_space_manager.yaml
 - cf_org_manager.yaml

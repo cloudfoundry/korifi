@@ -22,6 +22,8 @@ else
   export KUBECONFIG="${HOME}/.kube/e2e.yml"
   export API_SERVER_ROOT=http://localhost
   export ROOT_NAMESPACE=cf
+  export CF_ADMIN_CERT=$(kubectl config view --raw -o jsonpath='{.users[?(@.name == "admin")].user.client-certificate-data}')
+  export CF_ADMIN_KEY=$(kubectl config view --raw -o jsonpath='{.users[?(@.name == "admin")].user.client-key-data}')
 
   extra_args+=("--slow-spec-threshold=30s")
 fi
