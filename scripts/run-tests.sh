@@ -15,11 +15,11 @@ if ! egrep -q e2e <(echo "$@"); then
   setup_envtest_env "${ENVTEST_ASSETS_DIR}"
   extra_args+=("--skip-package=e2e" "--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/cf-k8s-controllers/...")
 else
+  export KUBECONFIG="${HOME}/.kube/e2e.yml"
   if [ -z "${SKIP_DEPLOY}" ]; then
     "${SCRIPT_DIR}/deploy-on-kind.sh" e2e
   fi
 
-  export KUBECONFIG="${HOME}/.kube/e2e.yml"
   export API_SERVER_ROOT=http://localhost
   export ROOT_NAMESPACE=cf
   export CF_ADMIN_CERT=$(kubectl config view --raw -o jsonpath='{.users[?(@.name == "admin")].user.client-certificate-data}')

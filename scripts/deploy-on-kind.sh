@@ -94,7 +94,6 @@ ensure_kind_cluster() {
   if [[ -n "$api_only" ]]; then return 0; fi
 
   if ! kind get clusters | grep -q "$cluster"; then
-    current_cluster="$(kubectl config current-context 2>/dev/null)" || true
     cat <<EOF | kind create cluster --name "$cluster" --wait 5m --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -117,13 +116,9 @@ nodes:
     hostPort: 30050
     protocol: TCP
 EOF
-    if [[ -n "$current_cluster" ]]; then
-      kubectl config use-context "$current_cluster"
-    fi
   fi
 
-  "$SCRIPT_DIR"/create-new-user.sh admin
-  kind export kubeconfig --name "$cluster" --kubeconfig "$HOME/.kube/$cluster.yml"
+  kind export kubeconfig --name "$cluster"
 }
 
 ensure_local_registry() {
@@ -219,7 +214,6 @@ deploy_cf_k8s_api() {
 }
 
 ensure_kind_cluster "$cluster"
-export KUBECONFIG="$HOME/.kube/$cluster.yml"
 ensure_local_registry
 install_dependencies
 deploy_cf_k8s_controllers
