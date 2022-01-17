@@ -163,7 +163,26 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 	allApps := appList.Items
 	matches := filterAppsByMetadataName(allApps, appGUID)
 
-	return returnApp(matches)
+	app, err := returnApp(matches)
+	if err != nil { // untested
+		return AppRecord{}, err
+	}
+
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: app.SpaceGUID, Name: app.GUID}, &workloadsv1alpha1.CFApp{})
+	if k8serrors.IsForbidden(err) {
+		return AppRecord{}, PermissionDeniedOrNotFoundError{Err: err}
+	}
+
+	if err != nil { // untested
+		return AppRecord{}, err
+	}
+
+	return app, nil
 }
 
 func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorization.Info, appName string, spaceGUID string) (AppRecord, error) {
@@ -485,9 +504,6 @@ func cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 }
 
 func returnApp(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
-	if len(apps) == 0 {
-		return AppRecord{}, NotFoundError{ResourceType: "App"}
-	}
 	if len(apps) == 0 {
 		return AppRecord{}, NotFoundError{ResourceType: "App"}
 	}

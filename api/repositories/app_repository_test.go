@@ -46,10 +46,12 @@ var _ = Describe("AppRepository", func() {
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
 		Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
 
-		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, generateGUID())
-		space1 = createSpaceAnchorAndNamespace(testCtx, org.Name, generateGUID())
-		space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, generateGUID())
-		space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, generateGUID())
+		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
+		space1 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
+		space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
+		space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space3"))
+
+		spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
 	})
 
 	Describe("GetApp", func() {
@@ -57,6 +59,7 @@ var _ = Describe("AppRepository", func() {
 			BeforeEach(func() {
 				cfApp1 = createApp(space1.Name)
 				cfApp2 = createApp(space2.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
 			})
 
 			AfterEach(func() {
@@ -82,6 +85,13 @@ var _ = Describe("AppRepository", func() {
 						Stack:      cfApp2.Spec.Lifecycle.Data.Stack,
 					},
 				}))
+			})
+
+			When("the user is not authorized in the space", func() {
+				It("returns a permission denied or not found error", func() {
+					_, err := appRepo.GetApp(testCtx, authInfo, cfApp1.Name)
+					Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
+				})
 			})
 		})
 
@@ -170,7 +180,6 @@ var _ = Describe("AppRepository", func() {
 				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
 			)).To(Succeed())
 
-			spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
 			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
 			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
 			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, nonCFNamespace)

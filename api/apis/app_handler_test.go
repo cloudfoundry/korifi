@@ -172,9 +172,10 @@ var _ = Describe("AppHandler", func() {
                 }`, defaultServerURL, appGUID, spaceGUID)), "Response body matches response:")
 			})
 		})
-		When("the app cannot be found", func() {
+
+		When("the app cannot be found or the client is not authorized to get it", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -2755,7 +2756,6 @@ var _ = Describe("AppHandler", func() {
 					expectUnknownError()
 				})
 			})
-
 		})
 	})
 })

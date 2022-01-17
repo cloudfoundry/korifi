@@ -173,7 +173,7 @@ func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {
 				Resources: []string{"secrets"},
 			},
 			{
-				Verbs:     []string{"list", "create", "delete"},
+				Verbs:     []string{"get", "list", "create", "delete"},
 				APIGroups: []string{"workloads.cloudfoundry.org"},
 				Resources: []string{"cfapps"},
 			},
