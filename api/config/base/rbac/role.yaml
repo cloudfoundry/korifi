@@ -63,9 +63,19 @@ rules:
 - apiGroups:
   - hnc.x-k8s.io
   resources:
+  - hierarchyconfigurations
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - hnc.x-k8s.io
+  resources:
   - subnamespaceanchors
   verbs:
   - create
+  - delete
   - list
   - watch
 - apiGroups:

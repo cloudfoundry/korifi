@@ -13,7 +13,7 @@ import (
 )
 
 type UserK8sClientFactory interface {
-	BuildClient(authorization.Info) (client.Client, error)
+	BuildClient(authorization.Info) (client.WithWatch, error)
 }
 
 type UnprivilegedClientFactory struct {
@@ -26,7 +26,7 @@ func NewUnprivilegedClientFactory(config *rest.Config) UnprivilegedClientFactory
 	}
 }
 
-func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (client.Client, error) {
+func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (client.WithWatch, error) {
 	config := rest.CopyConfig(f.config)
 
 	switch strings.ToLower(authInfo.Scheme()) {
@@ -54,7 +54,7 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 	// This does an API call within the controller-runtime code and is
 	// sufficient to determine whether the auth is valid and accepted by the
 	// cluster
-	userClient, err := client.New(config, client.Options{})
+	userClient, err := client.NewWithWatch(config, client.Options{})
 	if err != nil {
 		if k8serrors.IsUnauthorized(err) {
 			return nil, authorization.InvalidAuthError{}
@@ -75,6 +75,6 @@ type PrivilegedClientFactory struct {
 	config *rest.Config
 }
 
-func (f PrivilegedClientFactory) BuildClient(_ authorization.Info) (client.Client, error) {
-	return client.New(f.config, client.Options{Scheme: scheme.Scheme})
+func (f PrivilegedClientFactory) BuildClient(_ authorization.Info) (client.WithWatch, error) {
+	return client.NewWithWatch(f.config, client.Options{Scheme: scheme.Scheme})
 }

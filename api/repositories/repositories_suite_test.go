@@ -133,6 +133,17 @@ func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLa
 	}
 	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 
+	hierarchy := &hnsv1alpha2.HierarchyConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hierarchy",
+			Namespace: guid,
+		},
+		Spec: hnsv1alpha2.HierarchyConfigurationSpec{
+			Parent: inNamespace,
+		},
+	}
+	Expect(k8sClient.Create(ctx, hierarchy)).To(Succeed())
+
 	return anchor, namespace
 }
 
@@ -234,6 +245,11 @@ func createOrgManagerClusterRole(ctx context.Context) *rbacv1.ClusterRole {
 				Verbs:     []string{"list", "delete"},
 				APIGroups: []string{"hnc.x-k8s.io"},
 				Resources: []string{"subnamespaceanchors"},
+			},
+			{
+				Verbs:     []string{"get", "update"},
+				APIGroups: []string{"hnc.x-k8s.io"},
+				Resources: []string{"hierarchyconfigurations"},
 			},
 		},
 	}

@@ -16,6 +16,7 @@ const (
 	JobGetEndpoint    = "/v3/jobs/{guid}"
 	syncSpacePrefix   = "sync-space.apply_manifest-"
 	appDeletePrefix   = "app.delete-"
+	orgDeletePrefix   = "org.delete-"
 	spaceDeletePrefix = "space.delete-"
 )
 
@@ -43,6 +44,8 @@ func (h *JobHandler) jobGetHandler(w http.ResponseWriter, r *http.Request) {
 		jobResponse = presenter.ForManifestApplyJob(jobGUID, spaceGUID, h.serverURL)
 	} else if strings.HasPrefix(jobGUID, appDeletePrefix) {
 		jobResponse = presenter.ForAppDeleteJob(jobGUID, h.serverURL)
+	} else if strings.HasPrefix(jobGUID, orgDeletePrefix) {
+		jobResponse = presenter.ForOrgDeleteJob(jobGUID, h.serverURL)
 	} else if strings.HasPrefix(jobGUID, spaceDeletePrefix) {
 		jobResponse = presenter.ForSpaceDeleteJob(jobGUID, h.serverURL)
 	} else {

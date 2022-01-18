@@ -16,6 +16,7 @@ var _ = Describe("JobHandler", func() {
 		const (
 			spaceGUID = "my-space-guid"
 			appGUID   = "my-app-guid"
+			orgGUID   = "my-org-guid"
 		)
 
 		var jobGUID string
@@ -113,6 +114,29 @@ var _ = Describe("JobHandler", func() {
 				}`, defaultServerURL, jobGUID)), "Response body matches response:")
 				})
 			})
+
+			When("the existing job operation is space.delete", func() {
+				BeforeEach(func() {
+					jobGUID = "org.delete-" + orgGUID
+				})
+				It("returns the job", func() {
+					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+				  "created_at": "",
+				  "errors": null,
+				  "guid": "%[2]s",
+				  "links": {
+					"self": {
+					  "href": "%[1]s/v3/jobs/%[2]s"
+					}
+				  },
+				  "operation": "org.delete",
+				  "state": "COMPLETE",
+				  "updated_at": "",
+				  "warnings": null
+				}`, defaultServerURL, jobGUID)), "Response body matches response:")
+				})
+			})
+
 		})
 
 		When("guid provided is not a valid job guid", func() {

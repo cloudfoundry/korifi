@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
@@ -17,15 +19,9 @@ import (
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
-//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;create;watch
+//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;create;delete;watch
+//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=hierarchyconfigurations,verbs=get;list;watch;update
 //+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;create;delete;watch
-
-//counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
-
-type CFOrgRepository interface {
-	CreateOrg(ctx context.Context, info authorization.Info, org CreateOrgMessage) (OrgRecord, error)
-	ListOrgs(ctx context.Context, info authorization.Info, orgNames []string) ([]OrgRecord, error)
-}
 
 //counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
 
@@ -37,8 +33,9 @@ type CFSpaceRepository interface {
 }
 
 const (
-	OrgNameLabel   = "cloudfoundry.org/org-name"
-	SpaceNameLabel = "cloudfoundry.org/space-name"
+	OrgNameLabel          = "cloudfoundry.org/org-name"
+	SpaceNameLabel        = "cloudfoundry.org/space-name"
+	hierarchyMetadataName = "hierarchy"
 )
 
 type CreateOrgMessage struct {
@@ -60,6 +57,10 @@ type ListSpacesMessage struct {
 	Names             []string
 	GUIDs             []string
 	OrganizationGUIDs []string
+}
+
+type DeleteOrgMessage struct {
+	GUID string
 }
 
 type DeleteSpaceMessage struct {
@@ -391,6 +392,66 @@ func (r *OrgRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGU
 	}
 
 	return spaceRecords[0], nil
+}
+
+func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, message DeleteOrgMessage) error {
+	var err error
+	hierarchyObj := v1alpha2.HierarchyConfiguration{}
+	err = r.privilegedClient.Get(ctx, types.NamespacedName{Name: hierarchyMetadataName, Namespace: message.GUID}, &hierarchyObj)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return NotFoundError{
+				Err: err,
+			}
+		}
+		return err
+	}
+
+	userClient := r.privilegedClient
+	if r.authEnabled {
+		userClient, err = r.userClientFactory.BuildClient(info)
+		if err != nil {
+			return fmt.Errorf("failed to build user client: %w", err)
+		}
+	}
+
+	hierarchyObj.Spec.AllowCascadingDeletion = true
+	err = userClient.Update(ctx, &hierarchyObj)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return NotFoundError{
+				Err: err,
+			}
+		}
+		if apierrors.IsForbidden(err) {
+			return authorization.InvalidAuthError{
+				Err: err,
+			}
+		}
+		return err
+	}
+
+	err = userClient.Delete(ctx, &v1alpha2.SubnamespaceAnchor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.GUID,
+			Namespace: r.rootNamespace,
+		},
+	})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return NotFoundError{
+				Err: err,
+			}
+		}
+		if apierrors.IsForbidden(err) {
+			return authorization.InvalidAuthError{
+				Err: err,
+			}
+		}
+		return err
+	}
+
+	return nil
 }
 
 func (r *OrgRepo) DeleteSpace(ctx context.Context, info authorization.Info, message DeleteSpaceMessage) error {

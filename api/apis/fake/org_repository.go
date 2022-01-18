@@ -26,6 +26,19 @@ type OrgRepository struct {
 		result1 repositories.OrgRecord
 		result2 error
 	}
+	DeleteOrgStub        func(context.Context, authorization.Info, repositories.DeleteOrgMessage) error
+	deleteOrgMutex       sync.RWMutex
+	deleteOrgArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.DeleteOrgMessage
+	}
+	deleteOrgReturns struct {
+		result1 error
+	}
+	deleteOrgReturnsOnCall map[int]struct {
+		result1 error
+	}
 	ListOrgsStub        func(context.Context, authorization.Info, []string) ([]repositories.OrgRecord, error)
 	listOrgsMutex       sync.RWMutex
 	listOrgsArgsForCall []struct {
@@ -111,6 +124,69 @@ func (fake *OrgRepository) CreateOrgReturnsOnCall(i int, result1 repositories.Or
 	}{result1, result2}
 }
 
+func (fake *OrgRepository) DeleteOrg(arg1 context.Context, arg2 authorization.Info, arg3 repositories.DeleteOrgMessage) error {
+	fake.deleteOrgMutex.Lock()
+	ret, specificReturn := fake.deleteOrgReturnsOnCall[len(fake.deleteOrgArgsForCall)]
+	fake.deleteOrgArgsForCall = append(fake.deleteOrgArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.DeleteOrgMessage
+	}{arg1, arg2, arg3})
+	stub := fake.DeleteOrgStub
+	fakeReturns := fake.deleteOrgReturns
+	fake.recordInvocation("DeleteOrg", []interface{}{arg1, arg2, arg3})
+	fake.deleteOrgMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *OrgRepository) DeleteOrgCallCount() int {
+	fake.deleteOrgMutex.RLock()
+	defer fake.deleteOrgMutex.RUnlock()
+	return len(fake.deleteOrgArgsForCall)
+}
+
+func (fake *OrgRepository) DeleteOrgCalls(stub func(context.Context, authorization.Info, repositories.DeleteOrgMessage) error) {
+	fake.deleteOrgMutex.Lock()
+	defer fake.deleteOrgMutex.Unlock()
+	fake.DeleteOrgStub = stub
+}
+
+func (fake *OrgRepository) DeleteOrgArgsForCall(i int) (context.Context, authorization.Info, repositories.DeleteOrgMessage) {
+	fake.deleteOrgMutex.RLock()
+	defer fake.deleteOrgMutex.RUnlock()
+	argsForCall := fake.deleteOrgArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *OrgRepository) DeleteOrgReturns(result1 error) {
+	fake.deleteOrgMutex.Lock()
+	defer fake.deleteOrgMutex.Unlock()
+	fake.DeleteOrgStub = nil
+	fake.deleteOrgReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *OrgRepository) DeleteOrgReturnsOnCall(i int, result1 error) {
+	fake.deleteOrgMutex.Lock()
+	defer fake.deleteOrgMutex.Unlock()
+	fake.DeleteOrgStub = nil
+	if fake.deleteOrgReturnsOnCall == nil {
+		fake.deleteOrgReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteOrgReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *OrgRepository) ListOrgs(arg1 context.Context, arg2 authorization.Info, arg3 []string) ([]repositories.OrgRecord, error) {
 	var arg3Copy []string
 	if arg3 != nil {
@@ -187,6 +263,8 @@ func (fake *OrgRepository) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.createOrgMutex.RLock()
 	defer fake.createOrgMutex.RUnlock()
+	fake.deleteOrgMutex.RLock()
+	defer fake.deleteOrgMutex.RUnlock()
 	fake.listOrgsMutex.RLock()
 	defer fake.listOrgsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -208,4 +286,4 @@ func (fake *OrgRepository) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ apis.OrgRepository = new(OrgRepository)
+var _ apis.CFOrgRepository = new(OrgRepository)
