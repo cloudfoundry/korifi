@@ -8,5 +8,4 @@ roleRef:
   name: cf-admin-clusterrole
 subjects:
 - kind: ServiceAccount
-  name: cf-k8s-api-cf-admin-serviceaccount
-  namespace: cf-k8s-api-system
+  name: cf-admin-serviceaccount
