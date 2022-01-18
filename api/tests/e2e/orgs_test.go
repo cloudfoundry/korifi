@@ -47,7 +47,8 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("returns an unprocessable entity error", func() {
-				resp := createOrgRaw(orgName, tokenAuthHeader)
+				resp, err := createOrgRaw(orgName, tokenAuthHeader)
+				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 				responseMap := map[string]interface{}{}
@@ -68,13 +69,17 @@ var _ = Describe("Orgs", func() {
 
 		BeforeEach(func() {
 			var wg sync.WaitGroup
+			errChan := make(chan error, 4)
 
 			wg.Add(4)
-			asyncCreateOrg(generateGUID("org1"), adminAuthHeader, &org1, &wg)
-			asyncCreateOrg(generateGUID("org2"), adminAuthHeader, &org2, &wg)
-			asyncCreateOrg(generateGUID("org3"), adminAuthHeader, &org3, &wg)
-			asyncCreateOrg(generateGUID("org4"), adminAuthHeader, &org4, &wg)
+			asyncCreateOrg(generateGUID("org1"), adminAuthHeader, &org1, &wg, errChan)
+			asyncCreateOrg(generateGUID("org2"), adminAuthHeader, &org2, &wg, errChan)
+			asyncCreateOrg(generateGUID("org3"), adminAuthHeader, &org3, &wg, errChan)
+			asyncCreateOrg(generateGUID("org4"), adminAuthHeader, &org4, &wg, errChan)
 			wg.Wait()
+
+			Expect(errChan).ToNot(Receive())
+			close(errChan)
 		})
 
 		AfterEach(func() {
