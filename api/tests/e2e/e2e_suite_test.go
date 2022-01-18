@@ -131,6 +131,16 @@ func generateGUID(prefix string) string {
 func deleteSubnamespace(parent, name string) {
 	ctx := context.Background()
 
+	subnsList := &hnsv1alpha2.SubnamespaceAnchorList{}
+	Expect(k8sClient.List(ctx, subnsList, client.InNamespace(name))).To(Succeed())
+
+	var wg sync.WaitGroup
+	wg.Add(len(subnsList.Items))
+	for _, subns := range subnsList.Items {
+		asyncDeleteSubnamespace(name, subns.Name, &wg)
+	}
+	wg.Wait()
+
 	anchor := hnsv1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: parent,
@@ -147,36 +157,54 @@ func deleteSubnamespace(parent, name string) {
 	}).Should(BeTrue())
 }
 
-func createOrgRaw(orgName, authHeader string) *http.Response {
-	resp, err := httpReq(
+func createOrgRaw(orgName, authHeader string) (*http.Response, error) {
+	return httpReq(
 		http.MethodPost,
 		apiServerRoot+apis.OrgsEndpoint,
 		authHeader,
 		map[string]interface{}{"name": orgName},
 	)
-	Expect(err).NotTo(HaveOccurred())
-	return resp
 }
 
 func createOrg(orgName, authHeader string) presenter.OrgResponse {
-	resp := createOrgRaw(orgName, authHeader)
-	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
-	Expect(resp).To(HaveHTTPHeaderWithValue(headers.ContentType, "application/json"))
+	resp, err := createOrgRaw(orgName, authHeader)
+	Expect(err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 
+	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
+	Expect(resp).To(HaveHTTPHeaderWithValue(headers.ContentType, "application/json"))
+
 	org := presenter.OrgResponse{}
-	err := json.NewDecoder(resp.Body).Decode(&org)
+	err = json.NewDecoder(resp.Body).Decode(&org)
 	Expect(err).NotTo(HaveOccurred())
 
 	return org
 }
 
-func asyncCreateOrg(orgName, authHeader string, createdOrg *presenter.OrgResponse, wg *sync.WaitGroup) {
+func asyncCreateOrg(orgName, authHeader string, createdOrg *presenter.OrgResponse, wg *sync.WaitGroup, errChan chan error) {
 	go func() {
-		defer GinkgoRecover()
 		defer wg.Done()
+		defer GinkgoRecover()
 
-		*createdOrg = createOrg(orgName, authHeader)
+		resp, err := createOrgRaw(orgName, authHeader)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		if resp.StatusCode != http.StatusCreated {
+			errChan <- fmt.Errorf("expected status code %d, got %d", http.StatusCreated, resp.StatusCode)
+			return
+		}
+
+		org := presenter.OrgResponse{}
+		err = json.NewDecoder(resp.Body).Decode(&org)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		*createdOrg = org
 	}()
 }
 
@@ -198,8 +226,6 @@ func createSpaceRaw(spaceName, orgGUID, authHeader string) (*http.Response, erro
 func createSpace(spaceName, orgGUID, authHeader string) presenter.SpaceResponse {
 	resp, err := createSpaceRaw(spaceName, orgGUID, authHeader)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-
 	defer resp.Body.Close()
 
 	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
@@ -212,12 +238,30 @@ func createSpace(spaceName, orgGUID, authHeader string) presenter.SpaceResponse 
 	return space
 }
 
-func asyncCreateSpace(spaceName, orgGUID, authHeader string, createdSpace *presenter.SpaceResponse, wg *sync.WaitGroup) {
+func asyncCreateSpace(spaceName, orgGUID, authHeader string, createdSpace *presenter.SpaceResponse, wg *sync.WaitGroup, errChan chan error) {
 	go func() {
-		defer GinkgoRecover()
 		defer wg.Done()
+		defer GinkgoRecover()
 
-		*createdSpace = createSpace(spaceName, orgGUID, authHeader)
+		resp, err := createSpaceRaw(spaceName, orgGUID, authHeader)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		if resp.StatusCode != http.StatusCreated {
+			errChan <- fmt.Errorf("expected status code %d, got %d", http.StatusCreated, resp.StatusCode)
+			return
+		}
+
+		space := presenter.SpaceResponse{}
+		err = json.NewDecoder(resp.Body).Decode(&space)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		*createdSpace = space
 	}()
 }
 
@@ -456,8 +500,8 @@ func createApp(spaceGUID, name, authHeader string) presenter.AppResponse {
 
 func asyncDeleteSubnamespace(orgID, spaceID string, wg *sync.WaitGroup) {
 	go func() {
-		defer GinkgoRecover()
 		defer wg.Done()
+		defer GinkgoRecover()
 
 		deleteSubnamespace(orgID, spaceID)
 	}()

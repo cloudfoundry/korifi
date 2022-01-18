@@ -37,7 +37,7 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 )
 
-var createTimeout = time.Second * 30
+var createTimeout = time.Second * 120
 
 func init() {
 	utilruntime.Must(workloadsv1alpha1.AddToScheme(scheme.Scheme))

@@ -21,35 +21,19 @@ import (
 var _ = Describe("Spaces", func() {
 	Describe("creating spaces", func() {
 		var (
-			org            presenter.OrgResponse
-			spaceName      string
-			space          presenter.SpaceResponse
-			extraSpaceGUID string
+			org       presenter.OrgResponse
+			spaceName string
+			space     presenter.SpaceResponse
 		)
 
 		BeforeEach(func() {
+			space = presenter.SpaceResponse{}
 			spaceName = generateGUID("space")
 			org = createOrg(generateGUID("org"), adminAuthHeader)
 			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org.GUID, adminAuthHeader)
 		})
 
 		AfterEach(func() {
-			ids := []string{}
-			if space.GUID != "" {
-				ids = append(ids, space.GUID)
-			}
-
-			if extraSpaceGUID != "" {
-				ids = append(ids, extraSpaceGUID)
-			}
-
-			var wg sync.WaitGroup
-			wg.Add(len(ids))
-			for _, id := range ids {
-				asyncDeleteSubnamespace(org.GUID, id, &wg)
-			}
-			wg.Wait()
-
 			deleteSubnamespace(rootNamespace, org.GUID)
 		})
 
@@ -74,10 +58,6 @@ var _ = Describe("Spaces", func() {
 				bodyMap := map[string]interface{}{}
 				err = json.NewDecoder(resp.Body).Decode(&bodyMap)
 				Expect(err).NotTo(HaveOccurred())
-
-				if resp.StatusCode == http.StatusCreated {
-					extraSpaceGUID = bodyMap["guid"].(string)
-				}
 
 				Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 
@@ -112,28 +92,36 @@ var _ = Describe("Spaces", func() {
 
 		BeforeEach(func() {
 			var orgWG sync.WaitGroup
+			orgErrChan := make(chan error, 3)
 
 			orgWG.Add(3)
-			asyncCreateOrg(generateGUID("org1"), adminAuthHeader, &org1, &orgWG)
-			asyncCreateOrg(generateGUID("org2"), adminAuthHeader, &org2, &orgWG)
-			asyncCreateOrg(generateGUID("org3"), adminAuthHeader, &org3, &orgWG)
+			asyncCreateOrg(generateGUID("org1"), adminAuthHeader, &org1, &orgWG, orgErrChan)
+			asyncCreateOrg(generateGUID("org2"), adminAuthHeader, &org2, &orgWG, orgErrChan)
+			asyncCreateOrg(generateGUID("org3"), adminAuthHeader, &org3, &orgWG, orgErrChan)
 			orgWG.Wait()
+
+			Expect(orgErrChan).ToNot(Receive())
+			close(orgErrChan)
 
 			var spaceWG sync.WaitGroup
 
+			spaceErrChan := make(chan error, 9)
 			spaceWG.Add(9)
-			asyncCreateSpace(generateGUID("space1"), org1.GUID, adminAuthHeader, &space11, &spaceWG)
-			asyncCreateSpace(generateGUID("space2"), org1.GUID, adminAuthHeader, &space12, &spaceWG)
-			asyncCreateSpace(generateGUID("space3"), org1.GUID, adminAuthHeader, &space13, &spaceWG)
+			asyncCreateSpace(generateGUID("space11"), org1.GUID, adminAuthHeader, &space11, &spaceWG, spaceErrChan)
+			asyncCreateSpace(generateGUID("space12"), org1.GUID, adminAuthHeader, &space12, &spaceWG, spaceErrChan)
+			asyncCreateSpace(generateGUID("space13"), org1.GUID, adminAuthHeader, &space13, &spaceWG, spaceErrChan)
 
-			asyncCreateSpace(generateGUID("space1"), org2.GUID, adminAuthHeader, &space21, &spaceWG)
-			asyncCreateSpace(generateGUID("space2"), org2.GUID, adminAuthHeader, &space22, &spaceWG)
-			asyncCreateSpace(generateGUID("space3"), org2.GUID, adminAuthHeader, &space23, &spaceWG)
+			asyncCreateSpace(generateGUID("space21"), org2.GUID, adminAuthHeader, &space21, &spaceWG, spaceErrChan)
+			asyncCreateSpace(generateGUID("space22"), org2.GUID, adminAuthHeader, &space22, &spaceWG, spaceErrChan)
+			asyncCreateSpace(generateGUID("space23"), org2.GUID, adminAuthHeader, &space23, &spaceWG, spaceErrChan)
 
-			asyncCreateSpace(generateGUID("space1"), org3.GUID, adminAuthHeader, &space31, &spaceWG)
-			asyncCreateSpace(generateGUID("space2"), org3.GUID, adminAuthHeader, &space32, &spaceWG)
-			asyncCreateSpace(generateGUID("space3"), org3.GUID, adminAuthHeader, &space33, &spaceWG)
+			asyncCreateSpace(generateGUID("space31"), org3.GUID, adminAuthHeader, &space31, &spaceWG, spaceErrChan)
+			asyncCreateSpace(generateGUID("space32"), org3.GUID, adminAuthHeader, &space32, &spaceWG, spaceErrChan)
+			asyncCreateSpace(generateGUID("space33"), org3.GUID, adminAuthHeader, &space33, &spaceWG, spaceErrChan)
 			spaceWG.Wait()
+
+			Expect(spaceErrChan).ToNot(Receive())
+			close(spaceErrChan)
 
 			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, adminAuthHeader)
 			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID, adminAuthHeader)
@@ -148,25 +136,13 @@ var _ = Describe("Spaces", func() {
 		})
 
 		AfterEach(func() {
-			var wg1 sync.WaitGroup
-			ids := map[string]string{
-				space11.GUID: org1.GUID, space12.GUID: org1.GUID, space13.GUID: org1.GUID,
-				space21.GUID: org2.GUID, space22.GUID: org2.GUID, space23.GUID: org2.GUID,
-				space31.GUID: org3.GUID, space32.GUID: org3.GUID, space33.GUID: org3.GUID,
-			}
-			wg1.Add(len(ids))
-			for spaceID, orgID := range ids {
-				asyncDeleteSubnamespace(orgID, spaceID, &wg1)
-			}
-			wg1.Wait()
-
 			orgIDs := []string{org1.GUID, org2.GUID, org3.GUID}
-			var wg2 sync.WaitGroup
-			wg2.Add(len(orgIDs))
+			var wg sync.WaitGroup
+			wg.Add(len(orgIDs))
 			for _, id := range orgIDs {
-				asyncDeleteSubnamespace(rootNamespace, id, &wg2)
+				asyncDeleteSubnamespace(rootNamespace, id, &wg)
 			}
-			wg2.Wait()
+			wg.Wait()
 		})
 
 		It("lists the spaces the user has role in", func() {
