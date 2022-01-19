@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"net/url"
 
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/gorilla/schema"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
@@ -34,6 +37,7 @@ type CFProcessRepository interface {
 //counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
 type PodRepository interface {
 	ListPodStats(context.Context, authorization.Info, repositories.ListPodStatsMessage) ([]repositories.PodStatsRecord, error)
+	ListPods(context.Context, authorization.Info, client.ListOptions) ([]corev1.Pod, error)
 }
 
 //counterfeiter:generate -o fake -fake-name ScaleProcess . ScaleProcess

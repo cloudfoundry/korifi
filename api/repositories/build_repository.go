@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+
+	"k8s.io/apimachinery/pkg/labels"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -62,6 +65,38 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 	matches := filterBuildsByMetadataName(allBuilds, buildGUID)
 
 	return returnBuild(matches)
+}
+
+func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo authorization.Info, namespace string, appGUID string) (BuildRecord, error) {
+	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
+		workloadsv1alpha1.CFAppGUIDLabelKey: appGUID,
+	})
+	if err != nil {
+		return BuildRecord{}, err
+	}
+
+	listOpts := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+	buildList := &workloadsv1alpha1.CFBuildList{}
+
+	err = b.privilegedClient.List(ctx, buildList, listOpts)
+	if err != nil { // untested
+		return BuildRecord{}, err
+	}
+	if len(buildList.Items) == 0 {
+		return BuildRecord{}, NotFoundError{}
+	}
+
+	allBuilds := orderBuilds(buildList.Items)
+
+	return cfBuildToBuildRecord(allBuilds[0]), nil
+}
+
+func orderBuilds(builds []workloadsv1alpha1.CFBuild) []workloadsv1alpha1.CFBuild {
+	sort.Slice(builds, func(i, j int) bool {
+		return !builds[i].CreationTimestamp.Before(&builds[j].CreationTimestamp)
+	})
+
+	return builds
 }
 
 func returnBuild(builds []workloadsv1alpha1.CFBuild) (BuildRecord, error) {

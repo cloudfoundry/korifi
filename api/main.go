@@ -172,7 +172,13 @@ func main() {
 			ctrl.Log.WithName("JobHandler"),
 			*serverURL,
 		),
-		apis.NewLogCacheHandler(),
+		apis.NewLogCacheHandler(
+			privilegedK8sClient,
+			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
+			repositories.NewBuildRepo(privilegedCRClient),
+			repositories.NewPodRepo(privilegedCRClient),
+			ctrl.Log.WithName("LogCacheHandler"),
+		),
 
 		apis.NewOrgHandler(*serverURL, orgRepo),
 

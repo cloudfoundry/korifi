@@ -14,6 +14,7 @@ import (
 
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=pods/status,verbs=get
+//+kubebuilder:rbac:groups="",resources=pods/log,verbs=get
 
 const (
 	workloadsContainerName = "opi"
