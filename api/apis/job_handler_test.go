@@ -136,7 +136,6 @@ var _ = Describe("JobHandler", func() {
 				}`, defaultServerURL, jobGUID)), "Response body matches response:")
 				})
 			})
-
 		})
 
 		When("guid provided is not a valid job guid", func() {

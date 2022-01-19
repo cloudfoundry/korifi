@@ -616,7 +616,7 @@ var _ = Describe("OrgRepository", func() {
 					beforeCtx := context.Background()
 					orgManagerClusterRole := createOrgManagerClusterRole(beforeCtx)
 					createRoleBinding(beforeCtx, userName, orgManagerClusterRole.Name, orgAnchor.Namespace)
-					//As HNC Controllers don't exist in env-test environments, we manually copy role bindings to child ns.
+					// As HNC Controllers don't exist in env-test environments, we manually copy role bindings to child ns.
 					createRoleBinding(beforeCtx, userName, orgManagerClusterRole.Name, orgAnchor.Name)
 				})
 

@@ -43,3 +43,19 @@ func (e ResourceNotFoundError) Error() string {
 func (e ResourceNotFoundError) Unwrap() error {
 	return e.Err
 }
+
+type ForbiddenError struct {
+	err error
+}
+
+func NewForbiddenError(err error) ForbiddenError {
+	return ForbiddenError{err: err}
+}
+
+func (e ForbiddenError) Error() string {
+	return "Forbidden"
+}
+
+func (e ForbiddenError) Unwrap() error {
+	return e.err
+}

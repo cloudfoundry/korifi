@@ -265,9 +265,7 @@ func asyncCreateSpace(spaceName, orgGUID, authHeader string, createdSpace *prese
 	}()
 }
 
-// createRole creates an org or space role
-// You should probably invoke this via createOrgRole or createSpaceRole
-func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader string) presenter.RoleResponse {
+func createRoleRaw(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader string) (*http.Response, error) {
 	rolesURL := apiServerRoot + apis.RolesEndpoint
 	payload := payloads.RoleCreate{
 		Type: roleName,
@@ -307,7 +305,13 @@ func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader
 		Fail("unexpected type " + orgSpaceType)
 	}
 
-	resp, err := httpReq(http.MethodPost, rolesURL, authHeader, payload)
+	return httpReq(http.MethodPost, rolesURL, authHeader, payload)
+}
+
+// createRole creates an org or space role
+// You should probably invoke this via createOrgRole or createSpaceRole
+func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader string) presenter.RoleResponse {
+	resp, err := createRoleRaw(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader)
 	ExpectWithOffset(3, err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 

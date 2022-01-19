@@ -190,7 +190,19 @@ func main() {
 			orgRepo,
 		),
 
-		apis.NewRoleHandler(*serverURL, repositories.NewRoleRepo(privilegedCRClient, authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider, config.RootNamespace), config.RoleMappings)),
+		apis.NewRoleHandler(
+			*serverURL,
+			repositories.NewRoleRepo(
+				privilegedCRClient,
+				buildUserClient,
+				authorization.NewNamespacePermissions(
+					privilegedCRClient,
+					cachingIdentityProvider,
+					config.RootNamespace,
+				),
+				config.RoleMappings,
+			),
+		),
 
 		apis.NewWhoAmI(cachingIdentityProvider, *serverURL),
 
