@@ -13,7 +13,6 @@ rules:
   - create
   - delete
   - list
-
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -37,3 +36,9 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - hnc.x-k8s.io
+  resources:
+  - subnamespaceanchors
+  verbs:
+  - create

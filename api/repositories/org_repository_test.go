@@ -112,77 +112,95 @@ var _ = Describe("OrgRepository", func() {
 				_ = createNamespace(ctx, "org", spaceGUID)
 			})
 
-			It("creates a Space", func() {
-				go updateStatus(org.Name, spaceGUID)
-
-				space, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
-					GUID:                     spaceGUID,
-					Name:                     "our-space",
-					OrganizationGUID:         org.Name,
-					ImageRegistryCredentials: imageRegistryCredentials,
-				})
-				Expect(err).NotTo(HaveOccurred())
-
-				By("Creating a SubnamespaceAnchor in the Org namespace", func() {
-					var namesRequirement *labels.Requirement
-					namesRequirement, err = labels.NewRequirement(repositories.SpaceNameLabel, selection.Equals, []string{"our-space"})
-					Expect(err).NotTo(HaveOccurred())
-					anchorList := hnsv1alpha2.SubnamespaceAnchorList{}
-					err = k8sClient.List(ctx, &anchorList, client.InNamespace(org.Name), client.MatchingLabelsSelector{
-						Selector: labels.NewSelector().Add(*namesRequirement),
+			When("the user doesn't have the admin role", func() {
+				It("fails when creating a space", func() {
+					_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
+						GUID:                     spaceGUID,
+						Name:                     "our-space",
+						OrganizationGUID:         org.Name,
+						ImageRegistryCredentials: imageRegistryCredentials,
 					})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(anchorList.Items).To(HaveLen(1))
-
-					Expect(space.Name).To(Equal("our-space"))
-					Expect(space.GUID).To(Equal(spaceGUID))
-					Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
-					Expect(space.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
-				})
-
-				By("Creating ServiceAccounts in the Space namespace", func() {
-					serviceAccountList := corev1.ServiceAccountList{}
-					Eventually(func() []corev1.ServiceAccount {
-						err = k8sClient.List(ctx, &serviceAccountList, client.InNamespace(spaceGUID))
-						if err != nil {
-							return []corev1.ServiceAccount{}
-						}
-						return serviceAccountList.Items
-					}, timeCheckThreshold*time.Second, 250*time.Millisecond).Should(HaveLen(2), "could not find the service accounts created by the repo")
-					Expect(err).NotTo(HaveOccurred())
-
-					sort.Slice(serviceAccountList.Items, func(i, j int) bool {
-						return serviceAccountList.Items[i].Name < serviceAccountList.Items[j].Name
-					})
-					serviceAccount := serviceAccountList.Items[0]
-					Expect(serviceAccount.Name).To(Equal("eirini"))
-					serviceAccount = serviceAccountList.Items[1]
-					Expect(serviceAccount.Name).To(Equal("kpack-service-account"))
-					Expect(serviceAccount.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: imageRegistryCredentials}))
-					Expect(serviceAccount.Secrets).To(ConsistOf(corev1.ObjectReference{Name: imageRegistryCredentials}))
+					Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 				})
 			})
 
-			When("the space isn't ready in the timeout", func() {
-				It("returns an error", func() {
-					// we do not call updateStatus() to set state = ok
-					_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
-						GUID:             "some-guid",
-						Name:             "our-org",
-						OrganizationGUID: org.Name,
-					})
-					Expect(err).To(MatchError(ContainSubstring("did not get state 'ok'")))
+			When("the user has the admin role", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, adminClusterRole.Name, org.Name)
 				})
-			})
 
-			When("the client fails to create the space", func() {
-				It("returns an error", func() {
-					_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
-						GUID:             "some-guid",
-						Name:             "this-string-has-illegal-characters-ц",
-						OrganizationGUID: org.Name,
+				It("creates a Space", func() {
+					go updateStatus(org.Name, spaceGUID)
+
+					space, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
+						GUID:                     spaceGUID,
+						Name:                     "our-space",
+						OrganizationGUID:         org.Name,
+						ImageRegistryCredentials: imageRegistryCredentials,
 					})
-					Expect(err).To(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
+
+					By("Creating a SubnamespaceAnchor in the Org namespace", func() {
+						var namesRequirement *labels.Requirement
+						namesRequirement, err = labels.NewRequirement(repositories.SpaceNameLabel, selection.Equals, []string{"our-space"})
+						Expect(err).NotTo(HaveOccurred())
+						anchorList := hnsv1alpha2.SubnamespaceAnchorList{}
+						err = k8sClient.List(ctx, &anchorList, client.InNamespace(org.Name), client.MatchingLabelsSelector{
+							Selector: labels.NewSelector().Add(*namesRequirement),
+						})
+						Expect(err).NotTo(HaveOccurred())
+						Expect(anchorList.Items).To(HaveLen(1))
+
+						Expect(space.Name).To(Equal("our-space"))
+						Expect(space.GUID).To(Equal(spaceGUID))
+						Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+						Expect(space.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+					})
+
+					By("Creating ServiceAccounts in the Space namespace", func() {
+						serviceAccountList := corev1.ServiceAccountList{}
+						Eventually(func() []corev1.ServiceAccount {
+							err = k8sClient.List(ctx, &serviceAccountList, client.InNamespace(spaceGUID))
+							if err != nil {
+								return []corev1.ServiceAccount{}
+							}
+							return serviceAccountList.Items
+						}, timeCheckThreshold*time.Second, 250*time.Millisecond).Should(HaveLen(2), "could not find the service accounts created by the repo")
+						Expect(err).NotTo(HaveOccurred())
+
+						sort.Slice(serviceAccountList.Items, func(i, j int) bool {
+							return serviceAccountList.Items[i].Name < serviceAccountList.Items[j].Name
+						})
+						serviceAccount := serviceAccountList.Items[0]
+						Expect(serviceAccount.Name).To(Equal("eirini"))
+						serviceAccount = serviceAccountList.Items[1]
+						Expect(serviceAccount.Name).To(Equal("kpack-service-account"))
+						Expect(serviceAccount.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: imageRegistryCredentials}))
+						Expect(serviceAccount.Secrets).To(ConsistOf(corev1.ObjectReference{Name: imageRegistryCredentials}))
+					})
+				})
+
+				When("the space isn't ready in the timeout", func() {
+					It("returns an error", func() {
+						// we do not call updateStatus() to set state = ok
+						_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
+							GUID:             "some-guid",
+							Name:             "our-org",
+							OrganizationGUID: org.Name,
+						})
+						Expect(err).To(MatchError(ContainSubstring("did not get state 'ok'")))
+					})
+				})
+
+				When("the client fails to create the space", func() {
+					It("returns an error", func() {
+						_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
+							GUID:             "some-guid",
+							Name:             "this-string-has-illegal-characters-ц",
+							OrganizationGUID: org.Name,
+						})
+						Expect(err).To(HaveOccurred())
+					})
 				})
 			})
 		})

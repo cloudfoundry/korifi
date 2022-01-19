@@ -39,14 +39,15 @@ func TestRepositories(t *testing.T) {
 }
 
 var (
-	testEnv       *envtest.Environment
-	k8sClient     client.WithWatch
-	k8sConfig     *rest.Config
-	userName      string
-	authInfo      authorization.Info
-	rootNamespace string
-	idProvider    authorization.IdentityProvider
-	nsPerms       *authorization.NamespacePermissions
+	testEnv          *envtest.Environment
+	k8sClient        client.WithWatch
+	k8sConfig        *rest.Config
+	userName         string
+	authInfo         authorization.Info
+	rootNamespace    string
+	idProvider       authorization.IdentityProvider
+	nsPerms          *authorization.NamespacePermissions
+	adminClusterRole *rbacv1.ClusterRole
 )
 
 var _ = BeforeSuite(func() {
@@ -82,6 +83,8 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	adminClusterRole = createAdminClusterRole(context.Background())
 })
 
 var _ = AfterSuite(func() {
@@ -225,6 +228,11 @@ var (
 			Verbs:     []string{"create", "delete"},
 			APIGroups: []string{"rbac.authorization.k8s.io"},
 			Resources: []string{"rolebindings"},
+		},
+		{
+			Verbs:     []string{"create"},
+			APIGroups: []string{"hnc.x-k8s.io"},
+			Resources: []string{"subnamespaceanchors"},
 		},
 	}
 
