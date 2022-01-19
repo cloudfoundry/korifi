@@ -10,6 +10,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -91,7 +92,7 @@ var _ = Describe("RoleHandler", func() {
 		var createRoleRequestBody string
 
 		BeforeEach(func() {
-			roleRepo.CreateRoleStub = func(_ context.Context, message repositories.CreateRoleMessage) (repositories.RoleRecord, error) {
+			roleRepo.CreateRoleStub = func(_ context.Context, _ authorization.Info, message repositories.CreateRoleMessage) (repositories.RoleRecord, error) {
 				roleRecord := repositories.RoleRecord{
 					GUID:      "t-h-e-r-o-l-e",
 					CreatedAt: now,
@@ -170,7 +171,8 @@ var _ = Describe("RoleHandler", func() {
 
 		It("invokes the role repo create function with expected parameters", func() {
 			Expect(roleRepo.CreateRoleCallCount()).To(Equal(1))
-			_, roleRecord := roleRepo.CreateRoleArgsForCall(0)
+			_, actualAuthInfo, roleRecord := roleRepo.CreateRoleArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(roleRecord.Type).To(Equal("space_developer"))
 			Expect(roleRecord.Space).To(Equal("my-space"))
 			Expect(roleRecord.User).To(Equal("my-user"))
@@ -286,7 +288,7 @@ var _ = Describe("RoleHandler", func() {
 
 			It("invokes the role repo create function with expected parameters", func() {
 				Expect(roleRepo.CreateRoleCallCount()).To(Equal(1))
-				_, roleRecord := roleRepo.CreateRoleArgsForCall(0)
+				_, _, roleRecord := roleRepo.CreateRoleArgsForCall(0)
 				Expect(roleRecord.Type).To(Equal("organization_manager"))
 				Expect(roleRecord.Org).To(Equal("my-org"))
 				Expect(roleRecord.User).To(Equal("my-user"))
@@ -315,11 +317,21 @@ var _ = Describe("RoleHandler", func() {
 			It("creates a service account role binding", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 				Expect(roleRepo.CreateRoleCallCount()).To(Equal(1))
-				_, roleRecord := roleRepo.CreateRoleArgsForCall(0)
+				_, _, roleRecord := roleRepo.CreateRoleArgsForCall(0)
 				Expect(roleRecord.Type).To(Equal("organization_manager"))
 				Expect(roleRecord.Org).To(Equal("my-org"))
 				Expect(roleRecord.User).To(Equal("my-user"))
 				Expect(roleRecord.Kind).To(Equal(rbacv1.ServiceAccountKind))
+			})
+		})
+
+		When("the user is not authorized", func() {
+			BeforeEach(func() {
+				roleRepo.CreateRoleReturns(repositories.RoleRecord{}, repositories.NewForbiddenError(nil))
+			})
+
+			It("returns a unauthorized error", func() {
+				expectUnauthorizedError()
 			})
 		})
 

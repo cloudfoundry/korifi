@@ -60,17 +60,24 @@ type RoleRepo struct {
 	privilegedClient    client.Client
 	roleMappings        map[string]config.Role
 	authorizedInChecker AuthorizedInChecker
+	userClientFactory   UserK8sClientFactory
 }
 
-func NewRoleRepo(privilegedClient client.Client, authorizedInChecker AuthorizedInChecker, roleMappings map[string]config.Role) *RoleRepo {
+func NewRoleRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory, authorizedInChecker AuthorizedInChecker, roleMappings map[string]config.Role) *RoleRepo {
 	return &RoleRepo{
 		privilegedClient:    privilegedClient,
+		userClientFactory:   userClientFactory,
 		roleMappings:        roleMappings,
 		authorizedInChecker: authorizedInChecker,
 	}
 }
 
-func (r *RoleRepo) CreateRole(ctx context.Context, role CreateRoleMessage) (RoleRecord, error) {
+func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, role CreateRoleMessage) (RoleRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return RoleRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
 	k8sRoleConfig, ok := r.roleMappings[role.Type]
 	if !ok {
 		return RoleRecord{}, fmt.Errorf("invalid role type: %q", role.Type)
@@ -82,18 +89,8 @@ func (r *RoleRepo) CreateRole(ctx context.Context, role CreateRoleMessage) (Role
 	}
 
 	if role.Space != "" {
-		orgName, err := r.getOrgName(ctx, role.Space)
-		if err != nil {
+		if err = r.validateOrgRequirements(ctx, role, userIdentity); err != nil {
 			return RoleRecord{}, err
-		}
-
-		hasOrgBinding, err := r.authorizedInChecker.AuthorizedIn(ctx, userIdentity, orgName)
-		if err != nil {
-			return RoleRecord{}, fmt.Errorf("failed to check for role in parent org: %w", err)
-		}
-
-		if !hasOrgBinding {
-			return RoleRecord{}, ErrorMissingRoleBindingInParentOrg
 		}
 	}
 
@@ -128,10 +125,13 @@ func (r *RoleRepo) CreateRole(ctx context.Context, role CreateRoleMessage) (Role
 		},
 	}
 
-	err := r.privilegedClient.Create(ctx, &roleBinding)
+	err = userClient.Create(ctx, &roleBinding)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
 			return RoleRecord{}, ErrorDuplicateRoleBinding
+		}
+		if k8serrors.IsForbidden(err) {
+			return RoleRecord{}, NewForbiddenError(err)
 		}
 		return RoleRecord{}, fmt.Errorf("failed to assign user %q to role %q: %w", role.User, role.Type, err)
 	}
@@ -148,6 +148,23 @@ func (r *RoleRepo) CreateRole(ctx context.Context, role CreateRoleMessage) (Role
 	}
 
 	return roleRecord, nil
+}
+
+func (r *RoleRepo) validateOrgRequirements(ctx context.Context, role CreateRoleMessage, userIdentity authorization.Identity) error {
+	orgName, err := r.getOrgName(ctx, role.Space)
+	if err != nil {
+		return err
+	}
+
+	hasOrgBinding, err := r.authorizedInChecker.AuthorizedIn(ctx, userIdentity, orgName)
+	if err != nil {
+		return fmt.Errorf("failed to check for role in parent org: %w", err)
+	}
+
+	if !hasOrgBinding {
+		return ErrorMissingRoleBindingInParentOrg
+	}
+	return nil
 }
 
 func (r *RoleRepo) getOrgName(ctx context.Context, spaceGUID string) (string, error) {

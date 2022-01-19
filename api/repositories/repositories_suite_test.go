@@ -172,34 +172,6 @@ func createNamespace(ctx context.Context, orgName, name string) *corev1.Namespac
 	return namespace
 }
 
-func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {
-	clusterRole := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: generateGUID(),
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"get", "patch"},
-				APIGroups: []string{""},
-				Resources: []string{"secrets"},
-			},
-			{
-				Verbs:     []string{"get", "list", "create", "delete"},
-				APIGroups: []string{"workloads.cloudfoundry.org"},
-				Resources: []string{"cfapps"},
-			},
-			{
-				Verbs:     []string{"get"},
-				APIGroups: []string{"kpack.io"},
-				Resources: []string{"clusterbuilders"},
-			},
-		},
-	}
-	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
-
-	return clusterRole
-}
-
 func createRoleBinding(ctx context.Context, userName, roleName, namespace string) {
 	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -235,25 +207,80 @@ func createClusterRoleBinding(ctx context.Context, userName, roleName string) {
 	Expect(k8sClient.Create(ctx, &clusterRoleBinding)).To(Succeed())
 }
 
-func createOrgManagerClusterRole(ctx context.Context) *rbacv1.ClusterRole {
+func createClusterRole(ctx context.Context, rules []rbacv1.PolicyRule) *rbacv1.ClusterRole {
 	clusterRole := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: generateGUID(),
 		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"list", "delete"},
-				APIGroups: []string{"hnc.x-k8s.io"},
-				Resources: []string{"subnamespaceanchors"},
-			},
-			{
-				Verbs:     []string{"get", "update"},
-				APIGroups: []string{"hnc.x-k8s.io"},
-				Resources: []string{"hierarchyconfigurations"},
-			},
-		},
+		Rules: rules,
 	}
 	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
 
 	return clusterRole
+}
+
+var (
+	adminClusterRoleRules = []rbacv1.PolicyRule{
+		{
+			Verbs:     []string{"create", "delete"},
+			APIGroups: []string{"rbac.authorization.k8s.io"},
+			Resources: []string{"rolebindings"},
+		},
+	}
+
+	spaceDeveloperClusterRoleRules = []rbacv1.PolicyRule{
+		{
+			Verbs:     []string{"get", "patch"},
+			APIGroups: []string{""},
+			Resources: []string{"secrets"},
+		},
+		{
+			Verbs:     []string{"get", "list", "create", "delete"},
+			APIGroups: []string{"workloads.cloudfoundry.org"},
+			Resources: []string{"cfapps"},
+		},
+		{
+			Verbs:     []string{"get"},
+			APIGroups: []string{"kpack.io"},
+			Resources: []string{"clusterbuilders"},
+		},
+	}
+
+	orgManagerClusterRoleRules = []rbacv1.PolicyRule{
+		{
+			Verbs:     []string{"list", "delete"},
+			APIGroups: []string{"hnc.x-k8s.io"},
+			Resources: []string{"subnamespaceanchors"},
+		},
+		{
+			Verbs:     []string{"get", "update"},
+			APIGroups: []string{"hnc.x-k8s.io"},
+			Resources: []string{"hierarchyconfigurations"},
+		},
+	}
+
+	orgUserClusterRoleRules = []rbacv1.PolicyRule{}
+)
+
+func createAdminClusterRole(ctx context.Context) *rbacv1.ClusterRole {
+	rules := []rbacv1.PolicyRule{}
+
+	rules = append(rules, adminClusterRoleRules...)
+	rules = append(rules, spaceDeveloperClusterRoleRules...)
+	rules = append(rules, orgManagerClusterRoleRules...)
+	rules = append(rules, orgUserClusterRoleRules...)
+
+	return createClusterRole(ctx, rules)
+}
+
+func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {
+	return createClusterRole(ctx, spaceDeveloperClusterRoleRules)
+}
+
+func createOrgManagerClusterRole(ctx context.Context) *rbacv1.ClusterRole {
+	return createClusterRole(ctx, orgManagerClusterRoleRules)
+}
+
+func createOrgUserClusterRole(ctx context.Context) *rbacv1.ClusterRole {
+	return createClusterRole(ctx, orgUserClusterRoleRules)
 }

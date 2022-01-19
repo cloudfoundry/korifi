@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -39,7 +40,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFRoleRepository . CFRoleRepository
 
 type CFRoleRepository interface {
-	CreateRole(ctx context.Context, role repositories.CreateRoleMessage) (repositories.RoleRecord, error)
+	CreateRole(context.Context, authorization.Info, repositories.CreateRoleMessage) (repositories.RoleRecord, error)
 }
 
 type RoleHandler struct {
@@ -56,7 +57,7 @@ func NewRoleHandler(apiBaseURL url.URL, roleRepo CFRoleRepository) *RoleHandler 
 	}
 }
 
-func (h *RoleHandler) roleCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (h *RoleHandler) roleCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.RoleCreate
@@ -71,8 +72,13 @@ func (h *RoleHandler) roleCreateHandler(w http.ResponseWriter, r *http.Request) 
 	role := payload.ToMessage()
 	role.GUID = uuid.NewString()
 
-	record, err := h.roleRepo.CreateRole(r.Context(), role)
+	record, err := h.roleRepo.CreateRole(r.Context(), authInfo, role)
 	if err != nil {
+		if errors.As(err, &repositories.ForbiddenError{}) {
+			h.logger.Info("create-role: not authorized", "error", err)
+			writeNotAuthorizedErrorResponse(w)
+			return
+		}
 		if errors.Is(err, repositories.ErrorDuplicateRoleBinding) {
 			errorDetail := fmt.Sprintf("User '%s' already has '%s' role", role.User, role.Type)
 			h.logger.Info(errorDetail)
@@ -98,5 +104,6 @@ func (h *RoleHandler) roleCreateHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *RoleHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(RolesEndpoint).Methods("POST").HandlerFunc(h.roleCreateHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(RolesEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.roleCreateHandler))
 }

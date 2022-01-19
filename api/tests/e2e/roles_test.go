@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -16,26 +17,22 @@ var _ = Describe("Roles", func() {
 	var (
 		ctx      context.Context
 		userName string
+		org      presenter.OrgResponse
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		userName = uuid.NewString()
+		org = createOrg(uuid.NewString(), adminAuthHeader)
 	})
 
 	Describe("creating an org role", func() {
-		var org presenter.OrgResponse
-
-		BeforeEach(func() {
-			org = createOrg(uuid.NewString(), adminAuthHeader)
-		})
-
 		AfterEach(func() {
 			deleteSubnamespace(rootNamespace, org.GUID)
 		})
 
 		It("creates a role binding", func() {
-			role := createOrgRole("organization_manager", rbacv1.UserKind, userName, org.GUID, tokenAuthHeader)
+			role := createOrgRole("organization_manager", rbacv1.UserKind, userName, org.GUID, adminAuthHeader)
 
 			binding := getOrgRoleBinding(ctx, org.GUID, role.GUID)
 			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-organization-manager"))
@@ -46,16 +43,21 @@ var _ = Describe("Roles", func() {
 			Expect(subject.Name).To(Equal(userName))
 			Expect(subject.Kind).To(Equal(rbacv1.UserKind))
 		})
+
+		When("the user is not admin", func() {
+			It("returns 403 Forbidden", func() {
+				resp, err := createRoleRaw("organization_manager", rbacv1.UserKind, "organization", userName, org.GUID, tokenAuthHeader)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp).To(HaveHTTPStatus(http.StatusForbidden))
+			})
+		})
 	})
 
 	Describe("creating a space role", func() {
-		var (
-			org   presenter.OrgResponse
-			space presenter.SpaceResponse
-		)
+		var space presenter.SpaceResponse
 
 		BeforeEach(func() {
-			org = createOrg(uuid.NewString(), adminAuthHeader)
 			createOrgRole("organization_user", rbacv1.UserKind, userName, org.GUID, adminAuthHeader)
 			space = createSpace(uuid.NewString(), org.GUID, adminAuthHeader)
 		})
@@ -66,7 +68,7 @@ var _ = Describe("Roles", func() {
 		})
 
 		It("creates a role binding", func() {
-			role := createSpaceRole("space_developer", rbacv1.UserKind, userName, space.GUID, tokenAuthHeader)
+			role := createSpaceRole("space_developer", rbacv1.UserKind, userName, space.GUID, adminAuthHeader)
 
 			binding := getOrgRoleBinding(ctx, space.GUID, role.GUID)
 			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-space-developer"))
@@ -76,6 +78,15 @@ var _ = Describe("Roles", func() {
 			subject := binding.Subjects[0]
 			Expect(subject.Name).To(Equal(userName))
 			Expect(subject.Kind).To(Equal(rbacv1.UserKind))
+		})
+
+		When("the user is not admin", func() {
+			It("returns 403 Forbidden", func() {
+				resp, err := createRoleRaw("space_developer", rbacv1.UserKind, "space", userName, space.GUID, tokenAuthHeader)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp).To(HaveHTTPStatus(http.StatusForbidden))
+			})
 		})
 	})
 })
