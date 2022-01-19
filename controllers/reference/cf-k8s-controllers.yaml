@@ -1657,8 +1657,8 @@ data:
     kpackImageTag: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
     clusterBuilderName: cf-kpack-cluster-builder
     cfProcessDefaults:
-      memoryMB: 500
-      diskQuotaMB: 512
+      memoryMB: 1024
+      diskQuotaMB: 1024
     cfk8s_controller_namespace: cf-k8s-controllers-system
     workloads_tls_secret_name: cf-k8s-workloads-ingress-cert
 kind: ConfigMap
