@@ -613,6 +613,38 @@ var _ = Describe("ProcessHandler", func() {
 			})
 		})
 
+		When("the process is down", func() {
+			BeforeEach(func() {
+				fetchProcessStats.Returns([]repositories.PodStatsRecord{
+					{
+						Type:  "web",
+						Index: 0,
+						State: "DOWN",
+					},
+				}, nil)
+			})
+			It("returns a canned response with the processGUID in it", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr.Body.String()).To(MatchJSON(`{
+					"resources": [
+						{
+							"type": "web",
+							"index": 0,
+							"state": "DOWN",
+							"host": null,
+							"uptime": null,
+							"mem_quota": null,
+							"disk_quota": null,
+							"fds_quota": null,
+							"isolation_segment": null,
+							"details": null
+						}
+					]
+				}`), "Response body matches response:")
+			})
+		})
+
 		When("the process is not found", func() {
 			BeforeEach(func() {
 				fetchProcessStats.Returns(nil, repositories.NotFoundError{ResourceType: "Process"})

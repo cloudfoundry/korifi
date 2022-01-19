@@ -32,7 +32,13 @@ func (a *FetchProcessStats) Invoke(ctx context.Context, authInfo authorization.I
 	}
 
 	if appRecord.State == repositories.StoppedState {
-		return []repositories.PodStatsRecord{}, nil
+		return []repositories.PodStatsRecord{
+			{
+				Type:  processRecord.Type,
+				Index: 0,
+				State: "DOWN",
+			},
+		}, nil
 	}
 
 	message := repositories.ListPodStatsMessage{

@@ -108,11 +108,26 @@ var _ = Describe("GetProcessStatsAction", func() {
 		When("the app is STOPPED", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{State: "STOPPED"}, nil)
+				processRepo.GetProcessReturns(repositories.ProcessRecord{
+					GUID:      "some-process-guid",
+					SpaceGUID: spaceGUID,
+					AppGUID:   appGUID,
+					Type:      processType,
+				}, nil)
 				responseRecords, responseErr = fetchProcessStatsAction.Invoke(context.Background(), authInfo, processGUID)
 			})
 
-			It("returns empty record", func() {
-				Expect(responseRecords).To(BeEmpty())
+			It("calls the repo GetProcess to find the processType", func() {
+				_, _, afcProcessGUID := processRepo.GetProcessArgsForCall(0)
+				Expect(afcProcessGUID).To(Equal(processGUID))
+			})
+
+			It("returns records for each stopped process with a state of DOWN", func() {
+				Expect(responseRecords).To(ConsistOf(repositories.PodStatsRecord{
+					Type:  "web",
+					Index: 0,
+					State: "DOWN",
+				}))
 			})
 		})
 	})

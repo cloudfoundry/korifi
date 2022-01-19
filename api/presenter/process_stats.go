@@ -9,18 +9,18 @@ type ProcessStatsResponse struct {
 }
 
 type ProcessStatsResource struct {
-	Type             string                `json:"type"`
-	Index            int                   `json:"index"`
-	State            string                `json:"state"`
-	Usage            *ProcessUsage         `json:"usage,omitempty"`
-	Host             *string               `json:"host"`
-	InstancePorts    []ProcessInstancePort `json:"instance_ports"`
-	Uptime           *int                  `json:"uptime"`
-	MemQuota         *int                  `json:"mem_quota"`
-	DiskQuota        *int                  `json:"disk_quota"`
-	FDSQuota         *int                  `json:"fds_quota"`
-	IsolationSegment *string               `json:"isolation_segment"`
-	Details          *ProcessDetails       `json:"details"`
+	Type             string                 `json:"type"`
+	Index            int                    `json:"index"`
+	State            string                 `json:"state"`
+	Usage            *ProcessUsage          `json:"usage,omitempty"`
+	Host             *string                `json:"host"`
+	InstancePorts    *[]ProcessInstancePort `json:"instance_ports,omitempty"`
+	Uptime           *int                   `json:"uptime"`
+	MemQuota         *int                   `json:"mem_quota"`
+	DiskQuota        *int                   `json:"disk_quota"`
+	FDSQuota         *int                   `json:"fds_quota"`
+	IsolationSegment *string                `json:"isolation_segment"`
+	Details          *ProcessDetails        `json:"details"`
 }
 
 type ProcessUsage struct {
@@ -48,10 +48,15 @@ func ForProcessStats(records []repositories.PodStatsRecord) ProcessStatsResponse
 }
 
 func statRecordToResource(record repositories.PodStatsRecord) ProcessStatsResource {
+	var processInstancePorts *[]ProcessInstancePort
+	if record.State != "DOWN" {
+		processInstancePorts = &[]ProcessInstancePort{}
+
+	}
 	return ProcessStatsResource{
 		Type:          record.Type,
 		Index:         record.Index,
 		State:         record.State,
-		InstancePorts: []ProcessInstancePort{},
+		InstancePorts: processInstancePorts,
 	}
 }
