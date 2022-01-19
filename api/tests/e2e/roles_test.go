@@ -2,10 +2,10 @@ package e2e_test
 
 import (
 	"context"
+	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -16,27 +16,36 @@ var _ = Describe("Roles", func() {
 	var (
 		ctx      context.Context
 		userName string
+		org      presenter.OrgResponse
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		userName = uuid.NewString()
+		userName = generateGUID("user")
+
+		api.Request(http.MethodPost, "/v3/organizations").
+			WithBody(orgPayload(generateGUID("org"))).
+			DoWithAuth(adminAuthHeader).
+			ValidateStatus(http.StatusCreated).
+			DecodeResponseBody(&org)
+	})
+
+	AfterEach(func() {
+		deleteSubnamespace(rootNamespace, org.GUID)
 	})
 
 	Describe("creating an org role", func() {
-		var org presenter.OrgResponse
+		var role presenter.RoleResponse
 
 		BeforeEach(func() {
-			org = createOrg(uuid.NewString(), adminAuthHeader)
-		})
-
-		AfterEach(func() {
-			deleteSubnamespace(rootNamespace, org.GUID)
+			api.Request(http.MethodPost, "/v3/roles").
+				WithBody(userOrgRolePayload("organization_manager", userName, org.GUID)).
+				DoWithAuth(tokenAuthHeader).
+				ValidateStatus(http.StatusCreated).
+				DecodeResponseBody(&role)
 		})
 
 		It("creates a role binding", func() {
-			role := createOrgRole("organization_manager", rbacv1.UserKind, userName, org.GUID, tokenAuthHeader)
-
 			binding := getOrgRoleBinding(ctx, org.GUID, role.GUID)
 			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-organization-manager"))
 			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))
@@ -50,24 +59,34 @@ var _ = Describe("Roles", func() {
 
 	Describe("creating a space role", func() {
 		var (
-			org   presenter.OrgResponse
 			space presenter.SpaceResponse
+			role  presenter.RoleResponse
 		)
 
 		BeforeEach(func() {
-			org = createOrg(uuid.NewString(), adminAuthHeader)
-			createOrgRole("organization_user", rbacv1.UserKind, userName, org.GUID, adminAuthHeader)
-			space = createSpace(uuid.NewString(), org.GUID, adminAuthHeader)
+			api.Request(http.MethodPost, "/v3/roles").
+				WithBody(userOrgRolePayload("organization_user", userName, org.GUID)).
+				DoWithAuth(adminAuthHeader).
+				ValidateStatus(http.StatusCreated)
+
+			api.Request(http.MethodPost, "/v3/spaces").
+				WithBody(spacePayload(generateGUID("space"), org.GUID)).
+				DoWithAuth(adminAuthHeader).
+				ValidateStatus(http.StatusCreated).
+				DecodeResponseBody(&space)
+
+			api.Request(http.MethodPost, "/v3/roles").
+				WithBody(userSpaceRolePayload("space_developer", userName, space.GUID)).
+				DoWithAuth(adminAuthHeader).
+				ValidateStatus(http.StatusCreated).
+				DecodeResponseBody(&role)
 		})
 
 		AfterEach(func() {
 			deleteSubnamespace(org.GUID, space.GUID)
-			deleteSubnamespace(rootNamespace, org.GUID)
 		})
 
 		It("creates a role binding", func() {
-			role := createSpaceRole("space_developer", rbacv1.UserKind, userName, space.GUID, tokenAuthHeader)
-
 			binding := getOrgRoleBinding(ctx, space.GUID, role.GUID)
 			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-space-developer"))
 			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))

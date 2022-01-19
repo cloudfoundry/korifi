@@ -45,6 +45,7 @@ import (
 
 var (
 	k8sClient           client.Client
+	api                 helpers.APIRequest
 	clientset           *kubernetes.Clientset
 	rootNamespace       string
 	apiServerRoot       string
@@ -94,6 +95,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = BeforeEach(func() {
+	api = helpers.NewCFAPI(apiServerRoot)
 	tokenAuthHeader = fmt.Sprintf("Bearer %s", serviceAccountToken)
 })
 
@@ -138,9 +140,9 @@ func deleteSubnamespace(parent, name string) {
 		},
 	}
 	err := k8sClient.Delete(ctx, &anchor)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 
-	Eventually(func() bool {
+	EventuallyWithOffset(2, func() bool {
 		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&anchor), &anchor)
 
 		return errors.IsNotFound(err)
@@ -159,15 +161,12 @@ func createOrgRaw(orgName, authHeader string) *http.Response {
 }
 
 func createOrg(orgName, authHeader string) presenter.OrgResponse {
-	resp := createOrgRaw(orgName, authHeader)
-	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
-	Expect(resp).To(HaveHTTPHeaderWithValue(headers.ContentType, "application/json"))
-	defer resp.Body.Close()
-
 	org := presenter.OrgResponse{}
-	err := json.NewDecoder(resp.Body).Decode(&org)
-	Expect(err).NotTo(HaveOccurred())
-
+	api.Request(http.MethodPost, "/v3/organizations").
+		WithBody(orgPayload(orgName)).
+		DoWithAuth(tokenAuthHeader).
+		ValidateStatus(http.StatusCreated).
+		DecodeResponseBody(&org)
 	return org
 }
 
@@ -176,7 +175,11 @@ func asyncCreateOrg(orgName, authHeader string, createdOrg *presenter.OrgRespons
 		defer GinkgoRecover()
 		defer wg.Done()
 
-		*createdOrg = createOrg(orgName, authHeader)
+		api.Request(http.MethodPost, "/v3/organizations").
+			WithBody(orgPayload(orgName)).
+			DoWithAuth(authHeader).
+			ValidateStatus(http.StatusCreated).
+			DecodeResponseBody(&createdOrg)
 	}()
 }
 
@@ -272,6 +275,83 @@ func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader
 	role := presenter.RoleResponse{}
 	err = json.NewDecoder(resp.Body).Decode(&role)
 	ExpectWithOffset(3, err).NotTo(HaveOccurred())
+
+	return role
+}
+
+func orgPayload(name string) payloads.OrgCreate {
+	return payloads.OrgCreate{
+		Name: name,
+	}
+}
+
+func spacePayload(name, orgGUID string) payloads.SpaceCreate {
+	return payloads.SpaceCreate{
+		Name: name,
+		Relationships: payloads.SpaceRelationships{
+			Org: payloads.Relationship{
+				Data: &payloads.RelationshipData{
+					GUID: orgGUID,
+				},
+			},
+		},
+	}
+}
+
+func userOrgRolePayload(roleName, userName, orgGUID string) payloads.RoleCreate {
+	return rolePayload(roleName, rbacv1.UserKind, "organization", userName, orgGUID)
+}
+
+func userSpaceRolePayload(roleName, userName, orgGUID string) payloads.RoleCreate {
+	return rolePayload(roleName, rbacv1.UserKind, "space", userName, orgGUID)
+}
+
+func serviceAccountOrgRolePayload(roleName, userName, spaceGUID string) payloads.RoleCreate {
+	return rolePayload(roleName, rbacv1.ServiceAccountKind, "organization", userName, spaceGUID)
+}
+
+func serviceAccountSpaceRolePayload(roleName, userName, spaceGUID string) payloads.RoleCreate {
+	return rolePayload(roleName, rbacv1.ServiceAccountKind, "space", userName, spaceGUID)
+}
+
+func rolePayload(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) payloads.RoleCreate {
+	role := payloads.RoleCreate{
+		Type: roleName,
+	}
+
+	switch kind {
+	case rbacv1.UserKind:
+		role.Relationships.User = &payloads.UserRelationship{
+			Data: payloads.UserRelationshipData{
+				Username: userName,
+			},
+		}
+	case rbacv1.ServiceAccountKind:
+		role.Relationships.KubernetesServiceAccount = &payloads.Relationship{
+			Data: &payloads.RelationshipData{
+				GUID: userName,
+			},
+		}
+	default:
+		Fail("unexpected Kind " + kind)
+	}
+
+	switch orgSpaceType {
+	case "organization":
+		role.Relationships.Organization = &payloads.Relationship{
+			Data: &payloads.RelationshipData{
+				GUID: orgSpaceGUID,
+			},
+		}
+	case "space":
+		role.Relationships.Space = &payloads.Relationship{
+			Data: &payloads.RelationshipData{
+				GUID: orgSpaceGUID,
+			},
+		}
+	default:
+		Fail("unexpected type " + orgSpaceType)
+	}
 
 	return role
 }
