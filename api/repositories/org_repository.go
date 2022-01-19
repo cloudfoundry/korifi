@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	corev1 "k8s.io/api/core/v1"
@@ -116,7 +115,7 @@ func NewOrgRepo(
 }
 
 func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org CreateOrgMessage) (OrgRecord, error) {
-	anchor, err := r.createSubnamespaceAnchor(ctx, &v1alpha2.SubnamespaceAnchor{
+	anchor, err := r.createSubnamespaceAnchor(ctx, r.privilegedClient, &v1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      org.GUID,
 			Namespace: r.rootNamespace,
@@ -143,7 +142,12 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 }
 
 func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, message CreateSpaceMessage) (SpaceRecord, error) {
-	anchor, err := r.createSubnamespaceAnchor(ctx, &v1alpha2.SubnamespaceAnchor{
+	userClient, err := r.userClientFactory.BuildClient(info)
+	if err != nil {
+		return SpaceRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	anchor, err := r.createSubnamespaceAnchor(ctx, userClient, &v1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
 			Namespace: message.OrganizationGUID,
@@ -153,6 +157,10 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 		},
 	})
 	if err != nil {
+		if apierrors.IsForbidden(err) {
+			return SpaceRecord{}, NewForbiddenError(err)
+		}
+
 		return SpaceRecord{}, err
 	}
 
@@ -195,8 +203,8 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 	return record, nil
 }
 
-func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context, anchor *v1alpha2.SubnamespaceAnchor) (*v1alpha2.SubnamespaceAnchor, error) {
-	err := r.privilegedClient.Create(ctx, anchor)
+func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context, userClient client.Client, anchor *v1alpha2.SubnamespaceAnchor) (*v1alpha2.SubnamespaceAnchor, error) {
+	err := userClient.Create(ctx, anchor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create subnamespaceanchor: %w", err)
 	}

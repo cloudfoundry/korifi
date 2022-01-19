@@ -138,6 +138,16 @@ var _ = Describe("Spaces", func() {
 			})
 		})
 
+		When("user is not allowed to create a space", func() {
+			BeforeEach(func() {
+				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.NewForbiddenError(errors.New("nope")))
+			})
+
+			It("returns an unauthorised error", func() {
+				expectUnauthorizedError()
+			})
+		})
+
 		When("providing the space repository fails", func() {
 			BeforeEach(func() {
 				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, errors.New("space-repo-provisioning-failed"))

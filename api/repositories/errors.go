@@ -1,5 +1,7 @@
 package repositories
 
+import "errors"
+
 type NotFoundError struct {
 	Err          error
 	ResourceType string
@@ -58,4 +60,8 @@ func (e ForbiddenError) Error() string {
 
 func (e ForbiddenError) Unwrap() error {
 	return e.err
+}
+
+func IsForbiddenError(err error) bool {
+	return errors.As(err, &ForbiddenError{})
 }

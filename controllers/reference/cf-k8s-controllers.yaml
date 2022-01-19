@@ -1265,6 +1265,12 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - hnc.x-k8s.io
+  resources:
+  - subnamespaceanchors
+  verbs:
+  - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

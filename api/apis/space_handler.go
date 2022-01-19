@@ -88,6 +88,13 @@ func (h *SpaceHandler) SpaceCreateHandler(info authorization.Info, w http.Respon
 			return
 		}
 
+		if repositories.IsForbiddenError(err) {
+			h.logger.Error(err, "not allowed to create spaces")
+			writeNotAuthorizedErrorResponse(w)
+
+			return
+		}
+
 		h.logger.Error(err, "Failed to create space", "Space Name", space.Name)
 		writeUnknownErrorResponse(w)
 		return

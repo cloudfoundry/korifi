@@ -37,37 +37,49 @@ var _ = Describe("Spaces", func() {
 			deleteSubnamespace(rootNamespace, org.GUID)
 		})
 
-		JustBeforeEach(func() {
-			space = createSpace(spaceName, org.GUID, tokenAuthHeader)
+		When("admin", func() {
+			JustBeforeEach(func() {
+				space = createSpace(spaceName, org.GUID, adminAuthHeader)
+			})
+
+			It("creates a space", func() {
+				Expect(space.Name).To(Equal(spaceName))
+
+				Eventually(func() error {
+					return k8sClient.Get(context.Background(), client.ObjectKey{Name: space.GUID}, &corev1.Namespace{})
+				}).Should(Succeed())
+			})
+
+			When("the space name already exists", func() {
+				It("returns an unprocessable entity error", func() {
+					resp, err := createSpaceRaw(spaceName, org.GUID, adminAuthHeader)
+					Expect(err).NotTo(HaveOccurred())
+					defer resp.Body.Close()
+
+					bodyMap := map[string]interface{}{}
+					err = json.NewDecoder(resp.Body).Decode(&bodyMap)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
+
+					Expect(bodyMap).To(HaveKeyWithValue("errors", BeAssignableToTypeOf([]interface{}{})))
+					errs := bodyMap["errors"].([]interface{})
+					Expect(errs[0]).To(SatisfyAll(
+						HaveKeyWithValue("code", BeNumerically("==", 10008)),
+						HaveKeyWithValue("detail", MatchRegexp(fmt.Sprintf(`Space '%s' already exists.`, spaceName))),
+						HaveKeyWithValue("title", Equal("CF-UnprocessableEntity")),
+					))
+				})
+			})
 		})
 
-		It("creates a space", func() {
-			Expect(space.Name).To(Equal(spaceName))
-
-			Eventually(func() error {
-				return k8sClient.Get(context.Background(), client.ObjectKey{Name: space.GUID}, &corev1.Namespace{})
-			}).Should(Succeed())
-		})
-
-		When("the space name already exists", func() {
-			It("returns an unprocessable entity error", func() {
+		When("not admin", func() {
+			It("returns a forbidden error", func() {
 				resp, err := createSpaceRaw(spaceName, org.GUID, tokenAuthHeader)
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 
-				bodyMap := map[string]interface{}{}
-				err = json.NewDecoder(resp.Body).Decode(&bodyMap)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
-
-				Expect(bodyMap).To(HaveKeyWithValue("errors", BeAssignableToTypeOf([]interface{}{})))
-				errs := bodyMap["errors"].([]interface{})
-				Expect(errs[0]).To(SatisfyAll(
-					HaveKeyWithValue("code", BeNumerically("==", 10008)),
-					HaveKeyWithValue("detail", MatchRegexp(fmt.Sprintf(`Space '%s' already exists.`, spaceName))),
-					HaveKeyWithValue("title", Equal("CF-UnprocessableEntity")),
-				))
+				Expect(resp).To(HaveHTTPStatus(http.StatusForbidden))
 			})
 		})
 
