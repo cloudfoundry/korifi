@@ -87,6 +87,22 @@ var _ = Describe("CFBuildReconciler", func() {
 			Expect(k8sClient.Delete(afterCtx, newNamespace)).To(Succeed())
 		})
 
+		It("eventually reconciles to set the owner reference on the CFBuild", func() {
+			Eventually(func() []metav1.OwnerReference {
+				var createdCFBuild workloadsv1alpha1.CFBuild
+				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, &createdCFBuild)
+				if err != nil {
+					return nil
+				}
+				return createdCFBuild.GetOwnerReferences()
+			}, 5*time.Second).Should(ConsistOf(metav1.OwnerReference{
+				APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
+				Kind:       "CFApp",
+				Name:       desiredCFApp.Name,
+				UID:        desiredCFApp.UID,
+			}))
+		})
+
 		When("kpack image with CFBuild GUID doesn't exist", func() {
 			It("eventually creates a Kpack Image", func() {
 				testCtx := context.Background()

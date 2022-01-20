@@ -77,6 +77,19 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
+	originalCFProcess := cfProcess.DeepCopy()
+	err = controllerutil.SetOwnerReference(&cfApp, &cfProcess, r.Scheme)
+	if err != nil {
+		r.Log.Error(err, "unable to set owner reference on CFProcess")
+		return ctrl.Result{}, err
+	}
+
+	err = r.Client.Patch(ctx, &cfProcess, client.MergeFrom(originalCFProcess))
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error setting owner reference on the CFProcess %s/%s", req.Namespace, cfProcess.Name))
+		return ctrl.Result{}, err
+	}
+
 	cfAppRev := workloadsv1alpha1.CFAppRevisionKeyDefault
 	if foundValue, ok := cfApp.GetAnnotations()[workloadsv1alpha1.CFAppRevisionKey]; ok {
 		cfAppRev = foundValue
@@ -86,8 +99,8 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch LRPs for Process %s/%s", req.Namespace, cfProcess.Name))
 		return ctrl.Result{}, err
 	}
-	if cfApp.Spec.DesiredState == workloadsv1alpha1.StartedState {
 
+	if cfApp.Spec.DesiredState == workloadsv1alpha1.StartedState {
 		cfBuild := workloadsv1alpha1.CFBuild{}
 		err = r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfProcess.Namespace}, &cfBuild)
 		if err != nil {

@@ -51,7 +51,6 @@ func statRecordToResource(record repositories.PodStatsRecord) ProcessStatsResour
 	var processInstancePorts *[]ProcessInstancePort
 	if record.State != "DOWN" {
 		processInstancePorts = &[]ProcessInstancePort{}
-
 	}
 	return ProcessStatsResource{
 		Type:          record.Type,

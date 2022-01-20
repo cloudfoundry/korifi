@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -93,6 +95,30 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 	AfterEach(func() {
 		Expect(k8sClient.Delete(context.Background(), ns)).To(Succeed())
+	})
+
+	When("the CFProcess is created", func() {
+		BeforeEach(func() {
+			ctx := context.Background()
+			Expect(
+				k8sClient.Create(ctx, cfApp),
+			).To(Succeed())
+		})
+		It("eventually reconciles to set owner references on CFProcess", func() {
+			Eventually(func() []metav1.OwnerReference {
+				var createdCFProcess workloadsv1alpha1.CFProcess
+				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: testProcessGUID, Namespace: testNamespace}, &createdCFProcess)
+				if err != nil {
+					return nil
+				}
+				return createdCFProcess.GetOwnerReferences()
+			}, 5*time.Second).Should(ConsistOf(metav1.OwnerReference{
+				APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
+				Kind:       "CFApp",
+				Name:       cfApp.Name,
+				UID:        cfApp.UID,
+			}))
+		})
 	})
 
 	When("the CFApp desired state is STARTED", func() {

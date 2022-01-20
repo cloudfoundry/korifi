@@ -18,19 +18,23 @@ package workloads
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
 // CFPackageReconciler reconciles a CFPackage object
 type CFPackageReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages,verbs=get;list;watch;create;update;patch;delete
@@ -47,9 +51,32 @@ type CFPackageReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CFPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	var cfPackage workloadsv1alpha1.CFPackage
+	err := r.Client.Get(ctx, req.NamespacedName, &cfPackage)
+	if err != nil {
+		r.Log.Error(err, "Error when fetching CFPackage")
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-	// your logic here
+	var cfApp workloadsv1alpha1.CFApp
+	err = r.Client.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
+	if err != nil {
+		r.Log.Error(err, "Error when fetching CFApp")
+		return ctrl.Result{}, err
+	}
+
+	originalCFPackage := cfPackage.DeepCopy()
+	err = controllerutil.SetOwnerReference(&cfApp, &cfPackage, r.Scheme)
+	if err != nil {
+		r.Log.Error(err, "unable to set owner reference on CFPackage")
+		return ctrl.Result{}, err
+	}
+
+	err = r.Client.Patch(ctx, &cfPackage, client.MergeFrom(originalCFPackage))
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error setting owner reference on the CFPackage %s/%s", req.Namespace, cfPackage.Name))
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
