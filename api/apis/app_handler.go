@@ -36,6 +36,7 @@ const (
 	AppRestartEndpoint           = "/v3/apps/{guid}/actions/restart"
 	AppDeleteEndpoint            = "/v3/apps/{guid}"
 	AppPatchEnvVarsEndpoint      = "/v3/apps/{guid}/environment_variables"
+	AppGetEnvEndpoint            = "/v3/apps/{guid}/env"
 	invalidDropletMsg            = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
 	AppStartedState = "STARTED"
@@ -54,6 +55,7 @@ type CFAppRepository interface {
 	SetCurrentDroplet(context.Context, authorization.Info, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
 	SetAppDesiredState(context.Context, authorization.Info, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 	DeleteApp(context.Context, authorization.Info, repositories.DeleteAppMessage) error
+	GetAppEnv(context.Context, authorization.Info, string) (map[string]string, error)
 }
 
 //counterfeiter:generate -o fake -fake-name ScaleAppProcess . ScaleAppProcess
@@ -669,6 +671,36 @@ func (h *AppHandler) appPatchEnvVarsHandler(authInfo authorization.Info, w http.
 	}
 }
 
+func (h *AppHandler) appGetEnvHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+
+	envVars, err := h.appRepo.GetAppEnv(r.Context(), authInfo, appGUID)
+	if err != nil {
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Error(err, "App not found", "AppGUID", appGUID)
+			writeNotFoundErrorResponse(w, "App")
+			return
+		case repositories.ForbiddenError:
+			h.logger.Error(err, "not allowed to fetch App env")
+			writeNotAuthorizedErrorResponse(w)
+			return
+		default:
+			h.logger.Error(err, "Failed to fetch app environment variables", "AppGUID", appGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	err = writeJsonResponse(w, presenter.ForAppEnv(envVars), http.StatusOK)
+	if err != nil {
+		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
+		writeUnknownErrorResponse(w)
+	}
+}
+
 func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
 	router.Path(AppGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appGetHandler))
@@ -684,4 +716,5 @@ func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(AppGetRoutesEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.getRoutesForAppHandler))
 	router.Path(AppDeleteEndpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.appDeleteHandler))
 	router.Path(AppPatchEnvVarsEndpoint).Methods("PATCH").HandlerFunc(w.Wrap(h.appPatchEnvVarsHandler))
+	router.Path(AppGetEnvEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appGetEnvHandler))
 }

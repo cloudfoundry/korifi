@@ -2597,6 +2597,71 @@ var _ = Describe("AppHandler", func() {
 		})
 	})
 
+	Describe("the GET /v3/apps/:guid/env endpoint", func() {
+		BeforeEach(func() {
+			appRepo.GetAppEnvReturns(map[string]string{"VAR": "VAL"}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/env", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("on the happy path", func() {
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("passes authInfo from context to GetAppEnv", func() {
+				Expect(appRepo.GetAppEnvCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := appRepo.GetAppEnvArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+
+			It("returns the env vars in the response", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(`{
+                  "staging_env_json": {},
+                  "running_env_json": {},
+                  "environment_variables": { "VAR": "VAL" },
+                  "system_env_json": {},
+                  "application_env_json": {}
+                }`))
+			})
+		})
+
+		When("the app cannot be found", func() {
+			BeforeEach(func() {
+				appRepo.GetAppEnvReturns(nil, repositories.NotFoundError{ResourceType: "App"})
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("there is a Forbidden error fetching the app env", func() {
+			BeforeEach(func() {
+				appRepo.GetAppEnvReturns(nil, repositories.ForbiddenError{})
+			})
+
+			It("returns an error", func() {
+				expectUnauthorizedError()
+			})
+		})
+
+		When("there is some other error fetching the app env", func() {
+			BeforeEach(func() {
+				appRepo.GetAppEnvReturns(nil, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
 	Describe("the PATCH /v3/apps/:guid/environment_variables", func() {
 		const (
 			key0 = "KEY0"

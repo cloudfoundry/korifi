@@ -18,6 +18,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
@@ -35,13 +36,14 @@ var _ = Describe("AppRepository", func() {
 		space1, space2, space3    *v1alpha2.SubnamespaceAnchor
 		cfApp1, cfApp2, cfApp3    *workloadsv1alpha1.CFApp
 		spaceDeveloperClusterRole *rbacv1.ClusterRole
+		spaceAuditorClusterRole   *rbacv1.ClusterRole
 	)
 
 	BeforeEach(func() {
 		testCtx = context.Background()
 
 		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
-		appRepo = NewAppRepo(k8sClient, clientFactory, nsPerms)
+		appRepo = NewAppRepo(k8sClient, clientFactory, nsPerms, true)
 
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
 		Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
@@ -52,6 +54,7 @@ var _ = Describe("AppRepository", func() {
 		space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space3"))
 
 		spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
+		spaceAuditorClusterRole = createSpaceAuditorClusterRole(testCtx)
 	})
 
 	Describe("GetApp", func() {
@@ -1009,6 +1012,129 @@ var _ = Describe("AppRepository", func() {
 				})
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(ContainSubstring("not found")))
+			})
+		})
+	})
+
+	Describe("GetAppEnv", func() {
+		When("the app exists", func() {
+			var (
+				envVars map[string]string
+				secret  *corev1.Secret
+			)
+
+			BeforeEach(func() {
+				cfApp1 = createApp(space1.Name)
+				cfApp2 = createApp(space2.Name)
+
+				DeferCleanup(func() {
+					_ = k8sClient.Delete(context.Background(), cfApp1)
+				})
+				DeferCleanup(func() {
+					_ = k8sClient.Delete(context.Background(), cfApp2)
+				})
+
+				envVars = map[string]string{
+					"RAILS_ENV": "production",
+					"LUNCHTIME": "12:00",
+				}
+
+				secret = &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "the-env-secret",
+						Namespace: space2.Name,
+					},
+					StringData: envVars,
+				}
+
+				Expect(
+					k8sClient.Create(context.Background(), secret),
+				).To(Succeed())
+
+				appRepo = NewAppRepo(k8sClient, clientFactory, nsPerms, true)
+			})
+
+			When("the user can read secrets in the space", func() {
+				BeforeEach(func() {
+					spaceDeveloperClusterRole := createSpaceDeveloperClusterRole(testCtx)
+					createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
+				})
+
+				When("the EnvSecret exists", func() {
+					BeforeEach(func() {
+						ogCFApp2 := cfApp2.DeepCopy()
+						cfApp2.Spec.EnvSecretName = secret.Name
+						Expect(
+							k8sClient.Patch(context.Background(), cfApp2, client.MergeFrom(ogCFApp2)),
+						).To(Succeed())
+					})
+
+					It("returns the env vars stored on the secret", func() {
+						res, err := appRepo.GetAppEnv(testCtx, authInfo, cfApp2.Name)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(res).To(Equal(envVars))
+					})
+				})
+
+				When("the EnvSecret doesn't exist", func() {
+					BeforeEach(func() {
+						ogCFApp2 := cfApp2.DeepCopy()
+						cfApp2.Spec.EnvSecretName = "no-such-secret"
+						Expect(
+							k8sClient.Patch(context.Background(), cfApp2, client.MergeFrom(ogCFApp2)),
+						).To(Succeed())
+					})
+
+					It("errors", func() {
+						_, err := appRepo.GetAppEnv(testCtx, authInfo, cfApp2.Name)
+						Expect(err).To(MatchError(ContainSubstring("Secret")))
+					})
+				})
+
+				When("EnvSecretName is blank", func() {
+					BeforeEach(func() {
+						ogCFApp2 := cfApp2.DeepCopy()
+						cfApp2.Spec.EnvSecretName = ""
+						Expect(
+							k8sClient.Patch(context.Background(), cfApp2, client.MergeFrom(ogCFApp2)),
+						).To(Succeed())
+					})
+
+					It("returns an empty map", func() {
+						res, err := appRepo.GetAppEnv(testCtx, authInfo, cfApp2.Name)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(res).To(BeEmpty())
+					})
+				})
+			})
+
+			When("the user doesn't have permission to get secrets in the space", func() {
+				BeforeEach(func() {
+					createRoleBinding(testCtx, userName, spaceAuditorClusterRole.Name, space2.Name)
+				})
+
+				When("the EnvSecret exists", func() {
+					BeforeEach(func() {
+						ogCFApp2 := cfApp2.DeepCopy()
+						cfApp2.Spec.EnvSecretName = secret.Name
+						Expect(
+							k8sClient.Patch(context.Background(), cfApp2, client.MergeFrom(ogCFApp2)),
+						).To(Succeed())
+					})
+
+					It("errors", func() {
+						_, err := appRepo.GetAppEnv(testCtx, authInfo, cfApp2.Name)
+						Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+					})
+				})
+			})
+		})
+
+		When("no Apps exist", func() {
+			It("returns an error", func() {
+				_, err := appRepo.GetAppEnv(testCtx, authInfo, "i don't exist")
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
 			})
 		})
 	})

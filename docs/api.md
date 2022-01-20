@@ -79,21 +79,22 @@ curl "http://localhost:9000/v3/spaces" \
 
 Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 
-| Resource                           | Endpoint                                                                                                |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| List Apps                          | GET /v3/apps                                                                                            |
-| Get App                            | GET /v3/apps/\<guid>                                                                                    |
-| Create App                         | POST /v3/apps                                                                                           |
-| Set App's Current Droplet          | PATCH /v3/apps/\<guid>/relationships/current_droplet                                                    |
-| Get App's Current Droplet          | GET /v3/apps/\<guid>/droplets/current                                                                   |
-| Start App                          | POST /v3/apps/\<guid>/actions/start                                                                     |
-| Stop App                           | POST /v3/apps/\<guid>/actions/stop                                                                      |
-| Restart App                        | POST /v3/apps/\<guid>/actions/restart                                                                   |
-| List App Processes                 | GET /v3/apps/\<guid>/processes                                                                          |
-| Scale App Process                  | POST /v3/apps/<guid>/processes/<type>/actions/scale                                                     |
-| List App Routes                    | GET /v3/apps/\<guid>/routes                                                                             |
-| Delete App                         | [DELETE /v3/apps/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#delete-an-app) |
-| Update App's Environment Variables | PATCH /v3/apps/\<guid>/environment_variables                                                            |
+| Resource                            | Endpoint                                                                                                |
+|-------------------------------------|---------------------------------------------------------------------------------------------------------|
+| List Apps                           | GET /v3/apps                                                                                            |
+| Get App                             | GET /v3/apps/\<guid>                                                                                    |
+| Create App                          | POST /v3/apps                                                                                           |
+| Set App's Current Droplet           | PATCH /v3/apps/\<guid>/relationships/current_droplet                                                    |
+| Get App's Current Droplet           | GET /v3/apps/\<guid>/droplets/current                                                                   |
+| Start App                           | POST /v3/apps/\<guid>/actions/start                                                                     |
+| Stop App                            | POST /v3/apps/\<guid>/actions/stop                                                                      |
+| Restart App                         | POST /v3/apps/\<guid>/actions/restart                                                                   |
+| List App Processes                  | GET /v3/apps/\<guid>/processes                                                                          |
+| Scale App Process                   | POST /v3/apps/<guid>/processes/<type>/actions/scale                                                     |
+| List App Routes                     | GET /v3/apps/\<guid>/routes                                                                             |
+| Delete App                          | [DELETE /v3/apps/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#delete-an-app) |
+ | Get App Env                         | GET /v3/apps/\<guid>/env                                                                            |
+| Update App's Environment Variables  | PATCH /v3/apps/\<guid>/environment_variables                                                            |
 
 #### [List Apps](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-apps)
 **Query Parameters:** Currently supports filtering by app `names` and `space_guids` and ordering by `name`.
@@ -147,8 +148,12 @@ curl "http://localhost:9000/v3/apps/<app-guid>/actions/restart" \
   -X POST
 ```
 
+#### [Get app env](https://v3-apidocs.cloudfoundry.org/version/3.113.0/index.html#get-environment-for-an-app)
+```bash
+curl "http://localhost:9000/v3/apps/<app-guid>/env" 
+```
 
-#### [Update App's Environment Variables](https://v3-apidocs.cloudfoundry.org/version/3.113.0/index.html#update-environment-variables-for-an-app)
+#### [Update app's environment variables](https://v3-apidocs.cloudfoundry.org/version/3.113.0/index.hml#update-environment-variables-for-an-app)
 ```bash
 curl "http://localhost:9000/v3/apps/<app-guid>/environment_variables" \
   -X PATCH \

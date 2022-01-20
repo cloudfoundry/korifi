@@ -32,9 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 )
 
 var createTimeout = time.Second * 120
@@ -93,7 +94,7 @@ func main() {
 	}
 	scaleProcessAction := actions.NewScaleProcess(repositories.NewProcessRepo(privilegedCRClient))
 	scaleAppProcessAction := actions.NewScaleAppProcess(
-		repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
+		repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions, config.AuthEnabled),
 		repositories.NewProcessRepo(privilegedCRClient),
 		scaleProcessAction.Invoke,
 	)
@@ -101,7 +102,7 @@ func main() {
 	fetchProcessStatsAction := actions.NewFetchProcessStats(
 		repositories.NewProcessRepo(privilegedCRClient),
 		repositories.NewPodRepo(privilegedCRClient),
-		repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
+		repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions, config.AuthEnabled),
 	)
 
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, buildUserClient, nsPermissions, createTimeout, config.AuthEnabled)
@@ -115,7 +116,7 @@ func main() {
 		apis.NewAppHandler(
 			ctrl.Log.WithName("AppHandler"),
 			*serverURL,
-			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
+			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions, config.AuthEnabled),
 			repositories.NewDropletRepo(privilegedCRClient),
 			repositories.NewProcessRepo(privilegedCRClient),
 			repositories.NewRouteRepo(privilegedCRClient),
@@ -128,7 +129,7 @@ func main() {
 			*serverURL,
 			repositories.NewRouteRepo(privilegedCRClient),
 			repositories.NewDomainRepo(privilegedCRClient),
-			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
+			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions, config.AuthEnabled),
 		),
 		apis.NewServiceRouteBindingHandler(
 			ctrl.Log.WithName("ServiceRouteBinding"),
@@ -138,7 +139,7 @@ func main() {
 			ctrl.Log.WithName("PackageHandler"),
 			*serverURL,
 			repositories.NewPackageRepo(privilegedCRClient),
-			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
+			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions, config.AuthEnabled),
 			repositories.NewDropletRepo(privilegedCRClient),
 			repositories.UploadSourceImage,
 			newRegistryAuthBuilder(privilegedK8sClient, config),
@@ -182,7 +183,7 @@ func main() {
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
 			actions.NewApplyManifest(
-				repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
+				repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions, config.AuthEnabled),
 				repositories.NewDomainRepo(privilegedCRClient),
 				repositories.NewProcessRepo(privilegedCRClient),
 				repositories.NewRouteRepo(privilegedCRClient),

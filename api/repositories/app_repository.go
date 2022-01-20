@@ -39,17 +39,20 @@ type AppRepo struct {
 	privilegedClient     client.Client
 	userClientFactory    UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
+	authEnabled          bool
 }
 
 func NewAppRepo(
 	privilegedClient client.Client,
 	userClientFactory UserK8sClientFactory,
 	authPerms *authorization.NamespacePermissions,
+	authEnabled bool,
 ) *AppRepo {
 	return &AppRepo{
 		privilegedClient:     privilegedClient,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: authPerms,
+		authEnabled:          authEnabled,
 	}
 }
 
@@ -64,9 +67,9 @@ type AppRecord struct {
 	Annotations   map[string]string
 	State         DesiredState
 	Lifecycle     Lifecycle
-	EnvSecretName string
 	CreatedAt     string
 	UpdatedAt     string
+	envSecretName string
 }
 
 type DesiredState string
@@ -168,9 +171,13 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 		return AppRecord{}, err
 	}
 
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	userClient := f.privilegedClient
+
+	if f.authEnabled {
+		userClient, err = f.userClientFactory.BuildClient(authInfo)
+		if err != nil {
+			return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		}
 	}
 
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: app.SpaceGUID, Name: app.GUID}, &workloadsv1alpha1.CFApp{})
@@ -450,6 +457,36 @@ func (f *AppRepo) DeleteApp(ctx context.Context, authInfo authorization.Info, me
 	return userClient.Delete(ctx, cfApp)
 }
 
+func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, appGUID string) (map[string]string, error) {
+	app, err := f.GetApp(ctx, authInfo, appGUID)
+	if err != nil {
+		return nil, err
+	}
+
+	if app.envSecretName == "" {
+		return nil, nil
+	}
+
+	userClient := f.privilegedClient
+	if f.authEnabled {
+		userClient, err = f.userClientFactory.BuildClient(authInfo)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build user client: %w", err)
+		}
+	}
+
+	key := client.ObjectKey{Name: app.envSecretName, Namespace: app.SpaceGUID}
+	secret := new(corev1.Secret)
+	err = userClient.Get(ctx, key, secret)
+	if err != nil {
+		if k8serrors.IsForbidden(err) {
+			return nil, NewForbiddenError(err)
+		}
+		return nil, fmt.Errorf("error finding environment variable Secret %q for App %q: %w", app.envSecretName, app.GUID, err)
+	}
+	return convertByteSliceValuesToStrings(secret.Data), nil
+}
+
 func generateEnvSecretName(appGUID string) string {
 	return appGUID + "-env"
 }
@@ -498,8 +535,9 @@ func cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 				Stack:      cfApp.Spec.Lifecycle.Data.Stack,
 			},
 		},
-		CreatedAt: cfApp.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt: updatedAtTime,
+		CreatedAt:     cfApp.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt:     updatedAtTime,
+		envSecretName: cfApp.Spec.EnvSecretName,
 	}
 }
 
