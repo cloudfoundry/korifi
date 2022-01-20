@@ -2195,7 +2195,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
 			})
 
 			It("returns an error", func() {

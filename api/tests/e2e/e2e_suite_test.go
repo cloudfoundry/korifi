@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -502,6 +503,79 @@ func createApp(spaceGUID, name, authHeader string) presenter.AppResponse {
 	return app
 }
 
+func createPackage(appGUID, authHeader string) presenter.PackageResponse {
+	packagesURL := apiServerRoot + apis.PackageCreateEndpoint
+
+	payload := payloads.PackageCreate{
+		Type: "bits",
+		Relationships: &payloads.PackageRelationships{
+			App: &payloads.Relationship{
+				Data: &payloads.RelationshipData{
+					GUID: appGUID,
+				},
+			},
+		},
+	}
+
+	resp, err := httpReq(http.MethodPost, packagesURL, authHeader, payload)
+	Expect(err).NotTo(HaveOccurred())
+	defer resp.Body.Close()
+
+	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
+
+	pkg := presenter.PackageResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&pkg)
+	Expect(err).NotTo(HaveOccurred())
+
+	return pkg
+}
+
+func createBuild(packageGUID, authHeader string) presenter.BuildResponse {
+	buildsURL := apiServerRoot + apis.BuildCreateEndpoint
+
+	payload := payloads.BuildCreate{
+		Package: &payloads.RelationshipData{
+			GUID: packageGUID,
+		},
+	}
+
+	resp, err := httpReq(http.MethodPost, buildsURL, authHeader, payload)
+	Expect(err).NotTo(HaveOccurred())
+	defer resp.Body.Close()
+
+	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
+
+	build := presenter.BuildResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&build)
+	Expect(err).NotTo(HaveOccurred())
+
+	return build
+}
+
+func setCurrentDroplet(appGUID, dropletGUID, authHeader string) presenter.CurrentDropletResponse {
+	setDropletURL := apiServerRoot + "/v3/apps/" + appGUID + "/relationships/current_droplet"
+
+	payload := payloads.AppSetCurrentDroplet{
+		Relationship: payloads.Relationship{
+			Data: &payloads.RelationshipData{
+				GUID: dropletGUID,
+			},
+		},
+	}
+
+	resp, err := httpReq(http.MethodPatch, setDropletURL, authHeader, payload)
+	Expect(err).NotTo(HaveOccurred())
+	defer resp.Body.Close()
+
+	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
+
+	currentDropletResponse := presenter.CurrentDropletResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&currentDropletResponse)
+	Expect(err).NotTo(HaveOccurred())
+
+	return currentDropletResponse
+}
+
 func asyncDeleteSubnamespace(orgID, spaceID string, wg *sync.WaitGroup) {
 	go func() {
 		defer wg.Done()
@@ -551,4 +625,29 @@ func getWithQuery(endpoint string, authHeaderValue string, query map[string]stri
 	}
 
 	return response, nil
+}
+
+func uploadNodeApp(pkgGUID, authHeader string) {
+	var b bytes.Buffer
+	writer := multipart.NewWriter(&b)
+	part, err := writer.CreateFormFile("bits", "node.zip")
+	Expect(err).NotTo(HaveOccurred())
+
+	file, err := os.Open("assets/node.zip")
+	Expect(err).NotTo(HaveOccurred())
+	defer file.Close()
+
+	_, err = io.Copy(part, file)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(writer.Close()).To(Succeed())
+
+	uploadURL := apiServerRoot + fmt.Sprintf("/v3/packages/%s/upload", pkgGUID)
+	req, err := http.NewRequestWithContext(context.Background(), "POST", uploadURL, &b)
+	Expect(err).NotTo(HaveOccurred())
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.Header.Add("Authorization", authHeader)
+
+	resp, err := http.DefaultClient.Do(req)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
 }

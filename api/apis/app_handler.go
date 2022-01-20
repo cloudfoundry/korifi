@@ -295,7 +295,7 @@ func (h *AppHandler) appGetCurrentDropletHandler(authInfo authorization.Info, w 
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		if errors.As(err, new(repositories.NotFoundError)) {
+		if errors.As(err, new(repositories.PermissionDeniedOrNotFoundError)) {
 			h.logger.Error(err, "App not found", "appGUID", app.GUID)
 			writeNotFoundErrorResponse(w, "App")
 		} else {
