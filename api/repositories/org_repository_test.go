@@ -55,46 +55,62 @@ var _ = Describe("OrgRepository", func() {
 		}
 
 		Describe("Org", func() {
-			It("creates a subnamespace anchor in the root namespace", func() {
-				go updateStatus(rootNamespace, "some-guid")
-				org, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
-					GUID: "some-guid",
-					Name: "our-org",
-				})
-				Expect(err).NotTo(HaveOccurred())
-
-				namesRequirement, err := labels.NewRequirement(repositories.OrgNameLabel, selection.Equals, []string{"our-org"})
-				Expect(err).NotTo(HaveOccurred())
-				anchorList := hnsv1alpha2.SubnamespaceAnchorList{}
-				err = k8sClient.List(ctx, &anchorList, client.InNamespace(rootNamespace), client.MatchingLabelsSelector{
-					Selector: labels.NewSelector().Add(*namesRequirement),
-				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(anchorList.Items).To(HaveLen(1))
-
-				Expect(org.Name).To(Equal("our-org"))
-				Expect(org.GUID).To(Equal("some-guid"))
-				Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(org.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
-			})
-
-			When("the org isn't ready in the timeout", func() {
-				It("returns an error", func() {
-					// we do not call updateStatus() to set state = ok
+			When("the user doesn't have the admin role", func() {
+				It("fails when creating an org", func() {
 					_, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
 						GUID: "some-guid",
 						Name: "our-org",
 					})
-					Expect(err).To(MatchError(ContainSubstring("did not get state 'ok'")))
+					Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 				})
 			})
 
-			When("the client fails to create the org", func() {
-				It("returns an error", func() {
-					_, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
-						Name: "this-string-has-illegal-characters-ц",
+			When("the user has the admin role", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, adminClusterRole.Name, rootNamespace)
+				})
+
+				It("creates a subnamespace anchor in the root namespace", func() {
+					go updateStatus(rootNamespace, "some-guid")
+					org, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
+						GUID: "some-guid",
+						Name: "our-org",
 					})
-					Expect(err).To(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
+
+					namesRequirement, err := labels.NewRequirement(repositories.OrgNameLabel, selection.Equals, []string{"our-org"})
+					Expect(err).NotTo(HaveOccurred())
+					anchorList := hnsv1alpha2.SubnamespaceAnchorList{}
+					err = k8sClient.List(ctx, &anchorList, client.InNamespace(rootNamespace), client.MatchingLabelsSelector{
+						Selector: labels.NewSelector().Add(*namesRequirement),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(anchorList.Items).To(HaveLen(1))
+
+					Expect(org.Name).To(Equal("our-org"))
+					Expect(org.GUID).To(Equal("some-guid"))
+					Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+					Expect(org.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+				})
+
+				When("the org isn't ready in the timeout", func() {
+					It("returns an error", func() {
+						// we do not call updateStatus() to set state = ok
+						_, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
+							GUID: "some-guid",
+							Name: "our-org",
+						})
+						Expect(err).To(MatchError(ContainSubstring("did not get state 'ok'")))
+					})
+				})
+
+				When("the client fails to create the org", func() {
+					It("returns an error", func() {
+						_, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
+							Name: "this-string-has-illegal-characters-ц",
+						})
+						Expect(err).To(HaveOccurred())
+					})
 				})
 			})
 		})

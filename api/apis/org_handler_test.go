@@ -290,6 +290,17 @@ var _ = Describe("OrgHandler", func() {
 			})
 		})
 
+		When("user is not allowed to create an org", func() {
+			BeforeEach(func() {
+				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, repositories.NewForbiddenError(errors.New("nope")))
+				makePostRequest(`{"name": "the-org"}`)
+			})
+
+			It("returns an unauthorised error", func() {
+				expectUnauthorizedError()
+			})
+		})
+
 		When("providing the repository fails", func() {
 			BeforeEach(func() {
 				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, errors.New("boom!"))

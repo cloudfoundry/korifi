@@ -25,15 +25,18 @@ var _ = Describe("Orgs", func() {
 		)
 
 		BeforeEach(func() {
+			org = presenter.OrgResponse{}
 			orgName = generateGUID("my-org")
 		})
 
 		AfterEach(func() {
-			deleteSubnamespace(rootNamespace, org.GUID)
+			if org.GUID != "" {
+				deleteSubnamespace(rootNamespace, org.GUID)
+			}
 		})
 
 		It("creates an org", func() {
-			org = createOrg(orgName, tokenAuthHeader)
+			org = createOrg(orgName, adminAuthHeader)
 			Expect(org.Name).To(Equal(orgName))
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), client.ObjectKey{Name: org.GUID}, &corev1.Namespace{})
@@ -42,11 +45,11 @@ var _ = Describe("Orgs", func() {
 
 		When("the org name already exists", func() {
 			BeforeEach(func() {
-				org = createOrg(orgName, tokenAuthHeader)
+				org = createOrg(orgName, adminAuthHeader)
 			})
 
 			It("returns an unprocessable entity error", func() {
-				resp, err := createOrgRaw(orgName, tokenAuthHeader)
+				resp, err := createOrgRaw(orgName, adminAuthHeader)
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
@@ -59,6 +62,16 @@ var _ = Describe("Orgs", func() {
 					HaveKeyWithValue("detail", MatchRegexp(fmt.Sprintf(`Organization '%s' already exists.`, orgName))),
 					HaveKeyWithValue("title", Equal("CF-UnprocessableEntity")),
 				))
+			})
+		})
+
+		When("not admin", func() {
+			It("returns a forbidden error", func() {
+				resp, err := createOrgRaw(orgName, tokenAuthHeader)
+				Expect(err).NotTo(HaveOccurred())
+				defer resp.Body.Close()
+
+				Expect(resp).To(HaveHTTPStatus(http.StatusForbidden))
 			})
 		})
 	})

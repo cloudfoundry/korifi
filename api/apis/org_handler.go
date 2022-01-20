@@ -82,6 +82,13 @@ func (h *OrgHandler) orgCreateHandler(info authorization.Info, w http.ResponseWr
 			return
 		}
 
+		if repositories.IsForbiddenError(err) {
+			h.logger.Error(err, "not allowed to create orgs")
+			writeNotAuthorizedErrorResponse(w)
+
+			return
+		}
+
 		h.logger.Error(err, "Failed to create org", "Org Name", payload.Name)
 		writeUnknownErrorResponse(w)
 		return

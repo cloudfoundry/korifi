@@ -115,7 +115,11 @@ func NewOrgRepo(
 }
 
 func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org CreateOrgMessage) (OrgRecord, error) {
-	anchor, err := r.createSubnamespaceAnchor(ctx, r.privilegedClient, &v1alpha2.SubnamespaceAnchor{
+	userClient, err := r.userClientFactory.BuildClient(info)
+	if err != nil {
+		return OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+	anchor, err := r.createSubnamespaceAnchor(ctx, userClient, &v1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      org.GUID,
 			Namespace: r.rootNamespace,
@@ -125,6 +129,10 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 		},
 	})
 	if err != nil {
+		if apierrors.IsForbidden(err) {
+			return OrgRecord{}, NewForbiddenError(err)
+		}
+
 		return OrgRecord{}, err
 	}
 
