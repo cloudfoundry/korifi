@@ -152,6 +152,7 @@ func main() {
 	if err = (&workloadscontrollers.CFPackageReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("CFPackage"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
 		os.Exit(1)

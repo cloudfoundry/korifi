@@ -122,6 +122,19 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	originalCFBuild := cfBuild.DeepCopy()
+	err = controllerutil.SetOwnerReference(&cfApp, &cfBuild, r.Scheme)
+	if err != nil {
+		r.Log.Error(err, "unable to set owner reference on CFBuild")
+		return ctrl.Result{}, err
+	}
+
+	err = r.Client.Patch(ctx, &cfBuild, client.MergeFrom(originalCFBuild))
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error setting owner reference on the CFBuild %s/%s", req.Namespace, cfBuild.Name))
+		return ctrl.Result{}, err
+	}
+
 	var cfPackage workloadsv1alpha1.CFPackage
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, &cfPackage)
 	if err != nil {
