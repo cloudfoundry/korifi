@@ -26,15 +26,15 @@ var _ = Describe("Roles", func() {
 		org = createOrg(uuid.NewString(), adminAuthHeader)
 	})
 
-	Describe("creating an org role", func() {
-		AfterEach(func() {
-			deleteSubnamespace(rootNamespace, org.GUID)
-		})
+	AfterEach(func() {
+		deleteSubnamespace(rootNamespace, org.GUID)
+	})
 
+	Describe("creating an org role", func() {
 		It("creates a role binding", func() {
 			role := createOrgRole("organization_manager", rbacv1.UserKind, userName, org.GUID, adminAuthHeader)
 
-			binding := getOrgRoleBinding(ctx, org.GUID, role.GUID)
+			binding := getRoleBinding(ctx, org.GUID, role.GUID)
 			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-organization-manager"))
 			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(binding.Subjects).To(HaveLen(1))
@@ -62,15 +62,10 @@ var _ = Describe("Roles", func() {
 			space = createSpace(uuid.NewString(), org.GUID, adminAuthHeader)
 		})
 
-		AfterEach(func() {
-			deleteSubnamespace(org.GUID, space.GUID)
-			deleteSubnamespace(rootNamespace, org.GUID)
-		})
-
 		It("creates a role binding", func() {
 			role := createSpaceRole("space_developer", rbacv1.UserKind, userName, space.GUID, adminAuthHeader)
 
-			binding := getOrgRoleBinding(ctx, space.GUID, role.GUID)
+			binding := getRoleBinding(ctx, space.GUID, role.GUID)
 			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-space-developer"))
 			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))
 			Expect(binding.Subjects).To(HaveLen(1))
@@ -91,10 +86,10 @@ var _ = Describe("Roles", func() {
 	})
 })
 
-func getOrgRoleBinding(ctx context.Context, orgGuid, roleGuid string) rbacv1.RoleBinding {
+func getRoleBinding(ctx context.Context, namespace, roleGuid string) rbacv1.RoleBinding {
 	roleBindingList := &rbacv1.RoleBindingList{}
 	Expect(k8sClient.List(ctx, roleBindingList,
-		client.InNamespace(orgGuid),
+		client.InNamespace(namespace),
 		client.MatchingLabels{repositories.RoleGuidLabel: roleGuid},
 	)).To(Succeed())
 	Expect(roleBindingList.Items).To(HaveLen(1))
