@@ -128,6 +128,11 @@ func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {
 				APIGroups: []string{"workloads.cloudfoundry.org"},
 				Resources: []string{"cfapps"},
 			},
+			{
+				Verbs:     []string{"get"},
+				APIGroups: []string{""},
+				Resources: []string{"secrets"},
+			},
 		},
 	}
 	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())

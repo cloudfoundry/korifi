@@ -31,7 +31,7 @@ var _ = Describe("POST /v3/apps endpoint", func() {
 		identityProvider := new(fake.IdentityProvider)
 		nsPermissions := authorization.NewNamespacePermissions(k8sClient, identityProvider, "root-ns")
 
-		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
+		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions, false)
 		dropletRepo := repositories.NewDropletRepo(k8sClient)
 		processRepo := repositories.NewProcessRepo(k8sClient)
 		routeRepo := repositories.NewRouteRepo(k8sClient)

@@ -85,6 +85,21 @@ type CFAppRepository struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
+	GetAppEnvStub        func(context.Context, authorization.Info, string) (map[string]string, error)
+	getAppEnvMutex       sync.RWMutex
+	getAppEnvArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	getAppEnvReturns struct {
+		result1 map[string]string
+		result2 error
+	}
+	getAppEnvReturnsOnCall map[int]struct {
+		result1 map[string]string
+		result2 error
+	}
 	GetNamespaceStub        func(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	getNamespaceMutex       sync.RWMutex
 	getNamespaceArgsForCall []struct {
@@ -492,6 +507,72 @@ func (fake *CFAppRepository) GetAppByNameAndSpaceReturnsOnCall(i int, result1 re
 	}{result1, result2}
 }
 
+func (fake *CFAppRepository) GetAppEnv(arg1 context.Context, arg2 authorization.Info, arg3 string) (map[string]string, error) {
+	fake.getAppEnvMutex.Lock()
+	ret, specificReturn := fake.getAppEnvReturnsOnCall[len(fake.getAppEnvArgsForCall)]
+	fake.getAppEnvArgsForCall = append(fake.getAppEnvArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.GetAppEnvStub
+	fakeReturns := fake.getAppEnvReturns
+	fake.recordInvocation("GetAppEnv", []interface{}{arg1, arg2, arg3})
+	fake.getAppEnvMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFAppRepository) GetAppEnvCallCount() int {
+	fake.getAppEnvMutex.RLock()
+	defer fake.getAppEnvMutex.RUnlock()
+	return len(fake.getAppEnvArgsForCall)
+}
+
+func (fake *CFAppRepository) GetAppEnvCalls(stub func(context.Context, authorization.Info, string) (map[string]string, error)) {
+	fake.getAppEnvMutex.Lock()
+	defer fake.getAppEnvMutex.Unlock()
+	fake.GetAppEnvStub = stub
+}
+
+func (fake *CFAppRepository) GetAppEnvArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getAppEnvMutex.RLock()
+	defer fake.getAppEnvMutex.RUnlock()
+	argsForCall := fake.getAppEnvArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFAppRepository) GetAppEnvReturns(result1 map[string]string, result2 error) {
+	fake.getAppEnvMutex.Lock()
+	defer fake.getAppEnvMutex.Unlock()
+	fake.GetAppEnvStub = nil
+	fake.getAppEnvReturns = struct {
+		result1 map[string]string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) GetAppEnvReturnsOnCall(i int, result1 map[string]string, result2 error) {
+	fake.getAppEnvMutex.Lock()
+	defer fake.getAppEnvMutex.Unlock()
+	fake.GetAppEnvStub = nil
+	if fake.getAppEnvReturnsOnCall == nil {
+		fake.getAppEnvReturnsOnCall = make(map[int]struct {
+			result1 map[string]string
+			result2 error
+		})
+	}
+	fake.getAppEnvReturnsOnCall[i] = struct {
+		result1 map[string]string
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFAppRepository) GetNamespace(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.SpaceRecord, error) {
 	fake.getNamespaceMutex.Lock()
 	ret, specificReturn := fake.getNamespaceReturnsOnCall[len(fake.getNamespaceArgsForCall)]
@@ -835,6 +916,8 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.getAppMutex.RUnlock()
 	fake.getAppByNameAndSpaceMutex.RLock()
 	defer fake.getAppByNameAndSpaceMutex.RUnlock()
+	fake.getAppEnvMutex.RLock()
+	defer fake.getAppEnvMutex.RUnlock()
 	fake.getNamespaceMutex.RLock()
 	defer fake.getNamespaceMutex.RUnlock()
 	fake.listAppsMutex.RLock()

@@ -10,9 +10,6 @@ import (
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,6 +24,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
 )
 
 const (
@@ -246,6 +247,19 @@ var (
 		},
 	}
 
+	spaceAuditorClusterRoleRules = []rbacv1.PolicyRule{
+		{
+			Verbs:     []string{"get", "list"},
+			APIGroups: []string{"workloads.cloudfoundry.org"},
+			Resources: []string{"cfapps"},
+		},
+		{
+			Verbs:     []string{"get"},
+			APIGroups: []string{"kpack.io"},
+			Resources: []string{"clusterbuilders"},
+		},
+	}
+
 	orgManagerClusterRoleRules = []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"list", "delete"},
@@ -267,6 +281,7 @@ func createAdminClusterRole(ctx context.Context) *rbacv1.ClusterRole {
 
 	rules = append(rules, adminClusterRoleRules...)
 	rules = append(rules, spaceDeveloperClusterRoleRules...)
+	rules = append(rules, spaceAuditorClusterRoleRules...)
 	rules = append(rules, orgManagerClusterRoleRules...)
 	rules = append(rules, orgUserClusterRoleRules...)
 
@@ -275,6 +290,10 @@ func createAdminClusterRole(ctx context.Context) *rbacv1.ClusterRole {
 
 func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {
 	return createClusterRole(ctx, spaceDeveloperClusterRoleRules)
+}
+
+func createSpaceAuditorClusterRole(ctx context.Context) *rbacv1.ClusterRole {
+	return createClusterRole(ctx, spaceAuditorClusterRoleRules)
 }
 
 func createOrgManagerClusterRole(ctx context.Context) *rbacv1.ClusterRole {
