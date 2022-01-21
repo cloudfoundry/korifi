@@ -9,10 +9,12 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"github.com/go-http-utils/headers"
+	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -22,6 +24,8 @@ var _ = Describe("Orgs", func() {
 			org              presenter.OrgResponse
 			orgName          string
 			orgCreateRequest helpers.APIRequest
+			createOrgResp    *resty.Response
+			createOrgErr     error
 		)
 
 		BeforeEach(func() {
@@ -29,9 +33,12 @@ var _ = Describe("Orgs", func() {
 		})
 
 		JustBeforeEach(func() {
-			orgCreateRequest = api.Request(http.MethodPost, "/v3/organizations").
-				WithBody(orgPayload(orgName)).
-				DoWithAuth(tokenAuthHeader)
+			createOrgResp, createOrgErr = api.NewRequest().
+				SetHeader(headers.Authorization, tokenAuthHeader).
+				SetBody(orgPayload(orgName)).
+				Post("/v3/organizations")
+
+			Expect(createOrgErr).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -39,9 +46,9 @@ var _ = Describe("Orgs", func() {
 		})
 
 		It("creates an org", func() {
-			Expect(orgCreateRequest.Status()).To(Equal(http.StatusCreated))
+			Expect(createOrgResp).To(HaveHTTPStatus(http.StatusCreated))
 
-			orgCreateRequest.DecodeResponseBody(&org)
+			org = createOrgResp.Result().(presenter.OrgResponse)
 			Expect(org.Name).To(Equal(orgName))
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), client.ObjectKey{Name: org.GUID}, &corev1.Namespace{})
@@ -50,11 +57,14 @@ var _ = Describe("Orgs", func() {
 
 		When("the org name already exists", func() {
 			BeforeEach(func() {
-				api.Request(http.MethodPost, "/v3/organizations").
-					WithBody(orgPayload(orgName)).
-					DoWithAuth(tokenAuthHeader).
-					ValidateStatus(http.StatusCreated).
-					DecodeResponseBody(&org)
+				resp, err := api.NewRequest().
+					SetHeader(headers.Authorization, tokenAuthHeader).
+					SetBody(orgPayload(orgName)).
+					SetResult(&org).
+					Post("/v3/organizations")
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -98,115 +108,42 @@ var _ = Describe("Orgs", func() {
 
 		Context("with a bearer token auth header", func() {
 			BeforeEach(func() {
-				api.Request(http.MethodPost, "/v3/roles").
-					WithBody(serviceAccountOrgRolePayload("organization_manager", serviceAccountName, org1.GUID)).
-					DoWithAuth(adminAuthHeader).
-					ValidateStatus(http.StatusCreated)
-
-				api.Request(http.MethodPost, "/v3/roles").
-					WithBody(serviceAccountOrgRolePayload("organization_manager", serviceAccountName, org2.GUID)).
-					DoWithAuth(adminAuthHeader).
-					ValidateStatus(http.StatusCreated)
-
-				api.Request(http.MethodPost, "/v3/roles").
-					WithBody(serviceAccountOrgRolePayload("organization_manager", serviceAccountName, org3.GUID)).
-					DoWithAuth(adminAuthHeader).
-					ValidateStatus(http.StatusCreated)
+				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, adminAuthHeader)
+				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID, adminAuthHeader)
+				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID, adminAuthHeader)
 			})
 
 			It("returns all 3 orgs that the service account has a role in", func() {
 				orgs := map[string]interface{}{}
 
-				api.Request(http.MethodGet, "/v3/organizations").
-					DoWithAuth(tokenAuthHeader).
-					ValidateStatus(http.StatusOK).
-					DecodeResponseBody(&orgs)
+				resp, err := api.NewRequest().
+					SetHeader(headers.Authorization, tokenAuthHeader).
+					SetResult(&orgs).
+					Get("/v3/organizations")
 
-				Expect(orgs).To(SatisfyAll(
-					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
-					HaveKeyWithValue("resources", ContainElements(
-						HaveKeyWithValue("name", org1.Name),
-						HaveKeyWithValue("name", org2.Name),
-						HaveKeyWithValue("name", org3.Name),
-					))))
-			})
-
-			It("does not return orgs the service account does not have a role in", func() {
-				orgs := map[string]interface{}{}
-
-				api.Request(http.MethodGet, "/v3/organizations").
-					DoWithAuth(tokenAuthHeader).
-					ValidateStatus(http.StatusOK).
-					DecodeResponseBody(&orgs)
-
-				Expect(orgs).ToNot(
-					HaveKeyWithValue("resources", ContainElements(
-						HaveKeyWithValue("name", org4.Name),
-					)))
-			})
-
-			When("org names are filtered", func() {
-				It("returns orgs 1 & 3", func() {
-					orgs := map[string]interface{}{}
-
-					api.Request(http.MethodGet, "/v3/organizations").
-						WithQueryParams(helpers.QueryParams{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)}).
-						DoWithAuth(tokenAuthHeader).
-						ValidateStatus(http.StatusOK).
-						DecodeResponseBody(&orgs)
-
-					Expect(orgs).To(SatisfyAll(
-						HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 2))),
-						HaveKeyWithValue("resources", ContainElements(
-							HaveKeyWithValue("name", org1.Name),
-							HaveKeyWithValue("name", org3.Name),
-						))))
-					Expect(orgs).ToNot(
-						HaveKeyWithValue("resources", ContainElements(
-							HaveKeyWithValue("name", org2.Name),
-						)))
-				})
-			})
-		})
-
-		Context("with a client certificate auth header", func() {
-			BeforeEach(func() {
-				api.Request(http.MethodPost, "/v3/roles").
-					WithBody(userOrgRolePayload("organization_manager", certUserName, org1.GUID)).
-					DoWithAuth(adminAuthHeader).
-					ValidateStatus(http.StatusCreated)
-
-				api.Request(http.MethodPost, "/v3/roles").
-					WithBody(userOrgRolePayload("organization_manager", certUserName, org2.GUID)).
-					DoWithAuth(adminAuthHeader).
-					ValidateStatus(http.StatusCreated)
-
-				api.Request(http.MethodPost, "/v3/roles").
-					WithBody(userOrgRolePayload("organization_manager", certUserName, org3.GUID)).
-					DoWithAuth(adminAuthHeader).
-					ValidateStatus(http.StatusCreated)
-			})
-
-			It("returns all 3 orgs that the service account has a role in", func() {
-				orgs := map[string]interface{}{}
-
-				api.Request(http.MethodGet, "/v3/organizations").
-					DoWithAuth(certAuthHeader).
-					ValidateStatus(http.StatusOK).
-					DecodeResponseBody(&orgs)
-
-				Expect(orgs).To(SatisfyAll(
-					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
-					HaveKeyWithValue("resources", ContainElements(
-						HaveKeyWithValue("name", org1.Name),
-						HaveKeyWithValue("name", org2.Name),
-						HaveKeyWithValue("name", org3.Name),
-					))))
-			})
-
-			It("does not return orgs the service account does not have a role in", func() {
-				orgs, err := get(apis.OrgsEndpoint, certAuthHeader)
 				Expect(err).NotTo(HaveOccurred())
+				Expect(resp).To(HaveHTTPStatus(http.StatusOK))
+
+				Expect(orgs).To(SatisfyAll(
+					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
+					HaveKeyWithValue("resources", ContainElements(
+						HaveKeyWithValue("name", org1.Name),
+						HaveKeyWithValue("name", org2.Name),
+						HaveKeyWithValue("name", org3.Name),
+					))))
+			})
+
+			It("does not return orgs the service account does not have a role in", func() {
+				orgs := map[string]interface{}{}
+
+				resp, err := api.NewRequest().
+					SetHeader(headers.Authorization, tokenAuthHeader).
+					SetResult(&orgs).
+					Get("/v3/organizations")
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp).To(HaveHTTPStatus(http.StatusOK))
+
 				Expect(orgs).ToNot(
 					HaveKeyWithValue("resources", ContainElements(
 						HaveKeyWithValue("name", org4.Name),
@@ -217,11 +154,14 @@ var _ = Describe("Orgs", func() {
 				It("returns orgs 1 & 3", func() {
 					orgs := map[string]interface{}{}
 
-					api.Request(http.MethodGet, "/v3/organizations").
-						WithQueryParams(helpers.QueryParams{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)}).
-						DoWithAuth(certAuthHeader).
-						ValidateStatus(http.StatusOK).
-						DecodeResponseBody(&orgs)
+					resp, err := api.NewRequest().
+						SetHeader(headers.Authorization, tokenAuthHeader).
+						SetResult(&orgs).
+						SetQueryParams(map[string]string{"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name)}).
+						Get("/v3/organizations")
+
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp).To(HaveHTTPStatus(http.StatusOK))
 
 					Expect(orgs).To(SatisfyAll(
 						HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 2))),
@@ -234,13 +174,6 @@ var _ = Describe("Orgs", func() {
 							HaveKeyWithValue("name", org2.Name),
 						)))
 				})
-			})
-		})
-
-		When("no Authorization header is available in the request", func() {
-			It("returns unauthorized error", func() {
-				api.Request(http.MethodGet, "/v3/organizations").Do().
-					ValidateStatus(http.StatusUnauthorized)
 			})
 		})
 	})

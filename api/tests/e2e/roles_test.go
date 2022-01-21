@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -23,11 +24,7 @@ var _ = Describe("Roles", func() {
 		ctx = context.Background()
 		userName = generateGUID("user")
 
-		api.Request(http.MethodPost, "/v3/organizations").
-			WithBody(orgPayload(generateGUID("org"))).
-			DoWithAuth(adminAuthHeader).
-			ValidateStatus(http.StatusCreated).
-			DecodeResponseBody(&org)
+		org = createOrg(generateGUID("org"), adminAuthHeader)
 	})
 
 	AfterEach(func() {
@@ -38,11 +35,14 @@ var _ = Describe("Roles", func() {
 		var role presenter.RoleResponse
 
 		BeforeEach(func() {
-			api.Request(http.MethodPost, "/v3/roles").
-				WithBody(userOrgRolePayload("organization_manager", userName, org.GUID)).
-				DoWithAuth(tokenAuthHeader).
-				ValidateStatus(http.StatusCreated).
-				DecodeResponseBody(&role)
+			resp, err := api.NewRequest().
+				SetHeader(headers.Authorization, tokenAuthHeader).
+				SetBody(userOrgRolePayload("organization_manager", userName, org.GUID)).
+				SetResult(&role).
+				Post("/v3/roles")
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
 		})
 
 		It("creates a role binding", func() {
@@ -64,22 +64,14 @@ var _ = Describe("Roles", func() {
 		)
 
 		BeforeEach(func() {
-			api.Request(http.MethodPost, "/v3/roles").
-				WithBody(userOrgRolePayload("organization_user", userName, org.GUID)).
-				DoWithAuth(adminAuthHeader).
-				ValidateStatus(http.StatusCreated)
+			createOrgRole("organization_user", rbacv1.UserKind, userName, org.GUID, adminAuthHeader)
+			space := createSpace(generateGUID("space"), org.GUID, adminAuthHeader)
 
-			api.Request(http.MethodPost, "/v3/spaces").
-				WithBody(spacePayload(generateGUID("space"), org.GUID)).
-				DoWithAuth(adminAuthHeader).
-				ValidateStatus(http.StatusCreated).
-				DecodeResponseBody(&space)
-
-			api.Request(http.MethodPost, "/v3/roles").
-				WithBody(userSpaceRolePayload("space_developer", userName, space.GUID)).
-				DoWithAuth(adminAuthHeader).
-				ValidateStatus(http.StatusCreated).
-				DecodeResponseBody(&role)
+			api.NewRequest().
+				SetHeader(headers.Authorization, adminAuthHeader).
+				SetBody(userSpaceRolePayload("space_developer", userName, space.GUID)).
+				SetResult(&role).
+				Post("/v3/roles")
 		})
 
 		AfterEach(func() {

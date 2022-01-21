@@ -24,6 +24,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
+	"github.com/go-resty/resty/v2"
 
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
@@ -45,7 +46,7 @@ import (
 
 var (
 	k8sClient           client.Client
-	api                 helpers.APIRequest
+	api                 *resty.Client
 	clientset           *kubernetes.Clientset
 	rootNamespace       string
 	apiServerRoot       string
@@ -95,7 +96,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	api = helpers.NewCFAPI(apiServerRoot)
+	api = resty.New().SetHostURL(apiServerRoot)
 	tokenAuthHeader = fmt.Sprintf("Bearer %s", serviceAccountToken)
 })
 
@@ -162,11 +163,15 @@ func createOrgRaw(orgName, authHeader string) *http.Response {
 
 func createOrg(orgName, authHeader string) presenter.OrgResponse {
 	org := presenter.OrgResponse{}
-	api.Request(http.MethodPost, "/v3/organizations").
-		WithBody(orgPayload(orgName)).
-		DoWithAuth(tokenAuthHeader).
-		ValidateStatus(http.StatusCreated).
-		DecodeResponseBody(&org)
+	resp, err := api.NewRequest().
+		SetHeader(headers.Authorization, authHeader).
+		SetBody(orgPayload(orgName)).
+		SetResult(&org).
+		Post("/v3/organizations")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
+
 	return org
 }
 
@@ -175,11 +180,8 @@ func asyncCreateOrg(orgName, authHeader string, createdOrg *presenter.OrgRespons
 		defer GinkgoRecover()
 		defer wg.Done()
 
-		api.Request(http.MethodPost, "/v3/organizations").
-			WithBody(orgPayload(orgName)).
-			DoWithAuth(authHeader).
-			ValidateStatus(http.StatusCreated).
-			DecodeResponseBody(&createdOrg)
+		org := createOrg(orgName, authHeader)
+		createdOrg = &org
 	}()
 }
 
