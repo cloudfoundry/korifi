@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"sync"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -91,114 +90,53 @@ var _ = Describe("Orgs", func() {
 			wg.Wait()
 		})
 
-		Context("with a bearer token auth header", func() {
-			BeforeEach(func() {
-				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, adminAuthHeader)
-				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID, adminAuthHeader)
-				createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID, adminAuthHeader)
-			})
-
-			It("returns all 3 orgs that the service account has a role in", func() {
-				orgs, err := get(apis.OrgsEndpoint, tokenAuthHeader)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(orgs).To(SatisfyAll(
-					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
-					HaveKeyWithValue("resources", ContainElements(
-						HaveKeyWithValue("name", org1.Name),
-						HaveKeyWithValue("name", org2.Name),
-						HaveKeyWithValue("name", org3.Name),
-					))))
-			})
-
-			It("does not return orgs the service account does not have a role in", func() {
-				orgs, err := get(apis.OrgsEndpoint, tokenAuthHeader)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(orgs).ToNot(
-					HaveKeyWithValue("resources", ContainElements(
-						HaveKeyWithValue("name", org4.Name),
-					)))
-			})
-
-			When("org names are filtered", func() {
-				It("returns orgs 1 & 3", func() {
-					orgs, err := getWithQuery(
-						apis.OrgsEndpoint,
-						tokenAuthHeader,
-						map[string]string{
-							"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name),
-						},
-					)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(orgs).To(SatisfyAll(
-						HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 2))),
-						HaveKeyWithValue("resources", ContainElements(
-							HaveKeyWithValue("name", org1.Name),
-							HaveKeyWithValue("name", org3.Name),
-						))))
-					Expect(orgs).ToNot(
-						HaveKeyWithValue("resources", ContainElements(
-							HaveKeyWithValue("name", org2.Name),
-						)))
-				})
-			})
+		BeforeEach(func() {
+			createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, adminAuthHeader)
+			createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID, adminAuthHeader)
+			createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID, adminAuthHeader)
 		})
 
-		Context("with a client certificate auth header", func() {
-			BeforeEach(func() {
-				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org1.GUID, adminAuthHeader)
-				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org2.GUID, adminAuthHeader)
-				createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org3.GUID, adminAuthHeader)
-			})
-
-			It("returns all 3 orgs that the service account has a role in", func() {
-				orgs, err := get(apis.OrgsEndpoint, certAuthHeader)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(orgs).To(SatisfyAll(
-					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
-					HaveKeyWithValue("resources", ContainElements(
-						HaveKeyWithValue("name", org1.Name),
-						HaveKeyWithValue("name", org2.Name),
-						HaveKeyWithValue("name", org3.Name),
-					))))
-			})
-
-			It("does not return orgs the service account does not have a role in", func() {
-				orgs, err := get(apis.OrgsEndpoint, certAuthHeader)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(orgs).ToNot(
-					HaveKeyWithValue("resources", ContainElements(
-						HaveKeyWithValue("name", org4.Name),
-					)))
-			})
-
-			When("org names are filtered", func() {
-				It("returns orgs 1 & 3", func() {
-					orgs, err := getWithQuery(
-						apis.OrgsEndpoint,
-						certAuthHeader,
-						map[string]string{
-							"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name),
-						},
-					)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(orgs).To(SatisfyAll(
-						HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 2))),
-						HaveKeyWithValue("resources", ContainElements(
-							HaveKeyWithValue("name", org1.Name),
-							HaveKeyWithValue("name", org3.Name),
-						))))
-					Expect(orgs).ToNot(
-						HaveKeyWithValue("resources", ContainElements(
-							HaveKeyWithValue("name", org2.Name),
-						)))
-				})
-			})
+		It("returns all 3 orgs that the service account has a role in", func() {
+			orgs, err := get(apis.OrgsEndpoint, tokenAuthHeader)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(orgs).To(SatisfyAll(
+				HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
+				HaveKeyWithValue("resources", ContainElements(
+					HaveKeyWithValue("name", org1.Name),
+					HaveKeyWithValue("name", org2.Name),
+					HaveKeyWithValue("name", org3.Name),
+				))))
 		})
 
-		When("no Authorization header is available in the request", func() {
-			It("returns unauthorized error", func() {
-				_, err := get(apis.OrgsEndpoint, "")
-				Expect(err).To(MatchError(ContainSubstring(strconv.Itoa(http.StatusUnauthorized))))
+		It("does not return orgs the service account does not have a role in", func() {
+			orgs, err := get(apis.OrgsEndpoint, tokenAuthHeader)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(orgs).ToNot(
+				HaveKeyWithValue("resources", ContainElements(
+					HaveKeyWithValue("name", org4.Name),
+				)))
+		})
+
+		When("org names are filtered", func() {
+			It("returns orgs 1 & 3", func() {
+				orgs, err := getWithQuery(
+					apis.OrgsEndpoint,
+					tokenAuthHeader,
+					map[string]string{
+						"names": fmt.Sprintf("%s,%s", org1.Name, org3.Name),
+					},
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(orgs).To(SatisfyAll(
+					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 2))),
+					HaveKeyWithValue("resources", ContainElements(
+						HaveKeyWithValue("name", org1.Name),
+						HaveKeyWithValue("name", org3.Name),
+					))))
+				Expect(orgs).ToNot(
+					HaveKeyWithValue("resources", ContainElements(
+						HaveKeyWithValue("name", org2.Name),
+					)))
 			})
 		})
 	})
