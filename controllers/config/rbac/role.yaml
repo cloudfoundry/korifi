@@ -165,6 +165,58 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
