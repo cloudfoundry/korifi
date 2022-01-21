@@ -41,6 +41,19 @@ type CFRouteRepository struct {
 		result1 repositories.RouteRecord
 		result2 error
 	}
+	DeleteRouteStub        func(context.Context, authorization.Info, repositories.DeleteRouteMessage) error
+	deleteRouteMutex       sync.RWMutex
+	deleteRouteArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.DeleteRouteMessage
+	}
+	deleteRouteReturns struct {
+		result1 error
+	}
+	deleteRouteReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GetRouteStub        func(context.Context, authorization.Info, string) (repositories.RouteRecord, error)
 	getRouteMutex       sync.RWMutex
 	getRouteArgsForCall []struct {
@@ -221,6 +234,69 @@ func (fake *CFRouteRepository) CreateRouteReturnsOnCall(i int, result1 repositor
 		result1 repositories.RouteRecord
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *CFRouteRepository) DeleteRoute(arg1 context.Context, arg2 authorization.Info, arg3 repositories.DeleteRouteMessage) error {
+	fake.deleteRouteMutex.Lock()
+	ret, specificReturn := fake.deleteRouteReturnsOnCall[len(fake.deleteRouteArgsForCall)]
+	fake.deleteRouteArgsForCall = append(fake.deleteRouteArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.DeleteRouteMessage
+	}{arg1, arg2, arg3})
+	stub := fake.DeleteRouteStub
+	fakeReturns := fake.deleteRouteReturns
+	fake.recordInvocation("DeleteRoute", []interface{}{arg1, arg2, arg3})
+	fake.deleteRouteMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFRouteRepository) DeleteRouteCallCount() int {
+	fake.deleteRouteMutex.RLock()
+	defer fake.deleteRouteMutex.RUnlock()
+	return len(fake.deleteRouteArgsForCall)
+}
+
+func (fake *CFRouteRepository) DeleteRouteCalls(stub func(context.Context, authorization.Info, repositories.DeleteRouteMessage) error) {
+	fake.deleteRouteMutex.Lock()
+	defer fake.deleteRouteMutex.Unlock()
+	fake.DeleteRouteStub = stub
+}
+
+func (fake *CFRouteRepository) DeleteRouteArgsForCall(i int) (context.Context, authorization.Info, repositories.DeleteRouteMessage) {
+	fake.deleteRouteMutex.RLock()
+	defer fake.deleteRouteMutex.RUnlock()
+	argsForCall := fake.deleteRouteArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFRouteRepository) DeleteRouteReturns(result1 error) {
+	fake.deleteRouteMutex.Lock()
+	defer fake.deleteRouteMutex.Unlock()
+	fake.DeleteRouteStub = nil
+	fake.deleteRouteReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFRouteRepository) DeleteRouteReturnsOnCall(i int, result1 error) {
+	fake.deleteRouteMutex.Lock()
+	defer fake.deleteRouteMutex.Unlock()
+	fake.DeleteRouteStub = nil
+	if fake.deleteRouteReturnsOnCall == nil {
+		fake.deleteRouteReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteRouteReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *CFRouteRepository) GetRoute(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.RouteRecord, error) {
@@ -429,6 +505,8 @@ func (fake *CFRouteRepository) Invocations() map[string][][]interface{} {
 	defer fake.addDestinationsToRouteMutex.RUnlock()
 	fake.createRouteMutex.RLock()
 	defer fake.createRouteMutex.RUnlock()
+	fake.deleteRouteMutex.RLock()
+	defer fake.deleteRouteMutex.RUnlock()
 	fake.getRouteMutex.RLock()
 	defer fake.getRouteMutex.RUnlock()
 	fake.listRoutesMutex.RLock()

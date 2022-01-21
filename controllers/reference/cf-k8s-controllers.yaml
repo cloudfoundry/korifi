@@ -1863,6 +1863,15 @@ rules:
   - delete
   - list
 - apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - get
+  - create
+  - delete
+  - list
+- apiGroups:
   - kpack.io
   resources:
   - clusterbuilders

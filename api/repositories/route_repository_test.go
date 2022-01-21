@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	. "github.com/onsi/gomega/gstruct"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
@@ -22,11 +23,12 @@ var _ = Describe("RouteRepository", func() {
 	const domainName = "my-domain-name"
 
 	var (
-		testCtx    context.Context
-		route1GUID string
-		route2GUID string
-		domainGUID string
-		routeRepo  *RouteRepo
+		testCtx       context.Context
+		route1GUID    string
+		route2GUID    string
+		domainGUID    string
+		clientFactory UnprivilegedClientFactory
+		routeRepo     *RouteRepo
 	)
 
 	validateRoute := func(route RouteRecord, expectedRoute *networkingv1alpha1.CFRoute) {
@@ -58,7 +60,8 @@ var _ = Describe("RouteRepository", func() {
 		route1GUID = generateGUID()
 		route2GUID = generateGUID()
 		domainGUID = generateGUID()
-		routeRepo = NewRouteRepo(k8sClient)
+		clientFactory = NewUnprivilegedClientFactory(k8sConfig)
+		routeRepo = NewRouteRepo(k8sClient, clientFactory)
 	})
 
 	Describe("GetRoute", func() {
@@ -603,6 +606,107 @@ var _ = Describe("RouteRepository", func() {
 					// TODO: improve this test so that the message is valid other than the namespace not existing
 					_, err := routeRepo.CreateRoute(testCtx, authInfo, CreateRouteMessage{})
 					Expect(err).To(MatchError("an empty namespace may not be set during creation"))
+				})
+			})
+		})
+	})
+
+	Describe("DeleteRoute", func() {
+		var (
+			testNamespace string
+			cfRoute1      *networkingv1alpha1.CFRoute
+		)
+
+		BeforeEach(func() {
+			beforeCtx := context.Background()
+			testNamespace = generateGUID()
+			ns := createNamespace(beforeCtx, "some-org", testNamespace)
+			DeferCleanup(func() {
+				Expect(k8sClient.Delete(context.Background(), ns)).To(Succeed())
+			})
+
+			cfRoute1 = &networkingv1alpha1.CFRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      route1GUID,
+					Namespace: testNamespace,
+				},
+				Spec: networkingv1alpha1.CFRouteSpec{
+					Host:     "my-subdomain-1",
+					Path:     "",
+					Protocol: "http",
+					DomainRef: corev1.LocalObjectReference{
+						Name: domainGUID,
+					},
+					Destinations: []networkingv1alpha1.Destination{
+						{
+							GUID: "destination-guid",
+							Port: 8080,
+							AppRef: corev1.LocalObjectReference{
+								Name: "some-app-guid",
+							},
+							ProcessType: "web",
+							Protocol:    "http1",
+						},
+					},
+				},
+			}
+			Expect(
+				k8sClient.Create(testCtx, cfRoute1),
+			).To(Succeed())
+			DeferCleanup(func() {
+				_ = k8sClient.Delete(context.Background(), cfRoute1)
+			})
+		})
+
+		When("the user has permission to delete routes and", func() {
+			BeforeEach(func() {
+				beforeCtx := context.Background()
+				orgManagerClusterRole := createClusterRole(beforeCtx, SpaceDeveloperClusterRoleRules) 
+				createRoleBinding(beforeCtx, userName, orgManagerClusterRole.Name, testNamespace)
+			})
+
+			When("on the happy path", func() {
+				It("deletes the route resource", func() {
+					err := routeRepo.DeleteRoute(testCtx, authInfo, DeleteRouteMessage{
+						GUID:      route1GUID,
+						SpaceGUID: testNamespace,
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					Eventually(func() error {
+						route := &networkingv1alpha1.CFRoute{}
+						return k8sClient.Get(testCtx, client.ObjectKey{Namespace: testNamespace, Name: route1GUID}, route)
+					}).Should(MatchError(ContainSubstring("not found")))
+				})
+			})
+
+			When("the route doesn't exist", func() {
+				It("errors", func() {
+					err := routeRepo.DeleteRoute(testCtx, authInfo, DeleteRouteMessage{
+						GUID:      "i-don't-exist",
+						SpaceGUID: testNamespace,
+					})
+					Expect(err).To(MatchError(ContainSubstring("not found")))
+				})
+			})
+		})
+
+		When("the user does not have permission to delete route and", func() {
+			It("errors with forbidden", func() {
+				err := routeRepo.DeleteRoute(testCtx, authInfo, DeleteRouteMessage{
+					GUID:      route1GUID,
+					SpaceGUID: testNamespace,
+				})
+				Expect(err).To(BeAssignableToTypeOf(authorization.InvalidAuthError{}))
+			})
+
+			When("the route doesn't exist", func() {
+				It("errors with forbidden", func() {
+					err := routeRepo.DeleteRoute(testCtx, authInfo, DeleteRouteMessage{
+						GUID:      "i-don't-exist",
+						SpaceGUID: testNamespace,
+					})
+					Expect(err).To(BeAssignableToTypeOf(authorization.InvalidAuthError{}))
 				})
 			})
 		})

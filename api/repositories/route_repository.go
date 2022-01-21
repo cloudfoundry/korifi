@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
@@ -19,11 +20,15 @@ import (
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes/status,verbs=get
 
 type RouteRepo struct {
-	privilegedClient client.Client
+	privilegedClient  client.Client
+	userClientFactory UserK8sClientFactory
 }
 
-func NewRouteRepo(privilegedClient client.Client) *RouteRepo {
-	return &RouteRepo{privilegedClient: privilegedClient}
+func NewRouteRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *RouteRepo {
+	return &RouteRepo{
+		privilegedClient:  privilegedClient,
+		userClientFactory: userClientFactory,
+	}
 }
 
 type DestinationRecord struct {
@@ -91,6 +96,11 @@ type CreateRouteMessage struct {
 	DomainGUID  string
 	Labels      map[string]string
 	Annotations map[string]string
+}
+
+type DeleteRouteMessage struct {
+	GUID      string
+	SpaceGUID string
 }
 
 func (m CreateRouteMessage) toCFRoute() networkingv1alpha1.CFRoute {
@@ -332,6 +342,30 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 	}
 
 	return cfRouteToRouteRecord(cfRoute), err
+}
+
+func (f *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info, message DeleteRouteMessage) error {
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return fmt.Errorf("failed to build user client: %w", err)
+	}
+	err = userClient.Delete(ctx, &networkingv1alpha1.CFRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.GUID,
+			Namespace: message.SpaceGUID,
+		},
+	})
+	if err == nil {
+		return nil
+	}
+
+	if apierrors.IsForbidden(err) {
+		return authorization.InvalidAuthError{
+			Err: err,
+		}
+	}
+
+	return err
 }
 
 func (f *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
