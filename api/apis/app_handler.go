@@ -242,7 +242,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		if errors.As(err, new(repositories.NotFoundError)) {
+		if errors.As(err, new(repositories.PermissionDeniedOrNotFoundError)) {
 			h.logger.Error(err, "App not found", "appGUID", app.GUID)
 			writeNotFoundErrorResponse(w, "App")
 		} else {
@@ -276,7 +276,16 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 	})
 	if err != nil {
 		h.logger.Error(err, "Error setting current droplet")
-		writeUnknownErrorResponse(w)
+		switch {
+		case errors.As(err, &authorization.NotAuthenticatedError{}):
+			writeNotAuthenticatedErrorResponse(w)
+		case errors.As(err, &authorization.InvalidAuthError{}):
+			writeInvalidAuthErrorResponse(w)
+		case errors.As(err, &repositories.ForbiddenError{}):
+			writeNotAuthorizedErrorResponse(w)
+		default:
+			writeUnknownErrorResponse(w)
+		}
 		return
 	}
 

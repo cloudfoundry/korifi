@@ -405,6 +405,11 @@ func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, authInfo authoriz
 }
 
 func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.Info, message SetCurrentDropletMessage) (CurrentDropletRecord, error) {
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return CurrentDropletRecord{}, fmt.Errorf("set-current-droplet: failed to create k8s user client: %w", err)
+	}
+
 	baseCFApp := &workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.AppGUID,
@@ -414,8 +419,12 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 	cfApp := baseCFApp.DeepCopy()
 	cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: message.DropletGUID}
 
-	err := f.privilegedClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
+	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {
+		if k8serrors.IsForbidden(err) {
+			return CurrentDropletRecord{}, NewForbiddenError(err)
+		}
+
 		return CurrentDropletRecord{}, fmt.Errorf("err in client.Patch: %w", err)
 	}
 

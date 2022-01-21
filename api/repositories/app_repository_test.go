@@ -806,7 +806,11 @@ var _ = Describe("AppRepository", func() {
 			Expect(k8sClient.Delete(context.Background(), &dropletCR)).To(Succeed())
 		})
 
-		When("on the happy path", func() {
+		When("user has the space developer role", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, spaceGUID)
+			})
+
 			It("returns a CurrentDroplet record", func() {
 				record, err := appRepo.SetCurrentDroplet(testCtx, authInfo, SetCurrentDropletMessage{
 					AppGUID:     appGUID,
@@ -835,17 +839,28 @@ var _ = Describe("AppRepository", func() {
 				}, 10*time.Second, 250*time.Millisecond).ShouldNot(HaveOccurred())
 				Expect(updatedApp.Spec.CurrentDropletRef.Name).To(Equal(dropletGUID))
 			})
+
+			When("the app doesn't exist", func() {
+				It("errors", func() {
+					_, err := appRepo.SetCurrentDroplet(testCtx, authInfo, SetCurrentDropletMessage{
+						AppGUID:     "no-such-app",
+						DropletGUID: dropletGUID,
+						SpaceGUID:   spaceGUID,
+					})
+					Expect(err).To(HaveOccurred())
+					Expect(err).To(MatchError(ContainSubstring("not found")))
+				})
+			})
 		})
 
-		When("the app doesn't exist", func() {
+		When("the user is not authorized", func() {
 			It("errors", func() {
 				_, err := appRepo.SetCurrentDroplet(testCtx, authInfo, SetCurrentDropletMessage{
-					AppGUID:     "no-such-app",
+					AppGUID:     appGUID,
 					DropletGUID: dropletGUID,
 					SpaceGUID:   spaceGUID,
 				})
-				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(ContainSubstring("not found")))
+				Expect(err).To(MatchError(ContainSubstring("Forbidden")))
 			})
 		})
 	})

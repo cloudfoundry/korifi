@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -131,28 +132,35 @@ var _ = Describe("Apps", func() {
 
 	Describe("Droplets", func() {
 		var (
-			app   presenter.AppResponse
-			pkg   presenter.PackageResponse
-			build presenter.BuildResponse
+			app      presenter.AppResponse
+			pkg      presenter.PackageResponse
+			build    presenter.BuildResponse
+			response map[string]interface{}
+			httpErr  error
 		)
+
+		BeforeEach(func() {
+			app = createApp(space1.GUID, generateGUID("app"), adminAuthHeader)
+			pkg = createPackage(app.GUID, adminAuthHeader)
+			uploadNodeApp(pkg.GUID, adminAuthHeader)
+			build = createBuild(pkg.GUID, adminAuthHeader)
+			Eventually(func() error {
+				_, err := get("/v3/droplets/"+build.GUID, adminAuthHeader)
+				return err
+			}).WithTimeout(4 * time.Minute).WithPolling(time.Second).Should(Succeed())
+		})
 
 		Describe("get current droplet", func() {
 			BeforeEach(func() {
-				app = createApp(space1.GUID, generateGUID("app"), adminAuthHeader)
-				pkg = createPackage(app.GUID, adminAuthHeader)
-				uploadNodeApp(pkg.GUID, adminAuthHeader)
-				build = createBuild(pkg.GUID, adminAuthHeader)
-				Eventually(func() error {
-					_, err := get("/v3/droplets/"+build.GUID, adminAuthHeader)
-					return err
-				}).WithTimeout(2 * time.Minute).Should(Succeed())
 				setCurrentDroplet(app.GUID, build.GUID, adminAuthHeader)
 			})
 
-			It("returns 404 when user isn't authorized", func() {
-				_, err := get("/v3/apps/"+app.GUID+"/droplets/current", certAuthHeader)
+			JustBeforeEach(func() {
+				response, httpErr = get("/v3/apps/"+app.GUID+"/droplets/current", certAuthHeader)
+			})
 
-				Expect(err).To(MatchError(ContainSubstring("bad status: 404")))
+			It("returns 404 when user isn't authorized", func() {
+				Expect(httpErr).To(MatchError(ContainSubstring("bad status: 404")))
 			})
 
 			When("user has space developer role", func() {
@@ -161,10 +169,47 @@ var _ = Describe("Apps", func() {
 				})
 
 				It("succeeds", func() {
-					response, err := get("/v3/apps/"+app.GUID+"/droplets/current", certAuthHeader)
-
-					Expect(err).NotTo(HaveOccurred())
+					Expect(httpErr).NotTo(HaveOccurred())
 					Expect(response).To(HaveKeyWithValue("state", "STAGED"))
+				})
+			})
+		})
+
+		Describe("set current droplet", func() {
+			JustBeforeEach(func() {
+				response, httpErr = patch("/v3/apps/"+app.GUID+"/relationships/current_droplet", certAuthHeader, payloads.AppSetCurrentDroplet{
+					Relationship: payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: build.GUID,
+						},
+					},
+				})
+			})
+
+			When("the user has no access to the app", func() {
+				It("returns 404", func() {
+					Expect(httpErr).To(MatchError(ContainSubstring("bad status: 404")))
+				})
+			})
+
+			When("the user has read-only access to the app", func() {
+				BeforeEach(func() {
+					createSpaceRole("space_manager", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
+				})
+
+				It("returns 403", func() {
+					Expect(httpErr).To(MatchError(ContainSubstring("bad status: 403")))
+				})
+			})
+
+			When("the user has read-write access to the app", func() {
+				BeforeEach(func() {
+					createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
+				})
+
+				It("returns 200", func() {
+					Expect(httpErr).NotTo(HaveOccurred())
+					Expect(response).To(HaveKeyWithValue("data", HaveKeyWithValue("guid", build.GUID)))
 				})
 			})
 		})
