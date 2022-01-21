@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	thelpers "code.cloudfoundry.org/cf-k8s-controllers/api/tests/helpers"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -198,9 +199,29 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 			})
 		})
 
-		When("the auth is not valid", func() {
+		When("the token is not valid", func() {
 			BeforeEach(func() {
 				authInfo.Token = "xxx"
+			})
+
+			It("fails", func() {
+				Expect(authorization.IsInvalidAuth(buildClientErr)).To(BeTrue())
+			})
+		})
+
+		When("the cert is not valid", func() {
+			BeforeEach(func() {
+				authInfo.CertData = []byte("not a cert")
+			})
+
+			It("fails", func() {
+				Expect(buildClientErr).To(MatchError(ContainSubstring("failed to decode cert PEM")))
+			})
+		})
+
+		When("the cert is not valid on this cluster", func() {
+			BeforeEach(func() {
+				authInfo.CertData = thelpers.CreateCertificatePEM()
 			})
 
 			It("fails", func() {

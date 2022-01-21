@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/helpers"
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,21 +28,57 @@ var _ = Describe("WhoAmI", func() {
 		Expect(identity.Name).To(Equal(certUserName))
 		Expect(identity.Kind).To(Equal(rbacv1.UserKind))
 	})
+
+	When("no Authorization header is available in the request", func() {
+		It("returns unauthorized error", func() {
+			resp, err := doWhoAmIRaw("")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveHTTPStatus(http.StatusUnauthorized))
+		})
+	})
+
+	When("the token auth header is invalid", func() {
+		It("returns an unauthorized error", func() {
+			resp, err := doWhoAmIRaw("Bearer not-a-valid-token")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveHTTPStatus(http.StatusUnauthorized))
+		})
+	})
+
+	When("the cert auth header is invalid", func() {
+		It("returns an unauthorized error", func() {
+			resp, err := doWhoAmIRaw("ClientCert not-a-valid-cert")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveHTTPStatus(http.StatusUnauthorized))
+		})
+	})
+
+	When("the cert auth header contains an unauthorized cert", func() {
+		It("returns an unauthorized error", func() {
+			resp, err := doWhoAmIRaw(helpers.CreateCertificateAuthHeader())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveHTTPStatus(http.StatusUnauthorized))
+		})
+	})
 })
 
-func doWhoAmI(authHeaderValue string) (presenter.IdentityResponse, error) {
+func doWhoAmIRaw(authHeaderValue string) (*http.Response, error) {
 	whoamiURL := apiServerRoot + "/whoami"
 
 	req, err := http.NewRequest(http.MethodGet, whoamiURL, nil)
 	if err != nil {
-		return presenter.IdentityResponse{}, err
+		return nil, err
 	}
 
 	if authHeaderValue != "" {
 		req.Header.Add(headers.Authorization, authHeaderValue)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	return http.DefaultClient.Do(req)
+}
+
+func doWhoAmI(authHeaderValue string) (presenter.IdentityResponse, error) {
+	resp, err := doWhoAmIRaw(authHeaderValue)
 	if err != nil {
 		return presenter.IdentityResponse{}, err
 	}
