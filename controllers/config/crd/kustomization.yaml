@@ -8,6 +8,8 @@ resources:
 - bases/workloads.cloudfoundry.org_cfbuilds.yaml
 - bases/networking.cloudfoundry.org_cfroutes.yaml
 - bases/networking.cloudfoundry.org_cfdomains.yaml
+- bases/services.cloudfoundry.org_cfserviceinstances.yaml
+- bases/services.cloudfoundry.org_cfservicebindings.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
@@ -19,6 +21,8 @@ patchesStrategicMerge:
 - patches/webhook_in_cfbuilds.yaml
 - patches/webhook_in_cfroutes.yaml
 - patches/webhook_in_cfdomains.yaml
+#- patches/webhook_in_cfserviceinstances.yaml
+#- patches/webhook_in_cfservicebindings.yaml
 #+kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable webhook, uncomment all the sections with [CERTMANAGER] prefix.
@@ -29,6 +33,8 @@ patchesStrategicMerge:
 - patches/cainjection_in_cfbuilds.yaml
 - patches/cainjection_in_cfroutes.yaml
 - patches/cainjection_in_cfdomains.yaml
+#- patches/cainjection_in_cfserviceinstances.yaml
+#- patches/cainjection_in_cfservicebindings.yaml
 #+kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # the following config is for teaching kustomize how to do kustomization for CRDs.

@@ -1,0 +1,24 @@
+# permissions for end users to edit cfserviceinstances.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cfserviceinstance-editor-role
+rules:
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances/status
+  verbs:
+  - get
