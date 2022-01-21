@@ -18,6 +18,7 @@ rules:
   verbs:
   - get
   - create
+  - patch
   - delete
   - list
 - apiGroups:

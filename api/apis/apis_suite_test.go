@@ -137,3 +137,15 @@ func expectNotAuthenticatedError() {
         ]
     }`)
 }
+
+func expectInvalidAuthError() {
+	expectJSONResponse(http.StatusUnauthorized, `{
+      "errors": [
+          {
+            "detail": "Invalid Auth Token",
+            "title": "CF-InvalidAuthToken",
+            "code": 1000
+          }
+        ]
+    }`)
+}

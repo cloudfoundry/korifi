@@ -11,6 +11,7 @@ import (
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -787,9 +788,39 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
+		When("the user client factory returns not auth'd", func() {
+			BeforeEach(func() {
+				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, fmt.Errorf("foo: %w", authorization.NotAuthenticatedError{}))
+			})
+
+			It("returns a not authenticated error", func() {
+				expectNotAuthenticatedError()
+			})
+		})
+
+		When("the user client factory returns invalid auth", func() {
+			BeforeEach(func() {
+				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, fmt.Errorf("foo: %w", authorization.InvalidAuthError{}))
+			})
+
+			It("returns a not authenticated error", func() {
+				expectInvalidAuthError()
+			})
+		})
+
+		When("set droplet is forbidden", func() {
+			BeforeEach(func() {
+				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, repositories.NewForbiddenError(nil))
+			})
+
+			It("returns a not authenticated error", func() {
+				expectUnauthorizedError()
+			})
+		})
+
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
 			})
 
 			It("returns an error", func() {

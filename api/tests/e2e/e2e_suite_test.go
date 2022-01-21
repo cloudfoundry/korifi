@@ -627,6 +627,39 @@ func getWithQuery(endpoint string, authHeaderValue string, query map[string]stri
 	return response, nil
 }
 
+func patch(endpoint string, authHeaderValue string, payload interface{}) (map[string]interface{}, error) {
+	serverUrl, err := url.Parse(apiServerRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	serverUrl.Path = endpoint
+
+	resp, err := httpReq(http.MethodPatch, serverUrl.String(), authHeaderValue, payload)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
+	}
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	response := map[string]interface{}{}
+	err = json.Unmarshal(bodyBytes, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
 func uploadNodeApp(pkgGUID, authHeader string) {
 	var b bytes.Buffer
 	writer := multipart.NewWriter(&b)

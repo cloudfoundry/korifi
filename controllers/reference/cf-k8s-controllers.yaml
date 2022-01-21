@@ -1448,6 +1448,7 @@ rules:
   verbs:
   - get
   - create
+  - patch
   - delete
   - list
 - apiGroups:
@@ -1858,6 +1859,7 @@ rules:
   verbs:
   - get
   - create
+  - patch
   - delete
   - list
 - apiGroups:
@@ -1873,7 +1875,13 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: cf-k8s-controllers-space-manager
-rules: []
+rules:
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
