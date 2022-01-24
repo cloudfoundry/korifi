@@ -68,6 +68,7 @@ var _ = Describe("CFPackageReconciler", func() {
 			}
 		}
 
+		cfPackageUpdateError = nil
 		fakeClient.PatchStub = func(ctx context.Context, object client.Object, patch client.Patch, option ...client.PatchOption) error {
 			return cfPackageUpdateError
 		}
