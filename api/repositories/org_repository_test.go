@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -21,9 +22,11 @@ import (
 
 var _ = Describe("OrgRepository", func() {
 	var (
-		ctx           context.Context
-		clientFactory repositories.UserK8sClientFactory
-		orgRepo       *repositories.OrgRepo
+		ctx                       context.Context
+		clientFactory             repositories.UserK8sClientFactory
+		orgRepo                   *repositories.OrgRepo
+		spaceDeveloperClusterRole *rbacv1.ClusterRole
+		orgManagerClusterRole     *rbacv1.ClusterRole
 	)
 
 	BeforeEach(func() {
@@ -32,6 +35,8 @@ var _ = Describe("OrgRepository", func() {
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPerms, time.Millisecond*500, true)
+		spaceDeveloperClusterRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
+		orgManagerClusterRole = createClusterRole(ctx, repositories.OrgManagerClusterRoleRules)
 	})
 
 	Describe("Create", func() {
@@ -232,7 +237,6 @@ var _ = Describe("OrgRepository", func() {
 		BeforeEach(func() {
 			ctx = context.Background()
 
-			spaceDeveloperClusterRole := createSpaceDeveloperClusterRole(ctx)
 			org1Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org1")
 			createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, org1Anchor.Name)
 			org2Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org2")
@@ -368,8 +372,6 @@ var _ = Describe("OrgRepository", func() {
 			var space11Anchor, space12Anchor, space21Anchor, space22Anchor, space31Anchor, space32Anchor, space33Anchor *hnsv1alpha2.SubnamespaceAnchor
 
 			BeforeEach(func() {
-				spaceDeveloperClusterRole := createSpaceDeveloperClusterRole(ctx)
-
 				space11Anchor = createSpaceAnchorAndNamespace(ctx, org1Anchor.Name, "space1")
 				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space11Anchor.Name)
 				space12Anchor = createSpaceAnchorAndNamespace(ctx, org1Anchor.Name, "space2")
@@ -607,8 +609,6 @@ var _ = Describe("OrgRepository", func() {
 			var spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
 
 			BeforeEach(func() {
-				spaceDeveloperClusterRole := createSpaceDeveloperClusterRole(ctx)
-
 				spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, "the-space")
 				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, spaceAnchor.Name)
 			})
@@ -648,7 +648,6 @@ var _ = Describe("OrgRepository", func() {
 			When("the user has permission to delete orgs", func() {
 				BeforeEach(func() {
 					beforeCtx := context.Background()
-					orgManagerClusterRole := createOrgManagerClusterRole(beforeCtx)
 					createRoleBinding(beforeCtx, userName, orgManagerClusterRole.Name, orgAnchor.Namespace)
 					// As HNC Controllers don't exist in env-test environments, we manually copy role bindings to child ns.
 					createRoleBinding(beforeCtx, userName, orgManagerClusterRole.Name, orgAnchor.Name)
@@ -756,7 +755,6 @@ var _ = Describe("OrgRepository", func() {
 			When("the user has permission to delete spaces and", func() {
 				BeforeEach(func() {
 					beforeCtx := context.Background()
-					orgManagerClusterRole := createOrgManagerClusterRole(beforeCtx)
 					createRoleBinding(beforeCtx, userName, orgManagerClusterRole.Name, spaceAnchor.Namespace)
 				})
 

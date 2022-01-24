@@ -66,6 +66,8 @@ func TestE2E(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	SetDefaultEventuallyTimeout(120 * time.Second)
+	SetDefaultEventuallyPollingInterval(time.Second)
+
 	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))

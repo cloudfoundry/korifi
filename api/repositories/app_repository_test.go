@@ -53,8 +53,8 @@ var _ = Describe("AppRepository", func() {
 		space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
 		space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space3"))
 
-		spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
-		spaceAuditorClusterRole = createSpaceAuditorClusterRole(testCtx)
+		spaceDeveloperClusterRole = createClusterRole(testCtx, repositories.SpaceDeveloperClusterRoleRules)
+		spaceAuditorClusterRole = createClusterRole(testCtx, repositories.SpaceAuditorClusterRoleRules)
 	})
 
 	Describe("GetApp", func() {
@@ -387,7 +387,6 @@ var _ = Describe("AppRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: spaceGUID},
 			})).To(Succeed())
 
-			spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
 			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, spaceGUID)
 
 			appCreateMessage = initializeAppCreateMessage(testAppName, spaceGUID)
@@ -567,7 +566,6 @@ var _ = Describe("AppRepository", func() {
 				key2: *requestEnvVars[key2],
 			}
 
-			spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
 			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, defaultNamespace)
 		})
 
@@ -1003,7 +1001,6 @@ var _ = Describe("AppRepository", func() {
 			appGUID = generateGUID()
 			appCR = initializeAppCR("some-app", appGUID, space1.Name)
 
-			spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(testCtx)
 			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
 
 			Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
@@ -1071,7 +1068,6 @@ var _ = Describe("AppRepository", func() {
 
 			When("the user can read secrets in the space", func() {
 				BeforeEach(func() {
-					spaceDeveloperClusterRole := createSpaceDeveloperClusterRole(testCtx)
 					createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
 				})
 
