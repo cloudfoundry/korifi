@@ -22,14 +22,14 @@ rules:
   - delete
   - list
 - apiGroups:
-    - networking.cloudfoundry.org
+  - networking.cloudfoundry.org
   resources:
-    - cfroutes
+  - cfroutes
   verbs:
-    - get
-    - create
-    - delete
-    - list
+  - get
+  - create
+  - delete
+  - list
 - apiGroups:
   - kpack.io
   resources:
