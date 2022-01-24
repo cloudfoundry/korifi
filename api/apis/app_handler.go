@@ -434,8 +434,8 @@ func (h *AppHandler) getProcessesForAppHandler(authInfo authorization.Info, w ht
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("App not found", "AppGUID", appGUID)
+		case repositories.PermissionDeniedOrNotFoundError:
+			h.logger.Info("Permission denied or app not found", "AppGUID", appGUID, "err", err)
 			writeNotFoundErrorResponse(w, "App")
 			return
 		default:
