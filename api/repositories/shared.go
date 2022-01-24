@@ -88,6 +88,11 @@ var (
 			Resources: []string{"cfapps"},
 		},
 		{
+			Verbs:     []string{"get", "list", "create", "delete"},
+			APIGroups: []string{"networking.cloudfoundry.org"},
+			Resources: []string{"cfroutes"},
+		},
+		{
 			Verbs:     []string{"get"},
 			APIGroups: []string{"kpack.io"},
 			Resources: []string{"clusterbuilders"},

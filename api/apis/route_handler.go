@@ -3,6 +3,7 @@ package apis
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -21,6 +22,7 @@ const (
 	RouteGetListEndpoint         = "/v3/routes"
 	RouteGetDestinationsEndpoint = "/v3/routes/{guid}/destinations"
 	RouteCreateEndpoint          = "/v3/routes"
+	RouteDeleteEndpoint          = "/v3/routes/{guid}"
 	RouteAddDestinationsEndpoint = "/v3/routes/{guid}/destinations"
 )
 
@@ -31,6 +33,7 @@ type CFRouteRepository interface {
 	ListRoutes(context.Context, authorization.Info, repositories.ListRoutesMessage) ([]repositories.RouteRecord, error)
 	ListRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
 	CreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
+	DeleteRoute(context.Context, authorization.Info, repositories.DeleteRouteMessage) error
 	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
 }
 
@@ -71,6 +74,14 @@ func (h *RouteHandler) routeGetHandler(authInfo authorization.Info, w http.Respo
 		case repositories.NotFoundError:
 			h.logger.Info("Route not found", "RouteGUID", routeGUID)
 			writeNotFoundErrorResponse(w, "Route")
+			return
+		case authorization.InvalidAuthError:
+			h.logger.Error(err, "unauthorized to get route")
+			writeInvalidAuthErrorResponse(w)
+			return
+		case authorization.NotAuthenticatedError:
+			h.logger.Error(err, "no auth to get route")
+			writeNotAuthenticatedErrorResponse(w)
 			return
 		default:
 			h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
@@ -123,9 +134,20 @@ func (h *RouteHandler) routeGetListHandler(authInfo authorization.Info, w http.R
 
 	routes, err := h.lookupRouteAndDomainList(ctx, authInfo, routeListFilter.ToMessage())
 	if err != nil {
-		h.logger.Error(err, "Failed to fetch route or domains from Kubernetes")
-		writeUnknownErrorResponse(w)
-		return
+		switch err.(type) {
+		case authorization.InvalidAuthError:
+			h.logger.Error(err, "unauthorized to get routes")
+			writeInvalidAuthErrorResponse(w)
+			return
+		case authorization.NotAuthenticatedError:
+			h.logger.Error(err, "no auth to get routes")
+			writeNotAuthenticatedErrorResponse(w)
+			return
+		default:
+			h.logger.Error(err, "Failed to fetch routes from Kubernetes")
+			writeUnknownErrorResponse(w)
+			return
+		}
 	}
 
 	err = writeJsonResponse(w, presenter.ForRouteList(routes, h.serverURL, *r.URL), http.StatusOK)
@@ -145,6 +167,14 @@ func (h *RouteHandler) routeGetDestinationsHandler(authInfo authorization.Info, 
 	route, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
 		switch err.(type) {
+		case authorization.InvalidAuthError:
+			h.logger.Error(err, "unauthorized to get routes")
+			writeInvalidAuthErrorResponse(w)
+			return
+		case authorization.NotAuthenticatedError:
+			h.logger.Error(err, "no auth to get routes")
+			writeNotAuthenticatedErrorResponse(w)
+			return
 		case repositories.NotFoundError:
 			h.logger.Info("Route not found", "RouteGUID", routeGUID)
 			writeNotFoundErrorResponse(w, "Route")
@@ -208,10 +238,20 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 
 	responseRouteRecord, err := h.routeRepo.CreateRoute(ctx, authInfo, createRouteMessage)
 	if err != nil {
-		// TODO: Catch the error from the (unwritten) validating webhook
-		h.logger.Error(err, "Failed to create route", "Route Host", payload.Host)
-		writeUnknownErrorResponse(w)
-		return
+		switch err.(type) {
+		case authorization.InvalidAuthError:
+			h.logger.Error(err, "unauthorized to create route")
+			writeInvalidAuthErrorResponse(w)
+			return
+		case authorization.NotAuthenticatedError:
+			h.logger.Error(err, "no auth to create route")
+			writeNotAuthenticatedErrorResponse(w)
+			return
+		default: // TODO: Catch the error from the (unwritten) validating webhook
+			h.logger.Error(err, "Failed to create route", "Route Host", payload.Host)
+			writeUnknownErrorResponse(w)
+			return
+		}
 	}
 
 	responseRouteRecord = responseRouteRecord.UpdateDomainRef(domain)
@@ -239,23 +279,40 @@ func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, 
 
 	routeRecord, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
-		if errors.As(err, new(repositories.NotFoundError)) {
+		switch err.(type) {
+		case repositories.NotFoundError:
 			h.logger.Info("Route not found", "RouteGUID", routeGUID)
 			writeUnprocessableEntityError(w, "Route is invalid. Ensure it exists and you have access to it.")
-		} else {
+			return
+		case authorization.InvalidAuthError:
+			h.logger.Error(err, "unauthorized to get route")
+			writeInvalidAuthErrorResponse(w)
+			return
+		case authorization.NotAuthenticatedError:
+			h.logger.Error(err, "no auth to get route")
+			writeNotAuthenticatedErrorResponse(w)
+			return
+		default:
 			h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
 			writeUnknownErrorResponse(w)
+			return
 		}
-		return
 	}
 
 	destinationListCreateMessage := destinationCreatePayload.ToMessage(routeRecord)
 
 	responseRouteRecord, err := h.routeRepo.AddDestinationsToRoute(ctx, authInfo, destinationListCreateMessage)
 	if err != nil {
-		h.logger.Error(err, "Failed to add destination on route", "Route GUID", routeRecord.GUID)
-		writeUnknownErrorResponse(w)
-		return
+		switch err.(type) {
+		case repositories.ForbiddenError:
+			h.logger.Error(err, "not allowed to create route destinations")
+			writeNotAuthorizedErrorResponse(w)
+			return
+		default:
+			h.logger.Error(err, "Failed to add destination on route", "Route GUID", routeRecord.GUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
 	}
 
 	err = writeJsonResponse(w, presenter.ForRouteDestinations(responseRouteRecord, h.serverURL), http.StatusOK)
@@ -265,12 +322,64 @@ func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, 
 	}
 }
 
+func (h *RouteHandler) routeDeleteHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	routeGUID := vars["guid"]
+
+	routeRecord, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("Route not found", "RouteGUID", routeGUID)
+			writeNotFoundErrorResponse(w, "Route")
+			return
+		case authorization.InvalidAuthError:
+			h.logger.Error(err, "unauthorized to get route")
+			writeInvalidAuthErrorResponse(w)
+			return
+		case authorization.NotAuthenticatedError:
+			h.logger.Error(err, "no auth to get route")
+			writeNotAuthenticatedErrorResponse(w)
+			return
+		default:
+			h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	err = h.routeRepo.DeleteRoute(ctx, authInfo, repositories.DeleteRouteMessage{
+		GUID:      routeRecord.GUID,
+		SpaceGUID: routeRecord.SpaceGUID,
+	})
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		switch err.(type) {
+		case authorization.InvalidAuthError:
+			h.logger.Error(err, "unauthorized to delete routes")
+			writeNotAuthorizedErrorResponse(w)
+			return
+		default:
+			h.logger.Error(err, "Failed to delete route", "routeGUID", routeGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	w.Header().Set("Location", fmt.Sprintf("%s/v3/jobs/route.delete-%s", h.serverURL.String(), routeGUID))
+	writeResponse(w, http.StatusAccepted, "")
+}
+
 func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
 	router.Path(RouteGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.routeGetHandler))
 	router.Path(RouteGetListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.routeGetListHandler))
 	router.Path(RouteGetDestinationsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.routeGetDestinationsHandler))
 	router.Path(RouteCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.routeCreateHandler))
+	router.Path(RouteDeleteEndpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.routeDeleteHandler))
 	router.Path(RouteAddDestinationsEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.routeAddDestinationsHandler))
 }
 

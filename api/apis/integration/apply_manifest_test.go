@@ -35,7 +35,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, namespacePermissions, false)
 		domainRepo := repositories.NewDomainRepo(k8sClient)
 		processRepo := repositories.NewProcessRepo(k8sClient)
-		routeRepo := repositories.NewRouteRepo(k8sClient)
+		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
 		apiHandler := NewSpaceManifestHandler(
 			logf.Log.WithName("integration tests"),
 			*serverURL,

@@ -1458,6 +1458,18 @@ rules:
   verbs:
   - create
 - apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - ""
   resources:
   - secrets
@@ -1860,6 +1872,15 @@ rules:
   - get
   - create
   - patch
+  - delete
+  - list
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - get
+  - create
   - delete
   - list
 - apiGroups:

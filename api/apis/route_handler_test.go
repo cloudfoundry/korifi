@@ -1,7 +1,6 @@
 package apis_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +8,8 @@ import (
 	"strings"
 
 	. "github.com/onsi/gomega/gstruct"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
@@ -30,11 +31,13 @@ var _ = Describe("RouteHandler", func() {
 	)
 
 	var (
-		routeRepo   *fake.CFRouteRepository
-		domainRepo  *fake.CFDomainRepository
-		appRepo     *fake.CFAppRepository
-		routeRecord repositories.RouteRecord
-		req         *http.Request
+		routeRepo  *fake.CFRouteRepository
+		domainRepo *fake.CFDomainRepository
+		appRepo    *fake.CFAppRepository
+
+		requestMethod string
+		requestPath   string
+		requestBody   string
 	)
 
 	BeforeEach(func() {
@@ -50,6 +53,13 @@ var _ = Describe("RouteHandler", func() {
 			appRepo,
 		)
 		routeHandler.RegisterRoutes(router)
+	})
+
+	JustBeforeEach(func() {
+		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader(requestBody))
+		Expect(err).NotTo(HaveOccurred())
+
+		router.ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /v3/routes/:guid endpoint", func() {
@@ -71,16 +81,12 @@ var _ = Describe("RouteHandler", func() {
 				Name: "example.org",
 			}, nil)
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("/v3/routes/%s", testRouteGUID), nil)
-			Expect(err).NotTo(HaveOccurred())
+			requestMethod = http.MethodGet
+			requestPath = fmt.Sprintf("/v3/routes/%s", testRouteGUID)
+			requestBody = ""
 		})
 
 		When("on the happy path", func() {
-			BeforeEach(func() {
-				router.ServeHTTP(rr, req)
-			})
-
 			It("returns status 200 OK", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
@@ -158,8 +164,6 @@ var _ = Describe("RouteHandler", func() {
 		When("the route cannot be found", func() {
 			BeforeEach(func() {
 				routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
-
-				router.ServeHTTP(rr, req)
 			})
 
 			It("returns an error", func() {
@@ -170,8 +174,6 @@ var _ = Describe("RouteHandler", func() {
 		When("the route's domain cannot be found", func() {
 			BeforeEach(func() {
 				domainRepo.GetDomainReturns(repositories.DomainRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
-
-				router.ServeHTTP(rr, req)
 			})
 
 			It("returns an error", func() {
@@ -182,8 +184,6 @@ var _ = Describe("RouteHandler", func() {
 		When("there is some other error fetching the route", func() {
 			BeforeEach(func() {
 				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("unknown!"))
-
-				router.ServeHTTP(rr, req)
 			})
 
 			It("returns an error", func() {
@@ -191,23 +191,52 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("the authorization.Info is not set in the request context", func() {
+		When("authentication is invalid", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s", testRouteGUID), nil)
-				Expect(err).NotTo(HaveOccurred())
-
-				router.ServeHTTP(rr, req)
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.InvalidAuthError{})
 			})
 
-			It("returns an unknown error", func() {
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+	                "errors": [
+						{
+							"detail": "Invalid Auth Token",
+							"title": "CF-InvalidAuthToken",
+							"code": 1000
+						}
+	                ]
+	            }`))
+			})
+		})
+
+		When("authentication is not provided", func() {
+			BeforeEach(func() {
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.NotAuthenticatedError{})
+			})
+
+			It("returns Unauthorized error", func() {
+				expectNotAuthenticatedError()
+			})
+		})
+
+		When("providing the route repository fails", func() {
+			BeforeEach(func() {
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("space-repo-provisioning-failed"))
+			})
+
+			It("returns unknown error", func() {
 				expectUnknownError()
 			})
 		})
 	})
 
 	Describe("the GET /v3/routes endpoint", func() {
-		var domainRecord *repositories.DomainRecord
+		var (
+			domainRecord repositories.DomainRecord
+			routeRecord  repositories.RouteRecord
+		)
 
 		BeforeEach(func() {
 			routeRecord = repositories.RouteRecord{
@@ -229,19 +258,15 @@ var _ = Describe("RouteHandler", func() {
 				routeRecord,
 			}, nil)
 
-			domainRecord = &repositories.DomainRecord{
+			domainRecord = repositories.DomainRecord{
 				GUID: testDomainGUID,
 				Name: "example.org",
 			}
-			domainRepo.GetDomainReturns(*domainRecord, nil)
+			domainRepo.GetDomainReturns(domainRecord, nil)
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes", nil)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		JustBeforeEach(func() {
-			router.ServeHTTP(rr, req)
+			requestMethod = http.MethodGet
+			requestPath = "/v3/routes"
+			requestBody = ""
 		})
 
 		When("on the happy path", func() {
@@ -274,70 +299,68 @@ var _ = Describe("RouteHandler", func() {
 
 				It("returns the Pagination Data and App Resources in the response", func() {
 					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-				"pagination": {
-					"total_results": 1,
-					"total_pages": 1,
-					"first": {
-						"href": "%[1]s/v3/routes"
-					},
-					"last": {
-						"href": "%[1]s/v3/routes"
-					},
-					"next": null,
-					"previous": null
-				},
-				"resources": [
-					{
-						"guid": "%[2]s",
-						"port": null,
-						"path": "%[3]s",
-						"protocol": "%[4]s",
-						"host": "%[5]s",
-						"url": "%[5]s.%[6]s%[3]s",
-						"created_at": "%[7]s",
-						"updated_at": "%[8]s",
-						"destinations": [],
-						"relationships": {
-							"space": {
-								"data": {
-									"guid": "%[9]s"
-								}
-							},
-							"domain": {
-								"data": {
-									"guid": "%[10]s"
-								}
-							}
-						},
-						"metadata": {
-							"labels": {},
-							"annotations": {}
-						},
-						"links": {
-							"self":{
-								"href": "%[1]s/v3/routes/%[2]s"
-							},
-							"space":{
-								"href": "%[1]s/v3/spaces/%[9]s"
-							},
-							"domain":{
-								"href": "%[1]s/v3/domains/%[10]s"
-							},
-							"destinations":{
-								"href": "%[1]s/v3/routes/%[2]s/destinations"
-							}
-						}
-					}
-				]
-				}`, defaultServerURL, routeRecord.GUID, routeRecord.Path, routeRecord.Protocol, routeRecord.Host, domainRecord.Name, routeRecord.CreatedAt, routeRecord.UpdatedAt, routeRecord.SpaceGUID, domainRecord.GUID)), "Response body matches response:")
+	   				"pagination": {
+	   					"total_results": 1,
+	   					"total_pages": 1,
+	   					"first": {
+	   						"href": "%[1]s/v3/routes"
+	   					},
+	   					"last": {
+	   						"href": "%[1]s/v3/routes"
+	   					},
+	   					"next": null,
+	   					"previous": null
+	   				},
+	   				"resources": [
+	   					{
+	   						"guid": "%[2]s",
+	   						"port": null,
+	   						"path": "%[3]s",
+	   						"protocol": "%[4]s",
+	   						"host": "%[5]s",
+	   						"url": "%[5]s.%[6]s%[3]s",
+	   						"created_at": "%[7]s",
+	   						"updated_at": "%[8]s",
+	   						"destinations": [],
+	   						"relationships": {
+	   							"space": {
+	   								"data": {
+	   									"guid": "%[9]s"
+	   								}
+	   							},
+	   							"domain": {
+	   								"data": {
+	   									"guid": "%[10]s"
+	   								}
+	   							}
+	   						},
+	   						"metadata": {
+	   							"labels": {},
+	   							"annotations": {}
+	   						},
+	   						"links": {
+	   							"self":{
+	   								"href": "%[1]s/v3/routes/%[2]s"
+	   							},
+	   							"space":{
+	   								"href": "%[1]s/v3/spaces/%[9]s"
+	   							},
+	   							"domain":{
+	   								"href": "%[1]s/v3/domains/%[10]s"
+	   							},
+	   							"destinations":{
+	   								"href": "%[1]s/v3/routes/%[2]s/destinations"
+	   							}
+	   						}
+	   					}
+	   				]
+	   				}`, defaultServerURL, routeRecord.GUID, routeRecord.Path, routeRecord.Protocol, routeRecord.Host, domainRecord.Name, routeRecord.CreatedAt, routeRecord.UpdatedAt, routeRecord.SpaceGUID, domainRecord.GUID)), "Response body matches response:")
 				})
 			})
 
 			When("app_guids query parameters are provided", func() {
 				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?app_guids=my-app-guid", nil)
-					Expect(err).NotTo(HaveOccurred())
+					requestPath += "?app_guids=my-app-guid"
 				})
 
 				It("returns status 200 OK", func() {
@@ -358,9 +381,7 @@ var _ = Describe("RouteHandler", func() {
 
 			When("space_guids query parameters are provided", func() {
 				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?space_guids=my-space-guid", nil)
-					Expect(err).NotTo(HaveOccurred())
+					requestPath += "?space_guids=my-space-guid"
 				})
 
 				It("returns status 200 OK", func() {
@@ -382,9 +403,7 @@ var _ = Describe("RouteHandler", func() {
 
 			When("domain_guids query parameters are provided", func() {
 				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?domain_guids=my-domain-guid", nil)
-					Expect(err).NotTo(HaveOccurred())
+					requestPath += "?domain_guids=my-domain-guid"
 				})
 
 				It("returns status 200 OK", func() {
@@ -406,9 +425,7 @@ var _ = Describe("RouteHandler", func() {
 
 			When("hosts query parameters are provided", func() {
 				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?hosts=my-host", nil)
-					Expect(err).NotTo(HaveOccurred())
+					requestPath += "?hosts=my-host"
 				})
 
 				It("returns status 200 OK", func() {
@@ -430,9 +447,7 @@ var _ = Describe("RouteHandler", func() {
 
 			When("paths query parameters are provided", func() {
 				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?paths=/some/path", nil)
-					Expect(err).NotTo(HaveOccurred())
+					requestPath += "?paths=/some/path"
 				})
 
 				It("returns status 200 OK", func() {
@@ -469,21 +484,21 @@ var _ = Describe("RouteHandler", func() {
 
 			It("returns an empty list in the response", func() {
 				expectedBody := fmt.Sprintf(`{
-					"pagination": {
-						"total_results": 0,
-						"total_pages": 1,
-						"first": {
-							"href": "%[1]s/v3/routes"
-						},
-						"last": {
-							"href": "%[1]s/v3/routes"
-						},
-						"next": null,
-						"previous": null
-					},
-					"resources": [
-					]
-				}`, defaultServerURL)
+	   					"pagination": {
+	   						"total_results": 0,
+	   						"total_pages": 1,
+	   						"first": {
+	   							"href": "%[1]s/v3/routes"
+	   						},
+	   						"last": {
+	   							"href": "%[1]s/v3/routes"
+	   						},
+	   						"next": null,
+	   						"previous": null
+	   					},
+	   					"resources": [
+	   					]
+	   				}`, defaultServerURL)
 
 				Expect(rr.Body.String()).To(MatchJSON(expectedBody), "Response body matches response:")
 			})
@@ -511,9 +526,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/routes?foo=my-app-guid", nil)
-				Expect(err).NotTo(HaveOccurred())
+				requestPath += "?foo=my-app-guid"
 			})
 
 			It("returns an Unknown key error", func() {
@@ -521,56 +534,69 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("the authorization.Info is not set in the request context", func() {
+		When("authentication is invalid", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s", testRouteGUID), nil)
-				Expect(err).NotTo(HaveOccurred())
+				routeRepo.ListRoutesReturns([]repositories.RouteRecord{}, authorization.InvalidAuthError{})
 			})
 
-			It("returns an unknown error", func() {
-				expectUnknownError()
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+	                "errors": [
+						{
+							"detail": "Invalid Auth Token",
+							"title": "CF-InvalidAuthToken",
+							"code": 1000
+						}
+	                ]
+	            }`))
+			})
+		})
+
+		When("authentication is not provided", func() {
+			BeforeEach(func() {
+				routeRepo.ListRoutesReturns([]repositories.RouteRecord{}, authorization.NotAuthenticatedError{})
+			})
+
+			It("returns Unauthorized error", func() {
+				expectNotAuthenticatedError()
 			})
 		})
 	})
 
 	Describe("the POST /v3/routes endpoint", func() {
-		makePostRequest := func(requestBody string) {
-			request, err := http.NewRequestWithContext(ctx, "POST", "/v3/routes", strings.NewReader(requestBody))
-			Expect(err).NotTo(HaveOccurred())
+		BeforeEach(func() {
+			requestMethod = http.MethodPost
+			requestPath = "/v3/routes"
 
-			router.ServeHTTP(rr, request)
-		}
+			appRepo.GetNamespaceReturns(repositories.SpaceRecord{
+				Name: testSpaceGUID,
+			}, nil)
+
+			domainRepo.GetDomainReturns(repositories.DomainRecord{
+				GUID: testDomainGUID,
+				Name: testDomainName,
+			}, nil)
+
+			routeRepo.CreateRouteReturns(repositories.RouteRecord{
+				GUID:      testRouteGUID,
+				SpaceGUID: testSpaceGUID,
+				Domain: repositories.DomainRecord{
+					GUID: testDomainGUID,
+				},
+				Host:      testRouteHost,
+				Path:      testRoutePath,
+				Protocol:  "http",
+				CreatedAt: "create-time",
+				UpdatedAt: "update-time",
+			}, nil)
+
+			requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, testDomainGUID, nil, nil)
+		})
 
 		When("the space exists and the route does not exist and", func() {
 			When("a plain POST test route request is sent without metadata", func() {
-				BeforeEach(func() {
-					appRepo.GetNamespaceReturns(repositories.SpaceRecord{
-						Name: testSpaceGUID,
-					}, nil)
-
-					domainRepo.GetDomainReturns(repositories.DomainRecord{
-						GUID: testDomainGUID,
-						Name: testDomainName,
-					}, nil)
-
-					routeRepo.CreateRouteReturns(repositories.RouteRecord{
-						GUID:      testRouteGUID,
-						SpaceGUID: testSpaceGUID,
-						Domain: repositories.DomainRecord{
-							GUID: testDomainGUID,
-						},
-						Host:      testRouteHost,
-						Path:      testRoutePath,
-						Protocol:  "http",
-						CreatedAt: "create-time",
-						UpdatedAt: "update-time",
-					}, nil)
-
-					requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, testDomainGUID, nil, nil)
-					makePostRequest(requestBody)
-				})
-
 				It("checks that the specified namespace exists", func() {
 					Expect(appRepo.GetNamespaceCallCount()).To(Equal(1), "Repo GetNamespace was not called")
 					_, _, actualSpaceGUID := appRepo.GetNamespaceArgsForCall(0)
@@ -605,46 +631,46 @@ var _ = Describe("RouteHandler", func() {
 
 				It("returns the created route in the response", func() {
 					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-						"guid": "test-route-guid",
-						"protocol": "http",
-						"port": null,
-						"host": "test-route-host",
-						"path": "/test-route-path",
-						"url": "test-route-host.test-domain-name/test-route-path",
-						"created_at": "create-time",
-						"updated_at": "update-time",
-						"destinations": [],
-						"metadata": {
-							"labels": {},
-							"annotations": {}
-						},
-						"relationships": {
-							"space": {
-								"data": {
-									"guid": "test-space-guid"
-								}
-							},
-							"domain": {
-								"data": {
-									"guid": "test-domain-guid"
-								}
-							}
-						},
-						"links": {
-							"self": {
-                                "href": "%[1]s/v3/routes/test-route-guid"
-							},
-							"space": {
-                                "href": "%[1]s/v3/spaces/test-space-guid"
-							},
-							"domain": {
-                                "href": "%[1]s/v3/domains/test-domain-guid"
-							},
-							"destinations": {
-                                "href": "%[1]s/v3/routes/test-route-guid/destinations"
-							}
-						}
-                    }`, defaultServerURL)), "Response body mismatch")
+	   						"guid": "test-route-guid",
+	   						"protocol": "http",
+	   						"port": null,
+	   						"host": "test-route-host",
+	   						"path": "/test-route-path",
+	   						"url": "test-route-host.test-domain-name/test-route-path",
+	   						"created_at": "create-time",
+	   						"updated_at": "update-time",
+	   						"destinations": [],
+	   						"metadata": {
+	   							"labels": {},
+	   							"annotations": {}
+	   						},
+	   						"relationships": {
+	   							"space": {
+	   								"data": {
+	   									"guid": "test-space-guid"
+	   								}
+	   							},
+	   							"domain": {
+	   								"data": {
+	   									"guid": "test-domain-guid"
+	   								}
+	   							}
+	   						},
+	   						"links": {
+	   							"self": {
+	                                   "href": "%[1]s/v3/routes/test-route-guid"
+	   							},
+	   							"space": {
+	                                   "href": "%[1]s/v3/spaces/test-space-guid"
+	   							},
+	   							"domain": {
+	                                   "href": "%[1]s/v3/domains/test-domain-guid"
+	   							},
+	   							"destinations": {
+	                                   "href": "%[1]s/v3/routes/test-route-guid/destinations"
+	   							}
+	   						}
+	                       }`, defaultServerURL)), "Response body mismatch")
 				})
 			})
 
@@ -654,8 +680,7 @@ var _ = Describe("RouteHandler", func() {
 				BeforeEach(func() {
 					testLabels = map[string]string{"label1": "foo", "label2": "bar"}
 
-					requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, testDomainGUID, testLabels, nil)
-					makePostRequest(requestBody)
+					requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, testDomainGUID, testLabels, nil)
 				})
 
 				It("should pass along the labels to CreateRoute", func() {
@@ -670,8 +695,7 @@ var _ = Describe("RouteHandler", func() {
 
 				BeforeEach(func() {
 					testAnnotations = map[string]string{"annotation1": "foo", "annotation2": "bar"}
-					requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, testDomainGUID, nil, testAnnotations)
-					makePostRequest(requestBody)
+					requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, testDomainGUID, nil, testAnnotations)
 				})
 
 				It("should pass along the annotations to CreateRoute", func() {
@@ -684,7 +708,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the request body is invalid JSON", func() {
 			BeforeEach(func() {
-				makePostRequest(`{`)
+				requestBody = `{`
 			})
 
 			It("returns a status 400 Bad Request ", func() {
@@ -697,20 +721,20 @@ var _ = Describe("RouteHandler", func() {
 
 			It("has the expected error response body", func() {
 				Expect(rr.Body.String()).To(MatchJSON(`{
-					"errors": [
-						{
-							"title": "CF-MessageParseError",
-							"detail": "Request invalid due to parse error: invalid request body",
-							"code": 1001
-						}
-					]
-				}`), "Response body matches response:")
+	   					"errors": [
+	   						{
+	   							"title": "CF-MessageParseError",
+	   							"detail": "Request invalid due to parse error: invalid request body",
+	   							"code": 1001
+	   						}
+	   					]
+	   				}`), "Response body matches response:")
 			})
 		})
 
 		When("the request body includes an unknown description field", func() {
 			BeforeEach(func() {
-				makePostRequest(`{"description" : "Invalid Request"}`)
+				requestBody = `{"description" : "Invalid Request"}`
 			})
 
 			It("returns an error", func() {
@@ -720,20 +744,20 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the host is missing", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
-					"relationships": {
-						"domain": {
-							"data": {
-								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-							}
-						},
-						"space": {
-							"data": {
-								"guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
-							}
-						}
-					}
-				}`)
+				requestBody = `{
+	   					"relationships": {
+	   						"domain": {
+	   							"data": {
+	   								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
+	   							}
+	   						},
+	   						"space": {
+	   							"data": {
+	   								"guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
+	   							}
+	   						}
+	   					}
+	   				}`
 			})
 
 			It("returns an error", func() {
@@ -743,16 +767,16 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the host is not a string", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
-					"host": 12345,
-					"relationships": {
-						"space": {
-							"data": {
-								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
-							}
-						}
-					}
-				}`)
+				requestBody = `{
+	   					"host": 12345,
+	   					"relationships": {
+	   						"space": {
+	   							"data": {
+	   								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+	   							}
+	   						}
+	   					}
+	   				}`
 			})
 
 			It("returns an error", func() {
@@ -762,21 +786,21 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the host format is invalid", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
-					"host": "!-invalid-hostname-!",
-					"relationships": {
-						"domain": {
-							"data": {
-								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-							}
-						},
-						"space": {
-							"data": {
-								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
-							}
-						}
-					}
-				}`)
+				requestBody = `{
+	   					"host": "!-invalid-hostname-!",
+	   					"relationships": {
+	   						"domain": {
+	   							"data": {
+	   								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
+	   							}
+	   						},
+	   						"space": {
+	   							"data": {
+	   								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+	   							}
+	   						}
+	   					}
+	   				}`
 			})
 
 			It("returns an error", func() {
@@ -786,21 +810,21 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the host too long", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
-					"host": "a-really-long-hostname-that-is-not-valid-according-to-the-dns-rfc",
-					"relationships": {
-						"domain": {
-							"data": {
-								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-							}
-						},
-						"space": {
-							"data": {
-								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
-							}
-						}
-					}
-				}`)
+				requestBody = `{
+	   					"host": "a-really-long-hostname-that-is-not-valid-according-to-the-dns-rfc",
+	   					"relationships": {
+	   						"domain": {
+	   							"data": {
+	   								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
+	   							}
+	   						},
+	   						"space": {
+	   							"data": {
+	   								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+	   							}
+	   						}
+	   					}
+	   				}`
 			})
 
 			It("returns an error", func() {
@@ -810,22 +834,22 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the path is missing a leading /", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
-					"host": "test-route-host",
-					"path": "invalid/path",
-					 "relationships": {
-						"domain": {
-							"data": {
-								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-							}
-						},
-						"space": {
-							"data": {
-								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
-							}
-						}
-					}
-				}`)
+				requestBody = `{
+	   					"host": "test-route-host",
+	   					"path": "invalid/path",
+	   					 "relationships": {
+	   						"domain": {
+	   							"data": {
+	   								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
+	   							}
+	   						},
+	   						"space": {
+	   							"data": {
+	   								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+	   							}
+	   						}
+	   					}
+	   				}`
 			})
 
 			It("returns an error", func() {
@@ -835,16 +859,16 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the request body is missing the domain relationship", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
-					"host": "test-route-host",
-					"relationships": {
-						"space": {
-							"data": {
-								"guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
-							}
-						}
-					}
-				}`)
+				requestBody = `{
+	   					"host": "test-route-host",
+	   					"relationships": {
+	   						"space": {
+	   							"data": {
+	   								"guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
+	   							}
+	   						}
+	   					}
+	   				}`
 			})
 
 			It("returns an error", func() {
@@ -854,16 +878,16 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the request body is missing the space relationship", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
-					"host": "test-route-host",
-					"relationships": {
-						"domain": {
-							"data": {
-								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-							}
-						}
-					}
-				}`)
+				requestBody = `{
+	   					"host": "test-route-host",
+	   					"relationships": {
+	   						"domain": {
+	   							"data": {
+	   								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
+	   							}
+	   						}
+	   					}
+	   				}`
 			})
 
 			It("returns an error", func() {
@@ -876,8 +900,7 @@ var _ = Describe("RouteHandler", func() {
 				appRepo.GetNamespaceReturns(repositories.SpaceRecord{},
 					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")})
 
-				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, "no-such-space", testDomainGUID, nil, nil)
-				makePostRequest(requestBody)
+				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, "no-such-space", testDomainGUID, nil, nil)
 			})
 
 			It("returns an error", func() {
@@ -890,8 +913,7 @@ var _ = Describe("RouteHandler", func() {
 				appRepo.GetNamespaceReturns(repositories.SpaceRecord{},
 					errors.New("random error"))
 
-				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, "no-such-space", testDomainGUID, nil, nil)
-				makePostRequest(requestBody)
+				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, "no-such-space", testDomainGUID, nil, nil)
 			})
 
 			It("returns an error", func() {
@@ -908,8 +930,7 @@ var _ = Describe("RouteHandler", func() {
 				domainRepo.GetDomainReturns(repositories.DomainRecord{},
 					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")})
 
-				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
-				makePostRequest(requestBody)
+				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
 			})
 
 			It("returns an error", func() {
@@ -926,8 +947,7 @@ var _ = Describe("RouteHandler", func() {
 				domainRepo.GetDomainReturns(repositories.DomainRecord{},
 					errors.New("random error"))
 
-				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
-				makePostRequest(requestBody)
+				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
 			})
 
 			It("returns an error", func() {
@@ -949,8 +969,7 @@ var _ = Describe("RouteHandler", func() {
 				routeRepo.CreateRouteReturns(repositories.RouteRecord{},
 					errors.New("random error"))
 
-				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
-				makePostRequest(requestBody)
+				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
 			})
 
 			It("returns an error", func() {
@@ -958,20 +977,40 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("authrorization.Info is not set in the request context", func() {
+		When("authentication is invalid", func() {
 			BeforeEach(func() {
-				ctx = context.Background()
-				requestBody := initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
-				makePostRequest(requestBody)
+				routeRepo.CreateRouteReturns(repositories.RouteRecord{}, authorization.InvalidAuthError{})
 			})
 
-			It("returns an unknown error", func() {
-				expectUnknownError()
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+	                "errors": [
+						{
+							"detail": "Invalid Auth Token",
+							"title": "CF-InvalidAuthToken",
+							"code": 1000
+						}
+	                ]
+	            }`))
+			})
+		})
+
+		When("authentication is not provided", func() {
+			BeforeEach(func() {
+				routeRepo.CreateRouteReturns(repositories.RouteRecord{}, authorization.NotAuthenticatedError{})
+			})
+
+			It("returns Unauthorized error", func() {
+				expectNotAuthenticatedError()
 			})
 		})
 	})
 
 	Describe("the GET /v3/routes/:guid/destinations endpoint", func() {
+		var routeRecord repositories.RouteRecord
+
 		BeforeEach(func() {
 			routeRecord = repositories.RouteRecord{
 				GUID:      testRouteGUID,
@@ -1002,13 +1041,9 @@ var _ = Describe("RouteHandler", func() {
 			}
 			routeRepo.GetRouteReturns(routeRecord, nil)
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("/v3/routes/%s/destinations", testRouteGUID), nil)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		JustBeforeEach(func() {
-			router.ServeHTTP(rr, req)
+			requestMethod = http.MethodGet
+			requestPath = fmt.Sprintf("/v3/routes/%s/destinations", testRouteGUID)
+			requestBody = ""
 		})
 
 		When("On the happy path and", func() {
@@ -1030,41 +1065,41 @@ var _ = Describe("RouteHandler", func() {
 
 				It("returns the Destinations in the response", func() {
 					expectedBody := fmt.Sprintf(`{
-						"destinations": [
-							{
-								"guid": "%[3]s",
-								"app": {
-									"guid": "%[4]s",
-									"process": {
-										"type": "%[5]s"
-									}
+							"destinations": [
+								{
+									"guid": "%[3]s",
+									"app": {
+										"guid": "%[4]s",
+										"process": {
+											"type": "%[5]s"
+										}
+									},
+									"weight": null,
+									"port": %[6]d,
+									"protocol": "http1"
 								},
-								"weight": null,
-								"port": %[6]d,
-								"protocol": "http1"
-							},
-							{
-								"guid": "%[7]s",
-								"app": {
-									"guid": "%[8]s",
-									"process": {
-										"type": "%[9]s"
-									}
+								{
+									"guid": "%[7]s",
+									"app": {
+										"guid": "%[8]s",
+										"process": {
+											"type": "%[9]s"
+										}
+									},
+									"weight": null,
+									"port": %[10]d,
+									"protocol": "http1"
+								}
+							],
+							"links": {
+								"self": {
+									"href": "%[1]s/v3/routes/%[2]s/destinations"
 								},
-								"weight": null,
-								"port": %[10]d,
-								"protocol": "http1"
+								"route": {
+									"href": "%[1]s/v3/routes/%[2]s"
+								}
 							}
-						],
-						"links": {
-							"self": {
-								"href": "%[1]s/v3/routes/%[2]s/destinations"
-							},
-							"route": {
-								"href": "%[1]s/v3/routes/%[2]s"
-							}
-						}
-					}`, defaultServerURL, testRouteGUID,
+						}`, defaultServerURL, testRouteGUID,
 						routeRecord.Destinations[0].GUID, routeRecord.Destinations[0].AppGUID, routeRecord.Destinations[0].ProcessType, routeRecord.Destinations[0].Port,
 						routeRecord.Destinations[1].GUID, routeRecord.Destinations[1].AppGUID, routeRecord.Destinations[1].ProcessType, routeRecord.Destinations[1].Port)
 
@@ -1100,16 +1135,16 @@ var _ = Describe("RouteHandler", func() {
 
 				It("returns no Destinations in the response", func() {
 					expectedBody := fmt.Sprintf(`{
-						"destinations": [],
-						"links": {
-							"self": {
-								"href": "%[1]s/v3/routes/%[2]s/destinations"
-							},
-							"route": {
-								"href": "%[1]s/v3/routes/%[2]s"
+							"destinations": [],
+							"links": {
+								"self": {
+									"href": "%[1]s/v3/routes/%[2]s/destinations"
+								},
+								"route": {
+									"href": "%[1]s/v3/routes/%[2]s"
+								}
 							}
-						}
-					}`, defaultServerURL, testRouteGUID)
+						}`, defaultServerURL, testRouteGUID)
 
 					Expect(rr.Body.String()).To(MatchJSON(expectedBody), "Response body matches response:")
 				})
@@ -1131,21 +1166,38 @@ var _ = Describe("RouteHandler", func() {
 				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("unknown!"))
 			})
 
-			It("returns an errror", func() {
+			It("returns an error", func() {
 				expectUnknownError()
 			})
 		})
 
-		When("authrorization.Info is not set in the request context", func() {
+		When("authentication is invalid", func() {
 			BeforeEach(func() {
-				ctx = context.Background()
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("/v3/routes/%s/destinations", testRouteGUID), nil)
-				Expect(err).NotTo(HaveOccurred())
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.InvalidAuthError{})
 			})
 
-			It("returns an unknown error", func() {
-				expectUnknownError()
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+	                "errors": [
+						{
+							"detail": "Invalid Auth Token",
+							"title": "CF-InvalidAuthToken",
+							"code": 1000
+						}
+	                ]
+	            }`))
+			})
+		})
+
+		When("authentication is not provided", func() {
+			BeforeEach(func() {
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.NotAuthenticatedError{})
+			})
+
+			It("returns Unauthorized error", func() {
+				expectNotAuthenticatedError()
 			})
 		})
 	})
@@ -1164,18 +1216,10 @@ var _ = Describe("RouteHandler", func() {
 			destination2GUID        = "destination2-guid"
 		)
 
-		var domain repositories.DomainRecord
-
-		makePostRequest := func(requestBody string, sprintfArgs ...interface{}) {
-			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/routes/"+routeGUID+"/destinations",
-				strings.NewReader(
-					fmt.Sprintf(requestBody, sprintfArgs...),
-				),
-			)
-			Expect(err).NotTo(HaveOccurred())
-
-			router.ServeHTTP(rr, req)
-		}
+		var (
+			domain      repositories.DomainRecord
+			routeRecord repositories.RouteRecord
+		)
 
 		BeforeEach(func() {
 			routeRecord = repositories.RouteRecord{
@@ -1195,58 +1239,52 @@ var _ = Describe("RouteHandler", func() {
 
 			routeRepo.GetRouteReturns(routeRecord, nil)
 			domainRepo.GetDomainReturns(domain, nil)
+
+			updatedRoute := routeRecord
+			updatedRoute.Domain = domain
+			updatedRoute.Destinations = []repositories.DestinationRecord{
+				{
+					GUID:        destination1GUID,
+					AppGUID:     destination1AppGUID,
+					ProcessType: "web",
+					Port:        8080,
+					Protocol:    "http1",
+				},
+				{
+					GUID:        destination2GUID,
+					AppGUID:     destination2AppGUID,
+					ProcessType: destination2ProcessType,
+					Port:        destination2Port,
+					Protocol:    "http1",
+				},
+			}
+			routeRepo.AddDestinationsToRouteReturns(updatedRoute, nil)
+
+			requestMethod = http.MethodPost
+			requestPath = "/v3/routes/" + routeGUID + "/destinations"
+			requestBody = fmt.Sprintf(`{
+						"destinations": [
+							{
+								"app": {
+									"guid": %q
+								},
+								"protocol": "http1"
+							},
+							{
+								"app": {
+									"guid": %q,
+									"process": {
+										"type": %q
+									}
+								},
+								"port": %d,
+								"protocol": "http1"
+							}
+						]
+					}`, destination1AppGUID, destination2AppGUID, destination2ProcessType, destination2Port)
 		})
 
 		When("the request body is valid", func() {
-			var destinationPayload string
-
-			BeforeEach(func() {
-				updatedRoute := routeRecord
-				updatedRoute.Domain = domain
-				updatedRoute.Destinations = []repositories.DestinationRecord{
-					{
-						GUID:        destination1GUID,
-						AppGUID:     destination1AppGUID,
-						ProcessType: "web",
-						Port:        8080,
-						Protocol:    "http1",
-					},
-					{
-						GUID:        destination2GUID,
-						AppGUID:     destination2AppGUID,
-						ProcessType: destination2ProcessType,
-						Port:        destination2Port,
-						Protocol:    "http1",
-					},
-				}
-				routeRepo.AddDestinationsToRouteReturns(updatedRoute, nil)
-
-				destinationPayload = `{
-					"destinations": [
-						{
-							"app": {
-								"guid": %q
-							},
-							"protocol": "http1"
-						},
-						{
-							"app": {
-								"guid": %q,
-								"process": {
-									"type": %q
-								}
-							},
-							"port": %d,
-							"protocol": "http1"
-						}
-					]
-				}`
-			})
-
-			JustBeforeEach(func() {
-				makePostRequest(destinationPayload, destination1AppGUID, destination2AppGUID, destination2ProcessType, destination2Port)
-			})
-
 			It("passes the authInfo into the repo calls", func() {
 				Expect(routeRepo.GetRouteCallCount()).To(Equal(1))
 				_, actualAuthInfo, _ := routeRepo.GetRouteArgsForCall(0)
@@ -1345,7 +1383,7 @@ var _ = Describe("RouteHandler", func() {
 
 			When("the destination protocol is not provided", func() {
 				BeforeEach(func() {
-					destinationPayload = `{
+					requestBody = fmt.Sprintf(`{
 						"destinations": [
 							{
 								"app": {
@@ -1359,12 +1397,12 @@ var _ = Describe("RouteHandler", func() {
 										"type": %q
 									}
 								},
-								"port": %d
+								"port": %d,
+								"protocol": "http1"
 							}
 						]
-					}`
+					}`, destination1AppGUID, destination2AppGUID, destination2ProcessType, destination2Port)
 				})
-
 				It("defaults the protocol to `http1`", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 
@@ -1383,6 +1421,7 @@ var _ = Describe("RouteHandler", func() {
 					Expect(destination["protocol"]).To(Equal("http1"))
 				})
 			})
+
 			When("fetching the route errors", func() {
 				BeforeEach(func() {
 					routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
@@ -1407,13 +1446,43 @@ var _ = Describe("RouteHandler", func() {
 				})
 			})
 
-			When("auth info is not set in the context", func() {
+			When("authentication is invalid", func() {
 				BeforeEach(func() {
-					ctx = context.Background()
+					routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.InvalidAuthError{})
 				})
 
-				It("responds with an Unknown Error", func() {
-					expectUnknownError()
+				It("returns Unauthorized error", func() {
+					Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+					Expect(rr.Body.String()).To(MatchJSON(`{
+	                "errors": [
+						{
+							"detail": "Invalid Auth Token",
+							"title": "CF-InvalidAuthToken",
+							"code": 1000
+						}
+	                ]
+	            }`))
+				})
+			})
+
+			When("authentication is not provided", func() {
+				BeforeEach(func() {
+					routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.NotAuthenticatedError{})
+				})
+
+				It("returns Unauthorized error", func() {
+					expectNotAuthenticatedError()
+				})
+			})
+
+			When("user is not allowed to create a route", func() {
+				BeforeEach(func() {
+					routeRepo.AddDestinationsToRouteReturns(repositories.RouteRecord{}, repositories.NewForbiddenError(errors.New("nope")))
+				})
+
+				It("returns an unauthorised error", func() {
+					expectUnauthorizedError()
 				})
 			})
 		})
@@ -1421,7 +1490,7 @@ var _ = Describe("RouteHandler", func() {
 		When("the request body is invalid", func() {
 			When("JSON is invalid", func() {
 				BeforeEach(func() {
-					makePostRequest(`{ this_is_a_invalid_json }`)
+					requestBody = `{ this_is_a_invalid_json }`
 				})
 
 				It("returns a status 400 Bad Request ", func() {
@@ -1432,27 +1501,27 @@ var _ = Describe("RouteHandler", func() {
 					Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
 
 					Expect(rr.Body.String()).To(MatchJSON(`{
-						"errors": [
-							{
-								"title": "CF-MessageParseError",
-								"detail": "Request invalid due to parse error: invalid request body",
-								"code": 1001
-							}
-						]
-					}`), "Response body matches response:")
+							"errors": [
+								{
+									"title": "CF-MessageParseError",
+									"detail": "Request invalid due to parse error: invalid request body",
+									"code": 1001
+								}
+							]
+						}`), "Response body matches response:")
 				})
 			})
 
 			When("app is missing", func() {
 				BeforeEach(func() {
-					makePostRequest(`{
-						"destinations": [
-						  {
-							"port": 9000,
-							"protocol": "http1"
-						  }
-						]
-					}`)
+					requestBody = `{
+							"destinations": [
+							  {
+								"port": 9000,
+								"protocol": "http1"
+							  }
+							]
+						}`
 				})
 
 				It("returns a status 422 Unprocessable Entity ", func() {
@@ -1466,15 +1535,15 @@ var _ = Describe("RouteHandler", func() {
 
 			When("app GUID is missing", func() {
 				BeforeEach(func() {
-					makePostRequest(`{
-						"destinations": [
-						  {
-							"app": {},
-							"port": 9000,
-							"protocol": "http1"
-						  }
-						]
-					}`)
+					requestBody = `{
+							"destinations": [
+							  {
+								"app": {},
+								"port": 9000,
+								"protocol": "http1"
+							  }
+							]
+						}`
 				})
 
 				It("returns a status 422 Unprocessable Entity ", func() {
@@ -1488,18 +1557,18 @@ var _ = Describe("RouteHandler", func() {
 
 			When("process type is missing", func() {
 				BeforeEach(func() {
-					makePostRequest(`{
-						"destinations": [
-							{
-								"app": {
-									"guid": "01856e12-8ee8-11e9-98a5-bb397dbc818f",
-									"process": {}
-								},
-								"port": 9000,
-								"protocol": "http1"
-							}
-						]
-					}`)
+					requestBody = `{
+							"destinations": [
+								{
+									"app": {
+										"guid": "01856e12-8ee8-11e9-98a5-bb397dbc818f",
+										"process": {}
+									},
+									"port": 9000,
+									"protocol": "http1"
+								}
+							]
+						}`
 				})
 
 				It("returns a status 422 Unprocessable Entity ", func() {
@@ -1513,17 +1582,17 @@ var _ = Describe("RouteHandler", func() {
 
 			When("destination protocol is not http1", func() {
 				BeforeEach(func() {
-					makePostRequest(`{
-						"destinations": [
-						  {
-							"app": {
-							  "guid": "01856e12-8ee8-11e9-98a5-bb397dbc818f"
-							},
-							"port": 9000,
-							"protocol": "http"
-						  }
-						]
-					}`)
+					requestBody = `{
+							"destinations": [
+							  {
+								"app": {
+								  "guid": "01856e12-8ee8-11e9-98a5-bb397dbc818f"
+								},
+								"port": 9000,
+								"protocol": "http"
+							  }
+							]
+						}`
 				})
 
 				It("returns a status 422 Unprocessable Entity ", func() {
@@ -1533,6 +1602,128 @@ var _ = Describe("RouteHandler", func() {
 				It("doesn't add any destinations to a route", func() {
 					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
 				})
+			})
+		})
+	})
+
+	Describe("the DELETE /v3/routes/:guid endpoint", func() {
+		BeforeEach(func() {
+			requestMethod = http.MethodDelete
+			requestPath = "/v3/routes/" + testRouteGUID
+
+			routeRepo.GetRouteReturns(repositories.RouteRecord{
+				GUID:      testRouteGUID,
+				SpaceGUID: testSpaceGUID,
+				Domain: repositories.DomainRecord{
+					Name: testDomainName,
+					GUID: testDomainGUID,
+				},
+			}, nil)
+			routeRepo.DeleteRouteReturns(nil)
+		})
+
+		When("on the happy path", func() {
+			It("responds with a 202 accepted response", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+			})
+
+			It("responds with a job URL in a location header", func() {
+				Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/route.delete-"+testRouteGUID))
+			})
+
+			It("fetches the right route", func() {
+				Expect(routeRepo.GetRouteCallCount()).To(Equal(1))
+				_, info, actualRouteGUID := routeRepo.GetRouteArgsForCall(0)
+				Expect(info).To(Equal(authInfo))
+				Expect(actualRouteGUID).To(Equal(testRouteGUID))
+			})
+
+			It("deletes the K8s record via the repository", func() {
+				Expect(routeRepo.DeleteRouteCallCount()).To(Equal(1))
+				_, info, deleteMessage := routeRepo.DeleteRouteArgsForCall(0)
+				Expect(info).To(Equal(authInfo))
+				Expect(deleteMessage.GUID).To(Equal(testRouteGUID))
+				Expect(deleteMessage.SpaceGUID).To(Equal(testSpaceGUID))
+			})
+		})
+
+		When("authentication is invalid", func() {
+			BeforeEach(func() {
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.InvalidAuthError{})
+			})
+
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+			                "errors": [
+								{
+									"detail": "Invalid Auth Token",
+									"title": "CF-InvalidAuthToken",
+									"code": 1000
+								}
+			                ]
+			            }`))
+			})
+		})
+
+		When("authentication is not provided", func() {
+			BeforeEach(func() {
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.NotAuthenticatedError{})
+			})
+
+			It("returns Unauthorized error", func() {
+				expectNotAuthenticatedError()
+			})
+		})
+
+		When("providing the route repository fails", func() {
+			BeforeEach(func() {
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("space-repo-provisioning-failed"))
+			})
+
+			It("returns unknown error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the route doesn't exist", func() {
+			BeforeEach(func() {
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Route not found")
+			})
+		})
+
+		When("fetching the route errors", func() {
+			BeforeEach(func() {
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("deleting the route is not authorized", func() {
+			BeforeEach(func() {
+				routeRepo.DeleteRouteReturns(authorization.InvalidAuthError{Err: errors.New("boom")})
+			})
+
+			It("returns a 403 error", func() {
+				expectUnauthorizedError()
+			})
+		})
+
+		When("deleting the route errors", func() {
+			BeforeEach(func() {
+				routeRepo.DeleteRouteReturns(errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
