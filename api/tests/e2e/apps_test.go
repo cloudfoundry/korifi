@@ -3,7 +3,6 @@ package e2e_test
 import (
 	"net/http"
 	"sync"
-	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -147,7 +146,7 @@ var _ = Describe("Apps", func() {
 			Eventually(func() error {
 				_, err := get("/v3/droplets/"+build.GUID, adminAuthHeader)
 				return err
-			}).WithTimeout(4 * time.Minute).WithPolling(time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		Describe("get current droplet", func() {
