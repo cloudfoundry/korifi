@@ -223,91 +223,14 @@ func createClusterRole(ctx context.Context, rules []rbacv1.PolicyRule) *rbacv1.C
 	return clusterRole
 }
 
-var (
-	adminClusterRoleRules = []rbacv1.PolicyRule{
-		{
-			Verbs:     []string{"create", "delete"},
-			APIGroups: []string{"rbac.authorization.k8s.io"},
-			Resources: []string{"rolebindings"},
-		},
-		{
-			Verbs:     []string{"create"},
-			APIGroups: []string{"hnc.x-k8s.io"},
-			Resources: []string{"subnamespaceanchors"},
-		},
-	}
-
-	spaceDeveloperClusterRoleRules = []rbacv1.PolicyRule{
-		{
-			Verbs:     []string{"get", "patch"},
-			APIGroups: []string{""},
-			Resources: []string{"secrets"},
-		},
-		{
-			Verbs:     []string{"get", "list", "create", "patch", "delete"},
-			APIGroups: []string{"workloads.cloudfoundry.org"},
-			Resources: []string{"cfapps"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{"kpack.io"},
-			Resources: []string{"clusterbuilders"},
-		},
-	}
-
-	spaceAuditorClusterRoleRules = []rbacv1.PolicyRule{
-		{
-			Verbs:     []string{"get", "list"},
-			APIGroups: []string{"workloads.cloudfoundry.org"},
-			Resources: []string{"cfapps"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{"kpack.io"},
-			Resources: []string{"clusterbuilders"},
-		},
-	}
-
-	orgManagerClusterRoleRules = []rbacv1.PolicyRule{
-		{
-			Verbs:     []string{"list", "delete"},
-			APIGroups: []string{"hnc.x-k8s.io"},
-			Resources: []string{"subnamespaceanchors"},
-		},
-		{
-			Verbs:     []string{"get", "update"},
-			APIGroups: []string{"hnc.x-k8s.io"},
-			Resources: []string{"hierarchyconfigurations"},
-		},
-	}
-
-	orgUserClusterRoleRules = []rbacv1.PolicyRule{}
-)
-
 func createAdminClusterRole(ctx context.Context) *rbacv1.ClusterRole {
 	rules := []rbacv1.PolicyRule{}
 
-	rules = append(rules, adminClusterRoleRules...)
-	rules = append(rules, spaceDeveloperClusterRoleRules...)
-	rules = append(rules, spaceAuditorClusterRoleRules...)
-	rules = append(rules, orgManagerClusterRoleRules...)
-	rules = append(rules, orgUserClusterRoleRules...)
+	rules = append(rules, repositories.AdminClusterRoleRules...)
+	rules = append(rules, repositories.SpaceDeveloperClusterRoleRules...)
+	rules = append(rules, repositories.SpaceAuditorClusterRoleRules...)
+	rules = append(rules, repositories.OrgManagerClusterRoleRules...)
+	rules = append(rules, repositories.OrgUserClusterRoleRules...)
 
 	return createClusterRole(ctx, rules)
-}
-
-func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {
-	return createClusterRole(ctx, spaceDeveloperClusterRoleRules)
-}
-
-func createSpaceAuditorClusterRole(ctx context.Context) *rbacv1.ClusterRole {
-	return createClusterRole(ctx, spaceAuditorClusterRoleRules)
-}
-
-func createOrgManagerClusterRole(ctx context.Context) *rbacv1.ClusterRole {
-	return createClusterRole(ctx, orgManagerClusterRoleRules)
-}
-
-func createOrgUserClusterRole(ctx context.Context) *rbacv1.ClusterRole {
-	return createClusterRole(ctx, orgUserClusterRoleRules)
 }

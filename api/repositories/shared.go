@@ -3,6 +3,7 @@ package repositories
 import (
 	"errors"
 
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,3 +60,73 @@ func getLabelOrAnnotation(mapObj map[string]string, key string) string {
 	}
 	return mapObj[key]
 }
+
+//  common permissions shared between multiple test packages
+var (
+	AdminClusterRoleRules = []rbacv1.PolicyRule{
+		{
+			Verbs:     []string{"create", "delete"},
+			APIGroups: []string{"rbac.authorization.k8s.io"},
+			Resources: []string{"rolebindings"},
+		},
+		{
+			Verbs:     []string{"create"},
+			APIGroups: []string{"hnc.x-k8s.io"},
+			Resources: []string{"subnamespaceanchors"},
+		},
+	}
+
+	SpaceDeveloperClusterRoleRules = []rbacv1.PolicyRule{
+		{
+			Verbs:     []string{"get", "patch"},
+			APIGroups: []string{""},
+			Resources: []string{"secrets"},
+		},
+		{
+			Verbs:     []string{"get", "list", "create", "patch", "delete"},
+			APIGroups: []string{"workloads.cloudfoundry.org"},
+			Resources: []string{"cfapps"},
+		},
+		{
+			Verbs:     []string{"get"},
+			APIGroups: []string{"kpack.io"},
+			Resources: []string{"clusterbuilders"},
+		},
+	}
+
+	SpaceManagerClusterRoleRules = []rbacv1.PolicyRule{
+		{
+			Verbs:     []string{"get"},
+			APIGroups: []string{"workloads.cloudfoundry.org"},
+			Resources: []string{"cfapps"},
+		},
+	}
+
+	SpaceAuditorClusterRoleRules = []rbacv1.PolicyRule{
+		{
+			Verbs:     []string{"get", "list"},
+			APIGroups: []string{"workloads.cloudfoundry.org"},
+			Resources: []string{"cfapps"},
+		},
+		{
+			Verbs:     []string{"get"},
+			APIGroups: []string{"kpack.io"},
+			Resources: []string{"clusterbuilders"},
+		},
+	}
+
+	OrgManagerClusterRoleRules = []rbacv1.PolicyRule{
+		{
+			Verbs:     []string{"list", "delete"},
+			APIGroups: []string{"hnc.x-k8s.io"},
+			Resources: []string{"subnamespaceanchors"},
+		},
+		{
+			Verbs:     []string{"get", "update"},
+			APIGroups: []string{"hnc.x-k8s.io"},
+			Resources: []string{"hierarchyconfigurations"},
+		},
+	}
+
+	OrgUserClusterRoleRules = []rbacv1.PolicyRule{}
+)

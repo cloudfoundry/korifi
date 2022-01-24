@@ -158,19 +158,13 @@ var _ = Describe("Apps", func() {
 				response, httpErr = get("/v3/apps/"+app.GUID+"/droplets/current", certAuthHeader)
 			})
 
-			It("returns 404 when user isn't authorized", func() {
-				Expect(httpErr).To(MatchError(ContainSubstring("bad status: 404")))
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
 			})
 
-			When("user has space developer role", func() {
-				BeforeEach(func() {
-					createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
-				})
-
-				It("succeeds", func() {
-					Expect(httpErr).NotTo(HaveOccurred())
-					Expect(response).To(HaveKeyWithValue("state", "STAGED"))
-				})
+			It("succeeds", func() {
+				Expect(httpErr).NotTo(HaveOccurred())
+				Expect(response).To(HaveKeyWithValue("state", "STAGED"))
 			})
 		})
 
@@ -185,31 +179,13 @@ var _ = Describe("Apps", func() {
 				})
 			})
 
-			When("the user has no access to the app", func() {
-				It("returns 404", func() {
-					Expect(httpErr).To(MatchError(ContainSubstring("bad status: 404")))
-				})
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
 			})
 
-			When("the user has read-only access to the app", func() {
-				BeforeEach(func() {
-					createSpaceRole("space_manager", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
-				})
-
-				It("returns 403", func() {
-					Expect(httpErr).To(MatchError(ContainSubstring("bad status: 403")))
-				})
-			})
-
-			When("the user has read-write access to the app", func() {
-				BeforeEach(func() {
-					createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
-				})
-
-				It("returns 200", func() {
-					Expect(httpErr).NotTo(HaveOccurred())
-					Expect(response).To(HaveKeyWithValue("data", HaveKeyWithValue("guid", build.GUID)))
-				})
+			It("returns 200", func() {
+				Expect(httpErr).NotTo(HaveOccurred())
+				Expect(response).To(HaveKeyWithValue("data", HaveKeyWithValue("guid", build.GUID)))
 			})
 		})
 	})

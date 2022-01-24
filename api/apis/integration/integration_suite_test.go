@@ -117,23 +117,12 @@ func generateGUID() string {
 	return uuid.NewString()
 }
 
-func createSpaceDeveloperClusterRole(ctx context.Context) *rbacv1.ClusterRole {
+func createClusterRole(ctx context.Context, rules []rbacv1.PolicyRule) *rbacv1.ClusterRole {
 	clusterRole := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: generateGUID(),
 		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"list", "create", "delete"},
-				APIGroups: []string{"workloads.cloudfoundry.org"},
-				Resources: []string{"cfapps"},
-			},
-			{
-				Verbs:     []string{"get"},
-				APIGroups: []string{""},
-				Resources: []string{"secrets"},
-			},
-		},
+		Rules: rules,
 	}
 	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
 

@@ -109,7 +109,7 @@ var _ = Describe("BuildpackRepository", func() {
 			When("auth is enabled", func() {
 				It("returns records matching the buildpacks of the ClusterBuilder and no error", func() {
 					buildpackRepo = NewBuildpackRepository(k8sClient, clientFactory, true)
-					spaceDeveloperClusterRole = createSpaceDeveloperClusterRole(beforeCtx)
+					spaceDeveloperClusterRole = createClusterRole(beforeCtx, repositories.SpaceDeveloperClusterRoleRules)
 					createClusterRoleBinding(beforeCtx, userName, spaceDeveloperClusterRole.Name)
 
 					buildpackRecords, err := buildpackRepo.GetBuildpacksForBuilder(context.Background(), authInfo, clusterBuilder.Name)
