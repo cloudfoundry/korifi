@@ -30,6 +30,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 	certsv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -179,6 +180,15 @@ func createOrg(orgName, authHeader string) presenter.OrgResponse {
 	err = json.NewDecoder(resp.Body).Decode(&org)
 	Expect(err).NotTo(HaveOccurred())
 
+	Eventually(func() ([]rbacv1.RoleBinding, error) {
+		roleBindings := rbacv1.RoleBindingList{}
+		err := k8sClient.List(context.Background(), &roleBindings, client.InNamespace(org.GUID))
+		if err != nil {
+			return nil, err
+		}
+		return roleBindings.Items, nil
+	}).Should(ContainElement(HaveRoleBindingTo("cf-k8s-controllers-admin")))
+
 	return org
 }
 
@@ -235,6 +245,15 @@ func createSpace(spaceName, orgGUID, authHeader string) presenter.SpaceResponse 
 	space := presenter.SpaceResponse{}
 	err = json.NewDecoder(resp.Body).Decode(&space)
 	Expect(err).NotTo(HaveOccurred())
+
+	Eventually(func() ([]rbacv1.RoleBinding, error) {
+		roleBindings := rbacv1.RoleBindingList{}
+		err := k8sClient.List(context.Background(), &roleBindings, client.InNamespace(space.GUID))
+		if err != nil {
+			return nil, err
+		}
+		return roleBindings.Items, nil
+	}).Should(ContainElement(HaveRoleBindingTo("cf-k8s-controllers-admin")))
 
 	return space
 }
@@ -683,4 +702,29 @@ func uploadNodeApp(pkgGUID, authHeader string) {
 	resp, err := http.DefaultClient.Do(req)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
+}
+
+type roleBindingToRoleMatcher struct {
+	roleName string
+}
+
+func HaveRoleBindingTo(roleName string) gomegatypes.GomegaMatcher {
+	return &roleBindingToRoleMatcher{roleName: roleName}
+}
+
+func (m *roleBindingToRoleMatcher) Match(actual interface{}) (bool, error) {
+	roleBinding, ok := actual.(rbacv1.RoleBinding)
+	if !ok {
+		return false, fmt.Errorf("roleBindingToRoleMatcher matcher expects an rbacv1.RoleBinding")
+	}
+
+	return roleBinding.RoleRef.Name == m.roleName, nil
+}
+
+func (m *roleBindingToRoleMatcher) FailureMessage(actual interface{}) string {
+	return fmt.Sprintf("Expected\n\t%#v\nto be bond to role\n\t%#v", actual, m.roleName)
+}
+
+func (m *roleBindingToRoleMatcher) NegatedFailureMessage(actual interface{}) string {
+	return fmt.Sprintf("Expected\n\t%#v\nnot to be bond to role\n\t%#v", actual, m.roleName)
 }
