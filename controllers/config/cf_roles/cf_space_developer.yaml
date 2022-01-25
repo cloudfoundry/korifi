@@ -11,6 +11,7 @@ rules:
   verbs:
   - patch
   - get
+  - create
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
@@ -21,6 +22,12 @@ rules:
   - patch
   - delete
   - list
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - create
 - apiGroups:
   - networking.cloudfoundry.org
   resources:

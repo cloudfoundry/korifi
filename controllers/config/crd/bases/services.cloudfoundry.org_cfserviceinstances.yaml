@@ -51,7 +51,6 @@ spec:
             required:
             - name
             - secretName
-            - tags
             - type
             type: object
           status:
