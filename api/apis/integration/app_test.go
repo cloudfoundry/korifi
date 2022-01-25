@@ -167,6 +167,55 @@ var _ = Describe("App Handler", func() {
 		})
 	})
 
+	Describe("getting processes", func() {
+		var app *workloads.CFApp
+
+		BeforeEach(func() {
+			appGUID := generateGUID()
+
+			app = &workloads.CFApp{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      appGUID,
+					Namespace: namespace.Name,
+				},
+				Spec: workloads.CFAppSpec{
+					Name:         generateGUID(),
+					DesiredState: "STOPPED",
+					Lifecycle: workloads.Lifecycle{
+						Type: "buildpack",
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, app)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			req, err = http.NewRequestWithContext(ctx, http.MethodGet, serverURI("/v3/apps/"+app.Name+"/processes"), nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			router.ServeHTTP(rr, req)
+		})
+
+		When("the user is not authorized in the space", func() {
+			It("returns a not found status", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+			})
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+			})
+
+			It("returns the (empty) process list", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPBody(ContainSubstring(`"resources":[]`)), rr.Body.String())
+			})
+		})
+	})
+
 	Describe("droplets", func() {
 		var (
 			app     *workloads.CFApp
