@@ -30,7 +30,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	gomegatypes "github.com/onsi/gomega/types"
 	certsv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -46,7 +45,7 @@ import (
 )
 
 var (
-	k8sClient           client.Client
+	k8sClient           client.WithWatch
 	clientset           *kubernetes.Clientset
 	rootNamespace       string
 	apiServerRoot       string
@@ -79,7 +78,7 @@ var _ = BeforeSuite(func() {
 
 	adminAuthHeader = "ClientCert " + obtainAdminUserCert()
 
-	k8sClient, err = client.New(config, client.Options{Scheme: scheme.Scheme})
+	k8sClient, err = client.NewWithWatch(config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 
 	clientset, err = kubernetes.NewForConfig(config)
@@ -181,15 +180,7 @@ func createOrg(orgName, authHeader string) presenter.OrgResponse {
 	org := presenter.OrgResponse{}
 	err = json.NewDecoder(resp.Body).Decode(&org)
 	Expect(err).NotTo(HaveOccurred())
-
-	Eventually(func() ([]rbacv1.RoleBinding, error) {
-		roleBindings := rbacv1.RoleBindingList{}
-		err := k8sClient.List(context.Background(), &roleBindings, client.InNamespace(org.GUID))
-		if err != nil {
-			return nil, err
-		}
-		return roleBindings.Items, nil
-	}).Should(ContainElement(HaveRoleBindingTo("cf-k8s-controllers-admin")))
+	Expect(waitForAdminRoleBinding(org.GUID)).To(Succeed())
 
 	return org
 }
@@ -212,6 +203,12 @@ func asyncCreateOrg(orgName, authHeader string, createdOrg *presenter.OrgRespons
 
 		org := presenter.OrgResponse{}
 		err = json.NewDecoder(resp.Body).Decode(&org)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		err = waitForAdminRoleBinding(org.GUID)
 		if err != nil {
 			errChan <- err
 			return
@@ -247,15 +244,7 @@ func createSpace(spaceName, orgGUID, authHeader string) presenter.SpaceResponse 
 	space := presenter.SpaceResponse{}
 	err = json.NewDecoder(resp.Body).Decode(&space)
 	Expect(err).NotTo(HaveOccurred())
-
-	Eventually(func() ([]rbacv1.RoleBinding, error) {
-		roleBindings := rbacv1.RoleBindingList{}
-		err := k8sClient.List(context.Background(), &roleBindings, client.InNamespace(space.GUID))
-		if err != nil {
-			return nil, err
-		}
-		return roleBindings.Items, nil
-	}).Should(ContainElement(HaveRoleBindingTo("cf-k8s-controllers-admin")))
+	Expect(waitForAdminRoleBinding(space.GUID)).To(Succeed())
 
 	return space
 }
@@ -278,6 +267,12 @@ func asyncCreateSpace(spaceName, orgGUID, authHeader string, createdSpace *prese
 
 		space := presenter.SpaceResponse{}
 		err = json.NewDecoder(resp.Body).Decode(&space)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		err = waitForAdminRoleBinding(space.GUID)
 		if err != nil {
 			errChan <- err
 			return
@@ -706,27 +701,34 @@ func uploadNodeApp(pkgGUID, authHeader string) {
 	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
 }
 
-type roleBindingToRoleMatcher struct {
-	roleName string
-}
+func waitForAdminRoleBinding(namespace string) error {
+	timeout := 10 * time.Second
+	timeoutCtx, cancelFn := context.WithTimeout(context.Background(), timeout)
+	defer cancelFn()
 
-func HaveRoleBindingTo(roleName string) gomegatypes.GomegaMatcher {
-	return &roleBindingToRoleMatcher{roleName: roleName}
-}
-
-func (m *roleBindingToRoleMatcher) Match(actual interface{}) (bool, error) {
-	roleBinding, ok := actual.(rbacv1.RoleBinding)
-	if !ok {
-		return false, fmt.Errorf("roleBindingToRoleMatcher matcher expects an rbacv1.RoleBinding")
+	watch, err := k8sClient.Watch(timeoutCtx, &rbacv1.RoleBindingList{}, client.InNamespace(namespace))
+	if err != nil {
+		return fmt.Errorf("failed to create a rolebindings watch on namespace %s: %v", namespace, err)
 	}
 
-	return roleBinding.RoleRef.Name == m.roleName, nil
-}
+	adminRolebindingPropagated := false
+	for res := range watch.ResultChan() {
+		roleBinding, ok := res.Object.(*rbacv1.RoleBinding)
+		if !ok {
+			// should never happen, but avoids panic above
+			continue
+		}
+		if roleBinding.RoleRef.Name == "cf-k8s-controllers-admin" {
+			watch.Stop()
+			adminRolebindingPropagated = true
+			break
+		}
 
-func (m *roleBindingToRoleMatcher) FailureMessage(actual interface{}) string {
-	return fmt.Sprintf("Expected\n\t%#v\nto be bond to role\n\t%#v", actual, m.roleName)
-}
+	}
 
-func (m *roleBindingToRoleMatcher) NegatedFailureMessage(actual interface{}) string {
-	return fmt.Sprintf("Expected\n\t%#v\nnot to be bond to role\n\t%#v", actual, m.roleName)
+	if !adminRolebindingPropagated {
+		return fmt.Errorf("role binding to role 'cf-k8s-controllers-admin' has not been propagated within timeout period %d ms", timeout.Milliseconds())
+	}
+
+	return nil
 }
