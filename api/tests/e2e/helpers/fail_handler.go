@@ -46,6 +46,12 @@ func E2EFailHandler(message string, callerSkip ...int) {
 		},
 	})
 
+	if len(callerSkip) > 0 {
+		callerSkip[0] = callerSkip[0] + 1
+	} else {
+		callerSkip = []int{1}
+	}
+
 	ginkgo.Fail(message, callerSkip...)
 }
 
