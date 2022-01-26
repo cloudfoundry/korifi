@@ -329,14 +329,14 @@ func createRoleRaw(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHea
 // You should probably invoke this via createOrgRole or createSpaceRole
 func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader string) presenter.RoleResponse {
 	resp, err := createRoleRaw(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader)
-	ExpectWithOffset(3, err).NotTo(HaveOccurred())
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 
-	ExpectWithOffset(3, resp).To(HaveHTTPStatus(http.StatusCreated))
+	ExpectWithOffset(2, resp).To(HaveHTTPStatus(http.StatusCreated))
 
 	role := presenter.RoleResponse{}
 	err = json.NewDecoder(resp.Body).Decode(&role)
-	ExpectWithOffset(3, err).NotTo(HaveOccurred())
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 
 	return role
 }
