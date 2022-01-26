@@ -361,9 +361,9 @@ var _ = Describe("OrgHandler", func() {
 
 			It("lists orgs using the repository", func() {
 				Expect(orgRepo.ListOrgsCallCount()).To(Equal(1))
-				_, info, names := orgRepo.ListOrgsArgsForCall(0)
+				_, info, message := orgRepo.ListOrgsArgsForCall(0)
 				Expect(info).To(Equal(authInfo))
-				Expect(names).To(BeEmpty())
+				Expect(message.Names).To(BeEmpty())
 			})
 
 			It("renders the orgs response", func() {
@@ -434,9 +434,9 @@ var _ = Describe("OrgHandler", func() {
 
 			It("filters by them", func() {
 				Expect(orgRepo.ListOrgsCallCount()).To(Equal(1))
-				_, info, names := orgRepo.ListOrgsArgsForCall(0)
+				_, info, message := orgRepo.ListOrgsArgsForCall(0)
 				Expect(info).To(Equal(authInfo))
-				Expect(names).To(ConsistOf("foo", "bar"))
+				Expect(message.Names).To(ConsistOf("foo", "bar"))
 			})
 		})
 

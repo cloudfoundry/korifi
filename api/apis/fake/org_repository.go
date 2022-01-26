@@ -39,12 +39,12 @@ type OrgRepository struct {
 	deleteOrgReturnsOnCall map[int]struct {
 		result1 error
 	}
-	ListOrgsStub        func(context.Context, authorization.Info, []string) ([]repositories.OrgRecord, error)
+	ListOrgsStub        func(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
 	listOrgsMutex       sync.RWMutex
 	listOrgsArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 []string
+		arg3 repositories.ListOrgsMessage
 	}
 	listOrgsReturns struct {
 		result1 []repositories.OrgRecord
@@ -187,22 +187,17 @@ func (fake *OrgRepository) DeleteOrgReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *OrgRepository) ListOrgs(arg1 context.Context, arg2 authorization.Info, arg3 []string) ([]repositories.OrgRecord, error) {
-	var arg3Copy []string
-	if arg3 != nil {
-		arg3Copy = make([]string, len(arg3))
-		copy(arg3Copy, arg3)
-	}
+func (fake *OrgRepository) ListOrgs(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListOrgsMessage) ([]repositories.OrgRecord, error) {
 	fake.listOrgsMutex.Lock()
 	ret, specificReturn := fake.listOrgsReturnsOnCall[len(fake.listOrgsArgsForCall)]
 	fake.listOrgsArgsForCall = append(fake.listOrgsArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 []string
-	}{arg1, arg2, arg3Copy})
+		arg3 repositories.ListOrgsMessage
+	}{arg1, arg2, arg3})
 	stub := fake.ListOrgsStub
 	fakeReturns := fake.listOrgsReturns
-	fake.recordInvocation("ListOrgs", []interface{}{arg1, arg2, arg3Copy})
+	fake.recordInvocation("ListOrgs", []interface{}{arg1, arg2, arg3})
 	fake.listOrgsMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
@@ -219,13 +214,13 @@ func (fake *OrgRepository) ListOrgsCallCount() int {
 	return len(fake.listOrgsArgsForCall)
 }
 
-func (fake *OrgRepository) ListOrgsCalls(stub func(context.Context, authorization.Info, []string) ([]repositories.OrgRecord, error)) {
+func (fake *OrgRepository) ListOrgsCalls(stub func(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)) {
 	fake.listOrgsMutex.Lock()
 	defer fake.listOrgsMutex.Unlock()
 	fake.ListOrgsStub = stub
 }
 
-func (fake *OrgRepository) ListOrgsArgsForCall(i int) (context.Context, authorization.Info, []string) {
+func (fake *OrgRepository) ListOrgsArgsForCall(i int) (context.Context, authorization.Info, repositories.ListOrgsMessage) {
 	fake.listOrgsMutex.RLock()
 	defer fake.listOrgsMutex.RUnlock()
 	argsForCall := fake.listOrgsArgsForCall[i]

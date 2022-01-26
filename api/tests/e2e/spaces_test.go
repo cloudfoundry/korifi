@@ -71,6 +71,28 @@ var _ = Describe("Spaces", func() {
 					))
 				})
 			})
+
+			When("the organization relationship references a space guid", func() {
+				It("denies the request", func() {
+					resp, err := createSpaceRaw(generateGUID("some-other-space"), space.GUID, adminAuthHeader)
+					Expect(err).NotTo(HaveOccurred())
+					defer resp.Body.Close()
+
+					bodyMap := map[string]interface{}{}
+					err = json.NewDecoder(resp.Body).Decode(&bodyMap)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
+
+					Expect(bodyMap).To(HaveKeyWithValue("errors", BeAssignableToTypeOf([]interface{}{})))
+					errs := bodyMap["errors"].([]interface{})
+					Expect(errs[0]).To(SatisfyAll(
+						HaveKeyWithValue("code", BeNumerically("==", 10008)),
+						HaveKeyWithValue("detail", Equal("Invalid organization. Ensure the organization exists and you have access to it.")),
+						HaveKeyWithValue("title", Equal("CF-UnprocessableEntity")),
+					))
+				})
+			})
 		})
 
 		When("not admin", func() {
