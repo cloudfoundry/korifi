@@ -144,6 +144,21 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
+	Describe("list routes for an app", func() {
+		var app presenter.AppResponse
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
+			app = createApp(space1.GUID, generateGUID("app"), adminAuthHeader)
+		})
+
+		It("successfully lists the empty set of processes", func() {
+			resp, err := get("/v3/apps/"+app.GUID+"/routes", certAuthHeader)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveKeyWithValue("resources", BeEmpty()))
+		})
+	})
+
 	Describe("Droplets", func() {
 		var (
 			app      presenter.AppResponse

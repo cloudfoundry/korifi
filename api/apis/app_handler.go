@@ -474,7 +474,7 @@ func (h *AppHandler) getRoutesForAppHandler(authInfo authorization.Info, w http.
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		switch err.(type) {
-		case repositories.NotFoundError:
+		case repositories.PermissionDeniedOrNotFoundError:
 			h.logger.Info("App not found", "AppGUID", appGUID)
 			writeNotFoundErrorResponse(w, "App")
 			return

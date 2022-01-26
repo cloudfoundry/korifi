@@ -2065,9 +2065,9 @@ var _ = Describe("AppHandler", func() {
 		})
 
 		When("on the sad path and", func() {
-			When("the app cannot be found", func() {
+			When("the app cannot be found or no permission", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
 				})
 
 				It("returns an error", func() {
