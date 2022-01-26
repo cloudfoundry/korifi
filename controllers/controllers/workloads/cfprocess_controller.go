@@ -19,10 +19,13 @@ package workloads
 import (
 	"context"
 	"crypto/sha1"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
 	"strconv"
+
+	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
@@ -128,6 +131,13 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, err
 		}
 
+		var services []serviceInfo
+		services, err = r.getAppServiceBindings(ctx, cfApp.Name, cfProcess.Namespace)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("Error when trying to fetch CFServiceBindings for CFApp %s/%s", req.Namespace, cfApp.Spec.Name))
+			return ctrl.Result{}, err
+		}
+
 		actualLRP := &eiriniv1.LRP{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfProcess.Namespace,
@@ -136,7 +146,7 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		var desiredLRP *eiriniv1.LRP
-		desiredLRP, err = r.generateLRP(*actualLRP, cfApp, cfProcess, cfBuild, appEnvSecret, appPort)
+		desiredLRP, err = r.generateLRP(*actualLRP, cfApp, cfProcess, cfBuild, appEnvSecret, appPort, services)
 		if err != nil {
 			// untested
 			r.Log.Error(err, "Error when initializing LRP")
@@ -189,7 +199,7 @@ func lrpMutateFunction(actuallrp, desiredlrp *eiriniv1.LRP) controllerutil.Mutat
 	}
 }
 
-func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workloadsv1alpha1.CFApp, cfProcess workloadsv1alpha1.CFProcess, cfBuild workloadsv1alpha1.CFBuild, appEnvSecret corev1.Secret, appPort int) (*eiriniv1.LRP, error) {
+func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workloadsv1alpha1.CFApp, cfProcess workloadsv1alpha1.CFProcess, cfBuild workloadsv1alpha1.CFBuild, appEnvSecret corev1.Secret, appPort int, services []serviceInfo) (*eiriniv1.LRP, error) {
 	var desiredLRP eiriniv1.LRP
 	actualLRP.DeepCopyInto(&desiredLRP)
 
@@ -221,7 +231,12 @@ func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workload
 	desiredLRP.Spec.Image = cfBuild.Status.BuildDropletStatus.Registry.Image
 	desiredLRP.Spec.Ports = cfProcess.Spec.Ports
 	desiredLRP.Spec.Instances = cfProcess.Spec.DesiredInstances
-	desiredLRP.Spec.Env = generateEnvMap(appEnvSecret.Data, appPort)
+
+	envVars, err := generateEnvMap(appEnvSecret.Data, appPort, services)
+	if err != nil {
+		return nil, err
+	}
+	desiredLRP.Spec.Env = envVars
 	desiredLRP.Spec.Health = eiriniv1.Healthcheck{
 		Type:      string(cfProcess.Spec.HealthCheck.Type),
 		Port:      lrpHealthCheckPort,
@@ -231,7 +246,7 @@ func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workload
 	desiredLRP.Spec.CPUWeight = 0
 	desiredLRP.Spec.Sidecars = nil
 
-	err := controllerutil.SetOwnerReference(&cfProcess, &desiredLRP, r.Scheme)
+	err = controllerutil.SetOwnerReference(&cfProcess, &desiredLRP, r.Scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -288,17 +303,27 @@ func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess workloadsv1
 	return 8080, nil
 }
 
-func generateEnvMap(secretData map[string][]byte, port int) map[string]string {
-	convertedMap := make(map[string]string)
-	for k, v := range secretData {
-		convertedMap[k] = string(v)
-	}
+func generateEnvMap(secretData map[string][]byte, port int, services []serviceInfo) (map[string]string, error) {
+	convertedMap := secretDataToStringData(secretData)
 
 	portString := strconv.Itoa(port)
 	convertedMap["VCAP_APP_HOST"] = "0.0.0.0"
 	convertedMap["VCAP_APP_PORT"] = portString
 	convertedMap["PORT"] = portString
 
+	vcapServices, err := servicesToVCAPValue(services)
+	if err != nil { // UNTESTED JSON MARSHAL
+		return nil, err
+	}
+	convertedMap["VCAP_SERVICES"] = vcapServices
+	return convertedMap, nil
+}
+
+func secretDataToStringData(secretData map[string][]byte) map[string]string {
+	convertedMap := make(map[string]string)
+	for k, v := range secretData {
+		convertedMap[k] = string(v)
+	}
 	return convertedMap
 }
 
@@ -332,4 +357,95 @@ func (r *CFProcessReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return requests
 		})).
 		Complete(r)
+}
+
+type serviceInfo struct {
+	binding  *servicesv1alpha1.CFServiceBinding
+	instance *servicesv1alpha1.CFServiceInstance
+	secret   *corev1.Secret
+}
+
+func (r *CFProcessReconciler) getAppServiceBindings(ctx context.Context, appGUID string, namespace string) ([]serviceInfo, error) {
+	serviceBindings := &servicesv1alpha1.CFServiceBindingList{}
+	err := r.Client.List(ctx, serviceBindings,
+		client.InNamespace(namespace),
+		client.MatchingLabels{workloadsv1alpha1.CFAppGUIDLabelKey: appGUID},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error listing CFServiceBindings: %w", err)
+	}
+
+	if len(serviceBindings.Items) == 0 {
+		return nil, nil
+	}
+
+	services := make([]serviceInfo, 0, len(serviceBindings.Items))
+	for i, currentServiceBinding := range serviceBindings.Items {
+		serviceInstance := &servicesv1alpha1.CFServiceInstance{}
+		err := r.Client.Get(ctx, types.NamespacedName{Name: currentServiceBinding.Spec.Service.Name, Namespace: namespace}, serviceInstance)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching CFServiceInstance: %w", err)
+		}
+		secret := &corev1.Secret{}
+		err = r.Client.Get(ctx, types.NamespacedName{Name: currentServiceBinding.Spec.SecretName, Namespace: namespace}, secret)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
+		}
+		services = append(services, serviceInfo{
+			binding:  &serviceBindings.Items[i],
+			instance: serviceInstance,
+			secret:   secret,
+		})
+	}
+	return services, nil
+}
+
+type vcapServicesPresenter struct {
+	UserProvided []serviceDetails `json:"user-provided,omitempty"`
+}
+
+type serviceDetails struct {
+	Label          string            `json:"label"`
+	Name           string            `json:"name"`
+	Tags           []string          `json:"tags"`
+	InstanceGUID   string            `json:"instance_guid"`
+	InstanceName   string            `json:"instance_name"`
+	BindingGUID    string            `json:"binding_guid"`
+	BindingName    *string           `json:"binding_name"`
+	Credentials    map[string]string `json:"credentials"`
+	SyslogDrainURL *string           `json:"syslog_drain_url"`
+	VolumeMounts   []string          `json:"volume_mounts"`
+}
+
+func servicesToVCAPValue(services []serviceInfo) (string, error) {
+	vcapServices := vcapServicesPresenter{
+		UserProvided: make([]serviceDetails, 0, len(services)),
+	}
+
+	for _, service := range services {
+		var serviceName string
+		var bindingName *string
+		if service.binding.Spec.Name != "" {
+			serviceName = service.binding.Spec.Name
+			bindingName = &service.binding.Spec.Name
+		} else {
+			serviceName = service.instance.Spec.Name
+			bindingName = nil
+		}
+		vcapServices.UserProvided = append(vcapServices.UserProvided, serviceDetails{
+			Label:          "user-provided",
+			Name:           serviceName,
+			Tags:           service.instance.Spec.Tags,
+			InstanceGUID:   service.instance.Name,
+			InstanceName:   service.instance.Spec.Name,
+			BindingGUID:    service.binding.Name,
+			BindingName:    bindingName,
+			Credentials:    secretDataToStringData(service.secret.Data),
+			SyslogDrainURL: nil,
+			VolumeMounts:   []string{},
+		})
+	}
+
+	toReturn, err := json.Marshal(vcapServices)
+	return string(toReturn), err
 }

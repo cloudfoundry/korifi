@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
@@ -65,6 +66,7 @@ var _ = BeforeSuite(func() {
 
 	Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(servicesv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 	// Add Eirini to Scheme

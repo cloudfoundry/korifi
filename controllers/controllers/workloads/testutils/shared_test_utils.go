@@ -54,7 +54,7 @@ func BuildCFAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFA
 					Stack:      "",
 				},
 			},
-			EnvSecretName: "test-env-secret-name",
+			EnvSecretName: appGUID + "-env",
 		},
 	}
 }
