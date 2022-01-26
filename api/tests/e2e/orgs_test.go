@@ -90,7 +90,8 @@ var _ = Describe("Orgs", func() {
 			asyncCreateOrg(generateGUID("org4"), adminAuthHeader, &org4, &wg, errChan)
 			wg.Wait()
 
-			Expect(errChan).ToNot(Receive())
+			var err error
+			Expect(errChan).ToNot(Receive(&err), func() string { return fmt.Sprintf("unexpected error occurred while creating orgs: %v", err) })
 			close(errChan)
 		})
 
