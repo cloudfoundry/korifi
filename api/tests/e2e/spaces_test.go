@@ -112,7 +112,8 @@ var _ = Describe("Spaces", func() {
 			asyncCreateOrg(generateGUID("org3"), adminAuthHeader, &org3, &orgWG, orgErrChan)
 			orgWG.Wait()
 
-			Expect(orgErrChan).ToNot(Receive())
+			var err error
+			Expect(orgErrChan).ToNot(Receive(&err), func() string { return fmt.Sprintf("unexpected error occurred while creating orgs: %v", err) })
 			close(orgErrChan)
 
 			var spaceWG sync.WaitGroup
@@ -132,7 +133,7 @@ var _ = Describe("Spaces", func() {
 			asyncCreateSpace(generateGUID("space33"), org3.GUID, adminAuthHeader, &space33, &spaceWG, spaceErrChan)
 			spaceWG.Wait()
 
-			Expect(spaceErrChan).ToNot(Receive())
+			Expect(spaceErrChan).ToNot(Receive(&err), func() string { return fmt.Sprintf("unexpected error occurred while creating spaces: %v", err) })
 			close(spaceErrChan)
 
 			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, adminAuthHeader)
