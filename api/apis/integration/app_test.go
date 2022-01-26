@@ -167,64 +167,15 @@ var _ = Describe("App Handler", func() {
 		})
 	})
 
-	Describe("getting processes", func() {
-		var app *workloads.CFApp
-
-		BeforeEach(func() {
-			appGUID := generateGUID()
-
-			app = &workloads.CFApp{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      appGUID,
-					Namespace: namespace.Name,
-				},
-				Spec: workloads.CFAppSpec{
-					Name:         generateGUID(),
-					DesiredState: "STOPPED",
-					Lifecycle: workloads.Lifecycle{
-						Type: "buildpack",
-					},
-				},
-			}
-
-			Expect(k8sClient.Create(ctx, app)).To(Succeed())
-		})
-
-		JustBeforeEach(func() {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, http.MethodGet, serverURI("/v3/apps/"+app.Name+"/processes"), nil)
-			Expect(err).NotTo(HaveOccurred())
-
-			router.ServeHTTP(rr, req)
-		})
-
-		When("the user is not authorized in the space", func() {
-			It("returns a not found status", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
-			})
-		})
-
-		When("the user is a space developer", func() {
-			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
-			})
-
-			It("returns the (empty) process list", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				Expect(rr).To(HaveHTTPBody(ContainSubstring(`"resources":[]`)), rr.Body.String())
-			})
-		})
-	})
-
-	Describe("droplets", func() {
+	Describe("app sub-resources", func() {
 		var (
-			app     *workloads.CFApp
-			droplet *workloads.CFBuild
+			app         *workloads.CFApp
+			dropletGUID string
 		)
 
 		BeforeEach(func() {
 			appGUID := generateGUID()
-			dropletGUID := generateGUID()
+			dropletGUID = generateGUID()
 
 			app = &workloads.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
@@ -244,114 +195,175 @@ var _ = Describe("App Handler", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, app)).To(Succeed())
-
-			droplet = &workloads.CFBuild{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      dropletGUID,
-					Namespace: namespace.Name,
-				},
-				Spec: workloads.CFBuildSpec{
-					AppRef: corev1.LocalObjectReference{
-						Name: app.Name,
-					},
-					Lifecycle: workloads.Lifecycle{
-						Type: "buildpack",
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, droplet)).To(Succeed())
-			droplet.Status = workloads.CFBuildStatus{
-				Conditions: []metav1.Condition{
-					{
-						Type:               "Staging",
-						Status:             metav1.ConditionFalse,
-						Reason:             "foo",
-						LastTransitionTime: metav1.NewTime(time.Now()),
-					},
-					{
-						Type:               "Succeeded",
-						Status:             metav1.ConditionTrue,
-						Reason:             "foo",
-						LastTransitionTime: metav1.NewTime(time.Now()),
-					},
-				},
-				BuildDropletStatus: &workloads.BuildDropletStatus{
-					ProcessTypes: []workloads.ProcessType{},
-					Ports:        []int32{},
-				},
-			}
-			Expect(k8sClient.Status().Update(ctx, droplet)).To(Succeed())
 		})
 
-		Describe("get current droplet", func() {
+		Describe("get processes", func() {
 			JustBeforeEach(func() {
 				var err error
-				req, err = http.NewRequestWithContext(ctx, http.MethodGet, serverURI("/v3/apps/"+app.Name+"/droplets/current"), nil)
+				req, err = http.NewRequestWithContext(ctx, http.MethodGet, serverURI("/v3/apps/"+app.Name+"/processes"), nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				router.ServeHTTP(rr, req)
 			})
 
-			When("having the space developer role", func() {
+			When("the user is not authorized in the space", func() {
+				It("returns a not found status", func() {
+					Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+				})
+			})
+
+			When("the user is a space developer", func() {
 				BeforeEach(func() {
 					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
 				})
 
-				It("gets the droplet", func() {
+				It("returns the (empty) process list", func() {
 					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				})
-			})
-
-			When("not a space developer or admin", func() {
-				It("returns a 404", func() {
-					Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
-					Expect(rr).To(HaveHTTPBody(ContainSubstring("App not found")))
+					Expect(rr).To(HaveHTTPBody(ContainSubstring(`"resources":[]`)), rr.Body.String())
 				})
 			})
 		})
 
-		Describe("set current droplet", func() {
+		Describe("get routes", func() {
 			JustBeforeEach(func() {
-				payload, err := json.Marshal(payloads.AppSetCurrentDroplet{
-					Relationship: payloads.Relationship{
-						Data: &payloads.RelationshipData{
-							GUID: droplet.Name,
-						},
-					},
-				})
-				Expect(err).NotTo(HaveOccurred())
-
-				req, err = http.NewRequestWithContext(ctx, http.MethodPatch, serverURI("/v3/apps/"+app.Name+"/relationships/current_droplet"), bytes.NewReader(payload))
+				var err error
+				req, err = http.NewRequestWithContext(ctx, http.MethodGet, serverURI("/v3/apps/"+app.Name+"/routes"), nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				router.ServeHTTP(rr, req)
 			})
 
-			When("having the space developer role", func() {
-				BeforeEach(func() {
-					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
-				})
-
-				It("sets the droplet", func() {
-					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				})
-			})
-
-			When("no access to app", func() {
-				It("returns a 404", func() {
+			When("the user is not authorized in the space", func() {
+				It("returns a not found status", func() {
 					Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
 					Expect(rr).To(HaveHTTPBody(ContainSubstring("App not found")), rr.Body.String())
 				})
 			})
 
-			When("access to app but no write permissions", func() {
+			When("the user is a space developer", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, spaceManagerRole.Name, namespace.Name)
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
 				})
 
-				It("returns a 403", func() {
-					Expect(rr).To(HaveHTTPStatus(http.StatusForbidden))
-					Expect(rr).To(HaveHTTPBody(ContainSubstring("CF-NotAuthorized")), rr.Body.String())
+				It("returns the (empty) route list", func() {
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(ContainSubstring(`"resources":[]`)), rr.Body.String())
+				})
+			})
+		})
+
+		Describe("droplets", func() {
+			var droplet *workloads.CFBuild
+
+			BeforeEach(func() {
+				droplet = &workloads.CFBuild{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      dropletGUID,
+						Namespace: namespace.Name,
+					},
+					Spec: workloads.CFBuildSpec{
+						AppRef: corev1.LocalObjectReference{
+							Name: app.Name,
+						},
+						Lifecycle: workloads.Lifecycle{
+							Type: "buildpack",
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, droplet)).To(Succeed())
+				droplet.Status = workloads.CFBuildStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               "Staging",
+							Status:             metav1.ConditionFalse,
+							Reason:             "foo",
+							LastTransitionTime: metav1.NewTime(time.Now()),
+						},
+						{
+							Type:               "Succeeded",
+							Status:             metav1.ConditionTrue,
+							Reason:             "foo",
+							LastTransitionTime: metav1.NewTime(time.Now()),
+						},
+					},
+					BuildDropletStatus: &workloads.BuildDropletStatus{
+						ProcessTypes: []workloads.ProcessType{},
+						Ports:        []int32{},
+					},
+				}
+				Expect(k8sClient.Status().Update(ctx, droplet)).To(Succeed())
+			})
+
+			Describe("get current droplet", func() {
+				JustBeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, http.MethodGet, serverURI("/v3/apps/"+app.Name+"/droplets/current"), nil)
+					Expect(err).NotTo(HaveOccurred())
+
+					router.ServeHTTP(rr, req)
+				})
+
+				When("having the space developer role", func() {
+					BeforeEach(func() {
+						createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+					})
+
+					It("gets the droplet", func() {
+						Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+					})
+				})
+
+				When("not a space developer or admin", func() {
+					It("returns a 404", func() {
+						Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+						Expect(rr).To(HaveHTTPBody(ContainSubstring("App not found")))
+					})
+				})
+			})
+
+			Describe("set current droplet", func() {
+				JustBeforeEach(func() {
+					payload, err := json.Marshal(payloads.AppSetCurrentDroplet{
+						Relationship: payloads.Relationship{
+							Data: &payloads.RelationshipData{
+								GUID: droplet.Name,
+							},
+						},
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					req, err = http.NewRequestWithContext(ctx, http.MethodPatch, serverURI("/v3/apps/"+app.Name+"/relationships/current_droplet"), bytes.NewReader(payload))
+					Expect(err).NotTo(HaveOccurred())
+
+					router.ServeHTTP(rr, req)
+				})
+
+				When("having the space developer role", func() {
+					BeforeEach(func() {
+						createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+					})
+
+					It("sets the droplet", func() {
+						Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+					})
+				})
+
+				When("no access to app", func() {
+					It("returns a 404", func() {
+						Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+						Expect(rr).To(HaveHTTPBody(ContainSubstring("App not found")), rr.Body.String())
+					})
+				})
+
+				When("access to app but no write permissions", func() {
+					BeforeEach(func() {
+						createRoleBinding(ctx, userName, spaceManagerRole.Name, namespace.Name)
+					})
+
+					It("returns a 403", func() {
+						Expect(rr).To(HaveHTTPStatus(http.StatusForbidden))
+						Expect(rr).To(HaveHTTPBody(ContainSubstring("CF-NotAuthorized")), rr.Body.String())
+					})
 				})
 			})
 		})
