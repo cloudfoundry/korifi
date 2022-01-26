@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -37,17 +38,19 @@ func TestIntegration(t *testing.T) {
 }
 
 var (
-	testEnv   *envtest.Environment
-	k8sClient client.WithWatch
-	k8sConfig *rest.Config
-	server    *http.Server
-	port      int
-	rr        *httptest.ResponseRecorder
-	req       *http.Request
-	router    *mux.Router
-	serverURL *url.URL
-	userName  string
-	ctx       context.Context
+	testEnv            *envtest.Environment
+	k8sClient          client.WithWatch
+	k8sConfig          *rest.Config
+	server             *http.Server
+	port               int
+	rr                 *httptest.ResponseRecorder
+	req                *http.Request
+	router             *mux.Router
+	serverURL          *url.URL
+	userName           string
+	ctx                context.Context
+	spaceDeveloperRole *rbacv1.ClusterRole
+	spaceManagerRole   *rbacv1.ClusterRole
 )
 
 var _ = BeforeSuite(func() {
@@ -84,6 +87,10 @@ var _ = BeforeEach(func() {
 	cert, key := helpers.ObtainClientCert(testEnv, userName)
 	authInfo := authorization.Info{CertData: helpers.JoinCertAndKey(cert, key)}
 	ctx = authorization.NewContext(context.Background(), &authInfo)
+
+	spaceDeveloperRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
+	spaceManagerRole = createClusterRole(ctx, repositories.SpaceManagerClusterRoleRules)
+
 	rr = httptest.NewRecorder()
 	router = mux.NewRouter()
 

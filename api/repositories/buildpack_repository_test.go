@@ -106,71 +106,40 @@ var _ = Describe("BuildpackRepository", func() {
 		})
 
 		Describe("List", func() {
-			When("auth is enabled", func() {
-				It("returns records matching the buildpacks of the ClusterBuilder and no error", func() {
-					buildpackRepo = NewBuildpackRepository(k8sClient, clientFactory, true)
-					spaceDeveloperClusterRole = createClusterRole(beforeCtx, repositories.SpaceDeveloperClusterRoleRules)
-					createClusterRoleBinding(beforeCtx, userName, spaceDeveloperClusterRole.Name)
+			It("returns records matching the buildpacks of the ClusterBuilder and no error", func() {
+				buildpackRepo = NewBuildpackRepository(clientFactory)
+				spaceDeveloperClusterRole = createClusterRole(beforeCtx, repositories.SpaceDeveloperClusterRoleRules)
+				createClusterRoleBinding(beforeCtx, userName, spaceDeveloperClusterRole.Name)
 
-					buildpackRecords, err := buildpackRepo.GetBuildpacksForBuilder(context.Background(), authInfo, clusterBuilder.Name)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(buildpackRecords).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{
-							"Name":     Equal("paketo-buildpacks/buildpack-1-1"),
-							"Position": Equal(1),
-							"Stack":    Equal(clusterBuilder.Spec.Stack.Name),
-							"Version":  Equal("1.1"),
-						}),
-						MatchFields(IgnoreExtras, Fields{
-							"Name":     Equal("paketo-buildpacks/buildpack-2-1"),
-							"Position": Equal(2),
-							"Stack":    Equal(clusterBuilder.Spec.Stack.Name),
-							"Version":  Equal("2.1"),
-						}),
-						MatchFields(IgnoreExtras, Fields{
-							"Name":     Equal("paketo-buildpacks/buildpack-3-1"),
-							"Position": Equal(3),
-							"Stack":    Equal(clusterBuilder.Spec.Stack.Name),
-							"Version":  Equal("3.1"),
-						}),
-					))
-				})
+				buildpackRecords, err := buildpackRepo.GetBuildpacksForBuilder(context.Background(), authInfo, clusterBuilder.Name)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(buildpackRecords).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Name":     Equal("paketo-buildpacks/buildpack-1-1"),
+						"Position": Equal(1),
+						"Stack":    Equal(clusterBuilder.Spec.Stack.Name),
+						"Version":  Equal("1.1"),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name":     Equal("paketo-buildpacks/buildpack-2-1"),
+						"Position": Equal(2),
+						"Stack":    Equal(clusterBuilder.Spec.Stack.Name),
+						"Version":  Equal("2.1"),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name":     Equal("paketo-buildpacks/buildpack-3-1"),
+						"Position": Equal(3),
+						"Stack":    Equal(clusterBuilder.Spec.Stack.Name),
+						"Version":  Equal("3.1"),
+					}),
+				))
 			})
 
-			When("auth is enabled, but insufficient perm", func() {
+			When("insufficient perm", func() {
 				It("fails to retrieve buildpack records", func() {
-					buildpackRepo = NewBuildpackRepository(k8sClient, clientFactory, true)
+					buildpackRepo = NewBuildpackRepository(clientFactory)
 					_, err := buildpackRepo.GetBuildpacksForBuilder(context.Background(), authInfo, clusterBuilder.Name)
 					Expect(err).To(HaveOccurred())
-				})
-			})
-
-			When("auth is disabled", func() {
-				It("returns records matching the buildpacks of the ClusterBuilder and no error", func() {
-					authDisabledBuildpackRepo := NewBuildpackRepository(k8sClient, clientFactory, false)
-					buildpackRecords, err := authDisabledBuildpackRepo.GetBuildpacksForBuilder(context.Background(), authInfo, clusterBuilder.Name)
-
-					Expect(err).NotTo(HaveOccurred())
-					Expect(buildpackRecords).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{
-							"Name":     Equal("paketo-buildpacks/buildpack-1-1"),
-							"Position": Equal(1),
-							"Stack":    Equal(clusterBuilder.Spec.Stack.Name),
-							"Version":  Equal("1.1"),
-						}),
-						MatchFields(IgnoreExtras, Fields{
-							"Name":     Equal("paketo-buildpacks/buildpack-2-1"),
-							"Position": Equal(2),
-							"Stack":    Equal(clusterBuilder.Spec.Stack.Name),
-							"Version":  Equal("2.1"),
-						}),
-						MatchFields(IgnoreExtras, Fields{
-							"Name":     Equal("paketo-buildpacks/buildpack-3-1"),
-							"Position": Equal(3),
-							"Stack":    Equal(clusterBuilder.Spec.Stack.Name),
-							"Version":  Equal("3.1"),
-						}),
-					))
 				})
 			})
 		})

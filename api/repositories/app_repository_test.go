@@ -43,7 +43,7 @@ var _ = Describe("AppRepository", func() {
 		testCtx = context.Background()
 
 		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
-		appRepo = NewAppRepo(k8sClient, clientFactory, nsPerms, true)
+		appRepo = NewAppRepo(k8sClient, clientFactory, nsPerms)
 
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
 		Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
@@ -1063,7 +1063,7 @@ var _ = Describe("AppRepository", func() {
 					k8sClient.Create(context.Background(), secret),
 				).To(Succeed())
 
-				appRepo = NewAppRepo(k8sClient, clientFactory, nsPerms, true)
+				appRepo = NewAppRepo(k8sClient, clientFactory, nsPerms)
 			})
 
 			When("the user can read secrets in the space", func() {

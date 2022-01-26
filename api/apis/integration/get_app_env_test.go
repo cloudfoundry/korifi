@@ -28,7 +28,7 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 		identityProvider := new(fake.IdentityProvider)
 		namespacePermissions := authorization.NewNamespacePermissions(k8sClient, identityProvider, "root-ns")
 
-		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, namespacePermissions, false)
+		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, namespacePermissions)
 		domainRepo := repositories.NewDomainRepo(k8sClient)
 		processRepo := repositories.NewProcessRepo(k8sClient)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
@@ -59,6 +59,8 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 		DeferCleanup(func() {
 			_ = k8sClient.Delete(context.Background(), namespace)
 		})
+
+		createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespaceGUID)
 	})
 
 	When("the app has environment variables", func() {

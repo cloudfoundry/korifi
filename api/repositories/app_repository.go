@@ -39,20 +39,17 @@ type AppRepo struct {
 	privilegedClient     client.Client
 	userClientFactory    UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
-	authEnabled          bool
 }
 
 func NewAppRepo(
 	privilegedClient client.Client,
 	userClientFactory UserK8sClientFactory,
 	authPerms *authorization.NamespacePermissions,
-	authEnabled bool,
 ) *AppRepo {
 	return &AppRepo{
 		privilegedClient:     privilegedClient,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: authPerms,
-		authEnabled:          authEnabled,
 	}
 }
 
@@ -171,13 +168,9 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 		return AppRecord{}, err
 	}
 
-	userClient := f.privilegedClient
-
-	if f.authEnabled {
-		userClient, err = f.userClientFactory.BuildClient(authInfo)
-		if err != nil {
-			return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
-		}
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: app.SpaceGUID, Name: app.GUID}, &workloadsv1alpha1.CFApp{})
@@ -476,12 +469,9 @@ func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, ap
 		return nil, nil
 	}
 
-	userClient := f.privilegedClient
-	if f.authEnabled {
-		userClient, err = f.userClientFactory.BuildClient(authInfo)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build user client: %w", err)
-		}
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	key := client.ObjectKey{Name: app.envSecretName, Namespace: app.SpaceGUID}
