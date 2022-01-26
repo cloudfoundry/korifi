@@ -74,6 +74,7 @@ func validatePayload(object interface{}) *requestMalformedError {
 	_ = v.RegisterValidation("megabytestring", megabyteFormattedString, true)
 	_ = v.RegisterValidation("route", routeString)
 	_ = v.RegisterValidation("routepathstartswithslash", routePathStartsWithSlash)
+	_ = v.RegisterValidation("serviceinstancetaglength", serviceInstanceTagLength)
 
 	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
 	_ = v.RegisterTranslation("cannot_have_both_org_and_space_set", trans, func(ut ut.Translator) error {
@@ -275,6 +276,38 @@ func routePathStartsWithSlash(fl validator.FieldLevel) bool {
 	return true
 }
 
+func megabyteFormattedString(fl validator.FieldLevel) bool {
+	val, ok := fl.Field().Interface().(string)
+	if !ok {
+		return true // the value is optional, and is set to nil
+	}
+
+	_, err := bytefmt.ToMegabytes(val)
+	return err == nil
+}
+
+func routeString(fl validator.FieldLevel) bool {
+	val := fl.Field().String()
+	routeRegex := regexp.MustCompile(
+		`^(?:https?://|tcp://)?(?:(?:[\w-]+\.)|(?:[*]\.))+\w+(?:\:\d+)?(?:/.*)*(?:\.\w+)?$`,
+	)
+	return routeRegex.MatchString(val)
+}
+
+func serviceInstanceTagLength(fl validator.FieldLevel) bool {
+	tags, ok := fl.Field().Interface().([]string)
+	if !ok {
+		return true // the value is optional, and is set to nil
+	}
+
+	tagLen := 0
+	for _, tag := range tags {
+		tagLen += len(tag)
+	}
+
+	return tagLen < 2048
+}
+
 func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
 	roleCreate := sl.Current().Interface().(payloads.RoleCreate)
 
@@ -310,22 +343,4 @@ func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
 	default:
 		sl.ReportError(roleCreate.Type, "type", "Role type", "valid_role", "")
 	}
-}
-
-func megabyteFormattedString(fl validator.FieldLevel) bool {
-	val, ok := fl.Field().Interface().(string)
-	if !ok {
-		return true // the value is optional, and is set to nil
-	}
-
-	_, err := bytefmt.ToMegabytes(val)
-	return err == nil
-}
-
-func routeString(fl validator.FieldLevel) bool {
-	val := fl.Field().String()
-	routeRegex := regexp.MustCompile(
-		`^(?:https?://|tcp://)?(?:(?:[\w-]+\.)|(?:[*]\.))+\w+(?:\:\d+)?(?:/.*)*(?:\.\w+)?$`,
-	)
-	return routeRegex.MatchString(val)
 }

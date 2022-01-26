@@ -36,7 +36,7 @@ type CFServiceInstanceSpec struct {
 	Type InstanceType `json:"type"`
 
 	// Tags are used by apps to identify service instances
-	Tags []string `json:"tags"`
+	Tags []string `json:"tags,omitempty"`
 }
 
 // InstanceType defines the type of the Service Instance

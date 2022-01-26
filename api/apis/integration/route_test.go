@@ -67,10 +67,10 @@ var _ = Describe("Route Handler", func() {
 
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
-	
+
 				routeGUID = generateGUID()
 				domainGUID = generateGUID()
-	
+
 				cfDomain := &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: domainGUID,
@@ -82,7 +82,7 @@ var _ = Describe("Route Handler", func() {
 				Expect(
 					k8sClient.Create(ctx, cfDomain),
 				).To(Succeed())
-	
+
 				cfRoute = &networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      routeGUID,
@@ -111,27 +111,27 @@ var _ = Describe("Route Handler", func() {
 				Expect(
 					k8sClient.Create(ctx, cfRoute),
 				).To(Succeed())
-	
+
 				Eventually(func() error {
 					route := &networkingv1alpha1.CFRoute{}
 					return k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace.Name, Name: routeGUID}, route)
 				}).ShouldNot(HaveOccurred())
-	
+
 				var err error
 				req, err = http.NewRequestWithContext(ctx, "DELETE", serverURI("/v3/routes/"+routeGUID), strings.NewReader(""))
 				Expect(err).NotTo(HaveOccurred())
-	
+
 				req.Header.Add("Content-type", "application/json")
 			})
-	
+
 			JustBeforeEach(func() {
 				router.ServeHTTP(rr, req)
 			})
-	
+
 			It("returns 202 and eventually deletes the route", func() {
 				testCtx := context.Background()
 				Expect(rr.Code).To(Equal(202))
-	
+
 				Eventually(func() error {
 					route := &networkingv1alpha1.CFRoute{}
 					return k8sClient.Get(testCtx, client.ObjectKey{Namespace: namespace.Name, Name: routeGUID}, route)

@@ -35,6 +35,7 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
@@ -42,8 +43,9 @@ var createTimeout = time.Second * 120
 
 func init() {
 	utilruntime.Must(workloadsv1alpha1.AddToScheme(scheme.Scheme))
-	utilruntime.Must(buildv1alpha2.AddToScheme(scheme.Scheme))
 	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(servicesv1alpha1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(buildv1alpha2.AddToScheme(scheme.Scheme))
 	utilruntime.Must(hnsv1alpha2.AddToScheme(scheme.Scheme))
 }
 
@@ -212,6 +214,13 @@ func main() {
 			*serverURL,
 			repositories.NewBuildpackRepository(privilegedCRClient, buildUserClient, config.AuthEnabled),
 			config.ClusterBuilderName,
+		),
+
+		apis.NewServiceInstanceHandler(
+			ctrl.Log.WithName("ServiceInstanceHandler"),
+			*serverURL,
+			repositories.NewServiceInstanceRepo(buildUserClient),
+			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions, config.AuthEnabled),
 		),
 	}
 

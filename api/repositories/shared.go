@@ -78,7 +78,7 @@ var (
 
 	SpaceDeveloperClusterRoleRules = []rbacv1.PolicyRule{
 		{
-			Verbs:     []string{"get", "patch"},
+			Verbs:     []string{"get", "create", "patch"},
 			APIGroups: []string{""},
 			Resources: []string{"secrets"},
 		},
@@ -91,6 +91,11 @@ var (
 			Verbs:     []string{"get", "list", "create", "delete"},
 			APIGroups: []string{"networking.cloudfoundry.org"},
 			Resources: []string{"cfroutes"},
+		},
+		{
+			Verbs:     []string{"create"},
+			APIGroups: []string{"services.cloudfoundry.org"},
+			Resources: []string{"cfserviceinstances"},
 		},
 		{
 			Verbs:     []string{"get"},
