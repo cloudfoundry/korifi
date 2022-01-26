@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,17 +29,15 @@ import (
 
 var _ = Describe("App Handler", func() {
 	var (
-		apiHandler         *AppHandler
-		namespace          *corev1.Namespace
-		spaceDeveloperRole *rbacv1.ClusterRole
-		spaceManagerRole   *rbacv1.ClusterRole
+		apiHandler *AppHandler
+		namespace  *corev1.Namespace
 	)
 
 	BeforeEach(func() {
 		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
 		identityProvider := new(fake.IdentityProvider)
 		nsPermissions := authorization.NewNamespacePermissions(k8sClient, identityProvider, "root-ns")
-		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions, true)
+		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
 		dropletRepo := repositories.NewDropletRepo(k8sClient)
 		processRepo := repositories.NewProcessRepo(k8sClient)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
@@ -67,9 +64,6 @@ var _ = Describe("App Handler", func() {
 		Expect(
 			k8sClient.Create(ctx, namespace),
 		).To(Succeed())
-
-		spaceDeveloperRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
-		spaceManagerRole = createClusterRole(ctx, repositories.SpaceManagerClusterRoleRules)
 	})
 
 	AfterEach(func() {

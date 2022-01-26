@@ -32,7 +32,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 		identityProvider := new(fake.IdentityProvider)
 		namespacePermissions := authorization.NewNamespacePermissions(k8sClient, identityProvider, "root-ns")
 
-		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, namespacePermissions, false)
+		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, namespacePermissions)
 		domainRepo := repositories.NewDomainRepo(k8sClient)
 		processRepo := repositories.NewProcessRepo(k8sClient)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)

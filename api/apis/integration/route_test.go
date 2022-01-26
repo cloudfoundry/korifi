@@ -31,7 +31,7 @@ var _ = Describe("Route Handler", func() {
 		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
 		identityProvider := new(fake.IdentityProvider)
 		nsPermissions := authorization.NewNamespacePermissions(k8sClient, identityProvider, "root-ns")
-		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions, true)
+		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
 		domainRepo := repositories.NewDomainRepo(k8sClient)
 

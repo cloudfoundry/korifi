@@ -8,16 +8,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders,verbs=get;list;watch;
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders/status,verbs=get
 
 type BuildpackRepository struct {
-	privilegedClient  client.Client
 	userClientFactory UserK8sClientFactory
-	authEnabled       bool
 }
 
 type BuildpackRecord struct {
@@ -34,35 +31,26 @@ type ListBuildpacksMessage struct {
 }
 
 func NewBuildpackRepository(
-	privilegedClient client.Client,
 	userClientFactory UserK8sClientFactory,
-	authEnabled bool,
 ) *BuildpackRepository {
 	return &BuildpackRepository{
-		privilegedClient:  privilegedClient,
 		userClientFactory: userClientFactory,
-		authEnabled:       authEnabled,
 	}
 }
 
 func (r *BuildpackRepository) GetBuildpacksForBuilder(ctx context.Context, authInfo authorization.Info, builderName string) ([]BuildpackRecord, error) {
 	clusterBuilder := &buildv1alpha2.ClusterBuilder{}
 
-	if !r.authEnabled {
-		err := r.privilegedClient.Get(ctx, types.NamespacedName{Name: builderName}, clusterBuilder)
-		if err != nil {
-			return []BuildpackRecord{}, err
-		}
-	} else {
-		userClient, err := r.userClientFactory.BuildClient(authInfo)
-		if err != nil {
-			return []BuildpackRecord{}, fmt.Errorf("failed to build user client: %w", err)
-		}
-		err = userClient.Get(ctx, types.NamespacedName{Name: builderName}, clusterBuilder)
-		if err != nil {
-			return []BuildpackRecord{}, err
-		}
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return []BuildpackRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
+
+	err = userClient.Get(ctx, types.NamespacedName{Name: builderName}, clusterBuilder)
+	if err != nil {
+		return []BuildpackRecord{}, err
+	}
+
 	return clusterBuilderToBuildpackRecords(clusterBuilder), nil
 }
 
