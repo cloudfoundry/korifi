@@ -2,6 +2,7 @@ package apis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -92,6 +93,12 @@ func (h *SpaceHandler) SpaceCreateHandler(info authorization.Info, w http.Respon
 			h.logger.Error(err, "not allowed to create spaces")
 			writeNotAuthorizedErrorResponse(w)
 
+			return
+		}
+
+		if errors.As(err, &repositories.PermissionDeniedOrNotFoundError{}) {
+			h.logger.Error(err, "org does not exist or forbidden")
+			writeUnprocessableEntityError(w, "Invalid organization. Ensure the organization exists and you have access to it.")
 			return
 		}
 

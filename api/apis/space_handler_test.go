@@ -148,6 +148,16 @@ var _ = Describe("Spaces", func() {
 			})
 		})
 
+		When("the repo returns a not found or permission denied error", func() {
+			BeforeEach(func() {
+				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.PermissionDeniedOrNotFoundError{Err: errors.New("nope")})
+			})
+
+			It("returns an unauthorised error", func() {
+				expectUnprocessableEntityError("Invalid organization. Ensure the organization exists and you have access to it.")
+			})
+		})
+
 		When("providing the space repository fails", func() {
 			BeforeEach(func() {
 				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, errors.New("space-repo-provisioning-failed"))

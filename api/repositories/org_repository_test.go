@@ -27,6 +27,7 @@ var _ = Describe("OrgRepository", func() {
 		orgRepo                   *repositories.OrgRepo
 		spaceDeveloperClusterRole *rbacv1.ClusterRole
 		orgManagerClusterRole     *rbacv1.ClusterRole
+		orgUserClusterRole        *rbacv1.ClusterRole
 	)
 
 	BeforeEach(func() {
@@ -37,6 +38,7 @@ var _ = Describe("OrgRepository", func() {
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPerms, time.Millisecond*500, true)
 		spaceDeveloperClusterRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
 		orgManagerClusterRole = createClusterRole(ctx, repositories.OrgManagerClusterRoleRules)
+		orgUserClusterRole = createClusterRole(ctx, repositories.OrgUserClusterRoleRules)
 	})
 
 	Describe("Create", func() {
@@ -134,6 +136,10 @@ var _ = Describe("OrgRepository", func() {
 			})
 
 			When("the user doesn't have the admin role", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, orgUserClusterRole.Name, org.Name)
+				})
+
 				It("fails when creating a space", func() {
 					_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
 						GUID:                     spaceGUID,
@@ -223,16 +229,40 @@ var _ = Describe("OrgRepository", func() {
 						Expect(err).To(HaveOccurred())
 					})
 				})
+
+				When("the org does not exist", func() {
+					It("returns an error", func() {
+						_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
+							GUID:             "some-guid",
+							Name:             "some-name",
+							OrganizationGUID: "does-not-exist",
+						})
+						Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
+					})
+				})
+
+				When("the user doesn't have permission to get the org", func() {
+					var otherOrg *hnsv1alpha2.SubnamespaceAnchor
+
+					BeforeEach(func() {
+						otherOrg = createOrgAnchorAndNamespace(ctx, rootNamespace, "org")
+					})
+
+					It("returns an error", func() {
+						_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
+							GUID:             "some-guid",
+							Name:             "some-name",
+							OrganizationGUID: otherOrg.Name,
+						})
+						Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
+					})
+				})
 			})
 		})
 	})
 
 	Describe("List", func() {
-		var (
-			ctx context.Context
-
-			org1Anchor, org2Anchor, org3Anchor, org4Anchor *hnsv1alpha2.SubnamespaceAnchor
-		)
+		var org1Anchor, org2Anchor, org3Anchor, org4Anchor *hnsv1alpha2.SubnamespaceAnchor
 
 		BeforeEach(func() {
 			ctx = context.Background()
@@ -248,7 +278,7 @@ var _ = Describe("OrgRepository", func() {
 
 		Describe("Orgs", func() {
 			It("returns the 3 orgs", func() {
-				orgs, err := orgRepo.ListOrgs(ctx, authInfo, nil)
+				orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{})
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(orgs).To(ConsistOf(
@@ -279,7 +309,7 @@ var _ = Describe("OrgRepository", func() {
 				})
 
 				It("returns all orgs", func() {
-					orgs, err := orgRepo.ListOrgs(ctx, authInfo, nil)
+					orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(orgs).To(ConsistOf(
@@ -319,7 +349,7 @@ var _ = Describe("OrgRepository", func() {
 				})
 
 				It("does not list it", func() {
-					orgs, err := orgRepo.ListOrgs(ctx, authInfo, nil)
+					orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(orgs).NotTo(ContainElement(
@@ -333,9 +363,31 @@ var _ = Describe("OrgRepository", func() {
 				})
 			})
 
-			When("we filter for org1 and org3", func() {
+			When("we filter for names org1 and org3", func() {
 				It("returns just those", func() {
-					orgs, err := orgRepo.ListOrgs(ctx, authInfo, []string{"org1", "org3"})
+					orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{Names: []string{"org1", "org3"}})
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(orgs).To(ConsistOf(
+						repositories.OrgRecord{
+							Name:      "org1",
+							CreatedAt: org1Anchor.CreationTimestamp.Time,
+							UpdatedAt: org1Anchor.CreationTimestamp.Time,
+							GUID:      org1Anchor.Name,
+						},
+						repositories.OrgRecord{
+							Name:      "org3",
+							CreatedAt: org3Anchor.CreationTimestamp.Time,
+							UpdatedAt: org3Anchor.CreationTimestamp.Time,
+							GUID:      org3Anchor.Name,
+						},
+					))
+				})
+			})
+
+			When("we filter for guids org1 and org3", func() {
+				It("returns just those", func() {
+					orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{GUIDs: []string{org1Anchor.Name, org3Anchor.Name}})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(orgs).To(ConsistOf(
@@ -359,7 +411,7 @@ var _ = Describe("OrgRepository", func() {
 				var listErr error
 
 				BeforeEach(func() {
-					_, listErr = orgRepo.ListOrgs(ctx, authorization.Info{}, []string{"org1", "org3"})
+					_, listErr = orgRepo.ListOrgs(ctx, authorization.Info{}, repositories.ListOrgsMessage{Names: []string{"org1", "org3"}})
 				})
 
 				It("returns the error", func() {
@@ -593,22 +645,48 @@ var _ = Describe("OrgRepository", func() {
 	})
 
 	Describe("Get", func() {
-		var (
-			ctx context.Context
+		Describe("Org", func() {
+			var orgAnchor *hnsv1alpha2.SubnamespaceAnchor
 
-			orgAnchor *hnsv1alpha2.SubnamespaceAnchor
-		)
+			BeforeEach(func() {
+				orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "the-org")
+			})
 
-		BeforeEach(func() {
-			ctx = context.Background()
+			When("the user has a role binding in the org", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, orgManagerClusterRole.Name, orgAnchor.Name)
+				})
 
-			orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "the-org")
+				It("gets the org", func() {
+					orgRecord, err := orgRepo.GetOrg(ctx, authInfo, orgAnchor.Name)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(orgRecord.Name).To(Equal("the-org"))
+				})
+			})
+
+			When("the org doesn't exist", func() {
+				It("errors", func() {
+					_, err := orgRepo.GetOrg(ctx, authInfo, "non-existent-org")
+					Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
+				})
+			})
+
+			When("the user doesn't have permissions to see the org", func() {
+				It("returns an error", func() {
+					_, err := orgRepo.GetOrg(ctx, authInfo, orgAnchor.Name)
+					Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
+				})
+			})
 		})
 
 		Describe("Space", func() {
-			var spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
+			var (
+				spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
+				orgAnchor   *hnsv1alpha2.SubnamespaceAnchor
+			)
 
 			BeforeEach(func() {
+				orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "the-org")
 				spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, "the-space")
 				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, spaceAnchor.Name)
 			})

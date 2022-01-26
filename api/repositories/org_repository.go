@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -50,6 +51,11 @@ type CreateSpaceMessage struct {
 	GUID                     string
 	OrganizationGUID         string
 	ImageRegistryCredentials string
+}
+
+type ListOrgsMessage struct {
+	Names []string
+	GUIDs []string
 }
 
 type ListSpacesMessage struct {
@@ -150,6 +156,14 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 }
 
 func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, message CreateSpaceMessage) (SpaceRecord, error) {
+	_, err := r.GetOrg(ctx, info, message.OrganizationGUID)
+	if errors.As(err, &PermissionDeniedOrNotFoundError{}) {
+		return SpaceRecord{}, err
+	}
+	if err != nil {
+		return SpaceRecord{}, fmt.Errorf("failed to get parent organization: %w", err)
+	}
+
 	userClient, err := r.userClientFactory.BuildClient(info)
 	if err != nil {
 		return SpaceRecord{}, fmt.Errorf("failed to build user client: %w", err)
@@ -251,12 +265,12 @@ func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context, userClient clien
 	return createdAnchor, nil
 }
 
-func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, names []string) ([]OrgRecord, error) {
+func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter ListOrgsMessage) ([]OrgRecord, error) {
 	subnamespaceAnchorList := &v1alpha2.SubnamespaceAnchorList{}
 
 	options := []client.ListOption{client.InNamespace(r.rootNamespace)}
-	if len(names) > 0 {
-		namesRequirement, err := labels.NewRequirement(OrgNameLabel, selection.In, names)
+	if len(filter.Names) > 0 {
+		namesRequirement, err := labels.NewRequirement(OrgNameLabel, selection.In, filter.Names)
 		if err != nil {
 			return nil, err
 		}
@@ -271,9 +285,14 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, names [
 		return nil, err
 	}
 
+	guidFilter := toMap(filter.GUIDs)
 	records := []OrgRecord{}
 	for _, anchor := range subnamespaceAnchorList.Items {
 		if anchor.Status.State != v1alpha2.Ok {
+			continue
+		}
+
+		if !matchFilter(guidFilter, anchor.Name) {
 			continue
 		}
 
@@ -408,6 +427,19 @@ func (r *OrgRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGU
 	}
 
 	return spaceRecords[0], nil
+}
+
+func (r *OrgRepo) GetOrg(ctx context.Context, info authorization.Info, orgGUID string) (OrgRecord, error) {
+	orgRecords, err := r.ListOrgs(ctx, info, ListOrgsMessage{GUIDs: []string{orgGUID}})
+	if err != nil {
+		return OrgRecord{}, err
+	}
+
+	if len(orgRecords) == 0 {
+		return OrgRecord{}, PermissionDeniedOrNotFoundError{}
+	}
+
+	return orgRecords[0], nil
 }
 
 func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, message DeleteOrgMessage) error {

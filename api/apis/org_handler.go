@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -27,7 +26,7 @@ const (
 //counterfeiter:generate -o fake -fake-name OrgRepository . CFOrgRepository
 type CFOrgRepository interface {
 	CreateOrg(context.Context, authorization.Info, repositories.CreateOrgMessage) (repositories.OrgRecord, error)
-	ListOrgs(context.Context, authorization.Info, []string) ([]repositories.OrgRecord, error)
+	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
 	DeleteOrg(context.Context, authorization.Info, repositories.DeleteOrgMessage) error
 }
 
@@ -137,13 +136,9 @@ func (h *OrgHandler) orgListHandler(info authorization.Info, w http.ResponseWrit
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
-	var names []string
-	namesList := r.URL.Query().Get("names")
-	if len(namesList) > 0 {
-		names = strings.Split(namesList, ",")
-	}
+	names := parseCommaSeparatedList(r.URL.Query().Get("names"))
 
-	orgs, err := h.orgRepo.ListOrgs(ctx, info, names)
+	orgs, err := h.orgRepo.ListOrgs(ctx, info, repositories.ListOrgsMessage{Names: names})
 	if err != nil {
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to list orgs")
