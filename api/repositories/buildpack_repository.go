@@ -61,7 +61,7 @@ func clusterBuilderToBuildpackRecords(builder *buildv1alpha2.ClusterBuilder) []B
 		currentRecord := BuildpackRecord{
 			Name:      orderEntry.Group[0].Id,
 			Position:  i + 1,
-			Stack:     builder.Spec.Stack.Name,
+			Stack:     builder.Status.Stack.ID,
 			Version:   orderEntry.Group[0].Version,
 			CreatedAt: builder.CreationTimestamp.UTC().Format(TimestampFormat),
 			UpdatedAt: updatedAtTime,
