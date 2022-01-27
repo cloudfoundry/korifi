@@ -2315,6 +2315,50 @@ var _ = Describe("AppHandler", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 		})
 
+		When("no permissions to get the app or the app cannot be found", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("there is some other error fetching the app", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the app has no droplet", func() {
+			BeforeEach(func() {
+				noDropletAppRecord := repositories.AppRecord{
+					Name:        appName,
+					GUID:        appGUID,
+					SpaceGUID:   spaceGUID,
+					DropletGUID: "",
+					State:       "STOPPED",
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				}
+				appRepo.GetAppReturns(noDropletAppRecord, nil)
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError(`Assign a droplet before starting this app.`)
+			})
+		})
+
 		When("the app is in STARTED state", func() {
 			It("responds with a 200 code", func() {
 				Expect(rr.Code).To(Equal(200))
@@ -2402,6 +2446,26 @@ var _ = Describe("AppHandler", func() {
                       }
                     }
                 }`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
+			})
+
+			When("no permissions to stop the app", func() {
+				BeforeEach(func() {
+					appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				})
+
+				It("returns a forbidden error", func() {
+					expectUnauthorizedError()
+				})
+			})
+
+			When("no permissions to start the app", func() {
+				BeforeEach(func() {
+					appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				})
+
+				It("returns a forbidden error", func() {
+					expectUnauthorizedError()
+				})
 			})
 		})
 
@@ -2495,48 +2559,13 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the app cannot be found", func() {
+		When("no permissions to start the app", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
 			})
 
-			// TODO: should we return code 100004 instead?
-			It("returns an error", func() {
-				expectNotFoundError("App not found")
-			})
-		})
-
-		When("there is some other error fetching the app", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("the app has no droplet", func() {
-			BeforeEach(func() {
-				fetchAppRecord := repositories.AppRecord{
-					Name:        appName,
-					GUID:        appGUID,
-					SpaceGUID:   spaceGUID,
-					DropletGUID: "",
-					State:       "STOPPED",
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
-						},
-					},
-				}
-				appRepo.GetAppReturns(fetchAppRecord, nil)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError(`Assign a droplet before starting this app.`)
+			It("returns a forbidden error", func() {
+				expectUnauthorizedError()
 			})
 		})
 

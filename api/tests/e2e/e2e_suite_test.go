@@ -644,6 +644,14 @@ func getWithQuery(endpoint string, authHeaderValue string, query map[string]stri
 }
 
 func patch(endpoint string, authHeaderValue string, payload interface{}) (map[string]interface{}, error) {
+	return doUpdate(http.MethodPatch, endpoint, authHeaderValue, payload)
+}
+
+func post(endpoint string, authHeaderValue string, payload interface{}) (map[string]interface{}, error) {
+	return doUpdate(http.MethodPost, endpoint, authHeaderValue, payload)
+}
+
+func doUpdate(httpMethod, endpoint string, authHeaderValue string, payload interface{}) (map[string]interface{}, error) {
 	serverUrl, err := url.Parse(apiServerRoot)
 	if err != nil {
 		return nil, err
@@ -651,7 +659,7 @@ func patch(endpoint string, authHeaderValue string, payload interface{}) (map[st
 
 	serverUrl.Path = endpoint
 
-	resp, err := httpReq(http.MethodPatch, serverUrl.String(), authHeaderValue, payload)
+	resp, err := httpReq(httpMethod, serverUrl.String(), authHeaderValue, payload)
 	if err != nil {
 		return nil, err
 	}

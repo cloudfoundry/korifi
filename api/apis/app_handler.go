@@ -546,7 +546,7 @@ func (h *AppHandler) appRestartHandler(authInfo authorization.Info, w http.Respo
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		switch err.(type) {
-		case repositories.NotFoundError:
+		case repositories.PermissionDeniedOrNotFoundError:
 			h.logger.Info("App not found", "AppGUID", appGUID)
 			writeNotFoundErrorResponse(w, "App")
 			return
@@ -570,9 +570,16 @@ func (h *AppHandler) appRestartHandler(authInfo authorization.Info, w http.Respo
 			DesiredState: AppStoppedState,
 		})
 		if err != nil {
-			h.logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
-			writeUnknownErrorResponse(w)
-			return
+			switch err.(type) {
+			case repositories.PermissionDeniedOrNotFoundError:
+				h.logger.Info("failed to stop app", "AppGUID", appGUID)
+				writeNotAuthorizedErrorResponse(w)
+				return
+			default:
+				h.logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
+				writeUnknownErrorResponse(w)
+				return
+			}
 		}
 	}
 
@@ -582,9 +589,16 @@ func (h *AppHandler) appRestartHandler(authInfo authorization.Info, w http.Respo
 		DesiredState: AppStartedState,
 	})
 	if err != nil {
-		h.logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
-		writeUnknownErrorResponse(w)
-		return
+		switch err.(type) {
+		case repositories.PermissionDeniedOrNotFoundError:
+			h.logger.Info("failed to start app", "AppGUID", appGUID)
+			writeNotAuthorizedErrorResponse(w)
+			return
+		default:
+			h.logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
 	}
 
 	err = writeJsonResponse(w, presenter.ForApp(app, h.serverURL), http.StatusOK)

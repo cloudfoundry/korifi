@@ -159,7 +159,7 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
-	Describe("Droplets", func() {
+	Describe("built apps", func() {
 		var (
 			app      presenter.AppResponse
 			pkg      presenter.PackageResponse
@@ -177,6 +177,8 @@ var _ = Describe("Apps", func() {
 				_, err := get("/v3/droplets/"+build.GUID, adminAuthHeader)
 				return err
 			}).Should(Succeed())
+
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
 		})
 
 		Describe("get current droplet", func() {
@@ -186,10 +188,6 @@ var _ = Describe("Apps", func() {
 
 			JustBeforeEach(func() {
 				response, httpErr = get("/v3/apps/"+app.GUID+"/droplets/current", certAuthHeader)
-			})
-
-			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
 			})
 
 			It("succeeds", func() {
@@ -209,13 +207,24 @@ var _ = Describe("Apps", func() {
 				})
 			})
 
-			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
-			})
-
 			It("returns 200", func() {
 				Expect(httpErr).NotTo(HaveOccurred())
 				Expect(response).To(HaveKeyWithValue("data", HaveKeyWithValue("guid", build.GUID)))
+			})
+		})
+
+		Describe("app restart", func() {
+			BeforeEach(func() {
+				setCurrentDroplet(app.GUID, build.GUID, adminAuthHeader)
+			})
+
+			JustBeforeEach(func() {
+				response, httpErr = post("/v3/apps/"+app.GUID+"/actions/restart", certAuthHeader, nil)
+			})
+
+			It("succeeds", func() {
+				Expect(httpErr).NotTo(HaveOccurred())
+				Expect(response).To(HaveKeyWithValue("state", "STARTED"))
 			})
 		})
 	})
