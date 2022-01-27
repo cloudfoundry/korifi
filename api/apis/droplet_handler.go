@@ -55,6 +55,10 @@ func (h *DropletHandler) dropletGetHandler(authInfo authorization.Info, w http.R
 			h.logger.Info("Droplet not found", "dropletGUID", dropletGUID)
 			writeNotFoundErrorResponse(w, "Droplet")
 			return
+		case repositories.ForbiddenError:
+			h.logger.Info("Droplet not authorized", "dropletGUID", dropletGUID)
+			writeNotFoundErrorResponse(w, "Droplet")
+			return
 		default:
 			h.logger.Error(err, "Failed to fetch droplet from Kubernetes", "dropletGUID", dropletGUID)
 			writeUnknownErrorResponse(w)

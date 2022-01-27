@@ -1451,6 +1451,12 @@ rules:
   - delete
   - list
 - apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - get
+- apiGroups:
   - services.cloudfoundry.org
   resources:
   - cfserviceinstances
@@ -1881,6 +1887,12 @@ rules:
   - patch
   - delete
   - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - get
 - apiGroups:
   - services.cloudfoundry.org
   resources:

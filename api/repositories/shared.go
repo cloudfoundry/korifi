@@ -88,6 +88,11 @@ var (
 			Resources: []string{"cfapps"},
 		},
 		{
+			Verbs:     []string{"get"},
+			APIGroups: []string{"workloads.cloudfoundry.org"},
+			Resources: []string{"cfbuilds"},
+		},
+		{
 			Verbs:     []string{"get", "list", "create", "delete"},
 			APIGroups: []string{"networking.cloudfoundry.org"},
 			Resources: []string{"cfroutes"},
@@ -109,6 +114,11 @@ var (
 			Verbs:     []string{"get"},
 			APIGroups: []string{"workloads.cloudfoundry.org"},
 			Resources: []string{"cfapps"},
+		},
+		{
+			Verbs:     []string{"get"},
+			APIGroups: []string{"workloads.cloudfoundry.org"},
+			Resources: []string{"cfbuilds"},
 		},
 	}
 

@@ -243,10 +243,10 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		if errors.As(err, new(repositories.PermissionDeniedOrNotFoundError)) {
-			h.logger.Error(err, "App not found", "appGUID", app.GUID)
+			h.logger.Error(err, "App not found", "appGUID", appGUID)
 			writeNotFoundErrorResponse(w, "App")
 		} else {
-			h.logger.Error(err, "Error fetching app", "appGUID", app.GUID)
+			h.logger.Error(err, "Error fetching app", "appGUID", appGUID)
 			writeUnknownErrorResponse(w)
 		}
 		return
@@ -255,9 +255,14 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 	dropletGUID := payload.Data.GUID
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
-		if errors.As(err, new(repositories.NotFoundError)) {
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Error(err, "Droplet not found", "dropletGUID", dropletGUID)
 			writeUnprocessableEntityError(w, invalidDropletMsg)
-		} else {
+		case repositories.ForbiddenError:
+			h.logger.Error(err, "Droplet not authorized for user", "dropletGUID", dropletGUID)
+			writeUnprocessableEntityError(w, invalidDropletMsg)
+		default:
 			h.logger.Error(err, "Error fetching droplet")
 			writeUnknownErrorResponse(w)
 		}
@@ -325,6 +330,10 @@ func (h *AppHandler) appGetCurrentDropletHandler(authInfo authorization.Info, w 
 		switch err.(type) {
 		case repositories.NotFoundError:
 			h.logger.Info("Droplet not found", "dropletGUID", app.DropletGUID)
+			writeNotFoundErrorResponse(w, "Droplet")
+			return
+		case repositories.ForbiddenError:
+			h.logger.Info("Droplet not authorized to user", "dropletGUID", app.DropletGUID)
 			writeNotFoundErrorResponse(w, "Droplet")
 			return
 		default:

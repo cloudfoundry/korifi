@@ -3,11 +3,13 @@ package repositories
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -15,11 +17,15 @@ import (
 // No kubebuilder RBAC tags required, because Build and Droplet are the same CR
 
 type DropletRepo struct {
-	privilegedClient client.Client
+	privilegedClient  client.Client
+	userClientFactory UserK8sClientFactory
 }
 
-func NewDropletRepo(privilegedClient client.Client) *DropletRepo {
-	return &DropletRepo{privilegedClient: privilegedClient}
+func NewDropletRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *DropletRepo {
+	return &DropletRepo{
+		privilegedClient:  privilegedClient,
+		userClientFactory: userClientFactory,
+	}
 }
 
 type DropletRecord struct {
@@ -49,18 +55,33 @@ func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Inf
 	}
 	allBuilds := buildList.Items
 	matches := filterBuildsByMetadataName(allBuilds, dropletGUID)
-
-	return returnDroplet(matches)
-}
-
-func returnDroplet(builds []workloadsv1alpha1.CFBuild) (DropletRecord, error) {
-	if len(builds) == 0 {
+	if len(matches) == 0 {
 		return DropletRecord{}, NotFoundError{}
 	}
-	if len(builds) > 1 { // untested
+	if len(matches) > 1 { // untested
 		return DropletRecord{}, errors.New("duplicate builds exist")
 	}
 
+	foundObj := matches[0]
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return DropletRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	var userDroplet workloadsv1alpha1.CFBuild
+	err = userClient.Get(ctx, client.ObjectKeyFromObject(&foundObj), &userDroplet)
+	if err != nil {
+		if k8serrors.IsForbidden(err) {
+			return DropletRecord{}, NewForbiddenError(err)
+		}
+
+		return DropletRecord{}, fmt.Errorf("get droplet failed: %w", err)
+	}
+
+	return returnDroplet([]workloadsv1alpha1.CFBuild{userDroplet})
+}
+
+func returnDroplet(builds []workloadsv1alpha1.CFBuild) (DropletRecord, error) {
 	cfBuild := builds[0]
 	stagingStatus := getConditionValue(&cfBuild.Status.Conditions, StagingConditionType)
 	succeededStatus := getConditionValue(&cfBuild.Status.Conditions, SucceededConditionType)
