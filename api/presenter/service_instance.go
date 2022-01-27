@@ -45,17 +45,27 @@ type ServiceInstanceLinks struct {
 }
 
 func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord, baseURL url.URL) ServiceInstanceResponse {
+	lastOperationType := "update"
+	if serviceInstanceRecord.CreatedAt == serviceInstanceRecord.UpdatedAt {
+		lastOperationType = "create"
+	}
+
+	tags := serviceInstanceRecord.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+
 	return ServiceInstanceResponse{
 		Name: serviceInstanceRecord.Name,
 		GUID: serviceInstanceRecord.GUID,
 		Type: serviceInstanceRecord.Type,
-		Tags: serviceInstanceRecord.Tags,
+		Tags: tags,
 		LastOperation: lastOperation{
 			CreatedAt:   serviceInstanceRecord.CreatedAt,
 			UpdatedAt:   serviceInstanceRecord.UpdatedAt,
 			Description: "Operation succeeded",
 			State:       "succeeded",
-			Type:        "create",
+			Type:        lastOperationType,
 		},
 		CreatedAt: serviceInstanceRecord.CreatedAt,
 		UpdatedAt: serviceInstanceRecord.UpdatedAt,
@@ -88,4 +98,13 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 			},
 		},
 	}
+}
+
+func ForServiceInstanceList(serviceInstanceRecord []repositories.ServiceInstanceRecord, baseURL, requestURL url.URL) ListResponse {
+	serviceInstanceResponses := make([]interface{}, 0, len(serviceInstanceRecord))
+	for _, serviceInstance := range serviceInstanceRecord {
+		serviceInstanceResponses = append(serviceInstanceResponses, ForServiceInstance(serviceInstance, baseURL))
+	}
+
+	return ForList(serviceInstanceResponses, baseURL, requestURL)
 }

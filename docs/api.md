@@ -366,6 +366,52 @@ We support basic, unauthenticated versions of the following [log-cache](https://
 | ----------------------------------------------------------------------------------------------- | ---------------------------- |
 | Retrieve data by source-id. Currently returns a hard-coded empty list of Loggregator envelopes. | GET /api/v1/read/<source-id> |
 
+
+### Service Instances
+
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.113.0/index.html#service-instances
+
+| Resource                     | Endpoint         |
+| ---------------------------- | ---------------- |
+| Create Service Instance | POST /v3/service_instances |
+| List Service Instance | GET /v3/service_instances |
+
+#### [Create Service Instances](https://v3-apidocs.cloudfoundry.org/version/3.113.0/index.html#create-a-service-instance) 
+Currently, we support creation of user-provided service instances
+```bash
+curl "https://localhost:9000/v3/service_instances" \
+  -X POST \
+  -H "Authorization: bearer [token]" \
+  -H "Content-type: application/json" \
+  -d '{
+    "type": "user-provided",
+    "name": "my_service_instance",
+    "credentials": {
+      "foo": "bar",
+      "baz": "qux"
+    },
+    "tags": ["foo", "bar", "baz"],
+    "syslog_drain_url": "",
+    "route_service_url": "",
+    "metadata": {
+      "annotations": {
+        "foo": "bar"
+      },
+      "labels": {
+        "baz": "qux"
+      }
+    },
+    "relationships": {
+      "space": {
+        "data": {
+          "guid": "7304bc3c-7010-11ea-8840-48bf6bec2d78"
+        }
+      }
+    }
+  }'
+```
+
+
 ### User Identity
 
 _This is not part of the published CF API, and is not supported on CF on VMs._

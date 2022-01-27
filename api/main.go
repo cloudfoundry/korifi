@@ -219,7 +219,7 @@ func main() {
 		apis.NewServiceInstanceHandler(
 			ctrl.Log.WithName("ServiceInstanceHandler"),
 			*serverURL,
-			repositories.NewServiceInstanceRepo(buildUserClient),
+			repositories.NewServiceInstanceRepo(buildUserClient, nsPermissions),
 			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
 		),
 	}

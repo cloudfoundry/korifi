@@ -141,6 +141,7 @@ rules:
   - cfserviceinstances
   verbs:
   - create
+  - list
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:

@@ -19,6 +19,7 @@ rules:
   resources:
   - cfserviceinstances
   verbs:
+  - list
   - create
 - apiGroups:
   - rbac.authorization.k8s.io

@@ -376,6 +376,289 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			})
 		})
 	})
+
+	Describe("the GET /v3/service_instances endpoint", func() {
+		const (
+			serviceInstanceName1 = "my-upsi-1"
+			serviceInstanceGUID1 = "service-instance-guid-1"
+
+			serviceInstanceName2 = "my-upsi-2"
+			serviceInstanceGUID2 = "service-instance-guid-2"
+		)
+
+		makeListRequest := func(queryParams ...string) {
+			var err error
+			listServiceInstanceUrl := "/v3/service_instances"
+			if len(queryParams) > 0 {
+				listServiceInstanceUrl += "?" + strings.Join(queryParams, "&")
+			}
+			req, err = http.NewRequestWithContext(ctx, "GET", listServiceInstanceUrl, nil)
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		BeforeEach(func() {
+			serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
+				{
+					Name:       serviceInstanceName1,
+					GUID:       serviceInstanceGUID1,
+					SpaceGUID:  serviceInstanceSpaceGUID,
+					SecretName: serviceInstanceGUID1,
+					Tags:       []string{"foo", "bar"},
+					Type:       serviceInstanceTypeUserProvided,
+					CreatedAt:  "1906-04-18T13:12:00Z",
+					UpdatedAt:  "1906-04-18T13:12:00Z",
+				},
+				{
+					Name:       serviceInstanceName2,
+					GUID:       serviceInstanceGUID2,
+					SpaceGUID:  serviceInstanceSpaceGUID,
+					SecretName: serviceInstanceGUID2,
+					Tags:       nil,
+					Type:       serviceInstanceTypeUserProvided,
+					CreatedAt:  "1906-04-18T13:12:00Z",
+					UpdatedAt:  "1906-04-18T13:12:01Z",
+				},
+			}, nil)
+		})
+
+		When("on the happy path", func() {
+			BeforeEach(func() {
+				makeListRequest()
+			})
+
+			It("invokes the repository with the provided auth info", func() {
+				Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+
+			When("no query parameters are provided", func() {
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns the Paginated Service Instance resources in the response", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+					Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
+					  "pagination": {
+						"total_results": 2,
+						"total_pages": 1,
+						"first": {
+						  "href": "%[1]s/v3/service_instances"
+						},
+						"last": {
+						  "href": "%[1]s/v3/service_instances"
+						},
+						"next": null,
+						"previous": null
+					  },
+					  "resources": [
+						{
+						  "guid": "%[3]s",
+						  "created_at": "1906-04-18T13:12:00Z",
+						  "updated_at": "1906-04-18T13:12:00Z",
+						  "name": "%[2]s",
+						  "tags": ["foo", "bar"],
+						  "type": "%[5]s",
+						  "syslog_drain_url": null,
+						  "route_service_url": null,
+						  "last_operation": {
+							"type": "create",
+							"state": "succeeded",
+							"description": "Operation succeeded",
+							"updated_at": "1906-04-18T13:12:00Z",
+							"created_at": "1906-04-18T13:12:00Z"
+						  },
+						  "relationships": {
+							"space": {
+							  "data": {
+							   "guid": "%[4]s"
+							  }
+							}
+						  },
+						  "metadata": {
+							"labels": {},
+							"annotations": {}
+						  },
+						  "links": {
+							"self": {
+							  "href": "%[1]s/v3/service_instances/%[3]s"
+							},
+							"space": {
+							  "href": "%[1]s/v3/spaces/%[4]s"
+							},
+							"credentials": {
+							  "href": "%[1]s/v3/service_instances/%[3]s/credentials"
+							},
+							"service_credential_bindings": {
+							  "href": "%[1]s/v3/service_credential_bindings?service_instance_guids=%[3]s"
+							},
+							"service_route_bindings": {
+							  "href": "%[1]s/v3/service_route_bindings?service_instance_guids=%[3]s"
+							}
+						  }
+						},
+						{
+						  "guid": "%[7]s",
+						  "created_at": "1906-04-18T13:12:00Z",
+						  "updated_at": "1906-04-18T13:12:01Z",
+						  "name": "%[6]s",
+						  "tags": [],
+						  "type": "%[5]s",
+						  "syslog_drain_url": null,
+						  "route_service_url": null,
+						  "last_operation": {
+							"type": "update",
+							"state": "succeeded",
+							"description": "Operation succeeded",
+							"updated_at": "1906-04-18T13:12:01Z",
+							"created_at": "1906-04-18T13:12:00Z"
+						  },
+						  "relationships": {
+							"space": {
+							  "data": {
+							   "guid": "%[4]s"
+							  }
+							}
+						  },
+						  "metadata": {
+							"labels": {},
+							"annotations": {}
+						  },
+						  "links": {
+							"self": {
+							  "href": "%[1]s/v3/service_instances/%[7]s"
+							},
+							"space": {
+							  "href": "%[1]s/v3/spaces/%[4]s"
+							},
+							"credentials": {
+							  "href": "%[1]s/v3/service_instances/%[7]s/credentials"
+							},
+							"service_credential_bindings": {
+							  "href": "%[1]s/v3/service_credential_bindings?service_instance_guids=%[7]s"
+							},
+							"service_route_bindings": {
+							  "href": "%[1]s/v3/service_route_bindings?service_instance_guids=%[7]s"
+							}
+						  }
+						}
+					  ]
+					}`, defaultServerURL, serviceInstanceName1, serviceInstanceGUID1, serviceInstanceSpaceGUID, serviceInstanceTypeUserProvided, serviceInstanceName2, serviceInstanceGUID2)))
+				})
+			})
+
+			When("query parameters are provided", func() {
+				BeforeEach(func() {
+					makeListRequest(
+						"names=sc1,sc2",
+						"space_guids=space1,space2",
+					)
+				})
+
+				It("passes them to the repository", func() {
+					Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+					_, _, message := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
+
+					Expect(message.Names).To(ConsistOf("sc1", "sc2"))
+					Expect(message.SpaceGuids).To(ConsistOf("space1", "space2"))
+				})
+
+				It("correctly sets query parameters in response pagination links", func() {
+					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?names=sc1,sc2&space_guids=space1,space2"))
+				})
+			})
+		})
+
+		When("no service instances can be found", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, nil)
+				makeListRequest()
+			})
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("returns a CF API formatted empty resource list", func() {
+				Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
+				"pagination": {
+				  "total_results": 0,
+				  "total_pages": 1,
+				  "first": {
+					"href": "%[1]s/v3/service_instances"
+				  },
+				  "last": {
+					"href": "%[1]s/v3/service_instances"
+				  },
+				  "next": null,
+				  "previous": null
+				},
+				"resources": []
+			}`, defaultServerURL)), "Response body matches response:")
+			})
+		})
+
+		When("authentication is invalid", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, authorization.InvalidAuthError{})
+				makeListRequest()
+			})
+
+			It("returns Invalid Auth error", func() {
+				expectInvalidAuthError()
+			})
+		})
+
+		When("authentication is not provided", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, authorization.NotAuthenticatedError{})
+				makeListRequest()
+			})
+
+			It("returns a NotAuthenticated error", func() {
+				expectNotAuthenticatedError()
+			})
+		})
+
+		When("user is not allowed to create a service instance", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError(errors.New("not allowed")))
+				makeListRequest()
+			})
+
+			It("returns an unauthorised error", func() {
+				expectUnauthorizedError()
+			})
+		})
+
+		When("there is some other error fetching service instances", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, errors.New("unknown!"))
+				makeListRequest()
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("invalid query parameters are provided", func() {
+			BeforeEach(func() {
+				makeListRequest("foo=bar")
+			})
+
+			It("returns an Unknown key error", func() {
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, space_guids'")
+			})
+		})
+	})
 })
 
 func randomString(length int) string {

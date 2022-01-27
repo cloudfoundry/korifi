@@ -26,3 +26,19 @@ func (p ServiceInstanceCreate) ToServiceInstanceCreateMessage() repositories.Cre
 		Annotations: p.Metadata.Annotations,
 	}
 }
+
+type ServiceInstanceList struct {
+	Names      *string `schema:"names"`
+	SpaceGuids *string `schema:"space_guids"`
+}
+
+func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessage {
+	return repositories.ListServiceInstanceMessage{
+		Names:      parseArrayParam(l.Names),
+		SpaceGuids: parseArrayParam(l.SpaceGuids),
+	}
+}
+
+func (l *ServiceInstanceList) SupportedFilterKeys() []string {
+	return []string{"names", "space_guids"}
+}
