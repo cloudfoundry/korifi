@@ -10,15 +10,16 @@ import (
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/fake"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/fake"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -131,6 +132,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 			},
 		}
 		cfServiceInstanceError = nil
+		lrp = nil
 		lrpError = nil
 		lrpListError = nil
 
@@ -158,7 +160,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				cfServiceInstance.DeepCopyInto(obj)
 				return cfServiceInstanceError
 			case *eiriniv1.LRP:
-				if lrpError == nil {
+				if lrp != nil && lrpError == nil {
 					lrp.DeepCopyInto(obj)
 				}
 				return lrpError
@@ -214,10 +216,12 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 					Expect(reconcileErr).ToNot(HaveOccurred())
 				})
+
 				It("does not attempt to create any new LRPs", func() {
 					Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
 				})
 			})
+
 			When("the CFApp is updated from desired state STARTED to STOPPED", func() {
 				BeforeEach(func() {
 					cfApp.Spec.DesiredState = workloadsv1alpha1.StoppedState
@@ -248,6 +252,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 					Expect(reconcileErr).ToNot(HaveOccurred())
 				})
+
 				It("deletes any existing LRPs for the CFApp", func() {
 					Expect(fakeClient.DeleteCallCount()).To(Equal(1), "Client.Delete call count mismatch")
 				})
@@ -255,6 +260,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 			When("the CFApp is started and there are existing routes matching", func() {
 				const testPort = 1234
+
 				BeforeEach(func() {
 					cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
 					lrpError = apierrors.NewNotFound(schema.GroupResource{}, "some-guid")
@@ -302,7 +308,8 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 						},
 					}
 				})
-				It("Chooses the oldest matching route", func() {
+
+				It("chooses the oldest matching route", func() {
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 					Expect(reconcileErr).ToNot(HaveOccurred())
 
@@ -318,23 +325,25 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 			BeforeEach(func() {
 				cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
 			})
+
 			When("fetch CFProcess returns an error", func() {
 				BeforeEach(func() {
 					cfProcessError = errors.New(failsOnPurposeErrorMessage)
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
-				It("should return an error", func() {
+				It("returns an error", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
+
 			When("fetch CFProcess returns a NotFoundError", func() {
 				BeforeEach(func() {
 					cfProcessError = apierrors.NewNotFound(schema.GroupResource{}, cfProcess.Name)
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
-				It("should NOT return an error", func() {
+				It("doesn't return an error", func() {
 					Expect(reconcileErr).NotTo(HaveOccurred())
 				})
 			})
@@ -345,18 +354,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
-				It("should return an error", func() {
-					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
-				})
-			})
-
-			When("fetch LRPList returns an error", func() {
-				BeforeEach(func() {
-					lrpListError = errors.New(failsOnPurposeErrorMessage)
-					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
-				})
-
-				It("should return an error", func() {
+				It("returns an error", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
@@ -367,7 +365,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
-				It("should return an error", func() {
+				It("returns an error", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
@@ -378,7 +376,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
-				It("should return an error", func() {
+				It("returns an error", func() {
 					Expect(reconcileErr).To(MatchError("no build droplet status on CFBuild"))
 				})
 			})
@@ -389,7 +387,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
-				It("should return an error", func() {
+				It("returns an error", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
@@ -400,7 +398,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
-				It("should return an error", func() {
+				It("returns an error", func() {
 					Expect(reconcileErr).To(MatchError(ContainSubstring(failsOnPurposeErrorMessage)))
 				})
 			})
@@ -411,7 +409,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
-				It("should return an error", func() {
+				It("returns an error", func() {
 					Expect(reconcileErr).To(MatchError(ContainSubstring(failsOnPurposeErrorMessage)))
 				})
 			})
@@ -422,8 +420,19 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
-				It("should return an error", func() {
+				It("returns an error", func() {
 					Expect(reconcileErr).To(MatchError(ContainSubstring(failsOnPurposeErrorMessage)))
+				})
+			})
+
+			When("fetch LRPList returns an error", func() {
+				BeforeEach(func() {
+					lrpListError = errors.New(failsOnPurposeErrorMessage)
+					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
+				})
+
+				It("returns an error", func() {
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
 

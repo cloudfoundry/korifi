@@ -158,7 +158,7 @@ func (r *CFProcessReconciler) createOrPatchLRP(ctx context.Context, cfApp *workl
 
 	_, err = controllerutil.CreateOrPatch(ctx, r.Client, actualLRP, lrpMutateFunction(actualLRP, desiredLRP))
 	if err != nil {
-		r.Log.Error(err, "Error calling CreateOrPatch on lrp")
+		r.Log.Error(err, "Error calling CreateOrPatch on LRP")
 		return err
 	}
 	return nil
