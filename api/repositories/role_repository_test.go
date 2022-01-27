@@ -23,7 +23,6 @@ import (
 var _ = Describe("RoleRepository", func() {
 	var (
 		ctx                 context.Context
-		rootNamespace       string
 		roleCreateMessage   repositories.CreateRoleMessage
 		roleRepo            *repositories.RoleRepo
 		orgAnchor           *hnsv1alpha2.SubnamespaceAnchor

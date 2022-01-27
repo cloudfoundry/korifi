@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/gorilla/schema"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -20,11 +22,13 @@ import (
 
 const (
 	ServiceInstanceCreateEndpoint = "/v3/service_instances"
+	ServiceInstanceListEndpoint   = "/v3/service_instances"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServiceInstanceRepository . CFServiceInstanceRepository
 type CFServiceInstanceRepository interface {
 	CreateServiceInstance(context.Context, authorization.Info, repositories.CreateServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
+	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
 }
 
 type ServiceInstanceHandler struct {
@@ -110,7 +114,77 @@ func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authoriza
 	}
 }
 
+func (h *ServiceInstanceHandler) serviceInstanceListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error(err, "Unable to parse request query parameters")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	listFilter := new(payloads.ServiceInstanceList)
+	err := schema.NewDecoder().Decode(listFilter, r.Form)
+	if err != nil {
+		switch err.(type) {
+		case schema.MultiError:
+			multiError := err.(schema.MultiError)
+			for _, v := range multiError {
+				_, ok := v.(schema.UnknownKeyError)
+				if ok {
+					h.logger.Info("Unknown key used in ServiceInstance filter")
+					writeUnknownKeyError(w, listFilter.SupportedFilterKeys())
+					return
+				}
+			}
+
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+		default:
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+		}
+		return
+	}
+
+	serviceInstanceList, err := h.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, listFilter.ToMessage())
+	if err != nil {
+		if authorization.IsInvalidAuth(err) {
+			h.logger.Error(err, "unauthorized to list service instance")
+			writeInvalidAuthErrorResponse(w)
+			return
+		}
+
+		if authorization.IsNotAuthenticated(err) {
+			h.logger.Error(err, "unauthorized to list service instance")
+			writeNotAuthenticatedErrorResponse(w)
+
+			return
+		}
+
+		if repositories.IsForbiddenError(err) {
+			h.logger.Error(err, "not allowed to list service instance")
+			writeNotAuthorizedErrorResponse(w)
+
+			return
+		}
+
+		h.logger.Error(err, "Failed to list service instance")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	err = writeJsonResponse(w, presenter.ForServiceInstanceList(serviceInstanceList, h.serverURL, *r.URL), http.StatusOK)
+	if err != nil {
+		// untested
+		h.logger.Error(err, "Failed to render response")
+		writeUnknownErrorResponse(w)
+	}
+}
+
 func (h *ServiceInstanceHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
 	router.Path(ServiceInstanceCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.serviceInstanceCreateHandler))
+	router.Path(ServiceInstanceListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.serviceInstanceListHandler))
 }

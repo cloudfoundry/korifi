@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -17,7 +20,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 )
 
-//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfserviceinstances,verbs=create
+//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfserviceinstances,verbs=list;create
 
 const (
 	CFServiceInstanceGUIDLabel          = "services.cloudfoundry.org/service-instance-guid"
@@ -25,14 +28,17 @@ const (
 )
 
 type ServiceInstanceRepo struct {
-	userClientFactory UserK8sClientFactory
+	userClientFactory    UserK8sClientFactory
+	namespacePermissions *authorization.NamespacePermissions
 }
 
 func NewServiceInstanceRepo(
 	userClientFactory UserK8sClientFactory,
+	namespacePermissions *authorization.NamespacePermissions,
 ) *ServiceInstanceRepo {
 	return &ServiceInstanceRepo{
-		userClientFactory: userClientFactory,
+		userClientFactory:    userClientFactory,
+		namespacePermissions: namespacePermissions,
 	}
 }
 
@@ -44,6 +50,11 @@ type CreateServiceInstanceMessage struct {
 	Tags        []string
 	Labels      map[string]string
 	Annotations map[string]string
+}
+
+type ListServiceInstanceMessage struct {
+	Names      []string
+	SpaceGuids []string
 }
 
 type ServiceInstanceRecord struct {
@@ -85,6 +96,36 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 	}
 
 	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance), nil
+}
+
+func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo authorization.Info, message ListServiceInstanceMessage) ([]ServiceInstanceRecord, error) {
+	nsList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
+	if err != nil {
+		// untested
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+	}
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		// untested
+		return []ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	var filteredServiceInstances []servicesv1alpha1.CFServiceInstance
+	for ns := range nsList {
+		serviceInstanceList := new(servicesv1alpha1.CFServiceInstanceList)
+		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns))
+		if k8serrors.IsForbidden(err) {
+			continue
+		}
+		if err != nil {
+			// untested
+			return []ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances in namespace %s: %w", ns, err)
+		}
+		filteredServiceInstances = append(filteredServiceInstances, applyServiceInstanceListFilter(serviceInstanceList.Items, message)...)
+	}
+
+	return returnServiceInstanceList(filteredServiceInstances), nil
 }
 
 func (m CreateServiceInstanceMessage) toCFServiceInstance() servicesv1alpha1.CFServiceInstance {
@@ -140,4 +181,43 @@ func cfServiceInstanceToSecret(cfServiceInstance servicesv1alpha1.CFServiceInsta
 		},
 		Type: ServiceInstanceCredentialSecretType,
 	}
+}
+
+func applyServiceInstanceListFilter(serviceInstanceList []servicesv1alpha1.CFServiceInstance, message ListServiceInstanceMessage) []servicesv1alpha1.CFServiceInstance {
+	if len(message.Names) == 0 && len(message.SpaceGuids) == 0 {
+		return serviceInstanceList
+	}
+
+	var filtered []servicesv1alpha1.CFServiceInstance
+	for _, serviceInstance := range serviceInstanceList {
+		if matchesFilter(serviceInstance.Spec.Name, message.Names) &&
+			matchesFilter(serviceInstance.Namespace, message.SpaceGuids) {
+			filtered = append(filtered, serviceInstance)
+		}
+	}
+
+	return filtered
+}
+
+func matchesFilter(field string, filter []string) bool {
+	if len(filter) == 0 {
+		return true
+	}
+
+	for _, value := range filter {
+		if field == value {
+			return true
+		}
+	}
+
+	return false
+}
+
+func returnServiceInstanceList(serviceInstanceList []servicesv1alpha1.CFServiceInstance) []ServiceInstanceRecord {
+	serviceInstanceRecords := make([]ServiceInstanceRecord, 0, len(serviceInstanceList))
+
+	for _, serviceInstance := range serviceInstanceList {
+		serviceInstanceRecords = append(serviceInstanceRecords, cfServiceInstanceToServiceInstanceRecord(serviceInstance))
+	}
+	return serviceInstanceRecords
 }

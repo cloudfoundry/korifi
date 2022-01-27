@@ -93,7 +93,7 @@ var (
 			Resources: []string{"cfroutes"},
 		},
 		{
-			Verbs:     []string{"create"},
+			Verbs:     []string{"list", "create"},
 			APIGroups: []string{"services.cloudfoundry.org"},
 			Resources: []string{"cfserviceinstances"},
 		},

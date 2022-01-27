@@ -435,7 +435,6 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
-
 		})
 	})
 })

@@ -26,6 +26,21 @@ type CFServiceInstanceRepository struct {
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}
+	ListServiceInstancesStub        func(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
+	listServiceInstancesMutex       sync.RWMutex
+	listServiceInstancesArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.ListServiceInstanceMessage
+	}
+	listServiceInstancesReturns struct {
+		result1 []repositories.ServiceInstanceRecord
+		result2 error
+	}
+	listServiceInstancesReturnsOnCall map[int]struct {
+		result1 []repositories.ServiceInstanceRecord
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -96,11 +111,79 @@ func (fake *CFServiceInstanceRepository) CreateServiceInstanceReturnsOnCall(i in
 	}{result1, result2}
 }
 
+func (fake *CFServiceInstanceRepository) ListServiceInstances(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error) {
+	fake.listServiceInstancesMutex.Lock()
+	ret, specificReturn := fake.listServiceInstancesReturnsOnCall[len(fake.listServiceInstancesArgsForCall)]
+	fake.listServiceInstancesArgsForCall = append(fake.listServiceInstancesArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.ListServiceInstanceMessage
+	}{arg1, arg2, arg3})
+	stub := fake.ListServiceInstancesStub
+	fakeReturns := fake.listServiceInstancesReturns
+	fake.recordInvocation("ListServiceInstances", []interface{}{arg1, arg2, arg3})
+	fake.listServiceInstancesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFServiceInstanceRepository) ListServiceInstancesCallCount() int {
+	fake.listServiceInstancesMutex.RLock()
+	defer fake.listServiceInstancesMutex.RUnlock()
+	return len(fake.listServiceInstancesArgsForCall)
+}
+
+func (fake *CFServiceInstanceRepository) ListServiceInstancesCalls(stub func(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)) {
+	fake.listServiceInstancesMutex.Lock()
+	defer fake.listServiceInstancesMutex.Unlock()
+	fake.ListServiceInstancesStub = stub
+}
+
+func (fake *CFServiceInstanceRepository) ListServiceInstancesArgsForCall(i int) (context.Context, authorization.Info, repositories.ListServiceInstanceMessage) {
+	fake.listServiceInstancesMutex.RLock()
+	defer fake.listServiceInstancesMutex.RUnlock()
+	argsForCall := fake.listServiceInstancesArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFServiceInstanceRepository) ListServiceInstancesReturns(result1 []repositories.ServiceInstanceRecord, result2 error) {
+	fake.listServiceInstancesMutex.Lock()
+	defer fake.listServiceInstancesMutex.Unlock()
+	fake.ListServiceInstancesStub = nil
+	fake.listServiceInstancesReturns = struct {
+		result1 []repositories.ServiceInstanceRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFServiceInstanceRepository) ListServiceInstancesReturnsOnCall(i int, result1 []repositories.ServiceInstanceRecord, result2 error) {
+	fake.listServiceInstancesMutex.Lock()
+	defer fake.listServiceInstancesMutex.Unlock()
+	fake.ListServiceInstancesStub = nil
+	if fake.listServiceInstancesReturnsOnCall == nil {
+		fake.listServiceInstancesReturnsOnCall = make(map[int]struct {
+			result1 []repositories.ServiceInstanceRecord
+			result2 error
+		})
+	}
+	fake.listServiceInstancesReturnsOnCall[i] = struct {
+		result1 []repositories.ServiceInstanceRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFServiceInstanceRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.createServiceInstanceMutex.RLock()
 	defer fake.createServiceInstanceMutex.RUnlock()
+	fake.listServiceInstancesMutex.RLock()
+	defer fake.listServiceInstancesMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

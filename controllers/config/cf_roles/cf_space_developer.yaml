@@ -27,6 +27,7 @@ rules:
   resources:
   - cfserviceinstances
   verbs:
+  - list
   - create
 - apiGroups:
   - networking.cloudfoundry.org

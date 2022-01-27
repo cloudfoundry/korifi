@@ -4,6 +4,9 @@ import (
 	"context"
 	"time"
 
+	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -22,12 +25,13 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		serviceInstanceRepo       *ServiceInstanceRepo
 		clientFactory             repositories.UserK8sClientFactory
 		spaceDeveloperClusterRole *rbacv1.ClusterRole
+		filters                   ListServiceInstanceMessage
 	)
 
 	BeforeEach(func() {
 		testCtx = context.Background()
 		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
-		serviceInstanceRepo = NewServiceInstanceRepo(clientFactory)
+		serviceInstanceRepo = NewServiceInstanceRepo(clientFactory, nsPerms)
 		spaceDeveloperClusterRole = createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
 	})
 
@@ -134,6 +138,127 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			})
 		})
 	})
+
+	Describe("ListServiceInstances", Serial, func() {
+		var (
+			org                                                        *v1alpha2.SubnamespaceAnchor
+			space1, space2, space3                                     *v1alpha2.SubnamespaceAnchor
+			cfServiceInstance1, cfServiceInstance2, cfServiceInstance3 *servicesv1alpha1.CFServiceInstance
+			nonCFNamespace                                             string
+		)
+
+		BeforeEach(func() {
+			rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
+			Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
+
+			org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
+			space1 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
+			space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
+			space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space3"))
+
+			nonCFNamespace = prefixedGUID("non-cf")
+			Expect(k8sClient.Create(
+				testCtx,
+				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
+			)).To(Succeed())
+
+			DeferCleanup(func() {
+				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})
+				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}})
+				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org.Name}})
+				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space1.Name}})
+				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space2.Name}})
+				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space3.Name}})
+			})
+
+			cfServiceInstance1 = createServiceInstance(space1.Name, "service-instance-1")
+			cfServiceInstance2 = createServiceInstance(space2.Name, "service-instance-2")
+			cfServiceInstance3 = createServiceInstance(space3.Name, "service-instance-3")
+			createServiceInstance(nonCFNamespace, "service-instance-dummy")
+		})
+
+		When("query parameters are not provided and", func() {
+			BeforeEach(func() {
+				filters = ListServiceInstanceMessage{}
+			})
+
+			When("no service instances exist in spaces where the user has permission", func() {
+				It("returns an empty list of ServiceInstanceRecord", func() {
+					serviceInstanceList, err := serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(serviceInstanceList).To(BeEmpty())
+				})
+			})
+
+			When("multiple service instances exist in spaces where the user has permissions", func() {
+				BeforeEach(func() {
+					createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
+					createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
+				})
+
+				It("eventually returns ServiceInstance records from only the spaces where the user has permission", func() {
+					Eventually(func() []ServiceInstanceRecord {
+						serviceInstanceList, err := serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
+						Expect(err).NotTo(HaveOccurred())
+						return serviceInstanceList
+					}, timeCheckThreshold*time.Second).Should(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
+					))
+				})
+			})
+		})
+
+		When("query parameters are provided", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space3.Name)
+			})
+
+			When("the name filter is set", func() {
+				BeforeEach(func() {
+					filters = ListServiceInstanceMessage{
+						Names: []string{
+							cfServiceInstance1.Spec.Name,
+							cfServiceInstance3.Spec.Name,
+						},
+					}
+				})
+				It("eventually returns only records for the ServiceInstances with matching spec.name fields", func() {
+					Eventually(func() []ServiceInstanceRecord {
+						serviceInstanceList, err := serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
+						Expect(err).NotTo(HaveOccurred())
+						return serviceInstanceList
+					}, timeCheckThreshold*time.Second).Should(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
+					))
+				})
+			})
+
+			When("the spaceGUID filter is set", func() {
+				BeforeEach(func() {
+					filters = ListServiceInstanceMessage{
+						SpaceGuids: []string{
+							cfServiceInstance2.Namespace,
+							cfServiceInstance3.Namespace,
+						},
+					}
+				})
+				It("eventually returns only records for the ServiceInstances within the matching spaces", func() {
+					Eventually(func() []ServiceInstanceRecord {
+						serviceInstanceList, err := serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
+						Expect(err).NotTo(HaveOccurred())
+						return serviceInstanceList
+					}, timeCheckThreshold*time.Second).Should(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
+					))
+				})
+			})
+		})
+	})
 })
 
 func initializeServiceInstanceCreateMessage(serviceInstanceName string, spaceGUID string, tags []string) CreateServiceInstanceMessage {
@@ -143,4 +268,22 @@ func initializeServiceInstanceCreateMessage(serviceInstanceName string, spaceGUI
 		Type:      "user-provided",
 		Tags:      tags,
 	}
+}
+
+func createServiceInstance(space, name string) *servicesv1alpha1.CFServiceInstance {
+	serviceInstanceGUID := generateGUID()
+	cfServiceInstance := &servicesv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceInstanceGUID,
+			Namespace: space,
+		},
+		Spec: servicesv1alpha1.CFServiceInstanceSpec{
+			Name:       name,
+			SecretName: serviceInstanceGUID,
+			Type:       "user-provided",
+		},
+	}
+	Expect(k8sClient.Create(context.Background(), cfServiceInstance)).To(Succeed())
+
+	return cfServiceInstance
 }
