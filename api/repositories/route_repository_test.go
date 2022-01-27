@@ -371,6 +371,17 @@ var _ = Describe("RouteRepository", func() {
 					})
 					It("eventually returns a list of routeRecords for one of the CFRoute CRs", func() {
 						Expect(routeRecords).To(HaveLen(1))
+						Expect(routeRecords[0].Path).To(Equal("/some/path"))
+					})
+				})
+
+				When("an empty path filter is provided", func() {
+					BeforeEach(func() {
+						message = ListRoutesMessage{Paths: []string{""}}
+					})
+					It("eventually returns a list of routeRecords for one of the CFRoute CRs", func() {
+						Expect(routeRecords).To(HaveLen(1))
+						Expect(routeRecords[0].Path).To(Equal(""))
 					})
 				})
 

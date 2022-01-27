@@ -28,11 +28,11 @@ func (p RouteCreate) ToMessage() repositories.CreateRouteMessage {
 }
 
 type RouteList struct {
-	AppGUIDs    string `schema:"app_guids"`
-	SpaceGUIDs  string `schema:"space_guids"`
-	DomainGUIDs string `schema:"domain_guids"`
-	Hosts       string `schema:"hosts"`
-	Paths       string `schema:"paths"`
+	AppGUIDs    *string `schema:"app_guids"`
+	SpaceGUIDs  *string `schema:"space_guids"`
+	DomainGUIDs *string `schema:"domain_guids"`
+	Hosts       *string `schema:"hosts"`
+	Paths       *string `schema:"paths"`
 }
 
 func (p *RouteList) ToMessage() repositories.ListRoutesMessage {

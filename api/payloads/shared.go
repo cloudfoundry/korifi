@@ -25,14 +25,15 @@ type Metadata struct {
 	Annotations map[string]string `json:"annotations"`
 }
 
-func parseArrayParam(arrayParam string) []string {
-	if arrayParam == "" {
+func parseArrayParam(arrayParam *string) []string {
+	if arrayParam == nil {
 		return []string{}
 	}
 
-	elements := strings.Split(arrayParam, ",")
+	elements := strings.Split(*arrayParam, ",")
 	for i, e := range elements {
 		elements[i] = strings.TrimSpace(e)
 	}
+
 	return elements
 }

@@ -32,9 +32,9 @@ func (m PackageCreate) ToMessage(record repositories.AppRecord) repositories.Cre
 }
 
 type PackageListQueryParameters struct {
-	AppGUIDs string `schema:"app_guids"`
-	OrderBy  string `schema:"order_by"`
-	States   string `schema:"states"`
+	AppGUIDs *string `schema:"app_guids"`
+	States   *string `schema:"states"`
+	OrderBy  string  `schema:"order_by"`
 
 	// Below parameters are ignored, but must be included to ignore as query parameters
 	PerPage string `schema:"per_page"`
@@ -49,9 +49,9 @@ func (p *PackageListQueryParameters) ToMessage() repositories.ListPackagesMessag
 
 	return repositories.ListPackagesMessage{
 		AppGUIDs:        parseArrayParam(p.AppGUIDs),
+		States:          parseArrayParam(p.States),
 		SortBy:          strings.TrimPrefix(p.OrderBy, "-"),
 		DescendingOrder: descendingOrder,
-		States:          parseArrayParam(p.States),
 	}
 }
 

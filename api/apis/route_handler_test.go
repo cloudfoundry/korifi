@@ -445,6 +445,35 @@ var _ = Describe("RouteHandler", func() {
 				})
 			})
 
+			When("hosts query parameter is provided with no value", func() {
+				BeforeEach(func() {
+					requestPath += "?hosts="
+					routeRepo.ListRoutesReturns([]repositories.RouteRecord{}, nil)
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns the Pagination Data with the hosts filter", func() {
+					response := map[string]interface{}{}
+					err := json.Unmarshal(rr.Body.Bytes(), &response)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(response).To(SatisfyAll(
+						HaveKeyWithValue("pagination", HaveKeyWithValue("first", HaveKeyWithValue("href", "https://api.example.org/v3/routes?hosts="))),
+						HaveKeyWithValue("resources", BeEmpty()),
+					))
+				})
+
+				It("calls route with expected parameters", func() {
+					Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+					_, _, message := routeRepo.ListRoutesArgsForCall(0)
+					Expect(message.AppGUIDs).To(HaveLen(0))
+					Expect(message.Hosts).To(HaveLen(1))
+					Expect(message.Hosts[0]).To(Equal(""))
+				})
+			})
+
 			When("paths query parameters are provided", func() {
 				BeforeEach(func() {
 					requestPath += "?paths=/some/path"

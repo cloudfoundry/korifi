@@ -17,7 +17,7 @@ func (p ProcessScale) ToRecord() repositories.ProcessScaleValues {
 }
 
 type ProcessList struct {
-	AppGUIDs string `schema:"app_guids"`
+	AppGUIDs *string `schema:"app_guids"`
 }
 
 func (p *ProcessList) ToMessage() repositories.ListProcessesMessage {
