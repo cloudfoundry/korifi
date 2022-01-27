@@ -25,9 +25,9 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	k8s.io/api v0.23.2
-	k8s.io/apimachinery v0.23.2
+	k8s.io/apimachinery v0.23.3
 	k8s.io/client-go v0.23.2
-	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
+	k8s.io/utils v0.0.0-20211116205334-6203023598ed
 	sigs.k8s.io/controller-runtime v0.11.0
 	sigs.k8s.io/controller-tools v0.8.0
 	sigs.k8s.io/hierarchical-namespaces v0.9.0
