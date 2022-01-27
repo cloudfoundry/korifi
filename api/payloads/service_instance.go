@@ -34,8 +34,8 @@ type ServiceInstanceList struct {
 
 func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessage {
 	return repositories.ListServiceInstanceMessage{
-		Names:      parseArrayParam(l.Names),
-		SpaceGuids: parseArrayParam(l.SpaceGuids),
+		Names:      ParseArrayParam(l.Names),
+		SpaceGuids: ParseArrayParam(l.SpaceGuids),
 	}
 }
 

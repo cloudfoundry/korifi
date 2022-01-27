@@ -10,7 +10,7 @@ type DomainList struct {
 
 func (d *DomainList) ToMessage() repositories.ListDomainsMessage {
 	return repositories.ListDomainsMessage{
-		Names: parseArrayParam(d.Names),
+		Names: ParseArrayParam(d.Names),
 	}
 }
 

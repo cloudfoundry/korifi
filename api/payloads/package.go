@@ -48,8 +48,8 @@ func (p *PackageListQueryParameters) ToMessage() repositories.ListPackagesMessag
 	}
 
 	return repositories.ListPackagesMessage{
-		AppGUIDs:        parseArrayParam(p.AppGUIDs),
-		States:          parseArrayParam(p.States),
+		AppGUIDs:        ParseArrayParam(p.AppGUIDs),
+		States:          ParseArrayParam(p.States),
 		SortBy:          strings.TrimPrefix(p.OrderBy, "-"),
 		DescendingOrder: descendingOrder,
 	}
