@@ -99,6 +99,12 @@ var _ = Describe("BuildpackRepository", func() {
 			}
 			clusterBuilder.Status.Order = clusterBuilderOrderStatus
 
+			clusterBuilderStackStatus := buildv1alpha1.BuildStack{
+				ID:       "io.buildpacks.stacks.bionic",
+				RunImage: "index.docker.io/paketobuildpacks/run@sha256:79185c8427ebfed9b7df3e0fa12e101ec8b24aa899bbc541648d5923fb494084",
+			}
+			clusterBuilder.Status.Stack = clusterBuilderStackStatus
+
 			Expect(k8sClient.Status().Update(beforeCtx, clusterBuilder)).To(Succeed())
 			DeferCleanup(func() {
 				_ = k8sClient.Delete(context.Background(), clusterBuilder)
@@ -117,19 +123,19 @@ var _ = Describe("BuildpackRepository", func() {
 					MatchFields(IgnoreExtras, Fields{
 						"Name":     Equal("paketo-buildpacks/buildpack-1-1"),
 						"Position": Equal(1),
-						"Stack":    Equal(clusterBuilder.Spec.Stack.Name),
+						"Stack":    Equal("io.buildpacks.stacks.bionic"),
 						"Version":  Equal("1.1"),
 					}),
 					MatchFields(IgnoreExtras, Fields{
 						"Name":     Equal("paketo-buildpacks/buildpack-2-1"),
 						"Position": Equal(2),
-						"Stack":    Equal(clusterBuilder.Spec.Stack.Name),
+						"Stack":    Equal("io.buildpacks.stacks.bionic"),
 						"Version":  Equal("2.1"),
 					}),
 					MatchFields(IgnoreExtras, Fields{
 						"Name":     Equal("paketo-buildpacks/buildpack-3-1"),
 						"Position": Equal(3),
-						"Stack":    Equal(clusterBuilder.Spec.Stack.Name),
+						"Stack":    Equal("io.buildpacks.stacks.bionic"),
 						"Version":  Equal("3.1"),
 					}),
 				))
