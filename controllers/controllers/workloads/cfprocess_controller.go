@@ -66,31 +66,23 @@ type CFProcessReconciler struct {
 func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	cfProcess := workloadsv1alpha1.CFProcess{}
+	cfProcess := new(workloadsv1alpha1.CFProcess)
 	var err error
-	err = r.Client.Get(ctx, req.NamespacedName, &cfProcess)
+	err = r.Client.Get(ctx, req.NamespacedName, cfProcess)
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch CFProcess %s/%s", req.Namespace, req.Name))
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	cfApp := workloadsv1alpha1.CFApp{}
-	err = r.Client.Get(ctx, types.NamespacedName{Name: cfProcess.Spec.AppRef.Name, Namespace: cfProcess.Namespace}, &cfApp)
+	cfApp := new(workloadsv1alpha1.CFApp)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: cfProcess.Spec.AppRef.Name, Namespace: cfProcess.Namespace}, cfApp)
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch CFApp %s/%s", req.Namespace, cfProcess.Spec.AppRef.Name))
 		return ctrl.Result{}, err
 	}
 
-	originalCFProcess := cfProcess.DeepCopy()
-	err = controllerutil.SetOwnerReference(&cfApp, &cfProcess, r.Scheme)
+	err = r.setOwnerRef(ctx, cfProcess, cfApp)
 	if err != nil {
-		r.Log.Error(err, "unable to set owner reference on CFProcess")
-		return ctrl.Result{}, err
-	}
-
-	err = r.Client.Patch(ctx, &cfProcess, client.MergeFrom(originalCFProcess))
-	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("Error setting owner reference on the CFProcess %s/%s", req.Namespace, cfProcess.Name))
 		return ctrl.Result{}, err
 	}
 
@@ -98,71 +90,15 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if foundValue, ok := cfApp.GetAnnotations()[workloadsv1alpha1.CFAppRevisionKey]; ok {
 		cfAppRev = foundValue
 	}
-	lrpsForProcess, err := r.fetchLRPsForProcess(ctx, cfProcess)
-	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch LRPs for Process %s/%s", req.Namespace, cfProcess.Name))
-		return ctrl.Result{}, err
-	}
 
 	if cfApp.Spec.DesiredState == workloadsv1alpha1.StartedState {
-		cfBuild := workloadsv1alpha1.CFBuild{}
-		err = r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfProcess.Namespace}, &cfBuild)
+		err = r.createOrPatchLRP(ctx, cfApp, cfProcess, cfAppRev)
 		if err != nil {
-			r.Log.Error(err, fmt.Sprintf("Error when trying to fetch CFBuild %s/%s", req.Namespace, cfApp.Spec.CurrentDropletRef.Name))
-			return ctrl.Result{}, err
-		}
-
-		if cfBuild.Status.BuildDropletStatus == nil {
-			r.Log.Error(err, fmt.Sprintf("No build droplet status on CFBuild %s/%s", req.Namespace, cfApp.Spec.CurrentDropletRef.Name))
-			return ctrl.Result{}, errors.New("no build droplet status on CFBuild")
-		}
-
-		appEnvSecret := corev1.Secret{}
-		if cfApp.Spec.EnvSecretName != "" {
-			err = r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.EnvSecretName, Namespace: cfProcess.Namespace}, &appEnvSecret)
-			if err != nil {
-				r.Log.Error(err, fmt.Sprintf("Error when trying to fetch app env Secret %s/%s", req.Namespace, cfApp.Spec.EnvSecretName))
-				return ctrl.Result{}, err
-			}
-		}
-		var appPort int
-		appPort, err = r.getPort(ctx, cfProcess, cfApp)
-		if err != nil {
-			r.Log.Error(err, fmt.Sprintf("Error when trying to fetch routes for CFApp %s/%s", req.Namespace, cfApp.Spec.Name))
-			return ctrl.Result{}, err
-		}
-
-		var services []serviceInfo
-		services, err = r.getAppServiceBindings(ctx, cfApp.Name, cfProcess.Namespace)
-		if err != nil {
-			r.Log.Error(err, fmt.Sprintf("Error when trying to fetch CFServiceBindings for CFApp %s/%s", req.Namespace, cfApp.Spec.Name))
-			return ctrl.Result{}, err
-		}
-
-		actualLRP := &eiriniv1.LRP{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfProcess.Namespace,
-				Name:      generateLRPName(cfAppRev, cfProcess.Name),
-			},
-		}
-
-		var desiredLRP *eiriniv1.LRP
-		desiredLRP, err = r.generateLRP(*actualLRP, cfApp, cfProcess, cfBuild, appEnvSecret, appPort, services)
-		if err != nil {
-			// untested
-			r.Log.Error(err, "Error when initializing LRP")
-			return ctrl.Result{}, err
-		}
-
-		_, err = controllerutil.CreateOrPatch(ctx, r.Client, actualLRP, lrpMutateFunction(actualLRP, desiredLRP))
-		if err != nil {
-			r.Log.Error(err, "Error calling CreateOrPatch on lrp")
 			return ctrl.Result{}, err
 		}
 	}
 
-	// Cleanup LRPs
-	err = r.cleanUpLRPs(ctx, lrpsForProcess, cfApp.Spec.DesiredState, cfAppRev)
+	err = r.cleanUpLRPs(ctx, cfProcess, cfApp.Spec.DesiredState, cfAppRev)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -170,16 +106,89 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return ctrl.Result{}, nil
 }
 
-func (r *CFProcessReconciler) cleanUpLRPs(ctx context.Context, lrpsForProcess []eiriniv1.LRP, desiredState workloadsv1alpha1.DesiredState, cfAppRev string) error {
-	for _, currentLRP := range lrpsForProcess {
-		toDelete := true
-		if desiredState != workloadsv1alpha1.StoppedState {
-			if getMapKeyValue(currentLRP.Labels, workloadsv1alpha1.CFAppRevisionKey) == cfAppRev {
-				toDelete = false
-			}
-		}
+func (r *CFProcessReconciler) createOrPatchLRP(ctx context.Context, cfApp *workloadsv1alpha1.CFApp, cfProcess *workloadsv1alpha1.CFProcess, cfAppRev string) error {
+	cfBuild := new(workloadsv1alpha1.CFBuild)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfProcess.Namespace}, cfBuild)
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch CFBuild %s/%s", cfProcess.Namespace, cfApp.Spec.CurrentDropletRef.Name))
+		return err
+	}
 
-		if toDelete {
+	if cfBuild.Status.BuildDropletStatus == nil {
+		r.Log.Error(err, fmt.Sprintf("No build droplet status on CFBuild %s/%s", cfProcess.Namespace, cfApp.Spec.CurrentDropletRef.Name))
+		return errors.New("no build droplet status on CFBuild")
+	}
+
+	appEnvSecret := corev1.Secret{}
+	if cfApp.Spec.EnvSecretName != "" {
+		err = r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.EnvSecretName, Namespace: cfProcess.Namespace}, &appEnvSecret)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("Error when trying to fetch app env Secret %s/%s", cfProcess.Namespace, cfApp.Spec.EnvSecretName))
+			return err
+		}
+	}
+	var appPort int
+	appPort, err = r.getPort(ctx, cfProcess, cfApp)
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch routes for CFApp %s/%s", cfProcess.Namespace, cfApp.Spec.Name))
+		return err
+	}
+
+	var services []serviceInfo
+	services, err = r.getAppServiceBindings(ctx, cfApp.Name, cfProcess.Namespace)
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch CFServiceBindings for CFApp %s/%s", cfProcess.Namespace, cfApp.Spec.Name))
+		return err
+	}
+
+	actualLRP := &eiriniv1.LRP{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfProcess.Namespace,
+			Name:      generateLRPName(cfAppRev, cfProcess.Name),
+		},
+	}
+
+	var desiredLRP *eiriniv1.LRP
+	desiredLRP, err = r.generateLRP(actualLRP, cfApp, cfProcess, cfBuild, appEnvSecret, appPort, services)
+	if err != nil {
+		// untested
+		r.Log.Error(err, "Error when initializing LRP")
+		return err
+	}
+
+	_, err = controllerutil.CreateOrPatch(ctx, r.Client, actualLRP, lrpMutateFunction(actualLRP, desiredLRP))
+	if err != nil {
+		r.Log.Error(err, "Error calling CreateOrPatch on lrp")
+		return err
+	}
+	return nil
+}
+
+func (r *CFProcessReconciler) setOwnerRef(ctx context.Context, cfProcess *workloadsv1alpha1.CFProcess, cfApp *workloadsv1alpha1.CFApp) error {
+	originalCFProcess := cfProcess.DeepCopy()
+	err := controllerutil.SetOwnerReference(cfApp, cfProcess, r.Scheme)
+	if err != nil {
+		r.Log.Error(err, "unable to set owner reference on CFProcess")
+		return err
+	}
+
+	err = r.Client.Patch(ctx, cfProcess, client.MergeFrom(originalCFProcess))
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error setting owner reference on the CFProcess %s/%s", cfProcess.Namespace, cfProcess.Name))
+		return err
+	}
+	return nil
+}
+
+func (r *CFProcessReconciler) cleanUpLRPs(ctx context.Context, cfProcess *workloadsv1alpha1.CFProcess, desiredState workloadsv1alpha1.DesiredState, cfAppRev string) error {
+	lrpsForProcess, err := r.fetchLRPsForProcess(ctx, cfProcess)
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch LRPs for Process %s/%s", cfProcess.Namespace, cfProcess.Name))
+		return err
+	}
+
+	for _, currentLRP := range lrpsForProcess {
+		if desiredState == workloadsv1alpha1.StoppedState || currentLRP.Labels[workloadsv1alpha1.CFAppRevisionKey] != cfAppRev {
 			err := r.Client.Delete(ctx, &currentLRP)
 			if err != nil {
 				r.Log.Info(fmt.Sprintf("Error occurred deleting LRP: %s, %s", currentLRP.Name, err))
@@ -200,7 +209,7 @@ func lrpMutateFunction(actuallrp, desiredlrp *eiriniv1.LRP) controllerutil.Mutat
 	}
 }
 
-func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workloadsv1alpha1.CFApp, cfProcess workloadsv1alpha1.CFProcess, cfBuild workloadsv1alpha1.CFBuild, appEnvSecret corev1.Secret, appPort int, services []serviceInfo) (*eiriniv1.LRP, error) {
+func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *workloadsv1alpha1.CFApp, cfProcess *workloadsv1alpha1.CFProcess, cfBuild *workloadsv1alpha1.CFBuild, appEnvSecret corev1.Secret, appPort int, services []serviceInfo) (*eiriniv1.LRP, error) {
 	var desiredLRP eiriniv1.LRP
 	actualLRP.DeepCopyInto(&desiredLRP)
 
@@ -226,7 +235,7 @@ func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workload
 	desiredLRP.Spec.DiskMB = cfProcess.Spec.DiskQuotaMB
 	desiredLRP.Spec.MemoryMB = cfProcess.Spec.MemoryMB
 	desiredLRP.Spec.ProcessType = cfProcess.Spec.ProcessType
-	desiredLRP.Spec.Command = commandForProcess(&cfProcess, &cfApp)
+	desiredLRP.Spec.Command = commandForProcess(cfProcess, cfApp)
 	desiredLRP.Spec.AppName = cfApp.Spec.Name
 	desiredLRP.Spec.AppGUID = cfApp.Name
 	desiredLRP.Spec.Image = cfBuild.Status.BuildDropletStatus.Registry.Image
@@ -247,7 +256,7 @@ func (r *CFProcessReconciler) generateLRP(actualLRP eiriniv1.LRP, cfApp workload
 	desiredLRP.Spec.CPUWeight = 0
 	desiredLRP.Spec.Sidecars = nil
 
-	err = controllerutil.SetOwnerReference(&cfProcess, &desiredLRP, r.Scheme)
+	err = controllerutil.SetOwnerReference(cfProcess, &desiredLRP, r.Scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +272,7 @@ func generateLRPName(cfAppRev string, processGUID string) string {
 	return lrpName
 }
 
-func (r *CFProcessReconciler) fetchLRPsForProcess(ctx context.Context, cfProcess workloadsv1alpha1.CFProcess) ([]eiriniv1.LRP, error) {
+func (r *CFProcessReconciler) fetchLRPsForProcess(ctx context.Context, cfProcess *workloadsv1alpha1.CFProcess) ([]eiriniv1.LRP, error) {
 	allLRPs := &eiriniv1.LRPList{}
 	err := r.Client.List(ctx, allLRPs, client.InNamespace(cfProcess.Namespace))
 	if err != nil {
@@ -278,7 +287,7 @@ func (r *CFProcessReconciler) fetchLRPsForProcess(ctx context.Context, cfProcess
 	return lrpsForProcess, err
 }
 
-func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess workloadsv1alpha1.CFProcess, cfApp workloadsv1alpha1.CFApp) (int, error) {
+func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess *workloadsv1alpha1.CFProcess, cfApp *workloadsv1alpha1.CFApp) (int, error) {
 	// Get Routes for the process
 	var cfRoutesForProcess networkingv1alpha1.CFRouteList
 	err := r.Client.List(ctx, &cfRoutesForProcess, client.InNamespace(cfApp.GetNamespace()), client.MatchingFields{shared.DestinationAppName: cfApp.Name})
@@ -382,16 +391,18 @@ func (r *CFProcessReconciler) getAppServiceBindings(ctx context.Context, appGUID
 
 	services := make([]serviceInfo, 0, len(serviceBindings.Items))
 	for i, currentServiceBinding := range serviceBindings.Items {
-		serviceInstance := &servicesv1alpha1.CFServiceInstance{}
+		serviceInstance := new(servicesv1alpha1.CFServiceInstance)
 		err := r.Client.Get(ctx, types.NamespacedName{Name: currentServiceBinding.Spec.Service.Name, Namespace: namespace}, serviceInstance)
 		if err != nil {
 			return nil, fmt.Errorf("error fetching CFServiceInstance: %w", err)
 		}
-		secret := &corev1.Secret{}
+
+		secret := new(corev1.Secret)
 		err = r.Client.Get(ctx, types.NamespacedName{Name: currentServiceBinding.Spec.SecretName, Namespace: namespace}, secret)
 		if err != nil {
 			return nil, fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
 		}
+
 		services = append(services, serviceInfo{
 			binding:  &serviceBindings.Items[i],
 			instance: serviceInstance,
@@ -438,10 +449,16 @@ func servicesToVCAPValue(services []serviceInfo) (string, error) {
 			serviceName = service.instance.Spec.Name
 			bindingName = nil
 		}
+
+		tags := service.instance.Spec.Tags
+		if tags == nil {
+			tags = []string{}
+		}
+
 		vcapServices.UserProvided = append(vcapServices.UserProvided, serviceDetails{
 			Label:          "user-provided",
 			Name:           serviceName,
-			Tags:           service.instance.Spec.Tags,
+			Tags:           tags,
 			InstanceGUID:   service.instance.Name,
 			InstanceName:   service.instance.Spec.Name,
 			BindingGUID:    service.binding.Name,
