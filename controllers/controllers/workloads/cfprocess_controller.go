@@ -45,8 +45,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
 // CFProcessReconciler reconciles a CFProcess object
@@ -421,6 +422,11 @@ func servicesToVCAPValue(services []serviceInfo) (string, error) {
 	vcapServices := vcapServicesPresenter{
 		UserProvided: make([]serviceDetails, 0, len(services)),
 	}
+
+	// Ensure that the order is deterministic
+	sort.Slice(services, func(i, j int) bool {
+		return services[i].binding.Name < services[j].binding.Name
+	})
 
 	for _, service := range services {
 		var serviceName string

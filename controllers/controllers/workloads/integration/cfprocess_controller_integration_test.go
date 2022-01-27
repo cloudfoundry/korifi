@@ -103,6 +103,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				k8sClient.Create(ctx, cfApp),
 			).To(Succeed())
 		})
+
 		It("eventually reconciles to set owner references on CFProcess", func() {
 			Eventually(func() []metav1.OwnerReference {
 				var createdCFProcess workloadsv1alpha1.CFProcess
@@ -121,7 +122,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	})
 
 	When("the CFApp desired state is STARTED", func() {
-		BeforeEach(func() {
+		JustBeforeEach(func() {
 			ctx := context.Background()
 			cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
 			Expect(
@@ -179,7 +180,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		})
 
 		When("a CFApp desired state is updated to STOPPED", func() {
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				ctx := context.Background()
 
 				// Wait for LRP to exist before updating CFApp
@@ -374,7 +375,11 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 
 					return nil
-				}, 5*time.Second).Should(HaveKeyWithValue("VCAP_SERVICES", Not(Equal("{}"))), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to get VCAP_SERVICES env vars", testProcessGUID, testNamespace))
+				}, 5*time.Second).Should(
+					HaveKeyWithValue("VCAP_SERVICES",
+						SatisfyAll(ContainSubstring(serviceBinding1.Spec.Name), ContainSubstring(serviceBinding2.Spec.Name)),
+					), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to get VCAP_SERVICES env vars", testProcessGUID, testNamespace))
+
 				Expect(lrp.Spec.Env["VCAP_SERVICES"]).To(MatchJSON(fmt.Sprintf(`{
 						"user-provided":[
 							{
