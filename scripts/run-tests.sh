@@ -32,4 +32,8 @@ if [[ -n "$GINKGO_NODES" ]]; then
   extra_args+=("--procs=${GINKGO_NODES}")
 fi
 
-ginkgo --race -r -p --randomize-all --randomize-suites "${extra_args[@]}" $@
+if [[ -z "$NON_RECURSIVE_TEST" ]]; then
+  extra_args+=("-r")
+fi
+
+ginkgo --race -p --randomize-all --randomize-suites "${extra_args[@]}" $@
