@@ -9,7 +9,8 @@ var _ = Describe("DomainList", func() {
 	Describe("ToMessage", func() {
 		When("a single name is specified", func() {
 			It("properly splits them in the message", func() {
-				payload := DomainList{Names: "example.com"}
+				names := "example.com"
+				payload := DomainList{Names: &names}
 
 				Expect(payload.ToMessage().Names).To(Equal([]string{"example.com"}))
 			})
@@ -17,7 +18,8 @@ var _ = Describe("DomainList", func() {
 
 		When("multiple names are specified", func() {
 			It("properly splits them in the message and truncates whitespace", func() {
-				payload := DomainList{Names: " example.com, example.org ,cloudfoundry.org "}
+				names := " example.com, example.org ,cloudfoundry.org "
+				payload := DomainList{Names: &names}
 
 				Expect(payload.ToMessage().Names).To(Equal([]string{"example.com", "example.org", "cloudfoundry.org"}))
 			})

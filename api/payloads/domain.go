@@ -5,7 +5,7 @@ import (
 )
 
 type DomainList struct {
-	Names string `schema:"names"`
+	Names *string `schema:"names"`
 }
 
 func (d *DomainList) ToMessage() repositories.ListDomainsMessage {

@@ -55,10 +55,10 @@ type AppSetCurrentDroplet struct {
 }
 
 type AppList struct {
-	Names      string `schema:"names"`
-	GUIDs      string `schema:"guids"`
-	SpaceGuids string `schema:"space_guids"`
-	OrderBy    string `schema:"order_by"`
+	Names      *string `schema:"names"`
+	GUIDs      *string `schema:"guids"`
+	SpaceGuids *string `schema:"space_guids"`
+	OrderBy    string  `schema:"order_by"`
 }
 
 func (a *AppList) ToMessage() repositories.ListAppsMessage {
