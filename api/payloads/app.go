@@ -63,9 +63,9 @@ type AppList struct {
 
 func (a *AppList) ToMessage() repositories.ListAppsMessage {
 	return repositories.ListAppsMessage{
-		Names:      parseArrayParam(a.Names),
-		Guids:      parseArrayParam(a.GUIDs),
-		SpaceGuids: parseArrayParam(a.SpaceGuids),
+		Names:      ParseArrayParam(a.Names),
+		Guids:      ParseArrayParam(a.GUIDs),
+		SpaceGuids: ParseArrayParam(a.SpaceGuids),
 	}
 }
 

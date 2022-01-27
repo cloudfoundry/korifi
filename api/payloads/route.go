@@ -37,11 +37,11 @@ type RouteList struct {
 
 func (p *RouteList) ToMessage() repositories.ListRoutesMessage {
 	return repositories.ListRoutesMessage{
-		AppGUIDs:    parseArrayParam(p.AppGUIDs),
-		SpaceGUIDs:  parseArrayParam(p.SpaceGUIDs),
-		DomainGUIDs: parseArrayParam(p.DomainGUIDs),
-		Hosts:       parseArrayParam(p.Hosts),
-		Paths:       parseArrayParam(p.Paths),
+		AppGUIDs:    ParseArrayParam(p.AppGUIDs),
+		SpaceGUIDs:  ParseArrayParam(p.SpaceGUIDs),
+		DomainGUIDs: ParseArrayParam(p.DomainGUIDs),
+		Hosts:       ParseArrayParam(p.Hosts),
+		Paths:       ParseArrayParam(p.Paths),
 	}
 }
 

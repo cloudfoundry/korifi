@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -55,6 +56,186 @@ var _ = Describe("Route Handler", func() {
 
 	AfterEach(func() {
 		Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
+	})
+
+	Describe("GET /v3/routes endpoint", func() {
+		When("a space developer calls list on routes in namespace they have permission for", func() {
+			var (
+				domainGUID string
+				routeGUID1 string
+				cfRoute1   *networkingv1alpha1.CFRoute
+				routeGUID2 string
+				cfRoute2   *networkingv1alpha1.CFRoute
+			)
+
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+
+				domainGUID = generateGUID()
+				routeGUID1 = generateGUID()
+				routeGUID2 = generateGUID()
+
+				cfDomain := &networkingv1alpha1.CFDomain{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: domainGUID,
+					},
+					Spec: networkingv1alpha1.CFDomainSpec{
+						Name: "foo.domain",
+					},
+				}
+				Expect(
+					k8sClient.Create(ctx, cfDomain),
+				).To(Succeed())
+
+				Eventually(func() error {
+					domain := &networkingv1alpha1.CFDomain{}
+					return k8sClient.Get(ctx, client.ObjectKey{Name: domainGUID}, domain)
+				}).ShouldNot(HaveOccurred())
+
+				cfRoute1 = &networkingv1alpha1.CFRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      routeGUID1,
+						Namespace: namespace.Name,
+					},
+					Spec: networkingv1alpha1.CFRouteSpec{
+						Host:     "my-subdomain-1",
+						Path:     "",
+						Protocol: "http",
+						DomainRef: corev1.LocalObjectReference{
+							Name: domainGUID,
+						},
+						Destinations: []networkingv1alpha1.Destination{
+							{
+								GUID: "destination-guid",
+								Port: 8080,
+								AppRef: corev1.LocalObjectReference{
+									Name: "some-app-guid",
+								},
+								ProcessType: "web",
+								Protocol:    "http1",
+							},
+						},
+					},
+				}
+
+				Expect(
+					k8sClient.Create(ctx, cfRoute1),
+				).To(Succeed())
+
+				DeferCleanup(func() {
+					Expect(
+						k8sClient.Delete(ctx, cfRoute1),
+					).To(Succeed())
+				})
+
+				Eventually(func() error {
+					route := &networkingv1alpha1.CFRoute{}
+					return k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace.Name, Name: routeGUID1}, route)
+				}).ShouldNot(HaveOccurred())
+
+				cfRoute2 = &networkingv1alpha1.CFRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      routeGUID2,
+						Namespace: namespace.Name,
+					},
+					Spec: networkingv1alpha1.CFRouteSpec{
+						Host:     "my-subdomain-2",
+						Path:     "foo",
+						Protocol: "http",
+						DomainRef: corev1.LocalObjectReference{
+							Name: domainGUID,
+						},
+						Destinations: []networkingv1alpha1.Destination{
+							{
+								GUID: "destination-guid",
+								Port: 8080,
+								AppRef: corev1.LocalObjectReference{
+									Name: "some-app-guid",
+								},
+								ProcessType: "web",
+								Protocol:    "http1",
+							},
+						},
+					},
+				}
+
+				Expect(
+					k8sClient.Create(ctx, cfRoute2),
+				).To(Succeed())
+
+				DeferCleanup(func() {
+					Expect(
+						k8sClient.Delete(ctx, cfRoute2),
+					).To(Succeed())
+				})
+
+				Eventually(func() error {
+					route := &networkingv1alpha1.CFRoute{}
+					return k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace.Name, Name: routeGUID2}, route)
+				}).ShouldNot(HaveOccurred())
+			})
+
+			JustBeforeEach(func() {
+				router.ServeHTTP(rr, req)
+			})
+
+			When("no query parameters are specified", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", serverURI("/v3/routes"), strings.NewReader(""))
+					Expect(err).NotTo(HaveOccurred())
+
+					req.Header.Add("Content-type", "application/json")
+				})
+
+				It("returns 200 and returns 2 records", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK))
+
+					response := map[string]interface{}{}
+					err := json.Unmarshal(rr.Body.Bytes(), &response)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(response).To(HaveKeyWithValue("resources", HaveLen(2)))
+				})
+			})
+
+			When("the hosts query parameter is specified with a value", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", serverURI("/v3/routes?hosts=my-subdomain-1"), strings.NewReader(""))
+					Expect(err).NotTo(HaveOccurred())
+
+					req.Header.Add("Content-type", "application/json")
+				})
+
+				It("returns 200 and returns 1 record", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK))
+
+					response := map[string]interface{}{}
+					err := json.Unmarshal(rr.Body.Bytes(), &response)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(response).To(HaveKeyWithValue("resources", HaveLen(1)))
+				})
+			})
+
+			When("the paths query parameter is specified with no value", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", serverURI("/v3/routes?paths="), strings.NewReader(""))
+					Expect(err).NotTo(HaveOccurred())
+
+					req.Header.Add("Content-type", "application/json")
+				})
+
+				It("returns 200 and returns 1 record", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK))
+
+					response := map[string]interface{}{}
+					err := json.Unmarshal(rr.Body.Bytes(), &response)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(response).To(HaveKeyWithValue("resources", HaveLen(1)))
+				})
+			})
+		})
 	})
 
 	Describe("DELETE /v3/route endpoint", func() {

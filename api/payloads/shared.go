@@ -25,7 +25,7 @@ type Metadata struct {
 	Annotations map[string]string `json:"annotations"`
 }
 
-func parseArrayParam(arrayParam *string) []string {
+func ParseArrayParam(arrayParam *string) []string {
 	if arrayParam == nil {
 		return []string{}
 	}
