@@ -115,7 +115,7 @@ var _ = Describe("JobHandler", func() {
 				})
 			})
 
-			When("the existing job operation is space.delete", func() {
+			When("the existing job operation is org.delete", func() {
 				BeforeEach(func() {
 					jobGUID = "org.delete-" + orgGUID
 				})
@@ -130,6 +130,28 @@ var _ = Describe("JobHandler", func() {
 					}
 				  },
 				  "operation": "org.delete",
+				  "state": "COMPLETE",
+				  "updated_at": "",
+				  "warnings": null
+				}`, defaultServerURL, jobGUID)), "Response body matches response:")
+				})
+			})
+
+			When("the existing job operation is route.delete", func() {
+				BeforeEach(func() {
+					jobGUID = "route.delete-" + spaceGUID
+				})
+				It("returns the job", func() {
+					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+				  "created_at": "",
+				  "errors": null,
+				  "guid": "%[2]s",
+				  "links": {
+					"self": {
+					  "href": "%[1]s/v3/jobs/%[2]s"
+					}
+				  },
+				  "operation": "route.delete",
 				  "state": "COMPLETE",
 				  "updated_at": "",
 				  "warnings": null

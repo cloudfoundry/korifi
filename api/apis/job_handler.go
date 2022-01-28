@@ -17,6 +17,7 @@ const (
 	syncSpacePrefix   = "sync-space.apply_manifest-"
 	appDeletePrefix   = "app.delete-"
 	orgDeletePrefix   = "org.delete-"
+	routeDeletePrefix = "route.delete-"
 	spaceDeletePrefix = "space.delete-"
 )
 
@@ -48,6 +49,8 @@ func (h *JobHandler) jobGetHandler(w http.ResponseWriter, r *http.Request) {
 		jobResponse = presenter.ForOrgDeleteJob(jobGUID, h.serverURL)
 	} else if strings.HasPrefix(jobGUID, spaceDeletePrefix) {
 		jobResponse = presenter.ForSpaceDeleteJob(jobGUID, h.serverURL)
+	} else if strings.HasPrefix(jobGUID, routeDeletePrefix) {
+		jobResponse = presenter.ForRouteDeleteJob(jobGUID, h.serverURL)
 	} else {
 		h.logger.Info("Invalid Job GUID")
 		writeNotFoundErrorResponse(w, "Job")

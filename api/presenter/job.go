@@ -51,6 +51,10 @@ func ForOrgDeleteJob(jobGUID string, baseURL url.URL) JobResponse {
 	return forDeleteJob(jobGUID, "org.delete", baseURL)
 }
 
+func ForRouteDeleteJob(jobGUID string, baseURL url.URL) JobResponse {
+	return forDeleteJob(jobGUID, "route.delete", baseURL)
+}
+
 func forDeleteJob(jobGUID string, operation string, baseURL url.URL) JobResponse {
 	return JobResponse{
 		GUID:      jobGUID,
