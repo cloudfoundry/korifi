@@ -38,7 +38,7 @@ var _ = Describe("App Handler", func() {
 		identityProvider := new(fake.IdentityProvider)
 		nsPermissions := authorization.NewNamespacePermissions(k8sClient, identityProvider, "root-ns")
 		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
-		dropletRepo := repositories.NewDropletRepo(k8sClient)
+		dropletRepo := repositories.NewDropletRepo(k8sClient, clientFactory)
 		processRepo := repositories.NewProcessRepo(k8sClient)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
 		domainRepo := repositories.NewDomainRepo(k8sClient)
@@ -307,7 +307,7 @@ var _ = Describe("App Handler", func() {
 					})
 				})
 
-				When("not a space developer or admin", func() {
+				When("not authorized to get app", func() {
 					It("returns a 404", func() {
 						Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
 						Expect(rr).To(HaveHTTPBody(ContainSubstring("App not found")))
@@ -316,17 +316,23 @@ var _ = Describe("App Handler", func() {
 			})
 
 			Describe("set current droplet", func() {
-				JustBeforeEach(func() {
-					payload, err := json.Marshal(payloads.AppSetCurrentDroplet{
+				var payload payloads.AppSetCurrentDroplet
+
+				BeforeEach(func() {
+					payload = payloads.AppSetCurrentDroplet{
 						Relationship: payloads.Relationship{
 							Data: &payloads.RelationshipData{
 								GUID: droplet.Name,
 							},
 						},
-					})
+					}
+				})
+
+				JustBeforeEach(func() {
+					payloadJSON, err := json.Marshal(payload)
 					Expect(err).NotTo(HaveOccurred())
 
-					req, err = http.NewRequestWithContext(ctx, http.MethodPatch, serverURI("/v3/apps/"+app.Name+"/relationships/current_droplet"), bytes.NewReader(payload))
+					req, err = http.NewRequestWithContext(ctx, http.MethodPatch, serverURI("/v3/apps/"+app.Name+"/relationships/current_droplet"), bytes.NewReader(payloadJSON))
 					Expect(err).NotTo(HaveOccurred())
 
 					router.ServeHTTP(rr, req)
@@ -357,6 +363,17 @@ var _ = Describe("App Handler", func() {
 					It("returns a 403", func() {
 						Expect(rr).To(HaveHTTPStatus(http.StatusForbidden))
 						Expect(rr).To(HaveHTTPBody(ContainSubstring("CF-NotAuthorized")), rr.Body.String())
+					})
+				})
+
+				When("the droplet does not exist", func() {
+					BeforeEach(func() {
+						createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+						payload.Data.GUID = "not-a-real-guid"
+					})
+
+					It("returns unprocessable entity", func() {
+						Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 					})
 				})
 			})

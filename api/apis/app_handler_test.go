@@ -840,6 +840,17 @@ var _ = Describe("AppHandler", func() {
 			itDoesntSetTheCurrentDroplet()
 		})
 
+		When("the Droplet isn't accessible to the user", func() {
+			BeforeEach(func() {
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.ForbiddenError{})
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
+			})
+			itDoesntSetTheCurrentDroplet()
+		})
+
 		When("the Droplet belongs to a different App", func() {
 			BeforeEach(func() {
 				droplet.AppGUID = "a-different-app-guid"
@@ -2248,6 +2259,16 @@ var _ = Describe("AppHandler", func() {
 		When("the Droplet doesn't exist", func() {
 			BeforeEach(func() {
 				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Droplet not found")
+			})
+		})
+
+		When("the user cannot access the droplet", func() {
+			BeforeEach(func() {
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError(nil))
 			})
 
 			It("returns an error", func() {

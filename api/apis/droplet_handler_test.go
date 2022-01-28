@@ -45,50 +45,50 @@ var _ = Describe("DropletHandler", func() {
 			)
 			dropletHandler.RegisterRoutes(router)
 		})
-		When("on the happy path", func() {
-			When("build staging is successful", func() {
-				BeforeEach(func() {
-					dropletRepo.GetDropletReturns(repositories.DropletRecord{
-						GUID:      dropletGUID,
-						State:     "STAGED",
-						CreatedAt: createdAt,
-						UpdatedAt: updatedAt,
-						Lifecycle: repositories.Lifecycle{
-							Type: "buildpack",
-							Data: repositories.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
+
+		When("build staging is successful", func() {
+			BeforeEach(func() {
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{
+					GUID:      dropletGUID,
+					State:     "STAGED",
+					CreatedAt: createdAt,
+					UpdatedAt: updatedAt,
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
 						},
-						Stack: "cflinuxfs3",
-						ProcessTypes: map[string]string{
-							"rake": "bundle exec rake",
-							"web":  "bundle exec rackup config.ru -p $PORT",
-						},
-						AppGUID:     appGUID,
-						PackageGUID: packageGUID,
-					}, nil)
-					router.ServeHTTP(rr, req)
-				})
+					},
+					Stack: "cflinuxfs3",
+					ProcessTypes: map[string]string{
+						"rake": "bundle exec rake",
+						"web":  "bundle exec rackup config.ru -p $PORT",
+					},
+					AppGUID:     appGUID,
+					PackageGUID: packageGUID,
+				}, nil)
+				router.ServeHTTP(rr, req)
+			})
 
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
 
-				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-				})
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
 
-				It("fetches the right droplet", func() {
-					Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
+			It("fetches the right droplet", func() {
+				Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
 
-					_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
-					Expect(actualDropletGUID).To(Equal(dropletGUID))
-				})
+				_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
+				Expect(actualDropletGUID).To(Equal(dropletGUID))
+			})
 
-				It("returns the droplet in the response", func() {
-					Expect(rr.Body.String()).To(MatchJSON(`{
+			It("returns the droplet in the response", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`{
 					  "guid": "`+dropletGUID+`",
 					  "state": "STAGED",
 					  "error": null,
@@ -138,13 +138,23 @@ var _ = Describe("DropletHandler", func() {
 						"annotations": {}
 					  }
 					}`), "Response body matches response:")
-				})
 			})
 		})
 
 		When("the droplet cannot be found", func() {
 			BeforeEach(func() {
 				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
+				router.ServeHTTP(rr, req)
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Droplet not found")
+			})
+		})
+
+		When("access to the droplet is forbidden", func() {
+			BeforeEach(func() {
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError(nil))
 				router.ServeHTTP(rr, req)
 			})
 

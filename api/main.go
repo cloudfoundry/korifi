@@ -119,7 +119,7 @@ func main() {
 			ctrl.Log.WithName("AppHandler"),
 			*serverURL,
 			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
-			repositories.NewDropletRepo(privilegedCRClient),
+			repositories.NewDropletRepo(privilegedCRClient, buildUserClient),
 			repositories.NewProcessRepo(privilegedCRClient),
 			repositories.NewRouteRepo(privilegedCRClient, buildUserClient),
 			repositories.NewDomainRepo(privilegedCRClient),
@@ -142,7 +142,7 @@ func main() {
 			*serverURL,
 			repositories.NewPackageRepo(privilegedCRClient),
 			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
-			repositories.NewDropletRepo(privilegedCRClient),
+			repositories.NewDropletRepo(privilegedCRClient, buildUserClient),
 			repositories.UploadSourceImage,
 			newRegistryAuthBuilder(privilegedK8sClient, config),
 			config.PackageRegistryBase,
@@ -157,7 +157,7 @@ func main() {
 		apis.NewDropletHandler(
 			ctrl.Log.WithName("DropletHandler"),
 			*serverURL,
-			repositories.NewDropletRepo(privilegedCRClient),
+			repositories.NewDropletRepo(privilegedCRClient, buildUserClient),
 		),
 		apis.NewProcessHandler(
 			ctrl.Log.WithName("ProcessHandler"),
