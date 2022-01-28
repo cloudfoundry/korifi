@@ -20,7 +20,7 @@ import (
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
-var _ = Describe("GET /v3/apps/:guid/env", func() {
+var _ = Describe("GET /v3/apps/:guid/env", Serial, func() {
 	var namespace *corev1.Namespace
 
 	BeforeEach(func() {

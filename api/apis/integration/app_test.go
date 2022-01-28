@@ -27,7 +27,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
-var _ = Describe("App Handler", func() {
+var _ = Describe("App Handler", Serial, func() {
 	var (
 		apiHandler *AppHandler
 		namespace  *corev1.Namespace

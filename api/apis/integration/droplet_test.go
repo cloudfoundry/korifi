@@ -14,7 +14,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var _ = Describe("Droplet", func() {
+var _ = Describe("Droplet", Serial, func() {
 	var (
 		namespace      *corev1.Namespace
 		dropletHandler *apis.DropletHandler

@@ -21,7 +21,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var _ = Describe("Route Handler", func() {
+var _ = Describe("Route Handler", Serial, func() {
 	var (
 		apiHandler         *RouteHandler
 		namespace          *corev1.Namespace

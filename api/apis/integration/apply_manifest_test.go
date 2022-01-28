@@ -26,7 +26,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", func() {
+var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", Serial, func() {
 	BeforeEach(func() {
 		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
 		identityProvider := new(fake.IdentityProvider)
