@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"strings"
+	"regexp"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
@@ -14,11 +14,11 @@ import (
 
 const (
 	JobGetEndpoint    = "/v3/jobs/{guid}"
-	syncSpacePrefix   = "sync-space.apply_manifest-"
-	appDeletePrefix   = "app.delete-"
-	orgDeletePrefix   = "org.delete-"
-	routeDeletePrefix = "route.delete-"
-	spaceDeletePrefix = "space.delete-"
+	syncSpacePrefix   = "space.apply_manifest"
+	appDeletePrefix   = "app.delete"
+	orgDeletePrefix   = "org.delete"
+	routeDeletePrefix = "route.delete"
+	spaceDeletePrefix = "space.delete"
 )
 
 type JobHandler struct {
@@ -39,20 +39,23 @@ func (h *JobHandler) jobGetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	jobGUID := vars["guid"]
 
-	var jobResponse presenter.JobResponse
-	if strings.HasPrefix(jobGUID, syncSpacePrefix) {
-		spaceGUID := strings.Replace(jobGUID, syncSpacePrefix, "", 1)
-		jobResponse = presenter.ForManifestApplyJob(jobGUID, spaceGUID, h.serverURL)
-	} else if strings.HasPrefix(jobGUID, appDeletePrefix) {
-		jobResponse = presenter.ForAppDeleteJob(jobGUID, h.serverURL)
-	} else if strings.HasPrefix(jobGUID, orgDeletePrefix) {
-		jobResponse = presenter.ForOrgDeleteJob(jobGUID, h.serverURL)
-	} else if strings.HasPrefix(jobGUID, spaceDeletePrefix) {
-		jobResponse = presenter.ForSpaceDeleteJob(jobGUID, h.serverURL)
-	} else if strings.HasPrefix(jobGUID, routeDeletePrefix) {
-		jobResponse = presenter.ForRouteDeleteJob(jobGUID, h.serverURL)
-	} else {
+	jobType, resourceGUID, match := parseJobGUID(jobGUID)
+
+	if !match {
 		h.logger.Info("Invalid Job GUID")
+		writeNotFoundErrorResponse(w, "Job")
+		return
+	}
+
+	var jobResponse presenter.JobResponse
+
+	switch jobType {
+	case syncSpacePrefix:
+		jobResponse = presenter.ForManifestApplyJob(jobGUID, resourceGUID, h.serverURL)
+	case appDeletePrefix, orgDeletePrefix, spaceDeletePrefix, routeDeletePrefix:
+		jobResponse = presenter.ForDeleteJob(jobGUID, jobType, h.serverURL)
+	default:
+		h.logger.Info("Invalid Job type: %s", jobType)
 		writeNotFoundErrorResponse(w, "Job")
 		return
 	}
@@ -69,4 +72,16 @@ func (h *JobHandler) jobGetHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *JobHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(JobGetEndpoint).Methods("GET").HandlerFunc(h.jobGetHandler)
+}
+
+func parseJobGUID(jobGUID string) (string, string, bool) {
+	// Match job.type-GUID and capture the job type and GUID for later use
+	jobRegexp := regexp.MustCompile("([a-z_-]+[.][a-z_]+)-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})")
+	matches := jobRegexp.FindStringSubmatch(jobGUID)
+
+	if len(matches) != 3 {
+		return "", "", false
+	} else {
+		return matches[1], matches[2], true
+	}
 }

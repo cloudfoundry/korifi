@@ -69,7 +69,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info,
 		return
 	}
 
-	w.Header().Set("Location", fmt.Sprintf("%s/v3/jobs/sync-space.apply_manifest-%s", h.serverURL.String(), spaceGUID))
+	w.Header().Set("Location", fmt.Sprintf("%s/v3/jobs/space.apply_manifest-%s", h.serverURL.String(), spaceGUID))
 	w.WriteHeader(http.StatusAccepted)
 }
 
