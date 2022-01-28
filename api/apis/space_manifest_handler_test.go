@@ -137,7 +137,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 			It("creates the record without erroring", func() {
 				Expect(rr.Code).To(Equal(http.StatusAccepted))
-				Expect(rr.Header().Get("Location")).To(Equal(defaultServerURI("/v3/jobs/sync-space.apply_manifest-", spaceGUID)))
+				Expect(rr.Header().Get("Location")).To(Equal(defaultServerURI("/v3/jobs/space.apply_manifest-", spaceGUID)))
 				Expect(applyManifestAction.CallCount()).To(Equal(1))
 			})
 		})

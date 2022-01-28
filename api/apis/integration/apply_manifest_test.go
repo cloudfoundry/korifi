@@ -151,7 +151,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				Expect(err).NotTo(HaveOccurred())
 				Expect(body).To(BeEmpty())
 
-				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/sync-space.apply_manifest-", namespace.Name)))
+				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/space.apply_manifest-", namespace.Name)))
 
 				var app1 workloadsv1alpha1.CFApp
 				By("confirming that the app was created", func() {
@@ -493,7 +493,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				Expect(err).NotTo(HaveOccurred())
 				Expect(body).To(BeEmpty())
 
-				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/sync-space.apply_manifest-", namespace.Name)))
+				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/space.apply_manifest-", namespace.Name)))
 
 				var app1 workloadsv1alpha1.CFApp
 				By("confirming that the app fields are unchanged", func() {
