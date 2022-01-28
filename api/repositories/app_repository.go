@@ -437,8 +437,17 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 	cfApp := baseCFApp.DeepCopy()
 	cfApp.Spec.DesiredState = workloadsv1alpha1.DesiredState(message.DesiredState)
 
-	err := f.privilegedClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
+		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
+	if err != nil {
+		if k8serrors.IsForbidden(err) {
+			return AppRecord{}, PermissionDeniedOrNotFoundError{Err: err}
+		}
+
 		return AppRecord{}, fmt.Errorf("err in client.Patch: %w", err)
 	}
 	return cfAppToAppRecord(*cfApp), nil

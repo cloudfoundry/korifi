@@ -246,6 +246,44 @@ var _ = Describe("App Handler", func() {
 			})
 		})
 
+		Describe("restart app", func() {
+			JustBeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, http.MethodPost, serverURI("/v3/apps/"+app.Name+"/actions/restart"), nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				router.ServeHTTP(rr, req)
+			})
+
+			When("the user is not authorized in the space", func() {
+				It("returns a not found status", func() {
+					Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+					Expect(rr).To(HaveHTTPBody(ContainSubstring("App not found")), rr.Body.String())
+				})
+			})
+
+			When("the user has readonly access to the app", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, spaceManagerRole.Name, namespace.Name)
+				})
+
+				It("returns a forbidden error", func() {
+					Expect(rr).To(HaveHTTPStatus(http.StatusForbidden))
+				})
+			})
+
+			When("the user is a space developer", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+				})
+
+				It("restarts the app", func() {
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(ContainSubstring(`"state":"STARTED"`)), rr.Body.String())
+				})
+			})
+		})
+
 		Describe("droplets", func() {
 			var droplet *workloads.CFBuild
 
