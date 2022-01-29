@@ -3,6 +3,7 @@ package workloads_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -40,6 +41,65 @@ const (
 	testPackageGUID    = "test-package-guid"
 )
 
+type GetStub func(context.Context, types.NamespacedName, client.Object) error
+
+type GetStubber struct {
+	stub GetStub
+}
+
+func (s *GetStubber) Stub(ctx context.Context, name types.NamespacedName, object client.Object) error {
+	return s.stub(ctx, name, object)
+}
+
+func (s *GetStubber) AddStub(stub func(GetStub) GetStub) {
+	origStub := s.stub
+	if origStub == nil {
+		origStub = func(ctx context.Context, name types.NamespacedName, object client.Object) error {
+			panic(fmt.Sprintf("GetStubber encountered an object without a stub to handle it: %T", object))
+		}
+	}
+	s.stub = stub(origStub)
+}
+
+func ErrorForType[T client.Object](err error) func(GetStub) GetStub {
+	return func(origStub GetStub) GetStub {
+		return func(ctx context.Context, nsName types.NamespacedName, obj client.Object) error {
+			if _, ok := obj.(T); ok {
+				return err
+			}
+			return origStub(ctx, nsName, obj)
+		}
+	}
+}
+
+type DeepCopyIntoer[T any] interface {
+	DeepCopyInto(T)
+}
+
+func AssignForType[D DeepCopyIntoer[D]](typeObj D) func(GetStub) GetStub {
+	return func(origStub GetStub) GetStub {
+		return func(ctx context.Context, nsName types.NamespacedName, obj client.Object) error {
+			if o, ok := obj.(D); ok {
+				typeObj.DeepCopyInto(o)
+
+				return nil
+			}
+			return origStub(ctx, nsName, obj)
+		}
+	}
+}
+
+func StubForType[T client.Object](newStub func(context.Context, types.NamespacedName, T) error) func(GetStub) GetStub {
+	return func(origStub GetStub) GetStub {
+		return func(ctx context.Context, nsName types.NamespacedName, obj client.Object) error {
+			if typedObj, ok := obj.(T); ok {
+				return newStub(ctx, nsName, typedObj)
+			}
+			return origStub(ctx, nsName, obj)
+		}
+	}
+}
+
 var _ = Describe("CFProcessReconciler Unit Tests", func() {
 	const (
 		serviceSecretGUID = "service-secret-guid"
@@ -47,6 +107,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 	var (
 		fakeClient *fake.Client
+		getStubber *GetStubber
 
 		cfBuild           *workloadsv1alpha1.CFBuild
 		cfProcess         *workloadsv1alpha1.CFProcess
@@ -59,13 +120,8 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		cfServiceBinding  *servicesv1alpha1.CFServiceBinding
 		cfServiceInstance *servicesv1alpha1.CFServiceInstance
 
-		cfBuildError            error
-		cfAppError              error
-		cfProcessError          error
 		appEnvSecretError       error
 		cfServiceSecretError    error
-		cfServiceInstanceError  error
-		lrpError                error
 		lrpListError            error
 		routeListError          error
 		serviceBindingListError error
@@ -79,15 +135,14 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 	BeforeEach(func() {
 		fakeClient = new(fake.Client)
+		getStubber = new(GetStubber)
+		fakeClient.GetStub = getStubber.Stub
 
 		cfApp = BuildCFAppCRObject(testAppGUID, testNamespace)
 		appEnvSecretGUID = cfApp.Spec.EnvSecretName
-		cfAppError = nil
 		cfBuild = BuildCFBuildObject(testBuildGUID, testNamespace, testPackageGUID, testAppGUID)
 		UpdateCFBuildWithDropletStatus(cfBuild)
-		cfBuildError = nil
 		cfProcess = BuildCFProcessCRObject(testProcessGUID, testNamespace, testAppGUID, testProcessType, testProcessCommand)
-		cfProcessError = nil
 		appEnvSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      appEnvSecretGUID,
@@ -131,43 +186,22 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				Tags:       []string{},
 			},
 		}
-		cfServiceInstanceError = nil
 		lrp = nil
-		lrpError = nil
 		lrpListError = nil
 
-		fakeClient.GetStub = func(_ context.Context, name types.NamespacedName, obj client.Object) error {
-			// cast obj to find its kind
-			switch obj := obj.(type) {
-			case *workloadsv1alpha1.CFProcess:
-				cfProcess.DeepCopyInto(obj)
-				return cfProcessError
-			case *workloadsv1alpha1.CFBuild:
-				cfBuild.DeepCopyInto(obj)
-				return cfBuildError
-			case *workloadsv1alpha1.CFApp:
-				cfApp.DeepCopyInto(obj)
-				return cfAppError
-			case *corev1.Secret:
-				if name.Name == appEnvSecretGUID {
-					appEnvSecret.DeepCopyInto(obj)
-					return appEnvSecretError
-				} else {
-					cfServiceSecret.DeepCopyInto(obj)
-					return cfServiceSecretError
-				}
-			case *servicesv1alpha1.CFServiceInstance:
-				cfServiceInstance.DeepCopyInto(obj)
-				return cfServiceInstanceError
-			case *eiriniv1.LRP:
-				if lrp != nil && lrpError == nil {
-					lrp.DeepCopyInto(obj)
-				}
-				return lrpError
-			default:
-				panic("TestClient Get provided a weird obj")
+		getStubber.AddStub(AssignForType(cfProcess))
+		getStubber.AddStub(AssignForType(cfBuild))
+		getStubber.AddStub(AssignForType(cfApp))
+		getStubber.AddStub(AssignForType(cfServiceInstance))
+		getStubber.AddStub(StubForType(func(ctx context.Context, name types.NamespacedName, obj *corev1.Secret) error {
+			if name.Name == appEnvSecretGUID {
+				appEnvSecret.DeepCopyInto(obj)
+				return appEnvSecretError
+			} else {
+				cfServiceSecret.DeepCopyInto(obj)
+				return cfServiceSecretError
 			}
-		}
+		}))
 
 		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
 			switch listObj := list.(type) {
@@ -249,6 +283,8 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 							Replicas: 0,
 						},
 					}
+					getStubber.AddStub(AssignForType(lrp))
+
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 					Expect(reconcileErr).ToNot(HaveOccurred())
 				})
@@ -263,7 +299,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 				BeforeEach(func() {
 					cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
-					lrpError = apierrors.NewNotFound(schema.GroupResource{}, "some-guid")
+					getStubber.AddStub(ErrorForType[*eiriniv1.LRP](apierrors.NewNotFound(schema.GroupResource{}, "some-guid")))
 
 					routes = []networkingv1alpha1.CFRoute{
 						{
@@ -328,7 +364,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 			When("fetch CFProcess returns an error", func() {
 				BeforeEach(func() {
-					cfProcessError = errors.New(failsOnPurposeErrorMessage)
+					getStubber.AddStub(ErrorForType[*workloadsv1alpha1.CFProcess](errors.New(failsOnPurposeErrorMessage)))
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
@@ -339,7 +375,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 			When("fetch CFProcess returns a NotFoundError", func() {
 				BeforeEach(func() {
-					cfProcessError = apierrors.NewNotFound(schema.GroupResource{}, cfProcess.Name)
+					getStubber.AddStub(ErrorForType[*workloadsv1alpha1.CFProcess](apierrors.NewNotFound(schema.GroupResource{}, cfProcess.Name)))
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
@@ -350,7 +386,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 			When("fetch CFApp returns an error", func() {
 				BeforeEach(func() {
-					cfAppError = errors.New(failsOnPurposeErrorMessage)
+					getStubber.AddStub(ErrorForType[*workloadsv1alpha1.CFApp](errors.New(failsOnPurposeErrorMessage)))
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
@@ -361,7 +397,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 			When("fetch CFBuild returns an error", func() {
 				BeforeEach(func() {
-					cfBuildError = errors.New(failsOnPurposeErrorMessage)
+					getStubber.AddStub(ErrorForType[*workloadsv1alpha1.CFBuild](errors.New(failsOnPurposeErrorMessage)))
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
@@ -405,7 +441,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 			When("fetch CFServiceInstance returns an error", func() {
 				BeforeEach(func() {
-					cfServiceInstanceError = errors.New(failsOnPurposeErrorMessage)
+					getStubber.AddStub(ErrorForType[*servicesv1alpha1.CFServiceInstance](errors.New(failsOnPurposeErrorMessage)))
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
 
@@ -427,6 +463,10 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 			When("fetch LRPList returns an error", func() {
 				BeforeEach(func() {
+					getStubber.AddStub(StubForType(func(ctx context.Context, name types.NamespacedName, obj *eiriniv1.LRP) error {
+						// Don't make any change to LRP to avoid a merge error
+						return nil
+					}))
 					lrpListError = errors.New(failsOnPurposeErrorMessage)
 					_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				})
