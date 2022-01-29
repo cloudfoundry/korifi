@@ -188,7 +188,7 @@ var _ = Describe("Route Handler", func() {
 					req.Header.Add("Content-type", "application/json")
 				})
 
-				It("returns 200 and returns 2 records", func() {
+				XIt("returns 200 and returns 2 records", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK))
 
 					response := map[string]interface{}{}
