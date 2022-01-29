@@ -19,7 +19,7 @@ require (
 	github.com/gorilla/schema v1.2.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.4.1
 	github.com/onsi/ginkgo/v2 v2.1.1
-	github.com/onsi/gomega v1.18.0
+	github.com/onsi/gomega v1.18.1
 	github.com/pivotal/kpack v0.5.0
 	github.com/projectcontour/contour v1.19.1
 	gopkg.in/square/go-jose.v2 v2.6.0
