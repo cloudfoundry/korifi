@@ -33,6 +33,8 @@ var _ = Describe("ProcessHandler", func() {
 		processRepo = new(fake.CFProcessRepository)
 		fetchProcessStats = new(fake.FetchProcessStats)
 		scaleProcessFunc = new(fake.ScaleProcess)
+		decoderValidator, err := NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewProcessHandler(
 			logf.Log.WithName(testAppHandlerLoggerName),
@@ -40,6 +42,7 @@ var _ = Describe("ProcessHandler", func() {
 			processRepo,
 			fetchProcessStats.Spy,
 			scaleProcessFunc.Spy,
+			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
 	})

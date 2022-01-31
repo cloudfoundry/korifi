@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"gopkg.in/yaml.v3"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
@@ -25,6 +24,7 @@ type SpaceManifestHandler struct {
 	serverURL           url.URL
 	applyManifestAction ApplyManifestAction
 	spaceRepo           repositories.CFSpaceRepository
+	decoderValidator    *DecoderValidator
 }
 
 //counterfeiter:generate -o fake -fake-name ApplyManifestAction . ApplyManifestAction
@@ -35,12 +35,14 @@ func NewSpaceManifestHandler(
 	serverURL url.URL,
 	applyManifestAction ApplyManifestAction,
 	spaceRepo repositories.CFSpaceRepository,
+	decoderValidator *DecoderValidator,
 ) *SpaceManifestHandler {
 	return &SpaceManifestHandler{
 		logger:              logger,
 		serverURL:           serverURL,
 		applyManifestAction: applyManifestAction,
 		spaceRepo:           spaceRepo,
+		decoderValidator:    decoderValidator,
 	}
 }
 
@@ -54,7 +56,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info,
 	vars := mux.Vars(r)
 	spaceGUID := vars["spaceGUID"]
 	var manifest payloads.Manifest
-	rme := decodeAndValidateYAMLPayload(r, &manifest)
+	rme := h.decoderValidator.DecodeAndValidateYAMLPayload(r, &manifest)
 	if rme != nil {
 		w.Header().Set("Content-Type", "application/json")
 		writeRequestMalformedErrorResponse(w, rme)
@@ -77,22 +79,6 @@ func (h *SpaceManifestHandler) diffManifestHandler(authInfo authorization.Info, 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 	_, _ = w.Write([]byte(`{"diff":[]}`))
-}
-
-func decodeAndValidateYAMLPayload(r *http.Request, object interface{}) *requestMalformedError {
-	decoder := yaml.NewDecoder(r.Body)
-	defer r.Body.Close()
-	decoder.KnownFields(false) // TODO: change this to true once we've added all manifest fields to payloads.Manifest
-	err := decoder.Decode(object)
-	if err != nil {
-		Logger.Error(err, fmt.Sprintf("Unable to parse the YAML body: %T: %q", err, err.Error()))
-		return &requestMalformedError{
-			httpStatus:    http.StatusBadRequest,
-			errorResponse: newMessageParseError(),
-		}
-	}
-
-	return validatePayload(object)
 }
 
 func (h *SpaceManifestHandler) validateSpaceVisible(hf AuthAwareHandlerFunc) AuthAwareHandlerFunc {

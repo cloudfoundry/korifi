@@ -48,6 +48,8 @@ var _ = Describe("AppHandler", func() {
 		domainRepo = new(fake.CFDomainRepository)
 		podRepo = new(fake.PodRepository)
 		scaleAppProcessFunc = new(fake.ScaleAppProcess)
+		decoderValidator, err := NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewAppHandler(
 			logf.Log.WithName(testAppHandlerLoggerName),
@@ -59,6 +61,7 @@ var _ = Describe("AppHandler", func() {
 			domainRepo,
 			podRepo,
 			scaleAppProcessFunc.Spy,
+			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
 	})

@@ -37,7 +37,15 @@ var _ = Describe("Spaces", func() {
 		requestBody = ""
 		requestPath = spacesBase
 		spaceRepo = new(fake.SpaceRepository)
-		spaceHandler = apis.NewSpaceHandler(*serverURL, registryCredentialsSecretName, spaceRepo)
+		decoderValidator, err := apis.NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
+
+		spaceHandler = apis.NewSpaceHandler(
+			*serverURL,
+			registryCredentialsSecretName,
+			spaceRepo,
+			decoderValidator,
+		)
 		spaceHandler.RegisterRoutes(router)
 	})
 

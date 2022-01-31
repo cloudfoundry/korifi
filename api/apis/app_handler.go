@@ -62,15 +62,16 @@ type CFAppRepository interface {
 type ScaleAppProcess func(ctx context.Context, authInfo authorization.Info, appGUID string, processType string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
 
 type AppHandler struct {
-	logger          logr.Logger
-	serverURL       url.URL
-	appRepo         CFAppRepository
-	dropletRepo     CFDropletRepository
-	processRepo     CFProcessRepository
-	routeRepo       CFRouteRepository
-	domainRepo      CFDomainRepository
-	podRepo         PodRepository
-	scaleAppProcess ScaleAppProcess
+	logger           logr.Logger
+	serverURL        url.URL
+	appRepo          CFAppRepository
+	dropletRepo      CFDropletRepository
+	processRepo      CFProcessRepository
+	routeRepo        CFRouteRepository
+	domainRepo       CFDomainRepository
+	podRepo          PodRepository
+	scaleAppProcess  ScaleAppProcess
+	decoderValidator *DecoderValidator
 }
 
 func NewAppHandler(
@@ -83,17 +84,19 @@ func NewAppHandler(
 	domainRepo CFDomainRepository,
 	podRepo PodRepository,
 	scaleAppProcessFunc ScaleAppProcess,
+	decoderValidator *DecoderValidator,
 ) *AppHandler {
 	return &AppHandler{
-		logger:          logger,
-		serverURL:       serverURL,
-		appRepo:         appRepo,
-		dropletRepo:     dropletRepo,
-		processRepo:     processRepo,
-		routeRepo:       routeRepo,
-		domainRepo:      domainRepo,
-		podRepo:         podRepo,
-		scaleAppProcess: scaleAppProcessFunc,
+		logger:           logger,
+		serverURL:        serverURL,
+		appRepo:          appRepo,
+		dropletRepo:      dropletRepo,
+		processRepo:      processRepo,
+		routeRepo:        routeRepo,
+		domainRepo:       domainRepo,
+		decoderValidator: decoderValidator,
+		podRepo:          podRepo,
+		scaleAppProcess:  scaleAppProcessFunc,
 	}
 }
 
@@ -130,7 +133,7 @@ func (h *AppHandler) appCreateHandler(authInfo authorization.Info, w http.Respon
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.AppCreate
-	rme := decodeAndValidateJSONPayload(r, &payload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 		return
@@ -234,7 +237,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 	appGUID := vars["guid"]
 
 	var payload payloads.AppSetCurrentDroplet
-	rme := decodeAndValidateJSONPayload(r, &payload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 		return
@@ -517,7 +520,7 @@ func (h *AppHandler) appScaleProcessHandler(authInfo authorization.Info, w http.
 	processType := vars["processType"]
 
 	var payload payloads.ProcessScale
-	rme := decodeAndValidateJSONPayload(r, &payload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 		return
@@ -669,7 +672,7 @@ func (h *AppHandler) appPatchEnvVarsHandler(authInfo authorization.Info, w http.
 	appGUID := vars["guid"]
 
 	var payload payloads.AppPatchEnvVars
-	rme := decodeAndValidateJSONPayload(r, &payload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 		return

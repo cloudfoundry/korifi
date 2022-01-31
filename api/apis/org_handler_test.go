@@ -38,8 +38,10 @@ var _ = Describe("OrgHandler", func() {
 		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
 
 		orgRepo = new(fake.OrgRepository)
+		decoderValidator, err := apis.NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
 
-		orgHandler = apis.NewOrgHandler(*serverURL, orgRepo)
+		orgHandler = apis.NewOrgHandler(*serverURL, orgRepo, decoderValidator)
 		orgHandler.RegisterRoutes(router)
 	})
 

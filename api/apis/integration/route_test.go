@@ -35,6 +35,8 @@ var _ = Describe("Route Handler", func() {
 		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
 		domainRepo := repositories.NewDomainRepo(k8sClient)
+		decoderValidator, err := NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler = NewRouteHandler(
 			logf.Log.WithName("TestRouteHandler"),
@@ -42,6 +44,7 @@ var _ = Describe("Route Handler", func() {
 			routeRepo,
 			domainRepo,
 			appRepo,
+			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
 

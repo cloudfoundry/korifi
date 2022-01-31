@@ -8,11 +8,12 @@ import (
 	"regexp"
 	"strings"
 
+	"code.cloudfoundry.org/bytefmt"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"gopkg.in/yaml.v3"
 
-	"code.cloudfoundry.org/bytefmt"
 	"github.com/go-logr/logr"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
@@ -34,7 +35,24 @@ func (rme *requestMalformedError) Error() string {
 	return fmt.Sprintf("Error throwing an http %v", rme.httpStatus)
 }
 
-func decodeAndValidateJSONPayload(r *http.Request, object interface{}) *requestMalformedError {
+type DecoderValidator struct {
+	validator  *validator.Validate
+	translator ut.Translator
+}
+
+func NewDefaultDecoderValidator() (*DecoderValidator, error) {
+	validator, translator, err := wireValidator()
+	if err != nil {
+		return nil, err
+	}
+
+	return &DecoderValidator{
+		validator:  validator,
+		translator: translator,
+	}, nil
+}
+
+func (dv *DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object interface{}) *requestMalformedError {
 	decoder := json.NewDecoder(r.Body)
 	defer r.Body.Close()
 	decoder.DisallowUnknownFields()
@@ -64,45 +82,31 @@ func decodeAndValidateJSONPayload(r *http.Request, object interface{}) *requestM
 		}
 	}
 
-	return validatePayload(object)
+	return dv.validatePayload(object)
 }
 
-func validatePayload(object interface{}) *requestMalformedError {
-	v := validator.New()
+func (dv *DecoderValidator) DecodeAndValidateYAMLPayload(r *http.Request, object interface{}) *requestMalformedError {
+	decoder := yaml.NewDecoder(r.Body)
+	defer r.Body.Close()
+	decoder.KnownFields(false) // TODO: change this to true once we've added all manifest fields to payloads.Manifest
+	err := decoder.Decode(object)
+	if err != nil {
+		Logger.Error(err, fmt.Sprintf("Unable to parse the YAML body: %T: %q", err, err.Error()))
+		return &requestMalformedError{
+			httpStatus:    http.StatusBadRequest,
+			errorResponse: newMessageParseError(),
+		}
+	}
 
-	trans := registerDefaultTranslator(v)
+	return dv.validatePayload(object)
+}
 
-	// Register custom validators
-	_ = v.RegisterValidation("megabytestring", megabyteFormattedString, true)
-	_ = v.RegisterValidation("route", routeString)
-	_ = v.RegisterValidation("routepathstartswithslash", routePathStartsWithSlash)
-	_ = v.RegisterValidation("serviceinstancetaglength", serviceInstanceTagLength)
-
-	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
-	_ = v.RegisterTranslation("cannot_have_both_org_and_space_set", trans, func(ut ut.Translator) error {
-		return ut.Add("cannot_have_both_org_and_space_set", "Cannot pass both 'organization' and 'space' in a create role request", false)
-	}, func(ut ut.Translator, fe validator.FieldError) string {
-		t, _ := ut.T("cannot_have_both_org_and_space_set", fe.Field())
-		return t
-	})
-	_ = v.RegisterTranslation("valid_role", trans, func(ut ut.Translator) error {
-		return ut.Add("valid_role", "{0} is not a valid role", false)
-	}, func(ut ut.Translator, fe validator.FieldError) string {
-		t, _ := ut.T("valid_role", fmt.Sprintf("%v", fe.Value()))
-		return t
-	})
-	_ = v.RegisterTranslation("route", trans, func(ut ut.Translator) error {
-		return ut.Add("invalid_route", `"{0}" is not a valid route URI`, false)
-	}, func(ut ut.Translator, fe validator.FieldError) string {
-		t, _ := ut.T("invalid_route", fmt.Sprintf("%v", fe.Value()))
-		return t
-	})
-
-	err := v.Struct(object)
+func (dv *DecoderValidator) validatePayload(object interface{}) *requestMalformedError {
+	err := dv.validator.Struct(object)
 	if err != nil {
 		switch typedErr := err.(type) {
 		case validator.ValidationErrors:
-			errorMap := typedErr.Translate(trans)
+			errorMap := typedErr.Translate(dv.translator)
 			var errorMessages []string
 			for _, msg := range errorMap {
 				errorMessages = append(errorMessages, msg)
@@ -125,12 +129,114 @@ func validatePayload(object interface{}) *requestMalformedError {
 	return nil
 }
 
-func registerDefaultTranslator(v *validator.Validate) ut.Translator {
+func wireValidator() (*validator.Validate, ut.Translator, error) {
+	v := validator.New()
+
+	trans, err := registerDefaultTranslator(v)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Register custom validators
+	err = v.RegisterValidation("megabytestring", megabyteFormattedString, true)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = v.RegisterValidation("route", routeString)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = v.RegisterValidation("routepathstartswithslash", routePathStartsWithSlash)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = v.RegisterValidation("serviceinstancetaglength", serviceInstanceTagLength)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
+	err = v.RegisterTranslation("cannot_have_both_org_and_space_set", trans, func(ut ut.Translator) error {
+		return ut.Add("cannot_have_both_org_and_space_set", "Cannot pass both 'organization' and 'space' in a create role request", false)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("cannot_have_both_org_and_space_set", fe.Field())
+		return t
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = v.RegisterTranslation("valid_role", trans, func(ut ut.Translator) error {
+		return ut.Add("valid_role", "{0} is not a valid role", false)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("valid_role", fmt.Sprintf("%v", fe.Value()))
+		return t
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = v.RegisterTranslation("route", trans, func(ut ut.Translator) error {
+		return ut.Add("invalid_route", `"{0}" is not a valid route URI`, false)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("invalid_route", fmt.Sprintf("%v", fe.Value()))
+		return t
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return v, trans, nil
+}
+
+func registerDefaultTranslator(v *validator.Validate) (ut.Translator, error) {
 	en := en.New()
 	uni := ut.New(en, en)
 	trans, _ := uni.GetTranslator("en")
-	_ = en_translations.RegisterDefaultTranslations(v, trans)
-	return trans
+
+	err := en_translations.RegisterDefaultTranslations(v, trans)
+	if err != nil {
+		return nil, err
+	}
+
+	return trans, nil
+}
+
+func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
+	roleCreate := sl.Current().Interface().(payloads.RoleCreate)
+
+	if roleCreate.Relationships.Organization != nil && roleCreate.Relationships.Space != nil {
+		sl.ReportError(roleCreate.Relationships.Organization, "relationships.organization", "Organization", "cannot_have_both_org_and_space_set", "")
+	}
+
+	roleType := RoleName(roleCreate.Type)
+
+	switch roleType {
+	case RoleSpaceManager:
+		fallthrough
+	case RoleSpaceAuditor:
+		fallthrough
+	case RoleSpaceDeveloper:
+		fallthrough
+	case RoleSpaceSupporter:
+		if roleCreate.Relationships.Space == nil {
+			sl.ReportError(roleCreate.Relationships.Space, "relationships.space", "Space", "required", "")
+		}
+	case RoleOrganizationUser:
+		fallthrough
+	case RoleOrganizationAuditor:
+		fallthrough
+	case RoleOrganizationManager:
+		fallthrough
+	case RoleOrganizationBillingManager:
+		if roleCreate.Relationships.Organization == nil {
+			sl.ReportError(roleCreate.Relationships.Organization, "relationships.organization", "Organization", "required", "")
+		}
+
+	case RoleName(""):
+	default:
+		sl.ReportError(roleCreate.Type, "type", "Role type", "valid_role", "")
+	}
 }
 
 func newMessageParseError() presenter.ErrorsResponse {
@@ -308,43 +414,6 @@ func serviceInstanceTagLength(fl validator.FieldLevel) bool {
 	}
 
 	return tagLen < 2048
-}
-
-func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
-	roleCreate := sl.Current().Interface().(payloads.RoleCreate)
-
-	if roleCreate.Relationships.Organization != nil && roleCreate.Relationships.Space != nil {
-		sl.ReportError(roleCreate.Relationships.Organization, "relationships.organization", "Organization", "cannot_have_both_org_and_space_set", "")
-	}
-
-	roleType := RoleName(roleCreate.Type)
-
-	switch roleType {
-	case RoleSpaceManager:
-		fallthrough
-	case RoleSpaceAuditor:
-		fallthrough
-	case RoleSpaceDeveloper:
-		fallthrough
-	case RoleSpaceSupporter:
-		if roleCreate.Relationships.Space == nil {
-			sl.ReportError(roleCreate.Relationships.Space, "relationships.space", "Space", "required", "")
-		}
-	case RoleOrganizationUser:
-		fallthrough
-	case RoleOrganizationAuditor:
-		fallthrough
-	case RoleOrganizationManager:
-		fallthrough
-	case RoleOrganizationBillingManager:
-		if roleCreate.Relationships.Organization == nil {
-			sl.ReportError(roleCreate.Relationships.Organization, "relationships.organization", "Organization", "required", "")
-		}
-
-	case RoleName(""):
-	default:
-		sl.ReportError(roleCreate.Type, "type", "Role type", "valid_role", "")
-	}
 }
 
 func handleRepoErrors(logger logr.Logger, err error, resource, guid string, w http.ResponseWriter) {

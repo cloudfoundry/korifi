@@ -44,6 +44,8 @@ var _ = Describe("RouteHandler", func() {
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
 		appRepo = new(fake.CFAppRepository)
+		decoderValidator, err := NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
 
 		routeHandler := NewRouteHandler(
 			logf.Log.WithName("TestRouteHandler"),
@@ -51,6 +53,7 @@ var _ = Describe("RouteHandler", func() {
 			routeRepo,
 			domainRepo,
 			appRepo,
+			decoderValidator,
 		)
 		routeHandler.RegisterRoutes(router)
 	})

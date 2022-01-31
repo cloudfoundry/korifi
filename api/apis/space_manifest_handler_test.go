@@ -46,11 +46,15 @@ var _ = Describe("SpaceManifestHandler", func() {
 			},
 		}, nil)
 
+		decoderValidator, err := NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
+
 		apiHandler := NewSpaceManifestHandler(
 			logf.Log.WithName("testSpaceManifestHandler"),
 			*serverURL,
 			applyManifestAction.Spy,
 			spaceRepo,
+			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
 	})

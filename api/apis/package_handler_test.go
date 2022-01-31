@@ -48,6 +48,9 @@ var _ = Describe("PackageHandler", func() {
 	})
 
 	JustBeforeEach(func() {
+		decoderValidator, err := NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
+
 		apiHandler := NewPackageHandler(
 			logf.Log.WithName(testPackageHandlerLoggerName),
 			*serverURL,
@@ -56,6 +59,7 @@ var _ = Describe("PackageHandler", func() {
 			dropletRepo,
 			uploadImageSource.Spy,
 			buildRegistryAuth.Spy,
+			decoderValidator,
 			packageRegistryBase,
 			packageImagePullSecretName,
 		)

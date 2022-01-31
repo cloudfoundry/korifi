@@ -52,6 +52,7 @@ type PackageHandler struct {
 	dropletRepo        CFDropletRepository
 	uploadSourceImage  SourceImageUploader
 	buildRegistryAuth  RegistryAuthBuilder
+	decoderValidator   *DecoderValidator
 	registryBase       string
 	registrySecretName string
 }
@@ -64,6 +65,7 @@ func NewPackageHandler(
 	dropletRepo CFDropletRepository,
 	uploadSourceImage SourceImageUploader,
 	buildRegistryAuth RegistryAuthBuilder,
+	decoderValidator *DecoderValidator,
 	registryBase string,
 	registrySecretName string) *PackageHandler {
 	return &PackageHandler{
@@ -76,6 +78,7 @@ func NewPackageHandler(
 		buildRegistryAuth:  buildRegistryAuth,
 		registryBase:       registryBase,
 		registrySecretName: registrySecretName,
+		decoderValidator:   decoderValidator,
 	}
 }
 
@@ -154,7 +157,7 @@ func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.PackageCreate
-	rme := decodeAndValidateJSONPayload(r, &payload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 		return

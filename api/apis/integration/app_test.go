@@ -45,6 +45,8 @@ var _ = Describe("App Handler", func() {
 		podRepo := repositories.NewPodRepo(k8sClient)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
+		decoderValidator, err := NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler = NewAppHandler(
 			logf.Log.WithName("integration tests"),
@@ -56,6 +58,7 @@ var _ = Describe("App Handler", func() {
 			domainRepo,
 			podRepo,
 			scaleAppProcess,
+			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
 
