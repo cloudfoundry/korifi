@@ -38,11 +38,12 @@ type CFRouteRepository interface {
 }
 
 type RouteHandler struct {
-	logger     logr.Logger
-	serverURL  url.URL
-	routeRepo  CFRouteRepository
-	domainRepo CFDomainRepository
-	appRepo    CFAppRepository
+	logger           logr.Logger
+	serverURL        url.URL
+	routeRepo        CFRouteRepository
+	domainRepo       CFDomainRepository
+	appRepo          CFAppRepository
+	decoderValidator *DecoderValidator
 }
 
 func NewRouteHandler(
@@ -51,13 +52,15 @@ func NewRouteHandler(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	appRepo CFAppRepository,
+	decoderValidator *DecoderValidator,
 ) *RouteHandler {
 	return &RouteHandler{
-		logger:     logger,
-		serverURL:  serverURL,
-		routeRepo:  routeRepo,
-		domainRepo: domainRepo,
-		appRepo:    appRepo,
+		logger:           logger,
+		serverURL:        serverURL,
+		routeRepo:        routeRepo,
+		domainRepo:       domainRepo,
+		appRepo:          appRepo,
+		decoderValidator: decoderValidator,
 	}
 }
 
@@ -198,7 +201,7 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.RouteCreate
-	rme := decodeAndValidateJSONPayload(r, &payload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 		return
@@ -268,7 +271,7 @@ func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, 
 	w.Header().Set("Content-Type", "application/json")
 
 	var destinationCreatePayload payloads.DestinationListCreate
-	rme := decodeAndValidateJSONPayload(r, &destinationCreatePayload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &destinationCreatePayload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 		return

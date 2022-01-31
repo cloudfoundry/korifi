@@ -27,10 +27,11 @@ type CFBuildRepository interface {
 }
 
 type BuildHandler struct {
-	serverURL   url.URL
-	buildRepo   CFBuildRepository
-	packageRepo CFPackageRepository
-	logger      logr.Logger
+	serverURL        url.URL
+	buildRepo        CFBuildRepository
+	packageRepo      CFPackageRepository
+	logger           logr.Logger
+	decoderValidator *DecoderValidator
 }
 
 func NewBuildHandler(
@@ -38,12 +39,14 @@ func NewBuildHandler(
 	serverURL url.URL,
 	buildRepo CFBuildRepository,
 	packageRepo CFPackageRepository,
+	decoderValidator *DecoderValidator,
 ) *BuildHandler {
 	return &BuildHandler{
-		logger:      logger,
-		serverURL:   serverURL,
-		buildRepo:   buildRepo,
-		packageRepo: packageRepo,
+		logger:           logger,
+		serverURL:        serverURL,
+		buildRepo:        buildRepo,
+		packageRepo:      packageRepo,
+		decoderValidator: decoderValidator,
 	}
 }
 
@@ -71,7 +74,7 @@ func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, w http.Re
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.BuildCreate
-	rme := decodeAndValidateJSONPayload(r, &payload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 		return

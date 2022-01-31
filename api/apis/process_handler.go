@@ -48,6 +48,7 @@ type ProcessHandler struct {
 	processRepo       CFProcessRepository
 	fetchProcessStats FetchProcessStats
 	scaleProcess      ScaleProcess
+	decoderValidator  *DecoderValidator
 }
 
 func NewProcessHandler(
@@ -56,6 +57,7 @@ func NewProcessHandler(
 	processRepo CFProcessRepository,
 	fetchProcessStats FetchProcessStats,
 	scaleProcessFunc ScaleProcess,
+	decoderValidator *DecoderValidator,
 ) *ProcessHandler {
 	return &ProcessHandler{
 		logger:            logger,
@@ -63,6 +65,7 @@ func NewProcessHandler(
 		processRepo:       processRepo,
 		fetchProcessStats: fetchProcessStats,
 		scaleProcess:      scaleProcessFunc,
+		decoderValidator:  decoderValidator,
 	}
 }
 
@@ -124,7 +127,7 @@ func (h *ProcessHandler) processScaleHandler(authInfo authorization.Info, w http
 	processGUID := vars["guid"]
 
 	var payload payloads.ProcessScale
-	rme := decodeAndValidateJSONPayload(r, &payload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 		return

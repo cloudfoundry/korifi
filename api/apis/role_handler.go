@@ -44,16 +44,18 @@ type CFRoleRepository interface {
 }
 
 type RoleHandler struct {
-	logger     logr.Logger
-	apiBaseURL url.URL
-	roleRepo   CFRoleRepository
+	logger           logr.Logger
+	apiBaseURL       url.URL
+	roleRepo         CFRoleRepository
+	decoderValidator *DecoderValidator
 }
 
-func NewRoleHandler(apiBaseURL url.URL, roleRepo CFRoleRepository) *RoleHandler {
+func NewRoleHandler(apiBaseURL url.URL, roleRepo CFRoleRepository, decoderValidator *DecoderValidator) *RoleHandler {
 	return &RoleHandler{
-		logger:     controllerruntime.Log.WithName("Role Handler"),
-		apiBaseURL: apiBaseURL,
-		roleRepo:   roleRepo,
+		logger:           controllerruntime.Log.WithName("Role Handler"),
+		apiBaseURL:       apiBaseURL,
+		roleRepo:         roleRepo,
+		decoderValidator: decoderValidator,
 	}
 }
 
@@ -61,7 +63,7 @@ func (h *RoleHandler) roleCreateHandler(authInfo authorization.Info, w http.Resp
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.RoleCreate
-	rme := decodeAndValidateJSONPayload(r, &payload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		h.logger.Error(rme, "Failed to parse body")
 		writeRequestMalformedErrorResponse(w, rme)

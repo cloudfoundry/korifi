@@ -127,6 +127,11 @@ func main() {
 		routeRepo,
 	).Invoke
 
+	decoderValidator, err := apis.NewDefaultDecoderValidator()
+	if err != nil {
+		panic(fmt.Sprintf("could not wire validator: %v", err))
+	}
+
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
 		apis.NewRootHandler(
@@ -144,6 +149,7 @@ func main() {
 			domainRepo,
 			podRepo,
 			scaleAppProcessAction.Invoke,
+			decoderValidator,
 		),
 		apis.NewRouteHandler(
 			ctrl.Log.WithName("RouteHandler"),
@@ -151,6 +157,7 @@ func main() {
 			routeRepo,
 			domainRepo,
 			appRepo,
+			decoderValidator,
 		),
 		apis.NewServiceRouteBindingHandler(
 			ctrl.Log.WithName("ServiceRouteBinding"),
@@ -164,6 +171,7 @@ func main() {
 			dropletRepo,
 			repositories.UploadSourceImage,
 			newRegistryAuthBuilder(privilegedK8sClient, config),
+			decoderValidator,
 			config.PackageRegistryBase,
 			config.PackageRegistrySecretName,
 		),
@@ -172,6 +180,7 @@ func main() {
 			*serverURL,
 			buildRepo,
 			packageRepo,
+			decoderValidator,
 		),
 		apis.NewDropletHandler(
 			ctrl.Log.WithName("DropletHandler"),
@@ -184,6 +193,7 @@ func main() {
 			processRepo,
 			fetchProcessStatsAction.Invoke,
 			scaleProcessAction.Invoke,
+			decoderValidator,
 		),
 		apis.NewDomainHandler(
 			ctrl.Log.WithName("DomainHandler"),
@@ -196,20 +206,22 @@ func main() {
 		),
 		apis.NewLogCacheHandler(),
 
-		apis.NewOrgHandler(*serverURL, orgRepo),
+		apis.NewOrgHandler(*serverURL, orgRepo, decoderValidator),
 
-		apis.NewSpaceHandler(*serverURL, config.PackageRegistrySecretName, orgRepo),
+		apis.NewSpaceHandler(*serverURL, config.PackageRegistrySecretName, orgRepo, decoderValidator),
 
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
 			applyManifestAction,
 			orgRepo,
+			decoderValidator,
 		),
 
 		apis.NewRoleHandler(
 			*serverURL,
 			roleRepo,
+			decoderValidator,
 		),
 
 		apis.NewWhoAmI(cachingIdentityProvider, *serverURL),
@@ -226,6 +238,7 @@ func main() {
 			*serverURL,
 			serviceInstanceRepo,
 			appRepo,
+			decoderValidator,
 		),
 	}
 

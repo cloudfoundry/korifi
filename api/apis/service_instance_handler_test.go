@@ -38,11 +38,15 @@ var _ = Describe("ServiceInstanceHandler", func() {
 	BeforeEach(func() {
 		serviceInstanceRepo = new(fake.CFServiceInstanceRepository)
 		appRepo = new(fake.CFAppRepository)
+		decoderValidator, err := NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
+
 		serviceInstanceHandler := NewServiceInstanceHandler(
 			logf.Log.WithName(testServiceInstanceHandlerLoggerName),
 			*serverURL,
 			serviceInstanceRepo,
 			appRepo,
+			decoderValidator,
 		)
 		serviceInstanceHandler.RegisterRoutes(router)
 	})

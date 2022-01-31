@@ -23,12 +23,15 @@ var _ = Describe("Build", func() {
 		userClientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
 		buildRepo := repositories.NewBuildRepo(k8sClient, userClientFactory)
 		packageRepo := repositories.NewPackageRepo(k8sClient)
+		decoderValidator, err := apis.NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
 
 		buildHandler = apis.NewBuildHandler(
 			logf.Log.WithName("integration tests"),
 			*serverURL,
 			buildRepo,
 			packageRepo,
+			decoderValidator,
 		)
 		buildHandler.RegisterRoutes(router)
 

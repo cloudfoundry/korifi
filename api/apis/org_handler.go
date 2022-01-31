@@ -31,16 +31,18 @@ type CFOrgRepository interface {
 }
 
 type OrgHandler struct {
-	logger     logr.Logger
-	apiBaseURL url.URL
-	orgRepo    CFOrgRepository
+	logger           logr.Logger
+	apiBaseURL       url.URL
+	orgRepo          CFOrgRepository
+	decoderValidator *DecoderValidator
 }
 
-func NewOrgHandler(apiBaseURL url.URL, orgRepo CFOrgRepository) *OrgHandler {
+func NewOrgHandler(apiBaseURL url.URL, orgRepo CFOrgRepository, decoderValidator *DecoderValidator) *OrgHandler {
 	return &OrgHandler{
-		logger:     controllerruntime.Log.WithName("Org Handler"),
-		apiBaseURL: apiBaseURL,
-		orgRepo:    orgRepo,
+		logger:           controllerruntime.Log.WithName("Org Handler"),
+		apiBaseURL:       apiBaseURL,
+		orgRepo:          orgRepo,
+		decoderValidator: decoderValidator,
 	}
 }
 
@@ -48,7 +50,7 @@ func (h *OrgHandler) orgCreateHandler(info authorization.Info, w http.ResponseWr
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.OrgCreate
-	rme := decodeAndValidateJSONPayload(r, &payload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 

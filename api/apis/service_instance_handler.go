@@ -36,6 +36,7 @@ type ServiceInstanceHandler struct {
 	serverURL           url.URL
 	serviceInstanceRepo CFServiceInstanceRepository
 	appRepo             CFAppRepository
+	decoderValidator    *DecoderValidator
 }
 
 func NewServiceInstanceHandler(
@@ -43,12 +44,14 @@ func NewServiceInstanceHandler(
 	serverURL url.URL,
 	serviceInstanceRepo CFServiceInstanceRepository,
 	appRepo CFAppRepository,
+	decoderValidator *DecoderValidator,
 ) *ServiceInstanceHandler {
 	return &ServiceInstanceHandler{
 		logger:              logger,
 		serverURL:           serverURL,
 		serviceInstanceRepo: serviceInstanceRepo,
 		appRepo:             appRepo,
+		decoderValidator:    decoderValidator,
 	}
 }
 
@@ -57,7 +60,7 @@ func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authoriza
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.ServiceInstanceCreate
-	rme := decodeAndValidateJSONPayload(r, &payload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		writeRequestMalformedErrorResponse(w, rme)
 		return

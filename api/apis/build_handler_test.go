@@ -67,11 +67,15 @@ var _ = Describe("BuildHandler", func() {
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/builds/"+buildGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 
+			decoderValidator, err := NewDefaultDecoderValidator()
+			Expect(err).NotTo(HaveOccurred())
+
 			buildHandler := NewBuildHandler(
 				logf.Log.WithName(testBuildHandlerLoggerName),
 				*serverURL,
 				buildRepo,
 				new(fake.CFPackageRepository),
+				decoderValidator,
 			)
 			buildHandler.RegisterRoutes(router)
 		})
@@ -403,11 +407,15 @@ var _ = Describe("BuildHandler", func() {
 				AppGUID:     appGUID,
 			}, nil)
 
+			decoderValidator, err := NewDefaultDecoderValidator()
+			Expect(err).NotTo(HaveOccurred())
+
 			buildHandler := NewBuildHandler(
 				logf.Log.WithName(testBuildHandlerLoggerName),
 				*serverURL,
 				buildRepo,
 				packageRepo,
+				decoderValidator,
 			)
 			buildHandler.RegisterRoutes(router)
 		})

@@ -36,11 +36,15 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 		domainRepo := repositories.NewDomainRepo(k8sClient)
 		processRepo := repositories.NewProcessRepo(k8sClient)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
+		decoderValidator, err := NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
+
 		apiHandler := NewSpaceManifestHandler(
 			logf.Log.WithName("integration tests"),
 			*serverURL,
 			actions.NewApplyManifest(appRepo, domainRepo, processRepo, routeRepo).Invoke,
 			repositories.NewOrgRepo("cf", k8sClient, clientFactory, namespacePermissions, 1*time.Minute, true),
+			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
 	})

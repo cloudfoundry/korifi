@@ -40,14 +40,16 @@ type SpaceHandler struct {
 	logger                  logr.Logger
 	apiBaseURL              url.URL
 	imageRegistrySecretName string
+	decoderValidator        *DecoderValidator
 }
 
-func NewSpaceHandler(apiBaseURL url.URL, imageRegistrySecretName string, spaceRepo SpaceRepository) *SpaceHandler {
+func NewSpaceHandler(apiBaseURL url.URL, imageRegistrySecretName string, spaceRepo SpaceRepository, decoderValidator *DecoderValidator) *SpaceHandler {
 	return &SpaceHandler{
 		apiBaseURL:              apiBaseURL,
 		imageRegistrySecretName: imageRegistrySecretName,
 		spaceRepo:               spaceRepo,
 		logger:                  controllerruntime.Log.WithName("Space Handler"),
+		decoderValidator:        decoderValidator,
 	}
 }
 
@@ -55,7 +57,7 @@ func (h *SpaceHandler) SpaceCreateHandler(info authorization.Info, w http.Respon
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 	var payload payloads.SpaceCreate
-	rme := decodeAndValidateJSONPayload(r, &payload)
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
 	if rme != nil {
 		h.logger.Error(rme, "Failed to decode and validate payload")
 		writeRequestMalformedErrorResponse(w, rme)

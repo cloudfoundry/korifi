@@ -32,8 +32,10 @@ var _ = Describe("RoleHandler", func() {
 		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
 
 		roleRepo = new(fake.CFRoleRepository)
+		decoderValidator, err := apis.NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
 
-		roleHandler = apis.NewRoleHandler(*serverURL, roleRepo)
+		roleHandler = apis.NewRoleHandler(*serverURL, roleRepo, decoderValidator)
 		roleHandler.RegisterRoutes(router)
 	})
 
