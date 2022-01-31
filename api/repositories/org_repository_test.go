@@ -23,7 +23,6 @@ import (
 var _ = Describe("OrgRepository", func() {
 	var (
 		ctx                       context.Context
-		clientFactory             repositories.UserK8sClientFactory
 		orgRepo                   *repositories.OrgRepo
 		spaceDeveloperClusterRole *rbacv1.ClusterRole
 		orgManagerClusterRole     *rbacv1.ClusterRole
@@ -34,8 +33,7 @@ var _ = Describe("OrgRepository", func() {
 		ctx = context.Background()
 
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
-		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPerms, time.Millisecond*500, true)
+		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, true)
 		spaceDeveloperClusterRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
 		orgManagerClusterRole = createClusterRole(ctx, repositories.OrgManagerClusterRoleRules)
 		orgUserClusterRole = createClusterRole(ctx, repositories.OrgUserClusterRoleRules)
@@ -305,7 +303,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("auth is disabled", func() {
 				BeforeEach(func() {
-					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPerms, time.Millisecond*500, false)
+					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, false)
 				})
 
 				It("returns all orgs", func() {
@@ -494,7 +492,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("auth is disabled", func() {
 				BeforeEach(func() {
-					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPerms, time.Millisecond*500, false)
+					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, false)
 				})
 
 				It("includes spaces without role bindings", func() {
@@ -795,7 +793,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("auth is disabled and", func() {
 				BeforeEach(func() {
-					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPerms, time.Millisecond*500, false)
+					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, false)
 				})
 
 				When("on the happy path", func() {
@@ -884,7 +882,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("auth is disabled and", func() {
 				BeforeEach(func() {
-					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPerms, time.Millisecond*500, false)
+					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, false)
 				})
 
 				When("on the happy path", func() {

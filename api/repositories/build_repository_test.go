@@ -4,12 +4,14 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,6 +34,8 @@ var _ = Describe("BuildRepository", func() {
 
 			namespace1 *corev1.Namespace
 			namespace2 *corev1.Namespace
+
+			spaceDeveloperClusterRole *rbacv1.ClusterRole
 		)
 
 		BeforeEach(func() {
@@ -45,13 +49,41 @@ var _ = Describe("BuildRepository", func() {
 			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
 			Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
 
-			buildRepo = NewBuildRepo(k8sClient)
+			spaceDeveloperClusterRole = createClusterRole(testCtx, repositories.SpaceDeveloperClusterRoleRules)
+
+			buildRepo = NewBuildRepo(k8sClient, userClientFactory)
 		})
 
 		AfterEach(func() {
 			Expect(k8sClient.Delete(context.Background(), namespace1)).To(Succeed())
 			Expect(k8sClient.Delete(context.Background(), namespace2)).To(Succeed())
 		})
+
+		makeBuild := func(namespace, buildGUID, packageGUID, appGUID string) *workloadsv1alpha1.CFBuild {
+			return &workloadsv1alpha1.CFBuild{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      buildGUID,
+					Namespace: namespace,
+				},
+				Spec: workloadsv1alpha1.CFBuildSpec{
+					PackageRef: corev1.LocalObjectReference{
+						Name: packageGUID,
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+					StagingMemoryMB: stagingMemory,
+					StagingDiskMB:   stagingDisk,
+					Lifecycle: workloadsv1alpha1.Lifecycle{
+						Type: "buildpack",
+						Data: workloadsv1alpha1.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				},
+			}
+		}
 
 		When("on the happy path", func() {
 			const (
@@ -69,60 +101,13 @@ var _ = Describe("BuildRepository", func() {
 			BeforeEach(func() {
 				build1GUID = generateGUID()
 				build2GUID = generateGUID()
-				build1 = &workloadsv1alpha1.CFBuild{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      build1GUID,
-						Namespace: namespace1.Name,
-					},
-					Spec: workloadsv1alpha1.CFBuildSpec{
-						PackageRef: corev1.LocalObjectReference{
-							Name: package1GUID,
-						},
-						AppRef: corev1.LocalObjectReference{
-							Name: app1GUID,
-						},
-						StagingMemoryMB: stagingMemory,
-						StagingDiskMB:   stagingDisk,
-						Lifecycle: workloadsv1alpha1.Lifecycle{
-							Type: "buildpack",
-							Data: workloadsv1alpha1.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
-						},
-					},
-				}
+				build1 = makeBuild(namespace1.Name, build1GUID, package1GUID, app1GUID)
 				Expect(k8sClient.Create(context.Background(), build1)).To(Succeed())
-
-				build2 = &workloadsv1alpha1.CFBuild{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      build2GUID,
-						Namespace: namespace2.Name,
-					},
-					Spec: workloadsv1alpha1.CFBuildSpec{
-						PackageRef: corev1.LocalObjectReference{
-							Name: package2GUID,
-						},
-						AppRef: corev1.LocalObjectReference{
-							Name: app2GUID,
-						},
-						StagingMemoryMB: stagingMemory,
-						StagingDiskMB:   stagingDisk,
-						Lifecycle: workloadsv1alpha1.Lifecycle{
-							Type: "buildpack",
-							Data: workloadsv1alpha1.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
-						},
-					},
-				}
+				build2 = makeBuild(namespace2.Name, build2GUID, package2GUID, app2GUID)
 				Expect(k8sClient.Create(context.Background(), build2)).To(Succeed())
-			})
 
-			AfterEach(func() {
-				Expect(k8sClient.Delete(context.Background(), build1)).To(Succeed())
-				Expect(k8sClient.Delete(context.Background(), build2)).To(Succeed())
+				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, namespace1.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, namespace2.Name)
 			})
 
 			When("fetching a build", func() {
@@ -203,23 +188,16 @@ var _ = Describe("BuildRepository", func() {
 							Reason:  "Unknown",
 							Message: "Unknown",
 						})
-						// Update Build Status Conditions based on changes made to local copy
 						Expect(k8sClient.Status().Update(testCtx, build2)).To(Succeed())
 					})
 
-					It("should eventually return a record with State: \"STAGED\", no StagingErrorMsg, and a DropletGUID that matches the BuildGUID", func() {
+					It("should return a record with State: \"STAGED\", no StagingErrorMsg, and a DropletGUID that matches the BuildGUID", func() {
 						ctx := context.Background()
-						Eventually(func() string {
-							returnedBuildRecord, err := buildRepo.GetBuild(ctx, authInfo, build2GUID)
-							buildRecord = &returnedBuildRecord
-							fetchError = err
-							if err != nil {
-								return ""
-							}
-							return buildRecord.State
-						}, 10*time.Second, 250*time.Millisecond).Should(Equal("STAGED"), "the returned record State was not STAGED")
-						Expect(buildRecord.DropletGUID).To(Equal(build2.Name), " the returned dropletGUID did not match the buildGUID")
-						Expect(buildRecord.StagingErrorMsg).To(BeEmpty(), "record staging error message was supposed to be empty")
+						buildRecord, err := buildRepo.GetBuild(ctx, authInfo, build2GUID)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(buildRecord.State).To(Equal("STAGED"))
+						Expect(buildRecord.DropletGUID).To(Equal(build2.Name))
+						Expect(buildRecord.StagingErrorMsg).To(BeEmpty())
 					})
 				})
 
@@ -242,21 +220,14 @@ var _ = Describe("BuildRepository", func() {
 							Reason:  "StagingError",
 							Message: StagingErrorMessage,
 						})
-						// Update Build Status Conditions based on changes made to local copy
 						Expect(k8sClient.Status().Update(testCtx, build2)).To(Succeed())
 					})
 
-					It("should eventually return a record with State: \"FAILED\", no DropletGUID, and a Staging Error Message", func() {
+					It("should return a record with State: \"FAILED\", no DropletGUID, and a Staging Error Message", func() {
 						ctx := context.Background()
-						Eventually(func() string {
-							returnedBuildRecord, err := buildRepo.GetBuild(ctx, authInfo, build2GUID)
-							buildRecord = &returnedBuildRecord
-							fetchError = err
-							if err != nil {
-								return ""
-							}
-							return buildRecord.State
-						}, 10*time.Second, 250*time.Millisecond).Should(Equal("FAILED"), "the returned record State was not FAILED")
+						buildRecord, err := buildRepo.GetBuild(ctx, authInfo, build2GUID)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(buildRecord.State).To(Equal("FAILED"))
 						Expect(buildRecord.DropletGUID).To(BeEmpty())
 						Expect(buildRecord.StagingErrorMsg).To(Equal(StagingError + ": " + StagingErrorMessage))
 					})
@@ -265,68 +236,14 @@ var _ = Describe("BuildRepository", func() {
 		})
 
 		When("duplicate Builds exist across namespaces with the same GUID", func() {
-			var (
-				buildGUID string
-				build1    *workloadsv1alpha1.CFBuild
-				build2    *workloadsv1alpha1.CFBuild
-			)
+			var buildGUID string
 
 			BeforeEach(func() {
 				buildGUID = generateGUID()
-				build1 = &workloadsv1alpha1.CFBuild{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      buildGUID,
-						Namespace: namespace1.Name,
-					},
-					Spec: workloadsv1alpha1.CFBuildSpec{
-						PackageRef: corev1.LocalObjectReference{
-							Name: package1GUID,
-						},
-						AppRef: corev1.LocalObjectReference{
-							Name: app1GUID,
-						},
-						StagingMemoryMB: stagingMemory,
-						StagingDiskMB:   stagingDisk,
-						Lifecycle: workloadsv1alpha1.Lifecycle{
-							Type: "buildpack",
-							Data: workloadsv1alpha1.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
-						},
-					},
-				}
+				build1 := makeBuild(namespace1.Name, buildGUID, package1GUID, app1GUID)
 				Expect(k8sClient.Create(context.Background(), build1)).To(Succeed())
-
-				build2 = &workloadsv1alpha1.CFBuild{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      buildGUID,
-						Namespace: namespace2.Name,
-					},
-					Spec: workloadsv1alpha1.CFBuildSpec{
-						PackageRef: corev1.LocalObjectReference{
-							Name: package2GUID,
-						},
-						AppRef: corev1.LocalObjectReference{
-							Name: app2GUID,
-						},
-						StagingMemoryMB: stagingMemory,
-						StagingDiskMB:   stagingDisk,
-						Lifecycle: workloadsv1alpha1.Lifecycle{
-							Type: "buildpack",
-							Data: workloadsv1alpha1.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
-						},
-					},
-				}
+				build2 := makeBuild(namespace2.Name, buildGUID, package2GUID, app2GUID)
 				Expect(k8sClient.Create(context.Background(), build2)).To(Succeed())
-			})
-
-			AfterEach(func() {
-				Expect(k8sClient.Delete(context.Background(), build1)).To(Succeed())
-				Expect(k8sClient.Delete(context.Background(), build2)).To(Succeed())
 			})
 
 			It("returns an error", func() {
@@ -341,6 +258,22 @@ var _ = Describe("BuildRepository", func() {
 				_, err := buildRepo.GetBuild(testCtx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{}))
+			})
+		})
+
+		When("the user is not authorized for builds in the namespace", func() {
+			var buildGUID string
+
+			BeforeEach(func() {
+				buildGUID = generateGUID()
+				build1 := makeBuild(namespace1.Name, buildGUID, package1GUID, app1GUID)
+				Expect(k8sClient.Create(context.Background(), build1)).To(Succeed())
+			})
+
+			It("returns a forbidden error", func() {
+				_, err := buildRepo.GetBuild(testCtx, authInfo, buildGUID)
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 			})
 		})
 	})
@@ -369,7 +302,7 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		BeforeEach(func() {
-			buildRepo = NewBuildRepo(k8sClient)
+			buildRepo = NewBuildRepo(k8sClient, userClientFactory)
 
 			beforeCtx := context.Background()
 			spaceGUID = generateGUID()

@@ -76,12 +76,12 @@ var _ = Describe("BuildHandler", func() {
 			buildHandler.RegisterRoutes(router)
 		})
 
+		JustBeforeEach(func() {
+			router.ServeHTTP(rr, req)
+		})
+
 		When("on the happy path", func() {
 			When("build staging is not complete", func() {
-				BeforeEach(func() {
-					router.ServeHTTP(rr, req)
-				})
-
 				It("returns status 200 OK", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 				})
@@ -134,6 +134,7 @@ var _ = Describe("BuildHandler", func() {
 				}`), "Response body matches response:")
 				})
 			})
+
 			When("build staging is successful", func() {
 				BeforeEach(func() {
 					buildRepo.GetBuildReturns(repositories.BuildRecord{
@@ -154,7 +155,6 @@ var _ = Describe("BuildHandler", func() {
 						DropletGUID: buildGUID,
 						AppGUID:     appGUID,
 					}, nil)
-					router.ServeHTTP(rr, req)
 				})
 
 				It("returns status 200 OK", func() {
@@ -214,6 +214,7 @@ var _ = Describe("BuildHandler", func() {
 				}`), "Response body matches response:")
 				})
 			})
+
 			When("build staging fails", func() {
 				const (
 					stagingErrorMsg = "StagingError: something went wrong during staging"
@@ -238,7 +239,6 @@ var _ = Describe("BuildHandler", func() {
 						DropletGUID: "",
 						AppGUID:     appGUID,
 					}, nil)
-					router.ServeHTTP(rr, req)
 				})
 
 				It("returns status 200 OK", func() {
@@ -300,8 +300,6 @@ var _ = Describe("BuildHandler", func() {
 				var err error
 				req, err = http.NewRequest("GET", "/v3/builds/"+buildGUID, nil)
 				Expect(err).NotTo(HaveOccurred())
-
-				router.ServeHTTP(rr, req)
 			})
 
 			It("returns an unknown error", func() {
@@ -312,8 +310,16 @@ var _ = Describe("BuildHandler", func() {
 		When("the build cannot be found", func() {
 			BeforeEach(func() {
 				buildRepo.GetBuildReturns(repositories.BuildRecord{}, repositories.NotFoundError{})
+			})
 
-				router.ServeHTTP(rr, req)
+			It("returns an error", func() {
+				expectNotFoundError("Build not found")
+			})
+		})
+
+		When("the user does not have access to the build", func() {
+			BeforeEach(func() {
+				buildRepo.GetBuildReturns(repositories.BuildRecord{}, repositories.NewForbiddenError(nil))
 			})
 
 			It("returns an error", func() {
@@ -324,8 +330,6 @@ var _ = Describe("BuildHandler", func() {
 		When("there is some other error fetching the build", func() {
 			BeforeEach(func() {
 				buildRepo.GetBuildReturns(repositories.BuildRecord{}, errors.New("unknown!"))
-
-				router.ServeHTTP(rr, req)
 			})
 
 			It("returns an error", func() {
@@ -333,6 +337,7 @@ var _ = Describe("BuildHandler", func() {
 			})
 		})
 	})
+
 	Describe("the POST /v3/builds endpoint", func() {
 		var (
 			packageRepo *fake.CFPackageRepository

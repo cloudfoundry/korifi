@@ -7,7 +7,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
-var _ = Describe("Droplets", func() {
+var _ = Describe("Builds", func() {
 	var (
 		org   presenter.OrgResponse
 		space presenter.SpaceResponse
@@ -43,15 +43,12 @@ var _ = Describe("Droplets", func() {
 		})
 
 		JustBeforeEach(func() {
-			Eventually(func() error {
-				resp, getErr = get("/v3/droplets/"+build.GUID, certAuthHeader)
-				return getErr
-			}).Should(Succeed())
+			resp, getErr = get("/v3/builds/"+build.GUID, certAuthHeader)
 		})
 
 		It("returns the droplet", func() {
+			Expect(getErr).NotTo(HaveOccurred())
 			Expect(resp).To(HaveKeyWithValue("guid", build.GUID))
-			Expect(resp).To(HaveKeyWithValue("state", "STAGED"))
 		})
 	})
 })

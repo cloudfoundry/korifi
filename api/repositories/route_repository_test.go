@@ -23,12 +23,11 @@ var _ = Describe("RouteRepository", func() {
 	const domainName = "my-domain-name"
 
 	var (
-		testCtx       context.Context
-		route1GUID    string
-		route2GUID    string
-		domainGUID    string
-		clientFactory UnprivilegedClientFactory
-		routeRepo     *RouteRepo
+		testCtx    context.Context
+		route1GUID string
+		route2GUID string
+		domainGUID string
+		routeRepo  *RouteRepo
 	)
 
 	validateRoute := func(route RouteRecord, expectedRoute *networkingv1alpha1.CFRoute) {
@@ -60,8 +59,7 @@ var _ = Describe("RouteRepository", func() {
 		route1GUID = generateGUID()
 		route2GUID = generateGUID()
 		domainGUID = generateGUID()
-		clientFactory = NewUnprivilegedClientFactory(k8sConfig)
-		routeRepo = NewRouteRepo(k8sClient, clientFactory)
+		routeRepo = NewRouteRepo(k8sClient, userClientFactory)
 	})
 
 	Describe("GetRoute", func() {

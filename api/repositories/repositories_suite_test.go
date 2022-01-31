@@ -42,15 +42,16 @@ func TestRepositories(t *testing.T) {
 }
 
 var (
-	testEnv          *envtest.Environment
-	k8sClient        client.WithWatch
-	k8sConfig        *rest.Config
-	userName         string
-	authInfo         authorization.Info
-	rootNamespace    string
-	idProvider       authorization.IdentityProvider
-	nsPerms          *authorization.NamespacePermissions
-	adminClusterRole *rbacv1.ClusterRole
+	testEnv           *envtest.Environment
+	k8sClient         client.WithWatch
+	userClientFactory repositories.UserK8sClientFactory
+	k8sConfig         *rest.Config
+	userName          string
+	authInfo          authorization.Info
+	rootNamespace     string
+	idProvider        authorization.IdentityProvider
+	nsPerms           *authorization.NamespacePermissions
+	adminClusterRole  *rbacv1.ClusterRole
 )
 
 var _ = BeforeSuite(func() {
@@ -106,6 +107,7 @@ var _ = BeforeEach(func() {
 	baseIDProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
 	idProvider = authorization.NewCachingIdentityProvider(baseIDProvider, cache.NewExpiring())
 	nsPerms = authorization.NewNamespacePermissions(k8sClient, idProvider, rootNamespace)
+	userClientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
 })
 
 func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLabel string) (*hnsv1alpha2.SubnamespaceAnchor, *corev1.Namespace) {

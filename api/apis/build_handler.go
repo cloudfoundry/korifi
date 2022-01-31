@@ -56,16 +56,8 @@ func (h *BuildHandler) buildGetHandler(authInfo authorization.Info, w http.Respo
 
 	build, err := h.buildRepo.GetBuild(ctx, authInfo, buildGUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("Build not found", "BuildGUID", buildGUID)
-			writeNotFoundErrorResponse(w, "Build")
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch build from Kubernetes", "BuildGUID", buildGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		handleRepoErrors(h.logger, err, "build", buildGUID, w)
+		return
 	}
 
 	err = writeJsonResponse(w, presenter.ForBuild(build, h.serverURL), http.StatusOK)

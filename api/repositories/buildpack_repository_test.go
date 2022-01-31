@@ -21,13 +21,11 @@ var _ = Describe("BuildpackRepository", func() {
 	var (
 		beforeCtx                 context.Context
 		buildpackRepo             *BuildpackRepository
-		clientFactory             repositories.UserK8sClientFactory
 		spaceDeveloperClusterRole *rbacv1.ClusterRole
 	)
 
 	BeforeEach(func() {
 		beforeCtx = context.Background()
-		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
 	})
 
 	Describe("GetBuildpacksForBuilder", func() {
@@ -113,7 +111,7 @@ var _ = Describe("BuildpackRepository", func() {
 
 		Describe("List", func() {
 			It("returns records matching the buildpacks of the ClusterBuilder and no error", func() {
-				buildpackRepo = NewBuildpackRepository(clientFactory)
+				buildpackRepo = NewBuildpackRepository(userClientFactory)
 				spaceDeveloperClusterRole = createClusterRole(beforeCtx, repositories.SpaceDeveloperClusterRoleRules)
 				createClusterRoleBinding(beforeCtx, userName, spaceDeveloperClusterRole.Name)
 
@@ -143,7 +141,7 @@ var _ = Describe("BuildpackRepository", func() {
 
 			When("insufficient perm", func() {
 				It("fails to retrieve buildpack records", func() {
-					buildpackRepo = NewBuildpackRepository(clientFactory)
+					buildpackRepo = NewBuildpackRepository(userClientFactory)
 					_, err := buildpackRepo.GetBuildpacksForBuilder(context.Background(), authInfo, clusterBuilder.Name)
 					Expect(err).To(HaveOccurred())
 				})
