@@ -19,11 +19,11 @@ package networking
 import (
 	"context"
 	"fmt"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
+	"strings"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 
 	"github.com/go-logr/logr"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
@@ -323,7 +323,7 @@ func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, cfRoute 
 		return err
 	}
 
-	fqdn := fmt.Sprintf("%s.%s", cfRoute.Spec.Host, cfDomain.Spec.Name)
+	fqdn := strings.ToLower(fmt.Sprintf("%s.%s", cfRoute.Spec.Host, cfDomain.Spec.Name))
 
 	if !foundFQDNPRoxy {
 		fqdnHTTPProxy = &contourv1.HTTPProxy{
