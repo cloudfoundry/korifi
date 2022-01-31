@@ -27,6 +27,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
 
 	"github.com/go-http-utils/headers"
+	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,6 +47,9 @@ import (
 
 var (
 	k8sClient           client.WithWatch
+	adminClient         *resty.Client
+	certClient          *resty.Client
+	tokenClient         *resty.Client
 	clientset           *kubernetes.Clientset
 	rootNamespace       string
 	apiServerRoot       string
@@ -56,6 +60,7 @@ var (
 	certSigningReq      *certsv1.CertificateSigningRequest
 	certAuthHeader      string
 	adminAuthHeader     string
+	certPEM             string
 )
 
 func TestE2E(t *testing.T) {
@@ -91,13 +96,15 @@ var _ = BeforeSuite(func() {
 	serviceAccountToken = obtainServiceAccountToken(serviceAccountName)
 
 	certUserName = generateGUID("cert-user")
-	var certPEM string
 	certSigningReq, certPEM = obtainClientCert(certUserName)
 	certAuthHeader = "ClientCert " + certPEM
 })
 
 var _ = BeforeEach(func() {
 	tokenAuthHeader = fmt.Sprintf("Bearer %s", serviceAccountToken)
+	adminClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert())
+	certClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(certPEM)
+	tokenClient = resty.New().SetBaseURL(apiServerRoot).SetAuthToken(serviceAccountToken)
 })
 
 var _ = AfterSuite(func() {
@@ -488,33 +495,25 @@ func httpReq(method, url, authHeader string, jsonBody interface{}) (*http.Respon
 	return resp, nil
 }
 
-func createAppRaw(spaceGUID, name, authHeader string) (*http.Response, error) {
-	appsURL := apiServerRoot + apis.AppCreateEndpoint
+func createApp(spaceGUID, name string) presenter.AppResponse {
+	app := presenter.AppResponse{}
 
-	payload := payloads.AppCreate{
-		Name: name,
-		Relationships: payloads.AppRelationships{
-			Space: payloads.Relationship{
-				Data: &payloads.RelationshipData{
-					GUID: spaceGUID,
+	resp, err := adminClient.R().
+		SetBody(map[string]interface{}{
+			"name": name,
+			"relationships": map[string]interface{}{
+				"space": map[string]interface{}{
+					"data": map[string]interface{}{
+						"guid": spaceGUID,
+					},
 				},
 			},
-		},
-	}
+		}).
+		SetResult(&app).
+		Post("/v3/apps")
 
-	return httpReq(http.MethodPost, appsURL, authHeader, payload)
-}
-
-func createApp(spaceGUID, name, authHeader string) presenter.AppResponse {
-	resp, err := createAppRaw(spaceGUID, name, authHeader)
 	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
-
-	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
-
-	app := presenter.AppResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&app)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
 
 	return app
 }
@@ -619,47 +618,6 @@ func getWithQuery(endpoint string, authHeaderValue string, query map[string]stri
 	serverUrl.RawQuery = values.Encode()
 
 	resp, err := httpReq(http.MethodGet, serverUrl.String(), authHeaderValue, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
-	}
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	response := map[string]interface{}{}
-	err = json.Unmarshal(bodyBytes, &response)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
-}
-
-func patch(endpoint string, authHeaderValue string, payload interface{}) (map[string]interface{}, error) {
-	return doUpdate(http.MethodPatch, endpoint, authHeaderValue, payload)
-}
-
-func post(endpoint string, authHeaderValue string, payload interface{}) (map[string]interface{}, error) {
-	return doUpdate(http.MethodPost, endpoint, authHeaderValue, payload)
-}
-
-func doUpdate(httpMethod, endpoint string, authHeaderValue string, payload interface{}) (map[string]interface{}, error) {
-	serverUrl, err := url.Parse(apiServerRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	serverUrl.Path = endpoint
-
-	resp, err := httpReq(httpMethod, serverUrl.String(), authHeaderValue, payload)
 	if err != nil {
 		return nil, err
 	}
