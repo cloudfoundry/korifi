@@ -94,20 +94,39 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
-	scaleProcessAction := actions.NewScaleProcess(repositories.NewProcessRepo(privilegedCRClient))
-	scaleAppProcessAction := actions.NewScaleAppProcess(
-		repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
-		repositories.NewProcessRepo(privilegedCRClient),
-		scaleProcessAction.Invoke,
-	)
-
-	fetchProcessStatsAction := actions.NewFetchProcessStats(
-		repositories.NewProcessRepo(privilegedCRClient),
-		repositories.NewPodRepo(privilegedCRClient),
-		repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
-	)
 
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout, config.AuthEnabled)
+	appRepo := repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions)
+	processRepo := repositories.NewProcessRepo(privilegedCRClient)
+	podRepo := repositories.NewPodRepo(privilegedCRClient)
+	dropletRepo := repositories.NewDropletRepo(privilegedCRClient, userClientFactory)
+	routeRepo := repositories.NewRouteRepo(privilegedCRClient, userClientFactory)
+	domainRepo := repositories.NewDomainRepo(privilegedCRClient)
+	buildRepo := repositories.NewBuildRepo(privilegedCRClient, userClientFactory)
+	packageRepo := repositories.NewPackageRepo(privilegedCRClient)
+	serviceInstanceRepo := repositories.NewServiceInstanceRepo(userClientFactory, nsPermissions)
+	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)
+	roleRepo := repositories.NewRoleRepo(
+		privilegedCRClient,
+		userClientFactory,
+		authorization.NewNamespacePermissions(
+			privilegedCRClient,
+			cachingIdentityProvider,
+			config.RootNamespace,
+		),
+		config.RoleMappings,
+	)
+
+	scaleProcessAction := actions.NewScaleProcess(processRepo)
+	scaleAppProcessAction := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcessAction.Invoke)
+	fetchProcessStatsAction := actions.NewFetchProcessStats(processRepo, podRepo, appRepo)
+	applyManifestAction := actions.NewApplyManifest(
+		appRepo,
+		domainRepo,
+		processRepo,
+		routeRepo,
+	).Invoke
+
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
 		apis.NewRootHandler(
@@ -118,20 +137,20 @@ func main() {
 		apis.NewAppHandler(
 			ctrl.Log.WithName("AppHandler"),
 			*serverURL,
-			repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
-			repositories.NewDropletRepo(privilegedCRClient, userClientFactory),
-			repositories.NewProcessRepo(privilegedCRClient),
-			repositories.NewRouteRepo(privilegedCRClient, userClientFactory),
-			repositories.NewDomainRepo(privilegedCRClient),
-			repositories.NewPodRepo(privilegedCRClient),
+			appRepo,
+			dropletRepo,
+			processRepo,
+			routeRepo,
+			domainRepo,
+			podRepo,
 			scaleAppProcessAction.Invoke,
 		),
 		apis.NewRouteHandler(
 			ctrl.Log.WithName("RouteHandler"),
 			*serverURL,
-			repositories.NewRouteRepo(privilegedCRClient, userClientFactory),
-			repositories.NewDomainRepo(privilegedCRClient),
-			repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
+			routeRepo,
+			domainRepo,
+			appRepo,
 		),
 		apis.NewServiceRouteBindingHandler(
 			ctrl.Log.WithName("ServiceRouteBinding"),
@@ -140,9 +159,9 @@ func main() {
 		apis.NewPackageHandler(
 			ctrl.Log.WithName("PackageHandler"),
 			*serverURL,
-			repositories.NewPackageRepo(privilegedCRClient),
-			repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
-			repositories.NewDropletRepo(privilegedCRClient, userClientFactory),
+			packageRepo,
+			appRepo,
+			dropletRepo,
 			repositories.UploadSourceImage,
 			newRegistryAuthBuilder(privilegedK8sClient, config),
 			config.PackageRegistryBase,
@@ -151,25 +170,25 @@ func main() {
 		apis.NewBuildHandler(
 			ctrl.Log.WithName("BuildHandler"),
 			*serverURL,
-			repositories.NewBuildRepo(privilegedCRClient, userClientFactory),
-			repositories.NewPackageRepo(privilegedCRClient),
+			buildRepo,
+			packageRepo,
 		),
 		apis.NewDropletHandler(
 			ctrl.Log.WithName("DropletHandler"),
 			*serverURL,
-			repositories.NewDropletRepo(privilegedCRClient, userClientFactory),
+			dropletRepo,
 		),
 		apis.NewProcessHandler(
 			ctrl.Log.WithName("ProcessHandler"),
 			*serverURL,
-			repositories.NewProcessRepo(privilegedCRClient),
+			processRepo,
 			fetchProcessStatsAction.Invoke,
 			scaleProcessAction.Invoke,
 		),
 		apis.NewDomainHandler(
 			ctrl.Log.WithName("DomainHandler"),
 			*serverURL,
-			repositories.NewDomainRepo(privilegedCRClient),
+			domainRepo,
 		),
 		apis.NewJobHandler(
 			ctrl.Log.WithName("JobHandler"),
@@ -184,27 +203,13 @@ func main() {
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
-			actions.NewApplyManifest(
-				repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
-				repositories.NewDomainRepo(privilegedCRClient),
-				repositories.NewProcessRepo(privilegedCRClient),
-				repositories.NewRouteRepo(privilegedCRClient, userClientFactory),
-			).Invoke,
+			applyManifestAction,
 			orgRepo,
 		),
 
 		apis.NewRoleHandler(
 			*serverURL,
-			repositories.NewRoleRepo(
-				privilegedCRClient,
-				userClientFactory,
-				authorization.NewNamespacePermissions(
-					privilegedCRClient,
-					cachingIdentityProvider,
-					config.RootNamespace,
-				),
-				config.RoleMappings,
-			),
+			roleRepo,
 		),
 
 		apis.NewWhoAmI(cachingIdentityProvider, *serverURL),
@@ -212,15 +217,15 @@ func main() {
 		apis.NewBuildpackHandler(
 			ctrl.Log.WithName("BuildpackHandler"),
 			*serverURL,
-			repositories.NewBuildpackRepository(userClientFactory),
+			buildpackRepo,
 			config.ClusterBuilderName,
 		),
 
 		apis.NewServiceInstanceHandler(
 			ctrl.Log.WithName("ServiceInstanceHandler"),
 			*serverURL,
-			repositories.NewServiceInstanceRepo(userClientFactory, nsPermissions),
-			repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
+			serviceInstanceRepo,
+			appRepo,
 		),
 	}
 
