@@ -81,9 +81,9 @@ func main() {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
 
-	var buildUserClient repositories.UserK8sClientFactory = repositories.NewPrivilegedClientFactory(k8sClientConfig)
+	var userClientFactory repositories.UserK8sClientFactory = repositories.NewPrivilegedClientFactory(k8sClientConfig)
 	if config.AuthEnabled {
-		buildUserClient = repositories.NewUnprivilegedClientFactory(k8sClientConfig)
+		userClientFactory = repositories.NewUnprivilegedClientFactory(k8sClientConfig)
 	}
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
@@ -96,7 +96,7 @@ func main() {
 	}
 	scaleProcessAction := actions.NewScaleProcess(repositories.NewProcessRepo(privilegedCRClient))
 	scaleAppProcessAction := actions.NewScaleAppProcess(
-		repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
+		repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
 		repositories.NewProcessRepo(privilegedCRClient),
 		scaleProcessAction.Invoke,
 	)
@@ -104,10 +104,10 @@ func main() {
 	fetchProcessStatsAction := actions.NewFetchProcessStats(
 		repositories.NewProcessRepo(privilegedCRClient),
 		repositories.NewPodRepo(privilegedCRClient),
-		repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
+		repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
 	)
 
-	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, buildUserClient, nsPermissions, createTimeout, config.AuthEnabled)
+	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout, config.AuthEnabled)
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
 		apis.NewRootHandler(
@@ -118,10 +118,10 @@ func main() {
 		apis.NewAppHandler(
 			ctrl.Log.WithName("AppHandler"),
 			*serverURL,
-			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
-			repositories.NewDropletRepo(privilegedCRClient, buildUserClient),
+			repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
+			repositories.NewDropletRepo(privilegedCRClient, userClientFactory),
 			repositories.NewProcessRepo(privilegedCRClient),
-			repositories.NewRouteRepo(privilegedCRClient, buildUserClient),
+			repositories.NewRouteRepo(privilegedCRClient, userClientFactory),
 			repositories.NewDomainRepo(privilegedCRClient),
 			repositories.NewPodRepo(privilegedCRClient),
 			scaleAppProcessAction.Invoke,
@@ -129,9 +129,9 @@ func main() {
 		apis.NewRouteHandler(
 			ctrl.Log.WithName("RouteHandler"),
 			*serverURL,
-			repositories.NewRouteRepo(privilegedCRClient, buildUserClient),
+			repositories.NewRouteRepo(privilegedCRClient, userClientFactory),
 			repositories.NewDomainRepo(privilegedCRClient),
-			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
+			repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
 		),
 		apis.NewServiceRouteBindingHandler(
 			ctrl.Log.WithName("ServiceRouteBinding"),
@@ -141,8 +141,8 @@ func main() {
 			ctrl.Log.WithName("PackageHandler"),
 			*serverURL,
 			repositories.NewPackageRepo(privilegedCRClient),
-			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
-			repositories.NewDropletRepo(privilegedCRClient, buildUserClient),
+			repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
+			repositories.NewDropletRepo(privilegedCRClient, userClientFactory),
 			repositories.UploadSourceImage,
 			newRegistryAuthBuilder(privilegedK8sClient, config),
 			config.PackageRegistryBase,
@@ -151,13 +151,13 @@ func main() {
 		apis.NewBuildHandler(
 			ctrl.Log.WithName("BuildHandler"),
 			*serverURL,
-			repositories.NewBuildRepo(privilegedCRClient),
+			repositories.NewBuildRepo(privilegedCRClient, userClientFactory),
 			repositories.NewPackageRepo(privilegedCRClient),
 		),
 		apis.NewDropletHandler(
 			ctrl.Log.WithName("DropletHandler"),
 			*serverURL,
-			repositories.NewDropletRepo(privilegedCRClient, buildUserClient),
+			repositories.NewDropletRepo(privilegedCRClient, userClientFactory),
 		),
 		apis.NewProcessHandler(
 			ctrl.Log.WithName("ProcessHandler"),
@@ -185,10 +185,10 @@ func main() {
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
 			actions.NewApplyManifest(
-				repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
+				repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
 				repositories.NewDomainRepo(privilegedCRClient),
 				repositories.NewProcessRepo(privilegedCRClient),
-				repositories.NewRouteRepo(privilegedCRClient, buildUserClient),
+				repositories.NewRouteRepo(privilegedCRClient, userClientFactory),
 			).Invoke,
 			orgRepo,
 		),
@@ -197,7 +197,7 @@ func main() {
 			*serverURL,
 			repositories.NewRoleRepo(
 				privilegedCRClient,
-				buildUserClient,
+				userClientFactory,
 				authorization.NewNamespacePermissions(
 					privilegedCRClient,
 					cachingIdentityProvider,
@@ -212,15 +212,15 @@ func main() {
 		apis.NewBuildpackHandler(
 			ctrl.Log.WithName("BuildpackHandler"),
 			*serverURL,
-			repositories.NewBuildpackRepository(buildUserClient),
+			repositories.NewBuildpackRepository(userClientFactory),
 			config.ClusterBuilderName,
 		),
 
 		apis.NewServiceInstanceHandler(
 			ctrl.Log.WithName("ServiceInstanceHandler"),
 			*serverURL,
-			repositories.NewServiceInstanceRepo(buildUserClient, nsPermissions),
-			repositories.NewAppRepo(privilegedCRClient, buildUserClient, nsPermissions),
+			repositories.NewServiceInstanceRepo(userClientFactory, nsPermissions),
+			repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions),
 		),
 	}
 

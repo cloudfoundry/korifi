@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,11 +45,15 @@ type BuildRecord struct {
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds/status,verbs=get
 
 type BuildRepo struct {
-	privilegedClient client.Client
+	privilegedClient  client.Client
+	userClientFactory UserK8sClientFactory
 }
 
-func NewBuildRepo(privilegedClient client.Client) *BuildRepo {
-	return &BuildRepo{privilegedClient: privilegedClient}
+func NewBuildRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *BuildRepo {
+	return &BuildRepo{
+		privilegedClient:  privilegedClient,
+		userClientFactory: userClientFactory,
+	}
 }
 
 func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, buildGUID string) (BuildRecord, error) {
@@ -60,19 +65,27 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 	}
 	allBuilds := buildList.Items
 	matches := filterBuildsByMetadataName(allBuilds, buildGUID)
-
-	return returnBuild(matches)
-}
-
-func returnBuild(builds []workloadsv1alpha1.CFBuild) (BuildRecord, error) {
-	if len(builds) == 0 {
+	if len(matches) == 0 {
 		return BuildRecord{}, NotFoundError{}
 	}
-	if len(builds) > 1 {
+	if len(matches) > 1 {
 		return BuildRecord{}, errors.New("duplicate builds exist")
 	}
 
-	return cfBuildToBuildRecord(builds[0]), nil
+	userClient, err := b.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return BuildRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
+	}
+
+	foundBuild := workloadsv1alpha1.CFBuild{}
+	if err := userClient.Get(ctx, client.ObjectKeyFromObject(&matches[0]), &foundBuild); err != nil {
+		if k8serrors.IsForbidden(err) {
+			return BuildRecord{}, NewForbiddenError(err)
+		}
+		return BuildRecord{}, fmt.Errorf("failed to get build: %w", err)
+	}
+
+	return cfBuildToBuildRecord(foundBuild), nil
 }
 
 func cfBuildToBuildRecord(cfBuild workloadsv1alpha1.CFBuild) BuildRecord {

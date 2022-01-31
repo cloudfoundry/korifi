@@ -23,15 +23,13 @@ var _ = Describe("ServiceInstanceRepository", func() {
 	var (
 		testCtx                   context.Context
 		serviceInstanceRepo       *ServiceInstanceRepo
-		clientFactory             repositories.UserK8sClientFactory
 		spaceDeveloperClusterRole *rbacv1.ClusterRole
 		filters                   ListServiceInstanceMessage
 	)
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
-		serviceInstanceRepo = NewServiceInstanceRepo(clientFactory, nsPerms)
+		serviceInstanceRepo = NewServiceInstanceRepo(userClientFactory, nsPerms)
 		spaceDeveloperClusterRole = createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
 	})
 

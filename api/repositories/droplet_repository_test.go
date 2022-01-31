@@ -29,8 +29,7 @@ var _ = Describe("DropletRepository", func() {
 		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
 		Expect(k8sClient.Create(testCtx, namespace)).To(Succeed())
 
-		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
-		dropletRepo = repositories.NewDropletRepo(k8sClient, clientFactory)
+		dropletRepo = repositories.NewDropletRepo(k8sClient, userClientFactory)
 
 		spaceDeveloperClusterRole = createClusterRole(testCtx, repositories.SpaceDeveloperClusterRoleRules)
 	})

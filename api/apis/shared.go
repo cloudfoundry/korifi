@@ -10,8 +10,10 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	"code.cloudfoundry.org/bytefmt"
+	"github.com/go-logr/logr"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
@@ -342,5 +344,19 @@ func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
 	case RoleName(""):
 	default:
 		sl.ReportError(roleCreate.Type, "type", "Role type", "valid_role", "")
+	}
+}
+
+func handleRepoErrors(logger logr.Logger, err error, resource, guid string, w http.ResponseWriter) {
+	switch err.(type) {
+	case repositories.NotFoundError:
+		logger.Info(fmt.Sprintf("%s not found", strings.Title(resource)), "guid", guid)
+		writeNotFoundErrorResponse(w, strings.Title(resource))
+	case repositories.ForbiddenError:
+		logger.Info(fmt.Sprintf("%s forbidden to user", strings.Title(resource)), "guid", guid)
+		writeNotFoundErrorResponse(w, strings.Title(resource))
+	default:
+		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", resource), "guid", guid)
+		writeUnknownErrorResponse(w)
 	}
 }

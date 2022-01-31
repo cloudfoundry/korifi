@@ -29,7 +29,6 @@ var _ = Describe("RoleRepository", func() {
 		createdRole         repositories.RoleRecord
 		authorizedInChecker *fake.AuthorizedInChecker
 		createErr           error
-		clientFactory       repositories.UserK8sClientFactory
 		orgManagerRole      *rbacv1.ClusterRole
 		orgUserRole         *rbacv1.ClusterRole
 		spaceDeveloperRole  *rbacv1.ClusterRole
@@ -40,11 +39,10 @@ var _ = Describe("RoleRepository", func() {
 		ctx = context.Background()
 		authorizedInChecker = new(fake.AuthorizedInChecker)
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
-		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
 		orgManagerRole = createClusterRole(ctx, repositories.OrgManagerClusterRoleRules)
 		orgUserRole = createClusterRole(ctx, repositories.OrgUserClusterRoleRules)
 		spaceDeveloperRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
-		roleRepo = repositories.NewRoleRepo(k8sClient, clientFactory, authorizedInChecker, map[string]config.Role{
+		roleRepo = repositories.NewRoleRepo(k8sClient, userClientFactory, authorizedInChecker, map[string]config.Role{
 			"space_developer":      {Name: spaceDeveloperRole.Name},
 			"organization_manager": {Name: orgManagerRole.Name, Propagate: true},
 			"organization_user":    {Name: orgUserRole.Name},
