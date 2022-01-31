@@ -59,16 +59,15 @@ func NewBuildRepo(privilegedClient client.Client, userClientFactory UserK8sClien
 func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, buildGUID string) (BuildRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	buildList := &workloadsv1alpha1.CFBuildList{}
-	err := b.privilegedClient.List(ctx, buildList)
+	err := b.privilegedClient.List(ctx, buildList, client.MatchingFields{"metadata.name": buildGUID})
 	if err != nil { // untested
 		return BuildRecord{}, err
 	}
-	allBuilds := buildList.Items
-	matches := filterBuildsByMetadataName(allBuilds, buildGUID)
-	if len(matches) == 0 {
+	builds := buildList.Items
+	if len(builds) == 0 {
 		return BuildRecord{}, NotFoundError{}
 	}
-	if len(matches) > 1 {
+	if len(builds) > 1 {
 		return BuildRecord{}, errors.New("duplicate builds exist")
 	}
 
@@ -78,7 +77,7 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 	}
 
 	foundBuild := workloadsv1alpha1.CFBuild{}
-	if err := userClient.Get(ctx, client.ObjectKeyFromObject(&matches[0]), &foundBuild); err != nil {
+	if err := userClient.Get(ctx, client.ObjectKeyFromObject(&builds[0]), &foundBuild); err != nil {
 		if k8serrors.IsForbidden(err) {
 			return BuildRecord{}, NewForbiddenError(err)
 		}
@@ -133,16 +132,6 @@ func cfBuildToBuildRecord(cfBuild workloadsv1alpha1.CFBuild) BuildRecord {
 	}
 
 	return toReturn
-}
-
-func filterBuildsByMetadataName(builds []workloadsv1alpha1.CFBuild, name string) []workloadsv1alpha1.CFBuild {
-	var filtered []workloadsv1alpha1.CFBuild
-	for i, build := range builds {
-		if build.Name == name {
-			filtered = append(filtered, builds[i])
-		}
-	}
-	return filtered
 }
 
 func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info, message CreateBuildMessage) (BuildRecord, error) {

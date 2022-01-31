@@ -35,7 +35,7 @@ kubectl certificate approve "${csr_name}"
 kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}' | base64 --decode >"${cert_file}"
 kubectl config set-credentials "${username}" --client-certificate="${cert_file}" --client-key="${priv_key_file}" --embed-certs
 
-cat<<EOF
+cat <<EOF
 
 Use "cf set-space-role ${username} ORG SPACE SpaceDeveloper" to grant this user permissions in a space.
 EOF
