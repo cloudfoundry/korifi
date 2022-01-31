@@ -3,6 +3,7 @@ package integration_test
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
@@ -18,11 +19,9 @@ import (
 )
 
 var _ = Describe("CFRouteReconciler Integration Tests", func() {
-	const (
-		testRouteHost = "test-route-host"
-	)
-
 	var (
+		testRouteHost string
+
 		testNamespace  string
 		testDomainGUID string
 		testRouteGUID  string
@@ -37,6 +36,8 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 	BeforeEach(func() {
 		ctx := context.Background()
+
+		testRouteHost = "test-route-host"
 
 		testNamespace = GenerateGUID()
 
@@ -72,7 +73,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 	})
 
 	When("the CFRoute does not include any destinations", func() {
-		BeforeEach(func() {
+		JustBeforeEach(func() {
 			ctx := context.Background()
 
 			cfRoute = &networkingv1alpha1.CFRoute{
@@ -159,6 +160,28 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				"cfRoute.networking.cloudfoundry.org",
 			}))
 		})
+
+		When("the route Host contains upper case characters", func() {
+			BeforeEach(func() {
+				testRouteHost = "My-App"
+				testFQDN = strings.ToLower(fmt.Sprintf("%s.%s", testRouteHost, testDomainName))
+
+			})
+
+			It("eventually reconciles the CFRoute to a root Contour HTTPProxy which includes a proxy for a route destination", func() {
+				ctx := context.Background()
+
+				var proxy contourv1.HTTPProxy
+				Eventually(func() string {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)
+					Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred(), "Failed to get HTTPProxy/%s in namespace %s", testFQDN, testNamespace)
+					return proxy.Name
+				}).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace)
+
+				Expect(proxy.Spec.VirtualHost.Fqdn).To(Equal(testFQDN), "HTTPProxy FQDN mismatch")
+			})
+		})
+
 	})
 
 	When("the CFRoute includes destinations", func() {
