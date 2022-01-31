@@ -36,7 +36,7 @@ var _ = Describe("Droplets", func() {
 		)
 
 		BeforeEach(func() {
-			app = createApp(space.GUID, generateGUID("app"), adminAuthHeader)
+			app = createApp(space.GUID, generateGUID("app"))
 			pkg = createPackage(app.GUID, adminAuthHeader)
 			uploadNodeApp(pkg.GUID, adminAuthHeader)
 			build = createBuild(pkg.GUID, adminAuthHeader)
