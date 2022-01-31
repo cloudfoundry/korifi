@@ -102,14 +102,12 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 
 func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Info, guid string) (PackageRecord, error) {
 	packageList := &workloadsv1alpha1.CFPackageList{}
-	err := r.privilegedClient.List(ctx, packageList)
+	err := r.privilegedClient.List(ctx, packageList, client.MatchingFields{"metadata.name": guid})
 	if err != nil { // untested
 		return PackageRecord{}, err
 	}
-	allPackages := packageList.Items
-	matches := filterPackagesByMetadataName(allPackages, guid)
 
-	return returnPackage(matches)
+	return returnPackage(packageList.Items)
 }
 
 func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.Info, message ListPackagesMessage) ([]PackageRecord, error) {
@@ -206,16 +204,6 @@ func cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPackage) PackageReco
 		CreatedAt: formatTimestamp(cfPackage.CreationTimestamp),
 		UpdatedAt: updatedAtTime,
 	}
-}
-
-func filterPackagesByMetadataName(packages []workloadsv1alpha1.CFPackage, name string) []workloadsv1alpha1.CFPackage {
-	var filtered []workloadsv1alpha1.CFPackage
-	for i, app := range packages {
-		if app.Name == name {
-			filtered = append(filtered, packages[i])
-		}
-	}
-	return filtered
 }
 
 func returnPackage(packages []workloadsv1alpha1.CFPackage) (PackageRecord, error) {

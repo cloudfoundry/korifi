@@ -49,20 +49,19 @@ type ListDropletsMessage struct {
 
 func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Info, dropletGUID string) (DropletRecord, error) {
 	buildList := &workloadsv1alpha1.CFBuildList{}
-	err := r.privilegedClient.List(ctx, buildList)
+	err := r.privilegedClient.List(ctx, buildList, client.MatchingFields{"metadata.name": dropletGUID})
 	if err != nil { // untested
 		return DropletRecord{}, err
 	}
-	allBuilds := buildList.Items
-	matches := filterBuildsByMetadataName(allBuilds, dropletGUID)
-	if len(matches) == 0 {
+	builds := buildList.Items
+	if len(builds) == 0 {
 		return DropletRecord{}, NotFoundError{}
 	}
-	if len(matches) > 1 { // untested
+	if len(builds) > 1 { // untested
 		return DropletRecord{}, errors.New("duplicate builds exist")
 	}
 
-	foundObj := matches[0]
+	foundObj := builds[0]
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return DropletRecord{}, fmt.Errorf("failed to build user client: %w", err)

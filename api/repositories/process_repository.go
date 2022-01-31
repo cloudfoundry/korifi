@@ -98,14 +98,11 @@ type ListProcessesMessage struct {
 func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Info, processGUID string) (ProcessRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	processList := &workloadsv1alpha1.CFProcessList{}
-	err := r.privilegedClient.List(ctx, processList)
+	err := r.privilegedClient.List(ctx, processList, client.MatchingFields{"metadata.name": processGUID})
 	if err != nil { // untested
 		return ProcessRecord{}, err
 	}
-	allProcesses := processList.Items
-	matches := filterProcessesByMetadataName(allProcesses, processGUID)
-
-	return returnProcess(matches)
+	return returnProcess(processList.Items)
 }
 
 func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.Info, message ListProcessesMessage) ([]ProcessRecord, error) {
@@ -231,16 +228,6 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 
 	err := r.privilegedClient.Patch(ctx, updatedProcess, client.MergeFrom(baseProcess))
 	return err
-}
-
-func filterProcessesByMetadataName(processes []workloadsv1alpha1.CFProcess, name string) []workloadsv1alpha1.CFProcess {
-	var filtered []workloadsv1alpha1.CFProcess
-	for _, process := range processes {
-		if process.Name == name {
-			filtered = append(filtered, process)
-		}
-	}
-	return filtered
 }
 
 func returnProcess(processes []workloadsv1alpha1.CFProcess) (ProcessRecord, error) {

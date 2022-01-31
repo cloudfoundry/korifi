@@ -129,15 +129,12 @@ func (m CreateRouteMessage) toCFRoute() networkingv1alpha1.CFRoute {
 func (f *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, routeGUID string) (RouteRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
-	err := f.privilegedClient.List(ctx, cfRouteList)
+	err := f.privilegedClient.List(ctx, cfRouteList, client.MatchingFields{"metadata.name": routeGUID})
 	if err != nil {
 		return RouteRecord{}, err
 	}
 
-	routeList := cfRouteList.Items
-	filteredRouteList := filterByRouteName(routeList, routeGUID)
-
-	toReturn, err := returnRoute(filteredRouteList)
+	toReturn, err := returnRoute(cfRouteList.Items)
 	return toReturn, err
 }
 
@@ -250,18 +247,6 @@ func (r RouteRecord) UpdateDomainRef(d DomainRecord) RouteRecord {
 	r.Domain = d
 
 	return r
-}
-
-func filterByRouteName(routeList []networkingv1alpha1.CFRoute, name string) []networkingv1alpha1.CFRoute {
-	var filtered []networkingv1alpha1.CFRoute
-
-	for i, route := range routeList {
-		if route.Name == name {
-			filtered = append(filtered, routeList[i])
-		}
-	}
-
-	return filtered
 }
 
 func filterByAppDestination(routeList []networkingv1alpha1.CFRoute, appGUID string) []networkingv1alpha1.CFRoute {

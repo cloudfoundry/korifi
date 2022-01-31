@@ -156,14 +156,12 @@ func (a byName) Swap(i, j int) {
 func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGUID string) (AppRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	appList := &workloadsv1alpha1.CFAppList{}
-	err := f.privilegedClient.List(ctx, appList)
+	err := f.privilegedClient.List(ctx, appList, client.MatchingFields{"metadata.name": appGUID})
 	if err != nil { // untested
 		return AppRecord{}, err
 	}
-	allApps := appList.Items
-	matches := filterAppsByMetadataName(allApps, appGUID)
 
-	app, err := returnApp(matches)
+	app, err := returnApp(appList.Items)
 	if err != nil { // untested
 		return AppRecord{}, err
 	}
@@ -325,7 +323,7 @@ func appMatchesName(app workloadsv1alpha1.CFApp, name string) bool {
 }
 
 func appMatchesGUID(app workloadsv1alpha1.CFApp, guid string) bool {
-	return app.ObjectMeta.Name == guid
+	return app.Name == guid
 }
 
 func returnAppList(appList []workloadsv1alpha1.CFApp) []AppRecord {
@@ -558,16 +556,6 @@ func returnApp(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
 	}
 
 	return cfAppToAppRecord(apps[0]), nil
-}
-
-func filterAppsByMetadataName(apps []workloadsv1alpha1.CFApp, name string) []workloadsv1alpha1.CFApp {
-	var filtered []workloadsv1alpha1.CFApp
-	for i, app := range apps {
-		if app.Name == name {
-			filtered = append(filtered, apps[i])
-		}
-	}
-	return filtered
 }
 
 func v1NamespaceToSpaceRecord(namespace *corev1.Namespace) SpaceRecord {
