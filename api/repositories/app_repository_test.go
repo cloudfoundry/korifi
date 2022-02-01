@@ -772,7 +772,7 @@ var _ = Describe("AppRepository", func() {
 			It("returns an unauthorized or not found err", func() {
 				_, err := appRepo.GetNamespace(context.Background(), authInfo, "some-guid")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError("Resource not found or permission denied."))
+				Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
 			})
 		})
 	})
