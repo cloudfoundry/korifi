@@ -12,16 +12,22 @@ import (
 
 var _ = Describe("Builds", func() {
 	var (
-		org   presenter.OrgResponse
-		space presenter.SpaceResponse
+		org      presenter.OrgResponse
+		space    presenter.SpaceResponse
+		app      presenter.AppResponse
+		pkg      presenter.PackageResponse
+		httpErr  error
+		httpResp *resty.Response
+		result   map[string]interface{}
 	)
 
 	BeforeEach(func() {
 		org = createOrg(generateGUID("org"))
 		createOrgRole("organization_user", rbacv1.UserKind, certUserName, org.GUID, adminAuthHeader)
-
 		space = createSpace(generateGUID("space1"), org.GUID)
 		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space.GUID, adminAuthHeader)
+		app = createApp(space.GUID, generateGUID("app"))
+		pkg = createPackage(app.GUID, adminAuthHeader)
 	})
 
 	AfterEach(func() {
@@ -29,39 +35,29 @@ var _ = Describe("Builds", func() {
 	})
 
 	Describe("get", func() {
-		var (
-			app   presenter.AppResponse
-			pkg   presenter.PackageResponse
-			build presenter.BuildResponse
-
-			resp   map[string]interface{}
-			getErr error
-		)
+		var build presenter.BuildResponse
 
 		BeforeEach(func() {
-			app = createApp(space.GUID, generateGUID("app"))
-			pkg = createPackage(app.GUID, adminAuthHeader)
 			build = createBuild(pkg.GUID, adminAuthHeader)
 		})
 
 		JustBeforeEach(func() {
-			resp, getErr = get("/v3/builds/"+build.GUID, certAuthHeader)
+			httpResp, httpErr = certClient.R().
+				SetResult(&result).
+				Get("/v3/builds/" + build.GUID)
 		})
 
 		It("returns the build", func() {
-			Expect(getErr).NotTo(HaveOccurred())
-			Expect(resp).To(HaveKeyWithValue("guid", build.GUID))
+			Expect(httpErr).NotTo(HaveOccurred())
+			Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(result).To(HaveKeyWithValue("guid", build.GUID))
 		})
 	})
 
 	Describe("create", func() {
 		var (
-			app      presenter.AppResponse
-			pkg      presenter.PackageResponse
-			httpResp *resty.Response
-			httpErr  error
-
-			resp map[string]interface{}
+			app presenter.AppResponse
+			pkg presenter.PackageResponse
 		)
 
 		BeforeEach(func() {
@@ -76,14 +72,14 @@ var _ = Describe("Builds", func() {
 						"guid": pkg.GUID,
 					},
 				}).
-				SetResult(&resp).
+				SetResult(&result).
 				Post("/v3/builds")
 		})
 
 		It("returns the build", func() {
 			Expect(httpErr).NotTo(HaveOccurred())
 			Expect(httpResp.StatusCode()).To(Equal(http.StatusCreated))
-			Expect(resp).To(HaveKeyWithValue("package", HaveKeyWithValue("guid", pkg.GUID)))
+			Expect(result).To(HaveKeyWithValue("package", HaveKeyWithValue("guid", pkg.GUID)))
 		})
 	})
 })

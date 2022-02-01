@@ -601,21 +601,12 @@ func asyncDeleteSubnamespace(orgID, spaceID string, wg *sync.WaitGroup) {
 }
 
 func get(endpoint string, authHeaderValue string) (map[string]interface{}, error) {
-	return getWithQuery(endpoint, authHeaderValue, nil)
-}
-
-func getWithQuery(endpoint string, authHeaderValue string, query map[string]string) (map[string]interface{}, error) {
 	serverUrl, err := url.Parse(apiServerRoot)
 	if err != nil {
 		return nil, err
 	}
 
 	serverUrl.Path = endpoint
-	values := url.Values{}
-	for key, val := range query {
-		values.Set(key, val)
-	}
-	serverUrl.RawQuery = values.Encode()
 
 	resp, err := httpReq(http.MethodGet, serverUrl.String(), authHeaderValue, nil)
 	if err != nil {
