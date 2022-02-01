@@ -90,6 +90,11 @@ var (
 		{
 			Verbs:     []string{"get"},
 			APIGroups: []string{"workloads.cloudfoundry.org"},
+			Resources: []string{"cfpackages"},
+		},
+		{
+			Verbs:     []string{"get", "create"},
+			APIGroups: []string{"workloads.cloudfoundry.org"},
 			Resources: []string{"cfbuilds"},
 		},
 		{
@@ -114,6 +119,11 @@ var (
 			Verbs:     []string{"get"},
 			APIGroups: []string{"workloads.cloudfoundry.org"},
 			Resources: []string{"cfapps"},
+		},
+		{
+			Verbs:     []string{"get"},
+			APIGroups: []string{"workloads.cloudfoundry.org"},
+			Resources: []string{"cfpackages"},
 		},
 		{
 			Verbs:     []string{"get"},

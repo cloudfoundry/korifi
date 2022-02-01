@@ -1441,6 +1441,14 @@ metadata:
   name: cf-k8s-controllers-admin
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - patch
+  - get
+  - create
+- apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
@@ -1453,21 +1461,22 @@ rules:
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
+  - cfpackages
+  verbs:
+  - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
   - cfbuilds
   verbs:
   - get
+  - create
 - apiGroups:
   - services.cloudfoundry.org
   resources:
   - cfserviceinstances
   verbs:
   - list
-  - create
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - rolebindings
-  verbs:
   - create
 - apiGroups:
   - networking.cloudfoundry.org
@@ -1482,14 +1491,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - patch
-  - get
-  - create
-- apiGroups:
   - kpack.io
   resources:
   - clusterbuilders
@@ -1497,6 +1498,12 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
 - apiGroups:
   - hnc.x-k8s.io
   resources:
@@ -1891,9 +1898,16 @@ rules:
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
+  - cfpackages
+  verbs:
+  - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
   - cfbuilds
   verbs:
   - get
+  - create
 - apiGroups:
   - services.cloudfoundry.org
   resources:

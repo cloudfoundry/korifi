@@ -346,6 +346,7 @@ var _ = Describe("BuildHandler", func() {
 		var (
 			packageRepo *fake.CFPackageRepository
 			buildRepo   *fake.CFBuildRepository
+			body        string
 		)
 
 		makePostRequest := func(body string) {
@@ -376,6 +377,7 @@ var _ = Describe("BuildHandler", func() {
 		)
 
 		BeforeEach(func() {
+			body = validBody
 			packageRepo = new(fake.CFPackageRepository)
 			packageRepo.GetPackageReturns(repositories.PackageRecord{
 				Type:      "bits",
@@ -420,11 +422,11 @@ var _ = Describe("BuildHandler", func() {
 			buildHandler.RegisterRoutes(router)
 		})
 
-		When("on the happy path", func() {
-			BeforeEach(func() {
-				makePostRequest(validBody)
-			})
+		JustBeforeEach(func() {
+			makePostRequest(body)
+		})
 
+		When("on the happy path", func() {
 			It("returns status 201", func() {
 				Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
 			})
@@ -434,40 +436,24 @@ var _ = Describe("BuildHandler", func() {
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 			})
 
-			When("examining the BuildCreate message", func() {
-				var actualCreate repositories.CreateBuildMessage
-				BeforeEach(func() {
-					Expect(buildRepo.CreateBuildCallCount()).To(Equal(1), "buildRepo CreateBuild was not called")
-					_, _, actualCreate = buildRepo.CreateBuildArgsForCall(0)
-				})
-				It("has the same SpaceGUID as the package", func() {
-					Expect(actualCreate.SpaceGUID).To(Equal(spaceGUID))
-				})
-				It("has the same AppGUID as the package", func() {
-					Expect(actualCreate.AppGUID).To(Equal(appGUID))
-				})
-				It("has the same PackageGUID as the request", func() {
-					Expect(actualCreate.PackageGUID).To(Equal(packageGUID))
-				})
-				It("fills in values for StagingMemoryMB", func() {
-					Expect(actualCreate.StagingMemoryMB).To(Equal(expectedStagingMem))
-				})
-				It("fills in values for StagingDiskMB", func() {
-					Expect(actualCreate.StagingDiskMB).To(Equal(expectedStagingDisk))
-				})
-				It("fills in values for Lifecycle", func() {
-					Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
-					Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal([]string{}))
-					Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
-				})
-				It("fills the OwnerRef with a reference to the CFPackage", func() {
-					Expect(actualCreate.OwnerRef).To(Equal(metav1.OwnerReference{
-						APIVersion: "workloads.cloudfoundry.org/v1alpha1",
-						Kind:       "CFPackage",
-						Name:       packageGUID,
-						UID:        packageUID,
-					}))
-				})
+			It("calls create build with the correct payload", func() {
+				Expect(buildRepo.CreateBuildCallCount()).To(Equal(1))
+				_, _, actualCreate := buildRepo.CreateBuildArgsForCall(0)
+
+				Expect(actualCreate.SpaceGUID).To(Equal(spaceGUID))
+				Expect(actualCreate.AppGUID).To(Equal(appGUID))
+				Expect(actualCreate.PackageGUID).To(Equal(packageGUID))
+				Expect(actualCreate.StagingMemoryMB).To(Equal(expectedStagingMem))
+				Expect(actualCreate.StagingDiskMB).To(Equal(expectedStagingDisk))
+				Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
+				Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal([]string{}))
+				Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
+				Expect(actualCreate.OwnerRef).To(Equal(metav1.OwnerReference{
+					APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+					Kind:       "CFPackage",
+					Name:       packageGUID,
+					UID:        packageUID,
+				}))
 			})
 
 			It("returns the Build in the response", func() {
@@ -514,55 +500,62 @@ var _ = Describe("BuildHandler", func() {
 			})
 		})
 
-		itDoesntCreateABuild := func() {
-			It("doesn't create a build", func() {
-				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
-			})
-		}
-
 		When("the package doesn't exist", func() {
 			BeforeEach(func() {
 				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
 				expectUnprocessableEntityError("Unable to use package. Ensure that the package exists and you have access to it.")
+				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
 			})
-
-			itDoesntCreateABuild()
 		})
 
 		When("the package exists check returns an error", func() {
 			BeforeEach(func() {
 				packageRepo.GetPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
-
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
 				expectUnknownError()
+				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
 			})
-			itDoesntCreateABuild()
 		})
 
 		When("the authorization.Info is not available in the request context", func() {
 			BeforeEach(func() {
 				ctx = context.Background()
-				makePostRequest(validBody)
 			})
 
 			It("returns an unknown error", func() {
 				expectUnknownError()
+				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
+			})
+		})
+
+		When("the user is not authorized to create a build", func() {
+			BeforeEach(func() {
+				buildRepo.CreateBuildReturns(repositories.BuildRecord{}, repositories.NewForbiddenError(nil))
 			})
 
-			itDoesntCreateABuild()
+			It("returns a not authorized error", func() {
+				expectNotAuthorizedError()
+			})
+		})
+
+		When("the user is not authorized to get a package", func() {
+			BeforeEach(func() {
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(nil))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError("App not found")
+			})
 		})
 
 		When("creating the build in the repo errors", func() {
 			BeforeEach(func() {
 				buildRepo.CreateBuildReturns(repositories.BuildRecord{}, errors.New("boom"))
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
@@ -572,7 +565,7 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the JSON body is invalid", func() {
 			BeforeEach(func() {
-				makePostRequest(`{`)
+				body = "{"
 			})
 
 			It("returns a status 400 Bad Request ", func() {

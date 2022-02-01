@@ -1,7 +1,10 @@
 package e2e_test
 
 import (
+	"net/http"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -38,7 +41,6 @@ var _ = Describe("Builds", func() {
 		BeforeEach(func() {
 			app = createApp(space.GUID, generateGUID("app"))
 			pkg = createPackage(app.GUID, adminAuthHeader)
-			uploadNodeApp(pkg.GUID, adminAuthHeader)
 			build = createBuild(pkg.GUID, adminAuthHeader)
 		})
 
@@ -46,9 +48,42 @@ var _ = Describe("Builds", func() {
 			resp, getErr = get("/v3/builds/"+build.GUID, certAuthHeader)
 		})
 
-		It("returns the droplet", func() {
+		It("returns the build", func() {
 			Expect(getErr).NotTo(HaveOccurred())
 			Expect(resp).To(HaveKeyWithValue("guid", build.GUID))
+		})
+	})
+
+	Describe("create", func() {
+		var (
+			app      presenter.AppResponse
+			pkg      presenter.PackageResponse
+			httpResp *resty.Response
+			httpErr  error
+
+			resp map[string]interface{}
+		)
+
+		BeforeEach(func() {
+			app = createApp(space.GUID, generateGUID("app"))
+			pkg = createPackage(app.GUID, adminAuthHeader)
+		})
+
+		JustBeforeEach(func() {
+			httpResp, httpErr = certClient.R().
+				SetBody(map[string]interface{}{
+					"package": map[string]interface{}{
+						"guid": pkg.GUID,
+					},
+				}).
+				SetResult(&resp).
+				Post("/v3/builds")
+		})
+
+		It("returns the build", func() {
+			Expect(httpErr).NotTo(HaveOccurred())
+			Expect(httpResp.StatusCode()).To(Equal(http.StatusCreated))
+			Expect(resp).To(HaveKeyWithValue("package", HaveKeyWithValue("guid", pkg.GUID)))
 		})
 	})
 })

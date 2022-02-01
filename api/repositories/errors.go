@@ -1,6 +1,9 @@
 package repositories
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 type NotFoundError struct {
 	Err          error
@@ -12,10 +15,7 @@ func (e NotFoundError) Error() string {
 	if e.ResourceType != "" {
 		msg = e.ResourceType + " " + msg
 	}
-	if e.Err != nil {
-		msg = msg + ": " + e.Err.Error()
-	}
-	return msg
+	return errMessage(msg, e.Err)
 }
 
 func (e NotFoundError) Unwrap() error {
@@ -27,7 +27,7 @@ type PermissionDeniedOrNotFoundError struct {
 }
 
 func (e PermissionDeniedOrNotFoundError) Error() string {
-	return "Resource not found or permission denied."
+	return errMessage("Resource not found or permission denied", e.Err)
 }
 
 func (e PermissionDeniedOrNotFoundError) Unwrap() error {
@@ -39,7 +39,7 @@ type ResourceNotFoundError struct {
 }
 
 func (e ResourceNotFoundError) Error() string {
-	return "Resource not found."
+	return errMessage("Resource not found", e.Err)
 }
 
 func (e ResourceNotFoundError) Unwrap() error {
@@ -55,7 +55,7 @@ func NewForbiddenError(err error) ForbiddenError {
 }
 
 func (e ForbiddenError) Error() string {
-	return "Forbidden"
+	return errMessage("Forbidden", e.err)
 }
 
 func (e ForbiddenError) Unwrap() error {
@@ -64,4 +64,12 @@ func (e ForbiddenError) Unwrap() error {
 
 func IsForbiddenError(err error) bool {
 	return errors.As(err, &ForbiddenError{})
+}
+
+func errMessage(message string, err error) string {
+	if err == nil {
+		return message
+	}
+
+	return fmt.Sprintf("%s: %v", message, err)
 }

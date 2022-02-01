@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -31,11 +32,15 @@ const (
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
 
 type PackageRepo struct {
-	privilegedClient client.Client
+	privilegedClient  client.Client
+	userClientFactory UserK8sClientFactory
 }
 
-func NewPackageRepo(privilegedClient client.Client) *PackageRepo {
-	return &PackageRepo{privilegedClient: privilegedClient}
+func NewPackageRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *PackageRepo {
+	return &PackageRepo{
+		privilegedClient:  privilegedClient,
+		userClientFactory: userClientFactory,
+	}
 }
 
 type PackageRecord struct {
@@ -100,6 +105,7 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 	return cfPackageToPackageRecord(cfPackage), nil
 }
 
+// nolint: dupl
 func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Info, guid string) (PackageRecord, error) {
 	packageList := &workloadsv1alpha1.CFPackageList{}
 	err := r.privilegedClient.List(ctx, packageList, client.MatchingFields{"metadata.name": guid})
@@ -107,7 +113,28 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 		return PackageRecord{}, err
 	}
 
-	return returnPackage(packageList.Items)
+	packages := packageList.Items
+	if len(packages) == 0 {
+		return PackageRecord{}, NotFoundError{}
+	}
+	if len(packages) > 1 {
+		return PackageRecord{}, errors.New("duplicate packages exist")
+	}
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return PackageRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
+	}
+
+	foundPackage := workloadsv1alpha1.CFPackage{}
+	if err := userClient.Get(ctx, client.ObjectKeyFromObject(&packages[0]), &foundPackage); err != nil {
+		if k8serrors.IsForbidden(err) {
+			return PackageRecord{}, NewForbiddenError(err)
+		}
+		return PackageRecord{}, fmt.Errorf("get-package: get failed: %w", err)
+	}
+
+	return cfPackageToPackageRecord(foundPackage), nil
 }
 
 func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.Info, message ListPackagesMessage) ([]PackageRecord, error) {
@@ -204,17 +231,6 @@ func cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPackage) PackageReco
 		CreatedAt: formatTimestamp(cfPackage.CreationTimestamp),
 		UpdatedAt: updatedAtTime,
 	}
-}
-
-func returnPackage(packages []workloadsv1alpha1.CFPackage) (PackageRecord, error) {
-	if len(packages) == 0 {
-		return PackageRecord{}, NotFoundError{}
-	}
-	if len(packages) > 1 {
-		return PackageRecord{}, errors.New("duplicate packages exist")
-	}
-
-	return cfPackageToPackageRecord(packages[0]), nil
 }
 
 func convertToPackageRecords(packages []workloadsv1alpha1.CFPackage) []PackageRecord {

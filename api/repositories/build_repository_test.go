@@ -5,9 +5,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -18,6 +16,16 @@ import (
 )
 
 var _ = Describe("BuildRepository", func() {
+	var (
+		ctx                       context.Context
+		spaceDeveloperClusterRole *rbacv1.ClusterRole
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		spaceDeveloperClusterRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
+	})
+
 	Describe("GetBuild", func() {
 		const (
 			app1GUID      = "app-1-guid"
@@ -29,34 +37,27 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		var (
-			testCtx   context.Context
-			buildRepo *BuildRepo
+			buildRepo *repositories.BuildRepo
 
 			namespace1 *corev1.Namespace
 			namespace2 *corev1.Namespace
-
-			spaceDeveloperClusterRole *rbacv1.ClusterRole
 		)
 
 		BeforeEach(func() {
-			testCtx = context.Background()
-
 			namespace1Name := generateGUID()
 			namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace1Name}}
-			Expect(k8sClient.Create(context.Background(), namespace1)).To(Succeed())
+			Expect(k8sClient.Create(ctx, namespace1)).To(Succeed())
 
 			namespace2Name := generateGUID()
 			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
-			Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
+			Expect(k8sClient.Create(ctx, namespace2)).To(Succeed())
 
-			spaceDeveloperClusterRole = createClusterRole(testCtx, repositories.SpaceDeveloperClusterRoleRules)
-
-			buildRepo = NewBuildRepo(k8sClient, userClientFactory)
+			buildRepo = repositories.NewBuildRepo(k8sClient, userClientFactory)
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(context.Background(), namespace1)).To(Succeed())
-			Expect(k8sClient.Delete(context.Background(), namespace2)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, namespace1)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, namespace2)).To(Succeed())
 		})
 
 		makeBuild := func(namespace, buildGUID, packageGUID, appGUID string) *workloadsv1alpha1.CFBuild {
@@ -102,22 +103,22 @@ var _ = Describe("BuildRepository", func() {
 				build1GUID = generateGUID()
 				build2GUID = generateGUID()
 				build1 = makeBuild(namespace1.Name, build1GUID, package1GUID, app1GUID)
-				Expect(k8sClient.Create(context.Background(), build1)).To(Succeed())
+				Expect(k8sClient.Create(ctx, build1)).To(Succeed())
 				build2 = makeBuild(namespace2.Name, build2GUID, package2GUID, app2GUID)
-				Expect(k8sClient.Create(context.Background(), build2)).To(Succeed())
+				Expect(k8sClient.Create(ctx, build2)).To(Succeed())
 
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, namespace1.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, namespace2.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, namespace1.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, namespace2.Name)
 			})
 
 			When("fetching a build", func() {
 				var (
-					buildRecord *BuildRecord
+					buildRecord *repositories.BuildRecord
 					fetchError  error
 				)
 				When("no status.Conditions are set", func() {
 					BeforeEach(func() {
-						returnedBuildRecord, err := buildRepo.GetBuild(testCtx, authInfo, build2GUID)
+						returnedBuildRecord, err := buildRepo.GetBuild(ctx, authInfo, build2GUID)
 						buildRecord = &returnedBuildRecord
 						fetchError = err
 					})
@@ -188,11 +189,10 @@ var _ = Describe("BuildRepository", func() {
 							Reason:  "Unknown",
 							Message: "Unknown",
 						})
-						Expect(k8sClient.Status().Update(testCtx, build2)).To(Succeed())
+						Expect(k8sClient.Status().Update(ctx, build2)).To(Succeed())
 					})
 
 					It("should return a record with State: \"STAGED\", no StagingErrorMsg, and a DropletGUID that matches the BuildGUID", func() {
-						ctx := context.Background()
 						buildRecord, err := buildRepo.GetBuild(ctx, authInfo, build2GUID)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(buildRecord.State).To(Equal("STAGED"))
@@ -220,11 +220,10 @@ var _ = Describe("BuildRepository", func() {
 							Reason:  "StagingError",
 							Message: StagingErrorMessage,
 						})
-						Expect(k8sClient.Status().Update(testCtx, build2)).To(Succeed())
+						Expect(k8sClient.Status().Update(ctx, build2)).To(Succeed())
 					})
 
 					It("should return a record with State: \"FAILED\", no DropletGUID, and a Staging Error Message", func() {
-						ctx := context.Background()
 						buildRecord, err := buildRepo.GetBuild(ctx, authInfo, build2GUID)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(buildRecord.State).To(Equal("FAILED"))
@@ -241,13 +240,13 @@ var _ = Describe("BuildRepository", func() {
 			BeforeEach(func() {
 				buildGUID = generateGUID()
 				build1 := makeBuild(namespace1.Name, buildGUID, package1GUID, app1GUID)
-				Expect(k8sClient.Create(context.Background(), build1)).To(Succeed())
+				Expect(k8sClient.Create(ctx, build1)).To(Succeed())
 				build2 := makeBuild(namespace2.Name, buildGUID, package2GUID, app2GUID)
-				Expect(k8sClient.Create(context.Background(), build2)).To(Succeed())
+				Expect(k8sClient.Create(ctx, build2)).To(Succeed())
 			})
 
 			It("returns an error", func() {
-				_, err := buildRepo.GetBuild(testCtx, authInfo, buildGUID)
+				_, err := buildRepo.GetBuild(ctx, authInfo, buildGUID)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("duplicate builds exist"))
 			})
@@ -255,9 +254,9 @@ var _ = Describe("BuildRepository", func() {
 
 		When("no builds exist", func() {
 			It("returns an error", func() {
-				_, err := buildRepo.GetBuild(testCtx, authInfo, "i don't exist")
+				_, err := buildRepo.GetBuild(ctx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(NotFoundError{}))
+				Expect(err).To(MatchError(repositories.NotFoundError{}))
 			})
 		})
 
@@ -267,11 +266,11 @@ var _ = Describe("BuildRepository", func() {
 			BeforeEach(func() {
 				buildGUID = generateGUID()
 				build1 := makeBuild(namespace1.Name, buildGUID, package1GUID, app1GUID)
-				Expect(k8sClient.Create(context.Background(), build1)).To(Succeed())
+				Expect(k8sClient.Create(ctx, build1)).To(Succeed())
 			})
 
 			It("returns a forbidden error", func() {
-				_, err := buildRepo.GetBuild(testCtx, authInfo, buildGUID)
+				_, err := buildRepo.GetBuild(ctx, authInfo, buildGUID)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 			})
@@ -294,33 +293,32 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		var (
-			buildRepo              *BuildRepo
+			buildRepo              *repositories.BuildRepo
 			buildCreateLabels      map[string]string
 			buildCreateAnnotations map[string]string
-			buildCreateMsg         CreateBuildMessage
+			buildCreateMsg         repositories.CreateBuildMessage
 			spaceGUID              string
 		)
 
 		BeforeEach(func() {
-			buildRepo = NewBuildRepo(k8sClient, userClientFactory)
+			buildRepo = repositories.NewBuildRepo(k8sClient, userClientFactory)
 
-			beforeCtx := context.Background()
 			spaceGUID = generateGUID()
 			Expect(
-				k8sClient.Create(beforeCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
+				k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
 			).To(Succeed())
 
 			buildCreateLabels = nil
 			buildCreateAnnotations = nil
-			buildCreateMsg = CreateBuildMessage{
+			buildCreateMsg = repositories.CreateBuildMessage{
 				AppGUID:         appGUID,
 				PackageGUID:     packageGUID,
 				SpaceGUID:       spaceGUID,
 				StagingMemoryMB: stagingMemory,
 				StagingDiskMB:   stagingDisk,
-				Lifecycle: Lifecycle{
+				Lifecycle: repositories.Lifecycle{
 					Type: buildLifecycleType,
-					Data: LifecycleData{
+					Data: repositories.LifecycleData{
 						Buildpacks: []string{},
 						Stack:      buildStack,
 					},
@@ -328,7 +326,7 @@ var _ = Describe("BuildRepository", func() {
 				Labels:      buildCreateLabels,
 				Annotations: buildCreateAnnotations,
 				OwnerRef: metav1.OwnerReference{
-					APIVersion: APIVersion,
+					APIVersion: repositories.APIVersion,
 					Kind:       "CFPackage",
 					Name:       packageGUID,
 					UID:        packageUID,
@@ -338,18 +336,17 @@ var _ = Describe("BuildRepository", func() {
 
 		When("creating a Build", func() {
 			var (
-				buildCreateRecord BuildRecord
+				buildCreateRecord repositories.BuildRecord
 				buildCreateErr    error
 			)
 
 			BeforeEach(func() {
-				ctx := context.Background()
+				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, spaceGUID)
 				buildCreateRecord, buildCreateErr = buildRepo.CreateBuild(ctx, authInfo, buildCreateMsg)
 			})
 
 			AfterEach(func() {
-				afterCtx := context.Background()
-				Expect(cleanupBuild(afterCtx, buildCreateRecord.GUID, spaceGUID)).To(Succeed())
+				Expect(cleanupBuild(ctx, buildCreateRecord.GUID, spaceGUID)).To(Succeed())
 			})
 
 			It("does not return an error", func() {
@@ -358,7 +355,7 @@ var _ = Describe("BuildRepository", func() {
 
 			When("examining the returned record", func() {
 				It("is not empty", func() {
-					Expect(buildCreateRecord).ToNot(Equal(CreateBuildMessage{}))
+					Expect(buildCreateRecord).ToNot(Equal(repositories.CreateBuildMessage{}))
 				})
 				It("contains a GUID", func() {
 					Expect(buildCreateRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
@@ -409,10 +406,8 @@ var _ = Describe("BuildRepository", func() {
 			It("should eventually create a new Build CR", func() {
 				cfBuildLookupKey := types.NamespacedName{Name: buildCreateRecord.GUID, Namespace: spaceGUID}
 				createdCFBuild := new(workloadsv1alpha1.CFBuild)
-				Eventually(func() bool {
-					err := k8sClient.Get(context.Background(), cfBuildLookupKey, createdCFBuild)
-					return err == nil
-				}, 5*time.Second, 250*time.Millisecond).Should(BeTrue(), "A CFBuild CR was not eventually created")
+				err := k8sClient.Get(ctx, cfBuildLookupKey, createdCFBuild)
+				Expect(err).NotTo(HaveOccurred())
 
 				Expect(createdCFBuild.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 					{
@@ -422,6 +417,14 @@ var _ = Describe("BuildRepository", func() {
 						UID:        packageUID,
 					},
 				}))
+			})
+		})
+
+		When("the user is not authorized for builds in the namespace", func() {
+			It("returns a forbidden error", func() {
+				_, err := buildRepo.CreateBuild(ctx, authInfo, buildCreateMsg)
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 			})
 		})
 	})

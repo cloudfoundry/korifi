@@ -103,7 +103,7 @@ func main() {
 	routeRepo := repositories.NewRouteRepo(privilegedCRClient, userClientFactory)
 	domainRepo := repositories.NewDomainRepo(privilegedCRClient)
 	buildRepo := repositories.NewBuildRepo(privilegedCRClient, userClientFactory)
-	packageRepo := repositories.NewPackageRepo(privilegedCRClient)
+	packageRepo := repositories.NewPackageRepo(privilegedCRClient, userClientFactory)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(userClientFactory, nsPermissions)
 	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)
 	roleRepo := repositories.NewRoleRepo(

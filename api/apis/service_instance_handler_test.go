@@ -365,7 +365,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			})
 
 			It("returns an unauthorised error", func() {
-				expectUnauthorizedError()
+				expectNotAuthorizedError()
 			})
 		})
 
@@ -638,7 +638,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			})
 
 			It("returns an unauthorised error", func() {
-				expectUnauthorizedError()
+				expectNotAuthorizedError()
 			})
 		})
 

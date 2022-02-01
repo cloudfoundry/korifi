@@ -56,6 +56,7 @@ func NewBuildRepo(privilegedClient client.Client, userClientFactory UserK8sClien
 	}
 }
 
+// nolint: dupl
 func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, buildGUID string) (BuildRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	buildList := &workloadsv1alpha1.CFBuildList{}
@@ -136,8 +137,15 @@ func cfBuildToBuildRecord(cfBuild workloadsv1alpha1.CFBuild) BuildRecord {
 
 func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info, message CreateBuildMessage) (BuildRecord, error) {
 	cfBuild := message.toCFBuild()
-	err := b.privilegedClient.Create(ctx, &cfBuild)
-	if err != nil { // untested!!!
+	userClient, err := b.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return BuildRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
+	}
+
+	if err := userClient.Create(ctx, &cfBuild); err != nil {
+		if k8serrors.IsForbidden(err) {
+			return BuildRecord{}, NewForbiddenError(err)
+		}
 		return BuildRecord{}, err
 	}
 	return cfBuildToBuildRecord(cfBuild), nil

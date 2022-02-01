@@ -333,7 +333,7 @@ var _ = Describe("RoleHandler", func() {
 			})
 
 			It("returns a unauthorized error", func() {
-				expectUnauthorizedError()
+				expectNotAuthorizedError()
 			})
 		})
 
