@@ -83,6 +83,9 @@ func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, w http.Re
 	packageRecord, err := h.packageRepo.GetPackage(r.Context(), authInfo, payload.Package.GUID)
 	if err != nil {
 		switch err.(type) {
+		case repositories.ForbiddenError:
+			h.logger.Info("Package forbidden", "Package GUID", payload.Package.GUID)
+			writeNotFoundErrorResponse(w, "App")
 		case repositories.NotFoundError:
 			h.logger.Info("Package not found", "Package GUID", payload.Package.GUID)
 			writeUnprocessableEntityError(w, "Unable to use package. Ensure that the package exists and you have access to it.")
@@ -97,8 +100,14 @@ func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, w http.Re
 
 	record, err := h.buildRepo.CreateBuild(r.Context(), authInfo, buildCreateMessage)
 	if err != nil {
-		h.logger.Info("Error creating build with repository", "error", err.Error())
-		writeUnknownErrorResponse(w)
+		switch err.(type) {
+		case repositories.ForbiddenError:
+			h.logger.Info("Create build is forbidden to user")
+			writeNotAuthorizedErrorResponse(w)
+		default:
+			h.logger.Info("Error creating build with repository", "error", err.Error())
+			writeUnknownErrorResponse(w)
+		}
 		return
 	}
 

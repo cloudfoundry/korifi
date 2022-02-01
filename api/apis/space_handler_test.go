@@ -152,7 +152,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns an unauthorised error", func() {
-				expectUnauthorizedError()
+				expectNotAuthorizedError()
 			})
 		})
 
@@ -533,7 +533,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns a 403 error", func() {
-				expectUnauthorizedError()
+				expectNotAuthorizedError()
 			})
 		})
 

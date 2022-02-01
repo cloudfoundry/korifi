@@ -6,12 +6,13 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,24 +23,26 @@ var _ = Describe("PackageRepository", func() {
 	const appUID = "the-app-uid"
 
 	var (
-		packageRepo *PackageRepo
-		ctx         context.Context
+		packageRepo               *repositories.PackageRepo
+		ctx                       context.Context
+		spaceDeveloperClusterRole *rbacv1.ClusterRole
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		packageRepo = NewPackageRepo(k8sClient)
+		packageRepo = repositories.NewPackageRepo(k8sClient, userClientFactory)
+		spaceDeveloperClusterRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
 	})
 
 	Describe("CreatePackage", func() {
-		var packageCreate CreatePackageMessage
+		var packageCreate repositories.CreatePackageMessage
 
 		const (
 			spaceGUID = "the-space-guid"
 		)
 
 		BeforeEach(func() {
-			packageCreate = CreatePackageMessage{
+			packageCreate = repositories.CreatePackageMessage{
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
@@ -107,74 +110,46 @@ var _ = Describe("PackageRepository", func() {
 
 	Describe("GetPackage", func() {
 		var (
-			namespace1 *corev1.Namespace
-			namespace2 *corev1.Namespace
+			namespace   *corev1.Namespace
+			packageGUID string
+			cfPackage   *workloadsv1alpha1.CFPackage
 		)
 
 		BeforeEach(func() {
-			namespace1Name := generateGUID()
-			namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace1Name}}
-			Expect(k8sClient.Create(ctx, namespace1)).To(Succeed())
+			namespaceName := generateGUID()
+			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
+			Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 
-			namespace2Name := generateGUID()
-			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
-			Expect(k8sClient.Create(ctx, namespace2)).To(Succeed())
+			packageGUID = generateGUID()
+			cfPackage = &workloadsv1alpha1.CFPackage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      packageGUID,
+					Namespace: namespace.Name,
+				},
+				Spec: workloadsv1alpha1.CFPackageSpec{
+					Type: "bits",
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(ctx, namespace1)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, namespace2)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, cfPackage)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
 		})
 
-		When("on the happy path", func() {
-			var (
-				package1GUID string
-				package2GUID string
-				package1     *workloadsv1alpha1.CFPackage
-				package2     *workloadsv1alpha1.CFPackage
-			)
-
+		When("the user is authorized in the namespace", func() {
 			BeforeEach(func() {
-				package1GUID = generateGUID()
-				package2GUID = generateGUID()
-				package1 = &workloadsv1alpha1.CFPackage{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      package1GUID,
-						Namespace: namespace1.Name,
-					},
-					Spec: workloadsv1alpha1.CFPackageSpec{
-						Type: "bits",
-						AppRef: corev1.LocalObjectReference{
-							Name: appGUID,
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, package1)).To(Succeed())
-
-				package2 = &workloadsv1alpha1.CFPackage{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      package2GUID,
-						Namespace: namespace2.Name,
-					},
-					Spec: workloadsv1alpha1.CFPackageSpec{
-						Type: "bits",
-						AppRef: corev1.LocalObjectReference{
-							Name: appGUID,
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, package2)).To(Succeed())
-			})
-
-			AfterEach(func() {
-				Expect(k8sClient.Delete(ctx, package1)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, package2)).To(Succeed())
+				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, namespace.Name)
 			})
 
 			It("can fetch the PackageRecord we're looking for", func() {
-				record, err := packageRepo.GetPackage(ctx, authInfo, package2GUID)
+				record, err := packageRepo.GetPackage(ctx, authInfo, packageGUID)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(record.GUID).To(Equal(package2GUID))
+				Expect(record.GUID).To(Equal(packageGUID))
 				Expect(record.Type).To(Equal("bits"))
 				Expect(record.AppGUID).To(Equal(appGUID))
 				Expect(record.State).To(Equal("AWAITING_UPLOAD"))
@@ -187,88 +162,82 @@ var _ = Describe("PackageRepository", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 			})
-		})
 
-		When("table-testing the State field", func() {
-			var cfPackage *workloadsv1alpha1.CFPackage
+			When("table-testing the State field", func() {
+				var cfPackage *workloadsv1alpha1.CFPackage
 
-			BeforeEach(func() {
-				packageGUID := generateGUID()
-				cfPackage = &workloadsv1alpha1.CFPackage{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      packageGUID,
-						Namespace: namespace1.Name,
-					},
-					Spec: workloadsv1alpha1.CFPackageSpec{
-						Type: "bits",
-						AppRef: corev1.LocalObjectReference{
-							Name: appGUID,
+				BeforeEach(func() {
+					packageGUID = generateGUID()
+					cfPackage = &workloadsv1alpha1.CFPackage{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      packageGUID,
+							Namespace: namespace.Name,
 						},
+						Spec: workloadsv1alpha1.CFPackageSpec{
+							Type: "bits",
+							AppRef: corev1.LocalObjectReference{
+								Name: appGUID,
+							},
+						},
+					}
+				})
+
+				type testCase struct {
+					description   string
+					expectedState string
+					setupFunc     func(cfPackage2 *workloadsv1alpha1.CFPackage)
+				}
+
+				cases := []testCase{
+					{
+						description:   "no source image is set",
+						expectedState: "AWAITING_UPLOAD",
+						setupFunc:     func(p *workloadsv1alpha1.CFPackage) { p.Spec.Source = workloadsv1alpha1.PackageSource{} },
+					},
+					{
+						description:   "an source image is set",
+						expectedState: "READY",
+						setupFunc:     func(p *workloadsv1alpha1.CFPackage) { p.Spec.Source.Registry.Image = "some-org/some-repo" },
 					},
 				}
-			})
 
-			type testCase struct {
-				description   string
-				expectedState string
-				setupFunc     func(cfPackage2 *workloadsv1alpha1.CFPackage)
-			}
+				for _, tc := range cases {
+					When(tc.description, func() {
+						It("has state "+tc.expectedState, func() {
+							tc.setupFunc(cfPackage)
+							Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
+							defer func() { Expect(k8sClient.Delete(ctx, cfPackage)).To(Succeed()) }()
 
-			cases := []testCase{
-				{
-					description:   "no source image is set",
-					expectedState: "AWAITING_UPLOAD",
-					setupFunc:     func(p *workloadsv1alpha1.CFPackage) { p.Spec.Source = workloadsv1alpha1.PackageSource{} },
-				},
-				{
-					description:   "an source image is set",
-					expectedState: "READY",
-					setupFunc:     func(p *workloadsv1alpha1.CFPackage) { p.Spec.Source.Registry.Image = "some-org/some-repo" },
-				},
-			}
-
-			for _, tc := range cases {
-				When(tc.description, func() {
-					It("has state "+tc.expectedState, func() {
-						tc.setupFunc(cfPackage)
-						Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
-						defer func() { Expect(k8sClient.Delete(ctx, cfPackage)).To(Succeed()) }()
-
-						record, err := packageRepo.GetPackage(ctx, authInfo, cfPackage.Name)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(record.State).To(Equal(tc.expectedState))
+							record, err := packageRepo.GetPackage(ctx, authInfo, cfPackage.Name)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(record.State).To(Equal(tc.expectedState))
+						})
 					})
-				})
-			}
+				}
+			})
+		})
+
+		When("user is not authorized to get a package", func() {
+			It("returns a forbidden error", func() {
+				_, err := packageRepo.GetPackage(ctx, authInfo, packageGUID)
+				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+			})
 		})
 
 		When("duplicate Packages exist across namespaces with the same GUID", func() {
 			var (
-				packageGUID string
-				cfPackage1  *workloadsv1alpha1.CFPackage
-				cfPackage2  *workloadsv1alpha1.CFPackage
+				duplicatePackage *workloadsv1alpha1.CFPackage
+				anotherNamespace *corev1.Namespace
 			)
 
 			BeforeEach(func() {
-				packageGUID = generateGUID()
-				cfPackage1 = &workloadsv1alpha1.CFPackage{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      packageGUID,
-						Namespace: namespace1.Name,
-					},
-					Spec: workloadsv1alpha1.CFPackageSpec{
-						Type: "bits",
-						AppRef: corev1.LocalObjectReference{
-							Name: appGUID,
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, cfPackage1)).To(Succeed())
+				anotherNamespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: generateGUID()}}
+				Expect(k8sClient.Create(ctx, anotherNamespace)).To(Succeed())
 
-				cfPackage2 = &workloadsv1alpha1.CFPackage{
+				duplicatePackage = &workloadsv1alpha1.CFPackage{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      packageGUID,
-						Namespace: namespace2.Name,
+						Namespace: anotherNamespace.Name,
 					},
 					Spec: workloadsv1alpha1.CFPackageSpec{
 						Type: "bits",
@@ -277,12 +246,11 @@ var _ = Describe("PackageRepository", func() {
 						},
 					},
 				}
-				Expect(k8sClient.Create(ctx, cfPackage2)).To(Succeed())
+				Expect(k8sClient.Create(ctx, duplicatePackage)).To(Succeed())
 			})
 
 			AfterEach(func() {
-				Expect(k8sClient.Delete(ctx, cfPackage1)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, cfPackage2)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, duplicatePackage)).To(Succeed())
 			})
 
 			It("returns an error", func() {
@@ -296,7 +264,7 @@ var _ = Describe("PackageRepository", func() {
 			It("returns an error", func() {
 				_, err := packageRepo.GetPackage(ctx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(NotFoundError{}))
+				Expect(err).To(MatchError(repositories.NotFoundError{}))
 			})
 		})
 	})
@@ -308,21 +276,21 @@ var _ = Describe("PackageRepository", func() {
 		)
 
 		var (
-			namespace1 *corev1.Namespace
+			namespace  *corev1.Namespace
 			namespace2 *corev1.Namespace
 		)
 
 		BeforeEach(func() {
 			namespace1Name := generateGUID()
-			namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace1Name}}
-			Expect(k8sClient.Create(context.Background(), namespace1)).To(Succeed())
+			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace1Name}}
+			Expect(k8sClient.Create(context.Background(), namespace)).To(Succeed())
 			namespace2Name := generateGUID()
 			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
 			Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(context.Background(), namespace1)).To(Succeed())
+			Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 			Expect(k8sClient.Delete(context.Background(), namespace2)).To(Succeed())
 		})
 
@@ -340,7 +308,7 @@ var _ = Describe("PackageRepository", func() {
 				package1 = &workloadsv1alpha1.CFPackage{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      package1GUID,
-						Namespace: namespace1.Name,
+						Namespace: namespace.Name,
 					},
 					Spec: workloadsv1alpha1.CFPackageSpec{
 						Type: "bits",
@@ -381,7 +349,7 @@ var _ = Describe("PackageRepository", func() {
 
 			When("no filters are specified", func() {
 				It("fetches all PackageRecords", func() {
-					packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{})
+					packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(packageList).To(ConsistOf(
@@ -407,7 +375,7 @@ var _ = Describe("PackageRepository", func() {
 						package3 = &workloadsv1alpha1.CFPackage{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      package3GUID,
-								Namespace: namespace1.Name,
+								Namespace: namespace.Name,
 							},
 							Spec: workloadsv1alpha1.CFPackageSpec{
 								Type: "bits",
@@ -426,7 +394,7 @@ var _ = Describe("PackageRepository", func() {
 					})
 
 					It("orders the results in ascending created_at order by default", func() {
-						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{})
+						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{})
 						Expect(err).NotTo(HaveOccurred())
 						Expect(packageList).To(HaveLen(3))
 						Expect(packageList).To(ConsistOf(
@@ -453,7 +421,7 @@ var _ = Describe("PackageRepository", func() {
 
 			When("app_guids filter is provided", func() {
 				It("fetches all PackageRecords", func() {
-					packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{AppGUIDs: []string{appGUID1}})
+					packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{AppGUIDs: []string{appGUID1}})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(packageList).To(HaveLen(1))
 					Expect(packageList[0]).To(
@@ -496,7 +464,7 @@ var _ = Describe("PackageRepository", func() {
 
 				When("descending order is false", func() {
 					It("fetches packages sorted by created_at in ascending order", func() {
-						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{SortBy: "created_at", DescendingOrder: false})
+						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{SortBy: "created_at", DescendingOrder: false})
 						Expect(err).NotTo(HaveOccurred())
 
 						Expect(packageList).To(ConsistOf(
@@ -522,7 +490,7 @@ var _ = Describe("PackageRepository", func() {
 
 				When("descending order is true", func() {
 					It("fetches packages sorted by created_at in descending order", func() {
-						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{SortBy: "created_at", DescendingOrder: true})
+						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{SortBy: "created_at", DescendingOrder: true})
 						Expect(err).NotTo(HaveOccurred())
 
 						Expect(packageList).To(ConsistOf(
@@ -550,7 +518,7 @@ var _ = Describe("PackageRepository", func() {
 			When("State filter is provided", func() {
 				When("filtering by State=READY", func() {
 					It("filters the packages", func() {
-						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{States: []string{"READY"}})
+						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{States: []string{"READY"}})
 						Expect(err).NotTo(HaveOccurred())
 
 						Expect(packageList).To(ConsistOf(
@@ -565,7 +533,7 @@ var _ = Describe("PackageRepository", func() {
 
 				When("filtering by State=AWAITING_UPLOAD", func() {
 					It("filters the packages", func() {
-						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{States: []string{"AWAITING_UPLOAD"}})
+						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{States: []string{"AWAITING_UPLOAD"}})
 						Expect(err).NotTo(HaveOccurred())
 
 						Expect(packageList).To(ConsistOf(
@@ -580,7 +548,7 @@ var _ = Describe("PackageRepository", func() {
 
 				When("filtering by State=AWAITING_UPLOAD,READY", func() {
 					It("filters the packages", func() {
-						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{States: []string{"AWAITING_UPLOAD", "READY"}})
+						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{States: []string{"AWAITING_UPLOAD", "READY"}})
 						Expect(err).NotTo(HaveOccurred())
 
 						Expect(packageList).To(ConsistOf(
@@ -602,7 +570,7 @@ var _ = Describe("PackageRepository", func() {
 
 		When("no packages exist", func() {
 			It("returns an empty list of PackageRecords", func() {
-				packageList, err := packageRepo.ListPackages(context.Background(), authInfo, ListPackagesMessage{})
+				packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(packageList).To(BeEmpty())
 			})
@@ -613,7 +581,7 @@ var _ = Describe("PackageRepository", func() {
 		var (
 			existingCFPackage workloadsv1alpha1.CFPackage
 			spaceGUID         string
-			updateMessage     UpdatePackageSourceMessage
+			updateMessage     repositories.UpdatePackageSourceMessage
 		)
 
 		const (
@@ -640,7 +608,7 @@ var _ = Describe("PackageRepository", func() {
 				},
 			}
 
-			updateMessage = UpdatePackageSourceMessage{
+			updateMessage = repositories.UpdatePackageSourceMessage{
 				GUID:               packageGUID,
 				SpaceGUID:          spaceGUID,
 				ImageRef:           packageSourceImageRef,

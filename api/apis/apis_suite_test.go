@@ -66,7 +66,7 @@ func expectUnknownError() {
 		}`)
 }
 
-func expectUnauthorizedError() {
+func expectNotAuthorizedError() {
 	expectJSONResponse(http.StatusForbidden, `{
 			"errors": [
 				{

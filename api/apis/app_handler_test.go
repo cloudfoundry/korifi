@@ -397,7 +397,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnauthorizedError()
+				expectNotAuthorizedError()
 			})
 		})
 	})
@@ -817,7 +817,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns a not authenticated error", func() {
-				expectUnauthorizedError()
+				expectNotAuthorizedError()
 			})
 		})
 
@@ -2478,7 +2478,7 @@ var _ = Describe("AppHandler", func() {
 				})
 
 				It("returns a forbidden error", func() {
-					expectUnauthorizedError()
+					expectNotAuthorizedError()
 				})
 			})
 
@@ -2488,7 +2488,7 @@ var _ = Describe("AppHandler", func() {
 				})
 
 				It("returns a forbidden error", func() {
-					expectUnauthorizedError()
+					expectNotAuthorizedError()
 				})
 			})
 		})
@@ -2589,7 +2589,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns a forbidden error", func() {
-				expectUnauthorizedError()
+				expectNotAuthorizedError()
 			})
 		})
 
@@ -2732,7 +2732,7 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnauthorizedError()
+				expectNotAuthorizedError()
 			})
 		})
 

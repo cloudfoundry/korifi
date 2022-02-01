@@ -1,9 +1,12 @@
 package integration_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloads "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +25,7 @@ var _ = Describe("Build", func() {
 	BeforeEach(func() {
 		userClientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
 		buildRepo := repositories.NewBuildRepo(k8sClient, userClientFactory)
-		packageRepo := repositories.NewPackageRepo(k8sClient)
+		packageRepo := repositories.NewPackageRepo(k8sClient, userClientFactory)
 		decoderValidator, err := apis.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -74,6 +77,55 @@ var _ = Describe("Build", func() {
 		})
 
 		When("the user is not authorized to get builds in the space", func() {
+			It("returns a not found error", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+			})
+		})
+	})
+
+	Describe("create", func() {
+		var cfPackage *workloads.CFPackage
+
+		BeforeEach(func() {
+			packageGUID := generateGUID()
+			cfPackage = &workloads.CFPackage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      packageGUID,
+					Namespace: namespace.Name,
+				},
+				Spec: workloads.CFPackageSpec{
+					Type: "bits",
+				},
+			}
+			Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			payload := payloads.BuildCreate{
+				Package: &payloads.RelationshipData{
+					GUID: cfPackage.Name,
+				},
+			}
+			buildBody, err := json.Marshal(payload)
+			Expect(err).NotTo(HaveOccurred())
+
+			req, err = http.NewRequestWithContext(ctx, http.MethodPost, serverURI("/v3/builds"), bytes.NewReader(buildBody))
+			Expect(err).NotTo(HaveOccurred())
+
+			router.ServeHTTP(rr, req)
+		})
+
+		When("the user is not authorized to create builds in the space", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceManagerRole.Name, namespace.Name)
+			})
+
+			It("returns a forbidden error", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusForbidden))
+			})
+		})
+
+		When("the user is not authorized to get the package", func() {
 			It("returns a not found error", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
 			})

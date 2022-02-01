@@ -165,7 +165,6 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			BeforeEach(func() {
 				testRouteHost = "My-App"
 				testFQDN = strings.ToLower(fmt.Sprintf("%s.%s", testRouteHost, testDomainName))
-
 			})
 
 			It("eventually reconciles the CFRoute to a root Contour HTTPProxy which includes a proxy for a route destination", func() {
@@ -181,7 +180,6 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				Expect(proxy.Spec.VirtualHost.Fqdn).To(Equal(testFQDN), "HTTPProxy FQDN mismatch")
 			})
 		})
-
 	})
 
 	When("the CFRoute includes destinations", func() {
