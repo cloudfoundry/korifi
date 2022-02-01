@@ -14,10 +14,10 @@ var _ = Describe("Droplets", func() {
 	)
 
 	BeforeEach(func() {
-		org = createOrg(generateGUID("org"), adminAuthHeader)
+		org = createOrg(generateGUID("org"))
 		createOrgRole("organization_user", rbacv1.UserKind, certUserName, org.GUID, adminAuthHeader)
 
-		space = createSpace(generateGUID("space1"), org.GUID, adminAuthHeader)
+		space = createSpace(generateGUID("space1"), org.GUID)
 		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space.GUID, adminAuthHeader)
 	})
 

@@ -53,7 +53,7 @@ var _ = Describe("Orgs", func() {
 
 		When("the org name already exists", func() {
 			BeforeEach(func() {
-				result = createOrg(orgName, adminAuthHeader)
+				createOrg(orgName)
 			})
 
 			It("returns an unprocessable entity error", func() {

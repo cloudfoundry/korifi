@@ -176,8 +176,8 @@ func createOrgRaw(orgName, authHeader string) (*http.Response, error) {
 	)
 }
 
-func createOrg(orgName, authHeader string) presenter.OrgResponse {
-	resp, err := createOrgRaw(orgName, authHeader)
+func createOrg(orgName string) presenter.OrgResponse {
+	resp, err := createOrgRaw(orgName, adminAuthHeader)
 	Expect(err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 
@@ -240,8 +240,8 @@ func createSpaceRaw(spaceName, orgGUID, authHeader string) (*http.Response, erro
 	return httpReq(http.MethodPost, spacesURL, authHeader, payload)
 }
 
-func createSpace(spaceName, orgGUID, authHeader string) presenter.SpaceResponse {
-	resp, err := createSpaceRaw(spaceName, orgGUID, authHeader)
+func createSpace(spaceName, orgGUID string) presenter.SpaceResponse {
+	resp, err := createSpaceRaw(spaceName, orgGUID, adminAuthHeader)
 	Expect(err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 
