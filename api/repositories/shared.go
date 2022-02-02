@@ -98,6 +98,11 @@ var (
 			Resources: []string{"cfbuilds"},
 		},
 		{
+			Verbs:     []string{"create"},
+			APIGroups: []string{"workloads.cloudfoundry.org"},
+			Resources: []string{"cfpackages"},
+		},
+		{
 			Verbs:     []string{"get", "list", "create", "delete"},
 			APIGroups: []string{"networking.cloudfoundry.org"},
 			Resources: []string{"cfroutes"},

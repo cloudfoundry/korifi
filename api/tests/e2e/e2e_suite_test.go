@@ -518,7 +518,7 @@ func createApp(spaceGUID, name string) presenter.AppResponse {
 	return app
 }
 
-func createPackage(appGUID, authHeader string) presenter.PackageResponse {
+func createPackageRaw(appGUID, authHeader string) (*http.Response, error) {
 	packagesURL := apiServerRoot + apis.PackageCreateEndpoint
 
 	payload := payloads.PackageCreate{
@@ -532,7 +532,11 @@ func createPackage(appGUID, authHeader string) presenter.PackageResponse {
 		},
 	}
 
-	resp, err := httpReq(http.MethodPost, packagesURL, authHeader, payload)
+	return httpReq(http.MethodPost, packagesURL, authHeader, payload)
+}
+
+func createPackage(appGUID, authHeader string) presenter.PackageResponse {
+	resp, err := createPackageRaw(appGUID, authHeader)
 	Expect(err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 
