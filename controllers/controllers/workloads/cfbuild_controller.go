@@ -19,7 +19,6 @@ package workloads
 import (
 	"context"
 	"fmt"
-	"path"
 	"strings"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -28,10 +27,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
 	"github.com/pivotal/kpack/pkg/registry"
+	cartographerv1alpha1 "github.com/vmware-tanzu/cartographer/pkg/apis/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -150,7 +150,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Scenario: CFBuild newly created and all status conditions are unknown, it
 		// Creates a KpackImage resource to trigger staging.
 		// Updates status on CFBuild -> sets staging to True.
-		err = r.createKpackImageAndUpdateStatus(ctx, &cfBuild, &cfApp, &cfPackage)
+		err = r.createWorkloadAndUpdateStatus(ctx, &cfBuild, &cfApp, &cfPackage)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -211,44 +211,59 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
-	serviceAccountName := kpackServiceAccount
-	kpackImageTag := path.Join(r.ControllerConfig.KpackImageTag, cfBuild.Name)
-	kpackImageName := cfBuild.Name
-	kpackImageNamespace := cfBuild.Namespace
-	desiredKpackImage := buildv1alpha2.Image{
+func (r *CFBuildReconciler) createWorkloadAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
+	workloadSource := cartographerv1alpha1.Source{
+		Image: &cfPackage.Spec.Source.Registry.Image,
+	}
+
+	desiredWorkload := cartographerv1alpha1.Workload{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kpackImageName,
-			Namespace: kpackImageNamespace,
+			Name:      cfBuild.Name,
+			Namespace: cfBuild.Namespace,
 			Labels: map[string]string{
 				workloadsv1alpha1.CFBuildGUIDLabelKey: cfBuild.Name,
 				workloadsv1alpha1.CFAppGUIDLabelKey:   cfApp.Name,
 			},
 		},
-		Spec: buildv1alpha2.ImageSpec{
-			Tag: kpackImageTag,
-			Builder: corev1.ObjectReference{
-				Kind:       clusterBuilderKind,
-				Name:       r.ControllerConfig.ClusterBuilderName,
-				APIVersion: clusterBuilderAPIVersion,
-			},
-			ServiceAccountName: serviceAccountName,
-			Source: corev1alpha1.SourceConfig{
-				Registry: &corev1alpha1.Registry{
-					Image:            cfPackage.Spec.Source.Registry.Image,
-					ImagePullSecrets: cfPackage.Spec.Source.Registry.ImagePullSecrets,
+		Spec: cartographerv1alpha1.WorkloadSpec{
+			ServiceAccountName: kpackServiceAccount,
+			Source:             &workloadSource,
+			Params: []cartographerv1alpha1.OwnerParam{
+				{
+					Name: "cf-build-guid",
+					Value: apiextensionsv1.JSON{
+						Raw: []byte(cfBuild.Name),
+					},
+				},
+				{
+					Name: "cf-app-guid",
+					Value: apiextensionsv1.JSON{
+						Raw: []byte(cfApp.Name),
+					},
+				},
+				{
+					Name: "kpack-image-tag-prefix",
+					Value: apiextensionsv1.JSON{
+						Raw: []byte(r.ControllerConfig.KpackImageTag),
+					},
+				},
+				{
+					Name: "kpack-cluster-builder-name",
+					Value: apiextensionsv1.JSON{
+						Raw: []byte(r.ControllerConfig.ClusterBuilderName),
+					},
 				},
 			},
 		},
 	}
 
-	err := controllerutil.SetOwnerReference(cfBuild, &desiredKpackImage, r.Scheme)
+	err := controllerutil.SetOwnerReference(cfBuild, &desiredWorkload, r.Scheme)
 	if err != nil {
-		r.Log.Error(err, "failed to set OwnerRef on Kpack Image")
+		r.Log.Error(err, "failed to set OwnerRef on Workload")
 		return err
 	}
 
-	err = r.createKpackImageIfNotExists(ctx, desiredKpackImage)
+	err = r.createWorkloadIfNotExists(ctx, desiredWorkload)
 	if err != nil {
 		return err
 	}
@@ -264,18 +279,18 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 	return nil
 }
 
-func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, desiredKpackImage buildv1alpha2.Image) error {
-	var foundKpackImage buildv1alpha2.Image
-	err := r.Client.Get(ctx, types.NamespacedName{Name: desiredKpackImage.Name, Namespace: desiredKpackImage.Namespace}, &foundKpackImage)
+func (r *CFBuildReconciler) createWorkloadIfNotExists(ctx context.Context, desiredWorkload cartographerv1alpha1.Workload) error {
+	var foundWorkload cartographerv1alpha1.Workload
+	err := r.Client.Get(ctx, types.NamespacedName{Name: desiredWorkload.Name, Namespace: desiredWorkload.Namespace}, &foundWorkload)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			err = r.Client.Create(ctx, &desiredKpackImage)
+			err = r.Client.Create(ctx, &desiredWorkload)
 			if err != nil {
-				r.Log.Error(err, "Error when creating kpack image")
+				r.Log.Error(err, "Error when creating workload")
 				return err
 			}
 		} else {
-			r.Log.Error(err, "Error when checking if kpack image exists")
+			r.Log.Error(err, "Error when checking if workload exists")
 			return err
 		}
 	}
