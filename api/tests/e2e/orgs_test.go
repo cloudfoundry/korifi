@@ -53,7 +53,7 @@ var _ = Describe("Orgs", func() {
 
 		When("the org name already exists", func() {
 			BeforeEach(func() {
-				result = createOrg(orgName, adminAuthHeader)
+				createOrg(orgName)
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -93,6 +93,7 @@ var _ = Describe("Orgs", func() {
 		BeforeEach(func() {
 			var wg sync.WaitGroup
 			errChan := make(chan error, 4)
+			query = make(map[string]string)
 
 			wg.Add(4)
 			asyncCreateOrg(generateGUID("org1"), adminAuthHeader, &org1, &wg, errChan)

@@ -23,9 +23,9 @@ var _ = Describe("Apps", func() {
 	)
 
 	BeforeEach(func() {
-		org = createOrg(generateGUID("org"), adminAuthHeader)
+		org = createOrg(generateGUID("org"))
 		createOrgRole("organization_user", rbacv1.UserKind, certUserName, org.GUID, adminAuthHeader)
-		space1 = createSpace(generateGUID("space1"), org.GUID, adminAuthHeader)
+		space1 = createSpace(generateGUID("space1"), org.GUID)
 	})
 
 	AfterEach(func() {
@@ -39,8 +39,8 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			space2 = createSpace(generateGUID("space2"), org.GUID, adminAuthHeader)
-			space3 = createSpace(generateGUID("space3"), org.GUID, adminAuthHeader)
+			space2 = createSpace(generateGUID("space2"), org.GUID)
+			space3 = createSpace(generateGUID("space3"), org.GUID)
 
 			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
 			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space3.GUID, adminAuthHeader)

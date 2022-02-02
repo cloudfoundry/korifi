@@ -23,7 +23,7 @@ var _ = Describe("Roles", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		userName = uuid.NewString()
-		org = createOrg(uuid.NewString(), adminAuthHeader)
+		org = createOrg(uuid.NewString())
 	})
 
 	AfterEach(func() {
@@ -59,7 +59,7 @@ var _ = Describe("Roles", func() {
 
 		BeforeEach(func() {
 			createOrgRole("organization_user", rbacv1.UserKind, userName, org.GUID, adminAuthHeader)
-			space = createSpace(uuid.NewString(), org.GUID, adminAuthHeader)
+			space = createSpace(uuid.NewString(), org.GUID)
 		})
 
 		It("creates a role binding", func() {

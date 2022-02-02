@@ -1,35 +1,35 @@
 package e2e_test
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
+	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Spaces", func() {
-	Describe("creating spaces", func() {
+	Describe("Creating spaces", func() {
 		var (
+			client    *resty.Client
 			org       presenter.OrgResponse
+			orgGUID   string
 			spaceName string
-			space     presenter.SpaceResponse
+			result    presenter.SpaceResponse
+			resultErr map[string]interface{}
+			httpResp  *resty.Response
+			httpErr   error
 		)
 
 		BeforeEach(func() {
-			space = presenter.SpaceResponse{}
 			spaceName = generateGUID("space")
-			org = createOrg(generateGUID("org"), adminAuthHeader)
+			org = createOrg(generateGUID("org"))
+			orgGUID = org.GUID
 			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org.GUID, adminAuthHeader)
 		})
 
@@ -37,81 +37,72 @@ var _ = Describe("Spaces", func() {
 			deleteSubnamespace(rootNamespace, org.GUID)
 		})
 
+		JustBeforeEach(func() {
+			httpResp, httpErr = client.R().
+				SetBody(fmt.Sprintf(`{"name": "%s", "relationships": {"organization": {"data": {"guid": "%s"}}}}`, spaceName, orgGUID)).
+				SetError(&resultErr).
+				SetResult(&result).
+				Post("/v3/spaces")
+		})
+
 		When("admin", func() {
-			JustBeforeEach(func() {
-				space = createSpace(spaceName, org.GUID, adminAuthHeader)
+			BeforeEach(func() {
+				client = adminClient
 			})
 
 			It("creates a space", func() {
-				Expect(space.Name).To(Equal(spaceName))
-
-				Eventually(func() error {
-					return k8sClient.Get(context.Background(), client.ObjectKey{Name: space.GUID}, &corev1.Namespace{})
-				}).Should(Succeed())
+				Expect(httpErr).NotTo(HaveOccurred())
+				Expect(httpResp.StatusCode()).To(Equal(http.StatusCreated))
+				Expect(result.Name).To(Equal(spaceName))
+				Expect(result.GUID).NotTo(BeEmpty())
 			})
 
 			When("the space name already exists", func() {
+				BeforeEach(func() {
+					createSpace(spaceName, org.GUID)
+				})
+
 				It("returns an unprocessable entity error", func() {
-					resp, err := createSpaceRaw(spaceName, org.GUID, adminAuthHeader)
-					Expect(err).NotTo(HaveOccurred())
-					defer resp.Body.Close()
-
-					bodyMap := map[string]interface{}{}
-					err = json.NewDecoder(resp.Body).Decode(&bodyMap)
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
-
-					Expect(bodyMap).To(HaveKeyWithValue("errors", BeAssignableToTypeOf([]interface{}{})))
-					errs := bodyMap["errors"].([]interface{})
-					Expect(errs[0]).To(SatisfyAll(
-						HaveKeyWithValue("code", BeNumerically("==", 10008)),
-						HaveKeyWithValue("detail", MatchRegexp(fmt.Sprintf(`Space '%s' already exists.`, spaceName))),
-						HaveKeyWithValue("title", Equal("CF-UnprocessableEntity")),
-					))
+					Expect(httpErr).NotTo(HaveOccurred())
+					Expect(httpResp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
+					Expect(resultErr).To(HaveKeyWithValue("errors", ConsistOf(
+						SatisfyAll(
+							HaveKeyWithValue("code", BeNumerically("==", 10008)),
+							HaveKeyWithValue("detail", MatchRegexp(fmt.Sprintf(`Space '%s' already exists.`, spaceName))),
+							HaveKeyWithValue("title", Equal("CF-UnprocessableEntity")),
+						),
+					)))
 				})
 			})
 
 			When("the organization relationship references a space guid", func() {
+				BeforeEach(func() {
+					otherSpace := createSpace(generateGUID("some-other-space"), orgGUID)
+					orgGUID = otherSpace.GUID
+				})
+
 				It("denies the request", func() {
-					resp, err := createSpaceRaw(generateGUID("some-other-space"), space.GUID, adminAuthHeader)
-					Expect(err).NotTo(HaveOccurred())
-					defer resp.Body.Close()
-
-					bodyMap := map[string]interface{}{}
-					err = json.NewDecoder(resp.Body).Decode(&bodyMap)
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(resp).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
-
-					Expect(bodyMap).To(HaveKeyWithValue("errors", BeAssignableToTypeOf([]interface{}{})))
-					errs := bodyMap["errors"].([]interface{})
-					Expect(errs[0]).To(SatisfyAll(
-						HaveKeyWithValue("code", BeNumerically("==", 10008)),
-						HaveKeyWithValue("detail", Equal("Invalid organization. Ensure the organization exists and you have access to it.")),
-						HaveKeyWithValue("title", Equal("CF-UnprocessableEntity")),
-					))
+					Expect(httpErr).NotTo(HaveOccurred())
+					Expect(httpResp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
+					Expect(resultErr).To(HaveKeyWithValue("errors", ConsistOf(
+						SatisfyAll(
+							HaveKeyWithValue("code", BeNumerically("==", 10008)),
+							HaveKeyWithValue("detail", Equal("Invalid organization. Ensure the organization exists and you have access to it.")),
+							HaveKeyWithValue("title", Equal("CF-UnprocessableEntity")),
+						),
+					)))
 				})
 			})
 		})
 
 		When("not admin", func() {
-			It("returns a forbidden error", func() {
-				resp, err := createSpaceRaw(spaceName, org.GUID, tokenAuthHeader)
-				Expect(err).NotTo(HaveOccurred())
-				defer resp.Body.Close()
-
-				Expect(resp).To(HaveHTTPStatus(http.StatusForbidden))
+			BeforeEach(func() {
+				client = tokenClient
 			})
-		})
 
-		When("not authorized", func() {
-			It("returns an unauthorized error", func() {
-				resp, err := createSpaceRaw("shouldn't work", org.GUID, "")
-				Expect(err).NotTo(HaveOccurred())
-				defer resp.Body.Close()
-
-				Expect(resp).To(HaveHTTPStatus(http.StatusUnauthorized))
+			It("returns a forbidden error", func() {
+				Expect(httpErr).NotTo(HaveOccurred())
+				Expect(httpResp.StatusCode()).To(Equal(http.StatusForbidden))
 			})
 		})
 	})
@@ -122,11 +113,16 @@ var _ = Describe("Spaces", func() {
 			space11, space12, space13 presenter.SpaceResponse
 			space21, space22, space23 presenter.SpaceResponse
 			space31, space32, space33 presenter.SpaceResponse
+			httpResp                  *resty.Response
+			httpErr                   error
+			spaces                    map[string]interface{}
+			query                     map[string]string
 		)
 
 		BeforeEach(func() {
 			var orgWG sync.WaitGroup
 			orgErrChan := make(chan error, 3)
+			query = make(map[string]string)
 
 			orgWG.Add(3)
 			asyncCreateOrg(generateGUID("org1"), adminAuthHeader, &org1, &orgWG, orgErrChan)
@@ -180,9 +176,16 @@ var _ = Describe("Spaces", func() {
 			wg.Wait()
 		})
 
+		JustBeforeEach(func() {
+			httpResp, httpErr = tokenClient.R().
+				SetQueryParams(query).
+				SetResult(&spaces).
+				Get("/v3/spaces")
+		})
+
 		It("lists the spaces the user has role in", func() {
-			spaces, err := get(apis.SpaceListEndpoint, tokenAuthHeader)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(httpErr).NotTo(HaveOccurred())
+			Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
 			Expect(spaces).To(SatisfyAll(
 				HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 6))),
 				HaveKeyWithValue("resources", ContainElements(
@@ -201,27 +204,16 @@ var _ = Describe("Spaces", func() {
 				)))
 		})
 
-		When("not authorized", func() {
-			BeforeEach(func() {
-				tokenAuthHeader = ""
-			})
-
-			It("returns an unauthorized error", func() {
-				_, err := get(apis.SpaceListEndpoint, tokenAuthHeader)
-				Expect(err).To(MatchError(ContainSubstring(strconv.Itoa(http.StatusUnauthorized))))
-			})
-		})
-
 		When("filtering by organization GUIDs", func() {
+			BeforeEach(func() {
+				query = map[string]string{
+					"organization_guids": fmt.Sprintf("%s,%s", org1.GUID, org3.GUID),
+				}
+			})
+
 			It("only lists spaces beloging to the orgs", func() {
-				spaces, err := getWithQuery(
-					apis.SpaceListEndpoint,
-					tokenAuthHeader,
-					map[string]string{
-						"organization_guids": fmt.Sprintf("%s,%s", org1.GUID, org3.GUID),
-					},
-				)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(httpErr).NotTo(HaveOccurred())
+				Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
 				Expect(spaces).To(
 					HaveKeyWithValue("resources", ConsistOf(
 						HaveKeyWithValue("name", space11.Name),
