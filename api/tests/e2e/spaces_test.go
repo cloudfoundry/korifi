@@ -122,6 +122,7 @@ var _ = Describe("Spaces", func() {
 		BeforeEach(func() {
 			var orgWG sync.WaitGroup
 			orgErrChan := make(chan error, 3)
+			query = make(map[string]string)
 
 			orgWG.Add(3)
 			asyncCreateOrg(generateGUID("org1"), adminAuthHeader, &org1, &orgWG, orgErrChan)

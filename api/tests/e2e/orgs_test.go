@@ -93,6 +93,7 @@ var _ = Describe("Orgs", func() {
 		BeforeEach(func() {
 			var wg sync.WaitGroup
 			errChan := make(chan error, 4)
+			query = make(map[string]string)
 
 			wg.Add(4)
 			asyncCreateOrg(generateGUID("org1"), adminAuthHeader, &org1, &wg, errChan)
