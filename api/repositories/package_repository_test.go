@@ -144,6 +144,9 @@ var _ = Describe("PackageRepository", func() {
 					},
 				},
 			}
+		})
+
+		JustBeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
 		})
 
@@ -173,56 +176,28 @@ var _ = Describe("PackageRepository", func() {
 				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 			})
 
-			When("table-testing the State field", func() {
-				var cfPackageTable *workloadsv1alpha1.CFPackage
+			Describe("State field", func() {
+				var record repositories.PackageRecord
 
-				type testCase struct {
-					description   string
-					expectedState string
-					setupFunc     func(cfPackage2 *workloadsv1alpha1.CFPackage)
-				}
-
-				BeforeEach(func() {
-					cfPackageTable = &workloadsv1alpha1.CFPackage{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      generateGUID(),
-							Namespace: space.Name,
-						},
-						Spec: workloadsv1alpha1.CFPackageSpec{
-							Type: "bits",
-							AppRef: corev1.LocalObjectReference{
-								Name: appGUID,
-							},
-						},
-					}
+				JustBeforeEach(func() {
+					var err error
+					record, err = packageRepo.GetPackage(ctx, authInfo, cfPackage.Name)
+					Expect(err).NotTo(HaveOccurred())
 				})
 
-				cases := []testCase{
-					{
-						description:   "no source image is set",
-						expectedState: "AWAITING_UPLOAD",
-						setupFunc:     func(p *workloadsv1alpha1.CFPackage) { p.Spec.Source = workloadsv1alpha1.PackageSource{} },
-					},
-					{
-						description:   "an source image is set",
-						expectedState: "READY",
-						setupFunc:     func(p *workloadsv1alpha1.CFPackage) { p.Spec.Source.Registry.Image = "some-org/some-repo" },
-					},
-				}
+				It("equals AWAITING_UPLOAD by default", func() {
+					Expect(record.State).To(Equal("AWAITING_UPLOAD"))
+				})
 
-				for _, tc := range cases {
-					When(tc.description, func() {
-						It("has state "+tc.expectedState, func() {
-							tc.setupFunc(cfPackageTable)
-							Expect(k8sClient.Create(ctx, cfPackageTable)).To(Succeed())
-							defer func() { Expect(k8sClient.Delete(ctx, cfPackageTable)).To(Succeed()) }()
-
-							record, err := packageRepo.GetPackage(ctx, authInfo, cfPackageTable.Name)
-							Expect(err).NotTo(HaveOccurred())
-							Expect(record.State).To(Equal(tc.expectedState))
-						})
+				When("an source image is set", func() {
+					BeforeEach(func() {
+						cfPackage.Spec.Source.Registry.Image = "some-org/some-repo"
 					})
-				}
+
+					It("equals READY", func() {
+						Expect(record.State).To(Equal("READY"))
+					})
+				})
 			})
 		})
 
