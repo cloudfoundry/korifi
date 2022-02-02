@@ -75,6 +75,7 @@ spec:
                 type: object
               name:
                 description: Name defines the name of the app
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
             required:
             - desiredState

@@ -18,7 +18,15 @@ package services
 
 import (
 	"context"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,27 +39,62 @@ import (
 type CFServiceInstanceReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
 //+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfserviceinstances,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfserviceinstances/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the CFServiceInstance object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *CFServiceInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
+	result := ctrl.Result{}
 
-	// TODO(user): your logic here
+	cfServiceInstance := new(servicesv1alpha1.CFServiceInstance)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, cfServiceInstance)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			r.Log.Error(err, "unable to fetch CFServiceInstance", req.Name, req.Namespace)
+		}
+		return result, client.IgnoreNotFound(err)
+	}
 
-	return ctrl.Result{}, nil
+	secret := new(corev1.Secret)
+	var errorReturn error
+	err = r.Client.Get(ctx, types.NamespacedName{Name: cfServiceInstance.Spec.SecretName, Namespace: req.Namespace}, secret)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			cfServiceInstance.Status.Binding.Name = ""
+			meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
+				Type:    BindingSecretAvailableCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "SecretNotFound",
+				Message: "Binding secret does not exist",
+			})
+			result = ctrl.Result{RequeueAfter: 2 * time.Second}
+		} else {
+			errorReturn = err
+			meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
+				Type:    BindingSecretAvailableCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "UnknownError",
+				Message: "Error occurred while fetching secret: " + err.Error(),
+			})
+		}
+	} else {
+		cfServiceInstance.Status.Binding.Name = cfServiceInstance.Spec.SecretName
+		meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
+			Type:    BindingSecretAvailableCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  "SecretFound",
+			Message: "",
+		})
+	}
+	if statusErr := r.Client.Status().Update(ctx, cfServiceInstance); statusErr != nil {
+		r.Log.Error(statusErr, "unable to update CFServiceInstance status")
+		return ctrl.Result{}, statusErr
+	}
+	return result, errorReturn
 }
 
 // SetupWithManager sets up the controller with the Manager.

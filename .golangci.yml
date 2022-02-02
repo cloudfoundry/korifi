@@ -30,3 +30,6 @@ issues:
     - path: _test\.go
       linters:
       - dupl
+    - path: service\w+_controller\.go
+      linters:
+        - dupl
