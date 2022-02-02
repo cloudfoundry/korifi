@@ -645,16 +645,17 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the app doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
 			})
 
 			JustBeforeEach(func() {
 				makePostRequest(validBody)
 			})
 
-			It("returns an error", func() {
-				expectUnprocessableEntityError("App is invalid. Ensure it exists and you have access to it.")
+			It("returns a not found error", func() {
+				expectNotFoundError("App not found")
 			})
+
 			itDoesntCreateAPackage()
 		})
 
@@ -777,6 +778,20 @@ var _ = Describe("PackageHandler", func() {
 
 			It("returns an unknown error", func() {
 				expectUnknownError()
+			})
+		})
+
+		When("the user is not allowed to create packages", func() {
+			BeforeEach(func() {
+				packageRepo.CreatePackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(errors.New("no")))
+			})
+
+			JustBeforeEach(func() {
+				makePostRequest(validBody)
+			})
+
+			It("returns an unauthorized error", func() {
+				expectNotAuthorizedError()
 			})
 		})
 	})

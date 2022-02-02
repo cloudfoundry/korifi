@@ -166,9 +166,9 @@ func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http
 	appRecord, err := h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
 		switch err.(type) {
-		case repositories.NotFoundError:
+		case repositories.PermissionDeniedOrNotFoundError:
 			h.logger.Info("App not found", "App GUID", payload.Relationships.App.Data.GUID)
-			writeUnprocessableEntityError(w, "App is invalid. Ensure it exists and you have access to it.")
+			writeNotFoundErrorResponse(w, "App")
 		default:
 			h.logger.Info("Error finding App", "App GUID", payload.Relationships.App.Data.GUID)
 			writeUnknownErrorResponse(w)
@@ -178,8 +178,14 @@ func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http
 
 	record, err := h.packageRepo.CreatePackage(r.Context(), authInfo, payload.ToMessage(appRecord))
 	if err != nil {
-		h.logger.Info("Error creating package with repository", "error", err.Error())
-		writeUnknownErrorResponse(w)
+		switch err.(type) {
+		case repositories.ForbiddenError:
+			h.logger.Error(err, "Not authorized to create packages", "App Name", payload.Relationships.App)
+			writeNotAuthorizedErrorResponse(w)
+		default:
+			h.logger.Info("Error creating package with repository", "error", err.Error())
+			writeUnknownErrorResponse(w)
+		}
 		return
 	}
 

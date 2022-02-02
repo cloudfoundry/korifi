@@ -97,11 +97,20 @@ type UpdatePackageSourceMessage struct {
 }
 
 func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.Info, message CreatePackageMessage) (PackageRecord, error) {
-	cfPackage := message.toCFPackage()
-	err := r.privilegedClient.Create(ctx, &cfPackage)
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
+		return PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	cfPackage := message.toCFPackage()
+	err = userClient.Create(ctx, &cfPackage)
+	if err != nil {
+		if k8serrors.IsForbidden(err) {
+			return PackageRecord{}, NewForbiddenError(err)
+		}
 		return PackageRecord{}, err
 	}
+
 	return cfPackageToPackageRecord(cfPackage), nil
 }
 

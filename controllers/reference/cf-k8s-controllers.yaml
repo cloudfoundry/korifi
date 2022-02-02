@@ -1464,6 +1464,14 @@ rules:
   - cfpackages
   verbs:
   - get
+  - create
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - get
+  - create
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
@@ -1901,12 +1909,19 @@ rules:
   - cfpackages
   verbs:
   - get
+  - create
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfbuilds
   verbs:
   - get
+  - create
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
   - create
 - apiGroups:
   - services.cloudfoundry.org

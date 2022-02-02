@@ -30,6 +30,7 @@ rules:
   - cfpackages
   verbs:
   - get
+  - create
 
 - apiGroups:
   - workloads.cloudfoundry.org
@@ -39,6 +40,12 @@ rules:
   - get
   - create
 
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - create
 - apiGroups:
   - services.cloudfoundry.org
   resources:
