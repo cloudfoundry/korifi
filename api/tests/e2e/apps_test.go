@@ -184,8 +184,9 @@ var _ = Describe("Apps", func() {
 			buildGUID = createBuild(pkgGUID)
 
 			Eventually(func() (int, error) {
-				getResp, err := adminClient.R().Get("/v3/droplets/" + buildGUID)
-				return getResp.StatusCode(), err
+				var err error
+				resp, err = adminClient.R().Get("/v3/droplets/" + buildGUID)
+				return resp.StatusCode(), err
 			}).Should(Equal(http.StatusOK))
 
 			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)

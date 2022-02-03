@@ -15,18 +15,20 @@ import (
 var _ = Describe("Spaces", func() {
 	var resp *resty.Response
 
-	Describe("Creating spaces", func() {
+	Describe("create", func() {
 		var (
-			result    resource
-			client    *resty.Client
-			orgGUID   string
-			spaceName string
-			resultErr cfErrs
+			result     resource
+			client     *resty.Client
+			orgGUID    string
+			parentGUID string
+			spaceName  string
+			resultErr  cfErrs
 		)
 
 		BeforeEach(func() {
 			spaceName = generateGUID("space")
 			orgGUID = createOrg(generateGUID("org"))
+			parentGUID = orgGUID
 			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, orgGUID)
 		})
 
@@ -40,7 +42,7 @@ var _ = Describe("Spaces", func() {
 				SetBody(resource{
 					Name: spaceName,
 					Relationships: relationships{
-						"organization": {Data: resource{GUID: orgGUID}},
+						"organization": {Data: resource{GUID: parentGUID}},
 					},
 				}).
 				SetError(&resultErr).
@@ -77,7 +79,7 @@ var _ = Describe("Spaces", func() {
 			When("the organization relationship references a space guid", func() {
 				BeforeEach(func() {
 					otherSpaceGUID := createSpace(generateGUID("some-other-space"), orgGUID)
-					orgGUID = otherSpaceGUID
+					parentGUID = otherSpaceGUID
 				})
 
 				It("denies the request", func() {
@@ -101,7 +103,7 @@ var _ = Describe("Spaces", func() {
 		})
 	})
 
-	Describe("listing spaces", func() {
+	Describe("list", func() {
 		var (
 			org1GUID, org2GUID, org3GUID          string
 			space11GUID, space12GUID, space13GUID string
