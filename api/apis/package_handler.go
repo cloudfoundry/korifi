@@ -168,7 +168,7 @@ func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http
 		switch err.(type) {
 		case repositories.PermissionDeniedOrNotFoundError:
 			h.logger.Info("App not found", "App GUID", payload.Relationships.App.Data.GUID)
-			writeNotFoundErrorResponse(w, "App")
+			writeUnprocessableEntityError(w, "App is invalid. Ensure it exists and you have access to it.")
 		default:
 			h.logger.Info("Error finding App", "App GUID", payload.Relationships.App.Data.GUID)
 			writeUnknownErrorResponse(w)

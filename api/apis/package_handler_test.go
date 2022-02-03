@@ -652,8 +652,8 @@ var _ = Describe("PackageHandler", func() {
 				makePostRequest(validBody)
 			})
 
-			It("returns a not found error", func() {
-				expectNotFoundError("App not found")
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError("App is invalid. Ensure it exists and you have access to it.")
 			})
 
 			itDoesntCreateAPackage()
