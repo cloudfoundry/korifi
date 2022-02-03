@@ -15,7 +15,7 @@ import (
 var _ = Describe("Orgs", func() {
 	var resp *resty.Response
 
-	Describe("creating orgs", func() {
+	Describe("create", func() {
 		var (
 			result    resource
 			client    *resty.Client
@@ -49,8 +49,14 @@ var _ = Describe("Orgs", func() {
 		})
 
 		When("the org name already exists", func() {
+			var duplOrgGUID string
+
 			BeforeEach(func() {
-				createOrg(orgName)
+				duplOrgGUID = createOrg(orgName)
+			})
+
+			AfterEach(func() {
+				deleteOrg(duplOrgGUID)
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -73,7 +79,7 @@ var _ = Describe("Orgs", func() {
 		})
 	})
 
-	Describe("listing orgs", func() {
+	Describe("list", func() {
 		var (
 			org1Name, org2Name, org3Name, org4Name string
 			org1GUID, org2GUID, org3GUID, org4GUID string
