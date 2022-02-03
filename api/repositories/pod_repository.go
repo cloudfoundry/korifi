@@ -53,8 +53,9 @@ type ListPodStatsMessage struct {
 func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info, message ListPodStatsMessage) ([]PodStatsRecord, error) {
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
 		workloadsv1alpha1.CFAppGUIDLabelKey: message.AppGUID,
-		eiriniLabelVersionKey:               message.AppRevision,
-		cfProcessGuidKey:                    message.ProcessGUID,
+		// This is set by the cf app mutating webhook
+		eiriniLabelVersionKey: message.AppRevision,
+		cfProcessGuidKey:      message.ProcessGUID,
 	})
 	if err != nil {
 		return nil, err

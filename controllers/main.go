@@ -38,6 +38,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	cartographerv1alpha1 "github.com/vmware-tanzu/cartographer/pkg/apis/v1alpha1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -66,6 +67,7 @@ func init() {
 	utilruntime.Must(eiriniv1.AddToScheme(scheme))
 	utilruntime.Must(hnsv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(servicesv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(cartographerv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

@@ -1,0 +1,13 @@
+---
+apiVersion: carto.run/v1alpha1
+kind: ClusterSupplyChain
+metadata:
+  name: supply-chain
+spec:
+  selector:
+    workloads.cloudfoundry.org/workload-type: cf-build
+  resources:
+    - name: image-builder
+      templateRef:
+        kind: ClusterImageTemplate
+        name: image

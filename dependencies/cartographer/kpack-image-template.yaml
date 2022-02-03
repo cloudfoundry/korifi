@@ -1,0 +1,26 @@
+---
+apiVersion: carto.run/v1alpha1
+kind: ClusterImageTemplate
+metadata:
+  name: image
+spec:
+  imagePath: .status.latestImage
+
+  template:
+    apiVersion: kpack.io/v1alpha2
+    kind: Image
+    metadata:
+      name: $(workload.metadata.name)$
+      labels:
+        "workloads.cloudfoundry.org/build-guid": $(workload.spec.params[?(@.name=="cf-build-guid")].value)$
+        "workloads.cloudfoundry.org/app-guid": $(workload.spec.params[?(@.name=="cf-app-guid")].value)$
+        
+    spec:
+      tag: $(workload.spec.params[?(@.name=="kpack-image-tag-prefix")].value)$/$(workload.metadata.name)$
+      builder:
+        kind: ClusterBuilder
+        name: $(workload.spec.params[?(@.name=="kpack-cluster-builder-name")].value)$
+      serviceAccountName: kpack-service-account
+      source:
+        registry:
+          image: $(workload.spec.source.image)$

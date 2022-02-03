@@ -221,8 +221,9 @@ func (r *CFBuildReconciler) createWorkloadAndUpdateStatus(ctx context.Context, c
 			Name:      cfBuild.Name,
 			Namespace: cfBuild.Namespace,
 			Labels: map[string]string{
-				workloadsv1alpha1.CFBuildGUIDLabelKey: cfBuild.Name,
-				workloadsv1alpha1.CFAppGUIDLabelKey:   cfApp.Name,
+				"workloads.cloudfoundry.org/workload-type": "cf-build",
+				workloadsv1alpha1.CFBuildGUIDLabelKey:      cfBuild.Name,
+				workloadsv1alpha1.CFAppGUIDLabelKey:        cfApp.Name,
 			},
 		},
 		Spec: cartographerv1alpha1.WorkloadSpec{
@@ -232,25 +233,25 @@ func (r *CFBuildReconciler) createWorkloadAndUpdateStatus(ctx context.Context, c
 				{
 					Name: "cf-build-guid",
 					Value: apiextensionsv1.JSON{
-						Raw: []byte(cfBuild.Name),
+						Raw: []byte(fmt.Sprintf("%q", cfBuild.Name)),
 					},
 				},
 				{
 					Name: "cf-app-guid",
 					Value: apiextensionsv1.JSON{
-						Raw: []byte(cfApp.Name),
+						Raw: []byte(fmt.Sprintf("%q", cfApp.Name)),
 					},
 				},
 				{
 					Name: "kpack-image-tag-prefix",
 					Value: apiextensionsv1.JSON{
-						Raw: []byte(r.ControllerConfig.KpackImageTag),
+						Raw: []byte(fmt.Sprintf("%q", r.ControllerConfig.KpackImageTag)),
 					},
 				},
 				{
 					Name: "kpack-cluster-builder-name",
 					Value: apiextensionsv1.JSON{
-						Raw: []byte(r.ControllerConfig.ClusterBuilderName),
+						Raw: []byte(fmt.Sprintf("%q", r.ControllerConfig.ClusterBuilderName)),
 					},
 				},
 			},
