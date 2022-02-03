@@ -1,98 +1,116 @@
 package e2e_test
 
 import (
-	"context"
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Roles", func() {
 	var (
-		ctx      context.Context
 		userName string
-		org      presenter.OrgResponse
+		orgGUID  string
+		resp     *resty.Response
+		result   roleResource
+		client   *resty.Client
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		userName = uuid.NewString()
-		org = createOrg(uuid.NewString())
+		orgGUID = createOrg(uuid.NewString())
+		client = adminClient
 	})
 
 	AfterEach(func() {
-		deleteSubnamespace(rootNamespace, org.GUID)
+		deleteOrg(orgGUID)
 	})
 
 	Describe("creating an org role", func() {
+		JustBeforeEach(func() {
+			var err error
+			resp, err = client.R().
+				SetBody(roleResource{
+					Type: "organization_manager",
+					resource: resource{
+						Relationships: relationships{
+							"user":         {Data: resource{GUID: userName}},
+							"organization": {Data: resource{GUID: orgGUID}},
+						},
+					},
+				}).
+				SetResult(&result).
+				Post("/v3/roles")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		It("creates a role binding", func() {
-			role := createOrgRole("organization_manager", rbacv1.UserKind, userName, org.GUID, adminAuthHeader)
-
-			binding := getRoleBinding(ctx, org.GUID, role.GUID)
-			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-organization-manager"))
-			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))
-			Expect(binding.Subjects).To(HaveLen(1))
-
-			subject := binding.Subjects[0]
-			Expect(subject.Name).To(Equal(userName))
-			Expect(subject.Kind).To(Equal(rbacv1.UserKind))
+			Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+			Expect(result.GUID).ToNot(BeEmpty())
+			Expect(result.Type).To(Equal("organization_manager"))
+			Expect(result.Relationships).To(HaveKey("user"))
+			Expect(result.Relationships["user"].Data.GUID).To(Equal(userName))
+			Expect(result.Relationships).To(HaveKey("organization"))
+			Expect(result.Relationships["organization"].Data.GUID).To(Equal(orgGUID))
 		})
 
 		When("the user is not admin", func() {
-			It("returns 403 Forbidden", func() {
-				resp, err := createRoleRaw("organization_manager", rbacv1.UserKind, "organization", userName, org.GUID, tokenAuthHeader)
+			BeforeEach(func() {
+				client = certClient
+			})
 
-				Expect(err).NotTo(HaveOccurred())
-				Expect(resp).To(HaveHTTPStatus(http.StatusForbidden))
+			It("returns 403 Forbidden", func() {
+				Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
 			})
 		})
 	})
 
 	Describe("creating a space role", func() {
-		var space presenter.SpaceResponse
+		var spaceGUID string
 
 		BeforeEach(func() {
-			createOrgRole("organization_user", rbacv1.UserKind, userName, org.GUID, adminAuthHeader)
-			space = createSpace(uuid.NewString(), org.GUID)
+			createOrgRole("organization_user", rbacv1.UserKind, userName, orgGUID)
+			spaceGUID = createSpace(uuid.NewString(), orgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = client.R().
+				SetBody(roleResource{
+					Type: "space_developer",
+					resource: resource{
+						Relationships: relationships{
+							"user":  {Data: resource{GUID: userName}},
+							"space": {Data: resource{GUID: spaceGUID}},
+						},
+					},
+				}).
+				SetResult(&result).
+				Post("/v3/roles")
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("creates a role binding", func() {
-			role := createSpaceRole("space_developer", rbacv1.UserKind, userName, space.GUID, adminAuthHeader)
-
-			binding := getRoleBinding(ctx, space.GUID, role.GUID)
-			Expect(binding.RoleRef.Name).To(Equal("cf-k8s-controllers-space-developer"))
-			Expect(binding.RoleRef.Kind).To(Equal("ClusterRole"))
-			Expect(binding.Subjects).To(HaveLen(1))
-
-			subject := binding.Subjects[0]
-			Expect(subject.Name).To(Equal(userName))
-			Expect(subject.Kind).To(Equal(rbacv1.UserKind))
+			Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+			Expect(result.GUID).ToNot(BeEmpty())
+			Expect(result.Type).To(Equal("space_developer"))
+			Expect(result.Relationships).To(HaveKey("user"))
+			Expect(result.Relationships["user"].Data.GUID).To(Equal(userName))
+			Expect(result.Relationships).To(HaveKey("space"))
+			Expect(result.Relationships["space"].Data.GUID).To(Equal(spaceGUID))
 		})
 
 		When("the user is not admin", func() {
-			It("returns 403 Forbidden", func() {
-				resp, err := createRoleRaw("space_developer", rbacv1.UserKind, "space", userName, space.GUID, tokenAuthHeader)
+			BeforeEach(func() {
+				client = certClient
+			})
 
-				Expect(err).NotTo(HaveOccurred())
-				Expect(resp).To(HaveHTTPStatus(http.StatusForbidden))
+			It("returns 403 Forbidden", func() {
+				Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
 			})
 		})
 	})
 })
-
-func getRoleBinding(ctx context.Context, namespace, roleGuid string) rbacv1.RoleBinding {
-	roleBindingList := &rbacv1.RoleBindingList{}
-	Expect(k8sClient.List(ctx, roleBindingList,
-		client.InNamespace(namespace),
-		client.MatchingLabels{repositories.RoleGuidLabel: roleGuid},
-	)).To(Succeed())
-	Expect(roleBindingList.Items).To(HaveLen(1))
-
-	return roleBindingList.Items[0]
-}

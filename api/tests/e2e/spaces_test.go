@@ -5,44 +5,48 @@ import (
 	"net/http"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Spaces", func() {
+	var resp *resty.Response
+
 	Describe("Creating spaces", func() {
 		var (
+			result    resource
 			client    *resty.Client
-			org       presenter.OrgResponse
 			orgGUID   string
 			spaceName string
-			result    presenter.SpaceResponse
-			resultErr map[string]interface{}
-			httpResp  *resty.Response
-			httpErr   error
+			resultErr cfErrs
 		)
 
 		BeforeEach(func() {
 			spaceName = generateGUID("space")
-			org = createOrg(generateGUID("org"))
-			orgGUID = org.GUID
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org.GUID, adminAuthHeader)
+			orgGUID = createOrg(generateGUID("org"))
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, orgGUID)
 		})
 
 		AfterEach(func() {
-			deleteSubnamespace(rootNamespace, org.GUID)
+			deleteOrg(orgGUID)
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpErr = client.R().
-				SetBody(fmt.Sprintf(`{"name": "%s", "relationships": {"organization": {"data": {"guid": "%s"}}}}`, spaceName, orgGUID)).
+			var err error
+			resp, err = client.R().
+				SetBody(resource{
+					Name: spaceName,
+					Relationships: relationships{
+						"organization": {Data: resource{GUID: orgGUID}},
+					},
+				}).
 				SetError(&resultErr).
 				SetResult(&result).
 				Post("/v3/spaces")
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("admin", func() {
@@ -51,46 +55,37 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("creates a space", func() {
-				Expect(httpErr).NotTo(HaveOccurred())
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusCreated))
+				Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
 				Expect(result.Name).To(Equal(spaceName))
 				Expect(result.GUID).NotTo(BeEmpty())
 			})
 
 			When("the space name already exists", func() {
 				BeforeEach(func() {
-					createSpace(spaceName, org.GUID)
+					createSpace(spaceName, orgGUID)
 				})
 
 				It("returns an unprocessable entity error", func() {
-					Expect(httpErr).NotTo(HaveOccurred())
-					Expect(httpResp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
-					Expect(resultErr).To(HaveKeyWithValue("errors", ConsistOf(
-						SatisfyAll(
-							HaveKeyWithValue("code", BeNumerically("==", 10008)),
-							HaveKeyWithValue("detail", MatchRegexp(fmt.Sprintf(`Space '%s' already exists.`, spaceName))),
-							HaveKeyWithValue("title", Equal("CF-UnprocessableEntity")),
-						),
-					)))
+					Expect(resp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
+					Expect(resultErr.Errors).To(HaveLen(1))
+					Expect(resultErr.Errors[0].Code).To(BeNumerically("==", 10008))
+					Expect(resultErr.Errors[0].Detail).To(MatchRegexp(fmt.Sprintf(`Space '%s' already exists.`, spaceName)))
+					Expect(resultErr.Errors[0].Title).To(Equal("CF-UnprocessableEntity"))
 				})
 			})
 
 			When("the organization relationship references a space guid", func() {
 				BeforeEach(func() {
-					otherSpace := createSpace(generateGUID("some-other-space"), orgGUID)
-					orgGUID = otherSpace.GUID
+					otherSpaceGUID := createSpace(generateGUID("some-other-space"), orgGUID)
+					orgGUID = otherSpaceGUID
 				})
 
 				It("denies the request", func() {
-					Expect(httpErr).NotTo(HaveOccurred())
-					Expect(httpResp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
-					Expect(resultErr).To(HaveKeyWithValue("errors", ConsistOf(
-						SatisfyAll(
-							HaveKeyWithValue("code", BeNumerically("==", 10008)),
-							HaveKeyWithValue("detail", Equal("Invalid organization. Ensure the organization exists and you have access to it.")),
-							HaveKeyWithValue("title", Equal("CF-UnprocessableEntity")),
-						),
-					)))
+					Expect(resp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
+					Expect(resultErr.Errors).To(HaveLen(1))
+					Expect(resultErr.Errors[0].Code).To(BeNumerically("==", 10008))
+					Expect(resultErr.Errors[0].Detail).To(Equal("Invalid organization. Ensure the organization exists and you have access to it."))
+					Expect(resultErr.Errors[0].Title).To(Equal("CF-UnprocessableEntity"))
 				})
 			})
 		})
@@ -101,22 +96,22 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns a forbidden error", func() {
-				Expect(httpErr).NotTo(HaveOccurred())
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusForbidden))
+				Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
 			})
 		})
 	})
 
 	Describe("listing spaces", func() {
 		var (
-			org1, org2, org3          presenter.OrgResponse
-			space11, space12, space13 presenter.SpaceResponse
-			space21, space22, space23 presenter.SpaceResponse
-			space31, space32, space33 presenter.SpaceResponse
-			httpResp                  *resty.Response
-			httpErr                   error
-			spaces                    map[string]interface{}
-			query                     map[string]string
+			org1GUID, org2GUID, org3GUID          string
+			space11GUID, space12GUID, space13GUID string
+			space21GUID, space22GUID, space23GUID string
+			space31GUID, space32GUID, space33GUID string
+			space11Name, space12Name, space13Name string
+			space21Name, space22Name, space23Name string
+			space31Name, space32Name, space33Name string
+			result                                resourceList
+			query                                 map[string]string
 		)
 
 		BeforeEach(func() {
@@ -125,9 +120,9 @@ var _ = Describe("Spaces", func() {
 			query = make(map[string]string)
 
 			orgWG.Add(3)
-			asyncCreateOrg(generateGUID("org1"), adminAuthHeader, &org1, &orgWG, orgErrChan)
-			asyncCreateOrg(generateGUID("org2"), adminAuthHeader, &org2, &orgWG, orgErrChan)
-			asyncCreateOrg(generateGUID("org3"), adminAuthHeader, &org3, &orgWG, orgErrChan)
+			asyncCreateOrg(generateGUID("org1"), &org1GUID, &orgWG, orgErrChan)
+			asyncCreateOrg(generateGUID("org2"), &org2GUID, &orgWG, orgErrChan)
+			asyncCreateOrg(generateGUID("org3"), &org3GUID, &orgWG, orgErrChan)
 			orgWG.Wait()
 
 			var err error
@@ -136,91 +131,91 @@ var _ = Describe("Spaces", func() {
 
 			var spaceWG sync.WaitGroup
 
+			space11Name, space12Name, space13Name = generateGUID("space11"), generateGUID("space12"), generateGUID("space13")
+			space21Name, space22Name, space23Name = generateGUID("space21"), generateGUID("space22"), generateGUID("space23")
+			space31Name, space32Name, space33Name = generateGUID("space31"), generateGUID("space32"), generateGUID("space33")
+
 			spaceErrChan := make(chan error, 9)
 			spaceWG.Add(9)
-			asyncCreateSpace(generateGUID("space11"), org1.GUID, adminAuthHeader, &space11, &spaceWG, spaceErrChan)
-			asyncCreateSpace(generateGUID("space12"), org1.GUID, adminAuthHeader, &space12, &spaceWG, spaceErrChan)
-			asyncCreateSpace(generateGUID("space13"), org1.GUID, adminAuthHeader, &space13, &spaceWG, spaceErrChan)
+			asyncCreateSpace(space11Name, org1GUID, &space11GUID, &spaceWG, spaceErrChan)
+			asyncCreateSpace(space12Name, org1GUID, &space12GUID, &spaceWG, spaceErrChan)
+			asyncCreateSpace(space13Name, org1GUID, &space13GUID, &spaceWG, spaceErrChan)
 
-			asyncCreateSpace(generateGUID("space21"), org2.GUID, adminAuthHeader, &space21, &spaceWG, spaceErrChan)
-			asyncCreateSpace(generateGUID("space22"), org2.GUID, adminAuthHeader, &space22, &spaceWG, spaceErrChan)
-			asyncCreateSpace(generateGUID("space23"), org2.GUID, adminAuthHeader, &space23, &spaceWG, spaceErrChan)
+			asyncCreateSpace(space21Name, org2GUID, &space21GUID, &spaceWG, spaceErrChan)
+			asyncCreateSpace(space22Name, org2GUID, &space22GUID, &spaceWG, spaceErrChan)
+			asyncCreateSpace(space23Name, org2GUID, &space23GUID, &spaceWG, spaceErrChan)
 
-			asyncCreateSpace(generateGUID("space31"), org3.GUID, adminAuthHeader, &space31, &spaceWG, spaceErrChan)
-			asyncCreateSpace(generateGUID("space32"), org3.GUID, adminAuthHeader, &space32, &spaceWG, spaceErrChan)
-			asyncCreateSpace(generateGUID("space33"), org3.GUID, adminAuthHeader, &space33, &spaceWG, spaceErrChan)
+			asyncCreateSpace(space31Name, org3GUID, &space31GUID, &spaceWG, spaceErrChan)
+			asyncCreateSpace(space32Name, org3GUID, &space32GUID, &spaceWG, spaceErrChan)
+			asyncCreateSpace(space33Name, org3GUID, &space33GUID, &spaceWG, spaceErrChan)
 			spaceWG.Wait()
 
 			Expect(spaceErrChan).ToNot(Receive(&err), func() string { return fmt.Sprintf("unexpected error occurred while creating spaces: %v", err) })
 			close(spaceErrChan)
 
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, adminAuthHeader)
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID, adminAuthHeader)
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID, adminAuthHeader)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org1GUID)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org2GUID)
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org3GUID)
 
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space12.GUID, adminAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space11.GUID, adminAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space21.GUID, adminAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space22.GUID, adminAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space31.GUID, adminAuthHeader)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space32.GUID, adminAuthHeader)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space12GUID)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space11GUID)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space21GUID)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space22GUID)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space31GUID)
+			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space32GUID)
 		})
 
 		AfterEach(func() {
-			orgIDs := []string{org1.GUID, org2.GUID, org3.GUID}
+			orgIDs := []string{org1GUID, org2GUID, org3GUID}
 			var wg sync.WaitGroup
 			wg.Add(len(orgIDs))
 			for _, id := range orgIDs {
-				asyncDeleteSubnamespace(rootNamespace, id, &wg)
+				asyncDeleteOrg(id, &wg)
 			}
 			wg.Wait()
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpErr = tokenClient.R().
+			var err error
+			resp, err = tokenClient.R().
 				SetQueryParams(query).
-				SetResult(&spaces).
+				SetResult(&result).
 				Get("/v3/spaces")
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("lists the spaces the user has role in", func() {
-			Expect(httpErr).NotTo(HaveOccurred())
-			Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(spaces).To(SatisfyAll(
-				HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 6))),
-				HaveKeyWithValue("resources", ContainElements(
-					HaveKeyWithValue("name", space11.Name),
-					HaveKeyWithValue("name", space12.Name),
-					HaveKeyWithValue("name", space21.Name),
-					HaveKeyWithValue("name", space22.Name),
-					HaveKeyWithValue("name", space31.Name),
-					HaveKeyWithValue("name", space32.Name),
-				))))
-			Expect(spaces).ToNot(
-				HaveKeyWithValue("resources", ContainElements(
-					HaveKeyWithValue("name", space13.Name),
-					HaveKeyWithValue("name", space23.Name),
-					HaveKeyWithValue("name", space33.Name),
-				)))
+			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(result.Resources).To(ConsistOf(
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(space11Name)}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(space12Name)}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(space21Name)}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(space22Name)}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(space31Name)}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(space32Name)}),
+			))
+			Expect(result.Resources).ToNot(ContainElements(
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(space13Name)}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(space23Name)}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(space33Name)}),
+			))
 		})
 
 		When("filtering by organization GUIDs", func() {
 			BeforeEach(func() {
 				query = map[string]string{
-					"organization_guids": fmt.Sprintf("%s,%s", org1.GUID, org3.GUID),
+					"organization_guids": fmt.Sprintf("%s,%s", org1GUID, org3GUID),
 				}
 			})
 
 			It("only lists spaces beloging to the orgs", func() {
-				Expect(httpErr).NotTo(HaveOccurred())
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
-				Expect(spaces).To(
-					HaveKeyWithValue("resources", ConsistOf(
-						HaveKeyWithValue("name", space11.Name),
-						HaveKeyWithValue("name", space12.Name),
-						HaveKeyWithValue("name", space31.Name),
-						HaveKeyWithValue("name", space32.Name),
-					)))
+				Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+				Expect(result.Resources).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(space11Name)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(space12Name)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(space31Name)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(space32Name)}),
+				))
 			})
 		})
 	})

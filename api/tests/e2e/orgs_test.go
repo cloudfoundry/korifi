@@ -5,48 +5,45 @@ import (
 	"net/http"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Orgs", func() {
+	var resp *resty.Response
+
 	Describe("creating orgs", func() {
 		var (
+			result    resource
 			client    *resty.Client
-			result    presenter.OrgResponse
-			resultErr map[string]interface{}
+			resultErr cfErrs
 			orgName   string
-			httpResp  *resty.Response
-			httpErr   error
 		)
 
 		BeforeEach(func() {
 			client = adminClient
-			result = presenter.OrgResponse{}
 			orgName = generateGUID("my-org")
 		})
 
 		AfterEach(func() {
-			if result.GUID != "" {
-				deleteSubnamespace(rootNamespace, result.GUID)
-			}
+			deleteOrg(result.GUID)
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpErr = client.R().
-				SetBody(fmt.Sprintf(`{"name": "%s"}`, orgName)).
+			var err error
+			resp, err = client.R().
+				SetBody(resource{Name: orgName}).
 				SetError(&resultErr).
 				SetResult(&result).
 				Post("/v3/organizations")
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("succeeds", func() {
-			Expect(httpErr).NotTo(HaveOccurred())
-			Expect(httpResp.StatusCode()).To(Equal(http.StatusCreated))
+			Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
 			Expect(result.Name).To(Equal(orgName))
 			Expect(result.GUID).NotTo(BeEmpty())
 		})
@@ -57,15 +54,11 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("returns an unprocessable entity error", func() {
-				Expect(httpErr).NotTo(HaveOccurred())
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
-				Expect(resultErr).To(HaveKeyWithValue("errors", ConsistOf(
-					SatisfyAll(
-						HaveKeyWithValue("code", BeNumerically("==", 10008)),
-						HaveKeyWithValue("detail", MatchRegexp(fmt.Sprintf(`Organization '%s' already exists.`, orgName))),
-						HaveKeyWithValue("title", Equal("CF-UnprocessableEntity")),
-					),
-				)))
+				Expect(resp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
+				Expect(resultErr.Errors).To(HaveLen(1))
+				Expect(resultErr.Errors[0].Code).To(BeNumerically("==", 10008))
+				Expect(resultErr.Errors[0].Detail).To(MatchRegexp(fmt.Sprintf(`Organization '%s' already exists.`, orgName)))
+				Expect(resultErr.Errors[0].Title).To(Equal("CF-UnprocessableEntity"))
 			})
 		})
 
@@ -75,19 +68,17 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("returns a forbidden error", func() {
-				Expect(httpErr).NotTo(HaveOccurred())
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusForbidden))
+				Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
 			})
 		})
 	})
 
 	Describe("listing orgs", func() {
 		var (
-			org1, org2, org3, org4 presenter.OrgResponse
-			orgs                   map[string]interface{}
-			httpResp               *resty.Response
-			httpErr                error
-			query                  map[string]string
+			org1Name, org2Name, org3Name, org4Name string
+			org1GUID, org2GUID, org3GUID, org4GUID string
+			result                                 resourceList
+			query                                  map[string]string
 		)
 
 		BeforeEach(func() {
@@ -95,74 +86,72 @@ var _ = Describe("Orgs", func() {
 			errChan := make(chan error, 4)
 			query = make(map[string]string)
 
+			org1Name = generateGUID("org1")
+			org2Name = generateGUID("org2")
+			org3Name = generateGUID("org3")
+			org4Name = generateGUID("org4")
+
 			wg.Add(4)
-			asyncCreateOrg(generateGUID("org1"), adminAuthHeader, &org1, &wg, errChan)
-			asyncCreateOrg(generateGUID("org2"), adminAuthHeader, &org2, &wg, errChan)
-			asyncCreateOrg(generateGUID("org3"), adminAuthHeader, &org3, &wg, errChan)
-			asyncCreateOrg(generateGUID("org4"), adminAuthHeader, &org4, &wg, errChan)
+			asyncCreateOrg(org1Name, &org1GUID, &wg, errChan)
+			asyncCreateOrg(org2Name, &org2GUID, &wg, errChan)
+			asyncCreateOrg(org3Name, &org3GUID, &wg, errChan)
+			asyncCreateOrg(org4Name, &org4GUID, &wg, errChan)
 			wg.Wait()
 
 			var err error
 			Expect(errChan).ToNot(Receive(&err), func() string { return fmt.Sprintf("unexpected error occurred while creating orgs: %v", err) })
 			close(errChan)
 
-			createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org1.GUID, adminAuthHeader)
-			createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org2.GUID, adminAuthHeader)
-			createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org3.GUID, adminAuthHeader)
+			createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org1GUID)
+			createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org2GUID)
+			createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org3GUID)
 		})
 
 		AfterEach(func() {
 			var wg sync.WaitGroup
 			wg.Add(4)
-			for _, id := range []string{org1.GUID, org2.GUID, org3.GUID, org4.GUID} {
-				asyncDeleteSubnamespace(rootNamespace, id, &wg)
+			for _, id := range []string{org1GUID, org2GUID, org3GUID, org4GUID} {
+				asyncDeleteOrg(id, &wg)
 			}
 			wg.Wait()
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpErr = tokenClient.R().
+			var err error
+			resp, err = tokenClient.R().
 				SetQueryParams(query).
-				SetResult(&orgs).
+				SetResult(&result).
 				Get("/v3/organizations")
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("returns orgs that the service account has a role in", func() {
-			Expect(httpErr).NotTo(HaveOccurred())
-			Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(orgs).To(SatisfyAll(
-				HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 3))),
-				HaveKeyWithValue("resources", ContainElements(
-					HaveKeyWithValue("name", org1.Name),
-					HaveKeyWithValue("name", org2.Name),
-					HaveKeyWithValue("name", org3.Name),
-				))))
-
-			Expect(orgs).ToNot(
-				HaveKeyWithValue("resources", ContainElements(
-					HaveKeyWithValue("name", org4.Name),
-				)))
+			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(result.Resources).To(ConsistOf(
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(org1Name)}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(org2Name)}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(org3Name)}),
+			))
+			Expect(result.Resources).ToNot(ContainElement(
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(org4Name)}),
+			))
 		})
 
 		When("org names are filtered", func() {
 			BeforeEach(func() {
 				query = map[string]string{
-					"names": org1.Name + "," + org3.Name,
+					"names": org1Name + "," + org3Name,
 				}
 			})
 
 			It("returns orgs 1 & 3", func() {
-				Expect(httpErr).NotTo(HaveOccurred())
-				Expect(orgs).To(SatisfyAll(
-					HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 2))),
-					HaveKeyWithValue("resources", ContainElements(
-						HaveKeyWithValue("name", org1.Name),
-						HaveKeyWithValue("name", org3.Name),
-					))))
-				Expect(orgs).ToNot(
-					HaveKeyWithValue("resources", ContainElements(
-						HaveKeyWithValue("name", org2.Name),
-					)))
+				Expect(result.Resources).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org1Name)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org3Name)}),
+				))
+				Expect(result.Resources).ToNot(ContainElement(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org2Name)}),
+				))
 			})
 		})
 	})

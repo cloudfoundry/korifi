@@ -3,7 +3,6 @@ package e2e_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,74 +11,61 @@ import (
 
 var _ = Describe("Builds", func() {
 	var (
-		org      presenter.OrgResponse
-		space    presenter.SpaceResponse
-		app      presenter.AppResponse
-		pkg      presenter.PackageResponse
-		httpErr  error
-		httpResp *resty.Response
-		result   map[string]interface{}
+		orgGUID   string
+		spaceGUID string
+		appGUID   string
+		pkgGUID   string
+		resp      *resty.Response
+		result    buildResource
 	)
 
 	BeforeEach(func() {
-		org = createOrg(generateGUID("org"))
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, org.GUID, adminAuthHeader)
-		space = createSpace(generateGUID("space1"), org.GUID)
-		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space.GUID, adminAuthHeader)
-		app = createApp(space.GUID, generateGUID("app"))
-		pkg = createPackage(app.GUID, adminAuthHeader)
+		orgGUID = createOrg(generateGUID("org"))
+		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+		spaceGUID = createSpace(generateGUID("space1"), orgGUID)
+		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+		appGUID = createApp(spaceGUID, generateGUID("app"))
+		pkgGUID = createPackage(appGUID)
 	})
 
 	AfterEach(func() {
-		deleteSubnamespace(rootNamespace, org.GUID)
+		deleteOrg(orgGUID)
 	})
 
 	Describe("get", func() {
-		var build presenter.BuildResponse
+		var buildGUID string
 
 		BeforeEach(func() {
-			build = createBuild(pkg.GUID, adminAuthHeader)
+			buildGUID = createBuild(pkgGUID)
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpErr = certClient.R().
+			var err error
+			resp, err = certClient.R().
 				SetResult(&result).
-				Get("/v3/builds/" + build.GUID)
+				Get("/v3/builds/" + buildGUID)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("returns the build", func() {
-			Expect(httpErr).NotTo(HaveOccurred())
-			Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(result).To(HaveKeyWithValue("guid", build.GUID))
+			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(result.GUID).To(Equal(buildGUID))
 		})
 	})
 
 	Describe("create", func() {
-		var (
-			app presenter.AppResponse
-			pkg presenter.PackageResponse
-		)
-
-		BeforeEach(func() {
-			app = createApp(space.GUID, generateGUID("app"))
-			pkg = createPackage(app.GUID, adminAuthHeader)
-		})
-
 		JustBeforeEach(func() {
-			httpResp, httpErr = certClient.R().
-				SetBody(map[string]interface{}{
-					"package": map[string]interface{}{
-						"guid": pkg.GUID,
-					},
-				}).
+			var err error
+			resp, err = certClient.R().
+				SetBody(buildResource{Package: resource{GUID: pkgGUID}}).
 				SetResult(&result).
 				Post("/v3/builds")
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("returns the build", func() {
-			Expect(httpErr).NotTo(HaveOccurred())
-			Expect(httpResp.StatusCode()).To(Equal(http.StatusCreated))
-			Expect(result).To(HaveKeyWithValue("package", HaveKeyWithValue("guid", pkg.GUID)))
+			Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+			Expect(result.Package.GUID).To(Equal(pkgGUID))
 		})
 	})
 })
