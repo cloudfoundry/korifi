@@ -296,11 +296,6 @@ for usage notes.
 # modify kpack dependency files to point towards your registry
 scripts/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
 ```
-**Note**: This will not work by default on OSX with a `libressl` version prior to `v3.1.0`. You can install the latest version of `openssl` by running the following commands:
-```sh
-brew install openssl
-ln -s /usr/local/opt/openssl@3/bin/openssl /usr/local/bin/openssl
-```
 
 ---
 ## Build, Install and Deploy to a K8s cluster
