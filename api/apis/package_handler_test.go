@@ -978,6 +978,22 @@ var _ = Describe("PackageHandler", func() {
 			itDoesntUpdateAnyPackages()
 		})
 
+		When("getting the package is forbidden", func() {
+			BeforeEach(func() {
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.ForbiddenError{})
+			})
+
+			JustBeforeEach(func() {
+				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Package not found")
+			})
+			itDoesntBuildAnImageFromSource()
+			itDoesntUpdateAnyPackages()
+		})
+
 		When("fetching the package errors", func() {
 			BeforeEach(func() {
 				packageRepo.GetPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
@@ -1043,6 +1059,20 @@ var _ = Describe("PackageHandler", func() {
 				expectUnknownError()
 			})
 			itDoesntUpdateAnyPackages()
+		})
+
+		When("updating the package is forbidden", func() {
+			BeforeEach(func() {
+				packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(errors.New("no")))
+			})
+
+			JustBeforeEach(func() {
+				makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+			})
+
+			It("returns an error", func() {
+				expectNotAuthorizedError()
+			})
 		})
 
 		When("updating the package source registry errors", func() {

@@ -600,44 +600,57 @@ var _ = Describe("PackageRepository", func() {
 			).To(Succeed())
 		})
 
-		It("returns an updated record", func() {
-			returnedPackageRecord, err := packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
-			Expect(err).NotTo(HaveOccurred())
+		When("the user is authorized", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space.Name)
+			})
 
-			Expect(returnedPackageRecord.GUID).To(Equal(existingCFPackage.Name))
-			Expect(returnedPackageRecord.Type).To(Equal(string(existingCFPackage.Spec.Type)))
-			Expect(returnedPackageRecord.AppGUID).To(Equal(existingCFPackage.Spec.AppRef.Name))
-			Expect(returnedPackageRecord.SpaceGUID).To(Equal(existingCFPackage.Namespace))
-			Expect(returnedPackageRecord.State).To(Equal("READY"))
+			It("returns an updated record", func() {
+				returnedPackageRecord, err := packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
+				Expect(err).NotTo(HaveOccurred())
 
-			createdAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(returnedPackageRecord.GUID).To(Equal(existingCFPackage.Name))
+				Expect(returnedPackageRecord.Type).To(Equal(string(existingCFPackage.Spec.Type)))
+				Expect(returnedPackageRecord.AppGUID).To(Equal(existingCFPackage.Spec.AppRef.Name))
+				Expect(returnedPackageRecord.SpaceGUID).To(Equal(existingCFPackage.Namespace))
+				Expect(returnedPackageRecord.State).To(Equal("READY"))
 
-			updatedAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				createdAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+
+				updatedAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+			})
+
+			It("updates only the Registry field of the existing CFPackage", func() {
+				_, err := packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
+				Expect(err).NotTo(HaveOccurred())
+
+				packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
+				createdCFPackage := new(workloadsv1alpha1.CFPackage)
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, packageNSName, createdCFPackage)
+					return err == nil
+				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
+
+				Expect(createdCFPackage.Name).To(Equal(existingCFPackage.Name))
+				Expect(createdCFPackage.Namespace).To(Equal(existingCFPackage.Namespace))
+				Expect(createdCFPackage.Spec.Type).To(Equal(existingCFPackage.Spec.Type))
+				Expect(createdCFPackage.Spec.AppRef).To(Equal(existingCFPackage.Spec.AppRef))
+				Expect(createdCFPackage.Spec.Source.Registry).To(Equal(workloadsv1alpha1.Registry{
+					Image:            packageSourceImageRef,
+					ImagePullSecrets: []corev1.LocalObjectReference{{Name: packageRegistrySecretName}},
+				}))
+			})
 		})
 
-		It("updates only the Registry field of the existing CFPackage", func() {
-			_, err := packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
-			Expect(err).NotTo(HaveOccurred())
-
-			packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
-			createdCFPackage := new(workloadsv1alpha1.CFPackage)
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, packageNSName, createdCFPackage)
-				return err == nil
-			}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
-
-			Expect(createdCFPackage.Name).To(Equal(existingCFPackage.Name))
-			Expect(createdCFPackage.Namespace).To(Equal(existingCFPackage.Namespace))
-			Expect(createdCFPackage.Spec.Type).To(Equal(existingCFPackage.Spec.Type))
-			Expect(createdCFPackage.Spec.AppRef).To(Equal(existingCFPackage.Spec.AppRef))
-			Expect(createdCFPackage.Spec.Source.Registry).To(Equal(workloadsv1alpha1.Registry{
-				Image:            packageSourceImageRef,
-				ImagePullSecrets: []corev1.LocalObjectReference{{Name: packageRegistrySecretName}},
-			}))
+		When("user is not authorized to update a package", func() {
+			It("returns a forbidden error", func() {
+				_, err := packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
+				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+			})
 		})
 	})
 })
