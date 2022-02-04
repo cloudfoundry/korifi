@@ -10,3 +10,10 @@ rules:
   - cfapps
   verbs:
   - get
+
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - get

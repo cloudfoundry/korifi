@@ -168,7 +168,7 @@ func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http
 		switch err.(type) {
 		case repositories.PermissionDeniedOrNotFoundError:
 			h.logger.Info("App not found", "App GUID", payload.Relationships.App.Data.GUID)
-			writeNotFoundErrorResponse(w, "App")
+			writeUnprocessableEntityError(w, "App is invalid. Ensure it exists and you have access to it.")
 		default:
 			h.logger.Info("Error finding App", "App GUID", payload.Relationships.App.Data.GUID)
 			writeUnknownErrorResponse(w)
@@ -217,6 +217,9 @@ func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, w http
 	record, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
 		switch {
+		case errors.As(err, new(repositories.ForbiddenError)):
+			h.logger.Info("Package forbidden", "Package GUID", packageGUID)
+			writeNotFoundErrorResponse(w, "Package")
 		case errors.As(err, new(repositories.NotFoundError)):
 			writeNotFoundErrorResponse(w, "Package")
 		default:
@@ -255,6 +258,12 @@ func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, w http
 		RegistrySecretName: h.registrySecretName,
 	})
 	if err != nil {
+		if errors.As(err, new(repositories.ForbiddenError)) {
+			h.logger.Info("Updating package is forbidden to the user", "Package GUID", packageGUID)
+			writeNotAuthorizedErrorResponse(w)
+			return
+		}
+
 		h.logger.Info("Error calling UpdatePackageSource", "error", err.Error())
 		writeUnknownErrorResponse(w)
 		return
