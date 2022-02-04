@@ -14,11 +14,11 @@ var _ = Describe("ManifestApplicationProcess", func() {
 
 	Describe("ToProcessCreateMessage", func() {
 		const appGUID = "the-app-guid"
-		var applicationInfo ManifestApplicationProcess
+		var processInfo ManifestApplicationProcess
 
 		When("all fields are specified", func() {
 			BeforeEach(func() {
-				applicationInfo = ManifestApplicationProcess{
+				processInfo = ManifestApplicationProcess{
 					Type:                         "web",
 					Command:                      stringPointer("start-web.sh"),
 					DiskQuota:                    stringPointer("512M"),
@@ -32,7 +32,7 @@ var _ = Describe("ManifestApplicationProcess", func() {
 			})
 
 			It("returns a CreateProcessMessage with those values", func() {
-				message := applicationInfo.ToProcessCreateMessage(appGUID, spaceGUID)
+				message := processInfo.ToProcessCreateMessage(appGUID, spaceGUID)
 
 				Expect(message).To(Equal(repositories.CreateProcessMessage{
 					AppGUID:     appGUID,
@@ -52,20 +52,44 @@ var _ = Describe("ManifestApplicationProcess", func() {
 					MemoryMB:         1024,
 				}))
 			})
+
+			Describe("HealthCheckType", func() {
+				When("HealthCheckType is 'none' (legacy alias for 'process')", func() {
+					const noneHealthCheckType = "none"
+
+					It("converts the type to 'process'", func() {
+						processInfo.HealthCheckType = stringPointer(noneHealthCheckType)
+
+						message := processInfo.ToProcessCreateMessage(appGUID, spaceGUID)
+
+						Expect(message.HealthCheck.Type).To(Equal("process"))
+					})
+				})
+
+				When("HealthCheckType is specified as some other valid type", func() {
+					It("passes the type through to the message", func() {
+						processInfo.HealthCheckType = stringPointer("port")
+
+						message := processInfo.ToProcessCreateMessage(appGUID, spaceGUID)
+
+						Expect(message.HealthCheck.Type).To(Equal("port"))
+					})
+				})
+			})
 		})
 
 		When("only type is specified", func() {
 			BeforeEach(func() {
-				applicationInfo = ManifestApplicationProcess{}
+				processInfo = ManifestApplicationProcess{}
 			})
 
 			When(`type is "web"`, func() {
 				BeforeEach(func() {
-					applicationInfo.Type = "web"
+					processInfo.Type = "web"
 				})
 
 				It("returns a CreateProcessMessage with defaulted values", func() {
-					message := applicationInfo.ToProcessCreateMessage(appGUID, spaceGUID)
+					message := processInfo.ToProcessCreateMessage(appGUID, spaceGUID)
 
 					Expect(message).To(Equal(repositories.CreateProcessMessage{
 						Type:             "web",
@@ -89,11 +113,11 @@ var _ = Describe("ManifestApplicationProcess", func() {
 
 			When(`type is not "web"`, func() {
 				BeforeEach(func() {
-					applicationInfo.Type = "worker"
+					processInfo.Type = "worker"
 				})
 
 				It("returns a CreateProcessMessage with defaulted values", func() {
-					message := applicationInfo.ToProcessCreateMessage(appGUID, spaceGUID)
+					message := processInfo.ToProcessCreateMessage(appGUID, spaceGUID)
 
 					Expect(message).To(Equal(repositories.CreateProcessMessage{
 						Type:             "worker",
@@ -123,6 +147,38 @@ var _ = Describe("ManifestApplicationProcess", func() {
 
 		BeforeEach(func() {
 			processInfo = ManifestApplicationProcess{Type: "web"}
+		})
+
+		Describe("HealthCheckType", func() {
+			When("HealthCheckType is specified as 'none' (legacy alias for 'process')", func() {
+				const noneHealthCheckType = "none"
+
+				It("converts the type to 'process'", func() {
+					processInfo.HealthCheckType = stringPointer(noneHealthCheckType)
+
+					message := processInfo.ToProcessPatchMessage(processGUID, spaceGUID)
+
+					Expect(message.HealthCheckType).To(Equal(stringPointer("process")))
+				})
+			})
+
+			When("HealthCheckType is specified as some other valid type", func() {
+				It("passes the type through to the message", func() {
+					processInfo.HealthCheckType = stringPointer("port")
+
+					message := processInfo.ToProcessPatchMessage(processGUID, spaceGUID)
+
+					Expect(message.HealthCheckType).To(Equal(stringPointer("port")))
+				})
+			})
+
+			When("HealthCheckType is unspecified", func() {
+				It("returns a message with HealthCheckType unset", func() {
+					Expect(
+						processInfo.ToProcessPatchMessage(processGUID, spaceGUID).HealthCheckType,
+					).To(BeNil())
+				})
+			})
 		})
 
 		When("DiskQuota is specified", func() {
