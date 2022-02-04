@@ -645,7 +645,23 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the app doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+			})
+
+			JustBeforeEach(func() {
+				makePostRequest(validBody)
+			})
+
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError("App is invalid. Ensure it exists and you have access to it.")
+			})
+
+			itDoesntCreateAPackage()
+		})
+
+		When("the app is not accessible", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
 			})
 
 			JustBeforeEach(func() {
@@ -671,6 +687,7 @@ var _ = Describe("PackageHandler", func() {
 			It("returns an error", func() {
 				expectUnknownError()
 			})
+
 			itDoesntCreateAPackage()
 		})
 

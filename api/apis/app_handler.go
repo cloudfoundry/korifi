@@ -109,16 +109,8 @@ func (h *AppHandler) appGetHandler(authInfo authorization.Info, w http.ResponseW
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.PermissionDeniedOrNotFoundError:
-			h.logger.Info("App not found", "AppGUID", appGUID)
-			writeNotFoundErrorResponse(w, "App")
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.handleGetAppErr(err, w, appGUID)
+		return
 	}
 
 	err = writeJsonResponse(w, presenter.ForApp(app, h.serverURL), http.StatusOK)
@@ -245,13 +237,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		if errors.As(err, new(repositories.PermissionDeniedOrNotFoundError)) {
-			h.logger.Error(err, "App not found", "appGUID", appGUID)
-			writeNotFoundErrorResponse(w, "App")
-		} else {
-			h.logger.Error(err, "Error fetching app", "appGUID", appGUID)
-			writeUnknownErrorResponse(w)
-		}
+		h.handleGetAppErr(err, w, appGUID)
 		return
 	}
 
@@ -312,13 +298,7 @@ func (h *AppHandler) appGetCurrentDropletHandler(authInfo authorization.Info, w 
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		if errors.As(err, new(repositories.PermissionDeniedOrNotFoundError)) {
-			h.logger.Error(err, "App not found", "appGUID", app.GUID)
-			writeNotFoundErrorResponse(w, "App")
-		} else {
-			h.logger.Error(err, "Error fetching app", "appGUID", app.GUID)
-			writeUnknownErrorResponse(w)
-		}
+		h.handleGetAppErr(err, w, appGUID)
 		return
 	}
 
@@ -362,16 +342,8 @@ func (h *AppHandler) appStartHandler(authInfo authorization.Info, w http.Respons
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("App not found", "AppGUID", appGUID)
-			writeNotFoundErrorResponse(w, "App")
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.handleGetAppErr(err, w, appGUID)
+		return
 	}
 	if app.DropletGUID == "" {
 		h.logger.Info("App droplet not set before start", "AppGUID", appGUID)
@@ -406,16 +378,8 @@ func (h *AppHandler) appStopHandler(authInfo authorization.Info, w http.Response
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("App not found", "AppGUID", appGUID)
-			writeNotFoundErrorResponse(w, "App")
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.handleGetAppErr(err, w, appGUID)
+		return
 	}
 
 	app, err = h.appRepo.SetAppDesiredState(ctx, authInfo, repositories.SetAppDesiredStateMessage{
@@ -445,16 +409,8 @@ func (h *AppHandler) getProcessesForAppHandler(authInfo authorization.Info, w ht
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.PermissionDeniedOrNotFoundError:
-			h.logger.Info("Permission denied or app not found", "AppGUID", appGUID, "err", err)
-			writeNotFoundErrorResponse(w, "App")
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.handleGetAppErr(err, w, appGUID)
+		return
 	}
 
 	fetchProcessesForAppMessage := repositories.ListProcessesMessage{
@@ -485,16 +441,8 @@ func (h *AppHandler) getRoutesForAppHandler(authInfo authorization.Info, w http.
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.PermissionDeniedOrNotFoundError:
-			h.logger.Info("App not found", "AppGUID", appGUID)
-			writeNotFoundErrorResponse(w, "App")
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.handleGetAppErr(err, w, appGUID)
+		return
 	}
 
 	routes, err := h.lookupAppRouteAndDomainList(ctx, authInfo, app.GUID, app.SpaceGUID)
@@ -557,16 +505,8 @@ func (h *AppHandler) appRestartHandler(authInfo authorization.Info, w http.Respo
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.PermissionDeniedOrNotFoundError:
-			h.logger.Info("App not found", "AppGUID", appGUID)
-			writeNotFoundErrorResponse(w, "App")
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.handleGetAppErr(err, w, appGUID)
+		return
 	}
 
 	if app.DropletGUID == "" {
@@ -628,17 +568,8 @@ func (h *AppHandler) appDeleteHandler(authInfo authorization.Info, w http.Respon
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("App not found", "AppGUID", appGUID)
-			writeNotFoundErrorResponse(w, "App")
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.handleGetAppErr(err, w, appGUID)
+		return
 	}
 
 	err = h.appRepo.DeleteApp(ctx, authInfo, repositories.DeleteAppMessage{
@@ -680,16 +611,8 @@ func (h *AppHandler) appPatchEnvVarsHandler(authInfo authorization.Info, w http.
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("App not found", "AppGUID", appGUID)
-			writeNotFoundErrorResponse(w, "App")
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch app", "AppGUID", appGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.handleGetAppErr(err, w, appGUID)
+		return
 	}
 
 	envVarsRecord, err := h.appRepo.PatchAppEnvVars(ctx, authInfo, payload.ToMessage(appGUID, app.SpaceGUID))
@@ -732,6 +655,20 @@ func (h *AppHandler) appGetEnvHandler(authInfo authorization.Info, w http.Respon
 	err = writeJsonResponse(w, presenter.ForAppEnv(envVars), http.StatusOK)
 	if err != nil {
 		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
+		writeUnknownErrorResponse(w)
+	}
+}
+
+func (h *AppHandler) handleGetAppErr(err error, w http.ResponseWriter, appGUID string) {
+	switch err.(type) {
+	case repositories.NotFoundError:
+		h.logger.Info("App not found", "AppGUID", appGUID)
+		writeNotFoundErrorResponse(w, "App")
+	case repositories.ForbiddenError:
+		h.logger.Info("App forbidden", "AppGUID", appGUID)
+		writeNotFoundErrorResponse(w, "App")
+	default:
+		h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
 	}
 }

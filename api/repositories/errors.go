@@ -5,6 +5,13 @@ import (
 	"fmt"
 )
 
+func NewNotFoundError(resourceType string, baseError error) NotFoundError {
+	return NotFoundError{
+		Err:          baseError,
+		ResourceType: resourceType,
+	}
+}
+
 type NotFoundError struct {
 	Err          error
 	ResourceType string

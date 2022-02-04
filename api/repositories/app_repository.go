@@ -158,26 +158,30 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 	appList := &workloadsv1alpha1.CFAppList{}
 	err := f.privilegedClient.List(ctx, appList, client.MatchingFields{"metadata.name": appGUID})
 	if err != nil { // untested
-		return AppRecord{}, err
+		return AppRecord{}, fmt.Errorf("get-app privileged list failed: %w", err)
 	}
 
-	app, err := returnApp(appList.Items)
-	if err != nil { // untested
-		return AppRecord{}, err
+	if len(appList.Items) == 0 {
+		return AppRecord{}, NewNotFoundError("App", nil)
 	}
+	if len(appList.Items) > 1 {
+		return AppRecord{}, errors.New("get-app duplicate apps exist")
+	}
+
+	app := cfAppToAppRecord(appList.Items[0])
 
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return AppRecord{}, fmt.Errorf("get-app failed to build user client: %w", err)
 	}
 
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: app.SpaceGUID, Name: app.GUID}, &workloadsv1alpha1.CFApp{})
 	if k8serrors.IsForbidden(err) {
-		return AppRecord{}, PermissionDeniedOrNotFoundError{Err: err}
+		return AppRecord{}, NewForbiddenError(err)
 	}
 
 	if err != nil { // untested
-		return AppRecord{}, err
+		return AppRecord{}, fmt.Errorf("get-app user client get failed: %w", err)
 	}
 
 	return app, nil
