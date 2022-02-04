@@ -88,7 +88,7 @@ var (
 			Resources: []string{"cfapps"},
 		},
 		{
-			Verbs:     []string{"get"},
+			Verbs:     []string{"get", "patch"},
 			APIGroups: []string{"workloads.cloudfoundry.org"},
 			Resources: []string{"cfpackages"},
 		},

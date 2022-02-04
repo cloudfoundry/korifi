@@ -1465,6 +1465,7 @@ rules:
   verbs:
   - get
   - create
+  - patch
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
@@ -1910,6 +1911,7 @@ rules:
   verbs:
   - get
   - create
+  - patch
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
@@ -1957,6 +1959,12 @@ rules:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
+  verbs:
+  - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages
   verbs:
   - get
 ---

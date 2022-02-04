@@ -215,9 +215,17 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 	cfPackage.Spec.Source.Registry.Image = message.ImageRef
 	cfPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: message.RegistrySecretName}}
 
-	err := r.privilegedClient.Patch(ctx, cfPackage, client.MergeFrom(baseCFPackage))
-	if err != nil { // untested
-		return PackageRecord{}, fmt.Errorf("err in client.Patch: %w", err)
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return PackageRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
+	}
+
+	err = userClient.Patch(ctx, cfPackage, client.MergeFrom(baseCFPackage))
+	if err != nil {
+		if k8serrors.IsForbidden(err) {
+			return PackageRecord{}, NewForbiddenError(err)
+		}
+		return PackageRecord{}, fmt.Errorf("err in client.Patch: %w", err) // untested
 	}
 
 	record := cfPackageToPackageRecord(*cfPackage)

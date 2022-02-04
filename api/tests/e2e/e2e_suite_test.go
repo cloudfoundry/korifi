@@ -59,6 +59,8 @@ type resource struct {
 	Name          string        `json:"name,omitempty"`
 	GUID          string        `json:"guid,omitempty"`
 	Relationships relationships `json:"relationships,omitempty"`
+	CreatedAt     string        `json:"created_at,omitempty"`
+	UpdatedAt     string        `json:"updated_at,omitempty"`
 }
 
 type relationships map[string]relationship
