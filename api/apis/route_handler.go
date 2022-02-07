@@ -229,7 +229,7 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 	domain, err := h.domainRepo.GetDomain(ctx, authInfo, domainGUID)
 	if err != nil {
 		switch err.(type) {
-		case repositories.PermissionDeniedOrNotFoundError:
+		case repositories.NotFoundError:
 			h.logger.Info("Domain not found", "Domain GUID", domainGUID)
 			writeUnprocessableEntityError(w, "Invalid domain. Ensure that the domain exists and you have access to it.")
 			return

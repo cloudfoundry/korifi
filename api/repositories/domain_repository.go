@@ -2,13 +2,13 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,15 +41,12 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 	domain := &networkingv1alpha1.CFDomain{}
 	err := r.privilegedClient.Get(ctx, types.NamespacedName{Name: domainGUID}, domain)
 	if err != nil {
-		switch errtype := err.(type) {
-		case *k8serrors.StatusError:
-			reason := errtype.Status().Reason
-			if reason == metav1.StatusReasonNotFound || reason == metav1.StatusReasonUnauthorized {
-				return DomainRecord{}, PermissionDeniedOrNotFoundError{Err: err}
-			}
+		switch {
+		case k8serrors.IsNotFound(err):
+			return DomainRecord{}, NewNotFoundError("Domain", err)
+		default:
+			return DomainRecord{}, fmt.Errorf("get-domain: k8s get failed: %w", err)
 		}
-
-		return DomainRecord{}, err
 	}
 
 	return cfDomainToDomainRecord(domain), nil

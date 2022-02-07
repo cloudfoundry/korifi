@@ -549,6 +549,16 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
+		When("the domain cannot be found", func() {
+			BeforeEach(func() {
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, repositories.NotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
 		When("there is a failure finding a Domain", func() {
 			BeforeEach(func() {
 				domainRepo.GetDomainReturns(repositories.DomainRecord{}, errors.New("unknown!"))
@@ -958,9 +968,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the domain does not exist", func() {
 			BeforeEach(func() {
-				domainRepo.GetDomainReturns(repositories.DomainRecord{},
-					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")})
-
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, repositories.NotFoundError{})
 				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
 			})
 
@@ -971,9 +979,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("GetDomain returns an unknown error", func() {
 			BeforeEach(func() {
-				domainRepo.GetDomainReturns(repositories.DomainRecord{},
-					errors.New("random error"))
-
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, errors.New("random error"))
 				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
 			})
 
