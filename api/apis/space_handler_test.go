@@ -158,7 +158,7 @@ var _ = Describe("Spaces", func() {
 
 		When("the repo returns a not found or permission denied error", func() {
 			BeforeEach(func() {
-				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.PermissionDeniedOrNotFoundError{Err: errors.New("nope")})
+				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.NotFoundError{Err: errors.New("nope")})
 			})
 
 			It("returns an unauthorised error", func() {

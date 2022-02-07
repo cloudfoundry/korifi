@@ -98,7 +98,7 @@ func (h *SpaceHandler) SpaceCreateHandler(info authorization.Info, w http.Respon
 			return
 		}
 
-		if errors.As(err, &repositories.PermissionDeniedOrNotFoundError{}) {
+		if errors.As(err, &repositories.NotFoundError{}) {
 			h.logger.Error(err, "org does not exist or forbidden")
 			writeUnprocessableEntityError(w, "Invalid organization. Ensure the organization exists and you have access to it.")
 			return

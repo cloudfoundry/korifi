@@ -157,7 +157,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 
 func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, message CreateSpaceMessage) (SpaceRecord, error) {
 	_, err := r.GetOrg(ctx, info, message.OrganizationGUID)
-	if errors.As(err, &PermissionDeniedOrNotFoundError{}) {
+	if errors.As(err, &NotFoundError{}) {
 		return SpaceRecord{}, err
 	}
 	if err != nil {
@@ -436,7 +436,7 @@ func (r *OrgRepo) GetOrg(ctx context.Context, info authorization.Info, orgGUID s
 	}
 
 	if len(orgRecords) == 0 {
-		return OrgRecord{}, PermissionDeniedOrNotFoundError{}
+		return OrgRecord{}, NewNotFoundError("Org", err)
 	}
 
 	return orgRecords[0], nil

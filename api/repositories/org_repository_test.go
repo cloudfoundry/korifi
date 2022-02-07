@@ -235,7 +235,7 @@ var _ = Describe("OrgRepository", func() {
 							Name:             "some-name",
 							OrganizationGUID: "does-not-exist",
 						})
-						Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
+						Expect(err).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
 					})
 				})
 
@@ -252,7 +252,7 @@ var _ = Describe("OrgRepository", func() {
 							Name:             "some-name",
 							OrganizationGUID: otherOrg.Name,
 						})
-						Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
+						Expect(err).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
 					})
 				})
 			})
@@ -662,17 +662,10 @@ var _ = Describe("OrgRepository", func() {
 				})
 			})
 
-			When("the org doesn't exist", func() {
+			When("the org isn't found", func() {
 				It("errors", func() {
 					_, err := orgRepo.GetOrg(ctx, authInfo, "non-existent-org")
-					Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
-				})
-			})
-
-			When("the user doesn't have permissions to see the org", func() {
-				It("returns an error", func() {
-					_, err := orgRepo.GetOrg(ctx, authInfo, orgAnchor.Name)
-					Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
+					Expect(err).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
 				})
 			})
 		})
