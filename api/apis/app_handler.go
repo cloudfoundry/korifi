@@ -48,7 +48,6 @@ type CFAppRepository interface {
 	GetApp(context.Context, authorization.Info, string) (repositories.AppRecord, error)
 	GetAppByNameAndSpace(context.Context, authorization.Info, string, string) (repositories.AppRecord, error)
 	ListApps(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
-	GetNamespace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	CreateOrPatchAppEnvVars(context.Context, authorization.Info, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	PatchAppEnvVars(context.Context, authorization.Info, repositories.PatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
@@ -70,6 +69,7 @@ type AppHandler struct {
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
 	podRepo          PodRepository
+	spaceRepo        SpaceRepository
 	scaleAppProcess  ScaleAppProcess
 	decoderValidator *DecoderValidator
 }
@@ -83,6 +83,7 @@ func NewAppHandler(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	podRepo PodRepository,
+	spaceRepo SpaceRepository,
 	scaleAppProcessFunc ScaleAppProcess,
 	decoderValidator *DecoderValidator,
 ) *AppHandler {
@@ -96,6 +97,7 @@ func NewAppHandler(
 		domainRepo:       domainRepo,
 		decoderValidator: decoderValidator,
 		podRepo:          podRepo,
+		spaceRepo:        spaceRepo,
 		scaleAppProcess:  scaleAppProcessFunc,
 	}
 }
@@ -131,17 +133,16 @@ func (h *AppHandler) appCreateHandler(authInfo authorization.Info, w http.Respon
 		return
 	}
 
-	// TODO: Move this into the action or its own "filter"
-	namespaceGUID := payload.Relationships.Space.Data.GUID
-	_, err := h.appRepo.GetNamespace(ctx, authInfo, namespaceGUID)
+	spaceGUID := payload.Relationships.Space.Data.GUID
+	_, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
 		switch err.(type) {
-		case repositories.PermissionDeniedOrNotFoundError:
-			h.logger.Info("Namespace not found", "Namespace GUID", namespaceGUID)
+		case repositories.NotFoundError:
+			h.logger.Info("Namespace not found", "Namespace GUID", spaceGUID)
 			writeUnprocessableEntityError(w, "Invalid space. Ensure that the space exists and you have access to it.")
 			return
 		default:
-			h.logger.Error(err, "Failed to fetch namespace from Kubernetes", "Namespace GUID", namespaceGUID)
+			h.logger.Error(err, "Failed to fetch space from Kubernetes", "spaceGUID", spaceGUID)
 			writeUnknownErrorResponse(w)
 			return
 		}

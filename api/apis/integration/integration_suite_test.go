@@ -16,6 +16,7 @@ import (
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -24,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -51,13 +53,19 @@ var (
 	ctx                context.Context
 	spaceDeveloperRole *rbacv1.ClusterRole
 	spaceManagerRole   *rbacv1.ClusterRole
+	rootNamespace      string
+	clientFactory      repositories.UserK8sClientFactory
+	nsPermissions      *authorization.NamespacePermissions
 )
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "controllers", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "controllers", "config", "crd", "bases"),
+			filepath.Join("..", "..", "repositories", "fixtures", "vendor", "hierarchical-namespaces", "config", "crd", "bases"),
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -69,6 +77,8 @@ var _ = BeforeSuite(func() {
 	err = workloadsv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = networkingv1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = hnsv1alpha2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
@@ -83,10 +93,21 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
+	rootNamespace = generateGUID()
+
+	clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
+	tokenInspector := authorization.NewTokenReviewer(k8sClient)
+	certInspector := authorization.NewCertInspector(k8sConfig)
+	identityProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
+	nsPermissions = authorization.NewNamespacePermissions(k8sClient, identityProvider, rootNamespace)
+
 	userName = generateGUID()
+
 	cert, key := helpers.ObtainClientCert(testEnv, userName)
 	authInfo := authorization.Info{CertData: helpers.JoinCertAndKey(cert, key)}
 	ctx = authorization.NewContext(context.Background(), &authInfo)
+
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 
 	spaceDeveloperRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
 	spaceManagerRole = createClusterRole(ctx, repositories.SpaceManagerClusterRoleRules)
@@ -152,4 +173,63 @@ func createRoleBinding(ctx context.Context, userName, roleName, namespace string
 		},
 	}
 	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
+}
+
+func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLabel string) (*hnsv1alpha2.SubnamespaceAnchor, *corev1.Namespace) {
+	guid := uuid.NewString()
+	anchor := &hnsv1alpha2.SubnamespaceAnchor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      guid,
+			Namespace: inNamespace,
+			Labels:    map[string]string{orgSpaceLabel: name},
+		},
+		Status: hnsv1alpha2.SubnamespaceAnchorStatus{
+			State: hnsv1alpha2.Ok,
+		},
+	}
+
+	Expect(k8sClient.Create(ctx, anchor)).To(Succeed())
+
+	depth := "1"
+	if orgSpaceLabel == repositories.SpaceNameLabel {
+		depth = "2"
+	}
+
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: anchor.Name,
+			Labels: map[string]string{
+				rootNamespace + hnsv1alpha2.LabelTreeDepthSuffix: depth,
+			},
+			Annotations: map[string]string{
+				hnsv1alpha2.SubnamespaceOf: inNamespace,
+			},
+		},
+	}
+	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
+
+	hierarchy := &hnsv1alpha2.HierarchyConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hierarchy",
+			Namespace: guid,
+		},
+		Spec: hnsv1alpha2.HierarchyConfigurationSpec{
+			Parent: inNamespace,
+		},
+	}
+	Expect(k8sClient.Create(ctx, hierarchy)).To(Succeed())
+
+	return anchor, namespace
+}
+
+func createOrgAnchorAndNamespace(ctx context.Context, rootNamespace, name string) *hnsv1alpha2.SubnamespaceAnchor {
+	org, _ := createAnchorAndNamespace(ctx, rootNamespace, name, repositories.OrgNameLabel)
+
+	return org
+}
+
+func createSpaceAnchorAndNamespace(ctx context.Context, orgGUID, spaceName string) *hnsv1alpha2.SubnamespaceAnchor {
+	space, _ := createAnchorAndNamespace(ctx, orgGUID, spaceName, repositories.SpaceNameLabel)
+
+	return space
 }

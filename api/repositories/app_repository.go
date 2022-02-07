@@ -339,22 +339,6 @@ func returnAppList(appList []workloadsv1alpha1.CFApp) []AppRecord {
 	return appRecords
 }
 
-func (f *AppRepo) GetNamespace(ctx context.Context, authInfo authorization.Info, nsGUID string) (SpaceRecord, error) {
-	namespace := &corev1.Namespace{}
-	err := f.privilegedClient.Get(ctx, types.NamespacedName{Name: nsGUID}, namespace)
-	if err != nil {
-		switch errtype := err.(type) {
-		case *k8serrors.StatusError:
-			reason := errtype.Status().Reason
-			if reason == metav1.StatusReasonNotFound || reason == metav1.StatusReasonUnauthorized {
-				return SpaceRecord{}, PermissionDeniedOrNotFoundError{Err: err}
-			}
-		}
-		return SpaceRecord{}, err
-	}
-	return v1NamespaceToSpaceRecord(namespace), nil
-}
-
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
 	secretObj := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -560,14 +544,6 @@ func returnApp(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
 	}
 
 	return cfAppToAppRecord(apps[0]), nil
-}
-
-func v1NamespaceToSpaceRecord(namespace *corev1.Namespace) SpaceRecord {
-	// TODO How do we derive Organization GUID here?
-	return SpaceRecord{
-		Name:             namespace.Name,
-		OrganizationGUID: "",
-	}
 }
 
 func appEnvVarsRecordToSecret(envVars CreateOrPatchAppEnvVarsMessage) corev1.Secret {

@@ -16,13 +16,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
 	workloads "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
@@ -30,19 +29,18 @@ import (
 var _ = Describe("App Handler", func() {
 	var (
 		apiHandler *AppHandler
-		namespace  *corev1.Namespace
+		org, space *hnsv1alpha2.SubnamespaceAnchor
+		spaceGUID  string
 	)
 
 	BeforeEach(func() {
-		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
-		identityProvider := new(fake.IdentityProvider)
-		nsPermissions := authorization.NewNamespacePermissions(k8sClient, identityProvider, "root-ns")
 		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
 		dropletRepo := repositories.NewDropletRepo(k8sClient, clientFactory)
 		processRepo := repositories.NewProcessRepo(k8sClient)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
 		domainRepo := repositories.NewDomainRepo(k8sClient)
 		podRepo := repositories.NewPodRepo(k8sClient)
+		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPermissions, time.Minute, true)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
 		decoderValidator, err := NewDefaultDecoderValidator()
@@ -57,20 +55,15 @@ var _ = Describe("App Handler", func() {
 			routeRepo,
 			domainRepo,
 			podRepo,
+			orgRepo,
 			scaleAppProcess,
 			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
 
-		namespaceGUID := generateGUID()
-		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceGUID}}
-		Expect(
-			k8sClient.Create(ctx, namespace),
-		).To(Succeed())
-	})
-
-	AfterEach(func() {
-		Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
+		org = createOrgAnchorAndNamespace(ctx, rootNamespace, generateGUID())
+		space = createSpaceAnchorAndNamespace(ctx, org.Name, "spacename-"+generateGUID())
+		spaceGUID = space.Name
 	})
 
 	Describe("POST /v3/apps endpoint", func() {
@@ -81,7 +74,7 @@ var _ = Describe("App Handler", func() {
 			var testEnvironmentVariables map[string]string
 
 			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
 
 				testEnvironmentVariables = map[string]string{"foo": "foo", "bar": "bar"}
 				envJSON, _ := json.Marshal(&testEnvironmentVariables)
@@ -95,7 +88,7 @@ var _ = Describe("App Handler", func() {
                         }
                     },
                     "environment_variables": %s
-                }`, appName, namespace.Name, envJSON)
+                }`, appName, spaceGUID, envJSON)
 
 				var err error
 				req, err = http.NewRequestWithContext(ctx, "POST", serverURI("/v3/apps"), strings.NewReader(requestBody))
@@ -127,7 +120,7 @@ var _ = Describe("App Handler", func() {
 					"relationships": Equal(map[string]interface{}{
 						"space": map[string]interface{}{
 							"data": map[string]interface{}{
-								"guid": namespace.Name,
+								"guid": spaceGUID,
 							},
 						},
 					}),
@@ -136,7 +129,7 @@ var _ = Describe("App Handler", func() {
 				appGUID := parsedBody["guid"].(string)
 				appNSName := types.NamespacedName{
 					Name:      appGUID,
-					Namespace: namespace.Name,
+					Namespace: spaceGUID,
 				}
 				var appRecord workloads.CFApp
 				Eventually(func() error {
@@ -149,7 +142,7 @@ var _ = Describe("App Handler", func() {
 
 				secretNSName := types.NamespacedName{
 					Name:      appRecord.Spec.EnvSecretName,
-					Namespace: namespace.Name,
+					Namespace: spaceGUID,
 				}
 				var secretCR corev1.Secret
 				Eventually(func() error {
@@ -177,7 +170,7 @@ var _ = Describe("App Handler", func() {
 			app = &workloads.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      appGUID,
-					Namespace: namespace.Name,
+					Namespace: spaceGUID,
 				},
 				Spec: workloads.CFAppSpec{
 					Name:         generateGUID(),
@@ -211,7 +204,7 @@ var _ = Describe("App Handler", func() {
 
 			When("the user is a space developer", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
 				})
 
 				It("returns the (empty) process list", func() {
@@ -239,7 +232,7 @@ var _ = Describe("App Handler", func() {
 
 			When("the user is a space developer", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
 				})
 
 				It("returns the (empty) route list", func() {
@@ -267,7 +260,7 @@ var _ = Describe("App Handler", func() {
 
 			When("the user has readonly access to the app", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, spaceManagerRole.Name, namespace.Name)
+					createRoleBinding(ctx, userName, spaceManagerRole.Name, spaceGUID)
 				})
 
 				It("returns a forbidden error", func() {
@@ -277,7 +270,7 @@ var _ = Describe("App Handler", func() {
 
 			When("the user is a space developer", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
 				})
 
 				It("restarts the app", func() {
@@ -294,7 +287,7 @@ var _ = Describe("App Handler", func() {
 				droplet = &workloads.CFBuild{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      dropletGUID,
-						Namespace: namespace.Name,
+						Namespace: spaceGUID,
 					},
 					Spec: workloads.CFBuildSpec{
 						AppRef: corev1.LocalObjectReference{
@@ -340,7 +333,7 @@ var _ = Describe("App Handler", func() {
 
 				When("having the space developer role", func() {
 					BeforeEach(func() {
-						createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+						createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
 					})
 
 					It("gets the droplet", func() {
@@ -381,7 +374,7 @@ var _ = Describe("App Handler", func() {
 
 				When("having the space developer role", func() {
 					BeforeEach(func() {
-						createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+						createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
 					})
 
 					It("sets the droplet", func() {
@@ -398,7 +391,7 @@ var _ = Describe("App Handler", func() {
 
 				When("access to app but no write permissions", func() {
 					BeforeEach(func() {
-						createRoleBinding(ctx, userName, spaceManagerRole.Name, namespace.Name)
+						createRoleBinding(ctx, userName, spaceManagerRole.Name, spaceGUID)
 					})
 
 					It("returns a 403", func() {
@@ -409,7 +402,7 @@ var _ = Describe("App Handler", func() {
 
 				When("the droplet does not exist", func() {
 					BeforeEach(func() {
-						createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+						createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
 						payload.Data.GUID = "not-a-real-guid"
 					})
 

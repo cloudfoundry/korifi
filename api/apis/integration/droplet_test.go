@@ -21,7 +21,6 @@ var _ = Describe("Droplet", func() {
 	)
 
 	BeforeEach(func() {
-		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
 		dropletRepo := repositories.NewDropletRepo(k8sClient, clientFactory)
 
 		dropletHandler = apis.NewDropletHandler(

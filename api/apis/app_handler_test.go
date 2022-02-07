@@ -37,6 +37,7 @@ var _ = Describe("AppHandler", func() {
 		scaleAppProcessFunc *fake.ScaleAppProcess
 		domainRepo          *fake.CFDomainRepository
 		podRepo             *fake.PodRepository
+		spaceRepo           *fake.SpaceRepository
 		req                 *http.Request
 	)
 
@@ -48,6 +49,7 @@ var _ = Describe("AppHandler", func() {
 		domainRepo = new(fake.CFDomainRepository)
 		podRepo = new(fake.PodRepository)
 		scaleAppProcessFunc = new(fake.ScaleAppProcess)
+		spaceRepo = new(fake.SpaceRepository)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -60,6 +62,7 @@ var _ = Describe("AppHandler", func() {
 			routeRepo,
 			domainRepo,
 			podRepo,
+			spaceRepo,
 			scaleAppProcessFunc.Spy,
 			decoderValidator,
 		)
@@ -341,10 +344,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the space does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetNamespaceReturns(
-					repositories.SpaceRecord{},
-					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")},
-				)
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NotFoundError{})
 
 				requestBody := initializeCreateAppRequestBody(testAppName, "no-such-guid", nil, nil, nil)
 				queuePostRequest(requestBody)
