@@ -524,7 +524,7 @@ func (h *AppHandler) appRestartHandler(authInfo authorization.Info, w http.Respo
 		})
 		if err != nil {
 			switch err.(type) {
-			case repositories.PermissionDeniedOrNotFoundError:
+			case repositories.ForbiddenError:
 				h.logger.Info("failed to stop app", "AppGUID", appGUID)
 				writeNotAuthorizedErrorResponse(w)
 				return
@@ -543,7 +543,7 @@ func (h *AppHandler) appRestartHandler(authInfo authorization.Info, w http.Respo
 	})
 	if err != nil {
 		switch err.(type) {
-		case repositories.PermissionDeniedOrNotFoundError:
+		case repositories.ForbiddenError:
 			h.logger.Info("failed to start app", "AppGUID", appGUID)
 			writeNotAuthorizedErrorResponse(w)
 			return

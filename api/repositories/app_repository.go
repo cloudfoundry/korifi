@@ -431,7 +431,7 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return AppRecord{}, PermissionDeniedOrNotFoundError{Err: err}
+			return AppRecord{}, NewForbiddenError(err)
 		}
 
 		return AppRecord{}, fmt.Errorf("err in client.Patch: %w", err)

@@ -978,7 +978,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("not allowed to set the application state", func() {
 			It("returns a forbidden error", func() {
-				Expect(returnedErr).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
+				Expect(returnedErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 			})
 		})
 	})

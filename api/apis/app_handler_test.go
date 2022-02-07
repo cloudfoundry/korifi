@@ -2538,7 +2538,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("no permissions to stop the app", func() {
 				BeforeEach(func() {
-					appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+					appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, repositories.ForbiddenError{})
 				})
 
 				It("returns a forbidden error", func() {
@@ -2548,7 +2548,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("no permissions to start the app", func() {
 				BeforeEach(func() {
-					appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+					appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, repositories.ForbiddenError{})
 				})
 
 				It("returns a forbidden error", func() {
@@ -2649,7 +2649,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("no permissions to start the app", func() {
 			BeforeEach(func() {
-				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
 			})
 
 			It("returns a forbidden error", func() {
