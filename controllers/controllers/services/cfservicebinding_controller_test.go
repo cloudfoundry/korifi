@@ -46,6 +46,10 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 	)
 
 	BeforeEach(func() {
+		getCFServiceBindingError = nil
+		getCFServiceBindingSecretError = nil
+		updateCFServiceBindingStatusError = nil
+
 		fakeClient = new(fake.Client)
 		fakeStatusWriter = new(fake.StatusWriter)
 		fakeClient.StatusReturns(fakeStatusWriter)
@@ -154,7 +158,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 		})
 		When("The API errors setting status on the CFServiceBinding", func() {
 			BeforeEach(func() {
-				updateCFServiceBindingStatusError = errors.New("some random error")
+				updateCFServiceBindingStatusError = errors.New("another random error")
 			})
 
 			It("errors", func() {
