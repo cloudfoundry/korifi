@@ -23,6 +23,7 @@ var _ = Describe("Roles", func() {
 		userName = uuid.NewString()
 		orgGUID = createOrg(uuid.NewString())
 		client = adminClient
+		result = roleResource{}
 	})
 
 	AfterEach(func() {
