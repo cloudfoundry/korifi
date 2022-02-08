@@ -94,11 +94,6 @@ var _ = Describe("Apps", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("fails", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
-			Expect(resp.Body()).To(ContainSubstring("CF-NotAuthorized"))
-		})
-
 		When("the user has space developer role in the space", func() {
 			BeforeEach(func() {
 				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
@@ -106,6 +101,17 @@ var _ = Describe("Apps", func() {
 
 			It("succeeds", func() {
 				Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+			})
+		})
+
+		When("the user cannot create apps in the space", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, space1GUID)
+			})
+
+			It("fails", func() {
+				Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
+				Expect(resp.Body()).To(ContainSubstring("CF-NotAuthorized"))
 			})
 		})
 	})

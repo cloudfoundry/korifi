@@ -158,26 +158,30 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 	appList := &workloadsv1alpha1.CFAppList{}
 	err := f.privilegedClient.List(ctx, appList, client.MatchingFields{"metadata.name": appGUID})
 	if err != nil { // untested
-		return AppRecord{}, err
+		return AppRecord{}, fmt.Errorf("get-app privileged list failed: %w", err)
 	}
 
-	app, err := returnApp(appList.Items)
-	if err != nil { // untested
-		return AppRecord{}, err
+	if len(appList.Items) == 0 {
+		return AppRecord{}, NewNotFoundError("App", nil)
 	}
+	if len(appList.Items) > 1 {
+		return AppRecord{}, errors.New("get-app duplicate apps exist")
+	}
+
+	app := cfAppToAppRecord(appList.Items[0])
 
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return AppRecord{}, fmt.Errorf("get-app failed to build user client: %w", err)
 	}
 
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: app.SpaceGUID, Name: app.GUID}, &workloadsv1alpha1.CFApp{})
 	if k8serrors.IsForbidden(err) {
-		return AppRecord{}, PermissionDeniedOrNotFoundError{Err: err}
+		return AppRecord{}, NewForbiddenError(err)
 	}
 
 	if err != nil { // untested
-		return AppRecord{}, err
+		return AppRecord{}, fmt.Errorf("get-app user client get failed: %w", err)
 	}
 
 	return app, nil
@@ -335,22 +339,6 @@ func returnAppList(appList []workloadsv1alpha1.CFApp) []AppRecord {
 	return appRecords
 }
 
-func (f *AppRepo) GetNamespace(ctx context.Context, authInfo authorization.Info, nsGUID string) (SpaceRecord, error) {
-	namespace := &corev1.Namespace{}
-	err := f.privilegedClient.Get(ctx, types.NamespacedName{Name: nsGUID}, namespace)
-	if err != nil {
-		switch errtype := err.(type) {
-		case *k8serrors.StatusError:
-			reason := errtype.Status().Reason
-			if reason == metav1.StatusReasonNotFound || reason == metav1.StatusReasonUnauthorized {
-				return SpaceRecord{}, PermissionDeniedOrNotFoundError{Err: err}
-			}
-		}
-		return SpaceRecord{}, err
-	}
-	return v1NamespaceToSpaceRecord(namespace), nil
-}
-
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
 	secretObj := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -443,7 +431,7 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return AppRecord{}, PermissionDeniedOrNotFoundError{Err: err}
+			return AppRecord{}, NewForbiddenError(err)
 		}
 
 		return AppRecord{}, fmt.Errorf("err in client.Patch: %w", err)
@@ -556,14 +544,6 @@ func returnApp(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
 	}
 
 	return cfAppToAppRecord(apps[0]), nil
-}
-
-func v1NamespaceToSpaceRecord(namespace *corev1.Namespace) SpaceRecord {
-	// TODO How do we derive Organization GUID here?
-	return SpaceRecord{
-		Name:             namespace.Name,
-		OrganizationGUID: "",
-	}
 }
 
 func appEnvVarsRecordToSecret(envVars CreateOrPatchAppEnvVarsMessage) corev1.Secret {

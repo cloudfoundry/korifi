@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
@@ -29,10 +28,8 @@ var _ = Describe("Route Handler", func() {
 	)
 
 	BeforeEach(func() {
-		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
-		identityProvider := new(fake.IdentityProvider)
-		nsPermissions := authorization.NewNamespacePermissions(k8sClient, identityProvider, "root-ns")
 		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
+		orgRepo := repositories.NewOrgRepo("root-ns", k8sClient, clientFactory, nsPermissions, time.Minute, true)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
 		domainRepo := repositories.NewDomainRepo(k8sClient)
 		decoderValidator, err := NewDefaultDecoderValidator()
@@ -44,6 +41,7 @@ var _ = Describe("Route Handler", func() {
 			routeRepo,
 			domainRepo,
 			appRepo,
+			orgRepo,
 			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)

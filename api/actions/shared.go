@@ -24,7 +24,6 @@ type CFProcessRepository interface {
 type CFAppRepository interface {
 	GetApp(context.Context, authorization.Info, string) (repositories.AppRecord, error)
 	GetAppByNameAndSpace(context.Context, authorization.Info, string, string) (repositories.AppRecord, error)
-	GetNamespace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	CreateOrPatchAppEnvVars(context.Context, authorization.Info, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
 }

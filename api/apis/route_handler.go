@@ -43,6 +43,7 @@ type RouteHandler struct {
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
 	appRepo          CFAppRepository
+	spaceRepo        SpaceRepository
 	decoderValidator *DecoderValidator
 }
 
@@ -52,6 +53,7 @@ func NewRouteHandler(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	appRepo CFAppRepository,
+	spaceRepo SpaceRepository,
 	decoderValidator *DecoderValidator,
 ) *RouteHandler {
 	return &RouteHandler{
@@ -60,6 +62,7 @@ func NewRouteHandler(
 		routeRepo:        routeRepo,
 		domainRepo:       domainRepo,
 		appRepo:          appRepo,
+		spaceRepo:        spaceRepo,
 		decoderValidator: decoderValidator,
 	}
 }
@@ -207,16 +210,16 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 		return
 	}
 
-	namespaceGUID := payload.Relationships.Space.Data.GUID
-	_, err := h.appRepo.GetNamespace(ctx, authInfo, namespaceGUID)
+	spaceGUID := payload.Relationships.Space.Data.GUID
+	_, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
 		switch err.(type) {
-		case repositories.PermissionDeniedOrNotFoundError:
-			h.logger.Info("Namespace not found", "Namespace GUID", namespaceGUID)
+		case repositories.NotFoundError:
+			h.logger.Info("Space not found", "spaceGUID", spaceGUID)
 			writeUnprocessableEntityError(w, "Invalid space. Ensure that the space exists and you have access to it.")
 			return
 		default:
-			h.logger.Error(err, "Failed to fetch namespace from Kubernetes", "Namespace GUID", namespaceGUID)
+			h.logger.Error(err, "Failed to fetch space from Kubernetes", "spaceGUID", spaceGUID)
 			writeUnknownErrorResponse(w)
 			return
 		}
@@ -226,7 +229,7 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 	domain, err := h.domainRepo.GetDomain(ctx, authInfo, domainGUID)
 	if err != nil {
 		switch err.(type) {
-		case repositories.PermissionDeniedOrNotFoundError:
+		case repositories.NotFoundError:
 			h.logger.Info("Domain not found", "Domain GUID", domainGUID)
 			writeUnprocessableEntityError(w, "Invalid domain. Ensure that the domain exists and you have access to it.")
 			return

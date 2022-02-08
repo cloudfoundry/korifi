@@ -37,6 +37,7 @@ var _ = Describe("AppHandler", func() {
 		scaleAppProcessFunc *fake.ScaleAppProcess
 		domainRepo          *fake.CFDomainRepository
 		podRepo             *fake.PodRepository
+		spaceRepo           *fake.SpaceRepository
 		req                 *http.Request
 	)
 
@@ -48,6 +49,7 @@ var _ = Describe("AppHandler", func() {
 		domainRepo = new(fake.CFDomainRepository)
 		podRepo = new(fake.PodRepository)
 		scaleAppProcessFunc = new(fake.ScaleAppProcess)
+		spaceRepo = new(fake.SpaceRepository)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -60,6 +62,7 @@ var _ = Describe("AppHandler", func() {
 			routeRepo,
 			domainRepo,
 			podRepo,
+			spaceRepo,
 			scaleAppProcessFunc.Spy,
 			decoderValidator,
 		)
@@ -72,26 +75,28 @@ var _ = Describe("AppHandler", func() {
 
 	Describe("the GET /v3/apps/:guid endpoint", func() {
 		BeforeEach(func() {
-			appRepo.GetAppReturns(repositories.AppRecord{
-				GUID:      appGUID,
-				Name:      "test-app",
-				SpaceGUID: spaceGUID,
-				State:     "STOPPED",
-				Lifecycle: repositories.Lifecycle{
-					Type: "buildpack",
-					Data: repositories.LifecycleData{
-						Buildpacks: []string{},
-						Stack:      "",
-					},
-				},
-			}, nil)
-
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("on the happy path", func() {
+		When("the app exists and is accessible", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{
+					GUID:      appGUID,
+					Name:      "test-app",
+					SpaceGUID: spaceGUID,
+					State:     "STOPPED",
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				}, nil)
+			})
+
 			It("returns status 200 OK", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
@@ -177,9 +182,20 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the app cannot be found or the client is not authorized to get it", func() {
+		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+			})
+
+			// TODO: should we return code 100004 instead?
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("the app is not accessible", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -328,10 +344,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the space does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetNamespaceReturns(
-					repositories.SpaceRecord{},
-					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")},
-				)
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NotFoundError{})
 
 				requestBody := initializeCreateAppRequestBody(testAppName, "no-such-guid", nil, nil, nil)
 				queuePostRequest(requestBody)
@@ -823,7 +836,18 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+			itDoesntSetTheCurrentDroplet()
+		})
+
+		When("the App cannot be accessed", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
 			})
 
 			It("returns an error", func() {
@@ -1617,9 +1641,19 @@ var _ = Describe("AppHandler", func() {
 		})
 
 		When("On the sad path and", func() {
-			When("the app cannot be found or user is not authorized to see it", func() {
+			When("the app cannot be found", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				})
+
+				It("returns an error", func() {
+					expectNotFoundError("App not found")
+				})
+			})
+
+			When("the app cannot be accessed", func() {
+				BeforeEach(func() {
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
 				})
 
 				It("returns an error", func() {
@@ -2079,9 +2113,19 @@ var _ = Describe("AppHandler", func() {
 		})
 
 		When("on the sad path and", func() {
-			When("the app cannot be found or no permission", func() {
+			When("the app cannot be found", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				})
+
+				It("returns an error", func() {
+					expectNotFoundError("App not found")
+				})
+			})
+
+			When("the app cannot be accessed", func() {
+				BeforeEach(func() {
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
 				})
 
 				It("returns an error", func() {
@@ -2241,7 +2285,17 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("the App is not accessible", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
 			})
 
 			It("returns an error", func() {
@@ -2339,9 +2393,19 @@ var _ = Describe("AppHandler", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 		})
 
-		When("no permissions to get the app or the app cannot be found", func() {
+		When("the app does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("no permissions to get the app", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
 			})
 
 			It("returns an error", func() {
@@ -2474,7 +2538,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("no permissions to stop the app", func() {
 				BeforeEach(func() {
-					appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+					appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, repositories.ForbiddenError{})
 				})
 
 				It("returns a forbidden error", func() {
@@ -2484,7 +2548,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("no permissions to start the app", func() {
 				BeforeEach(func() {
-					appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+					appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, repositories.ForbiddenError{})
 				})
 
 				It("returns a forbidden error", func() {
@@ -2585,7 +2649,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("no permissions to start the app", func() {
 			BeforeEach(func() {
-				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
 			})
 
 			It("returns a forbidden error", func() {

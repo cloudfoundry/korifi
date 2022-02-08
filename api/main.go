@@ -148,6 +148,7 @@ func main() {
 			routeRepo,
 			domainRepo,
 			podRepo,
+			orgRepo,
 			scaleAppProcessAction.Invoke,
 			decoderValidator,
 		),
@@ -157,6 +158,7 @@ func main() {
 			routeRepo,
 			domainRepo,
 			appRepo,
+			orgRepo,
 			decoderValidator,
 		),
 		apis.NewServiceRouteBindingHandler(
@@ -237,7 +239,7 @@ func main() {
 			ctrl.Log.WithName("ServiceInstanceHandler"),
 			*serverURL,
 			serviceInstanceRepo,
-			appRepo,
+			orgRepo,
 			decoderValidator,
 		),
 	}

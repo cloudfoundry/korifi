@@ -35,7 +35,7 @@ type ServiceInstanceHandler struct {
 	logger              logr.Logger
 	serverURL           url.URL
 	serviceInstanceRepo CFServiceInstanceRepository
-	appRepo             CFAppRepository
+	spaceRepo           SpaceRepository
 	decoderValidator    *DecoderValidator
 }
 
@@ -43,14 +43,14 @@ func NewServiceInstanceHandler(
 	logger logr.Logger,
 	serverURL url.URL,
 	serviceInstanceRepo CFServiceInstanceRepository,
-	appRepo CFAppRepository,
+	spaceRepo SpaceRepository,
 	decoderValidator *DecoderValidator,
 ) *ServiceInstanceHandler {
 	return &ServiceInstanceHandler{
 		logger:              logger,
 		serverURL:           serverURL,
 		serviceInstanceRepo: serviceInstanceRepo,
-		appRepo:             appRepo,
+		spaceRepo:           spaceRepo,
 		decoderValidator:    decoderValidator,
 	}
 }
@@ -66,16 +66,16 @@ func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authoriza
 		return
 	}
 
-	namespaceGUID := payload.Relationships.Space.Data.GUID
-	_, err := h.appRepo.GetNamespace(ctx, authInfo, namespaceGUID)
+	spaceGUID := payload.Relationships.Space.Data.GUID
+	_, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
 		switch err.(type) {
-		case repositories.PermissionDeniedOrNotFoundError:
-			h.logger.Info("Namespace not found", "Namespace GUID", namespaceGUID)
+		case repositories.NotFoundError:
+			h.logger.Info("Namespace not found", "spaceGUID", spaceGUID)
 			writeUnprocessableEntityError(w, "Invalid space. Ensure that the space exists and you have access to it.")
 			return
 		default:
-			h.logger.Error(err, "Failed to fetch namespace from Kubernetes", "Namespace GUID", namespaceGUID)
+			h.logger.Error(err, "Failed to fetch namespace from Kubernetes", "spaceGUID", spaceGUID)
 			writeUnknownErrorResponse(w)
 			return
 		}

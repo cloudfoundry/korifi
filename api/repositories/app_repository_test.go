@@ -56,50 +56,59 @@ var _ = Describe("AppRepository", func() {
 	})
 
 	Describe("GetApp", func() {
-		When("on the happy path", func() {
+		var (
+			appGUID string
+			app     repositories.AppRecord
+			getErr  error
+		)
+
+		BeforeEach(func() {
+			cfApp1 = createApp(space1.Name)
+			appGUID = cfApp1.Name
+		})
+
+		JustBeforeEach(func() {
+			app, getErr = appRepo.GetApp(testCtx, authInfo, appGUID)
+		})
+
+		When("authorized in the space", func() {
 			BeforeEach(func() {
-				cfApp1 = createApp(space1.Name)
-				cfApp2 = createApp(space2.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
 			})
 
 			AfterEach(func() {
 				Expect(k8sClient.Delete(context.Background(), cfApp1)).To(Succeed())
-				Expect(k8sClient.Delete(context.Background(), cfApp2)).To(Succeed())
 			})
 
 			It("can fetch the AppRecord CR we're looking for", func() {
-				app, err := appRepo.GetApp(testCtx, authInfo, cfApp2.Name)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(getErr).NotTo(HaveOccurred())
 
-				Expect(app.GUID).To(Equal(cfApp2.Name))
-				Expect(app.EtcdUID).To(Equal(cfApp2.GetUID()))
+				Expect(app.GUID).To(Equal(cfApp1.Name))
+				Expect(app.EtcdUID).To(Equal(cfApp1.GetUID()))
 				Expect(app.Revision).To(Equal(CFAppRevisionValue))
-				Expect(app.Name).To(Equal(cfApp2.Spec.Name))
-				Expect(app.SpaceGUID).To(Equal(space2.Name))
+				Expect(app.Name).To(Equal(cfApp1.Spec.Name))
+				Expect(app.SpaceGUID).To(Equal(space1.Name))
 				Expect(app.State).To(Equal(DesiredState("STOPPED")))
-				Expect(app.DropletGUID).To(Equal(cfApp2.Spec.CurrentDropletRef.Name))
+				Expect(app.DropletGUID).To(Equal(cfApp1.Spec.CurrentDropletRef.Name))
 				Expect(app.Lifecycle).To(Equal(Lifecycle{
-					Type: string(cfApp2.Spec.Lifecycle.Type),
+					Type: string(cfApp1.Spec.Lifecycle.Type),
 					Data: LifecycleData{
-						Buildpacks: cfApp2.Spec.Lifecycle.Data.Buildpacks,
-						Stack:      cfApp2.Spec.Lifecycle.Data.Stack,
+						Buildpacks: cfApp1.Spec.Lifecycle.Data.Buildpacks,
+						Stack:      cfApp1.Spec.Lifecycle.Data.Stack,
 					},
 				}))
 			})
+		})
 
-			When("the user is not authorized in the space", func() {
-				It("returns a permission denied or not found error", func() {
-					_, err := appRepo.GetApp(testCtx, authInfo, cfApp1.Name)
-					Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
-				})
+		When("the user is not authorized in the space", func() {
+			It("returns a forbidden error", func() {
+				Expect(getErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 			})
 		})
 
 		When("duplicate Apps exist across namespaces with the same GUIDs", func() {
 			BeforeEach(func() {
-				cfApp1 = createAppWithGUID(space1.Name, "test-guid")
-				cfApp2 = createAppWithGUID(space2.Name, "test-guid")
+				cfApp2 = createAppWithGUID(space2.Name, appGUID)
 			})
 
 			AfterEach(func() {
@@ -108,17 +117,19 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := appRepo.GetApp(testCtx, authInfo, "test-guid")
-				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError("duplicate apps exist"))
+				Expect(getErr).To(HaveOccurred())
+				Expect(getErr).To(MatchError("get-app duplicate apps exist"))
 			})
 		})
 
-		When("no Apps exist", func() {
+		When("the app guid is not found", func() {
+			BeforeEach(func() {
+				appGUID = "does-not-exist"
+			})
+
 			It("returns an error", func() {
-				_, err := appRepo.GetApp(testCtx, authInfo, "i don't exist")
-				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
+				Expect(getErr).To(HaveOccurred())
+				Expect(getErr).To(MatchError(NotFoundError{ResourceType: "App"}))
 			})
 		})
 	})
@@ -767,16 +778,6 @@ var _ = Describe("AppRepository", func() {
 		})
 	})
 
-	Describe("GetNamespace", func() {
-		When("space does not exist", func() {
-			It("returns an unauthorized or not found err", func() {
-				_, err := appRepo.GetNamespace(context.Background(), authInfo, "some-guid")
-				Expect(err).To(HaveOccurred())
-				Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
-			})
-		})
-	})
-
 	Describe("SetCurrentDroplet", func() {
 		const (
 			appGUID     = "the-app-guid"
@@ -977,7 +978,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("not allowed to set the application state", func() {
 			It("returns a forbidden error", func() {
-				Expect(returnedErr).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
+				Expect(returnedErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 			})
 		})
 	})

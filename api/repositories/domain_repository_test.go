@@ -75,7 +75,7 @@ var _ = Describe("DomainRepository", func() {
 		When("no CFDomain exists", func() {
 			It("returns an error", func() {
 				_, err := domainRepo.GetDomain(testCtx, authInfo, "non-existent-domain-guid")
-				Expect(err).To(BeAssignableToTypeOf(repositories.PermissionDeniedOrNotFoundError{}))
+				Expect(err).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
 			})
 		})
 	})

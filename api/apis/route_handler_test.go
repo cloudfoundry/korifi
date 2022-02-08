@@ -34,6 +34,7 @@ var _ = Describe("RouteHandler", func() {
 		routeRepo  *fake.CFRouteRepository
 		domainRepo *fake.CFDomainRepository
 		appRepo    *fake.CFAppRepository
+		spaceRepo  *fake.SpaceRepository
 
 		requestMethod string
 		requestPath   string
@@ -44,6 +45,7 @@ var _ = Describe("RouteHandler", func() {
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
 		appRepo = new(fake.CFAppRepository)
+		spaceRepo = new(fake.SpaceRepository)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -53,6 +55,7 @@ var _ = Describe("RouteHandler", func() {
 			routeRepo,
 			domainRepo,
 			appRepo,
+			spaceRepo,
 			decoderValidator,
 		)
 		routeHandler.RegisterRoutes(router)
@@ -546,6 +549,16 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
+		When("the domain cannot be found", func() {
+			BeforeEach(func() {
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, repositories.NotFoundError{})
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
 		When("there is a failure finding a Domain", func() {
 			BeforeEach(func() {
 				domainRepo.GetDomainReturns(repositories.DomainRecord{}, errors.New("unknown!"))
@@ -602,7 +615,7 @@ var _ = Describe("RouteHandler", func() {
 			requestMethod = http.MethodPost
 			requestPath = "/v3/routes"
 
-			appRepo.GetNamespaceReturns(repositories.SpaceRecord{
+			spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
 				Name: testSpaceGUID,
 			}, nil)
 
@@ -630,9 +643,9 @@ var _ = Describe("RouteHandler", func() {
 		When("the space exists and the route does not exist and", func() {
 			When("a plain POST test route request is sent without metadata", func() {
 				It("checks that the specified namespace exists", func() {
-					Expect(appRepo.GetNamespaceCallCount()).To(Equal(1), "Repo GetNamespace was not called")
-					_, _, actualSpaceGUID := appRepo.GetNamespaceArgsForCall(0)
-					Expect(actualSpaceGUID).To(Equal(testSpaceGUID), "GetNamespace was not passed the correct GUID")
+					Expect(spaceRepo.GetSpaceCallCount()).To(Equal(1))
+					_, _, actualSpaceGUID := spaceRepo.GetSpaceArgsForCall(0)
+					Expect(actualSpaceGUID).To(Equal(testSpaceGUID))
 				})
 
 				It("checks that the specified domain exists", func() {
@@ -929,8 +942,8 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the space does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetNamespaceReturns(repositories.SpaceRecord{},
-					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")})
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{},
+					repositories.NotFoundError{Err: errors.New("not found")})
 
 				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, "no-such-space", testDomainGUID, nil, nil)
 			})
@@ -940,9 +953,9 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("GetNamespace returns an unknown error", func() {
+		When("GetSpace returns an unknown error", func() {
 			BeforeEach(func() {
-				appRepo.GetNamespaceReturns(repositories.SpaceRecord{},
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{},
 					errors.New("random error"))
 
 				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, "no-such-space", testDomainGUID, nil, nil)
@@ -955,13 +968,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the domain does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetNamespaceReturns(repositories.SpaceRecord{
-					Name: testSpaceGUID,
-				}, nil)
-
-				domainRepo.GetDomainReturns(repositories.DomainRecord{},
-					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")})
-
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, repositories.NotFoundError{})
 				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
 			})
 
@@ -972,13 +979,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("GetDomain returns an unknown error", func() {
 			BeforeEach(func() {
-				appRepo.GetNamespaceReturns(repositories.SpaceRecord{
-					Name: testSpaceGUID,
-				}, nil)
-
-				domainRepo.GetDomainReturns(repositories.DomainRecord{},
-					errors.New("random error"))
-
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, errors.New("random error"))
 				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
 			})
 
@@ -989,15 +990,6 @@ var _ = Describe("RouteHandler", func() {
 
 		When("CreateRoute returns an unknown error", func() {
 			BeforeEach(func() {
-				appRepo.GetNamespaceReturns(repositories.SpaceRecord{
-					Name: testSpaceGUID,
-				}, nil)
-
-				domainRepo.GetDomainReturns(repositories.DomainRecord{
-					GUID: testDomainGUID,
-					Name: testDomainName,
-				}, nil)
-
 				routeRepo.CreateRouteReturns(repositories.RouteRecord{},
 					errors.New("random error"))
 

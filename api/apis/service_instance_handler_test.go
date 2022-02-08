@@ -32,12 +32,12 @@ var _ = Describe("ServiceInstanceHandler", func() {
 	var (
 		req                 *http.Request
 		serviceInstanceRepo *fake.CFServiceInstanceRepository
-		appRepo             *fake.CFAppRepository
+		spaceRepo           *fake.SpaceRepository
 	)
 
 	BeforeEach(func() {
 		serviceInstanceRepo = new(fake.CFServiceInstanceRepository)
-		appRepo = new(fake.CFAppRepository)
+		spaceRepo = new(fake.SpaceRepository)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -45,7 +45,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			logf.Log.WithName(testServiceInstanceHandlerLoggerName),
 			*serverURL,
 			serviceInstanceRepo,
-			appRepo,
+			spaceRepo,
 			decoderValidator,
 		)
 		serviceInstanceHandler.RegisterRoutes(router)
@@ -308,9 +308,9 @@ var _ = Describe("ServiceInstanceHandler", func() {
 
 		When("the space does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetNamespaceReturns(
+				spaceRepo.GetSpaceReturns(
 					repositories.SpaceRecord{},
-					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")},
+					repositories.NotFoundError{Err: errors.New("not found")},
 				)
 
 				makePostRequest(validBody)
@@ -321,9 +321,9 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			})
 		})
 
-		When("the get namespace returns an unknown error", func() {
+		When("the get space returns an unknown error", func() {
 			BeforeEach(func() {
-				appRepo.GetNamespaceReturns(
+				spaceRepo.GetSpaceReturns(
 					repositories.SpaceRecord{},
 					errors.New("unknown"),
 				)

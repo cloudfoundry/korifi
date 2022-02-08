@@ -23,9 +23,8 @@ var _ = Describe("Build", func() {
 	)
 
 	BeforeEach(func() {
-		userClientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
-		buildRepo := repositories.NewBuildRepo(k8sClient, userClientFactory)
-		packageRepo := repositories.NewPackageRepo(k8sClient, userClientFactory)
+		buildRepo := repositories.NewBuildRepo(k8sClient, clientFactory)
+		packageRepo := repositories.NewPackageRepo(k8sClient, clientFactory)
 		decoderValidator, err := apis.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
