@@ -285,7 +285,7 @@ func (r *CFProcessReconciler) fetchLRPsForProcess(ctx context.Context, cfProcess
 func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess *workloadsv1alpha1.CFProcess, cfApp *workloadsv1alpha1.CFApp) (int, error) {
 	// Get Routes for the process
 	var cfRoutesForProcess networkingv1alpha1.CFRouteList
-	err := r.Client.List(ctx, &cfRoutesForProcess, client.InNamespace(cfApp.GetNamespace()), client.MatchingFields{shared.DestinationAppName: cfApp.Name})
+	err := r.Client.List(ctx, &cfRoutesForProcess, client.InNamespace(cfApp.GetNamespace()), client.MatchingFields{shared.IndexRouteDestinationAppName: cfApp.Name})
 	if err != nil {
 		return 0, err
 	}
@@ -374,7 +374,7 @@ func (r *CFProcessReconciler) getAppServiceBindings(ctx context.Context, appGUID
 	serviceBindings := &servicesv1alpha1.CFServiceBindingList{}
 	err := r.Client.List(ctx, serviceBindings,
 		client.InNamespace(namespace),
-		client.MatchingFields{shared.ServiceBindingAppGUIDIndex: appGUID},
+		client.MatchingFields{shared.IndexServiceBindingAppGUID: appGUID},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error listing CFServiceBindings: %w", err)
