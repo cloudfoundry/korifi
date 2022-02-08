@@ -25,6 +25,9 @@ var _ = Describe("Package", func() {
 
 		spaceGUID = createSpace(generateGUID("space1"), orgGUID)
 		appGUID = createApp(spaceGUID, generateGUID("app"))
+
+		result = packageResource{}
+		resultErr = cfErrs{}
 	})
 
 	AfterEach(func() {
