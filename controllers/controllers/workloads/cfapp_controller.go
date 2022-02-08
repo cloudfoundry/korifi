@@ -272,7 +272,7 @@ func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID
 
 func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfAppNamespace string) ([]networkingv1alpha1.CFRoute, error) {
 	var foundRoutes networkingv1alpha1.CFRouteList
-	matchingFields := client.MatchingFields{DestinationAppName: cfAppGUID}
+	matchingFields := client.MatchingFields{IndexRouteDestinationAppName: cfAppGUID}
 	err := r.Client.List(context.Background(), &foundRoutes, client.InNamespace(cfAppNamespace), matchingFields)
 	if err != nil {
 		return []networkingv1alpha1.CFRoute{}, err
