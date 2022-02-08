@@ -26,6 +26,8 @@ var _ = Describe("Orgs", func() {
 		BeforeEach(func() {
 			client = adminClient
 			orgName = generateGUID("my-org")
+			result = resource{}
+			resultErr = cfErrs{}
 		})
 
 		AfterEach(func() {
