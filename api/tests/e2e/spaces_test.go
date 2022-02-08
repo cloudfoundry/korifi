@@ -30,6 +30,7 @@ var _ = Describe("Spaces", func() {
 			orgGUID = createOrg(generateGUID("org"))
 			parentGUID = orgGUID
 			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, orgGUID)
+			resultErr = cfErrs{}
 		})
 
 		AfterEach(func() {
