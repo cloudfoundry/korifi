@@ -44,6 +44,9 @@ type CFServiceBindingStatus struct {
 	// A reference to the Secret containing the credentials (same as spec.secretName).
 	// This is required to conform to the Kubernetes Service Bindings spec
 	Binding v1.LocalObjectReference `json:"binding"`
+
+	// Conditions capture the current status of the CFServiceBinding
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 //+kubebuilder:object:root=true
@@ -54,7 +57,8 @@ type CFServiceBinding struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CFServiceBindingSpec   `json:"spec,omitempty"`
+	Spec CFServiceBindingSpec `json:"spec,omitempty"`
+
 	Status CFServiceBindingStatus `json:"status,omitempty"`
 }
 
