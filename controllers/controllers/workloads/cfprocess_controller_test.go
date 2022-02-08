@@ -115,7 +115,9 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 					Name:       "service-binding-guid",
 					APIVersion: "services.cloudfoundry.org/v1alpha1",
 				},
-				SecretName: serviceSecretGUID,
+			},
+			Status: servicesv1alpha1.CFServiceBindingStatus{
+				Binding: corev1.LocalObjectReference{Name: serviceSecretGUID},
 			},
 		}
 		serviceBindingListError = nil

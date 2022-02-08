@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("CFBuildReconciler", func() {
@@ -194,6 +195,7 @@ var _ = Describe("CFBuildReconciler", func() {
 					k8sClient.Create(ctx, serviceInstance1),
 				).To(Succeed())
 
+				serviceBinding1Name := "service-binding-1-name"
 				serviceBinding1 = &servicesv1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service-binding-1-guid",
@@ -203,13 +205,12 @@ var _ = Describe("CFBuildReconciler", func() {
 						},
 					},
 					Spec: servicesv1alpha1.CFServiceBindingSpec{
-						Name: "service-binding-1-name",
+						Name: &serviceBinding1Name,
 						Service: corev1.ObjectReference{
 							Kind:       "ServiceInstance",
 							Name:       serviceInstance1.Name,
 							APIVersion: "services.cloudfoundry.org/v1alpha1",
 						},
-						SecretName: secret1.Name,
 						AppRef: corev1.LocalObjectReference{
 							Name: desiredCFApp.Name,
 						},
@@ -250,6 +251,7 @@ var _ = Describe("CFBuildReconciler", func() {
 					k8sClient.Create(ctx, serviceInstance2),
 				).To(Succeed())
 
+				serviceBinding2Name := "service-binding-2-name"
 				serviceBinding2 = &servicesv1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service-binding-2-guid",
@@ -259,13 +261,12 @@ var _ = Describe("CFBuildReconciler", func() {
 						},
 					},
 					Spec: servicesv1alpha1.CFServiceBindingSpec{
-						Name: "",
+						Name: &serviceBinding2Name,
 						Service: corev1.ObjectReference{
 							Kind:       "ServiceInstance",
 							Name:       serviceInstance2.Name,
 							APIVersion: "services.cloudfoundry.org/v1alpha1",
 						},
-						SecretName: secret2.Name,
 						AppRef: corev1.LocalObjectReference{
 							Name: desiredCFApp.Name,
 						},
@@ -275,8 +276,25 @@ var _ = Describe("CFBuildReconciler", func() {
 					k8sClient.Create(ctx, serviceBinding2),
 				).To(Succeed())
 
-				// sleep to encourage the CFBuildController cache to have the secrets around before the CFBuild is created
-				time.Sleep(time.Millisecond * 50)
+				createdServiceBinding1 := serviceBinding1.DeepCopy()
+				createdServiceBinding1.Status.Binding.Name = secret1.Name
+				meta.SetStatusCondition(&createdServiceBinding1.Status.Conditions, metav1.Condition{
+					Type:    "BindingSecretAvailable",
+					Status:  metav1.ConditionTrue,
+					Reason:  "SecretFound",
+					Message: "",
+				})
+				Expect(k8sClient.Status().Patch(ctx, createdServiceBinding1, client.MergeFrom(serviceBinding1))).To(Succeed())
+
+				createdServiceBinding2 := serviceBinding2.DeepCopy()
+				createdServiceBinding2.Status.Binding.Name = secret2.Name
+				meta.SetStatusCondition(&createdServiceBinding2.Status.Conditions, metav1.Condition{
+					Type:    "BindingSecretAvailable",
+					Status:  metav1.ConditionTrue,
+					Reason:  "SecretFound",
+					Message: "",
+				})
+				Expect(k8sClient.Status().Patch(ctx, createdServiceBinding2, client.MergeFrom(serviceBinding2))).To(Succeed())
 			})
 
 			It("eventually creates a kpack image with the underlying secret mapped onto it", func() {

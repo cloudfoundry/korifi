@@ -30,12 +30,14 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 		fakeClient       *fake.Client
 		fakeStatusWriter *fake.StatusWriter
 
-		cfServiceBinding       *servicesv1alpha1.CFServiceBinding
-		cfServiceBindingSecret *corev1.Secret
+		cfServiceBinding        *servicesv1alpha1.CFServiceBinding
+		cfServiceInstance       *servicesv1alpha1.CFServiceInstance
+		cfServiceInstanceSecret *corev1.Secret
 
 		getCFServiceBindingError          error
-		getCFServiceBindingSecretError    error
+		getCFServiceInstanceSecretError   error
 		updateCFServiceBindingStatusError error
+		getCFServiceInstanceError         error
 
 		cfServiceBindingReconciler *CFServiceBindingReconciler
 		ctx                        context.Context
@@ -47,7 +49,8 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 
 	BeforeEach(func() {
 		getCFServiceBindingError = nil
-		getCFServiceBindingSecretError = nil
+		getCFServiceInstanceSecretError = nil
+		getCFServiceInstanceError = nil
 		updateCFServiceBindingStatusError = nil
 
 		fakeClient = new(fake.Client)
@@ -55,16 +58,20 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 		fakeClient.StatusReturns(fakeStatusWriter)
 
 		cfServiceBinding = new(servicesv1alpha1.CFServiceBinding)
-		cfServiceBindingSecret = new(corev1.Secret)
+		cfServiceInstance = new(servicesv1alpha1.CFServiceInstance)
+		cfServiceInstanceSecret = new(corev1.Secret)
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
 			case *servicesv1alpha1.CFServiceBinding:
 				cfServiceBinding.DeepCopyInto(obj)
 				return getCFServiceBindingError
+			case *servicesv1alpha1.CFServiceInstance:
+				cfServiceInstance.DeepCopyInto(obj)
+				return getCFServiceInstanceError
 			case *corev1.Secret:
-				cfServiceBindingSecret.DeepCopyInto(obj)
-				return getCFServiceBindingSecretError
+				cfServiceInstanceSecret.DeepCopyInto(obj)
+				return getCFServiceInstanceSecretError
 			default:
 				panic("TestClient Get provided an unexpected object type")
 			}
@@ -104,7 +111,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 				_, serviceBindingObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
 				updatedCFServiceBinding, ok := serviceBindingObj.(*servicesv1alpha1.CFServiceBinding)
 				Expect(ok).To(BeTrue())
-				Expect(updatedCFServiceBinding.Status.Binding.Name).To(Equal(cfServiceBindingSecret.Name))
+				Expect(updatedCFServiceBinding.Status.Binding.Name).To(Equal(cfServiceInstanceSecret.Name))
 				Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 					"Type":    Equal("BindingSecretAvailable"),
 					"Status":  Equal(metav1.ConditionTrue),
@@ -113,9 +120,30 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 				})))
 			})
 		})
+		When("the instance isn't found", func() {
+			BeforeEach(func() {
+				getCFServiceInstanceError = apierrors.NewNotFound(schema.GroupResource{}, cfServiceInstance.Name)
+			})
+			It("requeues the request", func() {
+				Expect(reconcileResult).To(Equal(ctrl.Result{RequeueAfter: 2 * time.Second}))
+				Expect(reconcileErr).NotTo(HaveOccurred())
+
+				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+				_, serviceBindingObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+				updatedCFServiceBinding, ok := serviceBindingObj.(*servicesv1alpha1.CFServiceBinding)
+				Expect(ok).To(BeTrue())
+				Expect(updatedCFServiceBinding.Status.Binding.Name).To(BeEmpty())
+				Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+					"Type":    Equal("BindingSecretAvailable"),
+					"Status":  Equal(metav1.ConditionFalse),
+					"Reason":  Equal("ServiceInstanceNotFound"),
+					"Message": Equal("Service instance does not exist"),
+				})))
+			})
+		})
 		When("the secret isn't found", func() {
 			BeforeEach(func() {
-				getCFServiceBindingSecretError = apierrors.NewNotFound(schema.GroupResource{}, cfServiceBindingSecret.Name)
+				getCFServiceInstanceSecretError = apierrors.NewNotFound(schema.GroupResource{}, cfServiceInstanceSecret.Name)
 			})
 
 			It("requeues the request", func() {
@@ -137,7 +165,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 		})
 		When("the API errors fetching the secret", func() {
 			BeforeEach(func() {
-				getCFServiceBindingSecretError = errors.New("some random error")
+				getCFServiceInstanceSecretError = errors.New("some random error")
 			})
 
 			It("errors, and updates status", func() {
@@ -152,7 +180,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 					"Type":    Equal("BindingSecretAvailable"),
 					"Status":  Equal(metav1.ConditionFalse),
 					"Reason":  Equal("UnknownError"),
-					"Message": Equal("Error occurred while fetching secret: " + getCFServiceBindingSecretError.Error()),
+					"Message": Equal("Error occurred while fetching secret: " + getCFServiceInstanceSecretError.Error()),
 				})))
 			})
 		})

@@ -18,6 +18,7 @@ package workloads
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -272,12 +273,17 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 		},
 	}
 	for _, serviceBinding := range serviceBindings {
-		objRef := corev1.ObjectReference{
-			Kind:       "Secret",
-			Name:       serviceBinding.Spec.SecretName,
-			APIVersion: "v1",
+		if serviceBinding.Status.Binding.Name != "" {
+			objRef := corev1.ObjectReference{
+				Kind:       "Secret",
+				Name:       serviceBinding.Status.Binding.Name,
+				APIVersion: "v1",
+			}
+			desiredKpackImage.Spec.Build.Services = append(desiredKpackImage.Spec.Build.Services, objRef)
+		} else {
+			r.Log.Info("binding secret name is empty")
+			return errors.New("binding secret name is empty")
 		}
-		desiredKpackImage.Spec.Build.Services = append(desiredKpackImage.Spec.Build.Services, objRef)
 	}
 
 	err := controllerutil.SetOwnerReference(cfBuild, &desiredKpackImage, r.Scheme)

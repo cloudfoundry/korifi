@@ -57,6 +57,14 @@ rules:
   - create
 
 - apiGroups:
+    - services.cloudfoundry.org
+  resources:
+    - cfservicebindings
+  verbs:
+    - list
+    - create
+
+- apiGroups:
   - networking.cloudfoundry.org
   resources:
   - cfroutes

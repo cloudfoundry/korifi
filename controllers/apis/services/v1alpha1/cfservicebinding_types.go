@@ -27,13 +27,10 @@ import (
 // CFServiceBindingSpec defines the desired state of CFServiceBinding
 type CFServiceBindingSpec struct {
 	// Name defines the name of the Service Binding
-	Name string `json:"name"`
+	Name *string `json:"name,omitempty"`
 
 	// Specifies the Service this binding uses
 	Service v1.ObjectReference `json:"service"`
-
-	// Name of a secret containing the service credentials
-	SecretName string `json:"secretName"`
 
 	// Specifies the App that owns this process
 	AppRef v1.LocalObjectReference `json:"appRef"`
