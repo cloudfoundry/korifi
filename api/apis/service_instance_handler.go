@@ -30,6 +30,7 @@ const (
 type CFServiceInstanceRepository interface {
 	CreateServiceInstance(context.Context, authorization.Info, repositories.CreateServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
 	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
+	GetServiceInstance(context.Context, authorization.Info, string) (repositories.ServiceInstanceRecord, error)
 }
 
 type ServiceInstanceHandler struct {

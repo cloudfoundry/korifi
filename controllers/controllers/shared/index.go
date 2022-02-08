@@ -16,12 +16,12 @@ const (
 )
 
 func SetupIndexWithManager(mgr manager.Manager) error {
-	err := mgr.GetFieldIndexer().IndexField(context.Background(), &networkingv1alpha1.CFRoute{}, IndexRouteDestinationAppName, routeDestinationAppNameIndexFn)
+	err := mgr.GetFieldIndexer().IndexField(context.Background(), new(networkingv1alpha1.CFRoute), IndexRouteDestinationAppName, routeDestinationAppNameIndexFn)
 	if err != nil {
 		return err
 	}
 
-	err = mgr.GetFieldIndexer().IndexField(context.Background(), &servicesv1alpha1.CFServiceBinding{}, IndexServiceBindingAppGUID, serviceBindingAppGUIDIndexFn)
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), new(servicesv1alpha1.CFServiceBinding), IndexServiceBindingAppGUID, serviceBindingAppGUIDIndexFn)
 	if err != nil {
 		return err
 	}

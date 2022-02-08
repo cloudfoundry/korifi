@@ -63,10 +63,41 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	secret := new(corev1.Secret)
+	instance := new(servicesv1alpha1.CFServiceInstance)
 	var errorReturn error
 	var result ctrl.Result
-	err = r.Client.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.SecretName, Namespace: req.Namespace}, secret)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: req.Namespace}, instance)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			cfServiceBinding.Status.Binding.Name = ""
+			meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+				Type:    BindingSecretAvailableCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "ServiceInstanceNotFound",
+				Message: "Service instance does not exist",
+			})
+			result = ctrl.Result{RequeueAfter: 2 * time.Second}
+			err = nil
+		} else {
+			meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+				Type:    BindingSecretAvailableCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "UnknownError",
+				Message: "Error occurred while fetching service instance: " + err.Error(),
+			})
+			result = ctrl.Result{}
+		}
+		statusErr := r.setStatus(ctx, cfServiceBinding)
+		if statusErr != nil {
+			return ctrl.Result{}, statusErr
+		}
+
+		return result, err
+	}
+
+	secret := new(corev1.Secret)
+	// Note: is there a reason to fetch the secret name from the service instance spec?
+	err = r.Client.Get(ctx, types.NamespacedName{Name: instance.Spec.SecretName, Namespace: req.Namespace}, secret)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			cfServiceBinding.Status.Binding.Name = ""
@@ -88,7 +119,7 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			result = ctrl.Result{}
 		}
 	} else {
-		cfServiceBinding.Status.Binding.Name = cfServiceBinding.Spec.SecretName
+		cfServiceBinding.Status.Binding.Name = instance.Spec.SecretName
 		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
 			Type:    BindingSecretAvailableCondition,
 			Status:  metav1.ConditionTrue,
@@ -97,11 +128,21 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		})
 		result = ctrl.Result{}
 	}
+
+	err = r.setStatus(ctx, cfServiceBinding)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return result, errorReturn
+}
+
+func (r *CFServiceBindingReconciler) setStatus(ctx context.Context, cfServiceBinding *servicesv1alpha1.CFServiceBinding) error {
 	if statusErr := r.Client.Status().Update(ctx, cfServiceBinding); statusErr != nil {
 		r.Log.Error(statusErr, "unable to update CFServiceBinding status")
-		return ctrl.Result{}, statusErr
+		return statusErr
 	}
-	return result, errorReturn
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -133,6 +133,11 @@ var (
 			Resources: []string{"cfserviceinstances"},
 		},
 		{
+			Verbs:     []string{"list", "create"},
+			APIGroups: []string{"services.cloudfoundry.org"},
+			Resources: []string{"cfservicebindings"},
+		},
+		{
 			Verbs:     []string{"get"},
 			APIGroups: []string{"kpack.io"},
 			Resources: []string{"clusterbuilders"},

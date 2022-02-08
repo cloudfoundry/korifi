@@ -393,8 +393,12 @@ func (r *CFProcessReconciler) getAppServiceBindings(ctx context.Context, appGUID
 			return nil, fmt.Errorf("error fetching CFServiceInstance: %w", err)
 		}
 
+		if currentServiceBinding.Status.Binding.Name == "" {
+			return nil, fmt.Errorf("service binding secret name is empty")
+		}
+
 		secret := new(corev1.Secret)
-		err = r.Client.Get(ctx, types.NamespacedName{Name: currentServiceBinding.Spec.SecretName, Namespace: namespace}, secret)
+		err = r.Client.Get(ctx, types.NamespacedName{Name: currentServiceBinding.Status.Binding.Name, Namespace: namespace}, secret)
 		if err != nil {
 			return nil, fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
 		}
@@ -438,9 +442,9 @@ func servicesToVCAPValue(services []serviceInfo) (string, error) {
 	for _, service := range services {
 		var serviceName string
 		var bindingName *string
-		if service.binding.Spec.Name != "" {
-			serviceName = service.binding.Spec.Name
-			bindingName = &service.binding.Spec.Name
+		if service.binding.Spec.Name != nil {
+			serviceName = *service.binding.Spec.Name
+			bindingName = service.binding.Spec.Name
 		} else {
 			serviceName = service.instance.Spec.Name
 			bindingName = nil
