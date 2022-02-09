@@ -31,11 +31,7 @@ func NewServiceRouteBindingHandler(
 func (h *ServiceRouteBindingHandler) serviceRouteBindingsListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	err := writeJsonResponse(w, presenter.ForServiceRouteBindingsList(h.serverURL, *r.URL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForServiceRouteBindingsList(h.serverURL, *r.URL))
 }
 
 func (h *ServiceRouteBindingHandler) RegisterRoutes(router *mux.Router) {

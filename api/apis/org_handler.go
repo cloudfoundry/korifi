@@ -95,11 +95,7 @@ func (h *OrgHandler) orgCreateHandler(info authorization.Info, w http.ResponseWr
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForCreateOrg(record, h.apiBaseURL), http.StatusCreated)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusCreated, presenter.ForCreateOrg(record, h.apiBaseURL))
 }
 
 func (h *OrgHandler) orgDeleteHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -162,11 +158,7 @@ func (h *OrgHandler) orgListHandler(info authorization.Info, w http.ResponseWrit
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForOrgList(orgs, h.apiBaseURL, *r.URL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForOrgList(orgs, h.apiBaseURL, *r.URL))
 }
 
 func (h *OrgHandler) RegisterRoutes(router *mux.Router) {

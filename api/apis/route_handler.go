@@ -96,11 +96,7 @@ func (h *RouteHandler) routeGetHandler(authInfo authorization.Info, w http.Respo
 		}
 	}
 
-	err = writeJsonResponse(w, presenter.ForRoute(route, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "Route Host", route.Host)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForRoute(route, h.serverURL))
 }
 
 func (h *RouteHandler) routeGetListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -156,11 +152,7 @@ func (h *RouteHandler) routeGetListHandler(authInfo authorization.Info, w http.R
 		}
 	}
 
-	err = writeJsonResponse(w, presenter.ForRouteList(routes, h.serverURL, *r.URL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForRouteList(routes, h.serverURL, *r.URL))
 }
 
 func (h *RouteHandler) routeGetDestinationsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -192,11 +184,7 @@ func (h *RouteHandler) routeGetDestinationsHandler(authInfo authorization.Info, 
 		}
 	}
 
-	err = writeJsonResponse(w, presenter.ForRouteDestinations(route, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "Route Host", route.Host)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForRouteDestinations(route, h.serverURL))
 }
 
 func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -262,11 +250,7 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 
 	responseRouteRecord = responseRouteRecord.UpdateDomainRef(domain)
 
-	err = writeJsonResponse(w, presenter.ForRoute(responseRouteRecord, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "Route Host", payload.Host)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForRoute(responseRouteRecord, h.serverURL))
 }
 
 func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -321,11 +305,7 @@ func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, 
 		}
 	}
 
-	err = writeJsonResponse(w, presenter.ForRouteDestinations(responseRouteRecord, h.serverURL), http.StatusOK)
-	if err != nil { // untested
-		h.logger.Error(err, "Failed to render response", "Route GUID", routeRecord.GUID)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForRouteDestinations(responseRouteRecord, h.serverURL))
 }
 
 func (h *RouteHandler) routeDeleteHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {

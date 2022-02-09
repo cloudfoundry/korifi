@@ -46,11 +46,7 @@ func (h *WhoAmIHandler) whoAmIHandler(authInfo authorization.Info, w http.Respon
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForWhoAmI(identity), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to write response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForWhoAmI(identity))
 }
 
 func (h *WhoAmIHandler) RegisterRoutes(router *mux.Router) {

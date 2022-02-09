@@ -1,7 +1,6 @@
 package apis
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -60,14 +59,7 @@ func (h *JobHandler) jobGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseBody, err := json.Marshal(jobResponse)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "Job GUID", jobGUID)
-		writeUnknownErrorResponse(w)
-		return
-	}
-
-	_, _ = w.Write(responseBody)
+	writeResponse(w, http.StatusOK, jobResponse)
 }
 
 func (h *JobHandler) RegisterRoutes(router *mux.Router) {

@@ -115,11 +115,7 @@ func (h *AppHandler) appGetHandler(authInfo authorization.Info, w http.ResponseW
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForApp(app, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForApp(app, h.serverURL))
 }
 
 func (h *AppHandler) appCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -168,11 +164,7 @@ func (h *AppHandler) appCreateHandler(authInfo authorization.Info, w http.Respon
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForApp(appRecord, h.serverURL), http.StatusCreated)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "App Name", payload.Name)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusCreated, presenter.ForApp(appRecord, h.serverURL))
 }
 
 func (h *AppHandler) appListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -216,11 +208,7 @@ func (h *AppHandler) appListHandler(authInfo authorization.Info, w http.Response
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForAppList(appList, h.serverURL, *r.URL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForAppList(appList, h.serverURL, *r.URL))
 }
 
 func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -284,11 +272,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForCurrentDroplet(currentDroplet, h.serverURL), http.StatusOK)
-	if err != nil { // untested
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForCurrentDroplet(currentDroplet, h.serverURL))
 }
 
 func (h *AppHandler) appGetCurrentDropletHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -327,11 +311,7 @@ func (h *AppHandler) appGetCurrentDropletHandler(authInfo authorization.Info, w 
 		}
 	}
 
-	err = writeJsonResponse(w, presenter.ForDroplet(droplet, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "dropletGUID", app.DropletGUID)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForDroplet(droplet, h.serverURL))
 }
 
 func (h *AppHandler) appStartHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -363,11 +343,7 @@ func (h *AppHandler) appStartHandler(authInfo authorization.Info, w http.Respons
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForApp(app, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForApp(app, h.serverURL))
 }
 
 func (h *AppHandler) appStopHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -394,11 +370,7 @@ func (h *AppHandler) appStopHandler(authInfo authorization.Info, w http.Response
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForApp(app, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForApp(app, h.serverURL))
 }
 
 func (h *AppHandler) getProcessesForAppHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -426,11 +398,7 @@ func (h *AppHandler) getProcessesForAppHandler(authInfo authorization.Info, w ht
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForProcessList(processList, h.serverURL, *r.URL), http.StatusOK)
-	if err != nil { // untested
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForProcessList(processList, h.serverURL, *r.URL))
 }
 
 func (h *AppHandler) getRoutesForAppHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -453,11 +421,7 @@ func (h *AppHandler) getRoutesForAppHandler(authInfo authorization.Info, w http.
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForRouteList(routes, h.serverURL, *r.URL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForRouteList(routes, h.serverURL, *r.URL))
 }
 
 func (h *AppHandler) appScaleProcessHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -490,11 +454,7 @@ func (h *AppHandler) appScaleProcessHandler(authInfo authorization.Info, w http.
 		}
 	}
 
-	err = writeJsonResponse(w, presenter.ForProcess(processRecord, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "ProcessGUID", appGUID)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForProcess(processRecord, h.serverURL))
 }
 
 func (h *AppHandler) appRestartHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -554,11 +514,7 @@ func (h *AppHandler) appRestartHandler(authInfo authorization.Info, w http.Respo
 		}
 	}
 
-	err = writeJsonResponse(w, presenter.ForApp(app, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForApp(app, h.serverURL))
 }
 
 func (h *AppHandler) appDeleteHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -623,11 +579,7 @@ func (h *AppHandler) appPatchEnvVarsHandler(authInfo authorization.Info, w http.
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForAppEnvVars(envVarsRecord, h.serverURL), http.StatusOK)
-	if err != nil { // untested
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForAppEnvVars(envVarsRecord, h.serverURL))
 }
 
 func (h *AppHandler) appGetEnvHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -653,11 +605,7 @@ func (h *AppHandler) appGetEnvHandler(authInfo authorization.Info, w http.Respon
 		}
 	}
 
-	err = writeJsonResponse(w, presenter.ForAppEnv(envVars), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "AppGUID", appGUID)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForAppEnv(envVars))
 }
 
 func (h *AppHandler) handleGetAppErr(err error, w http.ResponseWriter, appGUID string) {
