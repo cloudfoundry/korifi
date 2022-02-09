@@ -117,10 +117,6 @@ var _ = Describe("DomainRepository", func() {
 					},
 				}
 				Expect(k8sClient.Create(testCtx, cfDomain1)).To(Succeed())
-				DeferCleanup(func() {
-					// stupid linter wants this to be assigned to something
-					_ = k8sClient.Delete(context.Background(), cfDomain1)
-				})
 
 				cfDomain2 = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
@@ -131,9 +127,6 @@ var _ = Describe("DomainRepository", func() {
 					},
 				}
 				Expect(k8sClient.Create(testCtx, cfDomain2)).To(Succeed())
-				DeferCleanup(func() {
-					_ = k8sClient.Delete(context.Background(), cfDomain2)
-				})
 
 				cfDomain3 = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
@@ -145,17 +138,19 @@ var _ = Describe("DomainRepository", func() {
 				}
 				time.Sleep(1 * time.Second)
 				Expect(k8sClient.Create(testCtx, cfDomain3)).To(Succeed())
-				DeferCleanup(func() {
-					_ = k8sClient.Delete(context.Background(), cfDomain3)
-				})
 			})
 
-			It("eventually returns an ordered list(oldest to newest) of domainRecords for each CFDomain CR", func() {
-				var domainRecords []DomainRecord
-				Eventually(func() []DomainRecord {
-					domainRecords, _ = domainRepo.ListDomains(testCtx, authInfo, domainListMessage)
-					return domainRecords
-				}, timeCheckThreshold*time.Second).Should(ContainElements(
+			AfterEach(func() {
+				Expect(k8sClient.Delete(context.Background(), cfDomain1)).To(Succeed())
+				Expect(k8sClient.Delete(context.Background(), cfDomain2)).To(Succeed())
+				Expect(k8sClient.Delete(context.Background(), cfDomain3)).To(Succeed())
+			})
+
+			It("returns an ordered list(oldest to newest) of domainRecords for each CFDomain CR", func() {
+				domainRecords, err := domainRepo.ListDomains(testCtx, authInfo, domainListMessage)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(domainRecords).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID1)}),
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID2)}),
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID3)}),
@@ -230,34 +225,22 @@ var _ = Describe("DomainRepository", func() {
 			})
 
 			When("a single value is provided for a key", func() {
-				It("eventually returns a list of domainRecords for each CFDomain CR that matches the key with value", func() {
-					var domainRecords []DomainRecord
-					Eventually(func() []DomainRecord {
-						domainRecords, _ = domainRepo.ListDomains(testCtx, authInfo, domainListMessage)
-						return domainRecords
-					}, timeCheckThreshold*time.Second).Should(HaveLen(1), "returned records count should equal number of created CRs")
+				It("returns a list of domainRecords for each CFDomain CR that matches the key with value", func() {
+					domainRecords, err := domainRepo.ListDomains(testCtx, authInfo, domainListMessage)
+					Expect(err).NotTo(HaveOccurred())
 
-					var domain1 DomainRecord
-					for _, domainRecord := range domainRecords {
-						switch domainRecord.GUID {
-						case cfDomain1.Name:
-							domain1 = domainRecord
-						default:
-							Fail(fmt.Sprintf("Unknown domainRecord: %v", domainRecord))
-						}
-					}
-
-					Expect(domain1).NotTo(BeZero())
+					Expect(domainRecords).To(HaveLen(1))
+					Expect(domainRecords[0].GUID).To(Equal(cfDomain1.Name))
 
 					By("returning a domainRecord in the list for one of the created CRs", func() {
-						Expect(domain1.GUID).To(Equal(cfDomain1.Name))
-						Expect(domain1.Name).To(Equal(cfDomain1.Spec.Name))
+						Expect(domainRecords[0].GUID).To(Equal(cfDomain1.Name))
+						Expect(domainRecords[0].Name).To(Equal(cfDomain1.Spec.Name))
 
-						createdAt, err := time.Parse(time.RFC3339, domain1.CreatedAt)
+						createdAt, err := time.Parse(time.RFC3339, domainRecords[0].CreatedAt)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 
-						updatedAt, err := time.Parse(time.RFC3339, domain1.CreatedAt)
+						updatedAt, err := time.Parse(time.RFC3339, domainRecords[0].CreatedAt)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 					})
@@ -330,6 +313,7 @@ var _ = Describe("DomainRepository", func() {
 
 		var (
 			cfDomain   *networkingv1alpha1.CFDomain
+			cfDomain2  *networkingv1alpha1.CFDomain
 			domainGUID string
 		)
 
@@ -348,11 +332,8 @@ var _ = Describe("DomainRepository", func() {
 			Expect(
 				k8sClient.Create(beforeCtx, cfDomain),
 			).To(Succeed())
-			DeferCleanup(func() {
-				_ = k8sClient.Delete(context.Background(), cfDomain)
-			})
 
-			cfDomain2 := &networkingv1alpha1.CFDomain{
+			cfDomain2 = &networkingv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: generateGUID(),
 				},
@@ -363,9 +344,11 @@ var _ = Describe("DomainRepository", func() {
 			Expect(
 				k8sClient.Create(beforeCtx, cfDomain2),
 			).To(Succeed())
-			DeferCleanup(func() {
-				_ = k8sClient.Delete(context.Background(), cfDomain2)
-			})
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.Delete(context.Background(), cfDomain)).To(Succeed())
+			Expect(k8sClient.Delete(context.Background(), cfDomain2)).To(Succeed())
 		})
 
 		When("One match exists for the provided name", func() {
@@ -418,10 +401,6 @@ var _ = Describe("DomainRepository", func() {
 					},
 				}
 				Expect(k8sClient.Create(testCtx, cfDomain1)).To(Succeed())
-				DeferCleanup(func() {
-					// stupid linter wants this to be assigned to something
-					_ = k8sClient.Delete(context.Background(), cfDomain1)
-				})
 
 				cfDomain2 = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
@@ -432,9 +411,6 @@ var _ = Describe("DomainRepository", func() {
 					},
 				}
 				Expect(k8sClient.Create(testCtx, cfDomain2)).To(Succeed())
-				DeferCleanup(func() {
-					_ = k8sClient.Delete(context.Background(), cfDomain2)
-				})
 
 				cfDomain3 = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
@@ -446,18 +422,21 @@ var _ = Describe("DomainRepository", func() {
 				}
 				time.Sleep(1 * time.Second)
 				Expect(k8sClient.Create(testCtx, cfDomain3)).To(Succeed())
-				DeferCleanup(func() {
-					_ = k8sClient.Delete(context.Background(), cfDomain3)
-				})
 
-				Eventually(func() []DomainRecord {
-					domainRecords, _ = domainRepo.ListDomains(testCtx, authInfo, ListDomainsMessage{})
-					return domainRecords
-				}, timeCheckThreshold*time.Second).Should(ContainElements(
+				var err error
+				domainRecords, err = domainRepo.ListDomains(testCtx, authInfo, ListDomainsMessage{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(domainRecords).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID1)}),
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID2)}),
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID3)}),
 				))
+			})
+
+			AfterEach(func() {
+				Expect(k8sClient.Delete(context.Background(), cfDomain1)).To(Succeed())
+				Expect(k8sClient.Delete(context.Background(), cfDomain2)).To(Succeed())
+				Expect(k8sClient.Delete(context.Background(), cfDomain3)).To(Succeed())
 			})
 
 			It("returns the oldest domain it can find and no error", func() {

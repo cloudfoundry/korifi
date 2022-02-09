@@ -24,9 +24,10 @@ var _ = Describe("CFServiceBinding", func() {
 		Expect(
 			k8sClient.Create(context.Background(), namespace),
 		).To(Succeed())
-		DeferCleanup(func() {
-			_ = k8sClient.Delete(context.Background(), namespace)
-		})
+	})
+
+	AfterEach(func() {
+		Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 	})
 
 	When("a new CFServiceBinding is Created", func() {

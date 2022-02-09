@@ -430,10 +430,10 @@ var _ = Describe("PackageRepository", func() {
 					time.Sleep(1 * time.Second)
 
 					Expect(k8sClient.Create(context.Background(), package3)).To(Succeed())
+				})
 
-					DeferCleanup(func() {
-						_ = k8sClient.Delete(context.Background(), package3)
-					})
+				AfterEach(func() {
+					Expect(k8sClient.Delete(context.Background(), package3)).To(Succeed())
 				})
 
 				When("descending order is false", func() {
