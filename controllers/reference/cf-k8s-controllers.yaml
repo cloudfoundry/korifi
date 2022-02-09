@@ -1623,13 +1623,6 @@ rules:
   - get
   - create
 - apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfbuilds
-  verbs:
-  - get
-  - create
-- apiGroups:
   - services.cloudfoundry.org
   resources:
   - cfserviceinstances

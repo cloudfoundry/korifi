@@ -93,7 +93,7 @@ var (
 			Resources: []string{"cfprocesses"},
 		},
 		{
-			Verbs:     []string{"get", "patch"},
+			Verbs:     []string{"create", "get", "patch"},
 			APIGroups: []string{"workloads.cloudfoundry.org"},
 			Resources: []string{"cfpackages"},
 		},
@@ -103,9 +103,9 @@ var (
 			Resources: []string{"cfbuilds"},
 		},
 		{
-			Verbs:     []string{"create"},
+			Verbs:     []string{"get"},
 			APIGroups: []string{"workloads.cloudfoundry.org"},
-			Resources: []string{"cfpackages"},
+			Resources: []string{"cfprocesses"},
 		},
 		{
 			Verbs:     []string{"get", "list", "create", "delete"},
