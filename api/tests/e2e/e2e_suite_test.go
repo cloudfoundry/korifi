@@ -498,6 +498,20 @@ func createApp(spaceGUID, name string) string {
 	return app.GUID
 }
 
+func getProcess(appGUID, processType string) string {
+	var processList resourceList
+
+	resp, err := adminClient.R().
+		SetResult(&processList).
+		Get("/v3/processes?app_guids=" + appGUID)
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+	Expect(processList.Resources).To(HaveLen(1))
+
+	return processList.Resources[0].GUID
+}
+
 func createPackage(appGUID string) string {
 	var pkg resource
 	resp, err := adminClient.R().
@@ -532,10 +546,26 @@ func createBuild(packageGUID string) string {
 	return build.GUID
 }
 
+func waitForDroplet(buildGUID string) {
+	Eventually(func() (int, error) {
+		resp, err := adminClient.R().
+			Get("/v3/droplets/" + buildGUID)
+		return resp.StatusCode(), err
+	}).Should(Equal(http.StatusOK))
+}
+
 func setCurrentDroplet(appGUID, dropletGUID string) {
 	resp, err := adminClient.R().
 		SetBody(dropletResource{Data: resource{GUID: dropletGUID}}).
 		Patch("/v3/apps/" + appGUID + "/relationships/current_droplet")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+}
+
+func startApp(appGUID string) {
+	resp, err := adminClient.R().
+		Post("/v3/apps/" + appGUID + "/actions/start")
 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
@@ -548,6 +578,19 @@ func uploadNodeApp(pkgGUID string) {
 		}).Post("/v3/packages/" + pkgGUID + "/upload")
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+}
+
+// pushNodeApp creates a running node app in the given space
+func pushNodeApp(spaceGUID string) string {
+	appGUID := createApp(spaceGUID, generateGUID("app"))
+	pkgGUID := createPackage(appGUID)
+	uploadNodeApp(pkgGUID)
+	buildGUID := createBuild(pkgGUID)
+	waitForDroplet(buildGUID)
+	setCurrentDroplet(appGUID, buildGUID)
+	startApp(appGUID)
+
+	return appGUID
 }
 
 func waitForAdminRoleBinding(namespace string) error {

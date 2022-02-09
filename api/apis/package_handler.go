@@ -183,7 +183,7 @@ func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http
 	if err != nil {
 		switch err.(type) {
 		case repositories.ForbiddenError:
-			h.logger.Error(err, "Not authorized to create packages", "App Name", payload.Relationships.App)
+			h.logger.Info("Not authorized to create packages", "App Name", payload.Relationships.App, "error", err)
 			writeNotAuthorizedErrorResponse(w)
 		default:
 			h.logger.Info("Error creating package with repository", "error", err.Error())

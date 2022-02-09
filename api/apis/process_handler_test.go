@@ -239,37 +239,45 @@ var _ = Describe("ProcessHandler", func() {
 			})
 		})
 
-		When("on the sad path and", func() {
-			When("the process doesn't exist", func() {
-				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
-				})
-
-				It("returns an error", func() {
-					expectNotFoundError("Process not found")
-				})
+		When("the process doesn't exist", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
 			})
 
-			When("there is some other error fetching the process", func() {
-				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
-				})
+			It("returns an error", func() {
+				expectNotFoundError("Process not found")
+			})
+		})
 
-				It("returns an error", func() {
-					expectUnknownError()
-				})
+		When("the process isn't accessible to the user", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.ForbiddenError{})
 			})
 
-			When("the authorization.Info is not set in the request context", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequest("GET", "/v3/processes/"+processGUID, nil)
-					Expect(err).NotTo(HaveOccurred())
-				})
+			It("returns an error", func() {
+				expectNotFoundError("Process not found")
+			})
+		})
 
-				It("returns an unknown error", func() {
-					expectUnknownError()
-				})
+		When("there is some other error fetching the process", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the authorization.Info is not set in the request context", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequest("GET", "/v3/processes/"+processGUID, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -533,7 +541,7 @@ var _ = Describe("ProcessHandler", func() {
 		When("validating scale parameters", func() {
 			DescribeTable("returns a validation decision",
 				func(requestBody string, status int) {
-					var tableTestRecorder *httptest.ResponseRecorder = httptest.NewRecorder()
+					tableTestRecorder := httptest.NewRecorder()
 					queuePostRequest(requestBody)
 					router.ServeHTTP(tableTestRecorder, req)
 					Expect(tableTestRecorder.Code).To(Equal(status))
