@@ -297,11 +297,9 @@ var _ = Describe("RouteRepository", func() {
 
 			When("filters are not provided", func() {
 				It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-					var routeRecords []RouteRecord
-					Eventually(func() []RouteRecord {
-						routeRecords, _ = routeRepo.ListRoutes(testCtx, authInfo, ListRoutesMessage{})
-						return routeRecords
-					}, timeCheckThreshold*time.Second).Should(ContainElements(
+					routeRecords, err := routeRepo.ListRoutes(testCtx, authInfo, ListRoutesMessage{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(routeRecords).To(ContainElements(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute1.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute2.Name)}),
 					))
@@ -331,7 +329,9 @@ var _ = Describe("RouteRepository", func() {
 
 				JustBeforeEach(func() {
 					Eventually(func() []RouteRecord {
-						routeRecords, _ = routeRepo.ListRoutes(testCtx, authInfo, message)
+						var err error
+						routeRecords, err = routeRepo.ListRoutes(testCtx, authInfo, message)
+						Expect(err).NotTo(HaveOccurred())
 						return routeRecords
 					}, timeCheckThreshold*time.Second).ShouldNot(BeEmpty())
 				})
@@ -494,7 +494,9 @@ var _ = Describe("RouteRepository", func() {
 			It("eventually returns a list of routeRecords for each CFRoute CR", func() {
 				var routeRecords []RouteRecord
 				Eventually(func() int {
-					routeRecords, _ = routeRepo.ListRoutesForApp(testCtx, authInfo, appGUID, testNamespace)
+					var err error
+					routeRecords, err = routeRepo.ListRoutesForApp(testCtx, authInfo, appGUID, testNamespace)
+					Expect(err).NotTo(HaveOccurred())
 					return len(routeRecords)
 				}, timeCheckThreshold*time.Second).Should(Equal(1), "returned records count should equal number of created CRs with destinations to the App")
 
@@ -662,9 +664,6 @@ var _ = Describe("RouteRepository", func() {
 			Expect(
 				k8sClient.Create(testCtx, cfRoute1),
 			).To(Succeed())
-			DeferCleanup(func() {
-				_ = k8sClient.Delete(context.Background(), cfRoute1)
-			})
 		})
 
 		When("the user has permission to delete routes and", func() {
@@ -690,6 +689,10 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			When("the route doesn't exist", func() {
+				AfterEach(func() {
+					Expect(k8sClient.Delete(context.Background(), cfRoute1)).To(Succeed())
+				})
+
 				It("errors", func() {
 					err := routeRepo.DeleteRoute(testCtx, authInfo, DeleteRouteMessage{
 						GUID:      "i-don't-exist",
@@ -701,6 +704,10 @@ var _ = Describe("RouteRepository", func() {
 		})
 
 		When("the user does not have permission to delete route and", func() {
+			AfterEach(func() {
+				Expect(k8sClient.Delete(context.Background(), cfRoute1)).To(Succeed())
+			})
+
 			It("errors with forbidden", func() {
 				err := routeRepo.DeleteRoute(testCtx, authInfo, DeleteRouteMessage{
 					GUID:      route1GUID,
@@ -747,9 +754,12 @@ var _ = Describe("RouteRepository", func() {
 			}
 			err := k8sClient.Create(context.Background(), cfDomain)
 			Expect(err).NotTo(HaveOccurred())
-			DeferCleanup(func() { _ = cleanupDomain(k8sClient, testCtx, domainGUID) })
 
 			createRouteMessage = buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, testNamespace)
+		})
+
+		AfterEach(func() {
+			Expect(cleanupDomain(k8sClient, testCtx, domainGUID)).To(Succeed())
 		})
 
 		When("route does not already exist", func() {
@@ -799,9 +809,10 @@ var _ = Describe("RouteRepository", func() {
 				var err error
 				existingRecord, err = routeRepo.CreateRoute(testCtx, authInfo, createRouteMessage)
 				Expect(err).NotTo(HaveOccurred())
-				DeferCleanup(func() {
-					_ = cleanupRoute(k8sClient, testCtx, existingRecord.GUID, existingRecord.SpaceGUID)
-				})
+			})
+
+			AfterEach(func() {
+				Expect(cleanupRoute(k8sClient, testCtx, existingRecord.GUID, existingRecord.SpaceGUID)).To(Succeed())
 			})
 
 			It("doesn't create a new route", func() {
@@ -855,9 +866,6 @@ var _ = Describe("RouteRepository", func() {
 			Expect(
 				k8sClient.Create(testCtx, namespace),
 			).To(Succeed())
-			DeferCleanup(func() {
-				_ = k8sClient.Delete(testCtx, namespace)
-			})
 
 			cfDomain := &networkingv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{Name: domainGUID},
@@ -866,17 +874,22 @@ var _ = Describe("RouteRepository", func() {
 				k8sClient.Create(testCtx, cfDomain),
 			).To(Succeed())
 			DeferCleanup(func() {
-				_ = cleanupDomain(k8sClient, testCtx, domainGUID)
 			})
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.Delete(testCtx, namespace)).To(Succeed())
+			Expect(cleanupDomain(k8sClient, testCtx, domainGUID)).To(Succeed())
 		})
 
 		When("the route exists with no destinations", func() {
 			BeforeEach(func() {
 				cfRoute := initializeRouteCR(testRouteHost, testRoutePath, route1GUID, domainGUID, testNamespace)
 				Expect(k8sClient.Create(testCtx, cfRoute)).To(Succeed())
-				DeferCleanup(func() {
-					_ = cleanupRoute(k8sClient, testCtx, route1GUID, testNamespace)
-				})
+			})
+
+			AfterEach(func() {
+				Expect(cleanupRoute(k8sClient, testCtx, route1GUID, testNamespace)).To(Succeed())
 			})
 
 			When("route is updated to add new destinations", func() {
@@ -1023,9 +1036,10 @@ var _ = Describe("RouteRepository", func() {
 
 				cfRoute.Spec.Destinations = []networkingv1alpha1.Destination{routeDestination}
 				Expect(k8sClient.Create(testCtx, cfRoute)).To(Succeed())
-				DeferCleanup(func() {
-					_ = cleanupRoute(k8sClient, testCtx, route1GUID, testNamespace)
-				})
+			})
+
+			AfterEach(func() {
+				Expect(cleanupRoute(k8sClient, testCtx, route1GUID, testNamespace)).To(Succeed())
 			})
 
 			When("the destinations are all new", func() {

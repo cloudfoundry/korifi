@@ -28,9 +28,10 @@ var _ = Describe("CFAppReconciler", func() {
 	BeforeEach(func() {
 		namespaceGUID = GenerateGUID()
 		ns = createNamespace(context.Background(), k8sClient, namespaceGUID)
-		DeferCleanup(func() {
-			_ = k8sClient.Delete(context.Background(), ns)
-		})
+	})
+
+	AfterEach(func() {
+		Expect(k8sClient.Delete(context.Background(), ns)).To(Succeed())
 	})
 
 	When("a new CFApp resource is created", func() {

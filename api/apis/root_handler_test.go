@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	. "github.com/onsi/ginkgo/v2"
@@ -20,7 +18,6 @@ var _ = Describe("RootHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			apiHandler := apis.NewRootHandler(
-				logf.Log.WithName("TestRootHandler"),
 				defaultServerURL,
 			)
 			apiHandler.RegisterRoutes(router)

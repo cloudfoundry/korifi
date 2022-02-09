@@ -1031,13 +1031,6 @@ var _ = Describe("AppRepository", func() {
 				cfApp1 = createApp(space1.Name)
 				cfApp2 = createApp(space2.Name)
 
-				DeferCleanup(func() {
-					_ = k8sClient.Delete(context.Background(), cfApp1)
-				})
-				DeferCleanup(func() {
-					_ = k8sClient.Delete(context.Background(), cfApp2)
-				})
-
 				envVars = map[string]string{
 					"RAILS_ENV": "production",
 					"LUNCHTIME": "12:00",
@@ -1056,6 +1049,11 @@ var _ = Describe("AppRepository", func() {
 				).To(Succeed())
 
 				appRepo = NewAppRepo(k8sClient, userClientFactory, nsPerms)
+			})
+
+			AfterEach(func() {
+				Expect(k8sClient.Delete(context.Background(), cfApp1)).To(Succeed())
+				Expect(k8sClient.Delete(context.Background(), cfApp2)).To(Succeed())
 			})
 
 			When("the user can read secrets in the space", func() {

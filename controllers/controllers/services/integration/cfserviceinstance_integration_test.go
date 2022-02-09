@@ -24,9 +24,10 @@ var _ = Describe("CFServiceInstance", func() {
 		Expect(
 			k8sClient.Create(context.Background(), namespace),
 		).To(Succeed())
-		DeferCleanup(func() {
-			_ = k8sClient.Delete(context.Background(), namespace)
-		})
+	})
+
+	AfterEach(func() {
+		Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 	})
 
 	When("a new CFServiceInstance is Created", func() {
