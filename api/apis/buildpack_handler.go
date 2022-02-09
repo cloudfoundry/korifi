@@ -86,11 +86,7 @@ func (h *BuildpackHandler) buildpackListHandler(authInfo authorization.Info, w h
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForBuildpackList(buildpacks, h.serverURL, *r.URL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForBuildpackList(buildpacks, h.serverURL, *r.URL))
 }
 
 func (h *BuildpackHandler) RegisterRoutes(router *mux.Router) {

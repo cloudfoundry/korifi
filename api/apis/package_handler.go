@@ -98,11 +98,7 @@ func (h PackageHandler) packageGetHandler(authInfo authorization.Info, w http.Re
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForPackage(record, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Info("Error encoding JSON response", "error", err.Error())
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForPackage(record, h.serverURL))
 }
 
 func (h PackageHandler) packageListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -146,11 +142,7 @@ func (h PackageHandler) packageListHandler(authInfo authorization.Info, w http.R
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForPackageList(records, h.serverURL, *r.URL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Error encoding JSON response", "error")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForPackageList(records, h.serverURL, *r.URL))
 }
 
 func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -192,11 +184,7 @@ func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForPackage(record, h.serverURL), http.StatusCreated)
-	if err != nil { // untested
-		h.logger.Info("Error encoding JSON response", "error", err.Error())
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusCreated, presenter.ForPackage(record, h.serverURL))
 }
 
 func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -272,11 +260,7 @@ func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, w http
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForPackage(record, h.serverURL), http.StatusOK)
-	if err != nil { // untested
-		h.logger.Info("Error encoding JSON response", "error", err.Error())
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForPackage(record, h.serverURL))
 }
 
 func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -335,11 +319,7 @@ func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, 
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForDropletList(dropletList, h.serverURL, *r.URL), http.StatusOK)
-	if err != nil { // Untested
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForDropletList(dropletList, h.serverURL, *r.URL))
 }
 
 func (h *PackageHandler) RegisterRoutes(router *mux.Router) {

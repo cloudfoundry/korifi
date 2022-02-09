@@ -63,11 +63,7 @@ func (h *BuildHandler) buildGetHandler(authInfo authorization.Info, w http.Respo
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForBuild(build, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "BuildGUID", buildGUID)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForBuild(build, h.serverURL))
 }
 
 func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -111,11 +107,7 @@ func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, w http.Re
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForBuild(record, h.serverURL), http.StatusCreated)
-	if err != nil { // untested
-		h.logger.Info("Error encoding JSON response", "error", err.Error())
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusCreated, presenter.ForBuild(record, h.serverURL))
 }
 
 func (h *BuildHandler) RegisterRoutes(router *mux.Router) {

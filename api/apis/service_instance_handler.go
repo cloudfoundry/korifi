@@ -109,12 +109,7 @@ func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authoriza
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForServiceInstance(serviceInstanceRecord, h.serverURL), http.StatusCreated)
-	if err != nil {
-		// untested
-		h.logger.Error(err, "Failed to render response", "ServiceInstance Name", payload.Name)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusCreated, presenter.ForServiceInstance(serviceInstanceRecord, h.serverURL))
 }
 
 func (h *ServiceInstanceHandler) serviceInstanceListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -178,12 +173,7 @@ func (h *ServiceInstanceHandler) serviceInstanceListHandler(authInfo authorizati
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForServiceInstanceList(serviceInstanceList, h.serverURL, *r.URL), http.StatusOK)
-	if err != nil {
-		// untested
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForServiceInstanceList(serviceInstanceList, h.serverURL, *r.URL))
 }
 
 func (h *ServiceInstanceHandler) RegisterRoutes(router *mux.Router) {
