@@ -97,7 +97,7 @@ func main() {
 
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout, config.AuthEnabled)
 	appRepo := repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions)
-	processRepo := repositories.NewProcessRepo(privilegedCRClient)
+	processRepo := repositories.NewProcessRepo(privilegedCRClient, userClientFactory)
 	podRepo := repositories.NewPodRepo(privilegedCRClient)
 	dropletRepo := repositories.NewDropletRepo(privilegedCRClient, userClientFactory)
 	routeRepo := repositories.NewRouteRepo(privilegedCRClient, userClientFactory)

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 
@@ -18,12 +20,16 @@ import (
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfprocesses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfprocesses/status,verbs=get
 
-func NewProcessRepo(privilegedClient client.Client) *ProcessRepo {
-	return &ProcessRepo{privilegedClient: privilegedClient}
+func NewProcessRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *ProcessRepo {
+	return &ProcessRepo{
+		privilegedClient: privilegedClient,
+		clientFactory:    userClientFactory,
+	}
 }
 
 type ProcessRepo struct {
 	privilegedClient client.Client
+	clientFactory    UserK8sClientFactory
 }
 
 type ProcessRecord struct {
@@ -99,10 +105,33 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	processList := &workloadsv1alpha1.CFProcessList{}
 	err := r.privilegedClient.List(ctx, processList, client.MatchingFields{"metadata.name": processGUID})
-	if err != nil { // untested
-		return ProcessRecord{}, err
+	if err != nil {
+		return ProcessRecord{}, fmt.Errorf("get-process: privileged client list failed: %w", err)
 	}
-	return returnProcess(processList.Items)
+
+	if len(processList.Items) == 0 {
+		return ProcessRecord{}, NotFoundError{ResourceType: "Process"}
+	}
+	if len(processList.Items) > 1 {
+		return ProcessRecord{}, errors.New("duplicate processes exist")
+	}
+
+	userClient, err := r.clientFactory.BuildClient(authInfo)
+	if err != nil {
+		return ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
+	}
+
+	var process workloadsv1alpha1.CFProcess
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: processList.Items[0].Namespace, Name: processList.Items[0].Name}, &process)
+	if err != nil {
+		if k8serrors.IsForbidden(err) {
+			return ProcessRecord{}, NewForbiddenError(err)
+		}
+
+		return ProcessRecord{}, fmt.Errorf("get-process: failed to get process with user client: %w", err)
+	}
+
+	return cfProcessToProcessRecord(process), nil
 }
 
 func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.Info, message ListProcessesMessage) ([]ProcessRecord, error) {

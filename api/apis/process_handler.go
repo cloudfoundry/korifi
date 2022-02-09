@@ -98,7 +98,17 @@ func (h *ProcessHandler) processGetSidecarsHandler(authInfo authorization.Info, 
 
 	_, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		h.logError(w, processGUID, err)
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("process not found", "ProcessGUID", processGUID)
+			writeNotFoundErrorResponse(w, "Process")
+		case repositories.ForbiddenError:
+			h.logger.Info("process not accessible to user", "ProcessGUID", processGUID)
+			writeNotFoundErrorResponse(w, "Process")
+		default:
+			h.logger.Error(err, "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
+			writeUnknownErrorResponse(w)
+		}
 		return
 	}
 

@@ -188,12 +188,7 @@ var _ = Describe("Apps", func() {
 			pkgGUID = createPackage(appGUID)
 			uploadNodeApp(pkgGUID)
 			buildGUID = createBuild(pkgGUID)
-
-			Eventually(func() (int, error) {
-				var err error
-				resp, err = adminClient.R().Get("/v3/droplets/" + buildGUID)
-				return resp.StatusCode(), err
-			}).Should(Equal(http.StatusOK))
+			waitForDroplet(buildGUID)
 
 			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
 		})

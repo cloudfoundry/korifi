@@ -27,6 +27,13 @@ rules:
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
+  - cfprocesses
+  verbs:
+  - get
+
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
   - cfpackages
   verbs:
   - get

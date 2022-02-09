@@ -36,4 +36,12 @@ if [[ -z "$NON_RECURSIVE_TEST" ]]; then
   extra_args+=("-r")
 fi
 
+if [[ -n "$UNTIL_IT_FAILS" ]]; then
+  extra_args+=("--until-it-fails")
+fi
+
+if [[ -n "$SEED" ]]; then
+  extra_args+=("--seed=${SEED}")
+fi
+
 ginkgo --race -p --randomize-all --randomize-suites "${extra_args[@]}" $@
