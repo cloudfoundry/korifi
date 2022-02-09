@@ -29,6 +29,7 @@ const (
 	AppSetCurrentDropletEndpoint = "/v3/apps/{guid}/relationships/current_droplet"
 	AppGetCurrentDropletEndpoint = "/v3/apps/{guid}/droplets/current"
 	AppGetProcessesEndpoint      = "/v3/apps/{guid}/processes"
+	AppGetProcessByTypeEndpoint  = "/v3/apps/{guid}/processes/{type}"
 	AppProcessScaleEndpoint      = "/v3/apps/{guid}/processes/{processType}/actions/scale"
 	AppGetRoutesEndpoint         = "/v3/apps/{guid}/routes"
 	AppStartEndpoint             = "/v3/apps/{guid}/actions/start"
@@ -608,6 +609,42 @@ func (h *AppHandler) appGetEnvHandler(authInfo authorization.Info, w http.Respon
 	writeResponse(w, http.StatusOK, presenter.ForAppEnv(envVars))
 }
 
+func (h *AppHandler) getProcessByTypeForAppHander(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+	processType := vars["type"]
+
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
+	if err != nil {
+		h.handleGetAppErr(err, w, appGUID)
+		return
+	}
+
+	process, err := h.processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, appGUID, processType, app.SpaceGUID)
+	if err != nil {
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("Process not found", "AppGUID", appGUID)
+			writeNotFoundErrorResponse(w, "Process")
+		case repositories.ForbiddenError:
+			h.logger.Info("Process forbidden", "AppGUID", appGUID)
+			writeNotAuthorizedErrorResponse(w)
+		default:
+			h.logger.Error(err, "Failed to fetch process from Kubernetes", "AppGUID", appGUID)
+			writeUnknownErrorResponse(w)
+		}
+	}
+
+	err = writeJsonResponse(w, presenter.ForProcess(process, h.serverURL), http.StatusOK)
+	if err != nil { // untested
+		h.logger.Error(err, "Failed to render response")
+		writeUnknownErrorResponse(w)
+	}
+}
+
 func (h *AppHandler) handleGetAppErr(err error, w http.ResponseWriter, appGUID string) {
 	switch err.(type) {
 	case repositories.NotFoundError:
@@ -615,7 +652,7 @@ func (h *AppHandler) handleGetAppErr(err error, w http.ResponseWriter, appGUID s
 		writeNotFoundErrorResponse(w, "App")
 	case repositories.ForbiddenError:
 		h.logger.Info("App forbidden", "AppGUID", appGUID)
-		writeNotFoundErrorResponse(w, "App")
+		writeNotAuthorizedErrorResponse(w)
 	default:
 		h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
@@ -634,6 +671,7 @@ func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(AppRestartEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appRestartHandler))
 	router.Path(AppProcessScaleEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appScaleProcessHandler))
 	router.Path(AppGetProcessesEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.getProcessesForAppHandler))
+	router.Path(AppGetProcessByTypeEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.getProcessByTypeForAppHander))
 	router.Path(AppGetRoutesEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.getRoutesForAppHandler))
 	router.Path(AppDeleteEndpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.appDeleteHandler))
 	router.Path(AppPatchEnvVarsEndpoint).Methods("PATCH").HandlerFunc(w.Wrap(h.appPatchEnvVarsHandler))

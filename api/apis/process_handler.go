@@ -29,6 +29,7 @@ const (
 type CFProcessRepository interface {
 	GetProcess(context.Context, authorization.Info, string) (repositories.ProcessRecord, error)
 	ListProcesses(context.Context, authorization.Info, repositories.ListProcessesMessage) ([]repositories.ProcessRecord, error)
+	GetProcessByAppTypeAndSpace(context.Context, authorization.Info, string, string, string) (repositories.ProcessRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name PodRepository . PodRepository

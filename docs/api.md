@@ -94,7 +94,8 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 | List App Routes                     | GET /v3/apps/\<guid>/routes                                                                             |
 | Delete App                          | [DELETE /v3/apps/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#delete-an-app) |
  | Get App Env                         | GET /v3/apps/\<guid>/env                                                                            |
-| Update App's Environment Variables  | PATCH /v3/apps/\<guid>/environment_variables                                                            |
+| Update App's Environment Variables  | PATCH /v3/apps/\<guid>/environment_variables    
+| Get App Processes by Type           | [GET /v3/apps/\<guid>/processes/\<web>](https://v3-apidocs.cloudfoundry.org/version/3.113.0/#get-a-process) 
 
 #### [List Apps](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-apps)
 **Query Parameters:** Currently supports filtering by app `names` and `space_guids` and ordering by `name`.
