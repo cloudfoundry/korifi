@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 )
 
@@ -13,11 +12,10 @@ const (
 )
 
 type RootHandler struct {
-	logger    logr.Logger
 	serverURL string
 }
 
-func NewRootHandler(logger logr.Logger, serverURL string) *RootHandler {
+func NewRootHandler(serverURL string) *RootHandler {
 	return &RootHandler{serverURL: serverURL}
 }
 
