@@ -4,6 +4,10 @@ import (
 	"context"
 	"time"
 
+	. "github.com/onsi/gomega/gstruct"
+
+	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
 
@@ -37,22 +41,34 @@ var _ = Describe("CFBuildReconciler", func() {
 		)
 
 		BeforeEach(func() {
-			namespaceGUID = GenerateGUID()
-			cfAppGUID = GenerateGUID()
-			cfPackageGUID = GenerateGUID()
-			cfBuildGUID = GenerateGUID()
-
 			beforeCtx := context.Background()
 
+			namespaceGUID = GenerateGUID()
 			newNamespace = BuildNamespaceObject(namespaceGUID)
-			Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
+			Expect(
+				k8sClient.Create(beforeCtx, newNamespace),
+			).To(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(context.Background(), newNamespace) //nolint
+			})
 
+			cfAppGUID = GenerateGUID()
 			desiredCFApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
-			Expect(k8sClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
+			Expect(
+				k8sClient.Create(beforeCtx, desiredCFApp),
+			).To(Succeed())
 
+			cfPackageGUID = GenerateGUID()
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
-			Expect(k8sClient.Create(beforeCtx, desiredCFPackage)).To(Succeed())
+			Expect(
+				k8sClient.Create(beforeCtx, desiredCFPackage),
+			).To(Succeed())
+		})
 
+		JustBeforeEach(func() {
+			beforeCtx := context.Background()
+
+			cfBuildGUID = GenerateGUID()
 			desiredCFBuild = &workloadsv1alpha1.CFBuild{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfBuildGUID,
@@ -76,15 +92,9 @@ var _ = Describe("CFBuildReconciler", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(beforeCtx, desiredCFBuild)).To(Succeed())
-		})
-
-		AfterEach(func() {
-			afterCtx := context.Background()
-			Expect(k8sClient.Delete(afterCtx, desiredCFApp)).To(Succeed())
-			Expect(k8sClient.Delete(afterCtx, desiredCFPackage)).To(Succeed())
-			Expect(k8sClient.Delete(afterCtx, desiredCFBuild)).To(Succeed())
-			Expect(k8sClient.Delete(afterCtx, newNamespace)).To(Succeed())
+			Expect(
+				k8sClient.Create(beforeCtx, desiredCFBuild),
+			).To(Succeed())
 		})
 
 		It("eventually reconciles to set the owner reference on the CFBuild", func() {
@@ -136,6 +146,164 @@ var _ = Describe("CFBuildReconciler", func() {
 					return createdCFBuild.Status.Conditions
 				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFBuild status conditions were empty")
 			})
+		})
+
+		When("the referenced app has a ServiceBinding and Secret", func() {
+			var (
+				secret1          *corev1.Secret
+				secret2          *corev1.Secret
+				serviceInstance1 *servicesv1alpha1.CFServiceInstance
+				serviceInstance2 *servicesv1alpha1.CFServiceInstance
+				serviceBinding1  *servicesv1alpha1.CFServiceBinding
+				serviceBinding2  *servicesv1alpha1.CFServiceBinding
+			)
+
+			BeforeEach(func() {
+				ctx := context.Background()
+
+				secret1Data := map[string]string{
+					"foo": "bar",
+				}
+				secret1 = &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "secret1",
+						Namespace: newNamespace.Name,
+					},
+					StringData: secret1Data,
+				}
+				Expect(
+					k8sClient.Create(ctx, secret1),
+				).To(Succeed())
+
+				serviceInstance1 = &servicesv1alpha1.CFServiceInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service-instance-1-guid",
+						Namespace: newNamespace.Name,
+					},
+					Spec: servicesv1alpha1.CFServiceInstanceSpec{
+						Name:       "service-instance-1-name",
+						SecretName: secret1.Name,
+						Type:       "user-provided",
+						Tags: []string{
+							"tag1",
+							"tag2",
+						},
+					},
+				}
+				Expect(
+					k8sClient.Create(ctx, serviceInstance1),
+				).To(Succeed())
+
+				serviceBinding1 = &servicesv1alpha1.CFServiceBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service-binding-1-guid",
+						Namespace: newNamespace.Name,
+						Labels: map[string]string{
+							workloadsv1alpha1.CFAppGUIDLabelKey: desiredCFApp.Name,
+						},
+					},
+					Spec: servicesv1alpha1.CFServiceBindingSpec{
+						Name: "service-binding-1-name",
+						Service: corev1.ObjectReference{
+							Kind:       "ServiceInstance",
+							Name:       serviceInstance1.Name,
+							APIVersion: "services.cloudfoundry.org/v1alpha1",
+						},
+						SecretName: secret1.Name,
+						AppRef: corev1.LocalObjectReference{
+							Name: desiredCFApp.Name,
+						},
+					},
+				}
+				Expect(
+					k8sClient.Create(ctx, serviceBinding1),
+				).To(Succeed())
+
+				secret2Data := map[string]string{
+					"key1": "value1",
+					"key2": "value2",
+				}
+				secret2 = &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "secret2",
+						Namespace: newNamespace.Name,
+					},
+					StringData: secret2Data,
+				}
+				Expect(
+					k8sClient.Create(ctx, secret2),
+				).To(Succeed())
+
+				serviceInstance2 = &servicesv1alpha1.CFServiceInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service-instance-2-guid",
+						Namespace: newNamespace.Name,
+					},
+					Spec: servicesv1alpha1.CFServiceInstanceSpec{
+						Name:       "service-instance-2-name",
+						SecretName: secret2.Name,
+						Type:       "user-provided",
+						Tags:       []string{},
+					},
+				}
+				Expect(
+					k8sClient.Create(ctx, serviceInstance2),
+				).To(Succeed())
+
+				serviceBinding2 = &servicesv1alpha1.CFServiceBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service-binding-2-guid",
+						Namespace: newNamespace.Name,
+						Labels: map[string]string{
+							workloadsv1alpha1.CFAppGUIDLabelKey: desiredCFApp.Name,
+						},
+					},
+					Spec: servicesv1alpha1.CFServiceBindingSpec{
+						Name: "",
+						Service: corev1.ObjectReference{
+							Kind:       "ServiceInstance",
+							Name:       serviceInstance2.Name,
+							APIVersion: "services.cloudfoundry.org/v1alpha1",
+						},
+						SecretName: secret2.Name,
+						AppRef: corev1.LocalObjectReference{
+							Name: desiredCFApp.Name,
+						},
+					},
+				}
+				Expect(
+					k8sClient.Create(ctx, serviceBinding2),
+				).To(Succeed())
+
+				// sleep to encourage the CFBuildController cache to have the secrets around before the CFBuild is created
+				time.Sleep(time.Millisecond * 50)
+			})
+
+			It("eventually creates a kpack image with the underlying secret mapped onto it", func() {
+				testCtx := context.Background()
+				createdKpackImage := new(buildv1alpha2.Image)
+				Eventually(func() int {
+					err := k8sClient.Get(testCtx, types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, createdKpackImage)
+					if err != nil || createdKpackImage.Spec.Build == nil {
+						return 0
+					}
+					return len(createdKpackImage.Spec.Build.Services)
+				}, 10*time.Second, 250*time.Millisecond).Should(Equal(2), "ServiceBinding Secrets did not show up on kpack image")
+
+				Expect(createdKpackImage.Spec.Build.Services).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Name":       Equal(secret1.Name),
+						"Kind":       Equal("Secret"),
+						"APIVersion": Equal("v1"),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name":       Equal(secret2.Name),
+						"Kind":       Equal("Secret"),
+						"APIVersion": Equal("v1"),
+					}),
+				))
+			})
+
 		})
 
 		When("kpack image with CFBuild GUID already exists", func() {

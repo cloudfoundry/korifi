@@ -4,20 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	corev1 "k8s.io/api/core/v1"
-
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
-	"github.com/google/uuid"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"github.com/google/uuid"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 //+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfserviceinstances,verbs=list;create
@@ -88,6 +84,10 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 	secretObj := cfServiceInstanceToSecret(cfServiceInstance)
 	_, err = controllerutil.CreateOrPatch(ctx, userClient, &secretObj, func() error {
 		secretObj.StringData = message.Credentials
+		if secretObj.StringData == nil {
+			secretObj.StringData = map[string]string{}
+		}
+		secretObj.StringData["type"] = servicesv1alpha1.UserProvidedType
 		return nil
 	})
 	if err != nil {
