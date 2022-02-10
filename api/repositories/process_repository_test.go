@@ -4,13 +4,12 @@ import (
 	"context"
 	"time"
 
-	. "github.com/onsi/gomega/gstruct"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,6 +56,12 @@ var _ = Describe("ProcessRepo", func() {
 
 		JustBeforeEach(func() {
 			processRecord, getErr = processRepo.GetProcess(ctx, authInfo, getProcessGUID)
+		})
+
+		When("the user is not authorized in the space", func() {
+			It("returns a forbidden error", func() {
+				Expect(getErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+			})
 		})
 
 		When("the user has permission to get the process", func() {
@@ -107,36 +112,38 @@ var _ = Describe("ProcessRepo", func() {
 				cfProcess2 *workloadsv1alpha1.CFProcess
 			)
 
-			BeforeEach(func() {
-				app2GUID = prefixedGUID("app2")
+			When("duplicate Processes exist across namespaces with the same GUIDs", func() {
+				BeforeEach(func() {
+					app2GUID = prefixedGUID("app2")
 
-				namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: prefixedGUID("namespace2")}}
-				Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
+					namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: prefixedGUID("namespace2")}}
+					Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
 
-				cfProcess2 = initializeProcessCR(process1GUID, namespace2.Name, app2GUID)
-				Expect(k8sClient.Create(context.Background(), cfProcess2)).To(Succeed())
+					cfProcess2 = initializeProcessCR(process1GUID, namespace2.Name, app2GUID)
+					Expect(k8sClient.Create(context.Background(), cfProcess2)).To(Succeed())
+				})
+
+				It("returns an untyped error", func() {
+					Expect(getErr).To(HaveOccurred())
+					Expect(getErr).To(MatchError("duplicate processes exist"))
+				})
 			})
 
-			It("returns an untyped error", func() {
+			When("no matching processes exist", func() {
+				BeforeEach(func() {
+					getProcessGUID = "i don't exist"
+				})
+
+				It("returns a not found error", func() {
+					Expect(getErr).To(HaveOccurred())
+					Expect(getErr).To(MatchError(repositories.NotFoundError{ResourceType: "Process"}))
+				})
+			})
+
+			It("returns a not found error when the user has no permission to see the process", func() {
 				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(MatchError("duplicate processes exist"))
+				Expect(getErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 			})
-		})
-
-		When("no matching processes exist", func() {
-			BeforeEach(func() {
-				getProcessGUID = "i don't exist"
-			})
-
-			It("returns a not found error", func() {
-				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(MatchError(repositories.NotFoundError{ResourceType: "Process"}))
-			})
-		})
-
-		It("returns a not found error when the user has no permission to see the process", func() {
-			Expect(getErr).To(HaveOccurred())
-			Expect(getErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 		})
 	})
 

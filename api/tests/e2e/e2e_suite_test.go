@@ -89,8 +89,8 @@ type packageResource struct {
 }
 
 type buildResource struct {
-	resource
-	Package resource `json:"package"`
+	resource `json:",inline"`
+	Package  resource `json:"package"`
 }
 
 type dropletResource struct {
