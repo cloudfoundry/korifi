@@ -153,11 +153,11 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Scenario: CFBuild newly created and all status conditions are unknown, it
 		// Creates a KpackImage resource to trigger staging.
 		// Updates status on CFBuild -> sets staging to True.
-
-		appServiceBindings, err := r.getAppServiceBindings(ctx, cfApp.Name, cfApp.Namespace)
+		var appServiceBindings []servicesv1alpha1.CFServiceBinding
+		appServiceBindings, err = r.getAppServiceBindings(ctx, cfApp.Name, cfApp.Namespace)
 		if err != nil {
-			// TODO: untested add unit test
-			panic(err)
+			r.Log.Error(err, "Error when listing CFServiceBindings")
+			return ctrl.Result{}, err
 		}
 
 		err = r.createKpackImageAndUpdateStatus(ctx, cfBuild, cfApp, cfPackage, appServiceBindings)
@@ -266,20 +266,18 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 					ImagePullSecrets: cfPackage.Spec.Source.Registry.ImagePullSecrets,
 				},
 			},
+			Build: &buildv1alpha2.ImageBuild{
+				Services: buildv1alpha2.Services{},
+			},
 		},
 	}
-	if len(serviceBindings) > 0 {
-		desiredKpackImage.Spec.Build = &buildv1alpha2.ImageBuild{
-			Services: buildv1alpha2.Services{}, // TODO: fixme
+	for _, serviceBinding := range serviceBindings {
+		objRef := corev1.ObjectReference{
+			Kind:       "Secret",
+			Name:       serviceBinding.Spec.SecretName,
+			APIVersion: "v1",
 		}
-		for _, serviceBinding := range serviceBindings {
-			objRef := corev1.ObjectReference{
-				Kind:       "Secret",
-				Name:       serviceBinding.Spec.SecretName,
-				APIVersion: "v1",
-			}
-			desiredKpackImage.Spec.Build.Services = append(desiredKpackImage.Spec.Build.Services, objRef)
-		}
+		desiredKpackImage.Spec.Build.Services = append(desiredKpackImage.Spec.Build.Services, objRef)
 	}
 
 	err := controllerutil.SetOwnerReference(cfBuild, &desiredKpackImage, r.Scheme)

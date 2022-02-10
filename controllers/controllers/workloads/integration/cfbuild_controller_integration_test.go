@@ -148,7 +148,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			})
 		})
 
-		FWhen("the referenced app has a ServiceBinding and Secret", func() {
+		When("the referenced app has a ServiceBinding and Secret", func() {
 			var (
 				secret1          *corev1.Secret
 				secret2          *corev1.Secret
