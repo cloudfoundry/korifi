@@ -3,7 +3,7 @@ package apis
 import (
 	"context"
 	"errors"
-	"mime/multipart"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -14,7 +14,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 )
@@ -28,6 +27,7 @@ const (
 )
 
 //counterfeiter:generate -o fake -fake-name CFPackageRepository . CFPackageRepository
+//counterfeiter:generate -o fake -fake-name ImageRepository . ImageRepository
 
 type CFPackageRepository interface {
 	GetPackage(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
@@ -36,13 +36,9 @@ type CFPackageRepository interface {
 	UpdatePackageSource(context.Context, authorization.Info, repositories.UpdatePackageSourceMessage) (repositories.PackageRecord, error)
 }
 
-//counterfeiter:generate -o fake -fake-name SourceImageUploader . SourceImageUploader
-
-type SourceImageUploader func(imageRef string, packageSrcFile multipart.File, credentialOption remote.Option) (imageRefWithDigest string, err error)
-
-//counterfeiter:generate -o fake -fake-name RegistryAuthBuilder . RegistryAuthBuilder
-
-type RegistryAuthBuilder func(ctx context.Context) (remote.Option, error)
+type ImageRepository interface {
+	UploadSourceImage(ctx context.Context, authInfo authorization.Info, imageRef string, srcReader io.Reader, spaceGUID string) (imageRefWithDigest string, err error)
+}
 
 type PackageHandler struct {
 	logger             logr.Logger
@@ -50,8 +46,7 @@ type PackageHandler struct {
 	packageRepo        CFPackageRepository
 	appRepo            CFAppRepository
 	dropletRepo        CFDropletRepository
-	uploadSourceImage  SourceImageUploader
-	buildRegistryAuth  RegistryAuthBuilder
+	imageRepo          ImageRepository
 	decoderValidator   *DecoderValidator
 	registryBase       string
 	registrySecretName string
@@ -63,8 +58,7 @@ func NewPackageHandler(
 	packageRepo CFPackageRepository,
 	appRepo CFAppRepository,
 	dropletRepo CFDropletRepository,
-	uploadSourceImage SourceImageUploader,
-	buildRegistryAuth RegistryAuthBuilder,
+	imageRepo ImageRepository,
 	decoderValidator *DecoderValidator,
 	registryBase string,
 	registrySecretName string) *PackageHandler {
@@ -74,8 +68,7 @@ func NewPackageHandler(
 		packageRepo:        packageRepo,
 		appRepo:            appRepo,
 		dropletRepo:        dropletRepo,
-		uploadSourceImage:  uploadSourceImage,
-		buildRegistryAuth:  buildRegistryAuth,
+		imageRepo:          imageRepo,
 		registryBase:       registryBase,
 		registrySecretName: registrySecretName,
 		decoderValidator:   decoderValidator,
@@ -226,17 +219,14 @@ func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, w http
 		return
 	}
 
-	registryAuth, err := h.buildRegistryAuth(r.Context())
-	if err != nil {
-		h.logger.Info("Error calling buildRegistryAuth", "error", err.Error())
-		writeUnknownErrorResponse(w)
-		return
-	}
-
 	imageRef := path.Join(h.registryBase, packageGUID)
-
-	uploadedImageRef, err := h.uploadSourceImage(imageRef, bitsFile, registryAuth)
+	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, imageRef, bitsFile, record.SpaceGUID)
 	if err != nil {
+		if errors.As(err, new(repositories.ForbiddenError)) {
+			h.logger.Info("not authorized to upload source image", "error", err)
+			writeNotAuthorizedErrorResponse(w)
+			return
+		}
 		h.logger.Info("Error calling uploadSourceImage", "error", err.Error())
 		writeUnknownErrorResponse(w)
 		return

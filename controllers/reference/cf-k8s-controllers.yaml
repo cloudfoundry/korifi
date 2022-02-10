@@ -2075,12 +2075,6 @@ rules:
   - get
   - create
 - apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfpackages
-  verbs:
-  - create
-- apiGroups:
   - services.cloudfoundry.org
   resources:
   - cfserviceinstances

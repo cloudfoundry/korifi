@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/pivotal/kpack/pkg/registry"
+	reporegistry "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/registry"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -22,8 +21,6 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
-	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -116,6 +113,14 @@ func main() {
 		),
 		config.RoleMappings,
 	)
+	imageRepo := repositories.NewImageRepository(
+		privilegedK8sClient,
+		userClientFactory,
+		config.RootNamespace,
+		config.PackageRegistrySecretName,
+		reporegistry.NewImageBuilder(),
+		reporegistry.NewImagePusher(remote.Write),
+	)
 
 	scaleProcessAction := actions.NewScaleProcess(processRepo)
 	scaleAppProcessAction := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcessAction.Invoke)
@@ -170,8 +175,7 @@ func main() {
 			packageRepo,
 			appRepo,
 			dropletRepo,
-			repositories.UploadSourceImage,
-			newRegistryAuthBuilder(privilegedK8sClient, config),
+			imageRepo,
 			decoderValidator,
 			config.PackageRegistryBase,
 			config.PackageRegistrySecretName,
@@ -258,24 +262,6 @@ func main() {
 	portString := fmt.Sprintf(":%v", config.ServerPort)
 	log.Println("Listening on ", portString)
 	log.Fatal(http.ListenAndServe(portString, router))
-}
-
-func newRegistryAuthBuilder(privilegedK8sClient k8sclient.Interface, config *config.APIConfig) func(ctx context.Context) (remote.Option, error) {
-	return func(ctx context.Context) (remote.Option, error) {
-		keychainFactory, err := k8sdockercreds.NewSecretKeychainFactory(privilegedK8sClient)
-		if err != nil {
-			return nil, fmt.Errorf("error in k8sdockercreds.NewSecretKeychainFactory: %w", err)
-		}
-		keychain, err := keychainFactory.KeychainForSecretRef(ctx, registry.SecretRef{
-			Namespace:        config.RootNamespace,
-			ImagePullSecrets: []corev1.LocalObjectReference{{Name: config.PackageRegistrySecretName}},
-		})
-		if err != nil {
-			return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", err)
-		}
-
-		return remote.WithAuthFromKeychain(keychain), nil
-	}
 }
 
 func wireIdentityProvider(client client.Client, restConfig *rest.Config) authorization.IdentityProvider {

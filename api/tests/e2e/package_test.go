@@ -23,7 +23,7 @@ var _ = Describe("Package", func() {
 		orgGUID = createOrg(generateGUID("org"))
 		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
 
-		spaceGUID = createSpace(generateGUID("space1"), orgGUID)
+		spaceGUID = createSpace(generateGUID("space"), orgGUID)
 		appGUID = createApp(spaceGUID, generateGUID("app"))
 
 		result = packageResource{}
