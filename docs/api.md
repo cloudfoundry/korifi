@@ -226,6 +226,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#processes
 | Scale Process        | POST /v3/processes/\<guid>/actions/scale |
 | Get Process Stats    | POST /v3/processes/\<guid>/stats         |
 | List Process         | POST /v3/processes                       |
+| Patch Process        | [PATCH /v3/processes/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.113.0/#update-a-process)|
 
 #### [Scaling Processes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#scale-a-process)
 ```bash

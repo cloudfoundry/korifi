@@ -636,13 +636,10 @@ func (h *AppHandler) getProcessByTypeForAppHander(authInfo authorization.Info, w
 			h.logger.Error(err, "Failed to fetch process from Kubernetes", "AppGUID", appGUID)
 			writeUnknownErrorResponse(w)
 		}
+		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForProcess(process, h.serverURL), http.StatusOK)
-	if err != nil { // untested
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForProcess(process, h.serverURL))
 }
 
 func (h *AppHandler) handleGetAppErr(err error, w http.ResponseWriter, appGUID string) {
@@ -652,7 +649,7 @@ func (h *AppHandler) handleGetAppErr(err error, w http.ResponseWriter, appGUID s
 		writeNotFoundErrorResponse(w, "App")
 	case repositories.ForbiddenError:
 		h.logger.Info("App forbidden", "AppGUID", appGUID)
-		writeNotAuthorizedErrorResponse(w)
+		writeNotFoundErrorResponse(w, "App")
 	default:
 		h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)

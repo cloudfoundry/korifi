@@ -71,7 +71,7 @@ type CFProcessRepository struct {
 		result1 []repositories.ProcessRecord
 		result2 error
 	}
-	PatchProcessStub        func(context.Context, authorization.Info, repositories.PatchProcessMessage) error
+	PatchProcessStub        func(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)
 	patchProcessMutex       sync.RWMutex
 	patchProcessArgsForCall []struct {
 		arg1 context.Context
@@ -79,10 +79,12 @@ type CFProcessRepository struct {
 		arg3 repositories.PatchProcessMessage
 	}
 	patchProcessReturns struct {
-		result1 error
+		result1 repositories.ProcessRecord
+		result2 error
 	}
 	patchProcessReturnsOnCall map[int]struct {
-		result1 error
+		result1 repositories.ProcessRecord
+		result2 error
 	}
 	ScaleProcessStub        func(context.Context, authorization.Info, repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)
 	scaleProcessMutex       sync.RWMutex
@@ -366,7 +368,7 @@ func (fake *CFProcessRepository) ListProcessesReturnsOnCall(i int, result1 []rep
 	}{result1, result2}
 }
 
-func (fake *CFProcessRepository) PatchProcess(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchProcessMessage) error {
+func (fake *CFProcessRepository) PatchProcess(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchProcessMessage) (repositories.ProcessRecord, error) {
 	fake.patchProcessMutex.Lock()
 	ret, specificReturn := fake.patchProcessReturnsOnCall[len(fake.patchProcessArgsForCall)]
 	fake.patchProcessArgsForCall = append(fake.patchProcessArgsForCall, struct {
@@ -382,9 +384,9 @@ func (fake *CFProcessRepository) PatchProcess(arg1 context.Context, arg2 authori
 		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *CFProcessRepository) PatchProcessCallCount() int {
@@ -393,7 +395,7 @@ func (fake *CFProcessRepository) PatchProcessCallCount() int {
 	return len(fake.patchProcessArgsForCall)
 }
 
-func (fake *CFProcessRepository) PatchProcessCalls(stub func(context.Context, authorization.Info, repositories.PatchProcessMessage) error) {
+func (fake *CFProcessRepository) PatchProcessCalls(stub func(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)) {
 	fake.patchProcessMutex.Lock()
 	defer fake.patchProcessMutex.Unlock()
 	fake.PatchProcessStub = stub
@@ -406,27 +408,30 @@ func (fake *CFProcessRepository) PatchProcessArgsForCall(i int) (context.Context
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFProcessRepository) PatchProcessReturns(result1 error) {
+func (fake *CFProcessRepository) PatchProcessReturns(result1 repositories.ProcessRecord, result2 error) {
 	fake.patchProcessMutex.Lock()
 	defer fake.patchProcessMutex.Unlock()
 	fake.PatchProcessStub = nil
 	fake.patchProcessReturns = struct {
-		result1 error
-	}{result1}
+		result1 repositories.ProcessRecord
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *CFProcessRepository) PatchProcessReturnsOnCall(i int, result1 error) {
+func (fake *CFProcessRepository) PatchProcessReturnsOnCall(i int, result1 repositories.ProcessRecord, result2 error) {
 	fake.patchProcessMutex.Lock()
 	defer fake.patchProcessMutex.Unlock()
 	fake.PatchProcessStub = nil
 	if fake.patchProcessReturnsOnCall == nil {
 		fake.patchProcessReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 repositories.ProcessRecord
+			result2 error
 		})
 	}
 	fake.patchProcessReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+		result1 repositories.ProcessRecord
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *CFProcessRepository) ScaleProcess(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ScaleProcessMessage) (repositories.ProcessRecord, error) {

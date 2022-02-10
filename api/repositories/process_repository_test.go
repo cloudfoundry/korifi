@@ -483,9 +483,18 @@ var _ = Describe("ProcessRepo", func() {
 				})
 
 				It("updates all fields on the existing CFProcess resource", func() {
-					Expect(
-						processRepo.PatchProcess(ctx, authInfo, message),
-					).To(Succeed())
+					updatedProcessRecord, err := processRepo.PatchProcess(ctx, authInfo, message)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(updatedProcessRecord.GUID).To(Equal(cfProcess.Name))
+					Expect(updatedProcessRecord.SpaceGUID).To(Equal(cfProcess.Namespace))
+					Expect(updatedProcessRecord.Command).To(Equal(*message.Command))
+					Expect(updatedProcessRecord.HealthCheck.Type).To(Equal(*message.HealthCheckType))
+					Expect(updatedProcessRecord.HealthCheck.Data.HTTPEndpoint).To(Equal(*message.HealthCheckHTTPEndpoint))
+					Expect(updatedProcessRecord.HealthCheck.Data.TimeoutSeconds).To(Equal(*message.HealthCheckTimeoutSeconds))
+					Expect(updatedProcessRecord.HealthCheck.Data.InvocationTimeoutSeconds).To(Equal(*message.HealthCheckInvocationTimeoutSeconds))
+					Expect(updatedProcessRecord.DesiredInstances).To(Equal(*message.DesiredInstances))
+					Expect(updatedProcessRecord.MemoryMB).To(Equal(*message.MemoryMB))
+					Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(*message.DiskQuotaMB))
 
 					var process workloadsv1alpha1.CFProcess
 					Eventually(func() workloadsv1alpha1.CFProcessSpec {
@@ -526,9 +535,18 @@ var _ = Describe("ProcessRepo", func() {
 				})
 
 				It("patches only the provided fields on the Process", func() {
-					Expect(
-						processRepo.PatchProcess(ctx, authInfo, message),
-					).To(Succeed())
+					updatedProcessRecord, err := processRepo.PatchProcess(ctx, authInfo, message)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(updatedProcessRecord.GUID).To(Equal(cfProcess.Name))
+					Expect(updatedProcessRecord.SpaceGUID).To(Equal(cfProcess.Namespace))
+					Expect(updatedProcessRecord.Command).To(Equal(*message.Command))
+					Expect(updatedProcessRecord.HealthCheck.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
+					Expect(updatedProcessRecord.HealthCheck.Data.HTTPEndpoint).To(Equal(cfProcess.Spec.HealthCheck.Data.HTTPEndpoint))
+					Expect(updatedProcessRecord.HealthCheck.Data.TimeoutSeconds).To(Equal(*message.HealthCheckTimeoutSeconds))
+					Expect(updatedProcessRecord.HealthCheck.Data.InvocationTimeoutSeconds).To(Equal(cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds))
+					Expect(updatedProcessRecord.DesiredInstances).To(Equal(*message.DesiredInstances))
+					Expect(updatedProcessRecord.MemoryMB).To(Equal(*message.MemoryMB))
+					Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(cfProcess.Spec.DiskQuotaMB))
 
 					var process workloadsv1alpha1.CFProcess
 					Eventually(func() workloadsv1alpha1.CFProcessSpec {
