@@ -1,6 +1,10 @@
 package payloads
 
-import "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+import (
+	"strings"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+)
 
 type ServiceInstanceCreate struct {
 	Name          string                       `json:"name" validate:"required"`
@@ -30,15 +34,18 @@ func (p ServiceInstanceCreate) ToServiceInstanceCreateMessage() repositories.Cre
 type ServiceInstanceList struct {
 	Names      *string `schema:"names"`
 	SpaceGuids *string `schema:"space_guids"`
+	OrderBy    string  `schema:"order_by"`
 }
 
 func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessage {
 	return repositories.ListServiceInstanceMessage{
-		Names:      ParseArrayParam(l.Names),
-		SpaceGuids: ParseArrayParam(l.SpaceGuids),
+		Names:           ParseArrayParam(l.Names),
+		SpaceGuids:      ParseArrayParam(l.SpaceGuids),
+		OrderBy:         strings.TrimPrefix(l.OrderBy, "-"),
+		DescendingOrder: strings.HasPrefix(l.OrderBy, "-"),
 	}
 }
 
 func (l *ServiceInstanceList) SupportedFilterKeys() []string {
-	return []string{"names", "space_guids"}
+	return []string{"names", "space_guids", "fields", "order_by", "per_page"}
 }

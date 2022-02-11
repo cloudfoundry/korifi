@@ -255,6 +255,177 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					))
 				})
 			})
+
+			When("the OrderBy field is set to 'name'", func() {
+				BeforeEach(func() {
+					filters = ListServiceInstanceMessage{
+						SpaceGuids: []string{
+							cfServiceInstance1.Namespace,
+							cfServiceInstance2.Namespace,
+							cfServiceInstance3.Namespace,
+						},
+						OrderBy: "name",
+					}
+				})
+
+				It("eventually returns the ServiceBindings in ascending name order", func() {
+					var serviceInstanceList []ServiceInstanceRecord
+					Eventually(func() []ServiceInstanceRecord {
+						var err error
+						serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
+						Expect(err).NotTo(HaveOccurred())
+						return serviceInstanceList
+					}, timeCheckThreshold*time.Second).Should(HaveLen(3))
+					Expect(serviceInstanceList[0]).To(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}))
+					Expect(serviceInstanceList[1]).To(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}))
+					Expect(serviceInstanceList[2]).To(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}))
+				})
+
+				When("the DescendingOrder field is true", func() {
+					BeforeEach(func() {
+						filters.DescendingOrder = true
+					})
+
+					It("eventually returns the ServiceBindings in descending name order", func() {
+						var serviceInstanceList []ServiceInstanceRecord
+						Eventually(func() []ServiceInstanceRecord {
+							var err error
+							serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
+							Expect(err).NotTo(HaveOccurred())
+							return serviceInstanceList
+						}, timeCheckThreshold*time.Second).Should(HaveLen(3))
+						Expect(serviceInstanceList[0]).To(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}))
+						Expect(serviceInstanceList[1]).To(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}))
+						Expect(serviceInstanceList[2]).To(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}))
+					})
+				})
+			})
+
+			When("the OrderBy field is set to 'created_at'", func() {
+				BeforeEach(func() {
+					filters = ListServiceInstanceMessage{
+						SpaceGuids: []string{
+							cfServiceInstance1.Namespace,
+							cfServiceInstance2.Namespace,
+							cfServiceInstance3.Namespace,
+						},
+						OrderBy: "created_at",
+					}
+					time.Sleep(time.Second)
+					createServiceInstance(space3.Name, "another-service-instance")
+				})
+
+				It("eventually returns the ServiceBindings in ascending creation order", func() {
+					var serviceInstanceList []ServiceInstanceRecord
+					Eventually(func() []ServiceInstanceRecord {
+						var err error
+						serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
+						Expect(err).NotTo(HaveOccurred())
+						return serviceInstanceList
+					}, timeCheckThreshold*time.Second).Should(HaveLen(4))
+					createTime1, err := time.Parse(time.RFC3339, serviceInstanceList[0].CreatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					createTime2, err := time.Parse(time.RFC3339, serviceInstanceList[1].CreatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					createTime3, err := time.Parse(time.RFC3339, serviceInstanceList[2].CreatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					createTime4, err := time.Parse(time.RFC3339, serviceInstanceList[3].CreatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(createTime1).To(BeTemporally("<=", createTime2))
+					Expect(createTime2).To(BeTemporally("<=", createTime3))
+					Expect(createTime3).To(BeTemporally("<=", createTime4))
+				})
+
+				When("the DescendingOrder field is true", func() {
+					BeforeEach(func() {
+						filters.DescendingOrder = true
+					})
+
+					It("eventually returns the ServiceBindings in descending creation order", func() {
+						var serviceInstanceList []ServiceInstanceRecord
+						Eventually(func() []ServiceInstanceRecord {
+							var err error
+							serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
+							Expect(err).NotTo(HaveOccurred())
+							return serviceInstanceList
+						}, timeCheckThreshold*time.Second).Should(HaveLen(4))
+						createTime1, err := time.Parse(time.RFC3339, serviceInstanceList[0].CreatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						createTime2, err := time.Parse(time.RFC3339, serviceInstanceList[1].CreatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						createTime3, err := time.Parse(time.RFC3339, serviceInstanceList[2].CreatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						createTime4, err := time.Parse(time.RFC3339, serviceInstanceList[3].CreatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(createTime1).To(BeTemporally(">=", createTime2))
+						Expect(createTime2).To(BeTemporally(">=", createTime3))
+						Expect(createTime3).To(BeTemporally(">=", createTime4))
+					})
+				})
+			})
+
+			When("the OrderBy field is set to 'updated_at'", func() {
+				BeforeEach(func() {
+					filters = ListServiceInstanceMessage{
+						SpaceGuids: []string{
+							cfServiceInstance1.Namespace,
+							cfServiceInstance2.Namespace,
+							cfServiceInstance3.Namespace,
+						},
+						OrderBy: "updated_at",
+					}
+					time.Sleep(time.Second)
+					createServiceInstance(space3.Name, "another-service-instance")
+				})
+
+				It("eventually returns the ServiceBindings in ascending update order", func() {
+					var serviceInstanceList []ServiceInstanceRecord
+					Eventually(func() []ServiceInstanceRecord {
+						var err error
+						serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
+						Expect(err).NotTo(HaveOccurred())
+						return serviceInstanceList
+					}, timeCheckThreshold*time.Second).Should(HaveLen(4))
+					updateTime1, err := time.Parse(time.RFC3339, serviceInstanceList[0].UpdatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					updateTime2, err := time.Parse(time.RFC3339, serviceInstanceList[1].UpdatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					updateTime3, err := time.Parse(time.RFC3339, serviceInstanceList[2].UpdatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					updateTime4, err := time.Parse(time.RFC3339, serviceInstanceList[3].UpdatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(updateTime1).To(BeTemporally("<=", updateTime2))
+					Expect(updateTime2).To(BeTemporally("<=", updateTime3))
+					Expect(updateTime3).To(BeTemporally("<=", updateTime4))
+				})
+
+				When("the DescendingOrder field is true", func() {
+					BeforeEach(func() {
+						filters.DescendingOrder = true
+					})
+
+					It("eventually returns the ServiceBindings in descending update order", func() {
+						var serviceInstanceList []ServiceInstanceRecord
+						Eventually(func() []ServiceInstanceRecord {
+							var err error
+							serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
+							Expect(err).NotTo(HaveOccurred())
+							return serviceInstanceList
+						}, timeCheckThreshold*time.Second).Should(HaveLen(4))
+						updateTime1, err := time.Parse(time.RFC3339, serviceInstanceList[0].UpdatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						updateTime2, err := time.Parse(time.RFC3339, serviceInstanceList[1].UpdatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						updateTime3, err := time.Parse(time.RFC3339, serviceInstanceList[2].UpdatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						updateTime4, err := time.Parse(time.RFC3339, serviceInstanceList[3].UpdatedAt)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(updateTime1).To(BeTemporally(">=", updateTime2))
+						Expect(updateTime2).To(BeTemporally(">=", updateTime3))
+						Expect(updateTime3).To(BeTemporally(">=", updateTime4))
+					})
+				})
+			})
 		})
 	})
 })
