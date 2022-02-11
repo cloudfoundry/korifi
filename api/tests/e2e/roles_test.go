@@ -49,7 +49,7 @@ var _ = Describe("Roles", func() {
 		})
 
 		It("creates a role binding", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.GUID).ToNot(BeEmpty())
 			Expect(result.Type).To(Equal("organization_manager"))
 			Expect(result.Relationships).To(HaveKey("user"))
@@ -64,7 +64,7 @@ var _ = Describe("Roles", func() {
 			})
 
 			It("returns 403 Forbidden", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
 			})
 		})
 	})
@@ -95,7 +95,7 @@ var _ = Describe("Roles", func() {
 		})
 
 		It("creates a role binding", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.GUID).ToNot(BeEmpty())
 			Expect(result.Type).To(Equal("space_developer"))
 			Expect(result.Relationships).To(HaveKey("user"))
@@ -110,7 +110,7 @@ var _ = Describe("Roles", func() {
 			})
 
 			It("returns 403 Forbidden", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
 			})
 		})
 	})

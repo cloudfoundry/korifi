@@ -48,7 +48,7 @@ var _ = Describe("Builds", func() {
 		})
 
 		It("returns the build", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.GUID).To(Equal(buildGUID))
 		})
 	})
@@ -64,7 +64,7 @@ var _ = Describe("Builds", func() {
 		})
 
 		It("returns the build", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.Package.GUID).To(Equal(pkgGUID))
 		})
 	})

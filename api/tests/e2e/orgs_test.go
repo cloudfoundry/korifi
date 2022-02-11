@@ -45,7 +45,7 @@ var _ = Describe("Orgs", func() {
 		})
 
 		It("succeeds", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.Name).To(Equal(orgName))
 			Expect(result.GUID).NotTo(BeEmpty())
 		})
@@ -62,7 +62,7 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("returns an unprocessable entity error", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 				Expect(resultErr.Errors).To(HaveLen(1))
 				Expect(resultErr.Errors[0].Code).To(BeNumerically("==", 10008))
 				Expect(resultErr.Errors[0].Detail).To(MatchRegexp(fmt.Sprintf(`Organization '%s' already exists.`, orgName)))
@@ -76,7 +76,7 @@ var _ = Describe("Orgs", func() {
 			})
 
 			It("returns a forbidden error", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
 			})
 		})
 	})
@@ -134,7 +134,7 @@ var _ = Describe("Orgs", func() {
 		})
 
 		It("returns orgs that the service account has a role in", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(org1Name)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(org2Name)}),

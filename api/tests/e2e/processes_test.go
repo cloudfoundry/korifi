@@ -61,7 +61,7 @@ var _ = Describe("Processes", func() {
 		})
 
 		It("fails without space permissions", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 			Expect(listErr.Errors).To(HaveLen(1))
 			Expect(listErr.Errors[0].Code).To(Equal(10010))
 			Expect(listErr.Errors[0].Title).To(Equal("CF-ResourceNotFound"))
@@ -74,7 +74,7 @@ var _ = Describe("Processes", func() {
 			})
 
 			It("lists the (empty list of) sidecars", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusOK), string(resp.Body()))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(list.Resources).To(BeEmpty())
 			})
 		})
@@ -90,7 +90,7 @@ var _ = Describe("Processes", func() {
 		})
 
 		It("can fetch the process", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.GUID).To(Equal(processGUID))
 		})
 	})
