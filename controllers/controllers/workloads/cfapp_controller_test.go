@@ -106,8 +106,9 @@ var _ = Describe("CFAppReconciler", func() {
 						Host:     "testRouteHost",
 						Path:     "",
 						Protocol: "http",
-						DomainRef: v1.LocalObjectReference{
-							Name: "testDomainGUID",
+						DomainRef: v1.ObjectReference{
+							Name:      "testDomainGUID",
+							Namespace: defaultNamespace,
 						},
 						Destinations: []networkingv1alpha1.Destination{
 							{

@@ -31,7 +31,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 	BeforeEach(func() {
 		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
-		domainRepo := repositories.NewDomainRepo(k8sClient)
+		domainRepo := repositories.NewDomainRepo(k8sClient, clientFactory)
 		processRepo := repositories.NewProcessRepo(k8sClient, clientFactory)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
 		decoderValidator, err := NewDefaultDecoderValidator()
@@ -83,8 +83,11 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			}
 
 			domain := &networkingv1alpha1.CFDomain{
-				ObjectMeta: metav1.ObjectMeta{Name: domainGUID},
-				Spec:       networkingv1alpha1.CFDomainSpec{Name: domainName},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      domainGUID,
+					Namespace: rootNamespace,
+				},
+				Spec: networkingv1alpha1.CFDomainSpec{Name: domainName},
 			}
 
 			Expect(
@@ -264,7 +267,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 					route := routeList.Items[0]
 					Expect(route.Spec).To(MatchAllFields(Fields{
-						"DomainRef": Equal(corev1.LocalObjectReference{Name: domainGUID}),
+						"DomainRef": Equal(corev1.ObjectReference{Name: domainGUID, Namespace: rootNamespace}),
 						"Host":      Equal(host),
 						"Path":      Equal(path),
 						"Protocol":  BeEquivalentTo("http"),
@@ -295,10 +298,13 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 							Namespace: namespace.Name,
 						},
 						Spec: networkingv1alpha1.CFRouteSpec{
-							Host:      host,
-							Path:      path,
-							Protocol:  "http",
-							DomainRef: corev1.LocalObjectReference{Name: domainGUID},
+							Host:     host,
+							Path:     path,
+							Protocol: "http",
+							DomainRef: corev1.ObjectReference{
+								Name:      domainGUID,
+								Namespace: namespace.Name,
+							},
 							Destinations: []networkingv1alpha1.Destination{
 								{
 									GUID:        destinationGUID,
@@ -337,10 +343,13 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 					route := routeList.Items[0]
 					Expect(route.Spec).To(MatchAllFields(Fields{
-						"DomainRef": Equal(corev1.LocalObjectReference{Name: domainGUID}),
-						"Host":      Equal(host),
-						"Path":      Equal(path),
-						"Protocol":  BeEquivalentTo("http"),
+						"DomainRef": Equal(corev1.ObjectReference{
+							Name:      domainGUID,
+							Namespace: namespace.Name,
+						}),
+						"Host":     Equal(host),
+						"Path":     Equal(path),
+						"Protocol": BeEquivalentTo("http"),
 						"Destinations": ConsistOf(
 							Equal(originalRoute.Spec.Destinations[0]),
 							MatchAllFields(Fields{
@@ -469,10 +478,13 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 						Namespace: namespace.Name,
 					},
 					Spec: networkingv1alpha1.CFRouteSpec{
-						Host:      "custom",
-						Path:      "/path",
-						Protocol:  "http",
-						DomainRef: corev1.LocalObjectReference{Name: domainGUID},
+						Host:     "custom",
+						Path:     "/path",
+						Protocol: "http",
+						DomainRef: corev1.ObjectReference{
+							Name:      domainGUID,
+							Namespace: namespace.Name,
+						},
 						Destinations: []networkingv1alpha1.Destination{
 							{
 								GUID:        destinationGUID,

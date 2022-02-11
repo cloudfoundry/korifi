@@ -24,7 +24,7 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 
 	BeforeEach(func() {
 		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
-		domainRepo := repositories.NewDomainRepo(k8sClient)
+		domainRepo := repositories.NewDomainRepo(k8sClient, clientFactory)
 		processRepo := repositories.NewProcessRepo(k8sClient, clientFactory)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
 		dropletRepo := repositories.NewDropletRepo(k8sClient, clientFactory)

@@ -2,14 +2,14 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -17,11 +17,18 @@ import (
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfdomains/status,verbs=get
 
 type DomainRepo struct {
-	privilegedClient client.Client
+	privilegedClient  client.Client
+	userClientFactory UserK8sClientFactory
 }
 
-func NewDomainRepo(privilegedClient client.Client) *DomainRepo {
-	return &DomainRepo{privilegedClient: privilegedClient}
+func NewDomainRepo(
+	privilegedClient client.Client,
+	userClientFactory UserK8sClientFactory,
+) *DomainRepo {
+	return &DomainRepo{
+		privilegedClient:  privilegedClient,
+		userClientFactory: userClientFactory,
+	}
 }
 
 type DomainRecord struct {
@@ -29,6 +36,7 @@ type DomainRecord struct {
 	GUID        string
 	Labels      map[string]string
 	Annotations map[string]string
+	Namespace   string
 	CreatedAt   string
 	UpdatedAt   string
 }
@@ -38,18 +46,36 @@ type ListDomainsMessage struct {
 }
 
 func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) (DomainRecord, error) {
-	domain := &networkingv1alpha1.CFDomain{}
-	err := r.privilegedClient.Get(ctx, types.NamespacedName{Name: domainGUID}, domain)
+	domainList := &networkingv1alpha1.CFDomainList{}
+	err := r.privilegedClient.List(ctx, domainList, client.MatchingFields{"metadata.name": domainGUID})
 	if err != nil {
-		switch {
-		case k8serrors.IsNotFound(err):
-			return DomainRecord{}, NewNotFoundError("Domain", err)
-		default:
-			return DomainRecord{}, fmt.Errorf("get-domain: k8s get failed: %w", err)
-		}
+		return DomainRecord{}, fmt.Errorf("get-domain: privileged list failed: %w", err)
 	}
 
-	return cfDomainToDomainRecord(domain), nil
+	if len(domainList.Items) == 0 {
+		return DomainRecord{}, NewNotFoundError("Domain", err)
+	}
+	if len(domainList.Items) > 1 {
+		return DomainRecord{}, errors.New("get-domain duplicate domains exist")
+	}
+
+	domain := cfDomainToDomainRecord(&domainList.Items[0])
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return DomainRecord{}, fmt.Errorf("get-domain failed to build user client: %w", err)
+	}
+
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: domain.Namespace, Name: domain.GUID}, &networkingv1alpha1.CFDomain{})
+	if k8serrors.IsForbidden(err) {
+		return DomainRecord{}, NewForbiddenError(err)
+	}
+
+	if err != nil { // untested
+		return DomainRecord{}, fmt.Errorf("get-domain user client get failed: %w", err)
+	}
+
+	return domain, nil
 }
 
 func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Info, message ListDomainsMessage) ([]DomainRecord, error) {
@@ -119,6 +145,7 @@ func cfDomainToDomainRecord(cfDomain *networkingv1alpha1.CFDomain) DomainRecord 
 	return DomainRecord{
 		Name:      cfDomain.Spec.Name,
 		GUID:      cfDomain.Name,
+		Namespace: cfDomain.Namespace,
 		CreatedAt: cfDomain.CreationTimestamp.UTC().Format(TimestampFormat),
 		UpdatedAt: updatedAtTime,
 	}

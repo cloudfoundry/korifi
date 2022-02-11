@@ -662,7 +662,7 @@ var _ = Describe("RouteHandler", func() {
 
 				It("provides the authorization.Info from the context to the routes repository", func() {
 					Expect(routeRepo.CreateRouteCallCount()).To(Equal(1))
-					_, actualAuthInfo, _ := routeRepo.CreateRouteArgsForCall(0)
+					_, actualAuthInfo, _, _ := routeRepo.CreateRouteArgsForCall(0)
 					Expect(actualAuthInfo).To(Equal(authInfo))
 				})
 
@@ -730,7 +730,7 @@ var _ = Describe("RouteHandler", func() {
 
 				It("should pass along the labels to CreateRoute", func() {
 					Expect(routeRepo.CreateRouteCallCount()).To(Equal(1), "Repo CreateRoute count was not invoked 1 time")
-					_, _, createRouteRecord := routeRepo.CreateRouteArgsForCall(0)
+					_, _, createRouteRecord, _ := routeRepo.CreateRouteArgsForCall(0)
 					Expect(createRouteRecord.Labels).To(Equal(testLabels))
 				})
 			})
@@ -745,7 +745,7 @@ var _ = Describe("RouteHandler", func() {
 
 				It("should pass along the annotations to CreateRoute", func() {
 					Expect(routeRepo.CreateRouteCallCount()).To(Equal(1), "Repo CreateRoute count was not invoked 1 time")
-					_, _, createRouteRecord := routeRepo.CreateRouteArgsForCall(0)
+					_, _, createRouteRecord, _ := routeRepo.CreateRouteArgsForCall(0)
 					Expect(createRouteRecord.Annotations).To(Equal(testAnnotations))
 				})
 			})
