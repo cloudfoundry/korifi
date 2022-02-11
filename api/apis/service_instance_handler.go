@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/gorilla/schema"
 
@@ -120,6 +121,12 @@ func (h *ServiceInstanceHandler) serviceInstanceListHandler(authInfo authorizati
 		h.logger.Error(err, "Unable to parse request query parameters")
 		writeUnknownErrorResponse(w)
 		return
+	}
+
+	for k := range r.Form {
+		if strings.HasPrefix(k, "fields[") || k == "per_page" {
+			r.Form.Del(k)
+		}
 	}
 
 	listFilter := new(payloads.ServiceInstanceList)

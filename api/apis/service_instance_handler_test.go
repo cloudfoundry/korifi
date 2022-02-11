@@ -553,11 +553,12 @@ var _ = Describe("ServiceInstanceHandler", func() {
 				})
 			})
 
-			When("query parameters are provided", func() {
+			When("filtering query parameters are provided", func() {
 				BeforeEach(func() {
 					makeListRequest(
 						"names=sc1,sc2",
 						"space_guids=space1,space2",
+						"fields%5Bservice_plan.service_offering.service_broker%5D=guid%2Cname",
 					)
 				})
 
@@ -570,7 +571,57 @@ var _ = Describe("ServiceInstanceHandler", func() {
 				})
 
 				It("correctly sets query parameters in response pagination links", func() {
-					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?names=sc1,sc2&space_guids=space1,space2"))
+					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?names=sc1,sc2&space_guids=space1,space2&fields%5Bservice_plan.service_offering.service_broker%5D=guid%2Cname"))
+				})
+			})
+
+			When("the order_by query parameter is provided", func() {
+				BeforeEach(func() {
+					makeListRequest("order_by=name")
+				})
+
+				It("passes it to the repository", func() {
+					Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+					_, _, message := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
+
+					Expect(message.OrderBy).To(Equal("name"))
+					Expect(message.DescendingOrder).To(BeFalse(), "DescendingOrder was not false as expected")
+				})
+
+				It("correctly sets the query parameter in response pagination links", func() {
+					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?order_by=name"))
+				})
+
+				When("the order_by query parameter value begins with '-'", func() {
+					BeforeEach(func() {
+						makeListRequest("order_by=-name")
+					})
+
+					It("sets the DescendingOrder field in the message to true", func() {
+						Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+						_, _, message := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
+
+						Expect(message.OrderBy).To(Equal("name"))
+						Expect(message.DescendingOrder).To(BeTrue(), "DescendingOrder was not true as expected")
+					})
+
+					It("correctly sets the query parameter in response pagination links", func() {
+						Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?order_by=-name"))
+					})
+				})
+			})
+
+			When("the per_page query parameter is provided", func() {
+				BeforeEach(func() {
+					makeListRequest("per_page=10")
+				})
+
+				It("handles the request", func() {
+					Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+				})
+
+				It("correctly sets the query parameter in response pagination links", func() {
+					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?per_page=10"))
 				})
 			})
 		})
@@ -659,7 +710,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, space_guids'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, space_guids, fields, order_by, per_page'")
 			})
 		})
 	})
