@@ -97,17 +97,7 @@ func (h *ProcessHandler) processGetSidecarsHandler(authInfo authorization.Info, 
 
 	_, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("process not found", "ProcessGUID", processGUID)
-			writeNotFoundErrorResponse(w, "Process")
-		case repositories.ForbiddenError:
-			h.logger.Info("process not accessible to user", "ProcessGUID", processGUID)
-			writeNotFoundErrorResponse(w, "Process")
-		default:
-			h.logger.Error(err, "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
-			writeUnknownErrorResponse(w)
-		}
+		h.logError(w, processGUID, err)
 		return
 	}
 
@@ -145,16 +135,8 @@ func (h *ProcessHandler) processScaleHandler(authInfo authorization.Info, w http
 
 	processRecord, err := h.scaleProcess(ctx, authInfo, processGUID, payload.ToRecord())
 	if err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("Process not found", "processGUID", processGUID)
-			writeNotFoundErrorResponse(w, "Process")
-			return
-		default:
-			h.logger.Error(err, "Failed due to error from Kubernetes", "processGUID", processGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.logError(w, processGUID, err)
+		return
 	}
 
 	writeResponse(w, http.StatusOK, presenter.ForProcess(processRecord, h.serverURL))
@@ -275,6 +257,9 @@ func (h *ProcessHandler) logError(w http.ResponseWriter, processGUID string, err
 	case repositories.NotFoundError:
 		h.logger.Info(fmt.Sprintf("%s not found", tycerr.ResourceType), "ProcessGUID", processGUID)
 		writeNotFoundErrorResponse(w, tycerr.ResourceType)
+	case repositories.ForbiddenError:
+		h.logger.Info("Process forbidden", "ProcessGUID", processGUID)
+		writeNotFoundErrorResponse(w, "Process")
 	default:
 		h.logger.Error(err, "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
 		writeUnknownErrorResponse(w)

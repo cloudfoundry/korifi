@@ -168,7 +168,16 @@ var _ = Describe("ProcessHandler", func() {
 					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
 				})
 
-				It("returns an error", func() {
+				It("returns a not-found error", func() {
+					expectNotFoundError("Process not found")
+				})
+			})
+			When("the user lacks access", func() {
+				BeforeEach(func() {
+					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenError(errors.New("access denied or something")))
+				})
+
+				It("returns a not-found error", func() {
 					expectNotFoundError("Process not found")
 				})
 			})
