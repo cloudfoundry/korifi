@@ -89,11 +89,13 @@ func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID st
 
 	diskQuotaMB = uint64(1024)
 	if p.DiskQuota != nil {
+		// error ignored intentionally, since the manifest yaml is validated in handlers
 		diskQuotaMB, _ = bytefmt.ToMegabytes(*p.DiskQuota)
 	}
 
 	memoryQuotaMB = uint64(1024)
 	if p.Memory != nil {
+		// error ignored intentionally, since the manifest yaml is validated in handlers
 		memoryQuotaMB, _ = bytefmt.ToMegabytes(*p.Memory)
 	}
 
