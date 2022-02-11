@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"net/http"
 
+	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -40,12 +41,11 @@ var _ = Describe("Droplets", func() {
 		})
 
 		JustBeforeEach(func() {
-			Eventually(func() (int, error) {
-				resp, err := certClient.R().
+			Eventually(func() (*resty.Response, error) {
+				return certClient.R().
 					SetResult(&result).
 					Get("/v3/droplets/" + buildGUID)
-				return resp.StatusCode(), err
-			}).Should(Equal(http.StatusOK))
+			}).Should(HaveRestyStatusCode(http.StatusOK))
 		})
 
 		It("returns the droplet", func() {

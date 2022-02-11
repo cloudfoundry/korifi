@@ -51,7 +51,7 @@ var _ = Describe("WhoAmI", func() {
 			})
 
 			It("returns an unauthorized error", func() {
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusUnauthorized))
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnauthorized))
 			})
 		})
 	})
@@ -72,7 +72,7 @@ var _ = Describe("WhoAmI", func() {
 			})
 
 			It("returns an unauthorized error", func() {
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusUnauthorized))
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnauthorized))
 			})
 		})
 
@@ -83,14 +83,14 @@ var _ = Describe("WhoAmI", func() {
 			})
 
 			It("returns an unauthorized error", func() {
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusUnauthorized))
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnauthorized))
 			})
 		})
 	})
 
 	When("no Authorization header is available in the request", func() {
 		It("returns unauthorized error", func() {
-			Expect(httpResp.StatusCode()).To(Equal(http.StatusUnauthorized))
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnauthorized))
 		})
 	})
 })

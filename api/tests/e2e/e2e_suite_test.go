@@ -354,7 +354,7 @@ func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) {
 		Post(rolesURL)
 
 	ExpectWithOffset(2, err).NotTo(HaveOccurred())
-	ExpectWithOffset(2, resp.StatusCode()).To(Equal(http.StatusCreated))
+	ExpectWithOffset(2, resp).To(HaveRestyStatusCode(http.StatusCreated))
 }
 
 func createOrgRole(roleName, kind, userName, orgGUID string) {
@@ -493,7 +493,7 @@ func createApp(spaceGUID, name string) string {
 		Post("/v3/apps")
 
 	Expect(err).NotTo(HaveOccurred())
-	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return app.GUID
 }
@@ -506,7 +506,7 @@ func getProcess(appGUID, processType string) string {
 		Get("/v3/processes?app_guids=" + appGUID)
 
 	Expect(err).NotTo(HaveOccurred())
-	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 	Expect(processList.Resources).To(HaveLen(1))
 
 	return processList.Resources[0].GUID
@@ -527,7 +527,7 @@ func createPackage(appGUID string) string {
 		Post("/v3/packages")
 
 	Expect(err).NotTo(HaveOccurred())
-	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return pkg.GUID
 }
@@ -541,17 +541,17 @@ func createBuild(packageGUID string) string {
 		Post("/v3/builds")
 
 	Expect(err).NotTo(HaveOccurred())
-	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return build.GUID
 }
 
 func waitForDroplet(buildGUID string) {
-	Eventually(func() (int, error) {
+	Eventually(func() (*resty.Response, error) {
 		resp, err := adminClient.R().
 			Get("/v3/droplets/" + buildGUID)
-		return resp.StatusCode(), err
-	}).Should(Equal(http.StatusOK))
+		return resp, err
+	}).Should(HaveRestyStatusCode(http.StatusOK))
 }
 
 func setCurrentDroplet(appGUID, dropletGUID string) {
@@ -560,7 +560,7 @@ func setCurrentDroplet(appGUID, dropletGUID string) {
 		Patch("/v3/apps/" + appGUID + "/relationships/current_droplet")
 
 	Expect(err).NotTo(HaveOccurred())
-	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 func startApp(appGUID string) {
@@ -568,7 +568,7 @@ func startApp(appGUID string) {
 		Post("/v3/apps/" + appGUID + "/actions/start")
 
 	Expect(err).NotTo(HaveOccurred())
-	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 func uploadNodeApp(pkgGUID string) {
@@ -577,7 +577,7 @@ func uploadNodeApp(pkgGUID string) {
 			"bits": "assets/node.zip",
 		}).Post("/v3/packages/" + pkgGUID + "/upload")
 	Expect(err).NotTo(HaveOccurred())
-	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 // pushNodeApp creates a running node app in the given space
