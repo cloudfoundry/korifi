@@ -108,21 +108,22 @@ func (h *ProcessHandler) processGetSidecarsHandler(authInfo authorization.Info, 
 		return
 	}
 
-	_, _ = w.Write([]byte(fmt.Sprintf(`{
-					"pagination": {
-						"total_results": 0,
-						"total_pages": 1,
-						"first": {
-							"href": "%[1]s/v3/processes/%[2]s/sidecars"
-						},
-						"last": {
-							"href": "%[1]s/v3/processes/%[2]s/sidecars"
-						},
-						"next": null,
-						"previous": null
-					},
-					"resources": []
-				}`, h.serverURL.String(), processGUID)))
+	writeStringResponse(w, http.StatusOK, fmt.Sprintf(`{
+            "pagination": {
+                "total_results": 0,
+                "total_pages": 1,
+                "first": {
+                    "href": "%[1]s/v3/processes/%[2]s/sidecars"
+                },
+                "last": {
+                    "href": "%[1]s/v3/processes/%[2]s/sidecars"
+                },
+                "next": null,
+                "previous": null
+            },
+            "resources": []
+        }`,
+		h.serverURL.String(), processGUID))
 }
 
 func (h *ProcessHandler) processScaleHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {

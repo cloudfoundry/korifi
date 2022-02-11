@@ -358,6 +358,18 @@ func writeResponse(w http.ResponseWriter, status int, responseBody interface{}) 
 	}
 }
 
+// Deprecated: only to be used for "dummy" handlers. Other handlers should use writeResponse
+// with proper response types.
+func writeStringResponse(w http.ResponseWriter, status int, responseBody string) {
+	w.WriteHeader(status)
+
+	_, err := w.Write([]byte(responseBody))
+	if err != nil {
+		Logger.Error(err, "failed to write response")
+		return
+	}
+}
+
 // Custom field validators
 func routePathStartsWithSlash(fl validator.FieldLevel) bool {
 	if fl.Field().String() == "" {
