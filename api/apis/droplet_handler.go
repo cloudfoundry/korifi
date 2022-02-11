@@ -54,11 +54,7 @@ func (h *DropletHandler) dropletGetHandler(authInfo authorization.Info, w http.R
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForDroplet(droplet, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "dropletGUID", dropletGUID)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForDroplet(droplet, h.serverURL))
 }
 
 func (h *DropletHandler) RegisterRoutes(router *mux.Router) {

@@ -82,11 +82,7 @@ func (h *ProcessHandler) processGetHandler(authInfo authorization.Info, w http.R
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForProcess(process, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "ProcessGUID", processGUID)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForProcess(process, h.serverURL))
 }
 
 func (h *ProcessHandler) processGetSidecarsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -112,21 +108,22 @@ func (h *ProcessHandler) processGetSidecarsHandler(authInfo authorization.Info, 
 		return
 	}
 
-	_, _ = w.Write([]byte(fmt.Sprintf(`{
-					"pagination": {
-						"total_results": 0,
-						"total_pages": 1,
-						"first": {
-							"href": "%[1]s/v3/processes/%[2]s/sidecars"
-						},
-						"last": {
-							"href": "%[1]s/v3/processes/%[2]s/sidecars"
-						},
-						"next": null,
-						"previous": null
-					},
-					"resources": []
-				}`, h.serverURL.String(), processGUID)))
+	writeStringResponse(w, http.StatusOK, fmt.Sprintf(`{
+            "pagination": {
+                "total_results": 0,
+                "total_pages": 1,
+                "first": {
+                    "href": "%[1]s/v3/processes/%[2]s/sidecars"
+                },
+                "last": {
+                    "href": "%[1]s/v3/processes/%[2]s/sidecars"
+                },
+                "next": null,
+                "previous": null
+            },
+            "resources": []
+        }`,
+		h.serverURL.String(), processGUID))
 }
 
 func (h *ProcessHandler) processScaleHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -157,11 +154,7 @@ func (h *ProcessHandler) processScaleHandler(authInfo authorization.Info, w http
 		}
 	}
 
-	err = writeJsonResponse(w, presenter.ForProcess(processRecord, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "ProcessGUID", processGUID)
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForProcess(processRecord, h.serverURL))
 }
 
 func (h *ProcessHandler) processGetStatsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -177,10 +170,7 @@ func (h *ProcessHandler) processGetStatsHandler(authInfo authorization.Info, w h
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForProcessStats(records), http.StatusOK)
-	if err != nil {
-		h.logError(w, processGUID, err)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForProcessStats(records))
 }
 
 func (h *ProcessHandler) processListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) { //nolint:dupl
@@ -225,11 +215,7 @@ func (h *ProcessHandler) processListHandler(authInfo authorization.Info, w http.
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForProcessList(processList, h.serverURL, *r.URL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForProcessList(processList, h.serverURL, *r.URL))
 }
 
 func (h *ProcessHandler) logError(w http.ResponseWriter, processGUID string, err error) {

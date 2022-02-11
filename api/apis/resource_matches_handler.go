@@ -20,8 +20,7 @@ func NewResourceMatchesHandler(serverURL string) *ResourceMatchesHandler {
 
 func (h *ResourceMatchesHandler) resourceMatchesPostHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_, _ = w.Write([]byte(`{"resources":[]}`))
+	writeStringResponse(w, http.StatusCreated, `{"resources":[]}`)
 }
 
 func (h *ResourceMatchesHandler) RegisterRoutes(router *mux.Router) {

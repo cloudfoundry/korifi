@@ -130,7 +130,7 @@ var _ = Describe("OrgRepository", func() {
 				org = createOrgAnchorAndNamespace(ctx, rootNamespace, "org")
 				// In the absence of HNC reconciling the SubnamespaceAnchor into a namespace, we must manually create
 				// for subsequent use by the Repository createSpace function.
-				_ = createNamespace(ctx, "org", spaceGUID)
+				createNamespace(ctx, "org", spaceGUID)
 			})
 
 			When("the user doesn't have the admin role", func() {

@@ -60,7 +60,7 @@ var _ = Describe("Apps", func() {
 		})
 
 		It("returns apps only in authorized spaces", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
 			Expect(result.Resources).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app1GUID)}),
@@ -100,7 +100,7 @@ var _ = Describe("Apps", func() {
 			})
 
 			It("succeeds", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			})
 		})
 
@@ -110,8 +110,8 @@ var _ = Describe("Apps", func() {
 			})
 
 			It("fails", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
-				Expect(resp.Body()).To(ContainSubstring("CF-NotAuthorized"))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+				Expect(resp).To(HaveRestyBody(ContainSubstring("CF-NotAuthorized")))
 			})
 		})
 	})
@@ -131,7 +131,7 @@ var _ = Describe("Apps", func() {
 		})
 
 		It("can fetch the app", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.GUID).To(Equal(appGUID))
 		})
 	})
@@ -151,7 +151,7 @@ var _ = Describe("Apps", func() {
 		})
 
 		It("successfully lists the empty set of processes", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(BeEmpty())
 		})
 	})
@@ -171,7 +171,7 @@ var _ = Describe("Apps", func() {
 		})
 
 		It("successfully lists the empty set of routes", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(BeEmpty())
 		})
 	})
@@ -205,7 +205,7 @@ var _ = Describe("Apps", func() {
 			})
 
 			It("succeeds", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.GUID).To(Equal(buildGUID))
 			})
 		})
@@ -230,7 +230,7 @@ var _ = Describe("Apps", func() {
 			})
 
 			It("returns 200", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.Data.GUID).To(Equal(buildGUID))
 			})
 		})
@@ -249,7 +249,7 @@ var _ = Describe("Apps", func() {
 			})
 
 			It("succeeds", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.State).To(Equal("STARTED"))
 			})
 		})

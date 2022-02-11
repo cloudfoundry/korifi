@@ -23,7 +23,7 @@ var _ = Describe("Package", func() {
 		orgGUID = createOrg(generateGUID("org"))
 		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
 
-		spaceGUID = createSpace(generateGUID("space1"), orgGUID)
+		spaceGUID = createSpace(generateGUID("space"), orgGUID)
 		appGUID = createApp(spaceGUID, generateGUID("app"))
 
 		result = packageResource{}
@@ -53,7 +53,7 @@ var _ = Describe("Package", func() {
 		})
 
 		It("fails with a resource not found error", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 			Expect(resultErr.Errors).To(HaveLen(1))
 			Expect(resultErr.Errors[0].Title).To(Equal("CF-UnprocessableEntity"))
 			Expect(resultErr.Errors[0].Code).To(Equal(10008))
@@ -67,7 +67,7 @@ var _ = Describe("Package", func() {
 
 			It("succeeds", func() {
 				Expect(resultErr.Errors).To(HaveLen(0))
-				Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 				Expect(result.GUID).ToNot(BeEmpty())
 			})
 		})
@@ -78,7 +78,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("fails with a forbidden error", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
 				Expect(resultErr.Errors).To(HaveLen(1))
 				Expect(resultErr.Errors[0].Title).To(Equal("CF-NotAuthorized"))
 				Expect(resultErr.Errors[0].Code).To(Equal(10003))
@@ -110,7 +110,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("fails with a forbidden error", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
 				Expect(resultErr.Errors).To(HaveLen(1))
 				Expect(resultErr.Errors[0].Title).To(Equal("CF-NotAuthorized"))
 				Expect(resultErr.Errors[0].Code).To(Equal(10003))
@@ -124,7 +124,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("succeeds", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			})
 		})
 	})

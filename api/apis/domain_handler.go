@@ -87,11 +87,7 @@ func (h *DomainHandler) DomainListHandler(authInfo authorization.Info, w http.Re
 		return
 	}
 
-	err = writeJsonResponse(w, presenter.ForDomainList(domainList, h.serverURL, *r.URL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response")
-		writeUnknownErrorResponse(w)
-	}
+	writeResponse(w, http.StatusOK, presenter.ForDomainList(domainList, h.serverURL, *r.URL))
 }
 
 func (h *DomainHandler) RegisterRoutes(router *mux.Router) {

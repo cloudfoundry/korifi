@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -148,4 +149,10 @@ func expectInvalidAuthError() {
           }
         ]
     }`)
+}
+
+func generateGUID(prefix string) string {
+	guid := uuid.NewString()
+
+	return fmt.Sprintf("%s-%s", prefix, guid[:13])
 }

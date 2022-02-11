@@ -7,7 +7,6 @@ import (
 	"sort"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
@@ -51,14 +50,14 @@ var _ = Describe("AppRepository", func() {
 		space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
 		space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space3"))
 
-		spaceDeveloperClusterRole = createClusterRole(testCtx, repositories.SpaceDeveloperClusterRoleRules)
-		spaceAuditorClusterRole = createClusterRole(testCtx, repositories.SpaceAuditorClusterRoleRules)
+		spaceDeveloperClusterRole = createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
+		spaceAuditorClusterRole = createClusterRole(testCtx, SpaceAuditorClusterRoleRules)
 	})
 
 	Describe("GetApp", func() {
 		var (
 			appGUID string
-			app     repositories.AppRecord
+			app     AppRecord
 			getErr  error
 		)
 
@@ -102,7 +101,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the user is not authorized in the space", func() {
 			It("returns a forbidden error", func() {
-				Expect(getErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(getErr).To(BeAssignableToTypeOf(ForbiddenError{}))
 			})
 		})
 
@@ -978,7 +977,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("not allowed to set the application state", func() {
 			It("returns a forbidden error", func() {
-				Expect(returnedErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(returnedErr).To(BeAssignableToTypeOf(ForbiddenError{}))
 			})
 		})
 	})
@@ -1000,7 +999,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("on the happy path", func() {
 			It("deletes the CFApp resource", func() {
-				err := appRepo.DeleteApp(testCtx, authInfo, repositories.DeleteAppMessage{
+				err := appRepo.DeleteApp(testCtx, authInfo, DeleteAppMessage{
 					AppGUID:   appGUID,
 					SpaceGUID: space1.Name,
 				})
@@ -1031,13 +1030,6 @@ var _ = Describe("AppRepository", func() {
 				cfApp1 = createApp(space1.Name)
 				cfApp2 = createApp(space2.Name)
 
-				DeferCleanup(func() {
-					_ = k8sClient.Delete(context.Background(), cfApp1)
-				})
-				DeferCleanup(func() {
-					_ = k8sClient.Delete(context.Background(), cfApp2)
-				})
-
 				envVars = map[string]string{
 					"RAILS_ENV": "production",
 					"LUNCHTIME": "12:00",
@@ -1056,6 +1048,11 @@ var _ = Describe("AppRepository", func() {
 				).To(Succeed())
 
 				appRepo = NewAppRepo(k8sClient, userClientFactory, nsPerms)
+			})
+
+			AfterEach(func() {
+				Expect(k8sClient.Delete(context.Background(), cfApp1)).To(Succeed())
+				Expect(k8sClient.Delete(context.Background(), cfApp2)).To(Succeed())
 			})
 
 			When("the user can read secrets in the space", func() {
@@ -1127,7 +1124,7 @@ var _ = Describe("AppRepository", func() {
 
 					It("errors", func() {
 						_, err := appRepo.GetAppEnv(testCtx, authInfo, cfApp2.Name)
-						Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+						Expect(err).To(BeAssignableToTypeOf(ForbiddenError{}))
 					})
 				})
 			})

@@ -24,12 +24,14 @@ var _ = Describe("ApplyManifest", func() {
 	)
 	var (
 		manifest    payloads.Manifest
-		action      func(context.Context, authorization.Info, string, payloads.Manifest) error
 		appRepo     *fake.CFAppRepository
 		domainRepo  *fake.CFDomainRepository
 		processRepo *fake.CFProcessRepository
 		routeRepo   *fake.CFRouteRepository
 		authInfo    authorization.Info
+
+		applyManifestAction *ApplyManifest
+		applyErr            error
 	)
 
 	BeforeEach(func() {
@@ -48,7 +50,6 @@ var _ = Describe("ApplyManifest", func() {
 
 		processRepo = new(fake.CFProcessRepository)
 		routeRepo = new(fake.CFRouteRepository)
-		action = NewApplyManifest(appRepo, domainRepo, processRepo, routeRepo).Invoke
 		authInfo = authorization.Info{Token: "a-token"}
 		manifest = payloads.Manifest{
 			Version: 1,
@@ -61,6 +62,12 @@ var _ = Describe("ApplyManifest", func() {
 				},
 			},
 		}
+
+		applyManifestAction = NewApplyManifest(appRepo, domainRepo, processRepo, routeRepo)
+	})
+
+	JustBeforeEach(func() {
+		applyErr = applyManifestAction.Invoke(context.Background(), authInfo, spaceGUID, manifest)
 	})
 
 	When("fetching the app errors", func() {
@@ -69,14 +76,10 @@ var _ = Describe("ApplyManifest", func() {
 		})
 
 		It("returns an error", func() {
-			Expect(
-				action(context.Background(), authInfo, spaceGUID, manifest),
-			).To(MatchError(ContainSubstring("boom")))
+			Expect(applyErr).To(MatchError(ContainSubstring("boom")))
 		})
 
 		It("doesn't create an App", func() {
-			_ = action(context.Background(), authInfo, spaceGUID, manifest)
-
 			Expect(appRepo.CreateAppCallCount()).To(Equal(0))
 		})
 	})
@@ -92,9 +95,7 @@ var _ = Describe("ApplyManifest", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(
-					action(context.Background(), authInfo, spaceGUID, manifest),
-				).To(MatchError(ContainSubstring("boom")))
+				Expect(applyErr).To(MatchError(ContainSubstring("boom")))
 			})
 		})
 
@@ -104,9 +105,7 @@ var _ = Describe("ApplyManifest", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(
-					action(context.Background(), authInfo, spaceGUID, manifest),
-				).To(MatchError(ContainSubstring("boom")))
+				Expect(applyErr).To(MatchError(ContainSubstring("boom")))
 			})
 		})
 	})
@@ -125,9 +124,7 @@ var _ = Describe("ApplyManifest", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(
-					action(context.Background(), authInfo, spaceGUID, manifest),
-				).To(MatchError(ContainSubstring("boom")))
+				Expect(applyErr).To(MatchError(ContainSubstring("boom")))
 			})
 		})
 
@@ -137,9 +134,7 @@ var _ = Describe("ApplyManifest", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(
-					action(context.Background(), authInfo, spaceGUID, manifest),
-				).To(MatchError(ContainSubstring("boom")))
+				Expect(applyErr).To(MatchError(ContainSubstring("boom")))
 			})
 		})
 
@@ -154,9 +149,7 @@ var _ = Describe("ApplyManifest", func() {
 				})
 
 				It("returns an error", func() {
-					Expect(
-						action(context.Background(), authInfo, spaceGUID, manifest),
-					).To(MatchError(ContainSubstring("boom")))
+					Expect(applyErr).To(MatchError(ContainSubstring("boom")))
 				})
 			})
 		})
@@ -172,9 +165,7 @@ var _ = Describe("ApplyManifest", func() {
 				})
 
 				It("returns an error", func() {
-					Expect(
-						action(context.Background(), authInfo, spaceGUID, manifest),
-					).To(MatchError(ContainSubstring("boom")))
+					Expect(applyErr).To(MatchError(ContainSubstring("boom")))
 				})
 			})
 		})
@@ -187,9 +178,7 @@ var _ = Describe("ApplyManifest", func() {
 
 		When("the app has no existing route destinations", func() {
 			It("fetches the default domain, and calls create route for the default destination", func() {
-				Expect(
-					action(context.Background(), authInfo, spaceGUID, manifest),
-				).To(Succeed())
+				Expect(applyErr).To(Succeed())
 				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(1))
 				_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
 				Expect(createMessage.Host).To(Equal(appName))
@@ -207,9 +196,7 @@ var _ = Describe("ApplyManifest", func() {
 					routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{}, errors.New("fail-on-purpose"))
 				})
 				It("returns an error", func() {
-					Expect(
-						action(context.Background(), authInfo, spaceGUID, manifest),
-					).NotTo(Succeed())
+					Expect(applyErr).NotTo(Succeed())
 				})
 			})
 
@@ -218,9 +205,7 @@ var _ = Describe("ApplyManifest", func() {
 					domainRepo.GetDefaultDomainReturns(repositories.DomainRecord{}, errors.New("fail-on-purpose"))
 				})
 				It("returns an error", func() {
-					Expect(
-						action(context.Background(), authInfo, spaceGUID, manifest),
-					).NotTo(Succeed())
+					Expect(applyErr).NotTo(Succeed())
 				})
 			})
 		})
@@ -231,9 +216,7 @@ var _ = Describe("ApplyManifest", func() {
 				}}, nil)
 			})
 			It("does not call GetOrCreateRoute, but does not return an error", func() {
-				Expect(
-					action(context.Background(), authInfo, spaceGUID, manifest),
-				).To(Succeed())
+				Expect(applyErr).To(Succeed())
 				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(0))
 				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
 			})
@@ -253,19 +236,15 @@ var _ = Describe("ApplyManifest", func() {
 			})
 
 			It("doesn't create the route", func() {
-				_ = action(context.Background(), authInfo, spaceGUID, manifest)
 				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(0))
 			})
 
 			It("doesn't add destinations to a route", func() {
-				_ = action(context.Background(), authInfo, spaceGUID, manifest)
 				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
 			})
 
 			It("errors", func() {
-				Expect(
-					action(context.Background(), authInfo, spaceGUID, manifest),
-				).To(MatchError(ContainSubstring("boom")))
+				Expect(applyErr).To(MatchError(ContainSubstring("boom")))
 			})
 		})
 
@@ -275,14 +254,11 @@ var _ = Describe("ApplyManifest", func() {
 			})
 
 			It("doesn't add destinations to a route", func() {
-				_ = action(context.Background(), authInfo, spaceGUID, manifest)
 				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
 			})
 
 			It("errors", func() {
-				Expect(
-					action(context.Background(), authInfo, spaceGUID, manifest),
-				).To(MatchError(ContainSubstring("boom")))
+				Expect(applyErr).To(MatchError(ContainSubstring("boom")))
 			})
 		})
 
@@ -292,9 +268,7 @@ var _ = Describe("ApplyManifest", func() {
 			})
 
 			It("errors", func() {
-				Expect(
-					action(context.Background(), authInfo, spaceGUID, manifest),
-				).To(MatchError(ContainSubstring("boom")))
+				Expect(applyErr).To(MatchError(ContainSubstring("boom")))
 			})
 		})
 
@@ -306,9 +280,7 @@ var _ = Describe("ApplyManifest", func() {
 				manifest.Applications[0].DefaultRoute = true
 			})
 			It("is ignored, and AddDestinationsToRouteCallCount is called without adding a default destination to the existing route list", func() {
-				Expect(
-					action(context.Background(), authInfo, spaceGUID, manifest),
-				).To(Succeed())
+				Expect(applyErr).To(Succeed())
 				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(len(manifest.Applications[0].Routes)))
 				_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
 				Expect(createMessage.Host).To(Equal("NOT-MY-APP"))

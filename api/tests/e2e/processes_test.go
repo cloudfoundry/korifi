@@ -14,7 +14,11 @@ var _ = Describe("Processes", func() {
 	var (
 		orgGUID   string
 		spaceGUID string
-		resp      *resty.Response
+
+		appGUID     string
+		processGUID string
+
+		resp *resty.Response
 	)
 
 	BeforeEach(func() {
@@ -28,18 +32,19 @@ var _ = Describe("Processes", func() {
 		deleteOrg(orgGUID)
 	})
 
+	BeforeEach(func() {
+		appGUID = pushNodeApp(spaceGUID)
+		processGUID = getProcess(appGUID, "web")
+	})
+
 	Describe("listing sidecars", Ordered, func() {
 		var (
-			appGUID     string
-			processGUID string
-			list        resourceList
-			listErr     cfErrs
-			client      *resty.Client
+			list    resourceList
+			listErr cfErrs
+			client  *resty.Client
 		)
 
 		BeforeEach(func() {
-			appGUID = pushNodeApp(spaceGUID)
-			processGUID = getProcess(appGUID, "web")
 			client = tokenClient
 			list = resourceList{}
 			listErr = cfErrs{}
@@ -56,7 +61,7 @@ var _ = Describe("Processes", func() {
 		})
 
 		It("fails without space permissions", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 			Expect(listErr.Errors).To(HaveLen(1))
 			Expect(listErr.Errors[0].Code).To(Equal(10010))
 			Expect(listErr.Errors[0].Title).To(Equal("CF-ResourceNotFound"))
@@ -69,9 +74,24 @@ var _ = Describe("Processes", func() {
 			})
 
 			It("lists the (empty list of) sidecars", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusOK), string(resp.Body()))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(list.Resources).To(BeEmpty())
 			})
+		})
+	})
+
+	Describe("Fetch a process", func() {
+		var result resource
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().SetResult(&result).Get("/v3/processes/" + processGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("can fetch the process", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(processGUID))
 		})
 	})
 })

@@ -104,9 +104,10 @@ var _ = Describe("BuildpackRepository", func() {
 			clusterBuilder.Status.Stack = clusterBuilderStackStatus
 
 			Expect(k8sClient.Status().Update(beforeCtx, clusterBuilder)).To(Succeed())
-			DeferCleanup(func() {
-				_ = k8sClient.Delete(context.Background(), clusterBuilder)
-			})
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.Delete(context.Background(), clusterBuilder)).To(Succeed())
 		})
 
 		Describe("List", func() {

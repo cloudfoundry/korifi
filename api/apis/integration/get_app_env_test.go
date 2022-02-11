@@ -56,11 +56,11 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 			k8sClient.Create(context.Background(), namespace),
 		).To(Succeed())
 
-		DeferCleanup(func() {
-			_ = k8sClient.Delete(context.Background(), namespace)
-		})
-
 		createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespaceGUID)
+	})
+
+	AfterEach(func() {
+		Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 	})
 
 	When("the app has environment variables", func() {
@@ -90,7 +90,7 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 				k8sClient.Create(context.Background(), secret),
 			).To(Succeed())
 
-			_ = createAppWithGUID(namespace.Name, appGUID, secretName)
+			createAppWithGUID(namespace.Name, appGUID, secretName)
 		})
 
 		It("includes them in the response body", func() {

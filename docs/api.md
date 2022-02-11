@@ -411,6 +411,10 @@ curl "https://localhost:9000/v3/service_instances" \
   }'
 ```
 
+#### [List Service Instances](https://v3-apidocs.cloudfoundry.org/version/3.113.0/index.html#list-service-instances)
+**Query Parameters:** Currently supports filtering by service instance
+`names` and `space_guids` and ordering by `name`, `created_at` or `updated_at`.
+The `fields` and `per_page` parameters will be silently ignored.
 
 ### User Identity
 

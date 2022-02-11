@@ -58,7 +58,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("creates a space", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 				Expect(result.Name).To(Equal(spaceName))
 				Expect(result.GUID).NotTo(BeEmpty())
 			})
@@ -69,7 +69,7 @@ var _ = Describe("Spaces", func() {
 				})
 
 				It("returns an unprocessable entity error", func() {
-					Expect(resp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
+					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 					Expect(resultErr.Errors).To(HaveLen(1))
 					Expect(resultErr.Errors[0].Code).To(BeNumerically("==", 10008))
 					Expect(resultErr.Errors[0].Detail).To(MatchRegexp(fmt.Sprintf(`Space '%s' already exists.`, spaceName)))
@@ -84,7 +84,7 @@ var _ = Describe("Spaces", func() {
 				})
 
 				It("denies the request", func() {
-					Expect(resp.StatusCode()).To(Equal(http.StatusUnprocessableEntity))
+					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 					Expect(resultErr.Errors).To(HaveLen(1))
 					Expect(resultErr.Errors[0].Code).To(BeNumerically("==", 10008))
 					Expect(resultErr.Errors[0].Detail).To(Equal("Invalid organization. Ensure the organization exists and you have access to it."))
@@ -99,7 +99,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns a forbidden error", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
 			})
 		})
 	})
@@ -188,7 +188,7 @@ var _ = Describe("Spaces", func() {
 		})
 
 		It("lists the spaces the user has role in", func() {
-			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(space11Name)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(space12Name)}),
@@ -212,7 +212,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("only lists spaces beloging to the orgs", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.Resources).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(space11Name)}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(space12Name)}),

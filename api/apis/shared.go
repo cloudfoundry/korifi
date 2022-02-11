@@ -348,27 +348,26 @@ func writeUnknownKeyError(w http.ResponseWriter, validKeys []string) {
 func writeResponse(w http.ResponseWriter, status int, responseBody interface{}) {
 	w.WriteHeader(status)
 
-	err := json.NewEncoder(w).Encode(responseBody)
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+
+	err := encoder.Encode(responseBody)
 	if err != nil {
 		Logger.Error(err, "failed to encode and write response")
 		return
 	}
 }
 
-func writeJsonResponse(w http.ResponseWriter, payload interface{}, successStatus int) error {
-	responseBody := strings.Builder{}
-	encoder := json.NewEncoder(&responseBody)
-	encoder.SetEscapeHTML(false)
+// Deprecated: only to be used for "dummy" handlers. Other handlers should use writeResponse
+// with proper response types.
+func writeStringResponse(w http.ResponseWriter, status int, responseBody string) {
+	w.WriteHeader(status)
 
-	err := encoder.Encode(payload)
+	_, err := w.Write([]byte(responseBody))
 	if err != nil {
-		return err
+		Logger.Error(err, "failed to write response")
+		return
 	}
-
-	w.WriteHeader(successStatus)
-	_, _ = w.Write([]byte(responseBody.String()))
-
-	return nil
 }
 
 // Custom field validators

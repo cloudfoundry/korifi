@@ -40,7 +40,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -59,8 +58,6 @@ type CFProcessReconciler struct {
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-
 	cfProcess := new(workloadsv1alpha1.CFProcess)
 	var err error
 	err = r.Client.Get(ctx, req.NamespacedName, cfProcess)
@@ -348,9 +345,13 @@ func (r *CFProcessReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&workloadsv1alpha1.CFProcess{}).
 		Watches(&source.Kind{Type: &workloadsv1alpha1.CFApp{}}, handler.EnqueueRequestsFromMapFunc(func(app client.Object) []reconcile.Request {
 			processList := &workloadsv1alpha1.CFProcessList{}
-			_ = mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{workloadsv1alpha1.CFAppGUIDLabelKey: app.GetName()})
-			var requests []reconcile.Request
+			err := mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{workloadsv1alpha1.CFAppGUIDLabelKey: app.GetName()})
+			if err != nil {
+				r.Log.Error(err, fmt.Sprintf("Error when trying to list CFProcesses in namespace %q", app.GetNamespace()))
+				return []reconcile.Request{}
+			}
 
+			var requests []reconcile.Request
 			for _, process := range processList.Items {
 				requests = append(requests, reconcile.Request{
 					NamespacedName: types.NamespacedName{
