@@ -84,7 +84,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			})
 
 			When("no ServiceInstance credentials are given", func() {
-				It("creates an empty secret and sets the secret ref on the ServiceInstance", func() {
+				It("creates a secret and sets the secret ref on the ServiceInstance", func() {
 					createdServceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(createdServceInstanceRecord).NotTo(BeNil())
@@ -96,7 +96,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						return k8sClient.Get(context.Background(), secretLookupKey, createdSecret)
 					}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
 
-					Expect(createdSecret.Data).To(BeEmpty())
+					Expect(createdSecret.Data).To(MatchAllKeys(Keys{
+						"type": BeEquivalentTo("user-provided"),
+					}))
 					Expect(createdSecret.Type).To(Equal(corev1.SecretType("servicebinding.io/user-provided")))
 				})
 			})
@@ -104,8 +106,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			When("ServiceInstance credentials are given", func() {
 				BeforeEach(func() {
 					serviceInstanceCreateMessage.Credentials = map[string]string{
-						"foo": "bar",
-						"baz": "baz",
+						"type": "i get clobbered",
+						"foo":  "bar",
+						"baz":  "baz",
 					}
 				})
 
@@ -122,8 +125,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
 
 					Expect(createdSecret.Data).To(MatchAllKeys(Keys{
-						"foo": BeEquivalentTo("bar"),
-						"baz": BeEquivalentTo("baz"),
+						"type": BeEquivalentTo("user-provided"),
+						"foo":  BeEquivalentTo("bar"),
+						"baz":  BeEquivalentTo("baz"),
 					}))
 				})
 			})

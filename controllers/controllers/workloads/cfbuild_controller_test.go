@@ -227,6 +227,17 @@ var _ = Describe("CFBuildReconciler", func() {
 				})
 			})
 
+			When("list CFServiceBindings returns an error", func() {
+				BeforeEach(func() {
+					fakeClient.ListReturns(errors.New("failing on purpose"))
+					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
+				})
+
+				It("should return an error", func() {
+					Expect(reconcileErr).To(HaveOccurred())
+				})
+			})
+
 			When("create Kpack Image returns an error", func() {
 				BeforeEach(func() {
 					fakeClient.CreateReturns(errors.New("failing on purpose"))
