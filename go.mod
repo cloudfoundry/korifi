@@ -6,7 +6,7 @@ require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 	code.cloudfoundry.org/eirini-controller v0.2.0
 	github.com/buildpacks/lifecycle v0.13.3
-	github.com/buildpacks/pack v0.23.0
+	github.com/buildpacks/pack v0.24.0
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
 	github.com/go-logr/logr v1.2.2
 	github.com/go-playground/locales v0.14.0
