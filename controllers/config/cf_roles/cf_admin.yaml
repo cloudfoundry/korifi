@@ -91,3 +91,11 @@ rules:
   - subnamespaceanchors
   verbs:
   - create
+  - delete
+
+- apiGroups:
+  - hnc.x-k8s.io
+  resources:
+  - hierarchyconfigurations
+  verbs:
+  - update

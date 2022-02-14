@@ -544,7 +544,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("deleting the org is not authorized", func() {
 			BeforeEach(func() {
-				orgRepo.DeleteOrgReturns(authorization.InvalidAuthError{})
+				orgRepo.DeleteOrgReturns(repositories.ForbiddenError{})
 				router.ServeHTTP(rr, request)
 			})
 

@@ -771,7 +771,7 @@ var _ = Describe("OrgRepository", func() {
 					err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
 						GUID: orgAnchor.Name,
 					})
-					Expect(err).To(BeAssignableToTypeOf(authorization.InvalidAuthError{}))
+					Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 				})
 
 				When("the org doesn't exist", func() {
@@ -859,7 +859,7 @@ var _ = Describe("OrgRepository", func() {
 						GUID:             spaceAnchor.Name,
 						OrganizationGUID: orgAnchor.Name,
 					})
-					Expect(err).To(BeAssignableToTypeOf(authorization.InvalidAuthError{}))
+					Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 				})
 
 				When("the space doesn't exist", func() {
@@ -868,7 +868,7 @@ var _ = Describe("OrgRepository", func() {
 							GUID:             "non-existent-space",
 							OrganizationGUID: orgAnchor.Name,
 						})
-						Expect(err).To(BeAssignableToTypeOf(authorization.InvalidAuthError{}))
+						Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 					})
 				})
 			})

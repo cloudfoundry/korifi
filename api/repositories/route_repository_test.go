@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	. "github.com/onsi/gomega/gstruct"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
@@ -713,7 +712,7 @@ var _ = Describe("RouteRepository", func() {
 					GUID:      route1GUID,
 					SpaceGUID: testNamespace,
 				})
-				Expect(err).To(BeAssignableToTypeOf(authorization.InvalidAuthError{}))
+				Expect(err).To(BeAssignableToTypeOf(ForbiddenError{}))
 			})
 
 			When("the route doesn't exist", func() {
@@ -722,7 +721,7 @@ var _ = Describe("RouteRepository", func() {
 						GUID:      "i-don't-exist",
 						SpaceGUID: testNamespace,
 					})
-					Expect(err).To(BeAssignableToTypeOf(authorization.InvalidAuthError{}))
+					Expect(err).To(BeAssignableToTypeOf(ForbiddenError{}))
 				})
 			})
 		})

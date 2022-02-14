@@ -472,8 +472,8 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 			}
 		}
 		if apierrors.IsForbidden(err) {
-			return authorization.InvalidAuthError{
-				Err: err,
+			return ForbiddenError{
+				err: err,
 			}
 		}
 		return err
@@ -492,8 +492,8 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 			}
 		}
 		if apierrors.IsForbidden(err) {
-			return authorization.InvalidAuthError{
-				Err: err,
+			return ForbiddenError{
+				err: err,
 			}
 		}
 		return err
@@ -519,8 +519,8 @@ func (r *OrgRepo) DeleteSpace(ctx context.Context, info authorization.Info, mess
 		}
 
 		if apierrors.IsForbidden(err) {
-			return authorization.InvalidAuthError{
-				Err: err,
+			return ForbiddenError{
+				err: err,
 			}
 		}
 

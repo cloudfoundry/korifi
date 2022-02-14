@@ -111,7 +111,7 @@ func (h *OrgHandler) orgDeleteHandler(info authorization.Info, w http.ResponseWr
 		w.Header().Set("Content-Type", "application/json")
 
 		switch err.(type) {
-		case authorization.InvalidAuthError:
+		case repositories.ForbiddenError:
 			h.logger.Error(err, "unauthorized to delete org", "OrgGUID", orgGUID)
 			writeNotAuthorizedErrorResponse(w)
 			return

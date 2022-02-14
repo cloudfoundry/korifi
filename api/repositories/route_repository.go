@@ -345,8 +345,8 @@ func (f *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info
 	}
 
 	if apierrors.IsForbidden(err) {
-		return authorization.InvalidAuthError{
-			Err: err,
+		return ForbiddenError{
+			err: err,
 		}
 	}
 

@@ -7,7 +7,7 @@ type InvalidAuthError struct {
 }
 
 func (e InvalidAuthError) Error() string {
-	return "unauthorized"
+	return "unauthorized: " + e.Err.Error()
 }
 
 func IsInvalidAuth(err error) bool {
