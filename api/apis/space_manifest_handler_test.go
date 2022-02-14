@@ -259,6 +259,25 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 		})
 
+		When("a process's health-check-type is invalid", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+                version: 1
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    health-check-type: bogus-type
+            `))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("responds 422", func() {
+				expectUnprocessableEntityError("HealthCheckType must be one of [none process port http]")
+			})
+		})
+
 		When("applying the manifest errors", func() {
 			BeforeEach(func() {
 				applyManifestAction.Returns(errors.New("boom"))

@@ -26,7 +26,7 @@ type ManifestApplicationProcess struct {
 	DiskQuota                    *string `yaml:"disk_quota" validate:"megabytestring"`
 	HealthCheckHTTPEndpoint      *string `yaml:"health-check-http-endpoint"`
 	HealthCheckInvocationTimeout *int64  `yaml:"health-check-invocation-timeout"`
-	HealthCheckType              *string `yaml:"health-check-type"`
+	HealthCheckType              *string `yaml:"health-check-type" validate:"omitempty,oneof=none process port http"`
 	Instances                    *int    `yaml:"instances" validate:"omitempty,gte=0"`
 	Memory                       *string `yaml:"memory" validate:"megabytestring"`
 	Timeout                      *int64  `yaml:"timeout"`
@@ -81,7 +81,7 @@ func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID st
 		healthCheckTimeout = *p.Timeout
 	}
 	if p.HealthCheckType != nil {
-		healthCheckType = *p.HealthCheckType
+		healthCheckType = normalizeHealthCheckType(*p.HealthCheckType)
 	}
 	if p.Instances != nil {
 		instances = *p.Instances
@@ -123,11 +123,14 @@ func (p ManifestApplicationProcess) ToProcessPatchMessage(processGUID, spaceGUID
 		ProcessGUID:                         processGUID,
 		SpaceGUID:                           spaceGUID,
 		Command:                             p.Command,
-		HealthCheckType:                     p.HealthCheckType,
 		HealthCheckHTTPEndpoint:             p.HealthCheckHTTPEndpoint,
 		HealthCheckInvocationTimeoutSeconds: p.HealthCheckInvocationTimeout,
 		HealthCheckTimeoutSeconds:           p.Timeout,
 		DesiredInstances:                    p.Instances,
+	}
+	if p.HealthCheckType != nil {
+		healthCheckType := normalizeHealthCheckType(*p.HealthCheckType)
+		message.HealthCheckType = &healthCheckType
 	}
 	if p.DiskQuota != nil {
 		diskQuotaMB, _ := bytefmt.ToMegabytes(*p.DiskQuota)
@@ -140,4 +143,15 @@ func (p ManifestApplicationProcess) ToProcessPatchMessage(processGUID, spaceGUID
 		message.MemoryMB = &int64MMB
 	}
 	return message
+}
+
+func normalizeHealthCheckType(healthCheckType string) string {
+	const NoneHealthCheckType = "none"
+
+	switch healthCheckType {
+	case NoneHealthCheckType:
+		return string(v1alpha1.ProcessHealthCheckType)
+	default:
+		return healthCheckType
+	}
 }
