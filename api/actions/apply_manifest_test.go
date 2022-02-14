@@ -145,7 +145,7 @@ var _ = Describe("ApplyManifest", func() {
 
 			When("patching the process errors", func() {
 				BeforeEach(func() {
-					processRepo.PatchProcessReturns(errors.New("boom"))
+					processRepo.PatchProcessReturns(repositories.ProcessRecord{}, errors.New("boom"))
 				})
 
 				It("returns an error", func() {

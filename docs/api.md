@@ -94,7 +94,8 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 | List App Routes                     | GET /v3/apps/\<guid>/routes                                                                             |
 | Delete App                          | [DELETE /v3/apps/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#delete-an-app) |
  | Get App Env                         | GET /v3/apps/\<guid>/env                                                                            |
-| Update App's Environment Variables  | PATCH /v3/apps/\<guid>/environment_variables                                                            |
+| Update App's Environment Variables  | PATCH /v3/apps/\<guid>/environment_variables    
+| Get App Processes by Type           | [GET /v3/apps/\<guid>/processes/\<web>](https://v3-apidocs.cloudfoundry.org/version/3.113.0/#get-a-process) 
 
 #### [List Apps](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-apps)
 **Query Parameters:** Currently supports filtering by app `names` and `space_guids` and ordering by `name`.
@@ -225,6 +226,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#processes
 | Scale Process        | POST /v3/processes/\<guid>/actions/scale |
 | Get Process Stats    | POST /v3/processes/\<guid>/stats         |
 | List Process         | POST /v3/processes                       |
+| Patch Process        | [PATCH /v3/processes/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.113.0/#update-a-process)|
 
 #### [Scaling Processes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#scale-a-process)
 ```bash

@@ -1682,6 +1682,151 @@ var _ = Describe("AppHandler", func() {
 		})
 	})
 
+	Describe("the GET /v3/apps/:guid/processes/{type} endpoint", func() {
+		const (
+			processTypeWeb = "web"
+			processGUID1   = "process-1-guid"
+			createdAt      = "1906-04-18T13:12:00Z"
+			updatedAt      = "1906-04-18T13:12:01Z"
+			command        = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
+			memoryInMB     = 256
+			diskInMB       = 1024
+			instances      = 1
+			baseURL        = "https://api.example.org"
+		)
+
+		makeGetRequest := func(processType string) {
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/processes/"+processType, nil)
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		BeforeEach(func() {
+			processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{
+				GUID:             processGUID1,
+				SpaceGUID:        spaceGUID,
+				AppGUID:          appGUID,
+				Type:             processTypeWeb,
+				Command:          command,
+				DesiredInstances: instances,
+				MemoryMB:         memoryInMB,
+				DiskQuotaMB:      diskInMB,
+				Ports:            []int32{8080},
+				HealthCheck: repositories.HealthCheck{
+					Type: "port",
+					Data: repositories.HealthCheckData{
+						HTTPEndpoint:             "",
+						InvocationTimeoutSeconds: 0,
+						TimeoutSeconds:           0,
+					},
+				},
+				Labels:      map[string]string{},
+				Annotations: map[string]string{},
+				CreatedAt:   createdAt,
+				UpdatedAt:   updatedAt,
+			}, nil)
+		})
+
+		When("on the happy path", func() {
+			BeforeEach(func() {
+				makeGetRequest(processTypeWeb)
+			})
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("passes the authorization.Info to the process repository", func() {
+				Expect(processRepo.GetProcessByAppTypeAndSpaceCallCount()).To(Equal(1))
+				_, actualAuthInfo, _, _, _ := processRepo.GetProcessByAppTypeAndSpaceArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+
+			It("returns a process", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(`{
+					"guid": "` + processGUID1 + `",
+					"created_at": "` + createdAt + `",
+					"updated_at": "` + updatedAt + `",
+					"type": "web",
+					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
+					"instances": ` + fmt.Sprint(instances) + `,
+					"memory_in_mb": ` + fmt.Sprint(memoryInMB) + `,
+					"disk_in_mb": ` + fmt.Sprint(diskInMB) + `,
+					"health_check": {
+					   "type": "port",
+					   "data": {
+						  "timeout": null,
+						  "invocation_timeout": null
+					   }
+					},
+					"relationships": {
+					   "app": {
+						  "data": {
+							 "guid": "` + appGUID + `"
+						  }
+					   }
+					},
+					"metadata": {
+					   "labels": {},
+					   "annotations": {}
+					},
+					"links": {
+					   "self": {
+						  "href": "` + baseURL + `/v3/processes/` + processGUID1 + `"
+					   },
+					   "scale": {
+						  "href": "` + baseURL + `/v3/processes/` + processGUID1 + `/actions/scale",
+						  "method": "POST"
+					   },
+					   "app": {
+						  "href": "` + baseURL + `/v3/apps/` + appGUID + `"
+					   },
+					   "space": {
+						  "href": "` + baseURL + `/v3/spaces/` + spaceGUID + `"
+					   },
+					   "stats": {
+						  "href": "` + baseURL + `/v3/processes/` + processGUID1 + `/stats"
+					   }
+					}
+				 }`))
+			})
+		})
+
+		When("the app is not found", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+				makeGetRequest(processTypeWeb)
+			})
+
+			It("returns an not found error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("the app doesn't have a process of the given type", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError("Process", nil))
+				makeGetRequest(processTypeWeb)
+			})
+			It("return a process not found error", func() {
+				expectNotFoundError("Process not found")
+			})
+		})
+
+		When("there is some other error fetching processes", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, errors.New("some-error"))
+				makeGetRequest(processTypeWeb)
+			})
+			It("return a process unknown error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
 	Describe("the POST /v3/apps/:guid/process/:processType/actions/scale endpoint", func() {
 		const (
 			processGUID           = "process-guid"

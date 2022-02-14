@@ -110,7 +110,7 @@ func (a *ApplyManifest) updateApp(ctx context.Context, authInfo authorization.In
 		}
 
 		if exists {
-			err = a.processRepo.PatchProcess(ctx, authInfo, processInfo.ToProcessPatchMessage(process.GUID, spaceGUID))
+			_, err = a.processRepo.PatchProcess(ctx, authInfo, processInfo.ToProcessPatchMessage(process.GUID, spaceGUID))
 		} else {
 			err = a.processRepo.CreateProcess(ctx, authInfo, processInfo.ToProcessCreateMessage(appRecord.GUID, spaceGUID))
 		}

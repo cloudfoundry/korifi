@@ -303,7 +303,6 @@ var _ = Describe("CFBuildReconciler", func() {
 					}),
 				))
 			})
-
 		})
 
 		When("kpack image with CFBuild GUID already exists", func() {

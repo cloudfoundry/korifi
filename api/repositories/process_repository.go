@@ -221,7 +221,7 @@ func (r *ProcessRepo) GetProcessByAppTypeAndSpace(ctx context.Context, authInfo 
 	return returnProcess(matches)
 }
 
-func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.Info, message PatchProcessMessage) error {
+func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.Info, message PatchProcessMessage) (ProcessRecord, error) {
 	baseProcess := &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.ProcessGUID,
@@ -256,7 +256,8 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 	}
 
 	err := r.privilegedClient.Patch(ctx, updatedProcess, client.MergeFrom(baseProcess))
-	return err
+
+	return cfProcessToProcessRecord(*updatedProcess), err
 }
 
 func returnProcess(processes []workloadsv1alpha1.CFProcess) (ProcessRecord, error) {

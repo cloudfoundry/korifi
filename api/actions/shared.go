@@ -16,7 +16,7 @@ type CFProcessRepository interface {
 	ScaleProcess(context.Context, authorization.Info, repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)
 	CreateProcess(context.Context, authorization.Info, repositories.CreateProcessMessage) error
 	GetProcessByAppTypeAndSpace(context.Context, authorization.Info, string, string, string) (repositories.ProcessRecord, error)
-	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) error
+	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository

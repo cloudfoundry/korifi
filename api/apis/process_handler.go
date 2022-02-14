@@ -23,12 +23,15 @@ const (
 	ProcessScaleEndpoint       = "/v3/processes/{guid}/actions/scale"
 	ProcessGetStatsEndpoint    = "/v3/processes/{guid}/stats"
 	ProcessListEndpoint        = "/v3/processes"
+	ProcessPatchEndpoint       = "/v3/processes/{guid}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
 type CFProcessRepository interface {
 	GetProcess(context.Context, authorization.Info, string) (repositories.ProcessRecord, error)
 	ListProcesses(context.Context, authorization.Info, repositories.ListProcessesMessage) ([]repositories.ProcessRecord, error)
+	GetProcessByAppTypeAndSpace(context.Context, authorization.Info, string, string, string) (repositories.ProcessRecord, error)
+	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
@@ -218,6 +221,55 @@ func (h *ProcessHandler) processListHandler(authInfo authorization.Info, w http.
 	writeResponse(w, http.StatusOK, presenter.ForProcessList(processList, h.serverURL, *r.URL))
 }
 
+func (h *ProcessHandler) processPatchHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	processGUID := vars["guid"]
+
+	var payload payloads.ProcessPatch
+	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
+	if rme != nil {
+		writeRequestMalformedErrorResponse(w, rme)
+		return
+	}
+
+	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
+	if err != nil {
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("process not found", "ProcessGUID", processGUID)
+			writeNotFoundErrorResponse(w, "Process")
+		case repositories.ForbiddenError:
+			h.logger.Info("process not accessible to user", "ProcessGUID", processGUID)
+			writeNotFoundErrorResponse(w, "Process")
+		default:
+			h.logger.Error(err, "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
+			writeUnknownErrorResponse(w)
+		}
+		return
+	}
+
+	updatedProcess, err := h.processRepo.PatchProcess(ctx, authInfo, payload.ToProcessPatchMessage(processGUID, process.SpaceGUID))
+	if err != nil {
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Info("process not found", "ProcessGUID", processGUID)
+			writeNotFoundErrorResponse(w, "Process")
+		case repositories.ForbiddenError:
+			h.logger.Info("process not accessible to user", "ProcessGUID", processGUID)
+			writeNotFoundErrorResponse(w, "Process")
+		default:
+			h.logger.Error(err, "Failed to patch process from Kubernetes", "ProcessGUID", processGUID)
+			writeUnknownErrorResponse(w)
+		}
+		return
+	}
+
+	writeResponse(w, http.StatusOK, presenter.ForProcess(updatedProcess, h.serverURL))
+}
+
 func (h *ProcessHandler) logError(w http.ResponseWriter, processGUID string, err error) {
 	switch tycerr := err.(type) {
 	case repositories.NotFoundError:
@@ -236,4 +288,5 @@ func (h *ProcessHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(ProcessScaleEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.processScaleHandler))
 	router.Path(ProcessGetStatsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.processGetStatsHandler))
 	router.Path(ProcessListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.processListHandler))
+	router.Path(ProcessPatchEndpoint).Methods("PATCH").HandlerFunc(w.Wrap(h.processPatchHandler))
 }
