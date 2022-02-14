@@ -48,7 +48,7 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 		config.KeyData = pem.EncodeToMemory(keyBlock)
 
 	default:
-		return nil, authorization.NotAuthenticatedError{}
+		return nil, authorization.InvalidAuthError{}
 	}
 
 	// This does an API call within the controller-runtime code and is
@@ -57,7 +57,7 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 	userClient, err := client.NewWithWatch(config, client.Options{})
 	if err != nil {
 		if k8serrors.IsUnauthorized(err) {
-			return nil, authorization.InvalidAuthError{}
+			return nil, authorization.NotAuthenticatedError{}
 		}
 		return nil, err
 	}
