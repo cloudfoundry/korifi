@@ -49,8 +49,7 @@ var _ = Describe("ProcessRepo", func() {
 		)
 
 		BeforeEach(func() {
-			cfProcess1 = initializeProcessCR(process1GUID, namespace1.Name, app1GUID)
-			Expect(k8sClient.Create(context.Background(), cfProcess1)).To(Succeed())
+			cfProcess1 = createProcessCR(context.Background(), k8sClient, process1GUID, namespace1.Name, app1GUID)
 			getProcessGUID = process1GUID
 		})
 
@@ -109,7 +108,6 @@ var _ = Describe("ProcessRepo", func() {
 			var (
 				namespace2 *corev1.Namespace
 				app2GUID   string
-				cfProcess2 *workloadsv1alpha1.CFProcess
 			)
 
 			When("duplicate Processes exist across namespaces with the same GUIDs", func() {
@@ -119,8 +117,7 @@ var _ = Describe("ProcessRepo", func() {
 					namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: prefixedGUID("namespace2")}}
 					Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
 
-					cfProcess2 = initializeProcessCR(process1GUID, namespace2.Name, app2GUID)
-					Expect(k8sClient.Create(context.Background(), cfProcess2)).To(Succeed())
+					_ = createProcessCR(context.Background(), k8sClient, process1GUID, namespace2.Name, app2GUID)
 				})
 
 				It("returns an untyped error", func() {
@@ -153,9 +150,6 @@ var _ = Describe("ProcessRepo", func() {
 			app2GUID       string
 			process2GUID   string
 
-			cfProcess1 *workloadsv1alpha1.CFProcess
-			cfProcess2 *workloadsv1alpha1.CFProcess
-
 			listProcessesMessage repositories.ListProcessesMessage
 			processes            []repositories.ProcessRecord
 		)
@@ -167,11 +161,8 @@ var _ = Describe("ProcessRepo", func() {
 
 			Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2GUID}})).To(Succeed())
 
-			cfProcess1 = initializeProcessCR(process1GUID, namespace1.Name, app1GUID)
-			Expect(k8sClient.Create(ctx, cfProcess1)).To(Succeed())
-
-			cfProcess2 = initializeProcessCR(process2GUID, namespace2GUID, app1GUID)
-			Expect(k8sClient.Create(ctx, cfProcess2)).To(Succeed())
+			_ = createProcessCR(context.Background(), k8sClient, process1GUID, namespace1.Name, app1GUID)
+			_ = createProcessCR(context.Background(), k8sClient, process2GUID, namespace2GUID, app1GUID)
 
 			listProcessesMessage = repositories.ListProcessesMessage{
 				AppGUID: []string{app1GUID},
@@ -227,8 +218,7 @@ var _ = Describe("ProcessRepo", func() {
 		)
 
 		BeforeEach(func() {
-			cfProcess = initializeProcessCR(process1GUID, namespace1.Name, app1GUID)
-			Expect(k8sClient.Create(context.Background(), cfProcess)).To(Succeed())
+			cfProcess = createProcessCR(context.Background(), k8sClient, process1GUID, namespace1.Name, app1GUID)
 
 			scaleProcessMessage = &repositories.ScaleProcessMessage{
 				GUID:               process1GUID,

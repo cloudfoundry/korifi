@@ -24,6 +24,7 @@ import (
 const (
 	CFAppRevisionKey   = "workloads.cloudfoundry.org/app-rev"
 	CFAppRevisionValue = "1"
+	CFAppStoppedState  = "STOPPED"
 )
 
 var _ = Describe("AppRepository", func() {
@@ -43,7 +44,9 @@ var _ = Describe("AppRepository", func() {
 		appRepo = NewAppRepo(k8sClient, userClientFactory, nsPerms)
 
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
-		Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
+		Expect(
+			k8sClient.Create(testCtx, rootNs),
+		).To(Succeed())
 
 		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
 		space1 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
@@ -501,7 +504,7 @@ var _ = Describe("AppRepository", func() {
 
 	Describe("PatchAppEnvVars", func() {
 		const (
-			testAppName      = "some-app-name"
+			testAppName      = "patch-app-env-vars-app-name"
 			defaultNamespace = "default"
 			key0             = "KEY0"
 			key1             = "KEY1"
@@ -521,10 +524,7 @@ var _ = Describe("AppRepository", func() {
 		BeforeEach(func() {
 			testAppGUID = generateGUID()
 			testAppEnvSecretName = generateAppEnvSecretName(testAppGUID)
-			cfAppCR = initializeAppCR(testAppName, testAppGUID, defaultNamespace)
-			Expect(
-				k8sClient.Create(testCtx, cfAppCR),
-			).To(Succeed())
+			cfAppCR = createAppCR(testCtx, k8sClient, testAppName, testAppGUID, defaultNamespace, CFAppStoppedState)
 			DeferCleanup(func() {
 				Expect(
 					k8sClient.Delete(testCtx, cfAppCR),
@@ -632,10 +632,7 @@ var _ = Describe("AppRepository", func() {
 
 		BeforeEach(func() {
 			testAppGUID = generateGUID()
-			cfAppCR = initializeAppCR(testAppName, testAppGUID, defaultNamespace)
-			Expect(
-				k8sClient.Create(context.Background(), cfAppCR),
-			).To(Succeed())
+			cfAppCR = createAppCR(testCtx, k8sClient, testAppName, testAppGUID, defaultNamespace, CFAppStoppedState)
 
 			testAppEnvSecretName = generateAppEnvSecretName(testAppGUID)
 			requestEnvVars = map[string]string{
@@ -786,20 +783,18 @@ var _ = Describe("AppRepository", func() {
 
 		var (
 			appCR     *workloadsv1alpha1.CFApp
-			dropletCR workloadsv1alpha1.CFBuild
+			dropletCR *workloadsv1alpha1.CFBuild
 		)
 
 		BeforeEach(func() {
-			appCR = initializeAppCR("some-app", appGUID, spaceGUID)
-			dropletCR = initializeDropletCR(dropletGUID, appGUID, spaceGUID)
-
-			Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
-			Expect(k8sClient.Create(context.Background(), &dropletCR)).To(Succeed())
+			beforeCtx := context.Background()
+			appCR = createAppCR(beforeCtx, k8sClient, "some-app", appGUID, spaceGUID, CFAppStoppedState)
+			dropletCR = createDropletCR(beforeCtx, k8sClient, dropletGUID, appGUID, spaceGUID)
 		})
 
 		AfterEach(func() {
 			Expect(k8sClient.Delete(context.Background(), appCR)).To(Succeed())
-			Expect(k8sClient.Delete(context.Background(), &dropletCR)).To(Succeed())
+			Expect(k8sClient.Delete(context.Background(), dropletCR)).To(Succeed())
 		})
 
 		When("user has the space developer role", func() {
@@ -871,7 +866,6 @@ var _ = Describe("AppRepository", func() {
 
 		var (
 			appGUID           string
-			appCR             *workloadsv1alpha1.CFApp
 			returnedAppRecord *AppRecord
 			returnedErr       error
 			initialAppState   string
@@ -884,13 +878,10 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
+			beforeCtx := context.Background()
 			appGUID = generateGUID()
-			appCR = initializeAppCR(appName, appGUID, spaceGUID)
-			appCR.Spec.DesiredState = workloadsv1alpha1.DesiredState(initialAppState)
-
-			Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
-
-			appRecord, err := appRepo.SetAppDesiredState(context.Background(), authInfo, SetAppDesiredStateMessage{
+			_ = createAppCR(beforeCtx, k8sClient, appName, appGUID, spaceGUID, initialAppState)
+			appRecord, err := appRepo.SetAppDesiredState(beforeCtx, authInfo, SetAppDesiredStateMessage{
 				AppGUID:      appGUID,
 				SpaceGUID:    spaceGUID,
 				DesiredState: desiredAppState,
@@ -985,16 +976,12 @@ var _ = Describe("AppRepository", func() {
 	Describe("DeleteApp", func() {
 		var (
 			appGUID string
-			appCR   *workloadsv1alpha1.CFApp
 		)
 
 		BeforeEach(func() {
 			appGUID = generateGUID()
-			appCR = initializeAppCR("some-app", appGUID, space1.Name)
-
+			_ = createAppCR(context.Background(), k8sClient, "some-app", appGUID, space1.Name, CFAppStoppedState)
 			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
-
-			Expect(k8sClient.Create(context.Background(), appCR)).To(Succeed())
 		})
 
 		When("on the happy path", func() {
