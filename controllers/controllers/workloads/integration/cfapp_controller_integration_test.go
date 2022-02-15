@@ -123,11 +123,7 @@ var _ = Describe("CFAppReconciler", func() {
 			buildDropletStatus := BuildCFBuildDropletStatusObject(dropletProcessTypes, []int32{port8080, port9000})
 			cfBuild = createBuildWithDroplet(context.Background(), k8sClient, cfBuild, buildDropletStatus)
 
-			originalCFApp := cfApp.DeepCopy()
-			cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: cfBuildGUID}
-			Expect(
-				k8sClient.Patch(context.Background(), cfApp, client.MergeFrom(originalCFApp)),
-			).To(Succeed())
+			patchAppWithDroplet(context.Background(), k8sClient, cfAppGUID, namespaceGUID, cfBuildGUID)
 		})
 
 		labelSelectorForAppAndProcess := func(appGUID, processType string) labels.Selector {
@@ -141,10 +137,6 @@ var _ = Describe("CFAppReconciler", func() {
 		}
 
 		When("CFProcesses do not exist for the app", func() {
-			BeforeEach(func() {
-				patchAppWithDroplet(context.Background(), k8sClient, cfAppGUID, namespaceGUID, cfBuildGUID)
-			})
-
 			It("eventually creates CFProcess for each process listed on the droplet", func() {
 				testCtx := context.Background()
 				droplet := cfBuild.Status.BuildDropletStatus
@@ -188,8 +180,6 @@ var _ = Describe("CFAppReconciler", func() {
 				cfProcessForTypeWebGUID = GenerateGUID()
 				cfProcessForTypeWeb = BuildCFProcessCRObject(cfProcessForTypeWebGUID, namespaceGUID, cfAppGUID, processTypeWeb, processTypeWebCommand)
 				Expect(k8sClient.Create(beforeCtx, cfProcessForTypeWeb)).To(Succeed())
-
-				patchAppWithDroplet(beforeCtx, k8sClient, cfAppGUID, namespaceGUID, cfBuildGUID)
 			})
 
 			It("eventually creates CFProcess for only the missing processTypes", func() {
@@ -289,8 +279,6 @@ var _ = Describe("CFAppReconciler", func() {
 				dropletPorts := []int32{}
 				buildDropletStatus := BuildCFBuildDropletStatusObject(dropletProcessTypeMap, dropletPorts)
 				otherCFBuild = createBuildWithDroplet(beforeCtx, k8sClient, otherCFBuild, buildDropletStatus)
-
-				patchAppWithDroplet(beforeCtx, k8sClient, cfAppGUID, namespaceGUID, cfBuildGUID)
 			})
 
 			It("eventually creates CFProcess with empty ports and a healthCheck type of \"process\"", func() {

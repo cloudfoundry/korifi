@@ -1661,6 +1661,13 @@ rules:
   - subnamespaceanchors
   verbs:
   - create
+  - delete
+- apiGroups:
+  - hnc.x-k8s.io
+  resources:
+  - hierarchyconfigurations
+  verbs:
+  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
