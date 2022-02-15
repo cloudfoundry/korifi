@@ -45,7 +45,6 @@ var _ = Describe("ApplyManifest", func() {
 			Name: defaultDomainName,
 			GUID: defaultDomainGUID,
 		}
-		domainRepo.GetDefaultDomainReturns(defaultDomainRecord, nil)
 		domainRepo.GetDomainByNameReturns(defaultDomainRecord, nil)
 
 		processRepo = new(fake.CFProcessRepository)
@@ -67,7 +66,7 @@ var _ = Describe("ApplyManifest", func() {
 	})
 
 	JustBeforeEach(func() {
-		applyErr = applyManifestAction.Invoke(context.Background(), authInfo, spaceGUID, manifest)
+		applyErr = applyManifestAction.Invoke(context.Background(), authInfo, spaceGUID, defaultDomainName, manifest)
 	})
 
 	When("fetching the app errors", func() {
@@ -202,7 +201,7 @@ var _ = Describe("ApplyManifest", func() {
 
 			When("fetching the default domain fails", func() {
 				BeforeEach(func() {
-					domainRepo.GetDefaultDomainReturns(repositories.DomainRecord{}, errors.New("fail-on-purpose"))
+					domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, errors.New("fail-on-purpose"))
 				})
 				It("returns an error", func() {
 					Expect(applyErr).NotTo(Succeed())

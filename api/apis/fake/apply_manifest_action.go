@@ -11,13 +11,14 @@ import (
 )
 
 type ApplyManifestAction struct {
-	Stub        func(context.Context, authorization.Info, string, payloads.Manifest) error
+	Stub        func(context.Context, authorization.Info, string, string, payloads.Manifest) error
 	mutex       sync.RWMutex
 	argsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
 		arg3 string
-		arg4 payloads.Manifest
+		arg4 string
+		arg5 payloads.Manifest
 	}
 	returns struct {
 		result1 error
@@ -29,21 +30,22 @@ type ApplyManifestAction struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ApplyManifestAction) Spy(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 payloads.Manifest) error {
+func (fake *ApplyManifestAction) Spy(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 string, arg5 payloads.Manifest) error {
 	fake.mutex.Lock()
 	ret, specificReturn := fake.returnsOnCall[len(fake.argsForCall)]
 	fake.argsForCall = append(fake.argsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
 		arg3 string
-		arg4 payloads.Manifest
-	}{arg1, arg2, arg3, arg4})
+		arg4 string
+		arg5 payloads.Manifest
+	}{arg1, arg2, arg3, arg4, arg5})
 	stub := fake.Stub
 	returns := fake.returns
-	fake.recordInvocation("ApplyManifestAction", []interface{}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("ApplyManifestAction", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.mutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
 		return ret.result1
@@ -57,16 +59,16 @@ func (fake *ApplyManifestAction) CallCount() int {
 	return len(fake.argsForCall)
 }
 
-func (fake *ApplyManifestAction) Calls(stub func(context.Context, authorization.Info, string, payloads.Manifest) error) {
+func (fake *ApplyManifestAction) Calls(stub func(context.Context, authorization.Info, string, string, payloads.Manifest) error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = stub
 }
 
-func (fake *ApplyManifestAction) ArgsForCall(i int) (context.Context, authorization.Info, string, payloads.Manifest) {
+func (fake *ApplyManifestAction) ArgsForCall(i int) (context.Context, authorization.Info, string, string, payloads.Manifest) {
 	fake.mutex.RLock()
 	defer fake.mutex.RUnlock()
-	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2, fake.argsForCall[i].arg3, fake.argsForCall[i].arg4
+	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2, fake.argsForCall[i].arg3, fake.argsForCall[i].arg4, fake.argsForCall[i].arg5
 }
 
 func (fake *ApplyManifestAction) Returns(result1 error) {

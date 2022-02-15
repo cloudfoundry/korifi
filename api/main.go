@@ -218,6 +218,7 @@ func main() {
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
+			config.DefaultDomainName,
 			applyManifestAction,
 			orgRepo,
 			decoderValidator,
