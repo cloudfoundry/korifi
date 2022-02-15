@@ -61,7 +61,7 @@ func (r *ImageRepository) UploadSourceImage(ctx context.Context, authInfo author
 	}
 
 	if !authorized {
-		return "", NewForbiddenError(errors.New("not authorized to patch cfpackage"))
+		return "", NewForbiddenError("Package", errors.New("not authorized to patch cfpackage"))
 	}
 
 	image, err := r.builder.Build(ctx, srcReader)

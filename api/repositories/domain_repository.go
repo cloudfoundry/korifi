@@ -73,10 +73,7 @@ func (r *DomainRepo) GetDomainByName(ctx context.Context, authInfo authorization
 	}
 
 	if len(domainRecords) == 0 {
-		return DomainRecord{}, NotFoundError{
-			Err:          err,
-			ResourceType: "Domain",
-		}
+		return DomainRecord{}, NewNotFoundError("Domain", err)
 	}
 
 	return domainRecords[0], nil
@@ -89,7 +86,7 @@ func (r *DomainRepo) GetDefaultDomain(ctx context.Context, authInfo authorizatio
 		return DomainRecord{}, err
 	}
 	if len(domainList) == 0 {
-		return DomainRecord{}, NotFoundError{ResourceType: "Default Domain"}
+		return DomainRecord{}, NewNotFoundError("Default Domain", nil)
 	}
 	return domainList[0], nil
 }

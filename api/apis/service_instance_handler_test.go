@@ -310,7 +310,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(
 					repositories.SpaceRecord{},
-					repositories.NotFoundError{Err: errors.New("not found")},
+					repositories.NewNotFoundError("Space", errors.New("not found")),
 				)
 
 				makePostRequest(validBody)
@@ -360,7 +360,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 
 		When("user is not allowed to create a service instance", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError(errors.New("nope")))
+				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError("Service Instance", nil))
 				makePostRequest(validBody)
 			})
 
@@ -684,7 +684,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 
 		When("user is not allowed to create a service instance", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError(errors.New("not allowed")))
+				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError("Service Instance", nil))
 				makeListRequest()
 			})
 

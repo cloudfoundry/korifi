@@ -55,7 +55,7 @@ func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Inf
 	}
 	builds := buildList.Items
 	if len(builds) == 0 {
-		return DropletRecord{}, NotFoundError{}
+		return DropletRecord{}, NewNotFoundError("Droplet", nil)
 	}
 	if len(builds) > 1 { // untested
 		return DropletRecord{}, errors.New("duplicate builds exist")
@@ -71,7 +71,7 @@ func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Inf
 	err = userClient.Get(ctx, client.ObjectKeyFromObject(&foundObj), &userDroplet)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return DropletRecord{}, NewForbiddenError(err)
+			return DropletRecord{}, NewForbiddenError("Droplet", err)
 		}
 
 		return DropletRecord{}, fmt.Errorf("get droplet failed: %w", err)
@@ -88,7 +88,7 @@ func returnDroplet(builds []workloadsv1alpha1.CFBuild) (DropletRecord, error) {
 		succeededStatus == metav1.ConditionTrue {
 		return cfBuildToDropletRecord(cfBuild), nil
 	}
-	return DropletRecord{}, NotFoundError{}
+	return DropletRecord{}, NewNotFoundError("Droplet", nil)
 }
 
 func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {

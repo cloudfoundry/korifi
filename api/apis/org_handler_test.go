@@ -294,7 +294,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("user is not allowed to create an org", func() {
 			BeforeEach(func() {
-				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, repositories.NewForbiddenError(errors.New("nope")))
+				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, repositories.NewForbiddenError("Org", nil))
 				makePostRequest(`{"name": "the-org"}`)
 			})
 
@@ -544,7 +544,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("deleting the org is not authorized", func() {
 			BeforeEach(func() {
-				orgRepo.DeleteOrgReturns(repositories.ForbiddenError{})
+				orgRepo.DeleteOrgReturns(repositories.NewForbiddenError("Org", nil))
 				router.ServeHTTP(rr, request)
 			})
 
@@ -566,7 +566,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("the org doesn't exist", func() {
 			BeforeEach(func() {
-				orgRepo.DeleteOrgReturns(repositories.NotFoundError{})
+				orgRepo.DeleteOrgReturns(repositories.NewNotFoundError("Org", nil))
 				router.ServeHTTP(rr, request)
 			})
 

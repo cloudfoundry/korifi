@@ -20,19 +20,34 @@ var _ = Describe("Errors", func() {
 			})
 
 			It("with ResourceType, prepends resource info", func() {
-				e = NotFoundError{ResourceType: "Foo Resource"}
+				e = NewNotFoundError("Foo Resource", nil)
 				Expect(e.Error()).To(Equal("Foo Resource not found"))
 			})
 
 			It("with wrapped error, appends error into", func() {
-				e = NotFoundError{Err: errors.New("wrapped error")}
+				e = NewNotFoundError("", errors.New("wrapped error"))
 				Expect(e.Error()).To(Equal("not found: wrapped error"))
 			})
 
 			It("with ResourceType and wrapped error, prepends resource and appends error info", func() {
-				e = NotFoundError{ResourceType: "Bar Resource", Err: errors.New("wrapped error")}
+				e = NewNotFoundError("Bar Resource", errors.New("wrapped error"))
 				Expect(e.Error()).To(Equal("Bar Resource not found: wrapped error"))
 			})
+		})
+
+		Describe("unwrap", func() {
+			It("returns the embedded error", func() {
+				embeddedErr := errors.New("boo!")
+				e = NewNotFoundError("Foo", embeddedErr)
+				Expect(e.Unwrap()).To(Equal(embeddedErr))
+			})
+		})
+	})
+
+	Describe("forbidden error", func() {
+		It("with ResourceType and wrapped error, prepends resource and appends error info", func() {
+			e := NewForbiddenError("Bar Resource", errors.New("wrapped error"))
+			Expect(e.Error()).To(Equal("Bar Resource forbidden: wrapped error"))
 		})
 	})
 })

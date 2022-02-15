@@ -269,7 +269,7 @@ func filterByAppDestination(routeList []networkingv1alpha1.CFRoute, appGUID stri
 
 func returnRoute(routeList []networkingv1alpha1.CFRoute) (RouteRecord, error) {
 	if len(routeList) == 0 {
-		return RouteRecord{}, NotFoundError{}
+		return RouteRecord{}, NewNotFoundError("Route", nil)
 	}
 
 	if len(routeList) > 1 {
@@ -345,9 +345,7 @@ func (f *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info
 	}
 
 	if apierrors.IsForbidden(err) {
-		return ForbiddenError{
-			err: err,
-		}
+		return NewForbiddenError("Route", err)
 	}
 
 	return err

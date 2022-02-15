@@ -5,54 +5,59 @@ import (
 	"fmt"
 )
 
-func NewNotFoundError(resourceType string, baseError error) NotFoundError {
-	return NotFoundError{
-		Err:          baseError,
-		ResourceType: resourceType,
+type repoError struct {
+	err          error
+	resourceType string
+}
+
+func (e repoError) error(msg string) string {
+	if e.resourceType != "" {
+		msg = e.resourceType + " " + msg
 	}
+
+	if e.err == nil {
+		return msg
+	}
+
+	return fmt.Sprintf("%s: %v", msg, e.err)
+}
+
+func (e repoError) Unwrap() error {
+	return e.err
+}
+
+func (e repoError) ResourceType() string {
+	return e.resourceType
 }
 
 type NotFoundError struct {
-	Err          error
-	ResourceType string
-}
-
-func (e NotFoundError) Error() string {
-	msg := "not found"
-	if e.ResourceType != "" {
-		msg = e.ResourceType + " " + msg
-	}
-	return errMessage(msg, e.Err)
-}
-
-func (e NotFoundError) Unwrap() error {
-	return e.Err
+	repoError
 }
 
 type ForbiddenError struct {
-	err error
+	repoError
 }
 
-func NewForbiddenError(err error) ForbiddenError {
-	return ForbiddenError{err: err}
+func NewNotFoundError(resourceType string, baseError error) NotFoundError {
+	return NotFoundError{
+		repoError: repoError{err: baseError, resourceType: resourceType},
+	}
+}
+
+func NewForbiddenError(resourceType string, baseError error) ForbiddenError {
+	return ForbiddenError{
+		repoError: repoError{err: baseError, resourceType: resourceType},
+	}
+}
+
+func (e NotFoundError) Error() string {
+	return e.error("not found")
 }
 
 func (e ForbiddenError) Error() string {
-	return errMessage("Forbidden", e.err)
-}
-
-func (e ForbiddenError) Unwrap() error {
-	return e.err
+	return e.error("forbidden")
 }
 
 func IsForbiddenError(err error) bool {
 	return errors.As(err, &ForbiddenError{})
-}
-
-func errMessage(message string, err error) string {
-	if err == nil {
-		return message
-	}
-
-	return fmt.Sprintf("%s: %v", message, err)
 }

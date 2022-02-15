@@ -329,7 +329,7 @@ var _ = Describe("RoleHandler", func() {
 
 		When("the user is not authorized", func() {
 			BeforeEach(func() {
-				roleRepo.CreateRoleReturns(repositories.RoleRecord{}, repositories.NewForbiddenError(nil))
+				roleRepo.CreateRoleReturns(repositories.RoleRecord{}, repositories.NewForbiddenError("Role", nil))
 			})
 
 			It("returns a unauthorized error", func() {

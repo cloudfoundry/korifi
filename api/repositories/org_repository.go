@@ -136,7 +136,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 	})
 	if err != nil {
 		if apierrors.IsForbidden(err) {
-			return OrgRecord{}, NewForbiddenError(err)
+			return OrgRecord{}, NewForbiddenError("Org", err)
 		}
 
 		return OrgRecord{}, err
@@ -180,7 +180,7 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 	})
 	if err != nil {
 		if apierrors.IsForbidden(err) {
-			return SpaceRecord{}, NewForbiddenError(err)
+			return SpaceRecord{}, NewForbiddenError("Space", err)
 		}
 
 		return SpaceRecord{}, err
@@ -423,7 +423,7 @@ func (r *OrgRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGU
 	}
 
 	if len(spaceRecords) == 0 {
-		return SpaceRecord{}, NotFoundError{ResourceType: "Space"}
+		return SpaceRecord{}, NewNotFoundError("Space", nil)
 	}
 
 	return spaceRecords[0], nil
@@ -448,9 +448,7 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	err = r.privilegedClient.Get(ctx, types.NamespacedName{Name: hierarchyMetadataName, Namespace: message.GUID}, &hierarchyObj)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return NotFoundError{
-				Err: err,
-			}
+			return NewNotFoundError("Org", err)
 		}
 		return err
 	}
@@ -467,14 +465,10 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	err = userClient.Update(ctx, &hierarchyObj)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return NotFoundError{
-				Err: err,
-			}
+			return NewNotFoundError("Org", err)
 		}
 		if apierrors.IsForbidden(err) {
-			return ForbiddenError{
-				err: err,
-			}
+			return NewForbiddenError("Org", err)
 		}
 		return err
 	}
@@ -487,14 +481,10 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return NotFoundError{
-				Err: err,
-			}
+			return NewNotFoundError("Org", err)
 		}
 		if apierrors.IsForbidden(err) {
-			return ForbiddenError{
-				err: err,
-			}
+			return NewForbiddenError("Org", err)
 		}
 		return err
 	}
@@ -519,9 +509,7 @@ func (r *OrgRepo) DeleteSpace(ctx context.Context, info authorization.Info, mess
 		}
 
 		if apierrors.IsForbidden(err) {
-			return ForbiddenError{
-				err: err,
-			}
+			return NewForbiddenError("Space", err)
 		}
 
 		return err
