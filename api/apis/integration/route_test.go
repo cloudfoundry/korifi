@@ -3,6 +3,7 @@ package integration_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -86,11 +87,6 @@ var _ = Describe("Route Handler", func() {
 					k8sClient.Create(ctx, cfDomain),
 				).To(Succeed())
 
-				Eventually(func() error {
-					domain := &networkingv1alpha1.CFDomain{}
-					return k8sClient.Get(ctx, client.ObjectKey{Name: domainGUID, Namespace: namespaceGUID}, domain)
-				}).ShouldNot(HaveOccurred())
-
 				cfRoute1 = &networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      routeGUID1,
@@ -117,21 +113,14 @@ var _ = Describe("Route Handler", func() {
 						},
 					},
 				}
-
 				Expect(
 					k8sClient.Create(ctx, cfRoute1),
 				).To(Succeed())
-
 				DeferCleanup(func() {
 					Expect(
 						k8sClient.Delete(ctx, cfRoute1),
 					).To(Succeed())
 				})
-
-				Eventually(func() error {
-					route := &networkingv1alpha1.CFRoute{}
-					return k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace.Name, Name: routeGUID1}, route)
-				}).ShouldNot(HaveOccurred())
 
 				cfRoute2 = &networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
@@ -159,21 +148,15 @@ var _ = Describe("Route Handler", func() {
 						},
 					},
 				}
-
 				Expect(
 					k8sClient.Create(ctx, cfRoute2),
 				).To(Succeed())
-
 				DeferCleanup(func() {
 					Expect(
 						k8sClient.Delete(ctx, cfRoute2),
 					).To(Succeed())
 				})
 
-				Eventually(func() error {
-					route := &networkingv1alpha1.CFRoute{}
-					return k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace.Name, Name: routeGUID2}, route)
-				}).ShouldNot(HaveOccurred())
 			})
 
 			JustBeforeEach(func() {
@@ -296,11 +279,6 @@ var _ = Describe("Route Handler", func() {
 					k8sClient.Create(ctx, cfRoute),
 				).To(Succeed())
 
-				Eventually(func() error {
-					route := &networkingv1alpha1.CFRoute{}
-					return k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace.Name, Name: routeGUID}, route)
-				}).ShouldNot(HaveOccurred())
-
 				var err error
 				req, err = http.NewRequestWithContext(ctx, "DELETE", serverURI("/v3/routes/"+routeGUID), strings.NewReader(""))
 				Expect(err).NotTo(HaveOccurred())
@@ -322,5 +300,119 @@ var _ = Describe("Route Handler", func() {
 				}).Should(MatchError(ContainSubstring("not found")))
 			})
 		})
+	})
+
+	Describe("POST /v3/routes/{guid}/destinations endpoint", func() {
+
+		var (
+			domainGUID string
+			routeGUID1 string
+			cfRoute1   *networkingv1alpha1.CFRoute
+
+			newDestinationAppGUID string
+		)
+
+		BeforeEach(func() {
+
+			domainGUID = generateGUID()
+			routeGUID1 = generateGUID()
+
+			cfDomain := &networkingv1alpha1.CFDomain{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      domainGUID,
+					Namespace: rootNamespace,
+				},
+				Spec: networkingv1alpha1.CFDomainSpec{
+					Name: "foo.domain",
+				},
+			}
+			Expect(
+				k8sClient.Create(ctx, cfDomain),
+			).To(Succeed())
+			// give test user access to the Domain
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, rootNamespace)
+
+			cfRoute1 = &networkingv1alpha1.CFRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      routeGUID1,
+					Namespace: namespace.Name,
+				},
+				Spec: networkingv1alpha1.CFRouteSpec{
+					Host:     "my-subdomain-1",
+					Path:     "",
+					Protocol: "http",
+					DomainRef: corev1.ObjectReference{
+						Name:      domainGUID,
+						Namespace: rootNamespace,
+					},
+					Destinations: []networkingv1alpha1.Destination{
+						{
+							GUID: "destination-guid",
+							Port: 8080,
+							AppRef: corev1.LocalObjectReference{
+								Name: "some-app-guid",
+							},
+							ProcessType: "web",
+							Protocol:    "http1",
+						},
+					},
+				},
+			}
+			Expect(
+				k8sClient.Create(ctx, cfRoute1),
+			).To(Succeed())
+
+			newDestinationAppGUID = "new-destination-app-guid"
+			requestBody := fmt.Sprintf(`{
+						"destinations": [
+							{
+								"app": {
+									"guid": %q
+								},
+								"protocol": "http1"
+							}
+						]
+					}`, newDestinationAppGUID)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "POST", serverURI("/v3/routes/"+routeGUID1+"/destinations"), strings.NewReader(requestBody))
+			Expect(err).NotTo(HaveOccurred())
+			req.Header.Add("Content-type", "application/json")
+		})
+
+		JustBeforeEach(func() {
+			router.ServeHTTP(rr, req)
+		})
+
+		When("the user is not authorized in the space", func() {
+			It("returns a not found status", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+				Expect(rr).To(HaveHTTPBody(ContainSubstring("Route not found")), rr.Body.String())
+			})
+		})
+
+		When("the user has readonly access to the route", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceManagerRole.Name, namespace.Name)
+			})
+
+			It("returns a forbidden error", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusForbidden))
+			})
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+			})
+
+			It("updates the route", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPBody(ContainSubstring(newDestinationAppGUID)), rr.Body.String())
+
+				// TODO: add an eventually against K8s client?
+			})
+		})
+
 	})
 })

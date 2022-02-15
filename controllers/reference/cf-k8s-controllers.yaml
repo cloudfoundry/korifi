@@ -2163,6 +2163,7 @@ rules:
   - create
   - delete
   - list
+  - patch
 - apiGroups:
   - kpack.io
   resources:

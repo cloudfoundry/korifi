@@ -173,7 +173,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Route not found")
+				expectNotFoundError("Route not found. Ensure it exists and you have access to it. not found")
 			})
 		})
 
@@ -1181,7 +1181,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Route not found")
+				expectNotFoundError("Route not found. Ensure it exists and you have access to it. not found")
 			})
 		})
 
@@ -1396,8 +1396,8 @@ var _ = Describe("RouteHandler", func() {
 					routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NewNotFoundError(repositories.RouteResourceType, nil))
 				})
 
-				It("responds with 422 and an error", func() {
-					expectUnprocessableEntityError("Route is invalid. Ensure it exists and you have access to it.")
+				It("responds with 404 and an error", func() {
+					expectNotFoundError("Route not found. Ensure it exists and you have access to it. not found")
 				})
 
 				It("doesn't add any destinations to a route", func() {
@@ -1717,7 +1717,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Route not found")
+				expectNotFoundError("Route not found. Ensure it exists and you have access to it. not found")
 			})
 		})
 

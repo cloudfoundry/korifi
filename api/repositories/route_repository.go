@@ -5,13 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
+	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -141,6 +140,24 @@ func (f *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, r
 	}
 
 	toReturn, err := returnRoute(cfRouteList.Items)
+	if err != nil {
+		return RouteRecord{}, err
+	}
+
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("get-route failed to build user client: %w", err)
+	}
+
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: toReturn.SpaceGUID, Name: toReturn.GUID}, &networkingv1alpha1.CFRoute{})
+
+	if err != nil {
+		if apierrors.IsForbidden(err) {
+			return RouteRecord{}, NewForbiddenError(err)
+		}
+		return RouteRecord{}, fmt.Errorf("get-route user client get failed: %w", err) // untested
+	}
+
 	return toReturn, err
 }
 
@@ -381,9 +398,17 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 	cfRoute := baseCFRoute.DeepCopy()
 	cfRoute.Spec.Destinations = mergeDestinations(message.ExistingDestinations, message.NewDestinations)
 
-	err := f.privilegedClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
-	if err != nil { // untested
-		return RouteRecord{}, fmt.Errorf("err in client.Patch: %w", err)
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
+	if err != nil {
+		if apierrors.IsForbidden(err) {
+			return RouteRecord{}, NewForbiddenError(err)
+		}
+		return RouteRecord{}, fmt.Errorf("err in client.Patch: %w", err) // untested
 	}
 
 	return cfRouteToRouteRecord(*cfRoute), err

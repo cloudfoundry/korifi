@@ -76,27 +76,36 @@ func (h *RouteHandler) routeGetHandler(authInfo authorization.Info, w http.Respo
 
 	route, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("Route not found", "RouteGUID", routeGUID)
-			writeNotFoundErrorResponse(w, "Route")
-			return
-		case authorization.InvalidAuthError:
-			h.logger.Error(err, "unauthorized to get route")
-			writeInvalidAuthErrorResponse(w)
-			return
-		case authorization.NotAuthenticatedError:
-			h.logger.Error(err, "no auth to get route")
-			writeNotAuthenticatedErrorResponse(w)
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.catchLookupError(err, routeGUID, w)
+		return
 	}
 
 	writeResponse(w, http.StatusOK, presenter.ForRoute(route, h.serverURL))
+}
+
+func (h *RouteHandler) catchLookupError(err error, routeGUID string, w http.ResponseWriter) {
+	switch err.(type) {
+	case repositories.NotFoundError:
+		h.logger.Info("Route not found", "RouteGUID", routeGUID)
+		writeNotFoundErrorResponse(w, "Route not found. Ensure it exists and you have access to it.")
+		return
+	case repositories.ForbiddenError:
+		h.logger.Info("User unauthorized to get route", "RouteGUID", routeGUID)
+		writeNotFoundErrorResponse(w, "Route not found. Ensure it exists and you have access to it.")
+		return
+	case authorization.InvalidAuthError:
+		h.logger.Error(err, "unauthorized to get route")
+		writeInvalidAuthErrorResponse(w)
+		return
+	case authorization.NotAuthenticatedError:
+		h.logger.Error(err, "no auth to get route")
+		writeNotAuthenticatedErrorResponse(w)
+		return
+	default:
+		h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
+		writeUnknownErrorResponse(w)
+		return
+	}
 }
 
 func (h *RouteHandler) routeGetListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -164,24 +173,8 @@ func (h *RouteHandler) routeGetDestinationsHandler(authInfo authorization.Info, 
 
 	route, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
-		switch err.(type) {
-		case authorization.InvalidAuthError:
-			h.logger.Error(err, "unauthorized to get routes")
-			writeInvalidAuthErrorResponse(w)
-			return
-		case authorization.NotAuthenticatedError:
-			h.logger.Error(err, "no auth to get routes")
-			writeNotAuthenticatedErrorResponse(w)
-			return
-		case repositories.NotFoundError:
-			h.logger.Info("Route not found", "RouteGUID", routeGUID)
-			writeNotFoundErrorResponse(w, "Route")
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.catchLookupError(err, routeGUID, w)
+		return
 	}
 
 	writeResponse(w, http.StatusOK, presenter.ForRouteDestinations(route, h.serverURL))
@@ -269,24 +262,8 @@ func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, 
 
 	routeRecord, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("Route not found", "RouteGUID", routeGUID)
-			writeUnprocessableEntityError(w, "Route is invalid. Ensure it exists and you have access to it.")
-			return
-		case authorization.InvalidAuthError:
-			h.logger.Error(err, "unauthorized to get route")
-			writeInvalidAuthErrorResponse(w)
-			return
-		case authorization.NotAuthenticatedError:
-			h.logger.Error(err, "no auth to get route")
-			writeNotAuthenticatedErrorResponse(w)
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.catchLookupError(err, routeGUID, w)
+		return
 	}
 
 	destinationListCreateMessage := destinationCreatePayload.ToMessage(routeRecord)
@@ -317,24 +294,8 @@ func (h *RouteHandler) routeDeleteHandler(authInfo authorization.Info, w http.Re
 	routeRecord, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("Route not found", "RouteGUID", routeGUID)
-			writeNotFoundErrorResponse(w, "Route")
-			return
-		case authorization.InvalidAuthError:
-			h.logger.Error(err, "unauthorized to get route")
-			writeInvalidAuthErrorResponse(w)
-			return
-		case authorization.NotAuthenticatedError:
-			h.logger.Error(err, "no auth to get route")
-			writeNotAuthenticatedErrorResponse(w)
-			return
-		default:
-			h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
-			writeUnknownErrorResponse(w)
-			return
-		}
+		h.catchLookupError(err, routeGUID, w)
+		return
 	}
 
 	err = h.routeRepo.DeleteRoute(ctx, authInfo, repositories.DeleteRouteMessage{
