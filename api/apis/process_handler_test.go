@@ -694,6 +694,26 @@ var _ = Describe("ProcessHandler", func() {
 				expectUnknownError()
 			})
 		})
+
+		When("the app is not authorized", func() {
+			BeforeEach(func() {
+				fetchProcessStats.Returns(nil, repositories.NewForbiddenError("App", nil))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("the process is not authorized", func() {
+			BeforeEach(func() {
+				fetchProcessStats.Returns(nil, repositories.NewForbiddenError("Process", nil))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Process not found")
+			})
+		})
 	})
 
 	Describe("the GET /v3/processes endpoint", func() {

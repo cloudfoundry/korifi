@@ -97,6 +97,15 @@ type dropletResource struct {
 	Data resource `json:"data"`
 }
 
+type statsResourceList struct {
+	Resources []statsResource `json:"resources"`
+}
+
+type statsResource struct {
+	Type  string `json:"type"`
+	State string `json:"state"`
+}
+
 type cfErrs struct {
 	Errors []cfErr
 }

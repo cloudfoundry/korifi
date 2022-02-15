@@ -2,12 +2,14 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -28,11 +30,11 @@ const (
 )
 
 type PodRepo struct {
-	privilegedClient client.Client
+	userClientFactory UserK8sClientFactory
 }
 
-func NewPodRepo(privilegedClient client.Client) *PodRepo {
-	return &PodRepo{privilegedClient: privilegedClient}
+func NewPodRepo(userClientFactory UserK8sClientFactory) *PodRepo {
+	return &PodRepo{userClientFactory: userClientFactory}
 }
 
 type PodStatsRecord struct {
@@ -61,7 +63,7 @@ func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info,
 	}
 	listOpts := &client.ListOptions{Namespace: message.Namespace, LabelSelector: labelSelector}
 
-	pods, err := r.ListPods(ctx, authInfo, *listOpts)
+	pods, err := r.listPods(ctx, authInfo, *listOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -88,12 +90,22 @@ func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info,
 	return records, nil
 }
 
-func (r *PodRepo) ListPods(ctx context.Context, authInfo authorization.Info, listOpts client.ListOptions) ([]corev1.Pod, error) {
-	podList := corev1.PodList{}
-	err := r.privilegedClient.List(ctx, &podList, &listOpts)
+func (r *PodRepo) listPods(ctx context.Context, authInfo authorization.Info, listOpts client.ListOptions) ([]corev1.Pod, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
+
+	podList := corev1.PodList{}
+	err = userClient.List(ctx, &podList, &listOpts)
+	if err != nil {
+		if k8serrors.IsForbidden(err) {
+			return nil, NewForbiddenError("Pod", err)
+		}
+
+		return nil, fmt.Errorf("err in client.List: %w", err)
+	}
+
 	return podList.Items, nil
 }
 
