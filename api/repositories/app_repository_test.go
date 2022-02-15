@@ -974,9 +974,7 @@ var _ = Describe("AppRepository", func() {
 	})
 
 	Describe("DeleteApp", func() {
-		var (
-			appGUID string
-		)
+		var appGUID string
 
 		BeforeEach(func() {
 			appGUID = generateGUID()

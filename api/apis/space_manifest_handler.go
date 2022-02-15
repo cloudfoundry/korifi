@@ -22,17 +22,19 @@ const (
 type SpaceManifestHandler struct {
 	logger              logr.Logger
 	serverURL           url.URL
+	defaultDomainName   string
 	applyManifestAction ApplyManifestAction
 	spaceRepo           repositories.CFSpaceRepository
 	decoderValidator    *DecoderValidator
 }
 
 //counterfeiter:generate -o fake -fake-name ApplyManifestAction . ApplyManifestAction
-type ApplyManifestAction func(ctx context.Context, authInfo authorization.Info, spaceGUID string, manifest payloads.Manifest) error
+type ApplyManifestAction func(ctx context.Context, authInfo authorization.Info, spaceGUID string, defaultDomainName string, manifest payloads.Manifest) error
 
 func NewSpaceManifestHandler(
 	logger logr.Logger,
 	serverURL url.URL,
+	defaultDomainName string,
 	applyManifestAction ApplyManifestAction,
 	spaceRepo repositories.CFSpaceRepository,
 	decoderValidator *DecoderValidator,
@@ -40,6 +42,7 @@ func NewSpaceManifestHandler(
 	return &SpaceManifestHandler{
 		logger:              logger,
 		serverURL:           serverURL,
+		defaultDomainName:   defaultDomainName,
 		applyManifestAction: applyManifestAction,
 		spaceRepo:           spaceRepo,
 		decoderValidator:    decoderValidator,
@@ -63,7 +66,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info,
 		return
 	}
 
-	err := h.applyManifestAction(r.Context(), authInfo, spaceGUID, manifest)
+	err := h.applyManifestAction(r.Context(), authInfo, spaceGUID, h.defaultDomainName, manifest)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		h.logger.Error(err, "error applying the manifest")

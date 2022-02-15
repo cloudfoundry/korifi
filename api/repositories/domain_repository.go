@@ -82,18 +82,6 @@ func (r *DomainRepo) GetDomainByName(ctx context.Context, authInfo authorization
 	return domainRecords[0], nil
 }
 
-// TODO: GetDefaultDomain?
-func (r *DomainRepo) GetDefaultDomain(ctx context.Context, authInfo authorization.Info) (DomainRecord, error) {
-	domainList, err := r.ListDomains(ctx, authInfo, ListDomainsMessage{})
-	if err != nil { // untested
-		return DomainRecord{}, err
-	}
-	if len(domainList) == 0 {
-		return DomainRecord{}, NotFoundError{ResourceType: "Default Domain"}
-	}
-	return domainList[0], nil
-}
-
 func applyDomainListFilterAndOrder(domainList []networkingv1alpha1.CFDomain, message ListDomainsMessage) []networkingv1alpha1.CFDomain {
 	var filtered []networkingv1alpha1.CFDomain
 	if len(message.Names) > 0 {

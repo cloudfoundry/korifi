@@ -17,6 +17,7 @@ type APIConfig struct {
 	PackageRegistryBase       string `yaml:"packageRegistryBase"`
 	PackageRegistrySecretName string `yaml:"packageRegistrySecretName"`
 	ClusterBuilderName        string `yaml:"clusterBuilderName"`
+	DefaultDomainName         string `yaml:"defaultDomainName"`
 
 	DefaultLifecycleConfig DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
 

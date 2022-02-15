@@ -10,3 +10,4 @@ packageRegistryBase: localregistry-docker-registry.default.svc.cluster.local:300
 packageRegistrySecretName: image-registry-credentials
 authEnabled: true
 clusterBuilderName: cf-kpack-cluster-builder
+defaultDomainName: vcap.me

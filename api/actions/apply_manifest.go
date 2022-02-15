@@ -27,7 +27,7 @@ func NewApplyManifest(appRepo CFAppRepository, domainRepo CFDomainRepository, pr
 	}
 }
 
-func (a *ApplyManifest) Invoke(ctx context.Context, authInfo authorization.Info, spaceGUID string, manifest payloads.Manifest) error {
+func (a *ApplyManifest) Invoke(ctx context.Context, authInfo authorization.Info, spaceGUID string, defaultDomainName string, manifest payloads.Manifest) error {
 	appInfo := manifest.Applications[0]
 	exists := true
 	appRecord, err := a.appRepo.GetAppByNameAndSpace(ctx, authInfo, appInfo.Name, spaceGUID)
@@ -48,7 +48,7 @@ func (a *ApplyManifest) Invoke(ctx context.Context, authInfo authorization.Info,
 		return err
 	}
 
-	err = a.checkAndUpdateDefaultRoute(ctx, authInfo, appRecord, &appInfo)
+	err = a.checkAndUpdateDefaultRoute(ctx, authInfo, appRecord, defaultDomainName, &appInfo)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (a *ApplyManifest) Invoke(ctx context.Context, authInfo authorization.Info,
 }
 
 // checkAndUpdateDefaultRoute may set the default route on the manifest when DefaultRoute is true
-func (a *ApplyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, appInfo *payloads.ManifestApplication) error {
+func (a *ApplyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, defaultDomainName string, appInfo *payloads.ManifestApplication) error {
 	if !appInfo.DefaultRoute || len(appInfo.Routes) > 0 {
 		return nil
 	}
@@ -70,11 +70,10 @@ func (a *ApplyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo
 		return nil
 	}
 
-	defaultDomainRecord, err := a.domainRepo.GetDefaultDomain(ctx, authInfo)
+	_, err = a.domainRepo.GetDomainByName(ctx, authInfo, defaultDomainName)
 	if err != nil {
 		return err
 	}
-	defaultDomainName := defaultDomainRecord.Name
 	defaultRouteString := appInfo.Name + "." + defaultDomainName
 	defaultRoute := payloads.ManifestRoute{
 		Route: &defaultRouteString,

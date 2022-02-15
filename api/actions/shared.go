@@ -38,7 +38,6 @@ type PodRepository interface {
 
 type CFDomainRepository interface {
 	GetDomainByName(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
-	GetDefaultDomain(context.Context, authorization.Info) (repositories.DomainRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository

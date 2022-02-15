@@ -25,6 +25,10 @@ import (
 )
 
 var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", func() {
+	const (
+		domainName = "my-domain.fun"
+	)
+
 	BeforeEach(func() {
 		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
 		domainRepo := repositories.NewDomainRepo(k8sClient)
@@ -36,6 +40,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 		apiHandler := NewSpaceManifestHandler(
 			logf.Log.WithName("integration tests"),
 			*serverURL,
+			domainName,
 			actions.NewApplyManifest(appRepo, domainRepo, processRepo, routeRepo).Invoke,
 			repositories.NewOrgRepo("cf", k8sClient, clientFactory, nsPermissions, 1*time.Minute, true),
 			decoderValidator,
@@ -48,17 +53,17 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			namespace      *corev1.Namespace
 			requestEnvVars map[string]string
 			requestBody    string
+			domainGUID     string
 		)
 
 		const (
-			domainName = "my-domain.fun"
-			domainGUID = "domain-guid"
-			appName    = "app1"
-			key1       = "KEY1"
-			key2       = "KEY2"
+			appName = "app1"
+			key1    = "KEY1"
+			key2    = "KEY2"
 		)
 
 		BeforeEach(func() {
+			domainGUID = generateGUID()
 			namespaceGUID := generateGUID()
 			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceGUID}}
 			Expect(

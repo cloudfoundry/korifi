@@ -22,11 +22,13 @@ var _ = Describe("SpaceManifestHandler", func() {
 		applyManifestAction *fake.ApplyManifestAction
 		spaceRepo           *repositoriesfake.CFSpaceRepository
 		req                 *http.Request
+		defaultDomainName   string
 	)
 
 	BeforeEach(func() {
 		applyManifestAction = new(fake.ApplyManifestAction)
 		spaceRepo = new(repositoriesfake.CFSpaceRepository)
+		defaultDomainName = "apps.example.org"
 
 		now := time.Unix(1631892190, 0)
 		spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
@@ -52,6 +54,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		apiHandler := NewSpaceManifestHandler(
 			logf.Log.WithName("testSpaceManifestHandler"),
 			*serverURL,
+			defaultDomainName,
 			applyManifestAction.Spy,
 			spaceRepo,
 			decoderValidator,
@@ -135,7 +138,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 			It("passes the authInfo from context to applyManifestAction", func() {
 				Expect(applyManifestAction.CallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _ := applyManifestAction.ArgsForCall(0)
+				_, actualAuthInfo, _, _, _ := applyManifestAction.ArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -303,7 +306,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 			It("passes through the default-route payload to the action", func() {
 				Expect(applyManifestAction.CallCount()).To(Equal(1))
-				_, _, _, payload := applyManifestAction.ArgsForCall(0)
+				_, _, _, _, payload := applyManifestAction.ArgsForCall(0)
 				Expect(payload.Applications[0].DefaultRoute).To(BeTrue())
 			})
 		})

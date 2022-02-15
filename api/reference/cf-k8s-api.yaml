@@ -251,6 +251,7 @@ data:
     packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
     packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
     clusterBuilderName: cf-kpack-cluster-builder
+    defaultDomainName: apps.example.org
   role_mappings_config.yaml: |
     roleMappings:
       admin:
@@ -288,7 +289,7 @@ data:
         propagate: false
 kind: ConfigMap
 metadata:
-  name: cf-k8s-api-config-m867b9mmb2
+  name: cf-k8s-api-config-bcfbt875g8
   namespace: cf-k8s-api-system
 ---
 apiVersion: v1
@@ -343,7 +344,7 @@ spec:
       serviceAccountName: cf-k8s-api-cf-admin-serviceaccount
       volumes:
       - configMap:
-          name: cf-k8s-api-config-m867b9mmb2
+          name: cf-k8s-api-config-bcfbt875g8
         name: cf-k8s-api-config
 ---
 apiVersion: projectcontour.io/v1
