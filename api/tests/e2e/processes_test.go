@@ -62,10 +62,11 @@ var _ = Describe("Processes", func() {
 
 		It("fails without space permissions", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
-			Expect(listErr.Errors).To(HaveLen(1))
-			Expect(listErr.Errors[0].Code).To(Equal(10010))
-			Expect(listErr.Errors[0].Title).To(Equal("CF-ResourceNotFound"))
-			Expect(listErr.Errors[0].Detail).To(Equal("Process not found"))
+			Expect(listErr.Errors).To(ConsistOf(cfErr{
+				Detail: "Process not found",
+				Title:  "CF-ResourceNotFound",
+				Code:   10010,
+			}))
 		})
 
 		When("the user is authorized in the space", func() {

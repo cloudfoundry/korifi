@@ -54,10 +54,11 @@ var _ = Describe("Package", func() {
 
 		It("fails with a resource not found error", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-			Expect(resultErr.Errors).To(HaveLen(1))
-			Expect(resultErr.Errors[0].Title).To(Equal("CF-UnprocessableEntity"))
-			Expect(resultErr.Errors[0].Code).To(Equal(10008))
-			Expect(resultErr.Errors[0].Detail).To(Equal("App is invalid. Ensure it exists and you have access to it."))
+			Expect(resultErr.Errors).To(ConsistOf(cfErr{
+				Detail: "App is invalid. Ensure it exists and you have access to it.",
+				Title:  "CF-UnprocessableEntity",
+				Code:   10008,
+			}))
 		})
 
 		When("the user is a SpaceDeveloper", func() {
@@ -79,10 +80,11 @@ var _ = Describe("Package", func() {
 
 			It("fails with a forbidden error", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-				Expect(resultErr.Errors).To(HaveLen(1))
-				Expect(resultErr.Errors[0].Title).To(Equal("CF-NotAuthorized"))
-				Expect(resultErr.Errors[0].Code).To(Equal(10003))
-				Expect(resultErr.Errors[0].Detail).To(Equal("You are not authorized to perform the requested action"))
+				Expect(resultErr.Errors).To(ConsistOf(cfErr{
+					Detail: "You are not authorized to perform the requested action",
+					Title:  "CF-NotAuthorized",
+					Code:   10003,
+				}))
 			})
 		})
 	})
@@ -111,10 +113,11 @@ var _ = Describe("Package", func() {
 
 			It("fails with a forbidden error", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-				Expect(resultErr.Errors).To(HaveLen(1))
-				Expect(resultErr.Errors[0].Title).To(Equal("CF-NotAuthorized"))
-				Expect(resultErr.Errors[0].Code).To(Equal(10003))
-				Expect(resultErr.Errors[0].Detail).To(Equal("You are not authorized to perform the requested action"))
+				Expect(resultErr.Errors).To(ConsistOf(cfErr{
+					Detail: "You are not authorized to perform the requested action",
+					Title:  "CF-NotAuthorized",
+					Code:   10003,
+				}))
 			})
 		})
 
