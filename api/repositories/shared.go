@@ -70,9 +70,14 @@ var (
 			Resources: []string{"rolebindings"},
 		},
 		{
-			Verbs:     []string{"create"},
+			Verbs:     []string{"create", "delete", "list"},
 			APIGroups: []string{"hnc.x-k8s.io"},
 			Resources: []string{"subnamespaceanchors"},
+		},
+		{
+			Verbs:     []string{"get", "update"},
+			APIGroups: []string{"hnc.x-k8s.io"},
+			Resources: []string{"hierarchyconfigurations"},
 		},
 	}
 
@@ -155,18 +160,7 @@ var (
 		},
 	}
 
-	OrgManagerClusterRoleRules = []rbacv1.PolicyRule{
-		{
-			Verbs:     []string{"list", "delete"},
-			APIGroups: []string{"hnc.x-k8s.io"},
-			Resources: []string{"subnamespaceanchors"},
-		},
-		{
-			Verbs:     []string{"get", "update"},
-			APIGroups: []string{"hnc.x-k8s.io"},
-			Resources: []string{"hierarchyconfigurations"},
-		},
-	}
+	OrgManagerClusterRoleRules = []rbacv1.PolicyRule{}
 
 	OrgUserClusterRoleRules = []rbacv1.PolicyRule{}
 )
