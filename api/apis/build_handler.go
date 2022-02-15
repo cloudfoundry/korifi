@@ -81,7 +81,7 @@ func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, w http.Re
 		switch err.(type) {
 		case repositories.ForbiddenError:
 			h.logger.Info("Package forbidden", "Package GUID", payload.Package.GUID)
-			writeNotFoundErrorResponse(w, "App")
+			writeUnprocessableEntityError(w, "Unable to use package. Ensure that the package exists and you have access to it.")
 		case repositories.NotFoundError:
 			h.logger.Info("Package not found", "Package GUID", payload.Package.GUID)
 			writeUnprocessableEntityError(w, "Unable to use package. Ensure that the package exists and you have access to it.")

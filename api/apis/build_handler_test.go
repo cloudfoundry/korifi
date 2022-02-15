@@ -548,8 +548,9 @@ var _ = Describe("BuildHandler", func() {
 				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(nil))
 			})
 
-			It("returns a not found error", func() {
-				expectNotFoundError("App not found")
+			It("returns an error", func() {
+				expectUnprocessableEntityError("Unable to use package. Ensure that the package exists and you have access to it.")
+				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
 			})
 		})
 

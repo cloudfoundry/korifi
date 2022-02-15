@@ -125,8 +125,8 @@ var _ = Describe("Build", func() {
 		})
 
 		When("the user is not authorized to get the package", func() {
-			It("returns a not found error", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+			It("returns an unprocessable entity error", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 			})
 		})
 	})
