@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -22,13 +23,24 @@ func (m actualRestyResponse) GomegaString() string {
     Request body:
         %+v
     HTTP Status code: %d
+    Response headers:
+        %s
     Response body:
         %s`,
 		m.Request.Method, m.Request.URL,
 		objectToPrettyJson(m.Request.Body),
 		m.StatusCode(),
+		m.HeadersString(),
 		formatAsPrettyJson(m.Body()),
 	)
+}
+
+func (m actualRestyResponse) HeadersString() string {
+	var s []string
+	for k := range m.Header() {
+		s = append(s, fmt.Sprintf("%s: %s", k, m.Header().Get(k)))
+	}
+	return strings.Join(s, "\n        ")
 }
 
 func objectToPrettyJson(obj interface{}) string {

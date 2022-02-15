@@ -86,3 +86,73 @@ func (m *haveRestyBody) NegatedFailureMessage(actual interface{}) string {
 
 	return format.Message(helpers.NewActualRestyResponse(response), "not to have body", m.matcher)
 }
+
+func HaveRestyHeaderWithValue(key string, value interface{}) types.GomegaMatcher {
+	return haveRestyHeaderWithValue{
+		key:   key,
+		value: value,
+	}
+}
+
+type haveRestyHeaderWithValue struct {
+	key   string
+	value interface{}
+}
+
+func (m haveRestyHeaderWithValue) Match(actual interface{}) (bool, error) {
+	response, ok := actual.(*resty.Response)
+	if !ok {
+		return false, fmt.Errorf("%v is not a resty.Response", actual)
+	}
+
+	hdrVal := response.Header().Get(m.key)
+
+	switch t := m.value.(type) {
+	case string:
+		return hdrVal == t, nil
+	case types.GomegaMatcher:
+		return t.Match(hdrVal)
+	default:
+		return false, fmt.Errorf("expected a string or a matcher, got %T", m.value)
+	}
+}
+
+func (m haveRestyHeaderWithValue) FailureMessage(actual interface{}) string {
+	response, ok := actual.(*resty.Response)
+	if !ok {
+		return fmt.Sprintf("%v is not a resty.Response", actual)
+	}
+
+	hdrVal := response.Header().Get(m.key)
+	var matcher types.GomegaMatcher
+	switch t := m.value.(type) {
+	case string:
+		matcher = &matchers.EqualMatcher{Expected: hdrVal}
+	case types.GomegaMatcher:
+		matcher = t
+	default:
+		return "invalid matcher"
+	}
+
+	return format.Message(helpers.NewActualRestyResponse(response), fmt.Sprintf("to have header %q with value matching", m.key), matcher.FailureMessage(hdrVal))
+}
+
+func (m haveRestyHeaderWithValue) NegatedFailureMessage(actual interface{}) string {
+	response, ok := actual.(*resty.Response)
+	if !ok {
+		return fmt.Sprintf("%v is not a resty.Response", actual)
+	}
+
+	hdrVal := response.Header().Get(m.key)
+	var matcher types.GomegaMatcher
+	switch t := m.value.(type) {
+	case string:
+		matcher = &matchers.EqualMatcher{Expected: hdrVal}
+	case types.GomegaMatcher:
+		matcher = t
+	default:
+		return "invalid matcher"
+	}
+
+	return format.Message(helpers.NewActualRestyResponse(response), fmt.Sprintf("not to have header %q with value matching", m.key), matcher.FailureMessage(hdrVal))
+}

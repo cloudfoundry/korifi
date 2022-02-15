@@ -455,12 +455,9 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 		return err
 	}
 
-	userClient := r.privilegedClient
-	if r.authEnabled {
-		userClient, err = r.userClientFactory.BuildClient(info)
-		if err != nil {
-			return fmt.Errorf("failed to build user client: %w", err)
-		}
+	userClient, err := r.userClientFactory.BuildClient(info)
+	if err != nil {
+		return fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	hierarchyObj.Spec.AllowCascadingDeletion = true

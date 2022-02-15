@@ -25,7 +25,6 @@ var _ = Describe("OrgRepository", func() {
 		ctx                       context.Context
 		orgRepo                   *repositories.OrgRepo
 		spaceDeveloperClusterRole *rbacv1.ClusterRole
-		orgManagerClusterRole     *rbacv1.ClusterRole
 		orgUserClusterRole        *rbacv1.ClusterRole
 	)
 
@@ -35,7 +34,6 @@ var _ = Describe("OrgRepository", func() {
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, true)
 		spaceDeveloperClusterRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
-		orgManagerClusterRole = createClusterRole(ctx, repositories.OrgManagerClusterRoleRules)
 		orgUserClusterRole = createClusterRole(ctx, repositories.OrgUserClusterRoleRules)
 	})
 
@@ -652,7 +650,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the user has a role binding in the org", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, orgManagerClusterRole.Name, orgAnchor.Name)
+					createRoleBinding(ctx, userName, orgUserClusterRole.Name, orgAnchor.Name)
 				})
 
 				It("gets the org", func() {
@@ -717,9 +715,9 @@ var _ = Describe("OrgRepository", func() {
 			When("the user has permission to delete orgs", func() {
 				BeforeEach(func() {
 					beforeCtx := context.Background()
-					createRoleBinding(beforeCtx, userName, orgManagerClusterRole.Name, orgAnchor.Namespace)
+					createRoleBinding(beforeCtx, userName, adminClusterRole.Name, orgAnchor.Namespace)
 					// As HNC Controllers don't exist in env-test environments, we manually copy role bindings to child ns.
-					createRoleBinding(beforeCtx, userName, orgManagerClusterRole.Name, orgAnchor.Name)
+					createRoleBinding(beforeCtx, userName, adminClusterRole.Name, orgAnchor.Name)
 				})
 
 				When("on the happy path", func() {
@@ -783,35 +781,6 @@ var _ = Describe("OrgRepository", func() {
 					})
 				})
 			})
-
-			When("auth is disabled and", func() {
-				BeforeEach(func() {
-					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, false)
-				})
-
-				When("on the happy path", func() {
-					It("deletes the subns resource", func() {
-						err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
-							GUID: orgAnchor.Name,
-						})
-						Expect(err).NotTo(HaveOccurred())
-
-						Eventually(func() error {
-							anchor := &hnsv1alpha2.SubnamespaceAnchor{}
-							return k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: orgAnchor.Name}, anchor)
-						}).Should(MatchError(ContainSubstring("not found")))
-					})
-				})
-
-				When("the org doesn't exist", func() {
-					It("errors", func() {
-						err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
-							GUID: "non-existent-org",
-						})
-						Expect(err).To(MatchError(ContainSubstring("not found")))
-					})
-				})
-			})
 		})
 
 		Describe("Space", func() {
@@ -821,25 +790,23 @@ var _ = Describe("OrgRepository", func() {
 				spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, "the-space")
 			})
 
-			When("the user has permission to delete spaces and", func() {
+			When("the user has permission to delete spaces", func() {
 				BeforeEach(func() {
 					beforeCtx := context.Background()
-					createRoleBinding(beforeCtx, userName, orgManagerClusterRole.Name, spaceAnchor.Namespace)
+					createRoleBinding(beforeCtx, userName, adminClusterRole.Name, spaceAnchor.Namespace)
 				})
 
-				When("on the happy path", func() {
-					It("deletes the subns resource", func() {
-						err := orgRepo.DeleteSpace(ctx, authInfo, repositories.DeleteSpaceMessage{
-							GUID:             spaceAnchor.Name,
-							OrganizationGUID: orgAnchor.Name,
-						})
-						Expect(err).NotTo(HaveOccurred())
-
-						Eventually(func() error {
-							anchor := &hnsv1alpha2.SubnamespaceAnchor{}
-							return k8sClient.Get(ctx, client.ObjectKey{Namespace: orgAnchor.Name, Name: spaceAnchor.Name}, anchor)
-						}).Should(MatchError(ContainSubstring("not found")))
+				It("deletes the subns resource", func() {
+					err := orgRepo.DeleteSpace(ctx, authInfo, repositories.DeleteSpaceMessage{
+						GUID:             spaceAnchor.Name,
+						OrganizationGUID: orgAnchor.Name,
 					})
+					Expect(err).NotTo(HaveOccurred())
+
+					Eventually(func() error {
+						anchor := &hnsv1alpha2.SubnamespaceAnchor{}
+						return k8sClient.Get(ctx, client.ObjectKey{Namespace: orgAnchor.Name, Name: spaceAnchor.Name}, anchor)
+					}).Should(MatchError(ContainSubstring("not found")))
 				})
 
 				When("the space doesn't exist", func() {
