@@ -163,4 +163,48 @@ var _ = Describe("Orgs", func() {
 			})
 		})
 	})
+
+	Describe("delete", func() {
+		var (
+			orgGUID string
+			errResp cfErrs
+		)
+
+		BeforeEach(func() {
+			orgGUID = createOrg(generateGUID("my-org"))
+			errResp = cfErrs{}
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = adminClient.R().
+				SetError(&errResp).
+				Delete("/v3/organizations/" + orgGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("succeeds with a job redirect", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
+			Expect(resp).To(HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/org.delete-"+orgGUID)))
+		})
+
+		When("the org does not exist", func() {
+			BeforeEach(func() {
+				orgGUID = "nope"
+			})
+
+			It("returns a not found error", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+				Expect(errResp.Errors).To(ConsistOf(cfErr{
+					Detail: "Org not found",
+					Title:  "CF-ResourceNotFound",
+					Code:   10010,
+				}))
+			})
+		})
+	})
 })
