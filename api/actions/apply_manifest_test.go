@@ -181,11 +181,10 @@ var _ = Describe("ApplyManifest", func() {
 			It("fetches the default domain, and calls create route for the default destination", func() {
 				Expect(applyErr).To(Succeed())
 				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(1))
-				_, _, createMessage, domainNamespace := routeRepo.GetOrCreateRouteArgsForCall(0)
+				_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
 				Expect(createMessage.Host).To(Equal(appName))
 				Expect(createMessage.Path).To(Equal(""))
 				Expect(createMessage.DomainGUID).To(Equal(defaultDomainGUID))
-				Expect(domainNamespace).To(Equal(rootNamespace))
 
 				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
 				_, _, destinationsMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)
@@ -284,11 +283,10 @@ var _ = Describe("ApplyManifest", func() {
 			It("is ignored, and AddDestinationsToRouteCallCount is called without adding a default destination to the existing route list", func() {
 				Expect(applyErr).To(Succeed())
 				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(len(manifest.Applications[0].Routes)))
-				_, _, createMessage, domainNamespace := routeRepo.GetOrCreateRouteArgsForCall(0)
+				_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
 				Expect(createMessage.Host).To(Equal("NOT-MY-APP"))
 				Expect(createMessage.Path).To(Equal("/path"))
 				Expect(createMessage.DomainGUID).To(Equal(defaultDomainGUID))
-				Expect(domainNamespace).To(Equal("cf"))
 
 				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
 				_, _, destinationsMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)

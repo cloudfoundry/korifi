@@ -90,12 +90,13 @@ type ListRoutesMessage struct {
 }
 
 type CreateRouteMessage struct {
-	Host        string
-	Path        string
-	SpaceGUID   string
-	DomainGUID  string
-	Labels      map[string]string
-	Annotations map[string]string
+	Host            string
+	Path            string
+	SpaceGUID       string
+	DomainGUID      string
+	DomainNamespace string
+	Labels          map[string]string
+	Annotations     map[string]string
 }
 
 type DeleteRouteMessage struct {
@@ -103,7 +104,7 @@ type DeleteRouteMessage struct {
 	SpaceGUID string
 }
 
-func (m CreateRouteMessage) toCFRoute(domainNamespace string) networkingv1alpha1.CFRoute {
+func (m CreateRouteMessage) toCFRoute() networkingv1alpha1.CFRoute {
 	return networkingv1alpha1.CFRoute{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       Kind,
@@ -121,7 +122,7 @@ func (m CreateRouteMessage) toCFRoute(domainNamespace string) networkingv1alpha1
 			Protocol: "http",
 			DomainRef: v1.ObjectReference{
 				Name:      m.DomainGUID,
-				Namespace: domainNamespace,
+				Namespace: m.DomainNamespace,
 			},
 		},
 	}
@@ -320,8 +321,8 @@ func cfRouteDestinationToDestination(cfRouteDestination networkingv1alpha1.Desti
 	}
 }
 
-func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage, domainNamespace string) (RouteRecord, error) {
-	cfRoute := message.toCFRoute(domainNamespace)
+func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
+	cfRoute := message.toCFRoute()
 	err := f.privilegedClient.Create(ctx, &cfRoute)
 	if err != nil {
 		return RouteRecord{}, err
@@ -354,7 +355,7 @@ func (f *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info
 	return err
 }
 
-func (f *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage, domainNamespace string) (RouteRecord, error) {
+func (f *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
 	existingRecord, exists, err := f.fetchRouteByFields(ctx, authInfo, message)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("GetOrCreateRoute: %w", err)
@@ -364,7 +365,7 @@ func (f *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization
 		return existingRecord, nil
 	}
 
-	return f.CreateRoute(ctx, authInfo, message, domainNamespace)
+	return f.CreateRoute(ctx, authInfo, message)
 }
 
 func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message AddDestinationsToRouteMessage) (RouteRecord, error) {

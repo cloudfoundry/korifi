@@ -155,12 +155,12 @@ func (a *ApplyManifest) createOrUpdateRoutes(ctx context.Context, authInfo autho
 		ctx,
 		authInfo,
 		repositories.CreateRouteMessage{
-			Host:       hostName,
-			Path:       path,
-			SpaceGUID:  appRecord.SpaceGUID,
-			DomainGUID: domainRecord.GUID,
-		},
-		domainRecord.Namespace)
+			Host:            hostName,
+			Path:            path,
+			SpaceGUID:       appRecord.SpaceGUID,
+			DomainGUID:      domainRecord.GUID,
+			DomainNamespace: domainRecord.Namespace,
+		})
 	if err != nil {
 		return fmt.Errorf("createOrUpdateRoutes: %w", err)
 	}

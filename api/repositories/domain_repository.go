@@ -59,14 +59,15 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 		return DomainRecord{}, errors.New("get-domain duplicate domains exist")
 	}
 
-	domain := cfDomainToDomainRecord(&domainList.Items[0])
+	matchingDomain := cfDomainToDomainRecord(&domainList.Items[0])
 
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return DomainRecord{}, fmt.Errorf("get-domain failed to build user client: %w", err)
 	}
 
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: domain.Namespace, Name: domain.GUID}, &networkingv1alpha1.CFDomain{})
+	domain := &networkingv1alpha1.CFDomain{}
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: matchingDomain.Namespace, Name: matchingDomain.GUID}, domain)
 	if k8serrors.IsForbidden(err) {
 		return DomainRecord{}, NewForbiddenError(err)
 	}
@@ -75,7 +76,7 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 		return DomainRecord{}, fmt.Errorf("get-domain user client get failed: %w", err)
 	}
 
-	return domain, nil
+	return cfDomainToDomainRecord(domain), nil
 }
 
 func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Info, message ListDomainsMessage) ([]DomainRecord, error) {

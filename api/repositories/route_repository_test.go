@@ -567,8 +567,8 @@ var _ = Describe("RouteRepository", func() {
 			)
 
 			BeforeEach(func() {
-				createRouteMessage := buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, testNamespace)
-				createdRouteRecord, createdRouteErr = routeRepo.CreateRoute(testCtx, authInfo, createRouteMessage, rootNamespace)
+				createRouteMessage := buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, testNamespace, rootNamespace)
+				createdRouteRecord, createdRouteErr = routeRepo.CreateRoute(testCtx, authInfo, createRouteMessage)
 				Expect(createdRouteErr).NotTo(HaveOccurred())
 				route1GUID = createdRouteRecord.GUID
 			})
@@ -605,7 +605,7 @@ var _ = Describe("RouteRepository", func() {
 			When("namespace doesn't exist", func() {
 				It("returns an error", func() {
 					// TODO: improve this test so that the message is valid other than the namespace not existing
-					_, err := routeRepo.CreateRoute(testCtx, authInfo, CreateRouteMessage{}, rootNamespace)
+					_, err := routeRepo.CreateRoute(testCtx, authInfo, CreateRouteMessage{})
 					Expect(err).To(MatchError("an empty namespace may not be set during creation"))
 				})
 			})
@@ -718,7 +718,7 @@ var _ = Describe("RouteRepository", func() {
 		var createRouteMessage CreateRouteMessage
 
 		BeforeEach(func() {
-			createRouteMessage = buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, testNamespace)
+			createRouteMessage = buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, testNamespace, rootNamespace)
 		})
 
 		When("route does not already exist", func() {
@@ -728,7 +728,7 @@ var _ = Describe("RouteRepository", func() {
 			)
 
 			BeforeEach(func() {
-				createdRouteRecord, createdRouteErr = routeRepo.GetOrCreateRoute(testCtx, authInfo, createRouteMessage, rootNamespace)
+				createdRouteRecord, createdRouteErr = routeRepo.GetOrCreateRoute(testCtx, authInfo, createRouteMessage)
 				Expect(createdRouteErr).NotTo(HaveOccurred())
 				route1GUID = createdRouteRecord.GUID
 			})
@@ -766,7 +766,7 @@ var _ = Describe("RouteRepository", func() {
 
 			BeforeEach(func() {
 				var err error
-				existingRecord, err = routeRepo.CreateRoute(testCtx, authInfo, createRouteMessage, rootNamespace)
+				existingRecord, err = routeRepo.CreateRoute(testCtx, authInfo, createRouteMessage)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -775,7 +775,7 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			It("doesn't create a new route", func() {
-				_, err := routeRepo.GetOrCreateRoute(testCtx, authInfo, createRouteMessage, rootNamespace)
+				_, err := routeRepo.GetOrCreateRoute(testCtx, authInfo, createRouteMessage)
 				Expect(err).NotTo(HaveOccurred())
 
 				var routeList networkingv1alpha1.CFRouteList
@@ -787,7 +787,7 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			It("returns the existing record", func() {
-				returnedRecord, err := routeRepo.GetOrCreateRoute(testCtx, authInfo, createRouteMessage, rootNamespace)
+				returnedRecord, err := routeRepo.GetOrCreateRoute(testCtx, authInfo, createRouteMessage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(returnedRecord).To(Equal(existingRecord))
 			})
@@ -797,7 +797,7 @@ var _ = Describe("RouteRepository", func() {
 			When("namespace doesn't exist", func() {
 				It("returns an error", func() {
 					// TODO: improve this test so that the message is valid other than the namespace not existing
-					_, err := routeRepo.CreateRoute(testCtx, authInfo, CreateRouteMessage{}, rootNamespace)
+					_, err := routeRepo.CreateRoute(testCtx, authInfo, CreateRouteMessage{})
 					Expect(err).To(MatchError("an empty namespace may not be set during creation"))
 				})
 			})
@@ -1211,12 +1211,13 @@ func initializeDestinationListMessage(routeGUID string, spaceGUID string, existi
 	}
 }
 
-func buildCreateRouteMessage(routeHost, routePath, domainGUID, spaceGUID string) CreateRouteMessage {
+func buildCreateRouteMessage(routeHost, routePath, domainGUID, spaceGUID, domainNamespace string) CreateRouteMessage {
 	return CreateRouteMessage{
-		Host:       routeHost,
-		Path:       routePath,
-		SpaceGUID:  spaceGUID,
-		DomainGUID: domainGUID,
+		Host:            routeHost,
+		Path:            routePath,
+		SpaceGUID:       spaceGUID,
+		DomainGUID:      domainGUID,
+		DomainNamespace: domainNamespace,
 	}
 }
 

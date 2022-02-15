@@ -32,7 +32,7 @@ type CFRouteRepository interface {
 	GetRoute(context.Context, authorization.Info, string) (repositories.RouteRecord, error)
 	ListRoutes(context.Context, authorization.Info, repositories.ListRoutesMessage) ([]repositories.RouteRecord, error)
 	ListRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
-	CreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage, string) (repositories.RouteRecord, error)
+	CreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
 	DeleteRoute(context.Context, authorization.Info, repositories.DeleteRouteMessage) error
 	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
 }
@@ -228,9 +228,9 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 		}
 	}
 
-	createRouteMessage := payload.ToMessage()
+	createRouteMessage := payload.ToMessage(domain.Namespace)
 
-	responseRouteRecord, err := h.routeRepo.CreateRoute(ctx, authInfo, createRouteMessage, domain.Namespace)
+	responseRouteRecord, err := h.routeRepo.CreateRoute(ctx, authInfo, createRouteMessage)
 	if err != nil {
 		switch err.(type) {
 		case authorization.InvalidAuthError:

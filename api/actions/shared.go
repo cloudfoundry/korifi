@@ -43,7 +43,7 @@ type CFDomainRepository interface {
 //counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository
 
 type CFRouteRepository interface {
-	GetOrCreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage, string) (repositories.RouteRecord, error)
+	GetOrCreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
 	ListRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
 	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
 }
