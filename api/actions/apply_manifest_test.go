@@ -21,6 +21,7 @@ var _ = Describe("ApplyManifest", func() {
 		appGUID           = "my-app-guid"
 		defaultDomainName = "default-domain.com"
 		defaultDomainGUID = "default-domain-guid"
+		rootNamespace     = "cf"
 	)
 	var (
 		manifest    payloads.Manifest
@@ -42,8 +43,9 @@ var _ = Describe("ApplyManifest", func() {
 		}, nil)
 		domainRepo = new(fake.CFDomainRepository)
 		defaultDomainRecord := repositories.DomainRecord{
-			Name: defaultDomainName,
-			GUID: defaultDomainGUID,
+			Name:      defaultDomainName,
+			GUID:      defaultDomainGUID,
+			Namespace: rootNamespace,
 		}
 		domainRepo.GetDomainByNameReturns(defaultDomainRecord, nil)
 

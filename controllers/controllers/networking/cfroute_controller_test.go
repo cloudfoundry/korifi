@@ -95,8 +95,9 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 			},
 			Spec: networkingv1alpha1.CFRouteSpec{
 				Host: testRouteHost,
-				DomainRef: v1.LocalObjectReference{
-					Name: testDomainGUID,
+				DomainRef: v1.ObjectReference{
+					Name:      testDomainGUID,
+					Namespace: testNamespace,
 				},
 				Destinations: []networkingv1alpha1.Destination{
 					{

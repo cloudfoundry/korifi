@@ -448,8 +448,9 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					Host:     "test-host",
 					Path:     "",
 					Protocol: "http",
-					DomainRef: corev1.LocalObjectReference{
-						Name: GenerateGUID(),
+					DomainRef: corev1.ObjectReference{
+						Name:      GenerateGUID(),
+						Namespace: testNamespace,
 					},
 					Destinations: []networkingv1alpha1.Destination{wrongDestination, destination},
 				},

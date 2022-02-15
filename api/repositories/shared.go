@@ -113,6 +113,11 @@ var (
 			Resources: []string{"cfprocesses"},
 		},
 		{
+			Verbs:     []string{"get"},
+			APIGroups: []string{"networking.cloudfoundry.org"},
+			Resources: []string{"cfdomains"},
+		},
+		{
 			Verbs:     []string{"get", "list", "create", "delete"},
 			APIGroups: []string{"networking.cloudfoundry.org"},
 			Resources: []string{"cfroutes"},

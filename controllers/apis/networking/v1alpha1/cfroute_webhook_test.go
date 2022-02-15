@@ -30,8 +30,9 @@ var _ = Describe("CFRouteMutatingWebhook Unit Tests", func() {
 					Namespace: namespace,
 				},
 				Spec: v1alpha1.CFRouteSpec{
-					DomainRef: v1.LocalObjectReference{
-						Name: cfDomainGUID,
+					DomainRef: v1.ObjectReference{
+						Name:      cfDomainGUID,
+						Namespace: namespace,
 					},
 				},
 			}
@@ -57,8 +58,9 @@ var _ = Describe("CFRouteMutatingWebhook Unit Tests", func() {
 					},
 				},
 				Spec: v1alpha1.CFRouteSpec{
-					DomainRef: v1.LocalObjectReference{
-						Name: cfDomainGUID,
+					DomainRef: v1.ObjectReference{
+						Name:      cfDomainGUID,
+						Namespace: namespace,
 					},
 				},
 			}

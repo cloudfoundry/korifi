@@ -22,11 +22,12 @@ var _ = Describe("RouteRepository", func() {
 	const domainName = "my-domain-name"
 
 	var (
-		testCtx    context.Context
-		route1GUID string
-		route2GUID string
-		domainGUID string
-		routeRepo  *RouteRepo
+		testCtx       context.Context
+		testNamespace string
+		route1GUID    string
+		route2GUID    string
+		domainGUID    string
+		routeRepo     *RouteRepo
 	)
 
 	validateRoute := func(route RouteRecord, expectedRoute *networkingv1alpha1.CFRoute) {
@@ -55,41 +56,55 @@ var _ = Describe("RouteRepository", func() {
 
 	BeforeEach(func() {
 		testCtx = context.Background()
+		testNamespace = generateGUID()
 		route1GUID = generateGUID()
 		route2GUID = generateGUID()
 		domainGUID = generateGUID()
 		routeRepo = NewRouteRepo(k8sClient, userClientFactory)
+
+		Expect(k8sClient.Create(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}})).To(Succeed())
+
+		cfDomain := &networkingv1alpha1.CFDomain{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      domainGUID,
+				Namespace: testNamespace,
+			},
+			Spec: networkingv1alpha1.CFDomainSpec{
+				Name: domainName,
+			},
+		}
+		Expect(k8sClient.Create(testCtx, cfDomain)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		Expect(k8sClient.Delete(testCtx, &networkingv1alpha1.CFDomain{
+			ObjectMeta: metav1.ObjectMeta{Name: domainGUID, Namespace: testNamespace},
+		})).To(Succeed())
+
+		Expect(k8sClient.Delete(testCtx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: testNamespace},
+		})).To(Succeed())
 	})
 
 	Describe("GetRoute", func() {
 		var (
 			cfRoute1 *networkingv1alpha1.CFRoute
 			cfRoute2 *networkingv1alpha1.CFRoute
-			cfDomain *networkingv1alpha1.CFDomain
 		)
 
 		BeforeEach(func() {
-			cfDomain = &networkingv1alpha1.CFDomain{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: domainGUID,
-				},
-				Spec: networkingv1alpha1.CFDomainSpec{
-					Name: domainName,
-				},
-			}
-			Expect(k8sClient.Create(testCtx, cfDomain)).To(Succeed())
-
 			cfRoute1 = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route1GUID,
-					Namespace: "default",
+					Namespace: testNamespace,
 				},
 				Spec: networkingv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
 					Path:     "",
 					Protocol: "http",
-					DomainRef: corev1.LocalObjectReference{
-						Name: domainGUID,
+					DomainRef: corev1.ObjectReference{
+						Name:      domainGUID,
+						Namespace: testNamespace,
 					},
 					Destinations: []networkingv1alpha1.Destination{
 						{
@@ -109,14 +124,15 @@ var _ = Describe("RouteRepository", func() {
 			cfRoute2 = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route2GUID,
-					Namespace: "default",
+					Namespace: testNamespace,
 				},
 				Spec: networkingv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-2",
 					Path:     "",
 					Protocol: "http",
-					DomainRef: corev1.LocalObjectReference{
-						Name: domainGUID,
+					DomainRef: corev1.ObjectReference{
+						Name:      domainGUID,
+						Namespace: testNamespace,
 					},
 					Destinations: []networkingv1alpha1.Destination{},
 				},
@@ -127,7 +143,6 @@ var _ = Describe("RouteRepository", func() {
 		AfterEach(func() {
 			Expect(k8sClient.Delete(testCtx, cfRoute1)).To(Succeed())
 			Expect(k8sClient.Delete(testCtx, cfRoute2)).To(Succeed())
-			Expect(k8sClient.Delete(testCtx, cfDomain)).To(Succeed())
 		})
 
 		When("multiple CFRoute resources exist", func() {
@@ -190,8 +205,9 @@ var _ = Describe("RouteRepository", func() {
 						Host:     "my-subdomain-1",
 						Path:     "",
 						Protocol: "http",
-						DomainRef: corev1.LocalObjectReference{
-							Name: domainGUID,
+						DomainRef: corev1.ObjectReference{
+							Name:      domainGUID,
+							Namespace: otherNamespaceGUID,
 						},
 					},
 				}
@@ -219,31 +235,21 @@ var _ = Describe("RouteRepository", func() {
 			var (
 				cfRoute1 *networkingv1alpha1.CFRoute
 				cfRoute2 *networkingv1alpha1.CFRoute
-				cfDomain *networkingv1alpha1.CFDomain
 			)
 
 			BeforeEach(func() {
-				cfDomain = &networkingv1alpha1.CFDomain{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: domainGUID,
-					},
-					Spec: networkingv1alpha1.CFDomainSpec{
-						Name: domainName,
-					},
-				}
-				Expect(k8sClient.Create(testCtx, cfDomain)).To(Succeed())
-
 				cfRoute1 = &networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      route1GUID,
-						Namespace: "default",
+						Namespace: testNamespace,
 					},
 					Spec: networkingv1alpha1.CFRouteSpec{
 						Host:     "my-subdomain-1",
 						Path:     "",
 						Protocol: "http",
-						DomainRef: corev1.LocalObjectReference{
-							Name: domainGUID,
+						DomainRef: corev1.ObjectReference{
+							Name:      domainGUID,
+							Namespace: testNamespace,
 						},
 						Destinations: []networkingv1alpha1.Destination{
 							{
@@ -263,14 +269,15 @@ var _ = Describe("RouteRepository", func() {
 				cfRoute2 = &networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      route2GUID,
-						Namespace: "default",
+						Namespace: testNamespace,
 					},
 					Spec: networkingv1alpha1.CFRouteSpec{
 						Host:     "my-subdomain-2",
 						Path:     "/some/path",
 						Protocol: "http",
-						DomainRef: corev1.LocalObjectReference{
-							Name: domainGUID,
+						DomainRef: corev1.ObjectReference{
+							Name:      domainGUID,
+							Namespace: testNamespace,
 						},
 						Destinations: []networkingv1alpha1.Destination{
 							{
@@ -291,7 +298,6 @@ var _ = Describe("RouteRepository", func() {
 			AfterEach(func() {
 				Expect(k8sClient.Delete(testCtx, cfRoute1)).To(Succeed())
 				Expect(k8sClient.Delete(testCtx, cfRoute2)).To(Succeed())
-				Expect(k8sClient.Delete(testCtx, cfDomain)).To(Succeed())
 			})
 
 			When("filters are not provided", func() {
@@ -337,7 +343,7 @@ var _ = Describe("RouteRepository", func() {
 
 				When("space_guid filters are provided", func() {
 					BeforeEach(func() {
-						message = ListRoutesMessage{SpaceGUIDs: []string{"default"}}
+						message = ListRoutesMessage{SpaceGUIDs: []string{testNamespace}}
 					})
 					It("eventually returns a list of routeRecords for each CFRoute CR", func() {
 						Expect(routeRecords).To(HaveLen(2))
@@ -426,10 +432,6 @@ var _ = Describe("RouteRepository", func() {
 	})
 
 	Describe("GetRoutesForApp", func() {
-		const (
-			testNamespace = "default"
-		)
-
 		var (
 			appGUID  string
 			cfRoute1 *networkingv1alpha1.CFRoute
@@ -448,8 +450,9 @@ var _ = Describe("RouteRepository", func() {
 					Host:     "my-subdomain-1",
 					Path:     "",
 					Protocol: "http",
-					DomainRef: corev1.LocalObjectReference{
-						Name: domainGUID,
+					DomainRef: corev1.ObjectReference{
+						Name:      domainGUID,
+						Namespace: testNamespace,
 					},
 					Destinations: []networkingv1alpha1.Destination{
 						{
@@ -475,8 +478,9 @@ var _ = Describe("RouteRepository", func() {
 					Host:     "my-subdomain-2",
 					Path:     "",
 					Protocol: "http",
-					DomainRef: corev1.LocalObjectReference{
-						Name: domainGUID,
+					DomainRef: corev1.ObjectReference{
+						Name:      domainGUID,
+						Namespace: testNamespace,
 					},
 					Destinations: []networkingv1alpha1.Destination{},
 				},
@@ -552,7 +556,6 @@ var _ = Describe("RouteRepository", func() {
 
 	Describe("CreateRoute", func() {
 		const (
-			testNamespace = "default"
 			testRouteHost = "test-route-host"
 			testRoutePath = "/test/route/path"
 		)
@@ -564,18 +567,7 @@ var _ = Describe("RouteRepository", func() {
 			)
 
 			BeforeEach(func() {
-				cfDomain := &networkingv1alpha1.CFDomain{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: domainGUID,
-					},
-					Spec: networkingv1alpha1.CFDomainSpec{
-						Name: domainName,
-					},
-				}
-				err := k8sClient.Create(context.Background(), cfDomain)
-				Expect(err).NotTo(HaveOccurred())
-
-				createRouteMessage := buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, testNamespace)
+				createRouteMessage := buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, testNamespace, rootNamespace)
 				createdRouteRecord, createdRouteErr = routeRepo.CreateRoute(testCtx, authInfo, createRouteMessage)
 				Expect(createdRouteErr).NotTo(HaveOccurred())
 				route1GUID = createdRouteRecord.GUID
@@ -583,7 +575,6 @@ var _ = Describe("RouteRepository", func() {
 
 			AfterEach(func() {
 				Expect(cleanupRoute(k8sClient, testCtx, route1GUID, testNamespace)).To(Succeed())
-				Expect(cleanupDomain(k8sClient, testCtx, domainGUID)).To(Succeed())
 			})
 
 			It("creates a new CFRoute CR successfully", func() {
@@ -622,19 +613,9 @@ var _ = Describe("RouteRepository", func() {
 	})
 
 	Describe("DeleteRoute", func() {
-		var (
-			testNamespace string
-			cfRoute1      *networkingv1alpha1.CFRoute
-		)
+		var cfRoute1 *networkingv1alpha1.CFRoute
 
 		BeforeEach(func() {
-			beforeCtx := context.Background()
-			testNamespace = generateGUID()
-			ns := createNamespace(beforeCtx, "some-org", testNamespace)
-			DeferCleanup(func() {
-				Expect(k8sClient.Delete(context.Background(), ns)).To(Succeed())
-			})
-
 			cfRoute1 = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route1GUID,
@@ -644,8 +625,9 @@ var _ = Describe("RouteRepository", func() {
 					Host:     "my-subdomain-1",
 					Path:     "",
 					Protocol: "http",
-					DomainRef: corev1.LocalObjectReference{
-						Name: domainGUID,
+					DomainRef: corev1.ObjectReference{
+						Name:      domainGUID,
+						Namespace: testNamespace,
 					},
 					Destinations: []networkingv1alpha1.Destination{
 						{
@@ -733,32 +715,10 @@ var _ = Describe("RouteRepository", func() {
 			testRoutePath = "/test/route/path"
 		)
 
-		var (
-			testNamespace      string
-			createRouteMessage CreateRouteMessage
-		)
+		var createRouteMessage CreateRouteMessage
 
 		BeforeEach(func() {
-			testNamespace = generateGUID()
-			testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}}
-			Expect(k8sClient.Create(testCtx, testNS)).To(Succeed())
-
-			cfDomain := &networkingv1alpha1.CFDomain{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: domainGUID,
-				},
-				Spec: networkingv1alpha1.CFDomainSpec{
-					Name: domainName,
-				},
-			}
-			err := k8sClient.Create(context.Background(), cfDomain)
-			Expect(err).NotTo(HaveOccurred())
-
-			createRouteMessage = buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, testNamespace)
-		})
-
-		AfterEach(func() {
-			Expect(cleanupDomain(k8sClient, testCtx, domainGUID)).To(Succeed())
+			createRouteMessage = buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, testNamespace, rootNamespace)
 		})
 
 		When("route does not already exist", func() {
@@ -849,37 +809,6 @@ var _ = Describe("RouteRepository", func() {
 			testRouteHost = "test-route-host"
 			testRoutePath = "/test/route/path"
 		)
-
-		var (
-			testNamespace string
-			namespace     *corev1.Namespace
-		)
-
-		BeforeEach(func() {
-			testNamespace = "add-destinations-to-route-" + generateGUID()
-			namespace = &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: testNamespace,
-				},
-			}
-			Expect(
-				k8sClient.Create(testCtx, namespace),
-			).To(Succeed())
-
-			cfDomain := &networkingv1alpha1.CFDomain{
-				ObjectMeta: metav1.ObjectMeta{Name: domainGUID},
-			}
-			Expect(
-				k8sClient.Create(testCtx, cfDomain),
-			).To(Succeed())
-			DeferCleanup(func() {
-			})
-		})
-
-		AfterEach(func() {
-			Expect(k8sClient.Delete(testCtx, namespace)).To(Succeed())
-			Expect(cleanupDomain(k8sClient, testCtx, domainGUID)).To(Succeed())
-		})
 
 		When("the route exists with no destinations", func() {
 			BeforeEach(func() {
@@ -1265,8 +1194,9 @@ func initializeRouteCR(routeHost, routePath, routeGUID, domainGUID, spaceGUID st
 		Spec: networkingv1alpha1.CFRouteSpec{
 			Host: routeHost,
 			Path: routePath,
-			DomainRef: corev1.LocalObjectReference{
-				Name: domainGUID,
+			DomainRef: corev1.ObjectReference{
+				Name:      domainGUID,
+				Namespace: spaceGUID,
 			},
 		},
 	}
@@ -1281,12 +1211,13 @@ func initializeDestinationListMessage(routeGUID string, spaceGUID string, existi
 	}
 }
 
-func buildCreateRouteMessage(routeHost, routePath, domainGUID, spaceGUID string) CreateRouteMessage {
+func buildCreateRouteMessage(routeHost, routePath, domainGUID, spaceGUID, domainNamespace string) CreateRouteMessage {
 	return CreateRouteMessage{
-		Host:       routeHost,
-		Path:       routePath,
-		SpaceGUID:  spaceGUID,
-		DomainGUID: domainGUID,
+		Host:            routeHost,
+		Path:            routePath,
+		SpaceGUID:       spaceGUID,
+		DomainGUID:      domainGUID,
+		DomainNamespace: domainNamespace,
 	}
 }
 
@@ -1295,14 +1226,6 @@ func cleanupRoute(k8sClient client.Client, ctx context.Context, routeGUID, route
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      routeGUID,
 			Namespace: routeNamespace,
-		},
-	})
-}
-
-func cleanupDomain(k8sClient client.Client, ctx context.Context, domainGUID string) error {
-	return k8sClient.Delete(ctx, &networkingv1alpha1.CFDomain{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: domainGUID,
 		},
 	})
 }

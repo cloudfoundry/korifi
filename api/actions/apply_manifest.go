@@ -151,12 +151,16 @@ func (a *ApplyManifest) createOrUpdateRoutes(ctx context.Context, authInfo autho
 		return fmt.Errorf("createOrUpdateRoutes: %w", err)
 	}
 
-	routeRecord, err := a.routeRepo.GetOrCreateRoute(ctx, authInfo, repositories.CreateRouteMessage{
-		Host:       hostName,
-		Path:       path,
-		SpaceGUID:  appRecord.SpaceGUID,
-		DomainGUID: domainRecord.GUID,
-	})
+	routeRecord, err := a.routeRepo.GetOrCreateRoute(
+		ctx,
+		authInfo,
+		repositories.CreateRouteMessage{
+			Host:            hostName,
+			Path:            path,
+			SpaceGUID:       appRecord.SpaceGUID,
+			DomainGUID:      domainRecord.GUID,
+			DomainNamespace: domainRecord.Namespace,
+		})
 	if err != nil {
 		return fmt.Errorf("createOrUpdateRoutes: %w", err)
 	}

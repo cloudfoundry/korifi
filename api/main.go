@@ -98,7 +98,7 @@ func main() {
 	podRepo := repositories.NewPodRepo(privilegedCRClient)
 	dropletRepo := repositories.NewDropletRepo(privilegedCRClient, userClientFactory)
 	routeRepo := repositories.NewRouteRepo(privilegedCRClient, userClientFactory)
-	domainRepo := repositories.NewDomainRepo(privilegedCRClient)
+	domainRepo := repositories.NewDomainRepo(privilegedCRClient, userClientFactory)
 	buildRepo := repositories.NewBuildRepo(privilegedCRClient, userClientFactory)
 	packageRepo := repositories.NewPackageRepo(privilegedCRClient, userClientFactory)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(userClientFactory, nsPermissions)

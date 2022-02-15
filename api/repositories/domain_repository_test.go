@@ -12,63 +12,114 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("DomainRepository", func() {
 	var (
-		testCtx    context.Context
-		domainRepo *repositories.DomainRepo
+		testCtx                   context.Context
+		domainRepo                *repositories.DomainRepo
+		spaceDeveloperClusterRole *v1.ClusterRole
+		testNamespace             string
 	)
 
 	BeforeEach(func() {
+		domainRepo = NewDomainRepo(k8sClient, userClientFactory)
 		testCtx = context.Background()
-		domainRepo = NewDomainRepo(k8sClient)
+		testNamespace = generateGUID()
+
+		Expect(k8sClient.Create(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}})).To(Succeed())
+		spaceDeveloperClusterRole = createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
+	})
+
+	AfterEach(func() {
+		Expect(k8sClient.Delete(testCtx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: testNamespace},
+		})).To(Succeed())
 	})
 
 	Describe("GetDomain", func() {
-		When("multiple CFDomain resources exist", func() {
-			var (
-				cfDomain1 *networkingv1alpha1.CFDomain
-				cfDomain2 *networkingv1alpha1.CFDomain
-			)
+		When("the user has SpaceDeveloper access", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, testNamespace)
+			})
+
+			When("multiple CFDomain resources exist", func() {
+				var (
+					cfDomain1 *networkingv1alpha1.CFDomain
+					cfDomain2 *networkingv1alpha1.CFDomain
+				)
+
+				BeforeEach(func() {
+					beforeCtx := context.Background()
+
+					cfDomain1 = &networkingv1alpha1.CFDomain{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "domain-id-1",
+							Namespace: testNamespace,
+						},
+						Spec: networkingv1alpha1.CFDomainSpec{
+							Name: "my-domain-1.com",
+						},
+					}
+					Expect(k8sClient.Create(beforeCtx, cfDomain1)).To(Succeed())
+
+					cfDomain2 = &networkingv1alpha1.CFDomain{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "domain-id-2",
+							Namespace: testNamespace,
+						},
+						Spec: networkingv1alpha1.CFDomainSpec{
+							Name: "my-domain-2.com",
+						},
+					}
+					Expect(k8sClient.Create(beforeCtx, cfDomain2)).To(Succeed())
+				})
+
+				AfterEach(func() {
+					afterCtx := context.Background()
+					Expect(k8sClient.Delete(afterCtx, cfDomain1)).To(Succeed())
+					Expect(k8sClient.Delete(afterCtx, cfDomain2)).To(Succeed())
+				})
+
+				It("fetches the CFDomain CR we're looking for", func() {
+					domain, err := domainRepo.GetDomain(testCtx, authInfo, "domain-id-1")
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(domain.GUID).To(Equal("domain-id-1"))
+					Expect(domain.Name).To(Equal("my-domain-1.com"))
+				})
+			})
+		})
+
+		When("the user is a plebian with no permissions", func() {
+			var cfDomain1 *networkingv1alpha1.CFDomain
 
 			BeforeEach(func() {
 				beforeCtx := context.Background()
 
 				cfDomain1 = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "domain-id-1",
+						Name:      "domain-id-1",
+						Namespace: testNamespace,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
 						Name: "my-domain-1.com",
 					},
 				}
 				Expect(k8sClient.Create(beforeCtx, cfDomain1)).To(Succeed())
-
-				cfDomain2 = &networkingv1alpha1.CFDomain{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "domain-id-2",
-					},
-					Spec: networkingv1alpha1.CFDomainSpec{
-						Name: "my-domain-2.com",
-					},
-				}
-				Expect(k8sClient.Create(beforeCtx, cfDomain2)).To(Succeed())
-			})
-
-			It("fetches the CFDomain CR we're looking for", func() {
-				domain, err := domainRepo.GetDomain(testCtx, authInfo, "domain-id-1")
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(domain.GUID).To(Equal("domain-id-1"))
-				Expect(domain.Name).To(Equal("my-domain-1.com"))
 			})
 
 			AfterEach(func() {
 				afterCtx := context.Background()
 				Expect(k8sClient.Delete(afterCtx, cfDomain1)).To(Succeed())
-				Expect(k8sClient.Delete(afterCtx, cfDomain2)).To(Succeed())
+			})
+
+			It("fetches the CFDomain CR we're looking for", func() {
+				_, err := domainRepo.GetDomain(testCtx, authInfo, "domain-id-1")
+				Expect(err).To(HaveOccurred())
 			})
 		})
 
@@ -110,7 +161,8 @@ var _ = Describe("DomainRepository", func() {
 
 				cfDomain1 = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: domainGUID1,
+						Name:      domainGUID1,
+						Namespace: testNamespace,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
 						Name: domainName1,
@@ -120,7 +172,8 @@ var _ = Describe("DomainRepository", func() {
 
 				cfDomain2 = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: domainGUID2,
+						Name:      domainGUID2,
+						Namespace: testNamespace,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
 						Name: domainName2,
@@ -130,7 +183,8 @@ var _ = Describe("DomainRepository", func() {
 
 				cfDomain3 = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: domainGUID3,
+						Name:      domainGUID3,
+						Namespace: testNamespace,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
 						Name: domainName3,
@@ -200,7 +254,8 @@ var _ = Describe("DomainRepository", func() {
 
 				cfDomain1 = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: domainGUID1,
+						Name:      domainGUID1,
+						Namespace: testNamespace,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
 						Name: domainName1,
@@ -210,7 +265,8 @@ var _ = Describe("DomainRepository", func() {
 
 				cfDomain2 = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: domainGUID2,
+						Name:      domainGUID2,
+						Namespace: testNamespace,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
 						Name: domainName2,
@@ -323,7 +379,8 @@ var _ = Describe("DomainRepository", func() {
 			domainGUID = generateGUID()
 			cfDomain = &networkingv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: domainGUID,
+					Name:      domainGUID,
+					Namespace: testNamespace,
 				},
 				Spec: networkingv1alpha1.CFDomainSpec{
 					Name: domainName,
@@ -335,7 +392,8 @@ var _ = Describe("DomainRepository", func() {
 
 			cfDomain2 = &networkingv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: generateGUID(),
+					Name:      generateGUID(),
+					Namespace: testNamespace,
 				},
 				Spec: networkingv1alpha1.CFDomainSpec{
 					Name: "some-other-domain.com",

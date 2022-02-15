@@ -228,7 +228,7 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 		}
 	}
 
-	createRouteMessage := payload.ToMessage()
+	createRouteMessage := payload.ToMessage(domain.Namespace)
 
 	responseRouteRecord, err := h.routeRepo.CreateRoute(ctx, authInfo, createRouteMessage)
 	if err != nil {

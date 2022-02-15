@@ -90,12 +90,13 @@ type ListRoutesMessage struct {
 }
 
 type CreateRouteMessage struct {
-	Host        string
-	Path        string
-	SpaceGUID   string
-	DomainGUID  string
-	Labels      map[string]string
-	Annotations map[string]string
+	Host            string
+	Path            string
+	SpaceGUID       string
+	DomainGUID      string
+	DomainNamespace string
+	Labels          map[string]string
+	Annotations     map[string]string
 }
 
 type DeleteRouteMessage struct {
@@ -119,8 +120,9 @@ func (m CreateRouteMessage) toCFRoute() networkingv1alpha1.CFRoute {
 			Host:     m.Host,
 			Path:     m.Path,
 			Protocol: "http",
-			DomainRef: v1.LocalObjectReference{
-				Name: m.DomainGUID,
+			DomainRef: v1.ObjectReference{
+				Name:      m.DomainGUID,
+				Namespace: m.DomainNamespace,
 			},
 		},
 	}

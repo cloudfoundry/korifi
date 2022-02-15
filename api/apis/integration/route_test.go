@@ -24,6 +24,7 @@ var _ = Describe("Route Handler", func() {
 	var (
 		apiHandler         *RouteHandler
 		namespace          *corev1.Namespace
+		namespaceGUID      string
 		spaceDeveloperRole *rbacv1.ClusterRole
 	)
 
@@ -31,7 +32,7 @@ var _ = Describe("Route Handler", func() {
 		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
 		orgRepo := repositories.NewOrgRepo("root-ns", k8sClient, clientFactory, nsPermissions, time.Minute, true)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
-		domainRepo := repositories.NewDomainRepo(k8sClient)
+		domainRepo := repositories.NewDomainRepo(k8sClient, clientFactory)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -46,7 +47,7 @@ var _ = Describe("Route Handler", func() {
 		)
 		apiHandler.RegisterRoutes(router)
 
-		namespaceGUID := generateGUID()
+		namespaceGUID = generateGUID()
 		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceGUID}}
 		Expect(
 			k8sClient.Create(ctx, namespace),
@@ -78,7 +79,8 @@ var _ = Describe("Route Handler", func() {
 
 				cfDomain := &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: domainGUID,
+						Name:      domainGUID,
+						Namespace: namespaceGUID,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
 						Name: "foo.domain",
@@ -90,7 +92,7 @@ var _ = Describe("Route Handler", func() {
 
 				Eventually(func() error {
 					domain := &networkingv1alpha1.CFDomain{}
-					return k8sClient.Get(ctx, client.ObjectKey{Name: domainGUID}, domain)
+					return k8sClient.Get(ctx, client.ObjectKey{Name: domainGUID, Namespace: namespaceGUID}, domain)
 				}).ShouldNot(HaveOccurred())
 
 				cfRoute1 = &networkingv1alpha1.CFRoute{
@@ -102,8 +104,9 @@ var _ = Describe("Route Handler", func() {
 						Host:     "my-subdomain-1",
 						Path:     "",
 						Protocol: "http",
-						DomainRef: corev1.LocalObjectReference{
-							Name: domainGUID,
+						DomainRef: corev1.ObjectReference{
+							Name:      domainGUID,
+							Namespace: namespace.Name,
 						},
 						Destinations: []networkingv1alpha1.Destination{
 							{
@@ -143,8 +146,9 @@ var _ = Describe("Route Handler", func() {
 						Host:     "my-subdomain-2",
 						Path:     "foo",
 						Protocol: "http",
-						DomainRef: corev1.LocalObjectReference{
-							Name: domainGUID,
+						DomainRef: corev1.ObjectReference{
+							Name:      domainGUID,
+							Namespace: namespace.Name,
 						},
 						Destinations: []networkingv1alpha1.Destination{
 							{
@@ -255,7 +259,8 @@ var _ = Describe("Route Handler", func() {
 
 				cfDomain := &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: domainGUID,
+						Name:      domainGUID,
+						Namespace: namespaceGUID,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
 						Name: "foo.domain",
@@ -274,8 +279,9 @@ var _ = Describe("Route Handler", func() {
 						Host:     "my-subdomain-1",
 						Path:     "",
 						Protocol: "http",
-						DomainRef: corev1.LocalObjectReference{
-							Name: domainGUID,
+						DomainRef: corev1.ObjectReference{
+							Name:      domainGUID,
+							Namespace: namespace.Name,
 						},
 						Destinations: []networkingv1alpha1.Destination{
 							{
