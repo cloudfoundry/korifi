@@ -165,7 +165,7 @@ var _ = Describe("ProcessHandler", func() {
 		When("on the sad path and", func() {
 			When("the process doesn't exist", func() {
 				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
+					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError("Process", nil))
 				})
 
 				It("returns a not-found error", func() {
@@ -174,7 +174,7 @@ var _ = Describe("ProcessHandler", func() {
 			})
 			When("the user lacks access", func() {
 				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenProcessError(errors.New("access denied or something")))
+					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenError("Process", errors.New("access denied or something")))
 				})
 
 				It("returns a not-found error", func() {
@@ -250,7 +250,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the process doesn't exist", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError("Process", nil))
 			})
 
 			It("returns an error", func() {
@@ -260,7 +260,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the process isn't accessible to the user", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenProcessError(nil))
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenError("Process", nil))
 			})
 
 			It("returns an error", func() {
@@ -512,7 +512,7 @@ var _ = Describe("ProcessHandler", func() {
 
 			When("the process doesn't exist", func() {
 				BeforeEach(func() {
-					scaleProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
+					scaleProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NewNotFoundError("Process", nil))
 				})
 
 				It("returns an error", func() {
@@ -667,7 +667,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the process is not found", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NotFoundError{ResourceType: "Process"})
+				fetchProcessStats.Returns(nil, repositories.NewNotFoundError("Process", nil))
 			})
 			It("an error", func() {
 				expectNotFoundError("Process not found")
@@ -676,7 +676,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the app is not found", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NotFoundError{ResourceType: "App"})
+				fetchProcessStats.Returns(nil, repositories.NewNotFoundError("App", nil))
 			})
 			It("an error", func() {
 				expectNotFoundError("App not found")
@@ -697,7 +697,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the app is not authorized", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NewForbiddenAppError(nil))
+				fetchProcessStats.Returns(nil, repositories.NewForbiddenError("App", nil))
 			})
 
 			It("returns an error", func() {
@@ -707,7 +707,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the process is not authorized", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NewForbiddenProcessError(nil))
+				fetchProcessStats.Returns(nil, repositories.NewForbiddenError("Process", nil))
 			})
 
 			It("returns an error", func() {
@@ -717,7 +717,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the process stats are not authorized", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NewForbiddenProcessStatsError(nil))
+				fetchProcessStats.Returns(nil, repositories.NewForbiddenError("Process stats", nil))
 			})
 
 			It("returns an error", func() {
@@ -1061,7 +1061,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("user is not allowed to get a process", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenProcessError(errors.New("nope")))
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenError("Process", errors.New("nope")))
 				makePatchRequest(processGUID, validBody)
 			})
 

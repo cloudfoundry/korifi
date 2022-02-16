@@ -69,7 +69,7 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 	domain := &networkingv1alpha1.CFDomain{}
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: matchingDomain.Namespace, Name: matchingDomain.GUID}, domain)
 	if k8serrors.IsForbidden(err) {
-		return DomainRecord{}, NewForbiddenError(err)
+		return DomainRecord{}, NewForbiddenError("Domain", err)
 	}
 
 	if err != nil { // untested
@@ -100,10 +100,7 @@ func (r *DomainRepo) GetDomainByName(ctx context.Context, authInfo authorization
 	}
 
 	if len(domainRecords) == 0 {
-		return DomainRecord{}, NotFoundError{
-			Err:          err,
-			ResourceType: "Domain",
-		}
+		return DomainRecord{}, NewNotFoundError("Domain", err)
 	}
 
 	return domainRecords[0], nil

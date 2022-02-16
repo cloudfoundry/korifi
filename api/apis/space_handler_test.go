@@ -148,7 +148,7 @@ var _ = Describe("Spaces", func() {
 
 		When("user is not allowed to create a space", func() {
 			BeforeEach(func() {
-				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.NewForbiddenError(errors.New("nope")))
+				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.NewForbiddenError("Space", errors.New("nope")))
 			})
 
 			It("returns an unauthorised error", func() {
@@ -158,10 +158,10 @@ var _ = Describe("Spaces", func() {
 
 		When("the repo returns a not found or permission denied error", func() {
 			BeforeEach(func() {
-				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.NotFoundError{Err: errors.New("nope")})
+				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.NewNotFoundError("Org", errors.New("nope")))
 			})
 
-			It("returns an unauthorised error", func() {
+			It("returns an invalid org error", func() {
 				expectUnprocessableEntityError("Invalid organization. Ensure the organization exists and you have access to it.")
 			})
 		})
@@ -509,7 +509,7 @@ var _ = Describe("Spaces", func() {
 
 		When("the space doesn't exist", func() {
 			BeforeEach(func() {
-				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NotFoundError{})
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NewNotFoundError("Space", nil))
 			})
 
 			It("returns an error", func() {

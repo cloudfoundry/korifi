@@ -313,7 +313,7 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the build cannot be found", func() {
 			BeforeEach(func() {
-				buildRepo.GetBuildReturns(repositories.BuildRecord{}, repositories.NotFoundError{})
+				buildRepo.GetBuildReturns(repositories.BuildRecord{}, repositories.NewNotFoundError("Build", nil))
 			})
 
 			It("returns an error", func() {
@@ -323,7 +323,7 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the user does not have access to the build", func() {
 			BeforeEach(func() {
-				buildRepo.GetBuildReturns(repositories.BuildRecord{}, repositories.NewForbiddenError(nil))
+				buildRepo.GetBuildReturns(repositories.BuildRecord{}, repositories.NewForbiddenError("Build", nil))
 			})
 
 			It("returns an error", func() {
@@ -502,7 +502,7 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the package doesn't exist", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError("Package", nil))
 			})
 
 			It("returns an error", func() {
@@ -535,7 +535,7 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the user is not authorized to create a build", func() {
 			BeforeEach(func() {
-				buildRepo.CreateBuildReturns(repositories.BuildRecord{}, repositories.NewForbiddenError(nil))
+				buildRepo.CreateBuildReturns(repositories.BuildRecord{}, repositories.NewForbiddenError("Build", nil))
 			})
 
 			It("returns a not authorized error", func() {
@@ -545,7 +545,7 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the user is not authorized to get a package", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(nil))
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError("Package", nil))
 			})
 
 			It("returns an error", func() {

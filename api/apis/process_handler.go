@@ -244,8 +244,8 @@ func (h *ProcessHandler) processPatchHandler(authInfo authorization.Info, w http
 func (h *ProcessHandler) writeErrorResponse(w http.ResponseWriter, processGUID string, err error) {
 	switch tycerr := err.(type) {
 	case repositories.NotFoundError:
-		h.logger.Info(fmt.Sprintf("%s not found", tycerr.ResourceType), "ProcessGUID", processGUID)
-		writeNotFoundErrorResponse(w, tycerr.ResourceType)
+		h.logger.Info(fmt.Sprintf("%s not found", tycerr.ResourceType()), "ProcessGUID", processGUID)
+		writeNotFoundErrorResponse(w, tycerr.ResourceType())
 	case repositories.ForbiddenError:
 		h.logger.Info(fmt.Sprintf("%s forbidden", tycerr.ResourceType()), "ProcessGUID", processGUID)
 		writeNotFoundErrorResponse(w, tycerr.ResourceType())

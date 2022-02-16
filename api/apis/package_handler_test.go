@@ -148,7 +148,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the package is not there", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError("Package", nil))
 			})
 
 			It("returns status 404", func() {
@@ -590,7 +590,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the app doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -602,7 +602,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the app is not accessible", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -719,7 +719,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the user is not allowed to create packages", func() {
 			BeforeEach(func() {
-				packageRepo.CreatePackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(errors.New("no")))
+				packageRepo.CreatePackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError("Package", errors.New("no")))
 			})
 
 			It("returns an unauthorized error", func() {
@@ -870,7 +870,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the record doesn't exist", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError("Package", nil))
 			})
 
 			It("returns an error", func() {
@@ -882,7 +882,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("getting the package is forbidden", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.ForbiddenError{})
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError("Package", nil))
 			})
 
 			It("returns an error", func() {
@@ -894,7 +894,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("uploading the package is forbidden", func() {
 			BeforeEach(func() {
-				imageRepo.UploadSourceImageReturns("", repositories.ForbiddenError{})
+				imageRepo.UploadSourceImageReturns("", repositories.NewForbiddenError("Package", nil))
 			})
 
 			It("returns an error", func() {
@@ -943,7 +943,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("updating the package is forbidden", func() {
 			BeforeEach(func() {
-				packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(errors.New("no")))
+				packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{}, repositories.NewForbiddenError("Package", errors.New("no")))
 			})
 
 			It("returns an error", func() {
@@ -1149,7 +1149,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the package does not exist", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError("Package", nil))
 			})
 
 			It("returns the error", func() {

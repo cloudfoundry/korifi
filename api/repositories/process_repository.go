@@ -110,7 +110,7 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 	}
 
 	if len(processList.Items) == 0 {
-		return ProcessRecord{}, NotFoundError{ResourceType: "Process"}
+		return ProcessRecord{}, NewNotFoundError("Process", nil)
 	}
 	if len(processList.Items) > 1 {
 		return ProcessRecord{}, errors.New("duplicate processes exist")
@@ -125,7 +125,7 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: processList.Items[0].Namespace, Name: processList.Items[0].Name}, &process)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return ProcessRecord{}, NewForbiddenProcessError(err)
+			return ProcessRecord{}, NewForbiddenError("Process", err)
 		}
 
 		return ProcessRecord{}, fmt.Errorf("get-process: failed to get process with user client: %w", err)
@@ -262,7 +262,7 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 
 func returnProcess(processes []workloadsv1alpha1.CFProcess) (ProcessRecord, error) {
 	if len(processes) == 0 {
-		return ProcessRecord{}, NotFoundError{ResourceType: "Process"}
+		return ProcessRecord{}, NewNotFoundError("Process", nil)
 	}
 	if len(processes) > 1 {
 		return ProcessRecord{}, errors.New("duplicate processes exist")

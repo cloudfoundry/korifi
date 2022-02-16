@@ -131,7 +131,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 			return RoleRecord{}, ErrorDuplicateRoleBinding
 		}
 		if k8serrors.IsForbidden(err) {
-			return RoleRecord{}, NewForbiddenError(err)
+			return RoleRecord{}, NewForbiddenError("Role", err)
 		}
 		return RoleRecord{}, fmt.Errorf("failed to assign user %q to role %q: %w", role.User, role.Type, err)
 	}

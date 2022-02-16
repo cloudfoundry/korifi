@@ -177,7 +177,7 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: app.SpaceGUID, Name: app.GUID}, &workloadsv1alpha1.CFApp{})
 	if k8serrors.IsForbidden(err) {
-		return AppRecord{}, NewForbiddenAppError(err)
+		return AppRecord{}, NewForbiddenError("App", err)
 	}
 
 	if err != nil { // untested
@@ -401,7 +401,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return CurrentDropletRecord{}, NewForbiddenError(err)
+			return CurrentDropletRecord{}, NewForbiddenError("App", err)
 		}
 
 		return CurrentDropletRecord{}, fmt.Errorf("err in client.Patch: %w", err)
@@ -431,7 +431,7 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return AppRecord{}, NewForbiddenError(err)
+			return AppRecord{}, NewForbiddenError("App", err)
 		}
 
 		return AppRecord{}, fmt.Errorf("err in client.Patch: %w", err)
@@ -474,7 +474,7 @@ func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, ap
 	err = userClient.Get(ctx, key, secret)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return nil, NewForbiddenError(err)
+			return nil, NewForbiddenError("App Env", err)
 		}
 		return nil, fmt.Errorf("error finding environment variable Secret %q for App %q: %w", app.envSecretName, app.GUID, err)
 	}
@@ -537,7 +537,7 @@ func cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 
 func returnApp(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
 	if len(apps) == 0 {
-		return AppRecord{}, NotFoundError{ResourceType: "App"}
+		return AppRecord{}, NewNotFoundError("App", nil)
 	}
 	if len(apps) > 1 {
 		return AppRecord{}, errors.New("duplicate apps exist")

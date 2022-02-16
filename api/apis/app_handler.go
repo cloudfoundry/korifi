@@ -444,7 +444,7 @@ func (h *AppHandler) appScaleProcessHandler(authInfo authorization.Info, w http.
 	if err != nil {
 		switch errType := err.(type) {
 		case repositories.NotFoundError:
-			resourceType := errType.ResourceType
+			resourceType := errType.ResourceType()
 			h.logger.Info(fmt.Sprintf("%s not found", resourceType), "appGUID", appGUID)
 			writeNotFoundErrorResponse(w, resourceType)
 			return
