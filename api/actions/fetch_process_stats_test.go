@@ -70,11 +70,11 @@ var _ = Describe("GetProcessStatsAction", func() {
 		fetchProcessStatsAction = NewFetchProcessStats(processRepo, podRepo, appRepo)
 	})
 
-	When("on the happy path", func() {
-		BeforeEach(func() {
-			responseRecords, responseErr = fetchProcessStatsAction.Invoke(context.Background(), authInfo, processGUID)
-		})
+	JustBeforeEach(func() {
+		responseRecords, responseErr = fetchProcessStatsAction.Invoke(context.Background(), authInfo, processGUID)
+	})
 
+	When("on the happy path", func() {
 		It("does not return an error", func() {
 			Expect(responseErr).ToNot(HaveOccurred())
 		})
@@ -136,7 +136,6 @@ var _ = Describe("GetProcessStatsAction", func() {
 		When("GetProcess responds with some error", func() {
 			BeforeEach(func() {
 				processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("some-error"))
-				responseRecords, responseErr = fetchProcessStatsAction.Invoke(context.Background(), authInfo, processGUID)
 			})
 
 			It("returns a nil and error", func() {
@@ -148,7 +147,17 @@ var _ = Describe("GetProcessStatsAction", func() {
 		When("GetApp responds with some error", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("some-error"))
-				responseRecords, responseErr = fetchProcessStatsAction.Invoke(context.Background(), authInfo, processGUID)
+			})
+
+			It("returns a nil and error", func() {
+				Expect(responseRecords).To(BeNil())
+				Expect(responseErr).To(MatchError("some-error"))
+			})
+		})
+
+		When("ListPodStats responds with some error", func() {
+			BeforeEach(func() {
+				podRepo.ListPodStatsReturns(nil, errors.New("some-error"))
 			})
 
 			It("returns a nil and error", func() {

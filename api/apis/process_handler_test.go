@@ -174,7 +174,7 @@ var _ = Describe("ProcessHandler", func() {
 			})
 			When("the user lacks access", func() {
 				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenError(errors.New("access denied or something")))
+					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenProcessError(errors.New("access denied or something")))
 				})
 
 				It("returns a not-found error", func() {
@@ -260,7 +260,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the process isn't accessible to the user", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.ForbiddenError{})
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenProcessError(nil))
 			})
 
 			It("returns an error", func() {
@@ -694,6 +694,36 @@ var _ = Describe("ProcessHandler", func() {
 				expectUnknownError()
 			})
 		})
+
+		When("the app is not authorized", func() {
+			BeforeEach(func() {
+				fetchProcessStats.Returns(nil, repositories.NewForbiddenAppError(nil))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("the process is not authorized", func() {
+			BeforeEach(func() {
+				fetchProcessStats.Returns(nil, repositories.NewForbiddenProcessError(nil))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Process not found")
+			})
+		})
+
+		When("the process stats are not authorized", func() {
+			BeforeEach(func() {
+				fetchProcessStats.Returns(nil, repositories.NewForbiddenProcessStatsError(nil))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Process stats not found")
+			})
+		})
 	})
 
 	Describe("the GET /v3/processes endpoint", func() {
@@ -886,7 +916,7 @@ var _ = Describe("ProcessHandler", func() {
 			"data": {
 			  "invocation_timeout": 2,
               "timeout": 5,
-              "endpoint": "http://myapp.com/health" 
+              "endpoint": "http://myapp.com/health"
 			},
 			"type": "port"
 		  }
@@ -1029,20 +1059,9 @@ var _ = Describe("ProcessHandler", func() {
 			})
 		})
 
-		When("user is not allowed to patch a process", func() {
-			BeforeEach(func() {
-				processRepo.PatchProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenError(errors.New("nope")))
-				makePatchRequest(processGUID, validBody)
-			})
-
-			It("returns an unauthorised error", func() {
-				expectNotFoundError("Process not found")
-			})
-		})
-
 		When("user is not allowed to get a process", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenError(errors.New("nope")))
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenProcessError(errors.New("nope")))
 				makePatchRequest(processGUID, validBody)
 			})
 

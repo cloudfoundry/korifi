@@ -1615,6 +1615,12 @@ rules:
   - get
   - create
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - list
+- apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
@@ -2073,6 +2079,12 @@ rules:
   - patch
   - get
   - create
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - list
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:

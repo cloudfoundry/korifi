@@ -177,7 +177,7 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: app.SpaceGUID, Name: app.GUID}, &workloadsv1alpha1.CFApp{})
 	if k8serrors.IsForbidden(err) {
-		return AppRecord{}, NewForbiddenError(err)
+		return AppRecord{}, NewForbiddenAppError(err)
 	}
 
 	if err != nil { // untested

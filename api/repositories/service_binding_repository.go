@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -79,8 +80,7 @@ func (m CreateServiceBindingMessage) toCFServiceBinding() v1alpha1.CFServiceBind
 func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo authorization.Info, message CreateServiceBindingMessage) (ServiceBindingRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		panic(err) // TODO
-		// return ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	cfServiceBinding := message.toCFServiceBinding()
@@ -98,8 +98,7 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 func (r *ServiceBindingRepo) ServiceBindingExists(ctx context.Context, authInfo authorization.Info, spaceGUID, appGUID, serviceInstanceGUID string) (bool, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		panic(err) // TODO
-		// return ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return false, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	serviceBindingList := new(v1alpha1.CFServiceBindingList)
