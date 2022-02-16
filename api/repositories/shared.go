@@ -88,6 +88,11 @@ var (
 			Resources: []string{"secrets"},
 		},
 		{
+			Verbs:     []string{"list"},
+			APIGroups: []string{""},
+			Resources: []string{"pods"},
+		},
+		{
 			Verbs:     []string{"get", "list", "create", "patch", "delete"},
 			APIGroups: []string{"workloads.cloudfoundry.org"},
 			Resources: []string{"cfapps"},

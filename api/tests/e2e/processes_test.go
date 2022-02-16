@@ -12,19 +12,24 @@ import (
 
 var _ = Describe("Processes", func() {
 	var (
-		orgGUID   string
-		spaceGUID string
-
+		orgGUID     string
+		spaceGUID   string
 		appGUID     string
 		processGUID string
-
-		resp *resty.Response
+		client      *resty.Client
+		resp        *resty.Response
+		errResp     cfErrs
 	)
 
 	BeforeEach(func() {
+		client = certClient
+		errResp = cfErrs{}
 		orgGUID = createOrg(generateGUID("org"))
 		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
 		spaceGUID = createSpace(generateGUID("space"), orgGUID)
+		appGUID = pushNodeApp(spaceGUID)
+		processGUID = getProcess(appGUID, "web")
+
 		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 	})
 
@@ -38,45 +43,86 @@ var _ = Describe("Processes", func() {
 	})
 
 	Describe("listing sidecars", Ordered, func() {
-		var (
-			list    resourceList
-			listErr cfErrs
-			client  *resty.Client
-		)
+		var list resourceList
 
 		BeforeEach(func() {
-			client = tokenClient
 			list = resourceList{}
-			listErr = cfErrs{}
 		})
 
 		JustBeforeEach(func() {
 			var err error
 			resp, err = client.R().
 				SetResult(&list).
-				SetError(&listErr).
+				SetError(&errResp).
 				Get("/v3/processes/" + processGUID + "/sidecars")
 
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("fails without space permissions", func() {
-			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
-			Expect(listErr.Errors).To(ConsistOf(cfErr{
-				Detail: "Process not found",
-				Title:  "CF-ResourceNotFound",
-				Code:   10010,
-			}))
+		It("lists the (empty list of) sidecars", func() {
+			Expect(resp.StatusCode()).To(Equal(http.StatusOK), string(resp.Body()))
+			Expect(list.Resources).To(BeEmpty())
 		})
 
-		When("the user is authorized in the space", func() {
+		When("the user is not authorized in the space", func() {
 			BeforeEach(func() {
-				client = certClient
+				client = tokenClient
 			})
 
-			It("lists the (empty list of) sidecars", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(list.Resources).To(BeEmpty())
+			It("returns a not found error", func() {
+				Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
+				Expect(errResp.Errors).To(ConsistOf(
+					cfErr{
+						Detail: "Process not found",
+						Title:  "CF-ResourceNotFound",
+						Code:   10010,
+					},
+				))
+			})
+		})
+	})
+
+	Describe("getting process stats", func() {
+		var processStats statsResourceList
+
+		BeforeEach(func() {
+			appGUID = pushNodeApp(spaceGUID)
+			processGUID = getProcess(appGUID, "web")
+			processStats = statsResourceList{}
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = client.R().
+				SetResult(&processStats).
+				SetError(&errResp).
+				Get("/v3/processes/" + processGUID + "/stats")
+
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("succeeds", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+
+			Expect(processStats.Resources).To(HaveLen(1))
+			Expect(processStats.Resources[0].State).To(Equal("RUNNING"))
+			Expect(processStats.Resources[0].Type).To(Equal("web"))
+		})
+
+		When("the user is not authorized in the space", func() {
+			BeforeEach(func() {
+				client = tokenClient
+			})
+
+			It("returns a not found error", func() {
+				Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
+				Expect(errResp.Errors).To(ConsistOf(
+					cfErr{
+						Detail: "Process not found",
+						Title:  "CF-ResourceNotFound",
+						Code:   10010,
+					},
+				))
 			})
 		})
 	})
@@ -86,7 +132,9 @@ var _ = Describe("Processes", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().SetResult(&result).Get("/v3/processes/" + processGUID)
+			resp, err = client.R().
+				SetResult(&result).
+				Get("/v3/processes/" + processGUID)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
