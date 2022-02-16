@@ -100,7 +100,7 @@ func (r *PodRepo) listPods(ctx context.Context, authInfo authorization.Info, lis
 	err = userClient.List(ctx, &podList, &listOpts)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return nil, NewForbiddenProcessStatsError(err)
+			return nil, NewForbiddenError("Process stats", err)
 		}
 
 		return nil, fmt.Errorf("err in client.List: %w", err)

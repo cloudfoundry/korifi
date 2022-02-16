@@ -5,71 +5,53 @@ import (
 	"fmt"
 )
 
-func NewNotFoundError(resourceType string, baseError error) NotFoundError {
-	return NotFoundError{
-		Err:          baseError,
-		ResourceType: resourceType,
-	}
-}
-
-type NotFoundError struct {
-	Err          error
-	ResourceType string
-}
-
-func (e NotFoundError) Error() string {
-	msg := "not found"
-	if e.ResourceType != "" {
-		msg = e.ResourceType + " " + msg
-	}
-	return errMessage(msg, e.Err)
-}
-
-func (e NotFoundError) Unwrap() error {
-	return e.Err
-}
-
-type ForbiddenError struct {
+type repoError struct {
 	err          error
 	resourceType string
+	message      string
 }
 
-func NewForbiddenError(err error) ForbiddenError {
-	return ForbiddenError{err: err}
+func (e repoError) Error() string {
+	msg := e.message
+	if e.resourceType != "" {
+		msg = e.resourceType + " " + msg
+	}
+
+	if e.err == nil {
+		return msg
+	}
+
+	return fmt.Sprintf("%s: %v", msg, e.err)
 }
 
-func NewForbiddenAppError(err error) ForbiddenError {
-	return ForbiddenError{err: err, resourceType: "App"}
-}
-
-func NewForbiddenProcessError(err error) ForbiddenError {
-	return ForbiddenError{err: err, resourceType: "Process"}
-}
-
-func NewForbiddenProcessStatsError(err error) ForbiddenError {
-	return ForbiddenError{err: err, resourceType: "Process stats"}
-}
-
-func (e ForbiddenError) Error() string {
-	return errMessage("Forbidden", e.err)
-}
-
-func (e ForbiddenError) Unwrap() error {
+func (e repoError) Unwrap() error {
 	return e.err
 }
 
-func (e ForbiddenError) ResourceType() string {
+func (e repoError) ResourceType() string {
 	return e.resourceType
+}
+
+type NotFoundError struct {
+	repoError
+}
+
+type ForbiddenError struct {
+	repoError
+}
+
+func NewNotFoundError(resourceType string, baseError error) NotFoundError {
+	return NotFoundError{
+		repoError: repoError{err: baseError, resourceType: resourceType, message: "not found"},
+	}
+}
+
+func NewForbiddenError(resourceType string, baseError error) ForbiddenError {
+	return ForbiddenError{
+		repoError: repoError{err: baseError, resourceType: resourceType, message: "forbidden"},
+	}
 }
 
 func IsForbiddenError(err error) bool {
 	return errors.As(err, &ForbiddenError{})
-}
-
-func errMessage(message string, err error) string {
-	if err == nil {
-		return message
-	}
-
-	return fmt.Sprintf("%s: %v", message, err)
 }

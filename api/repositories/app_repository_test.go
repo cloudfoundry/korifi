@@ -131,7 +131,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("returns an error", func() {
 				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(MatchError(NotFoundError{ResourceType: "App"}))
+				Expect(getErr).To(MatchError(NewNotFoundError("App", nil)))
 			})
 		})
 	})
@@ -162,7 +162,7 @@ var _ = Describe("AppRepository", func() {
 			When("the App doesn't exist in the Space (but is in another Space)", func() {
 				It("returns a NotFoundError", func() {
 					_, err := appRepo.GetAppByNameAndSpace(context.Background(), authInfo, cfApp1.Spec.Name, space2.Name)
-					Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
+					Expect(err).To(MatchError(NewNotFoundError("App", nil)))
 				})
 			})
 		})
@@ -851,7 +851,7 @@ var _ = Describe("AppRepository", func() {
 					DropletGUID: dropletGUID,
 					SpaceGUID:   spaceGUID,
 				})
-				Expect(err).To(MatchError(ContainSubstring("Forbidden")))
+				Expect(err).To(MatchError(ContainSubstring("App forbidden")))
 			})
 		})
 	})
@@ -1119,7 +1119,7 @@ var _ = Describe("AppRepository", func() {
 			It("returns an error", func() {
 				_, err := appRepo.GetAppEnv(testCtx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(NotFoundError{ResourceType: "App"}))
+				Expect(err).To(MatchError(NewNotFoundError("App", nil)))
 			})
 		})
 	})

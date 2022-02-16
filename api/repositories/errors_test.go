@@ -3,36 +3,47 @@ package repositories_test
 import (
 	"errors"
 
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Errors", func() {
-	Describe("NotFoundError", func() {
-		var e NotFoundError
+	DescribeTable("Not found errors",
+		func(resourceType string, wrappedErr error, expectedMessage string) {
+			notFoundError := repositories.NewNotFoundError(resourceType, wrappedErr)
+			Expect(notFoundError.Error()).To(Equal(expectedMessage))
+		},
 
-		Describe("Error function", func() {
-			It("with empty struct, has canned response", func() {
-				e = NotFoundError{}
-				Expect(e.Error()).To(Equal("not found"))
-			})
+		Entry("with ResourceType, prepends resource info",
+			"Foo Resource", nil, "Foo Resource not found"),
+		Entry("with wrapped error, appends error info",
+			"", errors.New("wrapped error"), "not found: wrapped error"),
+		Entry("with ResourceType and wrapped error, prepends resource and appends error info",
+			"Bar Resource", errors.New("wrapped error"), "Bar Resource not found: wrapped error"),
+	)
 
-			It("with ResourceType, prepends resource info", func() {
-				e = NotFoundError{ResourceType: "Foo Resource"}
-				Expect(e.Error()).To(Equal("Foo Resource not found"))
-			})
+	DescribeTable("Forbidden errors",
+		func(resourceType string, wrappedErr error, expectedMessage string) {
+			forbiddenError := repositories.NewForbiddenError(resourceType, wrappedErr)
+			Expect(forbiddenError.Error()).To(Equal(expectedMessage))
+		},
 
-			It("with wrapped error, appends error into", func() {
-				e = NotFoundError{Err: errors.New("wrapped error")}
-				Expect(e.Error()).To(Equal("not found: wrapped error"))
-			})
+		Entry("with ResourceType, prepends resource info",
+			"Foo Resource", nil, "Foo Resource forbidden"),
+		Entry("with wrapped error, appends error info",
+			"", errors.New("wrapped error"), "forbidden: wrapped error"),
+		Entry("with ResourceType and wrapped error, prepends resource and appends error info",
+			"Bar Resource", errors.New("wrapped error"), "Bar Resource forbidden: wrapped error"),
+	)
 
-			It("with ResourceType and wrapped error, prepends resource and appends error info", func() {
-				e = NotFoundError{ResourceType: "Bar Resource", Err: errors.New("wrapped error")}
-				Expect(e.Error()).To(Equal("Bar Resource not found: wrapped error"))
-			})
+	Describe("unwrapping", func() {
+		It("returns the embedded error from not found error", func() {
+			Expect(repositories.NewNotFoundError("Foo", errors.New("boo")).Unwrap()).To(MatchError("boo"))
+		})
+
+		It("returns the embedded error from forbidden error", func() {
+			Expect(repositories.NewForbiddenError("Foo", errors.New("boo")).Unwrap()).To(MatchError("boo"))
 		})
 	})
 })

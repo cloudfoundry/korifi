@@ -184,7 +184,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -195,7 +195,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app is not accessible", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -344,7 +344,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the space does not exist", func() {
 			BeforeEach(func() {
-				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NotFoundError{})
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NewNotFoundError("Space", nil))
 
 				requestBody := initializeCreateAppRequestBody(testAppName, "no-such-guid", nil, nil, nil)
 				queuePostRequest(requestBody)
@@ -826,7 +826,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("set droplet is forbidden", func() {
 			BeforeEach(func() {
-				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, repositories.NewForbiddenError(nil))
+				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, repositories.NewForbiddenError("App", nil))
 			})
 
 			It("returns a not authenticated error", func() {
@@ -836,7 +836,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
 			})
 
 			It("returns an error", func() {
@@ -847,7 +847,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App cannot be accessed", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
 			})
 
 			It("returns an error", func() {
@@ -858,7 +858,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the Droplet doesn't exist", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewNotFoundError("Droplet", nil))
 			})
 
 			It("returns an error", func() {
@@ -869,7 +869,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the Droplet isn't accessible to the user", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.ForbiddenError{})
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError("Droplet", nil))
 			})
 
 			It("returns an error", func() {
@@ -1048,7 +1048,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -1315,7 +1315,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
 			})
 
 			It("returns an error", func() {
@@ -1643,7 +1643,7 @@ var _ = Describe("AppHandler", func() {
 		When("On the sad path and", func() {
 			When("the app cannot be found", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
 				})
 
 				It("returns an error", func() {
@@ -1653,7 +1653,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("the app cannot be accessed", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
 				})
 
 				It("returns an error", func() {
@@ -2042,7 +2042,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("the process doesn't exist", func() {
 				BeforeEach(func() {
-					scaleAppProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
+					scaleAppProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NewNotFoundError("Process", nil))
 				})
 
 				It("returns an error", func() {
@@ -2052,7 +2052,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("the app doesn't exist", func() {
 				BeforeEach(func() {
-					scaleAppProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "App"})
+					scaleAppProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NewNotFoundError("App", nil))
 				})
 
 				It("returns an error", func() {
@@ -2260,7 +2260,7 @@ var _ = Describe("AppHandler", func() {
 		When("on the sad path and", func() {
 			When("the app cannot be found", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
 				})
 
 				It("returns an error", func() {
@@ -2270,7 +2270,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("the app cannot be accessed", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
 				})
 
 				It("returns an error", func() {
@@ -2430,7 +2430,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
 			})
 
 			It("returns an error", func() {
@@ -2440,7 +2440,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App is not accessible", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
 			})
 
 			It("returns an error", func() {
@@ -2460,7 +2460,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the Droplet doesn't exist", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewNotFoundError("Droplet", nil))
 			})
 
 			It("returns an error", func() {
@@ -2470,7 +2470,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the user cannot access the droplet", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError(nil))
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError("Droplet", nil))
 			})
 
 			It("returns an error", func() {
@@ -2540,7 +2540,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
 			})
 
 			It("returns an error", func() {
@@ -2550,7 +2550,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("no permissions to get the app", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
 			})
 
 			It("returns an error", func() {
@@ -2683,7 +2683,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("no permissions to stop the app", func() {
 				BeforeEach(func() {
-					appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, repositories.ForbiddenError{})
+					appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
 				})
 
 				It("returns a forbidden error", func() {
@@ -2693,7 +2693,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("no permissions to start the app", func() {
 				BeforeEach(func() {
-					appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, repositories.ForbiddenError{})
+					appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
 				})
 
 				It("returns a forbidden error", func() {
@@ -2794,7 +2794,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("no permissions to start the app", func() {
 			BeforeEach(func() {
-				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
+				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
 			})
 
 			It("returns a forbidden error", func() {
@@ -2862,7 +2862,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
 			})
 
 			It("returns an error", func() {
@@ -2927,7 +2927,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.GetAppEnvReturns(nil, repositories.NotFoundError{ResourceType: "App"})
+				appRepo.GetAppEnvReturns(nil, repositories.NewNotFoundError("App", nil))
 			})
 
 			It("returns an error", func() {
@@ -2937,7 +2937,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("there is a Forbidden error fetching the app env", func() {
 			BeforeEach(func() {
-				appRepo.GetAppEnvReturns(nil, repositories.ForbiddenError{})
+				appRepo.GetAppEnvReturns(nil, repositories.NewForbiddenError("App", nil))
 			})
 
 			It("returns an error", func() {
@@ -3087,7 +3087,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("the app cannot be found", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
 				})
 
 				// TODO: should we return code 100004 instead?
