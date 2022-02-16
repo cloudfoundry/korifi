@@ -30,11 +30,24 @@ func (e NotFoundError) Unwrap() error {
 }
 
 type ForbiddenError struct {
-	err error
+	err          error
+	resourceType string
 }
 
 func NewForbiddenError(err error) ForbiddenError {
 	return ForbiddenError{err: err}
+}
+
+func NewForbiddenAppError(err error) ForbiddenError {
+	return ForbiddenError{err: err, resourceType: "App"}
+}
+
+func NewForbiddenProcessError(err error) ForbiddenError {
+	return ForbiddenError{err: err, resourceType: "Process"}
+}
+
+func NewForbiddenProcessStatsError(err error) ForbiddenError {
+	return ForbiddenError{err: err, resourceType: "Process stats"}
 }
 
 func (e ForbiddenError) Error() string {
@@ -43,6 +56,10 @@ func (e ForbiddenError) Error() string {
 
 func (e ForbiddenError) Unwrap() error {
 	return e.err
+}
+
+func (e ForbiddenError) ResourceType() string {
+	return e.resourceType
 }
 
 func IsForbiddenError(err error) bool {
