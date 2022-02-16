@@ -134,6 +134,38 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 	return returnServiceInstanceList(orderedServiceInstances), nil
 }
 
+func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo authorization.Info, guid string) (ServiceInstanceRecord, error) {
+	nsList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
+	if err != nil {
+		// untested
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+	}
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		// untested
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	for ns := range nsList {
+		serviceInstanceList := new(servicesv1alpha1.CFServiceInstanceList)
+		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns), client.MatchingFields{"metadata.name": guid})
+		if k8serrors.IsForbidden(err) {
+			// untested
+			continue
+		}
+		if err != nil {
+			// untested
+			return ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances in namespace %s: %w", ns, err)
+		}
+
+		if len(serviceInstanceList.Items) >= 1 {
+			return cfServiceInstanceToServiceInstanceRecord(serviceInstanceList.Items[0]), nil
+		}
+	}
+	return ServiceInstanceRecord{}, NewNotFoundError("ServiceInstance", nil)
+}
+
 func (m CreateServiceInstanceMessage) toCFServiceInstance() servicesv1alpha1.CFServiceInstance {
 	guid := uuid.NewString()
 	return servicesv1alpha1.CFServiceInstance{

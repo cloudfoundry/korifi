@@ -4,19 +4,21 @@ import (
 	"context"
 	"time"
 
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
-	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 var _ = Describe("ServiceInstanceRepository", func() {
@@ -24,13 +26,17 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		testCtx                   context.Context
 		serviceInstanceRepo       *ServiceInstanceRepo
 		spaceDeveloperClusterRole *rbacv1.ClusterRole
-		filters                   ListServiceInstanceMessage
+		org                       *hnsv1alpha2.SubnamespaceAnchor
 	)
 
 	BeforeEach(func() {
 		testCtx = context.Background()
 		serviceInstanceRepo = NewServiceInstanceRepo(userClientFactory, nsPerms)
 		spaceDeveloperClusterRole = createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
+
+		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
+		Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
+		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
 	})
 
 	Describe("CreateServiceInstance", func() {
@@ -143,17 +149,13 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	Describe("ListServiceInstances", Serial, func() {
 		var (
-			org                                                        *v1alpha2.SubnamespaceAnchor
-			space1, space2, space3                                     *v1alpha2.SubnamespaceAnchor
+			space1, space2, space3                                     *hnsv1alpha2.SubnamespaceAnchor
 			cfServiceInstance1, cfServiceInstance2, cfServiceInstance3 *servicesv1alpha1.CFServiceInstance
 			nonCFNamespace                                             string
+			filters                                                    ListServiceInstanceMessage
 		)
 
 		BeforeEach(func() {
-			rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
-			Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
-
-			org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
 			space1 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
 			space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
 			space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space3"))
@@ -429,6 +431,66 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						Expect(updateTime3).To(BeTemporally(">=", updateTime4))
 					})
 				})
+			})
+		})
+	})
+
+	Describe("GetServiceInstance", Serial, func() {
+		var (
+			cfServiceInstance *servicesv1alpha1.CFServiceInstance
+			space             *hnsv1alpha2.SubnamespaceAnchor
+		)
+
+		const (
+			serviceInstanceName = "test-service-instance"
+		)
+
+		BeforeEach(func() {
+			space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
+			cfServiceInstance = createServiceInstance(space.Name, serviceInstanceName)
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.Delete(testCtx, cfServiceInstance)).To(Succeed())
+			Expect(k8sClient.Delete(testCtx, space)).To(Succeed())
+		})
+
+		When("the user is authorized in the namespace", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space.Name)
+			})
+
+			It("returns the matching ServiceInstance record", func() {
+				record, err := serviceInstanceRepo.GetServiceInstance(testCtx, authInfo, cfServiceInstance.Name)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(record.GUID).To(Equal(cfServiceInstance.Name))
+				Expect(record.Name).To(Equal(serviceInstanceName))
+				Expect(record.SpaceGUID).To(Equal(space.Name))
+				Expect(record.Tags).To(BeEquivalentTo(cfServiceInstance.Spec.Tags))
+				Expect(record.Type).To(BeEquivalentTo(cfServiceInstance.Spec.Type))
+
+				createdAt, err := time.Parse(time.RFC3339, record.CreatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+
+				updatedAt, err := time.Parse(time.RFC3339, record.CreatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+			})
+		})
+
+		When("user is not authorized to get a package", func() {
+			It("returns a not found error", func() {
+				_, err := serviceInstanceRepo.GetServiceInstance(testCtx, authInfo, cfServiceInstance.Name)
+				Expect(err).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+			})
+		})
+
+		When("the Service Instance doesn't exist", func() {
+			It("returns a not found error", func() {
+				_, err := serviceInstanceRepo.GetServiceInstance(testCtx, authInfo, "i don't exist")
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
 			})
 		})
 	})

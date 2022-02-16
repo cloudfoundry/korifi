@@ -76,13 +76,11 @@ var _ = Describe("CFServiceBinding", func() {
 					Namespace: namespace.Name,
 				},
 				Spec: servicesv1alpha1.CFServiceBindingSpec{
-					Name: "",
 					Service: corev1.ObjectReference{
 						Kind:       "ServiceInstance",
 						Name:       cfServiceInstance.Name,
 						APIVersion: "services.cloudfoundry.org/v1alpha1",
 					},
-					SecretName: "",
 					AppRef: corev1.LocalObjectReference{
 						Name: "",
 					},
@@ -97,10 +95,6 @@ var _ = Describe("CFServiceBinding", func() {
 		})
 
 		When("and the secret exists", func() {
-			BeforeEach(func() {
-				cfServiceBinding.Spec.SecretName = secret.Name
-			})
-
 			It("eventually resolves the secretName and updates the CFServiceBinding status", func() {
 				updatedCFServiceBinding := new(servicesv1alpha1.CFServiceBinding)
 				Eventually(func() string {
@@ -111,7 +105,7 @@ var _ = Describe("CFServiceBinding", func() {
 					return updatedCFServiceBinding.Status.Binding.Name
 				}, defaultEventuallyTimeoutSeconds*time.Second).ShouldNot(BeEmpty())
 
-				Expect(updatedCFServiceBinding.Status.Binding.Name).To(Equal(updatedCFServiceBinding.Spec.SecretName))
+				Expect(updatedCFServiceBinding.Status.Binding.Name).To(Equal(secret.Name))
 				Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 					"Type":    Equal("BindingSecretAvailable"),
 					"Status":  Equal(metav1.ConditionTrue),
@@ -125,13 +119,30 @@ var _ = Describe("CFServiceBinding", func() {
 			var otherSecret *corev1.Secret
 
 			BeforeEach(func() {
+				ctx := context.Background()
 				otherSecret = &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "other-secret-name",
 						Namespace: namespace.Name,
 					},
 				}
-				cfServiceBinding.Spec.SecretName = otherSecret.Name
+				instance := &servicesv1alpha1.CFServiceInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "other-service-instance-guid",
+						Namespace: namespace.Name,
+					},
+					Spec: servicesv1alpha1.CFServiceInstanceSpec{
+						Name:       "other-service-instance-name",
+						SecretName: otherSecret.Name,
+						Type:       "user-provided",
+						Tags:       []string{},
+					},
+				}
+				Expect(
+					k8sClient.Create(ctx, instance),
+				).To(Succeed())
+
+				cfServiceBinding.Spec.Service.Name = instance.Name
 			})
 
 			It("updates the CFServiceBinding status", func() {
@@ -169,9 +180,9 @@ var _ = Describe("CFServiceBinding", func() {
 						).To(Succeed())
 
 						return updatedCFServiceBinding.Status.Binding.Name
-					}, defaultEventuallyTimeoutSeconds*time.Second).ShouldNot(BeEmpty())
+					}, 10*time.Second).ShouldNot(BeEmpty())
 
-					Expect(updatedCFServiceBinding.Status.Binding.Name).To(Equal(updatedCFServiceBinding.Spec.SecretName))
+					Expect(updatedCFServiceBinding.Status.Binding.Name).To(Equal(otherSecret.Name))
 					Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 						"Type":    Equal("BindingSecretAvailable"),
 						"Status":  Equal(metav1.ConditionTrue),

@@ -1262,9 +1262,6 @@ spec:
               name:
                 description: Name defines the name of the Service Binding
                 type: string
-              secretName:
-                description: Name of a secret containing the service credentials
-                type: string
               service:
                 description: Specifies the Service this binding uses
                 properties:
@@ -1303,8 +1300,6 @@ spec:
                 type: object
             required:
             - appRef
-            - name
-            - secretName
             - service
             type: object
           status:
@@ -1660,6 +1655,13 @@ rules:
   - services.cloudfoundry.org
   resources:
   - cfserviceinstances
+  verbs:
+  - list
+  - create
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings
   verbs:
   - list
   - create
@@ -2118,6 +2120,13 @@ rules:
   - services.cloudfoundry.org
   resources:
   - cfserviceinstances
+  verbs:
+  - list
+  - create
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings
   verbs:
   - list
   - create
