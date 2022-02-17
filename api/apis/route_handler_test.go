@@ -1502,7 +1502,7 @@ var _ = Describe("RouteHandler", func() {
 
 			When("user is not allowed to create a route", func() {
 				BeforeEach(func() {
-					routeRepo.AddDestinationsToRouteReturns(repositories.RouteRecord{}, repositories.NewForbiddenError("Route", errors.New("nope")))
+					routeRepo.AddDestinationsToRouteReturns(repositories.RouteRecord{}, repositories.NewForbiddenError(repositories.RouteResourceType, errors.New("nope")))
 				})
 
 				It("returns an unauthorised error", func() {

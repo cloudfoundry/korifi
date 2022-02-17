@@ -18,6 +18,7 @@ import (
 
 const (
 	LabelServiceBindingProvisionedService = "servicebinding.io/provisioned-service"
+	ServiceBindingResourceType            = "Service Binding"
 )
 
 type ServiceBindingRepo struct {
@@ -87,7 +88,7 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 	err = userClient.Create(ctx, &cfServiceBinding)
 	if err != nil {
 		if apierrors.IsForbidden(err) {
-			return ServiceBindingRecord{}, NewForbiddenError(err)
+			return ServiceBindingRecord{}, NewForbiddenError(ServiceBindingResourceType, err)
 		}
 		return ServiceBindingRecord{}, err // untested
 	}
@@ -105,7 +106,7 @@ func (r *ServiceBindingRepo) ServiceBindingExists(ctx context.Context, authInfo 
 	err = userClient.List(ctx, serviceBindingList, client.InNamespace(spaceGUID))
 	if err != nil {
 		if apierrors.IsForbidden(err) {
-			return false, NewForbiddenError(err)
+			return false, NewForbiddenError(ServiceBindingResourceType, err)
 		}
 		return false, err // untested
 	}

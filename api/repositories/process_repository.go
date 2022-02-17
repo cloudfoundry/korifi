@@ -129,7 +129,7 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: processList.Items[0].Namespace, Name: processList.Items[0].Name}, &process)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return ProcessRecord{}, NewForbiddenError("Process", err)
+			return ProcessRecord{}, NewForbiddenError(ProcessResourceType, err)
 		}
 
 		return ProcessRecord{}, fmt.Errorf("get-process: failed to get process with user client: %w", err)

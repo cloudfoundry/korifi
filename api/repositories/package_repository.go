@@ -108,7 +108,7 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 	err = userClient.Create(ctx, &cfPackage)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return PackageRecord{}, NewForbiddenError("Package", err)
+			return PackageRecord{}, NewForbiddenError(PackageResourceType, err)
 		}
 		return PackageRecord{}, err
 	}
@@ -140,7 +140,7 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 	foundPackage := workloadsv1alpha1.CFPackage{}
 	if err := userClient.Get(ctx, client.ObjectKeyFromObject(&packages[0]), &foundPackage); err != nil {
 		if k8serrors.IsForbidden(err) {
-			return PackageRecord{}, NewForbiddenError("Package", err)
+			return PackageRecord{}, NewForbiddenError(PackageResourceType, err)
 		}
 		return PackageRecord{}, fmt.Errorf("get-package: get failed: %w", err)
 	}
@@ -225,7 +225,7 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 	err = userClient.Patch(ctx, cfPackage, client.MergeFrom(baseCFPackage))
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return PackageRecord{}, NewForbiddenError("Package", err)
+			return PackageRecord{}, NewForbiddenError(PackageResourceType, err)
 		}
 		return PackageRecord{}, fmt.Errorf("err in client.Patch: %w", err) // untested
 	}

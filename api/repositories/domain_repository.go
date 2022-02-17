@@ -17,7 +17,7 @@ import (
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfdomains/status,verbs=get
 
 const (
-	DomainResourceType        = "Domain"
+	DomainResourceType = "Domain"
 )
 
 type DomainRepo struct {
@@ -53,12 +53,11 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 	domainList := &networkingv1alpha1.CFDomainList{}
 	err := r.privilegedClient.List(ctx, domainList, client.MatchingFields{"metadata.name": domainGUID})
 	if err != nil {
-<<<<<<< HEAD
 		return DomainRecord{}, fmt.Errorf("get-domain: privileged list failed: %w", err)
 	}
 
 	if len(domainList.Items) == 0 {
-		return DomainRecord{}, NewNotFoundError("Domain", err)
+		return DomainRecord{}, NewNotFoundError(DomainResourceType, err)
 	}
 	if len(domainList.Items) > 1 {
 		return DomainRecord{}, errors.New("get-domain duplicate domains exist")
@@ -74,17 +73,11 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 	domain := &networkingv1alpha1.CFDomain{}
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: matchingDomain.Namespace, Name: matchingDomain.GUID}, domain)
 	if k8serrors.IsForbidden(err) {
-		return DomainRecord{}, NewForbiddenError("Domain", err)
+		return DomainRecord{}, NewForbiddenError(DomainResourceType, err)
 	}
 
 	if err != nil { // untested
 		return DomainRecord{}, fmt.Errorf("get-domain user client get failed: %w", err)
-		switch {
-		case k8serrors.IsNotFound(err):
-			return DomainRecord{}, NewNotFoundError(DomainResourceType, err)
-		default:
-			return DomainRecord{}, fmt.Errorf("get-domain: k8s get failed: %w", err)
-		}
 	}
 
 	return cfDomainToDomainRecord(domain), nil

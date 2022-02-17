@@ -602,7 +602,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the app is not accessible", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -719,7 +719,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the user is not allowed to create packages", func() {
 			BeforeEach(func() {
-				packageRepo.CreatePackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError("Package", errors.New("no")))
+				packageRepo.CreatePackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(repositories.PackageResourceType, errors.New("no")))
 			})
 
 			It("returns an unauthorized error", func() {
@@ -882,7 +882,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("getting the package is forbidden", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError("Package", nil))
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(repositories.PackageResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -894,7 +894,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("uploading the package is forbidden", func() {
 			BeforeEach(func() {
-				imageRepo.UploadSourceImageReturns("", repositories.NewForbiddenError("Package", nil))
+				imageRepo.UploadSourceImageReturns("", repositories.NewForbiddenError(repositories.PackageResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -943,7 +943,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("updating the package is forbidden", func() {
 			BeforeEach(func() {
-				packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{}, repositories.NewForbiddenError("Package", errors.New("no")))
+				packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(repositories.PackageResourceType, errors.New("no")))
 			})
 
 			It("returns an error", func() {

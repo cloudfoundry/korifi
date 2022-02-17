@@ -148,7 +148,7 @@ var _ = Describe("Spaces", func() {
 
 		When("user is not allowed to create a space", func() {
 			BeforeEach(func() {
-				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.NewForbiddenError("Space", errors.New("nope")))
+				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.NewForbiddenError(repositories.SpaceResourceType, errors.New("nope")))
 			})
 
 			It("returns an unauthorised error", func() {
