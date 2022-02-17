@@ -360,7 +360,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 
 		When("user is not allowed to create a service instance", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError("Service Instance", errors.New("nope")))
+				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError(repositories.ServiceInstanceResourceType, errors.New("nope")))
 				makePostRequest(validBody)
 			})
 
@@ -684,7 +684,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 
 		When("user is not allowed to create a service instance", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError("Service Instance", errors.New("not allowed")))
+				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError(repositories.ServiceInstanceResourceType, errors.New("not allowed")))
 				makeListRequest()
 			})
 

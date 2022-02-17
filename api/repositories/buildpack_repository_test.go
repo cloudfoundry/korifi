@@ -5,7 +5,6 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -113,7 +112,7 @@ var _ = Describe("BuildpackRepository", func() {
 		Describe("List", func() {
 			It("returns records matching the buildpacks of the ClusterBuilder and no error", func() {
 				buildpackRepo = NewBuildpackRepository(userClientFactory)
-				spaceDeveloperClusterRole = createClusterRole(beforeCtx, repositories.SpaceDeveloperClusterRoleRules)
+				spaceDeveloperClusterRole = createClusterRole(beforeCtx, SpaceDeveloperClusterRoleRules)
 				createClusterRoleBinding(beforeCtx, userName, spaceDeveloperClusterRole.Name)
 
 				buildpackRecords, err := buildpackRepo.GetBuildpacksForBuilder(context.Background(), authInfo, clusterBuilder.Name)

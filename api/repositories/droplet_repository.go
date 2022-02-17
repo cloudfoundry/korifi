@@ -75,7 +75,7 @@ func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Inf
 	err = userClient.Get(ctx, client.ObjectKeyFromObject(&foundObj), &userDroplet)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return DropletRecord{}, NewForbiddenError("Droplet", err)
+			return DropletRecord{}, NewForbiddenError(DropletResourceType, err)
 		}
 
 		return DropletRecord{}, fmt.Errorf("get droplet failed: %w", err)

@@ -29,11 +29,12 @@ const (
 	StartedState DesiredState = "STARTED"
 	StoppedState DesiredState = "STOPPED"
 
-	Kind            string = "CFApp"
-	APIVersion      string = "workloads.cloudfoundry.org/v1alpha1"
-	TimestampFormat string = time.RFC3339
-	CFAppGUIDLabel  string = "workloads.cloudfoundry.org/app-guid"
-	AppResourceType string = "App"
+	Kind               string = "CFApp"
+	APIVersion         string = "workloads.cloudfoundry.org/v1alpha1"
+	TimestampFormat    string = time.RFC3339
+	CFAppGUIDLabel     string = "workloads.cloudfoundry.org/app-guid"
+	AppResourceType    string = "App"
+	AppEnvResourceType string = "App Env"
 )
 
 type AppRepo struct {
@@ -178,7 +179,7 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: app.SpaceGUID, Name: app.GUID}, &workloadsv1alpha1.CFApp{})
 	if k8serrors.IsForbidden(err) {
-		return AppRecord{}, NewForbiddenError("App", err)
+		return AppRecord{}, NewForbiddenError(AppResourceType, err)
 	}
 
 	if err != nil { // untested
@@ -402,7 +403,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return CurrentDropletRecord{}, NewForbiddenError("App", err)
+			return CurrentDropletRecord{}, NewForbiddenError(AppResourceType, err)
 		}
 
 		return CurrentDropletRecord{}, fmt.Errorf("err in client.Patch: %w", err)
@@ -432,7 +433,7 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return AppRecord{}, NewForbiddenError("App", err)
+			return AppRecord{}, NewForbiddenError(AppResourceType, err)
 		}
 
 		return AppRecord{}, fmt.Errorf("err in client.Patch: %w", err)
@@ -475,7 +476,7 @@ func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, ap
 	err = userClient.Get(ctx, key, secret)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return nil, NewForbiddenError("App Env", err)
+			return nil, NewForbiddenError(AppEnvResourceType, err)
 		}
 		return nil, fmt.Errorf("error finding environment variable Secret %q for App %q: %w", app.envSecretName, app.GUID, err)
 	}

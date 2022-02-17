@@ -21,6 +21,7 @@ import (
 const (
 	CFServiceInstanceGUIDLabel          = "services.cloudfoundry.org/service-instance-guid"
 	ServiceInstanceCredentialSecretType = "servicebinding.io/user-provided"
+	ServiceInstanceResourceType         = "Service Instance"
 )
 
 type ServiceInstanceRepo struct {
@@ -77,7 +78,7 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 	err = userClient.Create(ctx, &cfServiceInstance)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return ServiceInstanceRecord{}, NewForbiddenError("Service Instance", err)
+			return ServiceInstanceRecord{}, NewForbiddenError(ServiceInstanceResourceType, err)
 		}
 		// untested
 		return ServiceInstanceRecord{}, err

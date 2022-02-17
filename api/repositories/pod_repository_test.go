@@ -188,7 +188,7 @@ var _ = Describe("PodRepository", func() {
 			It("returns a forbidden error", func() {
 				Expect(listStatsErr).To(BeAssignableToTypeOf(ForbiddenError{}))
 				forbiddenErr := listStatsErr.(ForbiddenError)
-				Expect(forbiddenErr.ResourceType()).To(Equal("Process stats"))
+				Expect(forbiddenErr.ResourceType()).To(Equal(ProcessStatsResourceType))
 			})
 		})
 	})

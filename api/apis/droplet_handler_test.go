@@ -154,7 +154,7 @@ var _ = Describe("DropletHandler", func() {
 
 		When("access to the droplet is forbidden", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError("Droplet", nil))
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError(repositories.DropletResourceType, nil))
 				router.ServeHTTP(rr, req)
 			})
 
