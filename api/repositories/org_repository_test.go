@@ -12,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -22,10 +21,8 @@ import (
 
 var _ = Describe("OrgRepository", func() {
 	var (
-		ctx                       context.Context
-		orgRepo                   *repositories.OrgRepo
-		spaceDeveloperClusterRole *rbacv1.ClusterRole
-		orgUserClusterRole        *rbacv1.ClusterRole
+		ctx     context.Context
+		orgRepo *repositories.OrgRepo
 	)
 
 	BeforeEach(func() {
@@ -33,8 +30,6 @@ var _ = Describe("OrgRepository", func() {
 
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, true)
-		spaceDeveloperClusterRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
-		orgUserClusterRole = createClusterRole(ctx, repositories.OrgUserClusterRoleRules)
 	})
 
 	Describe("Create", func() {
@@ -70,7 +65,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the user has the admin role", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, adminClusterRole.Name, rootNamespace)
+					createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 				})
 
 				It("creates a subnamespace anchor in the root namespace", func() {
@@ -133,7 +128,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the user doesn't have the admin role", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, orgUserClusterRole.Name, org.Name)
+					createRoleBinding(ctx, userName, orgUserRole.Name, org.Name)
 				})
 
 				It("fails when creating a space", func() {
@@ -149,7 +144,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the user has the admin role", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, adminClusterRole.Name, org.Name)
+					createRoleBinding(ctx, userName, adminRole.Name, org.Name)
 				})
 
 				It("creates a Space", func() {
@@ -264,11 +259,11 @@ var _ = Describe("OrgRepository", func() {
 			ctx = context.Background()
 
 			org1Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org1")
-			createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, org1Anchor.Name)
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, org1Anchor.Name)
 			org2Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org2")
-			createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, org2Anchor.Name)
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, org2Anchor.Name)
 			org3Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org3")
-			createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, org3Anchor.Name)
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, org3Anchor.Name)
 			org4Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org4")
 		})
 
@@ -421,19 +416,19 @@ var _ = Describe("OrgRepository", func() {
 
 			BeforeEach(func() {
 				space11Anchor = createSpaceAnchorAndNamespace(ctx, org1Anchor.Name, "space1")
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space11Anchor.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space11Anchor.Name)
 				space12Anchor = createSpaceAnchorAndNamespace(ctx, org1Anchor.Name, "space2")
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space12Anchor.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space12Anchor.Name)
 
 				space21Anchor = createSpaceAnchorAndNamespace(ctx, org2Anchor.Name, "space1")
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space21Anchor.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space21Anchor.Name)
 				space22Anchor = createSpaceAnchorAndNamespace(ctx, org2Anchor.Name, "space3")
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space22Anchor.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space22Anchor.Name)
 
 				space31Anchor = createSpaceAnchorAndNamespace(ctx, org3Anchor.Name, "space1")
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space31Anchor.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space31Anchor.Name)
 				space32Anchor = createSpaceAnchorAndNamespace(ctx, org3Anchor.Name, "space4")
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space32Anchor.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space32Anchor.Name)
 
 				space33Anchor = createSpaceAnchorAndNamespace(ctx, org3Anchor.Name, "space5")
 			})
@@ -650,7 +645,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the user has a role binding in the org", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, orgUserClusterRole.Name, orgAnchor.Name)
+					createRoleBinding(ctx, userName, orgUserRole.Name, orgAnchor.Name)
 				})
 
 				It("gets the org", func() {
@@ -677,7 +672,7 @@ var _ = Describe("OrgRepository", func() {
 			BeforeEach(func() {
 				orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "the-org")
 				spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, "the-space")
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, spaceAnchor.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceAnchor.Name)
 			})
 
 			When("on the happy path", func() {
@@ -715,9 +710,9 @@ var _ = Describe("OrgRepository", func() {
 			When("the user has permission to delete orgs", func() {
 				BeforeEach(func() {
 					beforeCtx := context.Background()
-					createRoleBinding(beforeCtx, userName, adminClusterRole.Name, orgAnchor.Namespace)
+					createRoleBinding(beforeCtx, userName, adminRole.Name, orgAnchor.Namespace)
 					// As HNC Controllers don't exist in env-test environments, we manually copy role bindings to child ns.
-					createRoleBinding(beforeCtx, userName, adminClusterRole.Name, orgAnchor.Name)
+					createRoleBinding(beforeCtx, userName, adminRole.Name, orgAnchor.Name)
 				})
 
 				When("on the happy path", func() {
@@ -793,7 +788,7 @@ var _ = Describe("OrgRepository", func() {
 			When("the user has permission to delete spaces", func() {
 				BeforeEach(func() {
 					beforeCtx := context.Background()
-					createRoleBinding(beforeCtx, userName, adminClusterRole.Name, spaceAnchor.Namespace)
+					createRoleBinding(beforeCtx, userName, adminRole.Name, spaceAnchor.Namespace)
 				})
 
 				It("deletes the subns resource", func() {

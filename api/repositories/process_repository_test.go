@@ -11,7 +11,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,12 +18,11 @@ import (
 
 var _ = Describe("ProcessRepo", func() {
 	var (
-		ctx                       context.Context
-		processRepo               *repositories.ProcessRepo
-		namespace1                *corev1.Namespace
-		spaceDeveloperClusterRole *rbacv1.ClusterRole
-		app1GUID                  string
-		process1GUID              string
+		ctx          context.Context
+		processRepo  *repositories.ProcessRepo
+		namespace1   *corev1.Namespace
+		app1GUID     string
+		process1GUID string
 	)
 
 	BeforeEach(func() {
@@ -33,8 +31,6 @@ var _ = Describe("ProcessRepo", func() {
 
 		namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: prefixedGUID("namespace1")}}
 		Expect(k8sClient.Create(ctx, namespace1)).To(Succeed())
-
-		spaceDeveloperClusterRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
 
 		app1GUID = prefixedGUID("app1")
 		process1GUID = prefixedGUID("process1")
@@ -65,7 +61,7 @@ var _ = Describe("ProcessRepo", func() {
 
 		When("the user has permission to get the process", func() {
 			BeforeEach(func() {
-				createClusterRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name)
+				createClusterRoleBinding(ctx, userName, spaceDeveloperRole.Name)
 			})
 
 			It("returns a Process record for the Process CR we request", func() {

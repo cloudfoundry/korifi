@@ -12,15 +12,13 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("BuildpackRepository", func() {
 	var (
-		beforeCtx                 context.Context
-		buildpackRepo             *BuildpackRepository
-		spaceDeveloperClusterRole *rbacv1.ClusterRole
+		beforeCtx     context.Context
+		buildpackRepo *BuildpackRepository
 	)
 
 	BeforeEach(func() {
@@ -112,8 +110,7 @@ var _ = Describe("BuildpackRepository", func() {
 		Describe("List", func() {
 			It("returns records matching the buildpacks of the ClusterBuilder and no error", func() {
 				buildpackRepo = NewBuildpackRepository(userClientFactory)
-				spaceDeveloperClusterRole = createClusterRole(beforeCtx, SpaceDeveloperClusterRoleRules)
-				createClusterRoleBinding(beforeCtx, userName, spaceDeveloperClusterRole.Name)
+				createClusterRoleBinding(beforeCtx, userName, spaceDeveloperRole.Name)
 
 				buildpackRecords, err := buildpackRepo.GetBuildpacksForBuilder(context.Background(), authInfo, clusterBuilder.Name)
 				Expect(err).NotTo(HaveOccurred())

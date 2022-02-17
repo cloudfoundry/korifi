@@ -650,8 +650,7 @@ var _ = Describe("RouteRepository", func() {
 		When("the user has permission to delete routes and", func() {
 			BeforeEach(func() {
 				beforeCtx := context.Background()
-				orgManagerClusterRole := createClusterRole(beforeCtx, SpaceDeveloperClusterRoleRules)
-				createRoleBinding(beforeCtx, userName, orgManagerClusterRole.Name, testNamespace)
+				createRoleBinding(beforeCtx, userName, spaceDeveloperRole.Name, testNamespace)
 			})
 
 			When("on the happy path", func() {

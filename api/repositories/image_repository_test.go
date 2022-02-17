@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
@@ -26,7 +25,6 @@ var _ = Describe("ImageRepository", func() {
 		imagePusher         *fake.ImagePusher
 		image               v1.Image
 		privilegedK8sClient k8sclient.Interface
-		spaceDeveloperRole  *rbacv1.ClusterRole
 
 		imageSource io.Reader
 
@@ -92,8 +90,6 @@ var _ = Describe("ImageRepository", func() {
 				metav1.CreateOptions{},
 			)
 		Expect(err).NotTo(HaveOccurred())
-
-		spaceDeveloperRole = createClusterRole(context.Background(), repositories.SpaceDeveloperClusterRoleRules)
 
 		imageRepo = repositories.NewImageRepository(
 			privilegedK8sClient,

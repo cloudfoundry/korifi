@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -22,10 +21,9 @@ import (
 
 var _ = Describe("Route Handler", func() {
 	var (
-		apiHandler         *RouteHandler
-		namespace          *corev1.Namespace
-		namespaceGUID      string
-		spaceDeveloperRole *rbacv1.ClusterRole
+		apiHandler    *RouteHandler
+		namespace     *corev1.Namespace
+		namespaceGUID string
 	)
 
 	BeforeEach(func() {
@@ -52,8 +50,6 @@ var _ = Describe("Route Handler", func() {
 		Expect(
 			k8sClient.Create(ctx, namespace),
 		).To(Succeed())
-
-		spaceDeveloperRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
 	})
 
 	AfterEach(func() {
