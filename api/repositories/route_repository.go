@@ -349,7 +349,7 @@ func (f *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info
 	}
 
 	if apierrors.IsForbidden(err) {
-		return NewForbiddenError("Route", err)
+		return NewForbiddenError(RouteResourceType, err)
 	}
 
 	return err

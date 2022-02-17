@@ -25,8 +25,9 @@ const (
 	RunningState           = "RUNNING"
 	pendingState           = "STARTING"
 	// All below statuses changed to "DOWN" until we decide what statuses we want to support in the future
-	crashedState = "DOWN"
-	unknownState = "DOWN"
+	crashedState    = "DOWN"
+	unknownState    = "DOWN"
+	PodResourceType = "Pod"
 )
 
 type PodRepo struct {
@@ -100,7 +101,7 @@ func (r *PodRepo) listPods(ctx context.Context, authInfo authorization.Info, lis
 	err = userClient.List(ctx, &podList, &listOpts)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return nil, NewForbiddenError("Pod", err)
+			return nil, NewForbiddenError(PodResourceType, err)
 		}
 
 		return nil, fmt.Errorf("err in client.List: %w", err)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
@@ -18,7 +17,7 @@ import (
 var _ = Describe("DomainRepository", func() {
 	var (
 		testCtx    context.Context
-		domainRepo *repositories.DomainRepo
+		domainRepo *DomainRepo
 	)
 
 	BeforeEach(func() {
@@ -75,7 +74,7 @@ var _ = Describe("DomainRepository", func() {
 		When("no CFDomain exists", func() {
 			It("returns an error", func() {
 				_, err := domainRepo.GetDomain(testCtx, authInfo, "non-existent-domain-guid")
-				Expect(err).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+				Expect(err).To(BeAssignableToTypeOf(NotFoundError{}))
 			})
 		})
 	})

@@ -82,7 +82,7 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 	foundBuild := workloadsv1alpha1.CFBuild{}
 	if err := userClient.Get(ctx, client.ObjectKeyFromObject(&builds[0]), &foundBuild); err != nil {
 		if k8serrors.IsForbidden(err) {
-			return BuildRecord{}, NewForbiddenError("Build", err)
+			return BuildRecord{}, NewForbiddenError(BuildResourceType, err)
 		}
 		return BuildRecord{}, fmt.Errorf("failed to get build: %w", err)
 	}
@@ -146,7 +146,7 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info
 
 	if err := userClient.Create(ctx, &cfBuild); err != nil {
 		if k8serrors.IsForbidden(err) {
-			return BuildRecord{}, NewForbiddenError("Build", err)
+			return BuildRecord{}, NewForbiddenError(BuildResourceType, err)
 		}
 		return BuildRecord{}, err
 	}

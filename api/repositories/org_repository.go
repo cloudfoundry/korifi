@@ -139,7 +139,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 	})
 	if err != nil {
 		if apierrors.IsForbidden(err) {
-			return OrgRecord{}, NewForbiddenError("Org", err)
+			return OrgRecord{}, NewForbiddenError(OrgResourceType, err)
 		}
 
 		return OrgRecord{}, err
@@ -183,7 +183,7 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 	})
 	if err != nil {
 		if apierrors.IsForbidden(err) {
-			return SpaceRecord{}, NewForbiddenError("Space", err)
+			return SpaceRecord{}, NewForbiddenError(SpaceResourceType, err)
 		}
 
 		return SpaceRecord{}, err
@@ -471,7 +471,7 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 			return NewNotFoundError(OrgResourceType, err)
 		}
 		if apierrors.IsForbidden(err) {
-			return NewForbiddenError("Org", err)
+			return NewForbiddenError(OrgResourceType, err)
 		}
 		return err
 	}
@@ -487,7 +487,7 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 			return NewNotFoundError(OrgResourceType, err)
 		}
 		if apierrors.IsForbidden(err) {
-			return NewForbiddenError("Org", err)
+			return NewForbiddenError(OrgResourceType, err)
 		}
 		return err
 	}
@@ -512,7 +512,7 @@ func (r *OrgRepo) DeleteSpace(ctx context.Context, info authorization.Info, mess
 		}
 
 		if apierrors.IsForbidden(err) {
-			return NewForbiddenError("Space", err)
+			return NewForbiddenError(SpaceResourceType, err)
 		}
 
 		return err

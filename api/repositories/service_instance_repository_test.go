@@ -10,7 +10,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -136,7 +135,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		When("user does not have permissions to create ServiceInstances", func() {
 			It("returns a Forbidden error", func() {
 				_, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
-				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(err).To(BeAssignableToTypeOf(ForbiddenError{}))
 			})
 		})
 	})

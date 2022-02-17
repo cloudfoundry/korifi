@@ -195,7 +195,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app is not accessible", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -826,7 +826,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("set droplet is forbidden", func() {
 			BeforeEach(func() {
-				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, repositories.NewForbiddenError("Droplet", nil))
+				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, repositories.NewForbiddenError(repositories.DropletResourceType, nil))
 			})
 
 			It("returns a not authenticated error", func() {
@@ -847,7 +847,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App cannot be accessed", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -869,7 +869,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the Droplet isn't accessible to the user", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError("Droplet", nil))
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError(repositories.DropletResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -1653,7 +1653,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("the app cannot be accessed", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
 				})
 
 				It("returns an error", func() {
@@ -2270,7 +2270,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("the app cannot be accessed", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
 				})
 
 				It("returns an error", func() {
@@ -2440,7 +2440,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App is not accessible", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -2470,7 +2470,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the user cannot access the droplet", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError("Droplet", nil))
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError(repositories.DropletResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -2550,7 +2550,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("no permissions to get the app", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -2683,7 +2683,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("no permissions to stop the app", func() {
 				BeforeEach(func() {
-					appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
+					appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
 				})
 
 				It("returns a forbidden error", func() {
@@ -2693,7 +2693,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("no permissions to start the app", func() {
 				BeforeEach(func() {
-					appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
+					appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
 				})
 
 				It("returns a forbidden error", func() {
@@ -2794,7 +2794,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("no permissions to start the app", func() {
 			BeforeEach(func() {
-				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
+				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
 			})
 
 			It("returns a forbidden error", func() {
@@ -2937,7 +2937,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("there is a Forbidden error fetching the app env", func() {
 			BeforeEach(func() {
-				appRepo.GetAppEnvReturns(nil, repositories.NewForbiddenError("App Env", nil))
+				appRepo.GetAppEnvReturns(nil, repositories.NewForbiddenError(repositories.AppEnvResourceType, nil))
 			})
 
 			It("returns an error", func() {
