@@ -6,12 +6,12 @@ import (
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 )
 
 //+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfservicebindings,verbs=list;create
@@ -19,15 +19,21 @@ import (
 const (
 	LabelServiceBindingProvisionedService = "servicebinding.io/provisioned-service"
 	ServiceBindingResourceType            = "Service Binding"
+	ServiceBindingTypeApp                 = "app"
 )
 
 type ServiceBindingRepo struct {
-	userClientFactory UserK8sClientFactory
+	userClientFactory    UserK8sClientFactory
+	namespacePermissions *authorization.NamespacePermissions
 }
 
-func NewServiceBindingRepo(userClientFactory UserK8sClientFactory) *ServiceBindingRepo {
+func NewServiceBindingRepo(
+	userClientFactory UserK8sClientFactory,
+	namespacePermissions *authorization.NamespacePermissions,
+) *ServiceBindingRepo {
 	return &ServiceBindingRepo{
-		userClientFactory: userClientFactory,
+		userClientFactory:    userClientFactory,
+		namespacePermissions: namespacePermissions,
 	}
 }
 
@@ -58,19 +64,23 @@ type CreateServiceBindingMessage struct {
 	SpaceGUID           string
 }
 
-func (m CreateServiceBindingMessage) toCFServiceBinding() v1alpha1.CFServiceBinding {
+type ListServiceBindingsMessage struct {
+	ServiceInstanceGUIDs []string
+}
+
+func (m CreateServiceBindingMessage) toCFServiceBinding() servicesv1alpha1.CFServiceBinding {
 	guid := uuid.NewString()
-	return v1alpha1.CFServiceBinding{
+	return servicesv1alpha1.CFServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: m.SpaceGUID,
 			Labels:    map[string]string{LabelServiceBindingProvisionedService: "true"},
 		},
-		Spec: v1alpha1.CFServiceBindingSpec{
+		Spec: servicesv1alpha1.CFServiceBindingSpec{
 			Name: m.Name,
 			Service: corev1.ObjectReference{
 				Kind:       "CFServiceInstance",
-				APIVersion: v1alpha1.GroupVersion.Identifier(),
+				APIVersion: servicesv1alpha1.GroupVersion.Identifier(),
 				Name:       m.ServiceInstanceGUID,
 			},
 			AppRef: corev1.LocalObjectReference{Name: m.AppGUID},
@@ -87,7 +97,7 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 	cfServiceBinding := message.toCFServiceBinding()
 	err = userClient.Create(ctx, &cfServiceBinding)
 	if err != nil {
-		if apierrors.IsForbidden(err) {
+		if k8serrors.IsForbidden(err) {
 			return ServiceBindingRecord{}, NewForbiddenError(ServiceBindingResourceType, err)
 		}
 		return ServiceBindingRecord{}, err // untested
@@ -102,10 +112,10 @@ func (r *ServiceBindingRepo) ServiceBindingExists(ctx context.Context, authInfo 
 		return false, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	serviceBindingList := new(v1alpha1.CFServiceBindingList)
+	serviceBindingList := new(servicesv1alpha1.CFServiceBindingList)
 	err = userClient.List(ctx, serviceBindingList, client.InNamespace(spaceGUID))
 	if err != nil {
-		if apierrors.IsForbidden(err) {
+		if k8serrors.IsForbidden(err) {
 			return false, NewForbiddenError(ServiceBindingResourceType, err)
 		}
 		return false, err // untested
@@ -121,12 +131,12 @@ func (r *ServiceBindingRepo) ServiceBindingExists(ctx context.Context, authInfo 
 	return false, nil
 }
 
-func cfServiceBindingToRecord(binding v1alpha1.CFServiceBinding) ServiceBindingRecord {
+func cfServiceBindingToRecord(binding servicesv1alpha1.CFServiceBinding) ServiceBindingRecord {
 	createdAt := binding.CreationTimestamp.UTC().Format(TimestampFormat)
 	updatedAt, _ := getTimeLastUpdatedTimestamp(&binding.ObjectMeta)
 	return ServiceBindingRecord{
 		GUID:                binding.Name,
-		Type:                "app",
+		Type:                ServiceBindingTypeApp,
 		Name:                binding.Spec.Name,
 		AppGUID:             binding.Spec.AppRef.Name,
 		ServiceInstanceGUID: binding.Spec.Service.Name,
@@ -141,4 +151,57 @@ func cfServiceBindingToRecord(binding v1alpha1.CFServiceBinding) ServiceBindingR
 			UpdatedAt:   updatedAt,
 		},
 	}
+}
+
+func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo authorization.Info, message ListServiceBindingsMessage) ([]ServiceBindingRecord, error) {
+	nsList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+	}
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		// untested
+		return []ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	var filteredServiceBindings []servicesv1alpha1.CFServiceBinding
+	for ns := range nsList {
+		serviceInstanceList := new(servicesv1alpha1.CFServiceBindingList)
+		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns))
+		if k8serrors.IsForbidden(err) {
+			continue
+		}
+		if err != nil {
+			// untested
+			return []ServiceBindingRecord{}, fmt.Errorf("failed to list service instances in namespace %s: %w", ns, err)
+		}
+		filteredServiceBindings = append(filteredServiceBindings, applyServiceBindingListFilter(serviceInstanceList.Items, message)...)
+	}
+
+	return toServiceBindingRecords(filteredServiceBindings), nil
+}
+
+func applyServiceBindingListFilter(serviceBindingList []servicesv1alpha1.CFServiceBinding, message ListServiceBindingsMessage) []servicesv1alpha1.CFServiceBinding {
+	if len(message.ServiceInstanceGUIDs) == 0 {
+		return serviceBindingList
+	}
+
+	var filtered []servicesv1alpha1.CFServiceBinding
+	for _, serviceBinding := range serviceBindingList {
+		if matchesFilter(serviceBinding.Spec.Service.Name, message.ServiceInstanceGUIDs) {
+			filtered = append(filtered, serviceBinding)
+		}
+	}
+
+	return filtered
+}
+
+func toServiceBindingRecords(serviceInstanceList []servicesv1alpha1.CFServiceBinding) []ServiceBindingRecord {
+	serviceInstanceRecords := make([]ServiceBindingRecord, 0, len(serviceInstanceList))
+
+	for _, serviceInstance := range serviceInstanceList {
+		serviceInstanceRecords = append(serviceInstanceRecords, cfServiceBindingToRecord(serviceInstance))
+	}
+	return serviceInstanceRecords
 }

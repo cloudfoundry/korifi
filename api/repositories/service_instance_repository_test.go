@@ -27,8 +27,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		serviceInstanceRepo *repositories.ServiceInstanceRepo
 		guidToNamespace     repositories.NamespaceGetter
 
-		org   *hnsv1alpha2.SubnamespaceAnchor
-		space *hnsv1alpha2.SubnamespaceAnchor
+		org                 *hnsv1alpha2.SubnamespaceAnchor
+		space               *hnsv1alpha2.SubnamespaceAnchor
+		serviceInstanceName string
 	)
 
 	BeforeEach(func() {
@@ -41,13 +42,10 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
 		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
+		serviceInstanceName = prefixedGUID("service-instance")
 	})
 
 	Describe("CreateServiceInstance", func() {
-		const (
-			testServiceInstanceName = "my-uspi"
-		)
-
 		var (
 			serviceInstanceCreateMessage repositories.CreateServiceInstanceMessage
 			serviceInstanceTags          []string
@@ -56,7 +54,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		BeforeEach(func() {
 			serviceInstanceTags = []string{"foo", "bar"}
 
-			serviceInstanceCreateMessage = initializeServiceInstanceCreateMessage(testServiceInstanceName, space.Name, serviceInstanceTags)
+			serviceInstanceCreateMessage = initializeServiceInstanceCreateMessage(serviceInstanceName, space.Name, serviceInstanceTags)
 		})
 
 		When("user has permissions to create ServiceInstances", func() {
@@ -69,7 +67,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(createdServiceInstanceRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
 				Expect(createdServiceInstanceRecord.SpaceGUID).To(Equal(space.Name), "SpaceGUID in record did not match input")
-				Expect(createdServiceInstanceRecord.Name).To(Equal(testServiceInstanceName), "Name in record did not match input")
+				Expect(createdServiceInstanceRecord.Name).To(Equal(serviceInstanceName), "Name in record did not match input")
 				Expect(createdServiceInstanceRecord.Type).To(Equal("user-provided"), "Type in record did not match input")
 				Expect(createdServiceInstanceRecord.Tags).To(ConsistOf([]string{"foo", "bar"}), "Tags in record did not match input")
 
@@ -84,12 +82,12 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 			When("no ServiceInstance credentials are given", func() {
 				It("creates a secret and sets the secret ref on the ServiceInstance", func() {
-					createdServceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
+					createdServiceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(createdServceInstanceRecord).NotTo(BeNil())
-					Expect(createdServceInstanceRecord.SecretName).To(Equal(createdServceInstanceRecord.GUID))
+					Expect(createdServiceInstanceRecord).NotTo(BeNil())
+					Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
 
-					secretLookupKey := types.NamespacedName{Name: createdServceInstanceRecord.SecretName, Namespace: createdServceInstanceRecord.SpaceGUID}
+					secretLookupKey := types.NamespacedName{Name: createdServiceInstanceRecord.SecretName, Namespace: createdServiceInstanceRecord.SpaceGUID}
 					createdSecret := new(corev1.Secret)
 					Eventually(func() error {
 						return k8sClient.Get(context.Background(), secretLookupKey, createdSecret)
@@ -112,12 +110,12 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				})
 
 				It("creates a secret and sets the secret ref on the ServiceInstance", func() {
-					createdServceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
+					createdServiceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(createdServceInstanceRecord).NotTo(BeNil())
-					Expect(createdServceInstanceRecord.SecretName).To(Equal(createdServceInstanceRecord.GUID))
+					Expect(createdServiceInstanceRecord).NotTo(BeNil())
+					Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
 
-					secretLookupKey := types.NamespacedName{Name: createdServceInstanceRecord.SecretName, Namespace: createdServceInstanceRecord.SpaceGUID}
+					secretLookupKey := types.NamespacedName{Name: createdServiceInstanceRecord.SecretName, Namespace: createdServiceInstanceRecord.SpaceGUID}
 					createdSecret := new(corev1.Secret)
 					Eventually(func() error {
 						return k8sClient.Get(context.Background(), secretLookupKey, createdSecret)
@@ -167,10 +165,10 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space3.Name}})
 			})
 
-			cfServiceInstance1 = createServiceInstance(space.Name, "service-instance-1")
-			cfServiceInstance2 = createServiceInstance(space2.Name, "service-instance-2")
-			cfServiceInstance3 = createServiceInstance(space3.Name, "service-instance-3")
-			createServiceInstance(nonCFNamespace, "service-instance-dummy")
+			cfServiceInstance1 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space.Name, "service-instance-1", prefixedGUID("secret"))
+			cfServiceInstance2 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space2.Name, "service-instance-2", prefixedGUID("secret"))
+			cfServiceInstance3 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space3.Name, "service-instance-3", prefixedGUID("secret"))
+			createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), nonCFNamespace, "service-instance-4", prefixedGUID("secret"))
 		})
 
 		When("query parameters are not provided and", func() {
@@ -310,7 +308,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						OrderBy: "created_at",
 					}
 					time.Sleep(time.Second)
-					createServiceInstance(space3.Name, "another-service-instance")
+					createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space3.Name, "another-service-instance", prefixedGUID("secret"))
 				})
 
 				It("eventually returns the ServiceBindings in ascending creation order", func() {
@@ -373,7 +371,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						OrderBy: "updated_at",
 					}
 					time.Sleep(time.Second)
-					createServiceInstance(space3.Name, "another-service-instance")
+					createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space3.Name, "another-service-instance", prefixedGUID("secret"))
 				})
 
 				It("eventually returns the ServiceBindings in ascending update order", func() {
@@ -439,9 +437,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		BeforeEach(func() {
 			space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
 
-			serviceInstance = createServiceInstance(space.Name, "the-service-instance")
-			createServiceInstance(space2.Name, "some-other-service-instance")
-
+			serviceInstance = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
+			createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space2.Name, "some-other-service-instance", prefixedGUID("secret"))
 			getGUID = serviceInstance.Name
 		})
 
@@ -485,9 +482,11 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			})
 		})
 
-		When("more than one service instances exist", func() {
+		When("more than one service instance with the same guid exists", func() {
 			BeforeEach(func() {
-				createServiceInstanceWithGUID(space2.Name, "the-service-instance", serviceInstance.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
+				createServiceInstanceCR(testCtx, k8sClient, getGUID, space2.Name, "the-service-instance", prefixedGUID("secret"))
 			})
 
 			It("returns a error", func() {
@@ -516,7 +515,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			serviceInstance = createServiceInstance(space.Name, "the-service-instance")
+			serviceInstance = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
 
 			deleteMessage = repositories.DeleteServiceInstanceMessage{
 				GUID:      serviceInstance.Name,
@@ -571,25 +570,4 @@ func initializeServiceInstanceCreateMessage(serviceInstanceName string, spaceGUI
 		Type:      "user-provided",
 		Tags:      tags,
 	}
-}
-
-func createServiceInstance(space, name string) *servicesv1alpha1.CFServiceInstance {
-	return createServiceInstanceWithGUID(space, name, generateGUID())
-}
-
-func createServiceInstanceWithGUID(space, name, guid string) *servicesv1alpha1.CFServiceInstance {
-	cfServiceInstance := &servicesv1alpha1.CFServiceInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      guid,
-			Namespace: space,
-		},
-		Spec: servicesv1alpha1.CFServiceInstanceSpec{
-			Name:       name,
-			SecretName: guid,
-			Type:       "user-provided",
-		},
-	}
-	Expect(k8sClient.Create(context.Background(), cfServiceInstance)).To(Succeed())
-
-	return cfServiceInstance
 }

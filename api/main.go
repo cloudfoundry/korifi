@@ -107,6 +107,7 @@ func main() {
 	buildRepo := repositories.NewBuildRepo(privilegedCRClient, userClientFactory)
 	packageRepo := repositories.NewPackageRepo(privilegedCRClient, userClientFactory)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(userClientFactory, nsPermissions, guidToNamespace)
+	serviceBindingRepo := repositories.NewServiceBindingRepo(userClientFactory, nsPermissions)
 	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)
 	roleRepo := repositories.NewRoleRepo(
 		privilegedCRClient,
@@ -249,6 +250,15 @@ func main() {
 			*serverURL,
 			serviceInstanceRepo,
 			orgRepo,
+			decoderValidator,
+		),
+
+		apis.NewServiceBindingHandler(
+			ctrl.Log.WithName("ServiceBindingHandler"),
+			*serverURL,
+			serviceBindingRepo,
+			appRepo,
+			serviceInstanceRepo,
 			decoderValidator,
 		),
 	}

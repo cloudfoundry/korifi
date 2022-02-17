@@ -22,8 +22,10 @@ var _ = Describe("ServiceBindingHandler", func() {
 	const (
 		testServiceBindingHandlerLoggerName = "TestServiceBindingHandler"
 		appGUID                             = "test-app-guid"
+		serviceBindingGuid                  = "some-generated-guid"
 		serviceInstanceGUID                 = "test-service-instance-guid"
 		spaceGUID                           = "test-space-guid"
+		listServiceBindingsUrl              = "/v3/service_credential_bindings"
 	)
 
 	var (
@@ -362,6 +364,133 @@ var _ = Describe("ServiceBindingHandler", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("the GET /v3/service_credential_bindings endpoint", func() {
+		BeforeEach(func() {
+			serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{{
+				GUID:                serviceBindingGuid,
+				Type:                "app",
+				AppGUID:             appGUID,
+				ServiceInstanceGUID: serviceInstanceGUID,
+				SpaceGUID:           spaceGUID,
+				CreatedAt:           "",
+				UpdatedAt:           "",
+				LastOperation:       repositories.ServiceBindingLastOperation{},
+			}}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", listServiceBindingsUrl, nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the ServiceBindings available to the user", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK))
+			Expect(rr.Body.String()).To(ContainSubstring(serviceBindingGuid))
+		})
+
+		When("no service bindings can be found", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, nil)
+			})
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("returns a CF API formatted empty resource list", func() {
+				Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
+				"pagination": {
+				  "total_results": 0,
+				  "total_pages": 1,
+				  "first": {
+					"href": "%[1]s/v3/service_credential_bindings"
+				  },
+				  "last": {
+					"href": "%[1]s/v3/service_credential_bindings"
+				  },
+				  "next": null,
+				  "previous": null
+				},
+				"resources": []
+			}`, defaultServerURL)), "Response body matches response:")
+			})
+		})
+
+		When("authentication is invalid", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, authorization.InvalidAuthError{})
+			})
+
+			It("returns Invalid Auth error", func() {
+				expectInvalidAuthError()
+			})
+		})
+
+		When("authentication is not provided", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, authorization.NotAuthenticatedError{})
+			})
+
+			It("returns a NotAuthenticated error", func() {
+				expectNotAuthenticatedError()
+			})
+		})
+
+		When("user is not allowed to list a service instance", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, repositories.NewForbiddenError(repositories.ServiceBindingResourceType, errors.New("not allowed")))
+			})
+
+			It("returns an unauthorised error", func() {
+				expectNotAuthorizedError()
+			})
+		})
+
+		When("there is some other error fetching service instances", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, errors.New("unknown"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("a service_instance_guid query parameter is provided", func() {
+			BeforeEach(func() {
+				urlWithParams := listServiceBindingsUrl + "?service_instance_guids=1,2,3"
+
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "GET", urlWithParams, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("passes the list of service instance GUIDs to the repository", func() {
+				Expect(serviceBindingRepo.ListServiceBindingsCallCount()).To(Equal(1))
+				_, _, message := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
+				Expect(message.ServiceInstanceGUIDs).To(ConsistOf([]string{"1", "2", "3"}))
+			})
+		})
+
+		When("invalid query parameters are provided", func() {
+			BeforeEach(func() {
+				urlWithParams := listServiceBindingsUrl + "?foo=bar"
+
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "GET", urlWithParams, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an Unknown key error", func() {
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'service_instance_guids'")
 			})
 		})
 	})

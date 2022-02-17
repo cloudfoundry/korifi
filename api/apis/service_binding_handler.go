@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
@@ -16,6 +17,7 @@ import (
 
 const (
 	ServiceBindingCreateEndpoint = "/v3/service_credential_bindings"
+	ServiceBindingsListEndpoint  = "/v3/service_credential_bindings"
 )
 
 type ServiceBindingHandler struct {
@@ -31,6 +33,7 @@ type ServiceBindingHandler struct {
 type CFServiceBindingRepository interface {
 	CreateServiceBinding(context.Context, authorization.Info, repositories.CreateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
 	ServiceBindingExists(ctx context.Context, info authorization.Info, spaceGUID, appGUID, serviceInsanceGUID string) (bool, error)
+	ListServiceBindings(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error)
 }
 
 func NewServiceBindingHandler(logger logr.Logger, serverURL url.URL, serviceBindingRepo CFServiceBindingRepository, appRepo CFAppRepository, serviceInstanceRepo CFServiceInstanceRepository, decoderValidator *DecoderValidator) *ServiceBindingHandler {
@@ -93,6 +96,38 @@ func (h *ServiceBindingHandler) createHandler(authInfo authorization.Info, w htt
 	writeResponse(w, http.StatusCreated, presenter.ForServiceBinding(serviceBinding, h.serverURL))
 }
 
+func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error(err, "Unable to parse request query parameters")
+		writeUnprocessableEntityError(w, "unable to parse query")
+		return
+	}
+
+	listFilter := new(payloads.ServiceBindingList)
+	err := schema.NewDecoder().Decode(listFilter, r.Form)
+	if err != nil {
+		if isUnknownKeyError(err) {
+			h.logger.Info("Unknown key used in ServiceInstance filter")
+			writeUnknownKeyError(w, listFilter.SupportedFilterKeys())
+		} else {
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+		}
+		return
+	}
+
+	serviceBindingList, err := h.serviceBindingRepo.ListServiceBindings(ctx, authInfo, listFilter.ToMessage())
+	if err != nil {
+		h.writeErrorResponse(w, err, "list service bindings")
+		return
+	}
+
+	writeResponse(w, http.StatusOK, presenter.ForServiceBindingList(serviceBindingList, h.serverURL, *r.URL))
+}
+
 func (h *ServiceBindingHandler) writeErrorResponse(w http.ResponseWriter, err error, message string) {
 	if repositories.IsForbiddenError(err) {
 		h.logger.Error(err, "not allowed to "+message)
@@ -112,4 +147,21 @@ func (h *ServiceBindingHandler) writeErrorResponse(w http.ResponseWriter, err er
 func (h *ServiceBindingHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
 	router.Path(ServiceBindingCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.createHandler))
+	router.Path(ServiceBindingsListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.listHandler))
+}
+
+// TODO: Separate commit/PR to move this function into shared.go and refactor all the handlers
+// https://github.com/cloudfoundry/cf-k8s-controllers/issues/698
+func isUnknownKeyError(err error) bool {
+	switch err.(type) {
+	case schema.MultiError:
+		multiError := err.(schema.MultiError)
+		for _, v := range multiError {
+			_, ok := v.(schema.UnknownKeyError)
+			if ok {
+				return true
+			}
+		}
+	}
+	return false
 }
