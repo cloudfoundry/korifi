@@ -20,6 +20,10 @@ import (
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfprocesses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfprocesses/status,verbs=get
 
+const (
+	ProcessResourceType = "Process"
+)
+
 func NewProcessRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *ProcessRepo {
 	return &ProcessRepo{
 		privilegedClient: privilegedClient,
@@ -110,7 +114,7 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 	}
 
 	if len(processList.Items) == 0 {
-		return ProcessRecord{}, NewNotFoundError("Process", nil)
+		return ProcessRecord{}, NewNotFoundError(ProcessResourceType, nil)
 	}
 	if len(processList.Items) > 1 {
 		return ProcessRecord{}, errors.New("duplicate processes exist")
@@ -262,7 +266,7 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 
 func returnProcess(processes []workloadsv1alpha1.CFProcess) (ProcessRecord, error) {
 	if len(processes) == 0 {
-		return ProcessRecord{}, NewNotFoundError("Process", nil)
+		return ProcessRecord{}, NewNotFoundError(ProcessResourceType, nil)
 	}
 	if len(processes) > 1 {
 		return ProcessRecord{}, errors.New("duplicate processes exist")

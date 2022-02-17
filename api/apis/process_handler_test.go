@@ -165,7 +165,7 @@ var _ = Describe("ProcessHandler", func() {
 		When("on the sad path and", func() {
 			When("the process doesn't exist", func() {
 				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError("Process", nil))
+					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
 				})
 
 				It("returns a not-found error", func() {
@@ -250,7 +250,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the process doesn't exist", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError("Process", nil))
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -512,7 +512,7 @@ var _ = Describe("ProcessHandler", func() {
 
 			When("the process doesn't exist", func() {
 				BeforeEach(func() {
-					scaleProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NewNotFoundError("Process", nil))
+					scaleProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
 				})
 
 				It("returns an error", func() {
@@ -667,7 +667,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the process is not found", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NewNotFoundError("Process", nil))
+				fetchProcessStats.Returns(nil, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
 			})
 			It("an error", func() {
 				expectNotFoundError("Process not found")
@@ -676,7 +676,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the app is not found", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NewNotFoundError("App", nil))
+				fetchProcessStats.Returns(nil, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 			})
 			It("an error", func() {
 				expectNotFoundError("App not found")

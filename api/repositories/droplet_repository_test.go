@@ -197,7 +197,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					It("should return a NotFound error", func() {
-						Expect(fetchErr).To(MatchError(repositories.NewNotFoundError("Droplet", nil)))
+						Expect(fetchErr).To(MatchError(repositories.NewNotFoundError(repositories.DropletResourceType, nil)))
 					})
 				})
 
@@ -219,7 +219,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					It("should return a NotFound error", func() {
-						Expect(fetchErr).To(MatchError(repositories.NewNotFoundError("Droplet", nil)))
+						Expect(fetchErr).To(MatchError(repositories.NewNotFoundError(repositories.DropletResourceType, nil)))
 					})
 				})
 
@@ -241,7 +241,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					It("should return a NotFound error", func() {
-						Expect(fetchErr).To(MatchError(repositories.NewNotFoundError("Droplet", nil)))
+						Expect(fetchErr).To(MatchError(repositories.NewNotFoundError(repositories.DropletResourceType, nil)))
 					})
 				})
 			})
@@ -250,7 +250,7 @@ var _ = Describe("DropletRepository", func() {
 				It("returns an error", func() {
 					_, err := dropletRepo.GetDroplet(testCtx, authInfo, "i don't exist")
 					Expect(err).To(HaveOccurred())
-					Expect(err).To(MatchError(repositories.NewNotFoundError("Droplet", nil)))
+					Expect(err).To(MatchError(repositories.NewNotFoundError(repositories.DropletResourceType, nil)))
 				})
 			})
 		})

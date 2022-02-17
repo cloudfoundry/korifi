@@ -158,7 +158,7 @@ var _ = Describe("Spaces", func() {
 
 		When("the repo returns a not found or permission denied error", func() {
 			BeforeEach(func() {
-				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.NewNotFoundError("Org", errors.New("nope")))
+				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.NewNotFoundError(repositories.OrgResourceType, errors.New("nope")))
 			})
 
 			It("returns an invalid org error", func() {
@@ -509,7 +509,7 @@ var _ = Describe("Spaces", func() {
 
 		When("the space doesn't exist", func() {
 			BeforeEach(func() {
-				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NewNotFoundError("Space", nil))
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NewNotFoundError(repositories.SpaceResourceType, nil))
 			})
 
 			It("returns an error", func() {

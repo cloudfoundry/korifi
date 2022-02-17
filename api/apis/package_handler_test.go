@@ -148,7 +148,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the package is not there", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError("Package", nil))
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError(repositories.PackageResourceType, nil))
 			})
 
 			It("returns status 404", func() {
@@ -590,7 +590,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the app doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -870,7 +870,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the record doesn't exist", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError("Package", nil))
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError(repositories.PackageResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -1149,7 +1149,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the package does not exist", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError("Package", nil))
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError(repositories.PackageResourceType, nil))
 			})
 
 			It("returns the error", func() {

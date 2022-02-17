@@ -178,7 +178,7 @@ var _ = Describe("RouteRepository", func() {
 		When("the CFRoute doesn't exist", func() {
 			It("returns an error", func() {
 				_, err := routeRepo.GetRoute(testCtx, authInfo, "non-existent-route-guid")
-				Expect(err).To(MatchError(NewNotFoundError("Route", nil)))
+				Expect(err).To(MatchError(NewNotFoundError(RouteResourceType, nil)))
 			})
 		})
 
