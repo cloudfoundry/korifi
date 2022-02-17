@@ -27,6 +27,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		testCtx                   context.Context
 		serviceInstanceRepo       *repositories.ServiceInstanceRepo
 		spaceDeveloperClusterRole *rbacv1.ClusterRole
+		guidToNamespace           repositories.NamespaceGetter
 
 		org   *hnsv1alpha2.SubnamespaceAnchor
 		space *hnsv1alpha2.SubnamespaceAnchor
@@ -34,7 +35,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-		serviceInstanceRepo = repositories.NewServiceInstanceRepo(k8sClient, userClientFactory, nsPerms)
+		guidToNamespace = repositories.NewGUIDToNamespace(k8sClient)
+		serviceInstanceRepo = repositories.NewServiceInstanceRepo(userClientFactory, nsPerms, guidToNamespace)
 		spaceDeveloperClusterRole = createClusterRole(testCtx, "cf_space_developer")
 
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
@@ -450,8 +452,10 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			record, getErr = serviceInstanceRepo.GetServiceInstance(testCtx, authInfo, getGUID)
 		})
 
-		It("returns a forbidden error", func() {
-			Expect(getErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+		When("there are no permissions on service instances", func() {
+			It("returns a forbidden error", func() {
+				Expect(getErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+			})
 		})
 
 		When("the user has permissions to get the service instance", func() {
@@ -492,7 +496,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			})
 
 			It("returns a error", func() {
-				Expect(getErr).To(MatchError(ContainSubstring("duplicate service instances exist")))
+				Expect(getErr).To(MatchError(ContainSubstring("duplicate service instances for guid")))
 			})
 		})
 
@@ -529,10 +533,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			deleteErr = serviceInstanceRepo.DeleteServiceInstance(testCtx, authInfo, deleteMessage)
 		})
 
-		It("returns a forbidden error", func() {
-			Expect(deleteErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
-		})
-
 		When("the user has permissions to delete service instances", func() {
 			BeforeEach(func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space.Name)
@@ -548,6 +548,22 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 				err := k8sClient.Get(context.Background(), namespacedName, &servicesv1alpha1.CFServiceInstance{})
 				Expect(k8serrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("error: %+v", err))
+			})
+
+			When("the service instances does not exist", func() {
+				BeforeEach(func() {
+					deleteMessage.GUID = "does-not-exist"
+				})
+
+				It("returns a not found error", func() {
+					Expect(deleteErr).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+				})
+			})
+		})
+
+		When("there are no permissions on service instances", func() {
+			It("returns a forbidden error", func() {
+				Expect(deleteErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 			})
 		})
 	})

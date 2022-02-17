@@ -69,7 +69,7 @@ var _ = Describe("POST /v3/service_credential_bindings", func() {
 		).To(Succeed())
 
 		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
-		serviceInstanceRepo := repositories.NewServiceInstanceRepo(k8sClient, clientFactory, nsPermissions)
+		serviceInstanceRepo := repositories.NewServiceInstanceRepo(clientFactory, nsPermissions, namespaceGetter)
 		serviceBindingRepo := repositories.NewServiceBindingRepo(clientFactory)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())

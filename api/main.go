@@ -86,6 +86,7 @@ func main() {
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
 	nsPermissions := authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider, config.RootNamespace)
+	guidToNamespace := repositories.NewGUIDToNamespace(privilegedCRClient)
 
 	serverURL, err := url.Parse(config.ServerURL)
 	if err != nil {
@@ -105,7 +106,7 @@ func main() {
 	domainRepo := repositories.NewDomainRepo(privilegedCRClient, userClientFactory)
 	buildRepo := repositories.NewBuildRepo(privilegedCRClient, userClientFactory)
 	packageRepo := repositories.NewPackageRepo(privilegedCRClient, userClientFactory)
-	serviceInstanceRepo := repositories.NewServiceInstanceRepo(privilegedCRClient, userClientFactory, nsPermissions)
+	serviceInstanceRepo := repositories.NewServiceInstanceRepo(userClientFactory, nsPermissions, guidToNamespace)
 	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)
 	roleRepo := repositories.NewRoleRepo(
 		privilegedCRClient,
