@@ -133,7 +133,7 @@ var _ = Describe("ProcessRepo", func() {
 
 				It("returns a not found error", func() {
 					Expect(getErr).To(HaveOccurred())
-					Expect(getErr).To(MatchError(repositories.NewNotFoundError("Process", nil)))
+					Expect(getErr).To(MatchError(repositories.NewNotFoundError(repositories.ProcessResourceType, nil)))
 				})
 			})
 
@@ -412,7 +412,7 @@ var _ = Describe("ProcessRepo", func() {
 		When("there is no matching process", func() {
 			It("returns a NotFoundError", func() {
 				_, err := processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, app1GUID, processType, namespace1.Name)
-				Expect(err).To(MatchError(repositories.NewNotFoundError("Process", nil)))
+				Expect(err).To(MatchError(repositories.NewNotFoundError(repositories.ProcessResourceType, nil)))
 			})
 		})
 	})

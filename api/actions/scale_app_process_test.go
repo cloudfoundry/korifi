@@ -137,7 +137,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		When("the error is \"not found\"", func() {
 			var toReturnErr error
 			BeforeEach(func() {
-				toReturnErr = repositories.NewNotFoundError("App", nil)
+				toReturnErr = repositories.NewNotFoundError(repositories.AppResourceType, nil)
 				appRepo.GetAppReturns(repositories.AppRecord{}, toReturnErr)
 			})
 			It("returns an empty record", func() {
@@ -183,7 +183,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		When("the error is \"not found\"", func() {
 			var toReturnErr error
 			BeforeEach(func() {
-				toReturnErr = repositories.NewNotFoundError("Process", nil)
+				toReturnErr = repositories.NewNotFoundError(repositories.ProcessResourceType, nil)
 				scaleProcessAction.Returns(repositories.ProcessRecord{}, toReturnErr)
 			})
 			It("returns an empty record", func() {

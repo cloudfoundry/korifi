@@ -566,7 +566,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("the org doesn't exist", func() {
 			BeforeEach(func() {
-				orgRepo.DeleteOrgReturns(repositories.NewNotFoundError("Org", nil))
+				orgRepo.DeleteOrgReturns(repositories.NewNotFoundError(repositories.OrgResourceType, nil))
 				router.ServeHTTP(rr, request)
 			})
 

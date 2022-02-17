@@ -363,7 +363,7 @@ var _ = Describe("DomainRepository", func() {
 		When("No matches exist for the provided name", func() {
 			It("returns a domainRecord that matches the specified domain name, and no error", func() {
 				_, err := domainRepo.GetDomainByName(context.Background(), authInfo, "i-dont-exist")
-				Expect(err).To(MatchError(NewNotFoundError("Domain", nil)))
+				Expect(err).To(MatchError(NewNotFoundError(DomainResourceType, nil)))
 			})
 		})
 	})
@@ -449,7 +449,7 @@ var _ = Describe("DomainRepository", func() {
 		When("no domains exist", Serial, func() {
 			It("returns a not found error", func() {
 				_, err := domainRepo.GetDefaultDomain(context.Background(), authInfo)
-				Expect(err).To(MatchError(NewNotFoundError("Default Domain", nil)))
+				Expect(err).To(MatchError(NewNotFoundError(DefaultDomainResourceType, nil)))
 			})
 		})
 	})

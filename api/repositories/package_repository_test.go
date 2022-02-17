@@ -247,7 +247,7 @@ var _ = Describe("PackageRepository", func() {
 			It("returns an error", func() {
 				_, err := packageRepo.GetPackage(ctx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(repositories.NewNotFoundError("Package", nil)))
+				Expect(err).To(MatchError(repositories.NewNotFoundError(repositories.PackageResourceType, nil)))
 			})
 		})
 	})

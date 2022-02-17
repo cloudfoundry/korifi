@@ -23,6 +23,8 @@ const (
 
 	PackageStateAwaitingUpload = "AWAITING_UPLOAD"
 	PackageStateReady          = "READY"
+
+	PackageResourceType = "Package"
 )
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages,verbs=get;list;watch;create;update;patch;delete
@@ -124,7 +126,7 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 
 	packages := packageList.Items
 	if len(packages) == 0 {
-		return PackageRecord{}, NewNotFoundError("Package", nil)
+		return PackageRecord{}, NewNotFoundError(PackageResourceType, nil)
 	}
 	if len(packages) > 1 {
 		return PackageRecord{}, errors.New("duplicate packages exist")

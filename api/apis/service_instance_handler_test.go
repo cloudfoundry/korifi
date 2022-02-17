@@ -310,7 +310,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(
 					repositories.SpaceRecord{},
-					repositories.NewNotFoundError("Space", errors.New("not found")),
+					repositories.NewNotFoundError(repositories.SpaceResourceType, errors.New("not found")),
 				)
 
 				makePostRequest(validBody)

@@ -86,7 +86,7 @@ var _ = Describe("ApplyManifest", func() {
 
 	When("the app does not exist", func() {
 		BeforeEach(func() {
-			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 		})
 
 		When("creating the app errors", func() {
@@ -156,7 +156,7 @@ var _ = Describe("ApplyManifest", func() {
 
 		When("the process doesn't exist", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError("Process", nil))
+				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
 			})
 
 			When("creating the process errors", func() {

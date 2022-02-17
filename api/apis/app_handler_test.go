@@ -184,7 +184,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -344,7 +344,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the space does not exist", func() {
 			BeforeEach(func() {
-				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NewNotFoundError("Space", nil))
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NewNotFoundError(repositories.SpaceResourceType, nil))
 
 				requestBody := initializeCreateAppRequestBody(testAppName, "no-such-guid", nil, nil, nil)
 				queuePostRequest(requestBody)
@@ -836,7 +836,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -858,7 +858,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the Droplet doesn't exist", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewNotFoundError("Droplet", nil))
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewNotFoundError(repositories.DropletResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -1048,7 +1048,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -1315,7 +1315,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -1643,7 +1643,7 @@ var _ = Describe("AppHandler", func() {
 		When("On the sad path and", func() {
 			When("the app cannot be found", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 				})
 
 				It("returns an error", func() {
@@ -1797,7 +1797,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app is not found", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 				makeGetRequest(processTypeWeb)
 			})
 
@@ -1808,7 +1808,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app doesn't have a process of the given type", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError("Process", nil))
+				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
 				makeGetRequest(processTypeWeb)
 			})
 			It("return a process not found error", func() {
@@ -2042,7 +2042,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("the process doesn't exist", func() {
 				BeforeEach(func() {
-					scaleAppProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NewNotFoundError("Process", nil))
+					scaleAppProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
 				})
 
 				It("returns an error", func() {
@@ -2052,7 +2052,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("the app doesn't exist", func() {
 				BeforeEach(func() {
-					scaleAppProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NewNotFoundError("App", nil))
+					scaleAppProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 				})
 
 				It("returns an error", func() {
@@ -2260,7 +2260,7 @@ var _ = Describe("AppHandler", func() {
 		When("on the sad path and", func() {
 			When("the app cannot be found", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 				})
 
 				It("returns an error", func() {
@@ -2430,7 +2430,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -2460,7 +2460,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the Droplet doesn't exist", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewNotFoundError("Droplet", nil))
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewNotFoundError(repositories.DropletResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -2540,7 +2540,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -2862,7 +2862,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the App doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -2927,7 +2927,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the app cannot be found", func() {
 			BeforeEach(func() {
-				appRepo.GetAppEnvReturns(nil, repositories.NewNotFoundError("App", nil))
+				appRepo.GetAppEnvReturns(nil, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -3087,7 +3087,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("the app cannot be found", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError("App", nil))
+					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
 				})
 
 				// TODO: should we return code 100004 instead?

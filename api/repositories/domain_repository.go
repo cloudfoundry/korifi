@@ -16,6 +16,11 @@ import (
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfdomains,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfdomains/status,verbs=get
 
+const (
+	DomainResourceType        = "Domain"
+	DefaultDomainResourceType = "Default Domain"
+)
+
 type DomainRepo struct {
 	privilegedClient client.Client
 }
@@ -43,7 +48,7 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 	if err != nil {
 		switch {
 		case k8serrors.IsNotFound(err):
-			return DomainRecord{}, NewNotFoundError("Domain", err)
+			return DomainRecord{}, NewNotFoundError(DomainResourceType, err)
 		default:
 			return DomainRecord{}, fmt.Errorf("get-domain: k8s get failed: %w", err)
 		}
@@ -73,7 +78,7 @@ func (r *DomainRepo) GetDomainByName(ctx context.Context, authInfo authorization
 	}
 
 	if len(domainRecords) == 0 {
-		return DomainRecord{}, NewNotFoundError("Domain", err)
+		return DomainRecord{}, NewNotFoundError(DomainResourceType, err)
 	}
 
 	return domainRecords[0], nil
@@ -86,7 +91,7 @@ func (r *DomainRepo) GetDefaultDomain(ctx context.Context, authInfo authorizatio
 		return DomainRecord{}, err
 	}
 	if len(domainList) == 0 {
-		return DomainRecord{}, NewNotFoundError("Default Domain", nil)
+		return DomainRecord{}, NewNotFoundError(DefaultDomainResourceType, nil)
 	}
 	return domainList[0], nil
 }

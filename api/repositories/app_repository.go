@@ -33,6 +33,7 @@ const (
 	APIVersion      string = "workloads.cloudfoundry.org/v1alpha1"
 	TimestampFormat string = time.RFC3339
 	CFAppGUIDLabel  string = "workloads.cloudfoundry.org/app-guid"
+	AppResourceType string = "App"
 )
 
 type AppRepo struct {
@@ -162,7 +163,7 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 	}
 
 	if len(appList.Items) == 0 {
-		return AppRecord{}, NewNotFoundError("App", nil)
+		return AppRecord{}, NewNotFoundError(AppResourceType, nil)
 	}
 	if len(appList.Items) > 1 {
 		return AppRecord{}, errors.New("get-app duplicate apps exist")
@@ -537,7 +538,7 @@ func cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 
 func returnApp(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
 	if len(apps) == 0 {
-		return AppRecord{}, NewNotFoundError("App", nil)
+		return AppRecord{}, NewNotFoundError(AppResourceType, nil)
 	}
 	if len(apps) > 1 {
 		return AppRecord{}, errors.New("duplicate apps exist")
