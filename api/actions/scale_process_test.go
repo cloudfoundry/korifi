@@ -115,7 +115,7 @@ var _ = Describe("ScaleProcessAction", func() {
 		When("the error is \"not found\"", func() {
 			var toReturnErr error
 			BeforeEach(func() {
-				toReturnErr = repositories.NewNotFoundError("Process", nil)
+				toReturnErr = repositories.NewNotFoundError(repositories.ProcessResourceType, nil)
 				processRepo.GetProcessReturns(repositories.ProcessRecord{}, toReturnErr)
 			})
 			It("returns an empty record", func() {

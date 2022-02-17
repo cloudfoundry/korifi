@@ -16,6 +16,10 @@ import (
 
 // No kubebuilder RBAC tags required, because Build and Droplet are the same CR
 
+const (
+	DropletResourceType = "Droplet"
+)
+
 type DropletRepo struct {
 	privilegedClient  client.Client
 	userClientFactory UserK8sClientFactory
@@ -55,7 +59,7 @@ func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Inf
 	}
 	builds := buildList.Items
 	if len(builds) == 0 {
-		return DropletRecord{}, NewNotFoundError("Droplet", nil)
+		return DropletRecord{}, NewNotFoundError(DropletResourceType, nil)
 	}
 	if len(builds) > 1 { // untested
 		return DropletRecord{}, errors.New("duplicate builds exist")
@@ -88,7 +92,7 @@ func returnDroplet(builds []workloadsv1alpha1.CFBuild) (DropletRecord, error) {
 		succeededStatus == metav1.ConditionTrue {
 		return cfBuildToDropletRecord(cfBuild), nil
 	}
-	return DropletRecord{}, NewNotFoundError("Droplet", nil)
+	return DropletRecord{}, NewNotFoundError(DropletResourceType, nil)
 }
 
 func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {

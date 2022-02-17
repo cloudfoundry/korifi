@@ -23,6 +23,8 @@ const (
 
 	StagingConditionType   = "Staging"
 	SucceededConditionType = "Succeeded"
+
+	BuildResourceType = "Build"
 )
 
 type BuildRecord struct {
@@ -66,7 +68,7 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 	}
 	builds := buildList.Items
 	if len(builds) == 0 {
-		return BuildRecord{}, NewNotFoundError("Build", nil)
+		return BuildRecord{}, NewNotFoundError(BuildResourceType, nil)
 	}
 	if len(builds) > 1 {
 		return BuildRecord{}, errors.New("duplicate builds exist")

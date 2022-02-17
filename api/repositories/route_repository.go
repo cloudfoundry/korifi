@@ -16,6 +16,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	RouteResourceType = "Route"
+)
+
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes/status,verbs=get
 
@@ -271,7 +275,7 @@ func filterByAppDestination(routeList []networkingv1alpha1.CFRoute, appGUID stri
 
 func returnRoute(routeList []networkingv1alpha1.CFRoute) (RouteRecord, error) {
 	if len(routeList) == 0 {
-		return RouteRecord{}, NewNotFoundError("Route", nil)
+		return RouteRecord{}, NewNotFoundError(RouteResourceType, nil)
 	}
 
 	if len(routeList) > 1 {

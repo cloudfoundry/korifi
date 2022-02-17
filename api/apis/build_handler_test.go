@@ -313,7 +313,7 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the build cannot be found", func() {
 			BeforeEach(func() {
-				buildRepo.GetBuildReturns(repositories.BuildRecord{}, repositories.NewNotFoundError("Build", nil))
+				buildRepo.GetBuildReturns(repositories.BuildRecord{}, repositories.NewNotFoundError(repositories.BuildResourceType, nil))
 			})
 
 			It("returns an error", func() {
@@ -502,7 +502,7 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the package doesn't exist", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError("Package", nil))
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError(repositories.PackageResourceType, nil))
 			})
 
 			It("returns an error", func() {

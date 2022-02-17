@@ -256,7 +256,7 @@ var _ = Describe("BuildRepository", func() {
 			It("returns an error", func() {
 				_, err := buildRepo.GetBuild(ctx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(repositories.NewNotFoundError("Build", nil)))
+				Expect(err).To(MatchError(repositories.NewNotFoundError(repositories.BuildResourceType, nil)))
 			})
 		})
 

@@ -36,6 +36,9 @@ const (
 	OrgNameLabel          = "cloudfoundry.org/org-name"
 	SpaceNameLabel        = "cloudfoundry.org/space-name"
 	hierarchyMetadataName = "hierarchy"
+
+	OrgResourceType   = "Org"
+	SpaceResourceType = "Space"
 )
 
 type CreateOrgMessage struct {
@@ -423,7 +426,7 @@ func (r *OrgRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGU
 	}
 
 	if len(spaceRecords) == 0 {
-		return SpaceRecord{}, NewNotFoundError("Space", nil)
+		return SpaceRecord{}, NewNotFoundError(SpaceResourceType, nil)
 	}
 
 	return spaceRecords[0], nil
@@ -436,7 +439,7 @@ func (r *OrgRepo) GetOrg(ctx context.Context, info authorization.Info, orgGUID s
 	}
 
 	if len(orgRecords) == 0 {
-		return OrgRecord{}, NewNotFoundError("Org", err)
+		return OrgRecord{}, NewNotFoundError(OrgResourceType, err)
 	}
 
 	return orgRecords[0], nil
@@ -448,7 +451,7 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	err = r.privilegedClient.Get(ctx, types.NamespacedName{Name: hierarchyMetadataName, Namespace: message.GUID}, &hierarchyObj)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return NewNotFoundError("Org", err)
+			return NewNotFoundError(OrgResourceType, err)
 		}
 		return err
 	}
@@ -462,7 +465,7 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	err = userClient.Update(ctx, &hierarchyObj)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return NewNotFoundError("Org", err)
+			return NewNotFoundError(OrgResourceType, err)
 		}
 		if apierrors.IsForbidden(err) {
 			return NewForbiddenError("Org", err)
@@ -478,7 +481,7 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return NewNotFoundError("Org", err)
+			return NewNotFoundError(OrgResourceType, err)
 		}
 		if apierrors.IsForbidden(err) {
 			return NewForbiddenError("Org", err)
