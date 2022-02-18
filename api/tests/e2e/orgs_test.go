@@ -167,12 +167,14 @@ var _ = Describe("Orgs", func() {
 
 	Describe("delete", func() {
 		var (
+			orgName string
 			orgGUID string
 			errResp cfErrs
 		)
 
 		BeforeEach(func() {
-			orgGUID = createOrg(generateGUID("my-org"))
+			orgName = generateGUID("my-org")
+			orgGUID = createOrg(orgName)
 			errResp = cfErrs{}
 		})
 
@@ -189,8 +191,17 @@ var _ = Describe("Orgs", func() {
 		})
 
 		It("succeeds with a job redirect", func() {
-			Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
-			Expect(resp).To(HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/org.delete-"+orgGUID)))
+			Expect(resp).To(SatisfyAll(
+				HaveRestyStatusCode(http.StatusAccepted),
+				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/org.delete-"+orgGUID)),
+			))
+
+			jobURL := resp.Header().Get("Location")
+			Eventually(func(g Gomega) {
+				jobResp, err := adminClient.R().Get(jobURL)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+			}).Should(Succeed())
 		})
 
 		When("the org does not exist", func() {
