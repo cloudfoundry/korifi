@@ -33,6 +33,66 @@ var _ = Describe("App Handler", func() {
 		spaceGUID  string
 	)
 
+	createStoppedApp := func(appGUID, spaceGUID, dropletGUID string) {
+		app := &workloads.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      appGUID,
+				Namespace: spaceGUID,
+			},
+			Spec: workloads.CFAppSpec{
+				Name:         generateGUID(),
+				DesiredState: "STOPPED",
+				Lifecycle: workloads.Lifecycle{
+					Type: "buildpack",
+				},
+				CurrentDropletRef: corev1.LocalObjectReference{
+					Name: dropletGUID,
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, app)).To(Succeed())
+	}
+
+	createDroplet := func(dropletGUID, spaceGUID, appGUID string) {
+		droplet := &workloads.CFBuild{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      dropletGUID,
+				Namespace: spaceGUID,
+			},
+			Spec: workloads.CFBuildSpec{
+				AppRef: corev1.LocalObjectReference{
+					Name: appGUID,
+				},
+				Lifecycle: workloads.Lifecycle{
+					Type: "buildpack",
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, droplet)).To(Succeed())
+
+		droplet.Status = workloads.CFBuildStatus{
+			Conditions: []metav1.Condition{
+				{
+					Type:               "Staging",
+					Status:             metav1.ConditionFalse,
+					Reason:             "foo",
+					LastTransitionTime: metav1.NewTime(time.Now()),
+				},
+				{
+					Type:               "Succeeded",
+					Status:             metav1.ConditionTrue,
+					Reason:             "foo",
+					LastTransitionTime: metav1.NewTime(time.Now()),
+				},
+			},
+			BuildDropletStatus: &workloads.BuildDropletStatus{
+				ProcessTypes: []workloads.ProcessType{},
+				Ports:        []int32{},
+			},
+		}
+		Expect(k8sClient.Status().Update(ctx, droplet)).To(Succeed())
+	}
+
 	BeforeEach(func() {
 		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
 		dropletRepo := repositories.NewDropletRepo(k8sClient, clientFactory)
@@ -157,40 +217,58 @@ var _ = Describe("App Handler", func() {
 		})
 	})
 
+	Describe("app operations", func() {
+		var appGUID string
+
+		BeforeEach(func() {
+			appGUID = generateGUID()
+			dropletGUID := generateGUID()
+
+			createStoppedApp(appGUID, spaceGUID, dropletGUID)
+			createDroplet(dropletGUID, spaceGUID, appGUID)
+		})
+
+		Describe("start", func() {
+			JustBeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, http.MethodPost, serverURI("/v3/apps/"+appGUID+"/actions/start"), nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				router.ServeHTTP(rr, req)
+			})
+
+			It("returns a not found error if the user has no permission to view the app", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+			})
+
+			When("the user has read-only access to the app", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, spaceManagerRole.Name, spaceGUID)
+				})
+
+				It("returns a forbidden error", func() {
+					Expect(rr).To(HaveHTTPStatus(http.StatusForbidden))
+				})
+			})
+		})
+	})
+
 	Describe("app sub-resources", func() {
 		var (
-			app         *workloads.CFApp
+			appGUID     string
 			dropletGUID string
 		)
 
 		BeforeEach(func() {
-			appGUID := generateGUID()
+			appGUID = generateGUID()
 			dropletGUID = generateGUID()
-
-			app = &workloads.CFApp{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      appGUID,
-					Namespace: spaceGUID,
-				},
-				Spec: workloads.CFAppSpec{
-					Name:         generateGUID(),
-					DesiredState: "STOPPED",
-					Lifecycle: workloads.Lifecycle{
-						Type: "buildpack",
-					},
-					CurrentDropletRef: corev1.LocalObjectReference{
-						Name: dropletGUID,
-					},
-				},
-			}
-
-			Expect(k8sClient.Create(ctx, app)).To(Succeed())
+			createStoppedApp(appGUID, spaceGUID, dropletGUID)
 		})
 
 		Describe("get processes", func() {
 			JustBeforeEach(func() {
 				var err error
-				req, err = http.NewRequestWithContext(ctx, http.MethodGet, serverURI("/v3/apps/"+app.Name+"/processes"), nil)
+				req, err = http.NewRequestWithContext(ctx, http.MethodGet, serverURI("/v3/apps/"+appGUID+"/processes"), nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				router.ServeHTTP(rr, req)
@@ -217,7 +295,7 @@ var _ = Describe("App Handler", func() {
 		Describe("get routes", func() {
 			JustBeforeEach(func() {
 				var err error
-				req, err = http.NewRequestWithContext(ctx, http.MethodGet, serverURI("/v3/apps/"+app.Name+"/routes"), nil)
+				req, err = http.NewRequestWithContext(ctx, http.MethodGet, serverURI("/v3/apps/"+appGUID+"/routes"), nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				router.ServeHTTP(rr, req)
@@ -245,7 +323,7 @@ var _ = Describe("App Handler", func() {
 		Describe("restart app", func() {
 			JustBeforeEach(func() {
 				var err error
-				req, err = http.NewRequestWithContext(ctx, http.MethodPost, serverURI("/v3/apps/"+app.Name+"/actions/restart"), nil)
+				req, err = http.NewRequestWithContext(ctx, http.MethodPost, serverURI("/v3/apps/"+appGUID+"/actions/restart"), nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				router.ServeHTTP(rr, req)
@@ -281,51 +359,14 @@ var _ = Describe("App Handler", func() {
 		})
 
 		Describe("droplets", func() {
-			var droplet *workloads.CFBuild
-
 			BeforeEach(func() {
-				droplet = &workloads.CFBuild{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      dropletGUID,
-						Namespace: spaceGUID,
-					},
-					Spec: workloads.CFBuildSpec{
-						AppRef: corev1.LocalObjectReference{
-							Name: app.Name,
-						},
-						Lifecycle: workloads.Lifecycle{
-							Type: "buildpack",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, droplet)).To(Succeed())
-				droplet.Status = workloads.CFBuildStatus{
-					Conditions: []metav1.Condition{
-						{
-							Type:               "Staging",
-							Status:             metav1.ConditionFalse,
-							Reason:             "foo",
-							LastTransitionTime: metav1.NewTime(time.Now()),
-						},
-						{
-							Type:               "Succeeded",
-							Status:             metav1.ConditionTrue,
-							Reason:             "foo",
-							LastTransitionTime: metav1.NewTime(time.Now()),
-						},
-					},
-					BuildDropletStatus: &workloads.BuildDropletStatus{
-						ProcessTypes: []workloads.ProcessType{},
-						Ports:        []int32{},
-					},
-				}
-				Expect(k8sClient.Status().Update(ctx, droplet)).To(Succeed())
+				createDroplet(dropletGUID, spaceGUID, appGUID)
 			})
 
 			Describe("get current droplet", func() {
 				JustBeforeEach(func() {
 					var err error
-					req, err = http.NewRequestWithContext(ctx, http.MethodGet, serverURI("/v3/apps/"+app.Name+"/droplets/current"), nil)
+					req, err = http.NewRequestWithContext(ctx, http.MethodGet, serverURI("/v3/apps/"+appGUID+"/droplets/current"), nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					router.ServeHTTP(rr, req)
@@ -356,7 +397,7 @@ var _ = Describe("App Handler", func() {
 					payload = payloads.AppSetCurrentDroplet{
 						Relationship: payloads.Relationship{
 							Data: &payloads.RelationshipData{
-								GUID: droplet.Name,
+								GUID: dropletGUID,
 							},
 						},
 					}
@@ -366,7 +407,7 @@ var _ = Describe("App Handler", func() {
 					payloadJSON, err := json.Marshal(payload)
 					Expect(err).NotTo(HaveOccurred())
 
-					req, err = http.NewRequestWithContext(ctx, http.MethodPatch, serverURI("/v3/apps/"+app.Name+"/relationships/current_droplet"), bytes.NewReader(payloadJSON))
+					req, err = http.NewRequestWithContext(ctx, http.MethodPatch, serverURI("/v3/apps/"+appGUID+"/relationships/current_droplet"), bytes.NewReader(payloadJSON))
 					Expect(err).NotTo(HaveOccurred())
 
 					router.ServeHTTP(rr, req)

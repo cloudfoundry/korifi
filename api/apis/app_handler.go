@@ -339,8 +339,7 @@ func (h *AppHandler) appStartHandler(authInfo authorization.Info, w http.Respons
 		DesiredState: AppStartedState,
 	})
 	if err != nil {
-		h.logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
-		writeUnknownErrorResponse(w)
+		h.handleUpdateAppErr(err, w, appGUID)
 		return
 	}
 
@@ -652,6 +651,20 @@ func (h *AppHandler) handleGetAppErr(err error, w http.ResponseWriter, appGUID s
 		writeNotFoundErrorResponse(w, "App")
 	default:
 		h.logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+		writeUnknownErrorResponse(w)
+	}
+}
+
+func (h *AppHandler) handleUpdateAppErr(err error, w http.ResponseWriter, appGUID string) {
+	switch err.(type) {
+	case repositories.NotFoundError:
+		h.logger.Info("App not found", "AppGUID", appGUID)
+		writeNotFoundErrorResponse(w, "App")
+	case repositories.ForbiddenError:
+		h.logger.Info("App forbidden", "AppGUID", appGUID)
+		writeNotAuthorizedErrorResponse(w)
+	default:
+		h.logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
 	}
 }
