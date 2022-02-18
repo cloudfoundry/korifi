@@ -27,7 +27,7 @@ var _ = Describe("DropletRepository", func() {
 		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
 		Expect(k8sClient.Create(testCtx, namespace)).To(Succeed())
 
-		dropletRepo = repositories.NewDropletRepo(k8sClient, userClientFactory)
+		dropletRepo = repositories.NewDropletRepo(k8sClient, namespaceRetriever, userClientFactory)
 	})
 
 	Describe("GetDroplet", func() {

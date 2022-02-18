@@ -81,13 +81,9 @@ func (h *RouteHandler) routeGetHandler(authInfo authorization.Info, w http.Respo
 			h.logger.Info("Route not found", "RouteGUID", routeGUID)
 			writeNotFoundErrorResponse(w, "Route")
 			return
-		case authorization.InvalidAuthError:
-			h.logger.Error(err, "unauthorized to get route")
-			writeInvalidAuthErrorResponse(w)
-			return
-		case authorization.NotAuthenticatedError:
-			h.logger.Error(err, "no auth to get route")
-			writeNotAuthenticatedErrorResponse(w)
+		case repositories.ForbiddenError:
+			h.logger.Info("Route forbidden", "RouteGUID", routeGUID)
+			writeNotFoundErrorResponse(w, "Route")
 			return
 		default:
 			h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
@@ -250,7 +246,7 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 
 	responseRouteRecord = responseRouteRecord.UpdateDomainRef(domain)
 
-	writeResponse(w, http.StatusOK, presenter.ForRoute(responseRouteRecord, h.serverURL))
+	writeResponse(w, http.StatusCreated, presenter.ForRoute(responseRouteRecord, h.serverURL))
 }
 
 func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {

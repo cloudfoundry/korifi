@@ -35,8 +35,8 @@ var _ = Describe("ServiceBinding Handler", func() {
 	)
 
 	BeforeEach(func() {
-		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
-		serviceInstanceRepo := repositories.NewServiceInstanceRepo(clientFactory, nsPermissions, namespaceGetter)
+		appRepo := repositories.NewAppRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
+		serviceInstanceRepo := repositories.NewServiceInstanceRepo(namespaceRetriever, clientFactory, nsPermissions)
 		serviceBindingRepo := repositories.NewServiceBindingRepo(clientFactory, nsPermissions)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())

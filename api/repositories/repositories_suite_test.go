@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/cache"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,6 +48,7 @@ func TestRepositories(t *testing.T) {
 var (
 	testEnv            *envtest.Environment
 	k8sClient          client.WithWatch
+	namespaceRetriever repositories.NamespaceRetriever
 	userClientFactory  repositories.UserK8sClientFactory
 	k8sConfig          *rest.Config
 	userName           string
@@ -97,6 +99,12 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	dynamicClient, err := dynamic.NewForConfig(k8sConfig)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(dynamicClient).NotTo(BeNil())
+	namespaceRetriever = repositories.NewNamespaceRetriver(dynamicClient)
+	Expect(namespaceRetriever).NotTo(BeNil())
 
 	ctx := context.Background()
 	adminRole = createClusterRole(ctx, "cf_admin")

@@ -29,20 +29,20 @@ type NamespaceGetter interface {
 }
 
 type ServiceInstanceRepo struct {
+	namespaceRetriever   NamespaceRetriever
 	userClientFactory    UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
-	namespaceGetter      NamespaceGetter
 }
 
 func NewServiceInstanceRepo(
+	namespaceRetriever NamespaceRetriever,
 	userClientFactory UserK8sClientFactory,
 	namespacePermissions *authorization.NamespacePermissions,
-	namespaceGetter NamespaceGetter,
 ) *ServiceInstanceRepo {
 	return &ServiceInstanceRepo{
+		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: namespacePermissions,
-		namespaceGetter:      namespaceGetter,
 	}
 }
 
@@ -151,7 +151,7 @@ func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo a
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	namespace, err := r.namespaceGetter.GetNamespaceForServiceInstance(ctx, guid)
+	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, guid, ServiceInstanceResourceType)
 	if err != nil {
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to get namespace for service instance: %w", err)
 	}

@@ -4,14 +4,12 @@ import (
 	"context"
 	"time"
 
-	. "github.com/onsi/gomega/gstruct"
-
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -60,7 +58,7 @@ var _ = Describe("RouteRepository", func() {
 		route1GUID = generateGUID()
 		route2GUID = generateGUID()
 		domainGUID = generateGUID()
-		routeRepo = NewRouteRepo(k8sClient, userClientFactory)
+		routeRepo = NewRouteRepo(k8sClient, namespaceRetriever, userClientFactory)
 
 		Expect(k8sClient.Create(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}})).To(Succeed())
 
@@ -90,6 +88,8 @@ var _ = Describe("RouteRepository", func() {
 		var (
 			cfRoute1 *networkingv1alpha1.CFRoute
 			cfRoute2 *networkingv1alpha1.CFRoute
+			route    RouteRecord
+			getErr   error
 		)
 
 		BeforeEach(func() {
@@ -140,15 +140,22 @@ var _ = Describe("RouteRepository", func() {
 			Expect(k8sClient.Create(testCtx, cfRoute2)).To(Succeed())
 		})
 
+		JustBeforeEach(func() {
+			route, getErr = routeRepo.GetRoute(testCtx, authInfo, route1GUID)
+		})
+
 		AfterEach(func() {
 			Expect(k8sClient.Delete(testCtx, cfRoute1)).To(Succeed())
 			Expect(k8sClient.Delete(testCtx, cfRoute2)).To(Succeed())
 		})
 
-		When("multiple CFRoute resources exist", func() {
+		When("authorized in the space", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, testNamespace)
+			})
+
 			It("fetches the CFRoute CR we're looking for", func() {
-				route, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(getErr).ToNot(HaveOccurred())
 
 				Expect(route.GUID).To(Equal(cfRoute1.Name))
 				Expect(route.Host).To(Equal(cfRoute1.Spec.Host))
@@ -175,10 +182,19 @@ var _ = Describe("RouteRepository", func() {
 			})
 		})
 
+		When("the user is not authorized in the space", func() {
+			It("returns a forbidden error", func() {
+				Expect(getErr).To(BeAssignableToTypeOf(ForbiddenError{}))
+			})
+		})
+
 		When("the CFRoute doesn't exist", func() {
+			BeforeEach(func() {
+				route1GUID = "non-existent-route-guid"
+			})
+
 			It("returns an error", func() {
-				_, err := routeRepo.GetRoute(testCtx, authInfo, "non-existent-route-guid")
-				Expect(err).To(MatchError(NewNotFoundError(RouteResourceType, nil)))
+				Expect(getErr).To(MatchError(NewNotFoundError(RouteResourceType, nil)))
 			})
 		})
 
@@ -224,8 +240,7 @@ var _ = Describe("RouteRepository", func() {
 				// Assumption: when unit testing, we can ignore webhooks that might turn the uniqueness constraint into a race condition
 				// If assumption is invalidated, we can implement the setup by mocking a fake client to return the non-unique ids
 
-				_, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-				Expect(err).To(MatchError("duplicate route GUID exists"))
+				Expect(getErr).To(MatchError(ContainSubstring("get-route duplicate records exist")))
 			})
 		})
 	})
@@ -846,11 +861,8 @@ var _ = Describe("RouteRepository", func() {
 						},
 					}
 
-					routeRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-					Expect(err).NotTo(HaveOccurred())
-
 					// initialize a DestinationListMessage
-					destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, destinationMessages)
+					destinationListCreateMessage := initializeDestinationListMessage(route1GUID, testNamespace, []DestinationRecord{}, destinationMessages)
 					patchedRouteRecord, addDestinationErr = routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
 					Expect(addDestinationErr).NotTo(HaveOccurred())
 				})
@@ -928,11 +940,8 @@ var _ = Describe("RouteRepository", func() {
 						},
 					}
 
-					routeRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-					Expect(err).NotTo(HaveOccurred())
-
 					// initialize a DestinationListMessage
-					destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, destinationMessages)
+					destinationListCreateMessage := initializeDestinationListMessage(route1GUID, testNamespace, []DestinationRecord{}, destinationMessages)
 					_, addDestinationErr := routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
 					Expect(addDestinationErr.Error()).To(ContainSubstring("Unsupported value: \"bad-protocol\": supported values: \"http1\""))
 				})
@@ -1003,10 +1012,15 @@ var _ = Describe("RouteRepository", func() {
 						},
 					}
 
-					routeRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-					Expect(err).NotTo(HaveOccurred())
-
-					destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, destinationMessages)
+					destinationListCreateMessage := initializeDestinationListMessage(route1GUID, testNamespace, []DestinationRecord{
+						{
+							GUID:        routeDestination.GUID,
+							AppGUID:     routeDestination.AppRef.Name,
+							ProcessType: routeDestination.ProcessType,
+							Port:        routeDestination.Port,
+							Protocol:    routeDestination.Protocol,
+						},
+					}, destinationMessages)
 					patchedRouteRecord, addDestinationErr = routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
 					Expect(addDestinationErr).NotTo(HaveOccurred())
 				})
@@ -1117,10 +1131,16 @@ var _ = Describe("RouteRepository", func() {
 						},
 					}
 
-					routeRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-					Expect(err).NotTo(HaveOccurred())
-
-					destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, addDestinationMessages)
+					destinationListCreateMessage := initializeDestinationListMessage(route1GUID, testNamespace, []DestinationRecord{
+						{
+							GUID:        routeDestination.GUID,
+							AppGUID:     routeDestination.AppRef.Name,
+							ProcessType: routeDestination.ProcessType,
+							Port:        routeDestination.Port,
+							Protocol:    routeDestination.Protocol,
+						},
+					}, addDestinationMessages)
+					var err error
 					patchedRouteRecord, err = routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
 					Expect(err).NotTo(HaveOccurred())
 				})

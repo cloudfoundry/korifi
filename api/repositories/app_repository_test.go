@@ -38,7 +38,7 @@ var _ = Describe("AppRepository", func() {
 	BeforeEach(func() {
 		testCtx = context.Background()
 
-		appRepo = NewAppRepo(k8sClient, userClientFactory, nsPerms)
+		appRepo = NewAppRepo(k8sClient, namespaceRetriever, userClientFactory, nsPerms)
 
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
 		Expect(
@@ -114,7 +114,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("returns an error", func() {
 				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(MatchError("get-app duplicate apps exist"))
+				Expect(getErr).To(MatchError("get-app duplicate records exist"))
 			})
 		})
 
@@ -1026,7 +1026,7 @@ var _ = Describe("AppRepository", func() {
 					k8sClient.Create(context.Background(), secret),
 				).To(Succeed())
 
-				appRepo = NewAppRepo(k8sClient, userClientFactory, nsPerms)
+				appRepo = NewAppRepo(k8sClient, namespaceRetriever, userClientFactory, nsPerms)
 			})
 
 			AfterEach(func() {

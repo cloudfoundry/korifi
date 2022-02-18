@@ -104,11 +104,11 @@ var _ = Describe("App Handler", func() {
 	}
 
 	BeforeEach(func() {
-		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
-		dropletRepo := repositories.NewDropletRepo(k8sClient, clientFactory)
-		processRepo := repositories.NewProcessRepo(k8sClient, clientFactory)
-		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
-		domainRepo := repositories.NewDomainRepo(k8sClient, clientFactory)
+		appRepo := repositories.NewAppRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
+		dropletRepo := repositories.NewDropletRepo(k8sClient, namespaceRetriever, clientFactory)
+		processRepo := repositories.NewProcessRepo(k8sClient, namespaceRetriever, clientFactory)
+		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory)
+		domainRepo := repositories.NewDomainRepo(k8sClient, namespaceRetriever, clientFactory)
 		podRepo := repositories.NewPodRepo(clientFactory, new(fake.MetricsFetcherFn).Spy)
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPermissions, time.Minute, true)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke

@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 
@@ -34,14 +33,16 @@ const (
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
 
 type PackageRepo struct {
-	privilegedClient  client.Client
-	userClientFactory UserK8sClientFactory
+	privilegedClient   client.Client
+	namespaceRetriever NamespaceRetriever
+	userClientFactory  UserK8sClientFactory
 }
 
-func NewPackageRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *PackageRepo {
+func NewPackageRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory) *PackageRepo {
 	return &PackageRepo{
-		privilegedClient:  privilegedClient,
-		userClientFactory: userClientFactory,
+		privilegedClient:   privilegedClient,
+		namespaceRetriever: namespaceRetriever,
+		userClientFactory:  userClientFactory,
 	}
 }
 
@@ -118,18 +119,9 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 
 // nolint: dupl
 func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Info, guid string) (PackageRecord, error) {
-	packageList := &workloadsv1alpha1.CFPackageList{}
-	err := r.privilegedClient.List(ctx, packageList, client.MatchingFields{"metadata.name": guid})
-	if err != nil { // untested
+	ns, err := r.namespaceRetriever.NamespaceFor(ctx, guid, PackageResourceType)
+	if err != nil {
 		return PackageRecord{}, err
-	}
-
-	packages := packageList.Items
-	if len(packages) == 0 {
-		return PackageRecord{}, NewNotFoundError(PackageResourceType, nil)
-	}
-	if len(packages) > 1 {
-		return PackageRecord{}, errors.New("duplicate packages exist")
 	}
 
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
@@ -137,15 +129,15 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 		return PackageRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
 	}
 
-	foundPackage := workloadsv1alpha1.CFPackage{}
-	if err := userClient.Get(ctx, client.ObjectKeyFromObject(&packages[0]), &foundPackage); err != nil {
+	cfpackage := workloadsv1alpha1.CFPackage{}
+	if err := userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: guid}, &cfpackage); err != nil {
 		if k8serrors.IsForbidden(err) {
 			return PackageRecord{}, NewForbiddenError(PackageResourceType, err)
 		}
 		return PackageRecord{}, fmt.Errorf("get-package: get failed: %w", err)
 	}
 
-	return cfPackageToPackageRecord(foundPackage), nil
+	return cfPackageToPackageRecord(cfpackage), nil
 }
 
 func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.Info, message ListPackagesMessage) ([]PackageRecord, error) {

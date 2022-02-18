@@ -13,6 +13,13 @@ import (
 	"testing"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,13 +37,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
 func TestIntegration(t *testing.T) {
@@ -46,6 +47,7 @@ func TestIntegration(t *testing.T) {
 var (
 	testEnv            *envtest.Environment
 	k8sClient          client.WithWatch
+	namespaceRetriever repositories.NamespaceRetriever
 	k8sConfig          *rest.Config
 	server             *http.Server
 	port               int
@@ -63,7 +65,6 @@ var (
 	rootNamespace      string
 	clientFactory      repositories.UserK8sClientFactory
 	nsPermissions      *authorization.NamespacePermissions
-	namespaceGetter    repositories.GUIDToNamespace
 )
 
 var _ = BeforeSuite(func() {
@@ -95,6 +96,12 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	dynamicClient, err := dynamic.NewForConfig(k8sConfig)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(dynamicClient).NotTo(BeNil())
+	namespaceRetriever = repositories.NewNamespaceRetriver(dynamicClient)
+	Expect(namespaceRetriever).NotTo(BeNil())
+
 	rand.Seed(time.Now().UnixNano())
 
 	ctx = context.Background()
@@ -117,7 +124,6 @@ var _ = BeforeEach(func() {
 	certInspector := authorization.NewCertInspector(k8sConfig)
 	identityProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
 	nsPermissions = authorization.NewNamespacePermissions(k8sClient, identityProvider, rootNamespace)
-	namespaceGetter = repositories.NewGUIDToNamespace(k8sClient)
 
 	userName = generateGUID()
 

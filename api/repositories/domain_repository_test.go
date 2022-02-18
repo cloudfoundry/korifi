@@ -23,7 +23,7 @@ var _ = Describe("DomainRepository", func() {
 	)
 
 	BeforeEach(func() {
-		domainRepo = NewDomainRepo(k8sClient, userClientFactory)
+		domainRepo = NewDomainRepo(k8sClient, namespaceRetriever, userClientFactory)
 		testCtx = context.Background()
 		testNamespace = generateGUID()
 

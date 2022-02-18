@@ -8,32 +8,30 @@ import (
 	"os"
 	"time"
 
-	reporegistry "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/registry"
-	k8sclient "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	reporegistry "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/registry"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/dynamic"
+	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
-	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
 var createTimeout = time.Second * 120
@@ -78,6 +76,12 @@ func main() {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
 
+	dynamicClient, err := dynamic.NewForConfig(k8sClientConfig)
+	if err != nil {
+		panic(fmt.Sprintf("could not create dynamic k8s client: %v", err))
+	}
+	namespaceRetriever := repositories.NewNamespaceRetriver(dynamicClient)
+
 	var userClientFactory repositories.UserK8sClientFactory = repositories.NewPrivilegedClientFactory(k8sClientConfig)
 	if config.AuthEnabled {
 		userClientFactory = repositories.NewUnprivilegedClientFactory(k8sClientConfig)
@@ -86,7 +90,6 @@ func main() {
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
 	nsPermissions := authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider, config.RootNamespace)
-	guidToNamespace := repositories.NewGUIDToNamespace(privilegedCRClient)
 
 	serverURL, err := url.Parse(config.ServerURL)
 	if err != nil {
@@ -98,15 +101,15 @@ func main() {
 		panic(err)
 	}
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout, config.AuthEnabled)
-	appRepo := repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions)
-	processRepo := repositories.NewProcessRepo(privilegedCRClient, userClientFactory)
+	appRepo := repositories.NewAppRepo(privilegedCRClient, namespaceRetriever, userClientFactory, nsPermissions)
+	processRepo := repositories.NewProcessRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
 	podRepo := repositories.NewPodRepo(userClientFactory, metricsFetcherFunction)
-	dropletRepo := repositories.NewDropletRepo(privilegedCRClient, userClientFactory)
-	routeRepo := repositories.NewRouteRepo(privilegedCRClient, userClientFactory)
-	domainRepo := repositories.NewDomainRepo(privilegedCRClient, userClientFactory)
-	buildRepo := repositories.NewBuildRepo(privilegedCRClient, userClientFactory)
-	packageRepo := repositories.NewPackageRepo(privilegedCRClient, userClientFactory)
-	serviceInstanceRepo := repositories.NewServiceInstanceRepo(userClientFactory, nsPermissions, guidToNamespace)
+	dropletRepo := repositories.NewDropletRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
+	routeRepo := repositories.NewRouteRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
+	domainRepo := repositories.NewDomainRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
+	buildRepo := repositories.NewBuildRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
+	packageRepo := repositories.NewPackageRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
+	serviceInstanceRepo := repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	serviceBindingRepo := repositories.NewServiceBindingRepo(userClientFactory, nsPermissions)
 	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)
 	roleRepo := repositories.NewRoleRepo(
