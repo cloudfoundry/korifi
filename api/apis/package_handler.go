@@ -61,7 +61,8 @@ func NewPackageHandler(
 	imageRepo ImageRepository,
 	decoderValidator *DecoderValidator,
 	registryBase string,
-	registrySecretName string) *PackageHandler {
+	registrySecretName string,
+) *PackageHandler {
 	return &PackageHandler{
 		logger:             logger,
 		serverURL:          serverURL,
