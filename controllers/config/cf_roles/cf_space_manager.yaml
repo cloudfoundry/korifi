@@ -26,6 +26,14 @@ rules:
   - get
 
 - apiGroups:
+    - networking.cloudfoundry.org
+  resources:
+    - cfroutes
+  verbs:
+    - get
+    - list
+
+- apiGroups:
   - services.cloudfoundry.org
   resources:
   - cfserviceinstances

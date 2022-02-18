@@ -5,12 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"time"
-
-	. "github.com/onsi/gomega/gstruct"
-
-	"k8s.io/apimachinery/pkg/types"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -18,8 +15,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -160,7 +159,6 @@ var _ = Describe("Route Handler", func() {
 						k8sClient.Delete(ctx, cfRoute2),
 					).To(Succeed())
 				})
-
 			})
 
 			JustBeforeEach(func() {
@@ -317,7 +315,6 @@ var _ = Describe("Route Handler", func() {
 		)
 
 		BeforeEach(func() {
-
 			domainGUID = generateGUID()
 
 			cfDomain := &networkingv1alpha1.CFDomain{
@@ -396,6 +393,15 @@ var _ = Describe("Route Handler", func() {
 		When("the user has readonly access to the route", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceManagerRole.Name, namespace.Name)
+
+				// Added Eventually for eventual consistency flakes where Domain shows up after the Route- can't put at top level due to RBAC of unhappy path
+				Eventually(func() int {
+					getReq, err := http.NewRequestWithContext(ctx, "GET", serverURI("/v3/routes/"+cfRoute.Name), strings.NewReader(""))
+					Expect(err).NotTo(HaveOccurred())
+					eventuallyRR := new(httptest.ResponseRecorder)
+					router.ServeHTTP(eventuallyRR, getReq)
+					return eventuallyRR.Code
+				}, 3*time.Second).Should(Equal(200))
 			})
 
 			It("returns a forbidden error", func() {
@@ -406,6 +412,14 @@ var _ = Describe("Route Handler", func() {
 		When("the user is a space developer", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+
+				Eventually(func() int {
+					getReq, err := http.NewRequestWithContext(ctx, "GET", serverURI("/v3/routes/"+cfRoute.Name), strings.NewReader(""))
+					Expect(err).NotTo(HaveOccurred())
+					eventuallyRR := new(httptest.ResponseRecorder)
+					router.ServeHTTP(eventuallyRR, getReq)
+					return eventuallyRR.Code
+				}, 3*time.Second).Should(Equal(200))
 			})
 
 			It("updates the route", func() {
@@ -435,6 +449,5 @@ var _ = Describe("Route Handler", func() {
 				))
 			})
 		})
-
 	})
 })

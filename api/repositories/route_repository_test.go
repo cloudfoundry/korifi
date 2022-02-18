@@ -4,14 +4,12 @@ import (
 	"context"
 	"time"
 
-	. "github.com/onsi/gomega/gstruct"
-
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -139,8 +137,7 @@ var _ = Describe("RouteRepository", func() {
 			}
 			Expect(k8sClient.Create(testCtx, cfRoute2)).To(Succeed())
 
-			spaceDeveloperClusterRole := createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
-			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, testNamespace)
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, testNamespace)
 		})
 
 		AfterEach(func() {
@@ -813,8 +810,7 @@ var _ = Describe("RouteRepository", func() {
 		)
 
 		BeforeEach(func() {
-			spaceDeveloperClusterRole := createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
-			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, testNamespace)
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, testNamespace)
 		})
 
 		When("the route exists with no destinations", func() {
