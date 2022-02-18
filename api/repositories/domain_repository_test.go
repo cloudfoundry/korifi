@@ -12,16 +12,14 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("DomainRepository", func() {
 	var (
-		testCtx                   context.Context
-		domainRepo                *DomainRepo
-		spaceDeveloperClusterRole *v1.ClusterRole
-		testNamespace             string
+		testCtx       context.Context
+		domainRepo    *DomainRepo
+		testNamespace string
 	)
 
 	BeforeEach(func() {
@@ -30,7 +28,6 @@ var _ = Describe("DomainRepository", func() {
 		testNamespace = generateGUID()
 
 		Expect(k8sClient.Create(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}})).To(Succeed())
-		spaceDeveloperClusterRole = createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
 	})
 
 	AfterEach(func() {
@@ -42,7 +39,7 @@ var _ = Describe("DomainRepository", func() {
 	Describe("GetDomain", func() {
 		When("the user has SpaceDeveloper access", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, testNamespace)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, testNamespace)
 			})
 
 			When("multiple CFDomain resources exist", func() {

@@ -29,9 +29,6 @@ var _ = Describe("RoleRepository", func() {
 		createdRole         repositories.RoleRecord
 		authorizedInChecker *fake.AuthorizedInChecker
 		createErr           error
-		orgManagerRole      *rbacv1.ClusterRole
-		orgUserRole         *rbacv1.ClusterRole
-		spaceDeveloperRole  *rbacv1.ClusterRole
 	)
 
 	BeforeEach(func() {
@@ -39,9 +36,6 @@ var _ = Describe("RoleRepository", func() {
 		ctx = context.Background()
 		authorizedInChecker = new(fake.AuthorizedInChecker)
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
-		orgManagerRole = createClusterRole(ctx, repositories.OrgManagerClusterRoleRules)
-		orgUserRole = createClusterRole(ctx, repositories.OrgUserClusterRoleRules)
-		spaceDeveloperRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
 		roleRepo = repositories.NewRoleRepo(k8sClient, userClientFactory, authorizedInChecker, map[string]config.Role{
 			"space_developer":      {Name: spaceDeveloperRole.Name},
 			"organization_manager": {Name: orgManagerRole.Name, Propagate: true},
@@ -86,8 +80,7 @@ var _ = Describe("RoleRepository", func() {
 			BeforeEach(func() {
 				// Sha256 sum of "organization_manager::myuser@example.com"
 				expectedName = "cf-172b9594a1f617258057870643bce8476179a4078845cb4d9d44171d7a8b648b"
-				adminClusterRole := createAdminClusterRole(ctx)
-				createRoleBinding(ctx, userName, adminClusterRole.Name, orgAnchor.Name)
+				createRoleBinding(ctx, userName, adminRole.Name, orgAnchor.Name)
 			})
 
 			It("succeeds", func() {
@@ -210,8 +203,7 @@ var _ = Describe("RoleRepository", func() {
 				Kind:  rbacv1.UserKind,
 			}
 
-			adminClusterRole := createAdminClusterRole(ctx)
-			createRoleBinding(ctx, userName, adminClusterRole.Name, spaceAnchor.Name)
+			createRoleBinding(ctx, userName, adminRole.Name, spaceAnchor.Name)
 		})
 
 		JustBeforeEach(func() {

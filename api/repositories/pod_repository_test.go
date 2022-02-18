@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -98,11 +97,8 @@ var _ = Describe("PodRepository", func() {
 		})
 
 		When("authorized in the space", func() {
-			var spaceDeveloperClusterRole *rbacv1.ClusterRole
-
 			BeforeEach(func() {
-				spaceDeveloperClusterRole = createClusterRole(ctx, SpaceDeveloperClusterRoleRules)
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, spaceGUID)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
 			})
 
 			When("All required pods exists", func() {

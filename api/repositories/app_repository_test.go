@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,13 +28,11 @@ const (
 
 var _ = Describe("AppRepository", func() {
 	var (
-		testCtx                   context.Context
-		appRepo                   *AppRepo
-		org                       *v1alpha2.SubnamespaceAnchor
-		space1, space2, space3    *v1alpha2.SubnamespaceAnchor
-		cfApp1, cfApp2, cfApp3    *workloadsv1alpha1.CFApp
-		spaceDeveloperClusterRole *rbacv1.ClusterRole
-		spaceAuditorClusterRole   *rbacv1.ClusterRole
+		testCtx                context.Context
+		appRepo                *AppRepo
+		org                    *v1alpha2.SubnamespaceAnchor
+		space1, space2, space3 *v1alpha2.SubnamespaceAnchor
+		cfApp1, cfApp2, cfApp3 *workloadsv1alpha1.CFApp
 	)
 
 	BeforeEach(func() {
@@ -52,9 +49,6 @@ var _ = Describe("AppRepository", func() {
 		space1 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
 		space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
 		space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space3"))
-
-		spaceDeveloperClusterRole = createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
-		spaceAuditorClusterRole = createClusterRole(testCtx, SpaceAuditorClusterRoleRules)
 	})
 
 	Describe("GetApp", func() {
@@ -75,7 +69,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("authorized in the space", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space1.Name)
 			})
 
 			AfterEach(func() {
@@ -194,9 +188,9 @@ var _ = Describe("AppRepository", func() {
 				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
 			)).To(Succeed())
 
-			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
-			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
-			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, nonCFNamespace)
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space1.Name)
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, nonCFNamespace)
 		})
 
 		Describe("when filters are NOT provided", func() {
@@ -398,7 +392,7 @@ var _ = Describe("AppRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: spaceGUID},
 			})).To(Succeed())
 
-			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, spaceGUID)
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, spaceGUID)
 
 			appCreateMessage = initializeAppCreateMessage(testAppName, spaceGUID)
 		})
@@ -574,7 +568,7 @@ var _ = Describe("AppRepository", func() {
 				key2: *requestEnvVars[key2],
 			}
 
-			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, defaultNamespace)
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, defaultNamespace)
 		})
 
 		When("on the happy path, an app exists with a secret", func() {
@@ -799,7 +793,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("user has the space developer role", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, spaceGUID)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, spaceGUID)
 			})
 
 			It("returns a CurrentDroplet record", func() {
@@ -892,7 +886,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the user has permission to set the app state", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, spaceGUID)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, spaceGUID)
 			})
 
 			When("starting an app", func() {
@@ -979,7 +973,7 @@ var _ = Describe("AppRepository", func() {
 		BeforeEach(func() {
 			appGUID = generateGUID()
 			_ = createAppCR(context.Background(), k8sClient, "some-app", appGUID, space1.Name, CFAppStoppedState)
-			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space1.Name)
 		})
 
 		When("on the happy path", func() {
@@ -1042,7 +1036,7 @@ var _ = Describe("AppRepository", func() {
 
 			When("the user can read secrets in the space", func() {
 				BeforeEach(func() {
-					createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
+					createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
 				})
 
 				When("the EnvSecret exists", func() {
@@ -1095,7 +1089,7 @@ var _ = Describe("AppRepository", func() {
 
 			When("the user doesn't have permission to get secrets in the space", func() {
 				BeforeEach(func() {
-					createRoleBinding(testCtx, userName, spaceAuditorClusterRole.Name, space2.Name)
+					createRoleBinding(testCtx, userName, spaceAuditorRole.Name, space2.Name)
 				})
 
 				When("the EnvSecret exists", func() {

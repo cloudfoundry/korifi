@@ -3,6 +3,7 @@ package integration_test
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +20,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -89,6 +92,10 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 
 	rand.Seed(time.Now().UnixNano())
+
+	ctx = context.Background()
+	spaceDeveloperRole = createClusterRole(ctx, "cf_space_developer")
+	spaceManagerRole = createClusterRole(ctx, "cf_space_manager")
 })
 
 var _ = AfterSuite(func() {
@@ -111,9 +118,6 @@ var _ = BeforeEach(func() {
 	ctx = authorization.NewContext(context.Background(), &authInfo)
 
 	Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
-
-	spaceDeveloperRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
-	spaceManagerRole = createClusterRole(ctx, repositories.SpaceManagerClusterRoleRules)
 
 	rr = httptest.NewRecorder()
 	router = mux.NewRouter()
@@ -148,13 +152,16 @@ func generateGUID() string {
 	return uuid.NewString()
 }
 
-func createClusterRole(ctx context.Context, rules []rbacv1.PolicyRule) *rbacv1.ClusterRole {
-	clusterRole := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: generateGUID(),
-		},
-		Rules: rules,
-	}
+func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {
+	filepath := filepath.Join("..", "..", "..", "controllers", "config", "cf_roles", filename+".yaml")
+	content, err := ioutil.ReadFile(filepath)
+	Expect(err).NotTo(HaveOccurred())
+
+	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDecoder()
+	clusterRole := &rbacv1.ClusterRole{}
+	err = runtime.DecodeInto(decoder, content, clusterRole)
+	Expect(err).NotTo(HaveOccurred())
+
 	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
 
 	return clusterRole
