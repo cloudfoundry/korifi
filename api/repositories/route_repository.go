@@ -153,7 +153,7 @@ func (f *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, r
 
 	if err != nil {
 		if apierrors.IsForbidden(err) {
-			return RouteRecord{}, NewForbiddenError(err)
+			return RouteRecord{}, NewForbiddenError(RouteResourceType, err)
 		}
 		return RouteRecord{}, fmt.Errorf("get-route user client get failed: %w", err) // untested
 	}
@@ -406,7 +406,7 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
 	if err != nil {
 		if apierrors.IsForbidden(err) {
-			return RouteRecord{}, NewForbiddenError(err)
+			return RouteRecord{}, NewForbiddenError(RouteResourceType, err)
 		}
 		return RouteRecord{}, fmt.Errorf("err in client.Patch: %w", err) // untested
 	}

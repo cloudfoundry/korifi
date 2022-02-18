@@ -139,8 +139,8 @@ var _ = Describe("RouteRepository", func() {
 			}
 			Expect(k8sClient.Create(testCtx, cfRoute2)).To(Succeed())
 
-			orgManagerClusterRole := createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
-			createRoleBinding(testCtx, userName, orgManagerClusterRole.Name, testNamespace)
+			spaceDeveloperClusterRole := createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
+			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, testNamespace)
 		})
 
 		AfterEach(func() {
@@ -813,8 +813,8 @@ var _ = Describe("RouteRepository", func() {
 		)
 
 		BeforeEach(func() {
-			orgManagerClusterRole := createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
-			createRoleBinding(testCtx, userName, orgManagerClusterRole.Name, testNamespace)
+			spaceDeveloperClusterRole := createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
+			createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, testNamespace)
 		})
 
 		When("the route exists with no destinations", func() {
@@ -1023,7 +1023,7 @@ var _ = Describe("RouteRepository", func() {
 					cfRouteLookupKey := types.NamespacedName{Name: route1GUID, Namespace: testNamespace}
 					createdCFRoute := new(networkingv1alpha1.CFRoute)
 					Eventually(func() []networkingv1alpha1.Destination {
-						err := k8sClient.Get(context.Background(), cfRouteLookupKey, createdCFRoute)
+						err := k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)
 						if err != nil {
 							return nil
 						}

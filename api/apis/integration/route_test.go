@@ -8,6 +8,10 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/onsi/gomega/gstruct"
+
+	"k8s.io/apimachinery/pkg/types"
+
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
@@ -303,19 +307,18 @@ var _ = Describe("Route Handler", func() {
 	})
 
 	Describe("POST /v3/routes/{guid}/destinations endpoint", func() {
+		const (
+			newDestinationAppGUID = "new-destination-app-guid"
+		)
 
 		var (
 			domainGUID string
-			routeGUID1 string
-			cfRoute1   *networkingv1alpha1.CFRoute
-
-			newDestinationAppGUID string
+			cfRoute    *networkingv1alpha1.CFRoute
 		)
 
 		BeforeEach(func() {
 
 			domainGUID = generateGUID()
-			routeGUID1 = generateGUID()
 
 			cfDomain := &networkingv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
@@ -332,9 +335,9 @@ var _ = Describe("Route Handler", func() {
 			// give test user access to the Domain
 			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, rootNamespace)
 
-			cfRoute1 = &networkingv1alpha1.CFRoute{
+			cfRoute = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      routeGUID1,
+					Name:      generateGUID(),
 					Namespace: namespace.Name,
 				},
 				Spec: networkingv1alpha1.CFRouteSpec{
@@ -359,10 +362,9 @@ var _ = Describe("Route Handler", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(ctx, cfRoute1),
+				k8sClient.Create(ctx, cfRoute),
 			).To(Succeed())
 
-			newDestinationAppGUID = "new-destination-app-guid"
 			requestBody := fmt.Sprintf(`{
 						"destinations": [
 							{
@@ -375,7 +377,7 @@ var _ = Describe("Route Handler", func() {
 					}`, newDestinationAppGUID)
 
 			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", serverURI("/v3/routes/"+routeGUID1+"/destinations"), strings.NewReader(requestBody))
+			req, err = http.NewRequestWithContext(ctx, "POST", serverURI("/v3/routes/"+cfRoute.Name+"/destinations"), strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
 			req.Header.Add("Content-type", "application/json")
 		})
@@ -410,7 +412,27 @@ var _ = Describe("Route Handler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPBody(ContainSubstring(newDestinationAppGUID)), rr.Body.String())
 
-				// TODO: add an eventually against K8s client?
+				cfRouteLookupKey := types.NamespacedName{Name: cfRoute.Name, Namespace: cfRoute.Namespace}
+				updatedCFRoute := new(networkingv1alpha1.CFRoute)
+				Eventually(func() []networkingv1alpha1.Destination {
+					err := k8sClient.Get(context.Background(), cfRouteLookupKey, updatedCFRoute)
+					if err != nil {
+						return nil
+					}
+					return updatedCFRoute.Spec.Destinations
+				}, 5*time.Second).Should(HaveLen(2), "could not retrieve cfRoute with exactly 2 destinations")
+
+				Expect(updatedCFRoute.Spec.Destinations).To(ConsistOf(
+					Equal(cfRoute.Spec.Destinations[0]),
+					MatchFields(IgnoreExtras,
+						Fields{
+							"AppRef": Equal(corev1.LocalObjectReference{
+								Name: newDestinationAppGUID,
+							}),
+							"Protocol": Equal("http1"),
+						},
+					),
+				))
 			})
 		})
 
