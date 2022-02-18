@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
@@ -142,7 +141,7 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		filteredServiceInstances = append(filteredServiceInstances, applyServiceInstanceListFilter(serviceInstanceList.Items, message)...)
 	}
 
-	orderedServiceInstances := orderServiceInstances(filteredServiceInstances, message)
+	orderedServiceInstances := orderServiceInstances(filteredServiceInstances, message.OrderBy, message.DescendingOrder)
 
 	return returnServiceInstanceList(orderedServiceInstances), nil
 }
@@ -295,27 +294,28 @@ func returnServiceInstanceList(serviceInstanceList []servicesv1alpha1.CFServiceI
 	return serviceInstanceRecords
 }
 
-func orderServiceInstances(serviceInstances []servicesv1alpha1.CFServiceInstance, message ListServiceInstanceMessage) []servicesv1alpha1.CFServiceInstance {
+func orderServiceInstances(serviceInstances []servicesv1alpha1.CFServiceInstance, sortBy string, desc bool) []servicesv1alpha1.CFServiceInstance {
 	sort.Slice(serviceInstances, func(i, j int) bool {
-		var ret bool
+		var less bool
 
-		if message.OrderBy == "created_at" {
-			ret = serviceInstances[i].CreationTimestamp.Before(&serviceInstances[j].CreationTimestamp)
-		} else if message.OrderBy == "updated_at" {
+		switch sortBy {
+		case "created_at":
+			less = serviceInstances[i].CreationTimestamp.Before(&serviceInstances[j].CreationTimestamp)
+		case "updated_at":
 			// Ignoring the errors that could be returned as there is no way to handle them
 			updateTime1, _ := getTimeLastUpdatedTimestamp(&serviceInstances[i].ObjectMeta)
 			updateTime2, _ := getTimeLastUpdatedTimestamp(&serviceInstances[j].ObjectMeta)
-			ret = strings.Compare(updateTime1, updateTime2) == -1
-		} else {
+			less = updateTime1 < updateTime2
+		default:
 			// Default to sorting by name
-			ret = serviceInstances[i].Spec.Name < serviceInstances[j].Spec.Name
+			less = serviceInstances[i].Spec.Name < serviceInstances[j].Spec.Name
 		}
 
-		if message.DescendingOrder {
-			return !ret
-		} else {
-			return ret
+		if desc {
+			return !less
 		}
+
+		return less
 	})
 
 	return serviceInstances
