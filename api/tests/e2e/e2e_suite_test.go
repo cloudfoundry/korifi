@@ -124,6 +124,12 @@ type manifestRouteResource struct {
 	Route *string `yaml:"route"`
 }
 
+type routeResource struct {
+	resource `json:",inline"`
+	Host     string
+	Path     string
+}
+
 type cfErrs struct {
 	Errors []cfErr
 }
@@ -699,4 +705,43 @@ func waitForAdminRoleBinding(namespace string) error {
 	}
 
 	return nil
+}
+
+func createDomain(name string) string {
+	var domain resource
+
+	resp, err := adminClient.R().
+		SetBody(resource{
+			Name: name,
+		}).
+		SetResult(&domain).
+		Post("/v3/domains")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+
+	return domain.GUID
+}
+
+func createRoute(host, path string, spaceGUID, domainGUID string) string {
+	var route resource
+
+	resp, err := adminClient.R().
+		SetBody(routeResource{
+			Host: host,
+			Path: path,
+			resource: resource{
+				Relationships: relationships{
+					"domain": {Data: resource{GUID: domainGUID}},
+					"space":  {Data: resource{GUID: spaceGUID}},
+				},
+			},
+		}).
+		SetResult(&route).
+		Post("/v3/routes")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+
+	return route.GUID
 }

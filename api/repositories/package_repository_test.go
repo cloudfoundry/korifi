@@ -30,7 +30,7 @@ var _ = Describe("PackageRepository", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		packageRepo = repositories.NewPackageRepo(k8sClient, userClientFactory)
+		packageRepo = repositories.NewPackageRepo(k8sClient, namespaceRetriever, userClientFactory)
 
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
 		Expect(k8sClient.Create(ctx, rootNs)).To(Succeed())
@@ -236,7 +236,7 @@ var _ = Describe("PackageRepository", func() {
 			It("returns an error", func() {
 				_, err := packageRepo.GetPackage(ctx, authInfo, packageGUID)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError("duplicate packages exist"))
+				Expect(err).To(MatchError("get-package duplicate records exist"))
 			})
 		})
 

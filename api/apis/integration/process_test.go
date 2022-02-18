@@ -23,7 +23,7 @@ var _ = Describe("Process", func() {
 	)
 
 	BeforeEach(func() {
-		processRepo := repositories.NewProcessRepo(k8sClient, clientFactory)
+		processRepo := repositories.NewProcessRepo(k8sClient, namespaceRetriever, clientFactory)
 
 		processHandler = apis.NewProcessHandler(
 			logf.Log.WithName("integration tests"),

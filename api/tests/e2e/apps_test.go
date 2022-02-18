@@ -3,12 +3,10 @@ package e2e_test
 import (
 	"net/http"
 
-	. "github.com/onsi/gomega/gstruct"
-
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
+	. "github.com/onsi/gomega/gstruct"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 

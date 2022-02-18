@@ -24,16 +24,18 @@ const (
 	ProcessResourceType = "Process"
 )
 
-func NewProcessRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *ProcessRepo {
+func NewProcessRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory) *ProcessRepo {
 	return &ProcessRepo{
-		privilegedClient: privilegedClient,
-		clientFactory:    userClientFactory,
+		privilegedClient:   privilegedClient,
+		namespaceRetriever: namespaceRetriever,
+		clientFactory:      userClientFactory,
 	}
 }
 
 type ProcessRepo struct {
-	privilegedClient client.Client
-	clientFactory    UserK8sClientFactory
+	privilegedClient   client.Client
+	namespaceRetriever NamespaceRetriever
+	clientFactory      UserK8sClientFactory
 }
 
 type ProcessRecord struct {
@@ -106,18 +108,9 @@ type ListProcessesMessage struct {
 }
 
 func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Info, processGUID string) (ProcessRecord, error) {
-	// TODO: Could look up namespace from guid => namespace cache to do Get
-	processList := &workloadsv1alpha1.CFProcessList{}
-	err := r.privilegedClient.List(ctx, processList, client.MatchingFields{"metadata.name": processGUID})
+	ns, err := r.namespaceRetriever.NamespaceFor(ctx, processGUID, ProcessResourceType)
 	if err != nil {
-		return ProcessRecord{}, fmt.Errorf("get-process: privileged client list failed: %w", err)
-	}
-
-	if len(processList.Items) == 0 {
-		return ProcessRecord{}, NewNotFoundError(ProcessResourceType, nil)
-	}
-	if len(processList.Items) > 1 {
-		return ProcessRecord{}, errors.New("duplicate processes exist")
+		return ProcessRecord{}, err
 	}
 
 	userClient, err := r.clientFactory.BuildClient(authInfo)
@@ -126,7 +119,7 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 	}
 
 	var process workloadsv1alpha1.CFProcess
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: processList.Items[0].Namespace, Name: processList.Items[0].Name}, &process)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: processGUID}, &process)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			return ProcessRecord{}, NewForbiddenError(ProcessResourceType, err)
