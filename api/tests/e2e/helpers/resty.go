@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
+	"github.com/go-http-utils/headers"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -20,6 +22,8 @@ func NewActualRestyResponse(response *resty.Response) actualRestyResponse {
 func (m actualRestyResponse) GomegaString() string {
 	return fmt.Sprintf(`
     Request: %s %s
+    Request headers:
+        %s
     Request body:
         %+v
     HTTP Status code: %d
@@ -28,19 +32,37 @@ func (m actualRestyResponse) GomegaString() string {
     Response body:
         %s`,
 		m.Request.Method, m.Request.URL,
+		headersString(m.Request.Header),
 		objectToPrettyJson(m.Request.Body),
 		m.StatusCode(),
-		m.HeadersString(),
+		headersString(m.Header()),
 		formatAsPrettyJson(m.Body()),
 	)
 }
 
-func (m actualRestyResponse) HeadersString() string {
+func headersString(headers http.Header) string {
 	var s []string
-	for k := range m.Header() {
-		s = append(s, fmt.Sprintf("%s: %s", k, m.Header().Get(k)))
+	for k := range headers {
+		s = append(s, formatHeader(k, headers.Get(k)))
 	}
 	return strings.Join(s, "\n        ")
+}
+
+func formatHeader(key, value string) string {
+	if key == headers.Authorization {
+		return fmt.Sprintf("%s: %s", key, formatAuthorizationValue(value))
+	}
+
+	return fmt.Sprintf("%s: %s", key, value)
+}
+
+func formatAuthorizationValue(value string) string {
+	substrings := strings.Split(value, " ")
+	if len(substrings) != 2 {
+		return value
+	}
+
+	return fmt.Sprintf("%s %s", substrings[0], "<Redacted>")
 }
 
 func objectToPrettyJson(obj interface{}) string {

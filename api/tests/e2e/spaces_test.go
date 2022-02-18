@@ -1,14 +1,17 @@
 package e2e_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"gopkg.in/yaml.v3"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
@@ -18,7 +21,6 @@ var _ = Describe("Spaces", func() {
 	Describe("create", func() {
 		var (
 			result     resource
-			client     *resty.Client
 			orgGUID    string
 			parentGUID string
 			spaceName  string
@@ -39,7 +41,7 @@ var _ = Describe("Spaces", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = adminClient.R().
 				SetBody(resource{
 					Name: spaceName,
 					Relationships: relationships{
@@ -52,56 +54,40 @@ var _ = Describe("Spaces", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("admin", func() {
+		It("creates a space", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+			Expect(result.Name).To(Equal(spaceName))
+			Expect(result.GUID).NotTo(BeEmpty())
+		})
+
+		When("the space name already exists", func() {
 			BeforeEach(func() {
-				client = adminClient
+				createSpace(spaceName, orgGUID)
 			})
 
-			It("creates a space", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-				Expect(result.Name).To(Equal(spaceName))
-				Expect(result.GUID).NotTo(BeEmpty())
-			})
-
-			When("the space name already exists", func() {
-				BeforeEach(func() {
-					createSpace(spaceName, orgGUID)
-				})
-
-				It("returns an unprocessable entity error", func() {
-					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-					Expect(resultErr.Errors).To(ConsistOf(cfErr{
-						Detail: fmt.Sprintf(`Space '%s' already exists.`, spaceName),
-						Title:  "CF-UnprocessableEntity",
-						Code:   10008,
-					}))
-				})
-			})
-
-			When("the organization relationship references a space guid", func() {
-				BeforeEach(func() {
-					otherSpaceGUID := createSpace(generateGUID("some-other-space"), orgGUID)
-					parentGUID = otherSpaceGUID
-				})
-
-				It("denies the request", func() {
-					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-					Expect(resultErr.Errors).To(ConsistOf(cfErr{
-						Detail: "Invalid organization. Ensure the organization exists and you have access to it.",
-						Title:  "CF-UnprocessableEntity",
-						Code:   10008,
-					}))
-				})
+			It("returns an unprocessable entity error", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+				Expect(resultErr.Errors).To(ConsistOf(cfErr{
+					Detail: fmt.Sprintf(`Space '%s' already exists.`, spaceName),
+					Title:  "CF-UnprocessableEntity",
+					Code:   10008,
+				}))
 			})
 		})
 
-		When("not admin", func() {
+		When("the organization relationship references a space guid", func() {
 			BeforeEach(func() {
-				client = tokenClient
+				otherSpaceGUID := createSpace(generateGUID("some-other-space"), orgGUID)
+				parentGUID = otherSpaceGUID
 			})
 
-			It("returns a forbidden error", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+			It("denies the request", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+				Expect(resultErr.Errors).To(ConsistOf(cfErr{
+					Detail: "Invalid organization. Ensure the organization exists and you have access to it.",
+					Title:  "CF-UnprocessableEntity",
+					Code:   10008,
+				}))
 			})
 		})
 	})
@@ -221,6 +207,164 @@ var _ = Describe("Spaces", func() {
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(space31Name)}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(space32Name)}),
 				))
+			})
+		})
+
+		When("filtering by name", func() {
+			BeforeEach(func() {
+				query = map[string]string{
+					"names": strings.Join([]string{space12Name, space13Name, space32Name}, ","),
+				}
+			})
+
+			It("only lists those matching and available", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.Resources).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(space12Name)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(space32Name)}),
+				))
+			})
+		})
+	})
+
+	Describe("delete", func() {
+		var (
+			orgGUID   string
+			spaceGUID string
+			resultErr cfErrs
+		)
+
+		BeforeEach(func() {
+			orgGUID = createOrg(generateGUID("org"))
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, orgGUID)
+			spaceGUID = createSpace(generateGUID("space"), orgGUID)
+			resultErr = cfErrs{}
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = adminClient.R().
+				SetError(&resultErr).
+				Delete("/v3/spaces/" + spaceGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("succeeds with a job redirect", func() {
+			Expect(resp).To(SatisfyAll(
+				HaveRestyStatusCode(http.StatusAccepted),
+				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.delete-"+spaceGUID)),
+			))
+
+			jobURL := resp.Header().Get("Location")
+			Eventually(func(g Gomega) {
+				jobResp, err := adminClient.R().Get(jobURL)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+			}).Should(Succeed())
+		})
+
+		When("the space does not exist", func() {
+			BeforeEach(func() {
+				spaceGUID = "nope"
+			})
+
+			It("returns a not found error", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+				Expect(resultErr.Errors).To(ConsistOf(cfErr{
+					Detail: "Space not found",
+					Title:  "CF-ResourceNotFound",
+					Code:   10010,
+				}))
+			})
+		})
+	})
+
+	Describe("manifests", func() {
+		var (
+			orgGUID       string
+			spaceGUID     string
+			resultErr     cfErrs
+			manifestBytes []byte
+		)
+
+		BeforeEach(func() {
+			orgGUID = createOrg(generateGUID("org"))
+			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, orgGUID)
+			spaceGUID = createSpace(generateGUID("space"), orgGUID)
+			resultErr = cfErrs{}
+
+			route := "https://manifested-app.vcap.me"
+			command := "whatever"
+			var err error
+			manifestBytes, err = yaml.Marshal(manifestResource{
+				Version: 1,
+				Applications: []applicationResource{{
+					Name: "manifested-app",
+					Processes: []manifestApplicationProcessResource{{
+						Type:    "web",
+						Command: &command,
+					}},
+					Routes: []manifestRouteResource{{
+						Route: &route,
+					}},
+				}},
+			})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgGUID)
+		})
+
+		Describe("apply manifest", func() {
+			JustBeforeEach(func() {
+				var err error
+				resp, err = adminClient.R().
+					SetHeader("Content-type", "application/x-yaml").
+					SetBody(manifestBytes).
+					SetError(&resultErr).
+					Post("/v3/spaces/" + spaceGUID + "/actions/apply_manifest")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("succeeds with a job redirect", func() {
+				Expect(resp).To(SatisfyAll(
+					HaveRestyStatusCode(http.StatusAccepted),
+					HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest-"+spaceGUID)),
+				))
+
+				jobURL := resp.Header().Get("Location")
+				Eventually(func(g Gomega) {
+					jobResp, err := adminClient.R().Get(jobURL)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+				}).Should(Succeed())
+			})
+		})
+
+		Describe("manifest diff", func() {
+			JustBeforeEach(func() {
+				var err error
+				resp, err = adminClient.R().
+					SetHeader("Content-type", "application/x-yaml").
+					SetBody(manifestBytes).
+					SetError(&resultErr).
+					Post("/v3/spaces/" + spaceGUID + "/manifest_diff")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns JSON diff", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
+
+				diff := map[string]interface{}{}
+				Expect(json.Unmarshal(resp.Body(), &diff)).To(Succeed())
+				// The `manifest_diff` endpoint is currently a stub to return
+				// an empty diff
+				Expect(diff).To(HaveKeyWithValue("diff", BeEmpty()))
 			})
 		})
 	})

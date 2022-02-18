@@ -106,6 +106,26 @@ type statsResource struct {
 	State string `json:"state"`
 }
 
+type manifestResource struct {
+	Version      int                   `yaml:"version"`
+	Applications []applicationResource `yaml:"applications"`
+}
+
+type applicationResource struct {
+	Name      string                               `yaml:"name"`
+	Processes []manifestApplicationProcessResource `yaml:"processes"`
+	Routes    []manifestRouteResource              `yaml:"routes"`
+}
+
+type manifestApplicationProcessResource struct {
+	Type    string  `yaml:"type"`
+	Command *string `yaml:"command"`
+}
+
+type manifestRouteResource struct {
+	Route *string `yaml:"route"`
+}
+
 type cfErrs struct {
 	Errors []cfErr
 }
