@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"io/ioutil"
 	"path/filepath"
 	"testing"
 
@@ -19,6 +20,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -42,16 +45,21 @@ func TestRepositories(t *testing.T) {
 }
 
 var (
-	testEnv           *envtest.Environment
-	k8sClient         client.WithWatch
-	userClientFactory repositories.UserK8sClientFactory
-	k8sConfig         *rest.Config
-	userName          string
-	authInfo          authorization.Info
-	rootNamespace     string
-	idProvider        authorization.IdentityProvider
-	nsPerms           *authorization.NamespacePermissions
-	adminClusterRole  *rbacv1.ClusterRole
+	testEnv            *envtest.Environment
+	k8sClient          client.WithWatch
+	userClientFactory  repositories.UserK8sClientFactory
+	k8sConfig          *rest.Config
+	userName           string
+	authInfo           authorization.Info
+	rootNamespace      string
+	idProvider         authorization.IdentityProvider
+	nsPerms            *authorization.NamespacePermissions
+	adminRole          *rbacv1.ClusterRole
+	spaceDeveloperRole *rbacv1.ClusterRole
+	spaceManagerRole   *rbacv1.ClusterRole
+	orgManagerRole     *rbacv1.ClusterRole
+	orgUserRole        *rbacv1.ClusterRole
+	spaceAuditorRole   *rbacv1.ClusterRole
 )
 
 var _ = BeforeSuite(func() {
@@ -90,7 +98,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	adminClusterRole = createAdminClusterRole(context.Background())
+	ctx := context.Background()
+	adminRole = createClusterRole(ctx, "cf_admin")
+	orgManagerRole = createClusterRole(ctx, "cf_org_manager")
+	orgUserRole = createClusterRole(ctx, "cf_org_user")
+	spaceDeveloperRole = createClusterRole(ctx, "cf_space_developer")
+	spaceManagerRole = createClusterRole(ctx, "cf_space_manager")
+	spaceAuditorRole = createClusterRole(ctx, "cf_space_auditor")
 })
 
 var _ = AfterSuite(func() {
@@ -217,26 +231,18 @@ func createClusterRoleBinding(ctx context.Context, userName, roleName string) {
 	Expect(k8sClient.Create(ctx, &clusterRoleBinding)).To(Succeed())
 }
 
-func createClusterRole(ctx context.Context, rules []rbacv1.PolicyRule) *rbacv1.ClusterRole {
-	clusterRole := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: generateGUID(),
-		},
-		Rules: rules,
-	}
+func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {
+	filepath := filepath.Join("..", "..", "controllers", "config", "cf_roles", filename+".yaml")
+	content, err := ioutil.ReadFile(filepath)
+	Expect(err).NotTo(HaveOccurred())
+
+	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDecoder()
+	clusterRole := &rbacv1.ClusterRole{}
+	err = runtime.DecodeInto(decoder, content, clusterRole)
+	Expect(err).NotTo(HaveOccurred())
+
+	clusterRole.ObjectMeta.Name = "cf-" + clusterRole.ObjectMeta.Name
 	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
 
 	return clusterRole
-}
-
-func createAdminClusterRole(ctx context.Context) *rbacv1.ClusterRole {
-	rules := []rbacv1.PolicyRule{}
-
-	rules = append(rules, repositories.AdminClusterRoleRules...)
-	rules = append(rules, repositories.SpaceDeveloperClusterRoleRules...)
-	rules = append(rules, repositories.SpaceAuditorClusterRoleRules...)
-	rules = append(rules, repositories.OrgManagerClusterRoleRules...)
-	rules = append(rules, repositories.OrgUserClusterRoleRules...)
-
-	return createClusterRole(ctx, rules)
 }

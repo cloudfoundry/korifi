@@ -12,7 +12,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,16 +23,14 @@ var _ = Describe("PackageRepository", func() {
 	const appUID = "the-app-uid"
 
 	var (
-		packageRepo               *repositories.PackageRepo
-		ctx                       context.Context
-		spaceDeveloperClusterRole *rbacv1.ClusterRole
-		org                       *hnsv1alpha2.SubnamespaceAnchor
+		packageRepo *repositories.PackageRepo
+		ctx         context.Context
+		org         *hnsv1alpha2.SubnamespaceAnchor
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		packageRepo = repositories.NewPackageRepo(k8sClient, userClientFactory)
-		spaceDeveloperClusterRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
 
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
 		Expect(k8sClient.Create(ctx, rootNs)).To(Succeed())
@@ -73,7 +70,7 @@ var _ = Describe("PackageRepository", func() {
 
 		When("the user is a SpaceDeveloper", func() {
 			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			AfterEach(func() {
@@ -156,7 +153,7 @@ var _ = Describe("PackageRepository", func() {
 
 		When("the user is authorized in the namespace", func() {
 			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("can fetch the PackageRecord we're looking for", func() {
@@ -602,7 +599,7 @@ var _ = Describe("PackageRepository", func() {
 
 		When("the user is authorized", func() {
 			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("returns an updated record", func() {

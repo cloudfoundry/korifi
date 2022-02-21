@@ -6,7 +6,6 @@ import (
 
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
@@ -22,16 +21,14 @@ import (
 
 var _ = Describe("ServiceInstanceRepository", func() {
 	var (
-		testCtx                   context.Context
-		serviceInstanceRepo       *ServiceInstanceRepo
-		spaceDeveloperClusterRole *rbacv1.ClusterRole
-		org                       *hnsv1alpha2.SubnamespaceAnchor
+		testCtx             context.Context
+		serviceInstanceRepo *ServiceInstanceRepo
+		org                 *hnsv1alpha2.SubnamespaceAnchor
 	)
 
 	BeforeEach(func() {
 		testCtx = context.Background()
 		serviceInstanceRepo = NewServiceInstanceRepo(userClientFactory, nsPerms)
-		spaceDeveloperClusterRole = createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
 
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
 		Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
@@ -67,7 +64,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("user has permissions to create ServiceInstances", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, spaceGUID)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, spaceGUID)
 			})
 
 			It("creates a new ServiceInstance CR", func() {
@@ -195,8 +192,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 			When("multiple service instances exist in spaces where the user has permissions", func() {
 				BeforeEach(func() {
-					createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
-					createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
+					createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space1.Name)
+					createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
 				})
 
 				It("eventually returns ServiceInstance records from only the spaces where the user has permission", func() {
@@ -214,9 +211,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("query parameters are provided", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space1.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space3.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space1.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space3.Name)
 			})
 
 			When("the name filter is set", func() {
@@ -456,7 +453,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("the user is authorized in the namespace", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("returns the matching ServiceInstance record", func() {

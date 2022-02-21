@@ -35,8 +35,7 @@ var _ = Describe("POST /v3/service_credential_bindings", func() {
 		space := createSpaceAnchorAndNamespace(ctx, org.Name, "spacename-"+generateGUID())
 		spaceGUID = space.Name
 
-		role := createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
-		createRoleBinding(ctx, userName, role.Name, spaceGUID)
+		createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
 
 		cfApp := &workloadsv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{

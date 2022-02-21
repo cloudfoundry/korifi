@@ -10,17 +10,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("DropletRepository", func() {
 	var (
-		testCtx                   context.Context
-		dropletRepo               *repositories.DropletRepo
-		namespace                 *corev1.Namespace
-		spaceDeveloperClusterRole *rbacv1.ClusterRole
+		testCtx     context.Context
+		dropletRepo *repositories.DropletRepo
+		namespace   *corev1.Namespace
 	)
 
 	BeforeEach(func() {
@@ -30,8 +28,6 @@ var _ = Describe("DropletRepository", func() {
 		Expect(k8sClient.Create(testCtx, namespace)).To(Succeed())
 
 		dropletRepo = repositories.NewDropletRepo(k8sClient, userClientFactory)
-
-		spaceDeveloperClusterRole = createClusterRole(testCtx, repositories.SpaceDeveloperClusterRoleRules)
 	})
 
 	Describe("GetDroplet", func() {
@@ -91,7 +87,7 @@ var _ = Describe("DropletRepository", func() {
 
 		When("the user is authorized to get the droplet", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, namespace.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, namespace.Name)
 			})
 
 			When("status.BuildDropletStatus is set", func() {

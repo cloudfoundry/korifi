@@ -6,7 +6,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
@@ -23,12 +22,11 @@ var _ = Describe("ServiceBindingRepo", func() {
 	)
 
 	var (
-		repo                      *ServiceBindingRepo
-		testCtx                   context.Context
-		clientFactory             UnprivilegedClientFactory
-		org                       *hnsv1alpha2.SubnamespaceAnchor
-		space                     *hnsv1alpha2.SubnamespaceAnchor
-		spaceDeveloperClusterRole *rbacv1.ClusterRole
+		repo          *ServiceBindingRepo
+		testCtx       context.Context
+		clientFactory UnprivilegedClientFactory
+		org           *hnsv1alpha2.SubnamespaceAnchor
+		space         *hnsv1alpha2.SubnamespaceAnchor
 	)
 
 	BeforeEach(func() {
@@ -41,8 +39,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
 		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
-
-		spaceDeveloperClusterRole = createClusterRole(testCtx, SpaceDeveloperClusterRoleRules)
 	})
 
 	Describe("CreateServiceBinding", func() {
@@ -52,7 +48,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				record      ServiceBindingRecord
 			)
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 				bindingName = nil
 			})
 
@@ -170,7 +166,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 		When("the user can list ServiceBindings in the Space", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			When("a ServiceBinding exists for the App and the ServiceInstance in the Space", func() {

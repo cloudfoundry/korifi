@@ -70,8 +70,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				k8sClient.Create(context.Background(), namespace),
 			).To(Succeed())
 
-			role := createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
-			createRoleBinding(ctx, userName, role.Name, namespaceGUID)
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespaceGUID)
 
 			DeferCleanup(func() {
 				_ = k8sClient.Delete(context.Background(), namespace)
