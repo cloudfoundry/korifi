@@ -20,6 +20,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -44,7 +45,7 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 const (
-	defaultEventuallyTimeoutSeconds = 2
+	defaultEventuallyTimeoutSeconds = 30
 )
 
 var (
@@ -61,6 +62,8 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	SetDefaultEventuallyTimeout(defaultEventuallyTimeoutSeconds * time.Second)
 
 	ctx, cancelFunc := context.WithCancel(context.TODO())
 	cancel = cancelFunc

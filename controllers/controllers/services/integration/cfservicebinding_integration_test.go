@@ -5,8 +5,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega/gstruct"
-
-	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
@@ -96,22 +95,22 @@ var _ = Describe("CFServiceBinding", func() {
 
 		When("and the secret exists", func() {
 			It("eventually resolves the secretName and updates the CFServiceBinding status", func() {
-				updatedCFServiceBinding := new(servicesv1alpha1.CFServiceBinding)
-				Eventually(func() string {
+				Eventually(func() servicesv1alpha1.CFServiceBindingStatus {
+					updatedCFServiceBinding := new(servicesv1alpha1.CFServiceBinding)
 					Expect(
-						k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceBinding.Name, Namespace: cfServiceBinding.Namespace}, updatedCFServiceBinding),
+						k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding),
 					).To(Succeed())
 
-					return updatedCFServiceBinding.Status.Binding.Name
-				}, defaultEventuallyTimeoutSeconds*time.Second).ShouldNot(BeEmpty())
-
-				Expect(updatedCFServiceBinding.Status.Binding.Name).To(Equal(secret.Name))
-				Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-					"Type":    Equal("BindingSecretAvailable"),
-					"Status":  Equal(metav1.ConditionTrue),
-					"Reason":  Equal("SecretFound"),
-					"Message": Equal(""),
-				})))
+					return updatedCFServiceBinding.Status
+				}).Should(MatchFields(IgnoreExtras, Fields{
+					"Binding": MatchFields(IgnoreExtras, Fields{"Name": Equal(secret.Name)}),
+					"Conditions": ContainElement(MatchFields(IgnoreExtras, Fields{
+						"Type":    Equal("BindingSecretAvailable"),
+						"Status":  Equal(metav1.ConditionTrue),
+						"Reason":  Equal("SecretFound"),
+						"Message": Equal(""),
+					})),
+				}))
 			})
 		})
 
@@ -146,22 +145,22 @@ var _ = Describe("CFServiceBinding", func() {
 			})
 
 			It("updates the CFServiceBinding status", func() {
-				updatedCFServiceBinding := new(servicesv1alpha1.CFServiceBinding)
 				Eventually(func() servicesv1alpha1.CFServiceBindingStatus {
+					updatedCFServiceBinding := new(servicesv1alpha1.CFServiceBinding)
 					Expect(
-						k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceBinding.Name, Namespace: cfServiceBinding.Namespace}, updatedCFServiceBinding),
+						k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding),
 					).To(Succeed())
 
 					return updatedCFServiceBinding.Status
-				}, defaultEventuallyTimeoutSeconds*time.Second).ShouldNot(Equal(servicesv1alpha1.CFServiceBindingStatus{}))
-
-				Expect(updatedCFServiceBinding.Status.Binding.Name).To(Equal(""))
-				Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-					"Type":    Equal("BindingSecretAvailable"),
-					"Status":  Equal(metav1.ConditionFalse),
-					"Reason":  Equal("SecretNotFound"),
-					"Message": Equal("Binding secret does not exist"),
-				})))
+				}).Should(MatchFields(IgnoreExtras, Fields{
+					"Binding": MatchFields(IgnoreExtras, Fields{"Name": Equal("")}),
+					"Conditions": ContainElement(MatchFields(IgnoreExtras, Fields{
+						"Type":    Equal("BindingSecretAvailable"),
+						"Status":  Equal(metav1.ConditionFalse),
+						"Reason":  Equal("SecretNotFound"),
+						"Message": Equal("Binding secret does not exist"),
+					})),
+				}))
 			})
 
 			When("the referenced secret is created afterwards", func() {
@@ -173,22 +172,22 @@ var _ = Describe("CFServiceBinding", func() {
 				})
 
 				It("eventually resolves the secretName and updates the CFServiceBinding status", func() {
-					updatedCFServiceBinding := new(servicesv1alpha1.CFServiceBinding)
-					Eventually(func() string {
+					Eventually(func() servicesv1alpha1.CFServiceBindingStatus {
+						updatedCFServiceBinding := new(servicesv1alpha1.CFServiceBinding)
 						Expect(
-							k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceBinding.Name, Namespace: cfServiceBinding.Namespace}, updatedCFServiceBinding),
+							k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding),
 						).To(Succeed())
 
-						return updatedCFServiceBinding.Status.Binding.Name
-					}, 10*time.Second).ShouldNot(BeEmpty())
-
-					Expect(updatedCFServiceBinding.Status.Binding.Name).To(Equal(otherSecret.Name))
-					Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-						"Type":    Equal("BindingSecretAvailable"),
-						"Status":  Equal(metav1.ConditionTrue),
-						"Reason":  Equal("SecretFound"),
-						"Message": Equal(""),
-					})))
+						return updatedCFServiceBinding.Status
+					}).Should(MatchFields(IgnoreExtras, Fields{
+						"Binding": MatchFields(IgnoreExtras, Fields{"Name": Equal(otherSecret.Name)}),
+						"Conditions": ContainElement(MatchFields(IgnoreExtras, Fields{
+							"Type":    Equal("BindingSecretAvailable"),
+							"Status":  Equal(metav1.ConditionTrue),
+							"Reason":  Equal("SecretFound"),
+							"Message": Equal(""),
+						})),
+					}))
 				})
 			})
 		})
