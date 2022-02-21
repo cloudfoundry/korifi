@@ -86,7 +86,7 @@ var _ = Describe("CFServiceInstance", func() {
 					).To(Succeed())
 
 					return updatedCFServiceInstance.Status.Binding.Name
-				}, defaultEventuallyTimeoutSeconds*time.Second).ShouldNot(BeEmpty())
+				}).ShouldNot(BeEmpty())
 
 				Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal(updatedCFServiceInstance.Spec.SecretName))
 				Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -119,7 +119,7 @@ var _ = Describe("CFServiceInstance", func() {
 					).To(Succeed())
 
 					return updatedCFServiceInstance.Status
-				}, defaultEventuallyTimeoutSeconds*time.Second).ShouldNot(Equal(servicesv1alpha1.CFServiceInstanceStatus{}))
+				}).ShouldNot(Equal(servicesv1alpha1.CFServiceInstanceStatus{}))
 
 				Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal(""))
 				Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -146,7 +146,7 @@ var _ = Describe("CFServiceInstance", func() {
 						).To(Succeed())
 
 						return updatedCFServiceInstance.Status.Binding.Name
-					}, defaultEventuallyTimeoutSeconds*time.Second).ShouldNot(BeEmpty())
+					}).ShouldNot(BeEmpty())
 
 					Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal(updatedCFServiceInstance.Spec.SecretName))
 					Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
