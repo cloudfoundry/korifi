@@ -55,8 +55,11 @@ var (
 	serverURL          *url.URL
 	userName           string
 	ctx                context.Context
+	adminRole          *rbacv1.ClusterRole
 	spaceDeveloperRole *rbacv1.ClusterRole
 	spaceManagerRole   *rbacv1.ClusterRole
+	orgUserRole        *rbacv1.ClusterRole
+	orgManagerRole     *rbacv1.ClusterRole
 	rootNamespace      string
 	clientFactory      repositories.UserK8sClientFactory
 	nsPermissions      *authorization.NamespacePermissions
@@ -94,8 +97,11 @@ var _ = BeforeSuite(func() {
 	rand.Seed(time.Now().UnixNano())
 
 	ctx = context.Background()
+	adminRole = createClusterRole(ctx, "cf_admin")
 	spaceDeveloperRole = createClusterRole(ctx, "cf_space_developer")
 	spaceManagerRole = createClusterRole(ctx, "cf_space_manager")
+	orgManagerRole = createClusterRole(ctx, "cf_org_manager")
+	orgUserRole = createClusterRole(ctx, "cf_org_user")
 })
 
 var _ = AfterSuite(func() {
@@ -162,6 +168,7 @@ func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole
 	err = runtime.DecodeInto(decoder, content, clusterRole)
 	Expect(err).NotTo(HaveOccurred())
 
+	clusterRole.Name = "cf-" + clusterRole.Name
 	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
 
 	return clusterRole
