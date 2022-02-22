@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -13,6 +12,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierr"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -47,6 +47,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
 type CFAppRepository interface {
 	GetApp(context.Context, authorization.Info, string) (repositories.AppRecord, error)
+	GetApp__NewStyle(context.Context, authorization.Info, string) (repositories.AppRecord, error)
 	GetAppByNameAndSpace(context.Context, authorization.Info, string, string) (repositories.AppRecord, error)
 	ListApps(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
 	CreateOrPatchAppEnvVars(context.Context, authorization.Info, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
@@ -110,13 +111,17 @@ func (h *AppHandler) appGetHandler(authInfo authorization.Info, w http.ResponseW
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
+	app, err := h.appRepo.GetApp__NewStyle(ctx, authInfo, appGUID)
 	if err != nil {
-		h.handleGetAppErr(err, w, appGUID)
+		writeErrorResponse(w, presenter.ForReadError(err))
 		return
 	}
 
 	writeResponse(w, http.StatusOK, presenter.ForApp(app, h.serverURL))
+}
+
+func writeErrorResponse(w http.ResponseWriter, errResponse presenter.ErrorResponse) {
+	writeResponse(w, errResponse.StatusCode, errResponse.Body)
 }
 
 func (h *AppHandler) appCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -219,37 +224,37 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 	appGUID := vars["guid"]
 
 	var payload payloads.AppSetCurrentDroplet
-	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
-	if rme != nil {
-		writeRequestMalformedErrorResponse(w, rme)
+	err := h.decoderValidator.DecodeAndValidateJSONPayload__NewStyle(r, &payload)
+	if err != nil {
+		writeErrorResponse(w, presenter.ForError(err))
 		return
 	}
 
-	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
+	app, err := h.appRepo.GetApp__NewStyle(ctx, authInfo, appGUID)
 	if err != nil {
-		h.handleGetAppErr(err, w, appGUID)
+		writeErrorResponse(w, presenter.ForReadError(err))
 		return
 	}
 
 	dropletGUID := payload.Data.GUID
-	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
+	droplet, err := h.dropletRepo.GetDroplet__NewStyle(ctx, authInfo, dropletGUID)
 	if err != nil {
 		switch err.(type) {
-		case repositories.NotFoundError:
+		case apierr.NotFoundError:
 			h.logger.Error(err, "Droplet not found", "dropletGUID", dropletGUID)
-			writeUnprocessableEntityError(w, invalidDropletMsg)
-		case repositories.ForbiddenError:
+			writeErrorResponse(w, presenter.ForError(apierr.NewUnprocessableEntityError(err, invalidDropletMsg)))
+		case apierr.ForbiddenError:
 			h.logger.Error(err, "Droplet not authorized for user", "dropletGUID", dropletGUID)
-			writeUnprocessableEntityError(w, invalidDropletMsg)
+			writeErrorResponse(w, presenter.ForError(apierr.NewUnprocessableEntityError(err, invalidDropletMsg)))
 		default:
 			h.logger.Error(err, "Error fetching droplet")
-			writeUnknownErrorResponse(w)
+			writeErrorResponse(w, presenter.ForError(err))
 		}
 		return
 	}
 
 	if droplet.AppGUID != appGUID {
-		writeUnprocessableEntityError(w, invalidDropletMsg)
+		writeErrorResponse(w, presenter.ForError(apierr.NewUnprocessableEntityError(nil, invalidDropletMsg)))
 		return
 	}
 
@@ -260,16 +265,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 	})
 	if err != nil {
 		h.logger.Error(err, "Error setting current droplet")
-		switch {
-		case errors.As(err, &authorization.NotAuthenticatedError{}):
-			writeNotAuthenticatedErrorResponse(w)
-		case errors.As(err, &authorization.InvalidAuthError{}):
-			writeInvalidAuthErrorResponse(w)
-		case errors.As(err, &repositories.ForbiddenError{}):
-			writeNotAuthorizedErrorResponse(w)
-		default:
-			writeUnknownErrorResponse(w)
-		}
+		writeErrorResponse(w, presenter.ForError(err))
 		return
 	}
 

@@ -11,6 +11,7 @@ COPY controllers/apis controllers/apis/
 COPY controllers/webhooks controllers/webhooks/
 COPY api/actions api/actions/
 COPY api/apis api/apis/
+COPY api/apierr api/apierr/
 COPY api/authorization api/authorization/
 COPY api/payloads api/payloads/
 COPY api/presenter api/presenter/

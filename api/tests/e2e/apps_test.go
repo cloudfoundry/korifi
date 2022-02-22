@@ -116,7 +116,7 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
-	Describe("Fetch an app", func() {
+	FDescribe("Fetch an app", func() {
 		var result resource
 
 		BeforeEach(func() {
@@ -210,7 +210,7 @@ var _ = Describe("Apps", func() {
 			})
 		})
 
-		Describe("Set app current droplet", func() {
+		FDescribe("Set app current droplet", func() {
 			type currentDropletResource struct {
 				Data resource `json:"data"`
 			}

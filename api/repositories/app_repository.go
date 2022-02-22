@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierr"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
@@ -187,6 +188,49 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 	}
 
 	return app, nil
+}
+
+func (f *AppRepo) GetApp__NewStyle(ctx context.Context, authInfo authorization.Info, appGUID string) (AppRecord, error) {
+	// TODO: Could look up namespace from guid => namespace cache to do Get
+	appList := &workloadsv1alpha1.CFAppList{}
+	err := f.privilegedClient.List(ctx, appList, client.MatchingFields{"metadata.name": appGUID})
+	if err != nil { // untested
+		return AppRecord{}, fmt.Errorf("get-app privileged list failed: %w", err)
+	}
+
+	if len(appList.Items) == 0 {
+		return AppRecord{}, apierr.NewNotFoundError(nil, AppResourceType)
+	}
+	if len(appList.Items) > 1 {
+		return AppRecord{}, errors.New("get-app duplicate apps exist")
+	}
+
+	app := cfAppToAppRecord(appList.Items[0])
+
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("get-app failed to build user client: %w", err)
+	}
+
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: app.SpaceGUID, Name: app.GUID}, &workloadsv1alpha1.CFApp{})
+	if err != nil {
+		return AppRecord{}, wrapK8sError(err, AppResourceType)
+	}
+
+	return app, nil
+}
+
+func wrapK8sError(err error, resourceType string) error {
+	switch {
+	case k8serrors.IsUnauthorized(err):
+		return apierr.NewInvalidAuthError(err)
+	case k8serrors.IsNotFound(err):
+		return apierr.NewNotFoundError(err, resourceType)
+	case k8serrors.IsForbidden(err):
+		return apierr.NewForbiddenError(err, resourceType)
+	default:
+		return err
+	}
 }
 
 func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorization.Info, appName string, spaceGUID string) (AppRecord, error) {
@@ -403,7 +447,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return CurrentDropletRecord{}, NewForbiddenError(AppResourceType, err)
+			return CurrentDropletRecord{}, apierr.NewForbiddenError(err, AppResourceType)
 		}
 
 		return CurrentDropletRecord{}, fmt.Errorf("err in client.Patch: %w", err)

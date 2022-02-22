@@ -100,6 +100,21 @@ type CFAppRepository struct {
 		result1 map[string]string
 		result2 error
 	}
+	GetApp__NewStyleStub        func(context.Context, authorization.Info, string) (repositories.AppRecord, error)
+	getApp__NewStyleMutex       sync.RWMutex
+	getApp__NewStyleArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	getApp__NewStyleReturns struct {
+		result1 repositories.AppRecord
+		result2 error
+	}
+	getApp__NewStyleReturnsOnCall map[int]struct {
+		result1 repositories.AppRecord
+		result2 error
+	}
 	ListAppsStub        func(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
 	listAppsMutex       sync.RWMutex
 	listAppsArgsForCall []struct {
@@ -558,6 +573,72 @@ func (fake *CFAppRepository) GetAppEnvReturnsOnCall(i int, result1 map[string]st
 	}{result1, result2}
 }
 
+func (fake *CFAppRepository) GetApp__NewStyle(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.AppRecord, error) {
+	fake.getApp__NewStyleMutex.Lock()
+	ret, specificReturn := fake.getApp__NewStyleReturnsOnCall[len(fake.getApp__NewStyleArgsForCall)]
+	fake.getApp__NewStyleArgsForCall = append(fake.getApp__NewStyleArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.GetApp__NewStyleStub
+	fakeReturns := fake.getApp__NewStyleReturns
+	fake.recordInvocation("GetApp__NewStyle", []interface{}{arg1, arg2, arg3})
+	fake.getApp__NewStyleMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFAppRepository) GetApp__NewStyleCallCount() int {
+	fake.getApp__NewStyleMutex.RLock()
+	defer fake.getApp__NewStyleMutex.RUnlock()
+	return len(fake.getApp__NewStyleArgsForCall)
+}
+
+func (fake *CFAppRepository) GetApp__NewStyleCalls(stub func(context.Context, authorization.Info, string) (repositories.AppRecord, error)) {
+	fake.getApp__NewStyleMutex.Lock()
+	defer fake.getApp__NewStyleMutex.Unlock()
+	fake.GetApp__NewStyleStub = stub
+}
+
+func (fake *CFAppRepository) GetApp__NewStyleArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getApp__NewStyleMutex.RLock()
+	defer fake.getApp__NewStyleMutex.RUnlock()
+	argsForCall := fake.getApp__NewStyleArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFAppRepository) GetApp__NewStyleReturns(result1 repositories.AppRecord, result2 error) {
+	fake.getApp__NewStyleMutex.Lock()
+	defer fake.getApp__NewStyleMutex.Unlock()
+	fake.GetApp__NewStyleStub = nil
+	fake.getApp__NewStyleReturns = struct {
+		result1 repositories.AppRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) GetApp__NewStyleReturnsOnCall(i int, result1 repositories.AppRecord, result2 error) {
+	fake.getApp__NewStyleMutex.Lock()
+	defer fake.getApp__NewStyleMutex.Unlock()
+	fake.GetApp__NewStyleStub = nil
+	if fake.getApp__NewStyleReturnsOnCall == nil {
+		fake.getApp__NewStyleReturnsOnCall = make(map[int]struct {
+			result1 repositories.AppRecord
+			result2 error
+		})
+	}
+	fake.getApp__NewStyleReturnsOnCall[i] = struct {
+		result1 repositories.AppRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFAppRepository) ListApps(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListAppsMessage) ([]repositories.AppRecord, error) {
 	fake.listAppsMutex.Lock()
 	ret, specificReturn := fake.listAppsReturnsOnCall[len(fake.listAppsArgsForCall)]
@@ -837,6 +918,8 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.getAppByNameAndSpaceMutex.RUnlock()
 	fake.getAppEnvMutex.RLock()
 	defer fake.getAppEnvMutex.RUnlock()
+	fake.getApp__NewStyleMutex.RLock()
+	defer fake.getApp__NewStyleMutex.RUnlock()
 	fake.listAppsMutex.RLock()
 	defer fake.listAppsMutex.RUnlock()
 	fake.patchAppEnvVarsMutex.RLock()

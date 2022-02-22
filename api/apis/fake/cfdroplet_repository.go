@@ -26,6 +26,21 @@ type CFDropletRepository struct {
 		result1 repositories.DropletRecord
 		result2 error
 	}
+	GetDroplet__NewStyleStub        func(context.Context, authorization.Info, string) (repositories.DropletRecord, error)
+	getDroplet__NewStyleMutex       sync.RWMutex
+	getDroplet__NewStyleArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	getDroplet__NewStyleReturns struct {
+		result1 repositories.DropletRecord
+		result2 error
+	}
+	getDroplet__NewStyleReturnsOnCall map[int]struct {
+		result1 repositories.DropletRecord
+		result2 error
+	}
 	ListDropletsStub        func(context.Context, authorization.Info, repositories.ListDropletsMessage) ([]repositories.DropletRecord, error)
 	listDropletsMutex       sync.RWMutex
 	listDropletsArgsForCall []struct {
@@ -111,6 +126,72 @@ func (fake *CFDropletRepository) GetDropletReturnsOnCall(i int, result1 reposito
 	}{result1, result2}
 }
 
+func (fake *CFDropletRepository) GetDroplet__NewStyle(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.DropletRecord, error) {
+	fake.getDroplet__NewStyleMutex.Lock()
+	ret, specificReturn := fake.getDroplet__NewStyleReturnsOnCall[len(fake.getDroplet__NewStyleArgsForCall)]
+	fake.getDroplet__NewStyleArgsForCall = append(fake.getDroplet__NewStyleArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.GetDroplet__NewStyleStub
+	fakeReturns := fake.getDroplet__NewStyleReturns
+	fake.recordInvocation("GetDroplet__NewStyle", []interface{}{arg1, arg2, arg3})
+	fake.getDroplet__NewStyleMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFDropletRepository) GetDroplet__NewStyleCallCount() int {
+	fake.getDroplet__NewStyleMutex.RLock()
+	defer fake.getDroplet__NewStyleMutex.RUnlock()
+	return len(fake.getDroplet__NewStyleArgsForCall)
+}
+
+func (fake *CFDropletRepository) GetDroplet__NewStyleCalls(stub func(context.Context, authorization.Info, string) (repositories.DropletRecord, error)) {
+	fake.getDroplet__NewStyleMutex.Lock()
+	defer fake.getDroplet__NewStyleMutex.Unlock()
+	fake.GetDroplet__NewStyleStub = stub
+}
+
+func (fake *CFDropletRepository) GetDroplet__NewStyleArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getDroplet__NewStyleMutex.RLock()
+	defer fake.getDroplet__NewStyleMutex.RUnlock()
+	argsForCall := fake.getDroplet__NewStyleArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFDropletRepository) GetDroplet__NewStyleReturns(result1 repositories.DropletRecord, result2 error) {
+	fake.getDroplet__NewStyleMutex.Lock()
+	defer fake.getDroplet__NewStyleMutex.Unlock()
+	fake.GetDroplet__NewStyleStub = nil
+	fake.getDroplet__NewStyleReturns = struct {
+		result1 repositories.DropletRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFDropletRepository) GetDroplet__NewStyleReturnsOnCall(i int, result1 repositories.DropletRecord, result2 error) {
+	fake.getDroplet__NewStyleMutex.Lock()
+	defer fake.getDroplet__NewStyleMutex.Unlock()
+	fake.GetDroplet__NewStyleStub = nil
+	if fake.getDroplet__NewStyleReturnsOnCall == nil {
+		fake.getDroplet__NewStyleReturnsOnCall = make(map[int]struct {
+			result1 repositories.DropletRecord
+			result2 error
+		})
+	}
+	fake.getDroplet__NewStyleReturnsOnCall[i] = struct {
+		result1 repositories.DropletRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFDropletRepository) ListDroplets(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListDropletsMessage) ([]repositories.DropletRecord, error) {
 	fake.listDropletsMutex.Lock()
 	ret, specificReturn := fake.listDropletsReturnsOnCall[len(fake.listDropletsArgsForCall)]
@@ -182,6 +263,8 @@ func (fake *CFDropletRepository) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.getDropletMutex.RLock()
 	defer fake.getDropletMutex.RUnlock()
+	fake.getDroplet__NewStyleMutex.RLock()
+	defer fake.getDroplet__NewStyleMutex.RUnlock()
 	fake.listDropletsMutex.RLock()
 	defer fake.listDropletsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

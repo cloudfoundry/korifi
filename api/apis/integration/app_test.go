@@ -29,7 +29,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
-var _ = Describe("App Handler", func() {
+var _ = FDescribe("App Handler", func() {
 	var (
 		apiHandler *AppHandler
 		org, space *hnsv1alpha2.SubnamespaceAnchor

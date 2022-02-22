@@ -7,6 +7,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierr"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -76,6 +77,39 @@ func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Inf
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			return DropletRecord{}, NewForbiddenError(DropletResourceType, err)
+		}
+
+		return DropletRecord{}, fmt.Errorf("get droplet failed: %w", err)
+	}
+
+	return returnDroplet([]workloadsv1alpha1.CFBuild{userDroplet})
+}
+
+func (r *DropletRepo) GetDroplet__NewStyle(ctx context.Context, authInfo authorization.Info, dropletGUID string) (DropletRecord, error) {
+	buildList := &workloadsv1alpha1.CFBuildList{}
+	err := r.privilegedClient.List(ctx, buildList, client.MatchingFields{"metadata.name": dropletGUID})
+	if err != nil { // untested
+		return DropletRecord{}, err
+	}
+	builds := buildList.Items
+	if len(builds) == 0 {
+		return DropletRecord{}, apierr.NewNotFoundError(nil, DropletResourceType)
+	}
+	if len(builds) > 1 { // untested
+		return DropletRecord{}, errors.New("duplicate builds exist")
+	}
+
+	foundObj := builds[0]
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return DropletRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	var userDroplet workloadsv1alpha1.CFBuild
+	err = userClient.Get(ctx, client.ObjectKeyFromObject(&foundObj), &userDroplet)
+	if err != nil {
+		if k8serrors.IsForbidden(err) {
+			return DropletRecord{}, apierr.NewForbiddenError(err, DropletResourceType)
 		}
 
 		return DropletRecord{}, fmt.Errorf("get droplet failed: %w", err)

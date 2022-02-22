@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/bytefmt"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierr"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -50,6 +51,31 @@ func NewDefaultDecoderValidator() (*DecoderValidator, error) {
 		validator:  validator,
 		translator: translator,
 	}, nil
+}
+
+// Copied from method below to illustrate new error processing
+func (dv *DecoderValidator) DecodeAndValidateJSONPayload__NewStyle(r *http.Request, object interface{}) error {
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(object)
+	if err != nil {
+		var unmarshalTypeError *json.UnmarshalTypeError
+		switch {
+		case errors.As(err, &unmarshalTypeError):
+			Logger.Error(err, fmt.Sprintf("Request body contains an invalid value for the %q field (should be of type %v)", strings.Title(unmarshalTypeError.Field), unmarshalTypeError.Type))
+			return apierr.NewUnprocessableEntityError(err, fmt.Sprintf("%v must be a %v", strings.Title(unmarshalTypeError.Field), unmarshalTypeError.Type))
+		case strings.HasPrefix(err.Error(), "json: unknown field"):
+			// check whether the message matches an "unknown field" error. If so, 422. Else, 400
+			Logger.Error(err, fmt.Sprintf("Unknown field in JSON body: %T: %q", err, err.Error()))
+			return apierr.NewUnprocessableEntityError(err, fmt.Sprintf("invalid request body: %s", err.Error()))
+		default:
+			Logger.Error(err, fmt.Sprintf("Unable to parse the JSON body: %T: %q", err, err.Error()))
+			return apierr.NewMessageParseError(err)
+		}
+	}
+
+	return dv.validatePayload__NewStyle(object)
 }
 
 func (dv *DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object interface{}) *requestMalformedError {
@@ -123,6 +149,28 @@ func (dv *DecoderValidator) validatePayload(object interface{}) *requestMalforme
 				httpStatus:    http.StatusUnprocessableEntity,
 				errorResponse: newUnprocessableEntityError(err.Error()),
 			}
+		}
+	}
+
+	return nil
+}
+
+func (dv *DecoderValidator) validatePayload__NewStyle(object interface{}) error {
+	err := dv.validator.Struct(object)
+	if err != nil {
+		switch typedErr := err.(type) {
+		case validator.ValidationErrors:
+			errorMap := typedErr.Translate(dv.translator)
+			var errorMessages []string
+			for _, msg := range errorMap {
+				errorMessages = append(errorMessages, msg)
+			}
+
+			if len(errorMessages) > 0 {
+				return apierr.NewUnprocessableEntityError(err, strings.Join(errorMessages, ","))
+			}
+		default:
+			return apierr.NewUnprocessableEntityError(err, err.Error())
 		}
 	}
 

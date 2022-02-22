@@ -20,6 +20,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFDropletRepository . CFDropletRepository
 type CFDropletRepository interface {
 	GetDroplet(context.Context, authorization.Info, string) (repositories.DropletRecord, error)
+	GetDroplet__NewStyle(context.Context, authorization.Info, string) (repositories.DropletRecord, error)
 	ListDroplets(context.Context, authorization.Info, repositories.ListDropletsMessage) ([]repositories.DropletRecord, error)
 }
 

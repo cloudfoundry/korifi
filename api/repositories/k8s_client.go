@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierr"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -36,33 +37,33 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 	case authorization.CertScheme:
 		certBlock, rst := pem.Decode(authInfo.CertData)
 		if certBlock == nil {
-			return nil, fmt.Errorf("failed to decode cert PEM")
+			return nil, apierr.NewInvalidAuthError(fmt.Errorf("failed to decode cert PEM"))
 		}
 
 		keyBlock, _ := pem.Decode(rst)
 		if keyBlock == nil {
-			return nil, fmt.Errorf("failed to decode key PEM")
+			return nil, apierr.NewInvalidAuthError(fmt.Errorf("failed to decode key PEM"))
 		}
 
 		config.CertData = pem.EncodeToMemory(certBlock)
 		config.KeyData = pem.EncodeToMemory(keyBlock)
 
 	default:
-		return nil, authorization.NotAuthenticatedError{}
+		return nil, apierr.NewInvalidAuthError(fmt.Errorf("did not send bearer or clientcert scheme in auth header"))
 	}
 
 	// This does an API call within the controller-runtime code and is
 	// sufficient to determine whether the auth is valid and accepted by the
 	// cluster
-	userClient, err := client.NewWithWatch(config, client.Options{})
+	unprivilegedClient, err := client.NewWithWatch(config, client.Options{})
 	if err != nil {
 		if k8serrors.IsUnauthorized(err) {
-			return nil, authorization.InvalidAuthError{}
+			return nil, apierr.NewInvalidAuthError(err)
 		}
 		return nil, err
 	}
 
-	return userClient, nil
+	return unprivilegedClient, nil
 }
 
 func NewPrivilegedClientFactory(config *rest.Config) PrivilegedClientFactory {

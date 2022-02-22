@@ -3,6 +3,7 @@ package presenter
 import (
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierr"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
@@ -186,5 +187,38 @@ func ForAppEnv(envVars map[string]string) AppEnvResponse {
 		RunningEnvJSON:       map[string]string{},
 		SystemEnvJSON:        map[string]string{},
 		ApplicationEnvJSON:   map[string]string{},
+	}
+}
+
+type ErrorResponse struct {
+	StatusCode int
+	Body       ErrorsResponse
+}
+
+func ForReadError(err error) ErrorResponse {
+	if forbiddenErr, ok := err.(apierr.ForbiddenError); ok {
+		return ForError(apierr.NewNotFoundError(err, forbiddenErr.ResourceType()))
+	}
+
+	return ForError(err)
+}
+
+func ForError(err error) ErrorResponse {
+	switch t := err.(type) {
+	case apierr.ApiError:
+		return ErrorResponse{
+			StatusCode: t.HttpStatus(),
+			Body: ErrorsResponse{
+				Errors: []PresentedError{
+					{
+						Detail: t.Detail(),
+						Title:  t.Title(),
+						Code:   t.Code(),
+					},
+				},
+			},
+		}
+	default:
+		return ForError(apierr.NewUnknownError(err))
 	}
 }
