@@ -10,6 +10,7 @@ type ApiError interface {
 	Title() string
 	Code() int
 	HttpStatus() int
+	Unwrap() error
 }
 
 type apiError struct {

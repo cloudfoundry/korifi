@@ -1,6 +1,7 @@
 package presenter
 
 import (
+	"errors"
 	"net/url"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierr"
@@ -196,29 +197,30 @@ type ErrorResponse struct {
 }
 
 func ForReadError(err error) ErrorResponse {
-	if forbiddenErr, ok := err.(apierr.ForbiddenError); ok {
-		return ForError(apierr.NewNotFoundError(err, forbiddenErr.ResourceType()))
+	var forbiddenErr apierr.ForbiddenError
+	if errors.As(err, &forbiddenErr) {
+		return ForError(apierr.NewNotFoundError(forbiddenErr.Unwrap(), forbiddenErr.ResourceType()))
 	}
 
 	return ForError(err)
 }
 
 func ForError(err error) ErrorResponse {
-	switch t := err.(type) {
-	case apierr.ApiError:
+	var apiErr apierr.ApiError
+	if errors.As(err, &apiErr) {
 		return ErrorResponse{
-			StatusCode: t.HttpStatus(),
+			StatusCode: apiErr.HttpStatus(),
 			Body: ErrorsResponse{
 				Errors: []PresentedError{
 					{
-						Detail: t.Detail(),
-						Title:  t.Title(),
-						Code:   t.Code(),
+						Detail: apiErr.Detail(),
+						Title:  apiErr.Title(),
+						Code:   apiErr.Code(),
 					},
 				},
 			},
 		}
-	default:
-		return ForError(apierr.NewUnknownError(err))
 	}
+
+	return ForError(apierr.NewUnknownError(err))
 }

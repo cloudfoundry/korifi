@@ -446,11 +446,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 
 	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {
-		if k8serrors.IsForbidden(err) {
-			return CurrentDropletRecord{}, apierr.NewForbiddenError(err, AppResourceType)
-		}
-
-		return CurrentDropletRecord{}, fmt.Errorf("err in client.Patch: %w", err)
+		return CurrentDropletRecord{}, wrapK8sError(fmt.Errorf("err in client.Patch: %w", err), AppResourceType)
 	}
 
 	return CurrentDropletRecord{

@@ -2,6 +2,7 @@ package apis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -239,17 +240,15 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 	dropletGUID := payload.Data.GUID
 	droplet, err := h.dropletRepo.GetDroplet__NewStyle(ctx, authInfo, dropletGUID)
 	if err != nil {
-		switch err.(type) {
-		case apierr.NotFoundError:
-			h.logger.Error(err, "Droplet not found", "dropletGUID", dropletGUID)
+		h.logger.Info("GetDroplet failed", "dropletGUID", dropletGUID, "error", err)
+
+		var apiErr apierr.ApiError
+		if errors.As(err, &apiErr) {
 			writeErrorResponse(w, presenter.ForError(apierr.NewUnprocessableEntityError(err, invalidDropletMsg)))
-		case apierr.ForbiddenError:
-			h.logger.Error(err, "Droplet not authorized for user", "dropletGUID", dropletGUID)
-			writeErrorResponse(w, presenter.ForError(apierr.NewUnprocessableEntityError(err, invalidDropletMsg)))
-		default:
-			h.logger.Error(err, "Error fetching droplet")
-			writeErrorResponse(w, presenter.ForError(err))
+			return
 		}
+
+		writeErrorResponse(w, presenter.ForError(err))
 		return
 	}
 
