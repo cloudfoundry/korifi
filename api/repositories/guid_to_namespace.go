@@ -21,7 +21,7 @@ func NewGUIDToNamespace(privilegedClient client.Client) GUIDToNamespace {
 func (g GUIDToNamespace) GetNamespaceForServiceInstance(ctx context.Context, guid string) (string, error) {
 	var list servicesv1alpha1.CFServiceInstanceList
 	if err := g.privilegedClient.List(ctx, &list, client.MatchingFields{"metadata.name": guid}); err != nil {
-		return "", fmt.Errorf("getNamespaceForServiceInstance: unexpected error: %w", err)
+		return "", wrapK8sErr(err, ServiceInstanceResourceType)
 	}
 
 	if len(list.Items) == 0 {

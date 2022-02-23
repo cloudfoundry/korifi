@@ -196,12 +196,10 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authoriza
 		if repositories.IsForbiddenError(err) {
 			h.logger.Error(err, "user not allowed to get service instance")
 			writeNotFoundErrorResponse(w, repositories.ServiceInstanceResourceType)
-
 			return
 		}
 
-		h.logger.Error(err, "failed to get service instance")
-		writeUnknownErrorResponse(w)
+		handleRepoErrors(h.logger, err, repositories.ServiceInstanceResourceType, serviceInstanceGUID, w)
 		return
 	}
 
@@ -210,15 +208,8 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authoriza
 		SpaceGUID: serviceInstance.SpaceGUID,
 	})
 	if err != nil {
-		if repositories.IsForbiddenError(err) {
-			h.logger.Error(err, "user not allowed to delete service instance")
-			writeNotAuthorizedErrorResponse(w)
-
-			return
-		}
-
-		h.logger.Error(err, "failed to delete service instance")
-		writeUnknownErrorResponse(w)
+		h.logger.Error(err, "error when deleting service instance", "guid", serviceInstanceGUID)
+		handleRepoErrorsOnWrite(h.logger, err, repositories.ServiceInstanceResourceType, serviceInstanceGUID, w)
 		return
 	}
 

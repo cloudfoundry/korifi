@@ -37,7 +37,7 @@ var _ = Describe("Service Instances", func() {
 
 		It("fails with 404 Not Found", func() {
 			Expect(httpError).NotTo(HaveOccurred())
-			Expect(httpResp.StatusCode()).To(Equal(http.StatusNotFound))
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
 
 		When("the user has permissions to delete service instances", func() {
@@ -47,7 +47,7 @@ var _ = Describe("Service Instances", func() {
 
 			It("succeeds", func() {
 				Expect(httpError).NotTo(HaveOccurred())
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusNoContent))
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusNoContent))
 			})
 
 			It("deletes the service instance", func() {
@@ -60,14 +60,14 @@ var _ = Describe("Service Instances", func() {
 			})
 		})
 
-		When("the user does not have permission to delete service instances", func() {
+		When("the user has read only permissions over service instances", func() {
 			BeforeEach(func() {
 				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
 			})
 
 			It("fails with 403 Forbidden", func() {
 				Expect(httpError).NotTo(HaveOccurred())
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusForbidden))
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusForbidden))
 			})
 		})
 	})

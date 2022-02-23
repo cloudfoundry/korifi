@@ -8,7 +8,6 @@ import (
 
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
-	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -24,10 +23,9 @@ import (
 
 var _ = Describe("ServiceInstanceRepository", func() {
 	var (
-		testCtx                   context.Context
-		serviceInstanceRepo       *repositories.ServiceInstanceRepo
-		spaceDeveloperClusterRole *rbacv1.ClusterRole
-		guidToNamespace           repositories.NamespaceGetter
+		testCtx             context.Context
+		serviceInstanceRepo *repositories.ServiceInstanceRepo
+		guidToNamespace     repositories.NamespaceGetter
 
 		org   *hnsv1alpha2.SubnamespaceAnchor
 		space *hnsv1alpha2.SubnamespaceAnchor
@@ -37,7 +35,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		testCtx = context.Background()
 		guidToNamespace = repositories.NewGUIDToNamespace(k8sClient)
 		serviceInstanceRepo = repositories.NewServiceInstanceRepo(userClientFactory, nsPerms, guidToNamespace)
-		spaceDeveloperClusterRole = createClusterRole(testCtx, "cf_space_developer")
 
 		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
 		Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
@@ -64,7 +61,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("user has permissions to create ServiceInstances", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("creates a new ServiceInstance CR", func() {
@@ -191,8 +188,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 			When("multiple service instances exist in spaces where the user has permissions", func() {
 				BeforeEach(func() {
-					createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space.Name)
-					createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
+					createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+					createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
 				})
 
 				It("eventually returns ServiceInstance records from only the spaces where the user has permission", func() {
@@ -210,9 +207,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("query parameters are provided", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space3.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space3.Name)
 			})
 
 			When("the name filter is set", func() {
@@ -454,14 +451,14 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("there are no permissions on service instances", func() {
 			It("returns a forbidden error", func() {
-				Expect(getErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(errors.As(getErr, &repositories.ForbiddenError{})).To(BeTrue())
 			})
 		})
 
 		When("the user has permissions to get the service instance", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space2.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
 
 			It("returns the correct service instance", func() {
@@ -482,8 +479,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			})
 
 			It("returns a not found error", func() {
-				Expect(getErr).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
-
 				notFoundErr := repositories.NotFoundError{}
 				Expect(errors.As(getErr, &notFoundErr)).To(BeTrue())
 				Expect(notFoundErr.ResourceType()).To(Equal(repositories.ServiceInstanceResourceType))
@@ -535,7 +530,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("the user has permissions to delete service instances", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, space.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("deletes the service instance", func() {
@@ -556,14 +551,14 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				})
 
 				It("returns a not found error", func() {
-					Expect(deleteErr).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+					Expect(errors.As(deleteErr, &repositories.NotFoundError{})).To(BeTrue())
 				})
 			})
 		})
 
 		When("there are no permissions on service instances", func() {
 			It("returns a forbidden error", func() {
-				Expect(deleteErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(errors.As(deleteErr, &repositories.ForbiddenError{})).To(BeTrue())
 			})
 		})
 	})

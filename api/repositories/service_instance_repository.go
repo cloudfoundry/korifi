@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 
@@ -154,20 +153,12 @@ func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo a
 
 	namespace, err := r.namespaceGetter.GetNamespaceForServiceInstance(ctx, guid)
 	if err != nil {
-		if errors.As(err, &NotFoundError{}) {
-			return ServiceInstanceRecord{}, err
-		}
-
-		return ServiceInstanceRecord{}, fmt.Errorf("getServiceInstance: unexpected error: %w", err)
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to get namespace for service instance: %w", err)
 	}
 
 	var serviceInstance servicesv1alpha1.CFServiceInstance
 	if err := userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: guid}, &serviceInstance); err != nil {
-		if k8serrors.IsForbidden(err) {
-			return ServiceInstanceRecord{}, NewForbiddenError(ServiceInstanceResourceType, err)
-		}
-
-		return ServiceInstanceRecord{}, fmt.Errorf("getServiceInstance: unexpected k8s error: %w", err)
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to get serivice instance: %w", wrapK8sErr(err, ServiceInstanceResourceType))
 	}
 
 	return cfServiceInstanceToServiceInstanceRecord(serviceInstance), nil
@@ -187,14 +178,7 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 	}
 
 	if err := userClient.Delete(ctx, serviceInstance); err != nil {
-		switch {
-		case k8serrors.IsForbidden(err):
-			return NewForbiddenError(ServiceInstanceResourceType, err)
-		case k8serrors.IsNotFound(err):
-			return NewNotFoundError(ServiceInstanceResourceType, err)
-		default:
-			return fmt.Errorf("delete-service-instance: unexpected error: %w", err)
-		}
+		return fmt.Errorf("failed to delete service instance: %w", wrapK8sErr(err, ServiceInstanceResourceType))
 	}
 
 	return nil
