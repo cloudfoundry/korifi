@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -39,7 +41,7 @@ var _ = Describe("App Handler", func() {
 		processRepo := repositories.NewProcessRepo(k8sClient, clientFactory)
 		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
 		domainRepo := repositories.NewDomainRepo(k8sClient, clientFactory)
-		podRepo := repositories.NewPodRepo(clientFactory)
+		podRepo := repositories.NewPodRepo(clientFactory, new(fake.MetricsFetcherFn).Spy)
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPermissions, time.Minute, true)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke

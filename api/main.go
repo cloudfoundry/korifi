@@ -92,10 +92,14 @@ func main() {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
 
+	metricsFetcherFunction, err := repositories.CreateMetricsFetcher()
+	if err != nil {
+		panic(err)
+	}
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout, config.AuthEnabled)
 	appRepo := repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions)
 	processRepo := repositories.NewProcessRepo(privilegedCRClient, userClientFactory)
-	podRepo := repositories.NewPodRepo(userClientFactory)
+	podRepo := repositories.NewPodRepo(userClientFactory, metricsFetcherFunction)
 	dropletRepo := repositories.NewDropletRepo(privilegedCRClient, userClientFactory)
 	routeRepo := repositories.NewRouteRepo(privilegedCRClient, userClientFactory)
 	domainRepo := repositories.NewDomainRepo(privilegedCRClient, userClientFactory)

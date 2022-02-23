@@ -21,7 +21,8 @@ type ServiceRouteBindingHandler struct {
 
 func NewServiceRouteBindingHandler(
 	logger logr.Logger,
-	serverURL url.URL) *ServiceRouteBindingHandler {
+	serverURL url.URL,
+) *ServiceRouteBindingHandler {
 	return &ServiceRouteBindingHandler{
 		logger:    logger,
 		serverURL: serverURL,

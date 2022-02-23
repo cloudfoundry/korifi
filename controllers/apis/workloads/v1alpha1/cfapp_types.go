@@ -23,7 +23,6 @@ import (
 
 // CFAppSpec defines the desired state of CFApp
 type CFAppSpec struct {
-
 	// Name defines the name of the app
 	// +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	Name string `json:"name"`

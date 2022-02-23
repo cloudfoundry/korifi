@@ -12,7 +12,7 @@ type ProcessStatsResource struct {
 	Type             string                 `json:"type"`
 	Index            int                    `json:"index"`
 	State            string                 `json:"state"`
-	Usage            *ProcessUsage          `json:"usage,omitempty"`
+	Usage            ProcessUsage           `json:"usage"`
 	Host             *string                `json:"host"`
 	InstancePorts    *[]ProcessInstancePort `json:"instance_ports,omitempty"`
 	Uptime           *int                   `json:"uptime"`
@@ -24,10 +24,10 @@ type ProcessStatsResource struct {
 }
 
 type ProcessUsage struct {
-	Time *string  `json:"time"`
-	CPU  *float64 `json:"cpu"`
-	Mem  *int     `json:"mem"`
-	Disk *int     `json:"disk"`
+	Time *string  `json:"time,omitempty"`
+	CPU  *float64 `json:"cpu,omitempty"`
+	Mem  *int64   `json:"mem,omitempty"`
+	Disk *int64   `json:"disk,omitempty"`
 }
 
 type ProcessInstancePort struct {
@@ -57,5 +57,11 @@ func statRecordToResource(record repositories.PodStatsRecord) ProcessStatsResour
 		Index:         record.Index,
 		State:         record.State,
 		InstancePorts: processInstancePorts,
+		Usage: ProcessUsage{
+			Time: record.Usage.Time,
+			CPU:  record.Usage.CPU,
+			Mem:  record.Usage.Mem,
+			Disk: record.Usage.Disk,
+		},
 	}
 }

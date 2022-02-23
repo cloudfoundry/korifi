@@ -43,7 +43,8 @@ func NewImageRepository(
 	rootNamespace,
 	registrySecretName string,
 	builder ImageBuilder,
-	pusher ImagePusher) *ImageRepository {
+	pusher ImagePusher,
+) *ImageRepository {
 	return &ImageRepository{
 		privilegedK8sClient: privilegedK8sClient,
 		userClientFactory:   userClientFactory,
