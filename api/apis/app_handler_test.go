@@ -1323,7 +1323,17 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("there is some other error fetching the app", func() {
+		When("fetching the app is forbidden", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("there is an unknown error fetching the app", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
@@ -1431,7 +1441,17 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("there is some other error updating app desiredState", func() {
+		When("updating the app desired state is not allowed", func() {
+			BeforeEach(func() {
+				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, repositories.NewForbiddenError("App", nil))
+			})
+
+			It("returns a forbidden error", func() {
+				expectNotAuthorizedError()
+			})
+		})
+
+		When("there is an unknown error updating app desiredState", func() {
 			BeforeEach(func() {
 				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
