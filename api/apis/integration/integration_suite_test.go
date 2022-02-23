@@ -63,6 +63,7 @@ var (
 	rootNamespace      string
 	clientFactory      repositories.UserK8sClientFactory
 	nsPermissions      *authorization.NamespacePermissions
+	namespaceGetter    repositories.GUIDToNamespace
 )
 
 var _ = BeforeSuite(func() {
@@ -116,6 +117,7 @@ var _ = BeforeEach(func() {
 	certInspector := authorization.NewCertInspector(k8sConfig)
 	identityProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
 	nsPermissions = authorization.NewNamespacePermissions(k8sClient, identityProvider, rootNamespace)
+	namespaceGetter = repositories.NewGUIDToNamespace(k8sClient)
 
 	userName = generateGUID()
 

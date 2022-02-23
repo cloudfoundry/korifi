@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,18 +24,25 @@ const (
 	ServiceInstanceResourceType         = "Service Instance"
 )
 
+type NamespaceGetter interface {
+	GetNamespaceForServiceInstance(ctx context.Context, guid string) (string, error)
+}
+
 type ServiceInstanceRepo struct {
 	userClientFactory    UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
+	namespaceGetter      NamespaceGetter
 }
 
 func NewServiceInstanceRepo(
 	userClientFactory UserK8sClientFactory,
 	namespacePermissions *authorization.NamespacePermissions,
+	namespaceGetter NamespaceGetter,
 ) *ServiceInstanceRepo {
 	return &ServiceInstanceRepo{
 		userClientFactory:    userClientFactory,
 		namespacePermissions: namespacePermissions,
+		namespaceGetter:      namespaceGetter,
 	}
 }
 
@@ -54,6 +61,11 @@ type ListServiceInstanceMessage struct {
 	SpaceGuids      []string
 	OrderBy         string
 	DescendingOrder bool
+}
+
+type DeleteServiceInstanceMessage struct {
+	GUID      string
+	SpaceGUID string
 }
 
 type ServiceInstanceRecord struct {
@@ -128,41 +140,48 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		filteredServiceInstances = append(filteredServiceInstances, applyServiceInstanceListFilter(serviceInstanceList.Items, message)...)
 	}
 
-	orderedServiceInstances := orderServiceInstances(filteredServiceInstances, message)
+	orderedServiceInstances := orderServiceInstances(filteredServiceInstances, message.OrderBy, message.DescendingOrder)
 
 	return returnServiceInstanceList(orderedServiceInstances), nil
 }
 
 func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo authorization.Info, guid string) (ServiceInstanceRecord, error) {
-	nsList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
-	if err != nil {
-		// untested
-		return ServiceInstanceRecord{}, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
-	}
-
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		// untested
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	for ns := range nsList {
-		serviceInstanceList := new(servicesv1alpha1.CFServiceInstanceList)
-		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns), client.MatchingFields{"metadata.name": guid})
-		if k8serrors.IsForbidden(err) {
-			// untested
-			continue
-		}
-		if err != nil {
-			// untested
-			return ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances in namespace %s: %w", ns, err)
-		}
-
-		if len(serviceInstanceList.Items) >= 1 {
-			return cfServiceInstanceToServiceInstanceRecord(serviceInstanceList.Items[0]), nil
-		}
+	namespace, err := r.namespaceGetter.GetNamespaceForServiceInstance(ctx, guid)
+	if err != nil {
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to get namespace for service instance: %w", err)
 	}
-	return ServiceInstanceRecord{}, NewNotFoundError("ServiceInstance", nil)
+
+	var serviceInstance servicesv1alpha1.CFServiceInstance
+	if err := userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: guid}, &serviceInstance); err != nil {
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to get serivice instance: %w", wrapK8sErr(err, ServiceInstanceResourceType))
+	}
+
+	return cfServiceInstanceToServiceInstanceRecord(serviceInstance), nil
+}
+
+func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInfo authorization.Info, message DeleteServiceInstanceMessage) error {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	serviceInstance := &servicesv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.GUID,
+			Namespace: message.SpaceGUID,
+		},
+	}
+
+	if err := userClient.Delete(ctx, serviceInstance); err != nil {
+		return fmt.Errorf("failed to delete service instance: %w", wrapK8sErr(err, ServiceInstanceResourceType))
+	}
+
+	return nil
 }
 
 func (m CreateServiceInstanceMessage) toCFServiceInstance() servicesv1alpha1.CFServiceInstance {
@@ -259,27 +278,28 @@ func returnServiceInstanceList(serviceInstanceList []servicesv1alpha1.CFServiceI
 	return serviceInstanceRecords
 }
 
-func orderServiceInstances(serviceInstances []servicesv1alpha1.CFServiceInstance, message ListServiceInstanceMessage) []servicesv1alpha1.CFServiceInstance {
+func orderServiceInstances(serviceInstances []servicesv1alpha1.CFServiceInstance, sortBy string, desc bool) []servicesv1alpha1.CFServiceInstance {
 	sort.Slice(serviceInstances, func(i, j int) bool {
-		var ret bool
+		var less bool
 
-		if message.OrderBy == "created_at" {
-			ret = serviceInstances[i].CreationTimestamp.Before(&serviceInstances[j].CreationTimestamp)
-		} else if message.OrderBy == "updated_at" {
+		switch sortBy {
+		case "created_at":
+			less = serviceInstances[i].CreationTimestamp.Before(&serviceInstances[j].CreationTimestamp)
+		case "updated_at":
 			// Ignoring the errors that could be returned as there is no way to handle them
 			updateTime1, _ := getTimeLastUpdatedTimestamp(&serviceInstances[i].ObjectMeta)
 			updateTime2, _ := getTimeLastUpdatedTimestamp(&serviceInstances[j].ObjectMeta)
-			ret = strings.Compare(updateTime1, updateTime2) == -1
-		} else {
+			less = updateTime1 < updateTime2
+		default:
 			// Default to sorting by name
-			ret = serviceInstances[i].Spec.Name < serviceInstances[j].Spec.Name
+			less = serviceInstances[i].Spec.Name < serviceInstances[j].Spec.Name
 		}
 
-		if message.DescendingOrder {
-			return !ret
-		} else {
-			return ret
+		if desc {
+			return !less
 		}
+
+		return less
 	})
 
 	return serviceInstances

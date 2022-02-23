@@ -55,3 +55,7 @@ func NewForbiddenError(resourceType string, baseError error) ForbiddenError {
 func IsForbiddenError(err error) bool {
 	return errors.As(err, &ForbiddenError{})
 }
+
+func IsNotFoundError(err error) bool {
+	return errors.As(err, &NotFoundError{})
+}

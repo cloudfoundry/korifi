@@ -24,6 +24,7 @@ import (
 const (
 	ServiceInstanceCreateEndpoint = "/v3/service_instances"
 	ServiceInstanceListEndpoint   = "/v3/service_instances"
+	ServiceInstanceDeleteEndpoint = "/v3/service_instances/{guid}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServiceInstanceRepository . CFServiceInstanceRepository
@@ -31,6 +32,7 @@ type CFServiceInstanceRepository interface {
 	CreateServiceInstance(context.Context, authorization.Info, repositories.CreateServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
 	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
 	GetServiceInstance(context.Context, authorization.Info, string) (repositories.ServiceInstanceRecord, error)
+	DeleteServiceInstance(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) error
 }
 
 type ServiceInstanceHandler struct {
@@ -184,8 +186,39 @@ func (h *ServiceInstanceHandler) serviceInstanceListHandler(authInfo authorizati
 	writeResponse(w, http.StatusOK, presenter.ForServiceInstanceList(serviceInstanceList, h.serverURL, *r.URL))
 }
 
+func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	serviceInstanceGUID := vars["guid"]
+
+	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, serviceInstanceGUID)
+	if err != nil {
+		if repositories.IsForbiddenError(err) {
+			h.logger.Error(err, "user not allowed to get service instance")
+			writeNotFoundErrorResponse(w, repositories.ServiceInstanceResourceType)
+			return
+		}
+
+		handleRepoErrors(h.logger, err, repositories.ServiceInstanceResourceType, serviceInstanceGUID, w)
+		return
+	}
+
+	err = h.serviceInstanceRepo.DeleteServiceInstance(ctx, authInfo, repositories.DeleteServiceInstanceMessage{
+		GUID:      serviceInstanceGUID,
+		SpaceGUID: serviceInstance.SpaceGUID,
+	})
+	if err != nil {
+		h.logger.Error(err, "error when deleting service instance", "guid", serviceInstanceGUID)
+		handleRepoErrorsOnWrite(h.logger, err, repositories.ServiceInstanceResourceType, serviceInstanceGUID, w)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *ServiceInstanceHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(ServiceInstanceCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.serviceInstanceCreateHandler))
-	router.Path(ServiceInstanceListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.serviceInstanceListHandler))
+	router.Path(ServiceInstanceCreateEndpoint).Methods(http.MethodPost).HandlerFunc(w.Wrap(h.serviceInstanceCreateHandler))
+	router.Path(ServiceInstanceListEndpoint).Methods(http.MethodGet).HandlerFunc(w.Wrap(h.serviceInstanceListHandler))
+	router.Path(ServiceInstanceDeleteEndpoint).Methods(http.MethodDelete).HandlerFunc(w.Wrap(h.serviceInstanceDeleteHandler))
 }

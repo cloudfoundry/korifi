@@ -60,8 +60,10 @@ rules:
   resources:
   - cfserviceinstances
   verbs:
+  - get
   - list
   - create
+  - delete
 
 - apiGroups:
     - services.cloudfoundry.org

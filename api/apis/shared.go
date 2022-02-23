@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/bytefmt"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -423,6 +424,23 @@ func handleRepoErrors(logger logr.Logger, err error, resource, guid string, w ht
 	case repositories.ForbiddenError:
 		logger.Info(fmt.Sprintf("%s forbidden to user", strings.Title(resource)), "guid", guid)
 		writeNotFoundErrorResponse(w, strings.Title(resource))
+	default:
+		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", resource), "guid", guid)
+		writeUnknownErrorResponse(w)
+	}
+}
+
+func handleRepoErrorsOnWrite(logger logr.Logger, err error, resource, guid string, w http.ResponseWriter) {
+	switch {
+	case repositories.IsNotFoundError(err):
+		logger.Info(fmt.Sprintf("%s not found", strings.Title(resource)), "guid", guid)
+		writeNotFoundErrorResponse(w, strings.Title(resource))
+	case repositories.IsForbiddenError(err):
+		logger.Info(fmt.Sprintf("%s forbidden to user", strings.Title(resource)), "guid", guid)
+		writeNotAuthorizedErrorResponse(w)
+	case authorization.IsInvalidAuth(err):
+		logger.Info(fmt.Sprintf("%s forbidden to user", strings.Title(resource)), "guid", guid)
+		writeInvalidAuthErrorResponse(w)
 	default:
 		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", resource), "guid", guid)
 		writeUnknownErrorResponse(w)
