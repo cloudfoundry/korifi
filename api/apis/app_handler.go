@@ -366,6 +366,12 @@ func (h *AppHandler) appStopHandler(authInfo authorization.Info, w http.Response
 		DesiredState: AppStoppedState,
 	})
 	if err != nil {
+		if errors.As(err, &repositories.ForbiddenError{}) {
+			h.logger.Info("failed to stop app", "AppGUID", appGUID, "error", err)
+			writeNotAuthorizedErrorResponse(w)
+			return
+		}
+
 		h.logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
 		return

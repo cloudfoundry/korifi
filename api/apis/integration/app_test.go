@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
@@ -278,6 +279,50 @@ var _ = Describe("App Handler", func() {
 				It("restarts the app", func() {
 					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 					Expect(rr).To(HaveHTTPBody(ContainSubstring(`"state":"STARTED"`)), rr.Body.String())
+				})
+			})
+		})
+
+		Describe("stop app", func() {
+			BeforeEach(func() {
+				stoppedApp := app.DeepCopy()
+				stoppedApp.Spec.DesiredState = "STARTED"
+				Expect(k8sClient.Patch(ctx, stoppedApp, client.MergeFrom(app))).To(Succeed())
+			})
+
+			JustBeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, http.MethodPost, serverURI("/v3/apps/"+app.Name+"/actions/stop"), nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				router.ServeHTTP(rr, req)
+			})
+
+			When("the user is not authorized in the space", func() {
+				It("returns a not found status", func() {
+					Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+					Expect(rr).To(HaveHTTPBody(ContainSubstring("App not found")), rr.Body.String())
+				})
+			})
+
+			When("the user has readonly access to the app", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, spaceManagerRole.Name, spaceGUID)
+				})
+
+				It("returns a forbidden error", func() {
+					Expect(rr).To(HaveHTTPStatus(http.StatusForbidden))
+				})
+			})
+
+			When("the user is a space developer", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
+				})
+
+				It("stops the app", func() {
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(ContainSubstring(`"state":"STOPPED"`)), rr.Body.String())
 				})
 			})
 		})
