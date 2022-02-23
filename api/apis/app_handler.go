@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -105,20 +104,17 @@ func NewAppHandler(
 	}
 }
 
-func (h *AppHandler) appGetHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appGetHandler(authInfo authorization.Info, r *http.Request) (int, interface{}, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
 	app, err := h.appRepo.GetApp__NewStyle(ctx, authInfo, appGUID)
 	if err != nil {
-		writeErrorResponse(w, presenter.ForReadError(err))
-		return
+		return 0, nil, apierr.AsNotFoundIfForbidden(err)
 	}
-
-	writeResponse(w, http.StatusOK, presenter.ForApp(app, h.serverURL))
+	return http.StatusOK, presenter.ForApp(app, h.serverURL), nil
 }
 
 func writeErrorResponse(w http.ResponseWriter, errResponse presenter.ErrorResponse) {
@@ -218,23 +214,20 @@ func (h *AppHandler) appListHandler(authInfo authorization.Info, w http.Response
 	writeResponse(w, http.StatusOK, presenter.ForAppList(appList, h.serverURL, *r.URL))
 }
 
-func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, r *http.Request) (int, interface{}, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
 	var payload payloads.AppSetCurrentDroplet
 	err := h.decoderValidator.DecodeAndValidateJSONPayload__NewStyle(r, &payload)
 	if err != nil {
-		writeErrorResponse(w, presenter.ForError(err))
-		return
+		return 0, nil, err
 	}
 
 	app, err := h.appRepo.GetApp__NewStyle(ctx, authInfo, appGUID)
 	if err != nil {
-		writeErrorResponse(w, presenter.ForReadError(err))
-		return
+		return 0, nil, apierr.AsNotFoundIfForbidden(err)
 	}
 
 	dropletGUID := payload.Data.GUID
@@ -242,19 +235,11 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 	if err != nil {
 		h.logger.Info("GetDroplet failed", "dropletGUID", dropletGUID, "error", err)
 
-		var apiErr apierr.ApiError
-		if errors.As(err, &apiErr) {
-			writeErrorResponse(w, presenter.ForError(apierr.NewUnprocessableEntityError(err, invalidDropletMsg)))
-			return
-		}
-
-		writeErrorResponse(w, presenter.ForError(err))
-		return
+		return 0, nil, apierr.AsUnprocessableIfNotFoundOrForbidden(err, invalidDropletMsg)
 	}
 
 	if droplet.AppGUID != appGUID {
-		writeErrorResponse(w, presenter.ForError(apierr.NewUnprocessableEntityError(nil, invalidDropletMsg)))
-		return
+		return 0, nil, apierr.NewUnprocessableEntityError(nil, invalidDropletMsg)
 	}
 
 	currentDroplet, err := h.appRepo.SetCurrentDroplet(ctx, authInfo, repositories.SetCurrentDropletMessage{
@@ -264,11 +249,10 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, w 
 	})
 	if err != nil {
 		h.logger.Error(err, "Error setting current droplet")
-		writeErrorResponse(w, presenter.ForError(err))
-		return
+		return 0, nil, err
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForCurrentDroplet(currentDroplet, h.serverURL))
+	return http.StatusOK, presenter.ForCurrentDroplet(currentDroplet, h.serverURL), nil
 }
 
 func (h *AppHandler) appGetCurrentDropletHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -659,10 +643,12 @@ func (h *AppHandler) handleGetAppErr(err error, w http.ResponseWriter, appGUID s
 
 func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(AppGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appGetHandler))
+	w__newStyle := NewAuthAwareHandlerFuncWrapper__NewStyle(h.logger)
+
+	router.Path(AppGetEndpoint).Methods("GET").HandlerFunc(w__newStyle.Wrap(h.appGetHandler))
 	router.Path(AppListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appListHandler))
 	router.Path(AppCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appCreateHandler))
-	router.Path(AppSetCurrentDropletEndpoint).Methods("PATCH").HandlerFunc(w.Wrap(h.appSetCurrentDropletHandler))
+	router.Path(AppSetCurrentDropletEndpoint).Methods("PATCH").HandlerFunc(w__newStyle.Wrap(h.appSetCurrentDropletHandler))
 	router.Path(AppGetCurrentDropletEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appGetCurrentDropletHandler))
 	router.Path(AppStartEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appStartHandler))
 	router.Path(AppStopEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appStopHandler))

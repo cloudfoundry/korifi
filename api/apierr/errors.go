@@ -1,6 +1,7 @@
 package apierr
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 )
@@ -167,4 +168,21 @@ func NewMessageParseError(cause error) UnprocessableEntityError {
 			httpStatus: http.StatusBadRequest,
 		},
 	}
+}
+
+func AsNotFoundIfForbidden(err error) error {
+	var forbiddenErr ForbiddenError
+	if errors.As(err, &forbiddenErr) {
+		return NewNotFoundError(forbiddenErr.Unwrap(), forbiddenErr.ResourceType())
+	}
+
+	return err
+}
+
+func AsUnprocessableIfNotFoundOrForbidden(err error, unprocessableEntityMessage string) error {
+	if errors.As(err, &NotFoundError{}) || errors.As(err, &ForbiddenError{}) {
+		return NewUnprocessableEntityError(err, unprocessableEntityMessage)
+	}
+
+	return err
 }
