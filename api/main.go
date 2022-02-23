@@ -105,7 +105,7 @@ func main() {
 	domainRepo := repositories.NewDomainRepo(privilegedCRClient, userClientFactory)
 	buildRepo := repositories.NewBuildRepo(privilegedCRClient, userClientFactory)
 	packageRepo := repositories.NewPackageRepo(privilegedCRClient, userClientFactory)
-	serviceInstanceRepo := repositories.NewServiceInstanceRepo(userClientFactory, nsPermissions)
+	serviceInstanceRepo := repositories.NewServiceInstanceRepo(privilegedCRClient, userClientFactory, nsPermissions)
 	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)
 	roleRepo := repositories.NewRoleRepo(
 		privilegedCRClient,

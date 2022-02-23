@@ -24,3 +24,11 @@ rules:
   - cfbuilds
   verbs:
   - get
+
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - list
+  - get

@@ -15,7 +15,7 @@ var _ = Describe("Package", func() {
 		spaceGUID string
 		appGUID   string
 		resp      *resty.Response
-		result    packageResource
+		result    typedResource
 		resultErr cfErrs
 	)
 
@@ -26,7 +26,7 @@ var _ = Describe("Package", func() {
 		spaceGUID = createSpace(generateGUID("space"), orgGUID)
 		appGUID = createApp(spaceGUID, generateGUID("app"))
 
-		result = packageResource{}
+		result = typedResource{}
 		resultErr = cfErrs{}
 	})
 
@@ -38,7 +38,7 @@ var _ = Describe("Package", func() {
 		JustBeforeEach(func() {
 			var err error
 			resp, err = certClient.R().
-				SetBody(packageResource{
+				SetBody(typedResource{
 					Type: "bits",
 					resource: resource{
 						Relationships: relationships{

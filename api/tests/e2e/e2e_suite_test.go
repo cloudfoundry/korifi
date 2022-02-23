@@ -78,12 +78,7 @@ type appResource struct {
 	State    string `json:"state,omitempty"`
 }
 
-type roleResource struct {
-	resource `json:",inline"`
-	Type     string `json:"type,omitempty"`
-}
-
-type packageResource struct {
+type typedResource struct {
 	resource `json:",inline"`
 	Type     string `json:"type,omitempty"`
 }
@@ -368,7 +363,7 @@ func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) {
 		userOrServiceAccount = "kubernetesServiceAccount"
 	}
 
-	payload := roleResource{
+	payload := typedResource{
 		Type: roleName,
 		resource: resource{
 			Relationships: relationships{
@@ -378,8 +373,10 @@ func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) {
 		},
 	}
 
+	var resultErr cfErrs
 	resp, err := adminClient.R().
 		SetBody(payload).
+		SetError(&resultErr).
 		Post(rolesURL)
 
 	ExpectWithOffset(2, err).NotTo(HaveOccurred())
@@ -541,10 +538,43 @@ func getProcess(appGUID, processType string) string {
 	return processList.Resources[0].GUID
 }
 
+func createServiceInstance(spaceGUID, name string) string {
+	var serviceInstance typedResource
+
+	resp, err := adminClient.R().
+		SetBody(typedResource{
+			Type: "user-provided",
+			resource: resource{
+				Name:          name,
+				Relationships: relationships{"space": {Data: resource{GUID: spaceGUID}}},
+			},
+		}).
+		SetResult(&serviceInstance).
+		Post("/v3/service_instances")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+
+	return serviceInstance.GUID
+}
+
+func listServiceInstances() resourceList {
+	var serviceInstances resourceList
+
+	resp, err := adminClient.R().
+		SetBody(&serviceInstances).
+		Get("/v3/service_instances")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+
+	return serviceInstances
+}
+
 func createPackage(appGUID string) string {
 	var pkg resource
 	resp, err := adminClient.R().
-		SetBody(packageResource{
+		SetBody(typedResource{
 			Type: "bits",
 			resource: resource{
 				Relationships: relationships{

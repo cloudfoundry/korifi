@@ -15,7 +15,7 @@ var _ = Describe("Roles", func() {
 		userName string
 		orgGUID  string
 		resp     *resty.Response
-		result   roleResource
+		result   typedResource
 		client   *resty.Client
 	)
 
@@ -23,7 +23,7 @@ var _ = Describe("Roles", func() {
 		userName = uuid.NewString()
 		orgGUID = createOrg(uuid.NewString())
 		client = adminClient
-		result = roleResource{}
+		result = typedResource{}
 	})
 
 	AfterEach(func() {
@@ -34,7 +34,7 @@ var _ = Describe("Roles", func() {
 		JustBeforeEach(func() {
 			var err error
 			resp, err = client.R().
-				SetBody(roleResource{
+				SetBody(typedResource{
 					Type: "organization_manager",
 					resource: resource{
 						Relationships: relationships{
@@ -80,7 +80,7 @@ var _ = Describe("Roles", func() {
 		JustBeforeEach(func() {
 			var err error
 			resp, err = client.R().
-				SetBody(roleResource{
+				SetBody(typedResource{
 					Type: "space_developer",
 					resource: resource{
 						Relationships: relationships{

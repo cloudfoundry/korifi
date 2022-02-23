@@ -2,12 +2,14 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,15 +27,18 @@ const (
 )
 
 type ServiceInstanceRepo struct {
+	privilegedClient     client.Client
 	userClientFactory    UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 }
 
 func NewServiceInstanceRepo(
+	privilegedClient client.Client,
 	userClientFactory UserK8sClientFactory,
 	namespacePermissions *authorization.NamespacePermissions,
 ) *ServiceInstanceRepo {
 	return &ServiceInstanceRepo{
+		privilegedClient:     privilegedClient,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: namespacePermissions,
 	}
@@ -54,6 +59,11 @@ type ListServiceInstanceMessage struct {
 	SpaceGuids      []string
 	OrderBy         string
 	DescendingOrder bool
+}
+
+type DeleteServiceInstanceMessage struct {
+	GUID      string
+	SpaceGUID string
 }
 
 type ServiceInstanceRecord struct {
@@ -134,35 +144,53 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 }
 
 func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo authorization.Info, guid string) (ServiceInstanceRecord, error) {
-	nsList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
-	if err != nil {
-		// untested
-		return ServiceInstanceRecord{}, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
-	}
-
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		// untested
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	for ns := range nsList {
-		serviceInstanceList := new(servicesv1alpha1.CFServiceInstanceList)
-		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns), client.MatchingFields{"metadata.name": guid})
-		if k8serrors.IsForbidden(err) {
-			// untested
-			continue
-		}
-		if err != nil {
-			// untested
-			return ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances in namespace %s: %w", ns, err)
-		}
-
-		if len(serviceInstanceList.Items) >= 1 {
-			return cfServiceInstanceToServiceInstanceRecord(serviceInstanceList.Items[0]), nil
-		}
+	serviceInstanceList := &servicesv1alpha1.CFServiceInstanceList{}
+	err = r.privilegedClient.List(ctx, serviceInstanceList, client.MatchingFields{"metadata.name": guid})
+	if err != nil {
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances on cluster: %w", err)
 	}
-	return ServiceInstanceRecord{}, NewNotFoundError("ServiceInstance", nil)
+
+	record, err := returnServiceInstance(serviceInstanceList.Items)
+	if err != nil {
+		return ServiceInstanceRecord{}, err
+	}
+
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: record.SpaceGUID, Name: record.GUID}, &servicesv1alpha1.CFServiceInstance{})
+	if k8serrors.IsForbidden(err) {
+		return ServiceInstanceRecord{}, NewForbiddenError(ServiceInstanceResourceType, err)
+	}
+
+	if err != nil { // untested
+		return ServiceInstanceRecord{}, err
+	}
+
+	return record, nil
+}
+
+func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInfo authorization.Info, message DeleteServiceInstanceMessage) error {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	serviceInstance := &servicesv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.GUID,
+			Namespace: message.SpaceGUID,
+		},
+	}
+
+	err = userClient.Delete(ctx, serviceInstance)
+	if k8serrors.IsForbidden(err) {
+		return NewForbiddenError(ServiceInstanceResourceType, err)
+	}
+
+	return err
 }
 
 func (m CreateServiceInstanceMessage) toCFServiceInstance() servicesv1alpha1.CFServiceInstance {
@@ -181,6 +209,17 @@ func (m CreateServiceInstanceMessage) toCFServiceInstance() servicesv1alpha1.CFS
 			Tags:       m.Tags,
 		},
 	}
+}
+
+func returnServiceInstance(serviceInstances []servicesv1alpha1.CFServiceInstance) (ServiceInstanceRecord, error) {
+	if len(serviceInstances) == 0 {
+		return ServiceInstanceRecord{}, NewNotFoundError(ServiceInstanceResourceType, nil)
+	}
+	if len(serviceInstances) > 1 {
+		return ServiceInstanceRecord{}, errors.New("duplicate service instances exist")
+	}
+
+	return cfServiceInstanceToServiceInstanceRecord(serviceInstances[0]), nil
 }
 
 func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance servicesv1alpha1.CFServiceInstance) ServiceInstanceRecord {
