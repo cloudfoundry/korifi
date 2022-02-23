@@ -169,11 +169,11 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the route cannot be found", func() {
 			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NewNotFoundError(repositories.RouteResourceType, errors.New("not found")))
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NewNotFoundError(repositories.RouteResourceType, errors.New("internal-error-that-shouldn't-leak")))
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Route not found. Ensure it exists and you have access to it. not found")
+				expectNotFoundError("Route not found. Ensure it exists and you have access to it.")
 			})
 		})
 
@@ -1181,7 +1181,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Route not found. Ensure it exists and you have access to it. not found")
+				expectNotFoundError("Route not found")
 			})
 		})
 
@@ -1397,7 +1397,7 @@ var _ = Describe("RouteHandler", func() {
 				})
 
 				It("responds with 404 and an error", func() {
-					expectNotFoundError("Route not found. Ensure it exists and you have access to it. not found")
+					expectNotFoundError("Route not found")
 				})
 
 				It("doesn't add any destinations to a route", func() {
@@ -1717,7 +1717,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Route not found. Ensure it exists and you have access to it. not found")
+				expectNotFoundError("Route not found")
 			})
 		})
 

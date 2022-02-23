@@ -87,11 +87,11 @@ func (h *RouteHandler) catchLookupError(err error, routeGUID string, w http.Resp
 	switch err.(type) {
 	case repositories.NotFoundError:
 		h.logger.Info("Route not found", "RouteGUID", routeGUID)
-		writeNotFoundErrorResponse(w, "Route not found. Ensure it exists and you have access to it.")
+		writeNotFoundErrorResponse(w, "Route")
 		return
 	case repositories.ForbiddenError:
 		h.logger.Info("User unauthorized to get route", "RouteGUID", routeGUID)
-		writeNotFoundErrorResponse(w, "Route not found. Ensure it exists and you have access to it.")
+		writeNotFoundErrorResponse(w, "Route")
 		return
 	case authorization.InvalidAuthError:
 		h.logger.Error(err, "unauthorized to get route")

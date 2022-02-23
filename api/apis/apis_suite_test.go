@@ -2,6 +2,7 @@ package apis_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 )
 
 const (
@@ -80,15 +82,19 @@ func expectNotAuthorizedError() {
 }
 
 func expectNotFoundError(detail string) {
-	expectJSONResponse(http.StatusNotFound, fmt.Sprintf(`{
-			"errors": [
-				{
-					"code": 10010,
-					"title": "CF-ResourceNotFound",
-					"detail": %q
-				}
-			]
-		}`, detail))
+	ExpectWithOffset(1, rr).To(HaveHTTPStatus(http.StatusNotFound))
+	ExpectWithOffset(1, rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+	var bodyJSON map[string]interface{}
+	Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
+	Expect(bodyJSON).To(HaveKey("errors"))
+	Expect(bodyJSON["errors"]).To(HaveLen(1))
+	Expect(bodyJSON["errors"]).To(ConsistOf(
+		gstruct.MatchAllKeys(gstruct.Keys{
+			"code":   BeEquivalentTo(10010),
+			"title":  Equal("CF-ResourceNotFound"),
+			"detail": HavePrefix(detail),
+		}),
+	))
 }
 
 func expectUnprocessableEntityError(detail string) {

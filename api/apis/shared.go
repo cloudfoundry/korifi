@@ -259,7 +259,7 @@ func newUnprocessableEntityError(detail string) presenter.ErrorsResponse {
 func writeNotFoundErrorResponse(w http.ResponseWriter, resourceName string) {
 	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "CF-ResourceNotFound",
-		Detail: fmt.Sprintf("%s not found", resourceName),
+		Detail: fmt.Sprintf("%s not found. Ensure it exists and you have access to it.", resourceName),
 		Code:   10010,
 	}}}
 	writeResponse(w, http.StatusNotFound, response)
