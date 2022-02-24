@@ -18,7 +18,12 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -61,6 +66,26 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			r.Log.Error(err, "unable to fetch CFServiceBinding", req.Name, req.Namespace)
 		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	cfApp := new(workloadsv1alpha1.CFApp)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
+	if err != nil {
+		r.Log.Error(err, "Error when fetching CFApp")
+		return ctrl.Result{}, err
+	}
+
+	originalCfServiceBinding := cfServiceBinding.DeepCopy()
+	err = controllerutil.SetOwnerReference(cfApp, cfServiceBinding, r.Scheme)
+	if err != nil {
+		r.Log.Error(err, "Unable to set owner reference on CfServiceBinding")
+		return ctrl.Result{}, err
+	}
+
+	err = r.Client.Patch(ctx, cfServiceBinding, client.MergeFrom(originalCfServiceBinding))
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error setting owner reference on the CFServiceBinding %s/%s", req.Namespace, cfServiceBinding.Name))
+		return ctrl.Result{}, err
 	}
 
 	instance := new(servicesv1alpha1.CFServiceInstance)

@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	IndexRouteDestinationAppName = "destinationAppName"
-	IndexServiceBindingAppGUID   = "serviceBindingAppGUID"
+	IndexRouteDestinationAppName           = "destinationAppName"
+	IndexServiceBindingAppGUID             = "serviceBindingAppGUID"
+	IndexServiceBindingServiceInstanceGUID = "serviceBindingServiceInstanceGUID"
 )
 
 func SetupIndexWithManager(mgr manager.Manager) error {
@@ -26,6 +27,10 @@ func SetupIndexWithManager(mgr manager.Manager) error {
 		return err
 	}
 
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), new(servicesv1alpha1.CFServiceBinding), IndexServiceBindingServiceInstanceGUID, serviceBindingServiceInstanceGUIDIndexFn)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -41,4 +46,9 @@ func routeDestinationAppNameIndexFn(rawObj client.Object) []string {
 func serviceBindingAppGUIDIndexFn(rawObj client.Object) []string {
 	serviceBinding := rawObj.(*servicesv1alpha1.CFServiceBinding)
 	return []string{serviceBinding.Spec.AppRef.Name}
+}
+
+func serviceBindingServiceInstanceGUIDIndexFn(rawObj client.Object) []string {
+	serviceBinding := rawObj.(*servicesv1alpha1.CFServiceBinding)
+	return []string{serviceBinding.Spec.Service.Name}
 }
