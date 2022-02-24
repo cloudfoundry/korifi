@@ -235,6 +235,25 @@ var _ = Describe("Apps", func() {
 			})
 		})
 
+		Describe("Start an app", func() {
+			var result appResource
+
+			BeforeEach(func() {
+				setCurrentDroplet(appGUID, buildGUID)
+			})
+
+			JustBeforeEach(func() {
+				var err error
+				resp, err = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/start")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("succeeds", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.State).To(Equal("STARTED"))
+			})
+		})
+
 		Describe("Restart an app", func() {
 			var result appResource
 

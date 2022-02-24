@@ -1057,6 +1057,16 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
+		When("getting the app is forbidden", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
 		When("there is some other error fetching the app", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
@@ -1088,6 +1098,16 @@ var _ = Describe("AppHandler", func() {
 
 			It("returns an error", func() {
 				expectUnprocessableEntityError(`Assign a droplet before starting this app.`)
+			})
+		})
+
+		When("updating the app is not allowed", func() {
+			BeforeEach(func() {
+				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, errors.New("nope")))
+			})
+
+			It("returns an error", func() {
+				expectNotAuthorizedError()
 			})
 		})
 
