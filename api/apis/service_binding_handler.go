@@ -110,7 +110,7 @@ func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, w http.
 	err := schema.NewDecoder().Decode(listFilter, r.Form)
 	if err != nil {
 		if isUnknownKeyError(err) {
-			h.logger.Info("Unknown key used in ServiceInstance filter")
+			h.logger.Info("Unknown key used in ServiceInstance query parameters")
 			writeUnknownKeyError(w, listFilter.SupportedFilterKeys())
 		} else {
 			h.logger.Error(err, "Unable to decode request query parameters")
@@ -125,7 +125,22 @@ func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, w http.
 		return
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForServiceBindingList(serviceBindingList, h.serverURL, *r.URL))
+	var appRecords []repositories.AppRecord
+	if listFilter.Include != nil {
+		listAppsMessage := repositories.ListAppsMessage{}
+
+		for _, serviceBinding := range serviceBindingList {
+			listAppsMessage.Guids = append(listAppsMessage.Guids, serviceBinding.AppGUID)
+		}
+
+		appRecords, err = h.appRepo.ListApps(ctx, authInfo, listAppsMessage)
+		if err != nil {
+			h.writeErrorResponse(w, err, "list service binding apps")
+			return
+		}
+	}
+
+	writeResponse(w, http.StatusOK, presenter.ForServiceBindingList(serviceBindingList, appRecords, h.serverURL, *r.URL))
 }
 
 func (h *ServiceBindingHandler) writeErrorResponse(w http.ResponseWriter, err error, message string) {

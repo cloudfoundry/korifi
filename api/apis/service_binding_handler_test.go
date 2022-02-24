@@ -447,15 +447,39 @@ var _ = Describe("ServiceBindingHandler", func() {
 			})
 		})
 
+		When("an include=app query parameter is specified", func() {
+			BeforeEach(func() {
+				req.URL.RawQuery = "include=app"
+
+				appRepo.ListAppsReturns([]repositories.AppRecord{{Name: "some-app-name"}}, nil)
+			})
+
+			It("calls the App repository to fetch apps from the bindings", func() {
+				Expect(appRepo.ListAppsCallCount()).To(Equal(1))
+				_, _, listAppsMessage := appRepo.ListAppsArgsForCall(0)
+				Expect(listAppsMessage.Guids).To(ContainElements(appGUID))
+			})
+
+			It("includes app data in the response", func() {
+				Expect(rr.Body.String()).To(ContainSubstring("some-app-name"))
+			})
+		})
 		When("a service_instance_guid query parameter is provided", func() {
 			BeforeEach(func() {
 				req.URL.RawQuery = "service_instance_guids=1,2,3"
+
+				appRepo.ListAppsReturns([]repositories.AppRecord{{Name: "some-app-name"}}, nil)
 			})
 
 			It("passes the list of service instance GUIDs to the repository", func() {
 				Expect(serviceBindingRepo.ListServiceBindingsCallCount()).To(Equal(1))
 				_, _, message := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
 				Expect(message.ServiceInstanceGUIDs).To(ConsistOf([]string{"1", "2", "3"}))
+			})
+
+			It("does not include app data in the response", func() {
+				Expect(appRepo.ListAppsCallCount()).To(Equal(0))
+				Expect(rr.Body.String()).NotTo(ContainSubstring("included"))
 			})
 		})
 
@@ -465,7 +489,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'service_instance_guids'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'service_instance_guids, include'")
 			})
 		})
 	})

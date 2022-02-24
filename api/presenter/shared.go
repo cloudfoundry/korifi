@@ -38,6 +38,7 @@ type Link struct {
 type ListResponse struct {
 	PaginationData PaginationData `json:"pagination"`
 	Resources      []interface{}  `json:"resources"`
+	Included       *IncludedData  `json:"included,omitempty"`
 }
 
 type PaginationData struct {
@@ -47,6 +48,10 @@ type PaginationData struct {
 	Last         PageRef `json:"last"`
 	Next         *int    `json:"next"`
 	Previous     *int    `json:"previous"`
+}
+
+type IncludedData struct {
+	Apps []interface{} `json:"apps"`
 }
 
 type PageRef struct {
