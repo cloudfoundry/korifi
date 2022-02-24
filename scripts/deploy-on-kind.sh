@@ -162,6 +162,14 @@ install_dependencies() {
     fi
 
     "$SCRIPT_DIR/install-dependencies.sh"
+
+    # install metrics server only on local cluster
+    DEP_DIR="$(cd "${SCRIPT_DIR}/../dependencies" && pwd)"
+    echo "*********************************************"
+    echo "Installing metrics-server"
+    echo "*********************************************"
+    kubectl apply -f "${DEP_DIR}/metrics-server-local-0.6.1.yaml"
+
   }
   popd >/dev/null
 }

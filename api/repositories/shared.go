@@ -3,8 +3,10 @@ package repositories
 import (
 	"errors"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"k8s.io/apimachinery/pkg/api/meta"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -58,4 +60,17 @@ func getLabelOrAnnotation(mapObj map[string]string, key string) string {
 		return ""
 	}
 	return mapObj[key]
+}
+
+func wrapK8sErr(err error, resourceType string) error {
+	switch {
+	case k8serrors.IsNotFound(err):
+		return NewNotFoundError(resourceType, err)
+	case k8serrors.IsForbidden(err):
+		return NewForbiddenError(resourceType, err)
+	case k8serrors.IsUnauthorized(err):
+		return authorization.InvalidAuthError{Err: err}
+	default:
+		return err
+	}
 }

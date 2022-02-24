@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
 
 	"github.com/go-resty/resty/v2"
@@ -78,12 +79,7 @@ type appResource struct {
 	State    string `json:"state,omitempty"`
 }
 
-type roleResource struct {
-	resource `json:",inline"`
-	Type     string `json:"type,omitempty"`
-}
-
-type packageResource struct {
+type typedResource struct {
 	resource `json:",inline"`
 	Type     string `json:"type,omitempty"`
 }
@@ -98,12 +94,7 @@ type dropletResource struct {
 }
 
 type statsResourceList struct {
-	Resources []statsResource `json:"resources"`
-}
-
-type statsResource struct {
-	Type  string `json:"type"`
-	State string `json:"state"`
+	Resources []presenter.ProcessStatsResource `json:"resources"`
 }
 
 type manifestResource struct {
@@ -368,7 +359,7 @@ func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) {
 		userOrServiceAccount = "kubernetesServiceAccount"
 	}
 
-	payload := roleResource{
+	payload := typedResource{
 		Type: roleName,
 		resource: resource{
 			Relationships: relationships{
@@ -378,8 +369,10 @@ func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) {
 		},
 	}
 
+	var resultErr cfErrs
 	resp, err := adminClient.R().
 		SetBody(payload).
+		SetError(&resultErr).
 		Post(rolesURL)
 
 	ExpectWithOffset(2, err).NotTo(HaveOccurred())
@@ -541,10 +534,43 @@ func getProcess(appGUID, processType string) string {
 	return processList.Resources[0].GUID
 }
 
+func createServiceInstance(spaceGUID, name string) string {
+	var serviceInstance typedResource
+
+	resp, err := adminClient.R().
+		SetBody(typedResource{
+			Type: "user-provided",
+			resource: resource{
+				Name:          name,
+				Relationships: relationships{"space": {Data: resource{GUID: spaceGUID}}},
+			},
+		}).
+		SetResult(&serviceInstance).
+		Post("/v3/service_instances")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+
+	return serviceInstance.GUID
+}
+
+func listServiceInstances() resourceList {
+	var serviceInstances resourceList
+
+	resp, err := adminClient.R().
+		SetBody(&serviceInstances).
+		Get("/v3/service_instances")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+
+	return serviceInstances
+}
+
 func createPackage(appGUID string) string {
 	var pkg resource
 	resp, err := adminClient.R().
-		SetBody(packageResource{
+		SetBody(typedResource{
 			Type: "bits",
 			resource: resource{
 				Relationships: relationships{

@@ -714,6 +714,76 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			})
 		})
 	})
+
+	Describe("the DELETE /v3/service_instances endpoint", func() {
+		BeforeEach(func() {
+			serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{SpaceGUID: spaceGUID}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("/v3/service_instances/%s", serviceInstanceGUID), nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns status 204 No Content", func() {
+			Expect(rr.Code).To(Equal(http.StatusNoContent))
+		})
+
+		It("gets the service instance", func() {
+			Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
+			_, _, actualGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
+			Expect(actualGUID).To(Equal(serviceInstanceGUID))
+		})
+
+		It("deletes the service instance using the repo", func() {
+			Expect(serviceInstanceRepo.DeleteServiceInstanceCallCount()).To(Equal(1))
+			_, _, message := serviceInstanceRepo.DeleteServiceInstanceArgsForCall(0)
+			Expect(message.GUID).To(Equal(serviceInstanceGUID))
+			Expect(message.SpaceGUID).To(Equal(spaceGUID))
+		})
+
+		When("getting the service instance fails with forbidden", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(
+					repositories.ServiceInstanceRecord{},
+					repositories.NewForbiddenError(repositories.ServiceInstanceResourceType, nil),
+				)
+			})
+
+			It("returns 404 Not Found", func() {
+				Expect(rr.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+
+		When("getting the service instance fails", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("boom"))
+			})
+
+			It("returns 500 Internal Server Error", func() {
+				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+			})
+		})
+
+		When("deleting the service instance fails with forbidden", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.DeleteServiceInstanceReturns(repositories.NewForbiddenError(repositories.ServiceInstanceResourceType, nil))
+			})
+
+			It("returns 403 Forbidden", func() {
+				Expect(rr.Code).To(Equal(http.StatusForbidden))
+			})
+		})
+
+		When("deleting the service instance fails", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.DeleteServiceInstanceReturns(errors.New("boom"))
+			})
+
+			It("returns 500 Internal Server Error", func() {
+				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+			})
+		})
+	})
 })
 
 func randomString(length int) string {

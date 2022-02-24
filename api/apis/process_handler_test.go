@@ -566,17 +566,43 @@ var _ = Describe("ProcessHandler", func() {
 	})
 
 	Describe("the GET /v3/processes/<guid>/stats endpoint", func() {
+		var (
+			process1Time, process2Time string
+			process1CPU, process2CPU   float64
+			process1Mem, process2Mem   int64
+			process1Disk, process2Disk int64
+		)
 		BeforeEach(func() {
+			process1Time = "1906-04-18T13:12:00Z"
+			process2Time = "1906-04-18T13:12:00Z"
+			process1CPU = 133.47
+			process2CPU = 127.58
+			process1Mem = 16
+			process2Mem = 8
+			process1Disk = 50
+			process2Disk = 100
 			fetchProcessStats.Returns([]repositories.PodStatsRecord{
 				{
 					Type:  "web",
 					Index: 0,
 					State: "RUNNING",
+					Usage: repositories.Usage{
+						Time: &process1Time,
+						CPU:  &process1CPU,
+						Mem:  &process1Mem,
+						Disk: &process1Disk,
+					},
 				},
 				{
 					Type:  "web",
 					Index: 1,
 					State: "RUNNING",
+					Usage: repositories.Usage{
+						Time: &process2Time,
+						CPU:  &process2CPU,
+						Mem:  &process2Mem,
+						Disk: &process2Disk,
+					},
 				},
 			}, nil)
 
@@ -600,7 +626,7 @@ var _ = Describe("ProcessHandler", func() {
 				contentTypeHeader := rr.Header().Get("Content-Type")
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-				Expect(rr.Body.String()).To(MatchJSON(`{
+				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 					"resources": [
 						{
 							"type": "web",
@@ -613,7 +639,13 @@ var _ = Describe("ProcessHandler", func() {
 							"fds_quota": null,
 							"isolation_segment": null,
 							"details": null,
-							"instance_ports": []
+							"instance_ports": [],
+							"usage": {
+								"time": "%s",
+								"cpu": %f,
+								"mem": %d,
+								"disk": %d
+                            }
 						},
 						{
 							"type": "web",
@@ -626,10 +658,16 @@ var _ = Describe("ProcessHandler", func() {
 							"fds_quota": null,
 							"isolation_segment": null,
 							"details": null,
-							"instance_ports": []
+							"instance_ports": [],
+							"usage": {
+								"time": "%s",
+								"cpu": %f,
+								"mem": %d,
+								"disk": %d
+                            }
 						}
 					]
-				}`), "Response body matches response:")
+				}`, process1Time, process1CPU, process1Mem, process1Disk, process2Time, process2CPU, process2Mem, process2Disk)), "Response body matches response:")
 			})
 		})
 
@@ -658,7 +696,8 @@ var _ = Describe("ProcessHandler", func() {
 							"disk_quota": null,
 							"fds_quota": null,
 							"isolation_segment": null,
-							"details": null
+							"details": null,
+							"usage": {}
 						}
 					]
 				}`), "Response body matches response:")

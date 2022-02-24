@@ -1656,8 +1656,10 @@ rules:
   resources:
   - cfserviceinstances
   verbs:
+  - get
   - list
   - create
+  - delete
 - apiGroups:
   - services.cloudfoundry.org
   resources:
@@ -1710,6 +1712,14 @@ rules:
   - hierarchyconfigurations
   verbs:
   - update
+- apiGroups:
+  - metrics.k8s.io
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -2127,8 +2137,10 @@ rules:
   resources:
   - cfserviceinstances
   verbs:
+  - get
   - list
   - create
+  - delete
 - apiGroups:
   - services.cloudfoundry.org
   resources:
@@ -2180,6 +2192,13 @@ rules:
   resources:
   - cfbuilds
   verbs:
+  - get
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - list
   - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1

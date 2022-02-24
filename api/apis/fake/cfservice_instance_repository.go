@@ -26,6 +26,19 @@ type CFServiceInstanceRepository struct {
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}
+	DeleteServiceInstanceStub        func(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) error
+	deleteServiceInstanceMutex       sync.RWMutex
+	deleteServiceInstanceArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.DeleteServiceInstanceMessage
+	}
+	deleteServiceInstanceReturns struct {
+		result1 error
+	}
+	deleteServiceInstanceReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GetServiceInstanceStub        func(context.Context, authorization.Info, string) (repositories.ServiceInstanceRecord, error)
 	getServiceInstanceMutex       sync.RWMutex
 	getServiceInstanceArgsForCall []struct {
@@ -124,6 +137,69 @@ func (fake *CFServiceInstanceRepository) CreateServiceInstanceReturnsOnCall(i in
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *CFServiceInstanceRepository) DeleteServiceInstance(arg1 context.Context, arg2 authorization.Info, arg3 repositories.DeleteServiceInstanceMessage) error {
+	fake.deleteServiceInstanceMutex.Lock()
+	ret, specificReturn := fake.deleteServiceInstanceReturnsOnCall[len(fake.deleteServiceInstanceArgsForCall)]
+	fake.deleteServiceInstanceArgsForCall = append(fake.deleteServiceInstanceArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.DeleteServiceInstanceMessage
+	}{arg1, arg2, arg3})
+	stub := fake.DeleteServiceInstanceStub
+	fakeReturns := fake.deleteServiceInstanceReturns
+	fake.recordInvocation("DeleteServiceInstance", []interface{}{arg1, arg2, arg3})
+	fake.deleteServiceInstanceMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFServiceInstanceRepository) DeleteServiceInstanceCallCount() int {
+	fake.deleteServiceInstanceMutex.RLock()
+	defer fake.deleteServiceInstanceMutex.RUnlock()
+	return len(fake.deleteServiceInstanceArgsForCall)
+}
+
+func (fake *CFServiceInstanceRepository) DeleteServiceInstanceCalls(stub func(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) error) {
+	fake.deleteServiceInstanceMutex.Lock()
+	defer fake.deleteServiceInstanceMutex.Unlock()
+	fake.DeleteServiceInstanceStub = stub
+}
+
+func (fake *CFServiceInstanceRepository) DeleteServiceInstanceArgsForCall(i int) (context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) {
+	fake.deleteServiceInstanceMutex.RLock()
+	defer fake.deleteServiceInstanceMutex.RUnlock()
+	argsForCall := fake.deleteServiceInstanceArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFServiceInstanceRepository) DeleteServiceInstanceReturns(result1 error) {
+	fake.deleteServiceInstanceMutex.Lock()
+	defer fake.deleteServiceInstanceMutex.Unlock()
+	fake.DeleteServiceInstanceStub = nil
+	fake.deleteServiceInstanceReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFServiceInstanceRepository) DeleteServiceInstanceReturnsOnCall(i int, result1 error) {
+	fake.deleteServiceInstanceMutex.Lock()
+	defer fake.deleteServiceInstanceMutex.Unlock()
+	fake.DeleteServiceInstanceStub = nil
+	if fake.deleteServiceInstanceReturnsOnCall == nil {
+		fake.deleteServiceInstanceReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteServiceInstanceReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *CFServiceInstanceRepository) GetServiceInstance(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.ServiceInstanceRecord, error) {
@@ -263,6 +339,8 @@ func (fake *CFServiceInstanceRepository) Invocations() map[string][][]interface{
 	defer fake.invocationsMutex.RUnlock()
 	fake.createServiceInstanceMutex.RLock()
 	defer fake.createServiceInstanceMutex.RUnlock()
+	fake.deleteServiceInstanceMutex.RLock()
+	defer fake.deleteServiceInstanceMutex.RUnlock()
 	fake.getServiceInstanceMutex.RLock()
 	defer fake.getServiceInstanceMutex.RUnlock()
 	fake.listServiceInstancesMutex.RLock()

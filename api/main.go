@@ -86,22 +86,27 @@ func main() {
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
 	nsPermissions := authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider, config.RootNamespace)
+	guidToNamespace := repositories.NewGUIDToNamespace(privilegedCRClient)
 
 	serverURL, err := url.Parse(config.ServerURL)
 	if err != nil {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
 
+	metricsFetcherFunction, err := repositories.CreateMetricsFetcher()
+	if err != nil {
+		panic(err)
+	}
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout, config.AuthEnabled)
 	appRepo := repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions)
 	processRepo := repositories.NewProcessRepo(privilegedCRClient, userClientFactory)
-	podRepo := repositories.NewPodRepo(userClientFactory)
+	podRepo := repositories.NewPodRepo(userClientFactory, metricsFetcherFunction)
 	dropletRepo := repositories.NewDropletRepo(privilegedCRClient, userClientFactory)
 	routeRepo := repositories.NewRouteRepo(privilegedCRClient, userClientFactory)
 	domainRepo := repositories.NewDomainRepo(privilegedCRClient, userClientFactory)
 	buildRepo := repositories.NewBuildRepo(privilegedCRClient, userClientFactory)
 	packageRepo := repositories.NewPackageRepo(privilegedCRClient, userClientFactory)
-	serviceInstanceRepo := repositories.NewServiceInstanceRepo(userClientFactory, nsPermissions)
+	serviceInstanceRepo := repositories.NewServiceInstanceRepo(userClientFactory, nsPermissions, guidToNamespace)
 	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)
 	roleRepo := repositories.NewRoleRepo(
 		privilegedCRClient,
