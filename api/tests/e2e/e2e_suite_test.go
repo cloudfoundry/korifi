@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
 
 	"github.com/go-resty/resty/v2"
@@ -93,12 +94,7 @@ type dropletResource struct {
 }
 
 type statsResourceList struct {
-	Resources []statsResource `json:"resources"`
-}
-
-type statsResource struct {
-	Type  string `json:"type"`
-	State string `json:"state"`
+	Resources []presenter.ProcessStatsResource `json:"resources"`
 }
 
 type manifestResource struct {
