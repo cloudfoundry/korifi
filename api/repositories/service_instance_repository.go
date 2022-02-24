@@ -158,7 +158,7 @@ func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo a
 
 	var serviceInstance servicesv1alpha1.CFServiceInstance
 	if err := userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: guid}, &serviceInstance); err != nil {
-		return ServiceInstanceRecord{}, fmt.Errorf("failed to get serivice instance: %w", wrapK8sErr(err, ServiceInstanceResourceType))
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to get service instance: %w", wrapK8sErr(err, ServiceInstanceResourceType))
 	}
 
 	return cfServiceInstanceToServiceInstanceRecord(serviceInstance), nil

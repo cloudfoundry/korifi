@@ -2200,6 +2200,13 @@ rules:
   verbs:
   - list
   - get
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - get
+  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
