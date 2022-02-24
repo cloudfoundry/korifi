@@ -279,6 +279,22 @@ var _ = Describe("PodRepository", func() {
 				})
 			})
 
+			When("MetricsFetcherFunction returns a not found error for the PodMetrics", func() {
+				BeforeEach(func() {
+					message.Instances = 2
+					metricFetcherFn.Returns(nil, errors.New("podmetrics.metrics.k8s.io \\\"Blah\\\" not found"))
+				})
+				It("fetches all the pods and sets the usage stats with empty values", func() {
+					Expect(listStatsErr).NotTo(HaveOccurred())
+					Expect(records).To(ConsistOf(
+						[]PodStatsRecord{
+							{Type: "web", Index: 0, State: "RUNNING"},
+							{Type: "web", Index: 1, State: "DOWN"},
+						},
+					))
+				})
+			})
+
 			When("MetricFetcherFunction return some other error", func() {
 				BeforeEach(func() {
 					message.Instances = 2

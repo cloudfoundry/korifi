@@ -120,29 +120,31 @@ func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info,
 
 		podMetrics, err := r.metricsFetcher(ctx, p.Namespace, p.Name)
 		if err != nil {
-			if !strings.Contains(err.Error(), "the server could not find the requested resource") {
-				return nil, err
+			errorMsg := err.Error()
+			if strings.Contains(errorMsg, "not found") ||
+				strings.Contains(errorMsg, "the server could not find the requested resource") {
+				continue
 			}
-			continue
+			return nil, err
 		}
 		metricsMap := aggregateContainerMetrics(podMetrics.Containers)
 		if len(metricsMap) == 0 {
 			continue
 		}
 
-		if quantity, ok := metricsMap["cpu"]; ok {
-			value := float64(quantity.ScaledValue(resource.Nano))
+		if CPUquantity, ok := metricsMap["cpu"]; ok {
+			value := float64(CPUquantity.ScaledValue(resource.Nano))
 			percentage := value / 1e7
 			records[index].Usage.CPU = &percentage
 		}
 
-		if r2, ok := metricsMap["memory"]; ok {
-			value := r2.Value()
+		if memQuantity, ok := metricsMap["memory"]; ok {
+			value := memQuantity.Value()
 			records[index].Usage.Mem = &value
 		}
 
-		if r3, ok := metricsMap["storage"]; ok {
-			value := r3.Value()
+		if storageQuantity, ok := metricsMap["storage"]; ok {
+			value := storageQuantity.Value()
 			records[index].Usage.Disk = &value
 		}
 		time := podMetrics.Timestamp.UTC().Format(TimestampFormat)
@@ -297,7 +299,6 @@ func containersRunning(statuses []corev1.ContainerStatus) bool {
 	return true
 }
 
-// Untested
 func CreateMetricsFetcher() (MetricsFetcherFn, error) {
 	restConfig, err := rest.InClusterConfig()
 	if err != nil {
