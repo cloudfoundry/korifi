@@ -96,6 +96,15 @@ var _ = Describe("App Handler", func() {
 		Expect(k8sClient.Status().Update(ctx, droplet)).To(Succeed())
 	}
 
+	startApp := func(spaceGUID, appGUID string) {
+		var app workloads.CFApp
+		Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: spaceGUID, Name: appGUID}, &app)).To(Succeed())
+		startedApp := app.DeepCopy()
+		startedApp.Spec.DesiredState = "STARTED"
+
+		Expect(k8sClient.Patch(ctx, startedApp, client.MergeFrom(&app))).To(Succeed())
+	}
+
 	BeforeEach(func() {
 		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, nsPermissions)
 		dropletRepo := repositories.NewDropletRepo(k8sClient, clientFactory)
@@ -363,14 +372,12 @@ var _ = Describe("App Handler", func() {
 
 		Describe("stop app", func() {
 			BeforeEach(func() {
-				stoppedApp := app.DeepCopy()
-				stoppedApp.Spec.DesiredState = "STARTED"
-				Expect(k8sClient.Patch(ctx, stoppedApp, client.MergeFrom(app))).To(Succeed())
+				startApp(spaceGUID, appGUID)
 			})
 
 			JustBeforeEach(func() {
 				var err error
-				req, err = http.NewRequestWithContext(ctx, http.MethodPost, serverURI("/v3/apps/"+app.Name+"/actions/stop"), nil)
+				req, err = http.NewRequestWithContext(ctx, http.MethodPost, serverURI("/v3/apps/"+appGUID+"/actions/stop"), nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				router.ServeHTTP(rr, req)
