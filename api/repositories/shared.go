@@ -62,6 +62,20 @@ func getLabelOrAnnotation(mapObj map[string]string, key string) string {
 	return mapObj[key]
 }
 
+func matchesFilter(field string, filter []string) bool {
+	if len(filter) == 0 {
+		return true
+	}
+
+	for _, value := range filter {
+		if field == value {
+			return true
+		}
+	}
+
+	return false
+}
+
 func wrapK8sErr(err error, resourceType string) error {
 	switch {
 	case k8serrors.IsNotFound(err):

@@ -3,14 +3,16 @@ package repositories_test
 import (
 	"context"
 
+	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	. "github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/google/uuid"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -93,6 +95,48 @@ func createDropletCR(ctx context.Context, k8sClient client.Client, dropletGUID, 
 			AppRef: corev1.LocalObjectReference{Name: appGUID},
 			Lifecycle: workloadsv1alpha1.Lifecycle{
 				Type: "buildpack",
+			},
+		},
+	}
+	Expect(
+		k8sClient.Create(ctx, toReturn),
+	).To(Succeed())
+	return toReturn
+}
+
+func createServiceInstanceCR(ctx context.Context, k8sClient client.Client, serviceInstanceGUID, spaceGUID, name, secretName string) *servicesv1alpha1.CFServiceInstance {
+	toReturn := &servicesv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceInstanceGUID,
+			Namespace: spaceGUID,
+		},
+		Spec: servicesv1alpha1.CFServiceInstanceSpec{
+			Name:       name,
+			SecretName: secretName,
+			Type:       "user-provided",
+		},
+	}
+	Expect(
+		k8sClient.Create(ctx, toReturn),
+	).To(Succeed())
+	return toReturn
+}
+
+func createServiceBindingCR(ctx context.Context, k8sClient client.Client, serviceBindingGUID, spaceGUID string, name *string, serviceInstanceName, appName string) *servicesv1alpha1.CFServiceBinding {
+	toReturn := &servicesv1alpha1.CFServiceBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceBindingGUID,
+			Namespace: spaceGUID,
+		},
+		Spec: servicesv1alpha1.CFServiceBindingSpec{
+			Name: name,
+			Service: corev1.ObjectReference{
+				Kind:       "ServiceInstance",
+				Name:       serviceInstanceName,
+				APIVersion: "services.cloudfoundry.org/v1alpha1",
+			},
+			AppRef: corev1.LocalObjectReference{
+				Name: appName,
 			},
 		},
 	}

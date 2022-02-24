@@ -1,6 +1,8 @@
 package payloads
 
-import "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+import (
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+)
 
 type ServiceBindingCreate struct { // TODO: add validation
 	Relationships *ServiceBindingRelationships `json:"relationships" validate:"required"`
@@ -20,4 +22,18 @@ func (p ServiceBindingCreate) ToMessage(spaceGUID string) repositories.CreateSer
 		AppGUID:             p.Relationships.App.Data.GUID,
 		SpaceGUID:           spaceGUID,
 	}
+}
+
+func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage {
+	return repositories.ListServiceBindingsMessage{
+		ServiceInstanceGUIDs: ParseArrayParam(l.ServiceInstanceGuids),
+	}
+}
+
+type ServiceBindingList struct {
+	ServiceInstanceGuids *string `schema:"service_instance_guids"`
+}
+
+func (l *ServiceBindingList) SupportedFilterKeys() []string {
+	return []string{"service_instance_guids"}
 }

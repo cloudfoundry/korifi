@@ -255,20 +255,6 @@ func applyServiceInstanceListFilter(serviceInstanceList []servicesv1alpha1.CFSer
 	return filtered
 }
 
-func matchesFilter(field string, filter []string) bool {
-	if len(filter) == 0 {
-		return true
-	}
-
-	for _, value := range filter {
-		if field == value {
-			return true
-		}
-	}
-
-	return false
-}
-
 func returnServiceInstanceList(serviceInstanceList []servicesv1alpha1.CFServiceInstance) []ServiceInstanceRecord {
 	serviceInstanceRecords := make([]ServiceInstanceRecord, 0, len(serviceInstanceList))
 

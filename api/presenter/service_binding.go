@@ -75,3 +75,12 @@ func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL
 		},
 	}
 }
+
+func ForServiceBindingList(serviceBindingRecord []repositories.ServiceBindingRecord, baseURL, requestURL url.URL) ListResponse {
+	serviceBindingResponses := make([]interface{}, 0, len(serviceBindingRecord))
+	for _, serviceBinding := range serviceBindingRecord {
+		serviceBindingResponses = append(serviceBindingResponses, ForServiceBinding(serviceBinding, baseURL))
+	}
+
+	return ForList(serviceBindingResponses, baseURL, requestURL)
+}
