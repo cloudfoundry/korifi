@@ -3,6 +3,7 @@ package apis_test
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -58,16 +59,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 	})
 
 	Describe("the POST /v3/service_credential_bindings endpoint", func() {
-		makePostRequest := func(body string, extra ...interface{}) {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/service_credential_bindings", strings.NewReader(
-				fmt.Sprintf(body, extra...),
-			))
-			Expect(err).NotTo(HaveOccurred())
-		}
-
-		var validBody string
-
 		BeforeEach(func() {
 			appRepo.GetAppReturns(repositories.AppRecord{
 				GUID:      appGUID,
@@ -79,7 +70,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 				SpaceGUID: spaceGUID,
 			}, nil)
 
-			validBody = fmt.Sprintf(`{
+			validBody := fmt.Sprintf(`{
 				"type": "app",
 				"relationships": {
 					"app": {
@@ -94,11 +85,15 @@ var _ = Describe("ServiceBindingHandler", func() {
 					}
 				}
 			}`, appGUID, serviceInstanceGUID)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/service_credential_bindings", strings.NewReader(validBody))
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("the request body is invalid json", func() {
 			BeforeEach(func() {
-				makePostRequest(`{"description"`)
+				req.Body = io.NopCloser(strings.NewReader(`{"description"`))
 			})
 
 			It("returns an error", func() {
@@ -112,7 +107,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 
 		When(`the type is "key"`, func() {
 			BeforeEach(func() {
-				makePostRequest(`{
+				req.Body = io.NopCloser(strings.NewReader(fmt.Sprintf(`{
 					"type": "key",
 					"relationships": {
 						"app": {
@@ -126,7 +121,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 							}
 						}
 					}
-				}`, appGUID, serviceInstanceGUID)
+				}`, appGUID, serviceInstanceGUID)))
 			})
 
 			It("returns an error", func() {
@@ -140,7 +135,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 
 		When("all relationships are missing", func() {
 			BeforeEach(func() {
-				makePostRequest(`{ "type": "app" }`)
+				req.Body = io.NopCloser(strings.NewReader(`{ "type": "app" }`))
 			})
 
 			It("returns an error", func() {
@@ -154,7 +149,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 
 		When("the app relationship is missing", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
+				req.Body = io.NopCloser(strings.NewReader(fmt.Sprintf(`{
 					"type": "app",
 					"relationships": {
 						"service_instance": {
@@ -163,7 +158,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 							}
 						}
 					}
-				}`, serviceInstanceGUID)
+				}`, serviceInstanceGUID)))
 			})
 
 			It("returns an error", func() {
@@ -177,7 +172,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 
 		When("the service_instance relationship is missing", func() {
 			BeforeEach(func() {
-				makePostRequest(`{
+				req.Body = io.NopCloser(strings.NewReader(fmt.Sprintf(`{
 					"type": "app",
 					"relationships": {
 						"app": {
@@ -186,7 +181,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 							}
 						}
 					}
-				}`, appGUID)
+				}`, appGUID)))
 			})
 
 			It("returns an error", func() {
@@ -201,7 +196,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 		When("a binding already exists for the App and ServiceInstance", func() {
 			BeforeEach(func() {
 				serviceBindingRepo.ServiceBindingExistsReturns(true, nil)
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
@@ -217,7 +211,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{SpaceGUID: spaceGUID}, nil)
 				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{SpaceGUID: "another-space-guid"}, nil)
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
@@ -232,7 +225,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 		When("the user can't get Apps in the Space", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
@@ -247,7 +239,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 		When("the user can't get ServiceInstances in the Space", func() {
 			BeforeEach(func() {
 				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, repositories.ForbiddenError{})
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
@@ -262,7 +253,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 		When("the user can't get ServiceBindings in the Space", func() {
 			BeforeEach(func() {
 				serviceBindingRepo.ServiceBindingExistsReturns(false, repositories.ForbiddenError{})
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
@@ -277,7 +267,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 		When("the user can't create ServiceBindings in the Space", func() {
 			BeforeEach(func() {
 				serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{}, repositories.ForbiddenError{})
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
@@ -290,7 +279,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, authorization.InvalidAuthError{})
 				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, authorization.InvalidAuthError{})
 				serviceBindingRepo.ServiceBindingExistsReturns(false, authorization.InvalidAuthError{})
-				makePostRequest(validBody)
 			})
 
 			It("returns Invalid Auth error", func() {
@@ -303,7 +291,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, authorization.NotAuthenticatedError{})
 				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, authorization.NotAuthenticatedError{})
 				serviceBindingRepo.ServiceBindingExistsReturns(false, authorization.NotAuthenticatedError{})
-				makePostRequest(validBody)
 			})
 
 			It("returns a NotAuthenticated error", func() {
@@ -314,7 +301,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 		When("getting the App errors", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
@@ -329,7 +315,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 		When("getting the ServiceInstance errors", func() {
 			BeforeEach(func() {
 				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("boom"))
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
@@ -344,7 +329,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 		When("checking for a duplicate ServiceBinding errors", func() {
 			BeforeEach(func() {
 				serviceBindingRepo.ServiceBindingExistsReturns(false, errors.New("boom"))
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
@@ -359,7 +343,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 		When("creating the ServiceBinding errors", func() {
 			BeforeEach(func() {
 				serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("boom"))
-				makePostRequest(validBody)
 			})
 
 			It("returns an error", func() {
@@ -466,11 +449,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 
 		When("a service_instance_guid query parameter is provided", func() {
 			BeforeEach(func() {
-				urlWithParams := listServiceBindingsUrl + "?service_instance_guids=1,2,3"
-
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", urlWithParams, nil)
-				Expect(err).NotTo(HaveOccurred())
+				req.URL.RawQuery = "service_instance_guids=1,2,3"
 			})
 
 			It("passes the list of service instance GUIDs to the repository", func() {
@@ -482,11 +461,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
-				urlWithParams := listServiceBindingsUrl + "?foo=bar"
-
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", urlWithParams, nil)
-				Expect(err).NotTo(HaveOccurred())
+				req.URL.RawQuery = "foo=bar"
 			})
 
 			It("returns an Unknown key error", func() {

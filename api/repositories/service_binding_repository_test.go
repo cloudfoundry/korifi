@@ -272,7 +272,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
 
-			Describe("no query parameters are specified", func() {
+			When("no query parameters are specified", func() {
 				It("returns a list of ServiceBindingRecords in the spaces the user has access to", func() {
 					Eventually(func() []repositories.ServiceBindingRecord {
 						responseServiceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, requestMessage)

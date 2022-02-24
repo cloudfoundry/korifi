@@ -89,21 +89,26 @@ var _ = Describe("ServiceBinding Handler", func() {
 
 			serviceInstanceGUID = generateGUID()
 			_ = createServiceInstance(context.Background(), k8sClient, serviceInstanceGUID, spaceGUID, "service-instance-name", secretName)
-			req, err = http.NewRequestWithContext(ctx, "POST", serverURI("/v3/service_credential_bindings"), strings.NewReader(fmt.Sprintf(`{
-																																		 "relationships": {
-																																		 "app": {
-																																		 "data": {
-																																		 "guid": %q
-																																		 }
-																																		 },
-																																		 "service_instance": {
-																																		 "data": {
-																																		 "guid": %q
-																																		 }
-																																		 }
-																																		 },
-																																		 "type": "app"
-																																		 }`, appGUID, serviceInstanceGUID)))
+			req, err = http.NewRequestWithContext(
+				ctx,
+				"POST",
+				serverURI("/v3/service_credential_bindings"),
+				strings.NewReader(fmt.Sprintf(`{
+					"relationships": {
+						"app": {
+							"data": {
+								"guid": %q
+							}
+						},
+						"service_instance": {
+							"data": {
+								"guid": %q
+							}
+						}
+					},
+					"type": "app"
+				}`, appGUID, serviceInstanceGUID)),
+			)
 			Expect(err).NotTo(HaveOccurred())
 			req.Header.Add("Content-type", "application/json")
 		})
