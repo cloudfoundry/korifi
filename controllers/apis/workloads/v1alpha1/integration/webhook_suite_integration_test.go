@@ -96,12 +96,12 @@ var _ = BeforeSuite(func() {
 	Expect((&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect(workloads.NewCFAppValidation(
-		coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType),
+		workloads.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType)),
 	).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect(workloads.NewSubnamespaceAnchorValidation(
-		coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType),
-		coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType),
+		workloads.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType)),
+		workloads.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType)),
 	).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect((&workloadsv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr)).To(Succeed())

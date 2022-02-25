@@ -12,10 +12,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -27,13 +25,14 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 	)
 
 	var (
-		ctx               context.Context
-		nameRegistry      *fake.NameRegistry
-		realDecoder       *admission.Decoder
-		app               *workloadsv1alpha1.CFApp
-		request           admission.Request
-		validatingWebhook *workloads.CFAppValidation
-		response          admission.Response
+		ctx                context.Context
+		duplicateValidator *fake.NameValidator
+		realDecoder        *admission.Decoder
+		app                *workloadsv1alpha1.CFApp
+		request            admission.Request
+		validatingWebhook  *workloads.CFAppValidation
+		response           admission.Response
+		cfAppJSON          []byte
 	)
 
 	BeforeEach(func() {
@@ -57,22 +56,11 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			},
 		}
 
-		cfAppJSON, err := json.Marshal(app)
+		cfAppJSON, err = json.Marshal(app)
 		Expect(err).NotTo(HaveOccurred())
 
-		request = admission.Request{
-			AdmissionRequest: admissionv1.AdmissionRequest{
-				Name:      testAppGUID,
-				Namespace: testAppNamespace,
-				Operation: admissionv1.Create,
-				Object: runtime.RawExtension{
-					Raw: cfAppJSON,
-				},
-			},
-		}
-
-		nameRegistry = new(fake.NameRegistry)
-		validatingWebhook = workloads.NewCFAppValidation(nameRegistry)
+		duplicateValidator = new(fake.NameValidator)
+		validatingWebhook = workloads.NewCFAppValidation(duplicateValidator)
 
 		Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
 	})
@@ -82,21 +70,34 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			response = validatingWebhook.Handle(ctx, request)
 		})
 
+		BeforeEach(func() {
+			request = admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					Name:      testAppGUID,
+					Namespace: testAppNamespace,
+					Operation: admissionv1.Create,
+					Object: runtime.RawExtension{
+						Raw: cfAppJSON,
+					},
+				},
+			}
+		})
+
 		It("allows the request", func() {
 			Expect(response.Allowed).To(BeTrue())
 		})
 
-		It("uses the name registry to register the name", func() {
-			Expect(nameRegistry.RegisterNameCallCount()).To(Equal(1))
-			actualContext, namespace, name := nameRegistry.RegisterNameArgsForCall(0)
+		It("invokes the validator correctly", func() {
+			Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
+			actualContext, _, namespace, name := duplicateValidator.ValidateCreateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(namespace).To(Equal(testAppNamespace))
 			Expect(name).To(Equal(testAppName))
 		})
 
-		When("the app name is already registered", func() {
+		When("the app name is a duplicate", func() {
 			BeforeEach(func() {
-				nameRegistry.RegisterNameReturns(k8serrors.NewAlreadyExists(schema.GroupResource{}, "jim"))
+				duplicateValidator.ValidateCreateReturns(workloads.ErrorDuplicateName)
 			})
 
 			It("denies the request", func() {
@@ -128,13 +129,13 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("does not attempt to register a name", func() {
-				Expect(nameRegistry.RegisterNameCallCount()).To(Equal(0))
+				Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(0))
 			})
 		})
 
-		When("registering the app name fails", func() {
+		When("validating the app name fails", func() {
 			BeforeEach(func() {
-				nameRegistry.RegisterNameReturns(errors.New("boom"))
+				duplicateValidator.ValidateCreateReturns(errors.New("boom"))
 			})
 
 			It("denies the request", func() {
@@ -188,59 +189,18 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			Expect(response.Allowed).To(BeTrue())
 		})
 
-		It("locks the old name", func() {
-			Expect(nameRegistry.TryLockNameCallCount()).To(Equal(1))
-			_, namespace, name := nameRegistry.TryLockNameArgsForCall(0)
+		It("invokes the validator correctly", func() {
+			Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
+			actualContext, _, namespace, oldName, newName := duplicateValidator.ValidateUpdateArgsForCall(0)
+			Expect(actualContext).To(Equal(ctx))
 			Expect(namespace).To(Equal(app.Namespace))
-			Expect(name).To(Equal(app.Spec.Name))
+			Expect(oldName).To(Equal(app.Spec.Name))
+			Expect(newName).To(Equal(updatedApp.Spec.Name))
 		})
 
-		It("registers the new name", func() {
-			Expect(nameRegistry.RegisterNameCallCount()).To(Equal(1))
-			_, namespace, name := nameRegistry.RegisterNameArgsForCall(0)
-			Expect(namespace).To(Equal(updatedApp.Namespace))
-			Expect(name).To(Equal(updatedApp.Spec.Name))
-		})
-
-		It("deregisters the old name", func() {
-			Expect(nameRegistry.DeregisterNameCallCount()).To(Equal(1))
-			_, namespace, name := nameRegistry.DeregisterNameArgsForCall(0)
-			Expect(namespace).To(Equal(app.Namespace))
-			Expect(name).To(Equal(app.Spec.Name))
-		})
-
-		When("the name isn't changed", func() {
+		When("the new app name is a duplicate", func() {
 			BeforeEach(func() {
-				updatedApp.Spec.DesiredState = workloadsv1alpha1.StartedState
-				updatedApp.Spec.Name = testAppName
-			})
-
-			It("is allowed without using the name registry", func() {
-				Expect(response.Allowed).To(BeTrue())
-				Expect(nameRegistry.TryLockNameCallCount()).To(Equal(0))
-				Expect(nameRegistry.RegisterNameCallCount()).To(Equal(0))
-				Expect(nameRegistry.DeregisterNameCallCount()).To(Equal(0))
-			})
-		})
-
-		When("taking the lock on the old name fails", func() {
-			BeforeEach(func() {
-				nameRegistry.TryLockNameReturns(errors.New("nope"))
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(workloads.UnknownError.Marshal()))
-			})
-
-			It("does not register the new name", func() {
-				Expect(nameRegistry.RegisterNameCallCount()).To(Equal(0))
-			})
-		})
-
-		When("the new name is already used", func() {
-			BeforeEach(func() {
-				nameRegistry.RegisterNameReturns(k8serrors.NewAlreadyExists(schema.GroupResource{}, "foo"))
+				duplicateValidator.ValidateUpdateReturns(workloads.ErrorDuplicateName)
 			})
 
 			It("denies the request", func() {
@@ -249,42 +209,14 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 		})
 
-		When("registering the new name fails", func() {
+		When("the update validation fails for another reason", func() {
 			BeforeEach(func() {
-				nameRegistry.RegisterNameReturns(errors.New("boom"))
+				duplicateValidator.ValidateUpdateReturns(errors.New("boom!"))
 			})
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
 				Expect(string(response.Result.Reason)).To(Equal(workloads.UnknownError.Marshal()))
-			})
-
-			It("releases the lock on the old name", func() {
-				Expect(nameRegistry.UnlockNameCallCount()).To(Equal(1))
-				_, namespace, name := nameRegistry.UnlockNameArgsForCall(0)
-				Expect(namespace).To(Equal(app.Namespace))
-				Expect(name).To(Equal(app.Spec.Name))
-			})
-
-			When("releasing the old name lock fails", func() {
-				BeforeEach(func() {
-					nameRegistry.UnlockNameReturns(errors.New("oops"))
-				})
-
-				It("continues and denies the request", func() {
-					Expect(response.Allowed).To(BeFalse())
-					Expect(string(response.Result.Reason)).To(Equal(workloads.UnknownError.Marshal()))
-				})
-			})
-		})
-
-		When("releasing the old name fails", func() {
-			BeforeEach(func() {
-				nameRegistry.DeregisterNameReturns(errors.New("boom"))
-			})
-
-			It("continues anyway and allows the request", func() {
-				Expect(response.Allowed).To(BeTrue())
 			})
 		})
 	})
@@ -312,26 +244,17 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			Expect(response.Allowed).To(BeTrue())
 		})
 
-		It("deregisters the old name", func() {
-			Expect(nameRegistry.DeregisterNameCallCount()).To(Equal(1))
-			_, namespace, name := nameRegistry.DeregisterNameArgsForCall(0)
+		It("invokes the validator correctly", func() {
+			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
+			actualContext, _, namespace, name := duplicateValidator.ValidateDeleteArgsForCall(0)
+			Expect(actualContext).To(Equal(ctx))
 			Expect(namespace).To(Equal(app.Namespace))
 			Expect(name).To(Equal(app.Spec.Name))
 		})
 
-		When("the old name doesn't exist", func() {
+		When("delete validation fails", func() {
 			BeforeEach(func() {
-				nameRegistry.DeregisterNameReturns(k8serrors.NewNotFound(schema.GroupResource{}, "foo"))
-			})
-
-			It("allows the request", func() {
-				Expect(response.Allowed).To(BeTrue())
-			})
-		})
-
-		When("deregistering fails", func() {
-			BeforeEach(func() {
-				nameRegistry.DeregisterNameReturns(errors.New("boom"))
+				duplicateValidator.ValidateDeleteReturns(errors.New("boom!"))
 			})
 
 			It("disallows the request", func() {

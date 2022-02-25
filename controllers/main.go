@@ -211,15 +211,15 @@ func main() {
 		}
 
 		if err = workloads.NewCFAppValidation(
-			coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType),
+			workloads.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
 			os.Exit(1)
 		}
 
 		if err = workloads.NewSubnamespaceAnchorValidation(
-			coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType),
-			coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType),
+			workloads.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType)),
+			workloads.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "SubnamespaceAnchors")
 			os.Exit(1)
