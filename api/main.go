@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
@@ -82,9 +83,14 @@ func main() {
 	}
 	namespaceRetriever := repositories.NewNamespaceRetriver(dynamicClient)
 
-	var userClientFactory repositories.UserK8sClientFactory = repositories.NewPrivilegedClientFactory(k8sClientConfig)
+	mapper, err := apiutil.NewDynamicRESTMapper(k8sClientConfig)
+	if err != nil {
+		panic(fmt.Sprintf("could not create kubernetes REST mapper: %v", err))
+	}
+
+	var userClientFactory repositories.UserK8sClientFactory = repositories.NewPrivilegedClientFactory(k8sClientConfig, mapper)
 	if config.AuthEnabled {
-		userClientFactory = repositories.NewUnprivilegedClientFactory(k8sClientConfig)
+		userClientFactory = repositories.NewUnprivilegedClientFactory(k8sClientConfig, mapper)
 	}
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
