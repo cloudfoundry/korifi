@@ -239,7 +239,7 @@ var _ = Describe("RouteRepository", func() {
 		})
 	})
 
-	Describe("GetRouteList", func() {
+	Describe("GetRouteList", Serial, func() {
 		When("multiple CFRoutes exist", func() {
 			var (
 				cfRoute1 *networkingv1alpha1.CFRoute
@@ -812,13 +812,13 @@ var _ = Describe("RouteRepository", func() {
 		})
 	})
 
-	FDescribe("AddDestinationsToRoute", func() {
+	Describe("AddDestinationsToRoute", func() {
 		const (
 			testRouteHost = "test-route-host"
 			testRoutePath = "/test/route/path"
 		)
 
-		FWhen("the user is a space manager in this space", func() {
+		When("the user is a space manager in this space", func() {
 			BeforeEach(func() {
 				createRoleBinding(testCtx, userName, spaceManagerRole.Name, testNamespace)
 				cfRoute := initializeRouteCR(testRouteHost, testRoutePath, route1GUID, domainGUID, testNamespace)
@@ -854,7 +854,7 @@ var _ = Describe("RouteRepository", func() {
 					Expect(addDestinationErr).To(BeAssignableToTypeOf(ForbiddenError{}))
 				})
 
-				FIt("fails to update the destination list", func() {
+				It("fails to update the destination list", func() {
 					currentRouteRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(currentRouteRecord).To(Equal(routeRecord))

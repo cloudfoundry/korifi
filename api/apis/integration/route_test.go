@@ -25,9 +25,8 @@ import (
 
 var _ = Describe("Route Handler", func() {
 	var (
-		apiHandler    *RouteHandler
-		namespace     *corev1.Namespace
-		namespaceGUID string
+		apiHandler *RouteHandler
+		namespace  *corev1.Namespace
 	)
 
 	BeforeEach(func() {
@@ -49,11 +48,8 @@ var _ = Describe("Route Handler", func() {
 		)
 		apiHandler.RegisterRoutes(router)
 
-		namespaceGUID = generateGUID()
-		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceGUID}}
-		Expect(
-			k8sClient.Create(ctx, namespace),
-		).To(Succeed())
+		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: generateGUIDWithPrefix("namespace")}}
+		Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -65,6 +61,7 @@ var _ = Describe("Route Handler", func() {
 			var (
 				domainGUID string
 				routeGUID1 string
+				cfDomain   *networkingv1alpha1.CFDomain
 				cfRoute1   *networkingv1alpha1.CFRoute
 				routeGUID2 string
 				cfRoute2   *networkingv1alpha1.CFRoute
@@ -73,22 +70,20 @@ var _ = Describe("Route Handler", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
 
-				domainGUID = generateGUID()
-				routeGUID1 = generateGUID()
-				routeGUID2 = generateGUID()
+				domainGUID = generateGUIDWithPrefix("domain")
+				routeGUID1 = generateGUIDWithPrefix("route1")
+				routeGUID2 = generateGUIDWithPrefix("route2")
 
-				cfDomain := &networkingv1alpha1.CFDomain{
+				cfDomain = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      domainGUID,
-						Namespace: namespaceGUID,
+						Namespace: rootNamespace,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
 						Name: "foo.domain",
 					},
 				}
-				Expect(
-					k8sClient.Create(ctx, cfDomain),
-				).To(Succeed())
+				Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
 
 				cfRoute1 = &networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
@@ -101,7 +96,7 @@ var _ = Describe("Route Handler", func() {
 						Protocol: "http",
 						DomainRef: corev1.ObjectReference{
 							Name:      domainGUID,
-							Namespace: namespace.Name,
+							Namespace: rootNamespace,
 						},
 						Destinations: []networkingv1alpha1.Destination{
 							{
@@ -116,14 +111,7 @@ var _ = Describe("Route Handler", func() {
 						},
 					},
 				}
-				Expect(
-					k8sClient.Create(ctx, cfRoute1),
-				).To(Succeed())
-				DeferCleanup(func() {
-					Expect(
-						k8sClient.Delete(ctx, cfRoute1),
-					).To(Succeed())
-				})
+				Expect(k8sClient.Create(ctx, cfRoute1)).To(Succeed())
 
 				cfRoute2 = &networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
@@ -136,7 +124,7 @@ var _ = Describe("Route Handler", func() {
 						Protocol: "http",
 						DomainRef: corev1.ObjectReference{
 							Name:      domainGUID,
-							Namespace: namespace.Name,
+							Namespace: rootNamespace,
 						},
 						Destinations: []networkingv1alpha1.Destination{
 							{
@@ -151,14 +139,13 @@ var _ = Describe("Route Handler", func() {
 						},
 					},
 				}
-				Expect(
-					k8sClient.Create(ctx, cfRoute2),
-				).To(Succeed())
-				DeferCleanup(func() {
-					Expect(
-						k8sClient.Delete(ctx, cfRoute2),
-					).To(Succeed())
-				})
+				Expect(k8sClient.Create(ctx, cfRoute2)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				Expect(k8sClient.Delete(ctx, cfRoute1)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, cfRoute2)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
 			})
 
 			JustBeforeEach(func() {
@@ -229,27 +216,26 @@ var _ = Describe("Route Handler", func() {
 			var (
 				routeGUID  string
 				domainGUID string
+				cfDomain   *networkingv1alpha1.CFDomain
 				cfRoute    *networkingv1alpha1.CFRoute
 			)
 
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
 
-				routeGUID = generateGUID()
-				domainGUID = generateGUID()
+				routeGUID = generateGUIDWithPrefix("route")
+				domainGUID = generateGUIDWithPrefix("domain")
 
-				cfDomain := &networkingv1alpha1.CFDomain{
+				cfDomain = &networkingv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      domainGUID,
-						Namespace: namespaceGUID,
+						Namespace: rootNamespace,
 					},
 					Spec: networkingv1alpha1.CFDomainSpec{
 						Name: "foo.domain",
 					},
 				}
-				Expect(
-					k8sClient.Create(ctx, cfDomain),
-				).To(Succeed())
+				Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
 
 				cfRoute = &networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
@@ -262,7 +248,7 @@ var _ = Describe("Route Handler", func() {
 						Protocol: "http",
 						DomainRef: corev1.ObjectReference{
 							Name:      domainGUID,
-							Namespace: namespace.Name,
+							Namespace: rootNamespace,
 						},
 						Destinations: []networkingv1alpha1.Destination{
 							{
@@ -277,15 +263,17 @@ var _ = Describe("Route Handler", func() {
 						},
 					},
 				}
-				Expect(
-					k8sClient.Create(ctx, cfRoute),
-				).To(Succeed())
+				Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
 
 				var err error
 				req, err = http.NewRequestWithContext(ctx, "DELETE", serverURI("/v3/routes/"+routeGUID), strings.NewReader(""))
 				Expect(err).NotTo(HaveOccurred())
 
 				req.Header.Add("Content-type", "application/json")
+			})
+
+			AfterEach(func() {
+				Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
 			})
 
 			JustBeforeEach(func() {
@@ -311,13 +299,14 @@ var _ = Describe("Route Handler", func() {
 
 		var (
 			domainGUID string
+			cfDomain   *networkingv1alpha1.CFDomain
 			cfRoute    *networkingv1alpha1.CFRoute
 		)
 
 		BeforeEach(func() {
-			domainGUID = generateGUID()
+			domainGUID = generateGUIDWithPrefix("domain")
 
-			cfDomain := &networkingv1alpha1.CFDomain{
+			cfDomain = &networkingv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      domainGUID,
 					Namespace: rootNamespace,
@@ -326,15 +315,11 @@ var _ = Describe("Route Handler", func() {
 					Name: "foo.domain",
 				},
 			}
-			Expect(
-				k8sClient.Create(ctx, cfDomain),
-			).To(Succeed())
-			// give test user access to the Domain
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, rootNamespace)
+			Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
 
 			cfRoute = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      generateGUID(),
+					Name:      generateGUIDWithPrefix("route"),
 					Namespace: namespace.Name,
 				},
 				Spec: networkingv1alpha1.CFRouteSpec{
@@ -358,9 +343,7 @@ var _ = Describe("Route Handler", func() {
 					},
 				},
 			}
-			Expect(
-				k8sClient.Create(ctx, cfRoute),
-			).To(Succeed())
+			Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
 
 			requestBody := fmt.Sprintf(`{
 						"destinations": [
@@ -377,6 +360,11 @@ var _ = Describe("Route Handler", func() {
 			req, err = http.NewRequestWithContext(ctx, "POST", serverURI("/v3/routes/"+cfRoute.Name+"/destinations"), strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
 			req.Header.Add("Content-type", "application/json")
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.Delete(ctx, cfRoute)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {

@@ -13,12 +13,13 @@ import (
 
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 var _ = Describe("ServiceInstanceRepository", func() {
@@ -36,9 +37,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		testCtx = context.Background()
 		guidToNamespace = repositories.NewGUIDToNamespace(k8sClient)
 		serviceInstanceRepo = repositories.NewServiceInstanceRepo(userClientFactory, nsPerms, guidToNamespace)
-
-		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
-		Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
 
 		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
 		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))

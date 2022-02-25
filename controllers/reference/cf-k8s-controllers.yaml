@@ -2085,6 +2085,38 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: cf-k8s-controllers-root-namespace-user
+rules:
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfdomains
+  verbs:
+  - get
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cf-k8s-controllers-space-auditor
+rules:
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: cf-k8s-controllers-space-developer
 rules:
 - apiGroups:
@@ -2148,12 +2180,6 @@ rules:
   verbs:
   - list
   - create
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfdomains
-  verbs:
-  - get
 - apiGroups:
   - networking.cloudfoundry.org
   resources:

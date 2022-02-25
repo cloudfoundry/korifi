@@ -6,8 +6,6 @@ import (
 	"errors"
 	"io"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	. "github.com/onsi/ginkgo/v2"
@@ -16,6 +14,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 )
 
 var _ = Describe("ImageRepository", func() {
@@ -52,7 +53,6 @@ var _ = Describe("ImageRepository", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		ctx = context.Background()
-		Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 
 		org = createOrgAnchorAndNamespace(ctx, rootNamespace, prefixedGUID("org"))
 		space = createSpaceAnchorAndNamespace(ctx, org.Name, prefixedGUID("space"))

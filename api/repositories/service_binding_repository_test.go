@@ -35,9 +35,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
 		repo = repositories.NewServiceBindingRepo(clientFactory, nsPerms)
 
-		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
-		Expect(k8sClient.Create(testCtx, rootNs)).To(Succeed())
-
 		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
 		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
 		appGUID = prefixedGUID("app")

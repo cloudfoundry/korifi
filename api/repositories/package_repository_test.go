@@ -31,9 +31,6 @@ var _ = Describe("PackageRepository", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		packageRepo = repositories.NewPackageRepo(k8sClient, userClientFactory)
-
-		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
-		Expect(k8sClient.Create(ctx, rootNs)).To(Succeed())
 		org = createOrgAnchorAndNamespace(ctx, rootNamespace, prefixedGUID("org"))
 	})
 

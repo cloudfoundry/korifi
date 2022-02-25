@@ -40,11 +40,6 @@ var _ = Describe("AppRepository", func() {
 
 		appRepo = NewAppRepo(k8sClient, userClientFactory, nsPerms)
 
-		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
-		Expect(
-			k8sClient.Create(testCtx, rootNs),
-		).To(Succeed())
-
 		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
 		space1 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
 		space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))

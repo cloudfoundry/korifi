@@ -45,21 +45,22 @@ func TestRepositories(t *testing.T) {
 }
 
 var (
-	testEnv            *envtest.Environment
-	k8sClient          client.WithWatch
-	userClientFactory  repositories.UserK8sClientFactory
-	k8sConfig          *rest.Config
-	userName           string
-	authInfo           authorization.Info
-	rootNamespace      string
-	idProvider         authorization.IdentityProvider
-	nsPerms            *authorization.NamespacePermissions
-	adminRole          *rbacv1.ClusterRole
-	spaceDeveloperRole *rbacv1.ClusterRole
-	spaceManagerRole   *rbacv1.ClusterRole
-	orgManagerRole     *rbacv1.ClusterRole
-	orgUserRole        *rbacv1.ClusterRole
-	spaceAuditorRole   *rbacv1.ClusterRole
+	testEnv               *envtest.Environment
+	k8sClient             client.WithWatch
+	userClientFactory     repositories.UserK8sClientFactory
+	k8sConfig             *rest.Config
+	userName              string
+	authInfo              authorization.Info
+	rootNamespace         string
+	idProvider            authorization.IdentityProvider
+	nsPerms               *authorization.NamespacePermissions
+	adminRole             *rbacv1.ClusterRole
+	spaceDeveloperRole    *rbacv1.ClusterRole
+	spaceManagerRole      *rbacv1.ClusterRole
+	orgManagerRole        *rbacv1.ClusterRole
+	orgUserRole           *rbacv1.ClusterRole
+	spaceAuditorRole      *rbacv1.ClusterRole
+	rootNamespaceUserRole *rbacv1.ClusterRole
 )
 
 var _ = BeforeSuite(func() {
@@ -105,6 +106,7 @@ var _ = BeforeSuite(func() {
 	spaceDeveloperRole = createClusterRole(ctx, "cf_space_developer")
 	spaceManagerRole = createClusterRole(ctx, "cf_space_manager")
 	spaceAuditorRole = createClusterRole(ctx, "cf_space_auditor")
+	rootNamespaceUserRole = createClusterRole(ctx, "cf_root_namespace_user")
 })
 
 var _ = AfterSuite(func() {
@@ -122,6 +124,13 @@ var _ = BeforeEach(func() {
 	idProvider = authorization.NewCachingIdentityProvider(baseIDProvider, cache.NewExpiring())
 	nsPerms = authorization.NewNamespacePermissions(k8sClient, idProvider, rootNamespace)
 	userClientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
+
+	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
+	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)
+})
+
+var _ = AfterEach(func() {
+	Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 })
 
 func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLabel string) (*hnsv1alpha2.SubnamespaceAnchor, *corev1.Namespace) {

@@ -273,12 +273,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns a not found error", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
-				Expect(resultErr.Errors).To(ConsistOf(cfErr{
-					Detail: "Space not found",
-					Title:  "CF-ResourceNotFound",
-					Code:   10010,
-				}))
+				expectNotFoundError(resp, resultErr, "Space")
 			})
 		})
 	})

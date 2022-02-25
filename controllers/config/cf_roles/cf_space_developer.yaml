@@ -76,13 +76,6 @@ rules:
 - apiGroups:
   - networking.cloudfoundry.org
   resources:
-  - cfdomains
-  verbs:
-  - get
-
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
   - cfroutes
   verbs:
   - get

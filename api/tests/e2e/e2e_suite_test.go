@@ -38,6 +38,11 @@ import (
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
+const (
+	SamplesDomainGUID = "5b5032ab-7fc8-4da5-b853-821fd1879201"
+	SamplesDomain     = "vcap.me"
+)
+
 var (
 	k8sClient           client.WithWatch
 	adminClient         *resty.Client
@@ -82,6 +87,17 @@ type appResource struct {
 type typedResource struct {
 	resource `json:",inline"`
 	Type     string `json:"type,omitempty"`
+}
+
+type routeResource struct {
+	resource `json:",inline"`
+	Host     string `json:"host"`
+}
+type mapRouteResource struct {
+	Destinations []destinationRef `json:"destinations"`
+}
+type destinationRef struct {
+	App resource `json:"app"`
 }
 
 type buildResource struct {
@@ -162,6 +178,27 @@ var _ = BeforeSuite(func() {
 	certUserName = generateGUID("cert-user")
 	certSigningReq, certPEM = obtainClientCert(certUserName)
 	certAuthHeader = "ClientCert " + certPEM
+
+	Expect(
+		k8sClient.Create(context.Background(), &rbacv1.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      generateGUID("root-namespace-user-binding"),
+				Namespace: rootNamespace,
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					APIGroup: "rbac.authorization.k8s.io",
+					Kind:     "User",
+					Name:     certUserName,
+				},
+			},
+			RoleRef: rbacv1.RoleRef{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "ClusterRole",
+				Name:     "cf-k8s-controllers-root-namespace-user",
+			},
+		}),
+	).To(Succeed())
 })
 
 var _ = BeforeEach(func() {
@@ -678,4 +715,36 @@ func waitForAdminRoleBinding(namespace string) error {
 	}
 
 	return nil
+}
+
+func createRoute(host, spaceGUID string) string {
+	var route resource
+	resp, err := adminClient.R().
+		SetBody(routeResource{
+			Host: host,
+			resource: resource{
+				Relationships: relationships{
+					"domain": relationship{Data: resource{GUID: SamplesDomainGUID}},
+					"space":  relationship{Data: resource{GUID: spaceGUID}},
+				},
+			},
+		}).
+		SetResult(&route).
+		Post("/v3/routes")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+
+	return route.GUID
+}
+
+func expectNotFoundError(resp *resty.Response, errResp cfErrs, resource string) {
+	Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
+	Expect(errResp.Errors).To(ConsistOf(
+		cfErr{
+			Detail: resource + " not found. Ensure it exists and you have access to it.",
+			Title:  "CF-ResourceNotFound",
+			Code:   10010,
+		},
+	))
 }

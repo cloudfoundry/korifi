@@ -130,6 +130,8 @@ var _ = Describe("PodRepository", func() {
 				},
 			}
 			metricFetcherFn.Returns(&podMetrics, nil)
+
+			listStatsErr = nil
 		})
 
 		JustBeforeEach(func() {

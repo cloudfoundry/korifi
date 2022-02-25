@@ -183,7 +183,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError()
+				expectNotFoundError("Domain")
 			})
 		})
 
@@ -666,8 +666,8 @@ var _ = Describe("RouteHandler", func() {
 					Expect(actualAuthInfo).To(Equal(authInfo))
 				})
 
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				It("returns status 201 CREATED", func() {
+					Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
 				})
 
 				It("returns Content-Type as JSON in header", func() {
