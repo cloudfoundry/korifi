@@ -23,7 +23,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 	var (
 		repo                *repositories.ServiceBindingRepo
 		testCtx             context.Context
-		clientFactory       repositories.UnprivilegedClientFactory
 		org                 *hnsv1alpha2.SubnamespaceAnchor
 		space               *hnsv1alpha2.SubnamespaceAnchor
 		appGUID             string
@@ -32,8 +31,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
-		repo = repositories.NewServiceBindingRepo(clientFactory, nsPerms)
+		repo = repositories.NewServiceBindingRepo(userClientFactory, nsPerms)
 
 		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
 		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))

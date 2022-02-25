@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -131,7 +132,10 @@ var _ = BeforeEach(func() {
 	baseIDProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
 	idProvider = authorization.NewCachingIdentityProvider(baseIDProvider, cache.NewExpiring())
 	nsPerms = authorization.NewNamespacePermissions(k8sClient, idProvider, rootNamespace)
-	userClientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
+
+	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
+	Expect(err).NotTo(HaveOccurred())
+	userClientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper)
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)

@@ -16,6 +16,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 var _ = Describe("Unprivileged User Client Factory", func() {
@@ -32,7 +33,9 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 		authInfo = authorization.Info{}
 		ctx = context.Background()
 		userName = uuid.NewString()
-		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
+		mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
+		Expect(err).NotTo(HaveOccurred())
+		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper)
 	})
 
 	JustBeforeEach(func() {
@@ -204,8 +207,10 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 				authInfo.Token = "xxx"
 			})
 
-			It("fails", func() {
-				Expect(authorization.IsInvalidAuth(buildClientErr)).To(BeTrue())
+			It("creates an unusable client", func() {
+				Expect(buildClientErr).NotTo(HaveOccurred())
+				usageErr := userClient.List(ctx, &corev1.PodList{})
+				Expect(apierrors.IsUnauthorized(usageErr)).To(BeTrue())
 			})
 		})
 
@@ -224,8 +229,10 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 				authInfo.CertData = thelpers.CreateCertificatePEM()
 			})
 
-			It("fails", func() {
-				Expect(authorization.IsInvalidAuth(buildClientErr)).To(BeTrue())
+			It("creates an unusable client", func() {
+				Expect(buildClientErr).NotTo(HaveOccurred())
+				usageErr := userClient.List(ctx, &corev1.PodList{})
+				Expect(apierrors.IsUnauthorized(usageErr)).To(BeTrue())
 			})
 		})
 	})

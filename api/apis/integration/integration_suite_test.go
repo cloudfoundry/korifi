@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -121,7 +122,9 @@ var _ = AfterSuite(func() {
 var _ = BeforeEach(func() {
 	rootNamespace = generateGUIDWithPrefix("root")
 
-	clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
+	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
+	Expect(err).NotTo(HaveOccurred())
+	clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper)
 	tokenInspector := authorization.NewTokenReviewer(k8sClient)
 	certInspector := authorization.NewCertInspector(k8sConfig)
 	identityProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
@@ -143,7 +146,6 @@ var _ = BeforeEach(func() {
 	port = 1024 + rand.Intn(8975)
 
 	serverAddr := fmt.Sprintf("localhost:%d", port)
-	var err error
 	serverURL, err = url.Parse("http://" + serverAddr)
 	Expect(err).NotTo(HaveOccurred())
 
