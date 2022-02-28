@@ -109,13 +109,12 @@ func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info,
 		if err != nil {
 			return nil, err
 		}
-		if index >= 0 {
-			setPodState(&records[index], p)
-		}
 
-		if records[index].State == "DOWN" {
+		podState := getPodState(p)
+		if podState == "DOWN" {
 			continue
 		}
+		records[index].State = podState
 
 		podMetrics, err := r.metricsFetcher(ctx, p.Namespace, p.Name)
 		if err != nil {
@@ -172,39 +171,45 @@ func (r *PodRepo) listPods(ctx context.Context, authInfo authorization.Info, lis
 	return podList.Items, nil
 }
 
-func setPodState(record *PodStatsRecord, pod corev1.Pod) {
-	record.State = getPodState(pod)
-}
-
-func extractProcessContainer(containers []corev1.Container) *corev1.Container {
+func extractProcessContainer(containers []corev1.Container) (*corev1.Container, error) {
 	for i, c := range containers {
 		if c.Name == workloadsContainerName {
-			return &containers[i]
+			return &containers[i], nil
 		}
 	}
-	return nil
+	return nil, fmt.Errorf("container %q not found", workloadsContainerName)
 }
 
-func extractIndexFromContainer(container corev1.Container) string {
+func extractEnvVarFromContainer(container corev1.Container, envVar string) (string, error) {
 	envs := container.Env
 	for _, e := range envs {
-		if e.Name == cfInstanceIndexKey {
-			return e.Value
+		if e.Name == envVar {
+			return e.Value, nil
 		}
 	}
-	return "-1"
+	return "", fmt.Errorf("%s not set", envVar)
 }
 
 func extractIndex(pod corev1.Pod) (int, error) {
-	container := extractProcessContainer(pod.Spec.Containers)
-	if container == nil {
-		return -1, nil
+	container, err := extractProcessContainer(pod.Spec.Containers)
+	if err != nil {
+		return 0, err
 	}
-	indexString := extractIndexFromContainer(*container)
+
+	indexString, err := extractEnvVarFromContainer(*container, cfInstanceIndexKey)
+	if err != nil {
+		return 0, err
+	}
+
 	index, err := strconv.Atoi(indexString)
 	if err != nil {
-		return -1, err
+		return 0, fmt.Errorf("%s is not a valid index: %w", cfInstanceIndexKey, err)
 	}
+
+	if index < 0 {
+		return 0, fmt.Errorf("%s is not a valid index: instance indexes can't be negative", cfInstanceIndexKey)
+	}
+
 	return index, nil
 }
 

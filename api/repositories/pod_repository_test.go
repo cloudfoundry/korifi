@@ -168,6 +168,52 @@ var _ = Describe("PodRepository", func() {
 				}))
 			})
 
+			When("the 'oci' container is missing in one of the Pods", func() {
+				BeforeEach(func() {
+					podWrong := createPodDef("pod-wrong", spaceGUID, appGUID, processGUID, "0", "1")
+					podWrong.Spec.Containers[0].Name = "not-oci"
+					Expect(k8sClient.Create(ctx, podWrong)).To(Succeed())
+				})
+
+				It("fails", func() {
+					Expect(listStatsErr).To(MatchError("container \"opi\" not found"))
+				})
+			})
+
+			When("the CF_INSTANCE_INDEX env var is missing in one of the Pods", func() {
+				BeforeEach(func() {
+					podWrong := createPodDef("pod-wrong", spaceGUID, appGUID, processGUID, "0", "1")
+					podWrong.Spec.Containers[0].Env[0].Name = "NOT_CF_INSTANCE_INDEX"
+					Expect(k8sClient.Create(ctx, podWrong)).To(Succeed())
+				})
+
+				It("fails", func() {
+					Expect(listStatsErr).To(MatchError("CF_INSTANCE_INDEX not set"))
+				})
+			})
+
+			When("the CF_INSTANCE_INDEX env var is not a valid integer", func() {
+				BeforeEach(func() {
+					podWrong := createPodDef("pod-wrong", spaceGUID, appGUID, processGUID, "xxx", "1")
+					Expect(k8sClient.Create(ctx, podWrong)).To(Succeed())
+				})
+
+				It("fails", func() {
+					Expect(listStatsErr).To(MatchError(HavePrefix("CF_INSTANCE_INDEX is not a valid index:")))
+				})
+			})
+
+			When("the CF_INSTANCE_INDEX env var has a negative value", func() {
+				BeforeEach(func() {
+					podWrong := createPodDef("pod-wrong", spaceGUID, appGUID, processGUID, "-1", "1")
+					Expect(k8sClient.Create(ctx, podWrong)).To(Succeed())
+				})
+
+				It("fails", func() {
+					Expect(listStatsErr).To(MatchError("CF_INSTANCE_INDEX is not a valid index: instance indexes can't be negative"))
+				})
+			})
+
 			When("Some pods are missing", func() {
 				BeforeEach(func() {
 					message.Instances = 3
