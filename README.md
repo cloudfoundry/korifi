@@ -82,6 +82,13 @@ With the load balancer provisioned, you must configure the ingress controller to
 ### Domain Management
 To be able to create workload routes via the CF API in the absence of the domain management endpoints, you must first create the appropriate `CFDomain` resource(s) for your cluster. Each desired domain name should be specified via the `spec.name` property of a distinct resource. The `metadata.name` for the resource can be set to any unique value (the API will use a GUID). See `controllers/config/samples/cfdomain.yaml` for an example.
 
+### Configuring Default Domain
+
+At the time of installation, platform operators can configure a default domain so that app developers can push an application without specifying domain information. 
+Operator can do so by setting the `defaultDomainName` at `api/config/base/apiconfig/cf_k8s_api_config.yaml`. The value should match `spec.name` on the `CFDomian` resource.
+
+Note: Platform operators are responsible for creating the required `CFDomain` resource. See `controllers/config/samples/cfdomain.yaml` for an example.
+
 ---
 ## Install Eirini-Controller
 
