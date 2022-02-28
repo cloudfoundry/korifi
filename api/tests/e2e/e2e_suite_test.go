@@ -19,6 +19,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
@@ -154,6 +155,7 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	Expect(hnsv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	config, err := controllerruntime.GetConfig()
 	Expect(err).NotTo(HaveOccurred())
@@ -708,19 +710,19 @@ func waitForAdminRoleBinding(namespace string) error {
 }
 
 func createDomain(name string) string {
-	var domain resource
-
-	resp, err := adminClient.R().
-		SetBody(resource{
+	domain := networkingv1alpha1.CFDomain{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      uuid.NewString(),
+			Namespace: rootNamespace,
+		},
+		Spec: networkingv1alpha1.CFDomainSpec{
 			Name: name,
-		}).
-		SetResult(&domain).
-		Post("/v3/domains")
-
+		},
+	}
+	err := k8sClient.Create(context.Background(), &domain)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
-	return domain.GUID
+	return domain.Name
 }
 
 func createRoute(host, path string, spaceGUID, domainGUID string) string {
