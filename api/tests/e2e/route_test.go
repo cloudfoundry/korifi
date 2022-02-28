@@ -1,12 +1,16 @@
 package e2e_test
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
+	v1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Routes", func() {
@@ -48,6 +52,29 @@ var _ = Describe("Routes", func() {
 		When("the user is authorized in the space", func() {
 			BeforeEach(func() {
 				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				// Temporarily grant the user the ability to get a domain in the root namespace.
+				// This is a workaround to the issue of not having RBAC rules to allow the admin
+				// user to get domains in the root "cf" namespace.
+				// The commit that adds this should be reverted once we have a mechanism in place
+				// to grant the admin user the required RBAC rules to maintain CFDomains.
+				roleBinding := v1.RoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.NewString(),
+						Namespace: rootNamespace,
+					},
+					RoleRef: v1.RoleRef{
+						Kind: "ClusterRole",
+						Name: "cf-k8s-controllers-space-developer",
+					},
+					Subjects: []v1.Subject{
+						{
+							Kind: rbacv1.UserKind,
+							Name: certUserName,
+						},
+					},
+				}
+				err := k8sClient.Create(context.Background(), &roleBinding)
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("can fetch the route", func() {
