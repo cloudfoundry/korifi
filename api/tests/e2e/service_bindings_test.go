@@ -1,10 +1,10 @@
 package e2e_test
 
 import (
-	certsv1 "k8s.io/api/certificates/v1"
 	"net/http"
 	"time"
 
+	certsv1 "k8s.io/api/certificates/v1"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,7 +12,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
-var _ = FDescribe("Service Bindings", func() {
+var _ = Describe("Service Bindings", func() {
 	Describe("List", Ordered, func() {
 		var (
 			appGUID      string
