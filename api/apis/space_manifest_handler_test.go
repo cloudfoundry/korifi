@@ -316,8 +316,8 @@ var _ = Describe("SpaceManifestHandler", func() {
 				applyManifestAction.Returns(repositories.NotFoundError{})
 			})
 
-			It("respond with not found error", func() {
-				expectNotFoundError("Domain not found")
+			It("respond with unprocessable entity error", func() {
+				expectUnprocessableEntityError("The configured default domain `" + defaultDomainName + "` was not found")
 			})
 		})
 	})

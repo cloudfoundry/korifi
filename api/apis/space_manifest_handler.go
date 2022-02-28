@@ -68,7 +68,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info,
 
 	err := h.applyManifestAction(r.Context(), authInfo, spaceGUID, h.defaultDomainName, manifest)
 	if err != nil {
-		h.handleApplyManifestErr(err, w)
+		h.handleApplyManifestErr(err, w, h.defaultDomainName)
 		return
 	}
 
@@ -76,11 +76,11 @@ func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info,
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (h *SpaceManifestHandler) handleApplyManifestErr(err error, w http.ResponseWriter) {
+func (h *SpaceManifestHandler) handleApplyManifestErr(err error, w http.ResponseWriter, defaultDomainName string) {
 	switch err.(type) {
 	case repositories.NotFoundError:
 		h.logger.Info("Domain not found", "error: ", err.Error())
-		writeNotFoundErrorResponse(w, "Domain")
+		writeUnprocessableEntityError(w, "The configured default domain `"+defaultDomainName+"` was not found")
 	default:
 		h.logger.Error(err, "Error applying manifest")
 		writeUnknownErrorResponse(w)
