@@ -103,6 +103,7 @@ var _ = Describe("PodRepository", func() {
 				ProcessGUID: processGUID,
 				ProcessType: "web",
 				AppRevision: "1",
+				Instances:   2,
 			}
 
 			cpu, err = resource.ParseQuantity("423730n")
@@ -143,34 +144,28 @@ var _ = Describe("PodRepository", func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
 			})
 
-			When("All required pods exists", func() {
-				BeforeEach(func() {
-					message.Instances = 2
-				})
+			It("Fetches all the pods and sets the appropriate state", func() {
+				Expect(listStatsErr).NotTo(HaveOccurred())
 
-				It("Fetches all the pods and sets the appropriate state", func() {
-					Expect(listStatsErr).NotTo(HaveOccurred())
-
-					Expect(records).To(MatchElementsWithIndex(matchElementsWithIndexIDFn, IgnoreExtras, Elements{
-						"0": MatchFields(IgnoreExtras, Fields{
-							"Type":  Equal("web"),
-							"Index": Equal(0),
-							"State": Equal("RUNNING"),
-							"Usage": MatchFields(IgnoreExtras, Fields{
-								"Time": PointTo(Equal(metricstime.UTC().Format(TimestampFormat))),
-								"CPU":  PointTo(Equal(0.042373)),
-								"Mem":  PointTo(Equal(mem.Value())),
-								"Disk": PointTo(Equal(disk.Value())),
-							}),
+				Expect(records).To(MatchElementsWithIndex(matchElementsWithIndexIDFn, IgnoreExtras, Elements{
+					"0": MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal("web"),
+						"Index": Equal(0),
+						"State": Equal("RUNNING"),
+						"Usage": MatchFields(IgnoreExtras, Fields{
+							"Time": PointTo(Equal(metricstime.UTC().Format(TimestampFormat))),
+							"CPU":  PointTo(Equal(0.042373)),
+							"Mem":  PointTo(Equal(mem.Value())),
+							"Disk": PointTo(Equal(disk.Value())),
 						}),
-						"1": MatchFields(IgnoreExtras, Fields{
-							"Type":  Equal("web"),
-							"Index": Equal(1),
-							"State": Equal("DOWN"),
-							"Usage": Equal(Usage{}),
-						}),
-					}))
-				})
+					}),
+					"1": MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal("web"),
+						"Index": Equal(1),
+						"State": Equal("DOWN"),
+						"Usage": Equal(Usage{}),
+					}),
+				}))
 			})
 
 			When("Some pods are missing", func() {
@@ -267,7 +262,6 @@ var _ = Describe("PodRepository", func() {
 
 			When("MetricFetcherFunction return an metrics resource not found error", func() {
 				BeforeEach(func() {
-					message.Instances = 2
 					metricFetcherFn.Returns(nil, errors.New("the server could not find the requested resource"))
 				})
 				It("fetches all the pods and sets the usage stats with empty values", func() {
@@ -283,7 +277,6 @@ var _ = Describe("PodRepository", func() {
 
 			When("MetricsFetcherFunction returns a not found error for the PodMetrics", func() {
 				BeforeEach(func() {
-					message.Instances = 2
 					metricFetcherFn.Returns(nil, errors.New("podmetrics.metrics.k8s.io \\\"Blah\\\" not found"))
 				})
 				It("fetches all the pods and sets the usage stats with empty values", func() {
@@ -299,7 +292,6 @@ var _ = Describe("PodRepository", func() {
 
 			When("MetricFetcherFunction return some other error", func() {
 				BeforeEach(func() {
-					message.Instances = 2
 					metricFetcherFn.Returns(nil, errors.New("boom"))
 				})
 				It("returns the error", func() {
