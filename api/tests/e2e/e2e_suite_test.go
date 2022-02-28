@@ -73,6 +73,13 @@ type relationship struct {
 type resourceList struct {
 	Resources []resource `json:"resources"`
 }
+type resourceListWithInclusion struct {
+	Resources []resource    `json:"resources"`
+	Included  *includedApps `json:",omitempty"`
+}
+type includedApps struct {
+	Apps []resource `json:"apps"`
+}
 
 type appResource struct {
 	resource `json:",inline"`
@@ -565,6 +572,20 @@ func listServiceInstances() resourceList {
 	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
 
 	return serviceInstances
+}
+
+func createServiceBinding(appGUID, instanceGUID string) {
+	resp, err := adminClient.R().
+		SetBody(typedResource{
+			Type: "app",
+			resource: resource{
+				Relationships: relationships{"app": {Data: resource{GUID: appGUID}}, "service_instance": {Data: resource{GUID: instanceGUID}}},
+			},
+		}).
+		Post("/v3/service_credential_bindings")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
 }
 
 func createPackage(appGUID string) string {

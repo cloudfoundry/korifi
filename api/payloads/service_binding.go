@@ -32,8 +32,9 @@ func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage
 
 type ServiceBindingList struct {
 	ServiceInstanceGuids *string `schema:"service_instance_guids"`
+	Include              *string `schema:"include" validate:"oneof=app"`
 }
 
 func (l *ServiceBindingList) SupportedFilterKeys() []string {
-	return []string{"service_instance_guids"}
+	return []string{"service_instance_guids, include"}
 }
