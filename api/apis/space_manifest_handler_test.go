@@ -310,6 +310,16 @@ var _ = Describe("SpaceManifestHandler", func() {
 				Expect(payload.Applications[0].DefaultRoute).To(BeTrue())
 			})
 		})
+
+		When("applying the manifest errors with NotFoundErr", func() {
+			BeforeEach(func() {
+				applyManifestAction.Returns(repositories.NotFoundError{})
+			})
+
+			It("respond with unprocessable entity error", func() {
+				expectUnprocessableEntityError("The configured default domain `" + defaultDomainName + "` was not found")
+			})
+		})
 	})
 
 	Describe("POST /v3/spaces/{spaceGUID}/manifest_diff", func() {

@@ -56,26 +56,35 @@ func (h *SpaceManifestHandler) RegisterRoutes(router *mux.Router) {
 }
 
 func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	spaceGUID := vars["spaceGUID"]
 	var manifest payloads.Manifest
 	rme := h.decoderValidator.DecodeAndValidateYAMLPayload(r, &manifest)
 	if rme != nil {
-		w.Header().Set("Content-Type", "application/json")
 		writeRequestMalformedErrorResponse(w, rme)
 		return
 	}
 
 	err := h.applyManifestAction(r.Context(), authInfo, spaceGUID, h.defaultDomainName, manifest)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		h.logger.Error(err, "error applying the manifest")
-		writeUnknownErrorResponse(w)
+		h.handleApplyManifestErr(err, w, h.defaultDomainName)
 		return
 	}
 
 	w.Header().Set("Location", fmt.Sprintf("%s/v3/jobs/space.apply_manifest-%s", h.serverURL.String(), spaceGUID))
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func (h *SpaceManifestHandler) handleApplyManifestErr(err error, w http.ResponseWriter, defaultDomainName string) {
+	switch err.(type) {
+	case repositories.NotFoundError:
+		h.logger.Info("Domain not found", "error: ", err.Error())
+		writeUnprocessableEntityError(w, "The configured default domain `"+defaultDomainName+"` was not found")
+	default:
+		h.logger.Error(err, "Error applying manifest")
+		writeUnknownErrorResponse(w)
+	}
 }
 
 func (h *SpaceManifestHandler) diffManifestHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
