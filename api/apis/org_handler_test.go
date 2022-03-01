@@ -19,7 +19,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 )
 
 const (
@@ -111,7 +111,7 @@ var _ = Describe("OrgHandler", func() {
 			BeforeEach(func() {
 				var err error = &k8serrors.StatusError{
 					ErrStatus: metav1.Status{
-						Reason: metav1.StatusReason(fmt.Sprintf(`{"code":%d}`, workloads.DuplicateOrgNameError)),
+						Reason: metav1.StatusReason(fmt.Sprintf(`{"code":%d}`, webhooks.DuplicateOrgNameError)),
 					},
 				}
 				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, err)

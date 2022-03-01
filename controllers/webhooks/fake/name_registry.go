@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 )
 
 type NameRegistry struct {
@@ -347,4 +347,4 @@ func (fake *NameRegistry) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ workloads.NameRegistry = new(NameRegistry)
+var _ webhooks.NameRegistry = new(NameRegistry)

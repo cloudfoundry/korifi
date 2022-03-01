@@ -29,6 +29,8 @@ import (
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/imageprocessfetcher"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
@@ -211,15 +213,23 @@ func main() {
 		}
 
 		if err = workloads.NewCFAppValidation(
-			coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType),
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
 			os.Exit(1)
 		}
 
+		if err = networking.NewCFRouteValidation(
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType)),
+			controllerConfig.CFRootNamespace,
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
+			os.Exit(1)
+		}
+
 		if err = workloads.NewSubnamespaceAnchorValidation(
-			coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType),
-			coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType),
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType)),
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "SubnamespaceAnchors")
 			os.Exit(1)

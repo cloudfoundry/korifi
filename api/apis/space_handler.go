@@ -17,7 +17,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 )
 
 const (
@@ -70,7 +70,7 @@ func (h *SpaceHandler) SpaceCreateHandler(info authorization.Info, w http.Respon
 
 	record, err := h.spaceRepo.CreateSpace(ctx, info, space)
 	if err != nil {
-		if workloads.HasErrorCode(err, workloads.DuplicateSpaceNameError) {
+		if webhooks.HasErrorCode(err, webhooks.DuplicateSpaceNameError) {
 			errorDetail := fmt.Sprintf("Space '%s' already exists.", space.Name)
 			h.logger.Info(errorDetail)
 			writeUnprocessableEntityError(w, errorDetail)

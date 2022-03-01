@@ -27,10 +27,13 @@ import (
 	"time"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,9 +44,10 @@ import (
 )
 
 var (
-	cancel    context.CancelFunc
-	testEnv   *envtest.Environment
-	k8sClient client.Client
+	cancel          context.CancelFunc
+	testEnv         *envtest.Environment
+	k8sClient       client.Client
+	cfRootNamespace string
 )
 
 func TestNetworkingMutatingWebhooks(t *testing.T) {
@@ -71,8 +75,8 @@ var _ = BeforeSuite(func() {
 
 	scheme := runtime.NewScheme()
 	Expect(networkingv1alpha1.AddToScheme(scheme)).To(Succeed())
-
 	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
+	Expect(coordinationv1.AddToScheme(scheme)).To(Succeed())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -91,6 +95,12 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect((&networkingv1alpha1.CFRoute{}).SetupWebhookWithManager(mgr)).To(Succeed())
+
+	cfRootNamespace = "default"
+	Expect(networking.NewCFRouteValidation(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType)),
+		cfRootNamespace,
+	).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook
 

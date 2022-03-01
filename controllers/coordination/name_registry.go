@@ -5,7 +5,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -123,4 +123,4 @@ func hashName(entityType, name string) string {
 }
 
 // check we implement the interface
-var _ workloads.NameRegistry = NameRegistry{}
+var _ webhooks.NameRegistry = NameRegistry{}

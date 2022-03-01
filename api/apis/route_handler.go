@@ -237,7 +237,17 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 			h.logger.Error(err, "no auth to create route")
 			writeNotAuthenticatedErrorResponse(w)
 			return
-		default: // TODO: Catch the error from the (unwritten) validating webhook
+		case repositories.DuplicateError:
+			pathDetails := ""
+			if createRouteMessage.Path != "" {
+				pathDetails = fmt.Sprintf(" and path '%s'", createRouteMessage.Path)
+			}
+			errorDetail := fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
+				createRouteMessage.Host, pathDetails, domain.Name)
+			h.logger.Info(errorDetail)
+			writeUnprocessableEntityError(w, errorDetail)
+			return
+		default:
 			h.logger.Error(err, "Failed to create route", "Route Host", payload.Host)
 			writeUnknownErrorResponse(w)
 			return

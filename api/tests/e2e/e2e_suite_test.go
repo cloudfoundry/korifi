@@ -74,12 +74,19 @@ type relationship struct {
 type resourceList struct {
 	Resources []resource `json:"resources"`
 }
+
 type resourceListWithInclusion struct {
 	Resources []resource    `json:"resources"`
 	Included  *includedApps `json:",omitempty"`
 }
+
 type includedApps struct {
 	Apps []resource `json:"apps"`
+}
+
+type bareResource struct {
+	GUID string `json:"guid,omitempty"`
+	Name string `json:"name,omitempty"`
 }
 
 type appResource struct {
@@ -127,8 +134,17 @@ type manifestRouteResource struct {
 
 type routeResource struct {
 	resource `json:",inline"`
-	Host     string
-	Path     string
+	Host     string `json:"host"`
+	Path     string `json:"path"`
+	URL      string `json:"url,omitempty"`
+}
+
+type destinationsResource struct {
+	Destinations []destination `json:"destinations"`
+}
+
+type destination struct {
+	App bareResource `json:"app"`
 }
 
 type cfErrs struct {
@@ -725,6 +741,12 @@ func createDomain(name string) string {
 	return domain.Name
 }
 
+func deleteDomain(guid string) {
+	Expect(k8sClient.Delete(context.Background(), &networkingv1alpha1.CFDomain{
+		ObjectMeta: metav1.ObjectMeta{Namespace: rootNamespace, Name: guid},
+	})).To(Succeed())
+}
+
 func createRoute(host, path string, spaceGUID, domainGUID string) string {
 	var route resource
 
@@ -742,8 +764,8 @@ func createRoute(host, path string, spaceGUID, domainGUID string) string {
 		SetResult(&route).
 		Post("/v3/routes")
 
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return route.GUID
 }
