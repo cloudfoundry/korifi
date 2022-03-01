@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
@@ -333,6 +334,9 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 	cfRoute := message.toCFRoute()
 	err := f.privilegedClient.Create(ctx, &cfRoute)
 	if err != nil {
+		if webhooks.HasErrorCode(err, webhooks.DuplicateRouteError) {
+			return RouteRecord{}, NewDuplicateError(RouteResourceType, err)
+		}
 		return RouteRecord{}, err
 	}
 

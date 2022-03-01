@@ -1,67 +1,83 @@
-package workloads_test
+package networking_test
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads/fake"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking/fake"
 	admissionv1 "k8s.io/api/admission/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-var _ = Describe("CFAppValidatingWebhook", func() {
-	const (
-		testAppGUID      = "test-app-guid"
-		testAppName      = "test-app"
-		testAppNamespace = "default"
-	)
-
+var _ = Describe("Cf Route Validation", func() {
 	var (
 		ctx                context.Context
 		duplicateValidator *fake.NameValidator
 		realDecoder        *admission.Decoder
-		app                *workloadsv1alpha1.CFApp
+		cfRoute            *networkingv1alpha1.CFRoute
 		request            admission.Request
-		validatingWebhook  *workloads.CFAppValidation
+		validatingWebhook  *networking.CFRouteValidation
 		response           admission.Response
-		cfAppJSON          []byte
+		cfRouteJSON        []byte
+
+		testRouteGUID       string
+		testRouteNamespace  string
+		testRouteHost       string
+		testRoutePath       string
+		testDomainGUID      string
+		testDomainNamespace string
+		rootNamespace       string
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 
 		scheme := runtime.NewScheme()
-		err := workloadsv1alpha1.AddToScheme(scheme)
+		err := networkingv1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
 		realDecoder, err = admission.NewDecoder(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
-		app = &workloadsv1alpha1.CFApp{
+		testRouteGUID = "my-guid"
+		testRouteNamespace = "my-ns"
+		testRouteHost = "my-host"
+		testRoutePath = "my-path"
+		testDomainGUID = "domain-guid"
+		testDomainNamespace = "domain-ns"
+		rootNamespace = "root-ns"
+
+		cfRoute = &networkingv1alpha1.CFRoute{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      testAppGUID,
-				Namespace: testAppNamespace,
+				Name:      testRouteGUID,
+				Namespace: testRouteNamespace,
 			},
-			Spec: workloadsv1alpha1.CFAppSpec{
-				Name:         testAppName,
-				DesiredState: workloadsv1alpha1.StoppedState,
+			Spec: networkingv1alpha1.CFRouteSpec{
+				Host:     testRouteHost,
+				Path:     testRoutePath,
+				Protocol: "http",
+				DomainRef: v1.ObjectReference{
+					Name:      testDomainGUID,
+					Namespace: testDomainNamespace,
+				},
 			},
 		}
 
-		cfAppJSON, err = json.Marshal(app)
+		cfRouteJSON, err = json.Marshal(cfRoute)
 		Expect(err).NotTo(HaveOccurred())
 
 		duplicateValidator = new(fake.NameValidator)
-		validatingWebhook = workloads.NewCFAppValidation(duplicateValidator)
+		validatingWebhook = networking.NewCFRouteValidation(duplicateValidator, rootNamespace)
 
 		Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
 	})
@@ -74,11 +90,11 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		BeforeEach(func() {
 			request = admission.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      testAppGUID,
-					Namespace: testAppNamespace,
+					Name:      testRouteGUID,
+					Namespace: testRouteNamespace,
 					Operation: admissionv1.Create,
 					Object: runtime.RawExtension{
-						Raw: cfAppJSON,
+						Raw: cfRouteJSON,
 					},
 				},
 			}
@@ -92,8 +108,8 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
 			actualContext, _, namespace, name := duplicateValidator.ValidateCreateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(testAppNamespace))
-			Expect(name).To(Equal(testAppName))
+			Expect(namespace).To(Equal(rootNamespace))
+			Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
 		})
 
 		When("the app name is a duplicate", func() {
@@ -103,20 +119,20 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.DuplicateAppError.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.DuplicateRouteError.Marshal()))
 			})
 		})
 
 		When("there is an issue decoding the request", func() {
 			BeforeEach(func() {
-				cfAppJSON, err := json.Marshal(app)
+				cfRouteJSON, err := json.Marshal(cfRoute)
 				Expect(err).NotTo(HaveOccurred())
-				badCFAppJSON := []byte("}" + string(cfAppJSON))
+				badCFAppJSON := []byte("}" + string(cfRouteJSON))
 
 				request = admission.Request{
 					AdmissionRequest: admissionv1.AdmissionRequest{
-						Name:      testAppGUID,
-						Namespace: testAppNamespace,
+						Name:      testRouteGUID,
+						Namespace: testRouteNamespace,
 						Operation: admissionv1.Create,
 						Object: runtime.RawExtension{
 							Raw: badCFAppJSON,
@@ -129,7 +145,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 				Expect(response.Allowed).To(BeFalse())
 			})
 
-			It("does not attempt to register a name", func() {
+			It("does not attempt to validate a name", func() {
 				Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(0))
 			})
 		})
@@ -147,38 +163,47 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 	})
 
 	Describe("Update", func() {
-		var updatedApp *workloadsv1alpha1.CFApp
+		var (
+			updatedCFRoute   *networkingv1alpha1.CFRoute
+			newTestRoutePath string
+		)
 
 		BeforeEach(func() {
-			updatedApp = &workloadsv1alpha1.CFApp{
+			newTestRoutePath = "new-path"
+			updatedCFRoute = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      testAppGUID,
-					Namespace: testAppNamespace,
+					Name:      testRouteGUID,
+					Namespace: testRouteNamespace,
 				},
-				Spec: workloadsv1alpha1.CFAppSpec{
-					Name:         "the-new-name",
-					DesiredState: workloadsv1alpha1.StoppedState,
+				Spec: networkingv1alpha1.CFRouteSpec{
+					Host:     testRouteHost,
+					Path:     newTestRoutePath,
+					Protocol: "http",
+					DomainRef: v1.ObjectReference{
+						Name:      testDomainGUID,
+						Namespace: testDomainNamespace,
+					},
 				},
 			}
 		})
 
 		JustBeforeEach(func() {
-			appJSON, err := json.Marshal(app)
+			routeJSON, err := json.Marshal(cfRoute)
 			Expect(err).NotTo(HaveOccurred())
 
-			updatedAppJSON, err := json.Marshal(updatedApp)
+			updatedRouteJSON, err := json.Marshal(updatedCFRoute)
 			Expect(err).NotTo(HaveOccurred())
 
 			request = admission.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      testAppGUID,
-					Namespace: testAppNamespace,
+					Name:      testRouteGUID,
+					Namespace: testRouteNamespace,
 					Operation: admissionv1.Update,
 					Object: runtime.RawExtension{
-						Raw: updatedAppJSON,
+						Raw: updatedRouteJSON,
 					},
 					OldObject: runtime.RawExtension{
-						Raw: appJSON,
+						Raw: routeJSON,
 					},
 				},
 			}
@@ -194,9 +219,9 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
 			actualContext, _, namespace, oldName, newName := duplicateValidator.ValidateUpdateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(app.Namespace))
-			Expect(oldName).To(Equal(app.Spec.Name))
-			Expect(newName).To(Equal(updatedApp.Spec.Name))
+			Expect(namespace).To(Equal(rootNamespace))
+			Expect(oldName).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+			Expect(newName).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + newTestRoutePath))
 		})
 
 		When("the new app name is a duplicate", func() {
@@ -206,7 +231,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.DuplicateAppError.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.DuplicateRouteError.Marshal()))
 			})
 		})
 
@@ -224,16 +249,16 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 	Describe("Delete", func() {
 		JustBeforeEach(func() {
-			appJSON, err := json.Marshal(app)
+			routeJSON, err := json.Marshal(cfRoute)
 			Expect(err).NotTo(HaveOccurred())
 
 			request = admission.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      testAppGUID,
-					Namespace: testAppNamespace,
+					Name:      testRouteGUID,
+					Namespace: testRouteNamespace,
 					Operation: admissionv1.Delete,
 					OldObject: runtime.RawExtension{
-						Raw: appJSON,
+						Raw: routeJSON,
 					},
 				},
 			}
@@ -249,8 +274,8 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
 			actualContext, _, namespace, name := duplicateValidator.ValidateDeleteArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(app.Namespace))
-			Expect(name).To(Equal(app.Spec.Name))
+			Expect(namespace).To(Equal(rootNamespace))
+			Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
 		})
 
 		When("delete validation fails", func() {

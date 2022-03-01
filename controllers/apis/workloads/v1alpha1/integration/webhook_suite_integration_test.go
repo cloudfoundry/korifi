@@ -28,6 +28,7 @@ import (
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -96,12 +97,12 @@ var _ = BeforeSuite(func() {
 	Expect((&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect(workloads.NewCFAppValidation(
-		coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType),
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType)),
 	).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect(workloads.NewSubnamespaceAnchorValidation(
-		coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType),
-		coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType),
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType)),
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType)),
 	).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect((&workloadsv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr)).To(Succeed())

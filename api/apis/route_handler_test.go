@@ -958,6 +958,42 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
+		When("CreateRoute returns an already exists error", func() {
+			BeforeEach(func() {
+				routeRepo.CreateRouteReturns(repositories.RouteRecord{}, repositories.NewDuplicateError(repositories.RouteResourceType, nil))
+			})
+
+			It("returns a duplicate resource error", func() {
+				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
+                    "errors": [
+                        {
+                            "title": "CF-UnprocessableEntity",
+                            "detail": "Route already exists with host 'test-route-host' and path '/test-route-path' for domain 'test-domain-name'.",
+                            "code": 10008
+                        }
+                    ]
+                }`)))
+			})
+
+			When("the route path is not set", func() {
+				BeforeEach(func() {
+					requestBody = initializeCreateRouteRequestBody(testRouteHost, "", testSpaceGUID, testDomainGUID, nil, nil)
+				})
+
+				It("returns a duplicate resource error", func() {
+					Expect(rr).To(HaveHTTPBody(MatchJSON(`{
+                    "errors": [
+                        {
+                            "title": "CF-UnprocessableEntity",
+                            "detail": "Route already exists with host 'test-route-host' for domain 'test-domain-name'.",
+                            "code": 10008
+                        }
+                    ]
+                }`)))
+				})
+			})
+		})
+
 		When("CreateRoute returns an unknown error", func() {
 			BeforeEach(func() {
 				routeRepo.CreateRouteReturns(repositories.RouteRecord{},
