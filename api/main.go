@@ -102,7 +102,7 @@ func main() {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
 
-	metricsFetcherFunction, err := repositories.CreateMetricsFetcher()
+	metricsFetcherFunction, err := repositories.CreateMetricsFetcher(k8sClientConfig)
 	if err != nil {
 		panic(err)
 	}
