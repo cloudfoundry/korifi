@@ -165,13 +165,13 @@ var _ = BeforeSuite(func() {
 
 	serviceAccountName = generateGUID("token-user")
 	serviceAccountToken = obtainServiceAccountToken(serviceAccountName)
-
-	certUserName = generateGUID("cert-user")
-	certSigningReq, certPEM = obtainClientCert(certUserName)
-	certAuthHeader = "ClientCert " + certPEM
 })
 
 var _ = BeforeEach(func() {
+	certUserName = generateGUID("cert-user")
+	certSigningReq, certPEM = obtainClientCert(certUserName)
+	certAuthHeader = "ClientCert " + certPEM
+
 	tokenAuthHeader = fmt.Sprintf("Bearer %s", serviceAccountToken)
 	adminClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert())
 	certClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(certPEM)
