@@ -58,7 +58,7 @@ var _ = Describe("RouteRepository", func() {
 		route1GUID = generateGUID()
 		route2GUID = generateGUID()
 		domainGUID = generateGUID()
-		routeRepo = NewRouteRepo(k8sClient, userClientFactory)
+		routeRepo = NewRouteRepo(k8sClient, namespaceRetriever, userClientFactory)
 
 		Expect(k8sClient.Create(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}})).To(Succeed())
 
@@ -88,6 +88,8 @@ var _ = Describe("RouteRepository", func() {
 		var (
 			cfRoute1 *networkingv1alpha1.CFRoute
 			cfRoute2 *networkingv1alpha1.CFRoute
+			route    RouteRecord
+			getErr   error
 		)
 
 		BeforeEach(func() {
@@ -138,6 +140,10 @@ var _ = Describe("RouteRepository", func() {
 			Expect(k8sClient.Create(testCtx, cfRoute2)).To(Succeed())
 		})
 
+		JustBeforeEach(func() {
+			route, getErr = routeRepo.GetRoute(testCtx, authInfo, route1GUID)
+		})
+
 		AfterEach(func() {
 			Expect(k8sClient.Delete(testCtx, cfRoute1)).To(Succeed())
 			Expect(k8sClient.Delete(testCtx, cfRoute2)).To(Succeed())
@@ -153,88 +159,93 @@ var _ = Describe("RouteRepository", func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, testNamespace)
 			})
 
-			When("multiple CFRoute resources exist", func() {
-				It("fetches the CFRoute CR we're looking for", func() {
-					route, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-					Expect(err).ToNot(HaveOccurred())
+			It("fetches the CFRoute CR we're looking for", func() {
+				Expect(getErr).ToNot(HaveOccurred())
 
-					Expect(route.GUID).To(Equal(cfRoute1.Name))
-					Expect(route.Host).To(Equal(cfRoute1.Spec.Host))
-					Expect(route.SpaceGUID).To(Equal(cfRoute1.Namespace))
-					Expect(route.Path).To(Equal(cfRoute1.Spec.Path))
-					Expect(route.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
+				Expect(route.GUID).To(Equal(cfRoute1.Name))
+				Expect(route.Host).To(Equal(cfRoute1.Spec.Host))
+				Expect(route.SpaceGUID).To(Equal(cfRoute1.Namespace))
+				Expect(route.Path).To(Equal(cfRoute1.Spec.Path))
+				Expect(route.Protocol).To(Equal(string(cfRoute1.Spec.Protocol)))
 
-					By("returning a record with destinations that match the CFRoute CR", func() {
-						Expect(route.Destinations).To(HaveLen(len(cfRoute1.Spec.Destinations)), "Route Record Destinations returned was not the correct length")
-						destinationRecord := route.Destinations[0]
-						Expect(destinationRecord.GUID).To(Equal(cfRoute1.Spec.Destinations[0].GUID))
-						Expect(destinationRecord.AppGUID).To(Equal(cfRoute1.Spec.Destinations[0].AppRef.Name))
-						Expect(destinationRecord.Port).To(Equal(cfRoute1.Spec.Destinations[0].Port))
-						Expect(destinationRecord.ProcessType).To(Equal(cfRoute1.Spec.Destinations[0].ProcessType))
-						Expect(destinationRecord.Protocol).To(Equal(cfRoute1.Spec.Destinations[0].Protocol))
-					})
-
-					By("returning a record where the CreatedAt and UpdatedAt match the CR creation time", func() {
-						validateTimestamp(route.CreatedAt, timeCheckThreshold*time.Second)
-						validateTimestamp(route.UpdatedAt, timeCheckThreshold*time.Second)
-					})
-
-					Expect(route.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
+				By("returning a record with destinations that match the CFRoute CR", func() {
+					Expect(route.Destinations).To(HaveLen(len(cfRoute1.Spec.Destinations)), "Route Record Destinations returned was not the correct length")
+					destinationRecord := route.Destinations[0]
+					Expect(destinationRecord.GUID).To(Equal(cfRoute1.Spec.Destinations[0].GUID))
+					Expect(destinationRecord.AppGUID).To(Equal(cfRoute1.Spec.Destinations[0].AppRef.Name))
+					Expect(destinationRecord.Port).To(Equal(cfRoute1.Spec.Destinations[0].Port))
+					Expect(destinationRecord.ProcessType).To(Equal(cfRoute1.Spec.Destinations[0].ProcessType))
+					Expect(destinationRecord.Protocol).To(Equal(cfRoute1.Spec.Destinations[0].Protocol))
 				})
+
+				By("returning a record where the CreatedAt and UpdatedAt match the CR creation time", func() {
+					validateTimestamp(route.CreatedAt, timeCheckThreshold*time.Second)
+					validateTimestamp(route.UpdatedAt, timeCheckThreshold*time.Second)
+				})
+
+				Expect(route.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
+			})
+		})
+
+		When("the user is not authorized in the space", func() {
+			It("returns a forbidden error", func() {
+				Expect(getErr).To(BeAssignableToTypeOf(ForbiddenError{}))
+			})
+		})
+
+		When("the CFRoute doesn't exist", func() {
+			BeforeEach(func() {
+				route1GUID = "non-existent-route-guid"
 			})
 
-			When("the CFRoute doesn't exist", func() {
-				It("returns an error", func() {
-					_, err := routeRepo.GetRoute(testCtx, authInfo, "non-existent-route-guid")
-					Expect(err).To(MatchError(NewNotFoundError(RouteResourceType, nil)))
-				})
+			It("returns an error", func() {
+				Expect(getErr).To(MatchError(NewNotFoundError(RouteResourceType, nil)))
 			})
+		})
 
-			When("multiple CFRoute resources exist across namespaces with the same name", func() {
-				var (
-					otherNamespaceGUID string
-					otherNamespace     *corev1.Namespace
+		When("multiple CFRoute resources exist across namespaces with the same name", func() {
+			var (
+				otherNamespaceGUID string
+				otherNamespace     *corev1.Namespace
 
-					cfRoute1A *networkingv1alpha1.CFRoute
-				)
+				cfRoute1A *networkingv1alpha1.CFRoute
+			)
 
-				BeforeEach(func() {
-					// Create second namespace aside from default within which to create a duplicate route
-					otherNamespaceGUID = generateGUID()
-					otherNamespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: otherNamespaceGUID}}
-					Expect(k8sClient.Create(testCtx, otherNamespace)).To(Succeed())
+			BeforeEach(func() {
+				// Create second namespace aside from default within which to create a duplicate route
+				otherNamespaceGUID = generateGUID()
+				otherNamespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: otherNamespaceGUID}}
+				Expect(k8sClient.Create(testCtx, otherNamespace)).To(Succeed())
 
-					cfRoute1A = &networkingv1alpha1.CFRoute{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      route1GUID,
+				cfRoute1A = &networkingv1alpha1.CFRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      route1GUID,
+						Namespace: otherNamespaceGUID,
+					},
+					Spec: networkingv1alpha1.CFRouteSpec{
+						Host:     "my-subdomain-1",
+						Path:     "",
+						Protocol: "http",
+						DomainRef: corev1.ObjectReference{
+							Name:      domainGUID,
 							Namespace: otherNamespaceGUID,
 						},
-						Spec: networkingv1alpha1.CFRouteSpec{
-							Host:     "my-subdomain-1",
-							Path:     "",
-							Protocol: "http",
-							DomainRef: corev1.ObjectReference{
-								Name:      domainGUID,
-								Namespace: otherNamespaceGUID,
-							},
-						},
-					}
-					Expect(k8sClient.Create(testCtx, cfRoute1A)).To(Succeed())
-				})
+					},
+				}
+				Expect(k8sClient.Create(testCtx, cfRoute1A)).To(Succeed())
+			})
 
-				AfterEach(func() {
-					Expect(k8sClient.Delete(testCtx, cfRoute1A)).To(Succeed())
-					Expect(k8sClient.Delete(testCtx, otherNamespace)).To(Succeed())
-				})
+			AfterEach(func() {
+				Expect(k8sClient.Delete(testCtx, cfRoute1A)).To(Succeed())
+				Expect(k8sClient.Delete(testCtx, otherNamespace)).To(Succeed())
+			})
 
-				It("returns an error", func() {
-					// Looks like we can continue doing state-based setup for the time being
-					// Assumption: when unit testing, we can ignore webhooks that might turn the uniqueness constraint into a race condition
-					// If assumption is invalidated, we can implement the setup by mocking a fake client to return the non-unique ids
+			It("returns an error", func() {
+				// Looks like we can continue doing state-based setup for the time being
+				// Assumption: when unit testing, we can ignore webhooks that might turn the uniqueness constraint into a race condition
+				// If assumption is invalidated, we can implement the setup by mocking a fake client to return the non-unique ids
 
-					_, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-					Expect(err).To(MatchError("duplicate route GUID exists"))
-				})
+				Expect(getErr).To(MatchError(ContainSubstring("get-route duplicate records exist")))
 			})
 		})
 	})
@@ -903,11 +914,8 @@ var _ = Describe("RouteRepository", func() {
 							},
 						}
 
-						routeRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-						Expect(err).NotTo(HaveOccurred())
-
 						// initialize a DestinationListMessage
-						destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, destinationMessages)
+						destinationListCreateMessage := initializeDestinationListMessage(route1GUID, testNamespace, []DestinationRecord{}, destinationMessages)
 						patchedRouteRecord, addDestinationErr = routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
 						Expect(addDestinationErr).NotTo(HaveOccurred())
 					})
@@ -985,11 +993,8 @@ var _ = Describe("RouteRepository", func() {
 							},
 						}
 
-						routeRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-						Expect(err).NotTo(HaveOccurred())
-
 						// initialize a DestinationListMessage
-						destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, destinationMessages)
+						destinationListCreateMessage := initializeDestinationListMessage(route1GUID, testNamespace, []DestinationRecord{}, destinationMessages)
 						_, addDestinationErr := routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
 						Expect(addDestinationErr.Error()).To(ContainSubstring("Unsupported value: \"bad-protocol\": supported values: \"http1\""))
 					})
@@ -1060,10 +1065,15 @@ var _ = Describe("RouteRepository", func() {
 							},
 						}
 
-						routeRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-						Expect(err).NotTo(HaveOccurred())
-
-						destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, destinationMessages)
+						destinationListCreateMessage := initializeDestinationListMessage(route1GUID, testNamespace, []DestinationRecord{
+							{
+								GUID:        routeDestination.GUID,
+								AppGUID:     routeDestination.AppRef.Name,
+								ProcessType: routeDestination.ProcessType,
+								Port:        routeDestination.Port,
+								Protocol:    routeDestination.Protocol,
+							},
+						}, destinationMessages)
 						patchedRouteRecord, addDestinationErr = routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
 						Expect(addDestinationErr).NotTo(HaveOccurred())
 					})
@@ -1173,10 +1183,16 @@ var _ = Describe("RouteRepository", func() {
 							},
 						}
 
-						routeRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-						Expect(err).NotTo(HaveOccurred())
-
-						destinationListCreateMessage := initializeDestinationListMessage(routeRecord.GUID, routeRecord.SpaceGUID, routeRecord.Destinations, addDestinationMessages)
+						destinationListCreateMessage := initializeDestinationListMessage(route1GUID, testNamespace, []DestinationRecord{
+							{
+								GUID:        routeDestination.GUID,
+								AppGUID:     routeDestination.AppRef.Name,
+								ProcessType: routeDestination.ProcessType,
+								Port:        routeDestination.Port,
+								Protocol:    routeDestination.Protocol,
+							},
+						}, addDestinationMessages)
+						var err error
 						patchedRouteRecord, err = routeRepo.AddDestinationsToRoute(testCtx, authInfo, destinationListCreateMessage)
 						Expect(err).NotTo(HaveOccurred())
 					})

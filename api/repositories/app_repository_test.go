@@ -38,7 +38,7 @@ var _ = Describe("AppRepository", func() {
 	BeforeEach(func() {
 		testCtx = context.Background()
 
-		appRepo = NewAppRepo(k8sClient, userClientFactory, nsPerms)
+		appRepo = NewAppRepo(k8sClient, namespaceRetriever, userClientFactory, nsPerms)
 
 		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
 		space1 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
@@ -109,7 +109,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("returns an error", func() {
 				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(MatchError("get-app duplicate apps exist"))
+				Expect(getErr).To(MatchError("get-app duplicate records exist"))
 			})
 		})
 
@@ -1021,7 +1021,7 @@ var _ = Describe("AppRepository", func() {
 					k8sClient.Create(context.Background(), secret),
 				).To(Succeed())
 
-				appRepo = NewAppRepo(k8sClient, userClientFactory, nsPerms)
+				appRepo = NewAppRepo(k8sClient, namespaceRetriever, userClientFactory, nsPerms)
 			})
 
 			AfterEach(func() {

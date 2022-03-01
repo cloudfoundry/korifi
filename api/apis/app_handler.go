@@ -11,7 +11,7 @@ import (
 
 	"github.com/gorilla/schema"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
@@ -147,7 +147,7 @@ func (h *AppHandler) appCreateHandler(authInfo authorization.Info, w http.Respon
 
 	appRecord, err := h.appRepo.CreateApp(ctx, authInfo, payload.ToAppCreateMessage())
 	if err != nil {
-		if workloads.HasErrorCode(err, workloads.DuplicateAppError) {
+		if webhooks.HasErrorCode(err, webhooks.DuplicateAppError) {
 			errorDetail := fmt.Sprintf("App with the name '%s' already exists.", payload.Name)
 			h.logger.Error(err, errorDetail, "App Name", payload.Name)
 			writeUniquenessError(w, errorDetail)

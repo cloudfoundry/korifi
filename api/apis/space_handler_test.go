@@ -16,7 +16,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 )
 
 var _ = Describe("Spaces", func() {
@@ -223,7 +223,7 @@ var _ = Describe("Spaces", func() {
 			BeforeEach(func() {
 				var err error = &k8serrors.StatusError{
 					ErrStatus: metav1.Status{
-						Reason: metav1.StatusReason(fmt.Sprintf(`{"code":%d}`, workloads.DuplicateSpaceNameError)),
+						Reason: metav1.StatusReason(fmt.Sprintf(`{"code":%d}`, webhooks.DuplicateSpaceNameError)),
 					},
 				}
 				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, err)

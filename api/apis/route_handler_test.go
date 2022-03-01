@@ -187,52 +187,22 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
+		When("the route is not accessible", func() {
+			BeforeEach(func() {
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NewForbiddenError(repositories.RouteResourceType, nil))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Route not found")
+			})
+		})
+
 		When("there is some other error fetching the route", func() {
 			BeforeEach(func() {
 				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.InvalidAuthError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-	                "errors": [
-						{
-							"detail": "Invalid Auth Token",
-							"title": "CF-InvalidAuthToken",
-							"code": 1000
-						}
-	                ]
-	            }`))
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.NotAuthenticatedError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
-		When("providing the route repository fails", func() {
-			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("space-repo-provisioning-failed"))
-			})
-
-			It("returns unknown error", func() {
 				expectUnknownError()
 			})
 		})
@@ -666,7 +636,7 @@ var _ = Describe("RouteHandler", func() {
 					Expect(actualAuthInfo).To(Equal(authInfo))
 				})
 
-				It("returns status 201 CREATED", func() {
+				It("returns status 201 Created", func() {
 					Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
 				})
 
@@ -985,6 +955,42 @@ var _ = Describe("RouteHandler", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+
+		When("CreateRoute returns an already exists error", func() {
+			BeforeEach(func() {
+				routeRepo.CreateRouteReturns(repositories.RouteRecord{}, repositories.NewDuplicateError(repositories.RouteResourceType, nil))
+			})
+
+			It("returns a duplicate resource error", func() {
+				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
+                    "errors": [
+                        {
+                            "title": "CF-UnprocessableEntity",
+                            "detail": "Route already exists with host 'test-route-host' and path '/test-route-path' for domain 'test-domain-name'.",
+                            "code": 10008
+                        }
+                    ]
+                }`)))
+			})
+
+			When("the route path is not set", func() {
+				BeforeEach(func() {
+					requestBody = initializeCreateRouteRequestBody(testRouteHost, "", testSpaceGUID, testDomainGUID, nil, nil)
+				})
+
+				It("returns a duplicate resource error", func() {
+					Expect(rr).To(HaveHTTPBody(MatchJSON(`{
+                    "errors": [
+                        {
+                            "title": "CF-UnprocessableEntity",
+                            "detail": "Route already exists with host 'test-route-host' for domain 'test-domain-name'.",
+                            "code": 10008
+                        }
+                    ]
+                }`)))
+				})
 			})
 		})
 

@@ -8,14 +8,13 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
-	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -310,12 +309,12 @@ func CreateMetricsFetcher() (MetricsFetcherFn, error) {
 		return nil, err
 	}
 
-	return func(ctx context.Context, namespace, name string) (*v1beta1.PodMetrics, error) {
+	return func(ctx context.Context, namespace, name string) (*metricsv1beta1.PodMetrics, error) {
 		return c.MetricsV1beta1().PodMetricses(namespace).Get(ctx, name, v1.GetOptions{})
 	}, nil
 }
 
-func aggregateContainerMetrics(containers []v1beta1.ContainerMetrics) map[string]resource.Quantity {
+func aggregateContainerMetrics(containers []metricsv1beta1.ContainerMetrics) map[string]resource.Quantity {
 	metrics := map[string]resource.Quantity{}
 
 	for _, container := range containers {

@@ -39,17 +39,20 @@ const (
 
 type AppRepo struct {
 	privilegedClient     client.Client
+	namespaceRetriever   NamespaceRetriever
 	userClientFactory    UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 }
 
 func NewAppRepo(
 	privilegedClient client.Client,
+	namespaceRetriever NamespaceRetriever,
 	userClientFactory UserK8sClientFactory,
 	authPerms *authorization.NamespacePermissions,
 ) *AppRepo {
 	return &AppRepo{
 		privilegedClient:     privilegedClient,
+		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: authPerms,
 	}
@@ -156,28 +159,18 @@ func (a byName) Swap(i, j int) {
 }
 
 func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGUID string) (AppRecord, error) {
-	// TODO: Could look up namespace from guid => namespace cache to do Get
-	appList := &workloadsv1alpha1.CFAppList{}
-	err := f.privilegedClient.List(ctx, appList, client.MatchingFields{"metadata.name": appGUID})
-	if err != nil { // untested
-		return AppRecord{}, fmt.Errorf("get-app privileged list failed: %w", err)
+	ns, err := f.namespaceRetriever.NamespaceFor(ctx, appGUID, AppResourceType)
+	if err != nil {
+		return AppRecord{}, err
 	}
-
-	if len(appList.Items) == 0 {
-		return AppRecord{}, NewNotFoundError(AppResourceType, nil)
-	}
-	if len(appList.Items) > 1 {
-		return AppRecord{}, errors.New("get-app duplicate apps exist")
-	}
-
-	app := cfAppToAppRecord(appList.Items[0])
 
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return AppRecord{}, fmt.Errorf("get-app failed to build user client: %w", err)
 	}
 
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: app.SpaceGUID, Name: app.GUID}, &workloadsv1alpha1.CFApp{})
+	app := workloadsv1alpha1.CFApp{}
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: appGUID}, &app)
 	if k8serrors.IsForbidden(err) {
 		return AppRecord{}, NewForbiddenError(AppResourceType, err)
 	}
@@ -186,7 +179,7 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 		return AppRecord{}, fmt.Errorf("get-app user client get failed: %w", err)
 	}
 
-	return app, nil
+	return cfAppToAppRecord(app), nil
 }
 
 func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorization.Info, appName string, spaceGUID string) (AppRecord, error) {

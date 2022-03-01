@@ -1,4 +1,4 @@
-package workloads
+package webhooks
 
 import (
 	"encoding/json"
@@ -19,6 +19,7 @@ const (
 	DuplicateAppError
 	DuplicateOrgNameError
 	DuplicateSpaceNameError
+	DuplicateRouteError
 )
 
 func (w ValidationErrorCode) Marshal() string {
@@ -49,6 +50,8 @@ func (w ValidationErrorCode) GetMessage() string {
 		return "Org with same name exists"
 	case DuplicateSpaceNameError:
 		return "Space with same name exists"
+	case DuplicateRouteError:
+		return "Route with same FQDN and path exists"
 	default:
 		return "An unknown error has occured"
 	}

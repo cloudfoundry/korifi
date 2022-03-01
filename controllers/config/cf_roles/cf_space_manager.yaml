@@ -40,3 +40,10 @@ rules:
   verbs:
   - list
   - get
+
+- apiGroups:
+    - services.cloudfoundry.org
+  resources:
+    - cfservicebindings
+  verbs:
+    - list

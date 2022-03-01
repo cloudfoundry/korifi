@@ -19,6 +19,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
@@ -79,6 +80,20 @@ type resourceList struct {
 	Resources []resource `json:"resources"`
 }
 
+type resourceListWithInclusion struct {
+	Resources []resource    `json:"resources"`
+	Included  *includedApps `json:",omitempty"`
+}
+
+type includedApps struct {
+	Apps []resource `json:"apps"`
+}
+
+type bareResource struct {
+	GUID string `json:"guid,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
 type appResource struct {
 	resource `json:",inline"`
 	State    string `json:"state,omitempty"`
@@ -89,10 +104,6 @@ type typedResource struct {
 	Type     string `json:"type,omitempty"`
 }
 
-type routeResource struct {
-	resource `json:",inline"`
-	Host     string `json:"host"`
-}
 type mapRouteResource struct {
 	Destinations []destinationRef `json:"destinations"`
 }
@@ -133,6 +144,21 @@ type manifestRouteResource struct {
 	Route *string `yaml:"route"`
 }
 
+type routeResource struct {
+	resource `json:",inline"`
+	Host     string `json:"host"`
+	Path     string `json:"path"`
+	URL      string `json:"url,omitempty"`
+}
+
+type destinationsResource struct {
+	Destinations []destination `json:"destinations"`
+}
+
+type destination struct {
+	App bareResource `json:"app"`
+}
+
 type cfErrs struct {
 	Errors []cfErr
 }
@@ -157,6 +183,7 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	Expect(hnsv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	config, err := controllerruntime.GetConfig()
 	Expect(err).NotTo(HaveOccurred())
@@ -604,6 +631,20 @@ func listServiceInstances() resourceList {
 	return serviceInstances
 }
 
+func createServiceBinding(appGUID, instanceGUID string) {
+	resp, err := adminClient.R().
+		SetBody(typedResource{
+			Type: "app",
+			resource: resource{
+				Relationships: relationships{"app": {Data: resource{GUID: appGUID}}, "service_instance": {Data: resource{GUID: instanceGUID}}},
+			},
+		}).
+		Post("/v3/service_credential_bindings")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+}
+
 func createPackage(appGUID string) string {
 	var pkg resource
 	resp, err := adminClient.R().
@@ -717,23 +758,47 @@ func waitForAdminRoleBinding(namespace string) error {
 	return nil
 }
 
-func createRoute(host, spaceGUID string) string {
+func createDomain(name string) string {
+	domain := networkingv1alpha1.CFDomain{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      uuid.NewString(),
+			Namespace: rootNamespace,
+		},
+		Spec: networkingv1alpha1.CFDomainSpec{
+			Name: name,
+		},
+	}
+	err := k8sClient.Create(context.Background(), &domain)
+	Expect(err).NotTo(HaveOccurred())
+
+	return domain.Name
+}
+
+func deleteDomain(guid string) {
+	Expect(k8sClient.Delete(context.Background(), &networkingv1alpha1.CFDomain{
+		ObjectMeta: metav1.ObjectMeta{Namespace: rootNamespace, Name: guid},
+	})).To(Succeed())
+}
+
+func createRoute(host, path string, spaceGUID, domainGUID string) string {
 	var route resource
+
 	resp, err := adminClient.R().
 		SetBody(routeResource{
 			Host: host,
+			Path: path,
 			resource: resource{
 				Relationships: relationships{
-					"domain": relationship{Data: resource{GUID: SamplesDomainGUID}},
-					"space":  relationship{Data: resource{GUID: spaceGUID}},
+					"domain": {Data: resource{GUID: domainGUID}},
+					"space":  {Data: resource{GUID: spaceGUID}},
 				},
 			},
 		}).
 		SetResult(&route).
 		Post("/v3/routes")
 
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return route.GUID
 }

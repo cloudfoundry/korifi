@@ -27,7 +27,7 @@ var _ = Describe("ProcessRepo", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		processRepo = repositories.NewProcessRepo(k8sClient, userClientFactory)
+		processRepo = repositories.NewProcessRepo(k8sClient, namespaceRetriever, userClientFactory)
 
 		namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: prefixedGUID("namespace1")}}
 		Expect(k8sClient.Create(ctx, namespace1)).To(Succeed())
@@ -96,7 +96,7 @@ var _ = Describe("ProcessRepo", func() {
 
 			It("returns an untyped error", func() {
 				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(MatchError(ContainSubstring("get-process: privileged client list failed")))
+				Expect(getErr).To(MatchError(ContainSubstring("failed to list Process")))
 			})
 		})
 
@@ -118,7 +118,7 @@ var _ = Describe("ProcessRepo", func() {
 
 				It("returns an untyped error", func() {
 					Expect(getErr).To(HaveOccurred())
-					Expect(getErr).To(MatchError("duplicate processes exist"))
+					Expect(getErr).To(MatchError("get-process duplicate records exist"))
 				})
 			})
 

@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -25,25 +25,16 @@ const (
 
 var subnsLogger = logf.Log.WithName("subns-validate")
 
-//counterfeiter:generate -o fake -fake-name NameRegistry . NameRegistry
-
-type NameRegistry interface {
-	RegisterName(ctx context.Context, namespace, name string) error
-	DeregisterName(ctx context.Context, namespace, name string) error
-	TryLockName(ctx context.Context, namespace, name string) error
-	UnlockName(ctx context.Context, namespace, name string) error
-}
-
 type SubnamespaceAnchorValidation struct {
-	orgNameRegistry   NameRegistry
-	spaceNameRegistry NameRegistry
-	decoder           *admission.Decoder
+	duplicateOrgValidator   NameValidator
+	duplicateSpaceValidator NameValidator
+	decoder                 *admission.Decoder
 }
 
-func NewSubnamespaceAnchorValidation(orgNameRegistry, spaceNameRegistry NameRegistry) *SubnamespaceAnchorValidation {
+func NewSubnamespaceAnchorValidation(duplicateOrgValidator, duplicateSpaceValidator NameValidator) *SubnamespaceAnchorValidation {
 	return &SubnamespaceAnchorValidation{
-		orgNameRegistry:   orgNameRegistry,
-		spaceNameRegistry: spaceNameRegistry,
+		duplicateOrgValidator:   duplicateOrgValidator,
+		duplicateSpaceValidator: duplicateSpaceValidator,
 	}
 }
 
@@ -60,7 +51,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
 		if err := v.decoder.Decode(req, anchor); err != nil {
 			subnsLogger.Error(err, "failed to decode subnamespace anchor", "request", req)
-			return admission.Denied(UnknownError.Marshal())
+			return admission.Denied(webhooks.UnknownError.Marshal())
 		}
 
 		if valid, response := v.validateLabels(anchor); !valid {
@@ -70,7 +61,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 		var err error
 		handler, err = v.newHandler(anchor)
 		if err != nil {
-			return admission.Denied(UnknownError.Marshal())
+			return admission.Denied(webhooks.UnknownError.Marshal())
 		}
 
 	}
@@ -79,7 +70,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
 		if err := v.decoder.DecodeRaw(req.OldObject, oldAnchor); err != nil {
 			subnsLogger.Error(err, "failed to decode old subnamespace anchor", "request", req)
-			return admission.Denied(UnknownError.Marshal())
+			return admission.Denied(webhooks.UnknownError.Marshal())
 		}
 
 		if valid, _ := v.validateLabels(oldAnchor); !valid {
@@ -99,9 +90,6 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 		return handler.handleCreate(ctx, anchor)
 
 	case admissionv1.Update:
-		if handler.nameHasNotChanged(oldAnchor, anchor) {
-			return admission.Allowed("")
-		}
 		return handler.handleUpdate(ctx, oldAnchor, anchor)
 
 	case admissionv1.Delete:
@@ -109,7 +97,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 	}
 
 	subnsLogger.Info("unexpected operation", "operation", req.Operation)
-	return admission.Denied(UnknownError.Marshal())
+	return admission.Denied(webhooks.UnknownError.Marshal())
 }
 
 func (v *SubnamespaceAnchorValidation) validateLabels(anchor *v1alpha2.SubnamespaceAnchor) (bool, admission.Response) {
@@ -119,7 +107,7 @@ func (v *SubnamespaceAnchorValidation) validateLabels(anchor *v1alpha2.Subnamesp
 
 	if anchor.Labels[OrgNameLabel] != "" && anchor.Labels[SpaceNameLabel] != "" {
 		subnsLogger.Info("cannot have both org and space labels set", "anchor", anchor)
-		return false, admission.Denied(UnknownError.Marshal())
+		return false, admission.Denied(webhooks.UnknownError.Marshal())
 	}
 
 	return true, admission.Response{}
@@ -129,20 +117,20 @@ func (v *SubnamespaceAnchorValidation) validateLabels(anchor *v1alpha2.Subnamesp
 func (v *SubnamespaceAnchorValidation) newHandler(anchor *v1alpha2.SubnamespaceAnchor) (subnamespaceAnchorHandler, error) {
 	switch {
 	case anchor.Labels[OrgNameLabel] != "" && anchor.Labels[SpaceNameLabel] == "":
-		return subnamespaceAnchorHandler{
-			nameRegistry:   v.orgNameRegistry,
-			nameLabel:      OrgNameLabel,
-			duplicateError: DuplicateOrgNameError,
-			logger:         subnsLogger.WithValues("entityType", OrgEntityType),
-		}, nil
+		return NewSubnamespaceAnchorHandler(
+			subnsLogger.WithValues("entityType", OrgEntityType),
+			v.duplicateOrgValidator,
+			OrgNameLabel,
+			webhooks.DuplicateOrgNameError,
+		), nil
 
 	case anchor.Labels[SpaceNameLabel] != "" && anchor.Labels[OrgNameLabel] == "":
-		return subnamespaceAnchorHandler{
-			nameRegistry:   v.spaceNameRegistry,
-			nameLabel:      SpaceNameLabel,
-			duplicateError: DuplicateSpaceNameError,
-			logger:         subnsLogger.WithValues("entityType", SpaceEntityType),
-		}, nil
+		return NewSubnamespaceAnchorHandler(
+			subnsLogger.WithValues("entityType", SpaceEntityType),
+			v.duplicateSpaceValidator,
+			SpaceNameLabel,
+			webhooks.DuplicateSpaceNameError,
+		), nil
 
 	default:
 		err := errors.New("expected exactly 1 of org label and space label to be set")
@@ -152,107 +140,56 @@ func (v *SubnamespaceAnchorValidation) newHandler(anchor *v1alpha2.SubnamespaceA
 }
 
 type subnamespaceAnchorHandler struct {
-	nameRegistry   NameRegistry
-	nameLabel      string
-	duplicateError ValidationErrorCode
-	logger         logr.Logger
+	duplicateValidator NameValidator
+	nameLabel          string
+	duplicateError     webhooks.ValidationErrorCode
+	logger             logr.Logger
+}
+
+func NewSubnamespaceAnchorHandler(
+	logger logr.Logger,
+	duplicateValidator NameValidator,
+	nameLabel string,
+	duplicateError webhooks.ValidationErrorCode,
+) subnamespaceAnchorHandler {
+	return subnamespaceAnchorHandler{
+		duplicateValidator: duplicateValidator,
+		nameLabel:          nameLabel,
+		duplicateError:     duplicateError,
+		logger:             logger,
+	}
 }
 
 func (h subnamespaceAnchorHandler) handleCreate(ctx context.Context, anchor *v1alpha2.SubnamespaceAnchor) admission.Response {
-	err := h.nameRegistry.RegisterName(ctx, anchor.Namespace, h.getName(anchor))
-	if k8serrors.IsAlreadyExists(err) {
-		h.logger.Info(h.duplicateError.GetMessage(),
-			"name", h.getName(anchor),
-			"namespace", anchor.Namespace,
-		)
-		return admission.Denied(h.duplicateError.Marshal())
-	}
-	if err != nil {
-		h.logger.Info("failed to register name during create",
-			"error", err,
-			"name", h.getName(anchor),
-			"namespace", anchor.Namespace,
-		)
-		return admission.Denied(UnknownError.Marshal())
+	if err := h.duplicateValidator.ValidateCreate(ctx, h.logger, anchor.Namespace, h.getName(anchor)); err != nil {
+		if errors.Is(err, webhooks.ErrorDuplicateName) {
+			return admission.Denied(h.duplicateError.Marshal())
+		}
+
+		return admission.Denied(webhooks.UnknownError.Marshal())
 	}
 
 	return admission.Allowed("")
 }
 
 func (h subnamespaceAnchorHandler) handleUpdate(ctx context.Context, oldAnchor, newAnchor *v1alpha2.SubnamespaceAnchor) admission.Response {
-	err := h.nameRegistry.TryLockName(ctx, oldAnchor.Namespace, h.getName(oldAnchor))
-	if err != nil {
-		h.logger.Info("failed to acquire lock on old name during update",
-			"error", err,
-			"name", h.getName(oldAnchor),
-			"namespace", oldAnchor.Namespace,
-		)
-		return admission.Denied(UnknownError.Marshal())
-	}
-
-	err = h.nameRegistry.RegisterName(ctx, newAnchor.Namespace, h.getName(newAnchor))
-	if err != nil {
-		// cannot register new name, so unlock old registry entry allowing future renames
-		unlockErr := h.nameRegistry.UnlockName(ctx, oldAnchor.Namespace, h.getName(oldAnchor))
-		if unlockErr != nil {
-			// A locked registry entry will remain, so future name updates will fail until operator intervenes
-			h.logger.Error(unlockErr, "failed to release registry lock on old name",
-				"name", h.getName(oldAnchor),
-				"namespace", oldAnchor.Namespace,
-			)
-		}
-
-		if k8serrors.IsAlreadyExists(err) {
-			h.logger.Info(h.duplicateError.GetMessage(),
-				"name", h.getName(newAnchor),
-				"namespace", newAnchor.Namespace,
-			)
+	if err := h.duplicateValidator.ValidateUpdate(ctx, h.logger, oldAnchor.Namespace, h.getName(oldAnchor), h.getName(newAnchor)); err != nil {
+		if errors.Is(err, webhooks.ErrorDuplicateName) {
 			return admission.Denied(h.duplicateError.Marshal())
 		}
 
-		h.logger.Error(err, "failed to register name",
-			"name", h.getName(newAnchor),
-			"namespace", newAnchor.Namespace,
-		)
-
-		return admission.Denied(UnknownError.Marshal())
-	}
-
-	err = h.nameRegistry.DeregisterName(ctx, oldAnchor.Namespace, h.getName(oldAnchor))
-	if err != nil {
-		// We cannot unclaim the old name. It will remain claimed until an operator intervenes.
-		h.logger.Error(err, "failed to deregister old name during update",
-			"name", h.getName(newAnchor),
-			"namespace", newAnchor.Namespace,
-		)
+		return admission.Denied(webhooks.UnknownError.Marshal())
 	}
 
 	return admission.Allowed("")
 }
 
 func (h subnamespaceAnchorHandler) handleDelete(ctx context.Context, oldAnchor *v1alpha2.SubnamespaceAnchor) admission.Response {
-	err := h.nameRegistry.DeregisterName(ctx, oldAnchor.Namespace, h.getName(oldAnchor))
-	if k8serrors.IsNotFound(err) {
-		h.logger.Info("cannot deregister name: registry entry for name not found",
-			"namespace", oldAnchor.Namespace,
-			"name", h.getName(oldAnchor),
-		)
-		return admission.Allowed("")
-	}
-
-	if err != nil {
-		h.logger.Error(err, "failed to deregister name during delete",
-			"namespace", oldAnchor.Namespace,
-			"name", h.getName(oldAnchor),
-		)
-		return admission.Denied(UnknownError.Marshal())
+	if err := h.duplicateValidator.ValidateDelete(ctx, h.logger, oldAnchor.Namespace, h.getName(oldAnchor)); err != nil {
+		return admission.Denied(webhooks.UnknownError.Marshal())
 	}
 
 	return admission.Allowed("")
-}
-
-func (h subnamespaceAnchorHandler) nameHasNotChanged(oldAnchor, anchor *v1alpha2.SubnamespaceAnchor) bool {
-	return h.getName(oldAnchor) == h.getName(anchor)
 }
 
 func (h subnamespaceAnchorHandler) getName(anchor *v1alpha2.SubnamespaceAnchor) string {

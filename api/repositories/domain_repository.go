@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 
@@ -21,17 +20,20 @@ const (
 )
 
 type DomainRepo struct {
-	privilegedClient  client.Client
-	userClientFactory UserK8sClientFactory
+	privilegedClient   client.Client
+	namespaceRetriever NamespaceRetriever
+	userClientFactory  UserK8sClientFactory
 }
 
 func NewDomainRepo(
 	privilegedClient client.Client,
+	namespaceRetriever NamespaceRetriever,
 	userClientFactory UserK8sClientFactory,
 ) *DomainRepo {
 	return &DomainRepo{
-		privilegedClient:  privilegedClient,
-		userClientFactory: userClientFactory,
+		privilegedClient:   privilegedClient,
+		namespaceRetriever: namespaceRetriever,
+		userClientFactory:  userClientFactory,
 	}
 }
 
@@ -50,28 +52,18 @@ type ListDomainsMessage struct {
 }
 
 func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) (DomainRecord, error) {
-	domainList := &networkingv1alpha1.CFDomainList{}
-	err := r.privilegedClient.List(ctx, domainList, client.MatchingFields{"metadata.name": domainGUID})
+	ns, err := r.namespaceRetriever.NamespaceFor(ctx, domainGUID, DomainResourceType)
 	if err != nil {
-		return DomainRecord{}, fmt.Errorf("get-domain: privileged list failed: %w", err)
+		return DomainRecord{}, err
 	}
-
-	if len(domainList.Items) == 0 {
-		return DomainRecord{}, NewNotFoundError(DomainResourceType, err)
-	}
-	if len(domainList.Items) > 1 {
-		return DomainRecord{}, errors.New("get-domain duplicate domains exist")
-	}
-
-	matchingDomain := cfDomainToDomainRecord(&domainList.Items[0])
 
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return DomainRecord{}, fmt.Errorf("get-domain failed to build user client: %w", err)
+		return DomainRecord{}, fmt.Errorf("get-domain failed to domain user client: %w", err)
 	}
 
 	domain := &networkingv1alpha1.CFDomain{}
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: matchingDomain.Namespace, Name: matchingDomain.GUID}, domain)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: domainGUID}, domain)
 	if k8serrors.IsForbidden(err) {
 		return DomainRecord{}, NewForbiddenError(DomainResourceType, err)
 	}

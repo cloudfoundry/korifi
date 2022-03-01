@@ -30,7 +30,7 @@ var _ = Describe("PackageRepository", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		packageRepo = repositories.NewPackageRepo(k8sClient, userClientFactory)
+		packageRepo = repositories.NewPackageRepo(k8sClient, namespaceRetriever, userClientFactory)
 		org = createOrgAnchorAndNamespace(ctx, rootNamespace, prefixedGUID("org"))
 	})
 
@@ -233,7 +233,7 @@ var _ = Describe("PackageRepository", func() {
 			It("returns an error", func() {
 				_, err := packageRepo.GetPackage(ctx, authInfo, packageGUID)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError("duplicate packages exist"))
+				Expect(err).To(MatchError("get-package duplicate records exist"))
 			})
 		})
 

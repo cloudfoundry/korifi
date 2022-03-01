@@ -6,27 +6,22 @@ import (
 	"fmt"
 	"time"
 
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"k8s.io/apimachinery/pkg/types"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("ServiceInstanceRepository", func() {
 	var (
 		testCtx             context.Context
 		serviceInstanceRepo *repositories.ServiceInstanceRepo
-		guidToNamespace     repositories.NamespaceGetter
 
 		org                 *hnsv1alpha2.SubnamespaceAnchor
 		space               *hnsv1alpha2.SubnamespaceAnchor
@@ -35,8 +30,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-		guidToNamespace = repositories.NewGUIDToNamespace(k8sClient)
-		serviceInstanceRepo = repositories.NewServiceInstanceRepo(userClientFactory, nsPerms, guidToNamespace)
+		serviceInstanceRepo = repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPerms)
 
 		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
 		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
@@ -488,7 +482,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			})
 
 			It("returns a error", func() {
-				Expect(getErr).To(MatchError(ContainSubstring("duplicate service instances for guid")))
+				Expect(getErr).To(MatchError(ContainSubstring("get-service instance duplicate records exist")))
 			})
 		})
 

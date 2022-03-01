@@ -2234,6 +2234,12 @@ rules:
   verbs:
   - list
   - get
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -2283,6 +2289,7 @@ data:
     cfProcessDefaults:
       memoryMB: 1024
       diskQuotaMB: 1024
+    cfRootNamespace: cf
     cfk8s_controller_namespace: cf-k8s-controllers-system
     workloads_tls_secret_name: cf-k8s-workloads-ingress-cert
 kind: ConfigMap
@@ -2571,6 +2578,28 @@ metadata:
     cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
   name: cf-k8s-controllers-validating-webhook-configuration
 webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: cf-k8s-controllers-webhook-service
+      namespace: cf-k8s-controllers-system
+      path: /validate-networking-cloudfoundry-org-v1alpha1-cfroute
+  failurePolicy: Fail
+  name: vcfroute.networking.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - networking.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cfroutes
+  sideEffects: None
 - admissionReviewVersions:
   - v1
   - v1beta1
