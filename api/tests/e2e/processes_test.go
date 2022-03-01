@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -104,7 +103,6 @@ var _ = Describe("Processes", func() {
 
 		When("we wait for the metrics to be ready", func() {
 			BeforeEach(func() {
-				// use an eventually to check when the pod metrics become available
 				Eventually(func() presenter.ProcessUsage {
 					var err error
 					resp, err = restyClient.R().
@@ -116,17 +114,15 @@ var _ = Describe("Processes", func() {
 					return processStats.Resources[0].Usage
 				}, 60*time.Second).ShouldNot(Equal(presenter.ProcessUsage{}))
 			})
+
 			It("succeeds", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
-				fmt.Printf("\nWAIT RESPONSE\n\n%#v\n\n\n", resp)
-				fmt.Printf("\nWAIT PROCESS STATS\n\n%#v\n\n\n", processStats)
 				Expect(processStats.Resources).To(HaveLen(1))
 				Expect(processStats.Resources[0].Usage).To(MatchFields(IgnoreExtras, Fields{
 					"Mem":  Not(BeNil()),
 					"CPU":  Not(BeNil()),
 					"Time": Not(BeNil()),
-					//"Disk": Not(BeNil()), // Disk is currently empty
 				}))
 			})
 		})
