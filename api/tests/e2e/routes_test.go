@@ -10,7 +10,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
-var _ = Describe("Routes",  func() {
+var _ = Describe("Routes", func() {
 	var (
 		client     *resty.Client
 		domainGUID string
@@ -68,7 +68,7 @@ var _ = Describe("Routes",  func() {
 			})
 		})
 
-		When("the user is not authorized in the space",  func() {
+		When("the user is not authorized in the space", func() {
 			BeforeEach(func() {
 				client = tokenClient
 			})
