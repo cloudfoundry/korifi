@@ -464,7 +464,23 @@ var _ = Describe("ServiceBindingHandler", func() {
 				Expect(rr.Body.String()).To(ContainSubstring("some-app-name"))
 			})
 		})
-		When("a service_instance_guid query parameter is provided", func() {
+
+		When("an app_guids query parameter is provided", func() {
+			BeforeEach(func() {
+				req.URL.RawQuery = "app_guids=1,2,3"
+
+				appRepo.ListAppsReturns([]repositories.AppRecord{{Name: "some-app-name"}}, nil)
+			})
+
+			It("passes the list of app GUIDs to the repository", func() {
+				Expect(serviceBindingRepo.ListServiceBindingsCallCount()).To(Equal(1))
+				_, _, message := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
+
+				Expect(message.AppGUIDs).To(ConsistOf([]string{"1", "2", "3"}))
+			})
+		})
+
+		When("a service_instance_guids query parameter is provided", func() {
 			BeforeEach(func() {
 				req.URL.RawQuery = "service_instance_guids=1,2,3"
 
@@ -483,13 +499,23 @@ var _ = Describe("ServiceBindingHandler", func() {
 			})
 		})
 
+		When("a type query parameter is provided", func() {
+			BeforeEach(func() {
+				req.URL.RawQuery = "type=app"
+			})
+
+			It("returns success", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK))
+			})
+		})
+
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
 				req.URL.RawQuery = "foo=bar"
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'service_instance_guids, include'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, service_instance_guids, include, type'")
 			})
 		})
 	})

@@ -236,27 +236,33 @@ var _ = Describe("ServiceBindingRepo", func() {
 		})
 	})
 
-	Describe("ListServiceBindings", func() {
+	Describe("ListServiceBindings", Serial, func() {
 		var (
-			serviceBinding1, serviceBinding2 *servicesv1alpha1.CFServiceBinding
-			space2                           *hnsv1alpha2.SubnamespaceAnchor
-
-			serviceInstance2GUID string
+			serviceBinding1, serviceBinding2, serviceBinding3                *servicesv1alpha1.CFServiceBinding
+			space2                                                           *hnsv1alpha2.SubnamespaceAnchor
+			cfApp1, cfApp2, cfApp3                                           *workloadsv1alpha1.CFApp
+			serviceInstance1GUID, serviceInstance2GUID, serviceInstance3GUID string
 
 			requestMessage repositories.ListServiceBindingsMessage
 		)
 
 		BeforeEach(func() {
-			cfApp1 := createAppCR(testCtx, k8sClient, "app-1-name", generateGUID(), space.Name, "STOPPED")
-			cfServiceInstance1 := createServiceInstanceCR(testCtx, k8sClient, generateGUID(), space.Name, "service-instance-1-name", "secret-1-name")
+			cfApp1 = createAppCR(testCtx, k8sClient, "app-1-name", prefixedGUID("app-1"), space.Name, "STOPPED")
+			serviceInstance1GUID = prefixedGUID("instance-1")
+			cfServiceInstance1 := createServiceInstanceCR(testCtx, k8sClient, serviceInstance1GUID, space.Name, "service-instance-1-name", "secret-1-name")
 			serviceBinding1Name := "service-binding-1-name"
-			serviceBinding1 = createServiceBindingCR(testCtx, k8sClient, generateGUID(), space.Name, &serviceBinding1Name, cfServiceInstance1.Name, cfApp1.Name)
+			serviceBinding1 = createServiceBindingCR(testCtx, k8sClient, prefixedGUID("binding-1"), space.Name, &serviceBinding1Name, cfServiceInstance1.Name, cfApp1.Name)
 
-			space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
-			cfApp2 := createAppCR(testCtx, k8sClient, "app-2-name", generateGUID(), space2.Name, "STOPPED")
-			serviceInstance2GUID = generateGUID()
+			space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space-2"))
+			cfApp2 = createAppCR(testCtx, k8sClient, "app-2-name", prefixedGUID("app-2"), space2.Name, "STOPPED")
+			serviceInstance2GUID = prefixedGUID("instance-2")
 			cfServiceInstance2 := createServiceInstanceCR(testCtx, k8sClient, serviceInstance2GUID, space2.Name, "service-instance-2-name", "secret-2-name")
-			serviceBinding2 = createServiceBindingCR(testCtx, k8sClient, generateGUID(), space2.Name, nil, cfServiceInstance2.Name, cfApp2.Name)
+			serviceBinding2 = createServiceBindingCR(testCtx, k8sClient, prefixedGUID("binding-2"), space2.Name, nil, cfServiceInstance2.Name, cfApp2.Name)
+
+			cfApp3 = createAppCR(testCtx, k8sClient, "app-3-name", prefixedGUID("app-3"), space2.Name, "STOPPED")
+			serviceInstance3GUID = prefixedGUID("instance-3")
+			cfServiceInstance3 := createServiceInstanceCR(testCtx, k8sClient, serviceInstance3GUID, space2.Name, "service-instance-3-name", "secret-3-name")
+			serviceBinding3 = createServiceBindingCR(testCtx, k8sClient, prefixedGUID("binding-3"), space2.Name, nil, cfServiceInstance3.Name, cfApp3.Name)
 
 			requestMessage = repositories.ListServiceBindingsMessage{}
 		})
@@ -298,21 +304,78 @@ var _ = Describe("ServiceBindingRepo", func() {
 								"State": Equal("succeeded"),
 							}),
 						}),
+						MatchFields(IgnoreExtras, Fields{
+							"GUID":                Equal(serviceBinding3.Name),
+							"Type":                Equal("app"),
+							"Name":                Equal(serviceBinding3.Spec.Name),
+							"AppGUID":             Equal(serviceBinding3.Spec.AppRef.Name),
+							"ServiceInstanceGUID": Equal(serviceBinding3.Spec.Service.Name),
+							"SpaceGUID":           Equal(serviceBinding3.Namespace),
+							"LastOperation": MatchFields(IgnoreExtras, Fields{
+								"Type":  Equal("create"),
+								"State": Equal("succeeded"),
+							}),
+						}),
 					))
 				})
 			})
 
-			When("query parameters are specified", func() {
-				It("eventually returns only a subset of the ServiceBindings that match the provided filter", func() {
+			When("filtered by service instance GUID", func() {
+				BeforeEach(func() {
 					requestMessage = repositories.ListServiceBindingsMessage{
-						ServiceInstanceGUIDs: []string{serviceInstance2GUID},
+						ServiceInstanceGUIDs: []string{serviceInstance2GUID, serviceInstance3GUID},
 					}
+				})
 
-					Eventually(func() []repositories.ServiceBindingRecord {
-						responseServiceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, requestMessage)
-						Expect(err).NotTo(HaveOccurred())
-						return responseServiceBindings
-					}, timeCheckThreshold*time.Second).Should(ConsistOf(
+				It("returns only the ServiceBindings that match the provided service instance guids", func() {
+					responseServiceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, requestMessage)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(responseServiceBindings).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"GUID":                Equal(serviceBinding2.Name),
+							"ServiceInstanceGUID": Equal(serviceInstance2GUID),
+						}),
+						MatchFields(IgnoreExtras, Fields{
+							"GUID":                Equal(serviceBinding3.Name),
+							"ServiceInstanceGUID": Equal(serviceInstance3GUID),
+						}),
+					))
+				})
+			})
+
+			When("filtered by app guid", func() {
+				BeforeEach(func() {
+					requestMessage = repositories.ListServiceBindingsMessage{
+						AppGUIDs: []string{cfApp1.Name, cfApp2.Name},
+					}
+				})
+				It("returns only the ServiceBindings that match the provided app guids", func() {
+					responseServiceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, requestMessage)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(responseServiceBindings).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"GUID":                Equal(serviceBinding1.Name),
+							"ServiceInstanceGUID": Equal(serviceInstance1GUID),
+						}),
+						MatchFields(IgnoreExtras, Fields{
+							"GUID":                Equal(serviceBinding2.Name),
+							"ServiceInstanceGUID": Equal(serviceInstance2GUID),
+						}),
+					))
+				})
+			})
+
+			When("filtered by multiple params", func() {
+				BeforeEach(func() {
+					requestMessage = repositories.ListServiceBindingsMessage{
+						ServiceInstanceGUIDs: []string{serviceInstance2GUID, serviceInstance3GUID},
+						AppGUIDs:             []string{cfApp1.Name, cfApp2.Name},
+					}
+				})
+				It("returns only the ServiceBindings that match all provided filters", func() {
+					responseServiceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, requestMessage)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(responseServiceBindings).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":                Equal(serviceBinding2.Name),
 							"ServiceInstanceGUID": Equal(serviceInstance2GUID),
