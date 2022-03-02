@@ -1,0 +1,43 @@
+---
+apiVersion: carto.run/v1alpha1
+kind: ClusterTemplate
+metadata:
+  name: lrp
+spec:
+
+  template:
+    apiVersion: eirini.cloudfoundry.org/v1
+    kind: LRP
+    metadata:
+      name: $(workload.metadata.name)$
+      labels:
+        "workloads.cloudfoundry.org/process-guid": $(workload.spec.params[?(@.name=="cf-process-guid")].value)$
+        "workloads.cloudfoundry.org/process-type": $(workload.spec.params[?(@.name=="cf-process-type")].value)$
+        "workloads.cloudfoundry.org/app-guid": $(workload.spec.params[?(@.name=="cf-app-guid")].value)$
+        workloads.cloudfoundry.org/app-rev: "0"
+    spec:
+      GUID: $(workload.spec.params[?(@.name=="cf-process-guid")].value)$
+      appGUID: $(workload.spec.params[?(@.name=="cf-app-guid")].value)$
+      appName: $(workload.spec.params[?(@.name=="cf-app-name")].value)$
+      command: $(workload.spec.params[?(@.name=="cf-app-command")].value)$
+      cpuWeight: 0
+      diskMB: 1024
+      env:
+        PORT: "8080"
+        VCAP_APP_HOST: 0.0.0.0
+        VCAP_APP_PORT: "8080"
+        VCAP_SERVICES: '{}'
+      health:
+        endpoint: ""
+        port: 0
+        timeoutMs: 0
+        type: process
+      image: $(workload.spec.image)$
+      instances: 1
+      memoryMB: 1024
+      orgGUID: ""
+      orgName: ""
+      processType: $(workload.spec.params[?(@.name=="cf-process-type")].value)$
+      spaceGUID: ""
+      spaceName: ""
+      version: "0"

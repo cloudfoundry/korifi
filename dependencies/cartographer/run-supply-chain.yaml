@@ -1,0 +1,16 @@
+---
+apiVersion: carto.run/v1alpha1
+kind: ClusterSupplyChain
+metadata:
+  name: run-supply-chain
+spec:
+  selector:
+    workloads.cloudfoundry.org/workload-type: cf-run
+  resources:
+    - name: eirini-lrp
+      templateRef:
+        kind: ClusterTemplate
+        name: lrp
+  serviceAccountRef:
+    name: cf-k8s-controllers-controller-manager
+    namespace: cf-k8s-controllers-system

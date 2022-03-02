@@ -18,10 +18,10 @@ package workloads
 
 import (
 	"context"
-	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sort"
 	"strconv"
 
@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-logr/logr"
+	cartographerv1alpha1 "github.com/vmware-tanzu/cartographer/pkg/apis/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -141,24 +142,24 @@ func (r *CFProcessReconciler) createOrPatchLRP(ctx context.Context, cfApp *workl
 		return err
 	}
 
-	actualLRP := &eiriniv1.LRP{
+	actualWorkload := &cartographerv1alpha1.Workload{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfProcess.Namespace,
-			Name:      generateLRPName(cfAppRev, cfProcess.Name),
+			Name:      cfProcess.Name,
 		},
 	}
 
-	var desiredLRP *eiriniv1.LRP
-	desiredLRP, err = r.generateLRP(actualLRP, cfApp, cfProcess, cfBuild, appEnvSecret, appPort, services)
+	var desiredWorkload *cartographerv1alpha1.Workload
+	desiredWorkload, err = r.generateWorkload(actualWorkload, cfApp, cfProcess, cfBuild, appEnvSecret, appPort, services)
 	if err != nil {
 		// untested
-		r.Log.Error(err, "Error when initializing LRP")
+		r.Log.Error(err, "Error when initializing Workload")
 		return err
 	}
 
-	_, err = controllerutil.CreateOrPatch(ctx, r.Client, actualLRP, lrpMutateFunction(actualLRP, desiredLRP))
+	_, err = controllerutil.CreateOrPatch(ctx, r.Client, actualWorkload, workloadMutateFunction(actualWorkload, desiredWorkload))
 	if err != nil {
-		r.Log.Error(err, "Error calling CreateOrPatch on LRP")
+		r.Log.Error(err, "Error calling CreateOrPatch on Workload")
 		return err
 	}
 	return nil
@@ -199,78 +200,79 @@ func (r *CFProcessReconciler) cleanUpLRPs(ctx context.Context, cfProcess *worklo
 	return nil
 }
 
-func lrpMutateFunction(actuallrp, desiredlrp *eiriniv1.LRP) controllerutil.MutateFn {
+func workloadMutateFunction(actual, desired *cartographerv1alpha1.Workload) controllerutil.MutateFn {
 	return func() error {
-		actuallrp.ObjectMeta.Labels = desiredlrp.ObjectMeta.Labels
-		actuallrp.ObjectMeta.Annotations = desiredlrp.ObjectMeta.Annotations
-		actuallrp.ObjectMeta.OwnerReferences = desiredlrp.ObjectMeta.OwnerReferences
-		actuallrp.Spec = desiredlrp.Spec
+		actual.ObjectMeta.Labels = desired.ObjectMeta.Labels
+		actual.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
+		actual.ObjectMeta.OwnerReferences = desired.ObjectMeta.OwnerReferences
+		actual.Spec = desired.Spec
 		return nil
 	}
 }
 
-func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *workloadsv1alpha1.CFApp, cfProcess *workloadsv1alpha1.CFProcess, cfBuild *workloadsv1alpha1.CFBuild, appEnvSecret corev1.Secret, appPort int, services []serviceInfo) (*eiriniv1.LRP, error) {
-	var desiredLRP eiriniv1.LRP
-	actualLRP.DeepCopyInto(&desiredLRP)
+func (r *CFProcessReconciler) generateWorkload(actual *cartographerv1alpha1.Workload, cfApp *workloadsv1alpha1.CFApp, cfProcess *workloadsv1alpha1.CFProcess, cfBuild *workloadsv1alpha1.CFBuild, appEnvSecret corev1.Secret, appPort int, services []serviceInfo) (*cartographerv1alpha1.Workload, error) {
+	var desired cartographerv1alpha1.Workload
+	actual.DeepCopyInto(&desired)
 
-	var lrpHealthCheckPort int32 = 0
-	if len(cfProcess.Spec.Ports) > 0 {
-		lrpHealthCheckPort = cfProcess.Spec.Ports[0]
-	}
+	//var lrpHealthCheckPort int32 = 0
+	//if len(cfProcess.Spec.Ports) > 0 {
+	//	lrpHealthCheckPort = cfProcess.Spec.Ports[0]
+	//}
 
-	desiredLRP.Labels = make(map[string]string)
-	desiredLRP.Labels[workloadsv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
+	desired.Labels = make(map[string]string)
+	desired.Labels[workloadsv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
 	cfAppRevisionKeyValue := workloadsv1alpha1.CFAppRevisionKeyDefault
 	if cfApp.Annotations != nil {
 		if foundValue, has := cfApp.Annotations[workloadsv1alpha1.CFAppRevisionKey]; has {
 			cfAppRevisionKeyValue = foundValue
 		}
 	}
-	desiredLRP.Labels[workloadsv1alpha1.CFAppRevisionKey] = cfAppRevisionKeyValue
-	desiredLRP.Labels[workloadsv1alpha1.CFProcessGUIDLabelKey] = cfProcess.Name
-	desiredLRP.Labels[workloadsv1alpha1.CFProcessTypeLabelKey] = cfProcess.Spec.ProcessType
+	desired.Labels[workloadsv1alpha1.CFAppRevisionKey] = cfAppRevisionKeyValue
+	desired.Labels[workloadsv1alpha1.CFProcessGUIDLabelKey] = cfProcess.Name
+	desired.Labels[workloadsv1alpha1.CFProcessTypeLabelKey] = cfProcess.Spec.ProcessType
+	desired.Labels["workloads.cloudfoundry.org/workload-type"] = "cf-run"
 
-	desiredLRP.Spec.GUID = cfProcess.Name
-	desiredLRP.Spec.Version = cfAppRevisionKeyValue
-	desiredLRP.Spec.DiskMB = cfProcess.Spec.DiskQuotaMB
-	desiredLRP.Spec.MemoryMB = cfProcess.Spec.MemoryMB
-	desiredLRP.Spec.ProcessType = cfProcess.Spec.ProcessType
-	desiredLRP.Spec.Command = commandForProcess(cfProcess, cfApp)
-	desiredLRP.Spec.AppName = cfApp.Spec.Name
-	desiredLRP.Spec.AppGUID = cfApp.Name
-	desiredLRP.Spec.Image = cfBuild.Status.BuildDropletStatus.Registry.Image
-	desiredLRP.Spec.Ports = cfProcess.Spec.Ports
-	desiredLRP.Spec.Instances = cfProcess.Spec.DesiredInstances
+	desired.Spec.Image = &cfBuild.Status.BuildDropletStatus.Registry.Image
 
-	envVars, err := generateEnvMap(appEnvSecret.Data, appPort, services)
+	commandJSON, _ := json.Marshal(commandForProcess(cfProcess, cfApp))
+
+	desired.Spec.Params = []cartographerv1alpha1.OwnerParam{
+		{Name: "cf-app-guid", Value: apiextensionsv1.JSON{Raw: []byte(fmt.Sprintf("%q", cfApp.Name))}},
+		{Name: "cf-process-guid", Value: apiextensionsv1.JSON{Raw: []byte(fmt.Sprintf("%q", cfProcess.Name))}},
+		{Name: "cf-process-type", Value: apiextensionsv1.JSON{Raw: []byte(fmt.Sprintf("%q", cfProcess.Spec.ProcessType))}},
+		{Name: "cf-app-name", Value: apiextensionsv1.JSON{Raw: []byte(fmt.Sprintf("%q", cfApp.Spec.Name))}},
+		{Name: "cf-app-command", Value: apiextensionsv1.JSON{Raw: []byte(commandJSON)}},
+	}
+
+	//envVars, err := generateEnvMap(appEnvSecret.Data, appPort, services)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//desired.Spec.Env = envVars
+	//desired.Spec.Health = eiriniv1.Healthcheck{
+	//	Type:      string(cfProcess.Spec.HealthCheck.Type),
+	//	Port:      lrpHealthCheckPort,
+	//	Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
+	//	TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
+	//}
+	//desired.Spec.CPUWeight = 0
+	//desired.Spec.Sidecars = nil
+
+	err := controllerutil.SetOwnerReference(cfProcess, &desired, r.Scheme)
 	if err != nil {
 		return nil, err
 	}
-	desiredLRP.Spec.Env = envVars
-	desiredLRP.Spec.Health = eiriniv1.Healthcheck{
-		Type:      string(cfProcess.Spec.HealthCheck.Type),
-		Port:      lrpHealthCheckPort,
-		Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
-		TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
-	}
-	desiredLRP.Spec.CPUWeight = 0
-	desiredLRP.Spec.Sidecars = nil
 
-	err = controllerutil.SetOwnerReference(cfProcess, &desiredLRP, r.Scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	return &desiredLRP, err
+	return &desired, err
 }
 
-func generateLRPName(cfAppRev string, processGUID string) string {
-	h := sha1.New()
-	h.Write([]byte(cfAppRev))
-	appRevHash := h.Sum(nil)
-	lrpName := processGUID + fmt.Sprintf("-%x", appRevHash)[:5]
-	return lrpName
-}
+//func generateLRPName(cfAppRev string, processGUID string) string {
+//	h := sha1.New()
+//	h.Write([]byte(cfAppRev))
+//	appRevHash := h.Sum(nil)
+//	lrpName := processGUID + fmt.Sprintf("-%x", appRevHash)[:5]
+//	return lrpName
+//}
 
 func (r *CFProcessReconciler) fetchLRPsForProcess(ctx context.Context, cfProcess *workloadsv1alpha1.CFProcess) ([]eiriniv1.LRP, error) {
 	allLRPs := &eiriniv1.LRPList{}

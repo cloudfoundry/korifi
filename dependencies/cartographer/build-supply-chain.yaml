@@ -2,7 +2,7 @@
 apiVersion: carto.run/v1alpha1
 kind: ClusterSupplyChain
 metadata:
-  name: supply-chain
+  name: build-supply-chain
 spec:
   selector:
     workloads.cloudfoundry.org/workload-type: cf-build
@@ -11,3 +11,6 @@ spec:
       templateRef:
         kind: ClusterImageTemplate
         name: image
+  serviceAccountRef:
+    name: cf-k8s-controllers-controller-manager
+    namespace: cf-k8s-controllers-system

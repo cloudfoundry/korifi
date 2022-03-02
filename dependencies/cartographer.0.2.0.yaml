@@ -1,0 +1,1920 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: clusterconfigtemplates.carto.run
+spec:
+  group: carto.run
+  names:
+    kind: ClusterConfigTemplate
+    listKind: ClusterConfigTemplateList
+    plural: clusterconfigtemplates
+    singular: clusterconfigtemplate
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec describes the config template. More info: https://cartographer.sh/docs/latest/reference/template/#clusterconfigtemplate'
+              properties:
+                configPath:
+                  description: 'ConfigPath is a path into the templated object''s data that contains valid yaml. This is typically the information that will configure the components of the deployable image. ConfigPath is specified in jsonpath format, eg: .data'
+                  type: string
+                params:
+                  description: 'Additional parameters. See: https://cartographer.sh/docs/latest/architecture/#parameter-hierarchy'
+                  items:
+                    properties:
+                      default:
+                        description: DefaultValue of the parameter. Causes the parameter to be optional; If the Owner or Template does not specify this parameter, this value is used.
+                        x-kubernetes-preserve-unknown-fields: true
+                      name:
+                        description: Name of a parameter the template accepts from the Blueprint or Owner.
+                        type: string
+                    required:
+                      - default
+                      - name
+                    type: object
+                  type: array
+                template:
+                  description: 'Template defines a resource template for a Kubernetes Resource or Custom Resource which is applied to the server each time the blueprint is applied. Templates support simple value interpolation using the $()$ marker format. For more information, see: https://cartographer.sh/docs/latest/templating/ You cannot define both Template and Ytt at the same time.'
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                ytt:
+                  description: 'Ytt defines a resource template written in `ytt` for a Kubernetes Resource or Custom Resource which is applied to the server each time the blueprint is applied. Templates support simple value interpolation using the $()$ marker format. For more information, see: https://cartographer.sh/docs/latest/templating/ You cannot define both Template and Ytt at the same time.'
+                  type: string
+              required:
+                - configPath
+              type: object
+          required:
+            - metadata
+            - spec
+          type: object
+      served: true
+      storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: clusterdeliveries.carto.run
+spec:
+  group: carto.run
+  names:
+    kind: ClusterDelivery
+    listKind: ClusterDeliveryList
+    plural: clusterdeliveries
+    singular: clusterdelivery
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec describes the delivery. More info: https://cartographer.sh/docs/latest/reference/deliverable/#clusterdelivery'
+              properties:
+                params:
+                  description: 'Additional parameters. See: https://cartographer.sh/docs/latest/architecture/#parameter-hierarchy'
+                  items:
+                    properties:
+                      default:
+                        description: DefaultValue of the parameter. Causes the parameter to be optional; If the Owner does not specify this parameter, this value is used.
+                        x-kubernetes-preserve-unknown-fields: true
+                      name:
+                        description: Name of the parameter. Should match a template parameter name.
+                        type: string
+                      value:
+                        description: Value of the parameter. If specified, owner properties are ignored.
+                        x-kubernetes-preserve-unknown-fields: true
+                    required:
+                      - name
+                    type: object
+                  type: array
+                resources:
+                  description: Resources that are responsible for deploying and validating the deliverable
+                  items:
+                    properties:
+                      configs:
+                        description: "Configs is a list of references to other 'config' resources in this list. A config resource has the kind ClusterConfigTemplate \n In a template, configs can be consumed as: $(configs.<name>.config)$ \n If there is only one image, it can be consumed as: $(config)$"
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            resource:
+                              type: string
+                          required:
+                            - name
+                            - resource
+                          type: object
+                        type: array
+                      deployment:
+                        description: "Deployment is a reference to a 'deployment' resource. A deployment resource has the kind ClusterDeploymentTemplate \n In a template, the deployment can be consumed as: $(deployment.url)$ and $(deployment.revision)$"
+                        properties:
+                          resource:
+                            type: string
+                        required:
+                          - resource
+                        type: object
+                      name:
+                        description: Name of the resource. Used as a reference for inputs, as well as being the name presented in deliverable statuses to identify this resource.
+                        type: string
+                      params:
+                        description: "Params are a list of parameters to provide to the template in TemplateRef Template params do not have to be specified here, unless you want to force a particular value, or add a default value. \n Parameters are consumed in a template with the syntax: $(params.<name>)$"
+                        items:
+                          properties:
+                            default:
+                              description: DefaultValue of the parameter. Causes the parameter to be optional; If the Owner does not specify this parameter, this value is used.
+                              x-kubernetes-preserve-unknown-fields: true
+                            name:
+                              description: Name of the parameter. Should match a template parameter name.
+                              type: string
+                            value:
+                              description: Value of the parameter. If specified, owner properties are ignored.
+                              x-kubernetes-preserve-unknown-fields: true
+                          required:
+                            - name
+                          type: object
+                        type: array
+                      sources:
+                        description: "Sources is a list of references to other 'source' resources in this list. A source resource has the kind ClusterSourceTemplate or ClusterDeploymentTemplate \n In a template, sources can be consumed as: $(sources.<name>.url)$ and $(sources.<name>.revision)$ \n If there is only one source, it can be consumed as: $(source.url)$ and $(source.revision)$"
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            resource:
+                              type: string
+                          required:
+                            - name
+                            - resource
+                          type: object
+                        type: array
+                      templateRef:
+                        description: TemplateRef identifies the template used to produce this resource
+                        properties:
+                          kind:
+                            description: Kind of the template to apply
+                            enum:
+                              - ClusterSourceTemplate
+                              - ClusterDeploymentTemplate
+                              - ClusterTemplate
+                            type: string
+                          name:
+                            description: Name of the template to apply
+                            minLength: 1
+                            type: string
+                        required:
+                          - kind
+                          - name
+                        type: object
+                    required:
+                      - name
+                      - templateRef
+                    type: object
+                  type: array
+                selector:
+                  additionalProperties:
+                    type: string
+                  description: 'Specifies the label key-value pairs used to select deliverables See: https://cartographer.sh/docs/v0.1.0/architecture/#selectors'
+                  type: object
+                serviceAccountRef:
+                  description: "ServiceAccountName refers to the Service account with permissions to create resources submitted by the supply chain. \n If not set, Cartographer will use serviceAccountName from supply chain. \n If that is also not set, Cartographer will use the default service account in the workload's namespace."
+                  properties:
+                    name:
+                      description: Name of the service account being referred to
+                      type: string
+                    namespace:
+                      description: Namespace of the service account being referred to if omitted, the Owner's namespace is used.
+                      type: string
+                  required:
+                    - name
+                  type: object
+              required:
+                - resources
+                - selector
+              type: object
+            status:
+              description: 'Status conforms to the Kubernetes conventions: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties'
+              properties:
+                conditions:
+                  items:
+                    description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                    properties:
+                      lastTransitionTime:
+                        description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                        format: date-time
+                        type: string
+                      message:
+                        description: message is a human readable message indicating details about the transition. This may be an empty string.
+                        maxLength: 32768
+                        type: string
+                      observedGeneration:
+                        description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      reason:
+                        description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                        maxLength: 1024
+                        minLength: 1
+                        pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                        type: string
+                      status:
+                        description: status of the condition, one of True, False, Unknown.
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                        type: string
+                      type:
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                        maxLength: 316
+                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                        type: string
+                    required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                    type: object
+                  type: array
+                observedGeneration:
+                  format: int64
+                  type: integer
+              type: object
+          required:
+            - metadata
+            - spec
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: clusterdeploymenttemplates.carto.run
+spec:
+  group: carto.run
+  names:
+    kind: ClusterDeploymentTemplate
+    listKind: ClusterDeploymentTemplateList
+    plural: clusterdeploymenttemplates
+    singular: clusterdeploymenttemplate
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec describes the deployment template. More info: https://cartographer.sh/docs/latest/reference/template/#clusterdeploymenttemplate'
+              properties:
+                observedCompletion:
+                  description: ObservedCompletion describe the criteria for determining that the templated object completed configuration of environment. These criteria assert completion when metadata.Generation and status.ObservedGeneration match, AND success or failure criteria match. Cannot specify both ObservedMatches and ObservedCompletion.
+                  properties:
+                    failed:
+                      description: FailedCondition, when matched, indicates that the input did not deploy successfully.
+                      properties:
+                        key:
+                          description: 'Key is a jsonPath expression pointing to the field to inspect on the templated object, eg: ''status.conditions[?(@.type=="Succeeded")].status'''
+                          type: string
+                        value:
+                          description: Value is the expected value that, when matching the key's actual value, makes this condition true.
+                          type: string
+                      required:
+                        - key
+                        - value
+                      type: object
+                    succeeded:
+                      description: SucceededCondition, when matched, indicates that the input was successfully deployed.
+                      properties:
+                        key:
+                          description: 'Key is a jsonPath expression pointing to the field to inspect on the templated object, eg: ''status.conditions[?(@.type=="Succeeded")].status'''
+                          type: string
+                        value:
+                          description: Value is the expected value that, when matching the key's actual value, makes this condition true.
+                          type: string
+                      required:
+                        - key
+                        - value
+                      type: object
+                  required:
+                    - succeeded
+                  type: object
+                observedMatches:
+                  description: ObservedMatches describe the criteria for determining that the templated object completed configuration of environment. These criteria assert completion when an output (usually a field in .status) matches an input (usually a field in .spec) Cannot specify both ObservedMatches and ObservedCompletion.
+                  items:
+                    properties:
+                      input:
+                        description: Input is a jsonPath to a value that is fulfilled before the templated object is reconciled. Usually a value in the .spec of the object
+                        type: string
+                      output:
+                        description: Output is a jsonPath to a value that is fulfilled after the templated object is reconciled. Usually a value in the .status of the object
+                        type: string
+                    required:
+                      - input
+                      - output
+                    type: object
+                  type: array
+                params:
+                  description: 'Additional parameters. See: https://cartographer.sh/docs/latest/architecture/#parameter-hierarchy'
+                  items:
+                    properties:
+                      default:
+                        description: DefaultValue of the parameter. Causes the parameter to be optional; If the Owner or Template does not specify this parameter, this value is used.
+                        x-kubernetes-preserve-unknown-fields: true
+                      name:
+                        description: Name of a parameter the template accepts from the Blueprint or Owner.
+                        type: string
+                    required:
+                      - default
+                      - name
+                    type: object
+                  type: array
+                template:
+                  description: 'Template defines a resource template for a Kubernetes Resource or Custom Resource which is applied to the server each time the blueprint is applied. Templates support simple value interpolation using the $()$ marker format. For more information, see: https://cartographer.sh/docs/latest/templating/ You cannot define both Template and Ytt at the same time.'
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                ytt:
+                  description: 'Ytt defines a resource template written in `ytt` for a Kubernetes Resource or Custom Resource which is applied to the server each time the blueprint is applied. Templates support simple value interpolation using the $()$ marker format. For more information, see: https://cartographer.sh/docs/latest/templating/ You cannot define both Template and Ytt at the same time.'
+                  type: string
+              type: object
+          required:
+            - metadata
+            - spec
+          type: object
+      served: true
+      storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: clusterimagetemplates.carto.run
+spec:
+  group: carto.run
+  names:
+    kind: ClusterImageTemplate
+    listKind: ClusterImageTemplateList
+    plural: clusterimagetemplates
+    singular: clusterimagetemplate
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec describes the image template. More info: https://cartographer.sh/docs/latest/reference/template/#clusterimagetemplate'
+              properties:
+                imagePath:
+                  description: 'ImagePath is a path into the templated object''s data that contains a valid image digest. This might be a URL or in some cases just a repository path and digest. The final spec for this field may change as we implement RFC-0016 https://github.com/vmware-tanzu/cartographer/blob/main/rfc/rfc-0016-validate-template-outputs.md ImagePath is specified in jsonpath format, eg: .status.artifact.image_digest'
+                  type: string
+                params:
+                  description: 'Additional parameters. See: https://cartographer.sh/docs/latest/architecture/#parameter-hierarchy'
+                  items:
+                    properties:
+                      default:
+                        description: DefaultValue of the parameter. Causes the parameter to be optional; If the Owner or Template does not specify this parameter, this value is used.
+                        x-kubernetes-preserve-unknown-fields: true
+                      name:
+                        description: Name of a parameter the template accepts from the Blueprint or Owner.
+                        type: string
+                    required:
+                      - default
+                      - name
+                    type: object
+                  type: array
+                template:
+                  description: 'Template defines a resource template for a Kubernetes Resource or Custom Resource which is applied to the server each time the blueprint is applied. Templates support simple value interpolation using the $()$ marker format. For more information, see: https://cartographer.sh/docs/latest/templating/ You cannot define both Template and Ytt at the same time.'
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                ytt:
+                  description: 'Ytt defines a resource template written in `ytt` for a Kubernetes Resource or Custom Resource which is applied to the server each time the blueprint is applied. Templates support simple value interpolation using the $()$ marker format. For more information, see: https://cartographer.sh/docs/latest/templating/ You cannot define both Template and Ytt at the same time.'
+                  type: string
+              required:
+                - imagePath
+              type: object
+          required:
+            - metadata
+            - spec
+          type: object
+      served: true
+      storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: clusterruntemplates.carto.run
+spec:
+  group: carto.run
+  names:
+    kind: ClusterRunTemplate
+    listKind: ClusterRunTemplateList
+    plural: clusterruntemplates
+    singular: clusterruntemplate
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec describes the run template. More info: https://cartographer.sh/docs/latest/reference/runnable/#clusterruntemplate'
+              properties:
+                outputs:
+                  additionalProperties:
+                    type: string
+                  description: "Outputs are a named list of jsonPaths that are used to gather results from the last successful object stamped by the template. E.g: \tmy-output: .status.results[?(@.name==\"IMAGE-DIGEST\")].value"
+                  type: object
+                template:
+                  description: 'Template defines a resource template for a Kubernetes Resource or Custom Resource which is applied to the server each time the blueprint is applied. Templates support simple value interpolation using the $()$ marker format. For more information, see: https://cartographer.sh/docs/latest/templating/'
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+              required:
+                - template
+              type: object
+          required:
+            - metadata
+            - spec
+          type: object
+      served: true
+      storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: clustersourcetemplates.carto.run
+spec:
+  group: carto.run
+  names:
+    kind: ClusterSourceTemplate
+    listKind: ClusterSourceTemplateList
+    plural: clustersourcetemplates
+    singular: clustersourcetemplate
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec describes the source template. More info: https://cartographer.sh/docs/latest/reference/template/#clustersourcetemplate'
+              properties:
+                params:
+                  description: 'Additional parameters. See: https://cartographer.sh/docs/latest/architecture/#parameter-hierarchy'
+                  items:
+                    properties:
+                      default:
+                        description: DefaultValue of the parameter. Causes the parameter to be optional; If the Owner or Template does not specify this parameter, this value is used.
+                        x-kubernetes-preserve-unknown-fields: true
+                      name:
+                        description: Name of a parameter the template accepts from the Blueprint or Owner.
+                        type: string
+                    required:
+                      - default
+                      - name
+                    type: object
+                  type: array
+                revisionPath:
+                  description: 'RevisionPath is a path into the templated object''s data that contains a revision. The revision, along with the URL, represents the output of the Template. RevisionPath is specified in jsonpath format, eg: .status.artifact.revision'
+                  type: string
+                template:
+                  description: 'Template defines a resource template for a Kubernetes Resource or Custom Resource which is applied to the server each time the blueprint is applied. Templates support simple value interpolation using the $()$ marker format. For more information, see: https://cartographer.sh/docs/latest/templating/ You cannot define both Template and Ytt at the same time.'
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                urlPath:
+                  description: 'URLPath is a path into the templated object''s data that contains a URL. The URL, along with the revision, represents the output of the Template. URLPath is specified in jsonpath format, eg: .status.artifact.url'
+                  type: string
+                ytt:
+                  description: 'Ytt defines a resource template written in `ytt` for a Kubernetes Resource or Custom Resource which is applied to the server each time the blueprint is applied. Templates support simple value interpolation using the $()$ marker format. For more information, see: https://cartographer.sh/docs/latest/templating/ You cannot define both Template and Ytt at the same time.'
+                  type: string
+              required:
+                - revisionPath
+                - urlPath
+              type: object
+          required:
+            - metadata
+            - spec
+          type: object
+      served: true
+      storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: clustersupplychains.carto.run
+spec:
+  group: carto.run
+  names:
+    kind: ClusterSupplyChain
+    listKind: ClusterSupplyChainList
+    plural: clustersupplychains
+    singular: clustersupplychain
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec describes the suppply chain. More info: https://cartographer.sh/docs/latest/reference/workload/#clustersupplychain'
+              properties:
+                params:
+                  description: 'Additional parameters. See: https://cartographer.sh/docs/latest/architecture/#parameter-hierarchy'
+                  items:
+                    properties:
+                      default:
+                        description: DefaultValue of the parameter. Causes the parameter to be optional; If the Owner does not specify this parameter, this value is used.
+                        x-kubernetes-preserve-unknown-fields: true
+                      name:
+                        description: Name of the parameter. Should match a template parameter name.
+                        type: string
+                      value:
+                        description: Value of the parameter. If specified, owner properties are ignored.
+                        x-kubernetes-preserve-unknown-fields: true
+                    required:
+                      - name
+                    type: object
+                  type: array
+                resources:
+                  description: Resources that are responsible for bringing the application to a deliverable state.
+                  items:
+                    properties:
+                      configs:
+                        description: "Configs is a list of references to other 'config' resources in this list. A config resource has the kind ClusterConfigTemplate \n In a template, configs can be consumed as: $(configs.<name>.config)$ \n If there is only one image, it can be consumed as: $(config)$"
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            resource:
+                              type: string
+                          required:
+                            - name
+                            - resource
+                          type: object
+                        type: array
+                      images:
+                        description: "Images is a list of references to other 'image' resources in this list. An image resource has the kind ClusterImageTemplate \n In a template, images can be consumed as: $(images.<name>.image)$ \n If there is only one image, it can be consumed as: $(image)$"
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            resource:
+                              type: string
+                          required:
+                            - name
+                            - resource
+                          type: object
+                        type: array
+                      name:
+                        description: Name of the resource. Used as a reference for inputs, as well as being the name presented in workload statuses to identify this resource.
+                        type: string
+                      params:
+                        description: "Params are a list of parameters to provide to the template in TemplateRef Template params do not have to be specified here, unless you want to force a particular value, or add a default value. \n Parameters are consumed in a template with the syntax: $(params.<name>)$"
+                        items:
+                          properties:
+                            default:
+                              description: DefaultValue of the parameter. Causes the parameter to be optional; If the Owner does not specify this parameter, this value is used.
+                              x-kubernetes-preserve-unknown-fields: true
+                            name:
+                              description: Name of the parameter. Should match a template parameter name.
+                              type: string
+                            value:
+                              description: Value of the parameter. If specified, owner properties are ignored.
+                              x-kubernetes-preserve-unknown-fields: true
+                          required:
+                            - name
+                          type: object
+                        type: array
+                      sources:
+                        description: "Sources is a list of references to other 'source' resources in this list. A source resource has the kind ClusterSourceTemplate \n In a template, sources can be consumed as: $(sources.<name>.url)$ and $(sources.<name>.revision)$ \n If there is only one source, it can be consumed as: $(source.url)$ and $(source.revision)$"
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            resource:
+                              type: string
+                          required:
+                            - name
+                            - resource
+                          type: object
+                        type: array
+                      templateRef:
+                        description: TemplateRef identifies the template used to produce this resource
+                        properties:
+                          kind:
+                            description: Kind of the template to apply
+                            enum:
+                              - ClusterSourceTemplate
+                              - ClusterImageTemplate
+                              - ClusterTemplate
+                              - ClusterConfigTemplate
+                            type: string
+                          name:
+                            description: Name of the template to apply
+                            minLength: 1
+                            type: string
+                        required:
+                          - kind
+                          - name
+                        type: object
+                    required:
+                      - name
+                      - templateRef
+                    type: object
+                  type: array
+                selector:
+                  additionalProperties:
+                    type: string
+                  description: 'Specifies the label key-value pairs used to select workloads See: https://cartographer.sh/docs/v0.1.0/architecture/#selectors'
+                  type: object
+                serviceAccountRef:
+                  description: "ServiceAccountName refers to the Service account with permissions to create resources submitted by the supply chain. \n If not set, Cartographer will use serviceAccountName from supply chain. \n If that is also not set, Cartographer will use the default service account in the workload's namespace."
+                  properties:
+                    name:
+                      description: Name of the service account being referred to
+                      type: string
+                    namespace:
+                      description: Namespace of the service account being referred to if omitted, the Owner's namespace is used.
+                      type: string
+                  required:
+                    - name
+                  type: object
+              required:
+                - resources
+                - selector
+              type: object
+            status:
+              description: 'Status conforms to the Kubernetes conventions: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties'
+              properties:
+                conditions:
+                  items:
+                    description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                    properties:
+                      lastTransitionTime:
+                        description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                        format: date-time
+                        type: string
+                      message:
+                        description: message is a human readable message indicating details about the transition. This may be an empty string.
+                        maxLength: 32768
+                        type: string
+                      observedGeneration:
+                        description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      reason:
+                        description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                        maxLength: 1024
+                        minLength: 1
+                        pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                        type: string
+                      status:
+                        description: status of the condition, one of True, False, Unknown.
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                        type: string
+                      type:
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                        maxLength: 316
+                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                        type: string
+                    required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                    type: object
+                  type: array
+                observedGeneration:
+                  format: int64
+                  type: integer
+              type: object
+          required:
+            - metadata
+            - spec
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: clustertemplates.carto.run
+spec:
+  group: carto.run
+  names:
+    kind: ClusterTemplate
+    listKind: ClusterTemplateList
+    plural: clustertemplates
+    singular: clustertemplate
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec describes the template. More info: https://cartographer.sh/docs/latest/reference/template/#clustertemplate'
+              properties:
+                params:
+                  description: 'Additional parameters. See: https://cartographer.sh/docs/latest/architecture/#parameter-hierarchy'
+                  items:
+                    properties:
+                      default:
+                        description: DefaultValue of the parameter. Causes the parameter to be optional; If the Owner or Template does not specify this parameter, this value is used.
+                        x-kubernetes-preserve-unknown-fields: true
+                      name:
+                        description: Name of a parameter the template accepts from the Blueprint or Owner.
+                        type: string
+                    required:
+                      - default
+                      - name
+                    type: object
+                  type: array
+                template:
+                  description: 'Template defines a resource template for a Kubernetes Resource or Custom Resource which is applied to the server each time the blueprint is applied. Templates support simple value interpolation using the $()$ marker format. For more information, see: https://cartographer.sh/docs/latest/templating/ You cannot define both Template and Ytt at the same time.'
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                ytt:
+                  description: 'Ytt defines a resource template written in `ytt` for a Kubernetes Resource or Custom Resource which is applied to the server each time the blueprint is applied. Templates support simple value interpolation using the $()$ marker format. For more information, see: https://cartographer.sh/docs/latest/templating/ You cannot define both Template and Ytt at the same time.'
+                  type: string
+              type: object
+          required:
+            - metadata
+            - spec
+          type: object
+      served: true
+      storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: deliverables.carto.run
+spec:
+  group: carto.run
+  names:
+    categories:
+      - all
+    kind: Deliverable
+    listKind: DeliverableList
+    plural: deliverables
+    singular: deliverable
+  scope: Namespaced
+  versions:
+    - additionalPrinterColumns:
+        - jsonPath: .spec.source['git.url','image']
+          name: Source
+          type: string
+        - jsonPath: .status.deliveryRef.name
+          name: Delivery
+          type: string
+        - jsonPath: .status.conditions[?(@.type=='Ready')].status
+          name: Ready
+          type: string
+        - jsonPath: .status.conditions[?(@.type=='Ready')].reason
+          name: Reason
+          type: string
+      name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec describes the deliverable. More info: https://cartographer.sh/docs/latest/reference/workload/#deliverable'
+              properties:
+                params:
+                  description: 'Additional parameters. See: https://cartographer.sh/docs/latest/architecture/#parameter-hierarchy'
+                  items:
+                    properties:
+                      name:
+                        description: Name of the parameter. Should match a blueprint or template parameter name.
+                        type: string
+                      value:
+                        description: Value of the parameter.
+                        x-kubernetes-preserve-unknown-fields: true
+                    required:
+                      - name
+                      - value
+                    type: object
+                  type: array
+                serviceAccountName:
+                  description: "ServiceAccountName refers to the Service account with permissions to create resources submitted by the supply chain. \n If not set, Cartographer will use serviceAccountName from supply chain. \n If that is also not set, Cartographer will use the default service account in the workload's namespace."
+                  type: string
+                source:
+                  description: The location of the source code for the workload. Specify one of `spec.source` or `spec.image`
+                  properties:
+                    git:
+                      description: Source code location in a git repository.
+                      properties:
+                        ref:
+                          properties:
+                            branch:
+                              type: string
+                            commit:
+                              type: string
+                            tag:
+                              type: string
+                          type: object
+                        url:
+                          type: string
+                      type: object
+                    image:
+                      description: OCI Image in a repository, containing the source code to be used throughout the supply chain.
+                      type: string
+                    subPath:
+                      description: Subpath inside the Git repository or Image to treat as the root of the application. Defaults to the root if left empty.
+                      type: string
+                  type: object
+              type: object
+            status:
+              description: 'Status conforms to the Kubernetes conventions: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties'
+              properties:
+                conditions:
+                  description: 'Conditions describing this resource''s reconcile state. The top level condition is of type `Ready`, and follows these Kubernetes conventions: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties'
+                  items:
+                    description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                    properties:
+                      lastTransitionTime:
+                        description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                        format: date-time
+                        type: string
+                      message:
+                        description: message is a human readable message indicating details about the transition. This may be an empty string.
+                        maxLength: 32768
+                        type: string
+                      observedGeneration:
+                        description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      reason:
+                        description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                        maxLength: 1024
+                        minLength: 1
+                        pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                        type: string
+                      status:
+                        description: status of the condition, one of True, False, Unknown.
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                        type: string
+                      type:
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                        maxLength: 316
+                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                        type: string
+                    required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                    type: object
+                  type: array
+                deliveryRef:
+                  description: DeliveryRef is the Delivery resource that was used when this status was set.
+                  properties:
+                    apiVersion:
+                      type: string
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  type: object
+                observedGeneration:
+                  description: ObservedGeneration refers to the metadata.Generation of the spec that resulted in the current `status`.
+                  format: int64
+                  type: integer
+              type: object
+          required:
+            - metadata
+            - spec
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: runnables.carto.run
+spec:
+  group: carto.run
+  names:
+    kind: Runnable
+    listKind: RunnableList
+    plural: runnables
+    singular: runnable
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec describes the runnable. More info: https://cartographer.sh/docs/latest/reference/runnable/#runnable'
+              properties:
+                inputs:
+                  additionalProperties:
+                    x-kubernetes-preserve-unknown-fields: true
+                  description: 'Inputs are key/values providing inputs to the templated object created for this runnable. Reference inputs in the template using the jsonPath: $(runnable.spec.inputs.<key>)$'
+                  type: object
+                retentionPolicy:
+                  default:
+                    maxFailedRuns: 10
+                    maxSuccessfulRuns: 10
+                  description: RetentionPolicy specifies how many successful and failed runs should be retained. Runs older than this (ordered by creation time) will be deleted.
+                  properties:
+                    maxFailedRuns:
+                      description: MaxFailedRuns is the number of failed runs to retain.
+                      format: int64
+                      minimum: 1
+                      type: integer
+                    maxSuccessfulRuns:
+                      description: MaxSuccessfulRuns is the number of successful runs to retain.
+                      format: int64
+                      minimum: 1
+                      type: integer
+                  required:
+                    - maxFailedRuns
+                    - maxSuccessfulRuns
+                  type: object
+                runTemplateRef:
+                  description: RunTemplateRef identifies the run template used to produce resources for this runnable.
+                  properties:
+                    kind:
+                      type: string
+                    name:
+                      minLength: 1
+                      type: string
+                  required:
+                    - name
+                  type: object
+                selector:
+                  description: 'Selector refers to an additional object that the template can refer to using: $(selected)$.'
+                  properties:
+                    matchingLabels:
+                      additionalProperties:
+                        type: string
+                      description: MatchingLabels must match on a single target object, making the object available in the template as $(selected)$
+                      type: object
+                    resource:
+                      description: Resource is the GVK that must match the selected object.
+                      properties:
+                        apiVersion:
+                          type: string
+                        kind:
+                          type: string
+                      type: object
+                  required:
+                    - matchingLabels
+                    - resource
+                  type: object
+                serviceAccountName:
+                  description: "ServiceAccountName refers to the Service account with permissions to create resources submitted by the ClusterRunTemplate. \n If not set, Cartographer will use the default service account in the runnable's namespace."
+                  type: string
+              required:
+                - runTemplateRef
+              type: object
+            status:
+              description: 'Status conforms to the Kubernetes conventions: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties'
+              properties:
+                conditions:
+                  items:
+                    description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                    properties:
+                      lastTransitionTime:
+                        description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                        format: date-time
+                        type: string
+                      message:
+                        description: message is a human readable message indicating details about the transition. This may be an empty string.
+                        maxLength: 32768
+                        type: string
+                      observedGeneration:
+                        description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      reason:
+                        description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                        maxLength: 1024
+                        minLength: 1
+                        pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                        type: string
+                      status:
+                        description: status of the condition, one of True, False, Unknown.
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                        type: string
+                      type:
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                        maxLength: 316
+                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                        type: string
+                    required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                    type: object
+                  type: array
+                observedGeneration:
+                  format: int64
+                  type: integer
+                outputs:
+                  additionalProperties:
+                    x-kubernetes-preserve-unknown-fields: true
+                  type: object
+              type: object
+          required:
+            - metadata
+            - spec
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: workloads.carto.run
+spec:
+  group: carto.run
+  names:
+    categories:
+      - all
+    kind: Workload
+    listKind: WorkloadList
+    plural: workloads
+    singular: workload
+  scope: Namespaced
+  versions:
+    - additionalPrinterColumns:
+        - jsonPath: .spec.source['git.url','image']
+          name: Source
+          type: string
+        - jsonPath: .status.supplyChainRef.name
+          name: SupplyChain
+          type: string
+        - jsonPath: .status.conditions[?(@.type=='Ready')].status
+          name: Ready
+          type: string
+        - jsonPath: .status.conditions[?(@.type=='Ready')].reason
+          name: Reason
+          type: string
+      name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec describes the workload. More info: https://cartographer.sh/docs/latest/reference/workload/#workload'
+              properties:
+                build:
+                  description: Build configuration, for the build resources in the supply chain
+                  properties:
+                    env:
+                      description: Env is an array of environment variables to propagate to build resources in the supply chain. See https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/
+                      items:
+                        description: EnvVar represents an environment variable present in a Container.
+                        properties:
+                          name:
+                            description: Name of the environment variable. Must be a C_IDENTIFIER.
+                            type: string
+                          value:
+                            description: 'Variable references $(VAR_NAME) are expanded using the previously defined environment variables in the container and any service environment variables. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)". Escaped references will never be expanded, regardless of whether the variable exists or not. Defaults to "".'
+                            type: string
+                          valueFrom:
+                            description: Source for the environment variable's value. Cannot be used if value is not empty.
+                            properties:
+                              configMapKeyRef:
+                                description: Selects a key of a ConfigMap.
+                                properties:
+                                  key:
+                                    description: The key to select.
+                                    type: string
+                                  name:
+                                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                    type: string
+                                  optional:
+                                    description: Specify whether the ConfigMap or its key must be defined
+                                    type: boolean
+                                required:
+                                  - key
+                                type: object
+                              fieldRef:
+                                description: 'Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels[''<KEY>'']`, `metadata.annotations[''<KEY>'']`, spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.'
+                                properties:
+                                  apiVersion:
+                                    description: Version of the schema the FieldPath is written in terms of, defaults to "v1".
+                                    type: string
+                                  fieldPath:
+                                    description: Path of the field to select in the specified API version.
+                                    type: string
+                                required:
+                                  - fieldPath
+                                type: object
+                              resourceFieldRef:
+                                description: 'Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.'
+                                properties:
+                                  containerName:
+                                    description: 'Container name: required for volumes, optional for env vars'
+                                    type: string
+                                  divisor:
+                                    anyOf:
+                                      - type: integer
+                                      - type: string
+                                    description: Specifies the output format of the exposed resources, defaults to "1"
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  resource:
+                                    description: 'Required: resource to select'
+                                    type: string
+                                required:
+                                  - resource
+                                type: object
+                              secretKeyRef:
+                                description: Selects a key of a secret in the pod's namespace
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must be a valid secret key.
+                                    type: string
+                                  name:
+                                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its key must be defined
+                                    type: boolean
+                                required:
+                                  - key
+                                type: object
+                            type: object
+                        required:
+                          - name
+                        type: object
+                      type: array
+                  type: object
+                env:
+                  description: Environment variables to be passed to the main container running the application. See https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/
+                  items:
+                    description: EnvVar represents an environment variable present in a Container.
+                    properties:
+                      name:
+                        description: Name of the environment variable. Must be a C_IDENTIFIER.
+                        type: string
+                      value:
+                        description: 'Variable references $(VAR_NAME) are expanded using the previously defined environment variables in the container and any service environment variables. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)". Escaped references will never be expanded, regardless of whether the variable exists or not. Defaults to "".'
+                        type: string
+                      valueFrom:
+                        description: Source for the environment variable's value. Cannot be used if value is not empty.
+                        properties:
+                          configMapKeyRef:
+                            description: Selects a key of a ConfigMap.
+                            properties:
+                              key:
+                                description: The key to select.
+                                type: string
+                              name:
+                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                type: string
+                              optional:
+                                description: Specify whether the ConfigMap or its key must be defined
+                                type: boolean
+                            required:
+                              - key
+                            type: object
+                          fieldRef:
+                            description: 'Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels[''<KEY>'']`, `metadata.annotations[''<KEY>'']`, spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.'
+                            properties:
+                              apiVersion:
+                                description: Version of the schema the FieldPath is written in terms of, defaults to "v1".
+                                type: string
+                              fieldPath:
+                                description: Path of the field to select in the specified API version.
+                                type: string
+                            required:
+                              - fieldPath
+                            type: object
+                          resourceFieldRef:
+                            description: 'Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.'
+                            properties:
+                              containerName:
+                                description: 'Container name: required for volumes, optional for env vars'
+                                type: string
+                              divisor:
+                                anyOf:
+                                  - type: integer
+                                  - type: string
+                                description: Specifies the output format of the exposed resources, defaults to "1"
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              resource:
+                                description: 'Required: resource to select'
+                                type: string
+                            required:
+                              - resource
+                            type: object
+                          secretKeyRef:
+                            description: Selects a key of a secret in the pod's namespace
+                            properties:
+                              key:
+                                description: The key of the secret to select from.  Must be a valid secret key.
+                                type: string
+                              name:
+                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                type: string
+                              optional:
+                                description: Specify whether the Secret or its key must be defined
+                                type: boolean
+                            required:
+                              - key
+                            type: object
+                        type: object
+                    required:
+                      - name
+                    type: object
+                  type: array
+                image:
+                  description: Image refers to a pre-built image in a registry. It is an alternative to specifying the location of source code for the workload. Specify one of `spec.source` or `spec.image`.
+                  type: string
+                params:
+                  description: 'Additional parameters. See: https://cartographer.sh/docs/latest/architecture/#parameter-hierarchy'
+                  items:
+                    properties:
+                      name:
+                        description: Name of the parameter. Should match a blueprint or template parameter name.
+                        type: string
+                      value:
+                        description: Value of the parameter.
+                        x-kubernetes-preserve-unknown-fields: true
+                    required:
+                      - name
+                      - value
+                    type: object
+                  type: array
+                resources:
+                  description: Resource constraints for the application. See https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                  properties:
+                    limits:
+                      additionalProperties:
+                        anyOf:
+                          - type: integer
+                          - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                      type: object
+                    requests:
+                      additionalProperties:
+                        anyOf:
+                          - type: integer
+                          - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                      type: object
+                  type: object
+                serviceAccountName:
+                  description: "ServiceAccountName refers to the Service account with permissions to create resources submitted by the supply chain. \n If not set, Cartographer will use serviceAccountName from supply chain. \n If that is also not set, Cartographer will use the default service account in the workload's namespace."
+                  type: string
+                serviceClaims:
+                  description: ServiceClaims to be bound through ServiceBindings.
+                  items:
+                    properties:
+                      name:
+                        type: string
+                      ref:
+                        properties:
+                          apiVersion:
+                            type: string
+                          kind:
+                            type: string
+                          name:
+                            type: string
+                        required:
+                          - apiVersion
+                          - kind
+                          - name
+                        type: object
+                    required:
+                      - name
+                    type: object
+                  type: array
+                source:
+                  description: The location of the source code for the workload. Specify one of `spec.source` or `spec.image`
+                  properties:
+                    git:
+                      description: Source code location in a git repository.
+                      properties:
+                        ref:
+                          properties:
+                            branch:
+                              type: string
+                            commit:
+                              type: string
+                            tag:
+                              type: string
+                          type: object
+                        url:
+                          type: string
+                      type: object
+                    image:
+                      description: OCI Image in a repository, containing the source code to be used throughout the supply chain.
+                      type: string
+                    subPath:
+                      description: Subpath inside the Git repository or Image to treat as the root of the application. Defaults to the root if left empty.
+                      type: string
+                  type: object
+              type: object
+            status:
+              description: 'Status conforms to the Kubernetes conventions: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties'
+              properties:
+                conditions:
+                  description: 'Conditions describing this resource''s reconcile state. The top level condition is of type `Ready`, and follows these Kubernetes conventions: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties'
+                  items:
+                    description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                    properties:
+                      lastTransitionTime:
+                        description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                        format: date-time
+                        type: string
+                      message:
+                        description: message is a human readable message indicating details about the transition. This may be an empty string.
+                        maxLength: 32768
+                        type: string
+                      observedGeneration:
+                        description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      reason:
+                        description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                        maxLength: 1024
+                        minLength: 1
+                        pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                        type: string
+                      status:
+                        description: status of the condition, one of True, False, Unknown.
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                        type: string
+                      type:
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                        maxLength: 316
+                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                        type: string
+                    required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                    type: object
+                  type: array
+                observedGeneration:
+                  description: ObservedGeneration refers to the metadata.Generation of the spec that resulted in the current `status`.
+                  format: int64
+                  type: integer
+                supplyChainRef:
+                  description: SupplyChainRef is the Supply Chain resource that was used when this status was set.
+                  properties:
+                    apiVersion:
+                      type: string
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  type: object
+              type: object
+          required:
+            - metadata
+            - spec
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cartographer-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: private-registry-credentials
+  namespace: cartographer-system
+  annotations:
+    secretgen.carvel.dev/image-pull-secret: ""
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: e30K
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cartographer-controller
+  namespace: cartographer-system
+spec:
+  selector:
+    matchLabels:
+      app: cartographer-controller
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cartographer-controller
+    spec:
+      serviceAccount: cartographer-controller
+      imagePullSecrets:
+        - name: private-registry-credentials
+      volumes:
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: cartographer-webhook
+      containers:
+        - name: cartographer-controller
+          image: projectcartographer/cartographer@sha256:16c635ebfc498ee9fe096bacc7683dd5762e93cf4ef22be382e1697cef4af2d4
+          args:
+            - -cert-dir=/cert
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
+          volumeMounts:
+            - mountPath: /cert
+              name: cert
+              readOnly: true
+          resources:
+            limits:
+              cpu: 1
+              memory: 200Mi
+            requests:
+              cpu: 200m
+              memory: 200Mi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cartographer-controller
+  namespace: cartographer-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cartographer-cluster-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cartographer-controller-admin
+subjects:
+  - kind: ServiceAccount
+    name: cartographer-controller
+    namespace: cartographer-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cartographer-controller-admin
+rules:
+  - apiGroups:
+      - carto.run
+    resources:
+      - workloads/status
+      - clustersupplychains/status
+      - runnables/status
+      - clusterdeliveries/status
+      - deliverables/status
+    verbs:
+      - create
+      - update
+      - delete
+      - patch
+  - apiGroups:
+      - '*'
+    resources:
+      - '*'
+    verbs:
+      - watch
+      - get
+      - list
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: deliveryvalidator
+  annotations:
+    cert-manager.io/inject-ca-from: cartographer-system/cartographer-webhook
+webhooks:
+  - name: delivery-validator.cartographer.com
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - carto.run
+        apiVersions:
+          - v1alpha1
+        resources:
+          - clusterdeliveries
+        scope: Cluster
+    clientConfig:
+      service:
+        name: cartographer-webhook
+        namespace: cartographer-system
+        path: /validate-carto-run-v1alpha1-clusterdelivery
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+      - v1beta1
+  - name: deployment-template-validator.cartographer.com
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - carto.run
+        apiVersions:
+          - v1alpha1
+        resources:
+          - clusterdeploymenttemplates
+        scope: Cluster
+    clientConfig:
+      service:
+        name: cartographer-webhook
+        namespace: cartographer-system
+        path: /validate-carto-run-v1alpha1-clusterdeploymenttemplate
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+      - v1beta1
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: clustersupplychainvalidator
+  annotations:
+    cert-manager.io/inject-ca-from: cartographer-system/cartographer-webhook
+webhooks:
+  - name: supply-chain-validator.cartographer.com
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - carto.run
+        apiVersions:
+          - v1alpha1
+        resources:
+          - clustersupplychains
+        scope: Cluster
+    clientConfig:
+      service:
+        name: cartographer-webhook
+        namespace: cartographer-system
+        path: /validate-carto-run-v1alpha1-clustersupplychain
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+      - v1beta1
+  - name: config-template-validator.cartographer.com
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - carto.run
+        apiVersions:
+          - v1alpha1
+        resources:
+          - clusterconfigtemplates
+        scope: Cluster
+    clientConfig:
+      service:
+        name: cartographer-webhook
+        namespace: cartographer-system
+        path: /validate-carto-run-v1alpha1-clusterconfigtemplate
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+      - v1beta1
+  - name: image-template-validator.cartographer.com
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - carto.run
+        apiVersions:
+          - v1alpha1
+        resources:
+          - clusterimagetemplates
+        scope: Cluster
+    clientConfig:
+      service:
+        name: cartographer-webhook
+        namespace: cartographer-system
+        path: /validate-carto-run-v1alpha1-clusterimagetemplate
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+      - v1beta1
+  - name: source-template-validator.cartographer.com
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - carto.run
+        apiVersions:
+          - v1alpha1
+        resources:
+          - clustersourcetemplates
+        scope: Cluster
+    clientConfig:
+      service:
+        name: cartographer-webhook
+        namespace: cartographer-system
+        path: /validate-carto-run-v1alpha1-clustersourcetemplate
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+      - v1beta1
+  - name: template-validator.cartographer.com
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - carto.run
+        apiVersions:
+          - v1alpha1
+        resources:
+          - clustertemplates
+        scope: Cluster
+    clientConfig:
+      service:
+        name: cartographer-webhook
+        namespace: cartographer-system
+        path: /validate-carto-run-v1alpha1-clustertemplate
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+      - v1beta1
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cartographer-webhook
+  namespace: cartographer-system
+spec:
+  commonName: cartographer-webhook.cartographer-system.svc
+  dnsNames:
+    - cartographer-webhook.cartographer-system.svc
+    - cartographer-webhook.cartographer-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: cartographer-webhook
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: cartographer-system
+spec:
+  selfSigned: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cartographer-webhook
+  namespace: cartographer-system
+spec:
+  ports:
+    - port: 443
+      targetPort: 9443
+  selector:
+    app: cartographer-controller
+---
+kind: Secret
+apiVersion: v1
+metadata:
+  name: cartographer-webhook
+  namespace: cartographer-system
+type: Opaque
+
+---

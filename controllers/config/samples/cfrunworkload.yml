@@ -1,0 +1,27 @@
+apiVersion: carto.run/v1alpha1
+kind: Workload
+metadata:
+  labels:
+    workloads.cloudfoundry.org/app-guid: a6209985-2d88-4cb1-a09c-653b66807382
+    workloads.cloudfoundry.org/workload-type: cf-run
+  name: 3ea4feff-30f3-4be3-a1ab-cbe96383a07a
+  namespace: 7e102d76-7a93-4a75-9a26-db5d9bae2700
+#  ownerReferences:
+#  - apiVersion: workloads.cloudfoundry.org/v1alpha1
+#    kind: CFProcess
+#    name: 3ea4feff-30f3-4be3-a1ab-cbe96383a07a
+spec:
+  params:
+  - name: cf-app-guid
+    value: a6209985-2d88-4cb1-a09c-653b66807382
+  - name: cf-process-guid
+    value: 3ea4feff-30f3-4be3-a1ab-cbe96383a07a
+  - name: cf-process-type
+    value: web
+  - name: cf-app-name
+    value: node
+  - name: cf-app-command
+    value:
+      - /cnb/lifecycle/launcher
+      - node /workspace/server.js
+  image:  localregistry-docker-registry.default.svc.cluster.local:30050/cf-k8s-controllers/kpack/images/7591bd1f-673a-4173-a7ed-ef26dab4e32f@sha256:53a664a39aa9c71ec8d91b34716f0b4ff996a0395c2b9aa9267e0b06981a805c

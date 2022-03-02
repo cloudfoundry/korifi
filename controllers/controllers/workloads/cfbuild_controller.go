@@ -231,8 +231,7 @@ func (r *CFBuildReconciler) createWorkloadAndUpdateStatus(ctx context.Context, c
 			},
 		},
 		Spec: cartographerv1alpha1.WorkloadSpec{
-			ServiceAccountName: kpackServiceAccount,
-			Source:             &workloadSource,
+			Source: &workloadSource,
 			Params: []cartographerv1alpha1.OwnerParam{
 				{
 					Name: "cf-build-guid",
