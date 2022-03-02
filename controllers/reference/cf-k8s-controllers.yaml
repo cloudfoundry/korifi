@@ -2085,6 +2085,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  annotations:
+    hncv1alpha2.AnnotationNoneSelector: "true"
   name: cf-k8s-controllers-root-namespace-user
 rules:
 - apiGroups:
