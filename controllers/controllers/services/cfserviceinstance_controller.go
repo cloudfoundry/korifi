@@ -18,7 +18,12 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
+
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +38,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+)
+
+const (
+	FinalizerName = "cfServiceInstance.services.cloudfoundry.org"
 )
 
 // CFServiceInstanceReconciler reconciles a CFServiceInstance object
@@ -57,6 +66,15 @@ func (r *CFServiceInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			r.Log.Error(err, "unable to fetch CFServiceInstance", req.Name, req.Namespace)
 		}
 		return result, client.IgnoreNotFound(err)
+	}
+
+	err = r.addFinalizer(ctx, cfServiceInstance)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if isFinalizing(cfServiceInstance) {
+		return r.finalizeCFServiceInstance(ctx, cfServiceInstance)
 	}
 
 	secret := new(corev1.Secret)
@@ -102,4 +120,59 @@ func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&servicesv1alpha1.CFServiceInstance{}).
 		Complete(r)
+}
+
+func (r *CFServiceInstanceReconciler) addFinalizer(ctx context.Context, cfServiceInstance *servicesv1alpha1.CFServiceInstance) error {
+	if controllerutil.ContainsFinalizer(cfServiceInstance, FinalizerName) {
+		return nil
+	}
+
+	originalCFInstance := cfServiceInstance.DeepCopy()
+	controllerutil.AddFinalizer(cfServiceInstance, FinalizerName)
+
+	err := r.Client.Patch(ctx, cfServiceInstance, client.MergeFrom(originalCFInstance))
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("Error adding finalizer to CFServiceInstance/%s", cfServiceInstance.Name))
+		return err
+	}
+
+	r.Log.Info(fmt.Sprintf("Finalizer added to CFServiceInstance/%s", cfServiceInstance.Name))
+	return nil
+}
+
+func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Context, cfServiceInstance *servicesv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+	r.Log.Info(fmt.Sprintf("Reconciling deletion of CFServiceInstance/%s", cfServiceInstance.Name))
+
+	if !controllerutil.ContainsFinalizer(cfServiceInstance, FinalizerName) {
+		return ctrl.Result{}, nil
+	}
+
+	cfServiceBindingList := &servicesv1alpha1.CFServiceBindingList{}
+	err := r.Client.List(ctx, cfServiceBindingList,
+		client.InNamespace(cfServiceInstance.Namespace),
+		client.MatchingFields{shared.IndexServiceBindingServiceInstanceGUID: cfServiceInstance.Name},
+	)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error listing CFServiceBindings: %w", err)
+	}
+
+	for _, cfServiceBinding := range cfServiceBindingList.Items {
+		err = r.Client.Delete(ctx, &cfServiceBinding)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("Error deleting %s", cfServiceBinding.Name))
+			return ctrl.Result{}, err
+		}
+	}
+
+	controllerutil.RemoveFinalizer(cfServiceInstance, FinalizerName)
+	if err := r.Client.Update(ctx, cfServiceInstance); err != nil {
+		r.Log.Error(err, "Failed to remove finalizer")
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func isFinalizing(cfServiceInstance *servicesv1alpha1.CFServiceInstance) bool {
+	return cfServiceInstance.ObjectMeta.DeletionTimestamp != nil && !cfServiceInstance.ObjectMeta.DeletionTimestamp.IsZero()
 }

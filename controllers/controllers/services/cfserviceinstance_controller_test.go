@@ -165,5 +165,81 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 				Expect(reconcileErr).To(HaveOccurred())
 			})
 		})
+		When("adding the finalizer to the CFRoute returns an error", func() {
+			BeforeEach(func() {
+				fakeClient.PatchReturns(errors.New("failed to patch CFServiceInstance"))
+			})
+
+			It("returns the error", func() {
+				Expect(reconcileErr).To(MatchError("failed to patch CFServiceInstance"))
+			})
+		})
+	})
+
+	When("the CFServiceInstance is being deleted", func() {
+		var (
+			cfServiceBindingList    servicesv1alpha1.CFServiceBindingList
+			listCFServiceBindingErr error
+		)
+		BeforeEach(func() {
+			cfServiceInstance = &servicesv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "",
+					Namespace: "",
+					Finalizers: []string{
+						"cfServiceInstance.services.cloudfoundry.org",
+					},
+					DeletionTimestamp: &metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				Spec: servicesv1alpha1.CFServiceInstanceSpec{
+					Name:       "",
+					SecretName: "",
+					Type:       "",
+				},
+			}
+
+			cfServiceBindingList = servicesv1alpha1.CFServiceBindingList{
+				Items: []servicesv1alpha1.CFServiceBinding{{}},
+			}
+			listCFServiceBindingErr = nil
+
+			fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
+				switch list := list.(type) {
+				case *servicesv1alpha1.CFServiceBindingList:
+					cfServiceBindingList.DeepCopyInto(list)
+					return listCFServiceBindingErr
+				default:
+					panic("TestClient List provided a weird obj")
+				}
+			}
+		})
+		When("listing the associated CFServiceBindings fails", func() {
+			BeforeEach(func() {
+				listCFServiceBindingErr = errors.New("fail list on purpose")
+			})
+			It("returns the error", func() {
+				Expect(reconcileErr).To(MatchError(listCFServiceBindingErr))
+			})
+		})
+		When("delete the CFServiceBinding fails", func() {
+			BeforeEach(func() {
+				fakeClient.DeleteReturns(errors.New("delete service binding failed"))
+			})
+			It("returns the error", func() {
+				Expect(reconcileErr).To(MatchError("delete service binding failed"))
+			})
+		})
+
+		When("removing the finalizer from the CFRoute fails", func() {
+			BeforeEach(func() {
+				fakeClient.UpdateReturns(errors.New("failed to update CFServiceInstance"))
+			})
+
+			It("returns the error", func() {
+				Expect(reconcileErr).To(MatchError("failed to update CFServiceInstance"))
+			})
+		})
 	})
 })

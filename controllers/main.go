@@ -183,6 +183,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&servicescontrollers.CFServiceInstanceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
+		os.Exit(1)
+	}
+	if err = (&servicescontrollers.CFServiceBindingReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
+		os.Exit(1)
+	}
+
 	// Setup Index with Manager
 	err = shared.SetupIndexWithManager(mgr)
 	if err != nil {
@@ -243,20 +260,6 @@ func main() {
 		setupLog.Info("Skipping webhook setup because ENABLE_WEBHOOKS set to false.")
 	}
 
-	if err = (&servicescontrollers.CFServiceInstanceReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
-		os.Exit(1)
-	}
-	if err = (&servicescontrollers.CFServiceBindingReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
-		os.Exit(1)
-	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

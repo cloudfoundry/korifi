@@ -5,6 +5,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega/gstruct"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -71,6 +72,18 @@ var _ = Describe("CFServiceInstance", func() {
 			Expect(
 				k8sClient.Create(context.Background(), cfServiceInstance),
 			).To(Succeed())
+		})
+
+		It("eventually adds a finalizer", func() {
+			Eventually(func() []string {
+				updatedCFServiceInstance := new(servicesv1alpha1.CFServiceInstance)
+				Expect(
+					k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceInstance.Name, Namespace: cfServiceInstance.Namespace}, updatedCFServiceInstance),
+				).To(Succeed())
+				return updatedCFServiceInstance.ObjectMeta.Finalizers
+			}).Should(ConsistOf([]string{
+				"cfServiceInstance.services.cloudfoundry.org",
+			}))
 		})
 
 		When("and the secret exists", func() {
@@ -156,6 +169,120 @@ var _ = Describe("CFServiceInstance", func() {
 						"Message": Equal(""),
 					})))
 				})
+			})
+		})
+	})
+
+	When(" a CFServiceInstance is Deleted", func() {
+		var cfServiceInstance *servicesv1alpha1.CFServiceInstance
+
+		BeforeEach(func() {
+			ctx := context.Background()
+
+			secretData := map[string]string{
+				"foo": "bar",
+			}
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "secret-name",
+					Namespace: namespace.Name,
+				},
+				StringData: secretData,
+			}
+			Expect(
+				k8sClient.Create(ctx, secret),
+			).To(Succeed())
+
+			cfServiceInstance = &servicesv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service-instance-guid",
+					Namespace: namespace.Name,
+				},
+				Spec: servicesv1alpha1.CFServiceInstanceSpec{
+					Name:       "service-instance-name",
+					SecretName: secret.Name,
+					Type:       "user-provided",
+					Tags:       []string{},
+				},
+			}
+			Expect(
+				k8sClient.Create(context.Background(), cfServiceInstance),
+			).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			Expect(
+				k8sClient.Delete(context.Background(), cfServiceInstance),
+			).To(Succeed())
+		})
+
+		When("a ServiceBinding exists for the CFServiceInstance", func() {
+			var cfServiceBinding *servicesv1alpha1.CFServiceBinding
+
+			BeforeEach(func() {
+				cfServiceBinding = &servicesv1alpha1.CFServiceBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      GenerateGUID(),
+						Namespace: namespace.Name,
+					},
+					Spec: servicesv1alpha1.CFServiceBindingSpec{
+						Service: corev1.ObjectReference{
+							Kind:       "ServiceInstance",
+							Name:       cfServiceInstance.Name,
+							APIVersion: "services.cloudfoundry.org/v1alpha1",
+						},
+						AppRef: corev1.LocalObjectReference{
+							Name: "",
+						},
+					},
+				}
+				Expect(
+					k8sClient.Create(context.Background(), cfServiceBinding),
+				).To(Succeed())
+
+				cfServiceBinding2 := &servicesv1alpha1.CFServiceBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      GenerateGUID(),
+						Namespace: namespace.Name,
+					},
+					Spec: servicesv1alpha1.CFServiceBindingSpec{
+						Service: corev1.ObjectReference{
+							Kind:       "ServiceInstance",
+							Name:       cfServiceInstance.Name,
+							APIVersion: "services.cloudfoundry.org/v1alpha1",
+						},
+						AppRef: corev1.LocalObjectReference{
+							Name: "",
+						},
+					},
+				}
+				Expect(
+					k8sClient.Create(context.Background(), cfServiceBinding2),
+				).To(Succeed())
+
+				Eventually(func() []servicesv1alpha1.CFServiceBinding {
+					cfServiceBindingList := new(servicesv1alpha1.CFServiceBindingList)
+					Expect(k8sClient.List(context.Background(), cfServiceBindingList, client.InNamespace(namespace.Name))).To(Succeed())
+					return cfServiceBindingList.Items
+				}).Should(HaveLen(2))
+
+				Eventually(func() []string {
+					updatedCFServiceInstance := new(servicesv1alpha1.CFServiceInstance)
+					Expect(
+						k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceInstance.Name, Namespace: cfServiceInstance.Namespace}, updatedCFServiceInstance),
+					).To(Succeed())
+					return updatedCFServiceInstance.ObjectMeta.Finalizers
+				}).Should(ConsistOf([]string{
+					"cfServiceInstance.services.cloudfoundry.org",
+				}))
+			})
+
+			It("eventually deletes associated ServiceBindings", func() {
+				Eventually(func() []servicesv1alpha1.CFServiceBinding {
+					cfServiceBindingList := new(servicesv1alpha1.CFServiceBindingList)
+					Expect(k8sClient.List(context.Background(), cfServiceBindingList, client.InNamespace(namespace.Name))).To(Succeed())
+					return cfServiceBindingList.Items
+				}).Should(HaveLen(0))
 			})
 		})
 	})

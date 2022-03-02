@@ -4,6 +4,10 @@ import (
 	"context"
 	"time"
 
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+
+	"k8s.io/apimachinery/pkg/types"
+
 	. "github.com/onsi/gomega/gstruct"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -17,11 +21,19 @@ import (
 
 var _ = Describe("CFServiceBinding", func() {
 	var namespace *corev1.Namespace
+	var cfAppGUID string
+	var desiredCFApp *workloadsv1alpha1.CFApp
 
 	BeforeEach(func() {
 		namespace = BuildNamespaceObject(GenerateGUID())
 		Expect(
 			k8sClient.Create(context.Background(), namespace),
+		).To(Succeed())
+
+		cfAppGUID = GenerateGUID()
+		desiredCFApp = BuildCFAppCRObject(cfAppGUID, namespace.Name)
+		Expect(
+			k8sClient.Create(context.Background(), desiredCFApp),
 		).To(Succeed())
 	})
 
@@ -31,10 +43,11 @@ var _ = Describe("CFServiceBinding", func() {
 
 	When("a new CFServiceBinding is Created", func() {
 		var (
-			secretData        map[string]string
-			secret            *corev1.Secret
-			cfServiceInstance *servicesv1alpha1.CFServiceInstance
-			cfServiceBinding  *servicesv1alpha1.CFServiceBinding
+			secretData           map[string]string
+			secret               *corev1.Secret
+			cfServiceInstance    *servicesv1alpha1.CFServiceInstance
+			cfServiceBinding     *servicesv1alpha1.CFServiceBinding
+			cfServiceBindingGUID string
 		)
 		BeforeEach(func() {
 			ctx := context.Background()
@@ -69,9 +82,10 @@ var _ = Describe("CFServiceBinding", func() {
 				k8sClient.Create(ctx, cfServiceInstance),
 			).To(Succeed())
 
+			cfServiceBindingGUID = GenerateGUID()
 			cfServiceBinding = &servicesv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      GenerateGUID(),
+					Name:      cfServiceBindingGUID,
 					Namespace: namespace.Name,
 				},
 				Spec: servicesv1alpha1.CFServiceBindingSpec{
@@ -81,7 +95,7 @@ var _ = Describe("CFServiceBinding", func() {
 						APIVersion: "services.cloudfoundry.org/v1alpha1",
 					},
 					AppRef: corev1.LocalObjectReference{
-						Name: "",
+						Name: cfAppGUID,
 					},
 				},
 			}
@@ -112,6 +126,22 @@ var _ = Describe("CFServiceBinding", func() {
 					})),
 				}))
 			})
+		})
+
+		It("eventually reconciles to set the owner reference on the CFServiceBinding", func() {
+			Eventually(func() []metav1.OwnerReference {
+				var createdCFServiceBinding servicesv1alpha1.CFServiceBinding
+				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceBindingGUID, Namespace: namespace.Name}, &createdCFServiceBinding)
+				if err != nil {
+					return nil
+				}
+				return createdCFServiceBinding.GetOwnerReferences()
+			}, 5*time.Second).Should(ConsistOf(metav1.OwnerReference{
+				APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
+				Kind:       "CFApp",
+				Name:       desiredCFApp.Name,
+				UID:        desiredCFApp.UID,
+			}))
 		})
 
 		When("and the referenced secret does not exist", func() {

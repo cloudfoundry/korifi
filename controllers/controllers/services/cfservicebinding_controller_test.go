@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -12,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/services"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/services/fake"
 
@@ -33,15 +36,21 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 		cfServiceBinding        *servicesv1alpha1.CFServiceBinding
 		cfServiceInstance       *servicesv1alpha1.CFServiceInstance
 		cfServiceInstanceSecret *corev1.Secret
+		cfApp                   *v1alpha1.CFApp
 
 		getCFServiceBindingError          error
 		getCFServiceInstanceSecretError   error
 		updateCFServiceBindingStatusError error
 		getCFServiceInstanceError         error
+		getCFAppError                     error
+		patchCFServiceBindingError        error
 
 		cfServiceBindingReconciler *CFServiceBindingReconciler
 		ctx                        context.Context
 		req                        ctrl.Request
+
+		cfAppName             string
+		cfServiceInstanceName string
 
 		reconcileResult ctrl.Result
 		reconcileErr    error
@@ -51,7 +60,11 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 		getCFServiceBindingError = nil
 		getCFServiceInstanceSecretError = nil
 		getCFServiceInstanceError = nil
+		getCFAppError = nil
 		updateCFServiceBindingStatusError = nil
+		patchCFServiceBindingError = nil
+		cfAppName = "cfAppName"
+		cfServiceInstanceName = "cfServiceInstanceName"
 
 		fakeClient = new(fake.Client)
 		fakeStatusWriter = new(fake.StatusWriter)
@@ -60,6 +73,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 		cfServiceBinding = new(servicesv1alpha1.CFServiceBinding)
 		cfServiceInstance = new(servicesv1alpha1.CFServiceInstance)
 		cfServiceInstanceSecret = new(corev1.Secret)
+		cfApp = new(v1alpha1.CFApp)
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
@@ -67,8 +81,13 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 				cfServiceBinding.DeepCopyInto(obj)
 				return getCFServiceBindingError
 			case *servicesv1alpha1.CFServiceInstance:
+				cfServiceInstance.Name = cfServiceInstanceName
 				cfServiceInstance.DeepCopyInto(obj)
 				return getCFServiceInstanceError
+			case *v1alpha1.CFApp:
+				cfApp.Name = cfAppName
+				cfApp.DeepCopyInto(obj)
+				return getCFAppError
 			case *corev1.Secret:
 				cfServiceInstanceSecret.DeepCopyInto(obj)
 				return getCFServiceInstanceSecretError
@@ -81,7 +100,18 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 			return updateCFServiceBindingStatusError
 		}
 
+		fakeClient.PatchStub = func(ctx context.Context, obj client.Object, patch client.Patch, option ...client.PatchOption) error {
+			switch obj := obj.(type) {
+			case *servicesv1alpha1.CFServiceBinding:
+				cfServiceBinding.DeepCopyInto(obj)
+				return patchCFServiceBindingError
+			default:
+				panic("TestClient Patch provided an unexpected object type")
+			}
+		}
+
 		Expect(servicesv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 		cfServiceBindingReconciler = &CFServiceBindingReconciler{
 			Client: fakeClient,
@@ -118,6 +148,24 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 					"Reason":  Equal("SecretFound"),
 					"Message": Equal(""),
 				})))
+			})
+		})
+		When("the app isn't found", func() {
+			BeforeEach(func() {
+				getCFAppError = apierrors.NewNotFound(schema.GroupResource{}, cfApp.Name)
+			})
+			It("returns an error", func() {
+				Expect(reconcileResult).To(Equal(ctrl.Result{}))
+				Expect(reconcileErr).To(HaveOccurred())
+				Expect(fakeClient.GetCallCount()).To(Equal(2))
+			})
+		})
+		When("the API errors setting the ownerReference", func() {
+			BeforeEach(func() {
+				patchCFServiceBindingError = errors.New("some random error")
+			})
+			It("returns an error", func() {
+				Expect(reconcileErr).To(MatchError(patchCFServiceBindingError))
 			})
 		})
 		When("the instance isn't found", func() {
