@@ -161,6 +161,12 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 
+		err = r.ensureKpackImageRequirements(ctx, cfPackage)
+		if err != nil {
+			r.Log.Info("Kpack image requirements for CFPackage are not met", "guid", cfPackage.Name, "reason", err)
+			return ctrl.Result{}, err
+		}
+
 		err = r.createKpackImageAndUpdateStatus(ctx, cfBuild, cfApp, cfPackage, appServiceBindings)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -323,6 +329,17 @@ func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, des
 			return err
 		}
 	}
+	return nil
+}
+
+func (r *CFBuildReconciler) ensureKpackImageRequirements(ctx context.Context, cfPackage *workloadsv1alpha1.CFPackage) error {
+	for _, secret := range cfPackage.Spec.Source.Registry.ImagePullSecrets {
+		err := r.Client.Get(ctx, types.NamespacedName{Namespace: cfPackage.Namespace, Name: secret.Name}, &corev1.Secret{})
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

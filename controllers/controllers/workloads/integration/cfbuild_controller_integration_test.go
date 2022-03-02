@@ -64,6 +64,11 @@ var _ = Describe("CFBuildReconciler", func() {
 			Expect(
 				k8sClient.Create(beforeCtx, desiredCFPackage),
 			).To(Succeed())
+
+			kpackSecret := BuildDockerRegistrySecret("source-registry-image-pull-secret", namespaceGUID)
+			Expect(
+				k8sClient.Create(beforeCtx, kpackSecret),
+			).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
