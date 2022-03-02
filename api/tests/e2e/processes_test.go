@@ -88,10 +88,7 @@ var _ = Describe("Processes", func() {
 
 		It("succeeds", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-
 			Expect(processStats.Resources).To(HaveLen(1))
-			Expect(processStats.Resources[0].State).To(Equal("RUNNING"))
-			Expect(processStats.Resources[0].Type).To(Equal("web"))
 		})
 
 		When("we wait for the metrics to be ready", func() {

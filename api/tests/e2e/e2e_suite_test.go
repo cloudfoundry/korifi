@@ -24,6 +24,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	certsv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -107,6 +108,7 @@ type typedResource struct {
 type mapRouteResource struct {
 	Destinations []destinationRef `json:"destinations"`
 }
+
 type destinationRef struct {
 	App resource `json:"app"`
 }
@@ -586,15 +588,17 @@ func createApp(spaceGUID, name string) string {
 
 func getProcess(appGUID, processType string) string {
 	var processList resourceList
+	Eventually(func(g gomega.Gomega) {
+		resp, err := adminClient.R().
+			SetResult(&processList).
+			Get("/v3/processes?app_guids=" + appGUID)
 
-	resp, err := adminClient.R().
-		SetResult(&processList).
-		Get("/v3/processes?app_guids=" + appGUID)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+		g.Expect(processList.Resources).NotTo(BeEmpty())
+	}).Should(Succeed())
 
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 	Expect(processList.Resources).To(HaveLen(1))
-
 	return processList.Resources[0].GUID
 }
 
@@ -752,7 +756,7 @@ func waitForAdminRoleBinding(namespace string) error {
 	}
 
 	if !adminRolebindingPropagated {
-		return fmt.Errorf("role binding to role 'cf-k8s-controllers-admin' has not been propagated within timeout period %d ms", timeout.Milliseconds())
+		return fmt.Errorf("role binding to role 'cf-k8s-controllers-admin' has not been propagated in namespace %s within timeout period %d ms", namespace, timeout.Milliseconds())
 	}
 
 	return nil
