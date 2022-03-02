@@ -214,4 +214,64 @@ var _ = Describe("Orgs", func() {
 			})
 		})
 	})
+
+	Describe("list domains", func() {
+		var (
+			client     *resty.Client
+			domainGUID string
+			domainName string
+			orgGUID    string
+			resultList responseResourceList
+			resp       *resty.Response
+			errResp    cfErrs
+		)
+
+		BeforeEach(func() {
+			orgGUID = createOrg(generateGUID("org"))
+			client = certClient
+			createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+			domainName = generateGUID("domain-name")
+			domainGUID = createDomain(domainName)
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgGUID)
+			deleteDomain(domainGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = client.R().
+				SetResult(&resultList).
+				SetError(&errResp).
+				Get("/v3/organizations/" + orgGUID + "/domains")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the user is authorized in the space", func() {
+			It("can fetch the domain", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(resultList.Resources).To(ContainElement(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(domainName)}),
+				))
+			})
+		})
+
+		When("the user is not authorized in the organization", func() {
+			BeforeEach(func() {
+				client = tokenClient
+			})
+
+			It("returns a not found error", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+				Expect(errResp.Errors).To(ConsistOf(
+					cfErr{
+						Detail: "Organization not found. Ensure it exists and you have access to it.",
+						Title:  "CF-ResourceNotFound",
+						Code:   10010,
+					},
+				))
+			})
+		})
+	})
 })

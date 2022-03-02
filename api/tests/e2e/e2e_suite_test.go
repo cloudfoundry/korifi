@@ -81,6 +81,17 @@ type resourceList struct {
 	Resources []resource `json:"resources"`
 }
 
+type responseResource struct {
+	Name      string `json:"name,omitempty"`
+	GUID      string `json:"guid,omitempty"`
+	CreatedAt string `json:"created_at,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+}
+
+type responseResourceList struct {
+	Resources []responseResource `json:"resources"`
+}
+
 type resourceListWithInclusion struct {
 	Resources []resource    `json:"resources"`
 	Included  *includedApps `json:",omitempty"`

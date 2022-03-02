@@ -32,16 +32,18 @@ var _ = Describe("OrgHandler", func() {
 		orgHandler *apis.OrgHandler
 		orgRepo    *fake.OrgRepository
 		now        time.Time
+		domainRepo *fake.CFDomainRepository
 	)
 
 	BeforeEach(func() {
 		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
 
 		orgRepo = new(fake.OrgRepository)
+		domainRepo = new(fake.CFDomainRepository)
 		decoderValidator, err := apis.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		orgHandler = apis.NewOrgHandler(*serverURL, orgRepo, decoderValidator)
+		orgHandler = apis.NewOrgHandler(*serverURL, orgRepo, domainRepo, decoderValidator)
 		orgHandler.RegisterRoutes(router)
 	})
 
@@ -572,6 +574,171 @@ var _ = Describe("OrgHandler", func() {
 
 			It("returns an error", func() {
 				expectNotFoundError("Org not found")
+			})
+		})
+	})
+
+	Describe("List Domains", func() {
+		const (
+			testDomainGUID       = "test-domain-guid"
+			testOrganizationGUID = "test-organization-guid"
+		)
+
+		var (
+			domainRecord *repositories.DomainRecord
+			requestURL   string
+		)
+
+		BeforeEach(func() {
+			domainRecord = &repositories.DomainRecord{
+				GUID:        testDomainGUID,
+				Name:        "example.org",
+				Labels:      nil,
+				Annotations: nil,
+				CreatedAt:   "2019-05-10T17:17:48Z",
+				UpdatedAt:   "2019-05-10T17:17:48Z",
+			}
+			domainRepo.ListDomainsReturns([]repositories.DomainRecord{*domainRecord}, nil)
+			requestURL = "/v3/organizations/" + testOrganizationGUID + "/domains"
+		})
+
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
+			Expect(err).NotTo(HaveOccurred())
+			router.ServeHTTP(rr, req)
+		})
+
+		Describe("on the happy path", func() {
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+			It("returns the Pagination Data and Domain Resources in the response", func() {
+				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+				"pagination": {
+					"total_results": 1,
+					"total_pages": 1,
+					"first": {
+						"href": "%[1]s/v3/organizations/%[6]s/domains"
+					},
+					"last": {
+						"href": "%[1]s/v3/organizations/%[6]s/domains"
+					},
+					"next": null,
+					"previous": null
+				},
+				"resources": [
+					 {
+					  "guid": "%[2]s",
+					  "created_at": "%[3]s",
+					  "updated_at": "%[4]s",
+					  "name": "%[5]s",
+					  "internal": false,
+					  "router_group": null,
+					  "supported_protocols": ["http"],
+					  "metadata": {
+						"labels": {},
+						"annotations": {}
+					  },
+					  "relationships": {
+						"organization": {
+						  "data": null
+						},
+						"shared_organizations": {
+						  "data": []
+						}
+					  },
+					  "links": {
+						"self": {
+						  "href": "%[1]s/v3/domains/%[2]s"
+						},
+						"route_reservations": {
+						  "href": "%[1]s/v3/domains/%[2]s/route_reservations"
+						},
+						"router_group": null
+					  }
+					}
+				]
+				}`, defaultServerURL, domainRecord.GUID, domainRecord.CreatedAt, domainRecord.UpdatedAt, domainRecord.Name, testOrganizationGUID)), "Response body matches response:")
+			})
+		})
+
+		When("the org does not exist", func() {
+			BeforeEach(func() {
+				orgRepo.GetOrgReturns(repositories.OrgRecord{}, repositories.NewNotFoundError(repositories.OrgResourceType, errors.New("org not found")))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError("Organization not found. Ensure it exists and you have access to it.")
+			})
+		})
+
+		When("fails to get the org", func() {
+			BeforeEach(func() {
+				orgRepo.GetOrgReturns(repositories.OrgRecord{}, errors.New("failed to get org"))
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("no domain exists", func() {
+			BeforeEach(func() {
+				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, nil)
+			})
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("returns an empty list in the response", func() {
+				expectedBody := fmt.Sprintf(`{
+					"pagination": {
+						"total_results": 0,
+						"total_pages": 1,
+						"first": {
+							"href": "%[1]s/v3/organizations/%[2]s/domains"
+						},
+						"last": {
+							"href": "%[1]s/v3/organizations/%[2]s/domains"
+						},
+						"next": null,
+						"previous": null
+					},
+					"resources": [
+					]
+				}`, defaultServerURL, testOrganizationGUID)
+
+				Expect(rr.Body.String()).To(MatchJSON(expectedBody), "Response body matches response:")
+			})
+		})
+
+		When("there is an error listing domains", func() {
+			BeforeEach(func() {
+				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, errors.New("unexpected error!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("invalid query parameters are provided", func() {
+			BeforeEach(func() {
+				requestURL = "/v3/organizations/" + testOrganizationGUID + "/domains?foo=bar"
+			})
+
+			It("returns an Unknown key error", func() {
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names'")
 			})
 		})
 	})
