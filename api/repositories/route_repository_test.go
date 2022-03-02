@@ -251,6 +251,14 @@ var _ = Describe("RouteRepository", func() {
 	})
 
 	Describe("GetRouteList", Serial, func() {
+		BeforeEach(func() {
+			var existingRouteList networkingv1alpha1.CFRouteList
+			Expect(k8sClient.List(testCtx, &existingRouteList)).To(Succeed())
+			for _, existingRoute := range existingRouteList.Items {
+				Expect(k8sClient.Delete(testCtx, &existingRoute)).To(Succeed())
+			}
+		})
+
 		When("multiple CFRoutes exist", func() {
 			var (
 				cfRoute1 *networkingv1alpha1.CFRoute
