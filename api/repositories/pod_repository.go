@@ -298,13 +298,8 @@ func containersRunning(statuses []corev1.ContainerStatus) bool {
 	return true
 }
 
-func CreateMetricsFetcher() (MetricsFetcherFn, error) {
-	restConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	c, err := versioned.NewForConfig(restConfig)
+func CreateMetricsFetcher(k8sClientConfig *rest.Config) (MetricsFetcherFn, error) {
+	c, err := versioned.NewForConfig(k8sClientConfig)
 	if err != nil {
 		return nil, err
 	}
