@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -111,6 +112,7 @@ func (h *SpaceHandler) SpaceCreateHandler(info authorization.Info, w http.Respon
 
 	spaceResponse := presenter.ForCreateSpace(record, h.apiBaseURL)
 	writeResponse(w, http.StatusCreated, spaceResponse)
+	time.Sleep(2 * time.Second) // TODO this is hideous
 }
 
 func (h *SpaceHandler) SpaceListHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
