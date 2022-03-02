@@ -45,26 +45,27 @@ func TestIntegration(t *testing.T) {
 }
 
 var (
-	testEnv            *envtest.Environment
-	k8sClient          client.WithWatch
-	namespaceRetriever repositories.NamespaceRetriever
-	k8sConfig          *rest.Config
-	server             *http.Server
-	port               int
-	rr                 *httptest.ResponseRecorder
-	req                *http.Request
-	router             *mux.Router
-	serverURL          *url.URL
-	userName           string
-	ctx                context.Context
-	adminRole          *rbacv1.ClusterRole
-	spaceDeveloperRole *rbacv1.ClusterRole
-	spaceManagerRole   *rbacv1.ClusterRole
-	orgUserRole        *rbacv1.ClusterRole
-	orgManagerRole     *rbacv1.ClusterRole
-	rootNamespace      string
-	clientFactory      repositories.UserK8sClientFactory
-	nsPermissions      *authorization.NamespacePermissions
+	testEnv               *envtest.Environment
+	k8sClient             client.WithWatch
+	k8sConfig             *rest.Config
+	namespaceRetriever    repositories.NamespaceRetriever
+	server                *http.Server
+	port                  int
+	rr                    *httptest.ResponseRecorder
+	req                   *http.Request
+	router                *mux.Router
+	serverURL             *url.URL
+	userName              string
+	ctx                   context.Context
+	adminRole             *rbacv1.ClusterRole
+	spaceDeveloperRole    *rbacv1.ClusterRole
+	spaceManagerRole      *rbacv1.ClusterRole
+	orgUserRole           *rbacv1.ClusterRole
+	orgManagerRole        *rbacv1.ClusterRole
+	rootNamespaceUserRole *rbacv1.ClusterRole
+	rootNamespace         string
+	clientFactory         repositories.UserK8sClientFactory
+	nsPermissions         *authorization.NamespacePermissions
 )
 
 var _ = BeforeSuite(func() {
@@ -110,6 +111,7 @@ var _ = BeforeSuite(func() {
 	spaceManagerRole = createClusterRole(ctx, "cf_space_manager")
 	orgManagerRole = createClusterRole(ctx, "cf_org_manager")
 	orgUserRole = createClusterRole(ctx, "cf_org_user")
+	rootNamespaceUserRole = createClusterRole(ctx, "cf_root_namespace_user")
 })
 
 var _ = AfterSuite(func() {
@@ -117,7 +119,7 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	rootNamespace = generateGUID()
+	rootNamespace = generateGUIDWithPrefix("root")
 
 	clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig)
 	tokenInspector := authorization.NewTokenReviewer(k8sClient)
@@ -132,6 +134,8 @@ var _ = BeforeEach(func() {
 	ctx = authorization.NewContext(context.Background(), &authInfo)
 
 	Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
+
+	createRoleBinding(ctx, userName, rootNamespaceUserRole.Name, rootNamespace)
 
 	rr = httptest.NewRecorder()
 	router = mux.NewRouter()
@@ -153,9 +157,9 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterEach(func() {
-	Expect(
-		server.Close(),
-	).To(Succeed())
+	Expect(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
+
+	Expect(server.Close()).To(Succeed())
 })
 
 func serverURI(paths ...string) string {
@@ -164,6 +168,10 @@ func serverURI(paths ...string) string {
 
 func generateGUID() string {
 	return uuid.NewString()
+}
+
+func generateGUIDWithPrefix(prefix string) string {
+	return prefix + uuid.NewString()
 }
 
 func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {

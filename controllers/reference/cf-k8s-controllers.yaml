@@ -2085,6 +2085,40 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  annotations:
+    hncv1alpha2.AnnotationNoneSelector: "true"
+  name: cf-k8s-controllers-root-namespace-user
+rules:
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfdomains
+  verbs:
+  - get
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cf-k8s-controllers-space-auditor
+rules:
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: cf-k8s-controllers-space-developer
 rules:
 - apiGroups:
@@ -2151,18 +2185,13 @@ rules:
 - apiGroups:
   - networking.cloudfoundry.org
   resources:
-  - cfdomains
-  verbs:
-  - get
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
   - cfroutes
   verbs:
   - get
   - create
   - delete
   - list
+  - patch
 - apiGroups:
   - kpack.io
   resources:
@@ -2193,6 +2222,13 @@ rules:
   - cfbuilds
   verbs:
   - get
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - get
+  - list
 - apiGroups:
   - services.cloudfoundry.org
   resources:

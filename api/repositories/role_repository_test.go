@@ -5,9 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,6 +15,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 )
 
 var _ = Describe("RoleRepository", func() {
@@ -32,10 +33,8 @@ var _ = Describe("RoleRepository", func() {
 	)
 
 	BeforeEach(func() {
-		rootNamespace = uuid.NewString()
 		ctx = context.Background()
 		authorizedInChecker = new(fake.AuthorizedInChecker)
-		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 		roleRepo = repositories.NewRoleRepo(k8sClient, userClientFactory, authorizedInChecker, map[string]config.Role{
 			"space_developer":      {Name: spaceDeveloperRole.Name},
 			"organization_manager": {Name: orgManagerRole.Name, Propagate: true},

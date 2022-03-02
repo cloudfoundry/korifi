@@ -7,8 +7,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("NamespaceRetriever", func() {
@@ -27,8 +25,6 @@ var _ = Describe("NamespaceRetriever", func() {
 
 		resourceType = repositories.AppResourceType
 		appGUID = prefixedGUID("app")
-		rootNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}}
-		Expect(k8sClient.Create(ctx, rootNs)).To(Succeed())
 		org := createOrgAnchorAndNamespace(ctx, rootNamespace, prefixedGUID("org"))
 		orgGUID = org.Name
 		space := createSpaceAnchorAndNamespace(ctx, org.Name, prefixedGUID("space"))

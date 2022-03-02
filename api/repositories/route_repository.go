@@ -389,9 +389,17 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 	cfRoute := baseCFRoute.DeepCopy()
 	cfRoute.Spec.Destinations = mergeDestinations(message.ExistingDestinations, message.NewDestinations)
 
-	err := f.privilegedClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
-	if err != nil { // untested
-		return RouteRecord{}, fmt.Errorf("err in client.Patch: %w", err)
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
+	if err != nil {
+		if k8serrors.IsForbidden(err) {
+			return RouteRecord{}, NewForbiddenError(RouteResourceType, err)
+		}
+		return RouteRecord{}, fmt.Errorf("err in client.Patch: %w", err) // untested
 	}
 
 	return cfRouteToRouteRecord(*cfRoute), err

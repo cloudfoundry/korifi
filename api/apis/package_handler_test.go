@@ -151,27 +151,8 @@ var _ = Describe("PackageHandler", func() {
 				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError(repositories.PackageResourceType, nil))
 			})
 
-			It("returns status 404", func() {
-				Expect(rr.Code).To(Equal(http.StatusNotFound), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("returns a JSON body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`
-				{
-					"errors": [
-						{
-							"detail": "Package not found",
-							"title": "CF-ResourceNotFound",
-							"code": 10010
-						}
-					]
-				}
-            `))
+			It("returns an error", func() {
+				expectNotFoundError("Package not found")
 			})
 		})
 	})

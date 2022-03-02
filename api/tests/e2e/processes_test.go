@@ -68,14 +68,7 @@ var _ = Describe("Processes", func() {
 			})
 
 			It("returns a not found error", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
-				Expect(errResp.Errors).To(ConsistOf(
-					cfErr{
-						Detail: "Process not found",
-						Title:  "CF-ResourceNotFound",
-						Code:   10010,
-					},
-				))
+				expectNotFoundError(resp, errResp, "Process")
 			})
 		})
 	})
@@ -133,14 +126,7 @@ var _ = Describe("Processes", func() {
 			})
 
 			It("returns a not found error", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
-				Expect(errResp.Errors).To(ConsistOf(
-					cfErr{
-						Detail: "Process not found",
-						Title:  "CF-ResourceNotFound",
-						Code:   10010,
-					},
-				))
+				expectNotFoundError(resp, errResp, "Process")
 			})
 		})
 	})

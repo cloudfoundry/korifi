@@ -27,8 +27,6 @@ var _ = Describe("OrgRepository", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-
-		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, true)
 	})
 

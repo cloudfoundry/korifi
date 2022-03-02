@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -9,11 +8,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	hncv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
-var _ = Describe("Routes", func() {
+var _ = Describe("Routes",  func() {
 	var (
 		client     *resty.Client
 		domainGUID string
@@ -22,9 +19,6 @@ var _ = Describe("Routes", func() {
 		spaceGUID  string
 		host       string
 		path       string
-
-		cfDomainRoleName    string // temp hack
-		cfDomainBindingName string // temp hack
 	)
 
 	BeforeEach(func() {
@@ -34,42 +28,7 @@ var _ = Describe("Routes", func() {
 		spaceGUID = createSpace(generateGUID("space"), orgGUID)
 		client = certClient
 
-		// temp hack for cfdomain permission problem in root CF namespace
-		cfDomainRoleName = generateGUID("cfdomain-role")
-		Expect(k8sClient.Create(context.Background(), &rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: cfDomainRoleName,
-			},
-			Rules: []rbacv1.PolicyRule{
-				{
-					Verbs:     []string{"get", "list"},
-					APIGroups: []string{"networking.cloudfoundry.org"},
-					Resources: []string{"cfdomains"},
-				},
-			},
-		})).To(Succeed())
-
-		cfDomainBindingName = generateGUID("cfdomain-binding")
-		Expect(k8sClient.Create(context.Background(), &rbacv1.RoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cfDomainBindingName,
-				Namespace: rootNamespace,
-				Annotations: map[string]string{
-					hncv1alpha2.AnnotationNoneSelector: "true",
-				},
-			},
-			Subjects: []rbacv1.Subject{
-				{Kind: rbacv1.UserKind, Name: certUserName},
-			},
-			RoleRef: rbacv1.RoleRef{
-				Kind: "ClusterRole",
-				Name: cfDomainRoleName,
-			},
-		})).To(Succeed())
-		// end of hack
-
 		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 
 		domainName = generateGUID("domain-name")
 		domainGUID = createDomain(domainName)
@@ -78,18 +37,9 @@ var _ = Describe("Routes", func() {
 	AfterEach(func() {
 		deleteOrg(orgGUID)
 		deleteDomain(domainGUID)
-
-		// temp hack for cfdomain
-		Expect(k8sClient.Delete(context.Background(), &rbacv1.RoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: cfDomainBindingName, Namespace: rootNamespace},
-		})).To(Succeed())
-		Expect(k8sClient.Delete(context.Background(), &rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{Name: cfDomainRoleName},
-		})).To(Succeed())
-		// end of hack
 	})
 
-	Describe("Fetch a route", func() {
+	Describe("fetch", func() {
 		var (
 			result    resource
 			resp      *resty.Response
@@ -98,6 +48,7 @@ var _ = Describe("Routes", func() {
 		)
 
 		BeforeEach(func() {
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 			routeGUID = createRoute(host, path, spaceGUID, domainGUID)
 		})
 
@@ -117,7 +68,7 @@ var _ = Describe("Routes", func() {
 			})
 		})
 
-		When("the user is not authorized in the space", func() {
+		When("the user is not authorized in the space",  func() {
 			BeforeEach(func() {
 				client = tokenClient
 			})
@@ -126,21 +77,25 @@ var _ = Describe("Routes", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 				Expect(errResp.Errors).To(ConsistOf(
 					cfErr{
-						Detail: "Route not found",
 						Title:  "CF-ResourceNotFound",
 						Code:   10010,
+						Detail: "Route not found. Ensure it exists and you have access to it.",
 					},
 				))
 			})
 		})
 	})
 
-	Describe("creation", func() {
+	Describe("create", func() {
 		var (
 			resp      *resty.Response
 			createErr cfErrs
 			route     routeResource
 		)
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+		})
 
 		JustBeforeEach(func() {
 			var err error
@@ -217,39 +172,6 @@ var _ = Describe("Routes", func() {
 		})
 	})
 
-	Describe("update destinations", func() {
-		var (
-			routeGUID string
-			appGUID   string
-			resp      *resty.Response
-			result    destinationsResource
-		)
-
-		BeforeEach(func() {
-			routeGUID = createRoute(host, path, spaceGUID, domainGUID)
-			appGUID = generateGUID("app")
-		})
-
-		JustBeforeEach(func() {
-			var err error
-			resp, err = client.R().
-				SetBody(destinationsResource{
-					Destinations: []destination{
-						{App: bareResource{GUID: appGUID}},
-					},
-				}).
-				SetResult(&result).
-				Post("/v3/routes/" + routeGUID + "/destinations")
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("can modify a route", func() {
-			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-			Expect(result.Destinations).To(HaveLen(1))
-			Expect(result.Destinations[0].App.GUID).To(Equal(appGUID))
-		})
-	})
-
 	Describe("delete", func() {
 		var (
 			routeGUID string
@@ -257,6 +179,7 @@ var _ = Describe("Routes", func() {
 		)
 
 		BeforeEach(func() {
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 			routeGUID = createRoute(host, path, spaceGUID, domainGUID)
 		})
 
@@ -277,6 +200,80 @@ var _ = Describe("Routes", func() {
 
 		It("frees up the deleted route's name for reuse", func() {
 			createRoute(host, path, spaceGUID, domainGUID)
+		})
+	})
+
+	Describe("add a destination", func() {
+		var (
+			appGUID   string
+			routeGUID string
+			resp      *resty.Response
+			host      string
+			result    destinationsResource
+		)
+
+		BeforeEach(func() {
+			routeGUID = ""
+			host = generateGUID("host")
+			routeGUID = createRoute(host, "", spaceGUID, SamplesDomainGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().
+				SetBody(mapRouteResource{
+					Destinations: []destinationRef{
+						{App: resource{GUID: appGUID}},
+					},
+				}).
+				SetResult(&result).
+				Post("/v3/routes/" + routeGUID + "/destinations")
+
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the user is a space developer in the space", func() {
+			BeforeEach(func() {
+				appGUID = pushNodeApp(spaceGUID)
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("returns success and routes the host to the app", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+
+				appClient := resty.New()
+				Eventually(func() int {
+					var err error
+					resp, err = appClient.R().Get(fmt.Sprintf("http://%s.%s", host, SamplesDomain))
+					Expect(err).NotTo(HaveOccurred())
+					return resp.StatusCode()
+				}).Should(Equal(http.StatusOK))
+				Expect(result.Destinations).To(HaveLen(1))
+				Expect(result.Destinations[0].App.GUID).To(Equal(appGUID))
+
+				Expect(resp.Body()).To(ContainSubstring("Hello from a node app!"))
+			})
+		})
+
+		When("the user is a space manager in the space", func() {
+			BeforeEach(func() {
+				appGUID = createApp(spaceGUID, generateGUID("app"))
+				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("returns a forbidden response", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+			})
+		})
+
+		When("the user has no access to the space", func() {
+			BeforeEach(func() {
+				appGUID = createApp(spaceGUID, generateGUID("app"))
+			})
+
+			It("returns a not found response", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+			})
 		})
 	})
 })

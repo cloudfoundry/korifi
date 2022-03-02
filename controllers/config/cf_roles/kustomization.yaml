@@ -1,6 +1,8 @@
 resources:
 - cf_admin.yaml
-- cf_space_developer.yaml
-- cf_space_manager.yaml
 - cf_org_manager.yaml
 - cf_org_user.yaml
+- cf_root_namespace_user.yaml
+- cf_space_auditor.yaml
+- cf_space_developer.yaml
+- cf_space_manager.yaml
