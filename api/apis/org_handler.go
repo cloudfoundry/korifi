@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
@@ -19,8 +20,9 @@ import (
 )
 
 const (
-	OrgsEndpoint     = "/v3/organizations"
-	OrgDeleteEnpoint = "/v3/organizations/{guid}"
+	OrgsEndpoint           = "/v3/organizations"
+	OrgDeleteEndpoint      = "/v3/organizations/{guid}"
+	OrgListDomainsEndpoint = "/v3/organizations/{guid}/domains"
 )
 
 //counterfeiter:generate -o fake -fake-name OrgRepository . CFOrgRepository
@@ -28,20 +30,23 @@ type CFOrgRepository interface {
 	CreateOrg(context.Context, authorization.Info, repositories.CreateOrgMessage) (repositories.OrgRecord, error)
 	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
 	DeleteOrg(context.Context, authorization.Info, repositories.DeleteOrgMessage) error
+	GetOrg(context.Context, authorization.Info, string) (repositories.OrgRecord, error)
 }
 
 type OrgHandler struct {
 	logger           logr.Logger
 	apiBaseURL       url.URL
 	orgRepo          CFOrgRepository
+	domainRepo       CFDomainRepository
 	decoderValidator *DecoderValidator
 }
 
-func NewOrgHandler(apiBaseURL url.URL, orgRepo CFOrgRepository, decoderValidator *DecoderValidator) *OrgHandler {
+func NewOrgHandler(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDomainRepository, decoderValidator *DecoderValidator) *OrgHandler {
 	return &OrgHandler{
 		logger:           controllerruntime.Log.WithName("Org Handler"),
 		apiBaseURL:       apiBaseURL,
 		orgRepo:          orgRepo,
+		domainRepo:       domainRepo,
 		decoderValidator: decoderValidator,
 	}
 }
@@ -161,9 +166,70 @@ func (h *OrgHandler) orgListHandler(info authorization.Info, w http.ResponseWrit
 	writeResponse(w, http.StatusOK, presenter.ForOrgList(orgs, h.apiBaseURL, *r.URL))
 }
 
+func (h *OrgHandler) orgListDomainHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) { //nolint:dupl
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	orgGUID := vars["guid"]
+
+	if _, err := h.orgRepo.GetOrg(ctx, info, orgGUID); err != nil {
+		switch err.(type) {
+		case repositories.NotFoundError:
+			h.logger.Error(err, "Organization not found", "OrgGUID", orgGUID)
+			writeNotFoundErrorResponse(w, "Organization")
+		default:
+			h.logger.Error(err, "Unable to get organization")
+			writeUnknownErrorResponse(w)
+		}
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error(err, "Unable to parse request query parameters")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	domainListFilter := new(payloads.DomainList)
+	err := schema.NewDecoder().Decode(domainListFilter, r.Form)
+	if err != nil {
+		switch err.(type) {
+		case schema.MultiError:
+			multiError := err.(schema.MultiError)
+			for _, v := range multiError {
+				_, ok := v.(schema.UnknownKeyError)
+				if ok {
+					h.logger.Info("Unknown key used in Organization Domain filter")
+					writeUnknownKeyError(w, domainListFilter.SupportedFilterKeys())
+					return
+				}
+			}
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+			return
+
+		default:
+			h.logger.Error(err, "Unable to decode request query parameters")
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+
+	domainList, err := h.domainRepo.ListDomains(ctx, info, domainListFilter.ToMessage())
+	if err != nil {
+		h.logger.Error(err, "Failed to fetch domain(s) from Kubernetes")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	writeResponse(w, http.StatusOK, presenter.ForDomainList(domainList, h.apiBaseURL, *r.URL))
+}
+
 func (h *OrgHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
 	router.Path(OrgsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.orgListHandler))
-	router.Path(OrgDeleteEnpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.orgDeleteHandler))
+	router.Path(OrgDeleteEndpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.orgDeleteHandler))
 	router.Path(OrgsEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.orgCreateHandler))
+	router.Path(OrgListDomainsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.orgListDomainHandler))
 }

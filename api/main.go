@@ -226,7 +226,7 @@ func main() {
 		),
 		apis.NewLogCacheHandler(),
 
-		apis.NewOrgHandler(*serverURL, orgRepo, decoderValidator),
+		apis.NewOrgHandler(*serverURL, orgRepo, domainRepo, decoderValidator),
 
 		apis.NewSpaceHandler(*serverURL, config.PackageRegistrySecretName, orgRepo, decoderValidator),
 
