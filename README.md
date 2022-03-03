@@ -256,7 +256,7 @@ kubectl create secret tls \
 ```
 
 **NOTE**: If you choose to generate a self-signed certificate, you will need to
-skip TLS validation when connecting to the your workload.
+skip TLS validation when connecting to the workload.
 
 # Development Workflows
 
@@ -296,6 +296,22 @@ or
 ./scripts/deploy-on-kind --help
 ```
 for usage notes.
+
+### User Permissions Disclaimer
+When using the deploy-on-kind script, you will get a separate `cf-admin` user by default with which to interact with the cf api.
+
+So when prompted to select a user by the cli you may see something like:
+```
+$ cf login
+API endpoint: http://localhost
+Warning: Insecure http API endpoint detected: secure https API endpoints are recommended
+
+1. cf-admin
+2. kind-test
+```
+
+Of these options, `cf-admin` is the user with permissions set up by default. Selecting the other use may allow you to login and
+successfully create resources, but you may notice that the user lacks the permissions to list those resources once created.
 
 ---
 ## Install all dependencies with script

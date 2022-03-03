@@ -17,4 +17,4 @@ roleRef:
 subjects:
 - apiGroup: rbac.authorization.k8s.io
   kind: User
-  name: admin
+  name: cf-admin
