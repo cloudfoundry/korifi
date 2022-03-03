@@ -185,7 +185,7 @@ func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *networ
 		return ctrl.Result{}, nil
 	}
 
-	fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, cfRoute.Spec.Host, cfDomain.Spec.Name, cfRoute.Namespace)
+	fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, cfRoute.Spec.Host, cfDomain.Spec.Name, cfRoute.Namespace, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -318,7 +318,7 @@ func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, cfRoute
 }
 
 func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute, cfDomain *networkingv1alpha1.CFDomain) error {
-	fqdnHTTPProxy, foundFQDNPRoxy, err := r.getFQDNProxy(ctx, cfRoute.Spec.Host, cfDomain.Spec.Name, cfRoute.Namespace)
+	fqdnHTTPProxy, foundFQDNPRoxy, err := r.getFQDNProxy(ctx, cfRoute.Spec.Host, cfDomain.Spec.Name, cfRoute.Namespace, true)
 	if err != nil {
 		return err
 	}
@@ -374,13 +374,17 @@ func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, cfRoute 
 	return nil
 }
 
-func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, routeHostname, domainName, namespace string) (*contourv1.HTTPProxy, bool, error) {
+func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, routeHostname, domainName, namespace string, checkAllNamespaces bool) (*contourv1.HTTPProxy, bool, error) {
 	var fqdnHTTPProxy contourv1.HTTPProxy
 	fqdn := fmt.Sprintf("%s.%s", routeHostname, domainName)
 
-	// Check all namespaces for FQDN proxy with the matching FQDN label
 	var proxies contourv1.HTTPProxyList
-	err := r.Client.List(ctx, &proxies)
+	var listOptions client.ListOptions
+	if !checkAllNamespaces {
+		listOptions = client.ListOptions{Namespace: namespace}
+	}
+
+	err := r.Client.List(ctx, &proxies, &listOptions)
 	if err != nil {
 		r.Log.Error(err, "failed to list HTTPProxies")
 		return nil, false, err
