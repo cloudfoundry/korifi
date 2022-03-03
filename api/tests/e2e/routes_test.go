@@ -22,16 +22,18 @@ var _ = Describe("Routes", func() {
 	)
 
 	BeforeEach(func() {
-		host = generateGUID("myapp")
-		path = generateGUID("/some-path")
 		orgGUID = createOrg(generateGUID("org"))
-		spaceGUID = createSpace(generateGUID("space"), orgGUID)
-		client = certClient
-
 		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+
+		spaceGUID = createSpace(generateGUID("space"), orgGUID)
 
 		domainName = generateGUID("domain-name")
 		domainGUID = createDomain(domainName)
+
+		host = generateGUID("myapp")
+		path = generateGUID("/some-path")
+
+		client = certClient
 	})
 
 	AfterEach(func() {
@@ -215,7 +217,7 @@ var _ = Describe("Routes", func() {
 		BeforeEach(func() {
 			routeGUID = ""
 			host = generateGUID("host")
-			routeGUID = createRoute(host, "", spaceGUID, SamplesDomainGUID)
+			routeGUID = createRoute(host, "", spaceGUID, appDomainGUID)
 		})
 
 		JustBeforeEach(func() {

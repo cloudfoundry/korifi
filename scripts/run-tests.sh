@@ -20,8 +20,14 @@ else
     "${SCRIPT_DIR}/deploy-on-kind.sh" -l e2e
   fi
 
-  export API_SERVER_ROOT=https://localhost
-  export APP_FQDN=vcap.me
+  if [[ -z "${API_SERVER_ROOT}" ]]; then
+    export API_SERVER_ROOT=https://localhost
+  fi
+
+  if [[ -z "${APP_FQDN}" ]]; then
+    export APP_FQDN=vcap.me
+  fi
+
   export ROOT_NAMESPACE=cf
   export CF_ADMIN_CERT=$(kubectl config view --raw -o jsonpath='{.users[?(@.name == "cf-admin")].user.client-certificate-data}')
   export CF_ADMIN_KEY=$(kubectl config view --raw -o jsonpath='{.users[?(@.name == "cf-admin")].user.client-key-data}')

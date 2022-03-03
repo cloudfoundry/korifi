@@ -40,11 +40,6 @@ import (
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
-const (
-	SamplesDomainGUID = "5b5032ab-7fc8-4da5-b853-821fd1879201"
-	SamplesDomain     = "vcap.me"
-)
-
 var (
 	k8sClient           client.WithWatch
 	adminClient         *resty.Client
@@ -54,6 +49,7 @@ var (
 	rootNamespace       string
 	apiServerRoot       string
 	appFQDN             string
+	appDomainGUID       string
 	serviceAccountName  string
 	serviceAccountToken string
 	tokenAuthHeader     string
@@ -241,6 +237,8 @@ var _ = BeforeSuite(func() {
 			},
 		}),
 	).To(Succeed())
+
+	appDomainGUID = createDomain(appFQDN)
 })
 
 var _ = BeforeEach(func() {
@@ -251,6 +249,7 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterSuite(func() {
+	deleteDomain(appDomainGUID)
 	deleteServiceAccount(serviceAccountName)
 	deleteCSR(certSigningReq)
 })

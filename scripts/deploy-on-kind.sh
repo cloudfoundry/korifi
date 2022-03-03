@@ -197,9 +197,6 @@ function deploy_cf_k8s_controllers() {
     fi
   }
   popd >/dev/null
-
-  # note: we may want to make the default domain configurable. For now it is "vcap.me"
-  kubectl apply -f "${CONTROLLER_DIR}/config/samples/cfdomain.yaml"
 }
 
 function deploy_cf_k8s_api() {
