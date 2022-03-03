@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,9 +11,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	defaultExternalProtocol = "https"
+)
+
 type APIConfig struct {
-	ServerURL                 string `yaml:"serverURL"`
-	ServerPort                int    `yaml:"serverPort"`
+	InternalPort int `yaml:"internalPort"`
+
+	ExternalFQDN string `yaml:"externalFQDN"`
+	ExternalPort int    `yaml:"externalPort"`
+
+	ServerURL string
+
 	RootNamespace             string `yaml:"rootNamespace"`
 	PackageRegistryBase       string `yaml:"packageRegistryBase"`
 	PackageRegistrySecretName string `yaml:"packageRegistrySecretName"`
@@ -52,7 +62,8 @@ func LoadFromPath(path string) (*APIConfig, error) {
 			continue
 		}
 
-		configFile, err := os.Open(filepath.Join(path, fileName))
+		var configFile *os.File
+		configFile, err = os.Open(filepath.Join(path, fileName))
 		if err != nil {
 			return &config, fmt.Errorf("failed to open file: %w", err)
 		}
@@ -64,5 +75,24 @@ func LoadFromPath(path string) (*APIConfig, error) {
 		}
 	}
 
+	config.ServerURL, err = config.composeServerURL()
+	if err != nil {
+		return nil, err
+	}
+
 	return &config, nil
+}
+
+func (c *APIConfig) composeServerURL() (string, error) {
+	if c.ExternalFQDN == "" {
+		return "", errors.New("ExternalFQDN not specified")
+	}
+
+	toReturn := defaultExternalProtocol + "://" + c.ExternalFQDN
+
+	if c.ExternalPort != 0 {
+		toReturn += ":" + fmt.Sprint(c.ExternalPort)
+	}
+
+	return toReturn, nil
 }

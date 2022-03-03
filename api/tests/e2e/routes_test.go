@@ -244,7 +244,7 @@ var _ = Describe("Routes", func() {
 				appClient := resty.New()
 				Eventually(func() int {
 					var err error
-					resp, err = appClient.R().Get(fmt.Sprintf("http://%s.%s", host, SamplesDomain))
+					resp, err = appClient.R().Get(fmt.Sprintf("http://%s.%s", host, appFQDN))
 					Expect(err).NotTo(HaveOccurred())
 					return resp.StatusCode()
 				}).Should(Equal(http.StatusOK))

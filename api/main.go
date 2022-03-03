@@ -284,7 +284,7 @@ func main() {
 		cachingIdentityProvider,
 	).Middleware)
 
-	portString := fmt.Sprintf(":%v", config.ServerPort)
+	portString := fmt.Sprintf(":%v", config.InternalPort)
 	log.Println("Listening on ", portString)
 	log.Fatal(http.ListenAndServe(portString, router))
 }
