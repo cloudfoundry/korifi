@@ -418,6 +418,29 @@ curl "https://localhost:9000/v3/service_instances" \
 `names` and `space_guids` and ordering by `name`, `created_at` or `updated_at`.
 The `fields` and `per_page` parameters will be silently ignored.
 
+### Service Credential Bindings
+
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.115.0/index.html#service-credential-binding
+
+| Resource                          | Endpoint                                     |
+|-----------------------------------|----------------------------------------------|
+| List Service Credential Binding   | GET /v3/service_credential_bindings          |
+| Create Service Credential Binding | POST /v3/service_credential_bindings         |
+| Delete Service Credential Binding | DELETE /v3/service_credential_bindings/:guid |
+
+#### [List Service Credential Binding](https://v3-apidocs.cloudfoundry.org/version/3.115.0/index.html#list-service-credential-bindings)
+
+**Query Parameters:** Currently supports filtering by `service_instance_guids`, `app_guids`, and `type`. `include` is
+supported, but only for the value `app`.
+
+#### [Create Service Credential Binding](https://v3-apidocs.cloudfoundry.org/version/3.115.0/index.html#create-a-service-credential-binding)
+
+The only supported value for the `type` is `app`. 
+
+#### [Delete Service Credential Binding](https://v3-apidocs.cloudfoundry.org/version/3.115.0/index.html#delete-a-service-credential-binding)
+
+This endpoint is fully supported.
+
 ### User Identity
 
 _This is not part of the published CF API, and is not supported on CF on VMs._
