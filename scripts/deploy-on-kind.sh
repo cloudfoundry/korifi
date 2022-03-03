@@ -212,11 +212,16 @@ deploy_cf_k8s_api() {
       make docker-build-api
     fi
     kind load docker-image --name "$cluster" "$IMG_API"
+
     if [[ -n "$use_local_registry" ]]; then
       make deploy-api-kind-local
     else
       make deploy-api-kind-auth
     fi
+
+    openssl req -x509 -newkey rsa:4096 -keyout /tmp/api-tls.key -out /tmp/api-tls.crt -nodes -subj '/CN=localhost' -addext "subjectAltName = DNS:*.vcap.me" -days 365
+    kubectl create secret tls   cf-k8s-api-ingress-cert   --cert=/tmp/api-tls.crt --key=/tmp/api-tls.key -n cf-k8s-api-system
+
   }
   popd >/dev/null
 }

@@ -401,7 +401,7 @@ var _ = Describe("AppRepository", func() {
 
 		It("creates a new app CR", func() {
 			createdAppRecord, err := appRepo.CreateApp(testCtx, authInfo, appCreateMessage)
-			Expect(err).To(BeNil())
+			Expect(err).NotTo(HaveOccurred())
 			Expect(createdAppRecord).NotTo(BeNil())
 
 			cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: spaceGUID}
@@ -435,7 +435,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("creates an empty secret and sets the environment variable secret ref on the App", func() {
 				createdAppRecord, err := appRepo.CreateApp(testCtx, authInfo, appCreateMessage)
-				Expect(err).To(BeNil())
+				Expect(err).NotTo(HaveOccurred())
 				Expect(createdAppRecord).NotTo(BeNil())
 
 				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: spaceGUID}
@@ -466,7 +466,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("creates an secret for the environment variables and sets the ref on the App", func() {
 				createdAppRecord, err := appRepo.CreateApp(testCtx, authInfo, appCreateMessage)
-				Expect(err).To(BeNil())
+				Expect(err).NotTo(HaveOccurred())
 				Expect(createdAppRecord).NotTo(BeNil())
 
 				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: spaceGUID}

@@ -46,4 +46,5 @@ rules:
   resources:
     - cfservicebindings
   verbs:
+    - get
     - list
