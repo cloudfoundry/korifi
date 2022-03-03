@@ -25,7 +25,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	certsv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -589,7 +588,7 @@ func createApp(spaceGUID, name string) string {
 
 func getProcess(appGUID, processType string) string {
 	var processList resourceList
-	Eventually(func(g gomega.Gomega) {
+	Eventually(func(g Gomega) {
 		resp, err := adminClient.R().
 			SetResult(&processList).
 			Get("/v3/processes?app_guids=" + appGUID)
