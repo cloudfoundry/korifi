@@ -4,7 +4,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
-type ServiceBindingCreate struct { // TODO: add validation
+type ServiceBindingCreate struct {
 	Relationships *ServiceBindingRelationships `json:"relationships" validate:"required"`
 	Type          string                       `json:"type" validate:"oneof=app"`
 	Name          *string                      `json:"name"`
@@ -24,17 +24,20 @@ func (p ServiceBindingCreate) ToMessage(spaceGUID string) repositories.CreateSer
 	}
 }
 
+type ServiceBindingList struct {
+	AppGUIDs             *string `schema:"app_guids"`
+	ServiceInstanceGUIDs *string `schema:"service_instance_guids"`
+	Include              *string `schema:"include" validate:"oneof=app"`
+	Type                 *string `schema:"type" validate:"oneof=app"`
+}
+
 func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage {
 	return repositories.ListServiceBindingsMessage{
-		ServiceInstanceGUIDs: ParseArrayParam(l.ServiceInstanceGuids),
+		ServiceInstanceGUIDs: ParseArrayParam(l.ServiceInstanceGUIDs),
+		AppGUIDs:             ParseArrayParam(l.AppGUIDs),
 	}
 }
 
-type ServiceBindingList struct {
-	ServiceInstanceGuids *string `schema:"service_instance_guids"`
-	Include              *string `schema:"include" validate:"oneof=app"`
-}
-
 func (l *ServiceBindingList) SupportedFilterKeys() []string {
-	return []string{"service_instance_guids, include"}
+	return []string{"app_guids, service_instance_guids, include, type"}
 }

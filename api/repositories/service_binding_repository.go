@@ -65,6 +65,7 @@ type CreateServiceBindingMessage struct {
 }
 
 type ListServiceBindingsMessage struct {
+	AppGUIDs             []string
 	ServiceInstanceGUIDs []string
 }
 
@@ -183,13 +184,10 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 }
 
 func applyServiceBindingListFilter(serviceBindingList []servicesv1alpha1.CFServiceBinding, message ListServiceBindingsMessage) []servicesv1alpha1.CFServiceBinding {
-	if len(message.ServiceInstanceGUIDs) == 0 {
-		return serviceBindingList
-	}
-
 	var filtered []servicesv1alpha1.CFServiceBinding
 	for _, serviceBinding := range serviceBindingList {
-		if matchesFilter(serviceBinding.Spec.Service.Name, message.ServiceInstanceGUIDs) {
+		if matchesFilter(serviceBinding.Spec.Service.Name, message.ServiceInstanceGUIDs) &&
+			matchesFilter(serviceBinding.Spec.AppRef.Name, message.AppGUIDs) {
 			filtered = append(filtered, serviceBinding)
 		}
 	}
