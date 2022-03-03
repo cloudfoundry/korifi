@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
@@ -53,6 +54,7 @@ var (
 	clientset           *kubernetes.Clientset
 	rootNamespace       string
 	apiServerRoot       string
+	appFQDN             string
 	serviceAccountName  string
 	serviceAccountToken string
 	tokenAuthHeader     string
@@ -192,6 +194,7 @@ var _ = BeforeSuite(func() {
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
 
 	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
+	appFQDN = mustHaveEnv("APP_FQDN")
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
@@ -243,9 +246,9 @@ var _ = BeforeSuite(func() {
 
 var _ = BeforeEach(func() {
 	tokenAuthHeader = fmt.Sprintf("Bearer %s", serviceAccountToken)
-	adminClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert())
-	certClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(certPEM)
-	tokenClient = resty.New().SetBaseURL(apiServerRoot).SetAuthToken(serviceAccountToken)
+	adminClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert()).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	certClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(certPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	tokenClient = resty.New().SetBaseURL(apiServerRoot).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 })
 
 var _ = AfterSuite(func() {
@@ -262,6 +265,7 @@ func mustHaveEnv(key string) string {
 
 func ensureServerIsUp() {
 	Eventually(func() (int, error) {
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		resp, err := http.Get(apiServerRoot)
 		if err != nil {
 			return 0, err

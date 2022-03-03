@@ -257,8 +257,9 @@ subjects:
 apiVersion: v1
 data:
   cf_k8s_api_config.yaml: |
-    serverURL: "https://api.example.org"
-    serverPort: 9000
+    externalFQDN: "api.example.org"
+    internalPort: 9000
+
     rootNamespace: cf
     defaultLifecycleConfig:
       type: buildpack
@@ -306,7 +307,7 @@ data:
         propagate: false
 kind: ConfigMap
 metadata:
-  name: cf-k8s-api-config-bcfbt875g8
+  name: cf-k8s-api-config-g56hdg6d55
   namespace: cf-k8s-api-system
 ---
 apiVersion: v1
@@ -319,7 +320,7 @@ metadata:
 spec:
   ports:
   - name: web
-    port: 80
+    port: 443
     protocol: TCP
     targetPort: web
   selector:
@@ -361,7 +362,7 @@ spec:
       serviceAccountName: cf-k8s-api-cf-admin-serviceaccount
       volumes:
       - configMap:
-          name: cf-k8s-api-config-bcfbt875g8
+          name: cf-k8s-api-config-g56hdg6d55
         name: cf-k8s-api-config
 ---
 apiVersion: projectcontour.io/v1
@@ -377,7 +378,7 @@ spec:
     - prefix: /
     services:
     - name: cf-k8s-api-svc
-      port: 80
+      port: 443
     timeoutPolicy:
       response: 5m
   virtualhost:

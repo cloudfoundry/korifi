@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"net/http"
 
@@ -24,7 +25,7 @@ var _ = Describe("WhoAmI", func() {
 	)
 
 	BeforeEach(func() {
-		client = resty.New().SetBaseURL(apiServerRoot)
+		client = resty.New().SetBaseURL(apiServerRoot).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	})
 
 	JustBeforeEach(func() {
