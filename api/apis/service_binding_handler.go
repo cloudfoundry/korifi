@@ -33,7 +33,7 @@ type ServiceBindingHandler struct {
 //counterfeiter:generate -o fake -fake-name CFServiceBindingRepository . CFServiceBindingRepository
 type CFServiceBindingRepository interface {
 	CreateServiceBinding(context.Context, authorization.Info, repositories.CreateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
-	DeleteServiceBinding(context.Context, authorization.Info, repositories.DeleteServiceBindingMessage) error
+	DeleteServiceBinding(context.Context, authorization.Info, string) error
 	ServiceBindingExists(ctx context.Context, info authorization.Info, spaceGUID, appGUID, serviceInsanceGUID string) (bool, error)
 	ListServiceBindings(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error)
 }
@@ -103,8 +103,7 @@ func (h *ServiceBindingHandler) deleteHandler(authInfo authorization.Info, w htt
 	vars := mux.Vars(r)
 	serviceBindingGUID := vars["guid"]
 
-	err := h.serviceBindingRepo.DeleteServiceBinding(ctx, authInfo, repositories.DeleteServiceBindingMessage{GUID: serviceBindingGUID})
-
+	err := h.serviceBindingRepo.DeleteServiceBinding(ctx, authInfo, serviceBindingGUID)
 	if err != nil {
 		h.logger.Error(err, "error when deleting service binding", "guid", serviceBindingGUID)
 		handleRepoErrorsOnWrite(h.logger, err, repositories.ServiceBindingResourceType, serviceBindingGUID, w)

@@ -23,11 +23,10 @@ var _ = Describe("ServiceBindingHandler", func() {
 	const (
 		testServiceBindingHandlerLoggerName = "TestServiceBindingHandler"
 		appGUID                             = "test-app-guid"
-		serviceBindingGuid                  = "some-generated-guid"
+		serviceBindingGUID                  = "some-generated-guid"
 		serviceInstanceGUID                 = "test-service-instance-guid"
 		spaceGUID                           = "test-space-guid"
 		listServiceBindingsUrl              = "/v3/service_credential_bindings"
-		deleteServiceBindingUrl             = "/v3/service_credential_bindings/test-service-instance-guid"
 	)
 
 	var (
@@ -355,7 +354,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 	Describe("the GET /v3/service_credential_bindings endpoint", func() {
 		BeforeEach(func() {
 			serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{{
-				GUID:                serviceBindingGuid,
+				GUID:                serviceBindingGUID,
 				Type:                "app",
 				AppGUID:             appGUID,
 				ServiceInstanceGUID: serviceInstanceGUID,
@@ -372,7 +371,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 
 		It("returns the ServiceBindings available to the user", func() {
 			Expect(rr.Code).To(Equal(http.StatusOK))
-			Expect(rr.Body.String()).To(ContainSubstring(serviceBindingGuid))
+			Expect(rr.Body.String()).To(ContainSubstring(serviceBindingGUID))
 		})
 
 		When("no service bindings can be found", func() {
@@ -522,9 +521,11 @@ var _ = Describe("ServiceBindingHandler", func() {
 	})
 
 	Describe("the DELETE /v3/service_credential_bindings/:guid endpoint", func() {
+		const serviceBindingGUID = "test-service-instance-guid"
+
 		BeforeEach(func() {
 			var err error
-			req, err = http.NewRequestWithContext(ctx, "DELETE", deleteServiceBindingUrl, nil)
+			req, err = http.NewRequestWithContext(ctx, "DELETE", "/v3/service_credential_bindings/"+serviceBindingGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -535,6 +536,8 @@ var _ = Describe("ServiceBindingHandler", func() {
 
 		It("invokes DeleteServiceBinding on the repository", func() {
 			Expect(serviceBindingRepo.DeleteServiceBindingCallCount()).To(Equal(1))
+			_, _, guid := serviceBindingRepo.DeleteServiceBindingArgsForCall(0)
+			Expect(guid).To(Equal(serviceBindingGUID))
 		})
 	})
 })

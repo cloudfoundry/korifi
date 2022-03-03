@@ -190,8 +190,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		})
 
 		JustBeforeEach(func() {
-			msg := repositories.DeleteServiceBindingMessage{GUID: serviceBindingGUID}
-			ret = repo.DeleteServiceBinding(testCtx, authInfo, msg)
+			ret = repo.DeleteServiceBinding(testCtx, authInfo, serviceBindingGUID)
 		})
 
 		It("returns a not-found error for users with no role in the space", func() {

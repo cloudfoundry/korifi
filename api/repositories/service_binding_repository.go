@@ -114,20 +114,20 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 	return cfServiceBindingToRecord(cfServiceBinding), err
 }
 
-func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo authorization.Info, message DeleteServiceBindingMessage) error {
+func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo authorization.Info, guid string) error {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, message.GUID, ServiceBindingResourceType)
+	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, guid, ServiceBindingResourceType)
 	if err != nil {
 		return NewNotFoundError(ServiceBindingResourceType, err)
 	}
 
 	binding := &servicesv1alpha1.CFServiceBinding{}
 
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: message.GUID}, binding)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: guid}, binding)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			return NewNotFoundError(ServiceBindingResourceType, err)

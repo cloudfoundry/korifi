@@ -26,12 +26,12 @@ type CFServiceBindingRepository struct {
 		result1 repositories.ServiceBindingRecord
 		result2 error
 	}
-	DeleteServiceBindingStub        func(context.Context, authorization.Info, repositories.DeleteServiceBindingMessage) error
+	DeleteServiceBindingStub        func(context.Context, authorization.Info, string) error
 	deleteServiceBindingMutex       sync.RWMutex
 	deleteServiceBindingArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.DeleteServiceBindingMessage
+		arg3 string
 	}
 	deleteServiceBindingReturns struct {
 		result1 error
@@ -141,13 +141,13 @@ func (fake *CFServiceBindingRepository) CreateServiceBindingReturnsOnCall(i int,
 	}{result1, result2}
 }
 
-func (fake *CFServiceBindingRepository) DeleteServiceBinding(arg1 context.Context, arg2 authorization.Info, arg3 repositories.DeleteServiceBindingMessage) error {
+func (fake *CFServiceBindingRepository) DeleteServiceBinding(arg1 context.Context, arg2 authorization.Info, arg3 string) error {
 	fake.deleteServiceBindingMutex.Lock()
 	ret, specificReturn := fake.deleteServiceBindingReturnsOnCall[len(fake.deleteServiceBindingArgsForCall)]
 	fake.deleteServiceBindingArgsForCall = append(fake.deleteServiceBindingArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.DeleteServiceBindingMessage
+		arg3 string
 	}{arg1, arg2, arg3})
 	stub := fake.DeleteServiceBindingStub
 	fakeReturns := fake.deleteServiceBindingReturns
@@ -168,13 +168,13 @@ func (fake *CFServiceBindingRepository) DeleteServiceBindingCallCount() int {
 	return len(fake.deleteServiceBindingArgsForCall)
 }
 
-func (fake *CFServiceBindingRepository) DeleteServiceBindingCalls(stub func(context.Context, authorization.Info, repositories.DeleteServiceBindingMessage) error) {
+func (fake *CFServiceBindingRepository) DeleteServiceBindingCalls(stub func(context.Context, authorization.Info, string) error) {
 	fake.deleteServiceBindingMutex.Lock()
 	defer fake.deleteServiceBindingMutex.Unlock()
 	fake.DeleteServiceBindingStub = stub
 }
 
-func (fake *CFServiceBindingRepository) DeleteServiceBindingArgsForCall(i int) (context.Context, authorization.Info, repositories.DeleteServiceBindingMessage) {
+func (fake *CFServiceBindingRepository) DeleteServiceBindingArgsForCall(i int) (context.Context, authorization.Info, string) {
 	fake.deleteServiceBindingMutex.RLock()
 	defer fake.deleteServiceBindingMutex.RUnlock()
 	argsForCall := fake.deleteServiceBindingArgsForCall[i]

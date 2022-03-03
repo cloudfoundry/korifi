@@ -42,7 +42,7 @@ var _ = Describe("Service Bindings", func() {
 			httpResp, httpError = certClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID)
 		})
 
-		It("returns a not found error", func() {
+		It("returns a not found error when the user has no role in the space", func() {
 			Expect(httpError).NotTo(HaveOccurred())
 			Expect(httpResp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
