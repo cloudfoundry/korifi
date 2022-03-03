@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 
@@ -243,11 +244,13 @@ var _ = Describe("Routes", func() {
 			It("returns success and routes the host to the app", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
-				appClient := resty.New()
+				appClient := resty.New().SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 				Eventually(func() int {
 					var err error
-					resp, err = appClient.R().Get(fmt.Sprintf("http://%s.%s", host, appFQDN))
-					Expect(err).NotTo(HaveOccurred())
+					resp, err = appClient.R().Get(fmt.Sprintf("https://%s.%s", host, appFQDN))
+					if err != nil {
+						return 0
+					}
 					return resp.StatusCode()
 				}).Should(Equal(http.StatusOK))
 				Expect(result.Destinations).To(HaveLen(1))

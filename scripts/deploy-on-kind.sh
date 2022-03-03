@@ -193,8 +193,31 @@ function deploy_cf_k8s_controllers() {
     if [[ -n "${use_local_registry}" ]]; then
       make deploy-controllers-kind-local
     else
-      make deploy-controllers-kind
+      make deploy-controllers
     fi
+
+    if [[ "${OPENSSL_VERSION}" == "OpenSSL" ]]; then
+      openssl req -x509 -newkey rsa:4096 \
+        -keyout /tmp/app-tls.key \
+        -out /tmp/app-tls.crt \
+        -nodes \
+        -subj '/CN=*.vcap.me' \
+        -addext "subjectAltName = DNS:*.vcap.me" \
+        -days 365
+    else
+      openssl req -x509 -newkey rsa:4096 \
+        -keyout /tmp/api-tls.key \
+        -out /tmp/api-tls.crt \
+        -nodes \
+        -subj '/CN=*.vcap.me' \
+        -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:*.vcap.me'")) \
+        -days 365
+    fi
+
+    kubectl create secret tls cf-k8s-workloads-ingress-cert \
+      -n cf-k8s-controllers-system \
+      --cert=/tmp/app-tls.crt \
+      --key=/tmp/app-tls.key
   }
   popd >/dev/null
 }
