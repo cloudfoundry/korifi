@@ -31,7 +31,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-		repo = repositories.NewServiceBindingRepo(userClientFactory, nsPerms)
+		repo = repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPerms)
 
 		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
 		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
@@ -119,6 +119,112 @@ var _ = Describe("ServiceBindingRepo", func() {
 					SpaceGUID:           space.Name,
 				})
 				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+			})
+		})
+	})
+
+	Describe("DeleteServiceBinding", func() {
+		var (
+			ret                error
+			serviceBindingGUID string
+		)
+
+		BeforeEach(func() {
+			ret = nil
+			serviceBindingGUID = prefixedGUID("binding")
+			app := &workloadsv1alpha1.CFApp{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      appGUID,
+					Namespace: space.Name,
+				},
+				Spec: workloadsv1alpha1.CFAppSpec{
+					Name:         "some-app",
+					DesiredState: workloadsv1alpha1.DesiredState(repositories.StoppedState),
+					Lifecycle: workloadsv1alpha1.Lifecycle{
+						Type: "buildpack",
+						Data: workloadsv1alpha1.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				},
+			}
+			Expect(
+				k8sClient.Create(testCtx, app),
+			).To(Succeed())
+
+			serviceInstance := &servicesv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      appGUID,
+					Namespace: space.Name,
+				},
+				Spec: servicesv1alpha1.CFServiceInstanceSpec{
+					Name:       "some-instance",
+					SecretName: "",
+					Type:       "user-provided",
+				},
+			}
+			Expect(
+				k8sClient.Create(testCtx, serviceInstance),
+			).To(Succeed())
+
+			serviceBinding := &servicesv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceBindingGUID,
+					Namespace: space.Name,
+				},
+				Spec: servicesv1alpha1.CFServiceBindingSpec{
+					Service: corev1.ObjectReference{
+						Kind:       "CFServiceInstance",
+						APIVersion: servicesv1alpha1.GroupVersion.Identifier(),
+						Name:       serviceInstanceGUID,
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+				},
+			}
+			Expect(
+				k8sClient.Create(testCtx, serviceBinding),
+			).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			msg := repositories.DeleteServiceBindingMessage{GUID: serviceBindingGUID}
+			ret = repo.DeleteServiceBinding(testCtx, authInfo, msg)
+		})
+
+		It("returns a not-found error for users with no role in the space", func() {
+			Expect(ret).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+		})
+
+		When("the user is a space manager", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceManagerRole.Name, space.Name)
+			})
+
+			It("returns a forbidden error", func() {
+				Expect(ret).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+			})
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("deletes the binding", func() {
+				Expect(ret).To(BeNil())
+			})
+
+			When("the binding doesn't exist", func() {
+				BeforeEach(func() {
+					serviceBindingGUID = "something-that-does-not-match"
+				})
+
+				It("returns a not-found error", func() {
+					Expect(ret).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+				})
 			})
 		})
 	})

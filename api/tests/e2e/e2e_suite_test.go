@@ -650,7 +650,8 @@ func listServiceInstances() resourceList {
 	return serviceInstances
 }
 
-func createServiceBinding(appGUID, instanceGUID string) {
+func createServiceBinding(appGUID, instanceGUID string) string {
+	var pkg resource
 	resp, err := adminClient.R().
 		SetBody(typedResource{
 			Type: "app",
@@ -658,10 +659,13 @@ func createServiceBinding(appGUID, instanceGUID string) {
 				Relationships: relationships{"app": {Data: resource{GUID: appGUID}}, "service_instance": {Data: resource{GUID: instanceGUID}}},
 			},
 		}).
+		SetResult(&pkg).
 		Post("/v3/service_credential_bindings")
 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+
+	return pkg.GUID
 }
 
 func createPackage(appGUID string) string {

@@ -25,15 +25,18 @@ const (
 type ServiceBindingRepo struct {
 	userClientFactory    UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
+	namespaceRetriever   NamespaceRetriever
 }
 
 func NewServiceBindingRepo(
+	namespaceRetriever NamespaceRetriever,
 	userClientFactory UserK8sClientFactory,
 	namespacePermissions *authorization.NamespacePermissions,
 ) *ServiceBindingRepo {
 	return &ServiceBindingRepo{
 		userClientFactory:    userClientFactory,
 		namespacePermissions: namespacePermissions,
+		namespaceRetriever:   namespaceRetriever,
 	}
 }
 
@@ -62,6 +65,10 @@ type CreateServiceBindingMessage struct {
 	ServiceInstanceGUID string
 	AppGUID             string
 	SpaceGUID           string
+}
+
+type DeleteServiceBindingMessage struct {
+	GUID string
 }
 
 type ListServiceBindingsMessage struct {
@@ -105,6 +112,34 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 	}
 
 	return cfServiceBindingToRecord(cfServiceBinding), err
+}
+
+func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo authorization.Info, message DeleteServiceBindingMessage) error {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, message.GUID, ServiceBindingResourceType)
+	if err != nil {
+		return NewNotFoundError(ServiceBindingResourceType, err)
+	}
+
+	binding := &servicesv1alpha1.CFServiceBinding{}
+
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: message.GUID}, binding)
+	if err != nil {
+		if k8serrors.IsForbidden(err) {
+			return NewNotFoundError(ServiceBindingResourceType, err)
+		}
+		return wrapK8sErr(err, ServiceBindingResourceType)
+	}
+
+	err = userClient.Delete(ctx, binding)
+	if err != nil {
+		return wrapK8sErr(err, ServiceBindingResourceType)
+	}
+	return nil
 }
 
 func (r *ServiceBindingRepo) ServiceBindingExists(ctx context.Context, authInfo authorization.Info, spaceGUID, appGUID, serviceInstanceGUID string) (bool, error) {

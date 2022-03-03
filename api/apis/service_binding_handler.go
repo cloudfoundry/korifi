@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	ServiceBindingCreateEndpoint = "/v3/service_credential_bindings"
-	ServiceBindingsListEndpoint  = "/v3/service_credential_bindings"
+	ServiceBindingCreateEndpoint  = "/v3/service_credential_bindings"
+	ServiceBindingsListEndpoint   = "/v3/service_credential_bindings"
+	ServiceBindingsDeleteEndpoint = "/v3/service_credential_bindings/{guid}"
 )
 
 type ServiceBindingHandler struct {
@@ -32,6 +33,7 @@ type ServiceBindingHandler struct {
 //counterfeiter:generate -o fake -fake-name CFServiceBindingRepository . CFServiceBindingRepository
 type CFServiceBindingRepository interface {
 	CreateServiceBinding(context.Context, authorization.Info, repositories.CreateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
+	DeleteServiceBinding(context.Context, authorization.Info, repositories.DeleteServiceBindingMessage) error
 	ServiceBindingExists(ctx context.Context, info authorization.Info, spaceGUID, appGUID, serviceInsanceGUID string) (bool, error)
 	ListServiceBindings(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error)
 }
@@ -94,6 +96,23 @@ func (h *ServiceBindingHandler) createHandler(authInfo authorization.Info, w htt
 	}
 
 	writeResponse(w, http.StatusCreated, presenter.ForServiceBinding(serviceBinding, h.serverURL))
+}
+
+func (h *ServiceBindingHandler) deleteHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	serviceBindingGUID := vars["guid"]
+
+	err := h.serviceBindingRepo.DeleteServiceBinding(ctx, authInfo, repositories.DeleteServiceBindingMessage{GUID: serviceBindingGUID})
+
+	if err != nil {
+		h.logger.Error(err, "error when deleting service binding", "guid", serviceBindingGUID)
+		handleRepoErrorsOnWrite(h.logger, err, repositories.ServiceBindingResourceType, serviceBindingGUID, w)
+		return
+	}
+
+	emptyBody := map[string]interface{}{}
+	writeResponse(w, http.StatusNoContent, emptyBody)
 }
 
 func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
@@ -163,6 +182,7 @@ func (h *ServiceBindingHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
 	router.Path(ServiceBindingCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.createHandler))
 	router.Path(ServiceBindingsListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.listHandler))
+	router.Path(ServiceBindingsDeleteEndpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.deleteHandler))
 }
 
 // TODO: Separate commit/PR to move this function into shared.go and refactor all the handlers

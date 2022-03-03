@@ -70,8 +70,10 @@ rules:
   resources:
     - cfservicebindings
   verbs:
+    - get
     - list
     - create
+    - delete
 
 - apiGroups:
   - networking.cloudfoundry.org

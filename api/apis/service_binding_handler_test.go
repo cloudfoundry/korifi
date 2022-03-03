@@ -27,6 +27,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 		serviceInstanceGUID                 = "test-service-instance-guid"
 		spaceGUID                           = "test-space-guid"
 		listServiceBindingsUrl              = "/v3/service_credential_bindings"
+		deleteServiceBindingUrl             = "/v3/service_credential_bindings/test-service-instance-guid"
 	)
 
 	var (
@@ -517,6 +518,23 @@ var _ = Describe("ServiceBindingHandler", func() {
 			It("returns an Unknown key error", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, service_instance_guids, include, type'")
 			})
+		})
+	})
+
+	Describe("the DELETE /v3/service_credential_bindings/:guid endpoint", func() {
+		BeforeEach(func() {
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "DELETE", deleteServiceBindingUrl, nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns a NoContent status", func() {
+			Expect(rr.Code).To(Equal(http.StatusNoContent))
+			Expect(rr.Body.String()).To(ContainSubstring(`{}`))
+		})
+
+		It("invokes DeleteServiceBinding on the repository", func() {
+			Expect(serviceBindingRepo.DeleteServiceBindingCallCount()).To(Equal(1))
 		})
 	})
 })
