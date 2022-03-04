@@ -17,7 +17,11 @@ csr_file="$(mktemp)"
 cert_file="$(mktemp)"
 csr_name="$(echo ${RANDOM} | shasum | head -c 40)"
 
-openssl req -new -newkey rsa:4096 -keyout "${priv_key_file}" -nodes -out "${csr_file}" -subj "/CN=${username}"
+openssl req -new -newkey rsa:4096 \
+  -keyout "${priv_key_file}" \
+  -out "${csr_file}" \
+  -nodes \
+  -subj "/CN=${username}"
 
 cat <<EOF | kubectl create -f -
 apiVersion: certificates.k8s.io/v1
