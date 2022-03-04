@@ -145,6 +145,10 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 		return OrgRecord{}, err
 	}
 
+	if err := setCascadingDelete(ctx, userClient, org.GUID); err != nil {
+		return OrgRecord{}, err
+	}
+
 	orgRecord := OrgRecord{
 		Name:        org.Name,
 		GUID:        anchor.Name,
@@ -156,6 +160,23 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 	}
 
 	return orgRecord, nil
+}
+
+func setCascadingDelete(ctx context.Context, userClient client.Client, orgGUID string) error {
+	oldHC := v1alpha2.HierarchyConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hierarchyMetadataName,
+			Namespace: orgGUID,
+		},
+	}
+	newHC := oldHC
+	newHC.Spec.AllowCascadingDeletion = true
+
+	if err := userClient.Patch(ctx, &newHC, client.MergeFrom(&oldHC)); err != nil {
+		return fmt.Errorf("failed to update hierarchy configuration: %w", err)
+	}
+
+	return nil
 }
 
 func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, message CreateSpaceMessage) (SpaceRecord, error) {
@@ -478,18 +499,6 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	userClient, err := r.userClientFactory.BuildClient(info)
 	if err != nil {
 		return fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	hierarchyObj.Spec.AllowCascadingDeletion = true
-	err = userClient.Update(ctx, &hierarchyObj)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return NewNotFoundError(OrgResourceType, err)
-		}
-		if apierrors.IsForbidden(err) {
-			return NewForbiddenError(OrgResourceType, err)
-		}
-		return err
 	}
 
 	err = userClient.Delete(ctx, &v1alpha2.SubnamespaceAnchor{

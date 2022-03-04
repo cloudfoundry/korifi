@@ -1713,7 +1713,7 @@ rules:
   resources:
   - hierarchyconfigurations
   verbs:
-  - update
+  - patch
 - apiGroups:
   - metrics.k8s.io
   resources:

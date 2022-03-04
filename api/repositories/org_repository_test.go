@@ -2,10 +2,9 @@ package repositories_test
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
-
-	"github.com/google/uuid"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -18,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+	hncv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("OrgRepository", func() {
@@ -29,163 +28,226 @@ var _ = Describe("OrgRepository", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, true)
+		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000, true)
 	})
 
 	Describe("Create", func() {
-		updateStatus := func(anchorNamespace, anchorName string, createRoleBindings bool) {
-			defer GinkgoRecover()
+		var (
+			doHNCSimulation bool
+			createErr       error
+		)
 
-			createNamespace(ctx, anchorNamespace, anchorName)
-
-			anchor := &hnsv1alpha2.SubnamespaceAnchor{}
+		waitForAnchor := func(anchorNamespace, anchorName string, anchor *hncv1alpha2.SubnamespaceAnchor, done chan bool) error {
 			for {
-				err := k8sClient.Get(ctx, client.ObjectKey{Namespace: anchorNamespace, Name: anchorName}, anchor)
-				if err == nil {
-					break
+				select {
+				case <-done:
+					return fmt.Errorf("waitForAnchor was 'signalled' to stop polling")
+				default:
+				}
+
+				if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: anchorNamespace, Name: anchorName}, anchor); err == nil {
+					return nil
 				}
 
 				time.Sleep(time.Millisecond * 100)
-				continue
+			}
+		}
+
+		// simulateHNC waits for the subnamespaceanchor to appear, and then
+		// creates the namespace, creates a cf-admin rolebinding for the user
+		// in that namespace, creates the hierarchyconfiguration in the
+		// namespace and sets the status on the subnamespaceanchor to Ok. It
+		// will stop waiting for the subnamespaceanchor to appear if anything
+		// is written to the done channel
+		simulateHNC := func(anchorNamespace, anchorName string, createRoleBindings bool, done chan bool) {
+			defer GinkgoRecover()
+
+			var anchor hncv1alpha2.SubnamespaceAnchor
+			if err := waitForAnchor(anchorNamespace, anchorName, &anchor, done); err != nil {
+				return
 			}
 
+			createNamespace(ctx, anchorNamespace, anchorName)
+
+			Expect(k8sClient.Create(ctx, &hncv1alpha2.HierarchyConfiguration{
+				ObjectMeta: metav1.ObjectMeta{Namespace: anchorName, Name: "hierarchy"},
+			})).To(Succeed())
+
 			newAnchor := anchor.DeepCopy()
-			newAnchor.Status.State = hnsv1alpha2.Ok
-			Expect(k8sClient.Patch(ctx, newAnchor, client.MergeFrom(anchor))).To(Succeed())
 
 			if createRoleBindings {
 				createRoleBinding(ctx, userName, adminRole.Name, anchor.Name)
 			}
+			newAnchor.Status.State = hncv1alpha2.Ok
+			Expect(k8sClient.Patch(ctx, newAnchor, client.MergeFrom(&anchor))).To(Succeed())
 		}
 
 		Describe("Org", func() {
+			var (
+				orgName            string
+				orgGUID            string
+				org                repositories.OrgRecord
+				createRoleBindings bool
+				done               chan bool
+			)
+
+			BeforeEach(func() {
+				doHNCSimulation = true
+				done = make(chan bool, 1)
+				orgGUID = prefixedGUID("org-guid")
+				orgName = prefixedGUID("org-name")
+				createRoleBindings = true
+			})
+
+			JustBeforeEach(func() {
+				if doHNCSimulation {
+					go simulateHNC(rootNamespace, orgGUID, createRoleBindings, done)
+				}
+
+				org, createErr = orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
+					GUID: orgGUID,
+					Name: orgName,
+				})
+			})
+
+			AfterEach(func() {
+				done <- true
+			})
+
 			When("the user doesn't have the admin role", func() {
 				It("fails when creating an org", func() {
-					_, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
-						GUID: "some-guid",
-						Name: "our-org",
-					})
-					Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+					Expect(createErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 				})
 			})
 
 			When("the user has the admin role", func() {
-				var orgGUID string
 				BeforeEach(func() {
-					orgGUID = uuid.NewString()
 					createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 				})
 
 				It("creates a subnamespace anchor in the root namespace", func() {
-					go updateStatus(rootNamespace, orgGUID, true)
-					org, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
-						GUID: orgGUID,
-						Name: "our-org",
-					})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(createErr).NotTo(HaveOccurred())
 
-					namesRequirement, err := labels.NewRequirement(repositories.OrgNameLabel, selection.Equals, []string{"our-org"})
+					namesRequirement, err := labels.NewRequirement(repositories.OrgNameLabel, selection.Equals, []string{orgName})
 					Expect(err).NotTo(HaveOccurred())
-					anchorList := hnsv1alpha2.SubnamespaceAnchorList{}
+					anchorList := hncv1alpha2.SubnamespaceAnchorList{}
 					err = k8sClient.List(ctx, &anchorList, client.InNamespace(rootNamespace), client.MatchingLabelsSelector{
 						Selector: labels.NewSelector().Add(*namesRequirement),
 					})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(anchorList.Items).To(HaveLen(1))
 
-					Expect(org.Name).To(Equal("our-org"))
+					Expect(org.Name).To(Equal(orgName))
 					Expect(org.GUID).To(Equal(orgGUID))
 					Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 					Expect(org.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 				})
 
+				It("sets the AllowCascadingDeletion property on the HNC hierarchyconfiguration in the namespace", func() {
+					Expect(createErr).NotTo(HaveOccurred())
+
+					var hc hncv1alpha2.HierarchyConfiguration
+					Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: org.GUID, Name: "hierarchy"}, &hc)).To(Succeed())
+					Expect(hc.Spec.AllowCascadingDeletion).To(BeTrue())
+				})
+
 				When("hnc fails to propagate the role bindings in the timeout", func() {
+					BeforeEach(func() {
+						createRoleBindings = false
+					})
+
 					It("returns an error", func() {
-						go updateStatus(rootNamespace, orgGUID, false)
-						_, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
-							GUID: orgGUID,
-							Name: "our-org",
-						})
-						Expect(err).To(MatchError(ContainSubstring("failed establishing permissions in new namespace")))
+						Expect(createErr).To(MatchError(ContainSubstring("failed establishing permissions in new namespace")))
 					})
 				})
 
 				When("the org isn't ready in the timeout", func() {
+					BeforeEach(func() {
+						doHNCSimulation = false
+					})
+
 					It("returns an error", func() {
-						// we do not call updateStatus() to set state = ok
-						_, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
-							GUID: "some-guid",
-							Name: "our-org",
-						})
-						Expect(err).To(MatchError(ContainSubstring("did not get state 'ok'")))
+						Expect(createErr).To(MatchError(ContainSubstring("did not get state 'ok'")))
 					})
 				})
 
 				When("the client fails to create the org", func() {
+					BeforeEach(func() {
+						orgName = "this-string-has-illegal-characters-ц"
+					})
+
 					It("returns an error", func() {
-						_, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
-							Name: "this-string-has-illegal-characters-ц",
-						})
-						Expect(err).To(HaveOccurred())
+						Expect(createErr).To(HaveOccurred())
 					})
 				})
 			})
 		})
 
 		Describe("Space", func() {
-			var org *hnsv1alpha2.SubnamespaceAnchor
-			var spaceGUID string
-			imageRegistryCredentials := "image-registry-credentials"
+			var (
+				orgGUID                  string
+				spaceGUID                string
+				spaceName                string
+				space                    repositories.SpaceRecord
+				imageRegistryCredentials string
+			)
 
 			BeforeEach(func() {
-				spaceGUID = generateGUID()
-				org = createOrgAnchorAndNamespace(ctx, rootNamespace, "org")
+				spaceGUID = prefixedGUID("space-guid")
+				spaceName = prefixedGUID("space-name")
+				imageRegistryCredentials = "imageRegistryCredentials"
+				org := createOrgAnchorAndNamespace(ctx, rootNamespace, "org")
+				orgGUID = org.Name
+				doHNCSimulation = true
+			})
+
+			JustBeforeEach(func() {
+				if doHNCSimulation {
+					done := make(chan bool, 1)
+					defer func(done chan bool) { done <- true }(done)
+
+					go simulateHNC(orgGUID, spaceGUID, true, done)
+				}
+
+				space, createErr = orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
+					GUID:                     spaceGUID,
+					Name:                     spaceName,
+					OrganizationGUID:         orgGUID,
+					ImageRegistryCredentials: "imageRegistryCredentials",
+				})
 			})
 
 			When("the user doesn't have the admin role", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, orgUserRole.Name, org.Name)
+					createRoleBinding(ctx, userName, orgUserRole.Name, orgGUID)
 				})
 
 				It("fails when creating a space", func() {
-					_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
-						GUID:                     spaceGUID,
-						Name:                     "our-space",
-						OrganizationGUID:         org.Name,
-						ImageRegistryCredentials: imageRegistryCredentials,
-					})
-					Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+					Expect(createErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
 				})
 			})
 
 			When("the user has the admin role", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, adminRole.Name, org.Name)
+					createRoleBinding(ctx, userName, adminRole.Name, orgGUID)
 				})
 
 				It("creates a Space", func() {
-					go updateStatus(org.Name, spaceGUID, true)
-
-					space, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
-						GUID:                     spaceGUID,
-						Name:                     "our-space",
-						OrganizationGUID:         org.Name,
-						ImageRegistryCredentials: imageRegistryCredentials,
-					})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(createErr).NotTo(HaveOccurred())
 
 					By("Creating a SubnamespaceAnchor in the Org namespace", func() {
 						var namesRequirement *labels.Requirement
-						namesRequirement, err = labels.NewRequirement(repositories.SpaceNameLabel, selection.Equals, []string{"our-space"})
+						var err error
+						namesRequirement, err = labels.NewRequirement(repositories.SpaceNameLabel, selection.Equals, []string{spaceName})
 						Expect(err).NotTo(HaveOccurred())
-						anchorList := hnsv1alpha2.SubnamespaceAnchorList{}
-						err = k8sClient.List(ctx, &anchorList, client.InNamespace(org.Name), client.MatchingLabelsSelector{
+						anchorList := hncv1alpha2.SubnamespaceAnchorList{}
+						err = k8sClient.List(ctx, &anchorList, client.InNamespace(orgGUID), client.MatchingLabelsSelector{
 							Selector: labels.NewSelector().Add(*namesRequirement),
 						})
 						Expect(err).NotTo(HaveOccurred())
 						Expect(anchorList.Items).To(HaveLen(1))
 
-						Expect(space.Name).To(Equal("our-space"))
+						Expect(space.Name).To(Equal(spaceName))
 						Expect(space.GUID).To(Equal(spaceGUID))
 						Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 						Expect(space.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
@@ -193,6 +255,7 @@ var _ = Describe("OrgRepository", func() {
 
 					By("Creating ServiceAccounts in the Space namespace", func() {
 						serviceAccountList := corev1.ServiceAccountList{}
+						var err error
 						Eventually(func() []corev1.ServiceAccount {
 							err = k8sClient.List(ctx, &serviceAccountList, client.InNamespace(spaceGUID))
 							if err != nil {
@@ -215,53 +278,43 @@ var _ = Describe("OrgRepository", func() {
 				})
 
 				When("the space isn't ready in the timeout", func() {
+					BeforeEach(func() {
+						doHNCSimulation = false
+					})
+
 					It("returns an error", func() {
-						// we do not call updateStatus() to set state = ok
-						_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
-							GUID:             "some-guid",
-							Name:             "our-org",
-							OrganizationGUID: org.Name,
-						})
-						Expect(err).To(MatchError(ContainSubstring("did not get state 'ok'")))
+						Expect(createErr).To(MatchError(ContainSubstring("did not get state 'ok'")))
 					})
 				})
 
 				When("the client fails to create the space", func() {
-					It("returns an error", func() {
-						_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
-							GUID:             "some-guid",
-							Name:             "this-string-has-illegal-characters-ц",
-							OrganizationGUID: org.Name,
-						})
-						Expect(err).To(HaveOccurred())
+					BeforeEach(func() {
+						spaceName = "this-string-has-illegal-characters-ц"
+					})
+
+					It("fails", func() {
+						Expect(createErr).To(HaveOccurred())
 					})
 				})
 
 				When("the org does not exist", func() {
+					BeforeEach(func() {
+						orgGUID = "does-not-exist"
+					})
+
 					It("returns an error", func() {
-						_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
-							GUID:             "some-guid",
-							Name:             "some-name",
-							OrganizationGUID: "does-not-exist",
-						})
-						Expect(err).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+						Expect(createErr).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
 					})
 				})
 
 				When("the user doesn't have permission to get the org", func() {
-					var otherOrg *hnsv1alpha2.SubnamespaceAnchor
-
 					BeforeEach(func() {
-						otherOrg = createOrgAnchorAndNamespace(ctx, rootNamespace, "org")
+						otherOrg := createOrgAnchorAndNamespace(ctx, rootNamespace, "org")
+						orgGUID = otherOrg.Name
 					})
 
 					It("returns an error", func() {
-						_, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
-							GUID:             "some-guid",
-							Name:             "some-name",
-							OrganizationGUID: otherOrg.Name,
-						})
-						Expect(err).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+						Expect(createErr).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
 					})
 				})
 			})
@@ -269,7 +322,7 @@ var _ = Describe("OrgRepository", func() {
 	})
 
 	Describe("List", func() {
-		var org1Anchor, org2Anchor, org3Anchor, org4Anchor *hnsv1alpha2.SubnamespaceAnchor
+		var org1Anchor, org2Anchor, org3Anchor, org4Anchor *hncv1alpha2.SubnamespaceAnchor
 
 		BeforeEach(func() {
 			ctx = context.Background()
@@ -312,7 +365,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("auth is disabled", func() {
 				BeforeEach(func() {
-					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, false)
+					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000, false)
 				})
 
 				It("returns all orgs", func() {
@@ -351,7 +404,7 @@ var _ = Describe("OrgRepository", func() {
 			When("the org anchor is not ready", func() {
 				BeforeEach(func() {
 					org1AnchorCopy := org1Anchor.DeepCopy()
-					org1AnchorCopy.Status.State = hnsv1alpha2.Missing
+					org1AnchorCopy.Status.State = hncv1alpha2.Missing
 					Expect(k8sClient.Patch(ctx, org1AnchorCopy, client.MergeFrom(org1Anchor))).To(Succeed())
 				})
 
@@ -428,7 +481,7 @@ var _ = Describe("OrgRepository", func() {
 		})
 
 		Describe("Spaces", func() {
-			var space11Anchor, space12Anchor, space21Anchor, space22Anchor, space31Anchor, space32Anchor, space33Anchor *hnsv1alpha2.SubnamespaceAnchor
+			var space11Anchor, space12Anchor, space21Anchor, space22Anchor, space31Anchor, space32Anchor, space33Anchor *hncv1alpha2.SubnamespaceAnchor
 
 			BeforeEach(func() {
 				space11Anchor = createSpaceAnchorAndNamespace(ctx, org1Anchor.Name, "space1")
@@ -501,7 +554,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("auth is disabled", func() {
 				BeforeEach(func() {
-					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, false)
+					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000, false)
 				})
 
 				It("includes spaces without role bindings", func() {
@@ -524,7 +577,7 @@ var _ = Describe("OrgRepository", func() {
 			When("the space anchor is not ready", func() {
 				BeforeEach(func() {
 					space11AnchorCopy := space11Anchor.DeepCopy()
-					space11AnchorCopy.Status.State = hnsv1alpha2.Missing
+					space11AnchorCopy.Status.State = hncv1alpha2.Missing
 					Expect(k8sClient.Patch(ctx, space11AnchorCopy, client.MergeFrom(space11Anchor))).To(Succeed())
 				})
 
@@ -653,7 +706,7 @@ var _ = Describe("OrgRepository", func() {
 
 	Describe("Get", func() {
 		Describe("Org", func() {
-			var orgAnchor *hnsv1alpha2.SubnamespaceAnchor
+			var orgAnchor *hncv1alpha2.SubnamespaceAnchor
 
 			BeforeEach(func() {
 				orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "the-org")
@@ -681,8 +734,8 @@ var _ = Describe("OrgRepository", func() {
 
 		Describe("Space", func() {
 			var (
-				spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
-				orgAnchor   *hnsv1alpha2.SubnamespaceAnchor
+				spaceAnchor *hncv1alpha2.SubnamespaceAnchor
+				orgAnchor   *hncv1alpha2.SubnamespaceAnchor
 			)
 
 			BeforeEach(func() {
@@ -713,7 +766,7 @@ var _ = Describe("OrgRepository", func() {
 		var (
 			ctx context.Context
 
-			orgAnchor *hnsv1alpha2.SubnamespaceAnchor
+			orgAnchor *hncv1alpha2.SubnamespaceAnchor
 		)
 
 		BeforeEach(func() {
@@ -739,7 +792,7 @@ var _ = Describe("OrgRepository", func() {
 						Expect(err).NotTo(HaveOccurred())
 
 						Eventually(func() error {
-							anchor := &hnsv1alpha2.SubnamespaceAnchor{}
+							anchor := &hncv1alpha2.SubnamespaceAnchor{}
 							return k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: orgAnchor.Name}, anchor)
 						}).Should(MatchError(ContainSubstring("not found")))
 					})
@@ -751,26 +804,6 @@ var _ = Describe("OrgRepository", func() {
 							GUID: "non-existent-org",
 						})
 						Expect(err).To(MatchError(ContainSubstring("not found")))
-					})
-				})
-				When("the hierarchy object is missing", func() {
-					BeforeEach(func() {
-						Expect(k8sClient.Delete(ctx, &hnsv1alpha2.HierarchyConfiguration{ObjectMeta: metav1.ObjectMeta{
-							Name:      "hierarchy",
-							Namespace: orgAnchor.Name,
-						}})).To(Succeed())
-
-						Eventually(func() error {
-							hierarchy := &hnsv1alpha2.HierarchyConfiguration{}
-							return k8sClient.Get(ctx, client.ObjectKey{Namespace: orgAnchor.Name, Name: "hierarchy"}, hierarchy)
-						}).Should(MatchError(ContainSubstring("not found")))
-					})
-
-					It("fails with an error", func() {
-						err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
-							GUID: orgAnchor.Name,
-						})
-						Expect(err).To(HaveOccurred())
 					})
 				})
 			})
@@ -795,7 +828,7 @@ var _ = Describe("OrgRepository", func() {
 		})
 
 		Describe("Space", func() {
-			var spaceAnchor *hnsv1alpha2.SubnamespaceAnchor
+			var spaceAnchor *hncv1alpha2.SubnamespaceAnchor
 
 			BeforeEach(func() {
 				spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, "the-space")
@@ -815,7 +848,7 @@ var _ = Describe("OrgRepository", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					Eventually(func() error {
-						anchor := &hnsv1alpha2.SubnamespaceAnchor{}
+						anchor := &hncv1alpha2.SubnamespaceAnchor{}
 						return k8sClient.Get(ctx, client.ObjectKey{Namespace: orgAnchor.Name, Name: spaceAnchor.Name}, anchor)
 					}).Should(MatchError(ContainSubstring("not found")))
 				})
@@ -853,7 +886,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("auth is disabled and", func() {
 				BeforeEach(func() {
-					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*500, false)
+					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000, false)
 				})
 
 				When("on the happy path", func() {
@@ -865,7 +898,7 @@ var _ = Describe("OrgRepository", func() {
 						Expect(err).NotTo(HaveOccurred())
 
 						Eventually(func() error {
-							anchor := &hnsv1alpha2.SubnamespaceAnchor{}
+							anchor := &hncv1alpha2.SubnamespaceAnchor{}
 							return k8sClient.Get(ctx, client.ObjectKey{Namespace: orgAnchor.Name, Name: spaceAnchor.Name}, anchor)
 						}).Should(MatchError(ContainSubstring("not found")))
 					})

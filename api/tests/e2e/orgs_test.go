@@ -213,6 +213,19 @@ var _ = Describe("Orgs", func() {
 				expectNotFoundError(resp, errResp, "Org")
 			})
 		})
+
+		When("the org contains a space", func() {
+			BeforeEach(func() {
+				createSpace(generateGUID("some-space"), orgGUID)
+			})
+
+			It("can still delete the org", func() {
+				Expect(resp).To(SatisfyAll(
+					HaveRestyStatusCode(http.StatusAccepted),
+					HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/org.delete-"+orgGUID)),
+				))
+			})
+		})
 	})
 
 	Describe("list domains", func() {
