@@ -39,17 +39,17 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-echo "*********************************************"
-echo "Creating CF Namespace and admin RoleBinding"
-echo "*********************************************"
+echo "************************************************"
+echo "Creating CF Namespace and cf-admin RoleBinding"
+echo "************************************************"
 
 kubectl apply -f "${DEP_DIR}/cf-setup.yaml"
 
-echo "***********************"
-echo "Creating user 'admin'"
-echo "***********************"
+echo "**************************"
+echo "Creating user 'cf-admin'"
+echo "**************************"
 
-"$SCRIPT_DIR/create-new-user.sh" admin
+"$SCRIPT_DIR/create-new-user.sh" cf-admin
 
 echo "*************************"
 echo "Installing Cert Manager"
