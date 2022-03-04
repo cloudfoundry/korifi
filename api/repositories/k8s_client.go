@@ -24,7 +24,7 @@ type UnprivilegedClientFactory struct {
 
 func NewUnprivilegedClientFactory(config *rest.Config, mapper meta.RESTMapper) UnprivilegedClientFactory {
 	return UnprivilegedClientFactory{
-		config: rest.AnonymousClientConfig(rest.CopyConfig(config)),
+		config: config,
 		mapper: mapper,
 	}
 }
@@ -34,6 +34,7 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 
 	switch strings.ToLower(authInfo.Scheme()) {
 	case authorization.BearerScheme:
+		config = rest.AnonymousClientConfig(config)
 		config.BearerToken = authInfo.Token
 
 	case authorization.CertScheme:
@@ -46,9 +47,12 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 		if keyBlock == nil {
 			return nil, fmt.Errorf("failed to decode key PEM")
 		}
-
+		config = rest.AnonymousClientConfig(config)
 		config.CertData = pem.EncodeToMemory(certBlock)
 		config.KeyData = pem.EncodeToMemory(keyBlock)
+
+	case authorization.UsernameScheme:
+		config.Impersonate.UserName = authInfo.Username
 
 	default:
 		return nil, authorization.NotAuthenticatedError{}

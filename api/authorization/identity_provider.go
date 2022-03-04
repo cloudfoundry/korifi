@@ -3,12 +3,15 @@ package authorization
 import (
 	"context"
 	"fmt"
+
+	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 const (
-	BearerScheme  string = "bearer"
-	CertScheme    string = "clientcert"
-	UnknownScheme string = "unknown"
+	BearerScheme   string = "bearer"
+	CertScheme     string = "clientcert"
+	UsernameScheme string = "username"
+	UnknownScheme  string = "unknown"
 )
 
 //counterfeiter:generate -o fake -fake-name TokenIdentityInspector . TokenIdentityInspector
@@ -46,6 +49,10 @@ func (p *CertTokenIdentityProvider) GetIdentity(ctx context.Context, info Info) 
 
 	if len(info.CertData) != 0 {
 		return p.certInspector.WhoAmI(ctx, info.CertData)
+	}
+
+	if info.Username != "" {
+		return Identity{Name: info.Username, Kind: rbacv1.UserKind}, nil
 	}
 
 	return Identity{}, fmt.Errorf("invalid authorization info")

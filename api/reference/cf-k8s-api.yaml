@@ -270,6 +270,7 @@ data:
     packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
     clusterBuilderName: cf-kpack-cluster-builder
     defaultDomainName: apps.example.org
+    authEnabled: true
   role_mappings_config.yaml: |
     roleMappings:
       admin:

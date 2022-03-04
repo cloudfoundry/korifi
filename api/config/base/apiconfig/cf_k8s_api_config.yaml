@@ -11,3 +11,4 @@ packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
 packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
 clusterBuilderName: cf-kpack-cluster-builder
 defaultDomainName: apps.example.org
+authEnabled: true

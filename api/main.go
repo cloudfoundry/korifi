@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
@@ -286,7 +287,14 @@ func main() {
 
 	portString := fmt.Sprintf(":%v", config.InternalPort)
 	log.Println("Listening on ", portString)
-	log.Fatal(http.ListenAndServe(portString, router))
+	server := &http.Server{
+		Addr: portString,
+		TLSConfig: &tls.Config{
+			ClientAuth: tls.RequestClientCert,
+		},
+		Handler: router,
+	}
+	log.Fatal(server.ListenAndServeTLS("certs/cert.pem", "certs/key.pem"))
 }
 
 func wireIdentityProvider(client client.Client, restConfig *rest.Config) authorization.IdentityProvider {

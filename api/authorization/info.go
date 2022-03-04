@@ -9,6 +9,7 @@ import (
 type Info struct {
 	Token    string
 	CertData []byte
+	Username string
 }
 
 type key int
@@ -37,11 +38,16 @@ func (i Info) Scheme() string {
 		return CertScheme
 	}
 
+	if len(i.Username) > 0 {
+		return UsernameScheme
+	}
+
 	return UnknownScheme
 }
 
 func (i Info) Hash() string {
 	key := append([]byte(i.Token), i.CertData...)
+	key = append(key, []byte(i.Username)...)
 	hasher := sha256.New()
 	return hex.EncodeToString(hasher.Sum(key))
 }
