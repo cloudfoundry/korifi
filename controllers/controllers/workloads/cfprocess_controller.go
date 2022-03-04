@@ -205,11 +205,6 @@ func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *worklo
 	var desiredLRP eiriniv1.LRP
 	actualLRP.DeepCopyInto(&desiredLRP)
 
-	var lrpHealthCheckPort int32 = 0
-	if len(cfProcess.Spec.Ports) > 0 {
-		lrpHealthCheckPort = cfProcess.Spec.Ports[0]
-	}
-
 	desiredLRP.Labels = make(map[string]string)
 	desiredLRP.Labels[workloadsv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
 	cfAppRevisionKeyValue := workloadsv1alpha1.CFAppRevisionKeyDefault
@@ -241,7 +236,7 @@ func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *worklo
 	desiredLRP.Spec.Env = envVars
 	desiredLRP.Spec.Health = eiriniv1.Healthcheck{
 		Type:      string(cfProcess.Spec.HealthCheck.Type),
-		Port:      lrpHealthCheckPort,
+		Port:      int32(appPort),
 		Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
 		TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
 	}
