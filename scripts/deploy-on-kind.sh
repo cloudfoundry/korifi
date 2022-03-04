@@ -220,7 +220,7 @@ deploy_cf_k8s_api() {
     fi
 
     openssl req -x509 -newkey rsa:4096 -keyout /tmp/api-tls.key -out /tmp/api-tls.crt -nodes -subj '/CN=localhost' -addext "subjectAltName = DNS:*.vcap.me" -days 365
-    kubectl create secret tls   cf-k8s-api-ingress-cert   --cert=/tmp/api-tls.crt --key=/tmp/api-tls.key -n cf-k8s-api-system
+    kubectl create secret tls cf-k8s-api-ingress-cert --cert=/tmp/api-tls.crt --key=/tmp/api-tls.key -n cf-k8s-api-system
 
   }
   popd >/dev/null
