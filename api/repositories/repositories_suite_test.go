@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -233,6 +234,9 @@ func createRoleBinding(ctx context.Context, userName, roleName, namespace string
 		},
 	}
 	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
+	Eventually(func() error {
+		return k8sClient.Get(ctx, types.NamespacedName{Name: roleBinding.Name, Namespace: namespace}, &rbacv1.RoleBinding{})
+	}).Should(Succeed())
 }
 
 func createClusterRoleBinding(ctx context.Context, userName, roleName string) {
@@ -250,6 +254,9 @@ func createClusterRoleBinding(ctx context.Context, userName, roleName string) {
 		},
 	}
 	Expect(k8sClient.Create(ctx, &clusterRoleBinding)).To(Succeed())
+	Eventually(func() error {
+		return k8sClient.Get(ctx, types.NamespacedName{Name: clusterRoleBinding.Name}, &rbacv1.ClusterRoleBinding{})
+	}).Should(Succeed())
 }
 
 func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {

@@ -445,7 +445,8 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	})
 
 	When("a CFRoute destination specifying a different port already exists before the app is started", func() {
-		var ()
+		var lrp eiriniv1.LRP
+
 		BeforeEach(func() {
 			wrongDestination := networkingv1alpha1.Destination{
 				GUID:        "destination1-guid",
@@ -484,13 +485,14 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				Destinations:  []networkingv1alpha1.Destination{wrongDestination, destination},
 			}
 			Expect(k8sClient.Status().Update(context.Background(), cfRoute)).To(Succeed())
+		})
 
+		JustBeforeEach(func() {
 			cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
 			Expect(
 				k8sClient.Create(context.Background(), cfApp),
 			).To(Succeed())
 		})
-		var lrp eiriniv1.LRP
 
 		It("eventually reconciles the CFProcess into an LRP with VCAP env set according to the destination port", func() {
 			Eventually(func() string {
@@ -512,6 +514,41 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 			Expect(lrp.Spec.Env).To(HaveKeyWithValue("VCAP_APP_PORT", "9000"))
 			Expect(lrp.Spec.Env).To(HaveKeyWithValue("PORT", "9000"))
+		})
+
+		When("the process has a health check", func() {
+			BeforeEach(func() {
+				ctx := context.Background()
+				cfProcess.Spec.HealthCheck.Type = "process"
+				cfProcess.Spec.Ports = []int32{}
+				Expect(k8sClient.Update(ctx, cfProcess)).To(Succeed())
+			})
+
+			It("eventually sets the correct health check port on the LRP", func() {
+				ctx := context.Background()
+				var lrp eiriniv1.LRP
+
+				Eventually(func() string {
+					var lrps eiriniv1.LRPList
+					err := k8sClient.List(ctx, &lrps, client.InNamespace(testNamespace))
+					if err != nil {
+						return ""
+					}
+
+					for _, currentLRP := range lrps.Items {
+						if getMapKeyValue(currentLRP.Labels, workloadsv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+							lrp = currentLRP
+							return currentLRP.GetName()
+						}
+					}
+
+					return ""
+				}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
+
+				Expect(lrp.Spec.Health.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
+				Expect(lrp.Spec.Health.Port).To(BeEquivalentTo(9000))
+			})
+
 		})
 	})
 
@@ -603,7 +640,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		})
 	})
 
-	When("the CFProcess has health check of type process", func() {
+	When("the CFProcess has a health check", func() {
 		BeforeEach(func() {
 			ctx := context.Background()
 
@@ -641,7 +678,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
 			Expect(lrp.Spec.Health.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
-			Expect(lrp.Spec.Health.Port).To(BeZero())
+			Expect(lrp.Spec.Health.Port).To(BeEquivalentTo(8080))
 		})
 	})
 })

@@ -5,6 +5,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/google/uuid"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
@@ -31,8 +33,10 @@ var _ = Describe("OrgRepository", func() {
 	})
 
 	Describe("Create", func() {
-		updateStatus := func(anchorNamespace, anchorName string) {
+		updateStatus := func(anchorNamespace, anchorName string, createRoleBindings bool) {
 			defer GinkgoRecover()
+
+			createNamespace(ctx, anchorNamespace, anchorName)
 
 			anchor := &hnsv1alpha2.SubnamespaceAnchor{}
 			for {
@@ -48,6 +52,10 @@ var _ = Describe("OrgRepository", func() {
 			newAnchor := anchor.DeepCopy()
 			newAnchor.Status.State = hnsv1alpha2.Ok
 			Expect(k8sClient.Patch(ctx, newAnchor, client.MergeFrom(anchor))).To(Succeed())
+
+			if createRoleBindings {
+				createRoleBinding(ctx, userName, adminRole.Name, anchor.Name)
+			}
 		}
 
 		Describe("Org", func() {
@@ -62,14 +70,16 @@ var _ = Describe("OrgRepository", func() {
 			})
 
 			When("the user has the admin role", func() {
+				var orgGUID string
 				BeforeEach(func() {
+					orgGUID = uuid.NewString()
 					createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 				})
 
 				It("creates a subnamespace anchor in the root namespace", func() {
-					go updateStatus(rootNamespace, "some-guid")
+					go updateStatus(rootNamespace, orgGUID, true)
 					org, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
-						GUID: "some-guid",
+						GUID: orgGUID,
 						Name: "our-org",
 					})
 					Expect(err).NotTo(HaveOccurred())
@@ -84,9 +94,20 @@ var _ = Describe("OrgRepository", func() {
 					Expect(anchorList.Items).To(HaveLen(1))
 
 					Expect(org.Name).To(Equal("our-org"))
-					Expect(org.GUID).To(Equal("some-guid"))
+					Expect(org.GUID).To(Equal(orgGUID))
 					Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 					Expect(org.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+				})
+
+				When("hnc fails to propagate the role bindings in the timeout", func() {
+					It("returns an error", func() {
+						go updateStatus(rootNamespace, orgGUID, false)
+						_, err := orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
+							GUID: orgGUID,
+							Name: "our-org",
+						})
+						Expect(err).To(MatchError(ContainSubstring("failed establishing permissions in new namespace")))
+					})
 				})
 
 				When("the org isn't ready in the timeout", func() {
@@ -119,9 +140,6 @@ var _ = Describe("OrgRepository", func() {
 			BeforeEach(func() {
 				spaceGUID = generateGUID()
 				org = createOrgAnchorAndNamespace(ctx, rootNamespace, "org")
-				// In the absence of HNC reconciling the SubnamespaceAnchor into a namespace, we must manually create
-				// for subsequent use by the Repository createSpace function.
-				createNamespace(ctx, "org", spaceGUID)
 			})
 
 			When("the user doesn't have the admin role", func() {
@@ -146,7 +164,7 @@ var _ = Describe("OrgRepository", func() {
 				})
 
 				It("creates a Space", func() {
-					go updateStatus(org.Name, spaceGUID)
+					go updateStatus(org.Name, spaceGUID, true)
 
 					space, err := orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
 						GUID:                     spaceGUID,

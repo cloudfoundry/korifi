@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	corev1 "k8s.io/api/core/v1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
@@ -263,6 +263,25 @@ func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context, userClient clien
 
 	if !stateOK {
 		return nil, fmt.Errorf("subnamespaceanchor did not get state 'ok' within timeout period %d ms", r.timeout.Milliseconds())
+	}
+
+	// wait for the user to have permissions in the new namespace
+	const attempts = 9
+	for i := 0; i < attempts; i++ {
+		appList := &workloadsv1alpha1.CFAppList{}
+		err := userClient.List(ctx, appList, client.InNamespace(anchor.Name))
+		if err == nil {
+			break
+		}
+		if !apierrors.IsForbidden(err) {
+			return nil, err
+		}
+		if i < attempts-1 {
+			time.Sleep(50 * time.Millisecond * (1 << i))
+		} else {
+			// HNC is broken
+			return nil, errors.New("failed establishing permissions in new namespace")
+		}
 	}
 
 	return createdAnchor, nil
