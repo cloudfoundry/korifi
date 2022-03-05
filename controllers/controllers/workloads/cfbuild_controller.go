@@ -95,6 +95,10 @@ type CFBuildReconciler struct {
 //+kubebuilder:rbac:groups=kpack.io,resources=images/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=kpack.io,resources=images/finalizers,verbs=update
 
+//+kubebuilder:rbac:groups=carto.run,resources=workloads,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=carto.run,resources=workloads/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=carto.run,resources=workloads/finalizers,verbs=update
+
 //+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
 

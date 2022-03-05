@@ -1554,6 +1554,32 @@ rules:
   - update
   - watch
 - apiGroups:
+  - carto.run
+  resources:
+  - workloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - carto.run
+  resources:
+  - workloads/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - carto.run
+  resources:
+  - workloads/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
