@@ -1,12 +1,9 @@
 package apis
 
 import (
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"net/http"
 	"regexp"
-	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"github.com/go-http-utils/headers"
@@ -50,56 +47,14 @@ func (a *AuthenticationMiddleware) Middleware(next http.Handler) http.Handler {
 		var err error
 
 		if len(r.TLS.PeerCertificates) > 0 {
+			if len(r.TLS.PeerCertificates) > 1 {
+				a.logger.Error(err, "too many client certs")
+				writeUnknownErrorResponse(w)
+				return
+			}
+
 			clientCert := r.TLS.PeerCertificates[0]
-
-			caCertBlock, _ := pem.Decode([]byte(`
------BEGIN CERTIFICATE-----
-MIIC/jCCAeagAwIBAgIBADANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQDEwprdWJl
-cm5ldGVzMB4XDTIyMDMwNDEwNTk0MFoXDTMyMDMwMTEwNTk0MFowFTETMBEGA1UE
-AxMKa3ViZXJuZXRlczCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAPUJ
-K2a34J9ev1aUxWOoOP5pEwUQZuaFGOAi/0MpZzZM3fW8J0ynkSoE+Toqr7J51yYm
-kzpcAy1hoyqN6v0e6j20EG+QrNeA3aB7/PrTMwGlcv1EVJTj+y4ahpwqAFrEPJw2
-n2U07Lf95xUBeFbSFc9GldPqroXdRQY1T8/mmlhhBFft99E5aRW00tyFEWQrauPg
-g2AxbsCWvuh2JsC3dTMWCKSywzS69sy3TVmpyOV83cXxkyG6dusXLIVaFVgOzsEC
-G3LVjDfAUMBZCbyw6k6S1n93cehyeCVZdioM83fFDD73MSL4IoGViUHHyk3ipfbq
-Cv5OZjVR/xLt6TsVhqsCAwEAAaNZMFcwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB
-/wQFMAMBAf8wHQYDVR0OBBYEFGhtOxoGDO9Fm7IgT5iITr9fFMCdMBUGA1UdEQQO
-MAyCCmt1YmVybmV0ZXMwDQYJKoZIhvcNAQELBQADggEBABVRCfDzJ/Vv3iM3YcYA
-5bsqvR33q84ZHsZfMu2x4+O7AmNtCJN0HoDRF3/7llugHVL1TO6yGNqDTRKTccfw
-qsIz88ScytPjZtQ2LNWQuCmXp39/tvADX1JL1/C7Sev5i/CzBOGWraaoUDm3+Zv5
-4NDZcafpWoZz1IKhhCJKGnc6L9LNWYZePcj0vC/benjKowMlmxPyFhNYadB6caP9
-oi90l99JwQbIO/nOXvQFtHERdEEIehNr7GGoc8LzU82Wq/WH8CSPl8Phui7BAErX
-jrvLY7adNgPXzV2TgP1TE+lf2B+k/Vjimk09UQh78H099Ex7xly5SYmv4Ct0vdQZ
-0rI=
------END CERTIFICATE-----
-`))
-			caCert, err := x509.ParseCertificate(caCertBlock.Bytes)
-			if err != nil {
-				a.logger.Error(err, "failed to parse ca cert")
-				writeInvalidAuthErrorResponse(w)
-				return
-
-			}
-
-			if err := clientCert.CheckSignatureFrom(caCert); err != nil {
-				a.logger.Info("failed to validate client cert against CA", "error", err)
-				writeInvalidAuthErrorResponse(w)
-				return
-			}
-
-			if time.Now().Before(clientCert.NotBefore) {
-				a.logger.Info("certificate not valid yet")
-				writeInvalidAuthErrorResponse(w)
-				return
-			}
-
-			if time.Now().After(clientCert.NotAfter) {
-				a.logger.Info("certificate expired")
-				writeInvalidAuthErrorResponse(w)
-				return
-			}
-
-			fmt.Printf("About to use %s as user name\n", clientCert.Subject.CommonName)
+			fmt.Printf("About to use %q as user name\n", clientCert.Subject.CommonName)
 
 			authInfo = authorization.Info{Username: clientCert.Subject.CommonName}
 		} else {

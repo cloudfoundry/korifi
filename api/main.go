@@ -2,7 +2,9 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -287,10 +289,20 @@ func main() {
 
 	portString := fmt.Sprintf(":%v", config.InternalPort)
 	log.Println("Listening on ", portString)
+	caCertPool := x509.NewCertPool()
+	caCert, err := ioutil.ReadFile("certs/ca.pem")
+	if err != nil {
+		panic(err)
+	}
+	if !caCertPool.AppendCertsFromPEM(caCert) {
+		panic("didn't load ca cert")
+	}
+
 	server := &http.Server{
 		Addr: portString,
 		TLSConfig: &tls.Config{
-			ClientAuth: tls.RequestClientCert,
+			ClientCAs:  caCertPool,
+			ClientAuth: tls.VerifyClientCertIfGiven,
 		},
 		Handler: router,
 	}
