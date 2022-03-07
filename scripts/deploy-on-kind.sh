@@ -206,18 +206,28 @@ function deploy_cf_k8s_controllers() {
         -days 365
     else
       openssl req -x509 -newkey rsa:4096 \
-        -keyout /tmp/api-tls.key \
-        -out /tmp/api-tls.crt \
+        -keyout /tmp/app-tls.key \
+        -out /tmp/app-tls.crt \
         -nodes \
         -subj '/CN=*.vcap.me' \
         -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:*.vcap.me'")) \
         -days 365
     fi
 
-    kubectl create secret tls cf-k8s-workloads-ingress-cert \
-      -n cf-k8s-controllers-system \
-      --cert=/tmp/app-tls.crt \
-      --key=/tmp/app-tls.key
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cf-k8s-workloads-ingress-cert
+  namespace: cf-k8s-controllers-system
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+$(grep -Ev '^$' /tmp/app-tls.crt | sed -e 's/^/      /')
+  tls.key: |
+$(grep -Ev '^$' /tmp/app-tls.key | sed -e 's/^/      /')
+EOF
+
   }
   popd >/dev/null
 }
@@ -258,10 +268,20 @@ function deploy_cf_k8s_api() {
         -days 365
     fi
 
-    kubectl create secret tls cf-k8s-api-ingress-cert \
-      -n cf-k8s-api-system \
-      --cert=/tmp/api-tls.crt \
-      --key=/tmp/api-tls.key
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cf-k8s-api-ingress-cert
+  namespace: cf-k8s-api-system
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+$(grep -Ev '^$' /tmp/api-tls.crt | sed -e 's/^/      /')
+  tls.key: |
+$(grep -Ev '^$' /tmp/api-tls.key | sed -e 's/^/      /')
+EOF
+
   }
   popd >/dev/null
 }
