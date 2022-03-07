@@ -16,6 +16,8 @@ import (
 	k8sclient "k8s.io/client-go/kubernetes"
 )
 
+const SourceImageResourceType = "SourceImage"
+
 //counterfeiter:generate -o fake -fake-name ImageBuilder . ImageBuilder
 //counterfeiter:generate -o fake -fake-name ImagePusher . ImagePusher
 

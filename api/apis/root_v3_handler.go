@@ -19,8 +19,13 @@ func NewRootV3Handler(serverURL string) *RootV3Handler {
 }
 
 func (h *RootV3Handler) rootV3GetHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	writeStringResponse(w, http.StatusOK, `{"links":{"self":{"href":"`+h.serverURL+`/v3"}}}`)
+	writeResponse(w, http.StatusOK, map[string]interface{}{
+		"links": map[string]interface{}{
+			"self": map[string]interface{}{
+				"href": h.serverURL + "/v3",
+			},
+		},
+	})
 }
 
 func (h *RootV3Handler) RegisterRoutes(router *mux.Router) {

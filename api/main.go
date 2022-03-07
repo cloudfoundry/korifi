@@ -157,7 +157,7 @@ func main() {
 		apis.NewRootHandler(
 			config.ServerURL,
 		),
-		apis.NewResourceMatchesHandler(config.ServerURL),
+		apis.NewResourceMatchesHandler(ctrl.Log.WithName("ResourceMatchesHandler")),
 		apis.NewAppHandler(
 			ctrl.Log.WithName("AppHandler"),
 			*serverURL,

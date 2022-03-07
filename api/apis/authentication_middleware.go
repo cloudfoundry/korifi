@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"regexp"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
@@ -45,17 +46,17 @@ func (a *AuthenticationMiddleware) Middleware(next http.Handler) http.Handler {
 		authInfo, err := a.authInfoParser.Parse(r.Header.Get(headers.Authorization))
 		if err != nil {
 			if authorization.IsNotAuthenticated(err) {
-				writeNotAuthenticatedErrorResponse(w)
+				presentError(w, apierrors.NewNotAuthenticatedError(err))
 				return
 			}
 
 			if authorization.IsInvalidAuth(err) {
-				writeInvalidAuthErrorResponse(w)
+				presentError(w, apierrors.NewInvalidAuthError(err))
 				return
 			}
 
 			a.logger.Error(err, "failed to parse auth info")
-			writeUnknownErrorResponse(w)
+			presentError(w, err)
 			return
 		}
 
@@ -64,12 +65,12 @@ func (a *AuthenticationMiddleware) Middleware(next http.Handler) http.Handler {
 		_, err = a.identityProvider.GetIdentity(r.Context(), authInfo)
 		if err != nil {
 			if authorization.IsInvalidAuth(err) {
-				writeInvalidAuthErrorResponse(w)
+				presentError(w, apierrors.NewInvalidAuthError(err))
 				return
 			}
 
 			a.logger.Error(err, "failed to get identity")
-			writeUnknownErrorResponse(w)
+			presentError(w, err)
 			return
 		}
 

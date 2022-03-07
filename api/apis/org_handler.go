@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/schema"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -51,15 +52,10 @@ func NewOrgHandler(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDom
 	}
 }
 
-func (h *OrgHandler) orgCreateHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
+func (h *OrgHandler) orgCreateHandler(info authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.OrgCreate
-	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
-	if rme != nil {
-		writeRequestMalformedErrorResponse(w, rme)
-
-		return
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, err
 	}
 
 	org := payload.ToMessage()
@@ -70,40 +66,32 @@ func (h *OrgHandler) orgCreateHandler(info authorization.Info, w http.ResponseWr
 		if webhooks.HasErrorCode(err, webhooks.DuplicateOrgNameError) {
 			errorDetail := fmt.Sprintf("Organization '%s' already exists.", org.Name)
 			h.logger.Info(errorDetail)
-			writeUnprocessableEntityError(w, errorDetail)
-			return
+			return nil, apierrors.NewUnprocessableEntityError(err, errorDetail)
 		}
 
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to create org")
-			writeInvalidAuthErrorResponse(w)
-
-			return
+			return nil, apierrors.NewInvalidAuthError(err)
 		}
 
 		if authorization.IsNotAuthenticated(err) {
 			h.logger.Error(err, "unauthorized to create org")
-			writeNotAuthenticatedErrorResponse(w)
-
-			return
+			return nil, apierrors.NewNotAuthenticatedError(err)
 		}
 
 		if repositories.IsForbiddenError(err) {
 			h.logger.Error(err, "not allowed to create orgs")
-			writeNotAuthorizedErrorResponse(w)
-
-			return
+			return nil, apierrors.NewForbiddenError(err, repositories.OrgResourceType)
 		}
 
 		h.logger.Error(err, "Failed to create org", "Org Name", payload.Name)
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	writeResponse(w, http.StatusCreated, presenter.ForCreateOrg(record, h.apiBaseURL))
+	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForCreateOrg(record, h.apiBaseURL)), nil
 }
 
-func (h *OrgHandler) orgDeleteHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *OrgHandler) orgDeleteHandler(info authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	orgGUID := vars["guid"]
@@ -113,31 +101,24 @@ func (h *OrgHandler) orgDeleteHandler(info authorization.Info, w http.ResponseWr
 	}
 	err := h.orgRepo.DeleteOrg(ctx, info, deleteOrgMessage)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-
 		switch err.(type) {
 		case repositories.ForbiddenError:
 			h.logger.Error(err, "unauthorized to delete org", "OrgGUID", orgGUID)
-			writeNotAuthorizedErrorResponse(w)
-			return
+			return nil, apierrors.NewForbiddenError(err, repositories.OrgResourceType)
 		case repositories.NotFoundError:
 			h.logger.Info("Org not found", "OrgGUID", orgGUID)
-			writeNotFoundErrorResponse(w, "Org")
-			return
+			return nil, apierrors.NewNotFoundError(err, repositories.OrgResourceType)
 		default:
 			h.logger.Error(err, "Failed to delete org", "OrgGUID", orgGUID)
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
-	w.Header().Set("Location", fmt.Sprintf("%s/v3/jobs/org.delete-%s", h.apiBaseURL.String(), orgGUID))
-	writeResponse(w, http.StatusAccepted, "")
+	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", fmt.Sprintf("%s/v3/jobs/org.delete-%s", h.apiBaseURL.String(), orgGUID)), nil
 }
 
-func (h *OrgHandler) orgListHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *OrgHandler) orgListHandler(info authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	names := parseCommaSeparatedList(r.URL.Query().Get("names"))
 
@@ -145,30 +126,23 @@ func (h *OrgHandler) orgListHandler(info authorization.Info, w http.ResponseWrit
 	if err != nil {
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to list orgs")
-			writeInvalidAuthErrorResponse(w)
-
-			return
+			return nil, apierrors.NewInvalidAuthError(err)
 		}
 
 		if authorization.IsNotAuthenticated(err) {
 			h.logger.Error(err, "unauthorized to list orgs")
-			writeNotAuthenticatedErrorResponse(w)
-
-			return
+			return nil, apierrors.NewNotAuthenticatedError(err)
 		}
 
 		h.logger.Error(err, "failed to fetch orgs")
-		writeUnknownErrorResponse(w)
-
-		return
+		return nil, err
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForOrgList(orgs, h.apiBaseURL, *r.URL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForOrgList(orgs, h.apiBaseURL, *r.URL)), nil
 }
 
-func (h *OrgHandler) orgListDomainHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) { //nolint:dupl
+func (h *OrgHandler) orgListDomainHandler(info authorization.Info, r *http.Request) (*HandlerResponse, error) { //nolint:dupl
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	orgGUID := vars["guid"]
@@ -177,18 +151,16 @@ func (h *OrgHandler) orgListDomainHandler(info authorization.Info, w http.Respon
 		switch err.(type) {
 		case repositories.NotFoundError:
 			h.logger.Error(err, "Organization not found", "OrgGUID", orgGUID)
-			writeNotFoundErrorResponse(w, "Organization")
+			return nil, apierrors.NewNotFoundError(err, repositories.OrgResourceType)
 		default:
 			h.logger.Error(err, "Unable to get organization")
-			writeUnknownErrorResponse(w)
+			return nil, err
 		}
-		return
 	}
 
 	if err := r.ParseForm(); err != nil {
 		h.logger.Error(err, "Unable to parse request query parameters")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
 	domainListFilter := new(payloads.DomainList)
@@ -201,29 +173,25 @@ func (h *OrgHandler) orgListDomainHandler(info authorization.Info, w http.Respon
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
 					h.logger.Info("Unknown key used in Organization Domain filter")
-					writeUnknownKeyError(w, domainListFilter.SupportedFilterKeys())
-					return
+					return nil, apierrors.NewUnknownKeyError(err, domainListFilter.SupportedFilterKeys())
 				}
 			}
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 
 		default:
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
 	domainList, err := h.domainRepo.ListDomains(ctx, info, domainListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch domain(s) from Kubernetes")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForDomainList(domainList, h.apiBaseURL, *r.URL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDomainList(domainList, h.apiBaseURL, *r.URL)), nil
 }
 
 func (h *OrgHandler) RegisterRoutes(router *mux.Router) {

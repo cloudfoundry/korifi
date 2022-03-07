@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -66,55 +67,46 @@ func NewRouteHandler(
 	}
 }
 
-func (h *RouteHandler) routeGetHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) routeGetHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	routeGUID := vars["guid"]
 
 	route, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
-		h.catchLookupError(err, routeGUID, w)
-		return
+		return nil, h.catchLookupError(err, routeGUID)
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForRoute(route, h.serverURL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRoute(route, h.serverURL)), nil
 }
 
-func (h *RouteHandler) catchLookupError(err error, routeGUID string, w http.ResponseWriter) {
+func (h *RouteHandler) catchLookupError(err error, routeGUID string) error {
 	switch typedErr := err.(type) {
 	case repositories.NotFoundError:
 		h.logger.Info(err.Error(), "RouteGUID", routeGUID)
-		writeNotFoundErrorResponse(w, typedErr.ResourceType())
-		return
+		return apierrors.NewNotFoundError(err, typedErr.ResourceType())
 	case repositories.ForbiddenError:
 		h.logger.Info(err.Error(), "RouteGUID", routeGUID)
-		writeNotFoundErrorResponse(w, typedErr.ResourceType())
-		return
+		return apierrors.NewNotFoundError(err, typedErr.ResourceType())
 	case authorization.InvalidAuthError:
 		h.logger.Error(err, "unauthorized to get route")
-		writeInvalidAuthErrorResponse(w)
-		return
+		return apierrors.NewInvalidAuthError(err)
 	case authorization.NotAuthenticatedError:
 		h.logger.Error(err, "no auth to get route")
-		writeNotAuthenticatedErrorResponse(w)
-		return
+		return apierrors.NewNotAuthenticatedError(err)
 	default:
 		h.logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
-		writeUnknownErrorResponse(w)
-		return
+		return err
 	}
 }
 
-func (h *RouteHandler) routeGetListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) routeGetListHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	if err := r.ParseForm(); err != nil {
 		h.logger.Error(err, "Unable to parse request query parameters")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
 	routeListFilter := new(payloads.RouteList)
@@ -127,18 +119,14 @@ func (h *RouteHandler) routeGetListHandler(authInfo authorization.Info, w http.R
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
 					h.logger.Info("Unknown key used in Route filter")
-					writeUnknownKeyError(w, routeListFilter.SupportedFilterKeys())
-					return
+					return nil, apierrors.NewUnknownKeyError(err, routeListFilter.SupportedFilterKeys())
 				}
 			}
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
-			return
-
+			return nil, err
 		default:
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
@@ -147,47 +135,39 @@ func (h *RouteHandler) routeGetListHandler(authInfo authorization.Info, w http.R
 		switch err.(type) {
 		case authorization.InvalidAuthError:
 			h.logger.Error(err, "unauthorized to get routes")
-			writeInvalidAuthErrorResponse(w)
-			return
+			return nil, apierrors.NewInvalidAuthError(err)
 		case authorization.NotAuthenticatedError:
 			h.logger.Error(err, "no auth to get routes")
-			writeNotAuthenticatedErrorResponse(w)
-			return
+			return nil, apierrors.NewNotAuthenticatedError(err)
 		default:
 			h.logger.Error(err, "Failed to fetch routes from Kubernetes")
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForRouteList(routes, h.serverURL, *r.URL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteList(routes, h.serverURL, *r.URL)), nil
 }
 
-func (h *RouteHandler) routeGetDestinationsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) routeGetDestinationsHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	routeGUID := vars["guid"]
 
 	route, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
-		h.catchLookupError(err, routeGUID, w)
-		return
+		return nil, h.catchLookupError(err, routeGUID)
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForRouteDestinations(route, h.serverURL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteDestinations(route, h.serverURL)), nil
 }
 
-func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.RouteCreate
-	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
-	if rme != nil {
-		writeRequestMalformedErrorResponse(w, rme)
-		return
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, err
 	}
 
 	spaceGUID := payload.Relationships.Space.Data.GUID
@@ -196,12 +176,10 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 		switch err.(type) {
 		case repositories.NotFoundError:
 			h.logger.Info("Space not found", "spaceGUID", spaceGUID)
-			writeUnprocessableEntityError(w, "Invalid space. Ensure that the space exists and you have access to it.")
-			return
+			return nil, apierrors.NewUnprocessableEntityError(err, "Invalid space. Ensure that the space exists and you have access to it.")
 		default:
 			h.logger.Error(err, "Failed to fetch space from Kubernetes", "spaceGUID", spaceGUID)
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
@@ -211,12 +189,10 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 		switch err.(type) {
 		case repositories.NotFoundError:
 			h.logger.Info("Domain not found", "Domain GUID", domainGUID)
-			writeUnprocessableEntityError(w, "Invalid domain. Ensure that the domain exists and you have access to it.")
-			return
+			return nil, apierrors.NewUnprocessableEntityError(err, "Invalid domain. Ensure that the domain exists and you have access to it.")
 		default:
 			h.logger.Error(err, "Failed to fetch domain from Kubernetes", "Domain GUID", domainGUID)
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
@@ -227,12 +203,10 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 		switch err.(type) {
 		case authorization.InvalidAuthError:
 			h.logger.Error(err, "unauthorized to create route")
-			writeInvalidAuthErrorResponse(w)
-			return
+			return nil, apierrors.NewInvalidAuthError(err)
 		case authorization.NotAuthenticatedError:
 			h.logger.Error(err, "no auth to create route")
-			writeNotAuthenticatedErrorResponse(w)
-			return
+			return nil, apierrors.NewNotAuthenticatedError(err)
 		case repositories.DuplicateError:
 			pathDetails := ""
 			if createRouteMessage.Path != "" {
@@ -241,29 +215,24 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, w http.Re
 			errorDetail := fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
 				createRouteMessage.Host, pathDetails, domain.Name)
 			h.logger.Info(errorDetail)
-			writeUnprocessableEntityError(w, errorDetail)
-			return
+			return nil, apierrors.NewUnprocessableEntityError(err, errorDetail)
 		default:
 			h.logger.Error(err, "Failed to create route", "Route Host", payload.Host)
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
 	responseRouteRecord = responseRouteRecord.UpdateDomainRef(domain)
 
-	writeResponse(w, http.StatusCreated, presenter.ForRoute(responseRouteRecord, h.serverURL))
+	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForRoute(responseRouteRecord, h.serverURL)), nil
 }
 
-func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	var destinationCreatePayload payloads.DestinationListCreate
-	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &destinationCreatePayload)
-	if rme != nil {
-		writeRequestMalformedErrorResponse(w, rme)
-		return
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &destinationCreatePayload); err != nil {
+		return nil, err
 	}
 
 	vars := mux.Vars(r)
@@ -271,8 +240,7 @@ func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, 
 
 	routeRecord, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
-		h.catchLookupError(err, routeGUID, w)
-		return
+		return nil, h.catchLookupError(err, routeGUID)
 	}
 
 	destinationListCreateMessage := destinationCreatePayload.ToMessage(routeRecord)
@@ -282,19 +250,17 @@ func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, 
 		switch err.(type) {
 		case repositories.ForbiddenError:
 			h.logger.Error(err, "not allowed to create route destinations")
-			writeNotAuthorizedErrorResponse(w)
-			return
+			return nil, apierrors.NewForbiddenError(err, repositories.RouteResourceType)
 		default:
 			h.logger.Error(err, "Failed to add destination on route", "Route GUID", routeRecord.GUID)
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForRouteDestinations(responseRouteRecord, h.serverURL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteDestinations(responseRouteRecord, h.serverURL)), nil
 }
 
-func (h *RouteHandler) routeDeleteHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) routeDeleteHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
 
 	vars := mux.Vars(r)
@@ -302,9 +268,7 @@ func (h *RouteHandler) routeDeleteHandler(authInfo authorization.Info, w http.Re
 
 	routeRecord, err := h.lookupRouteAndDomain(ctx, routeGUID, authInfo)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		h.catchLookupError(err, routeGUID, w)
-		return
+		return nil, h.catchLookupError(err, routeGUID)
 	}
 
 	err = h.routeRepo.DeleteRoute(ctx, authInfo, repositories.DeleteRouteMessage{
@@ -312,21 +276,17 @@ func (h *RouteHandler) routeDeleteHandler(authInfo authorization.Info, w http.Re
 		SpaceGUID: routeRecord.SpaceGUID,
 	})
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
 		switch err.(type) {
-		case authorization.InvalidAuthError:
+		case repositories.ForbiddenError:
 			h.logger.Error(err, "unauthorized to delete routes")
-			writeNotAuthorizedErrorResponse(w)
-			return
+			return nil, apierrors.NewForbiddenError(err, repositories.RouteResourceType)
 		default:
 			h.logger.Error(err, "Failed to delete route", "routeGUID", routeGUID)
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
-	w.Header().Set("Location", fmt.Sprintf("%s/v3/jobs/route.delete-%s", h.serverURL.String(), routeGUID))
-	writeResponse(w, http.StatusAccepted, "")
+	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", fmt.Sprintf("%s/v3/jobs/route.delete-%s", h.serverURL.String(), routeGUID)), nil
 }
 
 func (h *RouteHandler) RegisterRoutes(router *mux.Router) {

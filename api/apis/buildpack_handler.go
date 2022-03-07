@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -44,14 +45,12 @@ func NewBuildpackHandler(
 	}
 }
 
-func (h *BuildpackHandler) buildpackListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *BuildpackHandler) buildpackListHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	if err := r.ParseForm(); err != nil {
 		h.logger.Error(err, "Unable to parse request query parameters")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
 	// TODO: interface for supported keys list so we can turn this block into a helper function to reduce code duplication
@@ -65,28 +64,25 @@ func (h *BuildpackHandler) buildpackListHandler(authInfo authorization.Info, w h
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
 					h.logger.Info("Unknown key used in Buildpacks")
-					writeUnknownKeyError(w, buildpackListFilter.SupportedQueryParams())
-					return
+					return nil, apierrors.NewUnknownKeyError(err, buildpackListFilter.SupportedQueryParams())
 				}
 			}
 
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
+			return nil, err
 		default:
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
+			return nil, err
 		}
-		return
 	}
 
 	buildpacks, err := h.buildpackRepo.GetBuildpacksForBuilder(ctx, authInfo, h.clusterBuilderName)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch buildpacks from Kubernetes")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForBuildpackList(buildpacks, h.serverURL, *r.URL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForBuildpackList(buildpacks, h.serverURL, *r.URL)), nil
 }
 
 func (h *BuildpackHandler) RegisterRoutes(router *mux.Router) {

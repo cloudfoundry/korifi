@@ -3,6 +3,8 @@ package apis
 import (
 	"net/http"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 )
 
@@ -11,18 +13,22 @@ const (
 )
 
 type ResourceMatchesHandler struct {
-	serverURL string
+	logger logr.Logger
 }
 
-func NewResourceMatchesHandler(serverURL string) *ResourceMatchesHandler {
-	return &ResourceMatchesHandler{serverURL: serverURL}
+func NewResourceMatchesHandler(logger logr.Logger) *ResourceMatchesHandler {
+	return &ResourceMatchesHandler{
+		logger: logger,
+	}
 }
 
-func (h *ResourceMatchesHandler) resourceMatchesPostHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	writeStringResponse(w, http.StatusCreated, `{"resources":[]}`)
+func (h *ResourceMatchesHandler) resourceMatchesPostHandler(_ authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	return NewHandlerResponse(http.StatusCreated).WithBody(map[string]interface{}{
+		"resources": []interface{}{},
+	}), nil
 }
 
 func (h *ResourceMatchesHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(ResourceMatchesEndpoint).Methods("POST").HandlerFunc(h.resourceMatchesPostHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(ResourceMatchesEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.resourceMatchesPostHandler))
 }

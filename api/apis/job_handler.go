@@ -1,10 +1,13 @@
 package apis
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
 	"github.com/go-logr/logr"
@@ -20,6 +23,8 @@ const (
 	spaceDeletePrefix = "space.delete"
 )
 
+const JobResourceType = "Job"
+
 type JobHandler struct {
 	logger    logr.Logger
 	serverURL url.URL
@@ -32,9 +37,7 @@ func NewJobHandler(logger logr.Logger, serverURL url.URL) *JobHandler {
 	}
 }
 
-func (h *JobHandler) jobGetHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
+func (h *JobHandler) jobGetHandler(_ authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	vars := mux.Vars(r)
 	jobGUID := vars["guid"]
 
@@ -42,8 +45,7 @@ func (h *JobHandler) jobGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !match {
 		h.logger.Info("Invalid Job GUID")
-		writeNotFoundErrorResponse(w, "Job")
-		return
+		return nil, apierrors.NewNotFoundError(fmt.Errorf("invalid job guid: %s", jobGUID), JobResourceType)
 	}
 
 	var jobResponse presenter.JobResponse
@@ -55,15 +57,15 @@ func (h *JobHandler) jobGetHandler(w http.ResponseWriter, r *http.Request) {
 		jobResponse = presenter.ForDeleteJob(jobGUID, jobType, h.serverURL)
 	default:
 		h.logger.Info("Invalid Job type: %s", jobType)
-		writeNotFoundErrorResponse(w, "Job")
-		return
+		return nil, apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", jobType), JobResourceType)
 	}
 
-	writeResponse(w, http.StatusOK, jobResponse)
+	return NewHandlerResponse(http.StatusOK).WithBody(jobResponse), nil
 }
 
 func (h *JobHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(JobGetEndpoint).Methods("GET").HandlerFunc(h.jobGetHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(JobGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.jobGetHandler))
 }
 
 func parseJobGUID(jobGUID string) (string, string, bool) {

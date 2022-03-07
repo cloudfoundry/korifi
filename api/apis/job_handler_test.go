@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 
+	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,21 +18,23 @@ var _ = Describe("JobHandler", func() {
 		var (
 			resourceGUID string
 			jobGUID      string
+			req          *http.Request
 		)
 
 		BeforeEach(func() {
 			resourceGUID = uuid.NewString()
-		})
-
-		JustBeforeEach(func() {
 			jobsHandler := apis.NewJobHandler(
-				logf.Log.WithName("TestRootHandler"),
+				logf.Log.WithName("TestJobsHandler"),
 				*serverURL,
 			)
 			jobsHandler.RegisterRoutes(router)
+		})
 
-			req, err := http.NewRequest("GET", "/v3/jobs/"+jobGUID, nil)
+		JustBeforeEach(func() {
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+jobGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
+
 			router.ServeHTTP(rr, req)
 		})
 
@@ -41,20 +44,16 @@ var _ = Describe("JobHandler", func() {
 			})
 
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr.Code).To(Equal(http.StatusOK))
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
 			})
 
 			When("the existing job operation is space.apply-manifest", func() {
-				BeforeEach(func() {
-				})
-
 				It("returns the job", func() {
-					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+					Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
 						"created_at": "",
 						"errors": null,
 						"guid": "%[2]s",
@@ -70,7 +69,7 @@ var _ = Describe("JobHandler", func() {
 						"state": "COMPLETE",
 						"updated_at": "",
 						"warnings": null
-						}`, defaultServerURL, jobGUID, resourceGUID)), "Response body matches response:")
+						}`, defaultServerURL, jobGUID, resourceGUID)))
 				})
 			})
 
@@ -80,7 +79,7 @@ var _ = Describe("JobHandler", func() {
 				})
 
 				It("returns the job", func() {
-					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+					Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
 						"created_at": "",
 						"errors": null,
 						"guid": "%[2]s",
@@ -93,7 +92,7 @@ var _ = Describe("JobHandler", func() {
 						"state": "COMPLETE",
 						"updated_at": "",
 						"warnings": null
-					}`, defaultServerURL, jobGUID)), "Response body matches response:")
+					}`, defaultServerURL, jobGUID)))
 				})
 			})
 
@@ -103,7 +102,7 @@ var _ = Describe("JobHandler", func() {
 				})
 
 				It("returns the job", func() {
-					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+					Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
 						"created_at": "",
 						"errors": null,
 						"guid": "%[2]s",
@@ -116,7 +115,7 @@ var _ = Describe("JobHandler", func() {
 						"state": "COMPLETE",
 						"updated_at": "",
 						"warnings": null
-					}`, defaultServerURL, jobGUID)), "Response body matches response:")
+					}`, defaultServerURL, jobGUID)))
 				})
 			})
 
@@ -126,7 +125,7 @@ var _ = Describe("JobHandler", func() {
 				})
 
 				It("returns the job", func() {
-					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+					Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
 						"created_at": "",
 						"errors": null,
 						"guid": "%[2]s",
@@ -139,7 +138,7 @@ var _ = Describe("JobHandler", func() {
 						"state": "COMPLETE",
 						"updated_at": "",
 						"warnings": null
-					}`, defaultServerURL, jobGUID)), "Response body matches response:")
+					}`, defaultServerURL, jobGUID)))
 				})
 			})
 
@@ -149,7 +148,7 @@ var _ = Describe("JobHandler", func() {
 				})
 
 				It("returns the job", func() {
-					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+					Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
 						"created_at": "",
 						"errors": null,
 						"guid": "%[2]s",
@@ -162,7 +161,7 @@ var _ = Describe("JobHandler", func() {
 						"state": "COMPLETE",
 						"updated_at": "",
 						"warnings": null
-					}`, defaultServerURL, jobGUID)), "Response body matches response:")
+					}`, defaultServerURL, jobGUID)))
 				})
 			})
 		})

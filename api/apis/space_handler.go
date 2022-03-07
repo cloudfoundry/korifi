@@ -8,11 +8,13 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -53,15 +55,13 @@ func NewSpaceHandler(apiBaseURL url.URL, imageRegistrySecretName string, spaceRe
 	}
 }
 
-func (h *SpaceHandler) SpaceCreateHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *SpaceHandler) spaceCreateHandler(info authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
+
 	var payload payloads.SpaceCreate
-	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
-	if rme != nil {
-		h.logger.Error(rme, "Failed to decode and validate payload")
-		writeRequestMalformedErrorResponse(w, rme)
-		return
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		h.logger.Error(err, "Failed to decode and validate payload")
+		return nil, err
 	}
 
 	space := payload.ToMessage(h.imageRegistrySecretName)
@@ -73,49 +73,39 @@ func (h *SpaceHandler) SpaceCreateHandler(info authorization.Info, w http.Respon
 		if webhooks.HasErrorCode(err, webhooks.DuplicateSpaceNameError) {
 			errorDetail := fmt.Sprintf("Space '%s' already exists.", space.Name)
 			h.logger.Info(errorDetail)
-			writeUnprocessableEntityError(w, errorDetail)
-			return
+			return nil, apierrors.NewUnprocessableEntityError(err, errorDetail)
 		}
 
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to create spaces")
-			writeInvalidAuthErrorResponse(w)
-
-			return
+			return nil, apierrors.NewInvalidAuthError(err)
 		}
 
 		if authorization.IsNotAuthenticated(err) {
 			h.logger.Error(err, "unauthorized to create spaces")
-			writeNotAuthenticatedErrorResponse(w)
-
-			return
+			return nil, apierrors.NewNotAuthenticatedError(err)
 		}
 
 		if repositories.IsForbiddenError(err) {
 			h.logger.Error(err, "not allowed to create spaces")
-			writeNotAuthorizedErrorResponse(w)
-
-			return
+			return nil, apierrors.NewForbiddenError(err, repositories.SpaceResourceType)
 		}
 
 		if errors.As(err, &repositories.NotFoundError{}) {
 			h.logger.Error(err, "org does not exist or forbidden")
-			writeUnprocessableEntityError(w, "Invalid organization. Ensure the organization exists and you have access to it.")
-			return
+			return nil, apierrors.NewUnprocessableEntityError(err, "Invalid organization. Ensure the organization exists and you have access to it.")
 		}
 
 		h.logger.Error(err, "Failed to create space", "Space Name", space.Name)
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
 	spaceResponse := presenter.ForCreateSpace(record, h.apiBaseURL)
-	writeResponse(w, http.StatusCreated, spaceResponse)
+	return NewHandlerResponse(http.StatusCreated).WithBody(spaceResponse), nil
 }
 
-func (h *SpaceHandler) SpaceListHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *SpaceHandler) spaceListHandler(info authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	orgUIDs := parseCommaSeparatedList(r.URL.Query().Get("organization_guids"))
 	names := parseCommaSeparatedList(r.URL.Query().Get("names"))
@@ -127,60 +117,46 @@ func (h *SpaceHandler) SpaceListHandler(info authorization.Info, w http.Response
 	if err != nil {
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to list spaces")
-			writeInvalidAuthErrorResponse(w)
-
-			return
+			return nil, apierrors.NewInvalidAuthError(err)
 		}
 
 		if authorization.IsNotAuthenticated(err) {
 			h.logger.Error(err, "unauthorized to list spaces")
-			writeNotAuthenticatedErrorResponse(w)
-
-			return
+			return nil, apierrors.NewNotAuthenticatedError(err)
 		}
 
 		h.logger.Error(err, "Failed to fetch spaces")
-		writeUnknownErrorResponse(w)
-
-		return
+		return nil, apierrors.NewUnknownError(err)
 	}
 
 	spaceList := presenter.ForSpaceList(spaces, h.apiBaseURL, *r.URL)
-	writeResponse(w, http.StatusOK, spaceList)
+	return NewHandlerResponse(http.StatusOK).WithBody(spaceList), nil
 }
 
-func (h *SpaceHandler) spaceDeleteHandler(info authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *SpaceHandler) spaceDeleteHandler(info authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	spaceGUID := vars["guid"]
 
 	spaceRecord, err := h.spaceRepo.GetSpace(ctx, info, spaceGUID)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to get spaces")
-			writeInvalidAuthErrorResponse(w)
-
-			return
+			return nil, apierrors.NewInvalidAuthError(err)
 		}
 
 		if authorization.IsNotAuthenticated(err) {
 			h.logger.Error(err, "unauthorized to get spaces")
-			writeNotAuthenticatedErrorResponse(w)
-
-			return
+			return nil, apierrors.NewNotAuthenticatedError(err)
 		}
 
 		switch err.(type) {
 		case repositories.NotFoundError:
 			h.logger.Info("Space not found", "SpaceGUID", spaceGUID)
-			writeNotFoundErrorResponse(w, "Space")
-			return
+			return nil, apierrors.NewNotFoundError(err, repositories.SpaceResourceType)
 		default:
 			h.logger.Error(err, "Failed to fetch space", "SpaceGUID", spaceGUID)
-			writeUnknownErrorResponse(w)
-			return
+			return nil, apierrors.NewUnknownError(err)
 		}
 	}
 
@@ -190,28 +166,23 @@ func (h *SpaceHandler) spaceDeleteHandler(info authorization.Info, w http.Respon
 	}
 	err = h.spaceRepo.DeleteSpace(ctx, info, deleteSpaceMessage)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-
 		switch err.(type) {
-		case authorization.InvalidAuthError:
+		case repositories.ForbiddenError:
 			h.logger.Error(err, "unauthorized to delete spaces")
-			writeNotAuthorizedErrorResponse(w)
-			return
+			return nil, apierrors.NewForbiddenError(err, repositories.SpaceResourceType)
 		default:
 			h.logger.Error(err, "Failed to delete space", "SpaceGUID", spaceGUID)
-			writeUnknownErrorResponse(w)
-			return
+			return nil, apierrors.NewUnknownError(err)
 		}
 	}
 
-	w.Header().Set("Location", fmt.Sprintf("%s/v3/jobs/space.delete-%s", h.apiBaseURL.String(), spaceGUID))
-	writeResponse(w, http.StatusAccepted, "")
+	return NewHandlerResponse(http.StatusAccepted).WithHeader(headers.Location, fmt.Sprintf("%s/v3/jobs/space.delete-%s", h.apiBaseURL.String(), spaceGUID)), nil
 }
 
 func (h *SpaceHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(SpaceListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.SpaceListHandler))
-	router.Path(SpaceCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.SpaceCreateHandler))
+	router.Path(SpaceListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.spaceListHandler))
+	router.Path(SpaceCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.spaceCreateHandler))
 	router.Path(SpaceDeleteEnpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.spaceDeleteHandler))
 }
 

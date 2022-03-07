@@ -529,7 +529,7 @@ var _ = Describe("Spaces", func() {
 
 		When("deleting the space is not authorized", func() {
 			BeforeEach(func() {
-				spaceRepo.DeleteSpaceReturns(authorization.InvalidAuthError{Err: errors.New("boom")})
+				spaceRepo.DeleteSpaceReturns(repositories.NewForbiddenError(repositories.SpaceResourceType, errors.New("boom")))
 			})
 
 			It("returns a 403 error", func() {
