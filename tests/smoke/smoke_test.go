@@ -74,7 +74,6 @@ var _ = Describe("Smoke Tests", func() {
 			spaceName := generator.PrefixedRandomName(NamePrefix, "space")
 
 			Eventually(cf.Cf("create-org", orgName)).Should(Exit(0))
-			time.Sleep(2 * time.Second) // TODO this stinks
 			Eventually(cf.Cf("create-space", "-o", orgName, spaceName)).Should(Exit(0))
 			Eventually(cf.Cf("target", "-o", orgName, "-s", spaceName)).Should(Exit(0))
 		})

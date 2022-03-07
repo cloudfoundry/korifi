@@ -1,14 +1,12 @@
 package e2e_test
 
 import (
-	"net/http"
-	"time"
-
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"net/http"
 )
 
 var _ = Describe("Service Bindings", func() {
@@ -24,9 +22,7 @@ var _ = Describe("Service Bindings", func() {
 
 	BeforeEach(func() {
 		orgGUID = createOrg(generateGUID("org"))
-		time.Sleep(time.Second) // this appears to reduce flakes, but should be removed once we have better logic to determine org/space readiness
 		spaceGUID = createSpace(generateGUID("space1"), orgGUID)
-		time.Sleep(time.Second)
 		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
 		instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"))
 		appGUID = createApp(spaceGUID, generateGUID("app"))
