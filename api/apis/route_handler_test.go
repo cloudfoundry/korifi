@@ -173,7 +173,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Route not found. Ensure it exists and you have access to it.")
+				expectNotFoundError("Route not found")
 			})
 		})
 
@@ -1739,7 +1739,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("deleting the route is not authorized", func() {
 			BeforeEach(func() {
-				routeRepo.DeleteRouteReturns(authorization.InvalidAuthError{Err: errors.New("boom")})
+				routeRepo.DeleteRouteReturns(repositories.NewForbiddenError(repositories.RouteResourceType, errors.New("boom")))
 			})
 
 			It("returns a 403 error", func() {

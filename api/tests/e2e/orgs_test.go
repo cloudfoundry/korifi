@@ -279,7 +279,7 @@ var _ = Describe("Orgs", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 				Expect(errResp.Errors).To(ConsistOf(
 					cfErr{
-						Detail: "Organization not found. Ensure it exists and you have access to it.",
+						Detail: "Org not found. Ensure it exists and you have access to it.",
 						Title:  "CF-ResourceNotFound",
 						Code:   10010,
 					},

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo/v2"
@@ -83,7 +84,7 @@ func expectNotAuthorizedError() {
 
 func expectNotFoundError(detail string) {
 	ExpectWithOffset(1, rr).To(HaveHTTPStatus(http.StatusNotFound))
-	ExpectWithOffset(1, rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+	ExpectWithOffset(1, rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
 	var bodyJSON map[string]interface{}
 	Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
 	Expect(bodyJSON).To(HaveKey("errors"))

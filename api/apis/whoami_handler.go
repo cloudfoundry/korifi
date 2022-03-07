@@ -36,17 +36,13 @@ func NewWhoAmI(identityProvider IdentityProvider, apiBaseURL url.URL) *WhoAmIHan
 	}
 }
 
-func (h *WhoAmIHandler) whoAmIHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
-
-	identity, err := h.identityProvider.GetIdentity(ctx, authInfo)
+func (h *WhoAmIHandler) whoAmIHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	identity, err := h.identityProvider.GetIdentity(r.Context(), authInfo)
 	if err != nil {
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForWhoAmI(identity))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForWhoAmI(identity)), nil
 }
 
 func (h *WhoAmIHandler) RegisterRoutes(router *mux.Router) {

@@ -10,30 +10,42 @@ import (
 )
 
 type AuthAwareHandlerFunc struct {
-	Stub        func(authorization.Info, http.ResponseWriter, *http.Request)
+	Stub        func(authorization.Info, *http.Request) (*apis.HandlerResponse, error)
 	mutex       sync.RWMutex
 	argsForCall []struct {
 		arg1 authorization.Info
-		arg2 http.ResponseWriter
-		arg3 *http.Request
+		arg2 *http.Request
+	}
+	returns struct {
+		result1 *apis.HandlerResponse
+		result2 error
+	}
+	returnsOnCall map[int]struct {
+		result1 *apis.HandlerResponse
+		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *AuthAwareHandlerFunc) Spy(arg1 authorization.Info, arg2 http.ResponseWriter, arg3 *http.Request) {
+func (fake *AuthAwareHandlerFunc) Spy(arg1 authorization.Info, arg2 *http.Request) (*apis.HandlerResponse, error) {
 	fake.mutex.Lock()
+	ret, specificReturn := fake.returnsOnCall[len(fake.argsForCall)]
 	fake.argsForCall = append(fake.argsForCall, struct {
 		arg1 authorization.Info
-		arg2 http.ResponseWriter
-		arg3 *http.Request
-	}{arg1, arg2, arg3})
+		arg2 *http.Request
+	}{arg1, arg2})
 	stub := fake.Stub
-	fake.recordInvocation("AuthAwareHandlerFunc", []interface{}{arg1, arg2, arg3})
+	returns := fake.returns
+	fake.recordInvocation("AuthAwareHandlerFunc", []interface{}{arg1, arg2})
 	fake.mutex.Unlock()
 	if stub != nil {
-		fake.Stub(arg1, arg2, arg3)
+		return stub(arg1, arg2)
 	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return returns.result1, returns.result2
 }
 
 func (fake *AuthAwareHandlerFunc) CallCount() int {
@@ -42,16 +54,42 @@ func (fake *AuthAwareHandlerFunc) CallCount() int {
 	return len(fake.argsForCall)
 }
 
-func (fake *AuthAwareHandlerFunc) Calls(stub func(authorization.Info, http.ResponseWriter, *http.Request)) {
+func (fake *AuthAwareHandlerFunc) Calls(stub func(authorization.Info, *http.Request) (*apis.HandlerResponse, error)) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = stub
 }
 
-func (fake *AuthAwareHandlerFunc) ArgsForCall(i int) (authorization.Info, http.ResponseWriter, *http.Request) {
+func (fake *AuthAwareHandlerFunc) ArgsForCall(i int) (authorization.Info, *http.Request) {
 	fake.mutex.RLock()
 	defer fake.mutex.RUnlock()
-	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2, fake.argsForCall[i].arg3
+	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2
+}
+
+func (fake *AuthAwareHandlerFunc) Returns(result1 *apis.HandlerResponse, result2 error) {
+	fake.mutex.Lock()
+	defer fake.mutex.Unlock()
+	fake.Stub = nil
+	fake.returns = struct {
+		result1 *apis.HandlerResponse
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *AuthAwareHandlerFunc) ReturnsOnCall(i int, result1 *apis.HandlerResponse, result2 error) {
+	fake.mutex.Lock()
+	defer fake.mutex.Unlock()
+	fake.Stub = nil
+	if fake.returnsOnCall == nil {
+		fake.returnsOnCall = make(map[int]struct {
+			result1 *apis.HandlerResponse
+			result2 error
+		})
+	}
+	fake.returnsOnCall[i] = struct {
+		result1 *apis.HandlerResponse
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *AuthAwareHandlerFunc) Invocations() map[string][][]interface{} {

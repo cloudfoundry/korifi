@@ -2,13 +2,16 @@ package apis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 
+	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -52,73 +55,43 @@ func NewSpaceManifestHandler(
 func (h *SpaceManifestHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
 	router.Path(SpaceManifestApplyEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.applyManifestHandler))
-	router.Path(SpaceManifestDiffEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.validateSpaceVisible(h.diffManifestHandler)))
+	router.Path(SpaceManifestDiffEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.diffManifestHandler))
 }
 
-func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	vars := mux.Vars(r)
 	spaceGUID := vars["spaceGUID"]
 	var manifest payloads.Manifest
-	rme := h.decoderValidator.DecodeAndValidateYAMLPayload(r, &manifest)
-	if rme != nil {
-		writeRequestMalformedErrorResponse(w, rme)
-		return
+	if err := h.decoderValidator.DecodeAndValidateYAMLPayload(r, &manifest); err != nil {
+		return nil, err
 	}
 
-	err := h.applyManifestAction(r.Context(), authInfo, spaceGUID, h.defaultDomainName, manifest)
-	if err != nil {
-		h.handleApplyManifestErr(err, w, h.defaultDomainName)
-		return
-	}
+	if err := h.applyManifestAction(r.Context(), authInfo, spaceGUID, h.defaultDomainName, manifest); err != nil {
+		if errors.As(err, &repositories.NotFoundError{}) {
+			h.logger.Info("Domain not found", "error: ", err.Error())
+			return nil, apierrors.NewUnprocessableEntityError(err, "The configured default domain `"+h.defaultDomainName+"` was not found")
+		}
 
-	w.Header().Set("Location", fmt.Sprintf("%s/v3/jobs/space.apply_manifest-%s", h.serverURL.String(), spaceGUID))
-	w.WriteHeader(http.StatusAccepted)
-}
-
-func (h *SpaceManifestHandler) handleApplyManifestErr(err error, w http.ResponseWriter, defaultDomainName string) {
-	switch err.(type) {
-	case repositories.NotFoundError:
-		h.logger.Info("Domain not found", "error: ", err.Error())
-		writeUnprocessableEntityError(w, "The configured default domain `"+defaultDomainName+"` was not found")
-	default:
 		h.logger.Error(err, "Error applying manifest")
-		writeUnknownErrorResponse(w)
+		return nil, err
 	}
+
+	return NewHandlerResponse(http.StatusAccepted).
+		WithHeader(headers.Location, fmt.Sprintf("%s/v3/jobs/space.apply_manifest-%s", h.serverURL.String(), spaceGUID)), nil
 }
 
-func (h *SpaceManifestHandler) diffManifestHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusAccepted)
-	_, _ = w.Write([]byte(`{"diff":[]}`))
-}
+func (h *SpaceManifestHandler) diffManifestHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	vars := mux.Vars(r)
+	spaceGUID := vars["spaceGUID"]
 
-func (h *SpaceManifestHandler) validateSpaceVisible(hf AuthAwareHandlerFunc) AuthAwareHandlerFunc {
-	return func(info authorization.Info, w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		spaceGUID := vars["spaceGUID"]
-		w.Header().Set("Content-Type", "application/json")
-
-		spaces, err := h.spaceRepo.ListSpaces(r.Context(), info, repositories.ListSpacesMessage{})
-		if err != nil {
-			h.logger.Error(err, "Failed to list spaces")
-			writeUnknownErrorResponse(w)
-			return
+	if _, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID); err != nil {
+		var notFoundErr repositories.NotFoundError
+		if errors.As(err, &notFoundErr) {
+			return nil, apierrors.NewNotFoundError(err, notFoundErr.ResourceType())
 		}
 
-		spaceNotFound := true
-		for _, space := range spaces {
-			if space.GUID == spaceGUID {
-				spaceNotFound = false
-				break
-			}
-		}
-
-		if spaceNotFound {
-			writeNotFoundErrorResponse(w, "Space")
-			return
-		}
-
-		hf(info, w, r)
+		return nil, err
 	}
+
+	return NewHandlerResponse(http.StatusAccepted).WithBody(map[string]interface{}{"diff": []string{}}), nil
 }

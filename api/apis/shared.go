@@ -9,12 +9,13 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/bytefmt"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"gopkg.in/yaml.v3"
 
+	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
@@ -26,15 +27,6 @@ import (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 var Logger = ctrl.Log.WithName("Shared Handler Functions")
-
-type requestMalformedError struct {
-	httpStatus    int
-	errorResponse presenter.ErrorsResponse
-}
-
-func (rme *requestMalformedError) Error() string {
-	return fmt.Sprintf("Error throwing an http %v", rme.httpStatus)
-}
 
 type DecoderValidator struct {
 	validator  *validator.Validate
@@ -53,7 +45,7 @@ func NewDefaultDecoderValidator() (*DecoderValidator, error) {
 	}, nil
 }
 
-func (dv *DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object interface{}) *requestMalformedError {
+func (dv *DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object interface{}) error {
 	decoder := json.NewDecoder(r.Body)
 	defer r.Body.Close()
 	decoder.DisallowUnknownFields()
@@ -63,50 +55,40 @@ func (dv *DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object
 		switch {
 		case errors.As(err, &unmarshalTypeError):
 			Logger.Error(err, fmt.Sprintf("Request body contains an invalid value for the %q field (should be of type %v)", strings.Title(unmarshalTypeError.Field), unmarshalTypeError.Type))
-			return &requestMalformedError{
-				httpStatus:    http.StatusUnprocessableEntity,
-				errorResponse: newUnprocessableEntityError(fmt.Sprintf("%v must be a %v", strings.Title(unmarshalTypeError.Field), unmarshalTypeError.Type)),
-			}
+			return apierrors.NewUnprocessableEntityError(err, fmt.Sprintf("%v must be a %v", strings.Title(unmarshalTypeError.Field), unmarshalTypeError.Type))
 		case strings.HasPrefix(err.Error(), "json: unknown field"):
 			// check whether the message matches an "unknown field" error. If so, 422. Else, 400
 			Logger.Error(err, fmt.Sprintf("Unknown field in JSON body: %T: %q", err, err.Error()))
-			return &requestMalformedError{
-				httpStatus:    http.StatusUnprocessableEntity,
-				errorResponse: newUnprocessableEntityError(fmt.Sprintf("invalid request body: %s", err.Error())),
-			}
+			return apierrors.NewUnprocessableEntityError(err, fmt.Sprintf("invalid request body: %s", err.Error()))
 		default:
 			Logger.Error(err, fmt.Sprintf("Unable to parse the JSON body: %T: %q", err, err.Error()))
-			return &requestMalformedError{
-				httpStatus:    http.StatusBadRequest,
-				errorResponse: newMessageParseError(),
-			}
+			return apierrors.NewMessageParseError(err)
 		}
 	}
 
 	return dv.validatePayload(object)
 }
 
-func (dv *DecoderValidator) DecodeAndValidateYAMLPayload(r *http.Request, object interface{}) *requestMalformedError {
+func (dv *DecoderValidator) DecodeAndValidateYAMLPayload(r *http.Request, object interface{}) error {
 	decoder := yaml.NewDecoder(r.Body)
 	defer r.Body.Close()
 	decoder.KnownFields(false) // TODO: change this to true once we've added all manifest fields to payloads.Manifest
 	err := decoder.Decode(object)
 	if err != nil {
 		Logger.Error(err, fmt.Sprintf("Unable to parse the YAML body: %T: %q", err, err.Error()))
-		return &requestMalformedError{
-			httpStatus:    http.StatusBadRequest,
-			errorResponse: newMessageParseError(),
-		}
+		return apierrors.NewMessageParseError(err)
 	}
 
 	return dv.validatePayload(object)
 }
 
-func (dv *DecoderValidator) validatePayload(object interface{}) *requestMalformedError {
+func (dv *DecoderValidator) validatePayload(object interface{}) error {
 	err := dv.validator.Struct(object)
 	if err != nil {
-		switch typedErr := err.(type) {
-		case validator.ValidationErrors:
+		errorMessage := err.Error()
+
+		var typedErr validator.ValidationErrors
+		if errors.As(err, &typedErr) {
 			errorMap := typedErr.Translate(dv.translator)
 			var errorMessages []string
 			for _, msg := range errorMap {
@@ -114,17 +96,10 @@ func (dv *DecoderValidator) validatePayload(object interface{}) *requestMalforme
 			}
 
 			if len(errorMessages) > 0 {
-				return &requestMalformedError{
-					httpStatus:    http.StatusUnprocessableEntity,
-					errorResponse: newUnprocessableEntityError(strings.Join(errorMessages, ",")),
-				}
-			}
-		default:
-			return &requestMalformedError{
-				httpStatus:    http.StatusUnprocessableEntity,
-				errorResponse: newUnprocessableEntityError(err.Error()),
+				errorMessage = strings.Join(errorMessages, ",")
 			}
 		}
+		return apierrors.NewUnprocessableEntityError(err, errorMessage)
 	}
 
 	return nil
@@ -240,113 +215,8 @@ func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
 	}
 }
 
-func newMessageParseError() presenter.ErrorsResponse {
-	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-MessageParseError",
-		Detail: "Request invalid due to parse error: invalid request body",
-		Code:   1001,
-	}}}
-}
-
-func newUnprocessableEntityError(detail string) presenter.ErrorsResponse {
-	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-UnprocessableEntity",
-		Detail: detail,
-		Code:   10008,
-	}}}
-}
-
-func writeNotFoundErrorResponse(w http.ResponseWriter, resourceName string) {
-	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-ResourceNotFound",
-		Detail: fmt.Sprintf("%s not found. Ensure it exists and you have access to it.", resourceName),
-		Code:   10010,
-	}}}
-	writeResponse(w, http.StatusNotFound, response)
-}
-
-func writeUnknownErrorResponse(w http.ResponseWriter) {
-	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "UnknownError",
-		Detail: "An unknown error occurred.",
-		Code:   10001,
-	}}}
-	writeResponse(w, http.StatusInternalServerError, response)
-}
-
-func writeNotAuthenticatedErrorResponse(w http.ResponseWriter) {
-	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-NotAuthenticated",
-		Detail: "Authentication error",
-		Code:   10002,
-	}}}
-	writeResponse(w, http.StatusUnauthorized, response)
-}
-
-func writeNotAuthorizedErrorResponse(w http.ResponseWriter) {
-	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-NotAuthorized",
-		Detail: "You are not authorized to perform the requested action",
-		Code:   10003,
-	}}}
-	writeResponse(w, http.StatusForbidden, response)
-}
-
-func writeInvalidAuthErrorResponse(w http.ResponseWriter) {
-	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-InvalidAuthToken",
-		Detail: "Invalid Auth Token",
-		Code:   1000,
-	}}}
-	writeResponse(w, http.StatusUnauthorized, response)
-}
-
-func writeRequestMalformedErrorResponse(w http.ResponseWriter, rme *requestMalformedError) {
-	writeResponse(w, rme.httpStatus, rme.errorResponse)
-}
-
-func writeUnprocessableEntityError(w http.ResponseWriter, detail string) {
-	writeResponse(w, http.StatusUnprocessableEntity, newUnprocessableEntityError(detail))
-}
-
-func writeUniquenessError(w http.ResponseWriter, detail string) {
-	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-UniquenessError",
-		Detail: detail,
-		Code:   10016,
-	}}}
-	writeResponse(w, http.StatusUnprocessableEntity, response)
-}
-
-func writeInvalidRequestError(w http.ResponseWriter, detail string) {
-	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-InvalidRequest",
-		Detail: detail,
-		Code:   10004,
-	}}}
-	writeResponse(w, http.StatusBadRequest, response)
-}
-
-func writePackageBitsAlreadyUploadedError(w http.ResponseWriter) {
-	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-PackageBitsAlreadyUploaded",
-		Detail: "Bits may be uploaded only once. Create a new package to upload different bits.",
-		Code:   150004,
-	}}}
-	writeResponse(w, http.StatusBadRequest, response)
-}
-
-func writeUnknownKeyError(w http.ResponseWriter, validKeys []string) {
-	detailMsg := fmt.Sprintf("The query parameter is invalid: Valid parameters are: '%s'", strings.Join(validKeys, ", "))
-	response := presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
-		Title:  "CF-BadQueryParameter",
-		Detail: detailMsg,
-		Code:   10005,
-	}}}
-	writeResponse(w, http.StatusBadRequest, response)
-}
-
 func writeResponse(w http.ResponseWriter, status int, responseBody interface{}) {
+	w.Header().Set(headers.ContentType, "application/json")
 	w.WriteHeader(status)
 
 	encoder := json.NewEncoder(w)
@@ -355,18 +225,6 @@ func writeResponse(w http.ResponseWriter, status int, responseBody interface{}) 
 	err := encoder.Encode(responseBody)
 	if err != nil {
 		Logger.Error(err, "failed to encode and write response")
-		return
-	}
-}
-
-// Deprecated: only to be used for "dummy" handlers. Other handlers should use writeResponse
-// with proper response types.
-func writeStringResponse(w http.ResponseWriter, status int, responseBody string) {
-	w.WriteHeader(status)
-
-	_, err := w.Write([]byte(responseBody))
-	if err != nil {
-		Logger.Error(err, "failed to write response")
 		return
 	}
 }
@@ -416,33 +274,33 @@ func serviceInstanceTagLength(fl validator.FieldLevel) bool {
 	return tagLen < 2048
 }
 
-func handleRepoErrors(logger logr.Logger, err error, resource, guid string, w http.ResponseWriter) {
+func handleRepoErrors(logger logr.Logger, err error, resourceType, guid string) error {
 	switch err.(type) {
 	case repositories.NotFoundError:
-		logger.Info(fmt.Sprintf("%s not found", strings.Title(resource)), "guid", guid)
-		writeNotFoundErrorResponse(w, strings.Title(resource))
+		logger.Info(fmt.Sprintf("%s not found", resourceType), "guid", guid)
+		return apierrors.NewNotFoundError(err, resourceType)
 	case repositories.ForbiddenError:
-		logger.Info(fmt.Sprintf("%s forbidden to user", strings.Title(resource)), "guid", guid)
-		writeNotFoundErrorResponse(w, strings.Title(resource))
+		logger.Info(fmt.Sprintf("%s forbidden to user", resourceType), "guid", guid)
+		return apierrors.NewNotFoundError(err, resourceType)
 	default:
-		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", resource), "guid", guid)
-		writeUnknownErrorResponse(w)
+		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", resourceType), "guid", guid)
+		return err
 	}
 }
 
-func handleRepoErrorsOnWrite(logger logr.Logger, err error, resource, guid string, w http.ResponseWriter) {
+func handleRepoErrorsOnWrite(logger logr.Logger, err error, resourceType, guid string) error {
 	switch {
 	case repositories.IsNotFoundError(err):
-		logger.Info(fmt.Sprintf("%s not found", strings.Title(resource)), "guid", guid)
-		writeNotFoundErrorResponse(w, strings.Title(resource))
+		logger.Info(fmt.Sprintf("%s not found", resourceType), "guid", guid)
+		return apierrors.NewNotFoundError(err, resourceType)
 	case repositories.IsForbiddenError(err):
-		logger.Info(fmt.Sprintf("%s forbidden to user", strings.Title(resource)), "guid", guid)
-		writeNotAuthorizedErrorResponse(w)
+		logger.Info(fmt.Sprintf("%s forbidden to user", resourceType), "guid", guid)
+		return apierrors.NewForbiddenError(err, resourceType)
 	case authorization.IsInvalidAuth(err):
-		logger.Info(fmt.Sprintf("%s forbidden to user", strings.Title(resource)), "guid", guid)
-		writeInvalidAuthErrorResponse(w)
+		logger.Info(fmt.Sprintf("%s forbidden to user", resourceType), "guid", guid)
+		return apierrors.NewInvalidAuthError(err)
 	default:
-		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", resource), "guid", guid)
-		writeUnknownErrorResponse(w)
+		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", resourceType), "guid", guid)
+		return err
 	}
 }

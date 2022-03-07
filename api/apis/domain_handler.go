@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -45,14 +46,12 @@ func NewDomainHandler(
 	}
 }
 
-func (h *DomainHandler) DomainListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) { //nolint:dupl
+func (h *DomainHandler) DomainListHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) { //nolint:dupl
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	if err := r.ParseForm(); err != nil {
 		h.logger.Error(err, "Unable to parse request query parameters")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
 	domainListFilter := new(payloads.DomainList)
@@ -65,29 +64,25 @@ func (h *DomainHandler) DomainListHandler(authInfo authorization.Info, w http.Re
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
 					h.logger.Info("Unknown key used in Domain filter")
-					writeUnknownKeyError(w, domainListFilter.SupportedFilterKeys())
-					return
+					return nil, apierrors.NewUnknownKeyError(err, domainListFilter.SupportedFilterKeys())
 				}
 			}
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 
 		default:
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
 	domainList, err := h.domainRepo.ListDomains(ctx, authInfo, domainListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch domain(s) from Kubernetes")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForDomainList(domainList, h.serverURL, *r.URL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDomainList(domainList, h.serverURL, *r.URL)), nil
 }
 
 func (h *DomainHandler) RegisterRoutes(router *mux.Router) {

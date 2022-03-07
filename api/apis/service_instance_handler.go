@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/schema"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -59,15 +60,12 @@ func NewServiceInstanceHandler(
 	}
 }
 
-func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := context.Background()
-	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.ServiceInstanceCreate
-	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
-	if rme != nil {
-		writeRequestMalformedErrorResponse(w, rme)
-		return
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, err
 	}
 
 	spaceGUID := payload.Relationships.Space.Data.GUID
@@ -76,12 +74,10 @@ func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authoriza
 		switch err.(type) {
 		case repositories.NotFoundError:
 			h.logger.Info("Namespace not found", "spaceGUID", spaceGUID)
-			writeUnprocessableEntityError(w, "Invalid space. Ensure that the space exists and you have access to it.")
-			return
+			return nil, apierrors.NewUnprocessableEntityError(err, "Invalid space. Ensure that the space exists and you have access to it.")
 		default:
 			h.logger.Error(err, "Failed to fetch namespace from Kubernetes", "spaceGUID", spaceGUID)
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
@@ -89,41 +85,32 @@ func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authoriza
 	if err != nil {
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to create service instance")
-			writeInvalidAuthErrorResponse(w)
-
-			return
+			return nil, apierrors.NewInvalidAuthError(err)
 		}
 
 		if authorization.IsNotAuthenticated(err) {
 			h.logger.Error(err, "unauthorized to create service instance")
-			writeNotAuthenticatedErrorResponse(w)
-
-			return
+			return nil, apierrors.NewNotAuthenticatedError(err)
 		}
 
 		if repositories.IsForbiddenError(err) {
 			h.logger.Error(err, "not allowed to create service instance")
-			writeNotAuthorizedErrorResponse(w)
-
-			return
+			return nil, apierrors.NewForbiddenError(err, repositories.ServiceInstanceResourceType)
 		}
 
 		h.logger.Error(err, "Failed to create service instance", "Service Instance Name", serviceInstanceRecord.Name)
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	writeResponse(w, http.StatusCreated, presenter.ForServiceInstance(serviceInstanceRecord, h.serverURL))
+	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForServiceInstance(serviceInstanceRecord, h.serverURL)), nil
 }
 
-func (h *ServiceInstanceHandler) serviceInstanceListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *ServiceInstanceHandler) serviceInstanceListHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := context.Background()
-	w.Header().Set("Content-Type", "application/json")
 
 	if err := r.ParseForm(); err != nil {
 		h.logger.Error(err, "Unable to parse request query parameters")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
 	for k := range r.Form {
@@ -142,51 +129,43 @@ func (h *ServiceInstanceHandler) serviceInstanceListHandler(authInfo authorizati
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
 					h.logger.Info("Unknown key used in ServiceInstance filter")
-					writeUnknownKeyError(w, listFilter.SupportedFilterKeys())
-					return
+					return nil, apierrors.NewUnknownKeyError(err, listFilter.SupportedFilterKeys())
 				}
 			}
 
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
+			return nil, err
 		default:
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
+			return nil, err
 		}
-		return
 	}
 
 	serviceInstanceList, err := h.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, listFilter.ToMessage())
 	if err != nil {
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to list service instance")
-			writeInvalidAuthErrorResponse(w)
-			return
+			return nil, apierrors.NewInvalidAuthError(err)
 		}
 
 		if authorization.IsNotAuthenticated(err) {
 			h.logger.Error(err, "unauthorized to list service instance")
-			writeNotAuthenticatedErrorResponse(w)
-
-			return
+			return nil, apierrors.NewNotAuthenticatedError(err)
 		}
 
 		if repositories.IsForbiddenError(err) {
 			h.logger.Error(err, "not allowed to list service instance")
-			writeNotAuthorizedErrorResponse(w)
-
-			return
+			return nil, apierrors.NewForbiddenError(err, repositories.ServiceInstanceResourceType)
 		}
 
 		h.logger.Error(err, "Failed to list service instance")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForServiceInstanceList(serviceInstanceList, h.serverURL, *r.URL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceInstanceList(serviceInstanceList, h.serverURL, *r.URL)), nil
 }
 
-func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	serviceInstanceGUID := vars["guid"]
@@ -195,12 +174,10 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authoriza
 	if err != nil {
 		if repositories.IsForbiddenError(err) {
 			h.logger.Error(err, "user not allowed to get service instance")
-			writeNotFoundErrorResponse(w, repositories.ServiceInstanceResourceType)
-			return
+			return nil, apierrors.NewNotFoundError(err, repositories.ServiceInstanceResourceType)
 		}
 
-		handleRepoErrors(h.logger, err, repositories.ServiceInstanceResourceType, serviceInstanceGUID, w)
-		return
+		return nil, handleRepoErrors(h.logger, err, repositories.ServiceInstanceResourceType, serviceInstanceGUID)
 	}
 
 	err = h.serviceInstanceRepo.DeleteServiceInstance(ctx, authInfo, repositories.DeleteServiceInstanceMessage{
@@ -209,11 +186,10 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authoriza
 	})
 	if err != nil {
 		h.logger.Error(err, "error when deleting service instance", "guid", serviceInstanceGUID)
-		handleRepoErrorsOnWrite(h.logger, err, repositories.ServiceInstanceResourceType, serviceInstanceGUID, w)
-		return
+		return nil, handleRepoErrorsOnWrite(h.logger, err, repositories.ServiceInstanceResourceType, serviceInstanceGUID)
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	return NewHandlerResponse(http.StatusNoContent), nil
 }
 
 func (h *ServiceInstanceHandler) RegisterRoutes(router *mux.Router) {

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	repositoriesfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
@@ -29,24 +28,6 @@ var _ = Describe("SpaceManifestHandler", func() {
 		applyManifestAction = new(fake.ApplyManifestAction)
 		spaceRepo = new(repositoriesfake.CFSpaceRepository)
 		defaultDomainName = "apps.example.org"
-
-		now := time.Unix(1631892190, 0)
-		spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
-			{
-				Name:             "my-test-space",
-				GUID:             spaceGUID,
-				OrganizationGUID: "org-guid-1",
-				CreatedAt:        now,
-				UpdatedAt:        now,
-			},
-			{
-				Name:             "bob",
-				GUID:             "b-o-b",
-				OrganizationGUID: "org-guid-2",
-				CreatedAt:        now,
-				UpdatedAt:        now,
-			},
-		}, nil)
 
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
@@ -350,6 +331,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 		When("the space is not found", func() {
 			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NewNotFoundError(repositories.SpaceResourceType, errors.New("foo")))
 				var err error
 				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+"fake-space-guid"+"/manifest_diff", strings.NewReader(`---
 				version: 1

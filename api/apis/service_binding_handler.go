@@ -2,6 +2,7 @@ package apis
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -49,56 +51,47 @@ func NewServiceBindingHandler(logger logr.Logger, serverURL url.URL, serviceBind
 	}
 }
 
-func (h *ServiceBindingHandler) createHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *ServiceBindingHandler) createHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json") // TODO: move this into the writeJsonResponse
 
 	var payload payloads.ServiceBindingCreate
-	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
-	if rme != nil {
-		writeRequestMalformedErrorResponse(w, rme)
-		return
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, err
 	}
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
-		h.writeErrorResponse(w, err, "get apps")
-		return
+		return nil, h.writeErrorResponse(err, "get", repositories.AppResourceType)
 	}
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, payload.Relationships.ServiceInstance.Data.GUID)
 	if err != nil {
-		h.writeErrorResponse(w, err, "get service instances")
-		return
+		return nil, h.writeErrorResponse(err, "get", repositories.ServiceInstanceResourceType)
 	}
 
 	if app.SpaceGUID != serviceInstance.SpaceGUID {
 		h.logger.Info("App and ServiceInstance in different spaces", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
-		writeUnprocessableEntityError(w, "The service instance and the app are in different spaces")
-		return
+		return nil, apierrors.NewUnprocessableEntityError(err, "The service instance and the app are in different spaces")
 	}
 
 	bindingExists, err := h.serviceBindingRepo.ServiceBindingExists(ctx, authInfo, app.SpaceGUID, app.GUID, serviceInstance.GUID)
 	if err != nil {
-		h.writeErrorResponse(w, err, "get service bindings")
-		return
+		return nil, h.writeErrorResponse(err, "get", repositories.ServiceBindingResourceType)
 	}
 	if bindingExists {
 		h.logger.Info("ServiceBinding already exists for App and ServiceInstance", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
-		writeUnprocessableEntityError(w, "The app is already bound to the service instance")
-		return
+		return nil, apierrors.NewUnprocessableEntityError(err, "The app is already bound to the service instance")
 	}
 
 	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, payload.ToMessage(app.SpaceGUID))
 	if err != nil {
-		h.writeErrorResponse(w, err, "create service bindings")
-		return
+		return nil, h.writeErrorResponse(err, "create", repositories.ServiceBindingResourceType)
 	}
 
-	writeResponse(w, http.StatusCreated, presenter.ForServiceBinding(serviceBinding, h.serverURL))
+	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForServiceBinding(serviceBinding, h.serverURL)), nil
 }
 
-func (h *ServiceBindingHandler) deleteHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *ServiceBindingHandler) deleteHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	serviceBindingGUID := vars["guid"]
@@ -106,22 +99,18 @@ func (h *ServiceBindingHandler) deleteHandler(authInfo authorization.Info, w htt
 	err := h.serviceBindingRepo.DeleteServiceBinding(ctx, authInfo, serviceBindingGUID)
 	if err != nil {
 		h.logger.Error(err, "error when deleting service binding", "guid", serviceBindingGUID)
-		handleRepoErrorsOnWrite(h.logger, err, repositories.ServiceBindingResourceType, serviceBindingGUID, w)
-		return
+		return nil, handleRepoErrorsOnWrite(h.logger, err, repositories.ServiceBindingResourceType, serviceBindingGUID)
 	}
 
-	emptyBody := map[string]interface{}{}
-	writeResponse(w, http.StatusNoContent, emptyBody)
+	return NewHandlerResponse(http.StatusNoContent).WithBody(map[string]interface{}{}), nil
 }
 
-func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := context.Background()
-	w.Header().Set("Content-Type", "application/json")
 
 	if err := r.ParseForm(); err != nil {
 		h.logger.Error(err, "Unable to parse request query parameters")
-		writeUnprocessableEntityError(w, "unable to parse query")
-		return
+		return nil, apierrors.NewUnprocessableEntityError(err, "unable to parse query")
 	}
 
 	listFilter := new(payloads.ServiceBindingList)
@@ -129,18 +118,16 @@ func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, w http.
 	if err != nil {
 		if isUnknownKeyError(err) {
 			h.logger.Info("Unknown key used in ServiceInstance query parameters")
-			writeUnknownKeyError(w, listFilter.SupportedFilterKeys())
+			return nil, apierrors.NewUnknownKeyError(err, listFilter.SupportedFilterKeys())
 		} else {
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
+			return nil, err
 		}
-		return
 	}
 
 	serviceBindingList, err := h.serviceBindingRepo.ListServiceBindings(ctx, authInfo, listFilter.ToMessage())
 	if err != nil {
-		h.writeErrorResponse(w, err, "list service bindings")
-		return
+		return nil, h.writeErrorResponse(err, "list", repositories.ServiceBindingResourceType)
 	}
 
 	var appRecords []repositories.AppRecord
@@ -153,28 +140,29 @@ func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, w http.
 
 		appRecords, err = h.appRepo.ListApps(ctx, authInfo, listAppsMessage)
 		if err != nil {
-			h.writeErrorResponse(w, err, "list service binding apps")
-			return
+			return nil, h.writeErrorResponse(err, "list", repositories.AppResourceType)
 		}
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForServiceBindingList(serviceBindingList, appRecords, h.serverURL, *r.URL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceBindingList(serviceBindingList, appRecords, h.serverURL, *r.URL)), nil
 }
 
-func (h *ServiceBindingHandler) writeErrorResponse(w http.ResponseWriter, err error, message string) {
+func (h *ServiceBindingHandler) writeErrorResponse(err error, action, resourceType string) error {
 	if repositories.IsForbiddenError(err) {
-		h.logger.Error(err, "not allowed to "+message)
-		writeNotAuthorizedErrorResponse(w)
-	} else if authorization.IsInvalidAuth(err) {
-		h.logger.Error(err, "invalid auth")
-		writeInvalidAuthErrorResponse(w)
-	} else if authorization.IsNotAuthenticated(err) {
-		h.logger.Error(err, "not authenticated")
-		writeNotAuthenticatedErrorResponse(w)
-	} else {
-		h.logger.Error(err, "unexpected error")
-		writeUnknownErrorResponse(w)
+		h.logger.Error(err, fmt.Sprintf("not allowed to %s %s", action, resourceType))
+		return apierrors.NewForbiddenError(err, resourceType)
 	}
+	if authorization.IsInvalidAuth(err) {
+		h.logger.Error(err, "invalid auth")
+		return apierrors.NewInvalidAuthError(err)
+	}
+	if authorization.IsNotAuthenticated(err) {
+		h.logger.Error(err, "not authenticated")
+		return apierrors.NewNotAuthenticatedError(err)
+	}
+
+	h.logger.Error(err, "unexpected error")
+	return err
 }
 
 func (h *ServiceBindingHandler) RegisterRoutes(router *mux.Router) {

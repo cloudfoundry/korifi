@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/schema"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -72,65 +73,57 @@ func NewProcessHandler(
 	}
 }
 
-func (h *ProcessHandler) processGetHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *ProcessHandler) processGetHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
 	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		h.writeErrorResponse(w, processGUID, err)
-		return
+		return nil, h.writeErrorResponse(processGUID, err)
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForProcess(process, h.serverURL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(process, h.serverURL)), nil
 }
 
-func (h *ProcessHandler) processGetSidecarsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *ProcessHandler) processGetSidecarsHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
 	_, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		h.writeErrorResponse(w, processGUID, err)
-		return
+		return nil, h.writeErrorResponse(processGUID, err)
 	}
 
-	writeStringResponse(w, http.StatusOK, fmt.Sprintf(`{
-            "pagination": {
-                "total_results": 0,
-                "total_pages": 1,
-                "first": {
-                    "href": "%[1]s/v3/processes/%[2]s/sidecars"
-                },
-                "last": {
-                    "href": "%[1]s/v3/processes/%[2]s/sidecars"
-                },
-                "next": null,
-                "previous": null
-            },
-            "resources": []
-        }`,
-		h.serverURL.String(), processGUID))
+	return NewHandlerResponse(http.StatusOK).WithBody(map[string]interface{}{
+		"pagination": map[string]interface{}{
+			"total_results": 0,
+			"total_pages":   1,
+			"first": map[string]interface{}{
+				"href": fmt.Sprintf("%s/v3/processes/%s/sidecars", h.serverURL.String(), processGUID),
+			},
+			"last": map[string]interface{}{
+				"href": fmt.Sprintf("%s/v3/processes/%s/sidecars", h.serverURL.String(), processGUID),
+			},
+			"next":     nil,
+			"previous": nil,
+		},
+		"resources": []string{},
+	}), nil
 }
 
-func (h *ProcessHandler) processScaleHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *ProcessHandler) processScaleHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
 	var payload payloads.ProcessScale
-	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
-	if rme != nil {
-		writeRequestMalformedErrorResponse(w, rme)
-		return
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, err
 	}
 
 	processRecord, err := h.scaleProcess(ctx, authInfo, processGUID, payload.ToRecord())
@@ -139,42 +132,36 @@ func (h *ProcessHandler) processScaleHandler(authInfo authorization.Info, w http
 		switch err.(type) {
 		case repositories.NotFoundError:
 			h.logger.Info("Process not found", "processGUID", processGUID)
-			writeNotFoundErrorResponse(w, "Process")
-			return
+			return nil, apierrors.NewNotFoundError(err, repositories.ProcessResourceType)
 		default:
 			h.logger.Error(err, "Failed due to error from Kubernetes", "processGUID", processGUID)
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForProcess(processRecord, h.serverURL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(processRecord, h.serverURL)), nil
 }
 
-func (h *ProcessHandler) processGetStatsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *ProcessHandler) processGetStatsHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
 	records, err := h.fetchProcessStats(ctx, authInfo, processGUID)
 	if err != nil {
-		h.writeErrorResponse(w, processGUID, err)
-		return
+		return nil, h.writeErrorResponse(processGUID, err)
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForProcessStats(records))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcessStats(records)), nil
 }
 
-func (h *ProcessHandler) processListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) { //nolint:dupl
+func (h *ProcessHandler) processListHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) { //nolint:dupl
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	if err := r.ParseForm(); err != nil {
 		h.logger.Error(err, "Unable to parse request query parameters")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
 	processListFilter := new(payloads.ProcessList)
@@ -187,71 +174,62 @@ func (h *ProcessHandler) processListHandler(authInfo authorization.Info, w http.
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
 					h.logger.Info("Unknown key used in Process filter")
-					writeUnknownKeyError(w, processListFilter.SupportedFilterKeys())
-					return
+					return nil, apierrors.NewUnknownKeyError(err, processListFilter.SupportedFilterKeys())
 				}
 			}
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 
 		default:
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
 	processList, err := h.processRepo.ListProcesses(ctx, authInfo, processListFilter.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch processes(s) from Kubernetes")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForProcessList(processList, h.serverURL, *r.URL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcessList(processList, h.serverURL, *r.URL)), nil
 }
 
-func (h *ProcessHandler) processPatchHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *ProcessHandler) processPatchHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
 	var payload payloads.ProcessPatch
-	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
-	if rme != nil {
-		writeRequestMalformedErrorResponse(w, rme)
-		return
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, err
 	}
 
 	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		h.writeErrorResponse(w, processGUID, err)
-		return
+		return nil, h.writeErrorResponse(processGUID, err)
 	}
 
 	updatedProcess, err := h.processRepo.PatchProcess(ctx, authInfo, payload.ToProcessPatchMessage(processGUID, process.SpaceGUID))
 	if err != nil {
-		h.writeErrorResponse(w, processGUID, err)
-		return
+		return nil, h.writeErrorResponse(processGUID, err)
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForProcess(updatedProcess, h.serverURL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(updatedProcess, h.serverURL)), nil
 }
 
-func (h *ProcessHandler) writeErrorResponse(w http.ResponseWriter, processGUID string, err error) {
+func (h *ProcessHandler) writeErrorResponse(processGUID string, err error) error {
 	switch tycerr := err.(type) {
 	case repositories.NotFoundError:
 		h.logger.Info(fmt.Sprintf("%s not found", tycerr.ResourceType()), "ProcessGUID", processGUID)
-		writeNotFoundErrorResponse(w, tycerr.ResourceType())
+		return apierrors.NewNotFoundError(err, tycerr.ResourceType())
 	case repositories.ForbiddenError:
 		h.logger.Info(fmt.Sprintf("%s forbidden", tycerr.ResourceType()), "ProcessGUID", processGUID)
-		writeNotFoundErrorResponse(w, tycerr.ResourceType())
+		return apierrors.NewNotFoundError(err, tycerr.ResourceType())
 	default:
 		h.logger.Error(err, "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
-		writeUnknownErrorResponse(w)
+		return err
 	}
 }
 

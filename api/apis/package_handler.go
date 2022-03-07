@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"path"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
@@ -76,32 +77,26 @@ func NewPackageHandler(
 	}
 }
 
-func (h PackageHandler) packageGetHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
+func (h PackageHandler) packageGetHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	packageGUID := mux.Vars(r)["guid"]
 	record, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
 		switch {
 		case errors.As(err, new(repositories.NotFoundError)):
-			writeNotFoundErrorResponse(w, "Package")
+			return nil, apierrors.NewNotFoundError(err, repositories.PackageResourceType)
 		default:
 			h.logger.Info("Error fetching package with repository", "error", err.Error())
-			writeUnknownErrorResponse(w)
+			return nil, err
 		}
-		return
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForPackage(record, h.serverURL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(record, h.serverURL)), nil
 }
 
-func (h PackageHandler) packageListHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
+func (h PackageHandler) packageListHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
 		h.logger.Error(err, "Unable to parse request query parameters")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
 	packageListQueryParameters := new(payloads.PackageListQueryParameters)
@@ -114,39 +109,30 @@ func (h PackageHandler) packageListHandler(authInfo authorization.Info, w http.R
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
 					h.logger.Info("Unknown key used in Package filter")
-					writeUnknownKeyError(w, packageListQueryParameters.SupportedQueryParameters())
-					return
+					return nil, apierrors.NewUnknownKeyError(err, packageListQueryParameters.SupportedQueryParameters())
 				}
 			}
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
-			return
-
+			return nil, err
 		default:
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
 	records, err := h.packageRepo.ListPackages(r.Context(), authInfo, packageListQueryParameters.ToMessage())
 	if err != nil {
 		h.logger.Error(err, "Error fetching package with repository", "error")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForPackageList(records, h.serverURL, *r.URL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackageList(records, h.serverURL, *r.URL)), nil
 }
 
-func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
+func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.PackageCreate
-	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
-	if rme != nil {
-		writeRequestMalformedErrorResponse(w, rme)
-		return
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, err
 	}
 
 	appRecord, err := h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
@@ -154,15 +140,14 @@ func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http
 		switch err.(type) {
 		case repositories.NotFoundError:
 			h.logger.Info("App not found", "App GUID", payload.Relationships.App.Data.GUID)
-			writeUnprocessableEntityError(w, "App is invalid. Ensure it exists and you have access to it.")
+			return nil, apierrors.NewUnprocessableEntityError(err, "App is invalid. Ensure it exists and you have access to it.")
 		case repositories.ForbiddenError:
 			h.logger.Info("App forbidden", "App GUID", payload.Relationships.App.Data.GUID)
-			writeUnprocessableEntityError(w, "App is invalid. Ensure it exists and you have access to it.")
+			return nil, apierrors.NewUnprocessableEntityError(err, "App is invalid. Ensure it exists and you have access to it.")
 		default:
 			h.logger.Info("Error finding App", "App GUID", payload.Relationships.App.Data.GUID)
-			writeUnknownErrorResponse(w)
+			return nil, err
 		}
-		return
 	}
 
 	record, err := h.packageRepo.CreatePackage(r.Context(), authInfo, payload.ToMessage(appRecord))
@@ -170,32 +155,28 @@ func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, w http
 		switch err.(type) {
 		case repositories.ForbiddenError:
 			h.logger.Info("Not authorized to create packages", "App Name", payload.Relationships.App, "error", err)
-			writeNotAuthorizedErrorResponse(w)
+			return nil, apierrors.NewForbiddenError(err, repositories.PackageResourceType)
 		default:
 			h.logger.Info("Error creating package with repository", "error", err.Error())
-			writeUnknownErrorResponse(w)
+			return nil, err
 		}
-		return
 	}
 
-	writeResponse(w, http.StatusCreated, presenter.ForPackage(record, h.serverURL))
+	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForPackage(record, h.serverURL)), nil
 }
 
-func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	packageGUID := mux.Vars(r)["guid"]
 	err := r.ParseForm()
 	if err != nil { // untested - couldn't find a way to trigger this branch
 		h.logger.Info("Error parsing multipart form", "error", err.Error())
-		writeInvalidRequestError(w, "Unable to parse body as multipart form")
-		return
+		return nil, apierrors.NewInvalidRequestError(err, "Unable to parse body as multipart form")
 	}
 
 	bitsFile, _, err := r.FormFile("bits")
 	if err != nil {
 		h.logger.Info("Error reading form file \"bits\"", "error", err.Error())
-		writeUnprocessableEntityError(w, "Upload must include bits")
-		return
+		return nil, apierrors.NewUnprocessableEntityError(err, "Upload must include bits")
 	}
 	defer bitsFile.Close()
 
@@ -204,20 +185,18 @@ func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, w http
 		switch {
 		case errors.As(err, new(repositories.ForbiddenError)):
 			h.logger.Info("Package forbidden", "Package GUID", packageGUID)
-			writeNotFoundErrorResponse(w, "Package")
+			return nil, apierrors.NewNotFoundError(err, repositories.PackageResourceType)
 		case errors.As(err, new(repositories.NotFoundError)):
-			writeNotFoundErrorResponse(w, "Package")
+			return nil, apierrors.NewNotFoundError(err, repositories.PackageResourceType)
 		default:
 			h.logger.Info("Error fetching package with repository", "error", err.Error())
-			writeUnknownErrorResponse(w)
+			return nil, err
 		}
-		return
 	}
 
 	if record.State != repositories.PackageStateAwaitingUpload {
 		h.logger.Info("Error, cannot call package upload state was not AWAITING_UPLOAD", "packageGUID", packageGUID)
-		writePackageBitsAlreadyUploadedError(w)
-		return
+		return nil, apierrors.NewPackageBitsAlreadyUploadedError(err)
 	}
 
 	imageRef := path.Join(h.registryBase, packageGUID)
@@ -225,12 +204,10 @@ func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, w http
 	if err != nil {
 		if errors.As(err, new(repositories.ForbiddenError)) {
 			h.logger.Info("not authorized to upload source image", "error", err)
-			writeNotAuthorizedErrorResponse(w)
-			return
+			return nil, apierrors.NewForbiddenError(err, repositories.SourceImageResourceType)
 		}
 		h.logger.Info("Error calling uploadSourceImage", "error", err.Error())
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
 	record, err = h.packageRepo.UpdatePackageSource(r.Context(), authInfo, repositories.UpdatePackageSourceMessage{
@@ -242,25 +219,20 @@ func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, w http
 	if err != nil {
 		if errors.As(err, new(repositories.ForbiddenError)) {
 			h.logger.Info("Updating package is forbidden to the user", "Package GUID", packageGUID)
-			writeNotAuthorizedErrorResponse(w)
-			return
+			return nil, apierrors.NewForbiddenError(err, repositories.PackageResourceType)
 		}
 
 		h.logger.Info("Error calling UpdatePackageSource", "error", err.Error())
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForPackage(record, h.serverURL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(record, h.serverURL)), nil
 }
 
-func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
+func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
 		h.logger.Error(err, "Unable to parse request query parameters")
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
 	packageListDropletsQueryParams := new(payloads.PackageListDropletsQueryParameters)
@@ -273,18 +245,14 @@ func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, 
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
 					h.logger.Info("Unknown key used in Package filter")
-					writeUnknownKeyError(w, packageListDropletsQueryParams.SupportedQueryParameters())
-					return
+					return nil, apierrors.NewUnknownKeyError(err, packageListDropletsQueryParams.SupportedQueryParameters())
 				}
 			}
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
-			return
-
+			return nil, err
 		default:
 			h.logger.Error(err, "Unable to decode request query parameters")
-			writeUnknownErrorResponse(w)
-			return
+			return nil, err
 		}
 	}
 
@@ -293,12 +261,11 @@ func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, 
 	if err != nil {
 		switch {
 		case errors.As(err, new(repositories.NotFoundError)):
-			writeNotFoundErrorResponse(w, "Package")
+			return nil, apierrors.NewNotFoundError(err, repositories.PackageResourceType)
 		default:
 			h.logger.Info("Error fetching package with repository", "error", err.Error())
-			writeUnknownErrorResponse(w)
+			return nil, err
 		}
-		return
 	}
 
 	dropletListMessage := packageListDropletsQueryParams.ToMessage([]string{packageGUID})
@@ -306,11 +273,10 @@ func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, 
 	dropletList, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, dropletListMessage)
 	if err != nil {
 		h.logger.Info("Error fetching droplet list with repository", "error", err.Error())
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	writeResponse(w, http.StatusOK, presenter.ForDropletList(dropletList, h.serverURL, *r.URL))
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDropletList(dropletList, h.serverURL, *r.URL)), nil
 }
 
 func (h *PackageHandler) RegisterRoutes(router *mux.Router) {

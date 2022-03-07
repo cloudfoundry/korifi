@@ -22,16 +22,21 @@ func NewLogCacheHandler() *LogCacheHandler {
 }
 
 func (h *LogCacheHandler) logCacheInfoHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	writeStringResponse(w, http.StatusOK, `{"version":"`+logCacheVersion+`","vm_uptime":"0"}`)
+	writeResponse(w, http.StatusOK, map[string]interface{}{
+		"version":   logCacheVersion,
+		"vm_uptime": "0",
+	})
 }
 
 func (h *LogCacheHandler) logCacheEmptyReadHandler(w http.ResponseWriter, r *http.Request) {
 	// Since we're not currently returning an app logs there is no need to check the validity of the app guid
 	// provided in the request. A full implementation of this endpoint needs to have the appropriate
 	// validity and authorization checks in place.
-	w.Header().Set("Content-Type", "application/json")
-	writeStringResponse(w, http.StatusOK, `{"envelopes":{"batch":[]}}`)
+	writeResponse(w, http.StatusOK, map[string]interface{}{
+		"envelopes": map[string]interface{}{
+			"batch": []interface{}{},
+		},
+	})
 }
 
 func (h *LogCacheHandler) RegisterRoutes(router *mux.Router) {

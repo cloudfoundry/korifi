@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 
 	"github.com/go-logr/logr"
@@ -29,12 +30,11 @@ func NewServiceRouteBindingHandler(
 	}
 }
 
-func (h *ServiceRouteBindingHandler) serviceRouteBindingsListHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	writeResponse(w, http.StatusOK, presenter.ForServiceRouteBindingsList(h.serverURL, *r.URL))
+func (h *ServiceRouteBindingHandler) serviceRouteBindingsListHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceRouteBindingsList(h.serverURL, *r.URL)), nil
 }
 
 func (h *ServiceRouteBindingHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(ServiceRouteBindingsListEndpoint).Methods("GET").HandlerFunc(h.serviceRouteBindingsListHandler)
+	w := NewAuthAwareHandlerFuncWrapper(h.logger)
+	router.Path(ServiceRouteBindingsListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.serviceRouteBindingsListHandler))
 }

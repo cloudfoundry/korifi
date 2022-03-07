@@ -673,7 +673,7 @@ var _ = Describe("OrgHandler", func() {
 			})
 
 			It("returns a not found error", func() {
-				expectNotFoundError("Organization not found. Ensure it exists and you have access to it.")
+				expectNotFoundError("Org not found")
 			})
 		})
 
