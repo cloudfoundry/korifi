@@ -355,7 +355,6 @@ func createOrgRaw(orgName string) (string, error) {
 func createOrg(orgName string) string {
 	orgGUID, err := createOrgRaw(orgName)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(waitForAdminRoleBinding(orgGUID)).To(Succeed())
 
 	return orgGUID
 }
@@ -367,12 +366,6 @@ func asyncCreateOrg(orgName string, createdOrgGUID *string, wg *sync.WaitGroup, 
 
 		var err error
 		*createdOrgGUID, err = createOrgRaw(orgName)
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		err = waitForAdminRoleBinding(*createdOrgGUID)
 		if err != nil {
 			errChan <- err
 			return
@@ -404,8 +397,7 @@ func createSpaceRaw(spaceName, orgGUID string) (string, error) {
 
 func createSpace(spaceName, orgGUID string) string {
 	spaceGUID, err := createSpaceRaw(spaceName, orgGUID)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(waitForAdminRoleBinding(spaceGUID)).To(Succeed())
+	Expect(err).NotTo(HaveOccurred(), `create space "`+spaceName+`" in orgGUID "`+orgGUID+`" should have succeeded`)
 
 	return spaceGUID
 }
@@ -417,12 +409,6 @@ func asyncCreateSpace(spaceName, orgGUID string, createdSpaceGUID *string, wg *s
 
 		var err error
 		*createdSpaceGUID, err = createSpaceRaw(spaceName, orgGUID)
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		err = waitForAdminRoleBinding(*createdSpaceGUID)
 		if err != nil {
 			errChan <- err
 			return
@@ -747,38 +733,6 @@ func pushNodeApp(spaceGUID string) string {
 	startApp(appGUID)
 
 	return appGUID
-}
-
-func waitForAdminRoleBinding(namespace string) error {
-	timeout := 10 * time.Second
-	timeoutCtx, cancelFn := context.WithTimeout(context.Background(), timeout)
-	defer cancelFn()
-
-	watch, err := k8sClient.Watch(timeoutCtx, &rbacv1.RoleBindingList{}, client.InNamespace(namespace))
-	if err != nil {
-		return fmt.Errorf("failed to create a rolebindings watch on namespace %s: %v", namespace, err)
-	}
-
-	adminRolebindingPropagated := false
-	for res := range watch.ResultChan() {
-		roleBinding, ok := res.Object.(*rbacv1.RoleBinding)
-		if !ok {
-			// should never happen, but avoids panic above
-			continue
-		}
-		if roleBinding.RoleRef.Name == "cf-k8s-controllers-admin" {
-			watch.Stop()
-			adminRolebindingPropagated = true
-			break
-		}
-
-	}
-
-	if !adminRolebindingPropagated {
-		return fmt.Errorf("role binding to role 'cf-k8s-controllers-admin' has not been propagated in namespace %s within timeout period %d ms", namespace, timeout.Milliseconds())
-	}
-
-	return nil
 }
 
 func createDomain(name string) string {
