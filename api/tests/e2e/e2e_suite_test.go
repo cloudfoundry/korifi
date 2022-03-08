@@ -25,7 +25,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	certsv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -41,11 +40,6 @@ import (
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
-const (
-	SamplesDomainGUID = "5b5032ab-7fc8-4da5-b853-821fd1879201"
-	SamplesDomain     = "vcap.me"
-)
-
 var (
 	k8sClient           client.WithWatch
 	adminClient         *resty.Client
@@ -55,6 +49,7 @@ var (
 	rootNamespace       string
 	apiServerRoot       string
 	appFQDN             string
+	appDomainGUID       string
 	serviceAccountName  string
 	serviceAccountToken string
 	tokenAuthHeader     string
@@ -242,6 +237,8 @@ var _ = BeforeSuite(func() {
 			},
 		}),
 	).To(Succeed())
+
+	appDomainGUID = createDomain(appFQDN)
 })
 
 var _ = BeforeEach(func() {
@@ -252,6 +249,7 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterSuite(func() {
+	deleteDomain(appDomainGUID)
 	deleteServiceAccount(serviceAccountName)
 	deleteCSR(certSigningReq)
 })
@@ -589,7 +587,7 @@ func createApp(spaceGUID, name string) string {
 
 func getProcess(appGUID, processType string) string {
 	var processList resourceList
-	Eventually(func(g gomega.Gomega) {
+	Eventually(func(g Gomega) {
 		resp, err := adminClient.R().
 			SetResult(&processList).
 			Get("/v3/processes?app_guids=" + appGUID)

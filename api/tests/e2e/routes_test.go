@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 
@@ -22,16 +23,18 @@ var _ = Describe("Routes", func() {
 	)
 
 	BeforeEach(func() {
-		host = generateGUID("myapp")
-		path = generateGUID("/some-path")
 		orgGUID = createOrg(generateGUID("org"))
-		spaceGUID = createSpace(generateGUID("space"), orgGUID)
-		client = certClient
-
 		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+
+		spaceGUID = createSpace(generateGUID("space"), orgGUID)
 
 		domainName = generateGUID("domain-name")
 		domainGUID = createDomain(domainName)
+
+		host = generateGUID("myapp")
+		path = generateGUID("/some-path")
+
+		client = certClient
 	})
 
 	AfterEach(func() {
@@ -215,7 +218,7 @@ var _ = Describe("Routes", func() {
 		BeforeEach(func() {
 			routeGUID = ""
 			host = generateGUID("host")
-			routeGUID = createRoute(host, "", spaceGUID, SamplesDomainGUID)
+			routeGUID = createRoute(host, "", spaceGUID, appDomainGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -241,13 +244,13 @@ var _ = Describe("Routes", func() {
 			It("returns success and routes the host to the app", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
-				appClient := resty.New()
-				Eventually(func() int {
+				appClient := resty.New().SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+				Eventually(func(g Gomega) {
 					var err error
-					resp, err = appClient.R().Get(fmt.Sprintf("http://%s.%s", host, appFQDN))
-					Expect(err).NotTo(HaveOccurred())
-					return resp.StatusCode()
-				}).Should(Equal(http.StatusOK))
+					resp, err = appClient.R().Get(fmt.Sprintf("https://%s.%s", host, appFQDN))
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+				}).Should(Succeed())
 				Expect(result.Destinations).To(HaveLen(1))
 				Expect(result.Destinations[0].App.GUID).To(Equal(appGUID))
 

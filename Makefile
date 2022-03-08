@@ -140,9 +140,6 @@ deploy-kind-local: install-crds deploy-controllers-kind-local deploy-api-kind-lo
 deploy-controllers: install-kustomize build-reference-controllers
 	$(KUSTOMIZE) build controllers/config/default | kubectl apply -f -
 
-deploy-controllers-kind: install-kustomize build-reference-controllers
-	$(KUSTOMIZE) build controllers/config/overlays/kind | kubectl apply -f -
-
 deploy-controllers-kind-local: install-kustomize build-reference-controllers
 	$(KUSTOMIZE) build controllers/config/overlays/kind-local-registry | kubectl apply -f -
 
