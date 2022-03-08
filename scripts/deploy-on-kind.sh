@@ -81,6 +81,48 @@ if [[ -z "${cluster}" ]]; then
   exit 1
 fi
 
+function create_tls_secret() {
+  local secret_name=${1:?}
+  local secret_namespace=${2:?}
+  local tls_cn=${3:?}
+
+  tmp_dir=$(mktemp -d -t cf-tls-XXXXXX)
+
+  if [[ "${OPENSSL_VERSION}" == "OpenSSL" ]]; then
+    openssl req -x509 -newkey rsa:4096 \
+      -keyout ${tmp_dir}/tls.key \
+      -out ${tmp_dir}/tls.crt \
+      -nodes \
+      -subj "/CN=${tls_cn}" \
+      -addext "subjectAltName = DNS:${tls_cn}" \
+      -days 365
+  else
+    openssl req -x509 -newkey rsa:4096 \
+      -keyout ${tmp_dir}/tls.key \
+      -out ${tmp_dir}/tls.crt \
+      -nodes \
+      -subj "/CN=${tls_cn}" \
+      -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:${tls_cn}'")) \
+      -days 365
+  fi
+
+  cat << EOF > ${tmp_dir}/kustomization.yml
+secretGenerator:
+- name: ${secret_name}
+  namespace: ${secret_namespace}
+  files:
+  - tls.crt=tls.crt
+  - tls.key=tls.key
+  type: "kubernetes.io/tls"
+generatorOptions:
+  disableNameSuffixHash: true
+EOF
+
+  kubectl apply -k $tmp_dir
+
+  rm -r ${tmp_dir}
+}
+
 # undo *_IMG changes in config and reference
 function clean_up_img_refs() {
   cd "${ROOT_DIR}"
@@ -196,38 +238,7 @@ function deploy_cf_k8s_controllers() {
       make deploy-controllers
     fi
 
-    if [[ "${OPENSSL_VERSION}" == "OpenSSL" ]]; then
-      openssl req -x509 -newkey rsa:4096 \
-        -keyout /tmp/app-tls.key \
-        -out /tmp/app-tls.crt \
-        -nodes \
-        -subj '/CN=*.vcap.me' \
-        -addext "subjectAltName = DNS:*.vcap.me" \
-        -days 365
-    else
-      openssl req -x509 -newkey rsa:4096 \
-        -keyout /tmp/app-tls.key \
-        -out /tmp/app-tls.crt \
-        -nodes \
-        -subj '/CN=*.vcap.me' \
-        -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:*.vcap.me'")) \
-        -days 365
-    fi
-
-    cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cf-k8s-workloads-ingress-cert
-  namespace: cf-k8s-controllers-system
-type: kubernetes.io/tls
-stringData:
-  tls.crt: |
-$(grep -Ev '^$' /tmp/app-tls.crt | sed -e 's/^/      /')
-  tls.key: |
-$(grep -Ev '^$' /tmp/app-tls.key | sed -e 's/^/      /')
-EOF
-
+    create_tls_secret "cf-k8s-workloads-ingress-cert" "cf-k8s-controllers-system" "*.vcap.me"
   }
   popd >/dev/null
 }
@@ -250,38 +261,7 @@ function deploy_cf_k8s_api() {
       make deploy-api-kind-auth
     fi
 
-    if [[ "${OPENSSL_VERSION}" == "OpenSSL" ]]; then
-      openssl req -x509 -newkey rsa:4096 \
-        -keyout /tmp/api-tls.key \
-        -out /tmp/api-tls.crt \
-        -nodes \
-        -subj '/CN=localhost' \
-        -addext "subjectAltName = DNS:localhost" \
-        -days 365
-    else
-      openssl req -x509 -newkey rsa:4096 \
-        -keyout /tmp/api-tls.key \
-        -out /tmp/api-tls.crt \
-        -nodes \
-        -subj '/CN=localhost' \
-        -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:localhost'")) \
-        -days 365
-    fi
-
-    cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cf-k8s-api-ingress-cert
-  namespace: cf-k8s-api-system
-type: kubernetes.io/tls
-stringData:
-  tls.crt: |
-$(grep -Ev '^$' /tmp/api-tls.crt | sed -e 's/^/      /')
-  tls.key: |
-$(grep -Ev '^$' /tmp/api-tls.key | sed -e 's/^/      /')
-EOF
-
+    create_tls_secret "cf-k8s-api-ingress-cert" "cf-k8s-api-system" "localhost"
   }
   popd >/dev/null
 }
