@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-resty/resty/v2"
@@ -11,28 +12,55 @@ import (
 )
 
 var _ = Describe("Service Instances", func() {
-	Describe("Delete", func() {
-		var (
-			orgGUID      string
-			spaceGUID    string
-			instanceGUID string
-			httpResp     *resty.Response
-			httpError    error
-		)
+	var (
+		orgGUID      string
+		spaceGUID    string
+		instanceGUID string
+		instanceName string
+		httpResp     *resty.Response
+		httpError    error
+	)
 
-		BeforeEach(func() {
-			orgGUID = createOrg(generateGUID("org"))
-			spaceGUID = createSpace(generateGUID("space1"), orgGUID)
-			createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-			instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"))
+	BeforeEach(func() {
+		orgGUID = createOrg(generateGUID("org"))
+		spaceGUID = createSpace(generateGUID("space1"), orgGUID)
+		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+		instanceName = generateGUID("service-instance")
+		instanceGUID = createServiceInstance(spaceGUID, instanceName)
+	})
+
+	AfterEach(func() {
+		deleteOrg(orgGUID)
+	})
+
+	Describe("Create", func() {
+		When("the service instance name is not unique", func() {
+			JustBeforeEach(func() {
+				httpResp, httpError = adminClient.R().
+					SetBody(serviceInstanceResource{
+						resource: resource{
+							Name: instanceName,
+							Relationships: relationships{
+								"space": {
+									Data: resource{
+										GUID: spaceGUID,
+									},
+								},
+							},
+						},
+						InstanceType: "user-provided",
+					}).Post("/v3/service_instances")
+			})
+			It("fails", func() {
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+				Expect(httpResp).To(HaveRestyBody(ContainSubstring(fmt.Sprintf("The service instance name is taken: %s", instanceName))))
+			})
 		})
+	})
 
+	Describe("Delete", func() {
 		JustBeforeEach(func() {
 			httpResp, httpError = certClient.R().Delete("/v3/service_instances/" + instanceGUID)
-		})
-
-		AfterEach(func() {
-			deleteOrg(orgGUID)
 		})
 
 		It("fails with 404 Not Found", func() {

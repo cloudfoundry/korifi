@@ -169,6 +169,11 @@ type destination struct {
 	App bareResource `json:"app"`
 }
 
+type serviceInstanceResource struct {
+	resource     `json:",inline"`
+	InstanceType string `json:"type"`
+}
+
 type cfErrs struct {
 	Errors []cfErr
 }
