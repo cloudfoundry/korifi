@@ -106,7 +106,7 @@ function create_tls_secret() {
       -days 365
   fi
 
-  cat << EOF > ${tmp_dir}/kustomization.yml
+  cat <<EOF >${tmp_dir}/kustomization.yml
 secretGenerator:
 - name: ${secret_name}
   namespace: ${secret_namespace}

@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 pushd "${SCRIPT_DIR}"
 {
   cf api https://localhost --skip-ssl-validation
-  cf login << EOF
+  cf login <<EOF
 1
 1
 1
