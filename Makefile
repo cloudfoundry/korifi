@@ -133,7 +133,7 @@ uninstall-crds: manifests-controllers install-kustomize ## Uninstall CRDs from t
 
 deploy: install-crds deploy-controllers deploy-api
 
-deploy-kind: install-crds deploy-controllers-kind deploy-api-kind-auth
+deploy-kind: install-crds deploy-controllers deploy-api-kind-auth
 
 deploy-kind-local: install-crds deploy-controllers-kind-local deploy-api-kind-local
 
