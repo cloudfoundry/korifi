@@ -1846,6 +1846,17 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
+		When("the user lacks access in the app namespace", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
+				makeGetRequest(processTypeWeb)
+			})
+
+			It("returns an not found error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
 		When("the app doesn't have a process of the given type", func() {
 			BeforeEach(func() {
 				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
