@@ -113,7 +113,7 @@ func main() {
 	dropletRepo := repositories.NewDropletRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
 	routeRepo := repositories.NewRouteRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
 	domainRepo := repositories.NewDomainRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
-	buildRepo := repositories.NewBuildRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
+	buildRepo := repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
 	packageRepo := repositories.NewPackageRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPermissions)
@@ -166,7 +166,6 @@ func main() {
 			processRepo,
 			routeRepo,
 			domainRepo,
-			podRepo,
 			orgRepo,
 			scaleAppProcessAction.Invoke,
 			decoderValidator,

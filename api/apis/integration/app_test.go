@@ -13,7 +13,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	workloads "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -109,7 +108,6 @@ var _ = Describe("App Handler", func() {
 		processRepo := repositories.NewProcessRepo(k8sClient, namespaceRetriever, clientFactory)
 		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory)
 		domainRepo := repositories.NewDomainRepo(k8sClient, namespaceRetriever, clientFactory)
-		podRepo := repositories.NewPodRepo(clientFactory, new(fake.MetricsFetcherFn).Spy)
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPermissions, time.Minute, true)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
@@ -124,7 +122,6 @@ var _ = Describe("App Handler", func() {
 			processRepo,
 			routeRepo,
 			domainRepo,
-			podRepo,
 			orgRepo,
 			scaleAppProcess,
 			decoderValidator,

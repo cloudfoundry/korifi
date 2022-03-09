@@ -36,7 +36,6 @@ var _ = Describe("AppHandler", func() {
 		routeRepo           *fake.CFRouteRepository
 		scaleAppProcessFunc *fake.ScaleAppProcess
 		domainRepo          *fake.CFDomainRepository
-		podRepo             *fake.PodRepository
 		spaceRepo           *fake.SpaceRepository
 		req                 *http.Request
 	)
@@ -47,7 +46,6 @@ var _ = Describe("AppHandler", func() {
 		processRepo = new(fake.CFProcessRepository)
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
-		podRepo = new(fake.PodRepository)
 		scaleAppProcessFunc = new(fake.ScaleAppProcess)
 		spaceRepo = new(fake.SpaceRepository)
 		decoderValidator, err := NewDefaultDecoderValidator()
@@ -61,7 +59,6 @@ var _ = Describe("AppHandler", func() {
 			processRepo,
 			routeRepo,
 			domainRepo,
-			podRepo,
 			spaceRepo,
 			scaleAppProcessFunc.Spy,
 			decoderValidator,
