@@ -154,6 +154,41 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
+	Describe("Get app process by type", func() {
+		var (
+			result      resource
+			processGUID string
+		)
+
+		BeforeEach(func() {
+			appGUID = pushNodeApp(space1GUID)
+			processGUID = getProcess(appGUID, "web")
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/processes/web")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns a not-found error to users with no space access", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+			Expect(resp).To(HaveRestyBody(ContainSubstring("App not found")))
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+			})
+
+			It("successfully returns the process", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.GUID).To(Equal(processGUID))
+			})
+		})
+
+	})
+
 	Describe("List app routes", func() {
 		var result resourceList
 
