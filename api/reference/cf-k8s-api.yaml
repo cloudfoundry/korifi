@@ -158,6 +158,8 @@ rules:
   - cfservicebindings
   verbs:
   - create
+  - delete
+  - get
   - list
 - apiGroups:
   - services.cloudfoundry.org
