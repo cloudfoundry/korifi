@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	SpaceManifestApplyEndpoint = "/v3/spaces/{spaceGUID}/actions/apply_manifest"
-	SpaceManifestDiffEndpoint  = "/v3/spaces/{spaceGUID}/manifest_diff"
+	SpaceManifestApplyPath = "/v3/spaces/{spaceGUID}/actions/apply_manifest"
+	SpaceManifestDiffPath  = "/v3/spaces/{spaceGUID}/manifest_diff"
 )
 
 type SpaceManifestHandler struct {
@@ -54,8 +54,8 @@ func NewSpaceManifestHandler(
 
 func (h *SpaceManifestHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(SpaceManifestApplyEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.applyManifestHandler))
-	router.Path(SpaceManifestDiffEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.diffManifestHandler))
+	router.Path(SpaceManifestApplyPath).Methods("POST").HandlerFunc(w.Wrap(h.applyManifestHandler))
+	router.Path(SpaceManifestDiffPath).Methods("POST").HandlerFunc(w.Wrap(h.diffManifestHandler))
 }
 
 func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {

@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	BuildGetEndpoint    = "/v3/builds/{guid}"
-	BuildCreateEndpoint = "/v3/builds"
+	BuildPath  = "/v3/builds/{guid}"
+	BuildsPath = "/v3/builds"
 )
 
 //counterfeiter:generate -o fake -fake-name CFBuildRepository . CFBuildRepository
@@ -105,6 +105,6 @@ func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, r *http.R
 
 func (h *BuildHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(BuildGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.buildGetHandler))
-	router.Path(BuildCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.buildCreateHandler))
+	router.Path(BuildPath).Methods("GET").HandlerFunc(w.Wrap(h.buildGetHandler))
+	router.Path(BuildsPath).Methods("POST").HandlerFunc(w.Wrap(h.buildCreateHandler))
 }

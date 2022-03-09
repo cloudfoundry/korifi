@@ -24,22 +24,20 @@ import (
 )
 
 const (
-	AppCreateEndpoint            = "/v3/apps"
-	AppGetEndpoint               = "/v3/apps/{guid}"
-	AppListEndpoint              = "/v3/apps"
-	AppSetCurrentDropletEndpoint = "/v3/apps/{guid}/relationships/current_droplet"
-	AppGetCurrentDropletEndpoint = "/v3/apps/{guid}/droplets/current"
-	AppGetProcessesEndpoint      = "/v3/apps/{guid}/processes"
-	AppGetProcessByTypeEndpoint  = "/v3/apps/{guid}/processes/{type}"
-	AppProcessScaleEndpoint      = "/v3/apps/{guid}/processes/{processType}/actions/scale"
-	AppGetRoutesEndpoint         = "/v3/apps/{guid}/routes"
-	AppStartEndpoint             = "/v3/apps/{guid}/actions/start"
-	AppStopEndpoint              = "/v3/apps/{guid}/actions/stop"
-	AppRestartEndpoint           = "/v3/apps/{guid}/actions/restart"
-	AppDeleteEndpoint            = "/v3/apps/{guid}"
-	AppPatchEnvVarsEndpoint      = "/v3/apps/{guid}/environment_variables"
-	AppGetEnvEndpoint            = "/v3/apps/{guid}/env"
-	invalidDropletMsg            = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
+	AppsPath                          = "/v3/apps"
+	AppPath                           = "/v3/apps/{guid}"
+	AppCurrentDropletRelationshipPath = "/v3/apps/{guid}/relationships/current_droplet"
+	AppCurrentDropletPath             = "/v3/apps/{guid}/droplets/current"
+	AppProcessesPath                  = "/v3/apps/{guid}/processes"
+	AppProcessByTypePath              = "/v3/apps/{guid}/processes/{type}"
+	AppProcessScalePath               = "/v3/apps/{guid}/processes/{processType}/actions/scale"
+	AppRoutesPath                     = "/v3/apps/{guid}/routes"
+	AppStartPath                      = "/v3/apps/{guid}/actions/start"
+	AppStopPath                       = "/v3/apps/{guid}/actions/stop"
+	AppRestartPath                    = "/v3/apps/{guid}/actions/restart"
+	AppEnvVarsPath                    = "/v3/apps/{guid}/environment_variables"
+	AppEnvPath                        = "/v3/apps/{guid}/env"
+	invalidDropletMsg                 = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
 	AppStartedState = "STARTED"
 	AppStoppedState = "STOPPED"
@@ -606,19 +604,19 @@ func (h *AppHandler) handleUpdateAppErr(err error, appGUID string) error {
 
 func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(AppGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appGetHandler))
-	router.Path(AppListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appListHandler))
-	router.Path(AppCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appCreateHandler))
-	router.Path(AppSetCurrentDropletEndpoint).Methods("PATCH").HandlerFunc(w.Wrap(h.appSetCurrentDropletHandler))
-	router.Path(AppGetCurrentDropletEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appGetCurrentDropletHandler))
-	router.Path(AppStartEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appStartHandler))
-	router.Path(AppStopEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appStopHandler))
-	router.Path(AppRestartEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appRestartHandler))
-	router.Path(AppProcessScaleEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.appScaleProcessHandler))
-	router.Path(AppGetProcessesEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.getProcessesForAppHandler))
-	router.Path(AppGetProcessByTypeEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.getProcessByTypeForAppHander))
-	router.Path(AppGetRoutesEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.getRoutesForAppHandler))
-	router.Path(AppDeleteEndpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.appDeleteHandler))
-	router.Path(AppPatchEnvVarsEndpoint).Methods("PATCH").HandlerFunc(w.Wrap(h.appPatchEnvVarsHandler))
-	router.Path(AppGetEnvEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.appGetEnvHandler))
+	router.Path(AppPath).Methods("GET").HandlerFunc(w.Wrap(h.appGetHandler))
+	router.Path(AppsPath).Methods("GET").HandlerFunc(w.Wrap(h.appListHandler))
+	router.Path(AppsPath).Methods("POST").HandlerFunc(w.Wrap(h.appCreateHandler))
+	router.Path(AppCurrentDropletRelationshipPath).Methods("PATCH").HandlerFunc(w.Wrap(h.appSetCurrentDropletHandler))
+	router.Path(AppCurrentDropletPath).Methods("GET").HandlerFunc(w.Wrap(h.appGetCurrentDropletHandler))
+	router.Path(AppStartPath).Methods("POST").HandlerFunc(w.Wrap(h.appStartHandler))
+	router.Path(AppStopPath).Methods("POST").HandlerFunc(w.Wrap(h.appStopHandler))
+	router.Path(AppRestartPath).Methods("POST").HandlerFunc(w.Wrap(h.appRestartHandler))
+	router.Path(AppProcessScalePath).Methods("POST").HandlerFunc(w.Wrap(h.appScaleProcessHandler))
+	router.Path(AppProcessesPath).Methods("GET").HandlerFunc(w.Wrap(h.getProcessesForAppHandler))
+	router.Path(AppProcessByTypePath).Methods("GET").HandlerFunc(w.Wrap(h.getProcessByTypeForAppHander))
+	router.Path(AppRoutesPath).Methods("GET").HandlerFunc(w.Wrap(h.getRoutesForAppHandler))
+	router.Path(AppPath).Methods("DELETE").HandlerFunc(w.Wrap(h.appDeleteHandler))
+	router.Path(AppEnvVarsPath).Methods("PATCH").HandlerFunc(w.Wrap(h.appPatchEnvVarsHandler))
+	router.Path(AppEnvPath).Methods("GET").HandlerFunc(w.Wrap(h.appGetEnvHandler))
 }

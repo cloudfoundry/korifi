@@ -21,9 +21,9 @@ import (
 )
 
 const (
-	OrgsEndpoint           = "/v3/organizations"
-	OrgDeleteEndpoint      = "/v3/organizations/{guid}"
-	OrgListDomainsEndpoint = "/v3/organizations/{guid}/domains"
+	OrgsPath       = "/v3/organizations"
+	OrgPath        = "/v3/organizations/{guid}"
+	OrgDomainsPath = "/v3/organizations/{guid}/domains"
 )
 
 //counterfeiter:generate -o fake -fake-name OrgRepository . CFOrgRepository
@@ -196,8 +196,8 @@ func (h *OrgHandler) orgListDomainHandler(info authorization.Info, r *http.Reque
 
 func (h *OrgHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(OrgsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.orgListHandler))
-	router.Path(OrgDeleteEndpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.orgDeleteHandler))
-	router.Path(OrgsEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.orgCreateHandler))
-	router.Path(OrgListDomainsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.orgListDomainHandler))
+	router.Path(OrgsPath).Methods("GET").HandlerFunc(w.Wrap(h.orgListHandler))
+	router.Path(OrgPath).Methods("DELETE").HandlerFunc(w.Wrap(h.orgDeleteHandler))
+	router.Path(OrgsPath).Methods("POST").HandlerFunc(w.Wrap(h.orgCreateHandler))
+	router.Path(OrgDomainsPath).Methods("GET").HandlerFunc(w.Wrap(h.orgListDomainHandler))
 }

@@ -19,12 +19,11 @@ import (
 )
 
 const (
-	ProcessGetEndpoint         = "/v3/processes/{guid}"
-	ProcessGetSidecarsEndpoint = "/v3/processes/{guid}/sidecars"
-	ProcessScaleEndpoint       = "/v3/processes/{guid}/actions/scale"
-	ProcessGetStatsEndpoint    = "/v3/processes/{guid}/stats"
-	ProcessListEndpoint        = "/v3/processes"
-	ProcessPatchEndpoint       = "/v3/processes/{guid}"
+	ProcessPath         = "/v3/processes/{guid}"
+	ProcessSidecarsPath = "/v3/processes/{guid}/sidecars"
+	ProcessScalePath    = "/v3/processes/{guid}/actions/scale"
+	ProcessStatsPath    = "/v3/processes/{guid}/stats"
+	ProcessesPath       = "/v3/processes"
 )
 
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
@@ -235,10 +234,10 @@ func (h *ProcessHandler) writeErrorResponse(processGUID string, err error) error
 
 func (h *ProcessHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(ProcessGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.processGetHandler))
-	router.Path(ProcessGetSidecarsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.processGetSidecarsHandler))
-	router.Path(ProcessScaleEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.processScaleHandler))
-	router.Path(ProcessGetStatsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.processGetStatsHandler))
-	router.Path(ProcessListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.processListHandler))
-	router.Path(ProcessPatchEndpoint).Methods("PATCH").HandlerFunc(w.Wrap(h.processPatchHandler))
+	router.Path(ProcessPath).Methods("GET").HandlerFunc(w.Wrap(h.processGetHandler))
+	router.Path(ProcessSidecarsPath).Methods("GET").HandlerFunc(w.Wrap(h.processGetSidecarsHandler))
+	router.Path(ProcessScalePath).Methods("POST").HandlerFunc(w.Wrap(h.processScaleHandler))
+	router.Path(ProcessStatsPath).Methods("GET").HandlerFunc(w.Wrap(h.processGetStatsHandler))
+	router.Path(ProcessesPath).Methods("GET").HandlerFunc(w.Wrap(h.processListHandler))
+	router.Path(ProcessPath).Methods("PATCH").HandlerFunc(w.Wrap(h.processPatchHandler))
 }

@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	DomainListEndpoint = "/v3/domains"
+	DomainsPath = "/v3/domains"
 )
 
 //counterfeiter:generate -o fake -fake-name CFDomainRepository . CFDomainRepository
@@ -87,5 +87,5 @@ func (h *DomainHandler) DomainListHandler(authInfo authorization.Info, r *http.R
 
 func (h *DomainHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(DomainListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.DomainListHandler))
+	router.Path(DomainsPath).Methods("GET").HandlerFunc(w.Wrap(h.DomainListHandler))
 }
