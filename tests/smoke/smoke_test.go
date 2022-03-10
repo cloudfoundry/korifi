@@ -48,8 +48,8 @@ var _ = Describe("Smoke Tests", func() {
 
 			if doLogin != "" {
 				apiEndpoint := GetRequiredEnvVar("SMOKE_TEST_API_ENDPOINT")
-				//username := GetRequiredEnvVar("SMOKE_TEST_USERNAME")
-				//password := GetRequiredEnvVar("SMOKE_TEST_PASSWORD")
+				// username := GetRequiredEnvVar("SMOKE_TEST_USERNAME")
+				// password := GetRequiredEnvVar("SMOKE_TEST_PASSWORD")
 
 				apiArguments := []string{"api", apiEndpoint}
 				skip_ssl, _ := os.LookupEnv("SMOKE_TEST_SKIP_SSL")
@@ -103,6 +103,7 @@ var _ = Describe("Smoke Tests", func() {
 
 			Eventually(func() int {
 				var err error
+				http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 				resp, err = http.Get(fmt.Sprintf("%s://%s.%s", appRouteProtocol, appName, appsDomain))
 				Expect(err).NotTo(HaveOccurred())
 				return resp.StatusCode

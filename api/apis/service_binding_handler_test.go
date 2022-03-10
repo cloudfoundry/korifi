@@ -1,6 +1,7 @@
 package apis_test
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -463,6 +464,19 @@ var _ = Describe("ServiceBindingHandler", func() {
 			It("includes app data in the response", func() {
 				Expect(rr.Body.String()).To(ContainSubstring("some-app-name"))
 			})
+			When("a bogus service_instance_guid filter is provided", func() {
+				BeforeEach(func() {
+					req.URL.RawQuery = "include=app&service_instance_guids=1,2,3"
+					serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, nil)
+				})
+
+				It("returns an empty response with no include block", func() {
+					var responseJSON map[string]interface{}
+					err := json.Unmarshal(rr.Body.Bytes(), &responseJSON)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(responseJSON).NotTo(HaveKey("included"))
+				})
+			})
 		})
 
 		When("an app_guids query parameter is provided", func() {
@@ -495,7 +509,10 @@ var _ = Describe("ServiceBindingHandler", func() {
 
 			It("does not include app data in the response", func() {
 				Expect(appRepo.ListAppsCallCount()).To(Equal(0))
-				Expect(rr.Body.String()).NotTo(ContainSubstring("included"))
+				var responseJSON map[string]interface{}
+				err := json.Unmarshal(rr.Body.Bytes(), &responseJSON)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(responseJSON).NotTo(HaveKey("included"))
 			})
 		})
 
