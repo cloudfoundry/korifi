@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: controller-manager-debug-port
+  namespace: cf-k8s-controllers-system
+spec:
+  ports:
+    - name: debug-30051
+      nodePort: 30051
+      port: 30051
+      protocol: TCP
+      targetPort: 40000
+  selector:
+    app: cf-k8s-controller-manager
+  type: NodePort
