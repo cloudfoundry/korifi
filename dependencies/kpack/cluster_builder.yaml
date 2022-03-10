@@ -7,7 +7,7 @@ spec:
     name: kpack-service-account
     namespace: cf
   # Replace with real docker registry
-  tag: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
+  tag: localregistry-docker-registry.default.svc.cluster.local:30050/kpack/stuff
   stack:
     name: cf-default-stack
     kind: ClusterStack
