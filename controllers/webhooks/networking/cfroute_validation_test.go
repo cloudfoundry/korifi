@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-var _ = Describe("Cf Route Validation", func() {
+var _ = Describe("CF Route Validation", func() {
 	var (
 		ctx                context.Context
 		duplicateValidator *fake.NameValidator

@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"os"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/services"
-
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
@@ -33,6 +31,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/services"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
@@ -253,6 +252,13 @@ func main() {
 			os.Exit(1)
 		}
 
+		if err = networking.NewCFDomainValidation(
+			mgr.GetClient(),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFDomain")
+			os.Exit(1)
+		}
+
 		if err = workloads.NewSubnamespaceAnchorValidation(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType)),
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType)),
@@ -268,7 +274,6 @@ func main() {
 	} else {
 		setupLog.Info("Skipping webhook setup because ENABLE_WEBHOOKS set to false.")
 	}
-
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

@@ -3,7 +3,7 @@ layout:
 - go.kubebuilder.io/v3
 multigroup: true
 projectName: cf-k8s-controllers
-repo: code.cloudfoundry.org/cf-k8s-controllers
+repo: code.cloudfoundry.org/cf-k8s-controllers/controllers
 resources:
 - api:
     crdVersion: v1
@@ -72,6 +72,9 @@ resources:
   kind: CFDomain
   path: code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
