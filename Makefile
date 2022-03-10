@@ -103,6 +103,9 @@ docker-build: docker-build-controllers docker-build-api
 docker-build-controllers:
 	docker buildx build --load -f controllers/Dockerfile -t ${IMG_CONTROLLERS} .
 
+docker-build-controllers-debug:
+	docker buildx build --load -f controllers/remote-debug/Dockerfile -t ${IMG_CONTROLLERS} .
+
 docker-build-api:
 	docker buildx build --load -f api/Dockerfile -t ${IMG_API} .
 
@@ -141,6 +144,9 @@ deploy-controllers: install-kustomize build-reference-controllers
 
 deploy-controllers-kind-local: install-kustomize build-reference-controllers
 	$(KUSTOMIZE) build controllers/config/overlays/kind-local-registry | kubectl apply -f -
+
+deploy-controllers-kind-local-debug: install-kustomize build-reference-controllers
+	$(KUSTOMIZE) build controllers/config/overlays/kind-controller-debug | kubectl apply -f -
 
 deploy-api: install-kustomize build-reference-api
 	$(KUSTOMIZE) build api/config/base | kubectl apply -f -

@@ -37,6 +37,9 @@ flags:
   -d, --default-domain
       Creates the vcap.me CF domain.
 
+  -D, --debug
+      Builds controller image with debugging hooks and
+      wires up localhost:30051 for remote debugging.
 EOF
   exit 1
 }
@@ -46,6 +49,7 @@ use_local_registry=""
 controllers_only=""
 api_only=""
 default_domain=""
+controllers_debug=""
 while [[ $# -gt 0 ]]; do
   i=$1
   case $i in
@@ -63,6 +67,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -d | --default-domain)
       default_domain="true"
+      shift
+      ;;
+    -D | --debug)
+      controllers_debug="true"
       shift
       ;;
     -v | --verbose)
@@ -90,6 +98,14 @@ if [[ -z "${cluster}" ]]; then
   usage_text >&2
   exit 1
 fi
+
+if [[ -n "${controllers_debug}" ]]; then
+  if [[ -z "${use_local_registry}" ]]; then
+    echo -e "Error: currently controller debugging requires local registry (only because Kustomize is hard, not for real reasons)" >&2
+    exit 1
+  fi
+fi
+
 
 function create_tls_secret() {
   local secret_name=${1:?}
@@ -168,6 +184,9 @@ nodes:
   - containerPort: 30050
     hostPort: 30050
     protocol: TCP
+  - containerPort: 30051
+    hostPort: 30051
+    protocol: TCP
 EOF
   fi
 
@@ -238,12 +257,21 @@ function deploy_cf_k8s_controllers() {
     IMG_CONTROLLERS=${IMG_CONTROLLERS:-"cf-k8s-controllers:$(uuidgen)"}
     export IMG_CONTROLLERS
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      make docker-build-controllers
+      if [[ -z "${controllers_debug}" ]]; then
+        make docker-build-controllers
+      else
+        make docker-build-controllers-debug
+      fi
     fi
     kind load docker-image --name "${cluster}" "${IMG_CONTROLLERS}"
+
     make install-crds
     if [[ -n "${use_local_registry}" ]]; then
-      make deploy-controllers-kind-local
+      if [[ -z "${controllers_debug}" ]]; then
+        make deploy-controllers-kind-local
+      else
+        make deploy-controllers-kind-local-debug
+      fi
     else
       make deploy-controllers
     fi
