@@ -103,6 +103,7 @@ var _ = Describe("Smoke Tests", func() {
 
 			Eventually(func() int {
 				var err error
+				http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 				resp, err = http.Get(fmt.Sprintf("%s://%s.%s", appRouteProtocol, appName, appsDomain))
 				Expect(err).NotTo(HaveOccurred())
 				return resp.StatusCode
