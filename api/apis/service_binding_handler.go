@@ -131,7 +131,7 @@ func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, r *http
 	}
 
 	var appRecords []repositories.AppRecord
-	if listFilter.Include != nil {
+	if listFilter.Include != nil && len(serviceBindingList) > 0 {
 		listAppsMessage := repositories.ListAppsMessage{}
 
 		for _, serviceBinding := range serviceBindingList {
