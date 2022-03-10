@@ -2,9 +2,12 @@ package apis
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 
 	"github.com/gorilla/schema"
 
@@ -83,6 +86,13 @@ func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authoriza
 
 	serviceInstanceRecord, err := h.serviceInstanceRepo.CreateServiceInstance(ctx, authInfo, payload.ToServiceInstanceCreateMessage())
 	if err != nil {
+		if webhooks.HasErrorCode(err, webhooks.DuplicateServiceInstanceNameError) {
+			errorDetail := fmt.Sprintf("The service instance name is taken: %s.", payload.Name)
+			h.logger.Error(err, errorDetail, "Service Instance Name", payload.Name)
+
+			return nil, apierrors.NewUnprocessableEntityError(err, errorDetail)
+		}
+
 		if authorization.IsInvalidAuth(err) {
 			h.logger.Error(err, "unauthorized to create service instance")
 			return nil, apierrors.NewInvalidAuthError(err)

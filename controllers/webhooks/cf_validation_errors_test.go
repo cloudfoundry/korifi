@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("CFWorkloadsWebhookValidationError", func() {
+var _ = Describe("CFWebhookValidationError", func() {
 	It("Marshals a payload", func() {
 		e := webhooks.DuplicateAppError
 		Expect(e.Marshal()).To(Equal(`{"code":1,"message":"CFApp with the same spec.name exists"}`))

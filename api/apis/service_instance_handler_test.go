@@ -8,6 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -333,6 +337,45 @@ var _ = Describe("ServiceInstanceHandler", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+
+		When("the action errors due to validating webhook rejection", func() {
+			BeforeEach(func() {
+				controllerError := new(k8serrors.StatusError)
+				controllerError.ErrStatus.Reason = v1.StatusReason(`{"code":` + fmt.Sprint(webhooks.DuplicateServiceInstanceNameError) + `,"message":"CFServiceInstance with the same spec.name exists"}`)
+				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, controllerError)
+
+				makePostRequest(`{
+					"name": "` + serviceInstanceName + `",
+					"relationships": {
+						"space": {
+							 "data": {
+								  "guid": "` + serviceInstanceSpaceGUID + `"
+							 }
+						}
+					},
+					"type": "` + serviceInstanceTypeUserProvided + `"
+				}`)
+			})
+
+			It("returns a status 422 Unprocessable Entity", func() {
+				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+			})
+
+			It("returns a CF API formatted Error response", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(`{
+					"errors": [
+						{
+							 "title": "CF-UnprocessableEntity",
+							 "detail": "The service instance name is taken: `+serviceInstanceName+`.",
+							 "code": 10008
+						}
+					]
+				}`), "Response body matches response:")
 			})
 		})
 

@@ -20,6 +20,7 @@ const (
 	DuplicateOrgNameError
 	DuplicateSpaceNameError
 	DuplicateRouteError
+	DuplicateServiceInstanceNameError
 )
 
 func (w ValidationErrorCode) Marshal() string {
@@ -52,8 +53,10 @@ func (w ValidationErrorCode) GetMessage() string {
 		return "Space with same name exists"
 	case DuplicateRouteError:
 		return "Route with same FQDN and path exists"
+	case DuplicateServiceInstanceNameError:
+		return "CFServiceInstance with same spec.name exists"
 	default:
-		return "An unknown error has occured"
+		return "An unknown error has occurred"
 	}
 }
 

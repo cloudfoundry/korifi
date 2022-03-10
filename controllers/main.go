@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"os"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/services"
+
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
@@ -241,6 +243,13 @@ func main() {
 			controllerConfig.CFRootNamespace,
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
+			os.Exit(1)
+		}
+
+		if err = services.NewCFServiceInstanceValidation(
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), services.ServiceInstanceEntityType)),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceInstance")
 			os.Exit(1)
 		}
 

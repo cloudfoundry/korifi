@@ -206,6 +206,7 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 
 	cfApp := appCreateMessage.toCFApp()
 	err = userClient.Create(ctx, &cfApp)
+	// untested
 	if err != nil {
 		return AppRecord{}, err
 	}
