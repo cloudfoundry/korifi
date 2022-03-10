@@ -18,12 +18,14 @@ package workloads
 
 import (
 	"context"
+	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sort"
 	"strconv"
+
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 
@@ -45,8 +47,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
@@ -93,13 +93,13 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if cfApp.Spec.DesiredState == workloadsv1alpha1.StartedState {
-		err = r.createOrPatchLRP(ctx, cfApp, cfProcess, cfAppRev)
+		err = r.createOrPatchWorkload(ctx, cfApp, cfProcess, cfAppRev)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	err = r.cleanUpLRPs(ctx, cfProcess, cfApp.Spec.DesiredState, cfAppRev)
+	err = r.cleanUpWorkloads(ctx, cfProcess, cfApp.Spec.DesiredState, cfAppRev)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -107,7 +107,7 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return ctrl.Result{}, nil
 }
 
-func (r *CFProcessReconciler) createOrPatchLRP(ctx context.Context, cfApp *workloadsv1alpha1.CFApp, cfProcess *workloadsv1alpha1.CFProcess, cfAppRev string) error {
+func (r *CFProcessReconciler) createOrPatchWorkload(ctx context.Context, cfApp *workloadsv1alpha1.CFApp, cfProcess *workloadsv1alpha1.CFProcess, cfAppRev string) error {
 	cfBuild := new(workloadsv1alpha1.CFBuild)
 	err := r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfProcess.Namespace}, cfBuild)
 	if err != nil {
@@ -145,7 +145,7 @@ func (r *CFProcessReconciler) createOrPatchLRP(ctx context.Context, cfApp *workl
 	actualWorkload := &cartographerv1alpha1.Workload{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfProcess.Namespace,
-			Name:      cfProcess.Name,
+			Name:      generateWorkloadName(cfAppRev, cfProcess.Name),
 		},
 	}
 
@@ -181,18 +181,18 @@ func (r *CFProcessReconciler) setOwnerRef(ctx context.Context, cfProcess *worklo
 	return nil
 }
 
-func (r *CFProcessReconciler) cleanUpLRPs(ctx context.Context, cfProcess *workloadsv1alpha1.CFProcess, desiredState workloadsv1alpha1.DesiredState, cfAppRev string) error {
-	lrpsForProcess, err := r.fetchLRPsForProcess(ctx, cfProcess)
+func (r *CFProcessReconciler) cleanUpWorkloads(ctx context.Context, cfProcess *workloadsv1alpha1.CFProcess, desiredState workloadsv1alpha1.DesiredState, cfAppRev string) error {
+	workloads, err := r.fetchWorkloadsForProcess(ctx, cfProcess)
 	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch LRPs for Process %s/%s", cfProcess.Namespace, cfProcess.Name))
+		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch Workloads for Process %s/%s", cfProcess.Namespace, cfProcess.Name))
 		return err
 	}
 
-	for _, currentLRP := range lrpsForProcess {
-		if desiredState == workloadsv1alpha1.StoppedState || currentLRP.Labels[workloadsv1alpha1.CFAppRevisionKey] != cfAppRev {
-			err := r.Client.Delete(ctx, &currentLRP)
+	for _, currentWorkload := range workloads {
+		if desiredState == workloadsv1alpha1.StoppedState || currentWorkload.Labels[workloadsv1alpha1.CFAppRevisionKey] != cfAppRev {
+			err := r.Client.Delete(ctx, &currentWorkload)
 			if err != nil {
-				r.Log.Info(fmt.Sprintf("Error occurred deleting LRP: %s, %s", currentLRP.Name, err))
+				r.Log.Info(fmt.Sprintf("Error occurred deleting Workload: %s, %s", currentWorkload.Name, err))
 				return err
 			}
 		}
@@ -242,6 +242,7 @@ func (r *CFProcessReconciler) generateWorkload(actual *cartographerv1alpha1.Work
 		{Name: "cf-process-type", Value: apiextensionsv1.JSON{Raw: []byte(fmt.Sprintf("%q", cfProcess.Spec.ProcessType))}},
 		{Name: "cf-app-name", Value: apiextensionsv1.JSON{Raw: []byte(fmt.Sprintf("%q", cfApp.Spec.Name))}},
 		{Name: "cf-app-command", Value: apiextensionsv1.JSON{Raw: []byte(commandJSON)}},
+		{Name: "cf-app-rev", Value: apiextensionsv1.JSON{Raw: []byte(fmt.Sprintf("%q", cfAppRevisionKeyValue))}},
 	}
 
 	//envVars, err := generateEnvMap(appEnvSecret.Data, appPort, services)
@@ -266,27 +267,27 @@ func (r *CFProcessReconciler) generateWorkload(actual *cartographerv1alpha1.Work
 	return &desired, err
 }
 
-//func generateLRPName(cfAppRev string, processGUID string) string {
-//	h := sha1.New()
-//	h.Write([]byte(cfAppRev))
-//	appRevHash := h.Sum(nil)
-//	lrpName := processGUID + fmt.Sprintf("-%x", appRevHash)[:5]
-//	return lrpName
-//}
+func generateWorkloadName(cfAppRev string, processGUID string) string {
+	h := sha1.New()
+	h.Write([]byte(cfAppRev))
+	appRevHash := h.Sum(nil)
+	lrpName := processGUID + fmt.Sprintf("-%x", appRevHash)[:5]
+	return lrpName
+}
 
-func (r *CFProcessReconciler) fetchLRPsForProcess(ctx context.Context, cfProcess *workloadsv1alpha1.CFProcess) ([]eiriniv1.LRP, error) {
-	allLRPs := &eiriniv1.LRPList{}
-	err := r.Client.List(ctx, allLRPs, client.InNamespace(cfProcess.Namespace))
+func (r *CFProcessReconciler) fetchWorkloadsForProcess(ctx context.Context, cfProcess *workloadsv1alpha1.CFProcess) ([]cartographerv1alpha1.Workload, error) {
+	allWorkloads := &cartographerv1alpha1.WorkloadList{}
+	err := r.Client.List(ctx, allWorkloads, client.InNamespace(cfProcess.Namespace))
 	if err != nil {
-		return []eiriniv1.LRP{}, err
+		return nil, err
 	}
-	var lrpsForProcess []eiriniv1.LRP
-	for _, currentLRP := range allLRPs.Items {
-		if processGUID, has := currentLRP.Labels[workloadsv1alpha1.CFProcessGUIDLabelKey]; has && processGUID == cfProcess.Name {
-			lrpsForProcess = append(lrpsForProcess, currentLRP)
+	var workloadsForProcess []cartographerv1alpha1.Workload
+	for _, currentWorkload := range allWorkloads.Items {
+		if processGUID, has := currentWorkload.Labels[workloadsv1alpha1.CFProcessGUIDLabelKey]; has && processGUID == cfProcess.Name {
+			workloadsForProcess = append(workloadsForProcess, currentWorkload)
 		}
 	}
-	return lrpsForProcess, err
+	return workloadsForProcess, err
 }
 
 func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess *workloadsv1alpha1.CFProcess, cfApp *workloadsv1alpha1.CFApp) (int, error) {

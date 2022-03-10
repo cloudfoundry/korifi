@@ -14,7 +14,7 @@ spec:
         "workloads.cloudfoundry.org/process-guid": $(workload.spec.params[?(@.name=="cf-process-guid")].value)$
         "workloads.cloudfoundry.org/process-type": $(workload.spec.params[?(@.name=="cf-process-type")].value)$
         "workloads.cloudfoundry.org/app-guid": $(workload.spec.params[?(@.name=="cf-app-guid")].value)$
-        workloads.cloudfoundry.org/app-rev: "0"
+        workloads.cloudfoundry.org/app-rev: $(workload.spec.params[?(@.name=="cf-app-rev")].value)$
     spec:
       GUID: $(workload.spec.params[?(@.name=="cf-process-guid")].value)$
       appGUID: $(workload.spec.params[?(@.name=="cf-app-guid")].value)$
@@ -40,4 +40,4 @@ spec:
       processType: $(workload.spec.params[?(@.name=="cf-process-type")].value)$
       spaceGUID: ""
       spaceName: ""
-      version: "0"
+      version: $(workload.spec.params[?(@.name=="cf-app-rev")].value)$
