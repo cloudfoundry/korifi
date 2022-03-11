@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	RootV3GetEndpoint = "/v3"
+	RootV3Path = "/v3"
 )
 
 type RootV3Handler struct {
@@ -29,5 +29,5 @@ func (h *RootV3Handler) rootV3GetHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *RootV3Handler) RegisterRoutes(router *mux.Router) {
-	router.Path(RootV3GetEndpoint).Methods("GET").HandlerFunc(h.rootV3GetHandler)
+	router.Path(RootV3Path).Methods("GET").HandlerFunc(h.rootV3GetHandler)
 }

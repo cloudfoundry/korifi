@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	RootGetEndpoint = "/"
+	RootPath = "/"
 )
 
 type RootHandler struct {
@@ -25,5 +25,5 @@ func (h *RootHandler) rootGetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RootHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(RootGetEndpoint).Methods("GET").HandlerFunc(h.rootGetHandler)
+	router.Path(RootPath).Methods("GET").HandlerFunc(h.rootGetHandler)
 }

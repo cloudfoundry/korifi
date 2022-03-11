@@ -23,9 +23,8 @@ import (
 )
 
 const (
-	SpaceCreateEndpoint = "/v3/spaces"
-	SpaceDeleteEnpoint  = "/v3/spaces/{guid}"
-	SpaceListEndpoint   = "/v3/spaces"
+	SpacesPath = "/v3/spaces"
+	SpacePath  = "/v3/spaces/{guid}"
 )
 
 //counterfeiter:generate -o fake -fake-name SpaceRepository . SpaceRepository
@@ -181,9 +180,9 @@ func (h *SpaceHandler) spaceDeleteHandler(info authorization.Info, r *http.Reque
 
 func (h *SpaceHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(SpaceListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.spaceListHandler))
-	router.Path(SpaceCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.spaceCreateHandler))
-	router.Path(SpaceDeleteEnpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.spaceDeleteHandler))
+	router.Path(SpacesPath).Methods("GET").HandlerFunc(w.Wrap(h.spaceListHandler))
+	router.Path(SpacesPath).Methods("POST").HandlerFunc(w.Wrap(h.spaceCreateHandler))
+	router.Path(SpacePath).Methods("DELETE").HandlerFunc(w.Wrap(h.spaceDeleteHandler))
 }
 
 func parseCommaSeparatedList(list string) []string {

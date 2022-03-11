@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	LogCacheInfoEndpoint = "/api/v1/info"
-	LogCacheReadEndpoint = "/api/v1/read/{guid}"
-	logCacheVersion      = "2.11.4+cf-k8s"
+	LogCacheInfoPath = "/api/v1/info"
+	LogCacheReadPath = "/api/v1/read/{guid}"
+	logCacheVersion  = "2.11.4+cf-k8s"
 )
 
 // LogCacheHandler implements the minimal set of log-cache API endpoints/features necessary
@@ -40,6 +40,6 @@ func (h *LogCacheHandler) logCacheEmptyReadHandler(w http.ResponseWriter, r *htt
 }
 
 func (h *LogCacheHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(LogCacheInfoEndpoint).Methods("GET").HandlerFunc(h.logCacheInfoHandler)
-	router.Path(LogCacheReadEndpoint).Methods("GET").HandlerFunc(h.logCacheEmptyReadHandler)
+	router.Path(LogCacheInfoPath).Methods("GET").HandlerFunc(h.logCacheInfoHandler)
+	router.Path(LogCacheReadPath).Methods("GET").HandlerFunc(h.logCacheEmptyReadHandler)
 }

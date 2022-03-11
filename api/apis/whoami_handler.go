@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	WhoAmIEndpoint = "/whoami"
+	WhoAmIPath = "/whoami"
 )
 
 //counterfeiter:generate -o fake -fake-name IdentityProvider . IdentityProvider
@@ -47,5 +47,5 @@ func (h *WhoAmIHandler) whoAmIHandler(authInfo authorization.Info, r *http.Reque
 
 func (h *WhoAmIHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(WhoAmIEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.whoAmIHandler))
+	router.Path(WhoAmIPath).Methods("GET").HandlerFunc(w.Wrap(h.whoAmIHandler))
 }

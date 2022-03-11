@@ -18,9 +18,8 @@ import (
 )
 
 const (
-	ServiceBindingCreateEndpoint  = "/v3/service_credential_bindings"
-	ServiceBindingsListEndpoint   = "/v3/service_credential_bindings"
-	ServiceBindingsDeleteEndpoint = "/v3/service_credential_bindings/{guid}"
+	ServiceBindingsPath = "/v3/service_credential_bindings"
+	ServiceBindingPath  = "/v3/service_credential_bindings/{guid}"
 )
 
 type ServiceBindingHandler struct {
@@ -167,9 +166,9 @@ func (h *ServiceBindingHandler) writeErrorResponse(err error, action, resourceTy
 
 func (h *ServiceBindingHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(ServiceBindingCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.createHandler))
-	router.Path(ServiceBindingsListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.listHandler))
-	router.Path(ServiceBindingsDeleteEndpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.deleteHandler))
+	router.Path(ServiceBindingsPath).Methods("POST").HandlerFunc(w.Wrap(h.createHandler))
+	router.Path(ServiceBindingsPath).Methods("GET").HandlerFunc(w.Wrap(h.listHandler))
+	router.Path(ServiceBindingPath).Methods("DELETE").HandlerFunc(w.Wrap(h.deleteHandler))
 }
 
 // TODO: Separate commit/PR to move this function into shared.go and refactor all the handlers

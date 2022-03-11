@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	RolesEndpoint = "/v3/roles"
+	RolesPath = "/v3/roles"
 )
 
 type RoleName string
@@ -94,5 +94,5 @@ func (h *RoleHandler) roleCreateHandler(authInfo authorization.Info, r *http.Req
 
 func (h *RoleHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(RolesEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.roleCreateHandler))
+	router.Path(RolesPath).Methods("POST").HandlerFunc(w.Wrap(h.roleCreateHandler))
 }
