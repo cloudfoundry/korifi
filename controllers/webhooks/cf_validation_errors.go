@@ -20,6 +20,7 @@ const (
 	DuplicateOrgNameError
 	DuplicateSpaceNameError
 	DuplicateRouteError
+	DuplicateDomainError
 	DuplicateServiceInstanceNameError
 )
 
@@ -53,6 +54,8 @@ func (w ValidationErrorCode) GetMessage() string {
 		return "Space with same name exists"
 	case DuplicateRouteError:
 		return "Route with same FQDN and path exists"
+	case DuplicateDomainError:
+		return "Overlapping domain exists"
 	case DuplicateServiceInstanceNameError:
 		return "CFServiceInstance with same spec.name exists"
 	default:

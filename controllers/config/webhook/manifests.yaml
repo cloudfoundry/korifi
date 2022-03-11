@@ -121,6 +121,26 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-cloudfoundry-org-v1alpha1-cfdomain
+  failurePolicy: Fail
+  name: vcfdomain.kb.io
+  rules:
+  - apiGroups:
+    - networking.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfdomains
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
   - v1beta1
   clientConfig:
     service:
