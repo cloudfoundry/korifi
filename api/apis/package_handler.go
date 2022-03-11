@@ -20,11 +20,10 @@ import (
 )
 
 const (
-	PackageGetEndpoint          = "/v3/packages/{guid}"
-	PackageListEndpoint         = "/v3/packages"
-	PackageCreateEndpoint       = "/v3/packages"
-	PackageUploadEndpoint       = "/v3/packages/{guid}/upload"
-	PackageListDropletsEndpoint = "/v3/packages/{guid}/droplets"
+	PackagePath         = "/v3/packages/{guid}"
+	PackagesPath        = "/v3/packages"
+	PackageUploadPath   = "/v3/packages/{guid}/upload"
+	PackageDropletsPath = "/v3/packages/{guid}/droplets"
 )
 
 //counterfeiter:generate -o fake -fake-name CFPackageRepository . CFPackageRepository
@@ -281,9 +280,9 @@ func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, 
 
 func (h *PackageHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(PackageGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.packageGetHandler))
-	router.Path(PackageListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.packageListHandler))
-	router.Path(PackageCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.packageCreateHandler))
-	router.Path(PackageUploadEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.packageUploadHandler))
-	router.Path(PackageListDropletsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.packageListDropletsHandler))
+	router.Path(PackagePath).Methods("GET").HandlerFunc(w.Wrap(h.packageGetHandler))
+	router.Path(PackagesPath).Methods("GET").HandlerFunc(w.Wrap(h.packageListHandler))
+	router.Path(PackagesPath).Methods("POST").HandlerFunc(w.Wrap(h.packageCreateHandler))
+	router.Path(PackageUploadPath).Methods("POST").HandlerFunc(w.Wrap(h.packageUploadHandler))
+	router.Path(PackageDropletsPath).Methods("GET").HandlerFunc(w.Wrap(h.packageListDropletsHandler))
 }

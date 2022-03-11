@@ -18,12 +18,9 @@ import (
 )
 
 const (
-	RouteGetEndpoint             = "/v3/routes/{guid}"
-	RouteGetListEndpoint         = "/v3/routes"
-	RouteGetDestinationsEndpoint = "/v3/routes/{guid}/destinations"
-	RouteCreateEndpoint          = "/v3/routes"
-	RouteDeleteEndpoint          = "/v3/routes/{guid}"
-	RouteAddDestinationsEndpoint = "/v3/routes/{guid}/destinations"
+	RoutePath             = "/v3/routes/{guid}"
+	RoutesPath            = "/v3/routes"
+	RouteDestinationsPath = "/v3/routes/{guid}/destinations"
 )
 
 //counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository
@@ -291,12 +288,12 @@ func (h *RouteHandler) routeDeleteHandler(authInfo authorization.Info, r *http.R
 
 func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(RouteGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.routeGetHandler))
-	router.Path(RouteGetListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.routeGetListHandler))
-	router.Path(RouteGetDestinationsEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.routeGetDestinationsHandler))
-	router.Path(RouteCreateEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.routeCreateHandler))
-	router.Path(RouteDeleteEndpoint).Methods("DELETE").HandlerFunc(w.Wrap(h.routeDeleteHandler))
-	router.Path(RouteAddDestinationsEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.routeAddDestinationsHandler))
+	router.Path(RoutePath).Methods("GET").HandlerFunc(w.Wrap(h.routeGetHandler))
+	router.Path(RoutesPath).Methods("GET").HandlerFunc(w.Wrap(h.routeGetListHandler))
+	router.Path(RouteDestinationsPath).Methods("GET").HandlerFunc(w.Wrap(h.routeGetDestinationsHandler))
+	router.Path(RoutesPath).Methods("POST").HandlerFunc(w.Wrap(h.routeCreateHandler))
+	router.Path(RoutePath).Methods("DELETE").HandlerFunc(w.Wrap(h.routeDeleteHandler))
+	router.Path(RouteDestinationsPath).Methods("POST").HandlerFunc(w.Wrap(h.routeAddDestinationsHandler))
 }
 
 // Fetch Route and compose related Domain information within

@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	JobGetEndpoint    = "/v3/jobs/{guid}"
+	JobPath           = "/v3/jobs/{guid}"
 	syncSpacePrefix   = "space.apply_manifest"
 	appDeletePrefix   = "app.delete"
 	orgDeletePrefix   = "org.delete"
@@ -65,7 +65,7 @@ func (h *JobHandler) jobGetHandler(_ authorization.Info, r *http.Request) (*Hand
 
 func (h *JobHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(JobGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.jobGetHandler))
+	router.Path(JobPath).Methods("GET").HandlerFunc(w.Wrap(h.jobGetHandler))
 }
 
 func parseJobGUID(jobGUID string) (string, string, bool) {

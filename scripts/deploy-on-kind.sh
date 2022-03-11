@@ -32,6 +32,9 @@ flags:
       the API shim. (This will fail unless the script is
       being re-run.)
 
+  -d, --default-domain
+      Creates the vcap.me CF domain.
+
 EOF
   exit 1
 }
@@ -40,38 +43,43 @@ cluster=""
 use_local_registry=""
 controllers_only=""
 api_only=""
+default_domain=""
 while [[ $# -gt 0 ]]; do
   i=$1
   case $i in
-  -l | --use-local-registry)
-    use_local_registry="true"
-    shift
-    ;;
-  -c | --controllers-only)
-    controllers_only="true"
-    shift
-    ;;
-  -a | --api-only)
-    api_only="true"
-    shift
-    ;;
-  -v | --verbose)
-    set -x
-    shift
-    ;;
-  -h | --help | help)
-    usage_text >&2
-    exit 0
-    ;;
-  *)
-    if [[ -n "${cluster}" ]]; then
-      echo -e "Error: Unexpected argument: ${i/=*/}\n" >&2
+    -l | --use-local-registry)
+      use_local_registry="true"
+      shift
+      ;;
+    -c | --controllers-only)
+      controllers_only="true"
+      shift
+      ;;
+    -a | --api-only)
+      api_only="true"
+      shift
+      ;;
+    -d | --default-domain)
+      default_domain="true"
+      shift
+      ;;
+    -v | --verbose)
+      set -x
+      shift
+      ;;
+    -h | --help | help)
       usage_text >&2
-      exit 1
-    fi
-    cluster=$1
-    shift
-    ;;
+      exit 0
+      ;;
+    *)
+      if [[ -n "${cluster}" ]]; then
+        echo -e "Error: Unexpected argument: ${i/=*/}\n" >&2
+        usage_text >&2
+        exit 1
+      fi
+      cluster=$1
+      shift
+      ;;
   esac
 done
 
@@ -241,6 +249,10 @@ function deploy_cf_k8s_controllers() {
     create_tls_secret "cf-k8s-workloads-ingress-cert" "cf-k8s-controllers-system" "*.vcap.me"
   }
   popd >/dev/null
+
+  if [[ -n "${default_domain}" ]]; then
+    kubectl apply -f "${CONTROLLER_DIR}/config/samples/cfdomain.yaml"
+  fi
 }
 
 function deploy_cf_k8s_api() {

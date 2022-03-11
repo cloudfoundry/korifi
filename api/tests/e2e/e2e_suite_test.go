@@ -422,7 +422,7 @@ func asyncCreateSpace(spaceName, orgGUID string, createdSpaceGUID *string, wg *s
 // createRole creates an org or space role
 // You should probably invoke this via createOrgRole or createSpaceRole
 func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) {
-	rolesURL := apiServerRoot + apis.RolesEndpoint
+	rolesURL := apiServerRoot + apis.RolesPath
 
 	userOrServiceAccount := "user"
 	if kind == rbacv1.ServiceAccountKind {

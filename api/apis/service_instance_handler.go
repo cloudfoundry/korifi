@@ -26,9 +26,8 @@ import (
 )
 
 const (
-	ServiceInstanceCreateEndpoint = "/v3/service_instances"
-	ServiceInstanceListEndpoint   = "/v3/service_instances"
-	ServiceInstanceDeleteEndpoint = "/v3/service_instances/{guid}"
+	ServiceInstancesPath = "/v3/service_instances"
+	ServiceInstancePath  = "/v3/service_instances/{guid}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServiceInstanceRepository . CFServiceInstanceRepository
@@ -204,7 +203,7 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authoriza
 
 func (h *ServiceInstanceHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(ServiceInstanceCreateEndpoint).Methods(http.MethodPost).HandlerFunc(w.Wrap(h.serviceInstanceCreateHandler))
-	router.Path(ServiceInstanceListEndpoint).Methods(http.MethodGet).HandlerFunc(w.Wrap(h.serviceInstanceListHandler))
-	router.Path(ServiceInstanceDeleteEndpoint).Methods(http.MethodDelete).HandlerFunc(w.Wrap(h.serviceInstanceDeleteHandler))
+	router.Path(ServiceInstancesPath).Methods(http.MethodPost).HandlerFunc(w.Wrap(h.serviceInstanceCreateHandler))
+	router.Path(ServiceInstancesPath).Methods(http.MethodGet).HandlerFunc(w.Wrap(h.serviceInstanceListHandler))
+	router.Path(ServiceInstancePath).Methods(http.MethodDelete).HandlerFunc(w.Wrap(h.serviceInstanceDeleteHandler))
 }

@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	BuildpackListEndpoint = "/v3/buildpacks"
+	BuildpacksPath = "/v3/buildpacks"
 )
 
 //counterfeiter:generate -o fake -fake-name BuildpackRepository . BuildpackRepository
@@ -87,5 +87,5 @@ func (h *BuildpackHandler) buildpackListHandler(authInfo authorization.Info, r *
 
 func (h *BuildpackHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(BuildpackListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.buildpackListHandler))
+	router.Path(BuildpacksPath).Methods("GET").HandlerFunc(w.Wrap(h.buildpackListHandler))
 }

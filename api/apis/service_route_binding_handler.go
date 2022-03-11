@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	ServiceRouteBindingsListEndpoint = "/v3/service_route_bindings"
+	ServiceRouteBindingsPath = "/v3/service_route_bindings"
 )
 
 type ServiceRouteBindingHandler struct {
@@ -36,5 +36,5 @@ func (h *ServiceRouteBindingHandler) serviceRouteBindingsListHandler(authInfo au
 
 func (h *ServiceRouteBindingHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(ServiceRouteBindingsListEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.serviceRouteBindingsListHandler))
+	router.Path(ServiceRouteBindingsPath).Methods("GET").HandlerFunc(w.Wrap(h.serviceRouteBindingsListHandler))
 }

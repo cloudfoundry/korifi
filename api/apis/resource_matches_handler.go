@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	ResourceMatchesEndpoint = "/v3/resource_matches"
+	ResourceMatchesPath = "/v3/resource_matches"
 )
 
 type ResourceMatchesHandler struct {
@@ -30,5 +30,5 @@ func (h *ResourceMatchesHandler) resourceMatchesPostHandler(_ authorization.Info
 
 func (h *ResourceMatchesHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(ResourceMatchesEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.resourceMatchesPostHandler))
+	router.Path(ResourceMatchesPath).Methods("POST").HandlerFunc(w.Wrap(h.resourceMatchesPostHandler))
 }

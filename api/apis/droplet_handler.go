@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	DropletGetEndpoint = "/v3/droplets/{guid}"
+	DropletPath = "/v3/droplets/{guid}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFDropletRepository . CFDropletRepository
@@ -57,5 +57,5 @@ func (h *DropletHandler) dropletGetHandler(authInfo authorization.Info, r *http.
 
 func (h *DropletHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(DropletGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.dropletGetHandler))
+	router.Path(DropletPath).Methods("GET").HandlerFunc(w.Wrap(h.dropletGetHandler))
 }
