@@ -46,9 +46,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
 type CFAppRepository interface {
 	GetApp(context.Context, authorization.Info, string) (repositories.AppRecord, error)
-	GetAppByNameAndSpace(context.Context, authorization.Info, string, string) (repositories.AppRecord, error)
 	ListApps(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
-	CreateOrPatchAppEnvVars(context.Context, authorization.Info, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	PatchAppEnvVars(context.Context, authorization.Info, repositories.PatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
 	SetCurrentDroplet(context.Context, authorization.Info, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
@@ -68,7 +66,6 @@ type AppHandler struct {
 	processRepo      CFProcessRepository
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
-	podRepo          PodRepository
 	spaceRepo        SpaceRepository
 	scaleAppProcess  ScaleAppProcess
 	decoderValidator *DecoderValidator
@@ -82,7 +79,6 @@ func NewAppHandler(
 	processRepo CFProcessRepository,
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
-	podRepo PodRepository,
 	spaceRepo SpaceRepository,
 	scaleAppProcessFunc ScaleAppProcess,
 	decoderValidator *DecoderValidator,
@@ -96,7 +92,6 @@ func NewAppHandler(
 		routeRepo:        routeRepo,
 		domainRepo:       domainRepo,
 		decoderValidator: decoderValidator,
-		podRepo:          podRepo,
 		spaceRepo:        spaceRepo,
 		scaleAppProcess:  scaleAppProcessFunc,
 	}

@@ -34,11 +34,6 @@ type CFProcessRepository interface {
 	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)
 }
 
-//counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
-type PodRepository interface {
-	ListPodStats(context.Context, authorization.Info, repositories.ListPodStatsMessage) ([]repositories.PodStatsRecord, error)
-}
-
 //counterfeiter:generate -o fake -fake-name ScaleProcess . ScaleProcess
 type ScaleProcess func(ctx context.Context, authInfo authorization.Info, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
 

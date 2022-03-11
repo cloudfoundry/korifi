@@ -46,14 +46,12 @@ type BuildRecord struct {
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds/status,verbs=get
 
 type BuildRepo struct {
-	privilegedClient   client.Client
 	namespaceRetriever NamespaceRetriever
 	userClientFactory  UserK8sClientFactory
 }
 
-func NewBuildRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory) *BuildRepo {
+func NewBuildRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory) *BuildRepo {
 	return &BuildRepo{
-		privilegedClient:   privilegedClient,
 		namespaceRetriever: namespaceRetriever,
 		userClientFactory:  userClientFactory,
 	}

@@ -23,7 +23,7 @@ var _ = Describe("BuildRepository", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 
-		buildRepo = repositories.NewBuildRepo(k8sClient, namespaceRetriever, userClientFactory)
+		buildRepo = repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
 	})
 
 	Describe("GetBuild", func() {

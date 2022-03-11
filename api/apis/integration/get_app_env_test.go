@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -30,7 +28,6 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 		processRepo := repositories.NewProcessRepo(k8sClient, namespaceRetriever, clientFactory)
 		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory)
 		dropletRepo := repositories.NewDropletRepo(k8sClient, namespaceRetriever, clientFactory)
-		podRepo := repositories.NewPodRepo(clientFactory, new(fake.MetricsFetcherFn).Spy)
 		orgRepo := repositories.NewOrgRepo("root-ns", k8sClient, clientFactory, nsPermissions, time.Minute, true)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
@@ -45,7 +42,6 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 			processRepo,
 			routeRepo,
 			domainRepo,
-			podRepo,
 			orgRepo,
 			scaleAppProcess,
 			decoderValidator,
