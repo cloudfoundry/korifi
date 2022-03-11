@@ -21,6 +21,10 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	"k8s.io/client-go/kubernetes/scheme"
+	controllerruntime "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
@@ -32,11 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
@@ -189,12 +189,26 @@ func TestE2E(t *testing.T) {
 	RunSpecs(t, "E2E Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = SynchronizedBeforeSuite(func() []byte {
+	Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+
+	config, err := controllerruntime.GetConfig()
+	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient, err = client.NewWithWatch(config, client.Options{Scheme: scheme.Scheme})
+	Expect(err).NotTo(HaveOccurred())
+
+	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
+	appFQDN = mustHaveEnv("APP_FQDN")
+
+	appDomainGUID = createDomain(appFQDN)
+
+	return []byte(appDomainGUID)
+}, func(appDomainGUIDBytes []byte) {
 	SetDefaultEventuallyTimeout(240 * time.Second)
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
 
 	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
-	appFQDN = mustHaveEnv("APP_FQDN")
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
@@ -243,7 +257,7 @@ var _ = BeforeSuite(func() {
 		}),
 	).To(Succeed())
 
-	appDomainGUID = createDomain(appFQDN)
+	appDomainGUID = string(appDomainGUIDBytes)
 })
 
 var _ = BeforeEach(func() {
@@ -253,10 +267,11 @@ var _ = BeforeEach(func() {
 	tokenClient = resty.New().SetBaseURL(apiServerRoot).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 })
 
-var _ = AfterSuite(func() {
-	deleteDomain(appDomainGUID)
+var _ = SynchronizedAfterSuite(func() {
 	deleteServiceAccount(serviceAccountName)
 	deleteCSR(certSigningReq)
+}, func() {
+	deleteDomain(appDomainGUID)
 })
 
 func mustHaveEnv(key string) string {
