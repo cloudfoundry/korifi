@@ -21,11 +21,13 @@ var _ = Describe("Role", func() {
 	)
 
 	BeforeEach(func() {
+		// NOTE: This creates an arbitrary mapping that is not representative of production mapping
 		roleMappings := map[string]config.Role{
 			"space_developer":      {Name: "cf-space-developer"},
 			"organization_manager": {Name: "cf-organization-manager"},
+			"cf_user":              {Name: "cf-user"},
 		}
-		roleRepo := repositories.NewRoleRepo(k8sClient, clientFactory, nsPermissions, roleMappings)
+		roleRepo := repositories.NewRoleRepo(k8sClient, clientFactory, nsPermissions, rootNamespace, roleMappings)
 		decoderValidator, err := apis.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
