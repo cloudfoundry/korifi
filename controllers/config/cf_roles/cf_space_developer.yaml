@@ -37,6 +37,7 @@ rules:
   - cfprocesses
   verbs:
   - get
+  - list
 
 - apiGroups:
   - workloads.cloudfoundry.org

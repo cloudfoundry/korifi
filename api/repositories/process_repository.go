@@ -197,8 +197,13 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 func (r *ProcessRepo) GetProcessByAppTypeAndSpace(ctx context.Context, authInfo authorization.Info, appGUID, processType, spaceGUID string) (ProcessRecord, error) {
 	// Could narrow down process results via AppGUID label, but that is set up by a webhook that isn't configured in our integration tests
 	// For now, don't use labels
+	userClient, err := r.clientFactory.BuildClient(authInfo)
+	if err != nil {
+		return ProcessRecord{}, fmt.Errorf("get-process-by-app-type-and-space: failed to build user k8s client: %w", err)
+	}
+
 	var processList workloadsv1alpha1.CFProcessList
-	err := r.privilegedClient.List(ctx, &processList, client.InNamespace(spaceGUID))
+	err = userClient.List(ctx, &processList, client.InNamespace(spaceGUID))
 	if err != nil {
 		return ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
 	}
@@ -209,6 +214,7 @@ func (r *ProcessRepo) GetProcessByAppTypeAndSpace(ctx context.Context, authInfo 
 			matches = append(matches, process)
 		}
 	}
+
 	return returnProcess(matches)
 }
 
