@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -141,20 +142,9 @@ var _ = Describe("DropletHandler", func() {
 			})
 		})
 
-		When("the droplet cannot be found", func() {
-			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewNotFoundError(repositories.DropletResourceType, nil))
-				router.ServeHTTP(rr, req)
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("Droplet not found")
-			})
-		})
-
 		When("access to the droplet is forbidden", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError(repositories.DropletResourceType, nil))
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, apierrors.NewForbiddenError(nil, repositories.DropletResourceType))
 				router.ServeHTTP(rr, req)
 			})
 

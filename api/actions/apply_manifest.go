@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -32,7 +33,7 @@ func (a *ApplyManifest) Invoke(ctx context.Context, authInfo authorization.Info,
 	exists := true
 	appRecord, err := a.appRepo.GetAppByNameAndSpace(ctx, authInfo, appInfo.Name, spaceGUID)
 	if err != nil {
-		if !errors.As(err, new(repositories.NotFoundError)) {
+		if !errors.As(err, new(apierrors.NotFoundError)) {
 			return err
 		}
 		exists = false
@@ -101,7 +102,7 @@ func (a *ApplyManifest) updateApp(ctx context.Context, authInfo authorization.In
 		var process repositories.ProcessRecord
 		process, err = a.processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, appRecord.GUID, processInfo.Type, spaceGUID)
 		if err != nil {
-			if errors.As(err, new(repositories.NotFoundError)) {
+			if errors.As(err, new(apierrors.NotFoundError)) {
 				exists = false
 			} else {
 				return err
@@ -160,6 +161,7 @@ func (a *ApplyManifest) createOrUpdateRoutes(ctx context.Context, authInfo autho
 			SpaceGUID:       appRecord.SpaceGUID,
 			DomainGUID:      domainRecord.GUID,
 			DomainNamespace: domainRecord.Namespace,
+			DomainName:      domainRecord.Name,
 		})
 	if err != nil {
 		return fmt.Errorf("createOrUpdateRoutes: %w", err)

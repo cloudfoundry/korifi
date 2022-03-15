@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -67,13 +66,12 @@ func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info,
 	}
 
 	if err := h.applyManifestAction(r.Context(), authInfo, spaceGUID, h.defaultDomainName, manifest); err != nil {
-		if errors.As(err, &repositories.NotFoundError{}) {
-			h.logger.Info("Domain not found", "error: ", err.Error())
-			return nil, apierrors.NewUnprocessableEntityError(err, "The configured default domain `"+h.defaultDomainName+"` was not found")
-		}
-
 		h.logger.Error(err, "Error applying manifest")
-		return nil, err
+		return nil, apierrors.AsUnprocessibleEntity(
+			err,
+			fmt.Sprintf("The configured default domain %q was not found", h.defaultDomainName),
+			apierrors.NotFoundError{},
+		)
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).
@@ -85,11 +83,7 @@ func (h *SpaceManifestHandler) diffManifestHandler(authInfo authorization.Info, 
 	spaceGUID := vars["spaceGUID"]
 
 	if _, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID); err != nil {
-		var notFoundErr repositories.NotFoundError
-		if errors.As(err, &notFoundErr) {
-			return nil, apierrors.NewNotFoundError(err, notFoundErr.ResourceType())
-		}
-
+		h.logger.Error(err, "failed to get space", "guid", spaceGUID)
 		return nil, err
 	}
 

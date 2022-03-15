@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,7 +57,6 @@ func NewBuildRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK
 	}
 }
 
-// nolint: dupl
 func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, buildGUID string) (BuildRecord, error) {
 	ns, err := b.namespaceRetriever.NamespaceFor(ctx, buildGUID, BuildResourceType)
 	if err != nil {
@@ -71,10 +70,7 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 
 	build := workloadsv1alpha1.CFBuild{}
 	if err := userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: buildGUID}, &build); err != nil {
-		if k8serrors.IsForbidden(err) {
-			return BuildRecord{}, NewForbiddenError(BuildResourceType, err)
-		}
-		return BuildRecord{}, fmt.Errorf("failed to get build: %w", err)
+		return BuildRecord{}, fmt.Errorf("failed to get build: %w", apierrors.FromK8sError(err, BuildResourceType))
 	}
 
 	return cfBuildToBuildRecord(build), nil
@@ -135,10 +131,7 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info
 	}
 
 	if err := userClient.Create(ctx, &cfBuild); err != nil {
-		if k8serrors.IsForbidden(err) {
-			return BuildRecord{}, NewForbiddenError(BuildResourceType, err)
-		}
-		return BuildRecord{}, err
+		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
 	return cfBuildToBuildRecord(cfBuild), nil
 }

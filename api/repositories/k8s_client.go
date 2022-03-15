@@ -2,11 +2,12 @@ package repositories
 
 import (
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -51,7 +52,7 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 		config.KeyData = pem.EncodeToMemory(keyBlock)
 
 	default:
-		return nil, authorization.NotAuthenticatedError{}
+		return nil, apierrors.NewNotAuthenticatedError(errors.New("unsupported Authorization header scheme"))
 	}
 
 	userClient, err := client.NewWithWatch(config, client.Options{
@@ -59,10 +60,7 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 		Mapper: f.mapper,
 	})
 	if err != nil {
-		if k8serrors.IsUnauthorized(err) {
-			return nil, authorization.InvalidAuthError{}
-		}
-		return nil, err
+		return nil, apierrors.FromK8sError(err, "")
 	}
 
 	return userClient, nil

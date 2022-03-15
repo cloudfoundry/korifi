@@ -7,9 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	. "github.com/onsi/gomega/gstruct"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
@@ -97,7 +96,7 @@ var _ = Describe("RouteHandler", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
 
-			It("provides the authorization.Info from the context to the domain repository", func() {
+			It("provides the apierrors.Info from the context to the domain repository", func() {
 				Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
 				_, actualAuthInfo, _ := domainRepo.GetDomainArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
@@ -167,9 +166,9 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("the route cannot be found", func() {
+		When("the route is not accessible", func() {
 			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NewNotFoundError(repositories.RouteResourceType, errors.New("internal-error-that-shouldn't-leak")))
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, apierrors.NewForbiddenError(nil, repositories.RouteResourceType))
 			})
 
 			It("returns an error", func() {
@@ -177,9 +176,9 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("the route's domain cannot be found", func() {
+		When("the route's domain is not accessible", func() {
 			BeforeEach(func() {
-				domainRepo.GetDomainReturns(repositories.DomainRecord{}, repositories.NewNotFoundError(repositories.DomainResourceType, errors.New("not found")))
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, apierrors.NewForbiddenError(nil, repositories.DomainResourceType))
 			})
 
 			It("returns an error", func() {
@@ -187,19 +186,19 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("the route is not accessible", func() {
-			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NewForbiddenError(repositories.RouteResourceType, nil))
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("Route not found")
-			})
-		})
-
 		When("there is some other error fetching the route", func() {
 			BeforeEach(func() {
 				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("there is some other error fetching the domain", func() {
+			BeforeEach(func() {
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -246,13 +245,13 @@ var _ = Describe("RouteHandler", func() {
 		})
 
 		When("on the happy path", func() {
-			It("provides the authorization.Info from the context to the domain repository", func() {
+			It("provides the apierrors.Info from the context to the domain repository", func() {
 				Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
 				_, actualAuthInfo, _ := domainRepo.GetDomainArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
-			It("provides the authorization.Info from the context to the routes repository", func() {
+			It("provides the apierrors.Info from the context to the routes repository", func() {
 				Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
 				_, actualAuthInfo, _ := routeRepo.ListRoutesArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
@@ -519,16 +518,6 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("the domain cannot be found", func() {
-			BeforeEach(func() {
-				domainRepo.GetDomainReturns(repositories.DomainRecord{}, repositories.NewNotFoundError(repositories.DomainResourceType, nil))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
 		When("there is a failure finding a Domain", func() {
 			BeforeEach(func() {
 				domainRepo.GetDomainReturns(repositories.DomainRecord{}, errors.New("unknown!"))
@@ -546,36 +535,6 @@ var _ = Describe("RouteHandler", func() {
 
 			It("returns an Unknown key error", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, space_guids, domain_guids, hosts, paths'")
-			})
-		})
-
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				routeRepo.ListRoutesReturns([]repositories.RouteRecord{}, authorization.InvalidAuthError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-	                "errors": [
-						{
-							"detail": "Invalid Auth Token",
-							"title": "CF-InvalidAuthToken",
-							"code": 1000
-						}
-	                ]
-	            }`))
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				routeRepo.ListRoutesReturns([]repositories.RouteRecord{}, authorization.NotAuthenticatedError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				expectNotAuthenticatedError()
 			})
 		})
 	})
@@ -624,13 +583,13 @@ var _ = Describe("RouteHandler", func() {
 					Expect(actualDomainGUID).To(Equal(testDomainGUID), "GetDomain was not passed the correct GUID")
 				})
 
-				It("provides the authorization.Info from the context to the domain repository", func() {
+				It("provides the apierrors.Info from the context to the domain repository", func() {
 					Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
 					_, actualAuthInfo, _ := domainRepo.GetDomainArgsForCall(0)
 					Expect(actualAuthInfo).To(Equal(authInfo))
 				})
 
-				It("provides the authorization.Info from the context to the routes repository", func() {
+				It("provides the apierrors.Info from the context to the routes repository", func() {
 					Expect(routeRepo.CreateRouteCallCount()).To(Equal(1))
 					_, actualAuthInfo, _ := routeRepo.CreateRouteArgsForCall(0)
 					Expect(actualAuthInfo).To(Equal(authInfo))
@@ -913,7 +872,7 @@ var _ = Describe("RouteHandler", func() {
 		When("the space does not exist", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{},
-					repositories.NewNotFoundError(repositories.SpaceResourceType, errors.New("not found")))
+					apierrors.NewNotFoundError(errors.New("not found"), repositories.SpaceResourceType))
 
 				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, "no-such-space", testDomainGUID, nil, nil)
 			})
@@ -938,7 +897,7 @@ var _ = Describe("RouteHandler", func() {
 
 		When("the domain does not exist", func() {
 			BeforeEach(func() {
-				domainRepo.GetDomainReturns(repositories.DomainRecord{}, repositories.NewNotFoundError(repositories.DomainResourceType, nil))
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, apierrors.NewNotFoundError(nil, repositories.DomainResourceType))
 				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, testSpaceGUID, "no-such-domain", nil, nil)
 			})
 
@@ -958,42 +917,6 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("CreateRoute returns an already exists error", func() {
-			BeforeEach(func() {
-				routeRepo.CreateRouteReturns(repositories.RouteRecord{}, repositories.NewDuplicateError(repositories.RouteResourceType, nil))
-			})
-
-			It("returns a duplicate resource error", func() {
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-                    "errors": [
-                        {
-                            "title": "CF-UnprocessableEntity",
-                            "detail": "Route already exists with host 'test-route-host' and path '/test-route-path' for domain 'test-domain-name'.",
-                            "code": 10008
-                        }
-                    ]
-                }`)))
-			})
-
-			When("the route path is not set", func() {
-				BeforeEach(func() {
-					requestBody = initializeCreateRouteRequestBody(testRouteHost, "", testSpaceGUID, testDomainGUID, nil, nil)
-				})
-
-				It("returns a duplicate resource error", func() {
-					Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-                    "errors": [
-                        {
-                            "title": "CF-UnprocessableEntity",
-                            "detail": "Route already exists with host 'test-route-host' for domain 'test-domain-name'.",
-                            "code": 10008
-                        }
-                    ]
-                }`)))
-				})
-			})
-		})
-
 		When("CreateRoute returns an unknown error", func() {
 			BeforeEach(func() {
 				routeRepo.CreateRouteReturns(repositories.RouteRecord{},
@@ -1004,36 +927,6 @@ var _ = Describe("RouteHandler", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
-			})
-		})
-
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				routeRepo.CreateRouteReturns(repositories.RouteRecord{}, authorization.InvalidAuthError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-	                "errors": [
-						{
-							"detail": "Invalid Auth Token",
-							"title": "CF-InvalidAuthToken",
-							"code": 1000
-						}
-	                ]
-	            }`))
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				routeRepo.CreateRouteReturns(repositories.RouteRecord{}, authorization.NotAuthenticatedError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				expectNotAuthenticatedError()
 			})
 		})
 	})
@@ -1082,7 +975,7 @@ var _ = Describe("RouteHandler", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 				})
 
-				It("provides the authorization.Info from the context to the routes repository", func() {
+				It("provides the apierrors.Info from the context to the routes repository", func() {
 					Expect(routeRepo.GetRouteCallCount()).To(Equal(1))
 					_, actualAuthInfo, _ := routeRepo.GetRouteArgsForCall(0)
 					Expect(actualAuthInfo).To(Equal(authInfo))
@@ -1181,9 +1074,9 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("the route cannot be found", func() {
+		When("the route is not accessible", func() {
 			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NewNotFoundError(repositories.RouteResourceType, errors.New("not found")))
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, apierrors.NewForbiddenError(nil, repositories.RouteResourceType))
 			})
 
 			It("returns an error", func() {
@@ -1201,33 +1094,23 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("authentication is invalid", func() {
+		When("the domain is not accessible", func() {
 			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.InvalidAuthError{})
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, apierrors.NewForbiddenError(nil, repositories.RouteResourceType))
 			})
 
-			It("returns Unauthorized error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-	                "errors": [
-						{
-							"detail": "Invalid Auth Token",
-							"title": "CF-InvalidAuthToken",
-							"code": 1000
-						}
-	                ]
-	            }`))
+			It("returns an error", func() {
+				expectNotFoundError("Route not found")
 			})
 		})
 
-		When("authentication is not provided", func() {
+		When("there is some other issue fetching the domain", func() {
 			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.NotAuthenticatedError{})
+				domainRepo.GetDomainReturns(repositories.DomainRecord{}, errors.New("unknown!"))
 			})
 
-			It("returns Unauthorized error", func() {
-				expectNotAuthenticatedError()
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -1399,7 +1282,7 @@ var _ = Describe("RouteHandler", func() {
 
 			When("the route doesn't exist", func() {
 				BeforeEach(func() {
-					routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NewNotFoundError(repositories.RouteResourceType, nil))
+					routeRepo.GetRouteReturns(repositories.RouteRecord{}, apierrors.NewNotFoundError(nil, repositories.RouteResourceType))
 				})
 
 				It("responds with 404 and an error", func() {
@@ -1476,43 +1359,13 @@ var _ = Describe("RouteHandler", func() {
 				})
 			})
 
-			When("authentication is invalid", func() {
+			When("adding a destination fails", func() {
 				BeforeEach(func() {
-					routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.InvalidAuthError{})
+					routeRepo.AddDestinationsToRouteReturns(repositories.RouteRecord{}, errors.New("failed"))
 				})
 
-				It("returns Unauthorized error", func() {
-					Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
-					Expect(rr.Body.String()).To(MatchJSON(`{
-	                "errors": [
-						{
-							"detail": "Invalid Auth Token",
-							"title": "CF-InvalidAuthToken",
-							"code": 1000
-						}
-	                ]
-	            }`))
-				})
-			})
-
-			When("authentication is not provided", func() {
-				BeforeEach(func() {
-					routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.NotAuthenticatedError{})
-				})
-
-				It("returns Unauthorized error", func() {
-					expectNotAuthenticatedError()
-				})
-			})
-
-			When("user is not allowed to create a route", func() {
-				BeforeEach(func() {
-					routeRepo.AddDestinationsToRouteReturns(repositories.RouteRecord{}, repositories.NewForbiddenError(repositories.RouteResourceType, errors.New("nope")))
-				})
-
-				It("returns an unauthorised error", func() {
-					expectNotAuthorizedError()
+				It("returns an error", func() {
+					expectUnknownError()
 				})
 			})
 		})
@@ -1677,56 +1530,6 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.InvalidAuthError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-			                "errors": [
-								{
-									"detail": "Invalid Auth Token",
-									"title": "CF-InvalidAuthToken",
-									"code": 1000
-								}
-			                ]
-			            }`))
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, authorization.NotAuthenticatedError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
-		When("providing the route repository fails", func() {
-			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("space-repo-provisioning-failed"))
-			})
-
-			It("returns unknown error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("the route doesn't exist", func() {
-			BeforeEach(func() {
-				routeRepo.GetRouteReturns(repositories.RouteRecord{}, repositories.NewNotFoundError(repositories.RouteResourceType, nil))
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("Route not found")
-			})
-		})
-
 		When("fetching the route errors", func() {
 			BeforeEach(func() {
 				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
@@ -1734,16 +1537,6 @@ var _ = Describe("RouteHandler", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
-			})
-		})
-
-		When("deleting the route is not authorized", func() {
-			BeforeEach(func() {
-				routeRepo.DeleteRouteReturns(repositories.NewForbiddenError(repositories.RouteResourceType, errors.New("boom")))
-			})
-
-			It("returns a 403 error", func() {
-				expectNotAuthorizedError()
 			})
 		})
 

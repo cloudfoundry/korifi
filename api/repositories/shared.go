@@ -3,8 +3,6 @@ package repositories
 import (
 	"errors"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -73,17 +71,4 @@ func matchesFilter(field string, filter []string) bool {
 	}
 
 	return false
-}
-
-func wrapK8sErr(err error, resourceType string) error {
-	switch {
-	case k8serrors.IsNotFound(err):
-		return NewNotFoundError(resourceType, err)
-	case k8serrors.IsForbidden(err):
-		return NewForbiddenError(resourceType, err)
-	case k8serrors.IsUnauthorized(err):
-		return authorization.InvalidAuthError{Err: err}
-	default:
-		return err
-	}
 }

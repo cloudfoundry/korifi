@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -80,13 +79,8 @@ func (h PackageHandler) packageGetHandler(authInfo authorization.Info, r *http.R
 	packageGUID := mux.Vars(r)["guid"]
 	record, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
-		switch {
-		case errors.As(err, new(repositories.NotFoundError)):
-			return nil, apierrors.NewNotFoundError(err, repositories.PackageResourceType)
-		default:
-			h.logger.Info("Error fetching package with repository", "error", err.Error())
-			return nil, err
-		}
+		h.logger.Info("Error fetching package with repository", "error", err.Error())
+		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(record, h.serverURL)), nil
@@ -136,29 +130,19 @@ func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, r *htt
 
 	appRecord, err := h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("App not found", "App GUID", payload.Relationships.App.Data.GUID)
-			return nil, apierrors.NewUnprocessableEntityError(err, "App is invalid. Ensure it exists and you have access to it.")
-		case repositories.ForbiddenError:
-			h.logger.Info("App forbidden", "App GUID", payload.Relationships.App.Data.GUID)
-			return nil, apierrors.NewUnprocessableEntityError(err, "App is invalid. Ensure it exists and you have access to it.")
-		default:
-			h.logger.Info("Error finding App", "App GUID", payload.Relationships.App.Data.GUID)
-			return nil, err
-		}
+		h.logger.Info("Error finding App", "App GUID", payload.Relationships.App.Data.GUID)
+		return nil, apierrors.AsUnprocessibleEntity(
+			err,
+			"App is invalid. Ensure it exists and you have access to it.",
+			apierrors.NotFoundError{},
+			apierrors.ForbiddenError{},
+		)
 	}
 
 	record, err := h.packageRepo.CreatePackage(r.Context(), authInfo, payload.ToMessage(appRecord))
 	if err != nil {
-		switch err.(type) {
-		case repositories.ForbiddenError:
-			h.logger.Info("Not authorized to create packages", "App Name", payload.Relationships.App, "error", err)
-			return nil, apierrors.NewForbiddenError(err, repositories.PackageResourceType)
-		default:
-			h.logger.Info("Error creating package with repository", "error", err.Error())
-			return nil, err
-		}
+		h.logger.Info("Error creating package with repository", "error", err.Error())
+		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForPackage(record, h.serverURL)), nil
@@ -181,16 +165,8 @@ func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, r *htt
 
 	record, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
-		switch {
-		case errors.As(err, new(repositories.ForbiddenError)):
-			h.logger.Info("Package forbidden", "Package GUID", packageGUID)
-			return nil, apierrors.NewNotFoundError(err, repositories.PackageResourceType)
-		case errors.As(err, new(repositories.NotFoundError)):
-			return nil, apierrors.NewNotFoundError(err, repositories.PackageResourceType)
-		default:
-			h.logger.Info("Error fetching package with repository", "error", err.Error())
-			return nil, err
-		}
+		h.logger.Info("Error fetching package with repository", "error", err.Error())
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	if record.State != repositories.PackageStateAwaitingUpload {
@@ -201,10 +177,6 @@ func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, r *htt
 	imageRef := path.Join(h.registryBase, packageGUID)
 	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, imageRef, bitsFile, record.SpaceGUID)
 	if err != nil {
-		if errors.As(err, new(repositories.ForbiddenError)) {
-			h.logger.Info("not authorized to upload source image", "error", err)
-			return nil, apierrors.NewForbiddenError(err, repositories.SourceImageResourceType)
-		}
 		h.logger.Info("Error calling uploadSourceImage", "error", err.Error())
 		return nil, err
 	}
@@ -216,11 +188,6 @@ func (h PackageHandler) packageUploadHandler(authInfo authorization.Info, r *htt
 		RegistrySecretName: h.registrySecretName,
 	})
 	if err != nil {
-		if errors.As(err, new(repositories.ForbiddenError)) {
-			h.logger.Info("Updating package is forbidden to the user", "Package GUID", packageGUID)
-			return nil, apierrors.NewForbiddenError(err, repositories.PackageResourceType)
-		}
-
 		h.logger.Info("Error calling UpdatePackageSource", "error", err.Error())
 		return nil, err
 	}
@@ -258,13 +225,8 @@ func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, 
 	packageGUID := mux.Vars(r)["guid"]
 	_, err = h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
-		switch {
-		case errors.As(err, new(repositories.NotFoundError)):
-			return nil, apierrors.NewNotFoundError(err, repositories.PackageResourceType)
-		default:
-			h.logger.Info("Error fetching package with repository", "error", err.Error())
-			return nil, err
-		}
+		h.logger.Info("Error fetching package with repository", "error", err.Error())
+		return nil, err
 	}
 
 	dropletListMessage := packageListDropletsQueryParams.ToMessage([]string{packageGUID})

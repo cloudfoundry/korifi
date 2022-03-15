@@ -2,12 +2,9 @@ package apis
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 
 	"github.com/gorilla/schema"
 
@@ -73,40 +70,12 @@ func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authoriza
 	spaceGUID := payload.Relationships.Space.Data.GUID
 	_, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("Namespace not found", "spaceGUID", spaceGUID)
-			return nil, apierrors.NewUnprocessableEntityError(err, "Invalid space. Ensure that the space exists and you have access to it.")
-		default:
-			h.logger.Error(err, "Failed to fetch namespace from Kubernetes", "spaceGUID", spaceGUID)
-			return nil, err
-		}
+		h.logger.Error(err, "Failed to fetch namespace from Kubernetes", "spaceGUID", spaceGUID)
+		return nil, apierrors.AsUnprocessibleEntity(err, "Invalid space. Ensure that the space exists and you have access to it.", apierrors.NotFoundError{})
 	}
 
 	serviceInstanceRecord, err := h.serviceInstanceRepo.CreateServiceInstance(ctx, authInfo, payload.ToServiceInstanceCreateMessage())
 	if err != nil {
-		if webhooks.HasErrorCode(err, webhooks.DuplicateServiceInstanceNameError) {
-			errorDetail := fmt.Sprintf("The service instance name is taken: %s.", payload.Name)
-			h.logger.Error(err, errorDetail, "Service Instance Name", payload.Name)
-
-			return nil, apierrors.NewUnprocessableEntityError(err, errorDetail)
-		}
-
-		if authorization.IsInvalidAuth(err) {
-			h.logger.Error(err, "unauthorized to create service instance")
-			return nil, apierrors.NewInvalidAuthError(err)
-		}
-
-		if authorization.IsNotAuthenticated(err) {
-			h.logger.Error(err, "unauthorized to create service instance")
-			return nil, apierrors.NewNotAuthenticatedError(err)
-		}
-
-		if repositories.IsForbiddenError(err) {
-			h.logger.Error(err, "not allowed to create service instance")
-			return nil, apierrors.NewForbiddenError(err, repositories.ServiceInstanceResourceType)
-		}
-
 		h.logger.Error(err, "Failed to create service instance", "Service Instance Name", serviceInstanceRecord.Name)
 		return nil, err
 	}
@@ -152,21 +121,6 @@ func (h *ServiceInstanceHandler) serviceInstanceListHandler(authInfo authorizati
 
 	serviceInstanceList, err := h.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, listFilter.ToMessage())
 	if err != nil {
-		if authorization.IsInvalidAuth(err) {
-			h.logger.Error(err, "unauthorized to list service instance")
-			return nil, apierrors.NewInvalidAuthError(err)
-		}
-
-		if authorization.IsNotAuthenticated(err) {
-			h.logger.Error(err, "unauthorized to list service instance")
-			return nil, apierrors.NewNotAuthenticatedError(err)
-		}
-
-		if repositories.IsForbiddenError(err) {
-			h.logger.Error(err, "not allowed to list service instance")
-			return nil, apierrors.NewForbiddenError(err, repositories.ServiceInstanceResourceType)
-		}
-
 		h.logger.Error(err, "Failed to list service instance")
 		return nil, err
 	}
@@ -181,12 +135,8 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authoriza
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, serviceInstanceGUID)
 	if err != nil {
-		if repositories.IsForbiddenError(err) {
-			h.logger.Error(err, "user not allowed to get service instance")
-			return nil, apierrors.NewNotFoundError(err, repositories.ServiceInstanceResourceType)
-		}
-
-		return nil, handleRepoErrors(h.logger, err, repositories.ServiceInstanceResourceType, serviceInstanceGUID)
+		h.logger.Error(err, "failed to get service instance")
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	err = h.serviceInstanceRepo.DeleteServiceInstance(ctx, authInfo, repositories.DeleteServiceInstanceMessage{
@@ -195,7 +145,7 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authoriza
 	})
 	if err != nil {
 		h.logger.Error(err, "error when deleting service instance", "guid", serviceInstanceGUID)
-		return nil, handleRepoErrorsOnWrite(h.logger, err, repositories.ServiceInstanceResourceType, serviceInstanceGUID)
+		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusNoContent), nil

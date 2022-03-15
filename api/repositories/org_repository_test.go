@@ -6,8 +6,10 @@ import (
 	"sort"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	hncv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
@@ -116,7 +119,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the user doesn't have the admin role", func() {
 				It("fails when creating an org", func() {
-					Expect(createErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+					Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 				})
 			})
 
@@ -223,7 +226,7 @@ var _ = Describe("OrgRepository", func() {
 				})
 
 				It("fails when creating a space", func() {
-					Expect(createErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+					Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 				})
 			})
 
@@ -303,7 +306,7 @@ var _ = Describe("OrgRepository", func() {
 					})
 
 					It("returns an error", func() {
-						Expect(createErr).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+						Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 					})
 				})
 
@@ -314,7 +317,7 @@ var _ = Describe("OrgRepository", func() {
 					})
 
 					It("returns an error", func() {
-						Expect(createErr).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+						Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 					})
 				})
 			})
@@ -727,7 +730,7 @@ var _ = Describe("OrgRepository", func() {
 			When("the org isn't found", func() {
 				It("errors", func() {
 					_, err := orgRepo.GetOrg(ctx, authInfo, "non-existent-org")
-					Expect(err).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
 			})
 		})
@@ -813,7 +816,7 @@ var _ = Describe("OrgRepository", func() {
 					err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
 						GUID: orgAnchor.Name,
 					})
-					Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 				})
 
 				When("the org doesn't exist", func() {
@@ -870,7 +873,7 @@ var _ = Describe("OrgRepository", func() {
 						GUID:             spaceAnchor.Name,
 						OrganizationGUID: orgAnchor.Name,
 					})
-					Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 				})
 
 				When("the space doesn't exist", func() {
@@ -879,13 +882,16 @@ var _ = Describe("OrgRepository", func() {
 							GUID:             "non-existent-space",
 							OrganizationGUID: orgAnchor.Name,
 						})
-						Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+						Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 					})
 				})
 			})
 
 			When("auth is disabled and", func() {
 				BeforeEach(func() {
+					mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
+					Expect(err).NotTo(HaveOccurred())
+					userClientFactory = repositories.NewPrivilegedClientFactory(k8sConfig, mapper)
 					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000, false)
 				})
 

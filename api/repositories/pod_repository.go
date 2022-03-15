@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -35,6 +35,7 @@ const (
 	crashedState             = "DOWN"
 	unknownState             = "DOWN"
 	ProcessStatsResourceType = "Process Stats"
+	PodMetricsResourceType   = "Pod Metrics"
 )
 
 type PodRepo struct {
@@ -161,11 +162,7 @@ func (r *PodRepo) listPods(ctx context.Context, authInfo authorization.Info, lis
 	podList := corev1.PodList{}
 	err = userClient.List(ctx, &podList, &listOpts)
 	if err != nil {
-		if k8serrors.IsForbidden(err) {
-			return nil, NewForbiddenError(ProcessStatsResourceType, err)
-		}
-
-		return nil, fmt.Errorf("err in client.List: %w", err)
+		return nil, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, ProcessStatsResourceType))
 	}
 
 	return podList.Items, nil
@@ -306,11 +303,12 @@ func containersRunning(statuses []corev1.ContainerStatus) bool {
 func CreateMetricsFetcher(k8sClientConfig *rest.Config) (MetricsFetcherFn, error) {
 	c, err := versioned.NewForConfig(k8sClientConfig)
 	if err != nil {
-		return nil, err
+		return nil, apierrors.FromK8sError(err, PodMetricsResourceType)
 	}
 
 	return func(ctx context.Context, namespace, name string) (*metricsv1beta1.PodMetrics, error) {
-		return c.MetricsV1beta1().PodMetricses(namespace).Get(ctx, name, v1.GetOptions{})
+		podMetrics, err := c.MetricsV1beta1().PodMetricses(namespace).Get(ctx, name, v1.GetOptions{})
+		return podMetrics, apierrors.FromK8sError(err, PodMetricsResourceType)
 	}, nil
 }
 

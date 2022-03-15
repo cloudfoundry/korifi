@@ -8,11 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
@@ -314,7 +310,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(
 					repositories.SpaceRecord{},
-					repositories.NewNotFoundError(repositories.SpaceResourceType, errors.New("not found")),
+					apierrors.NewNotFoundError(errors.New("not found"), repositories.SpaceResourceType),
 				)
 
 				makePostRequest(validBody)
@@ -340,81 +336,9 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			})
 		})
 
-		When("the action errors due to validating webhook rejection", func() {
+		When("creating the service instance fails", func() {
 			BeforeEach(func() {
-				controllerError := new(k8serrors.StatusError)
-				controllerError.ErrStatus.Reason = v1.StatusReason(`{"code":` + fmt.Sprint(webhooks.DuplicateServiceInstanceNameError) + `,"message":"CFServiceInstance with the same spec.name exists"}`)
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, controllerError)
-
-				makePostRequest(`{
-					"name": "` + serviceInstanceName + `",
-					"relationships": {
-						"space": {
-							 "data": {
-								  "guid": "` + serviceInstanceSpaceGUID + `"
-							 }
-						}
-					},
-					"type": "` + serviceInstanceTypeUserProvided + `"
-				}`)
-			})
-
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns a CF API formatted Error response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					"errors": [
-						{
-							 "title": "CF-UnprocessableEntity",
-							 "detail": "The service instance name is taken: `+serviceInstanceName+`.",
-							 "code": 10008
-						}
-					]
-				}`), "Response body matches response:")
-			})
-		})
-
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, authorization.InvalidAuthError{})
-				makePostRequest(validBody)
-			})
-
-			It("returns Invalid Auth error", func() {
-				expectInvalidAuthError()
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, authorization.NotAuthenticatedError{})
-				makePostRequest(validBody)
-			})
-
-			It("returns a NotAuthenticated error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
-		When("user is not allowed to create a service instance", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError(repositories.ServiceInstanceResourceType, errors.New("nope")))
-				makePostRequest(validBody)
-			})
-
-			It("returns an unauthorised error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("providing the service instance repository fails", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("space-repo-provisioning-failed"))
+				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("space-instance-creation-failed"))
 				makePostRequest(validBody)
 			})
 
@@ -703,40 +627,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			})
 		})
 
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, authorization.InvalidAuthError{})
-				makeListRequest()
-			})
-
-			It("returns Invalid Auth error", func() {
-				expectInvalidAuthError()
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, authorization.NotAuthenticatedError{})
-				makeListRequest()
-			})
-
-			It("returns a NotAuthenticated error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
-		When("user is not allowed to list a service instance", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError(repositories.ServiceInstanceResourceType, errors.New("not allowed")))
-				makeListRequest()
-			})
-
-			It("returns an unauthorised error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("there is some other error fetching service instances", func() {
+		When("there is an error fetching service instances", func() {
 			BeforeEach(func() {
 				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, errors.New("unknown!"))
 				makeListRequest()
@@ -788,7 +679,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			BeforeEach(func() {
 				serviceInstanceRepo.GetServiceInstanceReturns(
 					repositories.ServiceInstanceRecord{},
-					repositories.NewForbiddenError(repositories.ServiceInstanceResourceType, nil),
+					apierrors.NewForbiddenError(nil, repositories.ServiceInstanceResourceType),
 				)
 			})
 
@@ -804,16 +695,6 @@ var _ = Describe("ServiceInstanceHandler", func() {
 
 			It("returns 500 Internal Server Error", func() {
 				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
-			})
-		})
-
-		When("deleting the service instance fails with forbidden", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.DeleteServiceInstanceReturns(repositories.NewForbiddenError(repositories.ServiceInstanceResourceType, nil))
-			})
-
-			It("returns 403 Forbidden", func() {
-				Expect(rr.Code).To(Equal(http.StatusForbidden))
 			})
 		})
 

@@ -5,11 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
@@ -121,11 +120,7 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 	var process workloadsv1alpha1.CFProcess
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: processGUID}, &process)
 	if err != nil {
-		if k8serrors.IsForbidden(err) {
-			return ProcessRecord{}, NewForbiddenError(ProcessResourceType, err)
-		}
-
-		return ProcessRecord{}, fmt.Errorf("get-process: failed to get process with user client: %w", err)
+		return ProcessRecord{}, fmt.Errorf("failed to get process %q: %w", processGUID, apierrors.FromK8sError(err, ProcessResourceType))
 	}
 
 	return cfProcessToProcessRecord(process), nil
@@ -140,8 +135,8 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 		}
 	}
 	err := r.privilegedClient.List(ctx, processList, options...)
-	if err != nil { // untested
-		return []ProcessRecord{}, err
+	if err != nil {
+		return []ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
 	}
 	allProcesses := processList.Items
 	matches := filterProcessesByAppGUID(allProcesses, message.AppGUID)
@@ -169,11 +164,10 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.I
 
 	err := r.privilegedClient.Patch(ctx, cfProcess, client.MergeFrom(baseCFProcess))
 	if err != nil {
-		return ProcessRecord{}, fmt.Errorf("err in client.Patch: %w", err)
+		return ProcessRecord{}, fmt.Errorf("failed to scale process %q: %w", scaleProcessMessage.GUID, apierrors.FromK8sError(err, ProcessResourceType))
 	}
 
-	record := cfProcessToProcessRecord(*cfProcess)
-	return record, nil
+	return cfProcessToProcessRecord(*cfProcess), nil
 }
 
 func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.Info, message CreateProcessMessage) error {
@@ -197,7 +191,7 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 			Ports:            []int32{},
 		},
 	})
-	return err
+	return apierrors.FromK8sError(err, ProcessResourceType)
 }
 
 func (r *ProcessRepo) GetProcessByAppTypeAndSpace(ctx context.Context, authInfo authorization.Info, appGUID, processType, spaceGUID string) (ProcessRecord, error) {
@@ -206,7 +200,7 @@ func (r *ProcessRepo) GetProcessByAppTypeAndSpace(ctx context.Context, authInfo 
 	var processList workloadsv1alpha1.CFProcessList
 	err := r.privilegedClient.List(ctx, &processList, client.InNamespace(spaceGUID))
 	if err != nil {
-		return ProcessRecord{}, err
+		return ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
 	}
 
 	var matches []workloadsv1alpha1.CFProcess
@@ -253,13 +247,16 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 	}
 
 	err := r.privilegedClient.Patch(ctx, updatedProcess, client.MergeFrom(baseProcess))
+	if err != nil {
+		return ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
+	}
 
-	return cfProcessToProcessRecord(*updatedProcess), err
+	return cfProcessToProcessRecord(*updatedProcess), nil
 }
 
 func returnProcess(processes []workloadsv1alpha1.CFProcess) (ProcessRecord, error) {
 	if len(processes) == 0 {
-		return ProcessRecord{}, NewNotFoundError(ProcessResourceType, nil)
+		return ProcessRecord{}, apierrors.NewNotFoundError(nil, ProcessResourceType)
 	}
 	if len(processes) > 1 {
 		return ProcessRecord{}, errors.New("duplicate processes exist")

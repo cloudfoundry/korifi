@@ -2,7 +2,10 @@ package authorization
 
 import (
 	"encoding/base64"
+	"errors"
 	"strings"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 )
 
 type InfoParser struct{}
@@ -13,12 +16,12 @@ func NewInfoParser() *InfoParser {
 
 func (p *InfoParser) Parse(authorizationHeader string) (Info, error) {
 	if authorizationHeader == "" {
-		return Info{}, NotAuthenticatedError{}
+		return Info{}, apierrors.NewNotAuthenticatedError(errors.New("missing Authorization header"))
 	}
 
 	values := strings.Split(authorizationHeader, " ")
 	if len(values) != 2 {
-		return Info{}, InvalidAuthError{}
+		return Info{}, apierrors.NewInvalidAuthError(errors.New("invalid Authorization header"))
 	}
 
 	scheme, data := values[0], values[1]
@@ -28,10 +31,10 @@ func (p *InfoParser) Parse(authorizationHeader string) (Info, error) {
 	case CertScheme:
 		certBytes, err := base64.StdEncoding.DecodeString(data)
 		if err != nil {
-			return Info{}, InvalidAuthError{}
+			return Info{}, apierrors.NewInvalidAuthError(err)
 		}
 		return Info{CertData: certBytes}, nil
 	default:
-		return Info{}, InvalidAuthError{}
+		return Info{}, apierrors.NewInvalidAuthError(errors.New("unsupported authorization scheme"))
 	}
 }

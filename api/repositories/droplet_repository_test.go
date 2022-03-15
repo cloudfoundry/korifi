@@ -4,8 +4,10 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -193,7 +195,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					It("should return a NotFound error", func() {
-						Expect(fetchErr).To(MatchError(repositories.NewNotFoundError(repositories.DropletResourceType, nil)))
+						Expect(fetchErr).To(MatchError(apierrors.NewNotFoundError(nil, repositories.DropletResourceType)))
 					})
 				})
 
@@ -215,7 +217,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					It("should return a NotFound error", func() {
-						Expect(fetchErr).To(MatchError(repositories.NewNotFoundError(repositories.DropletResourceType, nil)))
+						Expect(fetchErr).To(MatchError(apierrors.NewNotFoundError(nil, repositories.DropletResourceType)))
 					})
 				})
 
@@ -237,7 +239,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					It("should return a NotFound error", func() {
-						Expect(fetchErr).To(MatchError(repositories.NewNotFoundError(repositories.DropletResourceType, nil)))
+						Expect(fetchErr).To(MatchError(apierrors.NewNotFoundError(nil, repositories.DropletResourceType)))
 					})
 				})
 			})
@@ -246,7 +248,7 @@ var _ = Describe("DropletRepository", func() {
 				It("returns an error", func() {
 					_, err := dropletRepo.GetDroplet(testCtx, authInfo, "i don't exist")
 					Expect(err).To(HaveOccurred())
-					Expect(err).To(MatchError(repositories.NewNotFoundError(repositories.DropletResourceType, nil)))
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
 			})
 		})
@@ -254,7 +256,7 @@ var _ = Describe("DropletRepository", func() {
 		When("the user is not authorized to get the droplet", func() {
 			It("returns a forbidden error", func() {
 				_, err := dropletRepo.GetDroplet(testCtx, authInfo, buildGUID)
-				Expect(repositories.IsForbiddenError(err)).To(BeTrue())
+				Expect(err).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})

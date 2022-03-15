@@ -6,6 +6,7 @@ import (
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
@@ -115,7 +116,7 @@ var _ = Describe("ScaleProcessAction", func() {
 		When("the error is \"not found\"", func() {
 			var toReturnErr error
 			BeforeEach(func() {
-				toReturnErr = repositories.NewNotFoundError(repositories.ProcessResourceType, nil)
+				toReturnErr = apierrors.NewNotFoundError(nil, repositories.ProcessResourceType)
 				processRepo.GetProcessReturns(repositories.ProcessRecord{}, toReturnErr)
 			})
 			It("returns an empty record", func() {

@@ -10,13 +10,10 @@ import (
 
 	"code.cloudfoundry.org/bytefmt"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"gopkg.in/yaml.v3"
 
 	"github.com/go-http-utils/headers"
-	"github.com/go-logr/logr"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
@@ -272,35 +269,4 @@ func serviceInstanceTagLength(fl validator.FieldLevel) bool {
 	}
 
 	return tagLen < 2048
-}
-
-func handleRepoErrors(logger logr.Logger, err error, resourceType, guid string) error {
-	switch err.(type) {
-	case repositories.NotFoundError:
-		logger.Info(fmt.Sprintf("%s not found", resourceType), "guid", guid)
-		return apierrors.NewNotFoundError(err, resourceType)
-	case repositories.ForbiddenError:
-		logger.Info(fmt.Sprintf("%s forbidden to user", resourceType), "guid", guid)
-		return apierrors.NewNotFoundError(err, resourceType)
-	default:
-		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", resourceType), "guid", guid)
-		return err
-	}
-}
-
-func handleRepoErrorsOnWrite(logger logr.Logger, err error, resourceType, guid string) error {
-	switch {
-	case repositories.IsNotFoundError(err):
-		logger.Info(fmt.Sprintf("%s not found", resourceType), "guid", guid)
-		return apierrors.NewNotFoundError(err, resourceType)
-	case repositories.IsForbiddenError(err):
-		logger.Info(fmt.Sprintf("%s forbidden to user", resourceType), "guid", guid)
-		return apierrors.NewForbiddenError(err, resourceType)
-	case authorization.IsInvalidAuth(err):
-		logger.Info(fmt.Sprintf("%s forbidden to user", resourceType), "guid", guid)
-		return apierrors.NewInvalidAuthError(err)
-	default:
-		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", resourceType), "guid", guid)
-		return err
-	}
 }

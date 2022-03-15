@@ -16,13 +16,14 @@ type RouteRelationships struct {
 	Space  Relationship `json:"space" validate:"required"`
 }
 
-func (p RouteCreate) ToMessage(domainNamespace string) repositories.CreateRouteMessage {
+func (p RouteCreate) ToMessage(domainNamespace, domainName string) repositories.CreateRouteMessage {
 	return repositories.CreateRouteMessage{
 		Host:            p.Host,
 		Path:            p.Path,
 		SpaceGUID:       p.Relationships.Space.Data.GUID,
 		DomainGUID:      p.Relationships.Domain.Data.GUID,
 		DomainNamespace: domainNamespace,
+		DomainName:      domainName,
 		Labels:          p.Metadata.Labels,
 		Annotations:     p.Metadata.Annotations,
 	}

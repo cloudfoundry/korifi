@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -223,82 +222,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 			})
 		})
 
-		When("the user can't get Apps in the Space", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.ForbiddenError{})
-			})
-
-			It("returns an error", func() {
-				expectNotAuthorizedError()
-			})
-
-			It("doesn't create the ServiceBinding", func() {
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
-			})
-		})
-
-		When("the user can't get ServiceInstances in the Space", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, repositories.ForbiddenError{})
-			})
-
-			It("returns an error", func() {
-				expectNotAuthorizedError()
-			})
-
-			It("doesn't create the ServiceBinding", func() {
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
-			})
-		})
-
-		When("the user can't get ServiceBindings in the Space", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.ServiceBindingExistsReturns(false, repositories.ForbiddenError{})
-			})
-
-			It("returns an error", func() {
-				expectNotAuthorizedError()
-			})
-
-			It("doesn't create the ServiceBinding", func() {
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
-			})
-		})
-
-		When("the user can't create ServiceBindings in the Space", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{}, repositories.ForbiddenError{})
-			})
-
-			It("returns an error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, authorization.InvalidAuthError{})
-				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, authorization.InvalidAuthError{})
-				serviceBindingRepo.ServiceBindingExistsReturns(false, authorization.InvalidAuthError{})
-			})
-
-			It("returns Invalid Auth error", func() {
-				expectInvalidAuthError()
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, authorization.NotAuthenticatedError{})
-				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, authorization.NotAuthenticatedError{})
-				serviceBindingRepo.ServiceBindingExistsReturns(false, authorization.NotAuthenticatedError{})
-			})
-
-			It("returns a NotAuthenticated error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
 		When("getting the App errors", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
@@ -408,37 +331,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 			})
 		})
 
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, authorization.InvalidAuthError{})
-			})
-
-			It("returns Invalid Auth error", func() {
-				expectInvalidAuthError()
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, authorization.NotAuthenticatedError{})
-			})
-
-			It("returns a NotAuthenticated error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
-		When("user is not allowed to list a service instance", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, repositories.NewForbiddenError(repositories.ServiceBindingResourceType, errors.New("not allowed")))
-			})
-
-			It("returns an unauthorised error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("there is some other error fetching service instances", func() {
+		When("there is an error fetching service instances", func() {
 			BeforeEach(func() {
 				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, errors.New("unknown"))
 			})

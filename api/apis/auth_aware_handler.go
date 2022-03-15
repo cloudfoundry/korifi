@@ -12,7 +12,6 @@ import (
 	"github.com/go-logr/logr"
 )
 
-// TODO: Maybe move to its own package so that users cannot access HandlerResponse.writeTo()
 type HandlerResponse struct {
 	httpStatus int
 	body       interface{}

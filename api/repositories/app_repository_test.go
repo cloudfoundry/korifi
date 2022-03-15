@@ -7,8 +7,10 @@ import (
 	"sort"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -93,7 +95,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the user is not authorized in the space", func() {
 			It("returns a forbidden error", func() {
-				Expect(getErr).To(BeAssignableToTypeOf(ForbiddenError{}))
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 
@@ -120,7 +122,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("returns an error", func() {
 				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(MatchError(NewNotFoundError(AppResourceType, nil)))
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})
@@ -151,7 +153,7 @@ var _ = Describe("AppRepository", func() {
 			When("the App doesn't exist in the Space (but is in another Space)", func() {
 				It("returns a NotFoundError", func() {
 					_, err := appRepo.GetAppByNameAndSpace(context.Background(), authInfo, cfApp1.Spec.Name, space2.Name)
-					Expect(err).To(MatchError(NewNotFoundError(AppResourceType, nil)))
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
 			})
 		})
@@ -840,7 +842,7 @@ var _ = Describe("AppRepository", func() {
 					DropletGUID: dropletGUID,
 					SpaceGUID:   spaceGUID,
 				})
-				Expect(err).To(MatchError(ContainSubstring("App forbidden")))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
@@ -957,7 +959,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("not allowed to set the application state", func() {
 			It("returns a forbidden error", func() {
-				Expect(returnedErr).To(BeAssignableToTypeOf(ForbiddenError{}))
+				Expect(returnedErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
@@ -1098,7 +1100,7 @@ var _ = Describe("AppRepository", func() {
 
 					It("errors", func() {
 						_, err := appRepo.GetAppEnv(testCtx, authInfo, cfApp2.Name)
-						Expect(err).To(BeAssignableToTypeOf(ForbiddenError{}))
+						Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 					})
 				})
 			})
@@ -1108,7 +1110,7 @@ var _ = Describe("AppRepository", func() {
 			It("returns an error", func() {
 				_, err := appRepo.GetAppEnv(testCtx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(NewNotFoundError(AppResourceType, nil)))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})

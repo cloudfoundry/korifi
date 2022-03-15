@@ -2,7 +2,6 @@ package apis_test
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -146,13 +146,13 @@ var _ = Describe("PackageHandler", func() {
             `))
 		})
 
-		When("the package is not there", func() {
+		When("the getting the package fails", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError(repositories.PackageResourceType, nil))
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Package not found")
+				expectUnknownError()
 			})
 		})
 	})
@@ -571,7 +571,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the app doesn't exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(errors.New("NotFound"), repositories.AppResourceType))
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -583,7 +583,7 @@ var _ = Describe("PackageHandler", func() {
 
 		When("the app is not accessible", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NewForbiddenError(repositories.AppResourceType, nil))
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(errors.New("Forbidden"), repositories.AppResourceType))
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -685,26 +685,6 @@ var _ = Describe("PackageHandler", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
-			})
-		})
-
-		When("the authorization.Info is not set in the context", func() {
-			BeforeEach(func() {
-				ctx = context.Background()
-			})
-
-			It("returns an unknown error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("the user is not allowed to create packages", func() {
-			BeforeEach(func() {
-				packageRepo.CreatePackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(repositories.PackageResourceType, errors.New("no")))
-			})
-
-			It("returns an unauthorized error", func() {
-				expectNotAuthorizedError()
 			})
 		})
 	})
@@ -849,21 +829,9 @@ var _ = Describe("PackageHandler", func() {
 			})
 		}
 
-		When("the record doesn't exist", func() {
-			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError(repositories.PackageResourceType, nil))
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("Package not found")
-			})
-			itDoesntUploadSourceImage()
-			itDoesntUpdateAnyPackages()
-		})
-
 		When("getting the package is forbidden", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(repositories.PackageResourceType, nil))
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, apierrors.NewForbiddenError(errors.New("Forbidden"), repositories.PackageResourceType))
 			})
 
 			It("returns an error", func() {
@@ -873,17 +841,7 @@ var _ = Describe("PackageHandler", func() {
 			itDoesntUpdateAnyPackages()
 		})
 
-		When("uploading the package is forbidden", func() {
-			BeforeEach(func() {
-				imageRepo.UploadSourceImageReturns("", repositories.NewForbiddenError(repositories.PackageResourceType, nil))
-			})
-
-			It("returns an error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("fetching the package errors", func() {
+		When("the getting the package errors", func() {
 			BeforeEach(func() {
 				packageRepo.GetPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
 			})
@@ -893,6 +851,16 @@ var _ = Describe("PackageHandler", func() {
 			})
 			itDoesntUploadSourceImage()
 			itDoesntUpdateAnyPackages()
+		})
+
+		When("uploading the package is forbidden", func() {
+			BeforeEach(func() {
+				imageRepo.UploadSourceImageReturns("", apierrors.NewForbiddenError(errors.New("Forbidden"), repositories.PackageResourceType))
+			})
+
+			It("returns an error", func() {
+				expectNotAuthorizedError()
+			})
 		})
 
 		When("no bits file is given", func() {
@@ -920,16 +888,6 @@ var _ = Describe("PackageHandler", func() {
 				expectUnknownError()
 			})
 			itDoesntUpdateAnyPackages()
-		})
-
-		When("updating the package is forbidden", func() {
-			BeforeEach(func() {
-				packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(repositories.PackageResourceType, errors.New("no")))
-			})
-
-			It("returns an error", func() {
-				expectNotAuthorizedError()
-			})
 		})
 
 		When("updating the package source registry errors", func() {
@@ -1125,16 +1083,6 @@ var _ = Describe("PackageHandler", func() {
 
 			It("ignores it and returns status 200", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
-		})
-
-		When("the package does not exist", func() {
-			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewNotFoundError(repositories.PackageResourceType, nil))
-			})
-
-			It("returns the error", func() {
-				expectNotFoundError("Package not found")
 			})
 		})
 

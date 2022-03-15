@@ -4,7 +4,9 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -75,7 +77,7 @@ var _ = Describe("TokenReviewer", func() {
 	When("an invalid token is passed", func() {
 		BeforeEach(func() {
 			token = "invalid"
-			passErrConstraints = BeAssignableToTypeOf(authorization.InvalidAuthError{})
+			passErrConstraints = matchers.WrapErrorAssignableToTypeOf(apierrors.InvalidAuthError{})
 		})
 
 		It("returns an error", func() {
