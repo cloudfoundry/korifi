@@ -2,14 +2,15 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -171,12 +172,8 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 
 	app := workloadsv1alpha1.CFApp{}
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: appGUID}, &app)
-	if k8serrors.IsForbidden(err) {
-		return AppRecord{}, NewForbiddenError(AppResourceType, err)
-	}
-
-	if err != nil { // untested
-		return AppRecord{}, fmt.Errorf("get-app user client get failed: %w", err)
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("failed to get app: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
 	return cfAppToAppRecord(app), nil
@@ -185,17 +182,25 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorization.Info, appName string, spaceGUID string) (AppRecord, error) {
 	appList := new(workloadsv1alpha1.CFAppList)
 	err := f.privilegedClient.List(ctx, appList, client.InNamespace(spaceGUID))
-	if err != nil { // untested
-		return AppRecord{}, err
+	if err != nil {
+		return AppRecord{}, apierrors.FromK8sError(fmt.Errorf("get app: failed to list apps: %w", err), AppResourceType)
 	}
 
-	var matches []workloadsv1alpha1.CFApp
+	var matchingApps []workloadsv1alpha1.CFApp
 	for _, app := range appList.Items {
 		if app.Spec.Name == appName {
-			matches = append(matches, app)
+			matchingApps = append(matchingApps, app)
 		}
 	}
-	return returnApp(matches)
+
+	if len(matchingApps) == 0 {
+		return AppRecord{}, apierrors.NewNotFoundError(fmt.Errorf("app %q in space %q not found", appName, spaceGUID), AppResourceType)
+	}
+	if len(matchingApps) > 1 {
+		return AppRecord{}, fmt.Errorf("duplicate instances of app %q in space %q", appName, spaceGUID)
+	}
+
+	return cfAppToAppRecord(matchingApps[0]), nil
 }
 
 func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, appCreateMessage CreateAppMessage) (AppRecord, error) {
@@ -206,9 +211,13 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 
 	cfApp := appCreateMessage.toCFApp()
 	err = userClient.Create(ctx, &cfApp)
-	// untested
 	if err != nil {
-		return AppRecord{}, err
+		if webhooks.HasErrorCode(err, webhooks.DuplicateAppError) {
+			errorDetail := fmt.Sprintf("App with the name '%s' already exists.", appCreateMessage.Name)
+			return AppRecord{}, apierrors.NewUniquenessError(err, errorDetail)
+		}
+
+		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 
 	envVarsMessage := CreateOrPatchAppEnvVarsMessage{
@@ -222,7 +231,7 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 		return AppRecord{}, err
 	}
 
-	return cfAppToAppRecord(cfApp), err
+	return cfAppToAppRecord(cfApp), nil
 }
 
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
@@ -244,7 +253,7 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 			continue
 		}
 		if err != nil {
-			return []AppRecord{}, fmt.Errorf("failed to list apps in namespace %s: %w", ns, err)
+			return []AppRecord{}, fmt.Errorf("failed to list apps in namespace %s: %w", ns, apierrors.FromK8sError(err, AppResourceType))
 		}
 		filteredApps = append(filteredApps, applyAppListFilter(appList.Items, message)...)
 	}
@@ -360,7 +369,7 @@ func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.In
 		return nil
 	})
 	if err != nil {
-		return AppEnvVarsRecord{}, err
+		return AppEnvVarsRecord{}, apierrors.FromK8sError(err, AppEnvResourceType)
 	}
 
 	return appEnvVarsSecretToRecord(secretObj), nil
@@ -374,7 +383,7 @@ func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, authInfo authoriz
 		return nil
 	})
 	if err != nil {
-		return AppEnvVarsRecord{}, err
+		return AppEnvVarsRecord{}, apierrors.FromK8sError(err, AppEnvResourceType)
 	}
 	return appEnvVarsSecretToRecord(secretObj), nil
 }
@@ -396,11 +405,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 
 	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {
-		if k8serrors.IsForbidden(err) {
-			return CurrentDropletRecord{}, NewForbiddenError(AppResourceType, err)
-		}
-
-		return CurrentDropletRecord{}, fmt.Errorf("err in client.Patch: %w", err)
+		return CurrentDropletRecord{}, fmt.Errorf("failed to set app droplet: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
 	return CurrentDropletRecord{
@@ -426,12 +431,9 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 
 	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {
-		if k8serrors.IsForbidden(err) {
-			return AppRecord{}, NewForbiddenError(AppResourceType, err)
-		}
-
-		return AppRecord{}, fmt.Errorf("err in client.Patch: %w", err)
+		return AppRecord{}, fmt.Errorf("failed to set app desired state: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
+
 	return cfAppToAppRecord(*cfApp), nil
 }
 
@@ -447,7 +449,7 @@ func (f *AppRepo) DeleteApp(ctx context.Context, authInfo authorization.Info, me
 		return fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	return userClient.Delete(ctx, cfApp)
+	return apierrors.FromK8sError(userClient.Delete(ctx, cfApp), AppResourceType)
 }
 
 func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, appGUID string) (map[string]string, error) {
@@ -469,10 +471,11 @@ func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, ap
 	secret := new(corev1.Secret)
 	err = userClient.Get(ctx, key, secret)
 	if err != nil {
-		if k8serrors.IsForbidden(err) {
-			return nil, NewForbiddenError(AppEnvResourceType, err)
-		}
-		return nil, fmt.Errorf("error finding environment variable Secret %q for App %q: %w", app.envSecretName, app.GUID, err)
+		return nil, fmt.Errorf("error finding environment variable Secret %q for App %q: %w",
+			app.envSecretName,
+			app.GUID,
+			apierrors.FromK8sError(err, AppEnvResourceType),
+		)
 	}
 	return convertByteSliceValuesToStrings(secret.Data), nil
 }
@@ -529,17 +532,6 @@ func cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 		UpdatedAt:     updatedAtTime,
 		envSecretName: cfApp.Spec.EnvSecretName,
 	}
-}
-
-func returnApp(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {
-	if len(apps) == 0 {
-		return AppRecord{}, NewNotFoundError(AppResourceType, nil)
-	}
-	if len(apps) > 1 {
-		return AppRecord{}, errors.New("duplicate apps exist")
-	}
-
-	return cfAppToAppRecord(apps[0]), nil
 }
 
 func appEnvVarsRecordToSecret(envVars CreateOrPatchAppEnvVarsMessage) corev1.Secret {

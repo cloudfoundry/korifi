@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -103,6 +103,7 @@ type CreateRouteMessage struct {
 	Path            string
 	SpaceGUID       string
 	DomainGUID      string
+	DomainName      string
 	DomainNamespace string
 	Labels          map[string]string
 	Annotations     map[string]string
@@ -150,12 +151,8 @@ func (f *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, r
 
 	var route networkingv1alpha1.CFRoute
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: routeGUID}, &route)
-	if k8serrors.IsForbidden(err) {
-		return RouteRecord{}, NewForbiddenError(RouteResourceType, err)
-	}
-
-	if err != nil { // untested
-		return RouteRecord{}, fmt.Errorf("get-route user client get failed: %w", err)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to get route %q: %w", routeGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
 
 	return cfRouteToRouteRecord(route), nil
@@ -165,7 +162,7 @@ func (f *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
 	err := f.privilegedClient.List(ctx, cfRouteList)
 	if err != nil {
-		return []RouteRecord{}, err
+		return []RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}
 
 	filtered := applyFilter(cfRouteList.Items, message)
@@ -259,7 +256,7 @@ func (f *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
 	err := f.privilegedClient.List(ctx, cfRouteList, client.InNamespace(spaceGUID))
 	if err != nil {
-		return []RouteRecord{}, err
+		return []RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}
 	filteredRouteList := filterByAppDestination(cfRouteList.Items, appGUID)
 
@@ -335,12 +332,18 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 	err := f.privilegedClient.Create(ctx, &cfRoute)
 	if err != nil {
 		if webhooks.HasErrorCode(err, webhooks.DuplicateRouteError) {
-			return RouteRecord{}, NewDuplicateError(RouteResourceType, err)
+			pathDetails := ""
+			if message.Path != "" {
+				pathDetails = fmt.Sprintf(" and path '%s'", message.Path)
+			}
+			errorDetail := fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
+				message.Host, pathDetails, message.DomainName)
+			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, errorDetail)
 		}
-		return RouteRecord{}, err
+		return RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}
 
-	return cfRouteToRouteRecord(cfRoute), err
+	return cfRouteToRouteRecord(cfRoute), nil
 }
 
 func (f *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info, message DeleteRouteMessage) error {
@@ -354,15 +357,8 @@ func (f *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info
 			Namespace: message.SpaceGUID,
 		},
 	})
-	if err == nil {
-		return nil
-	}
 
-	if k8serrors.IsForbidden(err) {
-		return NewForbiddenError(RouteResourceType, err)
-	}
-
-	return err
+	return apierrors.FromK8sError(err, RouteResourceType)
 }
 
 func (f *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
@@ -396,10 +392,7 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 
 	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
 	if err != nil {
-		if k8serrors.IsForbidden(err) {
-			return RouteRecord{}, NewForbiddenError(RouteResourceType, err)
-		}
-		return RouteRecord{}, fmt.Errorf("err in client.Patch: %w", err) // untested
+		return RouteRecord{}, fmt.Errorf("failed to add destination to route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
 
 	return cfRouteToRouteRecord(*cfRoute), err

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -100,11 +101,11 @@ func (nr NamespaceRetriever) NamespaceFor(ctx context.Context, resourceGUID, res
 
 	list, err := nr.client.Resource(gvr).List(ctx, opts)
 	if err != nil {
-		return "", fmt.Errorf("failed to list %v", resourceType)
+		return "", fmt.Errorf("failed to list %v: %w", resourceType, apierrors.FromK8sError(err, resourceType))
 	}
 
 	if len(list.Items) == 0 {
-		return "", NewNotFoundError(resourceType, nil)
+		return "", apierrors.NewNotFoundError(fmt.Errorf("resource %q not found", resourceGUID), resourceType)
 	}
 
 	if len(list.Items) > 1 {

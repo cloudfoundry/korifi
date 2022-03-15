@@ -4,8 +4,10 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -151,7 +153,7 @@ var _ = Describe("RouteRepository", func() {
 
 		It("returns a forbidden error for unauthorized users", func() {
 			_, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
-			Expect(err).To(BeAssignableToTypeOf(NewForbiddenError(RouteResourceType, nil)))
+			Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 		})
 
 		When("the user is a space developer in this space", func() {
@@ -189,7 +191,7 @@ var _ = Describe("RouteRepository", func() {
 
 		When("the user is not authorized in the space", func() {
 			It("returns a forbidden error", func() {
-				Expect(getErr).To(BeAssignableToTypeOf(ForbiddenError{}))
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 
@@ -199,7 +201,7 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(getErr).To(MatchError(NewNotFoundError(RouteResourceType, nil)))
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 
@@ -721,7 +723,7 @@ var _ = Describe("RouteRepository", func() {
 					GUID:      route1GUID,
 					SpaceGUID: testNamespace,
 				})
-				Expect(err).To(BeAssignableToTypeOf(ForbiddenError{}))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 
 			When("the route doesn't exist", func() {
@@ -730,7 +732,7 @@ var _ = Describe("RouteRepository", func() {
 						GUID:      "i-don't-exist",
 						SpaceGUID: testNamespace,
 					})
-					Expect(err).To(BeAssignableToTypeOf(ForbiddenError{}))
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 				})
 			})
 		})
@@ -870,7 +872,7 @@ var _ = Describe("RouteRepository", func() {
 				})
 
 				It("returns an error", func() {
-					Expect(addDestinationErr).To(BeAssignableToTypeOf(ForbiddenError{}))
+					Expect(addDestinationErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 				})
 
 				It("fails to update the destination list", func() {

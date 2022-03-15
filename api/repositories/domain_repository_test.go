@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -76,7 +78,7 @@ var _ = Describe("DomainRepository", func() {
 		When("no CFDomain exists", func() {
 			It("returns an error", func() {
 				_, err := domainRepo.GetDomain(testCtx, authInfo, "non-existent-domain-guid")
-				Expect(err).To(BeAssignableToTypeOf(NotFoundError{}))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})
@@ -371,7 +373,7 @@ var _ = Describe("DomainRepository", func() {
 		When("No matches exist for the provided name", func() {
 			It("returns a domainRecord that matches the specified domain name, and no error", func() {
 				_, err := domainRepo.GetDomainByName(context.Background(), authInfo, "i-dont-exist")
-				Expect(err).To(MatchError(NewNotFoundError(DomainResourceType, nil)))
+				Expect(err).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -125,7 +126,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		When("user does not have permissions to create ServiceInstances", func() {
 			It("returns a Forbidden error", func() {
 				_, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
-				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(err).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
@@ -440,7 +441,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("there are no permissions on service instances", func() {
 			It("returns a forbidden error", func() {
-				Expect(errors.As(getErr, &repositories.ForbiddenError{})).To(BeTrue())
+				Expect(errors.As(getErr, &apierrors.ForbiddenError{})).To(BeTrue())
 			})
 		})
 
@@ -468,9 +469,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			})
 
 			It("returns a not found error", func() {
-				notFoundErr := repositories.NotFoundError{}
+				notFoundErr := apierrors.NotFoundError{}
 				Expect(errors.As(getErr, &notFoundErr)).To(BeTrue())
-				Expect(notFoundErr.ResourceType()).To(Equal(repositories.ServiceInstanceResourceType))
 			})
 		})
 
@@ -542,14 +542,14 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				})
 
 				It("returns a not found error", func() {
-					Expect(errors.As(deleteErr, &repositories.NotFoundError{})).To(BeTrue())
+					Expect(errors.As(deleteErr, &apierrors.NotFoundError{})).To(BeTrue())
 				})
 			})
 		})
 
 		When("there are no permissions on service instances", func() {
 			It("returns a forbidden error", func() {
-				Expect(errors.As(deleteErr, &repositories.ForbiddenError{})).To(BeTrue())
+				Expect(errors.As(deleteErr, &apierrors.ForbiddenError{})).To(BeTrue())
 			})
 		})
 	})

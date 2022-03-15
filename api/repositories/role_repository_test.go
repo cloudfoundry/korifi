@@ -16,9 +16,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 )
 
 var _ = Describe("RoleRepository", func() {
@@ -69,7 +71,7 @@ var _ = Describe("RoleRepository", func() {
 
 		When("the user doesn't have permissions to create roles", func() {
 			It("fails", func() {
-				Expect(createErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 
@@ -152,7 +154,7 @@ var _ = Describe("RoleRepository", func() {
 				})
 
 				It("returns an error", func() {
-					Expect(createErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+					Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 				})
 			})
 
@@ -167,7 +169,7 @@ var _ = Describe("RoleRepository", func() {
 			})
 
 			When("the user is already bound to that role", func() {
-				It("returns an error", func() {
+				It("returns an unprocessable entity error", func() {
 					anotherRoleCreateMessage := repositories.CreateRoleMessage{
 						GUID: uuid.NewString(),
 						Type: "organization_manager",
@@ -176,7 +178,10 @@ var _ = Describe("RoleRepository", func() {
 						Org:  roleCreateMessage.Org,
 					}
 					_, createErr = roleRepo.CreateRole(ctx, authInfo, anotherRoleCreateMessage)
-					Expect(createErr).To(Equal(repositories.ErrorDuplicateRoleBinding))
+					Expect(createErr).To(SatisfyAll(
+						BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}),
+						MatchError(ContainSubstring("already exists")),
+					))
 				})
 			})
 		})
@@ -320,7 +325,7 @@ var _ = Describe("RoleRepository", func() {
 		})
 
 		When("the user is already bound to that role", func() {
-			It("returns an error", func() {
+			It("returns an unprocessable entity error", func() {
 				anotherRoleCreateMessage := repositories.CreateRoleMessage{
 					GUID:  uuid.NewString(),
 					Type:  "space_developer",
@@ -329,7 +334,10 @@ var _ = Describe("RoleRepository", func() {
 					Space: roleCreateMessage.Space,
 				}
 				_, createErr = roleRepo.CreateRole(ctx, authInfo, anotherRoleCreateMessage)
-				Expect(createErr).To(Equal(repositories.ErrorDuplicateRoleBinding))
+				Expect(createErr).To(SatisfyAll(
+					BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}),
+					MatchError(ContainSubstring("already exists")),
+				))
 			})
 		})
 
@@ -338,8 +346,11 @@ var _ = Describe("RoleRepository", func() {
 				authorizedInChecker.AuthorizedInReturns(false, nil)
 			})
 
-			It("returns an error", func() {
-				Expect(createErr).To(Equal(repositories.ErrorMissingRoleBindingInParentOrg))
+			It("returns an unprocessable entity error", func() {
+				Expect(createErr).To(SatisfyAll(
+					BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}),
+					MatchError(ContainSubstring("no RoleBinding found")),
+				))
 			})
 		})
 	})

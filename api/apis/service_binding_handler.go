@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -60,12 +59,14 @@ func (h *ServiceBindingHandler) createHandler(authInfo authorization.Info, r *ht
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
-		return nil, h.writeErrorResponse(err, "get", repositories.AppResourceType)
+		h.logger.Error(err, "failed to get %s", repositories.AppResourceType)
+		return nil, err
 	}
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, payload.Relationships.ServiceInstance.Data.GUID)
 	if err != nil {
-		return nil, h.writeErrorResponse(err, "get", repositories.ServiceInstanceResourceType)
+		h.logger.Error(err, "failed to get %s", repositories.ServiceInstanceResourceType)
+		return nil, err
 	}
 
 	if app.SpaceGUID != serviceInstance.SpaceGUID {
@@ -75,7 +76,8 @@ func (h *ServiceBindingHandler) createHandler(authInfo authorization.Info, r *ht
 
 	bindingExists, err := h.serviceBindingRepo.ServiceBindingExists(ctx, authInfo, app.SpaceGUID, app.GUID, serviceInstance.GUID)
 	if err != nil {
-		return nil, h.writeErrorResponse(err, "get", repositories.ServiceBindingResourceType)
+		h.logger.Error(err, "failed to get %s", repositories.ServiceBindingResourceType)
+		return nil, err
 	}
 	if bindingExists {
 		h.logger.Info("ServiceBinding already exists for App and ServiceInstance", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
@@ -84,7 +86,8 @@ func (h *ServiceBindingHandler) createHandler(authInfo authorization.Info, r *ht
 
 	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, payload.ToMessage(app.SpaceGUID))
 	if err != nil {
-		return nil, h.writeErrorResponse(err, "create", repositories.ServiceBindingResourceType)
+		h.logger.Error(err, "failed to create %s", repositories.ServiceBindingResourceType)
+		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForServiceBinding(serviceBinding, h.serverURL)), nil
@@ -98,7 +101,7 @@ func (h *ServiceBindingHandler) deleteHandler(authInfo authorization.Info, r *ht
 	err := h.serviceBindingRepo.DeleteServiceBinding(ctx, authInfo, serviceBindingGUID)
 	if err != nil {
 		h.logger.Error(err, "error when deleting service binding", "guid", serviceBindingGUID)
-		return nil, handleRepoErrorsOnWrite(h.logger, err, repositories.ServiceBindingResourceType, serviceBindingGUID)
+		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusNoContent).WithBody(map[string]interface{}{}), nil
@@ -126,7 +129,8 @@ func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, r *http
 
 	serviceBindingList, err := h.serviceBindingRepo.ListServiceBindings(ctx, authInfo, listFilter.ToMessage())
 	if err != nil {
-		return nil, h.writeErrorResponse(err, "list", repositories.ServiceBindingResourceType)
+		h.logger.Error(err, "failed to list %s", repositories.ServiceBindingResourceType)
+		return nil, err
 	}
 
 	var appRecords []repositories.AppRecord
@@ -139,29 +143,12 @@ func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, r *http
 
 		appRecords, err = h.appRepo.ListApps(ctx, authInfo, listAppsMessage)
 		if err != nil {
-			return nil, h.writeErrorResponse(err, "list", repositories.AppResourceType)
+			h.logger.Error(err, "failed to list %s", repositories.AppResourceType)
+			return nil, err
 		}
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceBindingList(serviceBindingList, appRecords, h.serverURL, *r.URL)), nil
-}
-
-func (h *ServiceBindingHandler) writeErrorResponse(err error, action, resourceType string) error {
-	if repositories.IsForbiddenError(err) {
-		h.logger.Error(err, fmt.Sprintf("not allowed to %s %s", action, resourceType))
-		return apierrors.NewForbiddenError(err, resourceType)
-	}
-	if authorization.IsInvalidAuth(err) {
-		h.logger.Error(err, "invalid auth")
-		return apierrors.NewInvalidAuthError(err)
-	}
-	if authorization.IsNotAuthenticated(err) {
-		h.logger.Error(err, "not authenticated")
-		return apierrors.NewNotAuthenticatedError(err)
-	}
-
-	h.logger.Error(err, "unexpected error")
-	return err
 }
 
 func (h *ServiceBindingHandler) RegisterRoutes(router *mux.Router) {

@@ -2,6 +2,7 @@ package apis
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -59,7 +60,8 @@ func (h *BuildHandler) buildGetHandler(authInfo authorization.Info, r *http.Requ
 
 	build, err := h.buildRepo.GetBuild(ctx, authInfo, buildGUID)
 	if err != nil {
-		return nil, handleRepoErrors(h.logger, err, repositories.BuildResourceType, buildGUID)
+		h.logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.BuildResourceType), "guid", buildGUID)
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForBuild(build, h.serverURL)), nil
@@ -73,31 +75,20 @@ func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, r *http.R
 
 	packageRecord, err := h.packageRepo.GetPackage(r.Context(), authInfo, payload.Package.GUID)
 	if err != nil {
-		switch err.(type) {
-		case repositories.ForbiddenError:
-			h.logger.Info("Package forbidden", "Package GUID", payload.Package.GUID)
-			return nil, apierrors.NewUnprocessableEntityError(err, "Unable to use package. Ensure that the package exists and you have access to it.")
-		case repositories.NotFoundError:
-			h.logger.Info("Package not found", "Package GUID", payload.Package.GUID)
-			return nil, apierrors.NewUnprocessableEntityError(err, "Unable to use package. Ensure that the package exists and you have access to it.")
-		default:
-			h.logger.Info("Error finding Package", "Package GUID", payload.Package.GUID)
-			return nil, err
-		}
+		h.logger.Info("Error finding Package", "Package GUID", payload.Package.GUID)
+		return nil, apierrors.AsUnprocessibleEntity(err,
+			"Unable to use package. Ensure that the package exists and you have access to it.",
+			apierrors.ForbiddenError{},
+			apierrors.NotFoundError{},
+		)
 	}
 
 	buildCreateMessage := payload.ToMessage(packageRecord)
 
 	record, err := h.buildRepo.CreateBuild(r.Context(), authInfo, buildCreateMessage)
 	if err != nil {
-		switch err.(type) {
-		case repositories.ForbiddenError:
-			h.logger.Info("Create build is forbidden to user")
-			return nil, apierrors.NewForbiddenError(err, repositories.BuildResourceType)
-		default:
-			h.logger.Info("Error creating build with repository", "error", err.Error())
-			return nil, err
-		}
+		h.logger.Info("Error creating build with repository", "error", err.Error())
+		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForBuild(record, h.serverURL)), nil

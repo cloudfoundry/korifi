@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"sort"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -89,11 +91,11 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 	cfServiceInstance := message.toCFServiceInstance()
 	err = userClient.Create(ctx, &cfServiceInstance)
 	if err != nil {
-		if k8serrors.IsForbidden(err) {
-			return ServiceInstanceRecord{}, NewForbiddenError(ServiceInstanceResourceType, err)
+		if webhooks.HasErrorCode(err, webhooks.DuplicateServiceInstanceNameError) {
+			errorDetail := fmt.Sprintf("The service instance name is taken: %s.", message.Name)
+			return ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(err, errorDetail)
 		}
-		// untested
-		return ServiceInstanceRecord{}, err
+		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 
 	secretObj := cfServiceInstanceToSecret(cfServiceInstance)
@@ -106,8 +108,7 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 		return nil
 	})
 	if err != nil {
-		// untested
-		return ServiceInstanceRecord{}, err
+		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 
 	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance), nil
@@ -122,7 +123,6 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		// untested
 		return []ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
@@ -134,8 +134,10 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 			continue
 		}
 		if err != nil {
-			// untested
-			return []ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances in namespace %s: %w", ns, err)
+			return []ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances in namespace %s: %w",
+				ns,
+				apierrors.FromK8sError(err, ServiceInstanceResourceType),
+			)
 		}
 		filteredServiceInstances = append(filteredServiceInstances, applyServiceInstanceListFilter(serviceInstanceList.Items, message)...)
 	}
@@ -158,7 +160,7 @@ func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo a
 
 	var serviceInstance servicesv1alpha1.CFServiceInstance
 	if err := userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: guid}, &serviceInstance); err != nil {
-		return ServiceInstanceRecord{}, fmt.Errorf("failed to get service instance: %w", wrapK8sErr(err, ServiceInstanceResourceType))
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
 	return cfServiceInstanceToServiceInstanceRecord(serviceInstance), nil
@@ -178,7 +180,7 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 	}
 
 	if err := userClient.Delete(ctx, serviceInstance); err != nil {
-		return fmt.Errorf("failed to delete service instance: %w", wrapK8sErr(err, ServiceInstanceResourceType))
+		return fmt.Errorf("failed to delete service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
 	return nil

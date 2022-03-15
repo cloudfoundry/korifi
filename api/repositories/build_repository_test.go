@@ -4,8 +4,10 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -252,7 +254,7 @@ var _ = Describe("BuildRepository", func() {
 			It("returns an error", func() {
 				_, err := buildRepo.GetBuild(ctx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(repositories.NewNotFoundError(repositories.BuildResourceType, nil)))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 
@@ -268,7 +270,7 @@ var _ = Describe("BuildRepository", func() {
 			It("returns a forbidden error", func() {
 				_, err := buildRepo.GetBuild(ctx, authInfo, buildGUID)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
@@ -417,7 +419,7 @@ var _ = Describe("BuildRepository", func() {
 			It("returns a forbidden error", func() {
 				_, err := buildRepo.CreateBuild(ctx, authInfo, buildCreateMsg)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})

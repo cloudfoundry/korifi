@@ -4,8 +4,10 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -55,7 +57,7 @@ var _ = Describe("ProcessRepo", func() {
 
 		When("the user is not authorized in the space", func() {
 			It("returns a forbidden error", func() {
-				Expect(getErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 
@@ -129,13 +131,13 @@ var _ = Describe("ProcessRepo", func() {
 
 				It("returns a not found error", func() {
 					Expect(getErr).To(HaveOccurred())
-					Expect(getErr).To(MatchError(repositories.NewNotFoundError(repositories.ProcessResourceType, nil)))
+					Expect(getErr).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
 			})
 
 			It("returns a not found error when the user has no permission to see the process", func() {
 				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
@@ -408,7 +410,7 @@ var _ = Describe("ProcessRepo", func() {
 		When("there is no matching process", func() {
 			It("returns a NotFoundError", func() {
 				_, err := processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, app1GUID, processType, namespace1.Name)
-				Expect(err).To(MatchError(repositories.NewNotFoundError(repositories.ProcessResourceType, nil)))
+				Expect(err).To(MatchError(apierrors.NewNotFoundError(nil, repositories.ProcessResourceType)))
 			})
 		})
 	})

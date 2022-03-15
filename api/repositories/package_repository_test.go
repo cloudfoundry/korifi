@@ -6,8 +6,10 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -62,7 +64,7 @@ var _ = Describe("PackageRepository", func() {
 		})
 
 		It("fails because the user is not a space developer", func() {
-			Expect(createErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+			Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 		})
 
 		When("the user is a SpaceDeveloper", func() {
@@ -198,7 +200,7 @@ var _ = Describe("PackageRepository", func() {
 		When("user is not authorized to get a package", func() {
 			It("returns a forbidden error", func() {
 				_, err := packageRepo.GetPackage(ctx, authInfo, packageGUID)
-				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 
@@ -241,7 +243,7 @@ var _ = Describe("PackageRepository", func() {
 			It("returns an error", func() {
 				_, err := packageRepo.GetPackage(ctx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(repositories.NewNotFoundError(repositories.PackageResourceType, nil)))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})
@@ -643,7 +645,7 @@ var _ = Describe("PackageRepository", func() {
 		When("user is not authorized to update a package", func() {
 			It("returns a forbidden error", func() {
 				_, err := packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
-				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})

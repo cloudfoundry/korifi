@@ -1,9 +1,13 @@
 package apierrors
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type ApiError interface {
@@ -12,6 +16,7 @@ type ApiError interface {
 	Code() int
 	HttpStatus() int
 	Unwrap() error
+	Error() string
 }
 
 type apiError struct {
@@ -23,6 +28,10 @@ type apiError struct {
 }
 
 func (e apiError) Error() string {
+	if e.cause == nil {
+		return "unknown"
+	}
+
 	return e.cause.Error()
 }
 
@@ -226,4 +235,58 @@ func NewPackageBitsAlreadyUploadedError(cause error) PackageBitsAlreadyUploadedE
 			httpStatus: http.StatusBadRequest,
 		},
 	}
+}
+
+func FromK8sError(err error, resourceType string) error {
+	switch {
+	case k8serrors.IsUnauthorized(err):
+		return NewInvalidAuthError(err)
+	case k8serrors.IsNotFound(err):
+		return NewNotFoundError(err, resourceType)
+	case k8serrors.IsForbidden(err):
+		return NewForbiddenError(err, resourceType)
+	default:
+		return err
+	}
+}
+
+func NotFoundAsUnprocessableEntity(err error, detail string) error {
+	return AsUnprocessibleEntity(err, detail, NotFoundError{})
+}
+
+func AsUnprocessibleEntity(err error, detail string, errTypes ...ApiError) error {
+	if err == nil {
+		return nil
+	}
+
+	for _, errType := range errTypes {
+		// At this point in time the errors in the errType array are downgraded
+		// to `ApiError`. This means that pointers to api errors that only
+		// embed `apiError` are assignable to each other. Therefore `errors.As`
+		// would return `true` and would change the initial value type of the
+		// array entry. That is why we need to get the "desiredType" first and
+		// compare it to the type that has been set by `errors.As`
+		desiredErrType := reflect.ValueOf(errType).Type()
+
+		if !errors.As(err, &errType) {
+			continue
+		}
+
+		asErrType := reflect.ValueOf(errType).Type()
+		if asErrType != desiredErrType {
+			continue
+		}
+
+		return NewUnprocessableEntityError(errType.Unwrap(), detail)
+	}
+
+	return err
+}
+
+func ForbiddenAsNotFound(err error) error {
+	var forbiddenErr ForbiddenError
+	if errors.As(err, &forbiddenErr) {
+		return NewNotFoundError(forbiddenErr.Unwrap(), forbiddenErr.ResourceType())
+	}
+	return err
 }

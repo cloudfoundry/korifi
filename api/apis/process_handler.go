@@ -75,7 +75,8 @@ func (h *ProcessHandler) processGetHandler(authInfo authorization.Info, r *http.
 
 	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		return nil, h.writeErrorResponse(processGUID, err)
+		h.logger.Error(err, "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(process, h.serverURL)), nil
@@ -89,7 +90,8 @@ func (h *ProcessHandler) processGetSidecarsHandler(authInfo authorization.Info, 
 
 	_, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		return nil, h.writeErrorResponse(processGUID, err)
+		h.logger.Error(err, "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(map[string]interface{}{
@@ -122,15 +124,8 @@ func (h *ProcessHandler) processScaleHandler(authInfo authorization.Info, r *htt
 
 	processRecord, err := h.scaleProcess(ctx, authInfo, processGUID, payload.ToRecord())
 	if err != nil {
-		// TODO replace this error handling with a call to the writeErrorResponse helper function when we implement #623
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("Process not found", "processGUID", processGUID)
-			return nil, apierrors.NewNotFoundError(err, repositories.ProcessResourceType)
-		default:
-			h.logger.Error(err, "Failed due to error from Kubernetes", "processGUID", processGUID)
-			return nil, err
-		}
+		h.logger.Error(err, "Failed due to error from Kubernetes", "processGUID", processGUID)
+		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(processRecord, h.serverURL)), nil
@@ -144,7 +139,8 @@ func (h *ProcessHandler) processGetStatsHandler(authInfo authorization.Info, r *
 
 	records, err := h.fetchProcessStats(ctx, authInfo, processGUID)
 	if err != nil {
-		return nil, h.writeErrorResponse(processGUID, err)
+		h.logger.Error(err, "Failed to get process stats from Kubernetes", "ProcessGUID", processGUID)
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcessStats(records)), nil
@@ -202,29 +198,17 @@ func (h *ProcessHandler) processPatchHandler(authInfo authorization.Info, r *htt
 
 	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		return nil, h.writeErrorResponse(processGUID, err)
+		h.logger.Error(err, "Failed to get process from Kubernetes", "ProcessGUID", processGUID)
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	updatedProcess, err := h.processRepo.PatchProcess(ctx, authInfo, payload.ToProcessPatchMessage(processGUID, process.SpaceGUID))
 	if err != nil {
-		return nil, h.writeErrorResponse(processGUID, err)
+		h.logger.Error(err, "Failed to patch process from Kubernetes", "ProcessGUID", processGUID)
+		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(updatedProcess, h.serverURL)), nil
-}
-
-func (h *ProcessHandler) writeErrorResponse(processGUID string, err error) error {
-	switch tycerr := err.(type) {
-	case repositories.NotFoundError:
-		h.logger.Info(fmt.Sprintf("%s not found", tycerr.ResourceType()), "ProcessGUID", processGUID)
-		return apierrors.NewNotFoundError(err, tycerr.ResourceType())
-	case repositories.ForbiddenError:
-		h.logger.Info(fmt.Sprintf("%s forbidden", tycerr.ResourceType()), "ProcessGUID", processGUID)
-		return apierrors.NewNotFoundError(err, tycerr.ResourceType())
-	default:
-		h.logger.Error(err, "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
-		return err
-	}
 }
 
 func (h *ProcessHandler) RegisterRoutes(router *mux.Router) {

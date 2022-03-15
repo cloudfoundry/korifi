@@ -6,9 +6,11 @@ import (
 	"strconv"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
@@ -348,8 +350,9 @@ var _ = Describe("PodRepository", func() {
 
 		When("the user is not authorized in the space", func() {
 			It("returns a forbidden error", func() {
-				Expect(listStatsErr).To(BeAssignableToTypeOf(ForbiddenError{}))
-				forbiddenErr := listStatsErr.(ForbiddenError)
+				Expect(listStatsErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+				var forbiddenErr apierrors.ForbiddenError
+				Expect(errors.As(listStatsErr, &forbiddenErr)).To(BeTrue())
 				Expect(forbiddenErr.ResourceType()).To(Equal(ProcessStatsResourceType))
 			})
 		})

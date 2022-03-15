@@ -17,7 +17,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 )
 
 const (
@@ -63,27 +62,6 @@ func (h *OrgHandler) orgCreateHandler(info authorization.Info, r *http.Request) 
 
 	record, err := h.orgRepo.CreateOrg(r.Context(), info, org)
 	if err != nil {
-		if webhooks.HasErrorCode(err, webhooks.DuplicateOrgNameError) {
-			errorDetail := fmt.Sprintf("Organization '%s' already exists.", org.Name)
-			h.logger.Info(errorDetail)
-			return nil, apierrors.NewUnprocessableEntityError(err, errorDetail)
-		}
-
-		if authorization.IsInvalidAuth(err) {
-			h.logger.Error(err, "unauthorized to create org")
-			return nil, apierrors.NewInvalidAuthError(err)
-		}
-
-		if authorization.IsNotAuthenticated(err) {
-			h.logger.Error(err, "unauthorized to create org")
-			return nil, apierrors.NewNotAuthenticatedError(err)
-		}
-
-		if repositories.IsForbiddenError(err) {
-			h.logger.Error(err, "not allowed to create orgs")
-			return nil, apierrors.NewForbiddenError(err, repositories.OrgResourceType)
-		}
-
 		h.logger.Error(err, "Failed to create org", "Org Name", payload.Name)
 		return nil, err
 	}
@@ -101,17 +79,8 @@ func (h *OrgHandler) orgDeleteHandler(info authorization.Info, r *http.Request) 
 	}
 	err := h.orgRepo.DeleteOrg(ctx, info, deleteOrgMessage)
 	if err != nil {
-		switch err.(type) {
-		case repositories.ForbiddenError:
-			h.logger.Error(err, "unauthorized to delete org", "OrgGUID", orgGUID)
-			return nil, apierrors.NewForbiddenError(err, repositories.OrgResourceType)
-		case repositories.NotFoundError:
-			h.logger.Info("Org not found", "OrgGUID", orgGUID)
-			return nil, apierrors.NewNotFoundError(err, repositories.OrgResourceType)
-		default:
-			h.logger.Error(err, "Failed to delete org", "OrgGUID", orgGUID)
-			return nil, err
-		}
+		h.logger.Error(err, "Failed to delete org", "OrgGUID", orgGUID)
+		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", fmt.Sprintf("%s/v3/jobs/org.delete-%s", h.apiBaseURL.String(), orgGUID)), nil
@@ -124,16 +93,6 @@ func (h *OrgHandler) orgListHandler(info authorization.Info, r *http.Request) (*
 
 	orgs, err := h.orgRepo.ListOrgs(ctx, info, repositories.ListOrgsMessage{Names: names})
 	if err != nil {
-		if authorization.IsInvalidAuth(err) {
-			h.logger.Error(err, "unauthorized to list orgs")
-			return nil, apierrors.NewInvalidAuthError(err)
-		}
-
-		if authorization.IsNotAuthenticated(err) {
-			h.logger.Error(err, "unauthorized to list orgs")
-			return nil, apierrors.NewNotAuthenticatedError(err)
-		}
-
 		h.logger.Error(err, "failed to fetch orgs")
 		return nil, err
 	}
@@ -141,21 +100,15 @@ func (h *OrgHandler) orgListHandler(info authorization.Info, r *http.Request) (*
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForOrgList(orgs, h.apiBaseURL, *r.URL)), nil
 }
 
-func (h *OrgHandler) orgListDomainHandler(info authorization.Info, r *http.Request) (*HandlerResponse, error) { //nolint:dupl
+func (h *OrgHandler) orgListDomainHandler(info authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
 
 	vars := mux.Vars(r)
 	orgGUID := vars["guid"]
 
 	if _, err := h.orgRepo.GetOrg(ctx, info, orgGUID); err != nil {
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Error(err, "Organization not found", "OrgGUID", orgGUID)
-			return nil, apierrors.NewNotFoundError(err, repositories.OrgResourceType)
-		default:
-			h.logger.Error(err, "Unable to get organization")
-			return nil, err
-		}
+		h.logger.Error(err, "Unable to get organization")
+		return nil, err
 	}
 
 	if err := r.ParseForm(); err != nil {

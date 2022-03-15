@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -19,7 +18,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 )
 
 const (
@@ -69,34 +67,8 @@ func (h *SpaceHandler) spaceCreateHandler(info authorization.Info, r *http.Reque
 
 	record, err := h.spaceRepo.CreateSpace(ctx, info, space)
 	if err != nil {
-		if webhooks.HasErrorCode(err, webhooks.DuplicateSpaceNameError) {
-			errorDetail := fmt.Sprintf("Space '%s' already exists.", space.Name)
-			h.logger.Info(errorDetail)
-			return nil, apierrors.NewUnprocessableEntityError(err, errorDetail)
-		}
-
-		if authorization.IsInvalidAuth(err) {
-			h.logger.Error(err, "unauthorized to create spaces")
-			return nil, apierrors.NewInvalidAuthError(err)
-		}
-
-		if authorization.IsNotAuthenticated(err) {
-			h.logger.Error(err, "unauthorized to create spaces")
-			return nil, apierrors.NewNotAuthenticatedError(err)
-		}
-
-		if repositories.IsForbiddenError(err) {
-			h.logger.Error(err, "not allowed to create spaces")
-			return nil, apierrors.NewForbiddenError(err, repositories.SpaceResourceType)
-		}
-
-		if errors.As(err, &repositories.NotFoundError{}) {
-			h.logger.Error(err, "org does not exist or forbidden")
-			return nil, apierrors.NewUnprocessableEntityError(err, "Invalid organization. Ensure the organization exists and you have access to it.")
-		}
-
 		h.logger.Error(err, "Failed to create space", "Space Name", space.Name)
-		return nil, err
+		return nil, apierrors.AsUnprocessibleEntity(err, "Invalid organization. Ensure the organization exists and you have access to it.", apierrors.NotFoundError{})
 	}
 
 	spaceResponse := presenter.ForCreateSpace(record, h.apiBaseURL)
@@ -114,18 +86,8 @@ func (h *SpaceHandler) spaceListHandler(info authorization.Info, r *http.Request
 		Names:             names,
 	})
 	if err != nil {
-		if authorization.IsInvalidAuth(err) {
-			h.logger.Error(err, "unauthorized to list spaces")
-			return nil, apierrors.NewInvalidAuthError(err)
-		}
-
-		if authorization.IsNotAuthenticated(err) {
-			h.logger.Error(err, "unauthorized to list spaces")
-			return nil, apierrors.NewNotAuthenticatedError(err)
-		}
-
 		h.logger.Error(err, "Failed to fetch spaces")
-		return nil, apierrors.NewUnknownError(err)
+		return nil, err
 	}
 
 	spaceList := presenter.ForSpaceList(spaces, h.apiBaseURL, *r.URL)
@@ -139,24 +101,8 @@ func (h *SpaceHandler) spaceDeleteHandler(info authorization.Info, r *http.Reque
 
 	spaceRecord, err := h.spaceRepo.GetSpace(ctx, info, spaceGUID)
 	if err != nil {
-		if authorization.IsInvalidAuth(err) {
-			h.logger.Error(err, "unauthorized to get spaces")
-			return nil, apierrors.NewInvalidAuthError(err)
-		}
-
-		if authorization.IsNotAuthenticated(err) {
-			h.logger.Error(err, "unauthorized to get spaces")
-			return nil, apierrors.NewNotAuthenticatedError(err)
-		}
-
-		switch err.(type) {
-		case repositories.NotFoundError:
-			h.logger.Info("Space not found", "SpaceGUID", spaceGUID)
-			return nil, apierrors.NewNotFoundError(err, repositories.SpaceResourceType)
-		default:
-			h.logger.Error(err, "Failed to fetch space", "SpaceGUID", spaceGUID)
-			return nil, apierrors.NewUnknownError(err)
-		}
+		h.logger.Error(err, "Failed to fetch space", "SpaceGUID", spaceGUID)
+		return nil, err
 	}
 
 	deleteSpaceMessage := repositories.DeleteSpaceMessage{
@@ -165,14 +111,8 @@ func (h *SpaceHandler) spaceDeleteHandler(info authorization.Info, r *http.Reque
 	}
 	err = h.spaceRepo.DeleteSpace(ctx, info, deleteSpaceMessage)
 	if err != nil {
-		switch err.(type) {
-		case repositories.ForbiddenError:
-			h.logger.Error(err, "unauthorized to delete spaces")
-			return nil, apierrors.NewForbiddenError(err, repositories.SpaceResourceType)
-		default:
-			h.logger.Error(err, "Failed to delete space", "SpaceGUID", spaceGUID)
-			return nil, apierrors.NewUnknownError(err)
-		}
+		h.logger.Error(err, "Failed to delete space", "SpaceGUID", spaceGUID)
+		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).WithHeader(headers.Location, fmt.Sprintf("%s/v3/jobs/space.delete-%s", h.apiBaseURL.String(), spaceGUID)), nil

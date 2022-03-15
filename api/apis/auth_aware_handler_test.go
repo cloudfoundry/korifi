@@ -3,6 +3,7 @@ package apis_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
@@ -105,10 +106,46 @@ var _ = Describe("AuthAwareHandlerFuncWrapper", func() {
 		})
 	})
 
-	When("the delegate returns an api error", func() {
+	When("the delegate returns an unprocessable entity error", func() {
 		BeforeEach(func() {
 			delegate.Stub = func(_ authorization.Info, _ *http.Request) (*apis.HandlerResponse, error) {
 				return nil, apierrors.NewUnprocessableEntityError(errors.New("foo"), "bar")
+			}
+		})
+
+		It("presents the error", func() {
+			expectUnprocessableEntityError("bar")
+		})
+	})
+
+	When("the delegate returns a not authenticated error", func() {
+		BeforeEach(func() {
+			delegate.Stub = func(_ authorization.Info, _ *http.Request) (*apis.HandlerResponse, error) {
+				return nil, apierrors.NewNotAuthenticatedError(errors.New("foo"))
+			}
+		})
+
+		It("presents the error", func() {
+			expectNotAuthenticatedError()
+		})
+	})
+
+	When("the delegate returns an invalid auth error", func() {
+		BeforeEach(func() {
+			delegate.Stub = func(_ authorization.Info, _ *http.Request) (*apis.HandlerResponse, error) {
+				return nil, apierrors.NewInvalidAuthError(errors.New("foo"))
+			}
+		})
+
+		It("presents the error", func() {
+			expectInvalidAuthError()
+		})
+	})
+
+	When("the delegate returns a wrapped api error", func() {
+		BeforeEach(func() {
+			delegate.Stub = func(_ authorization.Info, _ *http.Request) (*apis.HandlerResponse, error) {
+				return nil, fmt.Errorf("wrapping %w", apierrors.NewUnprocessableEntityError(errors.New("foo"), "bar"))
 			}
 		})
 

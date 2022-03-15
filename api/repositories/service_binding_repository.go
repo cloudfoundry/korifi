@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 
@@ -105,10 +106,7 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 	cfServiceBinding := message.toCFServiceBinding()
 	err = userClient.Create(ctx, &cfServiceBinding)
 	if err != nil {
-		if k8serrors.IsForbidden(err) {
-			return ServiceBindingRecord{}, NewForbiddenError(ServiceBindingResourceType, err)
-		}
-		return ServiceBindingRecord{}, err // untested
+		return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 
 	return cfServiceBindingToRecord(cfServiceBinding), err
@@ -122,22 +120,19 @@ func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo 
 
 	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, guid, ServiceBindingResourceType)
 	if err != nil {
-		return NewNotFoundError(ServiceBindingResourceType, err)
+		return err
 	}
 
 	binding := &servicesv1alpha1.CFServiceBinding{}
 
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: guid}, binding)
 	if err != nil {
-		if k8serrors.IsForbidden(err) {
-			return NewNotFoundError(ServiceBindingResourceType, err)
-		}
-		return wrapK8sErr(err, ServiceBindingResourceType)
+		return apierrors.ForbiddenAsNotFound(apierrors.FromK8sError(err, ServiceBindingResourceType))
 	}
 
 	err = userClient.Delete(ctx, binding)
 	if err != nil {
-		return wrapK8sErr(err, ServiceBindingResourceType)
+		return apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 	return nil
 }
@@ -151,10 +146,7 @@ func (r *ServiceBindingRepo) ServiceBindingExists(ctx context.Context, authInfo 
 	serviceBindingList := new(servicesv1alpha1.CFServiceBindingList)
 	err = userClient.List(ctx, serviceBindingList, client.InNamespace(spaceGUID))
 	if err != nil {
-		if k8serrors.IsForbidden(err) {
-			return false, NewForbiddenError(ServiceBindingResourceType, err)
-		}
-		return false, err // untested
+		return false, apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 
 	for _, serviceBinding := range serviceBindingList.Items {
@@ -197,7 +189,6 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		// untested
 		return []ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
@@ -209,8 +200,10 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 			continue
 		}
 		if err != nil {
-			// untested
-			return []ServiceBindingRecord{}, fmt.Errorf("failed to list service instances in namespace %s: %w", ns, err)
+			return []ServiceBindingRecord{}, fmt.Errorf("failed to list service instances in namespace %s: %w",
+				ns,
+				apierrors.FromK8sError(err, ServiceBindingResourceType),
+			)
 		}
 		filteredServiceBindings = append(filteredServiceBindings, applyServiceBindingListFilter(serviceInstanceList.Items, message)...)
 	}

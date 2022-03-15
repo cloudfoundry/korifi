@@ -12,14 +12,11 @@ import (
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 )
 
 const (
@@ -109,23 +106,7 @@ var _ = Describe("OrgHandler", func() {
 			})
 		})
 
-		When("the org repo returns a uniqueness error", func() {
-			BeforeEach(func() {
-				var err error = &k8serrors.StatusError{
-					ErrStatus: metav1.Status{
-						Reason: metav1.StatusReason(fmt.Sprintf(`{"code":%d}`, webhooks.DuplicateOrgNameError)),
-					},
-				}
-				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, err)
-				makePostRequest(`{"name": "the-org"}`)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Organization 'the-org' already exists.")
-			})
-		})
-
-		When("the org repo returns another error", func() {
+		When("the org repo returns an error", func() {
 			BeforeEach(func() {
 				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, errors.New("boom"))
 				makePostRequest(`{"name": "the-org"}`)
@@ -262,68 +243,6 @@ var _ = Describe("OrgHandler", func() {
                 }`)))
 			})
 		})
-
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, authorization.InvalidAuthError{})
-				makePostRequest(`{"name": "the-org"}`)
-			})
-
-			It("returns Unauthorized error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-                    "errors": [
-                    {
-                        "detail": "Invalid Auth Token",
-                        "title": "CF-InvalidAuthToken",
-                        "code": 1000
-                    }
-                    ]
-                }`))
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, authorization.NotAuthenticatedError{})
-				makePostRequest(`{"name": "the-org"}`)
-			})
-
-			It("returns Unauthorized error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
-		When("user is not allowed to create an org", func() {
-			BeforeEach(func() {
-				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, repositories.NewForbiddenError(repositories.OrgResourceType, errors.New("nope")))
-				makePostRequest(`{"name": "the-org"}`)
-			})
-
-			It("returns an unauthorised error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("providing the repository fails", func() {
-			BeforeEach(func() {
-				orgRepo.CreateOrgReturns(repositories.OrgRecord{}, errors.New("boom!"))
-				makePostRequest(`{"name": "the-org"}`)
-			})
-
-			It("returns Unknown error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusInternalServerError))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-                    "errors": [
-                    {
-                        "title": "UnknownError",
-                        "detail": "An unknown error occurred.",
-                        "code": 10001
-                    }
-                    ]
-                }`))
-			})
-		})
 	})
 
 	Describe("Listing Orgs", func() {
@@ -454,57 +373,6 @@ var _ = Describe("OrgHandler", func() {
 				expectUnknownError()
 			})
 		})
-
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				orgRepo.ListOrgsReturns(nil, authorization.InvalidAuthError{})
-				router.ServeHTTP(rr, req)
-			})
-
-			It("returns Unauthorized error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-                    "errors": [
-                    {
-                        "detail": "Invalid Auth Token",
-                        "title": "CF-InvalidAuthToken",
-                        "code": 1000
-                    }
-                    ]
-                }`))
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				orgRepo.ListOrgsReturns(nil, authorization.NotAuthenticatedError{})
-				router.ServeHTTP(rr, req)
-			})
-
-			It("returns Unauthorized error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
-		When("providing the repository fails", func() {
-			BeforeEach(func() {
-				orgRepo.ListOrgsReturns(nil, errors.New("boom"))
-				router.ServeHTTP(rr, req)
-			})
-
-			It("returns Unknown error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusInternalServerError))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-                    "errors": [
-                    {
-                        "title": "UnknownError",
-                        "detail": "An unknown error occurred.",
-                        "code": 10001
-                    }
-                    ]
-                }`))
-			})
-		})
 	})
 
 	Describe("Delete Org", func() {
@@ -544,17 +412,6 @@ var _ = Describe("OrgHandler", func() {
 			})
 		})
 
-		When("deleting the org is not authorized", func() {
-			BeforeEach(func() {
-				orgRepo.DeleteOrgReturns(repositories.NewForbiddenError(repositories.OrgResourceType, nil))
-				router.ServeHTTP(rr, request)
-			})
-
-			It("returns Unauthorized error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
 		When("invoking the delete org repository fails", func() {
 			BeforeEach(func() {
 				orgRepo.DeleteOrgReturns(errors.New("unknown-error"))
@@ -563,17 +420,6 @@ var _ = Describe("OrgHandler", func() {
 
 			It("returns unknown error", func() {
 				expectUnknownError()
-			})
-		})
-
-		When("the org doesn't exist", func() {
-			BeforeEach(func() {
-				orgRepo.DeleteOrgReturns(repositories.NewNotFoundError(repositories.OrgResourceType, nil))
-				router.ServeHTTP(rr, request)
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("Org not found")
 			})
 		})
 	})
@@ -664,16 +510,6 @@ var _ = Describe("OrgHandler", func() {
 					}
 				]
 				}`, defaultServerURL, domainRecord.GUID, domainRecord.CreatedAt, domainRecord.UpdatedAt, domainRecord.Name, testOrganizationGUID)), "Response body matches response:")
-			})
-		})
-
-		When("the org does not exist", func() {
-			BeforeEach(func() {
-				orgRepo.GetOrgReturns(repositories.OrgRecord{}, repositories.NewNotFoundError(repositories.OrgResourceType, errors.New("org not found")))
-			})
-
-			It("returns a not found error", func() {
-				expectNotFoundError("Org not found")
 			})
 		})
 

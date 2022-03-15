@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	repositoriesfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 
@@ -294,11 +295,11 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 		When("applying the manifest errors with NotFoundErr", func() {
 			BeforeEach(func() {
-				applyManifestAction.Returns(repositories.NotFoundError{})
+				applyManifestAction.Returns(apierrors.NotFoundError{})
 			})
 
 			It("respond with unprocessable entity error", func() {
-				expectUnprocessableEntityError("The configured default domain `" + defaultDomainName + "` was not found")
+				expectUnprocessableEntityError(`The configured default domain "` + defaultDomainName + `" was not found`)
 			})
 		})
 	})
@@ -329,9 +330,9 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 		})
 
-		When("the space is not found", func() {
+		When("getting the space errors", func() {
 			BeforeEach(func() {
-				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NewNotFoundError(repositories.SpaceResourceType, errors.New("foo")))
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("foo"))
 				var err error
 				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+"fake-space-guid"+"/manifest_diff", strings.NewReader(`---
 				version: 1
@@ -342,9 +343,8 @@ var _ = Describe("SpaceManifestHandler", func() {
 				req.Header.Add("Content-type", "application/x-yaml")
 			})
 
-			It("returns a 404", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
-				expectNotFoundError("Space not found")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})

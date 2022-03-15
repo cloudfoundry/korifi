@@ -6,6 +6,7 @@ import (
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -87,7 +88,7 @@ var _ = Describe("ApplyManifest", func() {
 
 	When("the app does not exist", func() {
 		BeforeEach(func() {
-			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, repositories.NewNotFoundError(repositories.AppResourceType, nil))
+			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
 		})
 
 		When("creating the app errors", func() {
@@ -157,7 +158,7 @@ var _ = Describe("ApplyManifest", func() {
 
 		When("the process doesn't exist", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
+				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, apierrors.NewNotFoundError(nil, repositories.ProcessResourceType))
 			})
 
 			When("creating the process errors", func() {

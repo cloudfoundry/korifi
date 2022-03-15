@@ -4,7 +4,9 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -118,7 +120,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					AppGUID:             appGUID,
 					SpaceGUID:           space.Name,
 				})
-				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
@@ -194,7 +196,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		})
 
 		It("returns a not-found error for users with no role in the space", func() {
-			Expect(ret).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+			Expect(ret).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 		})
 
 		When("the user is a space manager", func() {
@@ -203,7 +205,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			})
 
 			It("returns a forbidden error", func() {
-				Expect(ret).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(ret).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 
@@ -222,7 +224,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				})
 
 				It("returns a not-found error", func() {
-					Expect(ret).To(BeAssignableToTypeOf(repositories.NotFoundError{}))
+					Expect(ret).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
 			})
 		})
@@ -336,7 +338,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		When("the user doesn't have permission to list ServiceBindings in the Space", func() {
 			It("returns a Forbidden error", func() {
 				_, err := repo.ServiceBindingExists(testCtx, authInfo, space.Name, appGUID, serviceInstanceGUID)
-				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})

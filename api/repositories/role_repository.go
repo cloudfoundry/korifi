@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"time"
 
@@ -14,13 +13,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
-)
-
-var (
-	ErrorDuplicateRoleBinding          = errors.New("RoleBinding with that name already exists")
-	ErrorMissingRoleBindingInParentOrg = errors.New("no RoleBinding found in parent org")
 )
 
 const (
@@ -130,12 +125,12 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 	err = userClient.Create(ctx, &roleBinding)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
-			return RoleRecord{}, ErrorDuplicateRoleBinding
+			return RoleRecord{}, apierrors.NewUnprocessableEntityError(
+				fmt.Errorf("rolebinging %s:%s already exists", roleBinding.Namespace, roleBinding.Name),
+				"RoleBinding with that name already exists",
+			)
 		}
-		if k8serrors.IsForbidden(err) {
-			return RoleRecord{}, NewForbiddenError(RoleResourceType, err)
-		}
-		return RoleRecord{}, fmt.Errorf("failed to assign user %q to role %q: %w", role.User, role.Type, err)
+		return RoleRecord{}, fmt.Errorf("failed to assign user %q to role %q: %w", role.User, role.Type, apierrors.FromK8sError(err, RoleResourceType))
 	}
 
 	roleRecord := RoleRecord{
@@ -164,7 +159,10 @@ func (r *RoleRepo) validateOrgRequirements(ctx context.Context, role CreateRoleM
 	}
 
 	if !hasOrgBinding {
-		return ErrorMissingRoleBindingInParentOrg
+		return apierrors.NewUnprocessableEntityError(
+			fmt.Errorf("no RoleBinding found in parent org %q for user %q", orgName, userIdentity.Name),
+			"no RoleBinding found in parent org",
+		)
 	}
 	return nil
 }
@@ -178,7 +176,7 @@ func (r *RoleRepo) getOrgName(ctx context.Context, spaceGUID string) (string, er
 
 	err := r.privilegedClient.Get(ctx, client.ObjectKeyFromObject(&namespace), &namespace)
 	if err != nil {
-		return "", fmt.Errorf("failed to get namespace with name %q: %w", spaceGUID, err)
+		return "", fmt.Errorf("failed to get namespace with name %q: %w", spaceGUID, apierrors.FromK8sError(err, OrgResourceType))
 	}
 
 	orgName := namespace.Annotations[hnsv1alpha2.SubnamespaceOf]

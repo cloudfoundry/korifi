@@ -2,12 +2,14 @@ package apis
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -49,7 +51,8 @@ func (h *DropletHandler) dropletGetHandler(authInfo authorization.Info, r *http.
 
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
-		return nil, handleRepoErrors(h.logger, err, repositories.DropletResourceType, dropletGUID)
+		h.logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.DropletResourceType), "guid", dropletGUID)
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDroplet(droplet, h.serverURL)), nil

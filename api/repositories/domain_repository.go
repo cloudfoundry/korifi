@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sort"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -64,12 +64,8 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 
 	domain := &networkingv1alpha1.CFDomain{}
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: domainGUID}, domain)
-	if k8serrors.IsForbidden(err) {
-		return DomainRecord{}, NewForbiddenError(DomainResourceType, err)
-	}
-
-	if err != nil { // untested
-		return DomainRecord{}, fmt.Errorf("get-domain user client get failed: %w", err)
+	if err != nil {
+		return DomainRecord{}, apierrors.NewForbiddenError(err, DomainResourceType)
 	}
 
 	return cfDomainToDomainRecord(domain), nil
@@ -79,7 +75,7 @@ func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Inf
 	cfdomainList := &networkingv1alpha1.CFDomainList{}
 	err := r.privilegedClient.List(ctx, cfdomainList)
 	if err != nil {
-		return []DomainRecord{}, err
+		return []DomainRecord{}, apierrors.FromK8sError(err, DomainResourceType)
 	}
 
 	filtered := applyDomainListFilterAndOrder(cfdomainList.Items, message)
@@ -96,7 +92,7 @@ func (r *DomainRepo) GetDomainByName(ctx context.Context, authInfo authorization
 	}
 
 	if len(domainRecords) == 0 {
-		return DomainRecord{}, NewNotFoundError(DomainResourceType, err)
+		return DomainRecord{}, apierrors.NewNotFoundError(fmt.Errorf("domain %q not found", domainName), DomainResourceType)
 	}
 
 	return domainRecords[0], nil

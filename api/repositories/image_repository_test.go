@@ -15,6 +15,7 @@ import (
 	k8sclient "k8s.io/client-go/kubernetes"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 )
@@ -106,7 +107,7 @@ var _ = Describe("ImageRepository", func() {
 	})
 
 	It("fails with unauthorized error without a valid role in the space", func() {
-		Expect(uploadErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+		Expect(uploadErr).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
 	})
 
 	When("user has role SpaceDeveloper", func() {

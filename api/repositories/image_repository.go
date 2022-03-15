@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	registryv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -64,7 +65,7 @@ func (r *ImageRepository) UploadSourceImage(ctx context.Context, authInfo author
 	}
 
 	if !authorized {
-		return "", NewForbiddenError(PackageResourceType, errors.New("not authorized to patch cfpackage"))
+		return "", apierrors.NewForbiddenError(errors.New("not authorized to patch cfpackage"), PackageResourceType)
 	}
 
 	image, err := r.builder.Build(ctx, srcReader)
@@ -102,7 +103,7 @@ func (r *ImageRepository) canIPatchCFPackage(ctx context.Context, authInfo autho
 		},
 	}
 	if err := userClient.Create(ctx, &review); err != nil {
-		return false, fmt.Errorf("canIPatchCFPackage: failed to create self subject access review: %w", err)
+		return false, fmt.Errorf("canIPatchCFPackage: failed to create self subject access review: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
 	return review.Status.Allowed, nil
@@ -111,14 +112,14 @@ func (r *ImageRepository) canIPatchCFPackage(ctx context.Context, authInfo autho
 func (r *ImageRepository) getCredentials(ctx context.Context) (remote.Option, error) {
 	keychainFactory, err := k8sdockercreds.NewSecretKeychainFactory(r.privilegedK8sClient)
 	if err != nil {
-		return nil, fmt.Errorf("error in k8sdockercreds.NewSecretKeychainFactory: %w", err)
+		return nil, fmt.Errorf("error in k8sdockercreds.NewSecretKeychainFactory: %w", apierrors.FromK8sError(err, SourceImageResourceType))
 	}
 	keychain, err := keychainFactory.KeychainForSecretRef(ctx, kpackregistry.SecretRef{
 		Namespace:        r.rootNamespace,
 		ImagePullSecrets: []corev1.LocalObjectReference{{Name: r.registrySecretName}},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", err)
+		return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", apierrors.FromK8sError(err, SourceImageResourceType))
 	}
 
 	return remote.WithAuthFromKeychain(keychain), nil

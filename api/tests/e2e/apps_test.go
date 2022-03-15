@@ -75,11 +75,17 @@ var _ = Describe("Apps", func() {
 	})
 
 	Describe("Create an app", func() {
+		var appName string
+
+		BeforeEach(func() {
+			appName = generateGUID("app")
+		})
+
 		JustBeforeEach(func() {
 			var err error
 			resp, err = certClient.R().SetBody(appResource{
 				resource: resource{
-					Name: generateGUID("app"),
+					Name: appName,
 					Relationships: relationships{
 						"space": {
 							Data: resource{
@@ -99,6 +105,17 @@ var _ = Describe("Apps", func() {
 
 			It("succeeds", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+			})
+
+			When("the app name already exists in the space", func() {
+				BeforeEach(func() {
+					createApp(space1GUID, appName)
+				})
+
+				It("returns an unprocessable entity error", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+					Expect(resp).To(HaveRestyBody(ContainSubstring("CF-UniquenessError")))
+				})
 			})
 		})
 
@@ -186,7 +203,6 @@ var _ = Describe("Apps", func() {
 				Expect(result.GUID).To(Equal(processGUID))
 			})
 		})
-
 	})
 
 	Describe("List app routes", func() {

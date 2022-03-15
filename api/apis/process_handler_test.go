@@ -1,13 +1,13 @@
 package apis_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -163,18 +163,9 @@ var _ = Describe("ProcessHandler", func() {
 		})
 
 		When("on the sad path and", func() {
-			When("the process doesn't exist", func() {
-				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
-				})
-
-				It("returns a not-found error", func() {
-					expectNotFoundError("Process not found")
-				})
-			})
 			When("the user lacks access", func() {
 				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenError(repositories.ProcessResourceType, errors.New("access denied or something")))
+					processRepo.GetProcessReturns(repositories.ProcessRecord{}, apierrors.NewForbiddenError(errors.New("access denied or something"), repositories.ProcessResourceType))
 				})
 
 				It("returns a not-found error", func() {
@@ -188,18 +179,6 @@ var _ = Describe("ProcessHandler", func() {
 				})
 
 				It("returns an error", func() {
-					expectUnknownError()
-				})
-			})
-
-			When("the authorization.Info is not set in the request context", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequest("GET", "/v3/processes/"+processGUID, nil)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns an unknown error", func() {
 					expectUnknownError()
 				})
 			})
@@ -248,19 +227,9 @@ var _ = Describe("ProcessHandler", func() {
 			})
 		})
 
-		When("the process doesn't exist", func() {
-			BeforeEach(func() {
-				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("Process not found")
-			})
-		})
-
 		When("the process isn't accessible to the user", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenError(repositories.ProcessResourceType, nil))
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, apierrors.NewForbiddenError(nil, repositories.ProcessResourceType))
 			})
 
 			It("returns an error", func() {
@@ -274,18 +243,6 @@ var _ = Describe("ProcessHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("the authorization.Info is not set in the request context", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("GET", "/v3/processes/"+processGUID, nil)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("returns an unknown error", func() {
 				expectUnknownError()
 			})
 		})
@@ -510,38 +467,12 @@ var _ = Describe("ProcessHandler", func() {
 				})
 			})
 
-			When("the process doesn't exist", func() {
-				BeforeEach(func() {
-					scaleProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
-				})
-
-				It("returns an error", func() {
-					expectNotFoundError("Process not found")
-				})
-			})
-
 			When("there is some other error fetching the process", func() {
 				BeforeEach(func() {
 					scaleProcessFunc.Returns(repositories.ProcessRecord{}, errors.New("unknown!"))
 				})
 
 				It("returns an error", func() {
-					expectUnknownError()
-				})
-			})
-
-			When("authorization.Info is not set in the request context", func() {
-				BeforeEach(func() {
-					ctx = context.Background()
-
-					queuePostRequest(fmt.Sprintf(`{
-                        "instances": %[1]d,
-                        "memory_in_mb": %[2]d,
-                        "disk_in_mb": %[3]d
-                    }`, instances, memoryInMB, diskInMB))
-				})
-
-				It("returns an unknown error", func() {
 					expectUnknownError()
 				})
 			})
@@ -704,63 +635,23 @@ var _ = Describe("ProcessHandler", func() {
 			})
 		})
 
-		When("the process is not found", func() {
-			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NewNotFoundError(repositories.ProcessResourceType, nil))
-			})
-			It("an error", func() {
-				expectNotFoundError("Process not found")
-			})
-		})
-
-		When("the app is not found", func() {
-			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NewNotFoundError(repositories.AppResourceType, nil))
-			})
-			It("an error", func() {
-				expectNotFoundError("App not found")
-			})
-		})
-
-		When("authorization.Info is not set in the request context", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("GET", "/v3/processes/"+processGUID+"/stats", nil)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("returns an unknown error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("the app is not authorized", func() {
-			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NewForbiddenError(repositories.AppResourceType, nil))
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("App not found")
-			})
-		})
-
-		When("the process is not authorized", func() {
-			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NewForbiddenError(repositories.ProcessResourceType, nil))
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("Process not found")
-			})
-		})
-
 		When("the process stats are not authorized", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NewForbiddenError(repositories.ProcessStatsResourceType, nil))
+				fetchProcessStats.Returns(nil, apierrors.NewForbiddenError(nil, repositories.ProcessStatsResourceType))
 			})
 
 			It("returns an error", func() {
 				expectNotFoundError("Process Stats not found")
+			})
+		})
+
+		When("fetching the process stats errors", func() {
+			BeforeEach(func() {
+				fetchProcessStats.Returns(nil, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -918,6 +809,19 @@ var _ = Describe("ProcessHandler", func() {
 			})
 			It("returns an Unknown key error", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids'")
+			})
+		})
+
+		When("listing processes fails", func() {
+			BeforeEach(func() {
+				processRepo.ListProcessesReturns(nil, errors.New("boom"))
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes?app_guids=my-app-guid", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -1100,12 +1004,34 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("user is not allowed to get a process", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NewForbiddenError(repositories.ProcessResourceType, errors.New("nope")))
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, apierrors.NewForbiddenError(errors.New("nope"), repositories.ProcessResourceType))
 				makePatchRequest(processGUID, validBody)
 			})
 
-			It("returns an unauthorised error", func() {
+			It("returns a not found error", func() {
 				expectNotFoundError("Process not found")
+			})
+		})
+
+		When("getting the process fails a process", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("boom"))
+				makePatchRequest(processGUID, validBody)
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("patching the process fails a process", func() {
+			BeforeEach(func() {
+				processRepo.PatchProcessReturns(repositories.ProcessRecord{}, errors.New("boom"))
+				makePatchRequest(processGUID, validBody)
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
