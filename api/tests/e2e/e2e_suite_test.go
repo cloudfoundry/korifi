@@ -227,6 +227,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(err).NotTo(HaveOccurred())
 
 	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
+	appFQDN = mustHaveEnv("APP_FQDN")
+
 	ensureServerIsUp()
 
 	serviceAccountName = generateGUID("token-user")

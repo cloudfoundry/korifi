@@ -103,41 +103,29 @@ var _ = Describe("ProcessRepo", func() {
 		})
 
 		When("duplicate Processes exist across namespaces with the same GUIDs", func() {
-			var (
-				namespace2 *corev1.Namespace
-				app2GUID   string
-			)
+			BeforeEach(func() {
+				app2GUID := prefixedGUID("app2")
 
-			When("duplicate Processes exist across namespaces with the same GUIDs", func() {
-				BeforeEach(func() {
-					app2GUID = prefixedGUID("app2")
+				namespace2 := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: prefixedGUID("namespace2")}}
+				Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
 
-					namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: prefixedGUID("namespace2")}}
-					Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
-
-					_ = createProcessCR(context.Background(), k8sClient, process1GUID, namespace2.Name, app2GUID)
-				})
-
-				It("returns an untyped error", func() {
-					Expect(getErr).To(HaveOccurred())
-					Expect(getErr).To(MatchError("get-process duplicate records exist"))
-				})
+				_ = createProcessCR(context.Background(), k8sClient, process1GUID, namespace2.Name, app2GUID)
 			})
 
-			When("no matching processes exist", func() {
-				BeforeEach(func() {
-					getProcessGUID = "i don't exist"
-				})
-
-				It("returns a not found error", func() {
-					Expect(getErr).To(HaveOccurred())
-					Expect(getErr).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
-				})
-			})
-
-			It("returns a not found error when the user has no permission to see the process", func() {
+			It("returns an untyped error", func() {
 				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+				Expect(getErr).To(MatchError("get-process duplicate records exist"))
+			})
+		})
+
+		When("no matching processes exist", func() {
+			BeforeEach(func() {
+				getProcessGUID = "i don't exist"
+			})
+
+			It("returns a not found error", func() {
+				Expect(getErr).To(HaveOccurred())
+				Expect(getErr).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})
@@ -341,62 +329,47 @@ var _ = Describe("ProcessRepo", func() {
 
 	Describe("GetProcessByAppTypeAndSpace", func() {
 		const (
-			processType = "thingy"
+			processType = "web"
 		)
 
-		When("there is a matching process", func() {
-			BeforeEach(func() {
-				cfProcess := &workloadsv1alpha1.CFProcess{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      process1GUID,
-						Namespace: namespace1.Name,
-						Labels: map[string]string{
-							cfAppGUIDLabelKey: app1GUID,
-						},
-					},
-					Spec: workloadsv1alpha1.CFProcessSpec{
-						AppRef: corev1.LocalObjectReference{
-							Name: app1GUID,
-						},
-						ProcessType: processType,
-						Command:     "the-command",
-						HealthCheck: workloadsv1alpha1.HealthCheck{
-							Type: "http",
-							Data: workloadsv1alpha1.HealthCheckData{
-								HTTPEndpoint:             "/healthz",
-								InvocationTimeoutSeconds: 1,
-								TimeoutSeconds:           2,
-							},
-						},
-						DesiredInstances: 1,
-						MemoryMB:         2,
-						DiskQuotaMB:      3,
-						Ports:            []int32{8080},
-					},
-				}
+		var (
+			processRecord repositories.ProcessRecord
+			getErr        error
+		)
 
-				Expect(k8sClient.Create(context.Background(), cfProcess)).To(Succeed())
+		JustBeforeEach(func() {
+			processRecord, getErr = processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, app1GUID, processType, namespace1.Name)
+		})
+
+		When("the user is not authorized in the space", func() {
+			It("returns a forbidden error", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+
+		When("the user has permission to get the process", func() {
+			BeforeEach(func() {
+				createProcessCR(context.Background(), k8sClient, process1GUID, namespace1.Name, app1GUID)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace1.Name)
 			})
 
-			It("returns it", func() {
-				processRecord, err := processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, app1GUID, processType, namespace1.Name)
-				Expect(err).NotTo(HaveOccurred())
+			It("returns a Process record with the specified app type and space", func() {
+				Expect(getErr).NotTo(HaveOccurred())
 				Expect(processRecord).To(MatchAllFields(Fields{
 					"GUID":             Equal(process1GUID),
 					"SpaceGUID":        Equal(namespace1.Name),
 					"AppGUID":          Equal(app1GUID),
 					"Type":             Equal(processType),
-					"Command":          Equal("the-command"),
+					"Command":          Equal(""),
 					"DesiredInstances": Equal(1),
-					"MemoryMB":         BeEquivalentTo(2),
-					"DiskQuotaMB":      BeEquivalentTo(3),
+					"MemoryMB":         BeEquivalentTo(500),
+					"DiskQuotaMB":      BeEquivalentTo(512),
 					"Ports":            Equal([]int32{8080}),
 					"HealthCheck": Equal(repositories.HealthCheck{
-						Type: "http",
+						Type: "process",
 						Data: repositories.HealthCheckData{
-							HTTPEndpoint:             "/healthz",
-							InvocationTimeoutSeconds: 1,
-							TimeoutSeconds:           2,
+							InvocationTimeoutSeconds: 0,
+							TimeoutSeconds:           0,
 						},
 					}),
 					"Labels":      BeEmpty(),
@@ -405,12 +378,15 @@ var _ = Describe("ProcessRepo", func() {
 					"UpdatedAt":   Not(BeEmpty()),
 				}))
 			})
-		})
 
-		When("there is no matching process", func() {
-			It("returns a NotFoundError", func() {
-				_, err := processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, app1GUID, processType, namespace1.Name)
-				Expect(err).To(MatchError(apierrors.NewNotFoundError(nil, repositories.ProcessResourceType)))
+			When("there is no matching process", func() {
+				BeforeEach(func() {
+					app1GUID = "i don't exist"
+				})
+
+				It("returns a not found error", func() {
+					Expect(getErr).To(MatchError(apierrors.NewNotFoundError(nil, repositories.ProcessResourceType)))
+				})
 			})
 		})
 	})
