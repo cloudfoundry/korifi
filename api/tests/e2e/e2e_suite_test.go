@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"net/http"
@@ -17,15 +18,15 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	"k8s.io/client-go/kubernetes/scheme"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -50,6 +51,7 @@ var (
 	apiServerRoot       string
 	appFQDN             string
 	appDomainGUID       string
+	sharedOrgGUID       string
 	serviceAccountName  string
 	serviceAccountToken string
 	tokenAuthHeader     string
@@ -184,12 +186,23 @@ type cfErr struct {
 	Code   int    `json:"code"`
 }
 
+type Globals struct {
+	AppDomainGuid string `json:"app_domain_guid"`
+	SharedOrgGuid string `json:"shared_org_guid"`
+}
+
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(helpers.E2EFailHandler)
 	RunSpecs(t, "E2E Suite")
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
+	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
+	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
+	appFQDN = mustHaveEnv("APP_FQDN")
+	ensureServerIsUp()
+
+	// K8sClient required for createDomain
 	Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	config, err := controllerruntime.GetConfig()
@@ -197,37 +210,68 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	k8sClient, err = client.NewWithWatch(config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
+	domainGUID := createDomain(appFQDN)
 
-	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
-	appFQDN = mustHaveEnv("APP_FQDN")
+	// Used for certificate/user creation?
+	clientset, err = kubernetes.NewForConfig(config)
+	Expect(err).NotTo(HaveOccurred())
 
-	appDomainGUID = createDomain(appFQDN)
+	// Service Account creation
+	adminAuthHeader = "ClientCert " + obtainAdminUserCert()
+	serviceAccountName = generateGUID("token-user")
+	serviceAccountToken = obtainServiceAccountToken(serviceAccountName)
 
-	return []byte(appDomainGUID)
-}, func(appDomainGUIDBytes []byte) {
+	certUserName = generateGUID("cert-user")
+	certSigningReq, certPEM = obtainClientCert(certUserName)
+	certAuthHeader = "ClientCert " + certPEM
+	// Admin client required for createOrg
+	adminClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert()).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	orgGUID := createOrg("shared-org")
+	createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+
+	// Globals pass-through
+	globals := &Globals{
+		AppDomainGuid: domainGUID,
+		SharedOrgGuid: orgGUID,
+	}
+	output, err := json.Marshal(globals)
+	if err != nil {
+		panic(err)
+	}
+	return output
+
+}, func(data []byte) {
+	// General Ginkgo Config
 	SetDefaultEventuallyTimeout(240 * time.Second)
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
-
-	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
-
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
+	// Env Var Parsing
+	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
+	appFQDN = mustHaveEnv("APP_FQDN")
+	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
+
+	// Globals pass-through
+	globals := Globals{}
+	err := json.Unmarshal(data, &globals)
+	if err != nil {
+		panic(err)
+	}
+	appDomainGUID = globals.AppDomainGuid
+	sharedOrgGUID = globals.SharedOrgGuid
+
+	// Per-node client creation
 	Expect(hnsv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	config, err := controllerruntime.GetConfig()
 	Expect(err).NotTo(HaveOccurred())
 
-	adminAuthHeader = "ClientCert " + obtainAdminUserCert()
-
 	k8sClient, err = client.NewWithWatch(config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 
 	clientset, err = kubernetes.NewForConfig(config)
 	Expect(err).NotTo(HaveOccurred())
-
-	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
-	ensureServerIsUp()
 
 	serviceAccountName = generateGUID("token-user")
 	serviceAccountToken = obtainServiceAccountToken(serviceAccountName)
@@ -256,8 +300,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			},
 		}),
 	).To(Succeed())
-
-	appDomainGUID = string(appDomainGUIDBytes)
 })
 
 var _ = BeforeEach(func() {
@@ -267,7 +309,8 @@ var _ = BeforeEach(func() {
 	tokenClient = resty.New().SetBaseURL(apiServerRoot).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 })
 
-var _ = SynchronizedAfterSuite(func() {
+var _ = SynchronizedAfterSuite(func() {}, func() {
+	deleteOrg(sharedOrgGUID)
 	deleteServiceAccount(serviceAccountName)
 	deleteCSR(certSigningReq)
 }, func() {

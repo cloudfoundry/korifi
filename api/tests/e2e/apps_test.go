@@ -12,20 +12,21 @@ import (
 
 var _ = Describe("Apps", func() {
 	var (
-		orgGUID    string
 		space1GUID string
 		appGUID    string
 		resp       *resty.Response
 	)
 
 	BeforeEach(func() {
-		orgGUID = createOrg(generateGUID("org"))
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-		space1GUID = createSpace(generateGUID("space1"), orgGUID)
+		By("Creating a space for the app", func() {
+			space1GUID = createSpace(generateGUID("space1"), sharedOrgGUID)
+		})
 	})
 
 	AfterEach(func() {
-		deleteOrg(orgGUID)
+		By("Cleaning up the space", func() {
+			deleteOrg(space1GUID)
+		})
 	})
 
 	Describe("List apps", func() {
@@ -37,18 +38,22 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			space2GUID = createSpace(generateGUID("space2"), orgGUID)
-			space3GUID = createSpace(generateGUID("space3"), orgGUID)
+			By("Creating 2 other spaces", func() {
+				space2GUID = createSpace(generateGUID("space2"), sharedOrgGUID)
+				space3GUID = createSpace(generateGUID("space3"), sharedOrgGUID)
 
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space3GUID)
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space3GUID)
+			})
 
-			app1GUID = createApp(space1GUID, generateGUID("app1"))
-			app2GUID = createApp(space1GUID, generateGUID("app2"))
-			app3GUID = createApp(space2GUID, generateGUID("app3"))
-			app4GUID = createApp(space2GUID, generateGUID("app4"))
-			app5GUID = createApp(space3GUID, generateGUID("app5"))
-			app6GUID = createApp(space3GUID, generateGUID("app6"))
+			By("Creating apps across the 3 spaces", func() {
+				app1GUID = createApp(space1GUID, generateGUID("app1"))
+				app2GUID = createApp(space1GUID, generateGUID("app2"))
+				app3GUID = createApp(space2GUID, generateGUID("app3"))
+				app4GUID = createApp(space2GUID, generateGUID("app4"))
+				app5GUID = createApp(space3GUID, generateGUID("app5"))
+				app6GUID = createApp(space3GUID, generateGUID("app6"))
+			})
 		})
 
 		JustBeforeEach(func() {

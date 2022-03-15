@@ -51,4 +51,4 @@ if [[ -n "$SEED" ]]; then
   extra_args+=("--seed=${SEED}")
 fi
 
-ginkgo --race -p --randomize-all --randomize-suites "${extra_args[@]}" $@
+ginkgo --json-report ginkgo-report.json --race -p --randomize-all --randomize-suites "${extra_args[@]}" $@
