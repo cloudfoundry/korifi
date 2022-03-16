@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
+
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
@@ -149,7 +151,27 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			})
 		})
 
-		When("the error is some other error", func() {
+		When("the returned error from GetApp is forbidden", func() {
+			BeforeEach(func() {
+				toReturnErr := apierrors.NewForbiddenError(nil, repositories.AppResourceType)
+				appRepo.GetAppReturns(repositories.AppRecord{}, toReturnErr)
+			})
+			It("wraps the error as NotFound", func() {
+				Expect(responseErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+
+		When("the returned error from ListProcesses is forbidden", func() {
+			BeforeEach(func() {
+				toReturnErr := apierrors.NewForbiddenError(nil, repositories.ProcessResourceType)
+				processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, toReturnErr)
+			})
+			It("wraps the error as NotFound", func() {
+				Expect(responseErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+
+		When("the error is some error other than forbidden", func() {
 			var toReturnErr error
 			BeforeEach(func() {
 				toReturnErr = errors.New("some-other-error")

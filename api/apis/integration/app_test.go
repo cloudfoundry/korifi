@@ -105,7 +105,7 @@ var _ = Describe("App Handler", func() {
 	BeforeEach(func() {
 		appRepo := repositories.NewAppRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 		dropletRepo := repositories.NewDropletRepo(k8sClient, namespaceRetriever, clientFactory)
-		processRepo := repositories.NewProcessRepo(k8sClient, namespaceRetriever, clientFactory)
+		processRepo := repositories.NewProcessRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory)
 		domainRepo := repositories.NewDomainRepo(k8sClient, namespaceRetriever, clientFactory)
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPermissions, time.Minute, true)

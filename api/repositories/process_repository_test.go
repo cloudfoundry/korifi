@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -22,17 +24,15 @@ var _ = Describe("ProcessRepo", func() {
 	var (
 		ctx          context.Context
 		processRepo  *repositories.ProcessRepo
-		namespace1   *corev1.Namespace
+		orgNamespace *hnsv1alpha2.SubnamespaceAnchor
 		app1GUID     string
 		process1GUID string
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		processRepo = repositories.NewProcessRepo(k8sClient, namespaceRetriever, userClientFactory)
-
-		namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: prefixedGUID("namespace1")}}
-		Expect(k8sClient.Create(ctx, namespace1)).To(Succeed())
+		processRepo = repositories.NewProcessRepo(k8sClient, namespaceRetriever, userClientFactory, nsPerms)
+		orgNamespace = createOrgAnchorAndNamespace(ctx, rootNamespace, prefixedGUID("org"))
 
 		app1GUID = prefixedGUID("app1")
 		process1GUID = prefixedGUID("process1")
@@ -47,7 +47,7 @@ var _ = Describe("ProcessRepo", func() {
 		)
 
 		BeforeEach(func() {
-			cfProcess1 = createProcessCR(context.Background(), k8sClient, process1GUID, namespace1.Name, app1GUID)
+			cfProcess1 = createProcessCR(context.Background(), k8sClient, process1GUID, orgNamespace.Name, app1GUID)
 			getProcessGUID = process1GUID
 		})
 
@@ -70,7 +70,7 @@ var _ = Describe("ProcessRepo", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 
 				Expect(processRecord.GUID).To(Equal(process1GUID))
-				Expect(processRecord.SpaceGUID).To(Equal(namespace1.Name))
+				Expect(processRecord.SpaceGUID).To(Equal(orgNamespace.Name))
 				Expect(processRecord.AppGUID).To(Equal(app1GUID))
 				Expect(processRecord.Type).To(Equal(cfProcess1.Spec.ProcessType))
 				Expect(processRecord.Command).To(Equal(cfProcess1.Spec.Command))
@@ -132,23 +132,24 @@ var _ = Describe("ProcessRepo", func() {
 
 	Describe("ListProcesses", func() {
 		var (
-			namespace2GUID string
 			app2GUID       string
 			process2GUID   string
+			space1, space2 *hnsv1alpha2.SubnamespaceAnchor
 
 			listProcessesMessage repositories.ListProcessesMessage
 			processes            []repositories.ProcessRecord
 		)
 
 		BeforeEach(func() {
-			namespace2GUID = prefixedGUID("namespace2")
+			//createClusterRoleBinding(ctx, userName, spaceDeveloperRole.Name)
+			space1 = createSpaceAnchorAndNamespace(ctx, orgNamespace.Name, prefixedGUID("space1"))
+			space2 = createSpaceAnchorAndNamespace(ctx, orgNamespace.Name, prefixedGUID("space2"))
+
 			app2GUID = prefixedGUID("app2")
 			process2GUID = prefixedGUID("process2")
 
-			Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2GUID}})).To(Succeed())
-
-			_ = createProcessCR(context.Background(), k8sClient, process1GUID, namespace1.Name, app1GUID)
-			_ = createProcessCR(context.Background(), k8sClient, process2GUID, namespace2GUID, app1GUID)
+			_ = createProcessCR(context.Background(), k8sClient, process1GUID, space1.Name, app1GUID)
+			_ = createProcessCR(context.Background(), k8sClient, process2GUID, space2.Name, app1GUID)
 
 			listProcessesMessage = repositories.ListProcessesMessage{
 				AppGUID: []string{app1GUID},
@@ -161,40 +162,52 @@ var _ = Describe("ProcessRepo", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns Process records for the AppGUID we request", func() {
-			Expect(processes).To(ConsistOf(
-				MatchFields(IgnoreExtras, Fields{"GUID": Equal(process1GUID)}),
-				MatchFields(IgnoreExtras, Fields{"GUID": Equal(process2GUID)}),
-			))
+		It("returns an empty list to unauthorized users", func() {
+			Expect(processes).To(BeEmpty())
 		})
 
-		When("spaceGUID is supplied", func() {
+		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				listProcessesMessage.SpaceGUID = namespace1.Name
+				//createClusterRoleBinding(ctx, userName, spaceDeveloperRole.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space1.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
-
-			It("returns the matching process in the given space", func() {
+			It("returns Process records for the AppGUID we request", func() {
 				Expect(processes).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(process1GUID)}),
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(process2GUID)}),
 				))
 			})
-		})
 
-		When("no Processes exist for an app", func() {
-			BeforeEach(func() {
-				listProcessesMessage.AppGUID = []string{app2GUID}
-				listProcessesMessage.SpaceGUID = namespace1.Name
+			When("spaceGUID is supplied", func() {
+				BeforeEach(func() {
+					listProcessesMessage.SpaceGUID = space1.Name
+				})
+
+				It("returns the matching process in the given space", func() {
+					Expect(processes).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(process1GUID)}),
+					))
+				})
 			})
 
-			It("returns an empty list", func() {
-				Expect(processes).To(BeEmpty())
-				Expect(processes).ToNot(BeNil())
+			When("no Processes exist for an app", func() {
+				BeforeEach(func() {
+					listProcessesMessage.AppGUID = []string{app2GUID}
+					listProcessesMessage.SpaceGUID = space1.Name
+				})
+
+				It("returns an empty list", func() {
+					Expect(processes).To(BeEmpty())
+					Expect(processes).ToNot(BeNil())
+				})
 			})
 		})
 	})
 
 	Describe("ScaleProcess", func() {
 		var (
+			space1              *hnsv1alpha2.SubnamespaceAnchor
 			cfProcess           *workloadsv1alpha1.CFProcess
 			scaleProcessMessage *repositories.ScaleProcessMessage
 
@@ -204,11 +217,12 @@ var _ = Describe("ProcessRepo", func() {
 		)
 
 		BeforeEach(func() {
-			cfProcess = createProcessCR(context.Background(), k8sClient, process1GUID, namespace1.Name, app1GUID)
+			space1 = createSpaceAnchorAndNamespace(ctx, orgNamespace.Name, prefixedGUID("space1"))
+			cfProcess = createProcessCR(context.Background(), k8sClient, process1GUID, space1.Name, app1GUID)
 
 			scaleProcessMessage = &repositories.ScaleProcessMessage{
 				GUID:               process1GUID,
-				SpaceGUID:          namespace1.Name,
+				SpaceGUID:          space1.Name,
 				ProcessScaleValues: repositories.ProcessScaleValues{},
 			}
 
@@ -217,66 +231,78 @@ var _ = Describe("ProcessRepo", func() {
 			memoryScaleMB = 900
 		})
 
-		DescribeTable("calling ScaleProcess with a set of scale values returns an updated CFProcess record",
-			func(instances *int, diskMB, memoryMB *int64) {
-				scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{
-					Instances: instances,
-					DiskMB:    diskMB,
-					MemoryMB:  memoryMB,
-				}
-				scaleProcessRecord, scaleProcessErr := processRepo.ScaleProcess(context.Background(), authInfo, *scaleProcessMessage)
-				Expect(scaleProcessErr).ToNot(HaveOccurred())
-				if instances != nil {
-					Expect(scaleProcessRecord.DesiredInstances).To(Equal(*instances))
-				} else {
-					Expect(scaleProcessRecord.DesiredInstances).To(Equal(cfProcess.Spec.DesiredInstances))
-				}
-				if diskMB != nil {
-					Expect(scaleProcessRecord.DiskQuotaMB).To(Equal(*diskMB))
-				} else {
-					Expect(scaleProcessRecord.DiskQuotaMB).To(Equal(cfProcess.Spec.DiskQuotaMB))
-				}
-				if memoryMB != nil {
-					Expect(scaleProcessRecord.MemoryMB).To(Equal(*memoryMB))
-				} else {
-					Expect(scaleProcessRecord.MemoryMB).To(Equal(cfProcess.Spec.MemoryMB))
-				}
-			},
-
-			Entry("all scale values are provided", &instanceScale, &diskScaleMB, &memoryScaleMB),
-			Entry("no scale values are provided", nil, nil, nil),
-			Entry("some scale values are provided", &instanceScale, nil, nil),
-			Entry("some scale values are provided", nil, &diskScaleMB, &memoryScaleMB),
-		)
-
-		It("updates the scale of the CFProcess CR", func() {
-			scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{
-				Instances: &instanceScale,
-				MemoryMB:  &memoryScaleMB,
-				DiskMB:    &diskScaleMB,
-			}
+		It("returns a forbidden error to unauthorized users", func() {
 			_, err := processRepo.ScaleProcess(ctx, authInfo, *scaleProcessMessage)
-			Expect(err).ToNot(HaveOccurred())
-
-			var updatedCFProcess workloadsv1alpha1.CFProcess
-			Expect(k8sClient.Get(
-				ctx,
-				client.ObjectKey{Name: process1GUID, Namespace: namespace1.Name},
-				&updatedCFProcess,
-			)).To(Succeed())
-
-			Expect(updatedCFProcess.Spec.DesiredInstances).To(Equal(instanceScale))
-			Expect(updatedCFProcess.Spec.DiskQuotaMB).To(Equal(diskScaleMB))
-			Expect(updatedCFProcess.Spec.MemoryMB).To(Equal(memoryScaleMB))
+			Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 		})
 
-		When("the process does not exist", func() {
-			It("returns an error", func() {
-				scaleProcessMessage.GUID = "i-dont-exist"
+		When("the user has the SpaceDeveloper role", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space1.Name)
+			})
+
+			DescribeTable("calling ScaleProcess with a set of scale values returns an updated CFProcess record",
+				func(instances *int, diskMB, memoryMB *int64) {
+					scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{
+						Instances: instances,
+						DiskMB:    diskMB,
+						MemoryMB:  memoryMB,
+					}
+					scaleProcessRecord, scaleProcessErr := processRepo.ScaleProcess(context.Background(), authInfo, *scaleProcessMessage)
+					Expect(scaleProcessErr).ToNot(HaveOccurred())
+					if instances != nil {
+						Expect(scaleProcessRecord.DesiredInstances).To(Equal(*instances))
+					} else {
+						Expect(scaleProcessRecord.DesiredInstances).To(Equal(cfProcess.Spec.DesiredInstances))
+					}
+					if diskMB != nil {
+						Expect(scaleProcessRecord.DiskQuotaMB).To(Equal(*diskMB))
+					} else {
+						Expect(scaleProcessRecord.DiskQuotaMB).To(Equal(cfProcess.Spec.DiskQuotaMB))
+					}
+					if memoryMB != nil {
+						Expect(scaleProcessRecord.MemoryMB).To(Equal(*memoryMB))
+					} else {
+						Expect(scaleProcessRecord.MemoryMB).To(Equal(cfProcess.Spec.MemoryMB))
+					}
+				},
+
+				Entry("all scale values are provided", &instanceScale, &diskScaleMB, &memoryScaleMB),
+				Entry("no scale values are provided", nil, nil, nil),
+				Entry("some scale values are provided", &instanceScale, nil, nil),
+				Entry("some scale values are provided", nil, &diskScaleMB, &memoryScaleMB),
+			)
+
+			It("updates the scale of the CFProcess CR", func() {
+				scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{
+					Instances: &instanceScale,
+					MemoryMB:  &memoryScaleMB,
+					DiskMB:    &diskScaleMB,
+				}
 				_, err := processRepo.ScaleProcess(ctx, authInfo, *scaleProcessMessage)
-				Expect(err).To(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
+
+				var updatedCFProcess workloadsv1alpha1.CFProcess
+				Expect(k8sClient.Get(
+					ctx,
+					client.ObjectKey{Name: process1GUID, Namespace: space1.Name},
+					&updatedCFProcess,
+				)).To(Succeed())
+
+				Expect(updatedCFProcess.Spec.DesiredInstances).To(Equal(instanceScale))
+				Expect(updatedCFProcess.Spec.DiskQuotaMB).To(Equal(diskScaleMB))
+				Expect(updatedCFProcess.Spec.MemoryMB).To(Equal(memoryScaleMB))
+			})
+
+			When("the process does not exist", func() {
+				It("returns an error", func() {
+					scaleProcessMessage.GUID = "i-dont-exist"
+					_, err := processRepo.ScaleProcess(ctx, authInfo, *scaleProcessMessage)
+					Expect(err).To(HaveOccurred())
+				})
 			})
 		})
+
 	})
 
 	Describe("CreateProcess", func() {
@@ -284,7 +310,7 @@ var _ = Describe("ProcessRepo", func() {
 			Expect(
 				processRepo.CreateProcess(ctx, authInfo, repositories.CreateProcessMessage{
 					AppGUID:     app1GUID,
-					SpaceGUID:   namespace1.Name,
+					SpaceGUID:   orgNamespace.Name,
 					Type:        "web",
 					Command:     "start-web",
 					DiskQuotaMB: 123,
@@ -302,7 +328,7 @@ var _ = Describe("ProcessRepo", func() {
 			).To(Succeed())
 
 			var list workloadsv1alpha1.CFProcessList
-			Expect(k8sClient.List(ctx, &list, client.InNamespace(namespace1.Name))).To(Succeed())
+			Expect(k8sClient.List(ctx, &list, client.InNamespace(orgNamespace.Name))).To(Succeed())
 			Expect(list.Items).To(HaveLen(1))
 
 			process := list.Items[0]
@@ -338,7 +364,7 @@ var _ = Describe("ProcessRepo", func() {
 		)
 
 		JustBeforeEach(func() {
-			processRecord, getErr = processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, app1GUID, processType, namespace1.Name)
+			processRecord, getErr = processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, app1GUID, processType, orgNamespace.Name)
 		})
 
 		When("the user is not authorized in the space", func() {
@@ -349,15 +375,15 @@ var _ = Describe("ProcessRepo", func() {
 
 		When("the user has permission to get the process", func() {
 			BeforeEach(func() {
-				createProcessCR(context.Background(), k8sClient, process1GUID, namespace1.Name, app1GUID)
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace1.Name)
+				createProcessCR(context.Background(), k8sClient, process1GUID, orgNamespace.Name, app1GUID)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, orgNamespace.Name)
 			})
 
 			It("returns a Process record with the specified app type and space", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 				Expect(processRecord).To(MatchAllFields(Fields{
 					"GUID":             Equal(process1GUID),
-					"SpaceGUID":        Equal(namespace1.Name),
+					"SpaceGUID":        Equal(orgNamespace.Name),
 					"AppGUID":          Equal(app1GUID),
 					"Type":             Equal(processType),
 					"Command":          Equal(""),
@@ -402,7 +428,7 @@ var _ = Describe("ProcessRepo", func() {
 				cfProcess = &workloadsv1alpha1.CFProcess{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      process1GUID,
-						Namespace: namespace1.Name,
+						Namespace: orgNamespace.Name,
 						Labels: map[string]string{
 							cfAppGUIDLabelKey: app1GUID,
 						},
@@ -434,7 +460,7 @@ var _ = Describe("ProcessRepo", func() {
 				BeforeEach(func() {
 					message = repositories.PatchProcessMessage{
 						ProcessGUID:                         process1GUID,
-						SpaceGUID:                           namespace1.Name,
+						SpaceGUID:                           orgNamespace.Name,
 						Command:                             stringPointer("start-web"),
 						HealthCheckType:                     stringPointer("http"),
 						HealthCheckHTTPEndpoint:             stringPointer("/healthz"),
@@ -463,7 +489,7 @@ var _ = Describe("ProcessRepo", func() {
 					var process workloadsv1alpha1.CFProcess
 					Eventually(func() workloadsv1alpha1.CFProcessSpec {
 						Expect(
-							k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: namespace1.Name}, &process),
+							k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: orgNamespace.Name}, &process),
 						).To(Succeed())
 						return process.Spec
 					}).Should(Equal(workloadsv1alpha1.CFProcessSpec{
@@ -490,7 +516,7 @@ var _ = Describe("ProcessRepo", func() {
 				BeforeEach(func() {
 					message = repositories.PatchProcessMessage{
 						ProcessGUID:               process1GUID,
-						SpaceGUID:                 namespace1.Name,
+						SpaceGUID:                 orgNamespace.Name,
 						Command:                   stringPointer("new-command"),
 						HealthCheckTimeoutSeconds: int64Pointer(42),
 						DesiredInstances:          intPointer(5),
@@ -515,7 +541,7 @@ var _ = Describe("ProcessRepo", func() {
 					var process workloadsv1alpha1.CFProcess
 					Eventually(func() workloadsv1alpha1.CFProcessSpec {
 						Expect(
-							k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: namespace1.Name}, &process),
+							k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: orgNamespace.Name}, &process),
 						).To(Succeed())
 						return process.Spec
 					}).Should(Equal(workloadsv1alpha1.CFProcessSpec{

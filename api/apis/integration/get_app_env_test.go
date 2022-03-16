@@ -25,7 +25,7 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 	BeforeEach(func() {
 		appRepo := repositories.NewAppRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 		domainRepo := repositories.NewDomainRepo(k8sClient, namespaceRetriever, clientFactory)
-		processRepo := repositories.NewProcessRepo(k8sClient, namespaceRetriever, clientFactory)
+		processRepo := repositories.NewProcessRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory)
 		dropletRepo := repositories.NewDropletRepo(k8sClient, namespaceRetriever, clientFactory)
 		orgRepo := repositories.NewOrgRepo("root-ns", k8sClient, clientFactory, nsPermissions, time.Minute, true)

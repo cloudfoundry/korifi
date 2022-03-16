@@ -32,8 +32,6 @@ var _ = Describe("Processes", func() {
 		spaceGUID = createSpace(generateGUID("space"), orgGUID)
 		appGUID = pushNodeApp(spaceGUID)
 		processGUID = getProcess(appGUID, "web")
-
-		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 	})
 
 	AfterEach(func() {
@@ -45,6 +43,8 @@ var _ = Describe("Processes", func() {
 
 		BeforeEach(func() {
 			list = resourceList{}
+
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -75,6 +75,10 @@ var _ = Describe("Processes", func() {
 
 	Describe("getting process stats", func() {
 		var processStats statsResourceList
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+		})
 
 		JustBeforeEach(func() {
 			var err error
@@ -130,6 +134,10 @@ var _ = Describe("Processes", func() {
 
 	Describe("Fetch a process", func() {
 		var result resource
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+		})
 
 		JustBeforeEach(func() {
 			var err error
