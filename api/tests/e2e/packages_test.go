@@ -11,12 +11,13 @@ import (
 
 var _ = Describe("Package", func() {
 	var (
-		orgGUID   string
-		spaceGUID string
-		appGUID   string
-		resp      *resty.Response
-		result    typedResource
-		resultErr cfErrs
+		orgGUID     string
+		spaceGUID   string
+		appGUID     string
+		packageGUID string
+		resp        *resty.Response
+		result      typedResource
+		resultErr   cfErrs
 	)
 
 	BeforeEach(func() {
@@ -90,10 +91,8 @@ var _ = Describe("Package", func() {
 	})
 
 	Describe("Upload", func() {
-		var pkgGUID string
-
 		BeforeEach(func() {
-			pkgGUID = createPackage(appGUID)
+			packageGUID = createPackage(appGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -102,7 +101,7 @@ var _ = Describe("Package", func() {
 				SetFile("bits", "assets/node.zip").
 				SetError(&resultErr).
 				SetResult(&result).
-				Post("/v3/packages/" + pkgGUID + "/upload")
+				Post("/v3/packages/" + packageGUID + "/upload")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -128,6 +127,38 @@ var _ = Describe("Package", func() {
 
 			It("succeeds", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			})
+		})
+	})
+
+	Describe("Get", func() {
+		var result resource
+
+		BeforeEach(func() {
+			packageGUID = createPackage(appGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().
+				SetResult(&result).
+				Get("/v3/packages/" + packageGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns a not-found error to users with no space access", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+			Expect(resp).To(HaveRestyBody(ContainSubstring("Package not found")))
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("can fetch the package", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.GUID).To(Equal(packageGUID))
 			})
 		})
 	})

@@ -80,7 +80,7 @@ func (h PackageHandler) packageGetHandler(authInfo authorization.Info, r *http.R
 	record, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
 		h.logger.Info("Error fetching package with repository", "error", err.Error())
-		return nil, err
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(record, h.serverURL)), nil
