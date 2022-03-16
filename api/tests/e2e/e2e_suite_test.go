@@ -165,6 +165,12 @@ type destinationsResource struct {
 	Destinations []destination `json:"destinations"`
 }
 
+type scaleResource struct {
+	Instances  int `json:"instances,omitempty"`
+	MemoryInMB int `json:"memory_in_mb,omitempty"`
+	DiskInMB   int `json:"disk_in_mb,omitempty"`
+}
+
 type destination struct {
 	App bareResource `json:"app"`
 }

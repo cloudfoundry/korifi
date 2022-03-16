@@ -1637,6 +1637,7 @@ rules:
   verbs:
   - get
   - list
+  - patch
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
@@ -2155,6 +2156,7 @@ rules:
   verbs:
   - get
   - list
+  - patch
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
@@ -2222,6 +2224,13 @@ rules:
   - cfpackages
   verbs:
   - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfprocesses
+  verbs:
+  - get
+  - list
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:

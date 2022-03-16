@@ -3,6 +3,8 @@ package e2e_test
 import (
 	"net/http"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -336,5 +338,54 @@ var _ = Describe("Apps", func() {
 				Expect(result.State).To(Equal("STOPPED"))
 			})
 		})
+	})
+
+	Describe("Running Apps", func() {
+		var processGUID string
+
+		BeforeEach(func() {
+			appGUID = pushNodeApp(space1GUID)
+			processGUID = getProcess(appGUID, "web")
+		})
+
+		Describe("Scale a process", func() {
+			var result responseResource
+			var errResp cfErrs
+			JustBeforeEach(func() {
+				var err error
+				resp, err = certClient.R().
+					SetBody(scaleResource{Instances: 2}).
+					SetError(&errResp).
+					SetResult(&result).
+					Post("/v3/apps/" + appGUID + "/processes/web/actions/scale")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns not found for users with no role in the space", func() {
+				expectNotFoundError(resp, errResp, repositories.AppResourceType)
+			})
+
+			When("the user is a space manager", func() {
+				BeforeEach(func() {
+					createSpaceRole("space_manager", rbacv1.UserKind, certUserName, space1GUID)
+				})
+
+				It("returns forbidden", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+				})
+			})
+
+			When("the user is a space developer", func() {
+				BeforeEach(func() {
+					createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+				})
+
+				It("succeeds, and returns the process", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+					Expect(result.GUID).To(Equal(processGUID))
+				})
+			})
+		})
+
 	})
 })

@@ -5,13 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
-	corev1 "k8s.io/api/core/v1"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
+	"github.com/google/uuid"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -23,18 +22,20 @@ const (
 	ProcessResourceType = "Process"
 )
 
-func NewProcessRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory) *ProcessRepo {
+func NewProcessRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, namespacePermissions *authorization.NamespacePermissions) *ProcessRepo {
 	return &ProcessRepo{
-		privilegedClient:   privilegedClient,
-		namespaceRetriever: namespaceRetriever,
-		clientFactory:      userClientFactory,
+		privilegedClient:     privilegedClient,
+		namespaceRetriever:   namespaceRetriever,
+		clientFactory:        userClientFactory,
+		namespacePermissions: namespacePermissions,
 	}
 }
 
 type ProcessRepo struct {
-	privilegedClient   client.Client
-	namespaceRetriever NamespaceRetriever
-	clientFactory      UserK8sClientFactory
+	privilegedClient     client.Client
+	namespaceRetriever   NamespaceRetriever
+	clientFactory        UserK8sClientFactory
+	namespacePermissions *authorization.NamespacePermissions
 }
 
 type ProcessRecord struct {
@@ -127,19 +128,29 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 }
 
 func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.Info, message ListProcessesMessage) ([]ProcessRecord, error) {
-	processList := &workloadsv1alpha1.CFProcessList{}
-	var options []client.ListOption
-	if message.SpaceGUID != "" {
-		options = []client.ListOption{
-			client.InNamespace(message.SpaceGUID),
-		}
-	}
-	err := r.privilegedClient.List(ctx, processList, options...)
+	nsList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
-		return []ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
-	allProcesses := processList.Items
-	matches := filterProcessesByAppGUID(allProcesses, message.AppGUID)
+
+	userClient, err := r.clientFactory.BuildClient(authInfo)
+	if err != nil {
+		return []ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
+	}
+
+	processList := &workloadsv1alpha1.CFProcessList{}
+	var matches []workloadsv1alpha1.CFProcess
+	for ns := range nsList {
+		if message.SpaceGUID != "" && message.SpaceGUID != ns {
+			continue
+		}
+		err = userClient.List(ctx, processList, client.InNamespace(ns))
+		if err != nil {
+			return []ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
+		}
+		allProcesses := processList.Items
+		matches = append(matches, filterProcessesByAppGUID(allProcesses, message.AppGUID)...)
+	}
 
 	return returnProcesses(matches)
 }
@@ -162,7 +173,12 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.I
 		cfProcess.Spec.DiskQuotaMB = *scaleProcessMessage.DiskMB
 	}
 
-	err := r.privilegedClient.Patch(ctx, cfProcess, client.MergeFrom(baseCFProcess))
+	userClient, err := r.clientFactory.BuildClient(authInfo)
+	if err != nil {
+		return ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
+	}
+
+	err = userClient.Patch(ctx, cfProcess, client.MergeFrom(baseCFProcess))
 	if err != nil {
 		return ProcessRecord{}, fmt.Errorf("failed to scale process %q: %w", scaleProcessMessage.GUID, apierrors.FromK8sError(err, ProcessResourceType))
 	}

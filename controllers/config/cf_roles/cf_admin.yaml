@@ -38,6 +38,7 @@ rules:
   verbs:
   - get
   - list
+  - patch
 
 - apiGroups:
   - workloads.cloudfoundry.org
