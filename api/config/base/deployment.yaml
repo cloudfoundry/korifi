@@ -30,7 +30,14 @@ spec:
         - name: &configname cf-k8s-api-config
           mountPath: /etc/cf-k8s-api-config
           readOnly: true
+        - name: server-cert-vol
+          mountPath: "/etc/server-cert"
+          readOnly: true
       volumes:
       - name: *configname
         configMap:
           name: cf-k8s-api-config
+      - name: server-cert-vol
+        secret:
+          secretName: server-cert
+          optional: false

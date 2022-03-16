@@ -18,21 +18,32 @@ import (
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/audit"
+	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/options"
 	"k8s.io/client-go/dynamic"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var createTimeout = time.Second * 120
@@ -284,9 +295,84 @@ func main() {
 		cachingIdentityProvider,
 	).Middleware)
 
-	portString := fmt.Sprintf(":%v", config.InternalPort)
-	log.Println("Listening on ", portString)
-	log.Fatal(http.ListenAndServe(portString, router))
+	// portString := fmt.Sprintf(":%v", config.InternalPort)
+
+	// server := &http.Server{
+	// 	Addr:    portString,
+	// 	Handler: router,
+	// }
+	// log.Fatal(server.ListenAndServeTLS("/etc/server-cert/server.crt", "/etc/server-cert/server.key"))
+
+	scheme := runtime.NewScheme()
+	metav1.AddToGroupVersion(scheme, metav1.Unversioned)
+	codecs := serializer.NewCodecFactory(scheme)
+	serverConfig := server.NewRecommendedConfig(codecs)
+
+	opts := options.NewRecommendedOptions("cf", codecs.LegacyCodec(schema.GroupVersion{
+		Group:   "k8s.cloudfoundry.org",
+		Version: "v1alpha1",
+	}))
+	opts.Etcd = nil
+	opts.SecureServing.BindPort = 9000
+	opts.SecureServing.ServerCert = options.GeneratableKeyCert{
+		CertKey: options.CertKey{
+			CertFile: "/etc/server-cert/server.crt",
+			KeyFile:  "/etc/server-cert/server.key",
+		},
+	}
+
+	err = opts.ApplyTo(serverConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	srv, err := serverConfig.Complete().New("cf-k8s", server.NewEmptyDelegate())
+	if err != nil {
+		panic(err)
+	}
+
+	gv := metav1.GroupVersionForDiscovery{
+		GroupVersion: "k8s.cloudfoundry.org/v1alpha1",
+		Version:      "v1alpha1",
+	}
+
+	srv.DiscoveryGroupManager.AddGroup(
+		metav1.APIGroup{
+			Name:             "k8s.cloudfoundry.org",
+			Versions:         []metav1.GroupVersionForDiscovery{gv},
+			PreferredVersion: gv,
+		},
+	)
+
+	haxHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TODO authn and authz have been done already, but not admission, you need to do that yourself
+		ae := audit.AuditEventFrom(r.Context())
+		admit := admission.WithAudit(serverConfig.AdmissionControl, ae)
+		validatingAdmission, isValidatingAdmission := admit.(admission.ValidationInterface)
+		_ = isValidatingAdmission
+		_ = validatingAdmission.Validate
+
+		userInfo, ok := genericapirequest.UserFrom(r.Context())
+		if !ok {
+			responsewriters.InternalError(w, r, fmt.Errorf("no user info on request"))
+			return
+		}
+
+		// TODO check to make sure authorization, front proxy, and impersonation headers are not set
+		//   fail if they are, something is really broken
+
+		// TODO use this to impersonate the right identity
+		_ = transport.NewImpersonatingRoundTripper
+
+		_, _ = fmt.Fprintf(w, "saw %s on %s from %s\n", r.Method, r.URL.Path, userInfo.GetName())
+		w.WriteHeader(http.StatusOK)
+	})
+
+	srv.Handler.NonGoRestfulMux.Handle("/apis", haxHandler)
+	srv.Handler.NonGoRestfulMux.HandlePrefix("/apis/", haxHandler)
+
+	ctx := server.SetupSignalContext()
+	log.Fatal(srv.PrepareRun().Run(ctx.Done()))
 }
 
 func wireIdentityProvider(client client.Client, restConfig *rest.Config) authorization.IdentityProvider {

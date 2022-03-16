@@ -288,6 +288,8 @@ function deploy_cf_k8s_controllers() {
 function deploy_cf_k8s_api() {
   if [[ -n "${controllers_only}" ]]; then return 0; fi
 
+  "$SCRIPT_DIR/create-server-cert.sh"
+
   pushd "${ROOT_DIR}" >/dev/null
   {
     IMG_API=${IMG_API:-"cf-k8s-api:$(uuidgen)"}
@@ -306,10 +308,82 @@ function deploy_cf_k8s_api() {
     create_tls_secret "cf-k8s-api-ingress-cert" "cf-k8s-api-system" "localhost"
   }
   popd >/dev/null
+
+  cat <<EOF | kubectl apply -f-
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: extension-api-binding
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: extension-apiserver-authentication-reader
+subjects:
+- kind: ServiceAccount
+  name: cf-k8s-api-cf-admin-serviceaccount
+  namespace: cf-k8s-api-system
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: extension-api-auth-delegation-binding
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: cf-k8s-api-cf-admin-serviceaccount
+  namespace: cf-k8s-api-system
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aggregated-api-server
+rules:
+  - apiGroups: [ "" ]
+    resources: [ namespaces ]
+    verbs: [ get, list, watch ]
+  - apiGroups: [ apiregistration.k8s.io ]
+    resources: [ apiservices ]
+    verbs: [ get, list, patch, update, watch, create ]
+  - apiGroups: [ admissionregistration.k8s.io ]
+    resources: [ validatingwebhookconfigurations, mutatingwebhookconfigurations ]
+    verbs: [ get, list, watch ]
+  - apiGroups: [ flowcontrol.apiserver.k8s.io ]
+    resources: [ flowschemas, prioritylevelconfigurations ]
+    verbs: [ get, list, watch ]
+  - apiGroups: [ security.openshift.io ]
+    resources: [ securitycontextconstraints ]
+    verbs: [ use ]
+    resourceNames: [ nonroot ]
+  - apiGroups: [ "" ]
+    resources: [ nodes ]
+    verbs: [ list ]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cluster-apiserver-binding
+roleRef:
+  kind: ClusterRole
+  name: aggregated-api-server
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: cf-k8s-api-cf-admin-serviceaccount
+  namespace: cf-k8s-api-system
+
+EOF
 }
 
-ensure_kind_cluster "${cluster}"
-ensure_local_registry
-install_dependencies
-deploy_cf_k8s_controllers
+# ensure_kind_cluster "${cluster}"
+# ensure_local_registry
+# install_dependencies
+# deploy_cf_k8s_controllers
 deploy_cf_k8s_api

@@ -364,11 +364,32 @@ spec:
         - mountPath: /etc/cf-k8s-api-config
           name: cf-k8s-api-config
           readOnly: true
+        - mountPath: /etc/server-cert
+          name: server-cert-vol
+          readOnly: true
       serviceAccountName: cf-k8s-api-cf-admin-serviceaccount
       volumes:
       - configMap:
           name: cf-k8s-api-config-446hhfhb5b
         name: cf-k8s-api-config
+      - name: server-cert-vol
+        secret:
+          optional: false
+          secretName: server-cert
+---
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+  name: v1alpha1.k8s.cloudfoundry.org
+spec:
+  caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM1ekNDQWMrZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJeU1ETXhOakV4TXpNek9Wb1hEVE15TURNeE16RXhNek16T1Zvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBS3BMCnVGRTZWZGl3VjhhL3NOMHQwU3pqdGluYTRrRkdlekhLSnhxOExkTkRmc251RzhFMk5QcVBKSnVJMzdpQ2RiTlEKRUR3VnZaeDBsbE40bElCSlRrNjY2Nm5oMzhEdm9tRWpDcHF5TUkzbTFhdVBsUHdQVXVVZldTSE10eTd0RFMxZgp4bWVNbjlxN0l3OVBqaDZ4VFhySHNUcGtTTTZyY0hyL2x0bzlaQUQ3bFVFbTZidTd3Nk9ZbFFEeFdNc3pGcms0Cm9kM1pic2w5bWxpZFhKNTBYYkJ4Sk9QM0pkdjByeXRVdTdOTzkvZFRtKzR5VC85RXhveERoUDJLREN6SERKR2EKYnM4dHEzRlN5NkIrZkxvd3V1WVZYaW9nUTZEYWJlS0hlWEV5WXdVTHBhWXhxTXl4dVVsUEthV3EwNWVXQ3pnbgpkeVJZaG5xdTF1dkFmaGpFZExNQ0F3RUFBYU5DTUVBd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0hRWURWUjBPQkJZRUZCeXcyNzZra09ReGhhZmpjQmlqT1lsZXBkT1pNQTBHQ1NxR1NJYjMKRFFFQkN3VUFBNElCQVFCQnBNWnFTL01US3BTaVd6OGRKenJtRnpndDBFRmJBK0RaYjZmdTdyVEdZVzRmMlhOQQpzdTlrS0M1UDlySmpJK3hEQ3ptVWc1Y2MxenkycUdUWkhMcFI3U3dzTWFyTzhwSkZCQVZFNEVKUzFxQURuYXRECk9PSHNkY2NoQ0tGZGVacEJZSFNZNTBUQjdKdEdwM01hN2pzUTR3b2Y3K0NpZTkxSFIzdzN0L0ExOEVkT2poTUkKUTlyT2ZYbzBCN2pPQ3grdHB4WFBLZndMTGF3MGRKZHZrRG80YjYwVlFqUHNrSi8xK3pxc0VYaTQrL0tnUUJhZgptNlJWTWN2WkV1NS9RcGNHbGdsSFZiYzBUcys1L1R3d1VYOUQ0MWw5SjNsaWF5dDRtbVhMWit3T2Q5S3RDdE1JCk9Cd1pwWC9lR0FYYWZPaG96ck90OTBkcmNSSXh4YTA0azIrTQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+  group: k8s.cloudfoundry.org
+  groupPriorityMinimum: 1000
+  service:
+    name: cf-k8s-api-svc
+    namespace: cf-k8s-api-system
+  version: v1alpha1
+  versionPriority: 15
 ---
 apiVersion: projectcontour.io/v1
 kind: HTTPProxy

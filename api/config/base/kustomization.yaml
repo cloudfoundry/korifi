@@ -14,6 +14,7 @@ resources:
 - ingress.yaml
 - service.yaml
 - rbac
+- apiservice.yaml
 
 configMapGenerator:
 - files:
