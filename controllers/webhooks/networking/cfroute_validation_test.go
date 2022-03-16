@@ -125,7 +125,8 @@ var _ = Describe("CF Route Validation", func() {
 
 		When("there is an issue decoding the request", func() {
 			BeforeEach(func() {
-				cfRouteJSON, err := json.Marshal(cfRoute)
+				var err error
+				cfRouteJSON, err = json.Marshal(cfRoute)
 				Expect(err).NotTo(HaveOccurred())
 				badCFAppJSON := []byte("}" + string(cfRouteJSON))
 
@@ -158,6 +159,30 @@ var _ = Describe("CF Route Validation", func() {
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
 				Expect(string(response.Result.Reason)).To(Equal(webhooks.UnknownError.Marshal()))
+			})
+		})
+
+		When("host is empty on the route", func() {
+			BeforeEach(func() {
+				var err error
+				cfRoute.Spec.Host = ""
+				cfRouteJSON, err = json.Marshal(cfRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				request = admission.Request{
+					AdmissionRequest: admissionv1.AdmissionRequest{
+						Name:      testRouteGUID,
+						Namespace: testRouteNamespace,
+						Operation: admissionv1.Create,
+						Object: runtime.RawExtension{
+							Raw: cfRouteJSON,
+						},
+					},
+				}
+			})
+
+			It("denies the request", func() {
+				Expect(response.Allowed).To(BeFalse())
 			})
 		})
 	})
@@ -243,6 +268,16 @@ var _ = Describe("CF Route Validation", func() {
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
 				Expect(string(response.Result.Reason)).To(Equal(webhooks.UnknownError.Marshal()))
+			})
+		})
+
+		When("the new hostname is empty on the route", func() {
+			BeforeEach(func() {
+				updatedCFRoute.Spec.Host = ""
+			})
+
+			It("denies the request", func() {
+				Expect(response.Allowed).To(BeFalse())
 			})
 		})
 	})

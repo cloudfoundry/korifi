@@ -292,7 +292,7 @@ var _ = Describe("Spaces", func() {
 			spaceGUID = createSpace(generateGUID("space"), orgGUID)
 			resultErr = cfErrs{}
 
-			route := "https://manifested-app.vcap.me"
+			route := "manifested-app.vcap.me"
 			command := "whatever"
 			var err error
 			manifestBytes, err = yaml.Marshal(manifestResource{
