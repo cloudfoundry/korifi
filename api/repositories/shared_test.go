@@ -51,6 +51,30 @@ func createAppCR(ctx context.Context, k8sClient client.Client, appName, appGUID,
 	return toReturn
 }
 
+func createPackageCR(ctx context.Context, k8sClient client.Client, packageGUID, appGUID, spaceGUID, srcRegistryImage string) *workloadsv1alpha1.CFPackage {
+	toReturn := &workloadsv1alpha1.CFPackage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      packageGUID,
+			Namespace: spaceGUID,
+		},
+		Spec: workloadsv1alpha1.CFPackageSpec{
+			Type: "bits",
+			AppRef: corev1.LocalObjectReference{
+				Name: appGUID,
+			},
+		},
+	}
+
+	if srcRegistryImage != "" {
+		toReturn.Spec.Source.Registry.Image = srcRegistryImage
+	}
+
+	Expect(
+		k8sClient.Create(ctx, toReturn),
+	).To(Succeed())
+	return toReturn
+}
+
 func createProcessCR(ctx context.Context, k8sClient client.Client, processGUID, spaceGUID, appGUID string) *workloadsv1alpha1.CFProcess {
 	toReturn := &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{

@@ -146,7 +146,17 @@ var _ = Describe("PackageHandler", func() {
             `))
 		})
 
-		When("the getting the package fails", func() {
+		When("getting the package returns a forbidden error", func() {
+			BeforeEach(func() {
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, apierrors.NewForbiddenError(nil, repositories.PackageResourceType))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Package not found")
+			})
+		})
+
+		When("getting the package fails", func() {
 			BeforeEach(func() {
 				packageRepo.GetPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
 			})
