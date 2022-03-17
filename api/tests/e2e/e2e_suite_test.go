@@ -177,7 +177,8 @@ type destination struct {
 
 type serviceInstanceResource struct {
 	resource     `json:",inline"`
-	InstanceType string `json:"type"`
+	Credentials  map[string]string `json:"credentials"`
+	InstanceType string            `json:"type"`
 }
 
 type cfErrs struct {
@@ -632,7 +633,7 @@ func listServiceInstances() resourceList {
 	var serviceInstances resourceList
 
 	resp, err := adminClient.R().
-		SetBody(&serviceInstances).
+		SetResult(&serviceInstances).
 		Get("/v3/service_instances")
 
 	Expect(err).NotTo(HaveOccurred())

@@ -21,9 +21,9 @@ import (
 //+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfserviceinstances,verbs=list;create;get;delete
 
 const (
-	CFServiceInstanceGUIDLabel          = "services.cloudfoundry.org/service-instance-guid"
-	ServiceInstanceCredentialSecretType = "servicebinding.io/user-provided"
-	ServiceInstanceResourceType         = "Service Instance"
+	CFServiceInstanceGUIDLabel     = "services.cloudfoundry.org/service-instance-guid"
+	ServiceInstanceResourceType    = "Service Instance"
+	serviceBindingSecretTypePrefix = "servicebinding.io/"
 )
 
 type NamespaceGetter interface {
@@ -104,7 +104,8 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 		if secretObj.StringData == nil {
 			secretObj.StringData = map[string]string{}
 		}
-		secretObj.StringData["type"] = servicesv1alpha1.UserProvidedType
+		updateSecretTypeFields(&secretObj)
+
 		return nil
 	})
 	if err != nil {
@@ -237,7 +238,6 @@ func cfServiceInstanceToSecret(cfServiceInstance servicesv1alpha1.CFServiceInsta
 				},
 			},
 		},
-		Type: ServiceInstanceCredentialSecretType,
 	}
 }
 
@@ -291,4 +291,14 @@ func orderServiceInstances(serviceInstances []servicesv1alpha1.CFServiceInstance
 	})
 
 	return serviceInstances
+}
+
+func updateSecretTypeFields(secret *corev1.Secret) {
+	userSpecifiedType, typeSpecified := secret.StringData["type"]
+	if typeSpecified {
+		secret.Type = corev1.SecretType(serviceBindingSecretTypePrefix + userSpecifiedType)
+	} else {
+		secret.StringData["type"] = servicesv1alpha1.UserProvidedType
+		secret.Type = serviceBindingSecretTypePrefix + servicesv1alpha1.UserProvidedType
+	}
 }

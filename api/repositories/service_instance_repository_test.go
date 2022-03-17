@@ -42,12 +42,17 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		var (
 			serviceInstanceCreateMessage repositories.CreateServiceInstanceMessage
 			serviceInstanceTags          []string
+			serviceInstanceCredentials   map[string]string
 		)
 
 		BeforeEach(func() {
 			serviceInstanceTags = []string{"foo", "bar"}
+			serviceInstanceCredentials = map[string]string{
+				"cred-one": "val-one",
+				"cred-two": "val-two",
+			}
 
-			serviceInstanceCreateMessage = initializeServiceInstanceCreateMessage(serviceInstanceName, space.Name, serviceInstanceTags)
+			serviceInstanceCreateMessage = initializeServiceInstanceCreateMessage(serviceInstanceName, space.Name, serviceInstanceTags, serviceInstanceCredentials)
 		})
 
 		When("user has permissions to create ServiceInstances", func() {
@@ -73,8 +78,12 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
 			})
 
-			When("no ServiceInstance credentials are given", func() {
-				It("creates a secret and sets the secret ref on the ServiceInstance", func() {
+			When("ServiceInstance credentials are NOT provided", func() {
+				BeforeEach(func() {
+					serviceInstanceCreateMessage.Credentials = nil
+				})
+
+				It("creates the secret and sets the type fields to user-provided since projected bindings must have a type", func() {
 					createdServiceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(createdServiceInstanceRecord).NotTo(BeNil())
@@ -93,32 +102,61 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				})
 			})
 
-			When("ServiceInstance credentials are given", func() {
-				BeforeEach(func() {
-					serviceInstanceCreateMessage.Credentials = map[string]string{
-						"type": "i get clobbered",
-						"foo":  "bar",
-						"baz":  "baz",
-					}
+			When("ServiceInstance credentials are provided", func() {
+				When("the instance credentials have a user-specified type", func() {
+					BeforeEach(func() {
+						serviceInstanceCredentials = map[string]string{
+							"cred-one": "val-one",
+							"cred-two": "val-two",
+							"type":     "mysql",
+							"provider": "the-cloud",
+						}
+
+						serviceInstanceCreateMessage = initializeServiceInstanceCreateMessage(serviceInstanceName, space.Name, serviceInstanceTags, serviceInstanceCredentials)
+					})
+
+					It("creates the secret and does not override the type that the user specified", func() {
+						createdServiceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(createdServiceInstanceRecord).NotTo(BeNil())
+						Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
+
+						secretLookupKey := types.NamespacedName{Name: createdServiceInstanceRecord.SecretName, Namespace: createdServiceInstanceRecord.SpaceGUID}
+						createdSecret := new(corev1.Secret)
+						Eventually(func() error {
+							return k8sClient.Get(context.Background(), secretLookupKey, createdSecret)
+						}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
+
+						Expect(createdSecret.Data).To(MatchAllKeys(Keys{
+							"type":     BeEquivalentTo("mysql"),
+							"provider": BeEquivalentTo("the-cloud"),
+							"cred-one": BeEquivalentTo("val-one"),
+							"cred-two": BeEquivalentTo("val-two"),
+						}))
+						Expect(createdSecret.Type).To(Equal(corev1.SecretType("servicebinding.io/mysql")))
+					})
 				})
 
-				It("creates a secret and sets the secret ref on the ServiceInstance", func() {
-					createdServiceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(createdServiceInstanceRecord).NotTo(BeNil())
-					Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
+				When("the instance credentials DO NOT a user-specified type", func() {
+					It("creates a secret and defaults type fields to 'user-provided' since projected bindings must have a type", func() {
+						createdServiceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(createdServiceInstanceRecord).NotTo(BeNil())
+						Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
 
-					secretLookupKey := types.NamespacedName{Name: createdServiceInstanceRecord.SecretName, Namespace: createdServiceInstanceRecord.SpaceGUID}
-					createdSecret := new(corev1.Secret)
-					Eventually(func() error {
-						return k8sClient.Get(context.Background(), secretLookupKey, createdSecret)
-					}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
+						secretLookupKey := types.NamespacedName{Name: createdServiceInstanceRecord.SecretName, Namespace: createdServiceInstanceRecord.SpaceGUID}
+						createdSecret := new(corev1.Secret)
+						Eventually(func() error {
+							return k8sClient.Get(context.Background(), secretLookupKey, createdSecret)
+						}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
 
-					Expect(createdSecret.Data).To(MatchAllKeys(Keys{
-						"type": BeEquivalentTo("user-provided"),
-						"foo":  BeEquivalentTo("bar"),
-						"baz":  BeEquivalentTo("baz"),
-					}))
+						Expect(createdSecret.Data).To(MatchAllKeys(Keys{
+							"type":     BeEquivalentTo("user-provided"),
+							"cred-one": BeEquivalentTo("val-one"),
+							"cred-two": BeEquivalentTo("val-two"),
+						}))
+						Expect(createdSecret.Type).To(Equal(corev1.SecretType("servicebinding.io/user-provided")))
+					})
 				})
 			})
 		})
@@ -555,11 +593,12 @@ var _ = Describe("ServiceInstanceRepository", func() {
 	})
 })
 
-func initializeServiceInstanceCreateMessage(serviceInstanceName string, spaceGUID string, tags []string) repositories.CreateServiceInstanceMessage {
+func initializeServiceInstanceCreateMessage(serviceInstanceName string, spaceGUID string, tags []string, credentials map[string]string) repositories.CreateServiceInstanceMessage {
 	return repositories.CreateServiceInstanceMessage{
-		Name:      serviceInstanceName,
-		SpaceGUID: spaceGUID,
-		Type:      "user-provided",
-		Tags:      tags,
+		Name:        serviceInstanceName,
+		SpaceGUID:   spaceGUID,
+		Type:        "user-provided",
+		Credentials: credentials,
+		Tags:        tags,
 	}
 }
