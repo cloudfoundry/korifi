@@ -1,6 +1,7 @@
 package actions_test
 
 import (
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 	"context"
 	"errors"
 
@@ -124,6 +125,19 @@ var _ = Describe("ScaleProcessAction", func() {
 			})
 			It("passes through the error", func() {
 				Expect(responseErr).To(Equal(toReturnErr))
+			})
+		})
+
+		When(`the error is "Forbidden"`, func() {
+			BeforeEach(func() {
+				toReturnErr := apierrors.NewForbiddenError(nil, repositories.ProcessResourceType)
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, toReturnErr)
+			})
+			It("returns an empty record", func() {
+				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
+			})
+			It("wraps the error as NotFound", func() {
+				Expect(responseErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 
