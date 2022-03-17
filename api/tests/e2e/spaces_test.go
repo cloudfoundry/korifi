@@ -16,7 +16,14 @@ import (
 )
 
 var _ = Describe("Spaces", func() {
-	var resp *resty.Response
+	var (
+		resp        *resty.Response
+		restyClient *resty.Client
+	)
+
+	BeforeEach(func() {
+		restyClient = certClient
+	})
 
 	Describe("create", func() {
 		var (
@@ -31,8 +38,9 @@ var _ = Describe("Spaces", func() {
 			spaceName = generateGUID("space")
 			orgGUID = createOrg(generateGUID("org"))
 			parentGUID = orgGUID
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, orgGUID)
 			resultErr = cfErrs{}
+
+			restyClient = adminClient
 		})
 
 		AfterEach(func() {
@@ -41,7 +49,7 @@ var _ = Describe("Spaces", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = adminClient.R().
+			resp, err = restyClient.R().
 				SetBody(resource{
 					Name: spaceName,
 					Relationships: relationships{
@@ -144,16 +152,16 @@ var _ = Describe("Spaces", func() {
 			Expect(spaceErrChan).ToNot(Receive(&err), func() string { return fmt.Sprintf("unexpected error occurred while creating spaces: %v", err) })
 			close(spaceErrChan)
 
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org1GUID)
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org2GUID)
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, org3GUID)
+			createOrgRole("organization_user", rbacv1.UserKind, certUserName, org1GUID)
+			createOrgRole("organization_user", rbacv1.UserKind, certUserName, org2GUID)
+			createOrgRole("organization_user", rbacv1.UserKind, certUserName, org3GUID)
 
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space12GUID)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space11GUID)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space21GUID)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space22GUID)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space31GUID)
-			createSpaceRole("space_developer", rbacv1.ServiceAccountKind, serviceAccountName, space32GUID)
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space12GUID)
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space11GUID)
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space21GUID)
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space22GUID)
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space31GUID)
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space32GUID)
 		})
 
 		AfterEach(func() {
@@ -168,7 +176,7 @@ var _ = Describe("Spaces", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = tokenClient.R().
+			resp, err = restyClient.R().
 				SetQueryParams(query).
 				SetResult(&result).
 				Get("/v3/spaces")
@@ -177,7 +185,7 @@ var _ = Describe("Spaces", func() {
 
 		It("lists the spaces the user has role in", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-			Expect(result.Resources).To(ConsistOf(
+			Expect(result.Resources).To(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(space11Name)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(space12Name)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(space21Name)}),
@@ -199,7 +207,7 @@ var _ = Describe("Spaces", func() {
 				}
 			})
 
-			It("only lists spaces beloging to the orgs", func() {
+			It("only lists spaces belonging to the orgs", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.Resources).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(space11Name)}),
@@ -236,9 +244,11 @@ var _ = Describe("Spaces", func() {
 
 		BeforeEach(func() {
 			orgGUID = createOrg(generateGUID("org"))
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, orgGUID)
+			//createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
 			spaceGUID = createSpace(generateGUID("space"), orgGUID)
 			resultErr = cfErrs{}
+
+			restyClient = adminClient
 		})
 
 		AfterEach(func() {
@@ -247,7 +257,7 @@ var _ = Describe("Spaces", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = adminClient.R().
+			resp, err = restyClient.R().
 				SetError(&resultErr).
 				Delete("/v3/spaces/" + spaceGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -261,7 +271,7 @@ var _ = Describe("Spaces", func() {
 
 			jobURL := resp.Header().Get("Location")
 			Eventually(func(g Gomega) {
-				jobResp, err := adminClient.R().Get(jobURL)
+				jobResp, err := restyClient.R().Get(jobURL)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
@@ -288,7 +298,7 @@ var _ = Describe("Spaces", func() {
 
 		BeforeEach(func() {
 			orgGUID = createOrg(generateGUID("org"))
-			createOrgRole("organization_user", rbacv1.ServiceAccountKind, serviceAccountName, orgGUID)
+			//createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
 			spaceGUID = createSpace(generateGUID("space"), orgGUID)
 			resultErr = cfErrs{}
 
@@ -309,6 +319,8 @@ var _ = Describe("Spaces", func() {
 				}},
 			})
 			Expect(err).NotTo(HaveOccurred())
+
+			restyClient = adminClient
 		})
 
 		AfterEach(func() {
@@ -318,7 +330,7 @@ var _ = Describe("Spaces", func() {
 		Describe("apply manifest", func() {
 			JustBeforeEach(func() {
 				var err error
-				resp, err = adminClient.R().
+				resp, err = restyClient.R().
 					SetHeader("Content-type", "application/x-yaml").
 					SetBody(manifestBytes).
 					SetError(&resultErr).
@@ -334,7 +346,7 @@ var _ = Describe("Spaces", func() {
 
 				jobURL := resp.Header().Get("Location")
 				Eventually(func(g Gomega) {
-					jobResp, err := adminClient.R().Get(jobURL)
+					jobResp, err := restyClient.R().Get(jobURL)
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 				}).Should(Succeed())
@@ -344,7 +356,7 @@ var _ = Describe("Spaces", func() {
 		Describe("manifest diff", func() {
 			JustBeforeEach(func() {
 				var err error
-				resp, err = adminClient.R().
+				resp, err = restyClient.R().
 					SetHeader("Content-type", "application/x-yaml").
 					SetBody(manifestBytes).
 					SetError(&resultErr).

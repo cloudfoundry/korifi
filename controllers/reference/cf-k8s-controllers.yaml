@@ -1670,6 +1670,7 @@ rules:
   - cfdomains
   verbs:
   - get
+  - list
 - apiGroups:
   - networking.cloudfoundry.org
   resources:
