@@ -2,7 +2,10 @@ package integration_test
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/services"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
@@ -15,6 +18,7 @@ import (
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -48,16 +52,23 @@ var _ = Describe("CFServiceBinding", func() {
 			cfServiceInstance    *servicesv1alpha1.CFServiceInstance
 			cfServiceBinding     *servicesv1alpha1.CFServiceBinding
 			cfServiceBindingGUID string
+			secretName           string
+			secretType           string
+			secretProvider       string
 		)
 		BeforeEach(func() {
 			ctx := context.Background()
 
+			secretName = "secret-name"
+			secretType = "mongodb"
+			secretProvider = "cloud-aws"
 			secretData = map[string]string{
-				"foo": "bar",
+				"type":     secretType,
+				"provider": secretProvider,
 			}
 			secret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "secret-name",
+					Name:      secretName,
 					Namespace: namespace.Name,
 				},
 				StringData: secretData,
@@ -124,6 +135,50 @@ var _ = Describe("CFServiceBinding", func() {
 						"Reason":  Equal("SecretFound"),
 						"Message": Equal(""),
 					})),
+				}))
+			})
+
+			It("creates a servicebinding.io ServiceBinding", func() {
+				Eventually(func() (servicebindingv1beta1.ServiceBinding, error) {
+					sbServiceBinding := servicebindingv1beta1.ServiceBinding{}
+					err := k8sClient.Get(
+						context.Background(),
+						types.NamespacedName{Name: fmt.Sprintf("cf-binding-%s", cfServiceBindingGUID), Namespace: namespace.Name}, &sbServiceBinding)
+					return sbServiceBinding, err
+				}).Should(MatchFields(IgnoreExtras, Fields{
+					"ObjectMeta": MatchFields(IgnoreExtras, Fields{
+						"Name":      Equal(fmt.Sprintf("cf-binding-%s", cfServiceBindingGUID)),
+						"Namespace": Equal(namespace.Name),
+						"Labels": MatchKeys(IgnoreExtras, Keys{
+							services.ServiceBindingGUIDLabel:           Equal(cfServiceBindingGUID),
+							workloadsv1alpha1.CFAppGUIDLabelKey:        Equal(cfAppGUID),
+							services.ServiceCredentialBindingTypeLabel: Equal("app"),
+						}),
+						"OwnerReferences": ContainElement(MatchFields(IgnoreExtras, Fields{
+							"APIVersion": Equal("services.cloudfoundry.org/v1alpha1"),
+							"Kind":       Equal("CFServiceBinding"),
+							"Name":       Equal(cfServiceBindingGUID),
+						})),
+					}),
+					"Spec": MatchFields(IgnoreExtras, Fields{
+						"Name":     Equal(secret.Name),
+						"Type":     Equal(secretType),
+						"Provider": Equal(secretProvider),
+						"Workload": MatchFields(IgnoreExtras, Fields{
+							"APIVersion": Equal("apps/v1"),
+							"Kind":       Equal("StatefulSet"),
+							"Selector": PointTo(MatchFields(IgnoreExtras, Fields{
+								"MatchLabels": MatchKeys(IgnoreExtras, Keys{
+									workloadsv1alpha1.CFAppGUIDLabelKey: Equal(cfAppGUID),
+								}),
+							})),
+						}),
+						"Service": MatchFields(IgnoreExtras, Fields{
+							"APIVersion": Equal("services.cloudfoundry.org/v1alpha1"),
+							"Kind":       Equal("CFServiceBinding"),
+							"Name":       Equal(cfServiceBindingGUID),
+						}),
+					}),
 				}))
 			})
 		})

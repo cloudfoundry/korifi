@@ -141,7 +141,7 @@ var _ = Describe("ProcessRepo", func() {
 		)
 
 		BeforeEach(func() {
-			//createClusterRoleBinding(ctx, userName, spaceDeveloperRole.Name)
+			// createClusterRoleBinding(ctx, userName, spaceDeveloperRole.Name)
 			space1 = createSpaceAnchorAndNamespace(ctx, orgNamespace.Name, prefixedGUID("space1"))
 			space2 = createSpaceAnchorAndNamespace(ctx, orgNamespace.Name, prefixedGUID("space2"))
 
@@ -168,7 +168,7 @@ var _ = Describe("ProcessRepo", func() {
 
 		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				//createClusterRoleBinding(ctx, userName, spaceDeveloperRole.Name)
+				// createClusterRoleBinding(ctx, userName, spaceDeveloperRole.Name)
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space1.Name)
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
@@ -302,7 +302,6 @@ var _ = Describe("ProcessRepo", func() {
 				})
 			})
 		})
-
 	})
 
 	Describe("CreateProcess", func() {

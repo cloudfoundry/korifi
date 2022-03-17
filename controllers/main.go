@@ -22,9 +22,11 @@ import (
 	"os"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 	networkingcontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
+	servicescontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/services"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/imageprocessfetcher"
@@ -37,6 +39,7 @@ import (
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
+	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "k8s.io/client-go/kubernetes"
@@ -49,9 +52,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
-	servicescontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/services"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -69,6 +69,7 @@ func init() {
 	utilruntime.Must(eiriniv1.AddToScheme(scheme))
 	utilruntime.Must(hnsv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(servicesv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

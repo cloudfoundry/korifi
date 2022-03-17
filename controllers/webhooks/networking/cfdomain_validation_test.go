@@ -65,11 +65,9 @@ var _ = Describe("CF Domain Validation", func() {
 
 		validatingWebhook = networking.NewCFDomainValidation(fakeClient)
 		Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
-
 	})
 
 	Describe("Create", func() {
-
 		DescribeTable("returns validation",
 			func(requestDomainName string, existingDomainNames []string, allowed bool) {
 				existingDomains = make([]networkingv1alpha1.CFDomain, len(existingDomainNames))
@@ -151,9 +149,7 @@ var _ = Describe("CF Domain Validation", func() {
 				Expect(response.Allowed).To(BeFalse())
 			})
 		})
-
 	})
-
 })
 
 func createCFDomain(name string) networkingv1alpha1.CFDomain {

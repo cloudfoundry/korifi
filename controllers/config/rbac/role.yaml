@@ -164,6 +164,17 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - servicebinding.io
+  resources:
+  - servicebindings
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - services.cloudfoundry.org
   resources:
   - cfservicebindings

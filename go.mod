@@ -23,6 +23,7 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.1.3
 	github.com/onsi/gomega v1.18.1
+	github.com/paketo-buildpacks/packit v1.3.1
 	github.com/pivotal/kpack v0.5.2
 	github.com/projectcontour/contour v1.20.1
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -94,6 +95,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/servicebinding/service-binding-controller v0.0.0-20220317163256-444f95cd52ae
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/cobra v1.3.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

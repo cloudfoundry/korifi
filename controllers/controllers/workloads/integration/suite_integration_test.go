@@ -12,6 +12,7 @@ import (
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/fake"
+	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -71,6 +72,8 @@ var _ = BeforeSuite(func() {
 	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 	// Add Eirini to Scheme
 	Expect(eiriniv1.AddToScheme(scheme.Scheme)).To(Succeed())
+
+	Expect(servicebindingv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
 
