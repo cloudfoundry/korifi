@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"context"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
@@ -20,7 +21,7 @@ func NewScaleProcess(processRepo CFProcessRepository) *ScaleProcess {
 func (a *ScaleProcess) Invoke(ctx context.Context, authInfo authorization.Info, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error) {
 	process, err := a.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		return repositories.ProcessRecord{}, err
+		return repositories.ProcessRecord{}, apierrors.ForbiddenAsNotFound(err)
 	}
 	scaleMessage := repositories.ScaleProcessMessage{
 		GUID:               process.GUID,

@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"net/http"
 	"time"
 
@@ -152,4 +153,43 @@ var _ = Describe("Processes", func() {
 			Expect(result.GUID).To(Equal(processGUID))
 		})
 	})
+
+	Describe("Scale a process", func() {
+		var result responseResource
+		var errResp cfErrs
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().
+				SetBody(scaleResource{Instances: 2}).
+				SetError(&errResp).
+				SetResult(&result).
+				Post("/v3/processes/" + processGUID + "/actions/scale")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns not found for users with no role in the space", func() {
+			expectNotFoundError(resp, errResp, repositories.ProcessResourceType)
+		})
+		When("the user is a space manager", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("returns forbidden", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+			})
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("succeeds, and returns the process", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.GUID).To(Equal(processGUID))
+			})
+		})
+	})
+
 })
