@@ -33,7 +33,7 @@ var _ = Describe("Route Handler", func() {
 		appRepo := repositories.NewAppRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 		orgRepo := repositories.NewOrgRepo("root-ns", k8sClient, clientFactory, nsPermissions, time.Minute, true)
 		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory)
-		domainRepo := repositories.NewDomainRepo(k8sClient, namespaceRetriever, clientFactory)
+		domainRepo := repositories.NewDomainRepo("root-ns", k8sClient, namespaceRetriever, clientFactory)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
