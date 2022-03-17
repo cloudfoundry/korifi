@@ -8,6 +8,7 @@ import (
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 
+	. "github.com/asaskevich/govalidator"
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -76,9 +77,15 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 	var validatorErr error
 	switch req.Operation {
 	case admissionv1.Create:
+		if !IsDNSName(route.Spec.Host) {
+			return admission.Denied(webhooks.HostNameIsInvalidError.Marshal())
+		}
 		validatorErr = v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, uniqueName(route))
 
 	case admissionv1.Update:
+		if !IsDNSName(route.Spec.Host) {
+			return admission.Denied(webhooks.HostNameIsInvalidError.Marshal())
+		}
 		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, uniqueName(oldRoute), uniqueName(route))
 
 	case admissionv1.Delete:

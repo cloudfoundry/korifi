@@ -280,6 +280,9 @@ data:
       admin_read_only:
         name: cf-k8s-controllers-admin-read-only
         propagate: true
+      cf_user:
+        name: cf-k8s-controllers-root-namespace-user
+        propagate: false
       global_auditor:
         name: cf-k8s-controllers-global-auditor
         propagate: true
@@ -309,7 +312,7 @@ data:
         propagate: false
 kind: ConfigMap
 metadata:
-  name: cf-k8s-api-config-g56hdg6d55
+  name: cf-k8s-api-config-446hhfhb5b
   namespace: cf-k8s-api-system
 ---
 apiVersion: v1
@@ -364,7 +367,7 @@ spec:
       serviceAccountName: cf-k8s-api-cf-admin-serviceaccount
       volumes:
       - configMap:
-          name: cf-k8s-api-config-g56hdg6d55
+          name: cf-k8s-api-config-446hhfhb5b
         name: cf-k8s-api-config
 ---
 apiVersion: projectcontour.io/v1

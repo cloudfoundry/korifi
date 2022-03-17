@@ -126,6 +126,7 @@ func main() {
 			cachingIdentityProvider,
 			config.RootNamespace,
 		),
+		config.RootNamespace,
 		config.RoleMappings,
 	)
 	imageRepo := repositories.NewImageRepository(

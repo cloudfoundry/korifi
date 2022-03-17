@@ -37,10 +37,11 @@ var _ = Describe("RoleRepository", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		authorizedInChecker = new(fake.AuthorizedInChecker)
-		roleRepo = repositories.NewRoleRepo(k8sClient, userClientFactory, authorizedInChecker, map[string]config.Role{
+		roleRepo = repositories.NewRoleRepo(k8sClient, userClientFactory, authorizedInChecker, rootNamespace, map[string]config.Role{
 			"space_developer":      {Name: spaceDeveloperRole.Name},
 			"organization_manager": {Name: orgManagerRole.Name, Propagate: true},
 			"organization_user":    {Name: orgUserRole.Name},
+			"cf_user":              {Name: rootNamespaceUserRole.Name},
 		})
 
 		roleCreateMessage = repositories.CreateRoleMessage{}
@@ -76,11 +77,16 @@ var _ = Describe("RoleRepository", func() {
 		})
 
 		When("the user is an admin", func() {
-			var expectedName string
+			var (
+				expectedName       string
+				cfUserExpectedName string
+			)
 
 			BeforeEach(func() {
 				// Sha256 sum of "organization_manager::myuser@example.com"
 				expectedName = "cf-172b9594a1f617258057870643bce8476179a4078845cb4d9d44171d7a8b648b"
+				// Sha256 sum of "cf_user::myuser@example.com"
+				cfUserExpectedName = "cf-156eb9a28b4143e61a5b43fb7e7a6b8de98495aa4b5da4ba871dc4eaa4c35433"
 				createRoleBinding(ctx, userName, adminRole.Name, orgAnchor.Name)
 			})
 
@@ -94,6 +100,16 @@ var _ = Describe("RoleRepository", func() {
 				Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleCreateMessage.GUID))
 				Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
 				Expect(roleBinding.RoleRef.Name).To(Equal(orgManagerRole.Name))
+				Expect(roleBinding.Subjects).To(HaveLen(1))
+				Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.UserKind))
+				Expect(roleBinding.Subjects[0].Name).To(Equal("myuser@example.com"))
+			})
+
+			It("creates a role binding for cf_user in the root namespace", func() {
+				roleBinding := getTheRoleBinding(cfUserExpectedName, rootNamespace)
+
+				Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
+				Expect(roleBinding.RoleRef.Name).To(Equal(rootNamespaceUserRole.Name))
 				Expect(roleBinding.Subjects).To(HaveLen(1))
 				Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.UserKind))
 				Expect(roleBinding.Subjects[0].Name).To(Equal("myuser@example.com"))
