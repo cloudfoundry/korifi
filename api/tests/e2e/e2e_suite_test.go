@@ -244,27 +244,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	certSigningReq, certPEM = obtainClientCert(certUserName)
 	certAuthHeader = "ClientCert " + certPEM
 
-	Expect(
-		k8sClient.Create(context.Background(), &rbacv1.RoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      generateGUID("root-namespace-user-binding"),
-				Namespace: rootNamespace,
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					APIGroup: "rbac.authorization.k8s.io",
-					Kind:     "User",
-					Name:     certUserName,
-				},
-			},
-			RoleRef: rbacv1.RoleRef{
-				APIGroup: "rbac.authorization.k8s.io",
-				Kind:     "ClusterRole",
-				Name:     "cf-k8s-controllers-root-namespace-user",
-			},
-		}),
-	).To(Succeed())
-
 	appDomainGUID = string(appDomainGUIDBytes)
 })
 

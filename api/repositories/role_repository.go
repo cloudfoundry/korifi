@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,8 +22,8 @@ import (
 const (
 	RoleGuidLabel         = "cloudfoundry.org/role-guid"
 	roleBindingNamePrefix = "cf"
-
-	RoleResourceType = "Role"
+	cfUserRoleType        = "cf_user"
+	RoleResourceType      = "Role"
 )
 
 //counterfeiter:generate -o fake -fake-name AuthorizedInChecker . AuthorizedInChecker
@@ -55,17 +56,19 @@ type RoleRecord struct {
 
 type RoleRepo struct {
 	privilegedClient    client.Client
+	rootNamespace       string
 	roleMappings        map[string]config.Role
 	authorizedInChecker AuthorizedInChecker
 	userClientFactory   UserK8sClientFactory
 }
 
-func NewRoleRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory, authorizedInChecker AuthorizedInChecker, roleMappings map[string]config.Role) *RoleRepo {
+func NewRoleRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory, authorizedInChecker AuthorizedInChecker, rootNamespace string, roleMappings map[string]config.Role) *RoleRepo {
 	return &RoleRepo{
 		privilegedClient:    privilegedClient,
-		userClientFactory:   userClientFactory,
+		rootNamespace:       rootNamespace,
 		roleMappings:        roleMappings,
 		authorizedInChecker: authorizedInChecker,
+		userClientFactory:   userClientFactory,
 	}
 }
 
@@ -101,26 +104,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 		annotations[hnsv1alpha2.AnnotationNoneSelector] = "true"
 	}
 
-	roleBinding := rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: ns,
-			Name:      calculateRoleBindingName(role),
-			Labels: map[string]string{
-				RoleGuidLabel: role.GUID,
-			},
-			Annotations: annotations,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind: role.Kind,
-				Name: role.User,
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			Kind: "ClusterRole",
-			Name: k8sRoleConfig.Name,
-		},
-	}
+	roleBinding := createRoleBinding(ns, role.Type, role.Kind, role.User, role.GUID, k8sRoleConfig.Name, annotations)
 
 	err = userClient.Create(ctx, &roleBinding)
 	if err != nil {
@@ -131,6 +115,19 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 			)
 		}
 		return RoleRecord{}, fmt.Errorf("failed to assign user %q to role %q: %w", role.User, role.Type, apierrors.FromK8sError(err, RoleResourceType))
+	}
+
+	cfUserk8sRoleConfig, ok := r.roleMappings[cfUserRoleType]
+	if !ok {
+		return RoleRecord{}, fmt.Errorf("invalid role type: %q", cfUserRoleType)
+	}
+
+	cfUserRoleBinding := createRoleBinding(r.rootNamespace, cfUserRoleType, role.Kind, role.User, uuid.NewString(), cfUserk8sRoleConfig.Name, annotations)
+	err = r.privilegedClient.Create(ctx, &cfUserRoleBinding)
+	if err != nil {
+		if !k8serrors.IsAlreadyExists(err) {
+			return RoleRecord{}, fmt.Errorf("failed to assign user %q to role %q: %w", role.User, role.Type, err)
+		}
 	}
 
 	roleRecord := RoleRecord{
@@ -187,9 +184,32 @@ func (r *RoleRepo) getOrgName(ctx context.Context, spaceGUID string) (string, er
 	return orgName, nil
 }
 
-func calculateRoleBindingName(role CreateRoleMessage) string {
-	plain := []byte(role.Type + "::" + role.User)
+func calculateRoleBindingName(roleType, roleUser string) string {
+	plain := []byte(roleType + "::" + roleUser)
 	sum := sha256.Sum256(plain)
 
 	return fmt.Sprintf("%s-%x", roleBindingNamePrefix, sum)
+}
+
+func createRoleBinding(namespace, roleType, roleKind, roleUser, roleGUID, roleConfigName string, annotations map[string]string) rbacv1.RoleBinding {
+	return rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      calculateRoleBindingName(roleType, roleUser),
+			Labels: map[string]string{
+				RoleGuidLabel: roleGUID,
+			},
+			Annotations: annotations,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind: roleKind,
+				Name: roleUser,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: roleConfigName,
+		},
+	}
 }

@@ -5,6 +5,9 @@ roleMappings:
   admin_read_only:
     name: cf-k8s-controllers-admin-read-only
     propagate: true
+  cf_user:
+    name: cf-k8s-controllers-root-namespace-user
+    propagate: false
   global_auditor:
     name: cf-k8s-controllers-global-auditor
     propagate: true
