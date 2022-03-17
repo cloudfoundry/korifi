@@ -1,0 +1,79 @@
+---
+apiVersion: carto.run/v1alpha1
+kind: ClusterConfigTemplate
+metadata:
+  name: podintent
+spec:
+  configPath: .status.template
+  template:
+    apiVersion: conventions.carto.run/v1alpha1
+    kind: PodIntent
+    metadata:
+      name: $(workload.metadata.name)$
+      labels:
+        "workloads.cloudfoundry.org/process-guid": $(workload.spec.params[?(@.name=="cf-process-guid")].value)$
+        "workloads.cloudfoundry.org/process-type": $(workload.spec.params[?(@.name=="cf-process-type")].value)$
+        "workloads.cloudfoundry.org/app-guid": $(workload.spec.params[?(@.name=="cf-app-guid")].value)$
+        workloads.cloudfoundry.org/app-rev: $(workload.spec.params[?(@.name=="cf-app-rev")].value)$
+    spec:
+      serviceAccountName: eirini
+      template:
+        metadata:
+          labels:
+            "workloads.cloudfoundry.org/guid": $(workload.spec.params[?(@.name=="cf-process-guid")].value)$
+            "workloads.cloudfoundry.org/process-type": $(workload.spec.params[?(@.name=="cf-process-type")].value)$
+            "workloads.cloudfoundry.org/app-guid": $(workload.spec.params[?(@.name=="cf-app-guid")].value)$
+            workloads.cloudfoundry.org/version: $(workload.spec.params[?(@.name=="cf-app-rev")].value)$
+
+            workloads.cloudfoundry.org/org-guid: ""
+            workloads.cloudfoundry.org/org-name: ""
+            workloads.cloudfoundry.org/source-type: APP
+            workloads.cloudfoundry.org/space-guid: ""
+            workloads.cloudfoundry.org/space-name: ""
+        spec:
+          containers:
+            - command: $(workload.spec.params[?(@.name=="cf-app-command")].value)$
+              env:
+                - name: PORT
+                  value: "8080"
+                - name: VCAP_APP_HOST
+                  value: 0.0.0.0
+                - name: VCAP_APP_PORT
+                  value: "8080"
+                - name: VCAP_SERVICES
+                  value: '{}'
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      apiVersion: v1
+                      fieldPath: metadata.name
+                - name: CF_INSTANCE_GUID
+                  valueFrom:
+                    fieldRef:
+                      apiVersion: v1
+                      fieldPath: metadata.uid
+                - name: CF_INSTANCE_IP
+                  valueFrom:
+                    fieldRef:
+                      apiVersion: v1
+                      fieldPath: status.hostIP
+                - name: CF_INSTANCE_INTERNAL_IP
+                  valueFrom:
+                    fieldRef:
+                      apiVersion: v1
+                      fieldPath: status.podIP
+              image: $(workload.spec.image)$
+              imagePullPolicy: Always
+              name: opi
+              resources:
+                limits:
+                  ephemeral-storage: 1024M
+                  memory: 1024M
+                requests:
+                  cpu: "0"
+                  memory: 1024M
+          imagePullSecrets:
+            - name: image-registry-credentials
+          serviceAccount: eirini
+          serviceAccountName: eirini
+          terminationGracePeriodSeconds: 30

@@ -7,10 +7,18 @@ spec:
   selector:
     workloads.cloudfoundry.org/workload-type: cf-run
   resources:
-    - name: eirini-lrp
+    - name: podintent
+      templateRef:
+        kind: ClusterConfigTemplate
+        name: podintent
+    - name: statefulset
       templateRef:
         kind: ClusterTemplate
-        name: lrp
+        name: statefulset
+      configs:
+        - resource: podintent
+          name: config
+
   serviceAccountRef:
     name: cf-k8s-controllers-controller-manager
     namespace: cf-k8s-controllers-system

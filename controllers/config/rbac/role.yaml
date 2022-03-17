@@ -43,6 +43,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - carto.run
   resources:
   - workloads
@@ -68,6 +80,18 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - conventions.carto.run
+  resources:
+  - podintents
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - coordination.k8s.io
   resources:
