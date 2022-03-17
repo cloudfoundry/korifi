@@ -1,4 +1,3 @@
-
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -111,7 +110,6 @@ webhooks:
     resources:
     - cfprocesses
   sideEffects: None
-
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration

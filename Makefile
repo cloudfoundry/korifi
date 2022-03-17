@@ -1,8 +1,7 @@
 # Image URL to use all building/pushing image targets
 IMG_CONTROLLERS ?= cloudfoundry/cf-k8s-controllers:latest
 IMG_API ?= cloudfoundry/cf-k8s-api:latest
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+CRD_OPTIONS ?= "crd"
 
 # Run controllers tests with two nodes by default to (potentially) minimise
 # flakes.
@@ -170,7 +169,7 @@ build-reference-api: manifests-api install-kustomize
 
 CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0)
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0)
 
 KUSTOMIZE = $(shell pwd)/controllers/bin/kustomize
 install-kustomize: ## Download kustomize locally if necessary.
