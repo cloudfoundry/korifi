@@ -1,9 +1,10 @@
 package actions_test
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 	"context"
 	"errors"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions/fake"

@@ -248,7 +248,7 @@ var _ = Describe("Spaces", func() {
 
 		BeforeEach(func() {
 			orgGUID = createOrg(generateGUID("org"))
-			//createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+			// createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
 			spaceGUID = createSpace(generateGUID("space"), orgGUID)
 			resultErr = cfErrs{}
 
@@ -302,7 +302,7 @@ var _ = Describe("Spaces", func() {
 
 		BeforeEach(func() {
 			orgGUID = createOrg(generateGUID("org"))
-			//createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+			// createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
 			spaceGUID = createSpace(generateGUID("space"), orgGUID)
 			resultErr = cfErrs{}
 

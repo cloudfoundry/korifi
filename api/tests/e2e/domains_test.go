@@ -11,9 +11,7 @@ import (
 )
 
 var _ = Describe("Domain", func() {
-	var (
-		restyClient *resty.Client
-	)
+	var restyClient *resty.Client
 
 	BeforeEach(func() {
 		restyClient = certClient
@@ -49,9 +47,7 @@ var _ = Describe("Domain", func() {
 		})
 
 		When("the user has acquired the cf_user role", func() {
-			var (
-				orgGUID string
-			)
+			var orgGUID string
 
 			BeforeEach(func() {
 				orgGUID = createOrg(generateGUID("org"))

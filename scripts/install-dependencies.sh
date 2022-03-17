@@ -54,6 +54,13 @@ echo "**************************"
 "$SCRIPT_DIR/create-new-user.sh" cf-admin
 
 echo "*************************"
+echo "Installing Service Bindings"
+echo "*************************"
+
+# Install ServiceBindings
+kubectl apply -f "${DEP_DIR}/servicebindings-1.0.0.yaml"
+
+echo "*************************"
 echo "Installing Cert Manager"
 echo "*************************"
 

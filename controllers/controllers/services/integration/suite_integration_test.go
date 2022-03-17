@@ -28,6 +28,7 @@ import (
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -70,7 +71,10 @@ var _ = BeforeSuite(func() {
 	cancel = cancelFunc
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", "..", "dependencies"),
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -85,6 +89,8 @@ var _ = BeforeSuite(func() {
 	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 	// Add Eirini to Scheme
 	Expect(eiriniv1.AddToScheme(scheme.Scheme)).To(Succeed())
+
+	Expect(servicebindingv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
 
