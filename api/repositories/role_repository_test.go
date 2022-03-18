@@ -194,10 +194,10 @@ var _ = Describe("RoleRepository", func() {
 						Org:  roleCreateMessage.Org,
 					}
 					_, createErr = roleRepo.CreateRole(ctx, authInfo, anotherRoleCreateMessage)
-					Expect(createErr).To(SatisfyAll(
-						BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}),
-						MatchError(ContainSubstring("already exists")),
-					))
+					var apiErr apierrors.UnprocessableEntityError
+					Expect(errors.As(createErr, &apiErr)).To(BeTrue())
+					// Note: the cf cli expects this specific format and ignores the error if it matches it.
+					Expect(apiErr.Detail()).To(Equal("User 'myuser@example.com' already has 'organization_manager' role"))
 				})
 			})
 		})

@@ -109,9 +109,10 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 	err = userClient.Create(ctx, &roleBinding)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
+			errorDetail := fmt.Sprintf("User '%s' already has '%s' role", role.User, role.Type)
 			return RoleRecord{}, apierrors.NewUnprocessableEntityError(
-				fmt.Errorf("rolebinging %s:%s already exists", roleBinding.Namespace, roleBinding.Name),
-				"RoleBinding with that name already exists",
+				fmt.Errorf("rolebinding %s:%s already exists", roleBinding.Namespace, roleBinding.Name),
+				errorDetail,
 			)
 		}
 		return RoleRecord{}, fmt.Errorf("failed to assign user %q to role %q: %w", role.User, role.Type, apierrors.FromK8sError(err, RoleResourceType))
