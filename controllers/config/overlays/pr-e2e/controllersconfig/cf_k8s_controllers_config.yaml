@@ -1,0 +1,8 @@
+kpackImageTag: europe-west1-docker.pkg.dev/cf-on-k8s-wg/pr-e2e-images
+clusterBuilderName: cf-kpack-cluster-builder
+cfProcessDefaults:
+  memoryMB: 1024
+  diskQuotaMB: 1024
+cfRootNamespace: cf
+cfk8s_controller_namespace: cf-k8s-controllers-system
+workloads_tls_secret_name: cf-k8s-workloads-ingress-cert
