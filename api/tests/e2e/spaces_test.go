@@ -114,6 +114,12 @@ var _ = Describe("Spaces", func() {
 		)
 
 		BeforeEach(func() {
+			org1GUID, org2GUID, org3GUID = "", "", ""
+			space11GUID, space12GUID, space13GUID = "", "", ""
+			space21GUID, space22GUID, space23GUID = "", "", ""
+			space31GUID, space32GUID, space33GUID = "", "", ""
+			result = resourceList{}
+
 			var orgWG sync.WaitGroup
 			orgErrChan := make(chan error, 3)
 			query = make(map[string]string)
@@ -193,11 +199,9 @@ var _ = Describe("Spaces", func() {
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(space31Name)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(space32Name)}),
 			))
-			Expect(result.Resources).ToNot(ContainElements(
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(space13Name)}),
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(space23Name)}),
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(space33Name)}),
-			))
+			Expect(result.Resources).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"Name": Equal(space13Name)})))
+			Expect(result.Resources).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"Name": Equal(space23Name)})))
+			Expect(result.Resources).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"Name": Equal(space33Name)})))
 		})
 
 		When("filtering by organization GUIDs", func() {
