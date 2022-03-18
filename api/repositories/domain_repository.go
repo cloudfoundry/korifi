@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -20,17 +21,20 @@ const (
 )
 
 type DomainRepo struct {
+	rootNamespace      string
 	privilegedClient   client.Client
 	namespaceRetriever NamespaceRetriever
 	userClientFactory  UserK8sClientFactory
 }
 
 func NewDomainRepo(
+	rootNamespace string,
 	privilegedClient client.Client,
 	namespaceRetriever NamespaceRetriever,
 	userClientFactory UserK8sClientFactory,
 ) *DomainRepo {
 	return &DomainRepo{
+		rootNamespace:      rootNamespace,
 		privilegedClient:   privilegedClient,
 		namespaceRetriever: namespaceRetriever,
 		userClientFactory:  userClientFactory,
@@ -59,7 +63,7 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return DomainRecord{}, fmt.Errorf("get-domain failed to domain user client: %w", err)
+		return DomainRecord{}, fmt.Errorf("get-domain failed to create user client: %w", err)
 	}
 
 	domain := &networkingv1alpha1.CFDomain{}
@@ -72,10 +76,19 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 }
 
 func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Info, message ListDomainsMessage) ([]DomainRecord, error) {
-	cfdomainList := &networkingv1alpha1.CFDomainList{}
-	err := r.privilegedClient.List(ctx, cfdomainList)
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return []DomainRecord{}, apierrors.FromK8sError(err, DomainResourceType)
+		return []DomainRecord{}, fmt.Errorf("list-domain failed to create user client: %w", err)
+	}
+
+	cfdomainList := &networkingv1alpha1.CFDomainList{}
+	err = userClient.List(ctx, cfdomainList, client.InNamespace(r.rootNamespace))
+	if err != nil {
+		if k8serrors.IsForbidden(err) {
+			return []DomainRecord{}, nil
+		}
+		// untested
+		return []DomainRecord{}, fmt.Errorf("failed to list domains in namespace %s: %w", r.rootNamespace, apierrors.FromK8sError(err, DomainResourceType))
 	}
 
 	filtered := applyDomainListFilterAndOrder(cfdomainList.Items, message)

@@ -13,21 +13,28 @@ import (
 )
 
 var _ = Describe("Orgs", func() {
-	var resp *resty.Response
+	var (
+		resp        *resty.Response
+		restyClient *resty.Client
+	)
+
+	BeforeEach(func() {
+		restyClient = certClient
+	})
 
 	Describe("create", func() {
 		var (
 			result    resource
-			client    *resty.Client
 			resultErr cfErrs
 			orgName   string
 		)
 
 		BeforeEach(func() {
-			client = adminClient
 			orgName = generateGUID("my-org")
 			result = resource{}
 			resultErr = cfErrs{}
+
+			restyClient = adminClient
 		})
 
 		AfterEach(func() {
@@ -36,7 +43,7 @@ var _ = Describe("Orgs", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = restyClient.R().
 				SetBody(resource{Name: orgName}).
 				SetError(&resultErr).
 				SetResult(&result).
@@ -73,7 +80,7 @@ var _ = Describe("Orgs", func() {
 
 		When("not admin", func() {
 			BeforeEach(func() {
-				client = tokenClient
+				restyClient = tokenClient
 			})
 
 			It("returns a forbidden error", func() {
@@ -111,9 +118,9 @@ var _ = Describe("Orgs", func() {
 			Expect(errChan).ToNot(Receive(&err), func() string { return fmt.Sprintf("unexpected error occurred while creating orgs: %v", err) })
 			close(errChan)
 
-			createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org1GUID)
-			createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org2GUID)
-			createOrgRole("organization_manager", rbacv1.ServiceAccountKind, serviceAccountName, org3GUID)
+			createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org1GUID)
+			createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org2GUID)
+			createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org3GUID)
 		})
 
 		AfterEach(func() {
@@ -127,16 +134,16 @@ var _ = Describe("Orgs", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = tokenClient.R().
+			resp, err = restyClient.R().
 				SetQueryParams(query).
 				SetResult(&result).
 				Get("/v3/organizations")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns orgs that the service account has a role in", func() {
+		It("returns orgs that the client has a role in", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-			Expect(result.Resources).To(ConsistOf(
+			Expect(result.Resources).To(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(org1Name)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(org2Name)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(org3Name)}),
@@ -176,6 +183,8 @@ var _ = Describe("Orgs", func() {
 			orgName = generateGUID("my-org")
 			orgGUID = createOrg(orgName)
 			errResp = cfErrs{}
+
+			restyClient = adminClient
 		})
 
 		AfterEach(func() {
@@ -184,7 +193,7 @@ var _ = Describe("Orgs", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = adminClient.R().
+			resp, err = restyClient.R().
 				SetError(&errResp).
 				Delete("/v3/organizations/" + orgGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -198,7 +207,7 @@ var _ = Describe("Orgs", func() {
 
 			jobURL := resp.Header().Get("Location")
 			Eventually(func(g Gomega) {
-				jobResp, err := adminClient.R().Get(jobURL)
+				jobResp, err := restyClient.R().Get(jobURL)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
@@ -230,18 +239,15 @@ var _ = Describe("Orgs", func() {
 
 	Describe("list domains", func() {
 		var (
-			client     *resty.Client
 			domainGUID string
 			domainName string
 			orgGUID    string
 			resultList responseResourceList
-			resp       *resty.Response
 			errResp    cfErrs
 		)
 
 		BeforeEach(func() {
 			orgGUID = createOrg(generateGUID("org"))
-			client = certClient
 			createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
 			domainName = generateGUID("domain-name")
 			domainGUID = createDomain(domainName)
@@ -254,7 +260,7 @@ var _ = Describe("Orgs", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = restyClient.R().
 				SetResult(&resultList).
 				SetError(&errResp).
 				Get("/v3/organizations/" + orgGUID + "/domains")
@@ -272,7 +278,7 @@ var _ = Describe("Orgs", func() {
 
 		When("the user is not authorized in the organization", func() {
 			BeforeEach(func() {
-				client = tokenClient
+				restyClient = tokenClient
 			})
 
 			It("returns a not found error", func() {
