@@ -331,20 +331,7 @@ func main() {
 		panic(err)
 	}
 
-	gv := metav1.GroupVersionForDiscovery{
-		GroupVersion: "k8s.cloudfoundry.org/v1alpha1",
-		Version:      "v1alpha1",
-	}
-
-	srv.DiscoveryGroupManager.AddGroup(
-		metav1.APIGroup{
-			Name:             "k8s.cloudfoundry.org",
-			Versions:         []metav1.GroupVersionForDiscovery{gv},
-			PreferredVersion: gv,
-		},
-	)
-
-	haxHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	_ = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// TODO authn and authz have been done already, but not admission, you need to do that yourself
 		ae := audit.AuditEventFrom(r.Context())
 		admit := admission.WithAudit(serverConfig.AdmissionControl, ae)
@@ -368,8 +355,73 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	srv.Handler.NonGoRestfulMux.Handle("/apis", haxHandler)
-	srv.Handler.NonGoRestfulMux.HandlePrefix("/apis/", haxHandler)
+	rootHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w,
+			`{
+              "kind": "APIGroupList",
+              "groups": [
+                {
+                  "name": "k8s.cloudfoundry.org",
+                  "versions": [
+                    {
+                      "groupVersion": "k8s.cloudfoundry.org/v1alpha1",
+                      "version": "v1alpha1"
+                    }
+                  ],
+                  "preferredVersion": {
+                    "groupVersion": "k8s.cloudfoundry.org/v1alpha1",
+                    "version": "v1alpha1"
+                  },
+                  "serverAddressByClientCIDRs": [
+                    {
+                      "clientCIDR": "0.0.0.0/0",
+                      "serverAddress": ":9000"
+                    }
+                  ]
+                }
+              ]
+            }`,
+		)
+	})
+
+	groupHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w,
+			`{
+              "kind": "APIGroup",
+              "apiVersion": "v1",
+              "name": "k8s.cloudfoundry.org",
+              "versions": [
+                {
+                  "groupVersion": "k8s.cloudfoundry.org/v1alpha1",
+                  "version": "v1alpha1"
+                }
+              ],
+              "preferredVersion": {
+                "groupVersion": "k8s.cloudfoundry.org/v1alpha1",
+                "version": "v1alpha1"
+              }
+            }`,
+		)
+	})
+
+	versionHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w,
+			`{
+              "kind": "APIResourceList",
+              "apiVersion": "v1",
+              "groupVersion": "k8s.cloudfoundry.org/v1alpha1",
+              "resources": []
+            }`,
+		)
+	})
+
+	srv.Handler.NonGoRestfulMux.Handle("/apis", rootHandler)
+	srv.Handler.NonGoRestfulMux.Handle("/apis/", rootHandler)
+	srv.Handler.NonGoRestfulMux.Handle("/apis/k8s.cloudfoundry.org", groupHandler)
+	srv.Handler.NonGoRestfulMux.Handle("/apis/k8s.cloudfoundry.org/", groupHandler)
+	srv.Handler.NonGoRestfulMux.Handle("/apis/k8s.cloudfoundry.org/v1alpha1", versionHandler)
+	srv.Handler.NonGoRestfulMux.Handle("/apis/k8s.cloudfoundry.org/v1alpha1/", versionHandler)
+	srv.Handler.NonGoRestfulMux.HandlePrefix("/", http.StripPrefix("/apis/k8s.cloudfoundry.org/v1alpha1/cf", router))
 
 	ctx := server.SetupSignalContext()
 	log.Fatal(srv.PrepareRun().Run(ctx.Done()))
