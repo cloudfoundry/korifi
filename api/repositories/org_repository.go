@@ -212,7 +212,8 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 	)
 	if err != nil {
 		if webhooks.HasErrorCode(err, webhooks.DuplicateSpaceNameError) {
-			errorDetail := fmt.Sprintf("Space '%s' already exists.", message.Name)
+			// Note: the cf cli expects the specific text 'Name must be unique per organization' in the error and ignores the error if it matches it.
+			errorDetail := fmt.Sprintf("Space '%s' already exists. Name must be unique per organization.", message.Name)
 			return SpaceRecord{}, apierrors.NewUnprocessableEntityError(err, errorDetail)
 		}
 		return SpaceRecord{}, err
