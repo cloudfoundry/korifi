@@ -13,20 +13,20 @@ import (
 
 var _ = Describe("Service Instances", func() {
 	var (
-		orgGUID      string
-		spaceGUID    string
-		instanceGUID string
-		instanceName string
-		httpResp     *resty.Response
-		httpError    error
+		orgGUID              string
+		spaceGUID            string
+		existingInstanceGUID string
+		existingInstanceName string
+		httpResp             *resty.Response
+		httpError            error
 	)
 
 	BeforeEach(func() {
 		orgGUID = createOrg(generateGUID("org"))
 		spaceGUID = createSpace(generateGUID("space1"), orgGUID)
 		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-		instanceName = generateGUID("service-instance")
-		instanceGUID = createServiceInstance(spaceGUID, instanceName)
+		existingInstanceName = generateGUID("service-instance")
+		existingInstanceGUID = createServiceInstance(spaceGUID, existingInstanceName)
 	})
 
 	AfterEach(func() {
@@ -34,12 +34,56 @@ var _ = Describe("Service Instances", func() {
 	})
 
 	Describe("Create", func() {
+		When("the user has permissions to create service instances", func() {
+			var instanceName string
+
+			BeforeEach(func() {
+				instanceName = generateGUID("service-instance")
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			JustBeforeEach(func() {
+				httpResp, httpError = certClient.R().
+					SetBody(serviceInstanceResource{
+						resource: resource{
+							Name: instanceName,
+							Relationships: relationships{
+								"space": {
+									Data: resource{
+										GUID: spaceGUID,
+									},
+								},
+							},
+						},
+						Credentials: map[string]string{
+							"type":  "database",
+							"hello": "creds",
+						},
+						InstanceType: "user-provided",
+					}).Post("/v3/service_instances")
+			})
+
+			It("succeeds", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusCreated))
+
+				Eventually(func(g Gomega) {
+					serviceInstances := listServiceInstances()
+					g.Expect(serviceInstances.Resources).To(ContainElement(
+						MatchFields(IgnoreExtras, Fields{
+							"Name": Equal(instanceName),
+						})),
+					)
+				}).Should(Succeed())
+			})
+		})
+
 		When("the service instance name is not unique", func() {
 			JustBeforeEach(func() {
 				httpResp, httpError = adminClient.R().
 					SetBody(serviceInstanceResource{
 						resource: resource{
-							Name: instanceName,
+							Name: existingInstanceName,
 							Relationships: relationships{
 								"space": {
 									Data: resource{
@@ -53,14 +97,14 @@ var _ = Describe("Service Instances", func() {
 			})
 			It("fails", func() {
 				Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-				Expect(httpResp).To(HaveRestyBody(ContainSubstring(fmt.Sprintf("The service instance name is taken: %s", instanceName))))
+				Expect(httpResp).To(HaveRestyBody(ContainSubstring(fmt.Sprintf("The service instance name is taken: %s", existingInstanceName))))
 			})
 		})
 	})
 
 	Describe("Delete", func() {
 		JustBeforeEach(func() {
-			httpResp, httpError = certClient.R().Delete("/v3/service_instances/" + instanceGUID)
+			httpResp, httpError = certClient.R().Delete("/v3/service_instances/" + existingInstanceGUID)
 		})
 
 		It("fails with 404 Not Found", func() {
@@ -82,7 +126,8 @@ var _ = Describe("Service Instances", func() {
 				serviceInstances := listServiceInstances()
 				Expect(serviceInstances.Resources).NotTo(ContainElement(
 					MatchFields(IgnoreExtras, Fields{
-						"Name": Equal(instanceGUID),
+						"Name": Equal(existingInstanceName),
+						"GUID": Equal(existingInstanceGUID),
 					})),
 				)
 			})
