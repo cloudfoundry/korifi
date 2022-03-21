@@ -41,7 +41,7 @@ var _ = Describe("RouteRepository", func() {
 			Expect(route.SpaceGUID).To(Equal(expectedRoute.Namespace))
 			Expect(route.Path).To(Equal(expectedRoute.Spec.Path))
 			Expect(route.Protocol).To(Equal(string(expectedRoute.Spec.Protocol)))
-			Expect(route.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
+			Expect(route.Domain).To(Equal(DomainRecord{GUID: expectedRoute.Spec.DomainRef.Name}))
 
 			Expect(route.Destinations).To(Equal([]DestinationRecord{
 				{
@@ -253,106 +253,29 @@ var _ = Describe("RouteRepository", func() {
 		})
 	})
 
-	Describe("GetRouteList", func() {
+	Describe("RouteList", func() {
 
 		When("multiple CFRoutes exist", func() {
 			var (
 				cfRoute1A, cfRoute1B *networkingv1alpha1.CFRoute
+				domainGUID2          string
 				space2               *hnsv1alpha2.SubnamespaceAnchor
 				cfRoute2A            *networkingv1alpha1.CFRoute
+				space3               *hnsv1alpha2.SubnamespaceAnchor
+				cfRoute3A            *networkingv1alpha1.CFRoute
 			)
 
 			BeforeEach(func() {
-				cfRoute1A = &networkingv1alpha1.CFRoute{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      route1GUID,
-						Namespace: space.Name,
-					},
-					Spec: networkingv1alpha1.CFRouteSpec{
-						Host:     "my-subdomain-1-a",
-						Path:     "",
-						Protocol: "http",
-						DomainRef: corev1.ObjectReference{
-							Name:      domainGUID,
-							Namespace: rootNamespace,
-						},
-						Destinations: []networkingv1alpha1.Destination{
-							{
-								GUID: "destination-guid",
-								Port: 8080,
-								AppRef: corev1.LocalObjectReference{
-									Name: "some-app-guid",
-								},
-								ProcessType: "web",
-								Protocol:    "http1",
-							},
-						},
-					},
-				}
-				Expect(
-					k8sClient.Create(testCtx, cfRoute1A),
-				).To(Succeed())
-
-				cfRoute1B = &networkingv1alpha1.CFRoute{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      route2GUID,
-						Namespace: space.Name,
-					},
-					Spec: networkingv1alpha1.CFRouteSpec{
-						Host:     "my-subdomain-1-b",
-						Path:     "/some/path",
-						Protocol: "http",
-						DomainRef: corev1.ObjectReference{
-							Name:      domainGUID,
-							Namespace: rootNamespace,
-						},
-						Destinations: []networkingv1alpha1.Destination{
-							{
-								GUID: "destination-guid-2",
-								Port: 8080,
-								AppRef: corev1.LocalObjectReference{
-									Name: "some-app-guid-2",
-								},
-								ProcessType: "web",
-								Protocol:    "http1",
-							},
-						},
-					},
-				}
-				Expect(
-					k8sClient.Create(testCtx, cfRoute1B),
-				).To(Succeed())
+				cfRoute1A = createRoute(route1GUID, space.Name, "my-subdomain-1-a", "", domainGUID, prefixedGUID("RouteListApp"))
+				domainGUID2 = prefixedGUID("RouteListDomain2")
+				cfRoute1B = createRoute(route2GUID, space.Name, "my-subdomain-1-b", "/some/path", domainGUID2, "some-app-guid-2")
 
 				space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
-				cfRoute2A = &networkingv1alpha1.CFRoute{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      generateGUID(),
-						Namespace: space2.Name,
-					},
-					Spec: networkingv1alpha1.CFRouteSpec{
-						Host:     "my-subdomain-2-a",
-						Path:     "",
-						Protocol: "http",
-						DomainRef: corev1.ObjectReference{
-							Name:      domainGUID,
-							Namespace: rootNamespace,
-						},
-						Destinations: []networkingv1alpha1.Destination{
-							{
-								GUID: "destination-guid",
-								Port: 8080,
-								AppRef: corev1.LocalObjectReference{
-									Name: "some-app-guid",
-								},
-								ProcessType: "web",
-								Protocol:    "http1",
-							},
-						},
-					},
-				}
-				Expect(
-					k8sClient.Create(testCtx, cfRoute2A),
-				).To(Succeed())
+				cfRoute2A = createRoute(generateGUID(), space2.Name, "my-subdomain-2-a", "/some/other/path", domainGUID, "some-app-guid-3")
+
+				space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space3"))
+				cfRoute3A = createRoute(generateGUID(), space3.Name, "my-subdomain-3-a", "", domainGUID, "some-app-guid-4")
+
 			})
 
 			AfterEach(func() {
@@ -365,11 +288,15 @@ var _ = Describe("RouteRepository", func() {
 				Expect(
 					k8sClient.Delete(testCtx, cfRoute2A),
 				).To(Succeed())
+				Expect(
+					k8sClient.Delete(testCtx, cfRoute3A),
+				).To(Succeed())
 			})
 
-			When("the user has space developer access in only space1 and", func() {
+			When("the user has space developer access in space1 & space2, but not space3", func() {
 				BeforeEach(func() {
 					createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+					createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
 				})
 
 				When("filters are not provided", func() {
@@ -379,25 +306,30 @@ var _ = Describe("RouteRepository", func() {
 						Expect(routeRecords).To(ContainElements(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute1A.Name)}),
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute1B.Name)}),
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute2A.Name)}),
 						))
-						Expect(routeRecords).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute2A.Name)})))
+						Expect(routeRecords).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute3A.Name)})))
 
-						var route1, route2 RouteRecord
+						var route1A, route1B, route2A RouteRecord
 						for _, routeRecord := range routeRecords {
 							switch routeRecord.GUID {
 							case cfRoute1A.Name:
-								route1 = routeRecord
+								route1A = routeRecord
 							case cfRoute1B.Name:
-								route2 = routeRecord
+								route1B = routeRecord
+							case cfRoute2A.Name:
+								route2A = routeRecord
 							default:
 							}
 						}
 
-						Expect(route1).NotTo(BeZero())
-						Expect(route2).NotTo(BeZero())
+						Expect(route1A).NotTo(BeZero())
+						Expect(route1B).NotTo(BeZero())
+						Expect(route2A).NotTo(BeZero())
 
-						validateRoute(route1, cfRoute1A)
-						validateRoute(route2, cfRoute1B)
+						validateRoute(route1A, cfRoute1A)
+						validateRoute(route1B, cfRoute1B)
+						validateRoute(route2A, cfRoute2A)
 					})
 				})
 
@@ -416,19 +348,21 @@ var _ = Describe("RouteRepository", func() {
 
 					When("space_guid filters are provided", func() {
 						BeforeEach(func() {
-							message = ListRoutesMessage{SpaceGUIDs: []string{space.Name}}
+							message = ListRoutesMessage{SpaceGUIDs: []string{space2.Name}}
 						})
 						It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-							Expect(routeRecords).To(HaveLen(2))
+							Expect(routeRecords).To(HaveLen(1))
+							Expect(routeRecords[0].GUID).To(Equal(cfRoute2A.Name))
 						})
 					})
 
 					When("domain_guid filters are provided", func() {
 						BeforeEach(func() {
-							message = ListRoutesMessage{DomainGUIDs: []string{domainGUID}}
+							message = ListRoutesMessage{DomainGUIDs: []string{domainGUID2}}
 						})
 						It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-							Expect(routeRecords).To(HaveLen(2))
+							Expect(routeRecords).To(HaveLen(1))
+							Expect(routeRecords[0].GUID).To(Equal(cfRoute1B.Name))
 						})
 					})
 
@@ -438,6 +372,7 @@ var _ = Describe("RouteRepository", func() {
 						})
 						It("eventually returns a list of routeRecords for one of the CFRoute CRs", func() {
 							Expect(routeRecords).To(HaveLen(1))
+							Expect(routeRecords[0].GUID).To(Equal(cfRoute1A.Name))
 						})
 					})
 
@@ -447,27 +382,32 @@ var _ = Describe("RouteRepository", func() {
 						})
 						It("eventually returns a list of routeRecords for one of the CFRoute CRs", func() {
 							Expect(routeRecords).To(HaveLen(1))
+							Expect(routeRecords[0].GUID).To(Equal(cfRoute1B.Name))
 							Expect(routeRecords[0].Path).To(Equal("/some/path"))
 						})
 					})
 
 					When("an empty path filter is provided", func() {
 						BeforeEach(func() {
-							message = ListRoutesMessage{Paths: []string{""}}
+							message = ListRoutesMessage{
+								SpaceGUIDs: []string{space.Name},
+								Paths:      []string{""},
+							}
 						})
 						It("eventually returns a list of routeRecords for one of the CFRoute CRs", func() {
 							Expect(routeRecords).To(HaveLen(1))
+							Expect(routeRecords[0].GUID).To(Equal(cfRoute1A.Name))
 							Expect(routeRecords[0].Path).To(Equal(""))
 						})
 					})
 
 					When("app_guid filters are provided", func() {
 						BeforeEach(func() {
-							message = ListRoutesMessage{AppGUIDs: []string{"some-app-guid"}}
+							message = ListRoutesMessage{AppGUIDs: []string{cfRoute1A.Spec.Destinations[0].AppRef.Name}}
 						})
 						It("eventually returns a list of routeRecords for each CFRoute CR", func() {
+							Expect(routeRecords).To(HaveLen(1))
 							route1 := routeRecords[0]
-
 							Expect(route1).NotTo(BeZero())
 							validateRoute(route1, cfRoute1A)
 						})
@@ -1314,6 +1254,39 @@ var _ = Describe("RouteRepository", func() {
 		})
 	})
 })
+
+func createRoute(guid, namespace, host, path, domainGUID, appGUID string) *networkingv1alpha1.CFRoute {
+	toReturn := &networkingv1alpha1.CFRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      guid,
+			Namespace: namespace,
+		},
+		Spec: networkingv1alpha1.CFRouteSpec{
+			Host:     host,
+			Path:     path,
+			Protocol: "http",
+			DomainRef: corev1.ObjectReference{
+				Name:      domainGUID,
+				Namespace: rootNamespace,
+			},
+			Destinations: []networkingv1alpha1.Destination{
+				{
+					GUID: appGUID + "destination",
+					Port: 8080,
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+					ProcessType: "web",
+					Protocol:    "http1",
+				},
+			},
+		},
+	}
+	Expect(
+		k8sClient.Create(context.Background(), toReturn),
+	).To(Succeed())
+	return toReturn
+}
 
 func initializeRouteCR(routeHost, routePath, routeGUID, domainGUID, spaceGUID string) *networkingv1alpha1.CFRoute {
 	return &networkingv1alpha1.CFRoute{
