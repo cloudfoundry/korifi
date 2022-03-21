@@ -1,0 +1,24 @@
+---
+apiVersion: carto.run/v1alpha1
+kind: ClusterDelivery
+metadata:
+  name: run-delivery
+spec:
+  selector:
+    workloads.cloudfoundry.org/workload-type: cf-run
+  resources:
+    - name: podintent
+      templateRef:
+        kind: ClusterConfigTemplate
+        name: podintent
+    - name: deployment
+      templateRef:
+        kind: ClusterDeploymentTemplate
+        name: deployment
+      configs:
+        - resource: podintent
+          name: config
+
+  serviceAccountRef:
+    name: cf-k8s-controllers-controller-manager
+    namespace: cf-k8s-controllers-system

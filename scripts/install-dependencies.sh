@@ -106,7 +106,7 @@ echo "***********************"
 echo "Installing Cartographer"
 echo "***********************"
 
-kubectl apply -f "${DEP_DIR}/cartographer.0.2.0.yaml"
+kubectl apply -f "${DEP_DIR}/cartographer.yaml"
 
 echo "*******************"
 echo "Installing Contour"

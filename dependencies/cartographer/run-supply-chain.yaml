@@ -1,24 +1,24 @@
----
-apiVersion: carto.run/v1alpha1
-kind: ClusterSupplyChain
-metadata:
-  name: run-supply-chain
-spec:
-  selector:
-    workloads.cloudfoundry.org/workload-type: cf-run
-  resources:
-    - name: podintent
-      templateRef:
-        kind: ClusterConfigTemplate
-        name: podintent
-    - name: statefulset
-      templateRef:
-        kind: ClusterTemplate
-        name: statefulset
-      configs:
-        - resource: podintent
-          name: config
-
-  serviceAccountRef:
-    name: cf-k8s-controllers-controller-manager
-    namespace: cf-k8s-controllers-system
+#---
+#apiVersion: carto.run/v1alpha1
+#kind: ClusterSupplyChain
+#metadata:
+#  name: run-supply-chain
+#spec:
+#  selector:
+#    workloads.cloudfoundry.org/workload-type: cf-run
+#  resources:
+#    - name: podintent
+#      templateRef:
+#        kind: ClusterConfigTemplate
+#        name: podintent
+#    - name: deployment
+#      templateRef:
+#        kind: ClusterTemplate
+#        name: deployment
+#      configs:
+#        - resource: podintent
+#          name: config
+#
+#  serviceAccountRef:
+#    name: cf-k8s-controllers-controller-manager
+#    namespace: cf-k8s-controllers-system

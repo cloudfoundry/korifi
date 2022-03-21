@@ -1,0 +1,31 @@
+---
+apiVersion: carto.run/v1alpha1
+kind: ClusterDeploymentTemplate
+metadata:
+  name: deployment
+spec:
+  observedCompletion:
+    succeeded:
+      key: 'status.conditions[?(@.type=="Available")].status'
+      value: 'True'
+    failed:
+      key: 'status.conditions[?(@.type=="Progressing")].status'
+      value: 'True'
+  template:
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: $(workload.metadata.name)$
+      labels:
+        "workloads.cloudfoundry.org/process-guid": $(workload.spec.params[?(@.name=="cf-process-guid")].value)$
+        "workloads.cloudfoundry.org/process-type": $(workload.spec.params[?(@.name=="cf-process-type")].value)$
+        "workloads.cloudfoundry.org/app-guid": $(workload.spec.params[?(@.name=="cf-app-guid")].value)$
+        workloads.cloudfoundry.org/app-rev: $(workload.spec.params[?(@.name=="cf-app-rev")].value)$
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          "workloads.cloudfoundry.org/guid": $(workload.spec.params[?(@.name=="cf-process-guid")].value)$
+          workloads.cloudfoundry.org/source-type: APP
+          workloads.cloudfoundry.org/version: $(workload.spec.params[?(@.name=="cf-app-rev")].value)$
+      template: $(config)$

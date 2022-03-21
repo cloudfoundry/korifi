@@ -505,7 +505,7 @@ spec:
                 outputs:
                   additionalProperties:
                     type: string
-                  description: "Outputs are a named list of jsonPaths that are used to gather results from the last successful object stamped by the template. E.g: \tmy-output: .status.results[?(@.name==\"IMAGE-DIGEST\")].value"
+                  description: "Outputs are a named list of jsonPaths that are used to gather results from the last successful object stamped by the template. E.g: \tmy-output: .status.results[?(@.name==\"IMAGE-DIGEST\")].value Note: outputs are only filled on the runnable when the templated object has a Succeeded condition with a Status of True E.g:     status.conditions[?(@.type==\"Succeeded\")].status == True a runnable creating an object without a Succeeded condition (like a Job or ConfigMap) will never display an output"
                   type: object
                 template:
                   description: 'Template defines a resource template for a Kubernetes Resource or Custom Resource which is applied to the server each time the blueprint is applied. Templates support simple value interpolation using the $()$ marker format. For more information, see: https://cartographer.sh/docs/latest/templating/'
@@ -1100,7 +1100,7 @@ spec:
                   default:
                     maxFailedRuns: 10
                     maxSuccessfulRuns: 10
-                  description: RetentionPolicy specifies how many successful and failed runs should be retained. Runs older than this (ordered by creation time) will be deleted.
+                  description: RetentionPolicy specifies how many successful and failed runs should be retained. Runs older than this (ordered by creation time) will be deleted. Setting higher values will increase memory footprint.
                   properties:
                     maxFailedRuns:
                       description: MaxFailedRuns is the number of failed runs to retain.
@@ -1205,6 +1205,7 @@ spec:
                 outputs:
                   additionalProperties:
                     x-kubernetes-preserve-unknown-fields: true
+                  description: 'Note: outputs are only filled on the runnable when the templated object has a Succeeded condition with a Status of True E.g:     status.conditions[?(@.type=="Succeeded")].status == True a runnable creating an object without a Succeeded condition (like a Job or ConfigMap) will never display an output'
                   type: object
               type: object
           required:
@@ -1644,7 +1645,7 @@ spec:
             secretName: cartographer-webhook
       containers:
         - name: cartographer-controller
-          image: projectcartographer/cartographer@sha256:16c635ebfc498ee9fe096bacc7683dd5762e93cf4ef22be382e1697cef4af2d4
+          image: projectcartographer/cartographer@sha256:a43a4deb5b9c31482b107d5d75f764cf73a475840b6671f051175fd9920493c3
           args:
             - -cert-dir=/cert
           securityContext:
@@ -1661,10 +1662,10 @@ spec:
           resources:
             limits:
               cpu: 1
-              memory: 200Mi
+              memory: 1Gi
             requests:
-              cpu: 200m
-              memory: 200Mi
+              cpu: 500m
+              memory: 512Mi
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -1711,6 +1712,45 @@ rules:
       - watch
       - get
       - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cartographer-user-admin
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+rules:
+  - apiGroups:
+      - carto.run
+    resources:
+      - workloads
+      - deliveries
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cartographer-user-view
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+rules:
+  - apiGroups:
+      - carto.run
+    resources:
+      - workloads
+      - deliveries
+    verbs:
+      - get
+      - list
+      - watch
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
