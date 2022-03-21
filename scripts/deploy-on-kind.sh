@@ -219,7 +219,3 @@ install_dependencies
 deploy_cf_k8s_controllers
 deploy_cf_k8s_api
 
-kubectl create ns cartographer-conventions-system
-# Manually edit your /etc/hosts to map localregistry-docker-registry.default.svc.cluster.local to 127.0.0.1
-export KO_DOCKER_REPO="localregistry-docker-registry.default.svc.cluster.local:30050/conventions"
-kapp deploy -n cartographer-conventions-system -a controller -f <(ytt -f dist/cartogrpaher-conventions.yaml -f dist/ca-overlay.yaml --data-value-file ca_cert_data=${CA_DATA:-dist/ca.pem} | ko resolve -f -)

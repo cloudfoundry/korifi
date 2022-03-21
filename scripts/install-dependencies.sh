@@ -178,6 +178,16 @@ echo "************************"
 
 kubectl apply -f "${DEP_DIR}/cartographer"
 
+echo "******************************"
+echo "Configuring Convention Service"
+echo "******************************"
+
+kubectl create ns cartographer-conventions-system
+# Manually edit your /etc/hosts to map localregistry-docker-registry.default.svc.cluster.local to 127.0.0.1
+export KO_DOCKER_REPO="localregistry-docker-registry.default.svc.cluster.local:30050/conventions"
+# Check out the cartographer-conventions repo in your ~/workspace directory
+kapp deploy -y -n cartographer-conventions-system -a controller -f <(cd ~/workspace/cartographer-conventions/; ytt -f dist/cartogrpaher-conventions.yaml -f dist/ca-overlay.yaml --data-value-file ca_cert_data=${CA_DATA:-dist/ca.pem} | ko resolve -f -)
+
 echo "******"
 echo "Done"
 echo "******"
