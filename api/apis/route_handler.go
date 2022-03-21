@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking"
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
@@ -158,6 +159,12 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, r *http.R
 			"Invalid domain. Ensure that the domain exists and you have access to it.",
 			apierrors.NotFoundError{},
 		)
+	}
+
+	_, err = networking.IsFQDN(payload.Host, domain.Name)
+	if err != nil {
+		h.logger.Info(err.Error(), "HostName", payload.Host, "Domain Name", domain.Name)
+		return nil, apierrors.NewUnprocessableEntityError(err, fmt.Sprintf("Invalid Route, %v", err.Error()))
 	}
 
 	createRouteMessage := payload.ToMessage(domain.Namespace, domain.Name)

@@ -95,11 +95,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect((&networkingv1alpha1.CFRoute{}).SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect(networking.NewCFDomainValidation(mgr.GetClient()).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	cfRootNamespace = "default"
 	Expect(networking.NewCFRouteValidation(
 		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType)),
 		cfRootNamespace,
+		mgr.GetClient(),
 	).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook

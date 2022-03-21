@@ -22,7 +22,6 @@ const (
 	DuplicateRouteError
 	DuplicateDomainError
 	DuplicateServiceInstanceNameError
-	HostNameIsInvalidError
 )
 
 func (w ValidationErrorCode) Marshal() string {
@@ -59,8 +58,6 @@ func (w ValidationErrorCode) GetMessage() string {
 		return "Overlapping domain exists"
 	case DuplicateServiceInstanceNameError:
 		return "CFServiceInstance with same spec.name exists"
-	case HostNameIsInvalidError:
-		return "Missing or Invalid host. Routes in shared domains must have a valid host defined."
 	default:
 		return "An unknown error has occurred"
 	}
