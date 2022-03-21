@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", func() {
@@ -33,7 +34,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 		appRepo := repositories.NewAppRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 		domainRepo := repositories.NewDomainRepo(rootNamespace, k8sClient, namespaceRetriever, clientFactory)
 		processRepo := repositories.NewProcessRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
-		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory)
+		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -50,7 +51,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 	When("on the happy path", func() {
 		var (
-			namespace      *corev1.Namespace
+			namespace      *hnsv1alpha2.SubnamespaceAnchor
 			requestEnvVars map[string]string
 			requestBody    string
 			domainGUID     string
@@ -64,17 +65,10 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 		BeforeEach(func() {
 			domainGUID = generateGUID()
-			namespaceGUID := generateGUID()
-			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceGUID}}
-			Expect(
-				k8sClient.Create(context.Background(), namespace),
-			).To(Succeed())
+			org := createOrgAnchorAndNamespace(ctx, rootNamespace, generateGUID())
+			namespace = createSpaceAnchorAndNamespace(ctx, org.Name, "spacename-"+generateGUID())
 
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespaceGUID)
-
-			DeferCleanup(func() {
-				_ = k8sClient.Delete(context.Background(), namespace)
-			})
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
 
 			requestEnvVars = map[string]string{
 				key1: "VAL1",

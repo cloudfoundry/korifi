@@ -21,18 +21,19 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("Route Handler", func() {
 	var (
 		apiHandler *RouteHandler
-		namespace  *corev1.Namespace
+		namespace  *hnsv1alpha2.SubnamespaceAnchor
 	)
 
 	BeforeEach(func() {
 		appRepo := repositories.NewAppRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 		orgRepo := repositories.NewOrgRepo("root-ns", k8sClient, clientFactory, nsPermissions, time.Minute, true)
-		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory)
+		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 		domainRepo := repositories.NewDomainRepo("root-ns", k8sClient, namespaceRetriever, clientFactory)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
@@ -48,12 +49,8 @@ var _ = Describe("Route Handler", func() {
 		)
 		apiHandler.RegisterRoutes(router)
 
-		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: generateGUIDWithPrefix("namespace")}}
-		Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
-	})
-
-	AfterEach(func() {
-		Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
+		org := createOrgAnchorAndNamespace(ctx, rootNamespace, generateGUID())
+		namespace = createSpaceAnchorAndNamespace(ctx, org.Name, "spacename-"+generateGUID())
 	})
 
 	Describe("GET /v3/routes endpoint", func() {

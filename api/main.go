@@ -111,7 +111,7 @@ func main() {
 	processRepo := repositories.NewProcessRepo(privilegedCRClient, namespaceRetriever, userClientFactory, nsPermissions)
 	podRepo := repositories.NewPodRepo(userClientFactory, metricsFetcherFunction)
 	dropletRepo := repositories.NewDropletRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
-	routeRepo := repositories.NewRouteRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
+	routeRepo := repositories.NewRouteRepo(privilegedCRClient, namespaceRetriever, userClientFactory, nsPermissions)
 	domainRepo := repositories.NewDomainRepo(config.RootNamespace, privilegedCRClient, namespaceRetriever, userClientFactory)
 	buildRepo := repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
 	packageRepo := repositories.NewPackageRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
