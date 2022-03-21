@@ -376,14 +376,3 @@ ensure_local_registry
 install_dependencies
 deploy_cf_k8s_controllers
 deploy_cf_k8s_api
-
-#   - apiGroups: [ apiregistration.k8s.io ]
-#     resources: [ apiservices ]
-#     verbs: [ get, list, patch, update, watch, create ]
-#   - apiGroups: [ security.openshift.io ]
-#     resources: [ securitycontextconstraints ]
-#     verbs: [ use ]
-#     resourceNames: [ nonroot ]
-#   - apiGroups: [ "" ]
-#     resources: [ nodes ]
-#     verbs: [ list ]

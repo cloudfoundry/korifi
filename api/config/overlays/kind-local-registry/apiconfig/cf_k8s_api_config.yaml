@@ -1,5 +1,5 @@
-externalFQDN: localhost
-internalPort: 9000
+externalFQDN: 127.0.0.1:45081/apis/k8s.cloudfoundry.org/v1alpha1/cf
+internalPort: 0
 
 rootNamespace: cf
 defaultLifecycleConfig:

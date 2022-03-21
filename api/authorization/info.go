@@ -4,11 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 type Info struct {
 	Token    string
 	CertData []byte
+	UserInfo user.Info
 }
 
 type key int

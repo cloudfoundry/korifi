@@ -138,3 +138,8 @@ rules:
   - get
   - list
   - watch
+
+- apiGroups:
+  - k8s.cloudfoundry.org
+  resources: ["*"]
+  verbs: ["*"]

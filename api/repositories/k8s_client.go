@@ -1,11 +1,6 @@
 package repositories
 
 import (
-	"encoding/pem"
-	"errors"
-	"fmt"
-	"strings"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -25,35 +20,17 @@ type UnprivilegedClientFactory struct {
 
 func NewUnprivilegedClientFactory(config *rest.Config, mapper meta.RESTMapper) UnprivilegedClientFactory {
 	return UnprivilegedClientFactory{
-		config: rest.AnonymousClientConfig(rest.CopyConfig(config)),
+		config: rest.CopyConfig(config),
 		mapper: mapper,
 	}
 }
 
 func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (client.WithWatch, error) {
 	config := rest.CopyConfig(f.config)
-
-	switch strings.ToLower(authInfo.Scheme()) {
-	case authorization.BearerScheme:
-		config.BearerToken = authInfo.Token
-
-	case authorization.CertScheme:
-		certBlock, rst := pem.Decode(authInfo.CertData)
-		if certBlock == nil {
-			return nil, fmt.Errorf("failed to decode cert PEM")
-		}
-
-		keyBlock, _ := pem.Decode(rst)
-		if keyBlock == nil {
-			return nil, fmt.Errorf("failed to decode key PEM")
-		}
-
-		config.CertData = pem.EncodeToMemory(certBlock)
-		config.KeyData = pem.EncodeToMemory(keyBlock)
-
-	default:
-		return nil, apierrors.NewNotAuthenticatedError(errors.New("unsupported Authorization header scheme"))
-	}
+	config.Impersonate.UserName = authInfo.UserInfo.GetName()
+	config.Impersonate.UID = authInfo.UserInfo.GetUID()
+	config.Impersonate.Groups = authInfo.UserInfo.GetGroups()
+	config.Impersonate.Extra = authInfo.UserInfo.GetExtra()
 
 	userClient, err := client.NewWithWatch(config, client.Options{
 		Scheme: scheme.Scheme,

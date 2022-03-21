@@ -21,13 +21,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/server"
@@ -42,9 +41,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+//+kubebuilder:rbac:groups="",resources=users;groups;serviceaccounts,verbs=impersonate
 
 var createTimeout = time.Second * 120
 
@@ -295,14 +294,6 @@ func main() {
 		cachingIdentityProvider,
 	).Middleware)
 
-	// portString := fmt.Sprintf(":%v", config.InternalPort)
-
-	// server := &http.Server{
-	// 	Addr:    portString,
-	// 	Handler: router,
-	// }
-	// log.Fatal(server.ListenAndServeTLS("/etc/server-cert/server.crt", "/etc/server-cert/server.key"))
-
 	scheme := runtime.NewScheme()
 	metav1.AddToGroupVersion(scheme, metav1.Unversioned)
 	codecs := serializer.NewCodecFactory(scheme)
@@ -333,11 +324,11 @@ func main() {
 
 	_ = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// TODO authn and authz have been done already, but not admission, you need to do that yourself
-		ae := audit.AuditEventFrom(r.Context())
-		admit := admission.WithAudit(serverConfig.AdmissionControl, ae)
-		validatingAdmission, isValidatingAdmission := admit.(admission.ValidationInterface)
-		_ = isValidatingAdmission
-		_ = validatingAdmission.Validate
+		// ae := audit.AuditEventFrom(r.Context())
+		// admit := admission.WithAudit(serverConfig.AdmissionControl, ae)
+		// validatingAdmission, isValidatingAdmission := admit.(admission.ValidationInterface)
+		// _ = isValidatingAdmission
+		// _ = validatingAdmission.Validate
 
 		userInfo, ok := genericapirequest.UserFrom(r.Context())
 		if !ok {

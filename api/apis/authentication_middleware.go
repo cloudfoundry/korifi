@@ -1,12 +1,13 @@
 package apis
 
 import (
+	"errors"
 	"net/http"
 	"regexp"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 )
 
 type AuthenticationMiddleware struct {
@@ -42,21 +43,12 @@ func (a *AuthenticationMiddleware) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		authInfo, err := a.authInfoParser.Parse(r.Header.Get(headers.Authorization))
-		if err != nil {
-			a.logger.Error(err, "failed to parse auth info")
-			presentError(w, err)
-			return
+		userInfo, ok := genericapirequest.UserFrom(r.Context())
+		if !ok {
+			presentError(w, errors.New("no userinfo"))
 		}
 
-		r = r.WithContext(authorization.NewContext(r.Context(), &authInfo))
-
-		_, err = a.identityProvider.GetIdentity(r.Context(), authInfo)
-		if err != nil {
-			a.logger.Error(err, "failed to get identity")
-			presentError(w, err)
-			return
-		}
+		r = r.WithContext(authorization.NewContext(r.Context(), &authorization.Info{UserInfo: userInfo}))
 
 		next.ServeHTTP(w, r)
 	})
