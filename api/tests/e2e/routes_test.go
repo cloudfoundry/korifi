@@ -8,6 +8,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
@@ -85,6 +86,64 @@ var _ = Describe("Routes", func() {
 						Detail: "Route not found. Ensure it exists and you have access to it.",
 					},
 				))
+			})
+		})
+	})
+
+	Describe("list", func() {
+		var (
+			result  responseResourceList
+			resp    *resty.Response
+			errResp cfErrs
+
+			route1AGUID, route1BGUID string
+
+			space2GUID  string
+			route2AGUID string
+		)
+
+		BeforeEach(func() {
+			host1 := generateGUID("myapp1")
+			route1AGUID = createRoute(host1, generateGUID("/some-path"), spaceGUID, domainGUID)
+			route1BGUID = createRoute(host1, generateGUID("/some-path"), spaceGUID, domainGUID)
+
+			space2GUID = createSpace(generateGUID("space"), orgGUID)
+			host2 := generateGUID("myapp2")
+			route2AGUID = createRoute(host2, generateGUID("/some-path"), space2GUID, domainGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = client.R().
+				SetResult(&result).
+				SetError(&errResp).
+				Get("/v3/routes")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the user is authorized within one space, but not another", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("returns the list of routes in only the authorized spaces", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.Resources).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(route1AGUID)}),
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(route1BGUID)}),
+				))
+				Expect(result.Resources).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"GUID": Equal(route2AGUID)})))
+			})
+		})
+
+		When("the user is not authorized in any space", func() {
+			BeforeEach(func() {
+				client = tokenClient
+			})
+
+			It("returns an empty list", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.Resources).To(BeEmpty())
 			})
 		})
 	})
