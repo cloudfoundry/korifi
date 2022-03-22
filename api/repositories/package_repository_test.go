@@ -33,7 +33,7 @@ var _ = Describe("PackageRepository", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		packageRepo = repositories.NewPackageRepo(k8sClient, namespaceRetriever, userClientFactory)
-		org = createOrgAnchorAndNamespace(ctx, rootNamespace, prefixedGUID("org"))
+		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 	})
 
 	Describe("CreatePackage", func() {
@@ -45,7 +45,7 @@ var _ = Describe("PackageRepository", func() {
 		)
 
 		BeforeEach(func() {
-			space = createSpaceAnchorAndNamespace(ctx, org.Name, prefixedGUID("space"))
+			space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 			packageCreate = repositories.CreatePackageMessage{
 				Type:      "bits",
 				AppGUID:   appGUID,
@@ -127,7 +127,7 @@ var _ = Describe("PackageRepository", func() {
 		)
 
 		BeforeEach(func() {
-			space = createSpaceAnchorAndNamespace(ctx, org.Name, prefixedGUID("space1"))
+			space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
 
 			packageGUID = generateGUID()
 			cfPackage = createPackageCR(ctx, k8sClient, packageGUID, appGUID, space.Name, "")
@@ -199,7 +199,7 @@ var _ = Describe("PackageRepository", func() {
 			)
 
 			BeforeEach(func() {
-				anotherSpace = createSpaceAnchorAndNamespace(ctx, org.Name, prefixedGUID("space"))
+				anotherSpace = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 
 				duplicatePackage = createPackageCR(ctx, k8sClient, packageGUID, appGUID, anotherSpace.Name, "")
 			})
@@ -236,8 +236,8 @@ var _ = Describe("PackageRepository", func() {
 		)
 
 		BeforeEach(func() {
-			space1 = createSpaceAnchorAndNamespace(ctx, org.Name, prefixedGUID("space1"))
-			space2 = createSpaceAnchorAndNamespace(ctx, org.Name, prefixedGUID("space2"))
+			space1 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
+			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
 		})
 
 		When("multiple packages exist in different namespaces", func() {
@@ -537,7 +537,7 @@ var _ = Describe("PackageRepository", func() {
 		)
 
 		BeforeEach(func() {
-			space = createSpaceAnchorAndNamespace(ctx, org.Name, prefixedGUID("space"))
+			space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 
 			existingCFPackage = workloadsv1alpha1.CFPackage{
 				TypeMeta: metav1.TypeMeta{
