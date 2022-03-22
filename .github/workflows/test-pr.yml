@@ -59,7 +59,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: |
           ~/.cache/go-build
@@ -80,7 +80,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: |
           ~/.cache/go-build
@@ -101,7 +101,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: |
           ~/.cache/go-build
@@ -188,7 +188,7 @@ jobs:
         repository: cloudfoundry-incubator/eirini-controller
         path: eirini-controller
 
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: |
           ~/.cache/go-build
