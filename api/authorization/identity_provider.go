@@ -47,6 +47,7 @@ func (p *CertTokenIdentityProvider) GetIdentity(ctx context.Context, info Info) 
 		fmt.Printf("info.UserInfo.GetUID() = %+v\n", info.UserInfo.GetUID())
 		fmt.Printf("info.UserInfo.GetGroups() = %+v\n", info.UserInfo.GetGroups())
 		fmt.Printf("info.UserInfo.GetExtra() = %+v\n", info.UserInfo.GetExtra())
+		// TODO: There are special groups for service accounts so figureing out the correct user kind should be easy
 		return Identity{Name: info.UserInfo.GetName(), Kind: rbacv1.UserKind}, nil
 	}
 

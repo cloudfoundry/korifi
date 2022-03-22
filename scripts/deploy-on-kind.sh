@@ -368,6 +368,43 @@ subjects:
   name: cf-k8s-api-cf-admin-serviceaccount
   namespace: cf-k8s-api-system
 
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cf-http-api-user
+rules:
+  - apiGroups: [ "k8s.cloudfoundry.org" ]
+    resources: [ "*" ]
+    verbs: [ "*" ]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cf-api-allow-anonymous-binding
+roleRef:
+  kind: ClusterRole
+  name: cf-http-api-user
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: system:anonymous
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cf-api-allow-authenticated-binding
+roleRef:
+  kind: ClusterRole
+  name: cf-http-api-user
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:authenticated
 EOF
 }
 

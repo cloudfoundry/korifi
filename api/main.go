@@ -412,10 +412,20 @@ func main() {
 	srv.Handler.NonGoRestfulMux.Handle("/apis/k8s.cloudfoundry.org/", groupHandler)
 	srv.Handler.NonGoRestfulMux.Handle("/apis/k8s.cloudfoundry.org/v1alpha1", versionHandler)
 	srv.Handler.NonGoRestfulMux.Handle("/apis/k8s.cloudfoundry.org/v1alpha1/", versionHandler)
-	srv.Handler.NonGoRestfulMux.HandlePrefix("/", http.StripPrefix("/apis/k8s.cloudfoundry.org/v1alpha1/cf", router))
+	srv.Handler.NonGoRestfulMux.HandlePrefix("/", http.StripPrefix("/apis/k8s.cloudfoundry.org/v1alpha1/cf", emptyStringToRoot(router)))
 
 	ctx := server.SetupSignalContext()
 	log.Fatal(srv.PrepareRun().Run(ctx.Done()))
+}
+
+func emptyStringToRoot(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "" {
+			r.URL.Path = "/"
+		}
+
+		h.ServeHTTP(w, r)
+	})
 }
 
 func wireIdentityProvider(client client.Client, restConfig *rest.Config) authorization.IdentityProvider {
