@@ -4,14 +4,15 @@ import (
 	"net/http"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	workloads "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	workloads "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
 var _ = Describe("Droplet", func() {
@@ -21,7 +22,7 @@ var _ = Describe("Droplet", func() {
 	)
 
 	BeforeEach(func() {
-		dropletRepo := repositories.NewDropletRepo(k8sClient, namespaceRetriever, clientFactory)
+		dropletRepo := repositories.NewDropletRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 
 		dropletHandler = apis.NewDropletHandler(
 			logf.Log.WithName("integration tests"),

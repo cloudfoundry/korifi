@@ -1106,6 +1106,17 @@ var _ = Describe("PackageHandler", func() {
 			})
 		})
 
+		When("a forbidden error occurs while fetching the package", func() {
+			BeforeEach(func() {
+				toReturnErr := apierrors.NewForbiddenError(nil, repositories.PackageResourceType)
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, toReturnErr)
+			})
+
+			It("returns the error", func() {
+				expectNotFoundError("Package")
+			})
+		})
+
 		When("an error occurs while fetching the droplets for the package", func() {
 			BeforeEach(func() {
 				dropletRepo.ListDropletsReturns([]repositories.DropletRecord{}, errors.New("boom"))

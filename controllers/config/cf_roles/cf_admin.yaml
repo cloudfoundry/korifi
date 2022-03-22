@@ -55,6 +55,7 @@ rules:
   - cfbuilds
   verbs:
   - get
+  - list
   - create
 
 - apiGroups:

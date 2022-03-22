@@ -23,13 +23,15 @@ type DropletRepo struct {
 	privilegedClient   client.Client
 	namespaceRetriever NamespaceRetriever
 	userClientFactory  UserK8sClientFactory
+	nsPerms            *authorization.NamespacePermissions
 }
 
-func NewDropletRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory) *DropletRepo {
+func NewDropletRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, nsPerms *authorization.NamespacePermissions) *DropletRepo {
 	return &DropletRepo{
 		privilegedClient:   privilegedClient,
 		namespaceRetriever: namespaceRetriever,
 		userClientFactory:  userClientFactory,
+		nsPerms:            nsPerms,
 	}
 }
 
@@ -114,11 +116,25 @@ func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {
 
 func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) ([]DropletRecord, error) {
 	buildList := &workloadsv1alpha1.CFBuildList{}
-	err := r.privilegedClient.List(ctx, buildList)
+
+	namespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
-		return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
-	allBuilds := buildList.Items
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return []DropletRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	var allBuilds []workloadsv1alpha1.CFBuild
+	for ns := range namespaces {
+		err := userClient.List(ctx, buildList, client.InNamespace(ns))
+		if err != nil {
+			return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
+		}
+		allBuilds = append(allBuilds, buildList.Items...)
+	}
 	matches := applyDropletFilters(allBuilds, message)
 
 	return returnDropletList(matches), nil

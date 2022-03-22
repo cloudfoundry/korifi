@@ -162,4 +162,45 @@ var _ = Describe("Package", func() {
 			})
 		})
 	})
+
+	Describe("List Droplets",  func() {
+		var buildGUID string
+		var resultList resourceList
+
+		BeforeEach(func() {
+			resultList = resourceList{}
+			packageGUID = createPackage(appGUID)
+			uploadNodeApp(packageGUID)
+			buildGUID = createBuild(packageGUID)
+
+			Eventually(func() (*resty.Response, error) {
+				return adminClient.R().Get("/v3/droplets/" + buildGUID)
+			}).Should(HaveRestyStatusCode(http.StatusOK))
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().
+				SetResult(&resultList).
+				Get("/v3/packages/" + packageGUID + "/droplets")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns not found for unauthorized users", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+			Expect(resp).To(HaveRestyBody(ContainSubstring("Package not found")))
+		})
+
+		When("the user is a space manager", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("lists the droplet", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(resultList.Resources).To(HaveLen(1))
+				Expect(resultList.Resources[0].GUID).To(Equal(buildGUID))
+			})
+		})
+	})
 })

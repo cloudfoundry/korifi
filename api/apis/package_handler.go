@@ -225,15 +225,15 @@ func (h PackageHandler) packageListDropletsHandler(authInfo authorization.Info, 
 	packageGUID := mux.Vars(r)["guid"]
 	_, err = h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
-		h.logger.Info("Error fetching package with repository", "error", err.Error())
-		return nil, err
+		h.logger.Error(err, "Error fetching package with repository")
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	dropletListMessage := packageListDropletsQueryParams.ToMessage([]string{packageGUID})
 
 	dropletList, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, dropletListMessage)
 	if err != nil {
-		h.logger.Info("Error fetching droplet list with repository", "error", err.Error())
+		h.logger.Error(err, "Error fetching droplet list with repository")
 		return nil, err
 	}
 
