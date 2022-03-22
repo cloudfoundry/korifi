@@ -172,7 +172,8 @@ type scaleResource struct {
 }
 
 type destination struct {
-	App bareResource `json:"app"`
+	GUID string       `json:"guid"`
+	App  bareResource `json:"app"`
 }
 
 type serviceInstanceResource struct {
@@ -784,6 +785,29 @@ func createRoute(host, path string, spaceGUID, domainGUID string) string {
 	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return route.GUID
+}
+
+func addDestinationForRoute(appGUID, routeGUID string) []string {
+	var destinations destinationsResource
+
+	resp, err := adminClient.R().
+		SetBody(mapRouteResource{
+			Destinations: []destinationRef{
+				{App: resource{GUID: appGUID}},
+			},
+		}).
+		SetResult(&destinations).
+		Post("/v3/routes/" + routeGUID + "/destinations")
+
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+
+	var destinationGUIDs []string
+	for _, destination := range destinations.Destinations {
+		destinationGUIDs = append(destinationGUIDs, destination.GUID)
+	}
+
+	return destinationGUIDs
 }
 
 func expectNotFoundError(resp *resty.Response, errResp cfErrs, resource string) {
