@@ -10,6 +10,8 @@ export PATH="${PATH}:${API_DIR}/bin"
 
 OPENSSL_VERSION="$(openssl version | awk '{ print $1 }')"
 
+source "$SCRIPT_DIR/common.sh"
+
 function usage_text() {
   cat <<EOF
 Usage:
@@ -251,7 +253,7 @@ function deploy_cf_k8s_controllers() {
   popd >/dev/null
 
   if [[ -n "${default_domain}" ]]; then
-    kubectl apply -f "${CONTROLLER_DIR}/config/samples/cfdomain.yaml"
+    retry kubectl apply -f "${CONTROLLER_DIR}/config/samples/cfdomain.yaml"
   fi
 }
 
