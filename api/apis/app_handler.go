@@ -301,7 +301,7 @@ func (h *AppHandler) getProcessesForAppHandler(authInfo authorization.Info, r *h
 	}
 
 	fetchProcessesForAppMessage := repositories.ListProcessesMessage{
-		AppGUID:   []string{appGUID},
+		AppGUIDs:   []string{appGUID},
 		SpaceGUID: app.SpaceGUID,
 	}
 

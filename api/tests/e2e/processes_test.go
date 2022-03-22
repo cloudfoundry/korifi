@@ -1,11 +1,11 @@
 package e2e_test
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"net/http"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -39,7 +39,49 @@ var _ = Describe("Processes", func() {
 		deleteOrg(orgGUID)
 	})
 
-	Describe("listing sidecars", Ordered, func() {
+	Describe("List processes for app", func() {
+		var (
+			space2GUID     string
+			app2GUID       string
+			requestAppGUID string
+			result         resourceList
+		)
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + requestAppGUID + "/processes")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the user is authorized in the space", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				requestAppGUID = appGUID
+			})
+
+			It("returns the processes for the app", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+
+				Expect(result.Resources).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(processGUID)}),
+				))
+			})
+		})
+
+		When("the user is NOT authorized in the space", func() {
+			BeforeEach(func() {
+				space2GUID = createSpace(generateGUID("space2"), orgGUID)
+				app2GUID = pushNodeApp(space2GUID)
+				requestAppGUID = app2GUID
+			})
+
+			It("returns 404 NotFound", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+			})
+		})
+	})
+
+	Describe("List sidecars", Ordered, func() {
 		var list resourceList
 
 		BeforeEach(func() {
@@ -74,7 +116,7 @@ var _ = Describe("Processes", func() {
 		})
 	})
 
-	Describe("getting process stats", func() {
+	Describe("Get process stats", func() {
 		var processStats statsResourceList
 
 		BeforeEach(func() {
@@ -191,5 +233,4 @@ var _ = Describe("Processes", func() {
 			})
 		})
 	})
-
 })

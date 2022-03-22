@@ -294,6 +294,7 @@ func deleteOrg(name string) {
 	if name == "" {
 		return
 	}
+
 	deleteSubnamespace(rootNamespace, name)
 }
 
@@ -307,6 +308,10 @@ func asyncDeleteOrg(orgID string, wg *sync.WaitGroup) {
 }
 
 func deleteSubnamespace(parent, name string) {
+	if parent == "" || name == "" {
+		return
+	}
+
 	ctx := context.Background()
 
 	subnsList := &hnsv1alpha2.SubnamespaceAnchorList{}
@@ -494,6 +499,10 @@ func obtainServiceAccountToken(name string) string {
 }
 
 func deleteServiceAccount(name string) {
+	if name == "" {
+		return
+	}
+
 	serviceAccount := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -572,6 +581,10 @@ func obtainAdminUserCert() string {
 }
 
 func deleteCSR(csr *certsv1.CertificateSigningRequest) {
+	if csr == nil {
+		return
+	}
+
 	Expect(k8sClient.Delete(context.Background(), csr)).To(Succeed())
 }
 
@@ -759,6 +772,10 @@ func createDomain(name string) string {
 }
 
 func deleteDomain(guid string) {
+	if guid == "" {
+		return
+	}
+
 	Expect(k8sClient.Delete(context.Background(), &networkingv1alpha1.CFDomain{
 		ObjectMeta: metav1.ObjectMeta{Namespace: rootNamespace, Name: guid},
 	})).To(Succeed())
