@@ -146,7 +146,7 @@ var _ = AfterEach(func() {
 	Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 })
 
-func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLabel string) (*hnsv1alpha2.SubnamespaceAnchor, *corev1.Namespace) {
+func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLabel string) (*hnsv1alpha2.SubnamespaceAnchor, *corev1.Namespace, *hnsv1alpha2.HierarchyConfiguration) {
 	guid := uuid.NewString()
 	anchor := &hnsv1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
@@ -190,17 +190,41 @@ func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLa
 	}
 	Expect(k8sClient.Create(ctx, hierarchy)).To(Succeed())
 
-	return anchor, namespace
+	return anchor, namespace, hierarchy
 }
 
-func createOrgAnchorAndNamespace(ctx context.Context, rootNamespace, name string) *hnsv1alpha2.SubnamespaceAnchor {
-	org, _ := createAnchorAndNamespace(ctx, rootNamespace, name, repositories.OrgNameLabel)
+func createOrgWithCleanup(ctx context.Context, name string) *hnsv1alpha2.SubnamespaceAnchor {
+	org, namespace, hierarchy := createAnchorAndNamespace(ctx, rootNamespace, name, repositories.OrgNameLabel)
+
+	DeferCleanup(func() {
+		Expect(k8sClient.Delete(ctx, hierarchy)).To(Succeed())
+		Expect(k8sClient.Delete(ctx, org)).To(Succeed())
+		Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
+	})
 
 	return org
 }
 
+func createOrgAnchorAndNamespace(ctx context.Context, rootNamespace, name string) *hnsv1alpha2.SubnamespaceAnchor {
+	org, _, _ := createAnchorAndNamespace(ctx, rootNamespace, name, repositories.OrgNameLabel)
+
+	return org
+}
+
+func createSpaceWithCleanup(ctx context.Context, orgName, name string) *hnsv1alpha2.SubnamespaceAnchor {
+	space, namespace, hierarchy := createAnchorAndNamespace(ctx, orgName, name, repositories.SpaceNameLabel)
+
+	DeferCleanup(func() {
+		Expect(k8sClient.Delete(ctx, hierarchy)).To(Succeed())
+		Expect(k8sClient.Delete(ctx, space)).To(Succeed())
+		Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
+	})
+
+	return space
+}
+
 func createSpaceAnchorAndNamespace(ctx context.Context, orgName, name string) *hnsv1alpha2.SubnamespaceAnchor {
-	space, _ := createAnchorAndNamespace(ctx, orgName, name, repositories.SpaceNameLabel)
+	space, _, _ := createAnchorAndNamespace(ctx, orgName, name, repositories.SpaceNameLabel)
 
 	return space
 }
