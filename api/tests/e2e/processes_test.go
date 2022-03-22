@@ -198,7 +198,6 @@ var _ = Describe("Processes", func() {
 
 	Describe("Scale a process", func() {
 		var result responseResource
-		var errResp cfErrs
 		JustBeforeEach(func() {
 			var err error
 			resp, err = certClient.R().
@@ -233,4 +232,49 @@ var _ = Describe("Processes", func() {
 			})
 		})
 	})
+
+	Describe("Patch a process", func() {
+		var result responseResource
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().
+				SetBody(commandResource{Command: "new command"}).
+				SetError(&errResp).
+				SetResult(&result).
+				Patch("/v3/processes/" + processGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("returns success", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.GUID).To(Equal(processGUID))
+			})
+
+		})
+
+		When("the user is a space manager", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("returns forbidden", func() {
+				expectForbiddenError(resp, errResp)
+			})
+
+		})
+
+		When("the user has no role", func() {
+			It("returns not found", func() {
+				expectNotFoundError(resp, errResp, "Process")
+			})
+		})
+
+	})
+
 })

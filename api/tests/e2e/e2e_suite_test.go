@@ -171,6 +171,10 @@ type scaleResource struct {
 	DiskInMB   int `json:"disk_in_mb,omitempty"`
 }
 
+type commandResource struct {
+	Command string `json:"command"`
+}
+
 type destination struct {
 	GUID string       `json:"guid"`
 	App  bareResource `json:"app"`
@@ -834,6 +838,17 @@ func expectNotFoundError(resp *resty.Response, errResp cfErrs, resource string) 
 			Detail: resource + " not found. Ensure it exists and you have access to it.",
 			Title:  "CF-ResourceNotFound",
 			Code:   10010,
+		},
+	))
+}
+
+func expectForbiddenError(resp *resty.Response, errResp cfErrs) {
+	Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
+	Expect(errResp.Errors).To(ConsistOf(
+		cfErr{
+			Detail: "You are not authorized to perform the requested action",
+			Title:  "CF-NotAuthorized",
+			Code:   10003,
 		},
 	))
 }
