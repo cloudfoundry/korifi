@@ -16,6 +16,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -23,8 +25,10 @@ var _ = Describe("CF Route Validation", func() {
 	var (
 		ctx                context.Context
 		duplicateValidator *fake.NameValidator
+		fakeClient         *fake.Client
 		realDecoder        *admission.Decoder
 		cfRoute            *networkingv1alpha1.CFRoute
+		cfDomain           *networkingv1alpha1.CFDomain
 		request            admission.Request
 		validatingWebhook  *networking.CFRouteValidation
 		response           admission.Response
@@ -35,8 +39,11 @@ var _ = Describe("CF Route Validation", func() {
 		testRouteHost       string
 		testRoutePath       string
 		testDomainGUID      string
+		testDomainName      string
 		testDomainNamespace string
 		rootNamespace       string
+
+		getDomainError error
 	)
 
 	BeforeEach(func() {
@@ -54,8 +61,10 @@ var _ = Describe("CF Route Validation", func() {
 		testRouteHost = "my-host"
 		testRoutePath = "my-path"
 		testDomainGUID = "domain-guid"
+		testDomainName = "test.domain.name"
 		testDomainNamespace = "domain-ns"
 		rootNamespace = "root-ns"
+		getDomainError = nil
 
 		cfRoute = &networkingv1alpha1.CFRoute{
 			ObjectMeta: metav1.ObjectMeta{
@@ -76,8 +85,29 @@ var _ = Describe("CF Route Validation", func() {
 		cfRouteJSON, err = json.Marshal(cfRoute)
 		Expect(err).NotTo(HaveOccurred())
 
+		cfDomain = &networkingv1alpha1.CFDomain{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: testDomainGUID,
+			},
+			Spec: networkingv1alpha1.CFDomainSpec{
+				Name: testDomainName,
+			},
+		}
+
 		duplicateValidator = new(fake.NameValidator)
-		validatingWebhook = networking.NewCFRouteValidation(duplicateValidator, rootNamespace)
+		fakeClient = new(fake.Client)
+
+		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
+			switch obj := obj.(type) {
+			case *networkingv1alpha1.CFDomain:
+				cfDomain.DeepCopyInto(obj)
+				return getDomainError
+			default:
+				panic("TestClient Get provided an unexpected object type")
+			}
+		}
+
+		validatingWebhook = networking.NewCFRouteValidation(duplicateValidator, rootNamespace, fakeClient)
 
 		Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
 	})
@@ -185,6 +215,65 @@ var _ = Describe("CF Route Validation", func() {
 				Expect(response.Allowed).To(BeFalse())
 			})
 		})
+
+		When("the Host on the route is empty", func() {
+			BeforeEach(func() {
+				var err error
+				cfRoute.Spec.Host = ""
+				cfRouteJSON, err = json.Marshal(cfRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				request = admission.Request{
+					AdmissionRequest: admissionv1.AdmissionRequest{
+						Name:      testRouteGUID,
+						Namespace: testRouteNamespace,
+						Operation: admissionv1.Create,
+						Object: runtime.RawExtension{
+							Raw: cfRouteJSON,
+						},
+					},
+				}
+			})
+
+			It("denies the request", func() {
+				Expect(response.Allowed).To(BeFalse())
+			})
+		})
+
+		When("the Host is invalid with invalid characters", func() {
+			BeforeEach(func() {
+				var err error
+				cfRoute.Spec.Host = "this-is-inv@lid-host-n@me"
+				cfRouteJSON, err = json.Marshal(cfRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				request = admission.Request{
+					AdmissionRequest: admissionv1.AdmissionRequest{
+						Name:      testRouteGUID,
+						Namespace: testRouteNamespace,
+						Operation: admissionv1.Create,
+						Object: runtime.RawExtension{
+							Raw: cfRouteJSON,
+						},
+					},
+				}
+			})
+
+			It("denies the request", func() {
+				Expect(response.Allowed).To(BeFalse())
+			})
+		})
+
+		When("the FQDN is invalid with invalid length", func() {
+			BeforeEach(func() {
+				cfDomain.Spec.Name = "a-very-looooooooooooong-invalid-domain-name-that-should-fail-validation"
+			})
+
+			It("denies the request", func() {
+				Expect(response.Allowed).To(BeFalse())
+			})
+		})
+
 	})
 
 	Describe("Update", func() {

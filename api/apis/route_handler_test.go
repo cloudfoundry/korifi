@@ -806,6 +806,34 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
+		When("the FQDN is invalid with invalid characters", func() {
+			BeforeEach(func() {
+				domainRepo.GetDomainReturns(repositories.DomainRecord{
+					GUID: testDomainGUID,
+					Name: "this-is-@n-inv@lid-dom@in-n@me",
+				}, nil)
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("Invalid Route, FQDN does not comply with RFC 1035 standards")
+			})
+
+		})
+
+		When("the FQDN is invalid with invalid length", func() {
+			BeforeEach(func() {
+				domainRepo.GetDomainReturns(repositories.DomainRecord{
+					GUID: testDomainGUID,
+					Name: "a-very-looooooooooooong-invalid-domain-name-that-should-fail-validation",
+				}, nil)
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("Invalid Route, subdomains must each be at most 63 characters")
+			})
+
+		})
+
 		When("the path is missing a leading /", func() {
 			BeforeEach(func() {
 				requestBody = `{

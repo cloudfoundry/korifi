@@ -240,6 +240,7 @@ func main() {
 		if err = networking.NewCFRouteValidation(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType)),
 			controllerConfig.CFRootNamespace,
+			mgr.GetClient(),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
 			os.Exit(1)
