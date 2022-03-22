@@ -8,6 +8,7 @@ defaultLifecycleConfig:
   stagingMemoryMB: 1024
   stagingDiskMB: 1024
 packageRegistryBase: europe-west1-docker.pkg.dev/cf-on-k8s-wg/pr-e2e-images
+packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
 authEnabled: true
 clusterBuilderName: cf-kpack-cluster-builder
 defaultDomainName: pr-e2e.cf-k8s.cf
