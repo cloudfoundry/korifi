@@ -286,7 +286,6 @@ var _ = Describe("Routes", func() {
 			appGUID   string
 			routeGUID string
 			resp      *resty.Response
-			host      string
 			result    destinationsResource
 		)
 
@@ -351,6 +350,57 @@ var _ = Describe("Routes", func() {
 
 			It("returns a not found response", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+			})
+		})
+	})
+
+	Describe("list destinations", func() {
+		var (
+			appGUID          string
+			routeGUID        string
+			destinationGUIDs []string
+			errResp          cfErrs
+			result           destinationsResource
+			resp             *resty.Response
+		)
+
+		BeforeEach(func() {
+			appGUID = createApp(spaceGUID, generateGUID("app"))
+			routeGUID = createRoute(host, generateGUID("/some-path"), spaceGUID, domainGUID)
+			destinationGUIDs = addDestinationForRoute(appGUID, routeGUID)
+			Expect(destinationGUIDs).To(HaveLen(1))
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = client.R().
+				SetResult(&result).
+				SetError(&errResp).
+				Get("/v3/routes/" + routeGUID + "/destinations")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the user is a space developer in the space", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("returns the destinations", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.Destinations).To(ConsistOf(MatchFields(IgnoreExtras, Fields{"GUID": Equal(destinationGUIDs[0])})))
+			})
+		})
+
+		When("the user is not authorized in the space", func() {
+			It("returns resource not found response", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+				Expect(errResp.Errors).To(ConsistOf(
+					cfErr{
+						Title:  "CF-ResourceNotFound",
+						Code:   10010,
+						Detail: "Route not found. Ensure it exists and you have access to it.",
+					},
+				))
 			})
 		})
 	})
