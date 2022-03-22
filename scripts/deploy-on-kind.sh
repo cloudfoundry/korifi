@@ -231,6 +231,7 @@ function install_dependencies() {
       export DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
       export DOCKER_USERNAME="whatevs"
       export DOCKER_PASSWORD="whatevs"
+      export KPACK_TAG="localregistry-docker-registry.default.svc.cluster.local:30050/cf-relint-greengrass/cf-k8s-controllers/kpack/beta"
     fi
 
     "${SCRIPT_DIR}/install-dependencies.sh"
