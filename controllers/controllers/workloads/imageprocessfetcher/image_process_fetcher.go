@@ -3,10 +3,10 @@ package imageprocessfetcher
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"k8s.io/utils/net"
 
 	"github.com/buildpacks/lifecycle/launch"
 	"github.com/buildpacks/lifecycle/platform"
@@ -74,12 +74,11 @@ func extractExposedPorts(imageConfig *v1.Config) ([]int32, error) {
 	// Drop the protocol since we only use TCP (the default) and only store the port number
 	ports := []int32{}
 	for port := range imageConfig.ExposedPorts {
-		portInt, err := strconv.Atoi(port)
+		parsed, err := net.ParsePort(port, false)
 		if err != nil {
 			return []int32{}, err
 		}
-		ports = append(ports, int32(portInt))
+		ports = append(ports, int32(parsed))
 	}
-
 	return ports, nil
 }
