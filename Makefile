@@ -175,11 +175,11 @@ build-reference-api: manifests-api install-kustomize
 
 CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0)
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0)
 
 KUSTOMIZE = $(shell pwd)/controllers/bin/kustomize
 install-kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.2.0)
+	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.2.0)
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
 install-gofumpt:
@@ -192,15 +192,15 @@ install-shfmt:
 install-ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo@latest
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
-define go-get-tool
+# go-install-tool will 'go get' any package $2 and install it to $1.
+define go-install-tool
 @[ -f $(1) ] || { \
 set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
-GOBIN=$$(dirname $(CONTROLLER_GEN)) go get $(2) ;\
+GOBIN=$$(dirname $(CONTROLLER_GEN)) go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
