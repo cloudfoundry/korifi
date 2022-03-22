@@ -40,7 +40,7 @@ type ProcessList struct {
 
 func (p *ProcessList) ToMessage() repositories.ListProcessesMessage {
 	return repositories.ListProcessesMessage{
-		AppGUID: ParseArrayParam(p.AppGUIDs),
+		AppGUIDs: ParseArrayParam(p.AppGUIDs),
 	}
 }
 

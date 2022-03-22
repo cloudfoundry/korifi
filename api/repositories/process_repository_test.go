@@ -152,7 +152,7 @@ var _ = Describe("ProcessRepo", func() {
 			_ = createProcessCR(context.Background(), k8sClient, process2GUID, space2.Name, app1GUID)
 
 			listProcessesMessage = repositories.ListProcessesMessage{
-				AppGUID: []string{app1GUID},
+				AppGUIDs: []string{app1GUID},
 			}
 		})
 
@@ -193,7 +193,7 @@ var _ = Describe("ProcessRepo", func() {
 
 			When("no Processes exist for an app", func() {
 				BeforeEach(func() {
-					listProcessesMessage.AppGUID = []string{app2GUID}
+					listProcessesMessage.AppGUIDs = []string{app2GUID}
 					listProcessesMessage.SpaceGUID = space1.Name
 				})
 

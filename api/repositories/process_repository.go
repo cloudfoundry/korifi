@@ -103,7 +103,7 @@ type PatchProcessMessage struct {
 }
 
 type ListProcessesMessage struct {
-	AppGUID   []string
+	AppGUIDs   []string
 	SpaceGUID string
 }
 
@@ -149,7 +149,7 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 			return []ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
 		}
 		allProcesses := processList.Items
-		matches = append(matches, filterProcessesByAppGUID(allProcesses, message.AppGUID)...)
+		matches = append(matches, filterProcessesByAppGUID(allProcesses, message.AppGUIDs)...)
 	}
 
 	return returnProcesses(matches)

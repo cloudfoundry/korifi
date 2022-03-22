@@ -120,7 +120,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		It("fetches the processes associated with the App GUID", func() {
 			Expect(processRepo.ListProcessesCallCount()).ToNot(BeZero())
 			_, _, message := processRepo.ListProcessesArgsForCall(0)
-			Expect(message.AppGUID[0]).To(Equal(testAppGUID))
+			Expect(message.AppGUIDs[0]).To(Equal(testAppGUID))
 			Expect(message.SpaceGUID).To(Equal(testProcessSpaceGUID))
 		})
 		It("fabricates a ProcessScaleValues using the inputs and the process GUID and looked-up space", func() {

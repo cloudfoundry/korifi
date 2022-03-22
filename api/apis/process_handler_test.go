@@ -795,8 +795,8 @@ var _ = Describe("ProcessHandler", func() {
 
 				It("invokes process repository with correct args", func() {
 					_, _, message := processRepo.ListProcessesArgsForCall(0)
-					Expect(message.AppGUID).To(HaveLen(1))
-					Expect(message.AppGUID[0]).To(Equal("my-app-guid"))
+					Expect(message.AppGUIDs).To(HaveLen(1))
+					Expect(message.AppGUIDs[0]).To(Equal("my-app-guid"))
 				})
 			})
 		})
