@@ -114,7 +114,7 @@ func main() {
 	routeRepo := repositories.NewRouteRepo(privilegedCRClient, namespaceRetriever, userClientFactory, nsPermissions)
 	domainRepo := repositories.NewDomainRepo(config.RootNamespace, privilegedCRClient, namespaceRetriever, userClientFactory)
 	buildRepo := repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
-	packageRepo := repositories.NewPackageRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
+	packageRepo := repositories.NewPackageRepo(privilegedCRClient, namespaceRetriever, userClientFactory, nsPermissions)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)

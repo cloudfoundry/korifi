@@ -6,6 +6,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
@@ -163,7 +164,7 @@ var _ = Describe("Package", func() {
 		})
 	})
 
-	Describe("List Droplets",  func() {
+	Describe("List Droplets", func() {
 		var buildGUID string
 		var resultList resourceList
 
@@ -200,6 +201,65 @@ var _ = Describe("Package", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(resultList.Resources).To(HaveLen(1))
 				Expect(resultList.Resources[0].GUID).To(Equal(buildGUID))
+			})
+		})
+	})
+
+	Describe("List", func() {
+		var (
+			result       resourceList
+			package1GUID string
+			package2GUID string
+			package3GUID string
+		)
+
+		BeforeEach(func() {
+			space2GUID := createSpace(generateGUID("space2"), orgGUID)
+			space3GUID := createSpace(generateGUID("space3"), orgGUID)
+
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space2GUID)
+
+			package1GUID = createPackage(appGUID)
+			app2GUID := createApp(space2GUID, generateGUID("app2"))
+			package2GUID = createPackage(app2GUID)
+			app3GUID := createApp(space3GUID, generateGUID("app3"))
+			package3GUID = createPackage(app3GUID)
+		})
+
+		When("the user has no space access", func() {
+			JustBeforeEach(func() {
+				var err error
+				resp, err = tokenClient.R().
+					SetResult(&result).
+					Get("/v3/packages")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns a not-found error to users with no space access", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.Resources).To(BeEmpty())
+			})
+		})
+
+		When("the user is a space developer", func() {
+			JustBeforeEach(func() {
+				var err error
+				resp, err = certClient.R().
+					SetResult(&result).
+					Get("/v3/packages")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns only the Packages in spaces where the user has access", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.Resources).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(package1GUID)}),
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(package2GUID)}),
+				))
+				Expect(result.Resources).NotTo(ContainElement(
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(package3GUID)}),
+				))
 			})
 		})
 	})

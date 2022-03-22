@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	. "github.com/onsi/gomega/gstruct"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -13,6 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,7 +31,7 @@ var _ = Describe("PackageRepository", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		packageRepo = repositories.NewPackageRepo(k8sClient, namespaceRetriever, userClientFactory)
+		packageRepo = repositories.NewPackageRepo(k8sClient, namespaceRetriever, userClientFactory, nsPerms)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 	})
 
@@ -224,16 +223,13 @@ var _ = Describe("PackageRepository", func() {
 		})
 	})
 
-	Describe("ListPackages", Serial, func() {
+	Describe("ListPackages", func() {
 		const (
 			appGUID1 = "the-app-guid-1"
 			appGUID2 = "the-app-guid-2"
 		)
 
-		var (
-			space1 *hnsv1alpha2.SubnamespaceAnchor
-			space2 *hnsv1alpha2.SubnamespaceAnchor
-		)
+		var space1, space2 *hnsv1alpha2.SubnamespaceAnchor
 
 		BeforeEach(func() {
 			space1 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
@@ -242,63 +238,40 @@ var _ = Describe("PackageRepository", func() {
 
 		When("multiple packages exist in different namespaces", func() {
 			var (
-				package1GUID string
-				package2GUID string
-				package1     *workloadsv1alpha1.CFPackage
-				package2     *workloadsv1alpha1.CFPackage
+				package1GUID, package2GUID, noPermissionsPackageGUID string
+				package1, package2, noPermissionsPackage             *workloadsv1alpha1.CFPackage
+				noPermissionsSpace                                   *hnsv1alpha2.SubnamespaceAnchor
 			)
 
 			BeforeEach(func() {
 				package1GUID = generateGUID()
 				package2GUID = generateGUID()
-				package1 = &workloadsv1alpha1.CFPackage{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      package1GUID,
-						Namespace: space1.Name,
-					},
-					Spec: workloadsv1alpha1.CFPackageSpec{
-						Type: "bits",
-						AppRef: corev1.LocalObjectReference{
-							Name: appGUID1,
-						},
-					},
-				}
-				Expect(k8sClient.Create(context.Background(), package1)).To(Succeed())
+				package1 = createPackageCR(ctx, k8sClient, package1GUID, appGUID1, space1.Name, "")
 
 				// add a small delay to test ordering on created_by
 				time.Sleep(1 * time.Second)
 
-				package2 = &workloadsv1alpha1.CFPackage{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      package2GUID,
-						Namespace: space2.Name,
-					},
-					Spec: workloadsv1alpha1.CFPackageSpec{
-						Type: "bits",
-						AppRef: corev1.LocalObjectReference{
-							Name: appGUID2,
-						},
-						Source: workloadsv1alpha1.PackageSource{
-							Registry: workloadsv1alpha1.Registry{
-								Image: "my-image-url",
-							},
-						},
-					},
-				}
-				Expect(k8sClient.Create(context.Background(), package2)).To(Succeed())
+				package2 = createPackageCR(ctx, k8sClient, package2GUID, appGUID2, space2.Name, "my-image-url")
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space1.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
+
+				noPermissionsSpace = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("no-permissions-space"))
+				noPermissionsPackageGUID = prefixedGUID("no-permissions-package")
+				noPermissionsPackage = createPackageCR(ctx, k8sClient, noPermissionsPackageGUID, appGUID2, noPermissionsSpace.Name, "")
 			})
 
 			AfterEach(func() {
 				Expect(k8sClient.Delete(context.Background(), package1)).To(Succeed())
 				Expect(k8sClient.Delete(context.Background(), package2)).To(Succeed())
+				Expect(k8sClient.Delete(context.Background(), noPermissionsPackage)).To(Succeed())
 			})
 
 			When("no filters are specified", func() {
-				It("fetches all PackageRecords", func() {
+				It("returns all Packages in spaces where the user has access", func() {
 					packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{})
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(packageList).To(ConsistOf(
+					Expect(packageList).To(ContainElements(
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":    Equal(package1GUID),
 							"AppGUID": Equal(appGUID1),
@@ -306,6 +279,11 @@ var _ = Describe("PackageRepository", func() {
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":    Equal(package2GUID),
 							"AppGUID": Equal(appGUID2),
+						}),
+					))
+					Expect(packageList).ToNot(ContainElement(
+						MatchFields(IgnoreExtras, Fields{
+							"GUID": Equal(noPermissionsPackageGUID),
 						}),
 					))
 				})
@@ -342,25 +320,25 @@ var _ = Describe("PackageRepository", func() {
 					It("orders the results in ascending created_at order by default", func() {
 						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{})
 						Expect(err).NotTo(HaveOccurred())
-						Expect(packageList).To(HaveLen(3))
-						Expect(packageList).To(ConsistOf(
+						Expect(packageList).To(ContainElements(
 							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package1GUID),
-								"AppGUID": Equal(appGUID1),
+								"GUID": Equal(package1GUID),
 							}),
 							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package2GUID),
-								"AppGUID": Equal(appGUID2),
+								"GUID": Equal(package2GUID),
 							}),
 							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package3GUID),
-								"AppGUID": Equal(appGUID1),
+								"GUID": Equal(package3GUID),
 							}),
 						))
 
-						Expect(packageList[0].GUID).To(Equal(package1GUID))
-						Expect(packageList[1].GUID).To(Equal(package2GUID))
-						Expect(packageList[2].GUID).To(Equal(package3GUID))
+						for i := 0; i < len(packageList)-1; i++ {
+							currentCreatedAt, err := time.Parse(time.RFC3339, packageList[i].CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+							nextCreatedAt, err := time.Parse(time.RFC3339, packageList[i+1].CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(currentCreatedAt).To(BeTemporally("<=", nextCreatedAt))
+						}
 					})
 				})
 			})
@@ -369,13 +347,14 @@ var _ = Describe("PackageRepository", func() {
 				It("fetches all PackageRecords", func() {
 					packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{AppGUIDs: []string{appGUID1}})
 					Expect(err).NotTo(HaveOccurred())
-					Expect(packageList).To(HaveLen(1))
-					Expect(packageList[0]).To(
-						MatchFields(IgnoreExtras, Fields{
-							"GUID":    Equal(package1GUID),
-							"AppGUID": Equal(appGUID1),
-						}),
-					)
+
+					for _, packageRecord := range packageList {
+						Expect(packageRecord).To(
+							MatchFields(IgnoreExtras, Fields{
+								"AppGUID": Equal(appGUID1),
+							}),
+						)
+					}
 				})
 			})
 
@@ -413,7 +392,7 @@ var _ = Describe("PackageRepository", func() {
 						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{SortBy: "created_at", DescendingOrder: false})
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(packageList).To(ConsistOf(
+						Expect(packageList).To(ContainElements(
 							MatchFields(IgnoreExtras, Fields{
 								"GUID":    Equal(package1GUID),
 								"AppGUID": Equal(appGUID1),
@@ -428,9 +407,13 @@ var _ = Describe("PackageRepository", func() {
 							}),
 						))
 
-						Expect(packageList[0].GUID).To(Equal(package1GUID))
-						Expect(packageList[1].GUID).To(Equal(package2GUID))
-						Expect(packageList[2].GUID).To(Equal(package3GUID))
+						for i := 0; i < len(packageList)-1; i++ {
+							currentCreatedAt, err := time.Parse(time.RFC3339, packageList[i].CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+							nextCreatedAt, err := time.Parse(time.RFC3339, packageList[i+1].CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(currentCreatedAt).To(BeTemporally("<=", nextCreatedAt))
+						}
 					})
 				})
 
@@ -439,7 +422,7 @@ var _ = Describe("PackageRepository", func() {
 						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{SortBy: "created_at", DescendingOrder: true})
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(packageList).To(ConsistOf(
+						Expect(packageList).To(ContainElements(
 							MatchFields(IgnoreExtras, Fields{
 								"GUID":    Equal(package1GUID),
 								"AppGUID": Equal(appGUID1),
@@ -454,9 +437,13 @@ var _ = Describe("PackageRepository", func() {
 							}),
 						))
 
-						Expect(packageList[0].GUID).To(Equal(package3GUID))
-						Expect(packageList[1].GUID).To(Equal(package2GUID))
-						Expect(packageList[2].GUID).To(Equal(package1GUID))
+						for i := 0; i < len(packageList)-1; i++ {
+							currentCreatedAt, err := time.Parse(time.RFC3339, packageList[i].CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+							nextCreatedAt, err := time.Parse(time.RFC3339, packageList[i+1].CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(currentCreatedAt).To(BeTemporally(">=", nextCreatedAt))
+						}
 					})
 				})
 			})
@@ -467,13 +454,13 @@ var _ = Describe("PackageRepository", func() {
 						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{States: []string{"READY"}})
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(packageList).To(ConsistOf(
-							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package2GUID),
-								"AppGUID": Equal(appGUID2),
-								"State":   Equal("READY"),
-							}),
-						))
+						for _, packageRecord := range packageList {
+							Expect(packageRecord).To(
+								MatchFields(IgnoreExtras, Fields{
+									"State": Equal("READY"),
+								}),
+							)
+						}
 					})
 				})
 
@@ -482,13 +469,13 @@ var _ = Describe("PackageRepository", func() {
 						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{States: []string{"AWAITING_UPLOAD"}})
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(packageList).To(ConsistOf(
-							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package1GUID),
-								"AppGUID": Equal(appGUID1),
-								"State":   Equal("AWAITING_UPLOAD"),
-							}),
-						))
+						for _, packageRecord := range packageList {
+							Expect(packageRecord).To(
+								MatchFields(IgnoreExtras, Fields{
+									"State": Equal("AWAITING_UPLOAD"),
+								}),
+							)
+						}
 					})
 				})
 
@@ -497,7 +484,7 @@ var _ = Describe("PackageRepository", func() {
 						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{States: []string{"AWAITING_UPLOAD", "READY"}})
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(packageList).To(ConsistOf(
+						Expect(packageList).To(ContainElements(
 							MatchFields(IgnoreExtras, Fields{
 								"GUID":    Equal(package1GUID),
 								"AppGUID": Equal(appGUID1),
@@ -514,7 +501,7 @@ var _ = Describe("PackageRepository", func() {
 			})
 		})
 
-		When("no packages exist", func() {
+		When("no packages exist", Serial, func() {
 			It("returns an empty list of PackageRecords", func() {
 				packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{})
 				Expect(err).NotTo(HaveOccurred())
