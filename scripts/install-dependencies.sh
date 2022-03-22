@@ -97,7 +97,7 @@ kubectl apply -f "${DEP_DIR}/kpack/cluster_stack.yaml" \
   -f "${DEP_DIR}/kpack/cluster_store.yaml"
 
 if [[ -n "${KPACK_TAG:=}" ]]; then
-  sed "s/tag: gcr\.io.*\$/tag: $KPACK_TAG/" "$DEP_DIR/kpack/cluster_builder.yaml" | kubectl apply -f-
+  sed "s|tag: gcr\.io.*$|tag: $KPACK_TAG|" "$DEP_DIR/kpack/cluster_builder.yaml" | kubectl apply -f-
 else
   kubectl apply -f "${DEP_DIR}/kpack/cluster_builder.yaml"
 fi
