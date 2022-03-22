@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -16,20 +18,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("DropletRepository", func() {
+var _ = Describe("DropletRepository",  func() {
 	var (
 		testCtx     context.Context
 		dropletRepo *repositories.DropletRepo
-		namespace   *corev1.Namespace
+		space       *v1alpha2.SubnamespaceAnchor
 	)
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-		namespaceName := generateGUID()
-		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
-		Expect(k8sClient.Create(testCtx, namespace)).To(Succeed())
+		orgName := prefixedGUID("org-")
+		spaceName := prefixedGUID("space-")
+		org := createOrgAnchorAndNamespace(testCtx, rootNamespace, orgName)
+		space = createSpaceAnchorAndNamespace(testCtx, org.Name, spaceName)
 
-		dropletRepo = repositories.NewDropletRepo(k8sClient, namespaceRetriever, userClientFactory)
+		dropletRepo = repositories.NewDropletRepo(k8sClient, namespaceRetriever, userClientFactory, nsPerms)
 	})
 
 	Describe("GetDroplet", func() {
@@ -56,7 +59,7 @@ var _ = Describe("DropletRepository", func() {
 			build = &workloadsv1alpha1.CFBuild{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      buildGUID,
-					Namespace: namespace.Name,
+					Namespace: space.Name,
 				},
 				Spec: workloadsv1alpha1.CFBuildSpec{
 					PackageRef: corev1.LocalObjectReference{
@@ -83,13 +86,9 @@ var _ = Describe("DropletRepository", func() {
 			dropletRecord, fetchErr = dropletRepo.GetDroplet(testCtx, authInfo, buildGUID)
 		})
 
-		AfterEach(func() {
-			Expect(k8sClient.Delete(testCtx, namespace)).To(Succeed())
-		})
-
 		When("the user is authorized to get the droplet", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, namespace.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			When("status.BuildDropletStatus is set", func() {
@@ -263,13 +262,12 @@ var _ = Describe("DropletRepository", func() {
 
 	Describe("ListDroplets", func() {
 		var (
-			buildGUID string
-			build     *workloadsv1alpha1.CFBuild
+			build       *workloadsv1alpha1.CFBuild
+			packageGUID string
 		)
 
 		const (
 			appGUID             = "app-1-guid"
-			packageGUID         = "fetch-package-droplets-guid"
 			stagingMemory       = 1024
 			stagingDisk         = 2048
 			dropletStack        = "cflinuxfs3"
@@ -278,11 +276,11 @@ var _ = Describe("DropletRepository", func() {
 		)
 
 		BeforeEach(func() {
-			buildGUID = generateGUID()
+			packageGUID = prefixedGUID("package-")
 			build = &workloadsv1alpha1.CFBuild{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      buildGUID,
-					Namespace: namespace.Name,
+					Name:      prefixedGUID("build-"),
+					Namespace: space.Name,
 				},
 				Spec: workloadsv1alpha1.CFBuildSpec{
 					PackageRef: corev1.LocalObjectReference{
@@ -341,27 +339,29 @@ var _ = Describe("DropletRepository", func() {
 			Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
 		})
 
-		AfterEach(func() {
-			Expect(k8sClient.Delete(testCtx, namespace)).To(Succeed())
-		})
+		When("the packageGUIDs message parameter is provided",  func() {
+			var dropletRecords []repositories.DropletRecord
 
-		When("on the happy path and", func() {
-			When("the packageGUIDs message parameter is provided", func() {
-				It("eventually returns a list of droplet records with the packageGUID label set on them", func() {
-					var dropletRecords []repositories.DropletRecord
+			JustBeforeEach(func() {
+				var err error
+				dropletRecords, err = dropletRepo.ListDroplets(testCtx, authInfo, repositories.ListDropletsMessage{
+					PackageGUIDs: []string{packageGUID},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
 
-					Eventually(func() string {
-						var fetchErr error
-						dropletRecords, fetchErr = dropletRepo.ListDroplets(testCtx, authInfo, repositories.ListDropletsMessage{
-							PackageGUIDs: []string{packageGUID},
-						})
-						if fetchErr != nil || len(dropletRecords) == 0 {
-							return ""
-						}
-						return dropletRecords[0].State
-					}, 10*time.Second, 250*time.Millisecond).Should(Equal("STAGED"), "the returned record State was not \"STAGED\"")
+			It("returns an empty list to users who lack access", func() {
+				Expect(dropletRecords).To(BeEmpty())
+			})
+
+			When("the user is a space manager", func() {
+				BeforeEach(func() {
+					createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				})
+
+				It("returns a list of droplet records with the packageGUID label set on them", func() {
 					Expect(dropletRecords).To(HaveLen(1))
-					Expect(dropletRecords[0].GUID).To(Equal(buildGUID))
+					Expect(dropletRecords[0].GUID).To(Equal(build.Name))
 				})
 			})
 		})

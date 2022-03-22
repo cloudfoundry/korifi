@@ -1645,6 +1645,7 @@ rules:
   - cfbuilds
   verbs:
   - get
+  - list
   - create
 - apiGroups:
   - services.cloudfoundry.org
@@ -2165,6 +2166,7 @@ rules:
   - cfbuilds
   verbs:
   - get
+  - list
   - create
 - apiGroups:
   - services.cloudfoundry.org
@@ -2231,6 +2233,7 @@ rules:
   - cfbuilds
   verbs:
   - get
+  - list
 - apiGroups:
   - networking.cloudfoundry.org
   resources:

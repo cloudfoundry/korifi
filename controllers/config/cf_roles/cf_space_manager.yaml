@@ -32,6 +32,7 @@ rules:
   - cfbuilds
   verbs:
   - get
+  - list
 
 - apiGroups:
   - networking.cloudfoundry.org
