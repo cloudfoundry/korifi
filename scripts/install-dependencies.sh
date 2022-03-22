@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEP_DIR="$(cd "${SCRIPT_DIR}/../dependencies" && pwd)"
 
+source "$SCRIPT_DIR/common.sh"
+
 function usage_text() {
   cat <<EOF
 Usage:
@@ -122,14 +124,6 @@ chmod +x "${HNC_BIN}/kubectl-hns"
 
 kubectl apply -f "https://github.com/kubernetes-sigs/hierarchical-namespaces/releases/download/${HNC_VERSION}/hnc-manager.yaml"
 kubectl rollout status deployment/hnc-controller-manager -w -n hnc-system
-
-retry() {
-  until $@; do
-    echo -n .
-    sleep 1
-  done
-  echo
-}
 
 # Hierarchical namespace controller is quite asynchronous. There is no
 # guarantee that the operations below would succeed on first invocation,
