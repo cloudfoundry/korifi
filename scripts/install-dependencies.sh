@@ -166,6 +166,12 @@ helm template eirini-controller "${EIRINI_DIR}/deployment/helm" \
   --set "images.eirini_controller=eirini/eirini-controller@sha256:42e22b3222e9b3788782f5c141d260a5e163da4f4032e2926752ef2e5bae0685" \
   --namespace "eirini-controller" | kubectl apply -f -
 
+echo "**************************************"
+echo "Installing Service Binding Controller"
+echo "**************************************"
+
+kubectl apply -f https://github.com/vmware-tanzu/servicebinding/releases/download/v0.7.1/service-bindings-0.7.1.yaml
+
 echo "******"
 echo "Done"
 echo "******"
