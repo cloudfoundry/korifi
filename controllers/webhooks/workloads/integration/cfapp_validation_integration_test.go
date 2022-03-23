@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -89,6 +90,19 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			BeforeEach(func() {
 				app2 := makeCFApp(app2Guid, namespace1, app1Name)
 				Expect(k8sClient.Create(ctx, app2)).To(Succeed())
+			})
+
+			It("should fail", func() {
+				Expect(createErr).To(MatchError(ContainSubstring("CFApp with the same spec.name exists")))
+			})
+		})
+
+		When("another CFApp exists with the same name(case insensitive) in the same namespace", func() {
+			BeforeEach(func() {
+				app2 := makeCFApp(app2Guid, namespace1, strings.ToUpper(app1Name))
+				Expect(
+					k8sClient.Create(ctx, app2),
+				).To(Succeed())
 			})
 
 			It("should fail", func() {

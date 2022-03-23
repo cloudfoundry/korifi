@@ -3,6 +3,7 @@ package workloads
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
@@ -72,15 +73,19 @@ func (v *CFAppValidation) Handle(ctx context.Context, req admission.Request) adm
 	}
 
 	var validatorErr error
+
+	cfAppNameLeaseValue := strings.ToLower(cfApp.Spec.Name)
 	switch req.Operation {
 	case admissionv1.Create:
-		validatorErr = v.duplicateValidator.ValidateCreate(ctx, cfapplog, cfApp.Namespace, cfApp.Spec.Name)
+		validatorErr = v.duplicateValidator.ValidateCreate(ctx, cfapplog, cfApp.Namespace, cfAppNameLeaseValue)
 
 	case admissionv1.Update:
-		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, cfapplog, cfApp.Namespace, oldCFApp.Spec.Name, cfApp.Spec.Name)
+		oldCFAppNameLeaseValue := strings.ToLower(oldCFApp.Spec.Name)
+		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, cfapplog, cfApp.Namespace, oldCFAppNameLeaseValue, cfAppNameLeaseValue)
 
 	case admissionv1.Delete:
-		validatorErr = v.duplicateValidator.ValidateDelete(ctx, cfapplog, oldCFApp.Namespace, oldCFApp.Spec.Name)
+		oldCFAppNameLeaseValue := strings.ToLower(oldCFApp.Spec.Name)
+		validatorErr = v.duplicateValidator.ValidateDelete(ctx, cfapplog, oldCFApp.Namespace, oldCFAppNameLeaseValue)
 	}
 
 	if validatorErr != nil {
