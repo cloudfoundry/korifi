@@ -33,6 +33,17 @@ var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
 			cfDomainGUID = GenerateGUID()
 			cfRouteGUID = GenerateGUID()
 
+			cfDomain := &v1alpha1.CFDomain{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cfDomainGUID,
+					Namespace: namespace,
+				},
+				Spec: v1alpha1.CFDomainSpec{
+					Name: "example.com",
+				},
+			}
+			Expect(k8sClient.Create(testCtx, cfDomain)).To(Succeed())
+
 			cfRoute := &v1alpha1.CFRoute{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFRoute",
@@ -43,8 +54,10 @@ var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
 					Namespace: namespace,
 				},
 				Spec: v1alpha1.CFRouteSpec{
-					DomainRef: v1.LocalObjectReference{
-						Name: cfDomainGUID,
+					Host: "my-host",
+					DomainRef: v1.ObjectReference{
+						Name:      cfDomainGUID,
+						Namespace: namespace,
 					},
 				},
 			}

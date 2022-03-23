@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,14 +39,14 @@ func NewNamespacePermissions(privilegedClient client.Client, identityProvider Id
 }
 
 func (o *NamespacePermissions) GetAuthorizedOrgNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
-	return o.getAuthorizedNamespaces(ctx, info, orgLevel)
+	return o.getAuthorizedNamespaces(ctx, info, orgLevel, "Org")
 }
 
 func (o *NamespacePermissions) GetAuthorizedSpaceNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
-	return o.getAuthorizedNamespaces(ctx, info, spaceLevel)
+	return o.getAuthorizedNamespaces(ctx, info, spaceLevel, "Space")
 }
 
-func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info Info, orgSpaceLevel string) (map[string]bool, error) {
+func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info Info, orgSpaceLevel, resourceType string) (map[string]bool, error) {
 	identity, err := o.identityProvider.GetIdentity(ctx, info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get identity: %w", err)
@@ -53,14 +54,14 @@ func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info
 
 	var rolebindings rbacv1.RoleBindingList
 	if err := o.privilegedClient.List(ctx, &rolebindings); err != nil {
-		return nil, fmt.Errorf("failed to list rolebindings: %w", err)
+		return nil, fmt.Errorf("failed to list rolebindings: %w", apierrors.FromK8sError(err, resourceType))
 	}
 
 	var cfOrgsOrSpaces corev1.NamespaceList
 	if err := o.privilegedClient.List(ctx, &cfOrgsOrSpaces, client.MatchingLabels{
 		o.rootNamespace + v1alpha2.LabelTreeDepthSuffix: orgSpaceLevel,
 	}); err != nil {
-		return nil, fmt.Errorf("failed to list namespaces: %w", err)
+		return nil, fmt.Errorf("failed to list namespaces: %w", apierrors.FromK8sError(err, resourceType))
 	}
 
 	cfNamespaces := map[string]bool{}
@@ -87,7 +88,7 @@ func (o *NamespacePermissions) AuthorizedIn(ctx context.Context, identity Identi
 	var rolebindings rbacv1.RoleBindingList
 	err := o.privilegedClient.List(ctx, &rolebindings, client.InNamespace(namespace))
 	if err != nil {
-		return false, fmt.Errorf("failed to list rolebindings: %w", err)
+		return false, fmt.Errorf("failed to list rolebindings: %w", apierrors.FromK8sError(err, ""))
 	}
 
 	for _, roleBinding := range rolebindings.Items {

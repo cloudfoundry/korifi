@@ -5,28 +5,27 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"sync"
 	"testing"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
+	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	"k8s.io/client-go/kubernetes/scheme"
+	controllerruntime "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -37,11 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
@@ -53,6 +48,8 @@ var (
 	clientset           *kubernetes.Clientset
 	rootNamespace       string
 	apiServerRoot       string
+	appFQDN             string
+	appDomainGUID       string
 	serviceAccountName  string
 	serviceAccountToken string
 	tokenAuthHeader     string
@@ -63,20 +60,168 @@ var (
 	certPEM             string
 )
 
+type resource struct {
+	Name          string        `json:"name,omitempty"`
+	GUID          string        `json:"guid,omitempty"`
+	Relationships relationships `json:"relationships,omitempty"`
+	CreatedAt     string        `json:"created_at,omitempty"`
+	UpdatedAt     string        `json:"updated_at,omitempty"`
+}
+
+type relationships map[string]relationship
+
+type relationship struct {
+	Data resource `json:"data"`
+}
+
+type resourceList struct {
+	Resources []resource `json:"resources"`
+}
+
+type responseResource struct {
+	Name      string `json:"name,omitempty"`
+	GUID      string `json:"guid,omitempty"`
+	CreatedAt string `json:"created_at,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+}
+
+type responseResourceList struct {
+	Resources []responseResource `json:"resources"`
+}
+
+type resourceListWithInclusion struct {
+	Resources []resource    `json:"resources"`
+	Included  *includedApps `json:",omitempty"`
+}
+
+type includedApps struct {
+	Apps []resource `json:"apps"`
+}
+
+type bareResource struct {
+	GUID string `json:"guid,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
+type appResource struct {
+	resource `json:",inline"`
+	State    string `json:"state,omitempty"`
+}
+
+type typedResource struct {
+	resource `json:",inline"`
+	Type     string `json:"type,omitempty"`
+}
+
+type mapRouteResource struct {
+	Destinations []destinationRef `json:"destinations"`
+}
+
+type destinationRef struct {
+	App resource `json:"app"`
+}
+
+type buildResource struct {
+	resource `json:",inline"`
+	Package  resource `json:"package"`
+}
+
+type dropletResource struct {
+	Data resource `json:"data"`
+}
+
+type statsResourceList struct {
+	Resources []presenter.ProcessStatsResource `json:"resources"`
+}
+
+type manifestResource struct {
+	Version      int                   `yaml:"version"`
+	Applications []applicationResource `yaml:"applications"`
+}
+
+type applicationResource struct {
+	Name      string                               `yaml:"name"`
+	Processes []manifestApplicationProcessResource `yaml:"processes"`
+	Routes    []manifestRouteResource              `yaml:"routes"`
+}
+
+type manifestApplicationProcessResource struct {
+	Type    string  `yaml:"type"`
+	Command *string `yaml:"command"`
+}
+
+type manifestRouteResource struct {
+	Route *string `yaml:"route"`
+}
+
+type routeResource struct {
+	resource `json:",inline"`
+	Host     string `json:"host"`
+	Path     string `json:"path"`
+	URL      string `json:"url,omitempty"`
+}
+
+type destinationsResource struct {
+	Destinations []destination `json:"destinations"`
+}
+
+type scaleResource struct {
+	Instances  int `json:"instances,omitempty"`
+	MemoryInMB int `json:"memory_in_mb,omitempty"`
+	DiskInMB   int `json:"disk_in_mb,omitempty"`
+}
+
+type destination struct {
+	GUID string       `json:"guid"`
+	App  bareResource `json:"app"`
+}
+
+type serviceInstanceResource struct {
+	resource     `json:",inline"`
+	Credentials  map[string]string `json:"credentials"`
+	InstanceType string            `json:"type"`
+}
+
+type cfErrs struct {
+	Errors []cfErr
+}
+
+type cfErr struct {
+	Detail string `json:"detail"`
+	Title  string `json:"title"`
+	Code   int    `json:"code"`
+}
+
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(helpers.E2EFailHandler)
 	RunSpecs(t, "E2E Suite")
 }
 
-var _ = BeforeSuite(func() {
-	SetDefaultEventuallyTimeout(120 * time.Second)
-	SetDefaultEventuallyPollingInterval(time.Second)
+var _ = SynchronizedBeforeSuite(func() []byte {
+	Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+
+	config, err := controllerruntime.GetConfig()
+	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient, err = client.NewWithWatch(config, client.Options{Scheme: scheme.Scheme})
+	Expect(err).NotTo(HaveOccurred())
+
+	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
+	appFQDN = mustHaveEnv("APP_FQDN")
+
+	appDomainGUID = createDomain(appFQDN)
+
+	return []byte(appDomainGUID)
+}, func(appDomainGUIDBytes []byte) {
+	SetDefaultEventuallyTimeout(240 * time.Second)
+	SetDefaultEventuallyPollingInterval(2 * time.Second)
 
 	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	Expect(hnsv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	config, err := controllerruntime.GetConfig()
 	Expect(err).NotTo(HaveOccurred())
@@ -90,6 +235,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
+	appFQDN = mustHaveEnv("APP_FQDN")
+
 	ensureServerIsUp()
 
 	serviceAccountName = generateGUID("token-user")
@@ -98,18 +245,22 @@ var _ = BeforeSuite(func() {
 	certUserName = generateGUID("cert-user")
 	certSigningReq, certPEM = obtainClientCert(certUserName)
 	certAuthHeader = "ClientCert " + certPEM
+
+	appDomainGUID = string(appDomainGUIDBytes)
 })
 
 var _ = BeforeEach(func() {
 	tokenAuthHeader = fmt.Sprintf("Bearer %s", serviceAccountToken)
-	adminClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert())
-	certClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(certPEM)
-	tokenClient = resty.New().SetBaseURL(apiServerRoot).SetAuthToken(serviceAccountToken)
+	adminClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert()).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	certClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(certPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	tokenClient = resty.New().SetBaseURL(apiServerRoot).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 })
 
-var _ = AfterSuite(func() {
+var _ = SynchronizedAfterSuite(func() {
 	deleteServiceAccount(serviceAccountName)
 	deleteCSR(certSigningReq)
+}, func() {
+	deleteDomain(appDomainGUID)
 })
 
 func mustHaveEnv(key string) string {
@@ -121,6 +272,7 @@ func mustHaveEnv(key string) string {
 
 func ensureServerIsUp() {
 	Eventually(func() (int, error) {
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		resp, err := http.Get(apiServerRoot)
 		if err != nil {
 			return 0, err
@@ -138,7 +290,28 @@ func generateGUID(prefix string) string {
 	return fmt.Sprintf("%s-%s", prefix, guid[:13])
 }
 
+func deleteOrg(name string) {
+	if name == "" {
+		return
+	}
+
+	deleteSubnamespace(rootNamespace, name)
+}
+
+func asyncDeleteOrg(orgID string, wg *sync.WaitGroup) {
+	go func() {
+		defer wg.Done()
+		defer GinkgoRecover()
+
+		deleteOrg(orgID)
+	}()
+}
+
 func deleteSubnamespace(parent, name string) {
+	if parent == "" || name == "" {
+		return
+	}
+
 	ctx := context.Background()
 
 	subnsList := &hnsv1alpha2.SubnamespaceAnchorList{}
@@ -147,7 +320,12 @@ func deleteSubnamespace(parent, name string) {
 	var wg sync.WaitGroup
 	wg.Add(len(subnsList.Items))
 	for _, subns := range subnsList.Items {
-		asyncDeleteSubnamespace(name, subns.Name, &wg)
+		go func(subns string) {
+			defer wg.Done()
+			defer GinkgoRecover()
+
+			deleteSubnamespace(name, subns)
+		}(subns.Name)
 	}
 	wg.Wait()
 
@@ -158,6 +336,9 @@ func deleteSubnamespace(parent, name string) {
 		},
 	}
 	err := k8sClient.Delete(ctx, &anchor)
+	if errors.IsNotFound(err) {
+		return
+	}
 	Expect(err).NotTo(HaveOccurred())
 
 	Eventually(func() bool {
@@ -167,193 +348,122 @@ func deleteSubnamespace(parent, name string) {
 	}).Should(BeTrue())
 }
 
-func createOrgRaw(orgName, authHeader string) (*http.Response, error) {
-	return httpReq(
-		http.MethodPost,
-		apiServerRoot+apis.OrgsEndpoint,
-		authHeader,
-		map[string]interface{}{"name": orgName},
-	)
+func createOrgRaw(orgName string) (string, error) {
+	var org resource
+	resp, err := adminClient.R().
+		SetBody(resource{Name: orgName}).
+		SetResult(&org).
+		Post("/v3/organizations")
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode() != http.StatusCreated {
+		return "", fmt.Errorf("expected status code %d, got %d", http.StatusCreated, resp.StatusCode())
+	}
+
+	return org.GUID, nil
 }
 
-func createOrg(orgName, authHeader string) presenter.OrgResponse {
-	resp, err := createOrgRaw(orgName, authHeader)
+func createOrg(orgName string) string {
+	orgGUID, err := createOrgRaw(orgName)
 	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
 
-	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
-	Expect(resp).To(HaveHTTPHeaderWithValue(headers.ContentType, "application/json"))
-
-	org := presenter.OrgResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&org)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(waitForAdminRoleBinding(org.GUID)).To(Succeed())
-
-	return org
+	return orgGUID
 }
 
-func asyncCreateOrg(orgName, authHeader string, createdOrg *presenter.OrgResponse, wg *sync.WaitGroup, errChan chan error) {
+func asyncCreateOrg(orgName string, createdOrgGUID *string, wg *sync.WaitGroup, errChan chan error) {
 	go func() {
 		defer wg.Done()
 		defer GinkgoRecover()
 
-		resp, err := createOrgRaw(orgName, authHeader)
+		var err error
+		*createdOrgGUID, err = createOrgRaw(orgName)
 		if err != nil {
 			errChan <- err
 			return
 		}
-
-		if resp.StatusCode != http.StatusCreated {
-			errChan <- fmt.Errorf("expected status code %d, got %d", http.StatusCreated, resp.StatusCode)
-			return
-		}
-
-		org := presenter.OrgResponse{}
-		err = json.NewDecoder(resp.Body).Decode(&org)
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		err = waitForAdminRoleBinding(org.GUID)
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		*createdOrg = org
 	}()
 }
 
-func createSpaceRaw(spaceName, orgGUID, authHeader string) (*http.Response, error) {
-	spacesURL := apiServerRoot + apis.SpaceCreateEndpoint
-	payload := payloads.SpaceCreate{
-		Name: spaceName,
-		Relationships: payloads.SpaceRelationships{
-			Org: payloads.Relationship{
-				Data: &payloads.RelationshipData{
-					GUID: orgGUID,
-				},
+func createSpaceRaw(spaceName, orgGUID string) (string, error) {
+	var space resource
+	resp, err := adminClient.R().
+		SetBody(resource{
+			Name: spaceName,
+			Relationships: relationships{
+				"organization": relationship{Data: resource{GUID: orgGUID}},
 			},
-		},
+		}).
+		SetResult(&space).
+		Post("/v3/spaces")
+	if err != nil {
+		return "", err
 	}
-	return httpReq(http.MethodPost, spacesURL, authHeader, payload)
+
+	if resp.StatusCode() != http.StatusCreated {
+		return "", fmt.Errorf("expected status code %d, got %d", http.StatusCreated, resp.StatusCode())
+	}
+
+	return space.GUID, nil
 }
 
-func createSpace(spaceName, orgGUID, authHeader string) presenter.SpaceResponse {
-	resp, err := createSpaceRaw(spaceName, orgGUID, authHeader)
-	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
+func createSpace(spaceName, orgGUID string) string {
+	spaceGUID, err := createSpaceRaw(spaceName, orgGUID)
+	Expect(err).NotTo(HaveOccurred(), `create space "`+spaceName+`" in orgGUID "`+orgGUID+`" should have succeeded`)
 
-	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
-	Expect(resp).To(HaveHTTPHeaderWithValue(headers.ContentType, "application/json"))
-
-	space := presenter.SpaceResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&space)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(waitForAdminRoleBinding(space.GUID)).To(Succeed())
-
-	return space
+	return spaceGUID
 }
 
-func asyncCreateSpace(spaceName, orgGUID, authHeader string, createdSpace *presenter.SpaceResponse, wg *sync.WaitGroup, errChan chan error) {
+func asyncCreateSpace(spaceName, orgGUID string, createdSpaceGUID *string, wg *sync.WaitGroup, errChan chan error) {
 	go func() {
 		defer wg.Done()
 		defer GinkgoRecover()
 
-		resp, err := createSpaceRaw(spaceName, orgGUID, authHeader)
+		var err error
+		*createdSpaceGUID, err = createSpaceRaw(spaceName, orgGUID)
 		if err != nil {
 			errChan <- err
 			return
 		}
-
-		if resp.StatusCode != http.StatusCreated {
-			errChan <- fmt.Errorf("expected status code %d, got %d", http.StatusCreated, resp.StatusCode)
-			return
-		}
-
-		space := presenter.SpaceResponse{}
-		err = json.NewDecoder(resp.Body).Decode(&space)
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		err = waitForAdminRoleBinding(space.GUID)
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		*createdSpace = space
 	}()
-}
-
-func createRoleRaw(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader string) (*http.Response, error) {
-	rolesURL := apiServerRoot + apis.RolesEndpoint
-	payload := payloads.RoleCreate{
-		Type: roleName,
-	}
-
-	switch kind {
-	case rbacv1.UserKind:
-		payload.Relationships.User = &payloads.UserRelationship{
-			Data: payloads.UserRelationshipData{
-				Username: userName,
-			},
-		}
-	case rbacv1.ServiceAccountKind:
-		payload.Relationships.KubernetesServiceAccount = &payloads.Relationship{
-			Data: &payloads.RelationshipData{
-				GUID: userName,
-			},
-		}
-	default:
-		Fail("unexpected Kind " + kind)
-	}
-
-	switch orgSpaceType {
-	case "organization":
-		payload.Relationships.Organization = &payloads.Relationship{
-			Data: &payloads.RelationshipData{
-				GUID: orgSpaceGUID,
-			},
-		}
-	case "space":
-		payload.Relationships.Space = &payloads.Relationship{
-			Data: &payloads.RelationshipData{
-				GUID: orgSpaceGUID,
-			},
-		}
-	default:
-		Fail("unexpected type " + orgSpaceType)
-	}
-
-	return httpReq(http.MethodPost, rolesURL, authHeader, payload)
 }
 
 // createRole creates an org or space role
 // You should probably invoke this via createOrgRole or createSpaceRole
-func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader string) presenter.RoleResponse {
-	resp, err := createRoleRaw(roleName, kind, orgSpaceType, userName, orgSpaceGUID, authHeader)
+func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) {
+	rolesURL := apiServerRoot + apis.RolesPath
+
+	userOrServiceAccount := "user"
+	if kind == rbacv1.ServiceAccountKind {
+		userOrServiceAccount = "kubernetesServiceAccount"
+	}
+
+	payload := typedResource{
+		Type: roleName,
+		resource: resource{
+			Relationships: relationships{
+				userOrServiceAccount: relationship{Data: resource{GUID: userName}},
+				orgSpaceType:         relationship{Data: resource{GUID: orgSpaceGUID}},
+			},
+		},
+	}
+
+	var resultErr cfErrs
+	resp, err := adminClient.R().
+		SetBody(payload).
+		SetError(&resultErr).
+		Post(rolesURL)
+
 	ExpectWithOffset(2, err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
-
-	ExpectWithOffset(2, resp).To(HaveHTTPStatus(http.StatusCreated))
-
-	role := presenter.RoleResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&role)
-	ExpectWithOffset(2, err).NotTo(HaveOccurred())
-
-	return role
+	ExpectWithOffset(2, resp).To(HaveRestyStatusCode(http.StatusCreated))
 }
 
-func createOrgRole(roleName, kind, userName, orgGUID, authHeader string) presenter.RoleResponse {
-	return createRole(roleName, kind, "organization", userName, orgGUID, authHeader)
+func createOrgRole(roleName, kind, userName, orgGUID string) {
+	createRole(roleName, kind, "organization", userName, orgGUID)
 }
 
-func createSpaceRole(roleName, kind, userName, spaceGUID, authHeader string) presenter.RoleResponse {
-	return createRole(roleName, kind, "space", userName, spaceGUID, authHeader)
+func createSpaceRole(roleName, kind, userName, spaceGUID string) {
+	createRole(roleName, kind, "space", userName, spaceGUID)
 }
 
 func obtainServiceAccountToken(name string) string {
@@ -389,6 +499,10 @@ func obtainServiceAccountToken(name string) string {
 }
 
 func deleteServiceAccount(name string) {
+	if name == "" {
+		return
+	}
+
 	serviceAccount := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -467,234 +581,259 @@ func obtainAdminUserCert() string {
 }
 
 func deleteCSR(csr *certsv1.CertificateSigningRequest) {
+	if csr == nil {
+		return
+	}
+
 	Expect(k8sClient.Delete(context.Background(), csr)).To(Succeed())
 }
 
-func httpReq(method, url, authHeader string, jsonBody interface{}) (*http.Response, error) {
-	var bodyReader io.Reader
-	if jsonBody != nil {
-		body, err := json.Marshal(jsonBody)
-		if err != nil {
-			return nil, err
-		}
-		bodyReader = bytes.NewReader(body)
-	}
-
-	req, err := http.NewRequest(method, url, bodyReader)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Authorization", authHeader)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-func createApp(spaceGUID, name string) presenter.AppResponse {
-	app := presenter.AppResponse{}
+func createApp(spaceGUID, name string) string {
+	var app resource
 
 	resp, err := adminClient.R().
-		SetBody(map[string]interface{}{
-			"name": name,
-			"relationships": map[string]interface{}{
-				"space": map[string]interface{}{
-					"data": map[string]interface{}{
-						"guid": spaceGUID,
-					},
-				},
+		SetBody(appResource{
+			resource: resource{
+				Name:          name,
+				Relationships: relationships{"space": {Data: resource{GUID: spaceGUID}}},
 			},
 		}).
 		SetResult(&app).
 		Post("/v3/apps")
 
 	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+
+	return app.GUID
+}
+
+func getProcess(appGUID, processType string) string {
+	var processList resourceList
+	Eventually(func(g Gomega) {
+		resp, err := adminClient.R().
+			SetResult(&processList).
+			Get("/v3/processes?app_guids=" + appGUID)
+
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+		g.Expect(processList.Resources).NotTo(BeEmpty())
+	}).Should(Succeed())
+
+	Expect(processList.Resources).To(HaveLen(1))
+	return processList.Resources[0].GUID
+}
+
+func createServiceInstance(spaceGUID, name string) string {
+	var serviceInstance typedResource
+
+	resp, err := adminClient.R().
+		SetBody(typedResource{
+			Type: "user-provided",
+			resource: resource{
+				Name:          name,
+				Relationships: relationships{"space": {Data: resource{GUID: spaceGUID}}},
+			},
+		}).
+		SetResult(&serviceInstance).
+		Post("/v3/service_instances")
+
+	Expect(err).NotTo(HaveOccurred())
 	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
 
-	return app
+	return serviceInstance.GUID
 }
 
-func createPackage(appGUID, authHeader string) presenter.PackageResponse {
-	packagesURL := apiServerRoot + apis.PackageCreateEndpoint
+func listServiceInstances() resourceList {
+	var serviceInstances resourceList
 
-	payload := payloads.PackageCreate{
-		Type: "bits",
-		Relationships: &payloads.PackageRelationships{
-			App: &payloads.Relationship{
-				Data: &payloads.RelationshipData{
-					GUID: appGUID,
+	resp, err := adminClient.R().
+		SetResult(&serviceInstances).
+		Get("/v3/service_instances")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+
+	return serviceInstances
+}
+
+func createServiceBinding(appGUID, instanceGUID string) string {
+	var pkg resource
+	resp, err := adminClient.R().
+		SetBody(typedResource{
+			Type: "app",
+			resource: resource{
+				Relationships: relationships{"app": {Data: resource{GUID: appGUID}}, "service_instance": {Data: resource{GUID: instanceGUID}}},
+			},
+		}).
+		SetResult(&pkg).
+		Post("/v3/service_credential_bindings")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+
+	return pkg.GUID
+}
+
+func createPackage(appGUID string) string {
+	var pkg resource
+	resp, err := adminClient.R().
+		SetBody(typedResource{
+			Type: "bits",
+			resource: resource{
+				Relationships: relationships{
+					"app": relationship{Data: resource{GUID: appGUID}},
 				},
 			},
-		},
-	}
+		}).
+		SetResult(&pkg).
+		Post("/v3/packages")
 
-	resp, err := httpReq(http.MethodPost, packagesURL, authHeader, payload)
 	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
-	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
-
-	pkg := presenter.PackageResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&pkg)
-	Expect(err).NotTo(HaveOccurred())
-
-	return pkg
+	return pkg.GUID
 }
 
-func createBuild(packageGUID, authHeader string) presenter.BuildResponse {
-	buildsURL := apiServerRoot + apis.BuildCreateEndpoint
+func createBuild(packageGUID string) string {
+	var build resource
 
-	payload := payloads.BuildCreate{
-		Package: &payloads.RelationshipData{
-			GUID: packageGUID,
-		},
-	}
+	resp, err := adminClient.R().
+		SetBody(buildResource{Package: resource{GUID: packageGUID}}).
+		SetResult(&build).
+		Post("/v3/builds")
 
-	resp, err := httpReq(http.MethodPost, buildsURL, authHeader, payload)
 	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
-	Expect(resp).To(HaveHTTPStatus(http.StatusCreated))
-
-	build := presenter.BuildResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&build)
-	Expect(err).NotTo(HaveOccurred())
-
-	return build
+	return build.GUID
 }
 
-func setCurrentDroplet(appGUID, dropletGUID, authHeader string) presenter.CurrentDropletResponse {
-	setDropletURL := apiServerRoot + "/v3/apps/" + appGUID + "/relationships/current_droplet"
+func waitForDroplet(buildGUID string) {
+	Eventually(func() (*resty.Response, error) {
+		resp, err := adminClient.R().
+			Get("/v3/droplets/" + buildGUID)
+		return resp, err
+	}).Should(HaveRestyStatusCode(http.StatusOK))
+}
 
-	payload := payloads.AppSetCurrentDroplet{
-		Relationship: payloads.Relationship{
-			Data: &payloads.RelationshipData{
-				GUID: dropletGUID,
+func setCurrentDroplet(appGUID, dropletGUID string) {
+	resp, err := adminClient.R().
+		SetBody(dropletResource{Data: resource{GUID: dropletGUID}}).
+		Patch("/v3/apps/" + appGUID + "/relationships/current_droplet")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+}
+
+func startApp(appGUID string) {
+	resp, err := adminClient.R().
+		Post("/v3/apps/" + appGUID + "/actions/start")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+}
+
+func uploadNodeApp(pkgGUID string) {
+	resp, err := adminClient.R().
+		SetFiles(map[string]string{
+			"bits": "assets/node.zip",
+		}).Post("/v3/packages/" + pkgGUID + "/upload")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+}
+
+// pushNodeApp creates a running node app in the given space
+func pushNodeApp(spaceGUID string) string {
+	appGUID := createApp(spaceGUID, generateGUID("app"))
+	pkgGUID := createPackage(appGUID)
+	uploadNodeApp(pkgGUID)
+	buildGUID := createBuild(pkgGUID)
+	waitForDroplet(buildGUID)
+	setCurrentDroplet(appGUID, buildGUID)
+	startApp(appGUID)
+
+	return appGUID
+}
+
+func createDomain(name string) string {
+	domain := networkingv1alpha1.CFDomain{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      uuid.NewString(),
+			Namespace: rootNamespace,
+		},
+		Spec: networkingv1alpha1.CFDomainSpec{
+			Name: name,
+		},
+	}
+	err := k8sClient.Create(context.Background(), &domain)
+	Expect(err).NotTo(HaveOccurred())
+
+	return domain.Name
+}
+
+func deleteDomain(guid string) {
+	if guid == "" {
+		return
+	}
+
+	Expect(k8sClient.Delete(context.Background(), &networkingv1alpha1.CFDomain{
+		ObjectMeta: metav1.ObjectMeta{Namespace: rootNamespace, Name: guid},
+	})).To(Succeed())
+}
+
+func createRoute(host, path string, spaceGUID, domainGUID string) string {
+	var route resource
+
+	resp, err := adminClient.R().
+		SetBody(routeResource{
+			Host: host,
+			Path: path,
+			resource: resource{
+				Relationships: relationships{
+					"domain": {Data: resource{GUID: domainGUID}},
+					"space":  {Data: resource{GUID: spaceGUID}},
+				},
 			},
+		}).
+		SetResult(&route).
+		Post("/v3/routes")
+
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
+
+	return route.GUID
+}
+
+func addDestinationForRoute(appGUID, routeGUID string) []string {
+	var destinations destinationsResource
+
+	resp, err := adminClient.R().
+		SetBody(mapRouteResource{
+			Destinations: []destinationRef{
+				{App: resource{GUID: appGUID}},
+			},
+		}).
+		SetResult(&destinations).
+		Post("/v3/routes/" + routeGUID + "/destinations")
+
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+
+	var destinationGUIDs []string
+	for _, destination := range destinations.Destinations {
+		destinationGUIDs = append(destinationGUIDs, destination.GUID)
+	}
+
+	return destinationGUIDs
+}
+
+func expectNotFoundError(resp *resty.Response, errResp cfErrs, resource string) {
+	Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
+	Expect(errResp.Errors).To(ConsistOf(
+		cfErr{
+			Detail: resource + " not found. Ensure it exists and you have access to it.",
+			Title:  "CF-ResourceNotFound",
+			Code:   10010,
 		},
-	}
-
-	resp, err := httpReq(http.MethodPatch, setDropletURL, authHeader, payload)
-	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
-
-	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
-
-	currentDropletResponse := presenter.CurrentDropletResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&currentDropletResponse)
-	Expect(err).NotTo(HaveOccurred())
-
-	return currentDropletResponse
-}
-
-func asyncDeleteSubnamespace(orgID, spaceID string, wg *sync.WaitGroup) {
-	go func() {
-		defer wg.Done()
-		defer GinkgoRecover()
-
-		deleteSubnamespace(orgID, spaceID)
-	}()
-}
-
-func get(endpoint string, authHeaderValue string) (map[string]interface{}, error) {
-	return getWithQuery(endpoint, authHeaderValue, nil)
-}
-
-func getWithQuery(endpoint string, authHeaderValue string, query map[string]string) (map[string]interface{}, error) {
-	serverUrl, err := url.Parse(apiServerRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	serverUrl.Path = endpoint
-	values := url.Values{}
-	for key, val := range query {
-		values.Set(key, val)
-	}
-	serverUrl.RawQuery = values.Encode()
-
-	resp, err := httpReq(http.MethodGet, serverUrl.String(), authHeaderValue, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status: %d", resp.StatusCode)
-	}
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	response := map[string]interface{}{}
-	err = json.Unmarshal(bodyBytes, &response)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
-}
-
-func uploadNodeApp(pkgGUID, authHeader string) {
-	var b bytes.Buffer
-	writer := multipart.NewWriter(&b)
-	part, err := writer.CreateFormFile("bits", "node.zip")
-	Expect(err).NotTo(HaveOccurred())
-
-	file, err := os.Open("assets/node.zip")
-	Expect(err).NotTo(HaveOccurred())
-	defer file.Close()
-
-	_, err = io.Copy(part, file)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(writer.Close()).To(Succeed())
-
-	uploadURL := apiServerRoot + fmt.Sprintf("/v3/packages/%s/upload", pkgGUID)
-	req, err := http.NewRequestWithContext(context.Background(), "POST", uploadURL, &b)
-	Expect(err).NotTo(HaveOccurred())
-	req.Header.Add("Content-Type", writer.FormDataContentType())
-	req.Header.Add("Authorization", authHeader)
-
-	resp, err := http.DefaultClient.Do(req)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
-}
-
-func waitForAdminRoleBinding(namespace string) error {
-	timeout := 10 * time.Second
-	timeoutCtx, cancelFn := context.WithTimeout(context.Background(), timeout)
-	defer cancelFn()
-
-	watch, err := k8sClient.Watch(timeoutCtx, &rbacv1.RoleBindingList{}, client.InNamespace(namespace))
-	if err != nil {
-		return fmt.Errorf("failed to create a rolebindings watch on namespace %s: %v", namespace, err)
-	}
-
-	adminRolebindingPropagated := false
-	for res := range watch.ResultChan() {
-		roleBinding, ok := res.Object.(*rbacv1.RoleBinding)
-		if !ok {
-			// should never happen, but avoids panic above
-			continue
-		}
-		if roleBinding.RoleRef.Name == "cf-k8s-controllers-admin" {
-			watch.Stop()
-			adminRolebindingPropagated = true
-			break
-		}
-
-	}
-
-	if !adminRolebindingPropagated {
-		return fmt.Errorf("role binding to role 'cf-k8s-controllers-admin' has not been propagated within timeout period %d ms", timeout.Milliseconds())
-	}
-
-	return nil
+	))
 }

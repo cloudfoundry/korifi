@@ -2,9 +2,11 @@ package authorization
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	authv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,11 +41,11 @@ func (r *TokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, err
 	}
 	err := r.privilegedClient.Create(ctx, tokenReview)
 	if err != nil {
-		return Identity{}, fmt.Errorf("failed to create token review: %w", err)
+		return Identity{}, fmt.Errorf("failed to create token review: %w", apierrors.FromK8sError(err, "TokenReview"))
 	}
 
 	if !tokenReview.Status.Authenticated {
-		return Identity{}, InvalidAuthError{}
+		return Identity{}, apierrors.NewInvalidAuthError(errors.New("not authenticated"))
 	}
 
 	idKind := rbacv1.UserKind

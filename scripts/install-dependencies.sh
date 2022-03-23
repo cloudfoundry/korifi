@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEP_DIR="$(cd "${SCRIPT_DIR}/../dependencies" && pwd)"
 
+source "$SCRIPT_DIR/common.sh"
+
 function usage_text() {
   cat <<EOF
 Usage:
@@ -22,34 +24,34 @@ EOF
 while [[ $# -gt 0 ]]; do
   i=$1
   case $i in
-  -g=* | --gcr-service-account-json=*)
-    GCP_SERVICE_ACCOUNT_JSON_FILE="${i#*=}"
-    shift
-    ;;
-  -g | --gcr-service-account-json)
-    GCP_SERVICE_ACCOUNT_JSON_FILE="${2}"
-    shift
-    shift
-    ;;
-  *)
-    echo -e "Error: Unknown flag: ${i/=*/}\n" >&2
-    usage_text >&2
-    exit 1
-    ;;
+    -g=* | --gcr-service-account-json=*)
+      GCP_SERVICE_ACCOUNT_JSON_FILE="${i#*=}"
+      shift
+      ;;
+    -g | --gcr-service-account-json)
+      GCP_SERVICE_ACCOUNT_JSON_FILE="${2}"
+      shift
+      shift
+      ;;
+    *)
+      echo -e "Error: Unknown flag: ${i/=*/}\n" >&2
+      usage_text >&2
+      exit 1
+      ;;
   esac
 done
 
-echo "*********************************************"
-echo "Creating CF Namespace and admin RoleBinding"
-echo "*********************************************"
+echo "************************************************"
+echo "Creating CF Namespace and cf-admin RoleBinding"
+echo "************************************************"
 
 kubectl apply -f "${DEP_DIR}/cf-setup.yaml"
 
-echo "***********************"
-echo "Creating user 'admin'"
-echo "***********************"
+echo "**************************"
+echo "Creating user 'cf-admin'"
+echo "**************************"
 
-"$SCRIPT_DIR/create-new-user.sh" admin
+"$SCRIPT_DIR/create-new-user.sh" cf-admin
 
 echo "*************************"
 echo "Installing Cert Manager"
@@ -130,14 +132,6 @@ chmod +x "${HNC_BIN}/kubectl-hns"
 kubectl apply -f "https://github.com/kubernetes-sigs/hierarchical-namespaces/releases/download/${HNC_VERSION}/hnc-manager.yaml"
 kubectl rollout status deployment/hnc-controller-manager -w -n hnc-system
 
-retry() {
-  until $@; do
-    echo -n .
-    sleep 1
-  done
-  echo
-}
-
 # Hierarchical namespace controller is quite asynchronous. There is no
 # guarantee that the operations below would succeed on first invocation,
 # so retry until they do.
@@ -182,12 +176,12 @@ echo "******************************"
 echo "Configuring Convention Service"
 echo "******************************"
 
-kubectl create ns cartographer-conventions-system
+kubectl create ns cartographer-conventions-system --dry-run=client -o yaml | kubectl apply -f -
 # Manually edit your /etc/hosts to map localregistry-docker-registry.default.svc.cluster.local to 127.0.0.1
 export KO_DOCKER_REPO="localregistry-docker-registry.default.svc.cluster.local:30050/conventions"
 # Check out the cartographer-conventions repo in your ~/workspace directory
 kapp deploy -y -n cartographer-conventions-system -a controller -f <(cd ~/workspace/cartographer-conventions/; ytt -f dist/cartogrpaher-conventions.yaml -f dist/ca-overlay.yaml --data-value-file ca_cert_data=${CA_DATA:-dist/ca.pem} | ko resolve -f -)
 
-echo "******"
+echo "****"
 echo "Done"
-echo "******"
+echo "****"

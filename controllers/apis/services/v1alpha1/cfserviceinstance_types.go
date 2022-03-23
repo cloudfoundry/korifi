@@ -24,6 +24,10 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+const (
+	UserProvidedType = "user-provided"
+)
+
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance
 type CFServiceInstanceSpec struct {
 	// Name defines the name of the Service Instance
@@ -48,6 +52,9 @@ type CFServiceInstanceStatus struct {
 	// A reference to the Secret containing the credentials (same as spec.secretName).
 	// This is required to conform to the Kubernetes Service Bindings spec
 	Binding v1.LocalObjectReference `json:"binding"`
+
+	// Conditions capture the current status of the CFServiceInstance
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 //+kubebuilder:object:root=true
@@ -58,7 +65,8 @@ type CFServiceInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CFServiceInstanceSpec   `json:"spec,omitempty"`
+	Spec CFServiceInstanceSpec `json:"spec,omitempty"`
+
 	Status CFServiceInstanceStatus `json:"status,omitempty"`
 }
 

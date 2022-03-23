@@ -11,7 +11,7 @@ body:
     validations:
       required: true
   - type: textarea
-    id: action
+    id: action-to-take
     attributes:
       label: Action to take
       description: This section is optional, but if it is clear what steps should be taken, we should note them. For example, if there is already an agreed upon solution or next step(s).

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
@@ -140,9 +141,9 @@ var _ = Describe("Authentication Middleware", func() {
 			Expect(actualAuthInfo).To(Equal(authorization.Info{Token: "the-token"}))
 		})
 
-		When("the Authorization header is not well formed", func() {
+		When("parsing the Authorization header fails", func() {
 			BeforeEach(func() {
-				authInfoParser.ParseReturns(authorization.Info{}, authorization.InvalidAuthError{})
+				authInfoParser.ParseReturns(authorization.Info{}, apierrors.NewInvalidAuthError(nil))
 			})
 
 			It("returns a CF-InvalidAuthToken error", func() {
@@ -178,28 +179,9 @@ var _ = Describe("Authentication Middleware", func() {
 			})
 		})
 
-		When("authentication is not provided", func() {
+		When("getting the identity fails", func() {
 			BeforeEach(func() {
-				authInfoParser.ParseReturns(authorization.Info{}, authorization.NotAuthenticatedError{})
-			})
-
-			It("returns a CF-NotAuthenticated error", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusUnauthorized))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-                    "errors": [
-                    {
-                        "detail": "Authentication error",
-                        "title": "CF-NotAuthenticated",
-                        "code": 10002
-                    }
-                    ]
-                }`)))
-			})
-		})
-
-		When("authentication is not valid", func() {
-			BeforeEach(func() {
-				identityProvider.GetIdentityReturns(authorization.Identity{}, authorization.InvalidAuthError{})
+				identityProvider.GetIdentityReturns(authorization.Identity{}, apierrors.NewInvalidAuthError(nil))
 			})
 
 			It("returns a CF-InvalidAuthToken error", func() {
@@ -210,25 +192,6 @@ var _ = Describe("Authentication Middleware", func() {
                         "detail": "Invalid Auth Token",
                         "title": "CF-InvalidAuthToken",
                         "code": 1000
-                    }
-                    ]
-                }`)))
-			})
-		})
-
-		When("an unexpected authentication error occurs", func() {
-			BeforeEach(func() {
-				identityProvider.GetIdentityReturns(authorization.Identity{}, errors.New("boo"))
-			})
-
-			It("returns a CF-Unknown error", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusInternalServerError))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-                    "errors": [
-                    {
-                        "detail": "An unknown error occurred.",
-                        "title": "UnknownError",
-                        "code": 10001
                     }
                     ]
                 }`)))

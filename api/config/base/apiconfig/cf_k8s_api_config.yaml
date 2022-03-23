@@ -1,5 +1,6 @@
-serverURL: "https://api.example.org"
-serverPort: 9000
+externalFQDN: "api.example.org"
+internalPort: 9000
+
 rootNamespace: cf
 defaultLifecycleConfig:
   type: buildpack
@@ -9,3 +10,4 @@ defaultLifecycleConfig:
 packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
 packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
 clusterBuilderName: cf-kpack-cluster-builder
+defaultDomainName: apps.example.org

@@ -1,7 +1,6 @@
 package apis_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,6 +8,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
@@ -299,31 +299,9 @@ var _ = Describe("BuildHandler", func() {
 			})
 		})
 
-		When("the authorization.Info is not available in the request context", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("GET", "/v3/builds/"+buildGUID, nil)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("returns an unknown error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("the build cannot be found", func() {
-			BeforeEach(func() {
-				buildRepo.GetBuildReturns(repositories.BuildRecord{}, repositories.NotFoundError{})
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("Build not found")
-			})
-		})
-
 		When("the user does not have access to the build", func() {
 			BeforeEach(func() {
-				buildRepo.GetBuildReturns(repositories.BuildRecord{}, repositories.NewForbiddenError(nil))
+				buildRepo.GetBuildReturns(repositories.BuildRecord{}, apierrors.NewForbiddenError(nil, repositories.BuildResourceType))
 			})
 
 			It("returns an error", func() {
@@ -502,7 +480,18 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the package doesn't exist", func() {
 			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, apierrors.NewNotFoundError(nil, repositories.PackageResourceType))
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("Unable to use package. Ensure that the package exists and you have access to it.")
+				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
+			})
+		})
+
+		When("the package is forbidden", func() {
+			BeforeEach(func() {
+				packageRepo.GetPackageReturns(repositories.PackageRecord{}, apierrors.NewForbiddenError(nil, repositories.PackageResourceType))
 			})
 
 			It("returns an error", func() {
@@ -519,37 +508,6 @@ var _ = Describe("BuildHandler", func() {
 			It("returns an error", func() {
 				expectUnknownError()
 				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
-			})
-		})
-
-		When("the authorization.Info is not available in the request context", func() {
-			BeforeEach(func() {
-				ctx = context.Background()
-			})
-
-			It("returns an unknown error", func() {
-				expectUnknownError()
-				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
-			})
-		})
-
-		When("the user is not authorized to create a build", func() {
-			BeforeEach(func() {
-				buildRepo.CreateBuildReturns(repositories.BuildRecord{}, repositories.NewForbiddenError(nil))
-			})
-
-			It("returns a not authorized error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("the user is not authorized to get a package", func() {
-			BeforeEach(func() {
-				packageRepo.GetPackageReturns(repositories.PackageRecord{}, repositories.NewForbiddenError(nil))
-			})
-
-			It("returns a not found error", func() {
-				expectNotFoundError("App not found")
 			})
 		})
 

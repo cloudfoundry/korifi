@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	RootV3GetEndpoint = "/v3"
+	RootV3Path = "/v3"
 )
 
 type RootV3Handler struct {
@@ -19,10 +19,15 @@ func NewRootV3Handler(serverURL string) *RootV3Handler {
 }
 
 func (h *RootV3Handler) rootV3GetHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"links":{"self":{"href":"` + h.serverURL + `/v3"}}}`))
+	writeResponse(w, http.StatusOK, map[string]interface{}{
+		"links": map[string]interface{}{
+			"self": map[string]interface{}{
+				"href": h.serverURL + "/v3",
+			},
+		},
+	})
 }
 
 func (h *RootV3Handler) RegisterRoutes(router *mux.Router) {
-	router.Path(RootV3GetEndpoint).Methods("GET").HandlerFunc(h.rootV3GetHandler)
+	router.Path(RootV3Path).Methods("GET").HandlerFunc(h.rootV3GetHandler)
 }

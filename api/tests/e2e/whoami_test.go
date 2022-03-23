@@ -1,104 +1,97 @@
 package e2e_test
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
+	"crypto/tls"
+	"encoding/base64"
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/helpers"
-	"github.com/go-http-utils/headers"
+	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
+type identityResource struct {
+	resource
+	Kind string `json:"kind"`
+}
+
 var _ = Describe("WhoAmI", func() {
-	It("returns the identity from the token authorization header", func() {
-		identity, err := doWhoAmI(tokenAuthHeader)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(identity.Name).To(Equal(serviceAccountName))
-		Expect(identity.Kind).To(Equal(rbacv1.ServiceAccountKind))
+	var (
+		client   *resty.Client
+		httpResp *resty.Response
+		result   identityResource
+	)
+
+	BeforeEach(func() {
+		client = resty.New().SetBaseURL(apiServerRoot).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	})
 
-	It("returns the identity from the cert authorization header", func() {
-		identity, err := doWhoAmI(certAuthHeader)
+	JustBeforeEach(func() {
+		var err error
+		httpResp, err = client.R().
+			SetResult(&result).
+			Get("/whoami")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(identity.Name).To(Equal(certUserName))
-		Expect(identity.Kind).To(Equal(rbacv1.UserKind))
+	})
+
+	When("authenticating with a Bearer token", func() {
+		BeforeEach(func() {
+			client = client.SetAuthToken(serviceAccountToken)
+		})
+
+		It("returns the user identity", func() {
+			Expect(result.Name).To(Equal(serviceAccountName))
+			Expect(result.Kind).To(Equal(rbacv1.ServiceAccountKind))
+		})
+
+		When("the token auth header is invalid", func() {
+			BeforeEach(func() {
+				client = client.SetAuthToken("not-valid")
+			})
+
+			It("returns an unauthorized error", func() {
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnauthorized))
+			})
+		})
+	})
+
+	When("authenticating with a client certificate", func() {
+		BeforeEach(func() {
+			client = client.SetAuthScheme("ClientCert").SetAuthToken(certPEM)
+		})
+
+		It("returns the user identity", func() {
+			Expect(result.Name).To(Equal(certUserName))
+			Expect(result.Kind).To(Equal(rbacv1.UserKind))
+		})
+
+		When("the cert auth header is invalid", func() {
+			BeforeEach(func() {
+				client = client.SetAuthToken("not-valid")
+			})
+
+			It("returns an unauthorized error", func() {
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnauthorized))
+			})
+		})
+
+		When("the cert is unauthorized", func() {
+			BeforeEach(func() {
+				unauthorisedCertPEM := base64.StdEncoding.EncodeToString(helpers.CreateCertificatePEM())
+				client = client.SetAuthToken(unauthorisedCertPEM)
+			})
+
+			It("returns an unauthorized error", func() {
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnauthorized))
+			})
+		})
 	})
 
 	When("no Authorization header is available in the request", func() {
 		It("returns unauthorized error", func() {
-			resp, err := doWhoAmIRaw("")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(resp).To(HaveHTTPStatus(http.StatusUnauthorized))
-		})
-	})
-
-	When("the token auth header is invalid", func() {
-		It("returns an unauthorized error", func() {
-			resp, err := doWhoAmIRaw("Bearer not-a-valid-token")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(resp).To(HaveHTTPStatus(http.StatusUnauthorized))
-		})
-	})
-
-	When("the cert auth header is invalid", func() {
-		It("returns an unauthorized error", func() {
-			resp, err := doWhoAmIRaw("ClientCert not-a-valid-cert")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(resp).To(HaveHTTPStatus(http.StatusUnauthorized))
-		})
-	})
-
-	When("the cert auth header contains an unauthorized cert", func() {
-		It("returns an unauthorized error", func() {
-			resp, err := doWhoAmIRaw(helpers.CreateCertificateAuthHeader())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(resp).To(HaveHTTPStatus(http.StatusUnauthorized))
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnauthorized))
 		})
 	})
 })
-
-func doWhoAmIRaw(authHeaderValue string) (*http.Response, error) {
-	whoamiURL := apiServerRoot + "/whoami"
-
-	req, err := http.NewRequest(http.MethodGet, whoamiURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	if authHeaderValue != "" {
-		req.Header.Add(headers.Authorization, authHeaderValue)
-	}
-
-	return http.DefaultClient.Do(req)
-}
-
-func doWhoAmI(authHeaderValue string) (presenter.IdentityResponse, error) {
-	resp, err := doWhoAmIRaw(authHeaderValue)
-	if err != nil {
-		return presenter.IdentityResponse{}, err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return presenter.IdentityResponse{}, fmt.Errorf("bad status: %d", resp.StatusCode)
-	}
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return presenter.IdentityResponse{}, err
-	}
-
-	identity := presenter.IdentityResponse{}
-	err = json.Unmarshal(bodyBytes, &identity)
-	if err != nil {
-		return presenter.IdentityResponse{}, err
-	}
-
-	return identity, nil
-}

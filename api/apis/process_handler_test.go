@@ -1,13 +1,13 @@
 package apis_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -163,12 +163,12 @@ var _ = Describe("ProcessHandler", func() {
 		})
 
 		When("on the sad path and", func() {
-			When("the process doesn't exist", func() {
+			When("the user lacks access", func() {
 				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
+					processRepo.GetProcessReturns(repositories.ProcessRecord{}, apierrors.NewForbiddenError(errors.New("access denied or something"), repositories.ProcessResourceType))
 				})
 
-				It("returns an error", func() {
+				It("returns a not-found error", func() {
 					expectNotFoundError("Process not found")
 				})
 			})
@@ -179,18 +179,6 @@ var _ = Describe("ProcessHandler", func() {
 				})
 
 				It("returns an error", func() {
-					expectUnknownError()
-				})
-			})
-
-			When("the authorization.Info is not set in the request context", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequest("GET", "/v3/processes/"+processGUID, nil)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns an unknown error", func() {
 					expectUnknownError()
 				})
 			})
@@ -239,37 +227,23 @@ var _ = Describe("ProcessHandler", func() {
 			})
 		})
 
-		When("on the sad path and", func() {
-			When("the process doesn't exist", func() {
-				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
-				})
-
-				It("returns an error", func() {
-					expectNotFoundError("Process not found")
-				})
+		When("the process isn't accessible to the user", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, apierrors.NewForbiddenError(nil, repositories.ProcessResourceType))
 			})
 
-			When("there is some other error fetching the process", func() {
-				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
-				})
+			It("returns an error", func() {
+				expectNotFoundError("Process not found")
+			})
+		})
 
-				It("returns an error", func() {
-					expectUnknownError()
-				})
+		When("there is some other error fetching the process", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
 			})
 
-			When("the authorization.Info is not set in the request context", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequest("GET", "/v3/processes/"+processGUID, nil)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns an unknown error", func() {
-					expectUnknownError()
-				})
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -493,16 +467,6 @@ var _ = Describe("ProcessHandler", func() {
 				})
 			})
 
-			When("the process doesn't exist", func() {
-				BeforeEach(func() {
-					scaleProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
-				})
-
-				It("returns an error", func() {
-					expectNotFoundError("Process not found")
-				})
-			})
-
 			When("there is some other error fetching the process", func() {
 				BeforeEach(func() {
 					scaleProcessFunc.Returns(repositories.ProcessRecord{}, errors.New("unknown!"))
@@ -512,28 +476,12 @@ var _ = Describe("ProcessHandler", func() {
 					expectUnknownError()
 				})
 			})
-
-			When("authorization.Info is not set in the request context", func() {
-				BeforeEach(func() {
-					ctx = context.Background()
-
-					queuePostRequest(fmt.Sprintf(`{
-                        "instances": %[1]d,
-                        "memory_in_mb": %[2]d,
-                        "disk_in_mb": %[3]d
-                    }`, instances, memoryInMB, diskInMB))
-				})
-
-				It("returns an unknown error", func() {
-					expectUnknownError()
-				})
-			})
 		})
 
 		When("validating scale parameters", func() {
 			DescribeTable("returns a validation decision",
 				func(requestBody string, status int) {
-					var tableTestRecorder *httptest.ResponseRecorder = httptest.NewRecorder()
+					tableTestRecorder := httptest.NewRecorder()
 					queuePostRequest(requestBody)
 					router.ServeHTTP(tableTestRecorder, req)
 					Expect(tableTestRecorder.Code).To(Equal(status))
@@ -549,17 +497,43 @@ var _ = Describe("ProcessHandler", func() {
 	})
 
 	Describe("the GET /v3/processes/<guid>/stats endpoint", func() {
+		var (
+			process1Time, process2Time string
+			process1CPU, process2CPU   float64
+			process1Mem, process2Mem   int64
+			process1Disk, process2Disk int64
+		)
 		BeforeEach(func() {
+			process1Time = "1906-04-18T13:12:00Z"
+			process2Time = "1906-04-18T13:12:00Z"
+			process1CPU = 133.47
+			process2CPU = 127.58
+			process1Mem = 16
+			process2Mem = 8
+			process1Disk = 50
+			process2Disk = 100
 			fetchProcessStats.Returns([]repositories.PodStatsRecord{
 				{
 					Type:  "web",
 					Index: 0,
 					State: "RUNNING",
+					Usage: repositories.Usage{
+						Time: &process1Time,
+						CPU:  &process1CPU,
+						Mem:  &process1Mem,
+						Disk: &process1Disk,
+					},
 				},
 				{
 					Type:  "web",
 					Index: 1,
 					State: "RUNNING",
+					Usage: repositories.Usage{
+						Time: &process2Time,
+						CPU:  &process2CPU,
+						Mem:  &process2Mem,
+						Disk: &process2Disk,
+					},
 				},
 			}, nil)
 
@@ -583,7 +557,7 @@ var _ = Describe("ProcessHandler", func() {
 				contentTypeHeader := rr.Header().Get("Content-Type")
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-				Expect(rr.Body.String()).To(MatchJSON(`{
+				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 					"resources": [
 						{
 							"type": "web",
@@ -596,7 +570,13 @@ var _ = Describe("ProcessHandler", func() {
 							"fds_quota": null,
 							"isolation_segment": null,
 							"details": null,
-							"instance_ports": []
+							"instance_ports": [],
+							"usage": {
+								"time": "%s",
+								"cpu": %f,
+								"mem": %d,
+								"disk": %d
+                            }
 						},
 						{
 							"type": "web",
@@ -609,10 +589,16 @@ var _ = Describe("ProcessHandler", func() {
 							"fds_quota": null,
 							"isolation_segment": null,
 							"details": null,
-							"instance_ports": []
+							"instance_ports": [],
+							"usage": {
+								"time": "%s",
+								"cpu": %f,
+								"mem": %d,
+								"disk": %d
+                            }
 						}
 					]
-				}`), "Response body matches response:")
+				}`, process1Time, process1CPU, process1Mem, process1Disk, process2Time, process2CPU, process2Mem, process2Disk)), "Response body matches response:")
 			})
 		})
 
@@ -641,39 +627,30 @@ var _ = Describe("ProcessHandler", func() {
 							"disk_quota": null,
 							"fds_quota": null,
 							"isolation_segment": null,
-							"details": null
+							"details": null,
+							"usage": {}
 						}
 					]
 				}`), "Response body matches response:")
 			})
 		})
 
-		When("the process is not found", func() {
+		When("the process stats are not authorized", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NotFoundError{ResourceType: "Process"})
+				fetchProcessStats.Returns(nil, apierrors.NewForbiddenError(nil, repositories.ProcessStatsResourceType))
 			})
-			It("an error", func() {
-				expectNotFoundError("Process not found")
+
+			It("returns an error", func() {
+				expectNotFoundError("Process Stats not found")
 			})
 		})
 
-		When("the app is not found", func() {
+		When("fetching the process stats errors", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, repositories.NotFoundError{ResourceType: "App"})
-			})
-			It("an error", func() {
-				expectNotFoundError("App not found")
-			})
-		})
-
-		When("authorization.Info is not set in the request context", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("GET", "/v3/processes/"+processGUID+"/stats", nil)
-				Expect(err).NotTo(HaveOccurred())
+				fetchProcessStats.Returns(nil, errors.New("boom"))
 			})
 
-			It("returns an unknown error", func() {
+			It("returns an error", func() {
 				expectUnknownError()
 			})
 		})
@@ -818,8 +795,8 @@ var _ = Describe("ProcessHandler", func() {
 
 				It("invokes process repository with correct args", func() {
 					_, _, message := processRepo.ListProcessesArgsForCall(0)
-					Expect(message.AppGUID).To(HaveLen(1))
-					Expect(message.AppGUID[0]).To(Equal("my-app-guid"))
+					Expect(message.AppGUIDs).To(HaveLen(1))
+					Expect(message.AppGUIDs[0]).To(Equal("my-app-guid"))
 				})
 			})
 		})
@@ -832,6 +809,229 @@ var _ = Describe("ProcessHandler", func() {
 			})
 			It("returns an Unknown key error", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids'")
+			})
+		})
+
+		When("listing processes fails", func() {
+			BeforeEach(func() {
+				processRepo.ListProcessesReturns(nil, errors.New("boom"))
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes?app_guids=my-app-guid", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("the PATCH /v3/processes/:guid endpoint", func() {
+		const (
+			processGUID     = "process-guid"
+			spaceGUID       = "space-guid"
+			appGUID         = "app-guid"
+			createdAt       = "1906-04-18T13:12:00Z"
+			updatedAt       = "1906-04-18T13:12:01Z"
+			processType     = "web"
+			command         = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
+			memoryInMB      = 256
+			diskInMB        = 1024
+			healthcheckType = "port"
+			instances       = 1
+
+			baseURL = "https://api.example.org"
+		)
+
+		var (
+			labels      = map[string]string{}
+			annotations = map[string]string{}
+		)
+
+		makePatchRequest := func(processGUID, requestBody string) {
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/processes/"+processGUID, strings.NewReader(requestBody))
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		validBody := `{
+		  "health_check": {
+			"data": {
+			  "invocation_timeout": 2,
+              "timeout": 5,
+              "endpoint": "http://myapp.com/health"
+			},
+			"type": "port"
+		  }
+		}`
+
+		BeforeEach(func() {
+			processRepo.GetProcessReturns(repositories.ProcessRecord{
+				GUID:             processGUID,
+				SpaceGUID:        spaceGUID,
+				AppGUID:          appGUID,
+				CreatedAt:        createdAt,
+				UpdatedAt:        updatedAt,
+				Type:             processType,
+				Command:          command,
+				DesiredInstances: instances,
+				MemoryMB:         memoryInMB,
+				DiskQuotaMB:      diskInMB,
+				HealthCheck: repositories.HealthCheck{
+					Type: healthcheckType,
+					Data: repositories.HealthCheckData{},
+				},
+				Labels:      labels,
+				Annotations: annotations,
+			}, nil)
+		})
+
+		When("the request body is valid", func() {
+			BeforeEach(func() {
+				processRepo.PatchProcessReturns(repositories.ProcessRecord{
+					GUID:             processGUID,
+					SpaceGUID:        spaceGUID,
+					AppGUID:          appGUID,
+					CreatedAt:        createdAt,
+					UpdatedAt:        updatedAt,
+					Type:             processType,
+					Command:          command,
+					DesiredInstances: instances,
+					MemoryMB:         memoryInMB,
+					DiskQuotaMB:      diskInMB,
+					HealthCheck: repositories.HealthCheck{
+						Type: "http",
+						Data: repositories.HealthCheckData{
+							HTTPEndpoint:             "http://myapp.com/health",
+							InvocationTimeoutSeconds: 2,
+							TimeoutSeconds:           5,
+						},
+					},
+					Labels:      labels,
+					Annotations: annotations,
+				}, nil)
+
+				makePatchRequest(processGUID, validBody)
+			})
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("passes the authorization.Info to the process repository", func() {
+				Expect(processRepo.PatchProcessCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := processRepo.PatchProcessArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+
+			It("returns a process", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(`{
+					"guid": "` + processGUID + `",
+					"created_at": "` + createdAt + `",
+					"updated_at": "` + updatedAt + `",
+					"type": "web",
+					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
+					"instances": ` + fmt.Sprint(instances) + `,
+					"memory_in_mb": ` + fmt.Sprint(memoryInMB) + `,
+					"disk_in_mb": ` + fmt.Sprint(diskInMB) + `,
+					"health_check": {
+					   "type": "http",
+					   "data": {
+						  "timeout": 5,
+						  "invocation_timeout": 2,
+                          "endpoint": "http://myapp.com/health"
+					   }
+					},
+					"relationships": {
+					   "app": {
+						  "data": {
+							 "guid": "` + appGUID + `"
+						  }
+					   }
+					},
+					"metadata": {
+					   "labels": {},
+					   "annotations": {}
+					},
+					"links": {
+					   "self": {
+						  "href": "` + baseURL + `/v3/processes/` + processGUID + `"
+					   },
+					   "scale": {
+						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/actions/scale",
+						  "method": "POST"
+					   },
+					   "app": {
+						  "href": "` + baseURL + `/v3/apps/` + appGUID + `"
+					   },
+					   "space": {
+						  "href": "` + baseURL + `/v3/spaces/` + spaceGUID + `"
+					   },
+					   "stats": {
+						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/stats"
+					   }
+					}
+				 }`))
+			})
+		})
+
+		When("the request body is invalid json", func() {
+			BeforeEach(func() {
+				makePatchRequest(processGUID, `{`)
+			})
+
+			It("return an request malformed error", func() {
+				expectBadRequestError()
+			})
+		})
+
+		When("the request body is invalid with an unknown field", func() {
+			BeforeEach(func() {
+				makePatchRequest(processGUID, `{
+				  "health_check": {
+					"endpoint": "my-endpoint"
+				  }
+				}`)
+			})
+
+			It("return an request malformed error", func() {
+				expectUnprocessableEntityError("invalid request body: json: unknown field \"endpoint\"")
+			})
+		})
+
+		When("user is not allowed to get a process", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, apierrors.NewForbiddenError(errors.New("nope"), repositories.ProcessResourceType))
+				makePatchRequest(processGUID, validBody)
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError("Process not found")
+			})
+		})
+
+		When("getting the process fails a process", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("boom"))
+				makePatchRequest(processGUID, validBody)
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("patching the process fails a process", func() {
+			BeforeEach(func() {
+				processRepo.PatchProcessReturns(repositories.ProcessRecord{}, errors.New("boom"))
+				makePatchRequest(processGUID, validBody)
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})

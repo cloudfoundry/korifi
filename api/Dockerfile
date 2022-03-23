@@ -1,5 +1,5 @@
 # syntax = docker/dockerfile:experimental
-FROM golang:1.17 as builder
+FROM golang:1.18.0 as builder
 
 WORKDIR /workspace
 
@@ -11,6 +11,7 @@ COPY controllers/apis controllers/apis/
 COPY controllers/webhooks controllers/webhooks/
 COPY api/actions api/actions/
 COPY api/apis api/apis/
+COPY api/apierrors api/apierrors
 COPY api/authorization api/authorization/
 COPY api/payloads api/payloads/
 COPY api/presenter api/presenter/

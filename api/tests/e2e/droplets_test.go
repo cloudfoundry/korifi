@@ -1,7 +1,9 @@
 package e2e_test
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"net/http"
+
+	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -9,49 +11,45 @@ import (
 
 var _ = Describe("Droplets", func() {
 	var (
-		org   presenter.OrgResponse
-		space presenter.SpaceResponse
+		orgGUID   string
+		spaceGUID string
 	)
 
 	BeforeEach(func() {
-		org = createOrg(generateGUID("org"), adminAuthHeader)
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, org.GUID, adminAuthHeader)
+		orgGUID = createOrg(generateGUID("org"))
+		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
 
-		space = createSpace(generateGUID("space1"), org.GUID, adminAuthHeader)
-		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space.GUID, adminAuthHeader)
+		spaceGUID = createSpace(generateGUID("space1"), orgGUID)
+		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 	})
 
 	AfterEach(func() {
-		deleteSubnamespace(rootNamespace, org.GUID)
+		deleteOrg(orgGUID)
 	})
 
 	Describe("get", func() {
 		var (
-			app   presenter.AppResponse
-			pkg   presenter.PackageResponse
-			build presenter.BuildResponse
-
-			resp   map[string]interface{}
-			getErr error
+			buildGUID string
+			result    resource
 		)
 
 		BeforeEach(func() {
-			app = createApp(space.GUID, generateGUID("app"))
-			pkg = createPackage(app.GUID, adminAuthHeader)
-			uploadNodeApp(pkg.GUID, adminAuthHeader)
-			build = createBuild(pkg.GUID, adminAuthHeader)
+			appGUID := createApp(spaceGUID, generateGUID("app"))
+			pkgGUID := createPackage(appGUID)
+			uploadNodeApp(pkgGUID)
+			buildGUID = createBuild(pkgGUID)
 		})
 
 		JustBeforeEach(func() {
-			Eventually(func() error {
-				resp, getErr = get("/v3/droplets/"+build.GUID, certAuthHeader)
-				return getErr
-			}).Should(Succeed())
+			Eventually(func() (*resty.Response, error) {
+				return certClient.R().
+					SetResult(&result).
+					Get("/v3/droplets/" + buildGUID)
+			}).Should(HaveRestyStatusCode(http.StatusOK))
 		})
 
 		It("returns the droplet", func() {
-			Expect(resp).To(HaveKeyWithValue("guid", build.GUID))
-			Expect(resp).To(HaveKeyWithValue("state", "STAGED"))
+			Expect(result.GUID).To(Equal(buildGUID))
 		})
 	})
 })

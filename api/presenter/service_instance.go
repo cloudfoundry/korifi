@@ -7,9 +7,8 @@ import (
 )
 
 const (
-	serviceInstancesBase          = "/v3/service_instances"
-	serviceCredentialBindingsBase = "/v3/service_credential_bindings"
-	serviceRouteBindingsBase      = "/v3/service_route_bindings"
+	serviceInstancesBase     = "/v3/service_instances"
+	serviceRouteBindingsBase = "/v3/service_route_bindings"
 )
 
 type ServiceInstanceResponse struct {

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	WhoAmIEndpoint = "/whoami"
+	WhoAmIPath = "/whoami"
 )
 
 //counterfeiter:generate -o fake -fake-name IdentityProvider . IdentityProvider
@@ -36,24 +36,16 @@ func NewWhoAmI(identityProvider IdentityProvider, apiBaseURL url.URL) *WhoAmIHan
 	}
 }
 
-func (h *WhoAmIHandler) whoAmIHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
-
-	identity, err := h.identityProvider.GetIdentity(ctx, authInfo)
+func (h *WhoAmIHandler) whoAmIHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	identity, err := h.identityProvider.GetIdentity(r.Context(), authInfo)
 	if err != nil {
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	err = writeJsonResponse(w, presenter.ForWhoAmI(identity), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to write response")
-		writeUnknownErrorResponse(w)
-	}
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForWhoAmI(identity)), nil
 }
 
 func (h *WhoAmIHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(WhoAmIEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.whoAmIHandler))
+	router.Path(WhoAmIPath).Methods("GET").HandlerFunc(w.Wrap(h.whoAmIHandler))
 }

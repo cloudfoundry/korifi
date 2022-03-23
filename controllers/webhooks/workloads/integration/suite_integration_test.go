@@ -11,6 +11,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -87,13 +88,13 @@ var _ = BeforeSuite(func() {
 
 	Expect((&v1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	cfAppValidatingWebhook := workloads.NewCFAppValidation(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType))
+	appNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType))
+	cfAppValidatingWebhook := workloads.NewCFAppValidation(appNameDuplicateValidator)
 	Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
-	anchorValidationWebhook := workloads.NewSubnamespaceAnchorValidation(
-		coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType),
-		coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType),
-	)
+	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType))
+	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType))
+	anchorValidationWebhook := workloads.NewSubnamespaceAnchorValidation(orgNameDuplicateValidator, spaceNameDuplicateValidator)
 	Expect(anchorValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook

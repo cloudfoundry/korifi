@@ -16,7 +16,7 @@ type CFProcessRepository interface {
 	ScaleProcess(context.Context, authorization.Info, repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)
 	CreateProcess(context.Context, authorization.Info, repositories.CreateProcessMessage) error
 	GetProcessByAppTypeAndSpace(context.Context, authorization.Info, string, string, string) (repositories.ProcessRecord, error)
-	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) error
+	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
@@ -24,7 +24,6 @@ type CFProcessRepository interface {
 type CFAppRepository interface {
 	GetApp(context.Context, authorization.Info, string) (repositories.AppRecord, error)
 	GetAppByNameAndSpace(context.Context, authorization.Info, string, string) (repositories.AppRecord, error)
-	GetNamespace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	CreateOrPatchAppEnvVars(context.Context, authorization.Info, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
 }
@@ -39,7 +38,6 @@ type PodRepository interface {
 
 type CFDomainRepository interface {
 	GetDomainByName(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
-	GetDefaultDomain(context.Context, authorization.Info) (repositories.DomainRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository

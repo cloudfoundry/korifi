@@ -3,236 +3,387 @@ package e2e_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
+	. "github.com/onsi/gomega/gstruct"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Apps", func() {
 	var (
-		org      presenter.OrgResponse
-		space1   presenter.SpaceResponse
-		app      presenter.AppResponse
-		result   map[string]interface{}
-		httpResp *resty.Response
-		httpErr  error
+		orgGUID    string
+		space1GUID string
+		appGUID    string
+		resp       *resty.Response
 	)
 
 	BeforeEach(func() {
-		org = createOrg(generateGUID("org"), adminAuthHeader)
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, org.GUID, adminAuthHeader)
-		space1 = createSpace(generateGUID("space1"), org.GUID, adminAuthHeader)
+		orgGUID = createOrg(generateGUID("org"))
+		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+		space1GUID = createSpace(generateGUID("space1"), orgGUID)
 	})
 
 	AfterEach(func() {
-		deleteSubnamespace(rootNamespace, org.GUID)
+		deleteOrg(orgGUID)
 	})
 
 	Describe("List apps", func() {
 		var (
-			space2, space3                     presenter.SpaceResponse
-			app1, app2, app3, app4, app5, app6 presenter.AppResponse
+			space2GUID, space3GUID       string
+			app1GUID, app2GUID, app3GUID string
+			app4GUID, app5GUID, app6GUID string
+			result                       resourceList
 		)
 
 		BeforeEach(func() {
-			space2 = createSpace(generateGUID("space2"), org.GUID, adminAuthHeader)
-			space3 = createSpace(generateGUID("space3"), org.GUID, adminAuthHeader)
+			space2GUID = createSpace(generateGUID("space2"), orgGUID)
+			space3GUID = createSpace(generateGUID("space3"), orgGUID)
 
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space3.GUID, adminAuthHeader)
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space3GUID)
 
-			app1 = createApp(space1.GUID, generateGUID("app1"))
-			app2 = createApp(space1.GUID, generateGUID("app2"))
-			app3 = createApp(space2.GUID, generateGUID("app3"))
-			app4 = createApp(space2.GUID, generateGUID("app4"))
-			app5 = createApp(space3.GUID, generateGUID("app5"))
-			app6 = createApp(space3.GUID, generateGUID("app6"))
+			app1GUID = createApp(space1GUID, generateGUID("app1"))
+			app2GUID = createApp(space1GUID, generateGUID("app2"))
+			app3GUID = createApp(space2GUID, generateGUID("app3"))
+			app4GUID = createApp(space2GUID, generateGUID("app4"))
+			app5GUID = createApp(space3GUID, generateGUID("app5"))
+			app6GUID = createApp(space3GUID, generateGUID("app6"))
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpErr = certClient.R().SetResult(&result).Get("/v3/apps")
+			var err error
+			resp, err = certClient.R().SetResult(&result).Get("/v3/apps")
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("returns apps only in authorized spaces", func() {
-			Expect(httpErr).NotTo(HaveOccurred())
-			Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
-			Expect(result).To(
-				HaveKeyWithValue("pagination", HaveKeyWithValue("total_results", BeNumerically(">=", 4))),
-				HaveKeyWithValue("resources", ContainElements(
-					HaveKeyWithValue("name", app1.Name),
-					HaveKeyWithValue("name", app2.Name),
-					HaveKeyWithValue("name", app5.Name),
-					HaveKeyWithValue("name", app6.Name),
-				)),
-			)
+			Expect(result.Resources).To(ConsistOf(
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app1GUID)}),
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app2GUID)}),
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app5GUID)}),
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app6GUID)}),
+			))
 
-			Expect(result).ToNot(
-				HaveKeyWithValue("resources", ContainElements(
-					HaveKeyWithValue("name", app3.Name),
-					HaveKeyWithValue("name", app4.Name),
-				)))
+			Expect(result.Resources).ToNot(ContainElements(
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app3GUID)}),
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app4GUID)}),
+			))
 		})
 	})
 
 	Describe("Create an app", func() {
+		var appName string
+
+		BeforeEach(func() {
+			appName = generateGUID("app")
+		})
+
 		JustBeforeEach(func() {
-			httpResp, httpErr = certClient.R().SetBody(map[string]interface{}{
-				"name": generateGUID("app"),
-				"relationships": map[string]interface{}{
-					"space": map[string]interface{}{
-						"data": map[string]interface{}{
-							"guid": space1.GUID,
+			var err error
+			resp, err = certClient.R().SetBody(appResource{
+				resource: resource{
+					Name: appName,
+					Relationships: relationships{
+						"space": {
+							Data: resource{
+								GUID: space1GUID,
+							},
 						},
 					},
 				},
 			}).Post("/v3/apps")
-		})
-
-		It("fails", func() {
-			Expect(httpErr).NotTo(HaveOccurred())
-			Expect(httpResp.StatusCode()).To(Equal(http.StatusForbidden))
-			Expect(httpResp.Body()).To(ContainSubstring("CF-NotAuthorized"))
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("the user has space developer role in the space", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
 			})
 
 			It("succeeds", func() {
-				Expect(httpErr).NotTo(HaveOccurred())
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusCreated))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+			})
+
+			When("the app name already exists in the space", func() {
+				BeforeEach(func() {
+					createApp(space1GUID, appName)
+				})
+
+				It("returns an unprocessable entity error", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+					Expect(resp).To(HaveRestyBody(ContainSubstring("CF-UniquenessError")))
+				})
+			})
+		})
+
+		When("the user cannot create apps in the space", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, space1GUID)
+			})
+
+			It("fails", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+				Expect(resp).To(HaveRestyBody(ContainSubstring("CF-NotAuthorized")))
 			})
 		})
 	})
 
 	Describe("Fetch an app", func() {
+		var result resource
+
 		BeforeEach(func() {
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
-			app = createApp(space1.GUID, generateGUID("app1"))
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+			appGUID = createApp(space1GUID, generateGUID("app1"))
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpErr = certClient.R().SetResult(&result).Get("/v3/apps/" + app.GUID)
+			var err error
+			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("can fetch the app", func() {
-			Expect(httpErr).NotTo(HaveOccurred())
-			Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(result).To(SatisfyAll(
-				HaveKeyWithValue("name", app.Name),
-				HaveKeyWithValue("guid", app.GUID),
-			))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(appGUID))
 		})
 	})
 
 	Describe("List app processes", func() {
+		var result resourceList
+
 		BeforeEach(func() {
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
-			app = createApp(space1.GUID, generateGUID("app"))
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+			appGUID = createApp(space1GUID, generateGUID("app"))
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpErr = certClient.R().SetResult(&result).Get("/v3/apps/" + app.GUID + "/processes")
+			var err error
+			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/processes")
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("successfully lists the empty set of processes", func() {
-			Expect(httpErr).NotTo(HaveOccurred())
-			Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(result).To(HaveKeyWithValue("resources", BeEmpty()))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.Resources).To(BeEmpty())
+		})
+	})
+
+	Describe("Get app process by type", func() {
+		var (
+			result      resource
+			processGUID string
+		)
+
+		BeforeEach(func() {
+			appGUID = pushNodeApp(space1GUID)
+			processGUID = getProcess(appGUID, "web")
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/processes/web")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns a not-found error to users with no space access", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+			Expect(resp).To(HaveRestyBody(ContainSubstring("App not found")))
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+			})
+
+			It("successfully returns the process", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.GUID).To(Equal(processGUID))
+			})
 		})
 	})
 
 	Describe("List app routes", func() {
+		var result resourceList
+
 		BeforeEach(func() {
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
-			app = createApp(space1.GUID, generateGUID("app"))
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+			appGUID = createApp(space1GUID, generateGUID("app"))
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpErr = certClient.R().SetResult(&result).Get("/v3/apps/" + app.GUID + "/routes")
+			var err error
+			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/routes")
+			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("successfully lists the empty set of processes", func() {
-			Expect(httpErr).NotTo(HaveOccurred())
-			Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(result).To(HaveKeyWithValue("resources", BeEmpty()))
+		It("successfully lists the empty set of routes", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.Resources).To(BeEmpty())
 		})
 	})
 
 	Describe("Built apps", func() {
 		var (
-			pkg   presenter.PackageResponse
-			build presenter.BuildResponse
+			pkgGUID   string
+			buildGUID string
+			result    resource
 		)
 
 		BeforeEach(func() {
-			app = createApp(space1.GUID, generateGUID("app"))
-			pkg = createPackage(app.GUID, adminAuthHeader)
-			uploadNodeApp(pkg.GUID, adminAuthHeader)
-			build = createBuild(pkg.GUID, adminAuthHeader)
+			appGUID = createApp(space1GUID, generateGUID("app"))
+			pkgGUID = createPackage(appGUID)
+			uploadNodeApp(pkgGUID)
+			buildGUID = createBuild(pkgGUID)
+			waitForDroplet(buildGUID)
 
-			Eventually(func() (int, error) {
-				resp, err := adminClient.R().Get("/v3/droplets/" + build.GUID)
-				return resp.StatusCode(), err
-			}).Should(Equal(http.StatusOK))
-
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1.GUID, adminAuthHeader)
+			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
 		})
 
 		Describe("Get app current droplet", func() {
 			BeforeEach(func() {
-				setCurrentDroplet(app.GUID, build.GUID, adminAuthHeader)
+				setCurrentDroplet(appGUID, buildGUID)
 			})
 
 			JustBeforeEach(func() {
-				httpResp, httpErr = certClient.R().SetResult(&result).Get("/v3/apps/" + app.GUID + "/droplets/current")
+				var err error
+				resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/droplets/current")
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("succeeds", func() {
-				Expect(httpErr).NotTo(HaveOccurred())
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
-				Expect(result).To(HaveKeyWithValue("state", "STAGED"))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.GUID).To(Equal(buildGUID))
 			})
 		})
 
 		Describe("Set app current droplet", func() {
+			type currentDropletResource struct {
+				Data resource `json:"data"`
+			}
+
+			var result currentDropletResource
+
 			JustBeforeEach(func() {
-				httpResp, httpErr = certClient.R().
-					SetBody(map[string]interface{}{
-						"data": map[string]interface{}{
-							"guid": build.GUID,
-						},
-					}).
+				var err error
+				var body currentDropletResource
+				body.Data.GUID = buildGUID
+
+				resp, err = certClient.R().
+					SetBody(body).
 					SetResult(&result).
-					Patch("/v3/apps/" + app.GUID + "/relationships/current_droplet")
+					Patch("/v3/apps/" + appGUID + "/relationships/current_droplet")
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("returns 200", func() {
-				Expect(httpErr).NotTo(HaveOccurred())
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
-				Expect(result).To(HaveKeyWithValue("data", HaveKeyWithValue("guid", build.GUID)))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.Data.GUID).To(Equal(buildGUID))
+			})
+		})
+
+		Describe("Start an app", func() {
+			var result appResource
+
+			BeforeEach(func() {
+				setCurrentDroplet(appGUID, buildGUID)
+			})
+
+			JustBeforeEach(func() {
+				var err error
+				resp, err = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/start")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("succeeds", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.State).To(Equal("STARTED"))
 			})
 		})
 
 		Describe("Restart an app", func() {
+			var result appResource
+
 			BeforeEach(func() {
-				setCurrentDroplet(app.GUID, build.GUID, adminAuthHeader)
+				setCurrentDroplet(appGUID, buildGUID)
 			})
 
 			JustBeforeEach(func() {
-				httpResp, httpErr = certClient.R().SetResult(&result).Post("/v3/apps/" + app.GUID + "/actions/restart")
+				var err error
+				resp, err = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("succeeds", func() {
-				Expect(httpErr).NotTo(HaveOccurred())
-				Expect(httpResp.StatusCode()).To(Equal(http.StatusOK))
-				Expect(result).To(HaveKeyWithValue("state", "STARTED"))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.State).To(Equal("STARTED"))
+			})
+		})
+
+		Describe("Stop an app", func() {
+			var result appResource
+
+			JustBeforeEach(func() {
+				var err error
+				resp, err = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/stop")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("succeeds", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.State).To(Equal("STOPPED"))
+			})
+		})
+	})
+
+	Describe("Running Apps", func() {
+		var processGUID string
+
+		BeforeEach(func() {
+			appGUID = pushNodeApp(space1GUID)
+			processGUID = getProcess(appGUID, "web")
+		})
+
+		Describe("Scale a process", func() {
+			var result responseResource
+			var errResp cfErrs
+			JustBeforeEach(func() {
+				var err error
+				resp, err = certClient.R().
+					SetBody(scaleResource{Instances: 2}).
+					SetError(&errResp).
+					SetResult(&result).
+					Post("/v3/apps/" + appGUID + "/processes/web/actions/scale")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns not found for users with no role in the space", func() {
+				expectNotFoundError(resp, errResp, repositories.AppResourceType)
+			})
+
+			When("the user is a space manager", func() {
+				BeforeEach(func() {
+					createSpaceRole("space_manager", rbacv1.UserKind, certUserName, space1GUID)
+				})
+
+				It("returns forbidden", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+				})
+			})
+
+			When("the user is a space developer", func() {
+				BeforeEach(func() {
+					createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+				})
+
+				It("succeeds, and returns the process", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+					Expect(result.GUID).To(Equal(processGUID))
+				})
 			})
 		})
 	})

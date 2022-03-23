@@ -30,3 +30,8 @@ issues:
     - path: _test\.go
       linters:
       - dupl
+    # We are getting false positives comparing the cfserviceinstance and cfservicebinding reconcile loops. This may
+    # become unnecessary later if the implementation diverges more.
+    - path: service\w+_controller\.go
+      linters:
+        - dupl

@@ -327,36 +327,6 @@ var _ = Describe("RoleHandler", func() {
 			})
 		})
 
-		When("the user is not authorized", func() {
-			BeforeEach(func() {
-				roleRepo.CreateRoleReturns(repositories.RoleRecord{}, repositories.NewForbiddenError(nil))
-			})
-
-			It("returns a unauthorized error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("the user has been already assigned to that role", func() {
-			BeforeEach(func() {
-				roleRepo.CreateRoleReturns(repositories.RoleRecord{}, repositories.ErrorDuplicateRoleBinding)
-			})
-
-			It("returns unprocessable entry error", func() {
-				expectUnprocessableEntityError("User 'my-user' already has 'space_developer' role")
-			})
-		})
-
-		When("the user does not have a role in the parent organization", func() {
-			BeforeEach(func() {
-				roleRepo.CreateRoleReturns(repositories.RoleRecord{}, repositories.ErrorMissingRoleBindingInParentOrg)
-			})
-
-			It("returns unprocessable entry error", func() {
-				expectUnprocessableEntityError("Users cannot be assigned roles in a space if they do not have a role in that space's organization.")
-			})
-		})
-
 		When("the role does not contain a user or service account", func() {
 			BeforeEach(func() {
 				createRoleRequestBody = `{

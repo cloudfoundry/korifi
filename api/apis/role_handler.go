@@ -2,8 +2,6 @@ package apis
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -18,7 +16,7 @@ import (
 )
 
 const (
-	RolesEndpoint = "/v3/roles"
+	RolesPath = "/v3/roles"
 )
 
 type RoleName string
@@ -59,16 +57,10 @@ func NewRoleHandler(apiBaseURL url.URL, roleRepo CFRoleRepository, decoderValida
 	}
 }
 
-func (h *RoleHandler) roleCreateHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
+func (h *RoleHandler) roleCreateHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.RoleCreate
-	rme := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload)
-	if rme != nil {
-		h.logger.Error(rme, "Failed to parse body")
-		writeRequestMalformedErrorResponse(w, rme)
-
-		return
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, err
 	}
 
 	role := payload.ToMessage()
@@ -76,36 +68,14 @@ func (h *RoleHandler) roleCreateHandler(authInfo authorization.Info, w http.Resp
 
 	record, err := h.roleRepo.CreateRole(r.Context(), authInfo, role)
 	if err != nil {
-		if errors.As(err, &repositories.ForbiddenError{}) {
-			h.logger.Info("create-role: not authorized", "error", err)
-			writeNotAuthorizedErrorResponse(w)
-			return
-		}
-		if errors.Is(err, repositories.ErrorDuplicateRoleBinding) {
-			errorDetail := fmt.Sprintf("User '%s' already has '%s' role", role.User, role.Type)
-			h.logger.Info(errorDetail)
-			writeUnprocessableEntityError(w, errorDetail)
-			return
-		}
-		if errors.Is(err, repositories.ErrorMissingRoleBindingInParentOrg) {
-			h.logger.Info("no rolebinding in parent org", "space", role.Space, "user", role.User)
-			errorDetail := "Users cannot be assigned roles in a space if they do not have a role in that space's organization."
-			writeUnprocessableEntityError(w, errorDetail)
-			return
-		}
 		h.logger.Error(err, "Failed to create role", "Role Type", role.Type, "Space", role.Space, "User", role.User)
-		writeUnknownErrorResponse(w)
-		return
+		return nil, err
 	}
 
-	err = writeJsonResponse(w, presenter.ForCreateRole(record, h.apiBaseURL), http.StatusCreated)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "User/Role", role.User+"/"+role.Type)
-		writeUnknownErrorResponse(w)
-	}
+	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForCreateRole(record, h.apiBaseURL)), nil
 }
 
 func (h *RoleHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(RolesEndpoint).Methods("POST").HandlerFunc(w.Wrap(h.roleCreateHandler))
+	router.Path(RolesPath).Methods("POST").HandlerFunc(w.Wrap(h.roleCreateHandler))
 }

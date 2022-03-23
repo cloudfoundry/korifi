@@ -2,13 +2,22 @@ package repositories_test
 
 import (
 	"context"
+	"errors"
+	"strconv"
+	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -32,23 +41,18 @@ var _ = Describe("PodRepository", func() {
 		spaceGUID       string
 		processGUID     string
 		namespace       *corev1.Namespace
-		pod1            *corev1.Pod
-		pod2            *corev1.Pod
-		podOtherVersion *corev1.Pod
+		metricFetcherFn *fake.MetricsFetcherFn
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		spaceGUID = uuid.NewString()
-		processGUID = uuid.NewString()
-		podRepo = NewPodRepo(k8sClient)
+		metricFetcherFn = new(fake.MetricsFetcherFn)
+		spaceGUID = prefixedGUID("space")
+		processGUID = prefixedGUID("process")
+		podRepo = NewPodRepo(userClientFactory, metricFetcherFn.Spy)
 		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}
 
 		Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
-
-		pod1 = createPodDef(pod1Name, spaceGUID, appGUID, processGUID, "0", "1")
-		pod2 = createPodDef(pod2Name, spaceGUID, appGUID, processGUID, "1", "1")
-		podOtherVersion = createPodDef(podOtherVersionName, spaceGUID, appGUID, processGUID, "1", "2")
 	})
 
 	AfterEach(func() {
@@ -56,19 +60,30 @@ var _ = Describe("PodRepository", func() {
 	})
 
 	Describe("ListPodStats", func() {
-		var message ListPodStatsMessage
+		var (
+			message      ListPodStatsMessage
+			records      []PodStatsRecord
+			listStatsErr error
 
-		const (
-			pod3Name = "some-other-pod-1"
-			pod4Name = "some-pod-4"
+			pod1            *corev1.Pod
+			pod2            *corev1.Pod
+			podOtherVersion *corev1.Pod
+			cpu             resource.Quantity
+			mem             resource.Quantity
+			disk            resource.Quantity
+			err             error
+			metricstime     time.Time
 		)
 
 		BeforeEach(func() {
+			pod1 = createPodDef(pod1Name, spaceGUID, appGUID, processGUID, "0", "1")
+			pod2 = createPodDef(pod2Name, spaceGUID, appGUID, processGUID, "1", "1")
+			podOtherVersion = createPodDef(podOtherVersionName, spaceGUID, appGUID, processGUID, "1", "2")
 			Expect(k8sClient.Create(ctx, pod1)).To(Succeed())
 			Expect(k8sClient.Create(ctx, pod2)).To(Succeed())
 			Expect(k8sClient.Create(ctx, podOtherVersion)).To(Succeed())
 
-			pod3 := createPodDef(pod3Name, spaceGUID, uuid.NewString(), processGUID, "0", "1")
+			pod3 := createPodDef(prefixedGUID("pod3"), spaceGUID, uuid.NewString(), processGUID, "0", "1")
 			Expect(k8sClient.Create(ctx, pod3)).To(Succeed())
 
 			pod1.Status = corev1.PodStatus{
@@ -83,149 +98,263 @@ var _ = Describe("PodRepository", func() {
 				},
 			}
 			Expect(k8sClient.Status().Update(ctx, pod1)).To(Succeed())
-		})
 
-		When("All required pods exists", func() {
-			BeforeEach(func() {
-				message = ListPodStatsMessage{
-					Namespace:   spaceGUID,
-					AppGUID:     "the-app-guid",
-					ProcessGUID: processGUID,
-					Instances:   2,
-					ProcessType: "web",
-					AppRevision: "1",
-				}
-			})
-			It("Fetches all the pods and sets the appropriate state", func() {
-				records, err := podRepo.ListPodStats(ctx, authInfo, message)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(records).To(HaveLen(2))
-				Expect(records).To(ConsistOf(
-					[]PodStatsRecord{
-						{
-							Type:  "web",
-							Index: 0,
-							State: "RUNNING",
-						},
-						{
-							Type:  "web",
-							Index: 1,
-							State: "DOWN",
-						},
-					},
-				))
-			})
-		})
-
-		When("Some pods are missing", func() {
-			BeforeEach(func() {
-				message = ListPodStatsMessage{
-					Namespace:   spaceGUID,
-					AppGUID:     "the-app-guid",
-					ProcessGUID: processGUID,
-					Instances:   3,
-					ProcessType: "web",
-					AppRevision: "1",
-				}
-			})
-			It("Fetches pods and sets the appropriate state", func() {
-				records, err := podRepo.ListPodStats(ctx, authInfo, message)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(records).To(HaveLen(3))
-				Expect(records).To(ConsistOf(
-					[]PodStatsRecord{
-						{
-							Type:  "web",
-							Index: 0,
-							State: "RUNNING",
-						},
-						{
-							Type:  "web",
-							Index: 1,
-							State: "DOWN",
-						},
-						{
-							Type:  "web",
-							Index: 2,
-							State: "DOWN",
-						},
-					},
-				))
-			})
-		})
-
-		When("A pod is in pending state", func() {
-			BeforeEach(func() {
-				message = ListPodStatsMessage{
-					Namespace:   spaceGUID,
-					AppGUID:     "the-app-guid",
-					ProcessGUID: processGUID,
-					Instances:   3,
-					ProcessType: "web",
-					AppRevision: "1",
-				}
-
-				pod3 := createPodDef(pod4Name, spaceGUID, appGUID, processGUID, "2", "1")
-				Expect(k8sClient.Create(ctx, pod3)).To(Succeed())
-
-				pod3.Status = corev1.PodStatus{
-					Phase: corev1.PodPending,
-					ContainerStatuses: []corev1.ContainerStatus{
-						{
-							State: corev1.ContainerState{
-								Running: &corev1.ContainerStateRunning{},
-							},
-							Ready: false,
-						},
-					},
-				}
-
-				Expect(k8sClient.Status().Update(ctx, pod3)).To(Succeed())
-			})
-
-			It("fetches pods and sets the appropriate state", func() {
-				records, err := podRepo.ListPodStats(ctx, authInfo, message)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(records).To(HaveLen(3))
-				Expect(records).To(ConsistOf(
-					[]PodStatsRecord{
-						{
-							Type:  "web",
-							Index: 0,
-							State: "RUNNING",
-						},
-						{
-							Type:  "web",
-							Index: 1,
-							State: "DOWN",
-						},
-						{
-							Type:  "web",
-							Index: 2,
-							State: "STARTING",
-						},
-					},
-				))
-			})
-		})
-	})
-
-	When("A process has zero instances", func() {
-		It("fetches no pods", func() {
-			message := ListPodStatsMessage{
+			message = ListPodStatsMessage{
 				Namespace:   spaceGUID,
 				AppGUID:     "the-app-guid",
-				ProcessGUID: uuid.NewString(),
-				Instances:   0,
+				ProcessGUID: processGUID,
 				ProcessType: "web",
 				AppRevision: "1",
+				Instances:   2,
 			}
-			records, err := podRepo.ListPodStats(ctx, authInfo, message)
+
+			cpu, err = resource.ParseQuantity("423730n")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(records).To(HaveLen(0))
-			Expect(records).To(ConsistOf(
-				[]PodStatsRecord{},
-			))
+			mem, err = resource.ParseQuantity("19177472")
+			Expect(err).NotTo(HaveOccurred())
+			disk, err = resource.ParseQuantity("69705728")
+			Expect(err).NotTo(HaveOccurred())
+			metricstime = time.Now()
+
+			podMetrics := metricsv1beta1.PodMetrics{
+				Timestamp: metav1.Time{
+					Time: metricstime,
+				},
+				Window: metav1.Duration{},
+				Containers: []metricsv1beta1.ContainerMetrics{
+					{
+						Name: "my-container",
+						Usage: corev1.ResourceList{
+							corev1.ResourceCPU:     cpu,
+							corev1.ResourceMemory:  mem,
+							corev1.ResourceStorage: disk,
+						},
+					},
+				},
+			}
+			metricFetcherFn.Returns(&podMetrics, nil)
+
+			listStatsErr = nil
+		})
+
+		JustBeforeEach(func() {
+			records, listStatsErr = podRepo.ListPodStats(ctx, authInfo, message)
+		})
+
+		When("authorized in the space", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
+			})
+
+			It("Fetches all the pods and sets the appropriate state", func() {
+				Expect(listStatsErr).NotTo(HaveOccurred())
+
+				Expect(records).To(MatchElementsWithIndex(matchElementsWithIndexIDFn, IgnoreExtras, Elements{
+					"0": MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal("web"),
+						"Index": Equal(0),
+						"State": Equal("RUNNING"),
+						"Usage": MatchFields(IgnoreExtras, Fields{
+							"Time": PointTo(Equal(metricstime.UTC().Format(TimestampFormat))),
+							"CPU":  PointTo(Equal(0.042373)),
+							"Mem":  PointTo(Equal(mem.Value())),
+							"Disk": PointTo(Equal(disk.Value())),
+						}),
+					}),
+					"1": MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal("web"),
+						"Index": Equal(1),
+						"State": Equal("DOWN"),
+						"Usage": Equal(Usage{}),
+					}),
+				}))
+			})
+
+			When("the 'oci' container is missing in one of the Pods", func() {
+				BeforeEach(func() {
+					podWrong := createPodDef("pod-wrong", spaceGUID, appGUID, processGUID, "0", "1")
+					podWrong.Spec.Containers[0].Name = "not-oci"
+					Expect(k8sClient.Create(ctx, podWrong)).To(Succeed())
+				})
+
+				It("fails", func() {
+					Expect(listStatsErr).To(MatchError("container \"opi\" not found"))
+				})
+			})
+
+			When("the CF_INSTANCE_INDEX env var is missing in one of the Pods", func() {
+				BeforeEach(func() {
+					podWrong := createPodDef("pod-wrong", spaceGUID, appGUID, processGUID, "0", "1")
+					podWrong.Spec.Containers[0].Env[0].Name = "NOT_CF_INSTANCE_INDEX"
+					Expect(k8sClient.Create(ctx, podWrong)).To(Succeed())
+				})
+
+				It("fails", func() {
+					Expect(listStatsErr).To(MatchError("CF_INSTANCE_INDEX not set"))
+				})
+			})
+
+			When("the CF_INSTANCE_INDEX env var is not a valid integer", func() {
+				BeforeEach(func() {
+					podWrong := createPodDef("pod-wrong", spaceGUID, appGUID, processGUID, "xxx", "1")
+					Expect(k8sClient.Create(ctx, podWrong)).To(Succeed())
+				})
+
+				It("fails", func() {
+					Expect(listStatsErr).To(MatchError(HavePrefix("CF_INSTANCE_INDEX is not a valid index:")))
+				})
+			})
+
+			When("the CF_INSTANCE_INDEX env var has a negative value", func() {
+				BeforeEach(func() {
+					podWrong := createPodDef("pod-wrong", spaceGUID, appGUID, processGUID, "-1", "1")
+					Expect(k8sClient.Create(ctx, podWrong)).To(Succeed())
+				})
+
+				It("fails", func() {
+					Expect(listStatsErr).To(MatchError("CF_INSTANCE_INDEX is not a valid index: instance indexes can't be negative"))
+				})
+			})
+
+			When("Some pods are missing", func() {
+				BeforeEach(func() {
+					message.Instances = 3
+				})
+
+				It("Fetches pods and sets the appropriate state", func() {
+					Expect(listStatsErr).NotTo(HaveOccurred())
+					Expect(records).To(MatchElementsWithIndex(matchElementsWithIndexIDFn, IgnoreExtras, Elements{
+						"0": MatchFields(IgnoreExtras, Fields{
+							"Type":  Equal("web"),
+							"Index": Equal(0),
+							"State": Equal("RUNNING"),
+							"Usage": MatchFields(IgnoreExtras, Fields{
+								"Time": PointTo(Equal(metricstime.UTC().Format(TimestampFormat))),
+								"CPU":  PointTo(Equal(0.042373)),
+								"Mem":  PointTo(Equal(mem.Value())),
+								"Disk": PointTo(Equal(disk.Value())),
+							}),
+						}),
+						"1": MatchFields(IgnoreExtras, Fields{
+							"Type":  Equal("web"),
+							"Index": Equal(1),
+							"State": Equal("DOWN"),
+							"Usage": Equal(Usage{}),
+						}),
+						"2": MatchFields(IgnoreExtras, Fields{
+							"Type":  Equal("web"),
+							"Index": Equal(2),
+							"State": Equal("DOWN"),
+							"Usage": Equal(Usage{}),
+						}),
+					}))
+				})
+			})
+
+			When("A pod is in pending state", func() {
+				BeforeEach(func() {
+					message.Instances = 3
+
+					pod3 := createPodDef(prefixedGUID("pod3"), spaceGUID, appGUID, processGUID, "2", "1")
+					Expect(k8sClient.Create(ctx, pod3)).To(Succeed())
+
+					pod3.Status = corev1.PodStatus{
+						Phase: corev1.PodPending,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								State: corev1.ContainerState{
+									Running: &corev1.ContainerStateRunning{},
+								},
+								Ready: false,
+							},
+						},
+					}
+					Expect(k8sClient.Status().Update(ctx, pod3)).To(Succeed())
+				})
+
+				It("fetches pods and sets the appropriate state", func() {
+					Expect(listStatsErr).NotTo(HaveOccurred())
+
+					Expect(records).To(MatchElementsWithIndex(matchElementsWithIndexIDFn, IgnoreExtras, Elements{
+						"0": MatchFields(IgnoreExtras, Fields{
+							"Type":  Equal("web"),
+							"Index": Equal(0),
+							"State": Equal("RUNNING"),
+							"Usage": MatchFields(IgnoreExtras, Fields{
+								"Time": PointTo(Equal(metricstime.UTC().Format(TimestampFormat))),
+								"CPU":  PointTo(Equal(0.042373)),
+								"Mem":  PointTo(Equal(mem.Value())),
+								"Disk": PointTo(Equal(disk.Value())),
+							}),
+						}),
+						"1": MatchFields(IgnoreExtras, Fields{
+							"Type":  Equal("web"),
+							"Index": Equal(1),
+							"State": Equal("DOWN"),
+							"Usage": Equal(Usage{}),
+						}),
+						"2": MatchFields(IgnoreExtras, Fields{
+							"Type":  Equal("web"),
+							"Index": Equal(2),
+							"State": Equal("STARTING"),
+							"Usage": MatchFields(IgnoreExtras, Fields{
+								"Time": PointTo(Equal(metricstime.UTC().Format(TimestampFormat))),
+								"CPU":  PointTo(Equal(0.042373)),
+								"Mem":  PointTo(Equal(mem.Value())),
+								"Disk": PointTo(Equal(disk.Value())),
+							}),
+						}),
+					}))
+				})
+			})
+
+			When("MetricFetcherFunction return an metrics resource not found error", func() {
+				BeforeEach(func() {
+					metricFetcherFn.Returns(nil, errors.New("the server could not find the requested resource"))
+				})
+				It("fetches all the pods and sets the usage stats with empty values", func() {
+					Expect(listStatsErr).NotTo(HaveOccurred())
+					Expect(records).To(ConsistOf(
+						[]PodStatsRecord{
+							{Type: "web", Index: 0, State: "RUNNING"},
+							{Type: "web", Index: 1, State: "DOWN"},
+						},
+					))
+				})
+			})
+
+			When("MetricsFetcherFunction returns a not found error for the PodMetrics", func() {
+				BeforeEach(func() {
+					metricFetcherFn.Returns(nil, errors.New("podmetrics.metrics.k8s.io \\\"Blah\\\" not found"))
+				})
+				It("fetches all the pods and sets the usage stats with empty values", func() {
+					Expect(listStatsErr).NotTo(HaveOccurred())
+					Expect(records).To(ConsistOf(
+						[]PodStatsRecord{
+							{Type: "web", Index: 0, State: "RUNNING"},
+							{Type: "web", Index: 1, State: "DOWN"},
+						},
+					))
+				})
+			})
+
+			When("MetricFetcherFunction return some other error", func() {
+				BeforeEach(func() {
+					metricFetcherFn.Returns(nil, errors.New("boom"))
+				})
+				It("returns the error", func() {
+					Expect(listStatsErr.Error()).To(ContainSubstring("boom"))
+				})
+			})
+		})
+
+		When("the user is not authorized in the space", func() {
+			It("returns a forbidden error", func() {
+				Expect(listStatsErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+				var forbiddenErr apierrors.ForbiddenError
+				Expect(errors.As(listStatsErr, &forbiddenErr)).To(BeTrue())
+				Expect(forbiddenErr.ResourceType()).To(Equal(ProcessStatsResourceType))
+			})
 		})
 	})
 })
@@ -260,4 +389,8 @@ func createPodDef(name, namespace, appGUID, processGUID, index, version string) 
 			},
 		},
 	}
+}
+
+func matchElementsWithIndexIDFn(index int, element interface{}) string {
+	return strconv.Itoa(index)
 }

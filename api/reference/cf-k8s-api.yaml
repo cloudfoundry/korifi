@@ -102,6 +102,14 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - metrics.k8s.io
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - networking.cloudfoundry.org
   resources:
   - cfdomains
@@ -147,9 +155,20 @@ rules:
 - apiGroups:
   - services.cloudfoundry.org
   resources:
+  - cfservicebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
   - cfserviceinstances
   verbs:
   - create
+  - delete
+  - get
   - list
 - apiGroups:
   - workloads.cloudfoundry.org
@@ -240,8 +259,9 @@ subjects:
 apiVersion: v1
 data:
   cf_k8s_api_config.yaml: |
-    serverURL: "https://api.example.org"
-    serverPort: 9000
+    externalFQDN: "api.example.org"
+    internalPort: 9000
+
     rootNamespace: cf
     defaultLifecycleConfig:
       type: buildpack
@@ -251,6 +271,7 @@ data:
     packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
     packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
     clusterBuilderName: cf-kpack-cluster-builder
+    defaultDomainName: apps.example.org
   role_mappings_config.yaml: |
     roleMappings:
       admin:
@@ -259,6 +280,9 @@ data:
       admin_read_only:
         name: cf-k8s-controllers-admin-read-only
         propagate: true
+      cf_user:
+        name: cf-k8s-controllers-root-namespace-user
+        propagate: false
       global_auditor:
         name: cf-k8s-controllers-global-auditor
         propagate: true
@@ -288,7 +312,7 @@ data:
         propagate: false
 kind: ConfigMap
 metadata:
-  name: cf-k8s-api-config-m867b9mmb2
+  name: cf-k8s-api-config-446hhfhb5b
   namespace: cf-k8s-api-system
 ---
 apiVersion: v1
@@ -301,7 +325,7 @@ metadata:
 spec:
   ports:
   - name: web
-    port: 80
+    port: 443
     protocol: TCP
     targetPort: web
   selector:
@@ -343,7 +367,7 @@ spec:
       serviceAccountName: cf-k8s-api-cf-admin-serviceaccount
       volumes:
       - configMap:
-          name: cf-k8s-api-config-m867b9mmb2
+          name: cf-k8s-api-config-446hhfhb5b
         name: cf-k8s-api-config
 ---
 apiVersion: projectcontour.io/v1
@@ -359,7 +383,7 @@ spec:
     - prefix: /
     services:
     - name: cf-k8s-api-svc
-      port: 80
+      port: 443
     timeoutPolicy:
       response: 5m
   virtualhost:

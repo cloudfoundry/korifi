@@ -6,19 +6,12 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/base64"
 	"encoding/pem"
 	"math/big"
 	"time"
 
 	. "github.com/onsi/gomega"
 )
-
-func CreateCertificateAuthHeader() string {
-	certKeyPEM := CreateCertificatePEM()
-
-	return "ClientCert " + base64.StdEncoding.EncodeToString(certKeyPEM)
-}
 
 func CreateCertificatePEM() []byte {
 	certPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)

@@ -10,8 +10,6 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -24,26 +22,28 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", func() {
-	BeforeEach(func() {
-		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
-		identityProvider := new(fake.IdentityProvider)
-		namespacePermissions := authorization.NewNamespacePermissions(k8sClient, identityProvider, "root-ns")
+	const (
+		domainName = "my-domain.fun"
+	)
 
-		appRepo := repositories.NewAppRepo(k8sClient, clientFactory, namespacePermissions)
-		domainRepo := repositories.NewDomainRepo(k8sClient)
-		processRepo := repositories.NewProcessRepo(k8sClient)
-		routeRepo := repositories.NewRouteRepo(k8sClient, clientFactory)
+	BeforeEach(func() {
+		appRepo := repositories.NewAppRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
+		domainRepo := repositories.NewDomainRepo(rootNamespace, k8sClient, namespaceRetriever, clientFactory)
+		processRepo := repositories.NewProcessRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
+		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewSpaceManifestHandler(
 			logf.Log.WithName("integration tests"),
 			*serverURL,
+			domainName,
 			actions.NewApplyManifest(appRepo, domainRepo, processRepo, routeRepo).Invoke,
-			repositories.NewOrgRepo("cf", k8sClient, clientFactory, namespacePermissions, 1*time.Minute, true),
+			repositories.NewOrgRepo("cf", k8sClient, clientFactory, nsPermissions, 1*time.Minute, true),
 			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
@@ -51,32 +51,24 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 	When("on the happy path", func() {
 		var (
-			namespace      *corev1.Namespace
+			namespace      *hnsv1alpha2.SubnamespaceAnchor
 			requestEnvVars map[string]string
 			requestBody    string
+			domainGUID     string
 		)
 
 		const (
-			domainName = "my-domain.fun"
-			domainGUID = "domain-guid"
-			appName    = "app1"
-			key1       = "KEY1"
-			key2       = "KEY2"
+			appName = "app1"
+			key1    = "KEY1"
+			key2    = "KEY2"
 		)
 
 		BeforeEach(func() {
-			namespaceGUID := generateGUID()
-			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceGUID}}
-			Expect(
-				k8sClient.Create(context.Background(), namespace),
-			).To(Succeed())
+			domainGUID = generateGUID()
+			org := createOrgAnchorAndNamespace(ctx, rootNamespace, generateGUID())
+			namespace = createSpaceAnchorAndNamespace(ctx, org.Name, "spacename-"+generateGUID())
 
-			role := createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
-			createRoleBinding(ctx, userName, role.Name, namespaceGUID)
-
-			DeferCleanup(func() {
-				_ = k8sClient.Delete(context.Background(), namespace)
-			})
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
 
 			requestEnvVars = map[string]string{
 				key1: "VAL1",
@@ -84,8 +76,11 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			}
 
 			domain := &networkingv1alpha1.CFDomain{
-				ObjectMeta: metav1.ObjectMeta{Name: domainGUID},
-				Spec:       networkingv1alpha1.CFDomainSpec{Name: domainName},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      domainGUID,
+					Namespace: rootNamespace,
+				},
+				Spec: networkingv1alpha1.CFDomainSpec{Name: domainName},
 			}
 
 			Expect(
@@ -265,7 +260,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 					route := routeList.Items[0]
 					Expect(route.Spec).To(MatchAllFields(Fields{
-						"DomainRef": Equal(corev1.LocalObjectReference{Name: domainGUID}),
+						"DomainRef": Equal(corev1.ObjectReference{Name: domainGUID, Namespace: rootNamespace}),
 						"Host":      Equal(host),
 						"Path":      Equal(path),
 						"Protocol":  BeEquivalentTo("http"),
@@ -296,10 +291,13 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 							Namespace: namespace.Name,
 						},
 						Spec: networkingv1alpha1.CFRouteSpec{
-							Host:      host,
-							Path:      path,
-							Protocol:  "http",
-							DomainRef: corev1.LocalObjectReference{Name: domainGUID},
+							Host:     host,
+							Path:     path,
+							Protocol: "http",
+							DomainRef: corev1.ObjectReference{
+								Name:      domainGUID,
+								Namespace: namespace.Name,
+							},
 							Destinations: []networkingv1alpha1.Destination{
 								{
 									GUID:        destinationGUID,
@@ -338,10 +336,13 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 					route := routeList.Items[0]
 					Expect(route.Spec).To(MatchAllFields(Fields{
-						"DomainRef": Equal(corev1.LocalObjectReference{Name: domainGUID}),
-						"Host":      Equal(host),
-						"Path":      Equal(path),
-						"Protocol":  BeEquivalentTo("http"),
+						"DomainRef": Equal(corev1.ObjectReference{
+							Name:      domainGUID,
+							Namespace: namespace.Name,
+						}),
+						"Host":     Equal(host),
+						"Path":     Equal(path),
+						"Protocol": BeEquivalentTo("http"),
 						"Destinations": ConsistOf(
 							Equal(originalRoute.Spec.Destinations[0]),
 							MatchAllFields(Fields{
@@ -470,10 +471,13 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 						Namespace: namespace.Name,
 					},
 					Spec: networkingv1alpha1.CFRouteSpec{
-						Host:      "custom",
-						Path:      "/path",
-						Protocol:  "http",
-						DomainRef: corev1.LocalObjectReference{Name: domainGUID},
+						Host:     "custom",
+						Path:     "/path",
+						Protocol: "http",
+						DomainRef: corev1.ObjectReference{
+							Name:      domainGUID,
+							Namespace: namespace.Name,
+						},
 						Destinations: []networkingv1alpha1.Destination{
 							{
 								GUID:        destinationGUID,

@@ -14,7 +14,7 @@ import (
 var _ = Describe("ServiceRouteBinding", func() {
 	Describe("the GET /v3/service_route_binding endpoint", func() {
 		BeforeEach(func() {
-			req, err := http.NewRequest("GET", "/v3/service_route_bindings", nil)
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/service_route_bindings", nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			apiHandler := apis.NewServiceRouteBindingHandler(

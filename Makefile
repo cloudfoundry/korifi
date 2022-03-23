@@ -1,8 +1,7 @@
 # Image URL to use all building/pushing image targets
 IMG_CONTROLLERS ?= cloudfoundry/cf-k8s-controllers:latest
 IMG_API ?= cloudfoundry/cf-k8s-api:latest
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+CRD_OPTIONS ?= "crd"
 
 # Run controllers tests with two nodes by default to (potentially) minimise
 # flakes.
@@ -104,6 +103,9 @@ docker-build: docker-build-controllers docker-build-api
 docker-build-controllers:
 	docker buildx build --load -f controllers/Dockerfile -t ${IMG_CONTROLLERS} .
 
+docker-build-controllers-debug:
+	docker buildx build --load -f controllers/remote-debug/Dockerfile -t ${IMG_CONTROLLERS} .
+
 docker-build-api:
 	docker buildx build --load -f api/Dockerfile -t ${IMG_API} .
 
@@ -133,18 +135,18 @@ uninstall-crds: manifests-controllers install-kustomize ## Uninstall CRDs from t
 
 deploy: install-crds deploy-controllers deploy-api
 
-deploy-kind: install-crds deploy-controllers-kind deploy-api-kind-auth
+deploy-kind: install-crds deploy-controllers deploy-api-kind-auth
 
 deploy-kind-local: install-crds deploy-controllers-kind-local deploy-api-kind-local
 
 deploy-controllers: install-kustomize build-reference-controllers
 	$(KUSTOMIZE) build controllers/config/default | kubectl apply -f -
 
-deploy-controllers-kind: install-kustomize build-reference-controllers
-	$(KUSTOMIZE) build controllers/config/overlays/kind | kubectl apply -f -
-
 deploy-controllers-kind-local: install-kustomize build-reference-controllers
 	$(KUSTOMIZE) build controllers/config/overlays/kind-local-registry | kubectl apply -f -
+
+deploy-controllers-kind-local-debug: install-kustomize build-reference-controllers
+	$(KUSTOMIZE) build controllers/config/overlays/kind-controller-debug | kubectl apply -f -
 
 deploy-api: install-kustomize build-reference-api
 	$(KUSTOMIZE) build api/config/base | kubectl apply -f -
@@ -173,7 +175,7 @@ build-reference-api: manifests-api install-kustomize
 
 CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0)
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0)
 
 KUSTOMIZE = $(shell pwd)/controllers/bin/kustomize
 install-kustomize: ## Download kustomize locally if necessary.

@@ -6,8 +6,8 @@ import (
 	"encoding/pem"
 	"fmt"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -46,11 +46,8 @@ func (c *CertInspector) WhoAmI(ctx context.Context, certPEM []byte) (Identity, e
 	// sufficient to determine whether the certificate is valid and accepted by
 	// the cluster
 	_, err = client.New(config, client.Options{})
-	if apierrors.IsUnauthorized(err) {
-		return Identity{}, InvalidAuthError{}
-	}
 	if err != nil {
-		return Identity{}, err
+		return Identity{}, apierrors.FromK8sError(err, "")
 	}
 
 	return Identity{

@@ -56,7 +56,8 @@ var _ = Describe("CFBuildReconciler", func() {
 
 		kpackServiceAccount      *corev1.ServiceAccount
 		kpackServiceAccountError error
-		// kpackRegistrySecret      *corev1.Secret
+		kpackRegistrySecret      *corev1.Secret
+		kpackRegistrySecretError error
 
 		kpackImage        *buildv1alpha2.Image
 		kpackImageError   error
@@ -76,7 +77,7 @@ var _ = Describe("CFBuildReconciler", func() {
 		cfBuildGUID = "cf-build-guid"
 		kpackImageGUID = cfBuildGUID
 
-		kpackRegistrySecretName = "kpack-registry-secret"
+		kpackRegistrySecretName = "source-registry-image-pull-secret"
 		kpackServiceAccountName = "kpack-service-account"
 
 		cfBuild = BuildCFBuildObject(cfBuildGUID, defaultNamespace, cfPackageGUID, cfAppGUID)
@@ -88,7 +89,8 @@ var _ = Describe("CFBuildReconciler", func() {
 		kpackImage = mockKpackImageObject(kpackImageGUID, defaultNamespace)
 		kpackImageError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
 
-		// kpackRegistrySecret = BuildDockerRegistrySecret(kpackRegistrySecretName, defaultNamespace)
+		kpackRegistrySecret = BuildDockerRegistrySecret(kpackRegistrySecretName, defaultNamespace)
+		kpackRegistrySecretError = nil
 		kpackServiceAccount = BuildServiceAccount(kpackServiceAccountName, defaultNamespace, kpackRegistrySecretName)
 		kpackServiceAccountError = nil
 
@@ -110,6 +112,9 @@ var _ = Describe("CFBuildReconciler", func() {
 			case *corev1.ServiceAccount:
 				kpackServiceAccount.DeepCopyInto(obj)
 				return kpackServiceAccountError
+			case *corev1.Secret:
+				kpackRegistrySecret.DeepCopyInto(obj)
+				return kpackRegistrySecretError
 			default:
 				panic("test Client Get provided a weird obj")
 			}
@@ -145,12 +150,12 @@ var _ = Describe("CFBuildReconciler", func() {
 		ctx = context.Background()
 	})
 
+	JustBeforeEach(func() {
+		reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
+	})
+
 	When("CFBuild status conditions are unknown and", func() {
 		When("on the happy path", func() {
-			BeforeEach(func() {
-				reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
-			})
-
 			It("does not return an error", func() {
 				Expect(reconcileErr).NotTo(HaveOccurred())
 			})
@@ -186,7 +191,6 @@ var _ = Describe("CFBuildReconciler", func() {
 			When("fetch CFBuild returns an error", func() {
 				BeforeEach(func() {
 					cfBuildError = errors.New("failing on purpose")
-					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
 
 				It("should return an error", func() {
@@ -197,7 +201,6 @@ var _ = Describe("CFBuildReconciler", func() {
 			When("fetch CFBuild returns a NotFoundError", func() {
 				BeforeEach(func() {
 					cfBuildError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
-					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
 
 				It("should NOT return any error", func() {
@@ -208,7 +211,6 @@ var _ = Describe("CFBuildReconciler", func() {
 			When("fetch CFApp returns an error", func() {
 				BeforeEach(func() {
 					cfAppError = errors.New("failing on purpose")
-					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
 
 				It("should return an error", func() {
@@ -219,7 +221,6 @@ var _ = Describe("CFBuildReconciler", func() {
 			When("fetch CFPackage returns an error", func() {
 				BeforeEach(func() {
 					cfPackageError = errors.New("failing on purpose")
-					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
 
 				It("should return an error", func() {
@@ -227,10 +228,33 @@ var _ = Describe("CFBuildReconciler", func() {
 				})
 			})
 
+			When("list CFServiceBindings returns an error", func() {
+				BeforeEach(func() {
+					fakeClient.ListReturns(errors.New("failing on purpose"))
+				})
+
+				It("should return an error", func() {
+					Expect(reconcileErr).To(HaveOccurred())
+				})
+			})
+
+			When("the kpack registry secret does not exist", func() {
+				BeforeEach(func() {
+					kpackRegistrySecretError = apierrors.NewNotFound(schema.GroupResource{}, kpackRegistrySecretName)
+				})
+
+				It("returns an error", func() {
+					Expect(reconcileErr).To(HaveOccurred())
+				})
+
+				It("does not create a kpack image", func() {
+					Expect(fakeClient.CreateCallCount()).To(BeZero())
+				})
+			})
+
 			When("create Kpack Image returns an error", func() {
 				BeforeEach(func() {
 					fakeClient.CreateReturns(errors.New("failing on purpose"))
-					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
 
 				It("should return an error", func() {
@@ -241,7 +265,6 @@ var _ = Describe("CFBuildReconciler", func() {
 			When("update status conditions returns an error", func() {
 				BeforeEach(func() {
 					fakeStatusWriter.UpdateReturns(errors.New("failing on purpose"))
-					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
 
 				It("should return an error", func() {
@@ -256,11 +279,11 @@ var _ = Describe("CFBuildReconciler", func() {
 			SetStatusCondition(&cfBuild.Status.Conditions, stagingConditionType, metav1.ConditionTrue)
 			SetStatusCondition(&cfBuild.Status.Conditions, succeededConditionType, metav1.ConditionUnknown)
 		})
+
 		When("on the happy path", func() {
 			BeforeEach(func() {
 				kpackImageError = nil
 				setKpackImageStatus(kpackImage, kpackReadyConditionType, "True")
-				reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 			})
 
 			It("does not return an error", func() {
@@ -284,7 +307,6 @@ var _ = Describe("CFBuildReconciler", func() {
 			When("fetch KpackImage returns an error", func() {
 				BeforeEach(func() {
 					kpackImageError = errors.New("failing on purpose")
-					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
 
 				It("should return an error", func() {
@@ -295,7 +317,6 @@ var _ = Describe("CFBuildReconciler", func() {
 			When("fetch KpackImage returns a NotFoundError", func() {
 				BeforeEach(func() {
 					kpackImageError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
-					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
 
 				It("should NOT return any error", func() {
@@ -304,10 +325,6 @@ var _ = Describe("CFBuildReconciler", func() {
 			})
 
 			When("kpack image status conditions for Type Succeeded is nil", func() {
-				BeforeEach(func() {
-					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
-				})
-
 				It("does not return an error", func() {
 					Expect(reconcileErr).NotTo(HaveOccurred())
 				})
@@ -321,7 +338,6 @@ var _ = Describe("CFBuildReconciler", func() {
 				BeforeEach(func() {
 					kpackImageError = nil
 					setKpackImageStatus(kpackImage, kpackReadyConditionType, "Unknown")
-					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
 
 				It("does not return an error", func() {
@@ -337,7 +353,6 @@ var _ = Describe("CFBuildReconciler", func() {
 				BeforeEach(func() {
 					kpackImageError = nil
 					setKpackImageStatus(kpackImage, kpackReadyConditionType, "False")
-					reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 				})
 
 				It("does not return an error", func() {
@@ -351,7 +366,6 @@ var _ = Describe("CFBuildReconciler", func() {
 				When("update status conditions returns an error", func() {
 					BeforeEach(func() {
 						fakeStatusWriter.UpdateReturns(errors.New("failing on purpose"))
-						reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 					})
 
 					It("returns an error", func() {
@@ -369,7 +383,6 @@ var _ = Describe("CFBuildReconciler", func() {
 				When("fetch kpack ServiceAccount returns an error", func() {
 					BeforeEach(func() {
 						kpackServiceAccountError = errors.New("kpackServiceAccountFetchError failing on purpose")
-						reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 					})
 
 					It("should return an error", func() {
@@ -384,7 +397,6 @@ var _ = Describe("CFBuildReconciler", func() {
 						BeforeEach(func() {
 							registryAuthFetcherError = errors.New("registryAuthFetcherError failing on purpose")
 							fakeRegistryAuthFetcher.Returns(nil, registryAuthFetcherError)
-							reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 						})
 
 						It("returns an error", func() {
@@ -399,7 +411,6 @@ var _ = Describe("CFBuildReconciler", func() {
 						BeforeEach(func() {
 							imageProcessFetcherError = errors.New("imageProcessFetcherError failing on purpose")
 							fakeImageProcessFetcher.Returns(nil, nil, imageProcessFetcherError)
-							reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 						})
 
 						It("returns an error", func() {
@@ -412,7 +423,6 @@ var _ = Describe("CFBuildReconciler", func() {
 				When("update status conditions returns an error", func() {
 					BeforeEach(func() {
 						fakeStatusWriter.UpdateReturns(errors.New("failing on purpose"))
-						reconcileResult, reconcileErr = cfBuildReconciler.Reconcile(ctx, req)
 					})
 
 					It("should return an error", func() {

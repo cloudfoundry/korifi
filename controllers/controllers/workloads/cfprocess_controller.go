@@ -30,25 +30,21 @@ import (
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-logr/logr"
 	cartographerv1alpha1 "github.com/vmware-tanzu/cartographer/pkg/apis/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
 // CFProcessReconciler reconciles a CFProcess object
@@ -67,8 +63,6 @@ type CFProcessReconciler struct {
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-
 	cfProcess := new(workloadsv1alpha1.CFProcess)
 	var err error
 	err = r.Client.Get(ctx, req.NamespacedName, cfProcess)
@@ -254,7 +248,7 @@ func (r *CFProcessReconciler) generateWorkload(actual *cartographerv1alpha1.Work
 	//desired.Spec.Env = envVars
 	//desired.Spec.Health = eiriniv1.Healthcheck{
 	//	Type:      string(cfProcess.Spec.HealthCheck.Type),
-	//	Port:      lrpHealthCheckPort,
+	//	Port:      int32(appPort),
 	//	Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
 	//	TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
 	//}
@@ -295,7 +289,7 @@ func (r *CFProcessReconciler) fetchWorkloadsForProcess(ctx context.Context, cfPr
 func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess *workloadsv1alpha1.CFProcess, cfApp *workloadsv1alpha1.CFApp) (int, error) {
 	// Get Routes for the process
 	var cfRoutesForProcess networkingv1alpha1.CFRouteList
-	err := r.Client.List(ctx, &cfRoutesForProcess, client.InNamespace(cfApp.GetNamespace()), client.MatchingFields{shared.DestinationAppName: cfApp.Name})
+	err := r.Client.List(ctx, &cfRoutesForProcess, client.InNamespace(cfApp.GetNamespace()), client.MatchingFields{shared.IndexRouteDestinationAppName: cfApp.Name})
 	if err != nil {
 		return 0, err
 	}
@@ -358,9 +352,13 @@ func (r *CFProcessReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&workloadsv1alpha1.CFProcess{}).
 		Watches(&source.Kind{Type: &workloadsv1alpha1.CFApp{}}, handler.EnqueueRequestsFromMapFunc(func(app client.Object) []reconcile.Request {
 			processList := &workloadsv1alpha1.CFProcessList{}
-			_ = mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{workloadsv1alpha1.CFAppGUIDLabelKey: app.GetName()})
-			var requests []reconcile.Request
+			err := mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{workloadsv1alpha1.CFAppGUIDLabelKey: app.GetName()})
+			if err != nil {
+				r.Log.Error(err, fmt.Sprintf("Error when trying to list CFProcesses in namespace %q", app.GetNamespace()))
+				return []reconcile.Request{}
+			}
 
+			var requests []reconcile.Request
 			for _, process := range processList.Items {
 				requests = append(requests, reconcile.Request{
 					NamespacedName: types.NamespacedName{
@@ -384,7 +382,7 @@ func (r *CFProcessReconciler) getAppServiceBindings(ctx context.Context, appGUID
 	serviceBindings := &servicesv1alpha1.CFServiceBindingList{}
 	err := r.Client.List(ctx, serviceBindings,
 		client.InNamespace(namespace),
-		client.MatchingLabels{workloadsv1alpha1.CFAppGUIDLabelKey: appGUID},
+		client.MatchingFields{shared.IndexServiceBindingAppGUID: appGUID},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error listing CFServiceBindings: %w", err)
@@ -402,8 +400,12 @@ func (r *CFProcessReconciler) getAppServiceBindings(ctx context.Context, appGUID
 			return nil, fmt.Errorf("error fetching CFServiceInstance: %w", err)
 		}
 
+		if currentServiceBinding.Status.Binding.Name == "" {
+			return nil, fmt.Errorf("service binding secret name is empty")
+		}
+
 		secret := new(corev1.Secret)
-		err = r.Client.Get(ctx, types.NamespacedName{Name: currentServiceBinding.Spec.SecretName, Namespace: namespace}, secret)
+		err = r.Client.Get(ctx, types.NamespacedName{Name: currentServiceBinding.Status.Binding.Name, Namespace: namespace}, secret)
 		if err != nil {
 			return nil, fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
 		}
@@ -447,9 +449,9 @@ func servicesToVCAPValue(services []serviceInfo) (string, error) {
 	for _, service := range services {
 		var serviceName string
 		var bindingName *string
-		if service.binding.Spec.Name != "" {
-			serviceName = service.binding.Spec.Name
-			bindingName = &service.binding.Spec.Name
+		if service.binding.Spec.Name != nil {
+			serviceName = *service.binding.Spec.Name
+			bindingName = service.binding.Spec.Name
 		} else {
 			serviceName = service.instance.Spec.Name
 			bindingName = nil

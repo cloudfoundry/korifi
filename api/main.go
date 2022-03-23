@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,34 +8,31 @@ import (
 	"os"
 	"time"
 
-	"github.com/pivotal/kpack/pkg/registry"
-	k8sclient "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-
-	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/gorilla/mux"
-	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/cache"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
-	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-
+	reporegistry "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/registry"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/gorilla/mux"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	"k8s.io/apimachinery/pkg/util/cache"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/dynamic"
+	k8sclient "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var createTimeout = time.Second * 120
@@ -81,9 +77,20 @@ func main() {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
 
-	var userClientFactory repositories.UserK8sClientFactory = repositories.NewPrivilegedClientFactory(k8sClientConfig)
+	dynamicClient, err := dynamic.NewForConfig(k8sClientConfig)
+	if err != nil {
+		panic(fmt.Sprintf("could not create dynamic k8s client: %v", err))
+	}
+	namespaceRetriever := repositories.NewNamespaceRetriver(dynamicClient)
+
+	mapper, err := apiutil.NewDynamicRESTMapper(k8sClientConfig)
+	if err != nil {
+		panic(fmt.Sprintf("could not create kubernetes REST mapper: %v", err))
+	}
+
+	var userClientFactory repositories.UserK8sClientFactory = repositories.NewPrivilegedClientFactory(k8sClientConfig, mapper)
 	if config.AuthEnabled {
-		userClientFactory = repositories.NewUnprivilegedClientFactory(k8sClientConfig)
+		userClientFactory = repositories.NewUnprivilegedClientFactory(k8sClientConfig, mapper)
 	}
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
@@ -95,16 +102,21 @@ func main() {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
 
+	metricsFetcherFunction, err := repositories.CreateMetricsFetcher(k8sClientConfig)
+	if err != nil {
+		panic(err)
+	}
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout, config.AuthEnabled)
-	appRepo := repositories.NewAppRepo(privilegedCRClient, userClientFactory, nsPermissions)
-	processRepo := repositories.NewProcessRepo(privilegedCRClient)
-	podRepo := repositories.NewPodRepo(privilegedCRClient)
-	dropletRepo := repositories.NewDropletRepo(privilegedCRClient, userClientFactory)
-	routeRepo := repositories.NewRouteRepo(privilegedCRClient, userClientFactory)
-	domainRepo := repositories.NewDomainRepo(privilegedCRClient)
-	buildRepo := repositories.NewBuildRepo(privilegedCRClient, userClientFactory)
-	packageRepo := repositories.NewPackageRepo(privilegedCRClient, userClientFactory)
-	serviceInstanceRepo := repositories.NewServiceInstanceRepo(userClientFactory, nsPermissions)
+	appRepo := repositories.NewAppRepo(privilegedCRClient, namespaceRetriever, userClientFactory, nsPermissions)
+	processRepo := repositories.NewProcessRepo(privilegedCRClient, namespaceRetriever, userClientFactory, nsPermissions)
+	podRepo := repositories.NewPodRepo(userClientFactory, metricsFetcherFunction)
+	dropletRepo := repositories.NewDropletRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
+	routeRepo := repositories.NewRouteRepo(privilegedCRClient, namespaceRetriever, userClientFactory, nsPermissions)
+	domainRepo := repositories.NewDomainRepo(config.RootNamespace, privilegedCRClient, namespaceRetriever, userClientFactory)
+	buildRepo := repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
+	packageRepo := repositories.NewPackageRepo(privilegedCRClient, namespaceRetriever, userClientFactory)
+	serviceInstanceRepo := repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPermissions)
+	serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)
 	roleRepo := repositories.NewRoleRepo(
 		privilegedCRClient,
@@ -114,7 +126,16 @@ func main() {
 			cachingIdentityProvider,
 			config.RootNamespace,
 		),
+		config.RootNamespace,
 		config.RoleMappings,
+	)
+	imageRepo := repositories.NewImageRepository(
+		privilegedK8sClient,
+		userClientFactory,
+		config.RootNamespace,
+		config.PackageRegistrySecretName,
+		reporegistry.NewImageBuilder(),
+		reporegistry.NewImagePusher(remote.Write),
 	)
 
 	scaleProcessAction := actions.NewScaleProcess(processRepo)
@@ -135,10 +156,9 @@ func main() {
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
 		apis.NewRootHandler(
-			ctrl.Log.WithName("RootHandler"),
 			config.ServerURL,
 		),
-		apis.NewResourceMatchesHandler(config.ServerURL),
+		apis.NewResourceMatchesHandler(ctrl.Log.WithName("ResourceMatchesHandler")),
 		apis.NewAppHandler(
 			ctrl.Log.WithName("AppHandler"),
 			*serverURL,
@@ -147,7 +167,7 @@ func main() {
 			processRepo,
 			routeRepo,
 			domainRepo,
-			podRepo,
+			orgRepo,
 			scaleAppProcessAction.Invoke,
 			decoderValidator,
 		),
@@ -157,6 +177,7 @@ func main() {
 			routeRepo,
 			domainRepo,
 			appRepo,
+			orgRepo,
 			decoderValidator,
 		),
 		apis.NewServiceRouteBindingHandler(
@@ -169,8 +190,7 @@ func main() {
 			packageRepo,
 			appRepo,
 			dropletRepo,
-			repositories.UploadSourceImage,
-			newRegistryAuthBuilder(privilegedK8sClient, config),
+			imageRepo,
 			decoderValidator,
 			config.PackageRegistryBase,
 			config.PackageRegistrySecretName,
@@ -206,13 +226,14 @@ func main() {
 		),
 		apis.NewLogCacheHandler(),
 
-		apis.NewOrgHandler(*serverURL, orgRepo, decoderValidator),
+		apis.NewOrgHandler(*serverURL, orgRepo, domainRepo, decoderValidator),
 
 		apis.NewSpaceHandler(*serverURL, config.PackageRegistrySecretName, orgRepo, decoderValidator),
 
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
+			config.DefaultDomainName,
 			applyManifestAction,
 			orgRepo,
 			decoderValidator,
@@ -237,7 +258,16 @@ func main() {
 			ctrl.Log.WithName("ServiceInstanceHandler"),
 			*serverURL,
 			serviceInstanceRepo,
+			orgRepo,
+			decoderValidator,
+		),
+
+		apis.NewServiceBindingHandler(
+			ctrl.Log.WithName("ServiceBindingHandler"),
+			*serverURL,
+			serviceBindingRepo,
 			appRepo,
+			serviceInstanceRepo,
 			decoderValidator,
 		),
 	}
@@ -254,27 +284,9 @@ func main() {
 		cachingIdentityProvider,
 	).Middleware)
 
-	portString := fmt.Sprintf(":%v", config.ServerPort)
+	portString := fmt.Sprintf(":%v", config.InternalPort)
 	log.Println("Listening on ", portString)
 	log.Fatal(http.ListenAndServe(portString, router))
-}
-
-func newRegistryAuthBuilder(privilegedK8sClient k8sclient.Interface, config *config.APIConfig) func(ctx context.Context) (remote.Option, error) {
-	return func(ctx context.Context) (remote.Option, error) {
-		keychainFactory, err := k8sdockercreds.NewSecretKeychainFactory(privilegedK8sClient)
-		if err != nil {
-			return nil, fmt.Errorf("error in k8sdockercreds.NewSecretKeychainFactory: %w", err)
-		}
-		keychain, err := keychainFactory.KeychainForSecretRef(ctx, registry.SecretRef{
-			Namespace:        config.RootNamespace,
-			ImagePullSecrets: []corev1.LocalObjectReference{{Name: config.PackageRegistrySecretName}},
-		})
-		if err != nil {
-			return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", err)
-		}
-
-		return remote.WithAuthFromKeychain(keychain), nil
-	}
 }
 
 func wireIdentityProvider(client client.Client, restConfig *rest.Config) authorization.IdentityProvider {

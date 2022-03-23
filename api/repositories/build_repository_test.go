@@ -4,12 +4,13 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,13 +18,14 @@ import (
 
 var _ = Describe("BuildRepository", func() {
 	var (
-		ctx                       context.Context
-		spaceDeveloperClusterRole *rbacv1.ClusterRole
+		ctx       context.Context
+		buildRepo *repositories.BuildRepo
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		spaceDeveloperClusterRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
+
+		buildRepo = repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
 	})
 
 	Describe("GetBuild", func() {
@@ -37,8 +39,6 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		var (
-			buildRepo *repositories.BuildRepo
-
 			namespace1 *corev1.Namespace
 			namespace2 *corev1.Namespace
 		)
@@ -51,8 +51,6 @@ var _ = Describe("BuildRepository", func() {
 			namespace2Name := generateGUID()
 			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
 			Expect(k8sClient.Create(ctx, namespace2)).To(Succeed())
-
-			buildRepo = repositories.NewBuildRepo(k8sClient, userClientFactory)
 		})
 
 		AfterEach(func() {
@@ -107,8 +105,8 @@ var _ = Describe("BuildRepository", func() {
 				build2 = makeBuild(namespace2.Name, build2GUID, package2GUID, app2GUID)
 				Expect(k8sClient.Create(ctx, build2)).To(Succeed())
 
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, namespace1.Name)
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, namespace2.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace1.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace2.Name)
 			})
 
 			When("fetching a build", func() {
@@ -248,7 +246,7 @@ var _ = Describe("BuildRepository", func() {
 			It("returns an error", func() {
 				_, err := buildRepo.GetBuild(ctx, authInfo, buildGUID)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError("duplicate builds exist"))
+				Expect(err).To(MatchError("get-build duplicate records exist"))
 			})
 		})
 
@@ -256,7 +254,7 @@ var _ = Describe("BuildRepository", func() {
 			It("returns an error", func() {
 				_, err := buildRepo.GetBuild(ctx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(repositories.NotFoundError{}))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 
@@ -272,7 +270,7 @@ var _ = Describe("BuildRepository", func() {
 			It("returns a forbidden error", func() {
 				_, err := buildRepo.GetBuild(ctx, authInfo, buildGUID)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
@@ -293,7 +291,6 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		var (
-			buildRepo              *repositories.BuildRepo
 			buildCreateLabels      map[string]string
 			buildCreateAnnotations map[string]string
 			buildCreateMsg         repositories.CreateBuildMessage
@@ -301,8 +298,6 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		BeforeEach(func() {
-			buildRepo = repositories.NewBuildRepo(k8sClient, userClientFactory)
-
 			spaceGUID = generateGUID()
 			Expect(
 				k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
@@ -341,7 +336,7 @@ var _ = Describe("BuildRepository", func() {
 			)
 
 			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceDeveloperClusterRole.Name, spaceGUID)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
 				buildCreateRecord, buildCreateErr = buildRepo.CreateBuild(ctx, authInfo, buildCreateMsg)
 			})
 
@@ -424,7 +419,7 @@ var _ = Describe("BuildRepository", func() {
 			It("returns a forbidden error", func() {
 				_, err := buildRepo.CreateBuild(ctx, authInfo, buildCreateMsg)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})

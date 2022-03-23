@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	. "github.com/onsi/ginkgo/v2"
@@ -14,18 +12,24 @@ import (
 )
 
 var _ = Describe("RootHandler", func() {
+	var req *http.Request
+
+	BeforeEach(func() {
+		apiHandler := apis.NewRootHandler(
+			defaultServerURL,
+		)
+		apiHandler.RegisterRoutes(router)
+	})
+
+	JustBeforeEach(func() {
+		router.ServeHTTP(rr, req)
+	})
+
 	Describe("GET / endpoint", func() {
 		BeforeEach(func() {
-			req, err := http.NewRequest("GET", "/", nil)
+			var err error
+			req, err = http.NewRequest("GET", "/", nil)
 			Expect(err).NotTo(HaveOccurred())
-
-			apiHandler := apis.NewRootHandler(
-				logf.Log.WithName("TestRootHandler"),
-				defaultServerURL,
-			)
-			apiHandler.RegisterRoutes(router)
-
-			router.ServeHTTP(rr, req)
 		})
 
 		It("returns status 200 OK", func() {

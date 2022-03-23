@@ -2,11 +2,13 @@ package repositories
 
 import (
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,11 +20,13 @@ type UserK8sClientFactory interface {
 
 type UnprivilegedClientFactory struct {
 	config *rest.Config
+	mapper meta.RESTMapper
 }
 
-func NewUnprivilegedClientFactory(config *rest.Config) UnprivilegedClientFactory {
+func NewUnprivilegedClientFactory(config *rest.Config, mapper meta.RESTMapper) UnprivilegedClientFactory {
 	return UnprivilegedClientFactory{
 		config: rest.AnonymousClientConfig(rest.CopyConfig(config)),
+		mapper: mapper,
 	}
 }
 
@@ -48,33 +52,35 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 		config.KeyData = pem.EncodeToMemory(keyBlock)
 
 	default:
-		return nil, authorization.NotAuthenticatedError{}
+		return nil, apierrors.NewNotAuthenticatedError(errors.New("unsupported Authorization header scheme"))
 	}
 
-	// This does an API call within the controller-runtime code and is
-	// sufficient to determine whether the auth is valid and accepted by the
-	// cluster
-	userClient, err := client.NewWithWatch(config, client.Options{})
+	userClient, err := client.NewWithWatch(config, client.Options{
+		Scheme: scheme.Scheme,
+		Mapper: f.mapper,
+	})
 	if err != nil {
-		if k8serrors.IsUnauthorized(err) {
-			return nil, authorization.InvalidAuthError{}
-		}
-		return nil, err
+		return nil, apierrors.FromK8sError(err, "")
 	}
 
 	return userClient, nil
 }
 
-func NewPrivilegedClientFactory(config *rest.Config) PrivilegedClientFactory {
+func NewPrivilegedClientFactory(config *rest.Config, mapper meta.RESTMapper) PrivilegedClientFactory {
 	return PrivilegedClientFactory{
 		config: config,
+		mapper: mapper,
 	}
 }
 
 type PrivilegedClientFactory struct {
 	config *rest.Config
+	mapper meta.RESTMapper
 }
 
 func (f PrivilegedClientFactory) BuildClient(_ authorization.Info) (client.WithWatch, error) {
-	return client.NewWithWatch(f.config, client.Options{Scheme: scheme.Scheme})
+	return client.NewWithWatch(f.config, client.Options{
+		Scheme: scheme.Scheme,
+		Mapper: f.mapper,
+	})
 }

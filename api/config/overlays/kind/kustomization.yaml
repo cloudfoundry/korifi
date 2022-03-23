@@ -20,5 +20,3 @@ patches:
     - op: replace
       path: /spec/virtualhost/fqdn
       value: "localhost"
-    - op: remove
-      path: /spec/virtualhost/tls

@@ -9,15 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -36,7 +34,7 @@ var _ = Describe("AppHandler", func() {
 		routeRepo           *fake.CFRouteRepository
 		scaleAppProcessFunc *fake.ScaleAppProcess
 		domainRepo          *fake.CFDomainRepository
-		podRepo             *fake.PodRepository
+		spaceRepo           *fake.SpaceRepository
 		req                 *http.Request
 	)
 
@@ -46,8 +44,8 @@ var _ = Describe("AppHandler", func() {
 		processRepo = new(fake.CFProcessRepository)
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
-		podRepo = new(fake.PodRepository)
 		scaleAppProcessFunc = new(fake.ScaleAppProcess)
+		spaceRepo = new(fake.SpaceRepository)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -59,7 +57,7 @@ var _ = Describe("AppHandler", func() {
 			processRepo,
 			routeRepo,
 			domainRepo,
-			podRepo,
+			spaceRepo,
 			scaleAppProcessFunc.Spy,
 			decoderValidator,
 		)
@@ -72,26 +70,28 @@ var _ = Describe("AppHandler", func() {
 
 	Describe("the GET /v3/apps/:guid endpoint", func() {
 		BeforeEach(func() {
-			appRepo.GetAppReturns(repositories.AppRecord{
-				GUID:      appGUID,
-				Name:      "test-app",
-				SpaceGUID: spaceGUID,
-				State:     "STOPPED",
-				Lifecycle: repositories.Lifecycle{
-					Type: "buildpack",
-					Data: repositories.LifecycleData{
-						Buildpacks: []string{},
-						Stack:      "",
-					},
-				},
-			}, nil)
-
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("on the happy path", func() {
+		When("the app exists and is accessible", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{
+					GUID:      appGUID,
+					Name:      "test-app",
+					SpaceGUID: spaceGUID,
+					State:     "STOPPED",
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				}, nil)
+			})
+
 			It("returns status 200 OK", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
@@ -177,9 +177,9 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the app cannot be found or the client is not authorized to get it", func() {
+		When("the app is not accessible", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 			})
 
 			// TODO: should we return code 100004 instead?
@@ -188,7 +188,7 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("there is some other error fetching the app", func() {
+		When("there is an error fetching the app", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
@@ -328,10 +328,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the space does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetNamespaceReturns(
-					repositories.SpaceRecord{},
-					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")},
-				)
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewNotFoundError(nil, repositories.SpaceResourceType))
 
 				requestBody := initializeCreateAppRequestBody(testAppName, "no-such-guid", nil, nil, nil)
 				queuePostRequest(requestBody)
@@ -342,62 +339,15 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the action errors due to validating webhook rejection", func() {
+		When("the action errors", func() {
 			BeforeEach(func() {
-				controllerError := new(k8serrors.StatusError)
-				controllerError.ErrStatus.Reason = `{"code":1,"message":"CFApp with the same spec.name exists"}`
-				appRepo.CreateAppReturns(repositories.AppRecord{}, controllerError)
-
-				requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
-				queuePostRequest(requestBody)
-			})
-
-			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
-			})
-
-			It("returns a CF API formatted Error response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"title": "CF-UniquenessError",
-						"detail": "App with the name 'test-app' already exists.",
-						"code": 10016
-					}
-				]
-			}`), "Response body matches response:")
-			})
-		})
-
-		When("the action errors due to a non webhook k8s error", func() {
-			BeforeEach(func() {
-				controllerError := new(k8serrors.StatusError)
-				controllerError.ErrStatus.Reason = "different k8s api error"
-				appRepo.CreateAppReturns(repositories.AppRecord{}, controllerError)
-
+				appRepo.CreateAppReturns(repositories.AppRecord{}, errors.New("nope"))
 				requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
 				queuePostRequest(requestBody)
 			})
 
 			It("returns an error", func() {
 				expectUnknownError()
-			})
-		})
-
-		When("the action errors due to an authorization error", func() {
-			BeforeEach(func() {
-				repoError := k8serrors.NewForbidden(schema.GroupResource{}, "forbidden", errors.New("foo"))
-				appRepo.CreateAppReturns(repositories.AppRecord{}, repoError)
-
-				requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
-				queuePostRequest(requestBody)
-			})
-
-			It("returns an error", func() {
-				expectNotAuthorizedError()
 			})
 		})
 	})
@@ -677,7 +627,7 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("there is some other error fetching apps", func() {
+		When("there is an error fetching apps", func() {
 			BeforeEach(func() {
 				appRepo.ListAppsReturns([]repositories.AppRecord{}, errors.New("unknown!"))
 			})
@@ -696,18 +646,6 @@ var _ = Describe("AppHandler", func() {
 
 			It("returns an Unknown key error", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, guids, space_guids, order_by'")
-			})
-		})
-
-		When("no auth info is present in the context", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequest("GET", "/v3/apps", nil)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("returns an Unknown error", func() {
-				expectUnknownError()
 			})
 		})
 	})
@@ -791,39 +729,30 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the user client factory returns not auth'd", func() {
+		When("setting the current droplet fails", func() {
 			BeforeEach(func() {
-				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, fmt.Errorf("foo: %w", authorization.NotAuthenticatedError{}))
+				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, errors.New("set-droplet-failed"))
 			})
 
 			It("returns a not authenticated error", func() {
-				expectNotAuthenticatedError()
+				expectUnknownError()
 			})
 		})
 
-		When("the user client factory returns invalid auth", func() {
+		When("getting the app fails", func() {
 			BeforeEach(func() {
-				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, fmt.Errorf("foo: %w", authorization.InvalidAuthError{}))
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("get-app-failed"))
 			})
 
-			It("returns a not authenticated error", func() {
-				expectInvalidAuthError()
+			It("returns an error", func() {
+				expectUnknownError()
 			})
+			itDoesntSetTheCurrentDroplet()
 		})
 
-		When("set droplet is forbidden", func() {
+		When("the App cannot be accessed", func() {
 			BeforeEach(func() {
-				appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{}, repositories.NewForbiddenError(nil))
-			})
-
-			It("returns a not authenticated error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("the App doesn't exist", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 			})
 
 			It("returns an error", func() {
@@ -834,7 +763,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("the Droplet doesn't exist", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, apierrors.NewNotFoundError(nil, repositories.DropletResourceType))
 			})
 
 			It("returns an error", func() {
@@ -845,11 +774,22 @@ var _ = Describe("AppHandler", func() {
 
 		When("the Droplet isn't accessible to the user", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.ForbiddenError{})
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, apierrors.NewForbiddenError(nil, repositories.DropletResourceType))
 			})
 
 			It("returns an error", func() {
 				expectUnprocessableEntityError("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
+			})
+			itDoesntSetTheCurrentDroplet()
+		})
+
+		When("getting the droplet fails", func() {
+			BeforeEach(func() {
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, errors.New("get-droplet-failed"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 			itDoesntSetTheCurrentDroplet()
 		})
@@ -881,28 +821,6 @@ var _ = Describe("AppHandler", func() {
 			It("returns an error", func() {
 				expectUnprocessableEntityError("GUID is a required field")
 			})
-		})
-
-		When("fetching the App errors", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-			itDoesntSetTheCurrentDroplet()
-		})
-
-		When("fetching the Droplet errors", func() {
-			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, errors.New("boom"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-			itDoesntSetTheCurrentDroplet()
 		})
 
 		When("setting the current droplet errors", func() {
@@ -1022,12 +940,11 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the app cannot be found", func() {
+		When("getting the app is forbidden", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 			})
 
-			// TODO: should we return code 100004 instead?
 			It("returns an error", func() {
 				expectNotFoundError("App not found")
 			})
@@ -1067,7 +984,7 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("there is some other error updating app desiredState", func() {
+		When("there is an error updating app desiredState", func() {
 			BeforeEach(func() {
 				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
@@ -1289,17 +1206,17 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the app cannot be found", func() {
+		When("fetching the app is forbidden", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, "App"))
 			})
 
-			It("returns an error", func() {
+			It("returns a not found error", func() {
 				expectNotFoundError("App not found")
 			})
 		})
 
-		When("there is some other error fetching the app", func() {
+		When("there is an unknown error fetching the app", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
@@ -1407,7 +1324,7 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("there is some other error updating app desiredState", func() {
+		When("there is an unknown error updating app desiredState", func() {
 			BeforeEach(func() {
 				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
@@ -1617,9 +1534,9 @@ var _ = Describe("AppHandler", func() {
 		})
 
 		When("On the sad path and", func() {
-			When("the app cannot be found or user is not authorized to see it", func() {
+			When("the app cannot be accessed", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+					appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 				})
 
 				It("returns an error", func() {
@@ -1644,6 +1561,152 @@ var _ = Describe("AppHandler", func() {
 				It("returns an error", func() {
 					expectUnknownError()
 				})
+			})
+		})
+	})
+
+	Describe("the GET /v3/apps/:guid/processes/{type} endpoint", func() {
+		const (
+			processTypeWeb = "web"
+			processGUID1   = "process-1-guid"
+			createdAt      = "1906-04-18T13:12:00Z"
+			updatedAt      = "1906-04-18T13:12:01Z"
+			command        = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
+			memoryInMB     = 256
+			diskInMB       = 1024
+			instances      = 1
+			baseURL        = "https://api.example.org"
+		)
+
+		makeGetRequest := func(processType string) {
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/processes/"+processType, nil)
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		BeforeEach(func() {
+			processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{
+				GUID:             processGUID1,
+				SpaceGUID:        spaceGUID,
+				AppGUID:          appGUID,
+				Type:             processTypeWeb,
+				Command:          command,
+				DesiredInstances: instances,
+				MemoryMB:         memoryInMB,
+				DiskQuotaMB:      diskInMB,
+				Ports:            []int32{8080},
+				HealthCheck: repositories.HealthCheck{
+					Type: "port",
+					Data: repositories.HealthCheckData{
+						HTTPEndpoint:             "",
+						InvocationTimeoutSeconds: 0,
+						TimeoutSeconds:           0,
+					},
+				},
+				Labels:      map[string]string{},
+				Annotations: map[string]string{},
+				CreatedAt:   createdAt,
+				UpdatedAt:   updatedAt,
+			}, nil)
+		})
+
+		When("on the happy path", func() {
+			BeforeEach(func() {
+				makeGetRequest(processTypeWeb)
+			})
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("passes the authorization.Info to the process repository", func() {
+				Expect(processRepo.GetProcessByAppTypeAndSpaceCallCount()).To(Equal(1))
+				_, actualAuthInfo, _, _, _ := processRepo.GetProcessByAppTypeAndSpaceArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+
+			It("returns a process", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(`{
+					"guid": "` + processGUID1 + `",
+					"created_at": "` + createdAt + `",
+					"updated_at": "` + updatedAt + `",
+					"type": "web",
+					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
+					"instances": ` + fmt.Sprint(instances) + `,
+					"memory_in_mb": ` + fmt.Sprint(memoryInMB) + `,
+					"disk_in_mb": ` + fmt.Sprint(diskInMB) + `,
+					"health_check": {
+					   "type": "port",
+					   "data": {
+						  "timeout": null,
+						  "invocation_timeout": null
+					   }
+					},
+					"relationships": {
+					   "app": {
+						  "data": {
+							 "guid": "` + appGUID + `"
+						  }
+					   }
+					},
+					"metadata": {
+					   "labels": {},
+					   "annotations": {}
+					},
+					"links": {
+					   "self": {
+						  "href": "` + baseURL + `/v3/processes/` + processGUID1 + `"
+					   },
+					   "scale": {
+						  "href": "` + baseURL + `/v3/processes/` + processGUID1 + `/actions/scale",
+						  "method": "POST"
+					   },
+					   "app": {
+						  "href": "` + baseURL + `/v3/apps/` + appGUID + `"
+					   },
+					   "space": {
+						  "href": "` + baseURL + `/v3/spaces/` + spaceGUID + `"
+					   },
+					   "stats": {
+						  "href": "` + baseURL + `/v3/processes/` + processGUID1 + `/stats"
+					   }
+					}
+				 }`))
+			})
+		})
+
+		When("the user lacks access in the app namespace", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(errors.New("Forbidden"), repositories.AppResourceType))
+				makeGetRequest(processTypeWeb)
+			})
+
+			It("returns an not found error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("getting the app fails", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("get-app"))
+				makeGetRequest(processTypeWeb)
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("there is an error fetching processes", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, errors.New("some-error"))
+				makeGetRequest(processTypeWeb)
+			})
+			It("return a process unknown error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -1861,27 +1924,7 @@ var _ = Describe("AppHandler", func() {
 				})
 			})
 
-			When("the process doesn't exist", func() {
-				BeforeEach(func() {
-					scaleAppProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "Process"})
-				})
-
-				It("returns an error", func() {
-					expectNotFoundError("Process not found")
-				})
-			})
-
-			When("the app doesn't exist", func() {
-				BeforeEach(func() {
-					scaleAppProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NotFoundError{ResourceType: "App"})
-				})
-
-				It("returns an error", func() {
-					expectNotFoundError("App not found")
-				})
-			})
-
-			When("there is some other error fetching the process", func() {
+			When("there is an error scaling the app", func() {
 				BeforeEach(func() {
 					scaleAppProcessFunc.Returns(repositories.ProcessRecord{}, errors.New("unknown!"))
 				})
@@ -2079,9 +2122,9 @@ var _ = Describe("AppHandler", func() {
 		})
 
 		When("on the sad path and", func() {
-			When("the app cannot be found or no permission", func() {
+			When("the app cannot be accessed", func() {
 				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+					appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 				})
 
 				It("returns an error", func() {
@@ -2239,13 +2282,23 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the App doesn't exist", func() {
+		When("the App is not accessible", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 			})
 
 			It("returns an error", func() {
 				expectNotFoundError("App not found")
+			})
+		})
+
+		When("getting the app fails", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("get-app"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 
@@ -2259,19 +2312,9 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the Droplet doesn't exist", func() {
-			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("Droplet not found")
-			})
-		})
-
 		When("the user cannot access the droplet", func() {
 			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, repositories.NewForbiddenError(nil))
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, apierrors.NewForbiddenError(nil, repositories.DropletResourceType))
 			})
 
 			It("returns an error", func() {
@@ -2279,19 +2322,9 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("fetching the App errors", func() {
+		When("getting the droplet fails", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("fetching the Droplet errors", func() {
-			BeforeEach(func() {
-				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, errors.New("boom"))
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, errors.New("get-droplet"))
 			})
 
 			It("returns an error", func() {
@@ -2339,9 +2372,9 @@ var _ = Describe("AppHandler", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 		})
 
-		When("no permissions to get the app or the app cannot be found", func() {
+		When("no permissions to get the app", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 			})
 
 			It("returns an error", func() {
@@ -2472,23 +2505,23 @@ var _ = Describe("AppHandler", func() {
                 }`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
 			})
 
-			When("no permissions to stop the app", func() {
+			When("stopping the app fails", func() {
 				BeforeEach(func() {
-					appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+					appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, errors.New("stop-app"))
 				})
 
-				It("returns a forbidden error", func() {
-					expectNotAuthorizedError()
+				It("returns an error", func() {
+					expectUnknownError()
 				})
 			})
 
-			When("no permissions to start the app", func() {
+			When("starting the app fails", func() {
 				BeforeEach(func() {
-					appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
+					appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, errors.New("start-app"))
 				})
 
 				It("returns a forbidden error", func() {
-					expectNotAuthorizedError()
+					expectUnknownError()
 				})
 			})
 		})
@@ -2583,16 +2616,6 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("no permissions to start the app", func() {
-			BeforeEach(func() {
-				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, repositories.PermissionDeniedOrNotFoundError{})
-			})
-
-			It("returns a forbidden error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
 		When("setDesiredAppState to STOPPED returns an error", func() {
 			BeforeEach(func() {
 				appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, errors.New("some-error"))
@@ -2651,16 +2674,6 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the App doesn't exist", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("App not found")
-			})
-		})
-
 		When("fetching the App errors", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
@@ -2716,27 +2729,7 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("the app cannot be found", func() {
-			BeforeEach(func() {
-				appRepo.GetAppEnvReturns(nil, repositories.NotFoundError{ResourceType: "App"})
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("App not found")
-			})
-		})
-
-		When("there is a Forbidden error fetching the app env", func() {
-			BeforeEach(func() {
-				appRepo.GetAppEnvReturns(nil, repositories.ForbiddenError{})
-			})
-
-			It("returns an error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("there is some other error fetching the app env", func() {
+		When("there is an error fetching the app env", func() {
 			BeforeEach(func() {
 				appRepo.GetAppEnvReturns(nil, errors.New("unknown!"))
 			})
@@ -2873,17 +2866,6 @@ var _ = Describe("AppHandler", func() {
 							}
 						]
 					}`), "Response body matches response:")
-				})
-			})
-
-			When("the app cannot be found", func() {
-				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
-				})
-
-				// TODO: should we return code 100004 instead?
-				It("returns an error", func() {
-					expectNotFoundError("App not found")
 				})
 			})
 

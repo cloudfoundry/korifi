@@ -2,15 +2,14 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,6 +22,8 @@ const (
 
 	StagingConditionType   = "Staging"
 	SucceededConditionType = "Succeeded"
+
+	BuildResourceType = "Build"
 )
 
 type BuildRecord struct {
@@ -45,47 +46,34 @@ type BuildRecord struct {
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds/status,verbs=get
 
 type BuildRepo struct {
-	privilegedClient  client.Client
-	userClientFactory UserK8sClientFactory
+	namespaceRetriever NamespaceRetriever
+	userClientFactory  UserK8sClientFactory
 }
 
-func NewBuildRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *BuildRepo {
+func NewBuildRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory) *BuildRepo {
 	return &BuildRepo{
-		privilegedClient:  privilegedClient,
-		userClientFactory: userClientFactory,
+		namespaceRetriever: namespaceRetriever,
+		userClientFactory:  userClientFactory,
 	}
 }
 
-// nolint: dupl
 func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, buildGUID string) (BuildRecord, error) {
-	// TODO: Could look up namespace from guid => namespace cache to do Get
-	buildList := &workloadsv1alpha1.CFBuildList{}
-	err := b.privilegedClient.List(ctx, buildList, client.MatchingFields{"metadata.name": buildGUID})
-	if err != nil { // untested
+	ns, err := b.namespaceRetriever.NamespaceFor(ctx, buildGUID, BuildResourceType)
+	if err != nil {
 		return BuildRecord{}, err
-	}
-	builds := buildList.Items
-	if len(builds) == 0 {
-		return BuildRecord{}, NotFoundError{}
-	}
-	if len(builds) > 1 {
-		return BuildRecord{}, errors.New("duplicate builds exist")
 	}
 
 	userClient, err := b.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return BuildRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
+		return BuildRecord{}, fmt.Errorf("get-build failed to build user client: %w", err)
 	}
 
-	foundBuild := workloadsv1alpha1.CFBuild{}
-	if err := userClient.Get(ctx, client.ObjectKeyFromObject(&builds[0]), &foundBuild); err != nil {
-		if k8serrors.IsForbidden(err) {
-			return BuildRecord{}, NewForbiddenError(err)
-		}
-		return BuildRecord{}, fmt.Errorf("failed to get build: %w", err)
+	build := workloadsv1alpha1.CFBuild{}
+	if err := userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: buildGUID}, &build); err != nil {
+		return BuildRecord{}, fmt.Errorf("failed to get build: %w", apierrors.FromK8sError(err, BuildResourceType))
 	}
 
-	return cfBuildToBuildRecord(foundBuild), nil
+	return cfBuildToBuildRecord(build), nil
 }
 
 func cfBuildToBuildRecord(cfBuild workloadsv1alpha1.CFBuild) BuildRecord {
@@ -143,10 +131,7 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info
 	}
 
 	if err := userClient.Create(ctx, &cfBuild); err != nil {
-		if k8serrors.IsForbidden(err) {
-			return BuildRecord{}, NewForbiddenError(err)
-		}
-		return BuildRecord{}, err
+		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
 	return cfBuildToBuildRecord(cfBuild), nil
 }

@@ -5,9 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,6 +15,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 )
 
 var _ = Describe("RoleRepository", func() {
@@ -29,23 +32,16 @@ var _ = Describe("RoleRepository", func() {
 		createdRole         repositories.RoleRecord
 		authorizedInChecker *fake.AuthorizedInChecker
 		createErr           error
-		orgManagerRole      *rbacv1.ClusterRole
-		orgUserRole         *rbacv1.ClusterRole
-		spaceDeveloperRole  *rbacv1.ClusterRole
 	)
 
 	BeforeEach(func() {
-		rootNamespace = uuid.NewString()
 		ctx = context.Background()
 		authorizedInChecker = new(fake.AuthorizedInChecker)
-		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
-		orgManagerRole = createClusterRole(ctx, repositories.OrgManagerClusterRoleRules)
-		orgUserRole = createClusterRole(ctx, repositories.OrgUserClusterRoleRules)
-		spaceDeveloperRole = createClusterRole(ctx, repositories.SpaceDeveloperClusterRoleRules)
-		roleRepo = repositories.NewRoleRepo(k8sClient, userClientFactory, authorizedInChecker, map[string]config.Role{
+		roleRepo = repositories.NewRoleRepo(k8sClient, userClientFactory, authorizedInChecker, rootNamespace, map[string]config.Role{
 			"space_developer":      {Name: spaceDeveloperRole.Name},
 			"organization_manager": {Name: orgManagerRole.Name, Propagate: true},
 			"organization_user":    {Name: orgUserRole.Name},
+			"cf_user":              {Name: rootNamespaceUserRole.Name},
 		})
 
 		roleCreateMessage = repositories.CreateRoleMessage{}
@@ -76,18 +72,22 @@ var _ = Describe("RoleRepository", func() {
 
 		When("the user doesn't have permissions to create roles", func() {
 			It("fails", func() {
-				Expect(createErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+				Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 
 		When("the user is an admin", func() {
-			var expectedName string
+			var (
+				expectedName       string
+				cfUserExpectedName string
+			)
 
 			BeforeEach(func() {
 				// Sha256 sum of "organization_manager::myuser@example.com"
 				expectedName = "cf-172b9594a1f617258057870643bce8476179a4078845cb4d9d44171d7a8b648b"
-				adminClusterRole := createAdminClusterRole(ctx)
-				createRoleBinding(ctx, userName, adminClusterRole.Name, orgAnchor.Name)
+				// Sha256 sum of "cf_user::myuser@example.com"
+				cfUserExpectedName = "cf-156eb9a28b4143e61a5b43fb7e7a6b8de98495aa4b5da4ba871dc4eaa4c35433"
+				createRoleBinding(ctx, userName, adminRole.Name, orgAnchor.Name)
 			})
 
 			It("succeeds", func() {
@@ -100,6 +100,16 @@ var _ = Describe("RoleRepository", func() {
 				Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleCreateMessage.GUID))
 				Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
 				Expect(roleBinding.RoleRef.Name).To(Equal(orgManagerRole.Name))
+				Expect(roleBinding.Subjects).To(HaveLen(1))
+				Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.UserKind))
+				Expect(roleBinding.Subjects[0].Name).To(Equal("myuser@example.com"))
+			})
+
+			It("creates a role binding for cf_user in the root namespace", func() {
+				roleBinding := getTheRoleBinding(cfUserExpectedName, rootNamespace)
+
+				Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
+				Expect(roleBinding.RoleRef.Name).To(Equal(rootNamespaceUserRole.Name))
 				Expect(roleBinding.Subjects).To(HaveLen(1))
 				Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.UserKind))
 				Expect(roleBinding.Subjects[0].Name).To(Equal("myuser@example.com"))
@@ -160,7 +170,7 @@ var _ = Describe("RoleRepository", func() {
 				})
 
 				It("returns an error", func() {
-					Expect(createErr).To(BeAssignableToTypeOf(repositories.ForbiddenError{}))
+					Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 				})
 			})
 
@@ -175,7 +185,7 @@ var _ = Describe("RoleRepository", func() {
 			})
 
 			When("the user is already bound to that role", func() {
-				It("returns an error", func() {
+				It("returns an unprocessable entity error", func() {
 					anotherRoleCreateMessage := repositories.CreateRoleMessage{
 						GUID: uuid.NewString(),
 						Type: "organization_manager",
@@ -184,7 +194,10 @@ var _ = Describe("RoleRepository", func() {
 						Org:  roleCreateMessage.Org,
 					}
 					_, createErr = roleRepo.CreateRole(ctx, authInfo, anotherRoleCreateMessage)
-					Expect(createErr).To(Equal(repositories.ErrorDuplicateRoleBinding))
+					var apiErr apierrors.UnprocessableEntityError
+					Expect(errors.As(createErr, &apiErr)).To(BeTrue())
+					// Note: the cf cli expects this specific format and ignores the error if it matches it.
+					Expect(apiErr.Detail()).To(Equal("User 'myuser@example.com' already has 'organization_manager' role"))
 				})
 			})
 		})
@@ -210,8 +223,7 @@ var _ = Describe("RoleRepository", func() {
 				Kind:  rbacv1.UserKind,
 			}
 
-			adminClusterRole := createAdminClusterRole(ctx)
-			createRoleBinding(ctx, userName, adminClusterRole.Name, spaceAnchor.Name)
+			createRoleBinding(ctx, userName, adminRole.Name, spaceAnchor.Name)
 		})
 
 		JustBeforeEach(func() {
@@ -329,7 +341,7 @@ var _ = Describe("RoleRepository", func() {
 		})
 
 		When("the user is already bound to that role", func() {
-			It("returns an error", func() {
+			It("returns an unprocessable entity error", func() {
 				anotherRoleCreateMessage := repositories.CreateRoleMessage{
 					GUID:  uuid.NewString(),
 					Type:  "space_developer",
@@ -338,7 +350,10 @@ var _ = Describe("RoleRepository", func() {
 					Space: roleCreateMessage.Space,
 				}
 				_, createErr = roleRepo.CreateRole(ctx, authInfo, anotherRoleCreateMessage)
-				Expect(createErr).To(Equal(repositories.ErrorDuplicateRoleBinding))
+				Expect(createErr).To(SatisfyAll(
+					BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}),
+					MatchError(ContainSubstring("already exists")),
+				))
 			})
 		})
 
@@ -347,8 +362,11 @@ var _ = Describe("RoleRepository", func() {
 				authorizedInChecker.AuthorizedInReturns(false, nil)
 			})
 
-			It("returns an error", func() {
-				Expect(createErr).To(Equal(repositories.ErrorMissingRoleBindingInParentOrg))
+			It("returns an unprocessable entity error", func() {
+				Expect(createErr).To(SatisfyAll(
+					BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}),
+					MatchError(ContainSubstring("no RoleBinding found")),
+				))
 			})
 		})
 	})

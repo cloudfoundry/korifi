@@ -2,19 +2,20 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	corev1 "k8s.io/api/core/v1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
@@ -36,6 +37,9 @@ const (
 	OrgNameLabel          = "cloudfoundry.org/org-name"
 	SpaceNameLabel        = "cloudfoundry.org/space-name"
 	hierarchyMetadataName = "hierarchy"
+
+	OrgResourceType   = "Org"
+	SpaceResourceType = "Space"
 )
 
 type CreateOrgMessage struct {
@@ -125,20 +129,29 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 	if err != nil {
 		return OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
-	anchor, err := r.createSubnamespaceAnchor(ctx, userClient, &v1alpha2.SubnamespaceAnchor{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      org.GUID,
-			Namespace: r.rootNamespace,
-			Labels: map[string]string{
-				OrgNameLabel: org.Name,
+	anchor, err := r.createSubnamespaceAnchor(
+		ctx,
+		userClient,
+		&v1alpha2.SubnamespaceAnchor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      org.GUID,
+				Namespace: r.rootNamespace,
+				Labels: map[string]string{
+					OrgNameLabel: org.Name,
+				},
 			},
 		},
-	})
+		OrgResourceType,
+	)
 	if err != nil {
-		if apierrors.IsForbidden(err) {
-			return OrgRecord{}, NewForbiddenError(err)
+		if webhooks.HasErrorCode(err, webhooks.DuplicateOrgNameError) {
+			errorDetail := fmt.Sprintf("Organization '%s' already exists.", org.Name)
+			return OrgRecord{}, apierrors.NewUnprocessableEntityError(err, errorDetail)
 		}
+		return OrgRecord{}, err
+	}
 
+	if err := setCascadingDelete(ctx, userClient, org.GUID); err != nil {
 		return OrgRecord{}, err
 	}
 
@@ -155,11 +168,25 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 	return orgRecord, nil
 }
 
+func setCascadingDelete(ctx context.Context, userClient client.Client, orgGUID string) error {
+	oldHC := v1alpha2.HierarchyConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hierarchyMetadataName,
+			Namespace: orgGUID,
+		},
+	}
+	newHC := oldHC
+	newHC.Spec.AllowCascadingDeletion = true
+
+	if err := userClient.Patch(ctx, &newHC, client.MergeFrom(&oldHC)); err != nil {
+		return fmt.Errorf("failed to update hierarchy configuration: %w", apierrors.FromK8sError(err, OrgResourceType))
+	}
+
+	return nil
+}
+
 func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, message CreateSpaceMessage) (SpaceRecord, error) {
 	_, err := r.GetOrg(ctx, info, message.OrganizationGUID)
-	if errors.As(err, &PermissionDeniedOrNotFoundError{}) {
-		return SpaceRecord{}, err
-	}
 	if err != nil {
 		return SpaceRecord{}, fmt.Errorf("failed to get parent organization: %w", err)
 	}
@@ -169,20 +196,26 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 		return SpaceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	anchor, err := r.createSubnamespaceAnchor(ctx, userClient, &v1alpha2.SubnamespaceAnchor{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.GUID,
-			Namespace: message.OrganizationGUID,
-			Labels: map[string]string{
-				SpaceNameLabel: message.Name,
+	anchor, err := r.createSubnamespaceAnchor(
+		ctx,
+		userClient,
+		&v1alpha2.SubnamespaceAnchor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      message.GUID,
+				Namespace: message.OrganizationGUID,
+				Labels: map[string]string{
+					SpaceNameLabel: message.Name,
+				},
 			},
 		},
-	})
+		SpaceResourceType,
+	)
 	if err != nil {
-		if apierrors.IsForbidden(err) {
-			return SpaceRecord{}, NewForbiddenError(err)
+		if webhooks.HasErrorCode(err, webhooks.DuplicateSpaceNameError) {
+			// Note: the cf cli expects the specific text 'Name must be unique per organization' in the error and ignores the error if it matches it.
+			errorDetail := fmt.Sprintf("Space '%s' already exists. Name must be unique per organization.", message.Name)
+			return SpaceRecord{}, apierrors.NewUnprocessableEntityError(err, errorDetail)
 		}
-
 		return SpaceRecord{}, err
 	}
 
@@ -200,7 +233,7 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 	}
 	err = r.privilegedClient.Create(ctx, &kpackServiceAccount)
 	if err != nil {
-		return SpaceRecord{}, err
+		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
 	eiriniServiceAccount := corev1.ServiceAccount{
@@ -211,7 +244,7 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 	}
 	err = r.privilegedClient.Create(ctx, &eiriniServiceAccount)
 	if err != nil {
-		return SpaceRecord{}, err
+		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
 	record := SpaceRecord{
@@ -225,10 +258,14 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 	return record, nil
 }
 
-func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context, userClient client.Client, anchor *v1alpha2.SubnamespaceAnchor) (*v1alpha2.SubnamespaceAnchor, error) {
+func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context,
+	userClient client.Client,
+	anchor *v1alpha2.SubnamespaceAnchor,
+	resourceType string,
+) (*v1alpha2.SubnamespaceAnchor, error) {
 	err := userClient.Create(ctx, anchor)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create subnamespaceanchor: %w", err)
+		return nil, fmt.Errorf("failed to create subnamespaceanchor: %w", apierrors.FromK8sError(err, resourceType))
 	}
 
 	timeoutCtx, cancelFn := context.WithTimeout(ctx, r.timeout)
@@ -239,7 +276,7 @@ func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context, userClient clien
 		client.MatchingFields{"metadata.name": anchor.Name},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set up watch on subnamespaceanchors: %w", err)
+		return nil, fmt.Errorf("failed to set up watch on subnamespaceanchors: %w", apierrors.FromK8sError(err, resourceType))
 	}
 
 	stateOK := false
@@ -262,6 +299,25 @@ func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context, userClient clien
 		return nil, fmt.Errorf("subnamespaceanchor did not get state 'ok' within timeout period %d ms", r.timeout.Milliseconds())
 	}
 
+	// wait for the user to have permissions in the new namespace
+	const attempts = 9
+	for i := 0; i < attempts; i++ {
+		appList := &workloadsv1alpha1.CFAppList{}
+		err := userClient.List(ctx, appList, client.InNamespace(anchor.Name))
+		if err == nil {
+			break
+		}
+		if !k8serrors.IsForbidden(err) {
+			return nil, apierrors.FromK8sError(err, resourceType)
+		}
+		if i < attempts-1 {
+			time.Sleep(50 * time.Millisecond * (1 << i))
+		} else {
+			// HNC is broken
+			return nil, fmt.Errorf("failed establishing permissions in new namespace: %w", err)
+		}
+	}
+
 	return createdAnchor, nil
 }
 
@@ -282,7 +338,7 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter 
 
 	err := r.privilegedClient.List(ctx, subnamespaceAnchorList, options...)
 	if err != nil {
-		return nil, err
+		return nil, apierrors.FromK8sError(err, OrgResourceType)
 	}
 
 	guidFilter := toMap(filter.GUIDs)
@@ -330,7 +386,7 @@ func (r *OrgRepo) ListSpaces(ctx context.Context, info authorization.Info, messa
 
 	err := r.privilegedClient.List(ctx, subnamespaceAnchorList)
 	if err != nil {
-		return nil, err
+		return nil, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
 	orgsFilter := toMap(message.OrganizationGUIDs)
@@ -423,7 +479,7 @@ func (r *OrgRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGU
 	}
 
 	if len(spaceRecords) == 0 {
-		return SpaceRecord{}, NotFoundError{ResourceType: "Space"}
+		return SpaceRecord{}, apierrors.NewNotFoundError(fmt.Errorf("space %q not found", spaceGUID), SpaceResourceType)
 	}
 
 	return spaceRecords[0], nil
@@ -436,7 +492,7 @@ func (r *OrgRepo) GetOrg(ctx context.Context, info authorization.Info, orgGUID s
 	}
 
 	if len(orgRecords) == 0 {
-		return OrgRecord{}, PermissionDeniedOrNotFoundError{}
+		return OrgRecord{}, apierrors.NewNotFoundError(nil, OrgResourceType)
 	}
 
 	return orgRecords[0], nil
@@ -447,36 +503,12 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	hierarchyObj := v1alpha2.HierarchyConfiguration{}
 	err = r.privilegedClient.Get(ctx, types.NamespacedName{Name: hierarchyMetadataName, Namespace: message.GUID}, &hierarchyObj)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return NotFoundError{
-				Err: err,
-			}
-		}
-		return err
+		return apierrors.FromK8sError(err, OrgResourceType)
 	}
 
-	userClient := r.privilegedClient
-	if r.authEnabled {
-		userClient, err = r.userClientFactory.BuildClient(info)
-		if err != nil {
-			return fmt.Errorf("failed to build user client: %w", err)
-		}
-	}
-
-	hierarchyObj.Spec.AllowCascadingDeletion = true
-	err = userClient.Update(ctx, &hierarchyObj)
+	userClient, err := r.userClientFactory.BuildClient(info)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return NotFoundError{
-				Err: err,
-			}
-		}
-		if apierrors.IsForbidden(err) {
-			return authorization.InvalidAuthError{
-				Err: err,
-			}
-		}
-		return err
+		return fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	err = userClient.Delete(ctx, &v1alpha2.SubnamespaceAnchor{
@@ -485,52 +517,20 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 			Namespace: r.rootNamespace,
 		},
 	})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return NotFoundError{
-				Err: err,
-			}
-		}
-		if apierrors.IsForbidden(err) {
-			return authorization.InvalidAuthError{
-				Err: err,
-			}
-		}
-		return err
-	}
 
-	return nil
+	return apierrors.FromK8sError(err, OrgResourceType)
 }
 
 func (r *OrgRepo) DeleteSpace(ctx context.Context, info authorization.Info, message DeleteSpaceMessage) error {
-	if r.authEnabled {
-		userClient, err := r.userClientFactory.BuildClient(info)
-		if err != nil {
-			return fmt.Errorf("failed to build user client: %w", err)
-		}
-		err = userClient.Delete(ctx, &v1alpha2.SubnamespaceAnchor{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      message.GUID,
-				Namespace: message.OrganizationGUID,
-			},
-		})
-		if err == nil {
-			return nil
-		}
-
-		if apierrors.IsForbidden(err) {
-			return authorization.InvalidAuthError{
-				Err: err,
-			}
-		}
-
-		return err
+	userClient, err := r.userClientFactory.BuildClient(info)
+	if err != nil {
+		return fmt.Errorf("failed to build user client: %w", err)
 	}
-
-	return r.privilegedClient.Delete(ctx, &v1alpha2.SubnamespaceAnchor{
+	err = userClient.Delete(ctx, &v1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
 			Namespace: message.OrganizationGUID,
 		},
 	})
+	return apierrors.FromK8sError(err, SpaceResourceType)
 }

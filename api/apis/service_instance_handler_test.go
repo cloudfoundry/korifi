@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
@@ -32,12 +32,12 @@ var _ = Describe("ServiceInstanceHandler", func() {
 	var (
 		req                 *http.Request
 		serviceInstanceRepo *fake.CFServiceInstanceRepository
-		appRepo             *fake.CFAppRepository
+		spaceRepo           *fake.SpaceRepository
 	)
 
 	BeforeEach(func() {
 		serviceInstanceRepo = new(fake.CFServiceInstanceRepository)
-		appRepo = new(fake.CFAppRepository)
+		spaceRepo = new(fake.SpaceRepository)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -45,7 +45,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			logf.Log.WithName(testServiceInstanceHandlerLoggerName),
 			*serverURL,
 			serviceInstanceRepo,
-			appRepo,
+			spaceRepo,
 			decoderValidator,
 		)
 		serviceInstanceHandler.RegisterRoutes(router)
@@ -308,9 +308,9 @@ var _ = Describe("ServiceInstanceHandler", func() {
 
 		When("the space does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetNamespaceReturns(
+				spaceRepo.GetSpaceReturns(
 					repositories.SpaceRecord{},
-					repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")},
+					apierrors.NewNotFoundError(errors.New("not found"), repositories.SpaceResourceType),
 				)
 
 				makePostRequest(validBody)
@@ -321,9 +321,9 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			})
 		})
 
-		When("the get namespace returns an unknown error", func() {
+		When("the get space returns an unknown error", func() {
 			BeforeEach(func() {
-				appRepo.GetNamespaceReturns(
+				spaceRepo.GetSpaceReturns(
 					repositories.SpaceRecord{},
 					errors.New("unknown"),
 				)
@@ -336,42 +336,9 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			})
 		})
 
-		When("authentication is invalid", func() {
+		When("creating the service instance fails", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, authorization.InvalidAuthError{})
-				makePostRequest(validBody)
-			})
-
-			It("returns Invalid Auth error", func() {
-				expectInvalidAuthError()
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, authorization.NotAuthenticatedError{})
-				makePostRequest(validBody)
-			})
-
-			It("returns a NotAuthenticated error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
-		When("user is not allowed to create a service instance", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError(errors.New("nope")))
-				makePostRequest(validBody)
-			})
-
-			It("returns an unauthorised error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("providing the service instance repository fails", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("space-repo-provisioning-failed"))
+				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("space-instance-creation-failed"))
 				makePostRequest(validBody)
 			})
 
@@ -553,11 +520,12 @@ var _ = Describe("ServiceInstanceHandler", func() {
 				})
 			})
 
-			When("query parameters are provided", func() {
+			When("filtering query parameters are provided", func() {
 				BeforeEach(func() {
 					makeListRequest(
 						"names=sc1,sc2",
 						"space_guids=space1,space2",
+						"fields%5Bservice_plan.service_offering.service_broker%5D=guid%2Cname",
 					)
 				})
 
@@ -570,7 +538,57 @@ var _ = Describe("ServiceInstanceHandler", func() {
 				})
 
 				It("correctly sets query parameters in response pagination links", func() {
-					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?names=sc1,sc2&space_guids=space1,space2"))
+					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?names=sc1,sc2&space_guids=space1,space2&fields%5Bservice_plan.service_offering.service_broker%5D=guid%2Cname"))
+				})
+			})
+
+			When("the order_by query parameter is provided", func() {
+				BeforeEach(func() {
+					makeListRequest("order_by=name")
+				})
+
+				It("passes it to the repository", func() {
+					Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+					_, _, message := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
+
+					Expect(message.OrderBy).To(Equal("name"))
+					Expect(message.DescendingOrder).To(BeFalse(), "DescendingOrder was not false as expected")
+				})
+
+				It("correctly sets the query parameter in response pagination links", func() {
+					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?order_by=name"))
+				})
+
+				When("the order_by query parameter value begins with '-'", func() {
+					BeforeEach(func() {
+						makeListRequest("order_by=-name")
+					})
+
+					It("sets the DescendingOrder field in the message to true", func() {
+						Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+						_, _, message := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
+
+						Expect(message.OrderBy).To(Equal("name"))
+						Expect(message.DescendingOrder).To(BeTrue(), "DescendingOrder was not true as expected")
+					})
+
+					It("correctly sets the query parameter in response pagination links", func() {
+						Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?order_by=-name"))
+					})
+				})
+			})
+
+			When("the per_page query parameter is provided", func() {
+				BeforeEach(func() {
+					makeListRequest("per_page=10")
+				})
+
+				It("handles the request", func() {
+					Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+				})
+
+				It("correctly sets the query parameter in response pagination links", func() {
+					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?per_page=10"))
 				})
 			})
 		})
@@ -609,40 +627,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			})
 		})
 
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, authorization.InvalidAuthError{})
-				makeListRequest()
-			})
-
-			It("returns Invalid Auth error", func() {
-				expectInvalidAuthError()
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, authorization.NotAuthenticatedError{})
-				makeListRequest()
-			})
-
-			It("returns a NotAuthenticated error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
-		When("user is not allowed to create a service instance", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, repositories.NewForbiddenError(errors.New("not allowed")))
-				makeListRequest()
-			})
-
-			It("returns an unauthorised error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("there is some other error fetching service instances", func() {
+		When("there is an error fetching service instances", func() {
 			BeforeEach(func() {
 				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, errors.New("unknown!"))
 				makeListRequest()
@@ -659,7 +644,67 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, space_guids'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, space_guids, fields, order_by, per_page'")
+			})
+		})
+	})
+
+	Describe("the DELETE /v3/service_instances endpoint", func() {
+		BeforeEach(func() {
+			serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{SpaceGUID: spaceGUID}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("/v3/service_instances/%s", serviceInstanceGUID), nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns status 204 No Content", func() {
+			Expect(rr.Code).To(Equal(http.StatusNoContent))
+		})
+
+		It("gets the service instance", func() {
+			Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
+			_, _, actualGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
+			Expect(actualGUID).To(Equal(serviceInstanceGUID))
+		})
+
+		It("deletes the service instance using the repo", func() {
+			Expect(serviceInstanceRepo.DeleteServiceInstanceCallCount()).To(Equal(1))
+			_, _, message := serviceInstanceRepo.DeleteServiceInstanceArgsForCall(0)
+			Expect(message.GUID).To(Equal(serviceInstanceGUID))
+			Expect(message.SpaceGUID).To(Equal(spaceGUID))
+		})
+
+		When("getting the service instance fails with forbidden", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(
+					repositories.ServiceInstanceRecord{},
+					apierrors.NewForbiddenError(nil, repositories.ServiceInstanceResourceType),
+				)
+			})
+
+			It("returns 404 Not Found", func() {
+				Expect(rr.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+
+		When("getting the service instance fails", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("boom"))
+			})
+
+			It("returns 500 Internal Server Error", func() {
+				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+			})
+		})
+
+		When("deleting the service instance fails", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.DeleteServiceInstanceReturns(errors.New("boom"))
+			})
+
+			It("returns 500 Internal Server Error", func() {
+				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
 			})
 		})
 	})

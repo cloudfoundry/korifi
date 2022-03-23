@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	repositoriesfake "code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 
@@ -22,29 +22,13 @@ var _ = Describe("SpaceManifestHandler", func() {
 		applyManifestAction *fake.ApplyManifestAction
 		spaceRepo           *repositoriesfake.CFSpaceRepository
 		req                 *http.Request
+		defaultDomainName   string
 	)
 
 	BeforeEach(func() {
 		applyManifestAction = new(fake.ApplyManifestAction)
 		spaceRepo = new(repositoriesfake.CFSpaceRepository)
-
-		now := time.Unix(1631892190, 0)
-		spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
-			{
-				Name:             "my-test-space",
-				GUID:             spaceGUID,
-				OrganizationGUID: "org-guid-1",
-				CreatedAt:        now,
-				UpdatedAt:        now,
-			},
-			{
-				Name:             "bob",
-				GUID:             "b-o-b",
-				OrganizationGUID: "org-guid-2",
-				CreatedAt:        now,
-				UpdatedAt:        now,
-			},
-		}, nil)
+		defaultDomainName = "apps.example.org"
 
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
@@ -52,6 +36,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		apiHandler := NewSpaceManifestHandler(
 			logf.Log.WithName("testSpaceManifestHandler"),
 			*serverURL,
+			defaultDomainName,
 			applyManifestAction.Spy,
 			spaceRepo,
 			decoderValidator,
@@ -135,7 +120,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 			It("passes the authInfo from context to applyManifestAction", func() {
 				Expect(applyManifestAction.CallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _ := applyManifestAction.ArgsForCall(0)
+				_, actualAuthInfo, _, _, _ := applyManifestAction.ArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -259,6 +244,25 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 		})
 
+		When("a process's health-check-type is invalid", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+                version: 1
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    health-check-type: bogus-type
+            `))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("responds 422", func() {
+				expectUnprocessableEntityError("HealthCheckType must be one of [none process port http]")
+			})
+		})
+
 		When("applying the manifest errors", func() {
 			BeforeEach(func() {
 				applyManifestAction.Returns(errors.New("boom"))
@@ -284,8 +288,18 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 			It("passes through the default-route payload to the action", func() {
 				Expect(applyManifestAction.CallCount()).To(Equal(1))
-				_, _, _, payload := applyManifestAction.ArgsForCall(0)
+				_, _, _, _, payload := applyManifestAction.ArgsForCall(0)
 				Expect(payload.Applications[0].DefaultRoute).To(BeTrue())
+			})
+		})
+
+		When("applying the manifest errors with NotFoundErr", func() {
+			BeforeEach(func() {
+				applyManifestAction.Returns(apierrors.NotFoundError{})
+			})
+
+			It("respond with unprocessable entity error", func() {
+				expectUnprocessableEntityError(`The configured default domain "` + defaultDomainName + `" was not found`)
 			})
 		})
 	})
@@ -316,8 +330,9 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 		})
 
-		When("the space is not found", func() {
+		When("getting the space errors", func() {
 			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("foo"))
 				var err error
 				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+"fake-space-guid"+"/manifest_diff", strings.NewReader(`---
 				version: 1
@@ -328,9 +343,8 @@ var _ = Describe("SpaceManifestHandler", func() {
 				req.Header.Add("Content-type", "application/x-yaml")
 			})
 
-			It("returns a 404", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
-				expectNotFoundError("Space not found")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})

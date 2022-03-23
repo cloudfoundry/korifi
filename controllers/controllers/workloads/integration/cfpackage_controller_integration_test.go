@@ -29,12 +29,13 @@ var _ = Describe("CFPackageReconciler", func() {
 		cfAppGUID = GenerateGUID()
 		cfPackageGUID = GenerateGUID()
 		ns = createNamespace(context.Background(), k8sClient, namespaceGUID)
-		DeferCleanup(func() {
-			_ = k8sClient.Delete(context.Background(), ns)
-		})
 
 		cfApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
 		Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		Expect(k8sClient.Delete(context.Background(), ns)).To(Succeed())
 	})
 
 	When("a new CFPackage resource is created", func() {

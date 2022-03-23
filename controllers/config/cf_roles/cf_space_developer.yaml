@@ -14,6 +14,13 @@ rules:
   - create
 
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - list
+
+- apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
@@ -27,9 +34,20 @@ rules:
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
+  - cfprocesses
+  verbs:
+  - get
+  - list
+  - patch
+
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
   - cfpackages
   verbs:
   - get
+  - create
+  - patch
 
 - apiGroups:
   - workloads.cloudfoundry.org
@@ -44,8 +62,20 @@ rules:
   resources:
   - cfserviceinstances
   verbs:
+  - get
   - list
   - create
+  - delete
+
+- apiGroups:
+    - services.cloudfoundry.org
+  resources:
+    - cfservicebindings
+  verbs:
+    - get
+    - list
+    - create
+    - delete
 
 - apiGroups:
   - networking.cloudfoundry.org
@@ -56,6 +86,7 @@ rules:
   - create
   - delete
   - list
+  - patch
 
 - apiGroups:
   - kpack.io
@@ -63,5 +94,3 @@ rules:
   - clusterbuilders
   verbs:
   - get
-  - list
-  - watch

@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
@@ -27,17 +28,17 @@ func NewScaleAppProcess(appRepo CFAppRepository, processRepo CFProcessRepository
 func (a *ScaleAppProcess) Invoke(ctx context.Context, authInfo authorization.Info, appGUID string, processType string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error) {
 	app, err := a.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		return repositories.ProcessRecord{}, err
+		return repositories.ProcessRecord{}, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	fetchProcessMessage := repositories.ListProcessesMessage{
-		AppGUID:   []string{app.GUID},
+		AppGUIDs:   []string{app.GUID},
 		SpaceGUID: app.SpaceGUID,
 	}
 
 	appProcesses, err := a.processRepo.ListProcesses(ctx, authInfo, fetchProcessMessage)
 	if err != nil {
-		return repositories.ProcessRecord{}, err
+		return repositories.ProcessRecord{}, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	var appProcessGUID string
@@ -46,6 +47,10 @@ func (a *ScaleAppProcess) Invoke(ctx context.Context, authInfo authorization.Inf
 			appProcessGUID = v.GUID
 			break
 		}
+	}
+
+	if appProcessGUID == "" {
+		return repositories.ProcessRecord{}, apierrors.NewNotFoundError(nil, repositories.ProcessResourceType)
 	}
 	return a.scaleProcessAction(ctx, authInfo, appProcessGUID, scale)
 }

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -274,6 +276,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					k8sClient.Create(ctx, serviceInstance1),
 				).To(Succeed())
 
+				serviceBinding1Name := "service-binding-1-name"
 				serviceBinding1 = &servicesv1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service-binding-1-guid",
@@ -283,13 +286,12 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 						},
 					},
 					Spec: servicesv1alpha1.CFServiceBindingSpec{
-						Name: "service-binding-1-name",
+						Name: &serviceBinding1Name,
 						Service: corev1.ObjectReference{
 							Kind:       "ServiceInstance",
 							Name:       serviceInstance1.Name,
 							APIVersion: "services.cloudfoundry.org/v1alpha1",
 						},
-						SecretName: secret1.Name,
 						AppRef: corev1.LocalObjectReference{
 							Name: testAppGUID,
 						},
@@ -298,6 +300,16 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				Expect(
 					k8sClient.Create(ctx, serviceBinding1),
 				).To(Succeed())
+
+				createdServiceBinding1 := serviceBinding1.DeepCopy()
+				createdServiceBinding1.Status.Binding.Name = secret1.Name
+				meta.SetStatusCondition(&createdServiceBinding1.Status.Conditions, metav1.Condition{
+					Type:    "BindingSecretAvailable",
+					Status:  metav1.ConditionTrue,
+					Reason:  "SecretFound",
+					Message: "",
+				})
+				Expect(k8sClient.Status().Patch(ctx, createdServiceBinding1, client.MergeFrom(serviceBinding1))).To(Succeed())
 
 				secret2Data = map[string]string{
 					"key1": "value1",
@@ -330,6 +342,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					k8sClient.Create(ctx, serviceInstance2),
 				).To(Succeed())
 
+				serviceBinding2Name := "service-binding-2-name"
 				serviceBinding2 = &servicesv1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service-binding-2-guid",
@@ -339,13 +352,12 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 						},
 					},
 					Spec: servicesv1alpha1.CFServiceBindingSpec{
-						Name: "",
+						Name: &serviceBinding2Name,
 						Service: corev1.ObjectReference{
 							Kind:       "ServiceInstance",
 							Name:       serviceInstance2.Name,
 							APIVersion: "services.cloudfoundry.org/v1alpha1",
 						},
-						SecretName: secret2.Name,
 						AppRef: corev1.LocalObjectReference{
 							Name: testAppGUID,
 						},
@@ -354,6 +366,16 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				Expect(
 					k8sClient.Create(ctx, serviceBinding2),
 				).To(Succeed())
+
+				createdServiceBinding2 := serviceBinding2.DeepCopy()
+				createdServiceBinding2.Status.Binding.Name = secret2.Name
+				meta.SetStatusCondition(&createdServiceBinding2.Status.Conditions, metav1.Condition{
+					Type:    "BindingSecretAvailable",
+					Status:  metav1.ConditionTrue,
+					Reason:  "SecretFound",
+					Message: "",
+				})
+				Expect(k8sClient.Status().Patch(ctx, createdServiceBinding2, client.MergeFrom(serviceBinding2))).To(Succeed())
 			})
 
 			It("eventually creates an LRP with VCAP_SERVICES environment variables", func() {
@@ -377,7 +399,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					return nil
 				}, 5*time.Second).Should(
 					HaveKeyWithValue("VCAP_SERVICES",
-						SatisfyAll(ContainSubstring(serviceBinding1.Spec.Name), ContainSubstring(serviceBinding2.Spec.Name)),
+						SatisfyAll(ContainSubstring(*serviceBinding1.Spec.Name), ContainSubstring(*serviceBinding2.Spec.Name)),
 					), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to get VCAP_SERVICES env vars", testProcessGUID, testNamespace))
 
 				Expect(lrp.Spec.Env["VCAP_SERVICES"]).To(MatchJSON(fmt.Sprintf(`{
@@ -406,7 +428,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 								"instance_guid": "%s",
 								"instance_name": "%s",
 								"binding_guid": "%s",
-								"binding_name": null,
+								"binding_name": "%s",
 								"credentials": {
 									"key1": "value1",
 									"key2": "value2"
@@ -415,15 +437,16 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 								"volume_mounts": []
 							}
 						]
-					}`, serviceBinding1.Spec.Name, serviceInstance1.Spec.Tags[0], serviceInstance1.Spec.Tags[1], serviceInstance1.Name, serviceInstance1.Spec.Name, serviceBinding1.Name, serviceBinding1.Spec.Name,
-					serviceInstance2.Spec.Name, serviceInstance2.Name, serviceInstance2.Spec.Name, serviceBinding2.Name),
+					}`, *serviceBinding1.Spec.Name, serviceInstance1.Spec.Tags[0], serviceInstance1.Spec.Tags[1], serviceInstance1.Name, serviceInstance1.Spec.Name, serviceBinding1.Name, *serviceBinding1.Spec.Name,
+					*serviceBinding2.Spec.Name, serviceInstance2.Name, serviceInstance2.Spec.Name, serviceBinding2.Name, *serviceBinding2.Spec.Name),
 				))
 			})
 		})
 	})
 
 	When("a CFRoute destination specifying a different port already exists before the app is started", func() {
-		var ()
+		var lrp eiriniv1.LRP
+
 		BeforeEach(func() {
 			wrongDestination := networkingv1alpha1.Destination{
 				GUID:        "destination1-guid",
@@ -448,8 +471,9 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					Host:     "test-host",
 					Path:     "",
 					Protocol: "http",
-					DomainRef: corev1.LocalObjectReference{
-						Name: GenerateGUID(),
+					DomainRef: corev1.ObjectReference{
+						Name:      GenerateGUID(),
+						Namespace: testNamespace,
 					},
 					Destinations: []networkingv1alpha1.Destination{wrongDestination, destination},
 				},
@@ -461,13 +485,14 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				Destinations:  []networkingv1alpha1.Destination{wrongDestination, destination},
 			}
 			Expect(k8sClient.Status().Update(context.Background(), cfRoute)).To(Succeed())
+		})
 
+		JustBeforeEach(func() {
 			cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
 			Expect(
 				k8sClient.Create(context.Background(), cfApp),
 			).To(Succeed())
 		})
-		var lrp eiriniv1.LRP
 
 		It("eventually reconciles the CFProcess into an LRP with VCAP env set according to the destination port", func() {
 			Eventually(func() string {
@@ -489,6 +514,40 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 			Expect(lrp.Spec.Env).To(HaveKeyWithValue("VCAP_APP_PORT", "9000"))
 			Expect(lrp.Spec.Env).To(HaveKeyWithValue("PORT", "9000"))
+		})
+
+		When("the process has a health check", func() {
+			BeforeEach(func() {
+				ctx := context.Background()
+				cfProcess.Spec.HealthCheck.Type = "process"
+				cfProcess.Spec.Ports = []int32{}
+				Expect(k8sClient.Update(ctx, cfProcess)).To(Succeed())
+			})
+
+			It("eventually sets the correct health check port on the LRP", func() {
+				ctx := context.Background()
+				var lrp eiriniv1.LRP
+
+				Eventually(func() string {
+					var lrps eiriniv1.LRPList
+					err := k8sClient.List(ctx, &lrps, client.InNamespace(testNamespace))
+					if err != nil {
+						return ""
+					}
+
+					for _, currentLRP := range lrps.Items {
+						if getMapKeyValue(currentLRP.Labels, workloadsv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+							lrp = currentLRP
+							return currentLRP.GetName()
+						}
+					}
+
+					return ""
+				}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
+
+				Expect(lrp.Spec.Health.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
+				Expect(lrp.Spec.Health.Port).To(BeEquivalentTo(9000))
+			})
 		})
 	})
 
@@ -580,7 +639,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		})
 	})
 
-	When("the CFProcess has health check of type process", func() {
+	When("the CFProcess has a health check", func() {
 		BeforeEach(func() {
 			ctx := context.Background()
 
@@ -618,7 +677,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
 			Expect(lrp.Spec.Health.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
-			Expect(lrp.Spec.Health.Port).To(BeZero())
+			Expect(lrp.Spec.Health.Port).To(BeEquivalentTo(8080))
 		})
 	})
 })

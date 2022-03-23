@@ -3,9 +3,7 @@ package repositories
 import (
 	"errors"
 
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -61,102 +59,16 @@ func getLabelOrAnnotation(mapObj map[string]string, key string) string {
 	return mapObj[key]
 }
 
-//  common permissions shared between multiple test packages
-var (
-	AdminClusterRoleRules = []rbacv1.PolicyRule{
-		{
-			Verbs:     []string{"create", "delete"},
-			APIGroups: []string{"rbac.authorization.k8s.io"},
-			Resources: []string{"rolebindings"},
-		},
-		{
-			Verbs:     []string{"create"},
-			APIGroups: []string{"hnc.x-k8s.io"},
-			Resources: []string{"subnamespaceanchors"},
-		},
+func matchesFilter(field string, filter []string) bool {
+	if len(filter) == 0 {
+		return true
 	}
 
-	SpaceDeveloperClusterRoleRules = []rbacv1.PolicyRule{
-		{
-			Verbs:     []string{"get", "create", "patch"},
-			APIGroups: []string{""},
-			Resources: []string{"secrets"},
-		},
-		{
-			Verbs:     []string{"get", "list", "create", "patch", "delete"},
-			APIGroups: []string{"workloads.cloudfoundry.org"},
-			Resources: []string{"cfapps"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{"workloads.cloudfoundry.org"},
-			Resources: []string{"cfpackages"},
-		},
-		{
-			Verbs:     []string{"get", "create"},
-			APIGroups: []string{"workloads.cloudfoundry.org"},
-			Resources: []string{"cfbuilds"},
-		},
-		{
-			Verbs:     []string{"get", "list", "create", "delete"},
-			APIGroups: []string{"networking.cloudfoundry.org"},
-			Resources: []string{"cfroutes"},
-		},
-		{
-			Verbs:     []string{"list", "create"},
-			APIGroups: []string{"services.cloudfoundry.org"},
-			Resources: []string{"cfserviceinstances"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{"kpack.io"},
-			Resources: []string{"clusterbuilders"},
-		},
+	for _, value := range filter {
+		if field == value {
+			return true
+		}
 	}
 
-	SpaceManagerClusterRoleRules = []rbacv1.PolicyRule{
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{"workloads.cloudfoundry.org"},
-			Resources: []string{"cfapps"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{"workloads.cloudfoundry.org"},
-			Resources: []string{"cfpackages"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{"workloads.cloudfoundry.org"},
-			Resources: []string{"cfbuilds"},
-		},
-	}
-
-	SpaceAuditorClusterRoleRules = []rbacv1.PolicyRule{
-		{
-			Verbs:     []string{"get", "list"},
-			APIGroups: []string{"workloads.cloudfoundry.org"},
-			Resources: []string{"cfapps"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{"kpack.io"},
-			Resources: []string{"clusterbuilders"},
-		},
-	}
-
-	OrgManagerClusterRoleRules = []rbacv1.PolicyRule{
-		{
-			Verbs:     []string{"list", "delete"},
-			APIGroups: []string{"hnc.x-k8s.io"},
-			Resources: []string{"subnamespaceanchors"},
-		},
-		{
-			Verbs:     []string{"get", "update"},
-			APIGroups: []string{"hnc.x-k8s.io"},
-			Resources: []string{"hierarchyconfigurations"},
-		},
-	}
-
-	OrgUserClusterRoleRules = []rbacv1.PolicyRule{}
-)
+	return false
+}

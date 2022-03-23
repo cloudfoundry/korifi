@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestWorkloadsControllers(t *testing.T) {
+func TestNetworkingControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Networking Controllers Unit Test Suite")
 }

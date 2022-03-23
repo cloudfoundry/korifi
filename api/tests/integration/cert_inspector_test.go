@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/pem"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -45,8 +47,7 @@ var _ = Describe("CertInspector", func() {
 		})
 
 		It("returns a InvalidAuthError", func() {
-			Expect(inspectorErr).To(HaveOccurred())
-			Expect(authorization.IsInvalidAuth(inspectorErr)).To(BeTrue(), "%#v", inspectorErr)
+			Expect(inspectorErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.InvalidAuthError{}))
 		})
 	})
 

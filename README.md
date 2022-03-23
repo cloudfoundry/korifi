@@ -82,6 +82,13 @@ With the load balancer provisioned, you must configure the ingress controller to
 ### Domain Management
 To be able to create workload routes via the CF API in the absence of the domain management endpoints, you must first create the appropriate `CFDomain` resource(s) for your cluster. Each desired domain name should be specified via the `spec.name` property of a distinct resource. The `metadata.name` for the resource can be set to any unique value (the API will use a GUID). See `controllers/config/samples/cfdomain.yaml` for an example.
 
+### Configuring Default Domain
+
+At the time of installation, platform operators can configure a default domain so that app developers can push an application without specifying domain information. 
+Operator can do so by setting the `defaultDomainName` at `api/config/base/apiconfig/cf_k8s_api_config.yaml`. The value should match `spec.name` on the `CFDomian` resource.
+
+Note: Platform operators are responsible for creating the required `CFDomain` resource. See `controllers/config/samples/cfdomain.yaml` for an example.
+
 ---
 ## Install Eirini-Controller
 
@@ -249,7 +256,7 @@ kubectl create secret tls \
 ```
 
 **NOTE**: If you choose to generate a self-signed certificate, you will need to
-skip TLS validation when connecting to the your workload.
+skip TLS validation when connecting to the workload.
 
 # Development Workflows
 
@@ -290,16 +297,27 @@ or
 ```
 for usage notes.
 
+### User Permissions Disclaimer
+When using the deploy-on-kind script, you will get a separate `cf-admin` user by default with which to interact with the cf api.
+
+So when prompted to select a user by the cli you may see something like:
+```
+$ cf login
+API endpoint: http://localhost
+Warning: Insecure http API endpoint detected: secure https API endpoints are recommended
+
+1. cf-admin
+2. kind-test
+```
+
+Of these options, `cf-admin` is the user with permissions set up by default. Selecting the other use may allow you to login and
+successfully create resources, but you may notice that the user lacks the permissions to list those resources once created.
+
 ---
 ## Install all dependencies with script
 ```sh
 # modify kpack dependency files to point towards your registry
 scripts/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
-```
-**Note**: This will not work by default on OSX with a `libressl` version prior to `v3.1.0`. You can install the latest version of `openssl` by running the following commands:
-```sh
-brew install openssl
-ln -s /usr/local/opt/openssl@3/bin/openssl /usr/local/bin/openssl
 ```
 
 ---

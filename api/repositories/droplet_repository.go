@@ -2,29 +2,34 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // No kubebuilder RBAC tags required, because Build and Droplet are the same CR
 
+const (
+	DropletResourceType = "Droplet"
+)
+
 type DropletRepo struct {
-	privilegedClient  client.Client
-	userClientFactory UserK8sClientFactory
+	privilegedClient   client.Client
+	namespaceRetriever NamespaceRetriever
+	userClientFactory  UserK8sClientFactory
 }
 
-func NewDropletRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *DropletRepo {
+func NewDropletRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory) *DropletRepo {
 	return &DropletRepo{
-		privilegedClient:  privilegedClient,
-		userClientFactory: userClientFactory,
+		privilegedClient:   privilegedClient,
+		namespaceRetriever: namespaceRetriever,
+		userClientFactory:  userClientFactory,
 	}
 }
 
@@ -48,47 +53,34 @@ type ListDropletsMessage struct {
 }
 
 func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Info, dropletGUID string) (DropletRecord, error) {
-	buildList := &workloadsv1alpha1.CFBuildList{}
-	err := r.privilegedClient.List(ctx, buildList, client.MatchingFields{"metadata.name": dropletGUID})
-	if err != nil { // untested
+	// A droplet is a subset of a build
+	ns, err := r.namespaceRetriever.NamespaceFor(ctx, dropletGUID, DropletResourceType)
+	if err != nil {
 		return DropletRecord{}, err
 	}
-	builds := buildList.Items
-	if len(builds) == 0 {
-		return DropletRecord{}, NotFoundError{}
-	}
-	if len(builds) > 1 { // untested
-		return DropletRecord{}, errors.New("duplicate builds exist")
-	}
 
-	foundObj := builds[0]
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return DropletRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	var userDroplet workloadsv1alpha1.CFBuild
-	err = userClient.Get(ctx, client.ObjectKeyFromObject(&foundObj), &userDroplet)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: dropletGUID}, &userDroplet)
 	if err != nil {
-		if k8serrors.IsForbidden(err) {
-			return DropletRecord{}, NewForbiddenError(err)
-		}
-
-		return DropletRecord{}, fmt.Errorf("get droplet failed: %w", err)
+		return DropletRecord{}, apierrors.FromK8sError(err, DropletResourceType)
 	}
 
-	return returnDroplet([]workloadsv1alpha1.CFBuild{userDroplet})
+	return returnDroplet(userDroplet)
 }
 
-func returnDroplet(builds []workloadsv1alpha1.CFBuild) (DropletRecord, error) {
-	cfBuild := builds[0]
+func returnDroplet(cfBuild workloadsv1alpha1.CFBuild) (DropletRecord, error) {
 	stagingStatus := getConditionValue(&cfBuild.Status.Conditions, StagingConditionType)
 	succeededStatus := getConditionValue(&cfBuild.Status.Conditions, SucceededConditionType)
 	if stagingStatus == metav1.ConditionFalse &&
 		succeededStatus == metav1.ConditionTrue {
 		return cfBuildToDropletRecord(cfBuild), nil
 	}
-	return DropletRecord{}, NotFoundError{}
+	return DropletRecord{}, apierrors.NewNotFoundError(nil, DropletResourceType)
 }
 
 func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {
@@ -123,8 +115,8 @@ func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {
 func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) ([]DropletRecord, error) {
 	buildList := &workloadsv1alpha1.CFBuildList{}
 	err := r.privilegedClient.List(ctx, buildList)
-	if err != nil { // untested
-		return []DropletRecord{}, err
+	if err != nil {
+		return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
 	allBuilds := buildList.Items
 	matches := applyDropletFilters(allBuilds, message)

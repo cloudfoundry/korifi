@@ -2,19 +2,21 @@ package apis
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
 const (
-	DropletGetEndpoint = "/v3/droplets/{guid}"
+	DropletPath = "/v3/droplets/{guid}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFDropletRepository . CFDropletRepository
@@ -41,27 +43,22 @@ func NewDropletHandler(
 	}
 }
 
-func (h *DropletHandler) dropletGetHandler(authInfo authorization.Info, w http.ResponseWriter, r *http.Request) {
+func (h *DropletHandler) dropletGetHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	dropletGUID := vars["guid"]
 
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
-		handleRepoErrors(h.logger, err, "droplet", dropletGUID, w)
-		return
+		h.logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.DropletResourceType), "guid", dropletGUID)
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
-	err = writeJsonResponse(w, presenter.ForDroplet(droplet, h.serverURL), http.StatusOK)
-	if err != nil {
-		h.logger.Error(err, "Failed to render response", "dropletGUID", dropletGUID)
-		writeUnknownErrorResponse(w)
-	}
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDroplet(droplet, h.serverURL)), nil
 }
 
 func (h *DropletHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(DropletGetEndpoint).Methods("GET").HandlerFunc(w.Wrap(h.dropletGetHandler))
+	router.Path(DropletPath).Methods("GET").HandlerFunc(w.Wrap(h.dropletGetHandler))
 }

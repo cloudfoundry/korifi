@@ -4,23 +4,23 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("DropletRepository", func() {
 	var (
-		testCtx                   context.Context
-		dropletRepo               *repositories.DropletRepo
-		namespace                 *corev1.Namespace
-		spaceDeveloperClusterRole *rbacv1.ClusterRole
+		testCtx     context.Context
+		dropletRepo *repositories.DropletRepo
+		namespace   *corev1.Namespace
 	)
 
 	BeforeEach(func() {
@@ -29,9 +29,7 @@ var _ = Describe("DropletRepository", func() {
 		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
 		Expect(k8sClient.Create(testCtx, namespace)).To(Succeed())
 
-		dropletRepo = repositories.NewDropletRepo(k8sClient, userClientFactory)
-
-		spaceDeveloperClusterRole = createClusterRole(testCtx, repositories.SpaceDeveloperClusterRoleRules)
+		dropletRepo = repositories.NewDropletRepo(k8sClient, namespaceRetriever, userClientFactory)
 	})
 
 	Describe("GetDroplet", func() {
@@ -91,7 +89,7 @@ var _ = Describe("DropletRepository", func() {
 
 		When("the user is authorized to get the droplet", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperClusterRole.Name, namespace.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, namespace.Name)
 			})
 
 			When("status.BuildDropletStatus is set", func() {
@@ -197,7 +195,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					It("should return a NotFound error", func() {
-						Expect(fetchErr).To(MatchError(repositories.NotFoundError{}))
+						Expect(fetchErr).To(MatchError(apierrors.NewNotFoundError(nil, repositories.DropletResourceType)))
 					})
 				})
 
@@ -219,7 +217,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					It("should return a NotFound error", func() {
-						Expect(fetchErr).To(MatchError(repositories.NotFoundError{}))
+						Expect(fetchErr).To(MatchError(apierrors.NewNotFoundError(nil, repositories.DropletResourceType)))
 					})
 				})
 
@@ -241,7 +239,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					It("should return a NotFound error", func() {
-						Expect(fetchErr).To(MatchError(repositories.NotFoundError{}))
+						Expect(fetchErr).To(MatchError(apierrors.NewNotFoundError(nil, repositories.DropletResourceType)))
 					})
 				})
 			})
@@ -250,7 +248,7 @@ var _ = Describe("DropletRepository", func() {
 				It("returns an error", func() {
 					_, err := dropletRepo.GetDroplet(testCtx, authInfo, "i don't exist")
 					Expect(err).To(HaveOccurred())
-					Expect(err).To(MatchError(repositories.NotFoundError{}))
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
 			})
 		})
@@ -258,7 +256,7 @@ var _ = Describe("DropletRepository", func() {
 		When("the user is not authorized to get the droplet", func() {
 			It("returns a forbidden error", func() {
 				_, err := dropletRepo.GetDroplet(testCtx, authInfo, buildGUID)
-				Expect(repositories.IsForbiddenError(err)).To(BeTrue())
+				Expect(err).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})

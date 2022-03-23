@@ -4,7 +4,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 )
 
 var _ = Describe("InfoParser", func() {
@@ -72,7 +74,7 @@ var _ = Describe("InfoParser", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(err).To(BeAssignableToTypeOf(authorization.InvalidAuthError{}))
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.InvalidAuthError{}))
 			})
 		})
 	})
@@ -83,7 +85,7 @@ var _ = Describe("InfoParser", func() {
 		})
 
 		It("returns an error", func() {
-			Expect(err).To(BeAssignableToTypeOf(authorization.InvalidAuthError{}))
+			Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.InvalidAuthError{}))
 		})
 	})
 
@@ -93,7 +95,7 @@ var _ = Describe("InfoParser", func() {
 		})
 
 		It("returns an error", func() {
-			Expect(err).To(BeAssignableToTypeOf(authorization.InvalidAuthError{}))
+			Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.InvalidAuthError{}))
 		})
 	})
 
@@ -103,7 +105,7 @@ var _ = Describe("InfoParser", func() {
 		})
 
 		It("returns a NotAuthenticatedErr", func() {
-			Expect(err).To(BeAssignableToTypeOf(authorization.NotAuthenticatedError{}))
+			Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotAuthenticatedError{}))
 		})
 	})
 })

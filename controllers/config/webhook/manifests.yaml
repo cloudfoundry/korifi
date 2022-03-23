@@ -1,4 +1,3 @@
-
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -111,7 +110,6 @@ webhooks:
     resources:
     - cfprocesses
   sideEffects: None
-
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -119,6 +117,70 @@ metadata:
   creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-cloudfoundry-org-v1alpha1-cfdomain
+  failurePolicy: Fail
+  name: vcfdomain.kb.io
+  rules:
+  - apiGroups:
+    - networking.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfdomains
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-cloudfoundry-org-v1alpha1-cfroute
+  failurePolicy: Fail
+  name: vcfroute.networking.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - networking.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cfroutes
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-services-cloudfoundry-org-v1alpha1-cfserviceinstance
+  failurePolicy: Fail
+  name: vcfserviceinstance.services.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - services.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cfserviceinstances
+  sideEffects: None
 - admissionReviewVersions:
   - v1
   - v1beta1

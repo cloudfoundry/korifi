@@ -21,8 +21,7 @@ var _ = Describe("Droplet", func() {
 	)
 
 	BeforeEach(func() {
-		clientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
-		dropletRepo := repositories.NewDropletRepo(k8sClient, clientFactory)
+		dropletRepo := repositories.NewDropletRepo(k8sClient, namespaceRetriever, clientFactory)
 
 		dropletHandler = apis.NewDropletHandler(
 			logf.Log.WithName("integration tests"),

@@ -23,9 +23,8 @@ var _ = Describe("Build", func() {
 	)
 
 	BeforeEach(func() {
-		userClientFactory := repositories.NewUnprivilegedClientFactory(k8sConfig)
-		buildRepo := repositories.NewBuildRepo(k8sClient, userClientFactory)
-		packageRepo := repositories.NewPackageRepo(k8sClient, userClientFactory)
+		buildRepo := repositories.NewBuildRepo(namespaceRetriever, clientFactory)
+		packageRepo := repositories.NewPackageRepo(k8sClient, namespaceRetriever, clientFactory)
 		decoderValidator, err := apis.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -126,8 +125,8 @@ var _ = Describe("Build", func() {
 		})
 
 		When("the user is not authorized to get the package", func() {
-			It("returns a not found error", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+			It("returns an unprocessable entity error", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 			})
 		})
 	})

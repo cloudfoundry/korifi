@@ -29,16 +29,19 @@ import (
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/imageprocessfetcher"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/services"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
+	cartographerv1alpha1 "github.com/vmware-tanzu/cartographer/pkg/apis/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	cartographerv1alpha1 "github.com/vmware-tanzu/cartographer/pkg/apis/v1alpha1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -183,6 +186,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&servicescontrollers.CFServiceInstanceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
+		os.Exit(1)
+	}
+	if err = (&servicescontrollers.CFServiceBindingReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
+		os.Exit(1)
+	}
+
 	// Setup Index with Manager
 	err = shared.SetupIndexWithManager(mgr)
 	if err != nil {
@@ -213,15 +233,38 @@ func main() {
 		}
 
 		if err = workloads.NewCFAppValidation(
-			coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType),
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
 			os.Exit(1)
 		}
 
+		if err = networking.NewCFRouteValidation(
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType)),
+			controllerConfig.CFRootNamespace,
+			mgr.GetClient(),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
+			os.Exit(1)
+		}
+
+		if err = services.NewCFServiceInstanceValidation(
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), services.ServiceInstanceEntityType)),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceInstance")
+			os.Exit(1)
+		}
+
+		if err = networking.NewCFDomainValidation(
+			mgr.GetClient(),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFDomain")
+			os.Exit(1)
+		}
+
 		if err = workloads.NewSubnamespaceAnchorValidation(
-			coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType),
-			coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType),
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType)),
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "SubnamespaceAnchors")
 			os.Exit(1)
@@ -233,21 +276,6 @@ func main() {
 		}
 	} else {
 		setupLog.Info("Skipping webhook setup because ENABLE_WEBHOOKS set to false.")
-	}
-
-	if err = (&servicescontrollers.CFServiceInstanceReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
-		os.Exit(1)
-	}
-	if err = (&servicescontrollers.CFServiceBindingReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
-		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
 

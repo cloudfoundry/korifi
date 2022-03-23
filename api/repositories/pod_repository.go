@@ -2,18 +2,27 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/rest"
+	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	"k8s.io/metrics/pkg/client/clientset/versioned"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=pods/status,verbs=get
+//+kubebuilder:rbac:groups="metrics.k8s.io",resources=pods,verbs=get;list;watch
 
 const (
 	workloadsContainerName = "opi"
@@ -23,22 +32,42 @@ const (
 	RunningState           = "RUNNING"
 	pendingState           = "STARTING"
 	// All below statuses changed to "DOWN" until we decide what statuses we want to support in the future
-	crashedState = "DOWN"
-	unknownState = "DOWN"
+	crashedState             = "DOWN"
+	unknownState             = "DOWN"
+	ProcessStatsResourceType = "Process Stats"
+	PodMetricsResourceType   = "Pod Metrics"
 )
 
 type PodRepo struct {
-	privilegedClient client.Client
+	userClientFactory UserK8sClientFactory
+	metricsFetcher    MetricsFetcherFn
 }
 
-func NewPodRepo(privilegedClient client.Client) *PodRepo {
-	return &PodRepo{privilegedClient: privilegedClient}
+//counterfeiter:generate -o fake -fake-name MetricsFetcherFn . MetricsFetcherFn
+type MetricsFetcherFn func(ctx context.Context, namespace, name string) (*metricsv1beta1.PodMetrics, error)
+
+func NewPodRepo(
+	userClientFactory UserK8sClientFactory,
+	metricsFetcher MetricsFetcherFn,
+) *PodRepo {
+	return &PodRepo{
+		userClientFactory: userClientFactory,
+		metricsFetcher:    metricsFetcher,
+	}
 }
 
 type PodStatsRecord struct {
 	Type  string
 	Index int
 	State string `default:"DOWN"`
+	Usage Usage
+}
+
+type Usage struct {
+	Time *string
+	CPU  *float64
+	Mem  *int64
+	Disk *int64
 }
 
 type ListPodStatsMessage struct {
@@ -62,7 +91,7 @@ func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info,
 	}
 	listOpts := &client.ListOptions{Namespace: message.Namespace, LabelSelector: labelSelector}
 
-	pods, err := r.ListPods(ctx, authInfo, *listOpts)
+	pods, err := r.listPods(ctx, authInfo, *listOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -82,55 +111,103 @@ func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info,
 		if err != nil {
 			return nil, err
 		}
-		if index >= 0 {
-			setPodState(&records[index], p)
+
+		podState := getPodState(p)
+		if podState == "DOWN" {
+			continue
 		}
+		records[index].State = podState
+
+		podMetrics, err := r.metricsFetcher(ctx, p.Namespace, p.Name)
+		if err != nil {
+			errorMsg := err.Error()
+			if strings.Contains(errorMsg, "not found") ||
+				strings.Contains(errorMsg, "the server could not find the requested resource") {
+				continue
+			}
+			return nil, err
+		}
+		metricsMap := aggregateContainerMetrics(podMetrics.Containers)
+		if len(metricsMap) == 0 {
+			continue
+		}
+
+		if CPUquantity, ok := metricsMap["cpu"]; ok {
+			value := float64(CPUquantity.ScaledValue(resource.Nano))
+			percentage := value / 1e7
+			records[index].Usage.CPU = &percentage
+		}
+
+		if memQuantity, ok := metricsMap["memory"]; ok {
+			value := memQuantity.Value()
+			records[index].Usage.Mem = &value
+		}
+
+		if storageQuantity, ok := metricsMap["storage"]; ok {
+			value := storageQuantity.Value()
+			records[index].Usage.Disk = &value
+		}
+		time := podMetrics.Timestamp.UTC().Format(TimestampFormat)
+		records[index].Usage.Time = &time
+
 	}
 	return records, nil
 }
 
-func (r *PodRepo) ListPods(ctx context.Context, authInfo authorization.Info, listOpts client.ListOptions) ([]corev1.Pod, error) {
-	podList := corev1.PodList{}
-	err := r.privilegedClient.List(ctx, &podList, &listOpts)
+func (r *PodRepo) listPods(ctx context.Context, authInfo authorization.Info, listOpts client.ListOptions) ([]corev1.Pod, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
+
+	podList := corev1.PodList{}
+	err = userClient.List(ctx, &podList, &listOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, ProcessStatsResourceType))
+	}
+
 	return podList.Items, nil
 }
 
-func setPodState(record *PodStatsRecord, pod corev1.Pod) {
-	record.State = getPodState(pod)
-}
-
-func extractProcessContainer(containers []corev1.Container) *corev1.Container {
+func extractProcessContainer(containers []corev1.Container) (*corev1.Container, error) {
 	for i, c := range containers {
 		if c.Name == workloadsContainerName {
-			return &containers[i]
+			return &containers[i], nil
 		}
 	}
-	return nil
+	return nil, fmt.Errorf("container %q not found", workloadsContainerName)
 }
 
-func extractIndexFromContainer(container corev1.Container) string {
+func extractEnvVarFromContainer(container corev1.Container, envVar string) (string, error) {
 	envs := container.Env
 	for _, e := range envs {
-		if e.Name == cfInstanceIndexKey {
-			return e.Value
+		if e.Name == envVar {
+			return e.Value, nil
 		}
 	}
-	return "-1"
+	return "", fmt.Errorf("%s not set", envVar)
 }
 
 func extractIndex(pod corev1.Pod) (int, error) {
-	container := extractProcessContainer(pod.Spec.Containers)
-	if container == nil {
-		return -1, nil
+	container, err := extractProcessContainer(pod.Spec.Containers)
+	if err != nil {
+		return 0, err
 	}
-	indexString := extractIndexFromContainer(*container)
+
+	indexString, err := extractEnvVarFromContainer(*container, cfInstanceIndexKey)
+	if err != nil {
+		return 0, err
+	}
+
 	index, err := strconv.Atoi(indexString)
 	if err != nil {
-		return -1, err
+		return 0, fmt.Errorf("%s is not a valid index: %w", cfInstanceIndexKey, err)
 	}
+
+	if index < 0 {
+		return 0, fmt.Errorf("%s is not a valid index: instance indexes can't be negative", cfInstanceIndexKey)
+	}
+
 	return index, nil
 }
 
@@ -222,4 +299,33 @@ func containersRunning(statuses []corev1.ContainerStatus) bool {
 	}
 
 	return true
+}
+
+func CreateMetricsFetcher(k8sClientConfig *rest.Config) (MetricsFetcherFn, error) {
+	c, err := versioned.NewForConfig(k8sClientConfig)
+	if err != nil {
+		return nil, apierrors.FromK8sError(err, PodMetricsResourceType)
+	}
+
+	return func(ctx context.Context, namespace, name string) (*metricsv1beta1.PodMetrics, error) {
+		podMetrics, err := c.MetricsV1beta1().PodMetricses(namespace).Get(ctx, name, v1.GetOptions{})
+		return podMetrics, apierrors.FromK8sError(err, PodMetricsResourceType)
+	}, nil
+}
+
+func aggregateContainerMetrics(containers []metricsv1beta1.ContainerMetrics) map[string]resource.Quantity {
+	metrics := map[string]resource.Quantity{}
+
+	for _, container := range containers {
+		for k, v := range container.Usage {
+			if value, ok := metrics[string(k)]; ok {
+				value.Add(v)
+				metrics[string(k)] = value
+			} else {
+				metrics[string(k)] = v
+			}
+		}
+	}
+
+	return metrics
 }

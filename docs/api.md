@@ -37,7 +37,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#organizatio
 | List Orgs  | GET /v3/organizations  |
 | Create Org | POST /v3/organizations |
 | Delete Space | [DELETE /v3/organizations/:guid](https://v3-apidocs.cloudfoundry.org/version/3.113.0/index.html#delete-an-organization)
-
+| List Org Domains | GET /v3/organizations/:guid/domains |
 #### [List Orgs](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-organizations)
 **Query Parameters:** Currently only supports filtering by organization `names`.
 ```bash
@@ -94,7 +94,8 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#apps
 | List App Routes                     | GET /v3/apps/\<guid>/routes                                                                             |
 | Delete App                          | [DELETE /v3/apps/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#delete-an-app) |
  | Get App Env                         | GET /v3/apps/\<guid>/env                                                                            |
-| Update App's Environment Variables  | PATCH /v3/apps/\<guid>/environment_variables                                                            |
+| Update App's Environment Variables  | PATCH /v3/apps/\<guid>/environment_variables    
+| Get App Processes by Type           | [GET /v3/apps/\<guid>/processes/\<web>](https://v3-apidocs.cloudfoundry.org/version/3.113.0/#get-a-process) 
 
 #### [List Apps](https://v3-apidocs.cloudfoundry.org/version/3.110.0/index.html#list-apps)
 **Query Parameters:** Currently supports filtering by app `names` and `space_guids` and ordering by `name`.
@@ -225,6 +226,7 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#processes
 | Scale Process        | POST /v3/processes/\<guid>/actions/scale |
 | Get Process Stats    | POST /v3/processes/\<guid>/stats         |
 | List Process         | POST /v3/processes                       |
+| Patch Process        | [PATCH /v3/processes/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.113.0/#update-a-process)|
 
 #### [Scaling Processes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#scale-a-process)
 ```bash
@@ -411,6 +413,33 @@ curl "https://localhost:9000/v3/service_instances" \
   }'
 ```
 
+#### [List Service Instances](https://v3-apidocs.cloudfoundry.org/version/3.113.0/index.html#list-service-instances)
+**Query Parameters:** Currently supports filtering by service instance
+`names` and `space_guids` and ordering by `name`, `created_at` or `updated_at`.
+The `fields` and `per_page` parameters will be silently ignored.
+
+### Service Credential Bindings
+
+Docs: https://v3-apidocs.cloudfoundry.org/version/3.115.0/index.html#service-credential-binding
+
+| Resource                          | Endpoint                                     |
+|-----------------------------------|----------------------------------------------|
+| List Service Credential Binding   | GET /v3/service_credential_bindings          |
+| Create Service Credential Binding | POST /v3/service_credential_bindings         |
+| Delete Service Credential Binding | DELETE /v3/service_credential_bindings/:guid |
+
+#### [List Service Credential Binding](https://v3-apidocs.cloudfoundry.org/version/3.115.0/index.html#list-service-credential-bindings)
+
+**Query Parameters:** Currently supports filtering by `service_instance_guids`, `app_guids`, and `type`. `include` is
+supported, but only for the value `app`.
+
+#### [Create Service Credential Binding](https://v3-apidocs.cloudfoundry.org/version/3.115.0/index.html#create-a-service-credential-binding)
+
+The only supported value for the `type` is `app`. 
+
+#### [Delete Service Credential Binding](https://v3-apidocs.cloudfoundry.org/version/3.115.0/index.html#delete-a-service-credential-binding)
+
+This endpoint is fully supported.
 
 ### User Identity
 

@@ -20,10 +20,17 @@ else
     "${SCRIPT_DIR}/deploy-on-kind.sh" -l e2e
   fi
 
-  export API_SERVER_ROOT=http://localhost
+  if [[ -z "${API_SERVER_ROOT}" ]]; then
+    export API_SERVER_ROOT=https://localhost
+  fi
+
+  if [[ -z "${APP_FQDN}" ]]; then
+    export APP_FQDN=vcap.me
+  fi
+
   export ROOT_NAMESPACE=cf
-  export CF_ADMIN_CERT=$(kubectl config view --raw -o jsonpath='{.users[?(@.name == "admin")].user.client-certificate-data}')
-  export CF_ADMIN_KEY=$(kubectl config view --raw -o jsonpath='{.users[?(@.name == "admin")].user.client-key-data}')
+  export CF_ADMIN_CERT=$(kubectl config view --raw -o jsonpath='{.users[?(@.name == "cf-admin")].user.client-certificate-data}')
+  export CF_ADMIN_KEY=$(kubectl config view --raw -o jsonpath='{.users[?(@.name == "cf-admin")].user.client-key-data}')
 
   extra_args+=("--slow-spec-threshold=30s")
 fi
@@ -34,6 +41,14 @@ fi
 
 if [[ -z "$NON_RECURSIVE_TEST" ]]; then
   extra_args+=("-r")
+fi
+
+if [[ -n "$UNTIL_IT_FAILS" ]]; then
+  extra_args+=("--until-it-fails")
+fi
+
+if [[ -n "$SEED" ]]; then
+  extra_args+=("--seed=${SEED}")
 fi
 
 ginkgo --race -p --randomize-all --randomize-suites "${extra_args[@]}" $@

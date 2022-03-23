@@ -2,19 +2,17 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 
-	"k8s.io/apimachinery/pkg/types"
-
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -23,6 +21,8 @@ const (
 
 	PackageStateAwaitingUpload = "AWAITING_UPLOAD"
 	PackageStateReady          = "READY"
+
+	PackageResourceType = "Package"
 )
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages,verbs=get;list;watch;create;update;patch;delete
@@ -32,14 +32,16 @@ const (
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
 
 type PackageRepo struct {
-	privilegedClient  client.Client
-	userClientFactory UserK8sClientFactory
+	privilegedClient   client.Client
+	namespaceRetriever NamespaceRetriever
+	userClientFactory  UserK8sClientFactory
 }
 
-func NewPackageRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *PackageRepo {
+func NewPackageRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory) *PackageRepo {
 	return &PackageRepo{
-		privilegedClient:  privilegedClient,
-		userClientFactory: userClientFactory,
+		privilegedClient:   privilegedClient,
+		namespaceRetriever: namespaceRetriever,
+		userClientFactory:  userClientFactory,
 	}
 }
 
@@ -97,28 +99,24 @@ type UpdatePackageSourceMessage struct {
 }
 
 func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.Info, message CreatePackageMessage) (PackageRecord, error) {
-	cfPackage := message.toCFPackage()
-	err := r.privilegedClient.Create(ctx, &cfPackage)
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return PackageRecord{}, err
+		return PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
+
+	cfPackage := message.toCFPackage()
+	err = userClient.Create(ctx, &cfPackage)
+	if err != nil {
+		return PackageRecord{}, apierrors.FromK8sError(err, PackageResourceType)
+	}
+
 	return cfPackageToPackageRecord(cfPackage), nil
 }
 
-// nolint: dupl
 func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Info, guid string) (PackageRecord, error) {
-	packageList := &workloadsv1alpha1.CFPackageList{}
-	err := r.privilegedClient.List(ctx, packageList, client.MatchingFields{"metadata.name": guid})
-	if err != nil { // untested
+	ns, err := r.namespaceRetriever.NamespaceFor(ctx, guid, PackageResourceType)
+	if err != nil {
 		return PackageRecord{}, err
-	}
-
-	packages := packageList.Items
-	if len(packages) == 0 {
-		return PackageRecord{}, NotFoundError{}
-	}
-	if len(packages) > 1 {
-		return PackageRecord{}, errors.New("duplicate packages exist")
 	}
 
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
@@ -126,22 +124,19 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 		return PackageRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
 	}
 
-	foundPackage := workloadsv1alpha1.CFPackage{}
-	if err := userClient.Get(ctx, client.ObjectKeyFromObject(&packages[0]), &foundPackage); err != nil {
-		if k8serrors.IsForbidden(err) {
-			return PackageRecord{}, NewForbiddenError(err)
-		}
-		return PackageRecord{}, fmt.Errorf("get-package: get failed: %w", err)
+	cfpackage := workloadsv1alpha1.CFPackage{}
+	if err := userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: guid}, &cfpackage); err != nil {
+		return PackageRecord{}, fmt.Errorf("failed to get package %q: %w", guid, apierrors.FromK8sError(err, PackageResourceType))
 	}
 
-	return cfPackageToPackageRecord(foundPackage), nil
+	return cfPackageToPackageRecord(cfpackage), nil
 }
 
 func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.Info, message ListPackagesMessage) ([]PackageRecord, error) {
 	packageList := &workloadsv1alpha1.CFPackageList{}
 	err := r.privilegedClient.List(ctx, packageList)
-	if err != nil { // untested
-		return []PackageRecord{}, err
+	if err != nil {
+		return []PackageRecord{}, apierrors.FromK8sError(err, PackageResourceType)
 	}
 
 	orderedPackages := orderPackages(packageList.Items, message)
@@ -206,9 +201,14 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 	cfPackage.Spec.Source.Registry.Image = message.ImageRef
 	cfPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: message.RegistrySecretName}}
 
-	err := r.privilegedClient.Patch(ctx, cfPackage, client.MergeFrom(baseCFPackage))
-	if err != nil { // untested
-		return PackageRecord{}, fmt.Errorf("err in client.Patch: %w", err)
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return PackageRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
+	}
+
+	err = userClient.Patch(ctx, cfPackage, client.MergeFrom(baseCFPackage))
+	if err != nil {
+		return PackageRecord{}, fmt.Errorf("failed to update package source: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
 	record := cfPackageToPackageRecord(*cfPackage)

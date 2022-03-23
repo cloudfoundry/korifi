@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"strings"
 
+	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
+
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 
@@ -112,35 +115,35 @@ type CFBuildReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var cfBuild workloadsv1alpha1.CFBuild
-	err := r.Client.Get(ctx, req.NamespacedName, &cfBuild)
+	cfBuild := new(workloadsv1alpha1.CFBuild)
+	err := r.Client.Get(ctx, req.NamespacedName, cfBuild)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFBuild")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	var cfApp workloadsv1alpha1.CFApp
-	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.AppRef.Name, Namespace: cfBuild.Namespace}, &cfApp)
+	cfApp := new(workloadsv1alpha1.CFApp)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.AppRef.Name, Namespace: cfBuild.Namespace}, cfApp)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFApp")
 		return ctrl.Result{}, err
 	}
 
 	originalCFBuild := cfBuild.DeepCopy()
-	err = controllerutil.SetOwnerReference(&cfApp, &cfBuild, r.Scheme)
+	err = controllerutil.SetOwnerReference(cfApp, cfBuild, r.Scheme)
 	if err != nil {
 		r.Log.Error(err, "unable to set owner reference on CFBuild")
 		return ctrl.Result{}, err
 	}
 
-	err = r.Client.Patch(ctx, &cfBuild, client.MergeFrom(originalCFBuild))
+	err = r.Client.Patch(ctx, cfBuild, client.MergeFrom(originalCFBuild))
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("Error setting owner reference on the CFBuild %s/%s", req.Namespace, cfBuild.Name))
 		return ctrl.Result{}, err
 	}
 
-	var cfPackage workloadsv1alpha1.CFPackage
-	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, &cfPackage)
+	cfPackage := new(workloadsv1alpha1.CFPackage)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, cfPackage)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFPackage")
 		return ctrl.Result{}, err
@@ -154,7 +157,20 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Scenario: CFBuild newly created and all status conditions are unknown, it
 		// Creates a KpackImage resource to trigger staging.
 		// Updates status on CFBuild -> sets staging to True.
-		err = r.createWorkloadAndUpdateStatus(ctx, &cfBuild, &cfApp, &cfPackage)
+		var appServiceBindings []servicesv1alpha1.CFServiceBinding
+		appServiceBindings, err = r.getAppServiceBindings(ctx, cfApp.Name, cfApp.Namespace)
+		if err != nil {
+			r.Log.Error(err, "Error when listing CFServiceBindings")
+			return ctrl.Result{}, err
+		}
+
+		err = r.ensureKpackImageRequirements(ctx, cfPackage)
+		if err != nil {
+			r.Log.Info("Kpack image requirements for CFPackage are not met", "guid", cfPackage.Name, "reason", err)
+			return ctrl.Result{}, err
+		}
+
+		err = r.createWorkloadAndUpdateStatus(ctx, cfBuild, cfApp, cfPackage, appServiceBindings)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -179,7 +195,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			failureStatusConditionMessage := r.concatenateStrings(":", kpackReadyStatusCondition.Reason, kpackReadyStatusCondition.Message)
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
 			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType, metav1.ConditionFalse, "kpack", failureStatusConditionMessage)
-			if err = r.Client.Status().Update(ctx, &cfBuild); err != nil {
+			if err = r.Client.Status().Update(ctx, cfBuild); err != nil {
 				r.Log.Error(err, "Error when updating CFBuild status")
 				return ctrl.Result{}, err
 			}
@@ -206,7 +222,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			}
 
 			// Call Status().Update() tp push updates to the server
-			if err := r.Client.Status().Update(ctx, &cfBuild); err != nil {
+			if err := r.Client.Status().Update(ctx, cfBuild); err != nil {
 				r.Log.Error(err, "Error when updating CFBuild status")
 				return ctrl.Result{}, err
 			}
@@ -215,7 +231,24 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func (r *CFBuildReconciler) createWorkloadAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
+func (r *CFBuildReconciler) getAppServiceBindings(ctx context.Context, appGUID string, namespace string) ([]servicesv1alpha1.CFServiceBinding, error) {
+	serviceBindings := &servicesv1alpha1.CFServiceBindingList{}
+	err := r.Client.List(ctx, serviceBindings,
+		client.InNamespace(namespace),
+		client.MatchingFields{shared.IndexServiceBindingAppGUID: appGUID},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error listing CFServiceBindings: %w", err)
+	}
+
+	if len(serviceBindings.Items) == 0 {
+		return nil, nil
+	}
+
+	return serviceBindings.Items, nil
+}
+
+func (r *CFBuildReconciler) createWorkloadAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage, serviceBindings []servicesv1alpha1.CFServiceBinding) error {
 	workloadSource := cartographerv1alpha1.Source{
 		Image: &cfPackage.Spec.Source.Registry.Image,
 	}
@@ -258,8 +291,24 @@ func (r *CFBuildReconciler) createWorkloadAndUpdateStatus(ctx context.Context, c
 					},
 				},
 			},
+			//Build: &buildv1alpha2.ImageBuild{
+			//	Services: buildv1alpha2.Services{},
+			//},
 		},
 	}
+	//for _, serviceBinding := range serviceBindings {
+	//	if serviceBinding.Status.Binding.Name != "" {
+	//		objRef := corev1.ObjectReference{
+	//			Kind:       "Secret",
+	//			Name:       serviceBinding.Status.Binding.Name,
+	//			APIVersion: "v1",
+	//		}
+	//		desiredKpackImage.Spec.Build.Services = append(desiredKpackImage.Spec.Build.Services, objRef)
+	//	} else {
+	//		r.Log.Info("binding secret name is empty")
+	//		return errors.New("binding secret name is empty")
+	//	}
+	//}
 
 	err := controllerutil.SetOwnerReference(cfBuild, &desiredWorkload, r.Scheme)
 	if err != nil {
@@ -298,6 +347,17 @@ func (r *CFBuildReconciler) createWorkloadIfNotExists(ctx context.Context, desir
 			return err
 		}
 	}
+	return nil
+}
+
+func (r *CFBuildReconciler) ensureKpackImageRequirements(ctx context.Context, cfPackage *workloadsv1alpha1.CFPackage) error {
+	for _, secret := range cfPackage.Spec.Source.Registry.ImagePullSecrets {
+		err := r.Client.Get(ctx, types.NamespacedName{Namespace: cfPackage.Namespace, Name: secret.Name}, &corev1.Secret{})
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

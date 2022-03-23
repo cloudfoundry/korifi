@@ -2,32 +2,45 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 
+	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	RouteResourceType = "Route"
 )
 
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes/status,verbs=get
 
 type RouteRepo struct {
-	privilegedClient  client.Client
-	userClientFactory UserK8sClientFactory
+	privilegedClient     client.Client
+	namespaceRetriever   NamespaceRetriever
+	userClientFactory    UserK8sClientFactory
+	namespacePermissions *authorization.NamespacePermissions
 }
 
-func NewRouteRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory) *RouteRepo {
+func NewRouteRepo(
+	privilegedClient client.Client,
+	namespaceRetriever NamespaceRetriever,
+	userClientFactory UserK8sClientFactory,
+	authPerms *authorization.NamespacePermissions,
+) *RouteRepo {
 	return &RouteRepo{
-		privilegedClient:  privilegedClient,
-		userClientFactory: userClientFactory,
+		privilegedClient:     privilegedClient,
+		namespaceRetriever:   namespaceRetriever,
+		userClientFactory:    userClientFactory,
+		namespacePermissions: authPerms,
 	}
 }
 
@@ -90,12 +103,14 @@ type ListRoutesMessage struct {
 }
 
 type CreateRouteMessage struct {
-	Host        string
-	Path        string
-	SpaceGUID   string
-	DomainGUID  string
-	Labels      map[string]string
-	Annotations map[string]string
+	Host            string
+	Path            string
+	SpaceGUID       string
+	DomainGUID      string
+	DomainName      string
+	DomainNamespace string
+	Labels          map[string]string
+	Annotations     map[string]string
 }
 
 type DeleteRouteMessage struct {
@@ -119,124 +134,105 @@ func (m CreateRouteMessage) toCFRoute() networkingv1alpha1.CFRoute {
 			Host:     m.Host,
 			Path:     m.Path,
 			Protocol: "http",
-			DomainRef: v1.LocalObjectReference{
-				Name: m.DomainGUID,
+			DomainRef: v1.ObjectReference{
+				Name:      m.DomainGUID,
+				Namespace: m.DomainNamespace,
 			},
 		},
 	}
 }
 
 func (f *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, routeGUID string) (RouteRecord, error) {
-	// TODO: Could look up namespace from guid => namespace cache to do Get
-	cfRouteList := &networkingv1alpha1.CFRouteList{}
-	err := f.privilegedClient.List(ctx, cfRouteList, client.MatchingFields{"metadata.name": routeGUID})
+	ns, err := f.namespaceRetriever.NamespaceFor(ctx, routeGUID, RouteResourceType)
 	if err != nil {
-		return RouteRecord{}, err
+		return RouteRecord{}, fmt.Errorf("failed to get namespace for route: %w", err)
 	}
 
-	toReturn, err := returnRoute(cfRouteList.Items)
-	return toReturn, err
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	var route networkingv1alpha1.CFRoute
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: routeGUID}, &route)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to get route %q: %w", routeGUID, apierrors.FromK8sError(err, RouteResourceType))
+	}
+
+	return cfRouteToRouteRecord(route), nil
 }
 
 func (f *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info, message ListRoutesMessage) ([]RouteRecord, error) {
-	cfRouteList := &networkingv1alpha1.CFRouteList{}
-	err := f.privilegedClient.List(ctx, cfRouteList)
+	nsList, err := f.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
-		return []RouteRecord{}, err
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
 
-	filtered := applyFilter(cfRouteList.Items, message)
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return []RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
 
-	return returnRouteList(filtered), nil
+	filteredRoutes := []networkingv1alpha1.CFRoute{}
+	for ns := range nsList {
+		cfRouteList := &networkingv1alpha1.CFRouteList{}
+		err := userClient.List(ctx, cfRouteList, client.InNamespace(ns))
+		if k8serrors.IsForbidden(err) {
+			continue
+		}
+		if err != nil {
+			return []RouteRecord{}, fmt.Errorf("failed to list routes namespace %s: %w", ns, apierrors.FromK8sError(err, RouteResourceType))
+		}
+		filteredRoutes = append(filteredRoutes, applyRouteListFilter(cfRouteList.Items, message)...)
+	}
+
+	return returnRouteList(filteredRoutes), nil
 }
 
-func applyFilter(routes []networkingv1alpha1.CFRoute, message ListRoutesMessage) []networkingv1alpha1.CFRoute {
-	// TODO: refactor this to be less repetitive
+func applyRouteListFilter(routes []networkingv1alpha1.CFRoute, message ListRoutesMessage) []networkingv1alpha1.CFRoute {
+	if len(message.AppGUIDs) == 0 &&
+		len(message.SpaceGUIDs) == 0 &&
+		len(message.DomainGUIDs) == 0 &&
+		len(message.Hosts) == 0 &&
+		len(message.Paths) == 0 {
+		return routes
+	}
+
+	var filtered []networkingv1alpha1.CFRoute
+	for _, route := range routes {
+		if matchesFilter(route.Namespace, message.SpaceGUIDs) &&
+			matchesFilter(route.Spec.DomainRef.Name, message.DomainGUIDs) &&
+			matchesFilter(route.Spec.Host, message.Hosts) &&
+			matchesFilter(route.Spec.Path, message.Paths) {
+			filtered = append(filtered, route)
+		}
+	}
+
+	if len(message.AppGUIDs) == 0 {
+		return filtered
+	}
+
 	var appFiltered []networkingv1alpha1.CFRoute
 
-	if len(message.AppGUIDs) > 0 {
-		for _, route := range routes {
-			for _, destination := range route.Spec.Destinations {
-				for _, appGUID := range message.AppGUIDs {
-					if destination.AppRef.Name == appGUID {
-						appFiltered = append(appFiltered, route)
-						break
-					}
-				}
-			}
-		}
-	} else {
-		appFiltered = routes
-	}
-
-	var spaceFiltered []networkingv1alpha1.CFRoute
-
-	if len(message.SpaceGUIDs) > 0 {
-		for _, route := range appFiltered {
-			for _, spaceGUID := range message.SpaceGUIDs {
-				if route.Namespace == spaceGUID {
-					spaceFiltered = append(spaceFiltered, route)
+	for _, route := range filtered {
+		for _, destination := range route.Spec.Destinations {
+			for _, appGUID := range message.AppGUIDs {
+				if destination.AppRef.Name == appGUID {
+					appFiltered = append(appFiltered, route)
 					break
 				}
 			}
 		}
-	} else {
-		spaceFiltered = appFiltered
 	}
 
-	var domainFiltered []networkingv1alpha1.CFRoute
-
-	if len(message.DomainGUIDs) > 0 {
-		for _, route := range spaceFiltered {
-			for _, domainGUID := range message.DomainGUIDs {
-				if route.Spec.DomainRef.Name == domainGUID {
-					domainFiltered = append(domainFiltered, route)
-					break
-				}
-			}
-		}
-	} else {
-		domainFiltered = spaceFiltered
-	}
-
-	var hostFiltered []networkingv1alpha1.CFRoute
-
-	if len(message.Hosts) > 0 {
-		for _, route := range domainFiltered {
-			for _, host := range message.Hosts {
-				if route.Spec.Host == host {
-					hostFiltered = append(hostFiltered, route)
-					break
-				}
-			}
-		}
-	} else {
-		hostFiltered = domainFiltered
-	}
-
-	var pathFiltered []networkingv1alpha1.CFRoute
-
-	if len(message.Paths) > 0 {
-		for _, route := range hostFiltered {
-			for _, path := range message.Paths {
-				if route.Spec.Path == path {
-					pathFiltered = append(pathFiltered, route)
-					break
-				}
-			}
-		}
-	} else {
-		pathFiltered = hostFiltered
-	}
-
-	return pathFiltered
+	return appFiltered
 }
 
 func (f *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization.Info, appGUID string, spaceGUID string) ([]RouteRecord, error) {
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
 	err := f.privilegedClient.List(ctx, cfRouteList, client.InNamespace(spaceGUID))
 	if err != nil {
-		return []RouteRecord{}, err
+		return []RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}
 	filteredRouteList := filterByAppDestination(cfRouteList.Items, appGUID)
 
@@ -265,18 +261,6 @@ func filterByAppDestination(routeList []networkingv1alpha1.CFRoute, appGUID stri
 	}
 
 	return filtered
-}
-
-func returnRoute(routeList []networkingv1alpha1.CFRoute) (RouteRecord, error) {
-	if len(routeList) == 0 {
-		return RouteRecord{}, NotFoundError{}
-	}
-
-	if len(routeList) > 1 {
-		return RouteRecord{}, errors.New("duplicate route GUID exists")
-	}
-
-	return cfRouteToRouteRecord(routeList[0]), nil
 }
 
 func returnRouteList(routeList []networkingv1alpha1.CFRoute) []RouteRecord {
@@ -323,10 +307,19 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 	cfRoute := message.toCFRoute()
 	err := f.privilegedClient.Create(ctx, &cfRoute)
 	if err != nil {
-		return RouteRecord{}, err
+		if webhooks.HasErrorCode(err, webhooks.DuplicateRouteError) {
+			pathDetails := ""
+			if message.Path != "" {
+				pathDetails = fmt.Sprintf(" and path '%s'", message.Path)
+			}
+			errorDetail := fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
+				message.Host, pathDetails, message.DomainName)
+			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, errorDetail)
+		}
+		return RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}
 
-	return cfRouteToRouteRecord(cfRoute), err
+	return cfRouteToRouteRecord(cfRoute), nil
 }
 
 func (f *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info, message DeleteRouteMessage) error {
@@ -340,17 +333,8 @@ func (f *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info
 			Namespace: message.SpaceGUID,
 		},
 	})
-	if err == nil {
-		return nil
-	}
 
-	if apierrors.IsForbidden(err) {
-		return authorization.InvalidAuthError{
-			Err: err,
-		}
-	}
-
-	return err
+	return apierrors.FromK8sError(err, RouteResourceType)
 }
 
 func (f *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
@@ -377,9 +361,14 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 	cfRoute := baseCFRoute.DeepCopy()
 	cfRoute.Spec.Destinations = mergeDestinations(message.ExistingDestinations, message.NewDestinations)
 
-	err := f.privilegedClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
-	if err != nil { // untested
-		return RouteRecord{}, fmt.Errorf("err in client.Patch: %w", err)
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to add destination to route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
 
 	return cfRouteToRouteRecord(*cfRoute), err

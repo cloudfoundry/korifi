@@ -6,20 +6,21 @@ import (
 	"fmt"
 	"strings"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 )
 
-type applyManifest struct {
+type ApplyManifest struct {
 	appRepo     CFAppRepository
 	domainRepo  CFDomainRepository
 	processRepo CFProcessRepository
 	routeRepo   CFRouteRepository
 }
 
-func NewApplyManifest(appRepo CFAppRepository, domainRepo CFDomainRepository, processRepo CFProcessRepository, routeRepo CFRouteRepository) *applyManifest {
-	return &applyManifest{
+func NewApplyManifest(appRepo CFAppRepository, domainRepo CFDomainRepository, processRepo CFProcessRepository, routeRepo CFRouteRepository) *ApplyManifest {
+	return &ApplyManifest{
 		appRepo:     appRepo,
 		domainRepo:  domainRepo,
 		processRepo: processRepo,
@@ -27,12 +28,12 @@ func NewApplyManifest(appRepo CFAppRepository, domainRepo CFDomainRepository, pr
 	}
 }
 
-func (a *applyManifest) Invoke(ctx context.Context, authInfo authorization.Info, spaceGUID string, manifest payloads.Manifest) error {
+func (a *ApplyManifest) Invoke(ctx context.Context, authInfo authorization.Info, spaceGUID string, defaultDomainName string, manifest payloads.Manifest) error {
 	appInfo := manifest.Applications[0]
 	exists := true
 	appRecord, err := a.appRepo.GetAppByNameAndSpace(ctx, authInfo, appInfo.Name, spaceGUID)
 	if err != nil {
-		if !errors.As(err, new(repositories.NotFoundError)) {
+		if !errors.As(err, new(apierrors.NotFoundError)) {
 			return err
 		}
 		exists = false
@@ -48,7 +49,7 @@ func (a *applyManifest) Invoke(ctx context.Context, authInfo authorization.Info,
 		return err
 	}
 
-	err = a.checkAndUpdateDefaultRoute(ctx, authInfo, appRecord, &appInfo)
+	err = a.checkAndUpdateDefaultRoute(ctx, authInfo, appRecord, defaultDomainName, &appInfo)
 	if err != nil {
 		return err
 	}
@@ -57,7 +58,7 @@ func (a *applyManifest) Invoke(ctx context.Context, authInfo authorization.Info,
 }
 
 // checkAndUpdateDefaultRoute may set the default route on the manifest when DefaultRoute is true
-func (a *applyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, appInfo *payloads.ManifestApplication) error {
+func (a *ApplyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, defaultDomainName string, appInfo *payloads.ManifestApplication) error {
 	if !appInfo.DefaultRoute || len(appInfo.Routes) > 0 {
 		return nil
 	}
@@ -70,11 +71,10 @@ func (a *applyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo
 		return nil
 	}
 
-	defaultDomainRecord, err := a.domainRepo.GetDefaultDomain(ctx, authInfo)
+	_, err = a.domainRepo.GetDomainByName(ctx, authInfo, defaultDomainName)
 	if err != nil {
 		return err
 	}
-	defaultDomainName := defaultDomainRecord.Name
 	defaultRouteString := appInfo.Name + "." + defaultDomainName
 	defaultRoute := payloads.ManifestRoute{
 		Route: &defaultRouteString,
@@ -85,7 +85,7 @@ func (a *applyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo
 	return nil
 }
 
-func (a *applyManifest) updateApp(ctx context.Context, authInfo authorization.Info, spaceGUID string, appRecord repositories.AppRecord, appInfo payloads.ManifestApplication) error {
+func (a *ApplyManifest) updateApp(ctx context.Context, authInfo authorization.Info, spaceGUID string, appRecord repositories.AppRecord, appInfo payloads.ManifestApplication) error {
 	_, err := a.appRepo.CreateOrPatchAppEnvVars(ctx, authInfo, repositories.CreateOrPatchAppEnvVarsMessage{
 		AppGUID:              appRecord.GUID,
 		AppEtcdUID:           appRecord.EtcdUID,
@@ -102,7 +102,7 @@ func (a *applyManifest) updateApp(ctx context.Context, authInfo authorization.In
 		var process repositories.ProcessRecord
 		process, err = a.processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, appRecord.GUID, processInfo.Type, spaceGUID)
 		if err != nil {
-			if errors.As(err, new(repositories.NotFoundError)) {
+			if errors.As(err, new(apierrors.NotFoundError)) {
 				exists = false
 			} else {
 				return err
@@ -110,7 +110,7 @@ func (a *applyManifest) updateApp(ctx context.Context, authInfo authorization.In
 		}
 
 		if exists {
-			err = a.processRepo.PatchProcess(ctx, authInfo, processInfo.ToProcessPatchMessage(process.GUID, spaceGUID))
+			_, err = a.processRepo.PatchProcess(ctx, authInfo, processInfo.ToProcessPatchMessage(process.GUID, spaceGUID))
 		} else {
 			err = a.processRepo.CreateProcess(ctx, authInfo, processInfo.ToProcessCreateMessage(appRecord.GUID, spaceGUID))
 		}
@@ -122,7 +122,7 @@ func (a *applyManifest) updateApp(ctx context.Context, authInfo authorization.In
 	return err
 }
 
-func (a *applyManifest) createApp(ctx context.Context, authInfo authorization.Info, spaceGUID string, appInfo payloads.ManifestApplication) (repositories.AppRecord, error) {
+func (a *ApplyManifest) createApp(ctx context.Context, authInfo authorization.Info, spaceGUID string, appInfo payloads.ManifestApplication) (repositories.AppRecord, error) {
 	appRecord, err := a.appRepo.CreateApp(ctx, authInfo, appInfo.ToAppCreateMessage(spaceGUID))
 	if err != nil {
 		return appRecord, err
@@ -139,7 +139,7 @@ func (a *applyManifest) createApp(ctx context.Context, authInfo authorization.In
 	return appRecord, nil
 }
 
-func (a *applyManifest) createOrUpdateRoutes(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, routes []payloads.ManifestRoute) error {
+func (a *ApplyManifest) createOrUpdateRoutes(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, routes []payloads.ManifestRoute) error {
 	if len(routes) == 0 {
 		return nil
 	}
@@ -152,12 +152,17 @@ func (a *applyManifest) createOrUpdateRoutes(ctx context.Context, authInfo autho
 		return fmt.Errorf("createOrUpdateRoutes: %w", err)
 	}
 
-	routeRecord, err := a.routeRepo.GetOrCreateRoute(ctx, authInfo, repositories.CreateRouteMessage{
-		Host:       hostName,
-		Path:       path,
-		SpaceGUID:  appRecord.SpaceGUID,
-		DomainGUID: domainRecord.GUID,
-	})
+	routeRecord, err := a.routeRepo.GetOrCreateRoute(
+		ctx,
+		authInfo,
+		repositories.CreateRouteMessage{
+			Host:            hostName,
+			Path:            path,
+			SpaceGUID:       appRecord.SpaceGUID,
+			DomainGUID:      domainRecord.GUID,
+			DomainNamespace: domainRecord.Namespace,
+			DomainName:      domainRecord.Name,
+		})
 	if err != nil {
 		return fmt.Errorf("createOrUpdateRoutes: %w", err)
 	}

@@ -9,14 +9,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
 )
 
 var _ = Describe("Spaces", func() {
@@ -117,48 +114,9 @@ var _ = Describe("Spaces", func() {
 			Expect(spaceRecord.Name).To(Equal("the-space"))
 		})
 
-		When("authentication is invalid", func() {
+		When("the parent org does not exist (and the repo returns a not found error)", func() {
 			BeforeEach(func() {
-				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, authorization.InvalidAuthError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-                    "errors": [
-                    {
-                        "detail": "Invalid Auth Token",
-                        "title": "CF-InvalidAuthToken",
-                        "code": 1000
-                    }
-                    ]
-                }`))
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, authorization.NotAuthenticatedError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
-		When("user is not allowed to create a space", func() {
-			BeforeEach(func() {
-				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.NewForbiddenError(errors.New("nope")))
-			})
-
-			It("returns an unauthorised error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("the repo returns a not found or permission denied error", func() {
-			BeforeEach(func() {
-				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, repositories.PermissionDeniedOrNotFoundError{Err: errors.New("nope")})
+				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, apierrors.NewNotFoundError(errors.New("nope"), repositories.OrgResourceType))
 			})
 
 			It("returns an unauthorised error", func() {
@@ -166,12 +124,12 @@ var _ = Describe("Spaces", func() {
 			})
 		})
 
-		When("providing the space repository fails", func() {
+		When("creating the space fails", func() {
 			BeforeEach(func() {
-				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, errors.New("space-repo-provisioning-failed"))
+				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, errors.New("nope"))
 			})
 
-			It("returns unknown error", func() {
+			It("returns an error", func() {
 				expectUnknownError()
 			})
 		})
@@ -216,31 +174,6 @@ var _ = Describe("Spaces", func() {
 
 			It("returns a bad request error", func() {
 				expectUnprocessableEntityError("Data is a required field")
-			})
-		})
-
-		When("the space repo returns a uniqueness error", func() {
-			BeforeEach(func() {
-				var err error = &k8serrors.StatusError{
-					ErrStatus: metav1.Status{
-						Reason: metav1.StatusReason(fmt.Sprintf(`{"code":%d}`, workloads.DuplicateSpaceNameError)),
-					},
-				}
-				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, err)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Space 'the-space' already exists.")
-			})
-		})
-
-		When("the space repo returns another error", func() {
-			BeforeEach(func() {
-				spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{}, errors.New("boom"))
-			})
-
-			It("returns unknown error", func() {
-				expectUnknownError()
 			})
 		})
 	})
@@ -343,45 +276,6 @@ var _ = Describe("Spaces", func() {
 			Expect(message.Names).To(BeEmpty())
 		})
 
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				spaceRepo.ListSpacesReturns(nil, authorization.InvalidAuthError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-                    "errors": [
-                    {
-                        "detail": "Invalid Auth Token",
-                        "title": "CF-InvalidAuthToken",
-                        "code": 1000
-                    }
-                    ]
-                }`))
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				spaceRepo.ListSpacesReturns(nil, authorization.NotAuthenticatedError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
-		When("providing the space repository fails", func() {
-			BeforeEach(func() {
-				spaceRepo.ListSpacesReturns(nil, errors.New("space-repo-provisioning-failed"))
-			})
-
-			It("returns unknown error", func() {
-				expectUnknownError()
-			})
-		})
-
 		When("fetching the spaces fails", func() {
 			BeforeEach(func() {
 				spaceRepo.ListSpacesReturns(nil, errors.New("boom!"))
@@ -467,56 +361,6 @@ var _ = Describe("Spaces", func() {
 			})
 		})
 
-		When("authentication is invalid", func() {
-			BeforeEach(func() {
-				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, authorization.InvalidAuthError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-	                "errors": [
-						{
-							"detail": "Invalid Auth Token",
-							"title": "CF-InvalidAuthToken",
-							"code": 1000
-						}
-	                ]
-	            }`))
-			})
-		})
-
-		When("authentication is not provided", func() {
-			BeforeEach(func() {
-				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, authorization.NotAuthenticatedError{})
-			})
-
-			It("returns Unauthorized error", func() {
-				expectNotAuthenticatedError()
-			})
-		})
-
-		When("providing the space repository fails", func() {
-			BeforeEach(func() {
-				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("space-repo-provisioning-failed"))
-			})
-
-			It("returns unknown error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("the space doesn't exist", func() {
-			BeforeEach(func() {
-				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, repositories.NotFoundError{})
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("Space not found")
-			})
-		})
-
 		When("fetching the space errors", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("boom"))
@@ -524,16 +368,6 @@ var _ = Describe("Spaces", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
-			})
-		})
-
-		When("deleting the space is not authorized", func() {
-			BeforeEach(func() {
-				spaceRepo.DeleteSpaceReturns(authorization.InvalidAuthError{Err: errors.New("boom")})
-			})
-
-			It("returns a 403 error", func() {
-				expectNotAuthorizedError()
 			})
 		})
 

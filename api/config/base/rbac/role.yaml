@@ -1,4 +1,3 @@
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -93,6 +92,14 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - metrics.k8s.io
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - networking.cloudfoundry.org
   resources:
   - cfdomains
@@ -138,9 +145,20 @@ rules:
 - apiGroups:
   - services.cloudfoundry.org
   resources:
+  - cfservicebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
   - cfserviceinstances
   verbs:
   - create
+  - delete
+  - get
   - list
 - apiGroups:
   - workloads.cloudfoundry.org

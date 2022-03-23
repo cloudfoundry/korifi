@@ -55,13 +55,24 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 		cfDomain = &networkingv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: testDomainGUID,
+				Name:      testDomainGUID,
+				Namespace: testNamespace,
 			},
 			Spec: networkingv1alpha1.CFDomainSpec{
 				Name: testDomainName,
 			},
 		}
 		Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
+		Eventually(func() error {
+			return k8sClient.Get(
+				ctx,
+				types.NamespacedName{
+					Namespace: testNamespace,
+					Name:      testDomainGUID,
+				},
+				&networkingv1alpha1.CFDomain{},
+			)
+		}).Should(Succeed())
 	})
 
 	AfterEach(func() {
@@ -85,8 +96,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					Host:     testRouteHost,
 					Path:     "",
 					Protocol: "http",
-					DomainRef: corev1.LocalObjectReference{
-						Name: testDomainGUID,
+					DomainRef: corev1.ObjectReference{
+						Name:      testDomainGUID,
+						Namespace: testNamespace,
 					},
 					Destinations: []networkingv1alpha1.Destination{},
 				},
@@ -208,8 +220,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					Host:     testRouteHost,
 					Path:     "/test/path",
 					Protocol: "http",
-					DomainRef: corev1.LocalObjectReference{
-						Name: testDomainGUID,
+					DomainRef: corev1.ObjectReference{
+						Name:      testDomainGUID,
+						Namespace: testNamespace,
 					},
 					Destinations: destinations,
 				},
@@ -350,8 +363,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					Host:     testRouteHost,
 					Path:     "/",
 					Protocol: "http",
-					DomainRef: corev1.LocalObjectReference{
-						Name: testDomainGUID,
+					DomainRef: corev1.ObjectReference{
+						Name:      testDomainGUID,
+						Namespace: testNamespace,
 					},
 					Destinations: []networkingv1alpha1.Destination{
 						{
@@ -385,8 +399,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					Host:     testRouteHost,
 					Path:     "/",
 					Protocol: "http",
-					DomainRef: corev1.LocalObjectReference{
-						Name: testDomainGUID,
+					DomainRef: corev1.ObjectReference{
+						Name:      testDomainGUID,
+						Namespace: testNamespace,
 					},
 					Destinations: []networkingv1alpha1.Destination{
 						{
@@ -475,8 +490,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					Host:     testRouteHost,
 					Path:     "/",
 					Protocol: "http",
-					DomainRef: corev1.LocalObjectReference{
-						Name: testDomainGUID,
+					DomainRef: corev1.ObjectReference{
+						Name:      testDomainGUID,
+						Namespace: testNamespace,
 					},
 					Destinations: []networkingv1alpha1.Destination{
 						{
@@ -603,8 +619,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 						Host:     testRouteHost,
 						Path:     "/",
 						Protocol: "http",
-						DomainRef: corev1.LocalObjectReference{
-							Name: testDomainGUID,
+						DomainRef: corev1.ObjectReference{
+							Name:      testDomainGUID,
+							Namespace: testNamespace,
 						},
 						Destinations: []networkingv1alpha1.Destination{
 							{
