@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -104,8 +103,7 @@ func main() {
 	}
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
-	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
-	nsPermissions := authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider, config.RootNamespace)
+	nsPermissions := authorization.NewNamespacePermissions(privilegedCRClient, identityProvider, config.RootNamespace)
 
 	serverURL, err := url.Parse(config.ServerURL)
 	if err != nil {
@@ -133,7 +131,7 @@ func main() {
 		userClientFactory,
 		authorization.NewNamespacePermissions(
 			privilegedCRClient,
-			cachingIdentityProvider,
+			identityProvider,
 			config.RootNamespace,
 		),
 		config.RootNamespace,
@@ -255,7 +253,7 @@ func main() {
 			decoderValidator,
 		),
 
-		apis.NewWhoAmI(cachingIdentityProvider, *serverURL),
+		apis.NewWhoAmI(identityProvider, *serverURL),
 
 		apis.NewBuildpackHandler(
 			ctrl.Log.WithName("BuildpackHandler"),
@@ -291,7 +289,7 @@ func main() {
 	router.Use(apis.NewAuthenticationMiddleware(
 		ctrl.Log.WithName("AuthenticationMiddleware"),
 		authInfoParser,
-		cachingIdentityProvider,
+		identityProvider,
 	).Middleware)
 
 	scheme := runtime.NewScheme()
