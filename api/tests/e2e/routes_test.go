@@ -205,6 +205,7 @@ var _ = Describe("Routes", func() {
 					HavePrefix(host),
 					HaveSuffix(path),
 				))
+				Expect(route.GUID).To(HavePrefix("cf-route-"))
 			})
 
 			When("the route already exists", func() {

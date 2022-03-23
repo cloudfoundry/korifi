@@ -276,6 +276,8 @@ var _ = Describe("CFAppReconciler", func() {
 
 				// Validate call count to create CFProcess
 				Expect(fakeClient.CreateCallCount()).To(Equal(1))
+				_, desiredProcess, _ := fakeClient.CreateArgsForCall(0)
+				Expect(desiredProcess.GetName()).To(HavePrefix("cf-proc-"))
 
 				// validate the inputs to Status.Update
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))

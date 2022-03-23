@@ -18,6 +18,7 @@ import (
 
 const (
 	RouteResourceType = "Route"
+	RoutePrefix       = "cf-route-"
 )
 
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
@@ -125,7 +126,7 @@ func (m CreateRouteMessage) toCFRoute() networkingv1alpha1.CFRoute {
 			APIVersion: APIVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        uuid.NewString(),
+			Name:        RoutePrefix + uuid.NewString(),
 			Namespace:   m.SpaceGUID,
 			Labels:      m.Labels,
 			Annotations: m.Annotations,

@@ -62,6 +62,7 @@ var _ = Describe("Processes", func() {
 			It("returns the processes for the app", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
+				Expect(processGUID).To(HavePrefix("cf-proc-"))
 				Expect(result.Resources).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(processGUID)}),
 				))
@@ -255,7 +256,6 @@ var _ = Describe("Processes", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.GUID).To(Equal(processGUID))
 			})
-
 		})
 
 		When("the user is a space manager", func() {
@@ -266,7 +266,6 @@ var _ = Describe("Processes", func() {
 			It("returns forbidden", func() {
 				expectForbiddenError(resp, errResp)
 			})
-
 		})
 
 		When("the user has no role", func() {
@@ -274,7 +273,5 @@ var _ = Describe("Processes", func() {
 				expectNotFoundError(resp, errResp, "Process")
 			})
 		})
-
 	})
-
 })

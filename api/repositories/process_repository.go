@@ -20,6 +20,7 @@ import (
 
 const (
 	ProcessResourceType = "Process"
+	processPrefix       = "cf-proc-"
 )
 
 func NewProcessRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, namespacePermissions *authorization.NamespacePermissions) *ProcessRepo {
@@ -103,7 +104,7 @@ type PatchProcessMessage struct {
 }
 
 type ListProcessesMessage struct {
-	AppGUIDs   []string
+	AppGUIDs  []string
 	SpaceGUID string
 }
 
@@ -187,7 +188,7 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.I
 }
 
 func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.Info, message CreateProcessMessage) error {
-	guid := uuid.NewString()
+	guid := GenerateProcessGUID()
 	err := r.privilegedClient.Create(ctx, &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
@@ -344,4 +345,8 @@ func cfProcessToProcessRecord(cfProcess workloadsv1alpha1.CFProcess) ProcessReco
 		CreatedAt:   cfProcess.CreationTimestamp.UTC().Format(TimestampFormat),
 		UpdatedAt:   updatedAtTime,
 	}
+}
+
+func GenerateProcessGUID() string {
+	return processPrefix + uuid.NewString()
 }

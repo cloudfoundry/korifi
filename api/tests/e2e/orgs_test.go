@@ -55,6 +55,7 @@ var _ = Describe("Orgs", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.Name).To(Equal(orgName))
 			Expect(result.GUID).NotTo(BeEmpty())
+			Expect(result.GUID).To(HavePrefix("cf-org-"))
 		})
 
 		When("the org name already exists", func() {

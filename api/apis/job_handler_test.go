@@ -98,6 +98,7 @@ var _ = Describe("JobHandler", func() {
 
 			When("the existing job operation is org.delete", func() {
 				BeforeEach(func() {
+					resourceGUID = "cf-org-" + uuid.NewString()
 					jobGUID = "org.delete-" + resourceGUID
 				})
 
@@ -121,6 +122,7 @@ var _ = Describe("JobHandler", func() {
 
 			When("the existing job operation is space.delete", func() {
 				BeforeEach(func() {
+					resourceGUID = "cf-space-" + uuid.NewString()
 					jobGUID = "space.delete-" + resourceGUID
 				})
 
@@ -144,6 +146,7 @@ var _ = Describe("JobHandler", func() {
 
 			When("the existing job operation is route.delete", func() {
 				BeforeEach(func() {
+					resourceGUID = "cf-route-" + uuid.NewString()
 					jobGUID = "route.delete-" + resourceGUID
 				})
 

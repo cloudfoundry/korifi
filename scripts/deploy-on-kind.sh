@@ -106,7 +106,6 @@ if [[ -n "${controllers_debug}" ]]; then
   fi
 fi
 
-
 function create_tls_secret() {
   local secret_name=${1:?}
   local secret_namespace=${2:?}

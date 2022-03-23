@@ -18,7 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("DropletRepository",  func() {
+var _ = Describe("DropletRepository", func() {
 	var (
 		testCtx     context.Context
 		dropletRepo *repositories.DropletRepo
@@ -339,7 +339,7 @@ var _ = Describe("DropletRepository",  func() {
 			Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
 		})
 
-		When("the packageGUIDs message parameter is provided",  func() {
+		When("the packageGUIDs message parameter is provided", func() {
 			var dropletRecords []repositories.DropletRecord
 
 			JustBeforeEach(func() {

@@ -70,7 +70,7 @@ func (h *JobHandler) RegisterRoutes(router *mux.Router) {
 
 func parseJobGUID(jobGUID string) (string, string, bool) {
 	// Match job.type-GUID and capture the job type and GUID for later use
-	jobRegexp := regexp.MustCompile("([a-z_-]+[.][a-z_]+)-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})")
+	jobRegexp := regexp.MustCompile("([a-z_-]+[.][a-z_]+)-(?:cf-[a-z]+-)?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})")
 	matches := jobRegexp.FindStringSubmatch(jobGUID)
 
 	if len(matches) != 3 {

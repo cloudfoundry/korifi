@@ -254,7 +254,6 @@ var _ = Describe("RouteRepository", func() {
 	})
 
 	Describe("RouteList", func() {
-
 		When("multiple CFRoutes exist", func() {
 			var (
 				cfRoute1A, cfRoute1B *networkingv1alpha1.CFRoute
@@ -275,7 +274,6 @@ var _ = Describe("RouteRepository", func() {
 
 				space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space3"))
 				cfRoute3A = createRoute(generateGUID(), space3.Name, "my-subdomain-3-a", "", domainGUID, "some-app-guid-4")
-
 			})
 
 			AfterEach(func() {
@@ -432,7 +430,6 @@ var _ = Describe("RouteRepository", func() {
 					})
 				})
 			})
-
 		})
 
 		When("the user does not have space developer permissions", func() {
@@ -607,6 +604,7 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			It("returns a RouteRecord with matching fields", func() {
+				Expect(createdRouteRecord.GUID).To(HavePrefix("cf-route-"))
 				Expect(createdRouteRecord.Host).To(Equal(testRouteHost), "Route Host in record did not match input")
 				Expect(createdRouteRecord.Path).To(Equal(testRoutePath), "Route Path in record did not match input")
 				Expect(createdRouteRecord.SpaceGUID).To(Equal(space.Name), "Route Space GUID in record did not match input")
@@ -625,7 +623,6 @@ var _ = Describe("RouteRepository", func() {
 				})
 			})
 		})
-
 	})
 
 	Describe("DeleteRoute", func() {
@@ -746,6 +743,7 @@ var _ = Describe("RouteRepository", func() {
 			BeforeEach(func() {
 				createdRouteRecord, createdRouteErr = routeRepo.GetOrCreateRoute(testCtx, authInfo, createRouteMessage)
 				Expect(createdRouteErr).NotTo(HaveOccurred())
+				Expect(createdRouteRecord.GUID).To(HavePrefix("cf-route-"))
 				route1GUID = createdRouteRecord.GUID
 			})
 

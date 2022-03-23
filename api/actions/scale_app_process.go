@@ -32,7 +32,7 @@ func (a *ScaleAppProcess) Invoke(ctx context.Context, authInfo authorization.Inf
 	}
 
 	fetchProcessMessage := repositories.ListProcessesMessage{
-		AppGUIDs:   []string{app.GUID},
+		AppGUIDs:  []string{app.GUID},
 		SpaceGUID: app.SpaceGUID,
 	}
 

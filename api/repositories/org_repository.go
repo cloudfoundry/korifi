@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -40,11 +42,12 @@ const (
 
 	OrgResourceType   = "Org"
 	SpaceResourceType = "Space"
+	OrgPrefix         = "cf-org-"
+	SpacePrefix       = "cf-space-"
 )
 
 type CreateOrgMessage struct {
 	Name        string
-	GUID        string
 	Suspended   bool
 	Labels      map[string]string
 	Annotations map[string]string
@@ -52,7 +55,6 @@ type CreateOrgMessage struct {
 
 type CreateSpaceMessage struct {
 	Name                     string
-	GUID                     string
 	OrganizationGUID         string
 	ImageRegistryCredentials string
 }
@@ -129,12 +131,13 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 	if err != nil {
 		return OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
+	orgGUID := OrgPrefix + uuid.NewString()
 	anchor, err := r.createSubnamespaceAnchor(
 		ctx,
 		userClient,
 		&v1alpha2.SubnamespaceAnchor{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      org.GUID,
+				Name:      orgGUID,
 				Namespace: r.rootNamespace,
 				Labels: map[string]string{
 					OrgNameLabel: org.Name,
@@ -151,7 +154,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 		return OrgRecord{}, err
 	}
 
-	if err := setCascadingDelete(ctx, userClient, org.GUID); err != nil {
+	if err := setCascadingDelete(ctx, userClient, orgGUID); err != nil {
 		return OrgRecord{}, err
 	}
 
@@ -191,6 +194,7 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 		return SpaceRecord{}, fmt.Errorf("failed to get parent organization: %w", err)
 	}
 
+	spaceGUID := SpacePrefix + uuid.NewString()
 	userClient, err := r.userClientFactory.BuildClient(info)
 	if err != nil {
 		return SpaceRecord{}, fmt.Errorf("failed to build user client: %w", err)
@@ -201,7 +205,7 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 		userClient,
 		&v1alpha2.SubnamespaceAnchor{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      message.GUID,
+				Name:      spaceGUID,
 				Namespace: message.OrganizationGUID,
 				Labels: map[string]string{
 					SpaceNameLabel: message.Name,
@@ -222,7 +226,7 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 	kpackServiceAccount := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kpack-service-account",
-			Namespace: message.GUID,
+			Namespace: spaceGUID,
 		},
 		ImagePullSecrets: []corev1.LocalObjectReference{
 			{Name: message.ImageRegistryCredentials},
@@ -239,7 +243,7 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 	eiriniServiceAccount := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "eirini",
-			Namespace: message.GUID,
+			Namespace: spaceGUID,
 		},
 	}
 	err = r.privilegedClient.Create(ctx, &eiriniServiceAccount)
