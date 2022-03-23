@@ -43,7 +43,7 @@ EOF
 
 kubectl certificate approve "${csr_name}"
 
-retry [ -n "$(kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}')" ]
+retry [ "$(kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}')" ]
 kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}' | base64 --decode >"${cert_file}"
 
 kubectl config set-credentials "${username}" --client-certificate="${cert_file}" --client-key="${priv_key_file}" --embed-certs
