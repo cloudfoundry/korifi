@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,16 +33,18 @@ const (
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
 
 type PackageRepo struct {
-	privilegedClient   client.Client
-	namespaceRetriever NamespaceRetriever
-	userClientFactory  UserK8sClientFactory
+	privilegedClient     client.Client
+	namespaceRetriever   NamespaceRetriever
+	userClientFactory    UserK8sClientFactory
+	namespacePermissions *authorization.NamespacePermissions
 }
 
-func NewPackageRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory) *PackageRepo {
+func NewPackageRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, authPerms *authorization.NamespacePermissions) *PackageRepo {
 	return &PackageRepo{
-		privilegedClient:   privilegedClient,
-		namespaceRetriever: namespaceRetriever,
-		userClientFactory:  userClientFactory,
+		privilegedClient:     privilegedClient,
+		namespaceRetriever:   namespaceRetriever,
+		userClientFactory:    userClientFactory,
+		namespacePermissions: authPerms,
 	}
 }
 
@@ -52,7 +55,7 @@ type PackageRecord struct {
 	AppGUID   string
 	SpaceGUID string
 	State     string
-	CreatedAt string
+	CreatedAt string // Can we also just use date objects directly here?
 	UpdatedAt string
 }
 
@@ -133,17 +136,30 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 }
 
 func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.Info, message ListPackagesMessage) ([]PackageRecord, error) {
-	packageList := &workloadsv1alpha1.CFPackageList{}
-	err := r.privilegedClient.List(ctx, packageList)
+	nsList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
-		return []PackageRecord{}, apierrors.FromK8sError(err, PackageResourceType)
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+	}
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return []PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	orderedPackages := orderPackages(packageList.Items, message)
+	var filteredPackages []workloadsv1alpha1.CFPackage
+	for ns := range nsList {
+		packageList := &workloadsv1alpha1.CFPackageList{}
+		err = userClient.List(ctx, packageList, client.InNamespace(ns))
+		if k8serrors.IsForbidden(err) {
+			continue
+		}
+		if err != nil {
+			return []PackageRecord{}, fmt.Errorf("failed to list packages in namespace %s: %w", ns, apierrors.FromK8sError(err, PackageResourceType))
+		}
+		filteredPackages = append(filteredPackages, applyPackageFilter(packageList.Items, message)...)
+	}
+	orderedPackages := orderPackages(filteredPackages, message)
 
-	packageRecords := convertToPackageRecords(orderedPackages)
-
-	return applyPackageFilter(packageRecords, message), nil
+	return convertToPackageRecords(orderedPackages), nil
 }
 
 func orderPackages(packages []workloadsv1alpha1.CFPackage, message ListPackagesMessage) []workloadsv1alpha1.CFPackage {
@@ -158,12 +174,12 @@ func orderPackages(packages []workloadsv1alpha1.CFPackage, message ListPackagesM
 	return packages
 }
 
-func applyPackageFilter(packages []PackageRecord, message ListPackagesMessage) []PackageRecord {
-	var appFiltered []PackageRecord
+func applyPackageFilter(packages []workloadsv1alpha1.CFPackage, message ListPackagesMessage) []workloadsv1alpha1.CFPackage {
+	var appFiltered []workloadsv1alpha1.CFPackage
 	if len(message.AppGUIDs) > 0 {
 		for _, currentPackage := range packages {
 			for _, appGUID := range message.AppGUIDs {
-				if currentPackage.AppGUID == appGUID {
+				if currentPackage.Spec.AppRef.Name == appGUID {
 					appFiltered = append(appFiltered, currentPackage)
 					break
 				}
@@ -173,13 +189,19 @@ func applyPackageFilter(packages []PackageRecord, message ListPackagesMessage) [
 		appFiltered = packages
 	}
 
-	var stateFiltered []PackageRecord
+	var stateFiltered []workloadsv1alpha1.CFPackage
 	if len(message.States) > 0 {
 		for _, currentPackage := range appFiltered {
 			for _, state := range message.States {
-				if currentPackage.State == state {
-					stateFiltered = append(stateFiltered, currentPackage)
-					break
+				switch state {
+				case PackageStateReady:
+					if currentPackage.Spec.Source.Registry.Image != "" {
+						stateFiltered = append(stateFiltered, currentPackage)
+					}
+				case PackageStateAwaitingUpload:
+					if currentPackage.Spec.Source.Registry.Image == "" {
+						stateFiltered = append(stateFiltered, currentPackage)
+					}
 				}
 			}
 		}

@@ -24,7 +24,7 @@ var _ = Describe("Build", func() {
 
 	BeforeEach(func() {
 		buildRepo := repositories.NewBuildRepo(namespaceRetriever, clientFactory)
-		packageRepo := repositories.NewPackageRepo(k8sClient, namespaceRetriever, clientFactory)
+		packageRepo := repositories.NewPackageRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 		decoderValidator, err := apis.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 

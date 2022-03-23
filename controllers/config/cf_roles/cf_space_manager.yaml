@@ -10,6 +10,7 @@ rules:
   - cfapps
   verbs:
   - get
+  - list
 
 - apiGroups:
   - workloads.cloudfoundry.org
@@ -17,6 +18,7 @@ rules:
   - cfpackages
   verbs:
   - get
+  - list
 
 - apiGroups:
   - workloads.cloudfoundry.org

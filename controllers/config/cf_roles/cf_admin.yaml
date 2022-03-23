@@ -46,6 +46,7 @@ rules:
   - cfpackages
   verbs:
   - get
+  - list
   - create
   - patch
 
