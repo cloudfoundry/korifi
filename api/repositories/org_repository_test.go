@@ -40,16 +40,24 @@ var _ = Describe("OrgRepository", func() {
 			createErr       error
 		)
 
-		waitForAnchor := func(anchorNamespace, anchorName string, anchor *hncv1alpha2.SubnamespaceAnchor, done chan bool) error {
+		waitForAnchor := func(anchorNamespace string, anchorLabel map[string]string, done chan bool) (*hncv1alpha2.SubnamespaceAnchor, error) {
 			for {
 				select {
 				case <-done:
-					return fmt.Errorf("waitForAnchor was 'signalled' to stop polling")
+					return nil, fmt.Errorf("waitForAnchor was 'signalled' to stop polling")
 				default:
 				}
 
-				if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: anchorNamespace, Name: anchorName}, anchor); err == nil {
-					return nil
+				var subspaceAnchorList hncv1alpha2.SubnamespaceAnchorList
+				err := k8sClient.List(ctx, &subspaceAnchorList, client.InNamespace(anchorNamespace), client.MatchingLabels(anchorLabel))
+				if err != nil {
+					return nil, fmt.Errorf("waitForAnchor failed")
+				}
+				if len(subspaceAnchorList.Items) > 1 {
+					return nil, fmt.Errorf("waitForAnchor found multiple anchors")
+				}
+				if len(subspaceAnchorList.Items) == 1 {
+					return &subspaceAnchorList.Items[0], nil
 				}
 
 				time.Sleep(time.Millisecond * 100)
@@ -62,18 +70,18 @@ var _ = Describe("OrgRepository", func() {
 		// namespace and sets the status on the subnamespaceanchor to Ok. It
 		// will stop waiting for the subnamespaceanchor to appear if anything
 		// is written to the done channel
-		simulateHNC := func(anchorNamespace, anchorName string, createRoleBindings bool, done chan bool) {
+		simulateHNC := func(anchorNamespace string, anchorLabel map[string]string, createRoleBindings bool, done chan bool) {
 			defer GinkgoRecover()
 
-			var anchor hncv1alpha2.SubnamespaceAnchor
-			if err := waitForAnchor(anchorNamespace, anchorName, &anchor, done); err != nil {
+			anchor, err := waitForAnchor(anchorNamespace, anchorLabel, done)
+			if err != nil {
 				return
 			}
 
-			createNamespace(ctx, anchorNamespace, anchorName)
+			createNamespace(ctx, anchorNamespace, anchor.Name)
 
 			Expect(k8sClient.Create(ctx, &hncv1alpha2.HierarchyConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Namespace: anchorName, Name: "hierarchy"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: anchor.Name, Name: "hierarchy"},
 			})).To(Succeed())
 
 			newAnchor := anchor.DeepCopy()
@@ -82,13 +90,12 @@ var _ = Describe("OrgRepository", func() {
 				createRoleBinding(ctx, userName, adminRole.Name, anchor.Name)
 			}
 			newAnchor.Status.State = hncv1alpha2.Ok
-			Expect(k8sClient.Patch(ctx, newAnchor, client.MergeFrom(&anchor))).To(Succeed())
+			Expect(k8sClient.Patch(ctx, newAnchor, client.MergeFrom(anchor))).To(Succeed())
 		}
 
 		Describe("Org", func() {
 			var (
 				orgName            string
-				orgGUID            string
 				org                repositories.OrgRecord
 				createRoleBindings bool
 				done               chan bool
@@ -97,18 +104,15 @@ var _ = Describe("OrgRepository", func() {
 			BeforeEach(func() {
 				doHNCSimulation = true
 				done = make(chan bool, 1)
-				orgGUID = prefixedGUID("org-guid")
 				orgName = prefixedGUID("org-name")
 				createRoleBindings = true
 			})
 
 			JustBeforeEach(func() {
 				if doHNCSimulation {
-					go simulateHNC(rootNamespace, orgGUID, createRoleBindings, done)
+					go simulateHNC(rootNamespace, map[string]string{repositories.OrgNameLabel: orgName}, createRoleBindings, done)
 				}
-
 				org, createErr = orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
-					GUID: orgGUID,
 					Name: orgName,
 				})
 			})
@@ -141,7 +145,7 @@ var _ = Describe("OrgRepository", func() {
 					Expect(anchorList.Items).To(HaveLen(1))
 
 					Expect(org.Name).To(Equal(orgName))
-					Expect(org.GUID).To(Equal(orgGUID))
+					Expect(org.GUID).To(HavePrefix("cf-org-"))
 					Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 					Expect(org.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 				})
@@ -189,17 +193,15 @@ var _ = Describe("OrgRepository", func() {
 		Describe("Space", func() {
 			var (
 				orgGUID                  string
-				spaceGUID                string
 				spaceName                string
 				space                    repositories.SpaceRecord
 				imageRegistryCredentials string
 			)
 
 			BeforeEach(func() {
-				spaceGUID = prefixedGUID("space-guid")
 				spaceName = prefixedGUID("space-name")
 				imageRegistryCredentials = "imageRegistryCredentials"
-				org := createOrgAnchorAndNamespace(ctx, rootNamespace, "org")
+				org := createOrgAnchorAndNamespace(ctx, rootNamespace, prefixedGUID("org"))
 				orgGUID = org.Name
 				doHNCSimulation = true
 			})
@@ -209,11 +211,9 @@ var _ = Describe("OrgRepository", func() {
 					done := make(chan bool, 1)
 					defer func(done chan bool) { done <- true }(done)
 
-					go simulateHNC(orgGUID, spaceGUID, true, done)
+					go simulateHNC(orgGUID, map[string]string{repositories.SpaceNameLabel: spaceName}, true, done)
 				}
-
 				space, createErr = orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
-					GUID:                     spaceGUID,
 					Name:                     spaceName,
 					OrganizationGUID:         orgGUID,
 					ImageRegistryCredentials: "imageRegistryCredentials",
@@ -251,7 +251,7 @@ var _ = Describe("OrgRepository", func() {
 						Expect(anchorList.Items).To(HaveLen(1))
 
 						Expect(space.Name).To(Equal(spaceName))
-						Expect(space.GUID).To(Equal(spaceGUID))
+						Expect(space.GUID).To(HavePrefix("cf-space-"))
 						Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 						Expect(space.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 					})
@@ -260,7 +260,7 @@ var _ = Describe("OrgRepository", func() {
 						serviceAccountList := corev1.ServiceAccountList{}
 						var err error
 						Eventually(func() []corev1.ServiceAccount {
-							err = k8sClient.List(ctx, &serviceAccountList, client.InNamespace(spaceGUID))
+							err = k8sClient.List(ctx, &serviceAccountList, client.InNamespace(space.GUID))
 							if err != nil {
 								return []corev1.ServiceAccount{}
 							}
@@ -603,17 +603,17 @@ var _ = Describe("OrgRepository", func() {
 			When("filtering by org guids", func() {
 				It("only retruns the spaces belonging to the specified org guids", func() {
 					spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
-						OrganizationGUIDs: []string{string(org1Anchor.Name), string(org3Anchor.Name), "does-not-exist"},
+						OrganizationGUIDs: []string{org1Anchor.Name, org3Anchor.Name, "does-not-exist"},
 					})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
 							"Name":             Equal("space1"),
-							"OrganizationGUID": Equal(string(org1Anchor.Name)),
+							"OrganizationGUID": Equal(org1Anchor.Name),
 						}),
 						MatchFields(IgnoreExtras, Fields{
 							"Name":             Equal("space1"),
-							"OrganizationGUID": Equal(string(org3Anchor.Name)),
+							"OrganizationGUID": Equal(org3Anchor.Name),
 						}),
 						MatchFields(IgnoreExtras, Fields{"Name": Equal("space2")}),
 						MatchFields(IgnoreExtras, Fields{"Name": Equal("space4")}),
@@ -630,15 +630,15 @@ var _ = Describe("OrgRepository", func() {
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
 							"Name":             Equal("space1"),
-							"OrganizationGUID": Equal(string(org1Anchor.Name)),
+							"OrganizationGUID": Equal(org1Anchor.Name),
 						}),
 						MatchFields(IgnoreExtras, Fields{
 							"Name":             Equal("space1"),
-							"OrganizationGUID": Equal(string(org2Anchor.Name)),
+							"OrganizationGUID": Equal(org2Anchor.Name),
 						}),
 						MatchFields(IgnoreExtras, Fields{
 							"Name":             Equal("space1"),
-							"OrganizationGUID": Equal(string(org3Anchor.Name)),
+							"OrganizationGUID": Equal(org3Anchor.Name),
 						}),
 						MatchFields(IgnoreExtras, Fields{"Name": Equal("space3")}),
 					))
@@ -648,17 +648,17 @@ var _ = Describe("OrgRepository", func() {
 			When("filtering by space guids", func() {
 				It("only returns the spaces matching the specified guids", func() {
 					spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
-						GUIDs: []string{string(space11Anchor.Name), string(space21Anchor.Name), "does-not-exist"},
+						GUIDs: []string{space11Anchor.Name, space21Anchor.Name, "does-not-exist"},
 					})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
 							"Name":             Equal("space1"),
-							"OrganizationGUID": Equal(string(org1Anchor.Name)),
+							"OrganizationGUID": Equal(org1Anchor.Name),
 						}),
 						MatchFields(IgnoreExtras, Fields{
 							"Name":             Equal("space1"),
-							"OrganizationGUID": Equal(string(org2Anchor.Name)),
+							"OrganizationGUID": Equal(org2Anchor.Name),
 						}),
 					))
 				})
@@ -667,19 +667,19 @@ var _ = Describe("OrgRepository", func() {
 			When("filtering by org guids, space names and space guids", func() {
 				It("only retruns the spaces matching the specified names", func() {
 					spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
-						OrganizationGUIDs: []string{string(org1Anchor.Name), string(org2Anchor.Name)},
+						OrganizationGUIDs: []string{org1Anchor.Name, org2Anchor.Name},
 						Names:             []string{"space1", "space2", "space4"},
-						GUIDs:             []string{string(space11Anchor.Name), string(space21Anchor.Name)},
+						GUIDs:             []string{space11Anchor.Name, space21Anchor.Name},
 					})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spaces).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
 							"Name":             Equal("space1"),
-							"OrganizationGUID": Equal(string(org1Anchor.Name)),
+							"OrganizationGUID": Equal(org1Anchor.Name),
 						}),
 						MatchFields(IgnoreExtras, Fields{
 							"Name":             Equal("space1"),
-							"OrganizationGUID": Equal(string(org2Anchor.Name)),
+							"OrganizationGUID": Equal(org2Anchor.Name),
 						}),
 					))
 				})

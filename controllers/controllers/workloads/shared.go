@@ -3,8 +3,6 @@ package workloads
 import (
 	"context"
 
-	"github.com/google/uuid"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,10 +30,6 @@ func setStatusConditionOnLocalCopy(conditions *[]metav1.Condition, conditionType
 		Reason:  reason,
 		Message: message,
 	})
-}
-
-func generateGUID() string {
-	return uuid.NewString()
 }
 
 //counterfeiter:generate -o fake -fake-name StatusWriter sigs.k8s.io/controller-runtime/pkg/client.StatusWriter

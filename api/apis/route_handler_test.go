@@ -817,7 +817,6 @@ var _ = Describe("RouteHandler", func() {
 			It("returns an error", func() {
 				expectUnprocessableEntityError("Invalid Route, FQDN does not comply with RFC 1035 standards")
 			})
-
 		})
 
 		When("the FQDN is invalid with invalid length", func() {
@@ -831,7 +830,6 @@ var _ = Describe("RouteHandler", func() {
 			It("returns an error", func() {
 				expectUnprocessableEntityError("Invalid Route, subdomains must each be at most 63 characters")
 			})
-
 		})
 
 		When("the path is missing a leading /", func() {

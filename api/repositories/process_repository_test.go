@@ -2,8 +2,9 @@ package repositories_test
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/types"
 	"time"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
@@ -331,7 +332,7 @@ var _ = Describe("ProcessRepo", func() {
 			Expect(list.Items).To(HaveLen(1))
 
 			process := list.Items[0]
-			Expect(process.Name).NotTo(BeEmpty())
+			Expect(process.Name).To(HavePrefix("cf-proc-"))
 			Expect(process.Spec).To(Equal(workloadsv1alpha1.CFProcessSpec{
 				AppRef:      corev1.LocalObjectReference{Name: app1GUID},
 				ProcessType: "web",
@@ -591,7 +592,6 @@ var _ = Describe("ProcessRepo", func() {
 					})
 				})
 			})
-
 		})
 	})
 })

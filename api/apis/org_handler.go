@@ -7,7 +7,6 @@ import (
 	"net/url"
 
 	"github.com/go-logr/logr"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 	controllerruntime "sigs.k8s.io/controller-runtime"
@@ -58,8 +57,6 @@ func (h *OrgHandler) orgCreateHandler(info authorization.Info, r *http.Request) 
 	}
 
 	org := payload.ToMessage()
-	org.GUID = uuid.NewString()
-
 	record, err := h.orgRepo.CreateOrg(r.Context(), info, org)
 	if err != nil {
 		h.logger.Error(err, "Failed to create org", "Org Name", payload.Name)

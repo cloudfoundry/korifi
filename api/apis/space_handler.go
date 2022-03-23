@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 
@@ -62,9 +61,6 @@ func (h *SpaceHandler) spaceCreateHandler(info authorization.Info, r *http.Reque
 	}
 
 	space := payload.ToMessage(h.imageRegistrySecretName)
-	// TODO: Move this GUID generation down to the repository layer?
-	space.GUID = uuid.NewString()
-
 	record, err := h.spaceRepo.CreateSpace(ctx, info, space)
 	if err != nil {
 		h.logger.Error(err, "Failed to create space", "Space Name", space.Name)

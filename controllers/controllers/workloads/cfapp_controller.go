@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
@@ -131,7 +132,7 @@ func addWebIfMissing(processTypes []workloadsv1alpha1.ProcessType) []workloadsv1
 }
 
 func (r *CFAppReconciler) createCFProcess(ctx context.Context, process workloadsv1alpha1.ProcessType, ports []int32, cfApp *workloadsv1alpha1.CFApp) error {
-	cfProcessGUID := generateGUID()
+	cfProcessGUID := repositories.GenerateProcessGUID()
 
 	desiredCFProcess := workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
