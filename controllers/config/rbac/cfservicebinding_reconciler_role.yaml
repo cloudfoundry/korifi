@@ -1,0 +1,17 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cfservicebinding-reconciler-role
+  labels:
+    servicebinding.io/controller: "true" # matches the aggregation rule selector
+rules:
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch

@@ -1724,6 +1724,24 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    servicebinding.io/controller: "true"
+  name: cf-k8s-controllers-cfservicebinding-reconciler-role
+rules:
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   creationTimestamp: null
   name: cf-k8s-controllers-manager-role
 rules:

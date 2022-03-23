@@ -163,6 +163,21 @@ subnamespaces.
 kubectl hns config set-resource secrets --mode Propagate
 ```
 
+---
+## Optional: Install Service Bindings Controller
+
+Cloud Native Buildpacks and other app frameworks (such as [Spring Cloud Bindings](https://github.com/spring-cloud/spring-cloud-bindings)) are adopting the [K8s ServiceBinding spec](https://github.com/servicebinding/spec#workload-projection) model of volume mounted secrets. 
+We currently are providing apps access to these via the `VCAP_SERVICES` environment variable ([see this issue](https://github.com/cloudfoundry/cf-k8s-controllers/issues/462)) for backwards compatibility reasons.
+We would also want to support the newer developments in the ServiceBinding ecosystem as well.
+
+We are not implementing this ourselves but allowing controller that adopts the [ServiceBinding Spec](https://github.com/servicebinding/spec) that volume mounts secrets to workload containers to be used. 
+We have tested with [this Service Binding reconciler](https://github.com/vmware-labs/service-bindings). Install it using 
+
+```sh
+kubectl apply -f https://github.com/vmware-tanzu/servicebinding/releases/download/v0.7.1/service-bindings-0.7.1.yaml
+```
+
+---
 # Installation
 ## Configure cf-k8s-controllers
 Configuration file for cf-k8s-controllers is at `controllers/config/base/controllersconfig/cf_k8s_controllers_config.yaml`
