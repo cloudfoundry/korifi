@@ -155,10 +155,6 @@ var _ = Describe("Routes", func() {
 			route     routeResource
 		)
 
-		BeforeEach(func() {
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
 			resp, err = client.R().
@@ -178,74 +174,100 @@ var _ = Describe("Routes", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("can create a route", func() {
-			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-			Expect(route.URL).To(SatisfyAll(
-				HavePrefix(host),
-				HaveSuffix(path),
-			))
+		It("returns an unprocessable entity error when the user has no role in the space", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+			Expect(createErr.Errors).To(ConsistOf(cfErr{
+				Detail: "Invalid space. Ensure that the space exists and you have access to it.",
+				Title:  "CF-UnprocessableEntity",
+				Code:   10008,
+			}))
 		})
 
-		When("the route already exists", func() {
+		When("the user is a space manager", func() {
 			BeforeEach(func() {
-				createRoute(host, path, spaceGUID, domainGUID)
+				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
 			})
 
-			It("fails with a duplicate error", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-				Expect(createErr.Errors).To(ConsistOf(cfErr{
-					Detail: fmt.Sprintf("Route already exists with host '%s' and path '%s' for domain '%s'.", host, path, domainName),
-					Title:  "CF-UnprocessableEntity",
-					Code:   10008,
-				}))
+			It("returns an unprocessable entity error when the user has no role in the space", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+				Expect(resp).To(HaveRestyBody(ContainSubstring("CF-NotAuthorized")))
 			})
 		})
 
-		When("the route already exists in another space", func() {
+		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				anotherSpaceGUID := createSpace(generateGUID("another-space"), orgGUID)
-				createRoute(host, path, anotherSpaceGUID, domainGUID)
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 			})
 
-			It("fails with a duplicate error", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-				Expect(createErr.Errors).To(ConsistOf(cfErr{
-					Detail: fmt.Sprintf("Route already exists with host '%s' and path '%s' for domain '%s'.", host, path, domainName),
-					Title:  "CF-UnprocessableEntity",
-					Code:   10008,
-				}))
-			})
-		})
-
-		When("there is no context path", func() {
-			BeforeEach(func() {
-				path = ""
-				createRoute(host, path, spaceGUID, domainGUID)
+			It("can create a route", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+				Expect(route.URL).To(SatisfyAll(
+					HavePrefix(host),
+					HaveSuffix(path),
+				))
 			})
 
-			It("fails with a duplicate error", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-				Expect(createErr.Errors).To(ConsistOf(cfErr{
-					Detail: fmt.Sprintf("Route already exists with host '%s' for domain '%s'.", host, domainName),
-					Title:  "CF-UnprocessableEntity",
-					Code:   10008,
-				}))
-			})
-		})
+			When("the route already exists", func() {
+				BeforeEach(func() {
+					createRoute(host, path, spaceGUID, domainGUID)
+				})
 
-		When("the FQDN on the route is invalid", func() {
-			BeforeEach(func() {
-				domainName = generateGUID("inv@lid.dom@in.n@me")
-				domainGUID = createDomain(domainName)
+				It("fails with a duplicate error", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+					Expect(createErr.Errors).To(ConsistOf(cfErr{
+						Detail: fmt.Sprintf("Route already exists with host '%s' and path '%s' for domain '%s'.", host, path, domainName),
+						Title:  "CF-UnprocessableEntity",
+						Code:   10008,
+					}))
+				})
 			})
 
-			It("fails with a invalid route error", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-				Expect(createErr.Errors).To(ConsistOf(cfErr{
-					Detail: "Invalid Route, FQDN does not comply with RFC 1035 standards",
-					Title:  "CF-UnprocessableEntity",
-					Code:   10008,
-				}))
+			When("the route already exists in another space", func() {
+				BeforeEach(func() {
+					anotherSpaceGUID := createSpace(generateGUID("another-space"), orgGUID)
+					createRoute(host, path, anotherSpaceGUID, domainGUID)
+				})
+
+				It("fails with a duplicate error", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+					Expect(createErr.Errors).To(ConsistOf(cfErr{
+						Detail: fmt.Sprintf("Route already exists with host '%s' and path '%s' for domain '%s'.", host, path, domainName),
+						Title:  "CF-UnprocessableEntity",
+						Code:   10008,
+					}))
+				})
+			})
+
+			When("there is no context path", func() {
+				BeforeEach(func() {
+					path = ""
+					createRoute(host, path, spaceGUID, domainGUID)
+				})
+
+				It("fails with a duplicate error", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+					Expect(createErr.Errors).To(ConsistOf(cfErr{
+						Detail: fmt.Sprintf("Route already exists with host '%s' for domain '%s'.", host, domainName),
+						Title:  "CF-UnprocessableEntity",
+						Code:   10008,
+					}))
+				})
+			})
+
+			When("the FQDN on the route is invalid", func() {
+				BeforeEach(func() {
+					domainName = generateGUID("inv@lid.dom@in.n@me")
+					domainGUID = createDomain(domainName)
+				})
+
+				It("fails with a invalid route error", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+					Expect(createErr.Errors).To(ConsistOf(cfErr{
+						Detail: "Invalid Route, FQDN does not comply with RFC 1035 standards",
+						Title:  "CF-UnprocessableEntity",
+						Code:   10008,
+					}))
+				})
 			})
 		})
 	})
