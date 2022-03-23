@@ -305,7 +305,12 @@ func cfRouteDestinationToDestination(cfRouteDestination networkingv1alpha1.Desti
 
 func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
 	cfRoute := message.toCFRoute()
-	err := f.privilegedClient.Create(ctx, &cfRoute)
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	err = userClient.Create(ctx, &cfRoute)
 	if err != nil {
 		if webhooks.HasErrorCode(err, webhooks.DuplicateRouteError) {
 			pathDetails := ""

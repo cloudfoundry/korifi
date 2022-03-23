@@ -570,42 +570,43 @@ var _ = Describe("RouteRepository", func() {
 	})
 
 	Describe("CreateRoute", func() {
-		const (
-			testRouteHost = "test-route-host"
-			testRoutePath = "/test/route/path"
+		var (
+			createdRouteRecord RouteRecord
+			createdRouteErr    error
+			testRouteHost      string
+			testRoutePath      string
+			targetNamespace    string
 		)
 
-		When("route does not already exist", func() {
-			var (
-				createdRouteRecord RouteRecord
-				createdRouteErr    error
-			)
+		BeforeEach(func() {
+			targetNamespace = space.Name
+			testRouteHost = prefixedGUID("route-host-")
+			testRoutePath = prefixedGUID("/test/route/")
+			createdRouteRecord = RouteRecord{}
+			createdRouteErr = nil
+		})
+		JustBeforeEach(func() {
+			createRouteMessage := buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, targetNamespace, rootNamespace)
+			createdRouteRecord, createdRouteErr = routeRepo.CreateRoute(testCtx, authInfo, createRouteMessage)
+		})
 
+		It("errors with forbidden for users with no permissions", func() {
+			Expect(createdRouteErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				createRouteMessage := buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, space.Name, rootNamespace)
-				createdRouteRecord, createdRouteErr = routeRepo.CreateRoute(testCtx, authInfo, createRouteMessage)
-				Expect(createdRouteErr).NotTo(HaveOccurred())
-				route1GUID = createdRouteRecord.GUID
-			})
-
-			AfterEach(func() {
-				Expect(cleanupRoute(k8sClient, testCtx, route1GUID, space.Name)).To(Succeed())
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("creates a new CFRoute CR successfully", func() {
-				cfRouteLookupKey := types.NamespacedName{Name: route1GUID, Namespace: space.Name}
+				Expect(createdRouteErr).NotTo(HaveOccurred())
+				cfRouteLookupKey := types.NamespacedName{Name: createdRouteRecord.GUID, Namespace: space.Name}
 				createdCFRoute := new(networkingv1alpha1.CFRoute)
-				Eventually(func() string {
-					err := k8sClient.Get(context.Background(), cfRouteLookupKey, createdCFRoute)
-					if err != nil {
-						return ""
-					}
-					return createdCFRoute.Name
-				}, 10*time.Second, 250*time.Millisecond).Should(Equal(route1GUID))
+				Expect(k8sClient.Get(context.Background(), cfRouteLookupKey, createdCFRoute)).To(Succeed())
 			})
 
-			It("returns an RouteRecord with matching fields", func() {
-				Expect(createdRouteRecord.GUID).To(Equal(route1GUID), "Route GUID in record did not match input")
+			It("returns a RouteRecord with matching fields", func() {
 				Expect(createdRouteRecord.Host).To(Equal(testRouteHost), "Route Host in record did not match input")
 				Expect(createdRouteRecord.Path).To(Equal(testRoutePath), "Route Path in record did not match input")
 				Expect(createdRouteRecord.SpaceGUID).To(Equal(space.Name), "Route Space GUID in record did not match input")
@@ -614,17 +615,17 @@ var _ = Describe("RouteRepository", func() {
 				validateTimestamp(createdRouteRecord.CreatedAt, 2*time.Second)
 				validateTimestamp(createdRouteRecord.UpdatedAt, 2*time.Second)
 			})
-		})
 
-		When("route creation fails", func() {
-			When("namespace doesn't exist", func() {
+			When("target namespace isn't set", func() {
+				BeforeEach(func() {
+					targetNamespace = ""
+				})
 				It("returns an error", func() {
-					// TODO: improve this test so that the message is valid other than the namespace not existing
-					_, err := routeRepo.CreateRoute(testCtx, authInfo, CreateRouteMessage{})
-					Expect(err).To(MatchError("an empty namespace may not be set during creation"))
+					Expect(createdRouteErr).To(MatchError("an empty namespace may not be set during creation"))
 				})
 			})
 		})
+
 	})
 
 	Describe("DeleteRoute", func() {
@@ -732,9 +733,7 @@ var _ = Describe("RouteRepository", func() {
 		var createRouteMessage CreateRouteMessage
 
 		BeforeEach(func() {
-			// TODO: RBAC has not been added for this function yet- just adding this to support the ListRoutes RBAC refactor
-			createRoleBinding(testCtx, userName, spaceManagerRole.Name, space.Name)
-
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			createRouteMessage = buildCreateRouteMessage(testRouteHost, testRoutePath, domainGUID, space.Name, rootNamespace)
 		})
 
