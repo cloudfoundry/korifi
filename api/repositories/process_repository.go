@@ -235,6 +235,10 @@ func (r *ProcessRepo) GetProcessByAppTypeAndSpace(ctx context.Context, authInfo 
 }
 
 func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.Info, message PatchProcessMessage) (ProcessRecord, error) {
+	userClient, err := r.clientFactory.BuildClient(authInfo)
+	if err != nil {
+		return ProcessRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
 	baseProcess := &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.ProcessGUID,
@@ -268,7 +272,7 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 		updatedProcess.Spec.HealthCheck.Data.TimeoutSeconds = *message.HealthCheckTimeoutSeconds
 	}
 
-	err := r.privilegedClient.Patch(ctx, updatedProcess, client.MergeFrom(baseProcess))
+	err = userClient.Patch(ctx, updatedProcess, client.MergeFrom(baseProcess))
 	if err != nil {
 		return ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
 	}

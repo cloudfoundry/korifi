@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/types"
 	"time"
 
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
@@ -16,7 +17,6 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -420,15 +420,17 @@ var _ = Describe("ProcessRepo", func() {
 	Describe("PatchProcess", func() {
 		When("the app already has a process with the given type", func() {
 			var (
+				space     *hnsv1alpha2.SubnamespaceAnchor
 				cfProcess *workloadsv1alpha1.CFProcess
 				message   repositories.PatchProcessMessage
 			)
 
 			BeforeEach(func() {
+				space = createSpaceAnchorAndNamespace(ctx, orgNamespace.Name, prefixedGUID("space"))
 				cfProcess = &workloadsv1alpha1.CFProcess{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      process1GUID,
-						Namespace: orgNamespace.Name,
+						Namespace: space.Name,
 						Labels: map[string]string{
 							cfAppGUIDLabelKey: app1GUID,
 						},
@@ -456,11 +458,11 @@ var _ = Describe("ProcessRepo", func() {
 				Expect(k8sClient.Create(context.Background(), cfProcess)).To(Succeed())
 			})
 
-			When("all fields are set", func() {
+			When("users does not have permissions", func() {
 				BeforeEach(func() {
 					message = repositories.PatchProcessMessage{
 						ProcessGUID:                         process1GUID,
-						SpaceGUID:                           orgNamespace.Name,
+						SpaceGUID:                           space.Name,
 						Command:                             stringPointer("start-web"),
 						HealthCheckType:                     stringPointer("http"),
 						HealthCheckHTTPEndpoint:             stringPointer("/healthz"),
@@ -472,96 +474,125 @@ var _ = Describe("ProcessRepo", func() {
 					}
 				})
 
-				It("updates all fields on the existing CFProcess resource", func() {
-					updatedProcessRecord, err := processRepo.PatchProcess(ctx, authInfo, message)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(updatedProcessRecord.GUID).To(Equal(cfProcess.Name))
-					Expect(updatedProcessRecord.SpaceGUID).To(Equal(cfProcess.Namespace))
-					Expect(updatedProcessRecord.Command).To(Equal(*message.Command))
-					Expect(updatedProcessRecord.HealthCheck.Type).To(Equal(*message.HealthCheckType))
-					Expect(updatedProcessRecord.HealthCheck.Data.HTTPEndpoint).To(Equal(*message.HealthCheckHTTPEndpoint))
-					Expect(updatedProcessRecord.HealthCheck.Data.TimeoutSeconds).To(Equal(*message.HealthCheckTimeoutSeconds))
-					Expect(updatedProcessRecord.HealthCheck.Data.InvocationTimeoutSeconds).To(Equal(*message.HealthCheckInvocationTimeoutSeconds))
-					Expect(updatedProcessRecord.DesiredInstances).To(Equal(*message.DesiredInstances))
-					Expect(updatedProcessRecord.MemoryMB).To(Equal(*message.MemoryMB))
-					Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(*message.DiskQuotaMB))
-
-					var process workloadsv1alpha1.CFProcess
-					Eventually(func() workloadsv1alpha1.CFProcessSpec {
-						Expect(
-							k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: orgNamespace.Name}, &process),
-						).To(Succeed())
-						return process.Spec
-					}).Should(Equal(workloadsv1alpha1.CFProcessSpec{
-						AppRef:      corev1.LocalObjectReference{Name: app1GUID},
-						ProcessType: "web",
-						Command:     "start-web",
-						HealthCheck: workloadsv1alpha1.HealthCheck{
-							Type: "http",
-							Data: workloadsv1alpha1.HealthCheckData{
-								HTTPEndpoint:             "/healthz",
-								InvocationTimeoutSeconds: 20,
-								TimeoutSeconds:           10,
-							},
-						},
-						DesiredInstances: 42,
-						MemoryMB:         456,
-						DiskQuotaMB:      123,
-						Ports:            []int32{8080},
-					}))
+				It("returns a forbidden error to unauthorized users", func() {
+					_, err := processRepo.PatchProcess(ctx, authInfo, message)
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 				})
 			})
 
-			When("only some fields are set", func() {
+			When("user has permission", func() {
 				BeforeEach(func() {
-					message = repositories.PatchProcessMessage{
-						ProcessGUID:               process1GUID,
-						SpaceGUID:                 orgNamespace.Name,
-						Command:                   stringPointer("new-command"),
-						HealthCheckTimeoutSeconds: int64Pointer(42),
-						DesiredInstances:          intPointer(5),
-						MemoryMB:                  int64Pointer(123),
-					}
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 				})
 
-				It("patches only the provided fields on the Process", func() {
-					updatedProcessRecord, err := processRepo.PatchProcess(ctx, authInfo, message)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(updatedProcessRecord.GUID).To(Equal(cfProcess.Name))
-					Expect(updatedProcessRecord.SpaceGUID).To(Equal(cfProcess.Namespace))
-					Expect(updatedProcessRecord.Command).To(Equal(*message.Command))
-					Expect(updatedProcessRecord.HealthCheck.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
-					Expect(updatedProcessRecord.HealthCheck.Data.HTTPEndpoint).To(Equal(cfProcess.Spec.HealthCheck.Data.HTTPEndpoint))
-					Expect(updatedProcessRecord.HealthCheck.Data.TimeoutSeconds).To(Equal(*message.HealthCheckTimeoutSeconds))
-					Expect(updatedProcessRecord.HealthCheck.Data.InvocationTimeoutSeconds).To(Equal(cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds))
-					Expect(updatedProcessRecord.DesiredInstances).To(Equal(*message.DesiredInstances))
-					Expect(updatedProcessRecord.MemoryMB).To(Equal(*message.MemoryMB))
-					Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(cfProcess.Spec.DiskQuotaMB))
+				When("all fields are set", func() {
+					BeforeEach(func() {
+						message = repositories.PatchProcessMessage{
+							ProcessGUID:                         process1GUID,
+							SpaceGUID:                           space.Name,
+							Command:                             stringPointer("start-web"),
+							HealthCheckType:                     stringPointer("http"),
+							HealthCheckHTTPEndpoint:             stringPointer("/healthz"),
+							HealthCheckInvocationTimeoutSeconds: int64Pointer(20),
+							HealthCheckTimeoutSeconds:           int64Pointer(10),
+							DesiredInstances:                    intPointer(42),
+							MemoryMB:                            int64Pointer(456),
+							DiskQuotaMB:                         int64Pointer(123),
+						}
+					})
 
-					var process workloadsv1alpha1.CFProcess
-					Eventually(func() workloadsv1alpha1.CFProcessSpec {
-						Expect(
-							k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: orgNamespace.Name}, &process),
-						).To(Succeed())
-						return process.Spec
-					}).Should(Equal(workloadsv1alpha1.CFProcessSpec{
-						AppRef:      corev1.LocalObjectReference{Name: app1GUID},
-						ProcessType: "web",
-						Command:     "new-command",
-						HealthCheck: workloadsv1alpha1.HealthCheck{
-							Type: "process",
-							Data: workloadsv1alpha1.HealthCheckData{
-								InvocationTimeoutSeconds: 1,
-								TimeoutSeconds:           42,
+					It("updates all fields on the existing CFProcess resource", func() {
+						updatedProcessRecord, err := processRepo.PatchProcess(ctx, authInfo, message)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(updatedProcessRecord.GUID).To(Equal(cfProcess.Name))
+						Expect(updatedProcessRecord.SpaceGUID).To(Equal(cfProcess.Namespace))
+						Expect(updatedProcessRecord.Command).To(Equal(*message.Command))
+						Expect(updatedProcessRecord.HealthCheck.Type).To(Equal(*message.HealthCheckType))
+						Expect(updatedProcessRecord.HealthCheck.Data.HTTPEndpoint).To(Equal(*message.HealthCheckHTTPEndpoint))
+						Expect(updatedProcessRecord.HealthCheck.Data.TimeoutSeconds).To(Equal(*message.HealthCheckTimeoutSeconds))
+						Expect(updatedProcessRecord.HealthCheck.Data.InvocationTimeoutSeconds).To(Equal(*message.HealthCheckInvocationTimeoutSeconds))
+						Expect(updatedProcessRecord.DesiredInstances).To(Equal(*message.DesiredInstances))
+						Expect(updatedProcessRecord.MemoryMB).To(Equal(*message.MemoryMB))
+						Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(*message.DiskQuotaMB))
+
+						var process workloadsv1alpha1.CFProcess
+						Eventually(func() workloadsv1alpha1.CFProcessSpec {
+							Expect(
+								k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: space.Name}, &process),
+							).To(Succeed())
+							return process.Spec
+						}).Should(Equal(workloadsv1alpha1.CFProcessSpec{
+							AppRef:      corev1.LocalObjectReference{Name: app1GUID},
+							ProcessType: "web",
+							Command:     "start-web",
+							HealthCheck: workloadsv1alpha1.HealthCheck{
+								Type: "http",
+								Data: workloadsv1alpha1.HealthCheckData{
+									HTTPEndpoint:             "/healthz",
+									InvocationTimeoutSeconds: 20,
+									TimeoutSeconds:           10,
+								},
 							},
-						},
-						DesiredInstances: 5,
-						MemoryMB:         123,
-						DiskQuotaMB:      3,
-						Ports:            []int32{8080},
-					}))
+							DesiredInstances: 42,
+							MemoryMB:         456,
+							DiskQuotaMB:      123,
+							Ports:            []int32{8080},
+						}))
+					})
+				})
+
+				When("only some fields are set", func() {
+					BeforeEach(func() {
+						message = repositories.PatchProcessMessage{
+							ProcessGUID:               process1GUID,
+							SpaceGUID:                 space.Name,
+							Command:                   stringPointer("new-command"),
+							HealthCheckTimeoutSeconds: int64Pointer(42),
+							DesiredInstances:          intPointer(5),
+							MemoryMB:                  int64Pointer(123),
+						}
+					})
+
+					It("patches only the provided fields on the Process", func() {
+						updatedProcessRecord, err := processRepo.PatchProcess(ctx, authInfo, message)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(updatedProcessRecord.GUID).To(Equal(cfProcess.Name))
+						Expect(updatedProcessRecord.SpaceGUID).To(Equal(cfProcess.Namespace))
+						Expect(updatedProcessRecord.Command).To(Equal(*message.Command))
+						Expect(updatedProcessRecord.HealthCheck.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
+						Expect(updatedProcessRecord.HealthCheck.Data.HTTPEndpoint).To(Equal(cfProcess.Spec.HealthCheck.Data.HTTPEndpoint))
+						Expect(updatedProcessRecord.HealthCheck.Data.TimeoutSeconds).To(Equal(*message.HealthCheckTimeoutSeconds))
+						Expect(updatedProcessRecord.HealthCheck.Data.InvocationTimeoutSeconds).To(Equal(cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds))
+						Expect(updatedProcessRecord.DesiredInstances).To(Equal(*message.DesiredInstances))
+						Expect(updatedProcessRecord.MemoryMB).To(Equal(*message.MemoryMB))
+						Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(cfProcess.Spec.DiskQuotaMB))
+
+						var process workloadsv1alpha1.CFProcess
+						Eventually(func() workloadsv1alpha1.CFProcessSpec {
+							Expect(
+								k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: space.Name}, &process),
+							).To(Succeed())
+							return process.Spec
+						}).Should(Equal(workloadsv1alpha1.CFProcessSpec{
+							AppRef:      corev1.LocalObjectReference{Name: app1GUID},
+							ProcessType: "web",
+							Command:     "new-command",
+							HealthCheck: workloadsv1alpha1.HealthCheck{
+								Type: "process",
+								Data: workloadsv1alpha1.HealthCheckData{
+									InvocationTimeoutSeconds: 1,
+									TimeoutSeconds:           42,
+								},
+							},
+							DesiredInstances: 5,
+							MemoryMB:         123,
+							DiskQuotaMB:      3,
+							Ports:            []int32{8080},
+						}))
+					})
 				})
 			})
+
 		})
 	})
 })
