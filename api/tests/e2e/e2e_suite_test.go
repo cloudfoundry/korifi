@@ -852,3 +852,14 @@ func expectForbiddenError(resp *resty.Response, errResp cfErrs) {
 		},
 	))
 }
+
+func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail string) {
+	Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+	Expect(errResp.Errors).To(ConsistOf(
+		cfErr{
+			Detail: detail,
+			Title:  "CF-UnprocessableEntity",
+			Code:   10008,
+		},
+	))
+}

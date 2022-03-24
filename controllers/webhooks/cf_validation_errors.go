@@ -22,6 +22,7 @@ const (
 	DuplicateRouteError
 	DuplicateDomainError
 	DuplicateServiceInstanceNameError
+	RouteDestinationNotInSpace
 )
 
 func (w ValidationErrorCode) Marshal() string {
@@ -58,6 +59,8 @@ func (w ValidationErrorCode) GetMessage() string {
 		return "Overlapping domain exists"
 	case DuplicateServiceInstanceNameError:
 		return "CFServiceInstance with same spec.name exists"
+	case RouteDestinationNotInSpace:
+		return "Route destination app not found in space"
 	default:
 		return "An unknown error has occurred"
 	}
