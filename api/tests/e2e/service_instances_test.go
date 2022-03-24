@@ -123,13 +123,14 @@ var _ = Describe("Service Instances", func() {
 			})
 
 			It("deletes the service instance", func() {
-				serviceInstances := listServiceInstances()
-				Expect(serviceInstances.Resources).NotTo(ContainElement(
+				Eventually(func() []resource {
+					return listServiceInstances().Resources
+				}).ShouldNot(ContainElement(
 					MatchFields(IgnoreExtras, Fields{
 						"Name": Equal(existingInstanceName),
 						"GUID": Equal(existingInstanceGUID),
-					})),
-				)
+					}),
+				))
 			})
 		})
 
