@@ -227,7 +227,7 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
-	Describe("Built apps", func() {
+	FDescribe("Built apps", func() {
 		var (
 			pkgGUID   string
 			buildGUID string
