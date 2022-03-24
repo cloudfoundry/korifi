@@ -313,14 +313,8 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 
 	err = userClient.Create(ctx, &cfRoute)
 	if err != nil {
-		if webhooks.HasErrorCode(err, webhooks.DuplicateRouteError) {
-			pathDetails := ""
-			if message.Path != "" {
-				pathDetails = fmt.Sprintf(" and path '%s'", message.Path)
-			}
-			errorDetail := fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
-				message.Host, pathDetails, message.DomainName)
-			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, errorDetail)
+		if webhooks.IsValidationError(err) {
+			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, webhooks.GetErrorMessage(err))
 		}
 		return RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}

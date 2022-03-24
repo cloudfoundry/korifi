@@ -9,6 +9,7 @@ spec:
   protocol: http
   domainRef:
     name: 5b5032ab-7fc8-4da5-b853-821fd1879201
+    namespace: cf
   # This array of destinations starts empty and is filled by CF Shim endpoints for /v3/routes/:guid/destinations
   destinations:
     - guid: 8ad77ef4-53d5-117a-b640-0ae227a13f35
