@@ -326,6 +326,62 @@ var _ = Describe("CF Route Validation", func() {
 			Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
 		})
 
+		When("the Host has upper-case and `-` characters", func() {
+			BeforeEach(func() {
+				var err error
+				cfRoute.Spec.Host = "tHis-is-a-vAlid-host-nAme"
+				cfRouteJSON, err = json.Marshal(cfRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				request = admission.Request{
+					AdmissionRequest: admissionv1.AdmissionRequest{
+						Name:      testRouteGUID,
+						Namespace: testRouteNamespace,
+						Operation: admissionv1.Create,
+						Object: runtime.RawExtension{
+							Raw: cfRouteJSON,
+						},
+					},
+				}
+			})
+
+			It("allows the request", func() {
+				Expect(response.Allowed).To(BeTrue())
+			})
+
+			It("invokes the validator with lower-cased hostname", func() {
+				Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
+				_, _, _, name := duplicateValidator.ValidateCreateArgsForCall(0)
+				Expect(name).To(Equal(strings.ToLower(cfRoute.Spec.Host) + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+			})
+		})
+
+		When("the Host has `_` characters", func() {
+			BeforeEach(func() {
+				var err error
+				cfRoute.Spec.Host = "tHis-is-an_InvAlid-host_nAme"
+				cfRouteJSON, err = json.Marshal(cfRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				request = admission.Request{
+					AdmissionRequest: admissionv1.AdmissionRequest{
+						Name:      testRouteGUID,
+						Namespace: testRouteNamespace,
+						Operation: admissionv1.Create,
+						Object: runtime.RawExtension{
+							Raw: cfRouteJSON,
+						},
+					},
+				}
+			})
+
+			It("denies the request", func() {
+				fmt.Println(response)
+				Expect(response.Allowed).To(BeFalse())
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.RouteFQDNInvalidError.Marshal()))
+			})
+		})
+
 		When("the app name is a duplicate", func() {
 			BeforeEach(func() {
 				duplicateValidator.ValidateCreateReturns(webhooks.ErrorDuplicateName)
@@ -377,30 +433,6 @@ var _ = Describe("CF Route Validation", func() {
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
 				Expect(string(response.Result.Reason)).To(Equal(webhooks.UnknownError.Marshal()))
-			})
-		})
-
-		When("host is empty on the route", func() {
-			BeforeEach(func() {
-				var err error
-				cfRoute.Spec.Host = ""
-				cfRouteJSON, err = json.Marshal(cfRoute)
-				Expect(err).NotTo(HaveOccurred())
-
-				request = admission.Request{
-					AdmissionRequest: admissionv1.AdmissionRequest{
-						Name:      testRouteGUID,
-						Namespace: testRouteNamespace,
-						Operation: admissionv1.Create,
-						Object: runtime.RawExtension{
-							Raw: cfRouteJSON,
-						},
-					},
-				}
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
 			})
 		})
 
@@ -603,6 +635,32 @@ var _ = Describe("CF Route Validation", func() {
 			})
 		})
 
+		When("the HostName has upper-case and `-` characters", func() {
+			BeforeEach(func() {
+				updatedCFRoute.Spec.Host = "tHis-is-a-vAlid-host-nAme"
+			})
+
+			It("allows the request", func() {
+				Expect(response.Allowed).To(BeTrue())
+			})
+
+			It("invokes the validator with lower-cased hostname", func() {
+				Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
+				_, _, _, _, name := duplicateValidator.ValidateUpdateArgsForCall(0)
+				Expect(name).To(Equal(strings.ToLower(updatedCFRoute.Spec.Host) + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + newTestRoutePath))
+			})
+		})
+
+		When("the Host has `_` characters", func() {
+			BeforeEach(func() {
+				updatedCFRoute.Spec.Host = "tHis-is-an_InvAlid-host_nAme"
+			})
+
+			It("denies the request", func() {
+				Expect(response.Allowed).To(BeFalse())
+			})
+		})
+
 		When("the new hostname is empty on the route", func() {
 			BeforeEach(func() {
 				updatedCFRoute.Spec.Host = ""
@@ -681,6 +739,22 @@ var _ = Describe("CF Route Validation", func() {
 			Expect(actualContext).To(Equal(ctx))
 			Expect(namespace).To(Equal(rootNamespace))
 			Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+		})
+
+		When("the HostName has upper-case and `-` characters", func() {
+			BeforeEach(func() {
+				cfRoute.Spec.Host = "tHis-is-a-vAlid-host-nAme"
+			})
+
+			It("allows the request", func() {
+				Expect(response.Allowed).To(BeTrue())
+			})
+
+			It("invokes the validator with lower-cased hostname", func() {
+				Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
+				_, _, _, name := duplicateValidator.ValidateDeleteArgsForCall(0)
+				Expect(name).To(Equal(strings.ToLower(cfRoute.Spec.Host) + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+			})
 		})
 
 		When("delete validation fails", func() {

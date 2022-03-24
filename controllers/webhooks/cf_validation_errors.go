@@ -23,6 +23,7 @@ const (
 	DuplicateDomainError
 	DuplicateServiceInstanceNameError
 	RouteDestinationNotInSpace
+	RouteFQDNInvalidError
 	HostNameIsInvalidError
 	PathValidationError
 )
@@ -46,15 +47,6 @@ func (w ValidationErrorCode) Marshal() string {
 	return string(bytes)
 }
 
-func (w *ValidationErrorCode) Unmarshall(payload string) {
-	validationErr := new(ValidationError)
-	err := json.Unmarshal([]byte(payload), validationErr)
-	if err != nil {
-		*w = UnknownError
-	}
-	*w = validationErr.Code
-}
-
 func (w ValidationErrorCode) GetMessage() string {
 	switch w {
 	case DuplicateAppError:
@@ -71,6 +63,8 @@ func (w ValidationErrorCode) GetMessage() string {
 		return "CFServiceInstance with same spec.name exists"
 	case RouteDestinationNotInSpace:
 		return "Route destination app not found in space"
+	case RouteFQDNInvalidError:
+		return "Route FQDN does not comply with RFC 1035 standards"
 	case HostNameIsInvalidError:
 		return "Missing or Invalid host - Routes in shared domains must have a valid host defined"
 	default:
@@ -78,18 +72,22 @@ func (w ValidationErrorCode) GetMessage() string {
 	}
 }
 
-func HasErrorCode(err error, code ValidationErrorCode) bool {
-	if statusError := new(k8serrors.StatusError); errors.As(err, &statusError) {
-		reason := statusError.Status().Reason
-
-		val := new(ValidationErrorCode)
-		val.Unmarshall(string(reason))
-
-		if *val == code {
-			return true
-		}
+func ExtractCodeFromErrorReason(payload string) ValidationErrorCode {
+	validationErr := new(ValidationError)
+	err := json.Unmarshal([]byte(payload), validationErr)
+	if err != nil {
+		return UnknownError
 	}
-	return false
+	return validationErr.Code
+}
+
+func HasErrorCode(err error, hasCode ValidationErrorCode) bool {
+	statusError := new(k8serrors.StatusError)
+	if !errors.As(err, &statusError) {
+		return false
+	}
+	errorCode := ExtractCodeFromErrorReason(string(statusError.Status().Reason))
+	return errorCode == hasCode
 }
 
 func IsValidationError(err error) bool {

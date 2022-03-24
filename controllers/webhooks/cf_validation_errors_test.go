@@ -18,24 +18,18 @@ var _ = Describe("CFWebhookValidationError", func() {
 	})
 
 	It("Unmarshals UnknownError", func() {
-		e := new(webhooks.ValidationErrorCode)
 		p := `{"code":0}`
-		e.Unmarshall(p)
-		Expect(*e).To(Equal(webhooks.UnknownError))
+		Expect(webhooks.ExtractCodeFromErrorReason(p)).To(Equal(webhooks.UnknownError))
 	})
 
 	It("Unmarshals DuplicateAppError", func() {
-		e := new(webhooks.ValidationErrorCode)
 		p := `{"code":1}`
-		e.Unmarshall(p)
-		Expect(*e).To(Equal(webhooks.DuplicateAppError))
+		Expect(webhooks.ExtractCodeFromErrorReason(p)).To(Equal(webhooks.DuplicateAppError))
 	})
 
 	It("Handles malformed json payloads", func() {
-		e := new(webhooks.ValidationErrorCode)
 		p := `{"code":1`
-		e.Unmarshall(p)
-		Expect(*e).To(Equal(webhooks.UnknownError))
+		Expect(webhooks.ExtractCodeFromErrorReason(p)).To(Equal(webhooks.UnknownError))
 	})
 })
 
