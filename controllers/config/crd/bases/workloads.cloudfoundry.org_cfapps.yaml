@@ -82,8 +82,10 @@ spec:
                 - type
                 type: object
               name:
-                description: Name defines the name of the app
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                description: Name defines the name of the app This is more restrictive
+                  than CC's app model- to make default route validation errors less
+                  likely
+                pattern: ^[-\w]+$
                 type: string
             required:
             - desiredState
