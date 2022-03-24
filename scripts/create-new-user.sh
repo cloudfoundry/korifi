@@ -3,7 +3,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "$SCRIPT_DIR/common.sh"
 
 if [[ $# -ne 1 ]]; then
   cat <<EOF >&2
@@ -43,8 +42,14 @@ EOF
 
 kubectl certificate approve "${csr_name}"
 
-retry [ "$(kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}')" ]
-kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}' | base64 --decode >"${cert_file}"
+certificate="$(kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}')"
+until [ -n "$certificate" ]; do
+  certificate="$(kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}')"
+  echo -n .
+  sleep 1
+done
+
+echo $certificate | base64 --decode >"${cert_file}"
 
 kubectl config set-credentials "${username}" --client-certificate="${cert_file}" --client-key="${priv_key_file}" --embed-certs
 
