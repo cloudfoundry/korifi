@@ -373,6 +373,9 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 
 	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
 	if err != nil {
+		if webhooks.HasErrorCode(err, webhooks.RouteDestinationNotInSpace) {
+			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, "Routes cannot be mapped to destinations in different spaces.")
+		}
 		return RouteRecord{}, fmt.Errorf("failed to add destination to route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
 

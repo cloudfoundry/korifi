@@ -7,10 +7,11 @@ import (
 	"strings"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
-
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -89,6 +90,14 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 		if err != nil {
 			return admission.Denied(err.Error())
 		}
+
+		if err := v.checkDestinationsExistInNamespace(ctx, route); err != nil {
+			if k8serrors.IsNotFound(err) {
+				return admission.Denied(webhooks.RouteDestinationNotInSpace.Marshal())
+			}
+			return admission.Denied(err.Error())
+		}
+
 		validatorErr = v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, uniqueName(route))
 
 	case admissionv1.Update:
@@ -100,6 +109,14 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 		if err != nil {
 			return admission.Denied(err.Error())
 		}
+
+		if err := v.checkDestinationsExistInNamespace(ctx, route); err != nil {
+			if k8serrors.IsNotFound(err) {
+				return admission.Denied(webhooks.RouteDestinationNotInSpace.Marshal())
+			}
+			return admission.Denied(err.Error())
+		}
+
 		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, uniqueName(oldRoute), uniqueName(route))
 
 	case admissionv1.Delete:
@@ -192,4 +209,16 @@ func IsFQDN(host, domain string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (v *CFRouteValidation) checkDestinationsExistInNamespace(ctx context.Context, route networkingv1alpha1.CFRoute) error {
+	for _, destination := range route.Spec.Destinations {
+		if err := v.Client.Get(
+			ctx, client.ObjectKey{Namespace: route.Namespace, Name: destination.AppRef.Name}, &workloadsv1alpha1.CFApp{},
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

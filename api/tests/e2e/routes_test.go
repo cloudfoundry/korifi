@@ -308,6 +308,7 @@ var _ = Describe("Routes", func() {
 			appGUID   string
 			routeGUID string
 			resp      *resty.Response
+			errResp   cfErrs
 			result    destinationsResource
 		)
 
@@ -315,6 +316,7 @@ var _ = Describe("Routes", func() {
 			routeGUID = ""
 			host = generateGUID("host")
 			routeGUID = createRoute(host, "", spaceGUID, appDomainGUID)
+			errResp = cfErrs{}
 		})
 
 		JustBeforeEach(func() {
@@ -326,6 +328,7 @@ var _ = Describe("Routes", func() {
 					},
 				}).
 				SetResult(&result).
+				SetError(&errResp).
 				Post("/v3/routes/" + routeGUID + "/destinations")
 
 			Expect(err).NotTo(HaveOccurred())
@@ -351,6 +354,17 @@ var _ = Describe("Routes", func() {
 				Expect(result.Destinations[0].App.GUID).To(Equal(appGUID))
 
 				Expect(resp.Body()).To(ContainSubstring("Hello from a node app!"))
+			})
+
+			When("an app from a different space is added", func() {
+				BeforeEach(func() {
+					space2GUID := createSpace(generateGUID("space2"), orgGUID)
+					appGUID = createApp(space2GUID, generateGUID("app2"))
+				})
+
+				It("fails with an unprocessable entity error", func() {
+					expectUnprocessableEntityError(resp, errResp, "Routes cannot be mapped to destinations in different spaces.")
+				})
 			})
 		})
 

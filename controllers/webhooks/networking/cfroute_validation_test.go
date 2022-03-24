@@ -9,13 +9,16 @@ import (
 	. "github.com/onsi/gomega"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking/fake"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -29,6 +32,7 @@ var _ = Describe("CF Route Validation", func() {
 		realDecoder        *admission.Decoder
 		cfRoute            *networkingv1alpha1.CFRoute
 		cfDomain           *networkingv1alpha1.CFDomain
+		cfApp              *workloadsv1alpha1.CFApp
 		request            admission.Request
 		validatingWebhook  *networking.CFRouteValidation
 		response           admission.Response
@@ -44,6 +48,7 @@ var _ = Describe("CF Route Validation", func() {
 		rootNamespace       string
 
 		getDomainError error
+		getAppError    error
 	)
 
 	BeforeEach(func() {
@@ -65,6 +70,7 @@ var _ = Describe("CF Route Validation", func() {
 		testDomainNamespace = "domain-ns"
 		rootNamespace = "root-ns"
 		getDomainError = nil
+		getAppError = nil
 
 		cfRoute = &networkingv1alpha1.CFRoute{
 			ObjectMeta: metav1.ObjectMeta{
@@ -94,6 +100,8 @@ var _ = Describe("CF Route Validation", func() {
 			},
 		}
 
+		cfApp = &workloadsv1alpha1.CFApp{}
+
 		duplicateValidator = new(fake.NameValidator)
 		fakeClient = new(fake.Client)
 
@@ -102,6 +110,9 @@ var _ = Describe("CF Route Validation", func() {
 			case *networkingv1alpha1.CFDomain:
 				cfDomain.DeepCopyInto(obj)
 				return getDomainError
+			case *workloadsv1alpha1.CFApp:
+				cfApp.DeepCopyInto(obj)
+				return getAppError
 			default:
 				panic("TestClient Get provided an unexpected object type")
 			}
@@ -274,6 +285,57 @@ var _ = Describe("CF Route Validation", func() {
 			})
 		})
 
+		When("the route has destinations", func() {
+			BeforeEach(func() {
+				cfRoute.Spec.Destinations = []networkingv1alpha1.Destination{
+					{
+						AppRef: v1.LocalObjectReference{
+							Name: "some-name",
+						},
+					},
+				}
+				var err error
+				cfRouteJSON, err = json.Marshal(cfRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				request = admission.Request{
+					AdmissionRequest: admissionv1.AdmissionRequest{
+						Name:      testRouteGUID,
+						Namespace: testRouteNamespace,
+						Operation: admissionv1.Create,
+						Object: runtime.RawExtension{
+							Raw: cfRouteJSON,
+						},
+					},
+				}
+			})
+
+			It("allows the request", func() {
+				Expect(response.Allowed).To(BeTrue())
+			})
+
+			When("the destination contains an app not found in the route's namespace", func() {
+				BeforeEach(func() {
+					getAppError = k8serrors.NewNotFound(schema.GroupResource{}, "foo")
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+					Expect(string(response.Result.Reason)).To(Equal(webhooks.RouteDestinationNotInSpace.Marshal()))
+				})
+			})
+
+			When("getting the destination app fails for another reason", func() {
+				BeforeEach(func() {
+					getAppError = errors.New("foo")
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+					Expect(string(response.Result.Reason)).To(Equal("foo"))
+				})
+			})
+		})
 	})
 
 	Describe("Update", func() {
@@ -367,6 +429,44 @@ var _ = Describe("CF Route Validation", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
+			})
+		})
+
+		When("the route has destinations", func() {
+			BeforeEach(func() {
+				updatedCFRoute.Spec.Destinations = []networkingv1alpha1.Destination{
+					{
+						AppRef: v1.LocalObjectReference{
+							Name: "some-name",
+						},
+					},
+				}
+			})
+
+			It("allows the request", func() {
+				Expect(response.Allowed).To(BeTrue())
+			})
+
+			When("the destination contains an app not found in the route's namespace", func() {
+				BeforeEach(func() {
+					getAppError = k8serrors.NewNotFound(schema.GroupResource{}, "foo")
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+					Expect(string(response.Result.Reason)).To(Equal(webhooks.RouteDestinationNotInSpace.Marshal()))
+				})
+			})
+
+			When("getting the destination app fails for another reason", func() {
+				BeforeEach(func() {
+					getAppError = errors.New("foo")
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+					Expect(string(response.Result.Reason)).To(Equal("foo"))
+				})
 			})
 		})
 	})
