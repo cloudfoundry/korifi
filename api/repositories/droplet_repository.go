@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -20,18 +19,20 @@ const (
 )
 
 type DropletRepo struct {
-	privilegedClient   client.Client
-	namespaceRetriever NamespaceRetriever
-	userClientFactory  UserK8sClientFactory
-	nsPerms            *authorization.NamespacePermissions
+	userClientFactory    UserK8sClientFactory
+	namespaceRetriever   NamespaceRetriever
+	namespacePermissions *authorization.NamespacePermissions
 }
 
-func NewDropletRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, nsPerms *authorization.NamespacePermissions) *DropletRepo {
+func NewDropletRepo(
+	userClientFactory UserK8sClientFactory,
+	namespaceRetriever NamespaceRetriever,
+	namespacePermissions *authorization.NamespacePermissions,
+) *DropletRepo {
 	return &DropletRepo{
-		privilegedClient:   privilegedClient,
-		namespaceRetriever: namespaceRetriever,
-		userClientFactory:  userClientFactory,
-		nsPerms:            nsPerms,
+		userClientFactory:    userClientFactory,
+		namespaceRetriever:   namespaceRetriever,
+		namespacePermissions: namespacePermissions,
 	}
 }
 
@@ -117,7 +118,7 @@ func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {
 func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) ([]DropletRecord, error) {
 	buildList := &workloadsv1alpha1.CFBuildList{}
 
-	namespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, authInfo)
+	namespaces, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}

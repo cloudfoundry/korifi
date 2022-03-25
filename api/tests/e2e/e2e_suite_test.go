@@ -269,13 +269,13 @@ var _ = SynchronizedAfterSuite(func() {
 
 func mustHaveEnv(key string) string {
 	val, ok := os.LookupEnv(key)
-	Expect(ok).To(BeTrue(), "must set env var %q", key)
+	ExpectWithOffset(1, ok).To(BeTrue(), "must set env var %q", key)
 
 	return val
 }
 
 func ensureServerIsUp() {
-	Eventually(func() (int, error) {
+	EventuallyWithOffset(1, func() (int, error) {
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		resp, err := http.Get(apiServerRoot)
 		if err != nil {
@@ -319,7 +319,7 @@ func deleteSubnamespace(parent, name string) {
 	ctx := context.Background()
 
 	subnsList := &hnsv1alpha2.SubnamespaceAnchorList{}
-	Expect(k8sClient.List(ctx, subnsList, client.InNamespace(name))).To(Succeed())
+	ExpectWithOffset(1, k8sClient.List(ctx, subnsList, client.InNamespace(name))).To(Succeed())
 
 	var wg sync.WaitGroup
 	wg.Add(len(subnsList.Items))
@@ -343,9 +343,9 @@ func deleteSubnamespace(parent, name string) {
 	if errors.IsNotFound(err) {
 		return
 	}
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
-	Eventually(func() bool {
+	EventuallyWithOffset(1, func() bool {
 		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&anchor), &anchor)
 
 		return errors.IsNotFound(err)
@@ -370,7 +370,7 @@ func createOrgRaw(orgName string) (string, error) {
 
 func createOrg(orgName string) string {
 	orgGUID, err := createOrgRaw(orgName)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	return orgGUID
 }
@@ -413,7 +413,7 @@ func createSpaceRaw(spaceName, orgGUID string) (string, error) {
 
 func createSpace(spaceName, orgGUID string) string {
 	spaceGUID, err := createSpaceRaw(spaceName, orgGUID)
-	Expect(err).NotTo(HaveOccurred(), `create space "`+spaceName+`" in orgGUID "`+orgGUID+`" should have succeeded`)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), `create space "`+spaceName+`" in orgGUID "`+orgGUID+`" should have succeeded`)
 
 	return spaceGUID
 }
@@ -480,9 +480,9 @@ func obtainServiceAccountToken(name string) string {
 		},
 	}
 	err = k8sClient.Create(context.Background(), &serviceAccount)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
-	Eventually(func() error {
+	EventuallyWithOffset(1, func() error {
 		if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(&serviceAccount), &serviceAccount); err != nil {
 			return err
 		}
@@ -495,7 +495,7 @@ func obtainServiceAccountToken(name string) string {
 	}, "120s").Should(Succeed())
 
 	tokenSecret := corev1.Secret{}
-	Eventually(func() error {
+	EventuallyWithOffset(1, func() error {
 		return k8sClient.Get(context.Background(), client.ObjectKey{Name: serviceAccount.Secrets[0].Name, Namespace: rootNamespace}, &tokenSecret)
 	}).Should(Succeed())
 
@@ -514,12 +514,12 @@ func deleteServiceAccount(name string) {
 		},
 	}
 
-	Expect(k8sClient.Delete(context.Background(), &serviceAccount)).To(Succeed())
+	ExpectWithOffset(1, k8sClient.Delete(context.Background(), &serviceAccount)).To(Succeed())
 }
 
 func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) {
 	privKey, err := rsa.GenerateKey(rand.Reader, 1024)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	template := x509.CertificateRequest{
 		Subject:            pkix.Name{CommonName: name},
@@ -527,7 +527,7 @@ func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) 
 	}
 
 	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, privKey)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	k8sCSR := &certsv1.CertificateSigningRequest{
 		ObjectMeta: metav1.ObjectMeta{
@@ -540,7 +540,7 @@ func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) 
 		},
 	}
 
-	Expect(k8sClient.Create(context.Background(), k8sCSR)).To(Succeed())
+	ExpectWithOffset(1, k8sClient.Create(context.Background(), k8sCSR)).To(Succeed())
 
 	k8sCSR.Status.Conditions = append(k8sCSR.Status.Conditions, certsv1.CertificateSigningRequestCondition{
 		Type:   certsv1.CertificateApproved,
@@ -548,10 +548,10 @@ func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) 
 	})
 
 	k8sCSR, err = clientset.CertificatesV1().CertificateSigningRequests().UpdateApproval(context.Background(), k8sCSR.Name, k8sCSR, metav1.UpdateOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	var certPEM []byte
-	Eventually(func() ([]byte, error) {
+	EventuallyWithOffset(1, func() ([]byte, error) {
 		err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(k8sCSR), k8sCSR)
 		if err != nil {
 			return nil, err
@@ -567,7 +567,7 @@ func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) 
 	}).ShouldNot(BeEmpty())
 
 	buf := bytes.NewBuffer(certPEM)
-	Expect(pem.Encode(buf, &pem.Block{
+	ExpectWithOffset(1, pem.Encode(buf, &pem.Block{
 		Type:  "PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
 	})).To(Succeed())
@@ -577,9 +577,9 @@ func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) 
 
 func obtainAdminUserCert() string {
 	crtBytes, err := base64.StdEncoding.DecodeString(mustHaveEnv("CF_ADMIN_CERT"))
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	keyBytes, err := base64.StdEncoding.DecodeString(mustHaveEnv("CF_ADMIN_KEY"))
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	return base64.StdEncoding.EncodeToString(append(crtBytes, keyBytes...))
 }
@@ -589,7 +589,7 @@ func deleteCSR(csr *certsv1.CertificateSigningRequest) {
 		return
 	}
 
-	Expect(k8sClient.Delete(context.Background(), csr)).To(Succeed())
+	ExpectWithOffset(1, k8sClient.Delete(context.Background(), csr)).To(Succeed())
 }
 
 func createApp(spaceGUID, name string) string {
@@ -605,15 +605,15 @@ func createApp(spaceGUID, name string) string {
 		SetResult(&app).
 		Post("/v3/apps")
 
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return app.GUID
 }
 
 func getProcess(appGUID, processType string) string {
 	var processList resourceList
-	Eventually(func(g Gomega) {
+	EventuallyWithOffset(1, func(g Gomega) {
 		resp, err := adminClient.R().
 			SetResult(&processList).
 			Get("/v3/processes?app_guids=" + appGUID)
@@ -623,7 +623,7 @@ func getProcess(appGUID, processType string) string {
 		g.Expect(processList.Resources).NotTo(BeEmpty())
 	}).Should(Succeed())
 
-	Expect(processList.Resources).To(HaveLen(1))
+	ExpectWithOffset(1, processList.Resources).To(HaveLen(1))
 	return processList.Resources[0].GUID
 }
 
@@ -641,8 +641,8 @@ func createServiceInstance(spaceGUID, name string) string {
 		SetResult(&serviceInstance).
 		Post("/v3/service_instances")
 
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusCreated))
 
 	return serviceInstance.GUID
 }
@@ -654,8 +654,8 @@ func listServiceInstances() resourceList {
 		SetResult(&serviceInstances).
 		Get("/v3/service_instances")
 
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusOK))
 
 	return serviceInstances
 }
@@ -672,8 +672,8 @@ func createServiceBinding(appGUID, instanceGUID string) string {
 		SetResult(&pkg).
 		Post("/v3/service_credential_bindings")
 
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusCreated))
 
 	return pkg.GUID
 }
@@ -692,8 +692,8 @@ func createPackage(appGUID string) string {
 		SetResult(&pkg).
 		Post("/v3/packages")
 
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return pkg.GUID
 }
@@ -706,14 +706,14 @@ func createBuild(packageGUID string) string {
 		SetResult(&build).
 		Post("/v3/builds")
 
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return build.GUID
 }
 
 func waitForDroplet(buildGUID string) {
-	Eventually(func() (*resty.Response, error) {
+	EventuallyWithOffset(1, func() (*resty.Response, error) {
 		resp, err := adminClient.R().
 			Get("/v3/droplets/" + buildGUID)
 		return resp, err
@@ -725,16 +725,16 @@ func setCurrentDroplet(appGUID, dropletGUID string) {
 		SetBody(dropletResource{Data: resource{GUID: dropletGUID}}).
 		Patch("/v3/apps/" + appGUID + "/relationships/current_droplet")
 
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 func startApp(appGUID string) {
 	resp, err := adminClient.R().
 		Post("/v3/apps/" + appGUID + "/actions/start")
 
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 func uploadNodeApp(pkgGUID string) {
@@ -742,8 +742,8 @@ func uploadNodeApp(pkgGUID string) {
 		SetFiles(map[string]string{
 			"bits": "assets/node.zip",
 		}).Post("/v3/packages/" + pkgGUID + "/upload")
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 // pushNodeApp creates a running node app in the given space
@@ -770,7 +770,7 @@ func createDomain(name string) string {
 		},
 	}
 	err := k8sClient.Create(context.Background(), &domain)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	return domain.Name
 }
@@ -780,7 +780,7 @@ func deleteDomain(guid string) {
 		return
 	}
 
-	Expect(k8sClient.Delete(context.Background(), &networkingv1alpha1.CFDomain{
+	ExpectWithOffset(1, k8sClient.Delete(context.Background(), &networkingv1alpha1.CFDomain{
 		ObjectMeta: metav1.ObjectMeta{Namespace: rootNamespace, Name: guid},
 	})).To(Succeed())
 }
@@ -832,8 +832,8 @@ func addDestinationForRoute(appGUID, routeGUID string) []string {
 }
 
 func expectNotFoundError(resp *resty.Response, errResp cfErrs, resource string) {
-	Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
-	Expect(errResp.Errors).To(ConsistOf(
+	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusNotFound))
+	ExpectWithOffset(1, errResp.Errors).To(ConsistOf(
 		cfErr{
 			Detail: resource + " not found. Ensure it exists and you have access to it.",
 			Title:  "CF-ResourceNotFound",
@@ -843,8 +843,8 @@ func expectNotFoundError(resp *resty.Response, errResp cfErrs, resource string) 
 }
 
 func expectForbiddenError(resp *resty.Response, errResp cfErrs) {
-	Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
-	Expect(errResp.Errors).To(ConsistOf(
+	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusForbidden))
+	ExpectWithOffset(1, errResp.Errors).To(ConsistOf(
 		cfErr{
 			Detail: "You are not authorized to perform the requested action",
 			Title:  "CF-NotAuthorized",

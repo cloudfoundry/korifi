@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	workloads "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -24,7 +25,7 @@ var _ = Describe("Build", func() {
 
 	BeforeEach(func() {
 		buildRepo := repositories.NewBuildRepo(namespaceRetriever, clientFactory)
-		packageRepo := repositories.NewPackageRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
+		packageRepo := repositories.NewPackageRepo(clientFactory, namespaceRetriever, nsPermissions)
 		decoderValidator, err := apis.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 

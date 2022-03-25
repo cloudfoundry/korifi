@@ -32,7 +32,7 @@ var _ = Describe("DropletRepository", func() {
 		org := createOrgAnchorAndNamespace(testCtx, rootNamespace, orgName)
 		space = createSpaceAnchorAndNamespace(testCtx, org.Name, spaceName)
 
-		dropletRepo = repositories.NewDropletRepo(k8sClient, namespaceRetriever, userClientFactory, nsPerms)
+		dropletRepo = repositories.NewDropletRepo(userClientFactory, namespaceRetriever, nsPerms)
 	})
 
 	Describe("GetDroplet", func() {
