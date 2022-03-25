@@ -24,7 +24,7 @@ var _ = Describe("DomainRepository", func() {
 	)
 
 	BeforeEach(func() {
-		domainRepo = NewDomainRepo(rootNamespace, k8sClient, namespaceRetriever, userClientFactory)
+		domainRepo = NewDomainRepo(userClientFactory, namespaceRetriever, rootNamespace)
 		testCtx = context.Background()
 	})
 
@@ -363,7 +363,7 @@ var _ = Describe("DomainRepository", func() {
 				Expect(
 					k8sClient.Create(beforeCtx, tempRootNamespace),
 				).To(Succeed())
-				domainRepo = NewDomainRepo(tempRootNamespace.Name, k8sClient, namespaceRetriever, userClientFactory)
+				domainRepo = NewDomainRepo(userClientFactory, namespaceRetriever, tempRootNamespace.Name)
 				domainGUID1 = generateGUID()
 				domainGUID2 = generateGUID()
 

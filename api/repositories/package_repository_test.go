@@ -31,7 +31,7 @@ var _ = Describe("PackageRepository", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		packageRepo = repositories.NewPackageRepo(k8sClient, namespaceRetriever, userClientFactory, nsPerms)
+		packageRepo = repositories.NewPackageRepo(userClientFactory, namespaceRetriever, nsPerms)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 	})
 

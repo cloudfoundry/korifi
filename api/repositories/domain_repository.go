@@ -21,23 +21,20 @@ const (
 )
 
 type DomainRepo struct {
-	rootNamespace      string
-	privilegedClient   client.Client
-	namespaceRetriever NamespaceRetriever
 	userClientFactory  UserK8sClientFactory
+	namespaceRetriever NamespaceRetriever
+	rootNamespace      string
 }
 
 func NewDomainRepo(
-	rootNamespace string,
-	privilegedClient client.Client,
-	namespaceRetriever NamespaceRetriever,
 	userClientFactory UserK8sClientFactory,
+	namespaceRetriever NamespaceRetriever,
+	rootNamespace string,
 ) *DomainRepo {
 	return &DomainRepo{
-		rootNamespace:      rootNamespace,
-		privilegedClient:   privilegedClient,
-		namespaceRetriever: namespaceRetriever,
 		userClientFactory:  userClientFactory,
+		namespaceRetriever: namespaceRetriever,
+		rootNamespace:      rootNamespace,
 	}
 }
 

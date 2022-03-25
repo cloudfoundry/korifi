@@ -6,17 +6,17 @@ import (
 	"net/http"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
+	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"code.cloudfoundry.org/cf-k8s-controllers/api/actions"
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 )
 
 var _ = Describe("GET /v3/apps/:guid/env", func() {
@@ -24,10 +24,10 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 
 	BeforeEach(func() {
 		appRepo := repositories.NewAppRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
-		domainRepo := repositories.NewDomainRepo(rootNamespace, k8sClient, namespaceRetriever, clientFactory)
+		domainRepo := repositories.NewDomainRepo(clientFactory, namespaceRetriever, rootNamespace)
 		processRepo := repositories.NewProcessRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
 		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
-		dropletRepo := repositories.NewDropletRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
+		dropletRepo := repositories.NewDropletRepo(clientFactory, namespaceRetriever, nsPermissions)
 		orgRepo := repositories.NewOrgRepo("root-ns", k8sClient, clientFactory, nsPermissions, time.Minute, true)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke

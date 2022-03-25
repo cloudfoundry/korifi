@@ -33,17 +33,19 @@ const (
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
 
 type PackageRepo struct {
-	privilegedClient     client.Client
-	namespaceRetriever   NamespaceRetriever
 	userClientFactory    UserK8sClientFactory
+	namespaceRetriever   NamespaceRetriever
 	namespacePermissions *authorization.NamespacePermissions
 }
 
-func NewPackageRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, authPerms *authorization.NamespacePermissions) *PackageRepo {
+func NewPackageRepo(
+	userClientFactory UserK8sClientFactory,
+	namespaceRetriever NamespaceRetriever,
+	authPerms *authorization.NamespacePermissions,
+) *PackageRepo {
 	return &PackageRepo{
-		privilegedClient:     privilegedClient,
-		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,
+		namespaceRetriever:   namespaceRetriever,
 		namespacePermissions: authPerms,
 	}
 }
