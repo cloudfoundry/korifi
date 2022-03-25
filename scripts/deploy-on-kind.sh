@@ -279,8 +279,10 @@ function deploy_cf_k8s_controllers() {
   }
   popd >/dev/null
 
+  kubectl rollout status deployment/cf-k8s-controllers-controller-manager -w -n cf-k8s-controllers-system
+
   if [[ -n "${default_domain}" ]]; then
-    retry kubectl apply -f "${CONTROLLER_DIR}/config/samples/cfdomain.yaml"
+    kubectl apply -f "${CONTROLLER_DIR}/config/samples/cfdomain.yaml"
   fi
 }
 
