@@ -131,7 +131,7 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 		}
 		err = validatePath(route)
 		if err != nil {
-			return admission.Denied(err.Error())
+			return admission.Denied(webhooks.RouteFQDNInvalidError.Marshal())
 		}
 
 		if err := v.checkDestinationsExistInNamespace(ctx, route); err != nil {
@@ -172,7 +172,7 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 }
 
 func uniqueName(route networkingv1alpha1.CFRoute) string {
-	return strings.Join([]string{strings.ToLower(route.Spec.Host), route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
+	return strings.Join([]string{strings.ToLower(route.Spec.Host), route.Spec.DomainRef.Namespace, strings.ToLower(route.Spec.DomainRef.Name), route.Spec.Path}, "::")
 }
 
 func validatePath(route networkingv1alpha1.CFRoute) error {
@@ -249,8 +249,7 @@ func IsFQDN(host, domain string) (bool, error) {
 		MAXIMUM_FQDN_DOMAIN_LENGTH = 253
 		MINIMUM_FQDN_DOMAIN_LENGTH = 3
 		DOMAIN_REGEX               = "^[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$"
-		//DOMAIN_REGEX               = "^(([a-z0-9]|[a-z0-9][a-z0-9\\-]{0,61}[a-z0-9])\\.)+([a-z0-9]|[a-z0-9][a-z0-9\\-]{0,61}[a-z0-9])$"
-		SUBDOMAIN_REGEX = "^([^\\.]{0,63}\\.)*[^\\.]{0,63}$"
+		SUBDOMAIN_REGEX            = "^([^\\.]{0,63}\\.)*[^\\.]{0,63}$"
 	)
 
 	fqdn := host + "." + domain

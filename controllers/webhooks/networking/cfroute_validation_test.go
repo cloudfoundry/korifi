@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
@@ -376,7 +375,6 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				fmt.Println(response)
 				Expect(response.Allowed).To(BeFalse())
 				Expect(string(response.Result.Reason)).To(Equal(webhooks.RouteFQDNInvalidError.Marshal()))
 			})
@@ -658,6 +656,7 @@ var _ = Describe("CF Route Validation", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.RouteFQDNInvalidError.Marshal()))
 			})
 		})
 

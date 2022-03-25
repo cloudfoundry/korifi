@@ -264,7 +264,7 @@ var _ = Describe("Routes", func() {
 				It("fails with a invalid route error", func() {
 					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 					Expect(createErr.Errors).To(ConsistOf(cfErr{
-						Detail: "Invalid Route, FQDN does not comply with RFC 1035 standards",
+						Detail: "Invalid Route, Route FQDN does not comply with RFC 1035 standards",
 						Title:  "CF-UnprocessableEntity",
 						Code:   10008,
 					}))
