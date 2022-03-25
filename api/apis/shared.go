@@ -11,13 +11,15 @@ import (
 	"code.cloudfoundry.org/bytefmt"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
-	"gopkg.in/yaml.v3"
 
 	"github.com/go-http-utils/headers"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	en_translations "github.com/go-playground/validator/v10/translations/en"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+	"gopkg.in/yaml.v3"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -51,8 +53,9 @@ func (dv *DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object
 		var unmarshalTypeError *json.UnmarshalTypeError
 		switch {
 		case errors.As(err, &unmarshalTypeError):
-			Logger.Error(err, fmt.Sprintf("Request body contains an invalid value for the %q field (should be of type %v)", strings.Title(unmarshalTypeError.Field), unmarshalTypeError.Type))
-			return apierrors.NewUnprocessableEntityError(err, fmt.Sprintf("%v must be a %v", strings.Title(unmarshalTypeError.Field), unmarshalTypeError.Type))
+			titler := cases.Title(language.AmericanEnglish)
+			Logger.Error(err, fmt.Sprintf("Request body contains an invalid value for the %q field (should be of type %v)", titler.String(unmarshalTypeError.Field), unmarshalTypeError.Type))
+			return apierrors.NewUnprocessableEntityError(err, fmt.Sprintf("%v must be a %v", titler.String(unmarshalTypeError.Field), unmarshalTypeError.Type))
 		case strings.HasPrefix(err.Error(), "json: unknown field"):
 			// check whether the message matches an "unknown field" error. If so, 422. Else, 400
 			Logger.Error(err, fmt.Sprintf("Unknown field in JSON body: %T: %q", err, err.Error()))
