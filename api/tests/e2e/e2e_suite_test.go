@@ -1,18 +1,13 @@
 package e2e_test
 
 import (
-	"bytes"
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/base64"
-	"encoding/pem"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -30,8 +25,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	certsv1 "k8s.io/api/certificates/v1"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +47,6 @@ var (
 	serviceAccountToken string
 	tokenAuthHeader     string
 	certUserName        string
-	certSigningReq      *certsv1.CertificateSigningRequest
 	certAuthHeader      string
 	adminAuthHeader     string
 	certPEM             string
@@ -243,11 +235,11 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	ensureServerIsUp()
 
-	serviceAccountName = generateGUID("token-user")
-	serviceAccountToken = obtainServiceAccountToken(serviceAccountName)
+	serviceAccountName = mustHaveEnvIdx("E2E_SERVICE_ACCOUNTS", GinkgoParallelProcess())
+	serviceAccountToken = mustHaveEnvIdx("E2E_SERVICE_ACCOUNT_TOKENS", GinkgoParallelProcess())
 
-	certUserName = generateGUID("cert-user")
-	certSigningReq, certPEM = obtainClientCert(certUserName)
+	certUserName = mustHaveEnvIdx("E2E_USER_NAMES", GinkgoParallelProcess())
+	certPEM = mustHaveEnvIdx("E2E_USER_PEMS", GinkgoParallelProcess())
 	certAuthHeader = "ClientCert " + certPEM
 
 	appDomainGUID = string(appDomainGUIDBytes)
@@ -261,8 +253,6 @@ var _ = BeforeEach(func() {
 })
 
 var _ = SynchronizedAfterSuite(func() {
-	deleteServiceAccount(serviceAccountName)
-	deleteCSR(certSigningReq)
 }, func() {
 	deleteDomain(appDomainGUID)
 })
@@ -272,6 +262,14 @@ func mustHaveEnv(key string) string {
 	ExpectWithOffset(1, ok).To(BeTrue(), "must set env var %q", key)
 
 	return val
+}
+
+func mustHaveEnvIdx(key string, idx int) string {
+	val := mustHaveEnv(key)
+	vals := strings.Fields(val)
+	Expect(len(vals)).To(BeNumerically(">=", idx), val)
+
+	return vals[idx-1]
 }
 
 func ensureServerIsUp() {
@@ -470,111 +468,6 @@ func createSpaceRole(roleName, kind, userName, spaceGUID string) {
 	createRole(roleName, kind, "space", userName, spaceGUID)
 }
 
-func obtainServiceAccountToken(name string) string {
-	var err error
-
-	serviceAccount := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: rootNamespace,
-		},
-	}
-	err = k8sClient.Create(context.Background(), &serviceAccount)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-
-	EventuallyWithOffset(1, func() error {
-		if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(&serviceAccount), &serviceAccount); err != nil {
-			return err
-		}
-
-		if len(serviceAccount.Secrets) != 1 {
-			return fmt.Errorf("expected exactly 1 secret, got %d", len(serviceAccount.Secrets))
-		}
-
-		return nil
-	}, "120s").Should(Succeed())
-
-	tokenSecret := corev1.Secret{}
-	EventuallyWithOffset(1, func() error {
-		return k8sClient.Get(context.Background(), client.ObjectKey{Name: serviceAccount.Secrets[0].Name, Namespace: rootNamespace}, &tokenSecret)
-	}).Should(Succeed())
-
-	return string(tokenSecret.Data["token"])
-}
-
-func deleteServiceAccount(name string) {
-	if name == "" {
-		return
-	}
-
-	serviceAccount := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: rootNamespace,
-		},
-	}
-
-	ExpectWithOffset(1, k8sClient.Delete(context.Background(), &serviceAccount)).To(Succeed())
-}
-
-func obtainClientCert(name string) (*certsv1.CertificateSigningRequest, string) {
-	privKey, err := rsa.GenerateKey(rand.Reader, 1024)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-
-	template := x509.CertificateRequest{
-		Subject:            pkix.Name{CommonName: name},
-		SignatureAlgorithm: x509.SHA256WithRSA,
-	}
-
-	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, privKey)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-
-	k8sCSR := &certsv1.CertificateSigningRequest{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: uuid.NewString(),
-		},
-		Spec: certsv1.CertificateSigningRequestSpec{
-			Request:    pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes}),
-			SignerName: "kubernetes.io/kube-apiserver-client",
-			Usages:     []certsv1.KeyUsage{certsv1.UsageClientAuth},
-		},
-	}
-
-	ExpectWithOffset(1, k8sClient.Create(context.Background(), k8sCSR)).To(Succeed())
-
-	k8sCSR.Status.Conditions = append(k8sCSR.Status.Conditions, certsv1.CertificateSigningRequestCondition{
-		Type:   certsv1.CertificateApproved,
-		Status: "True",
-	})
-
-	k8sCSR, err = clientset.CertificatesV1().CertificateSigningRequests().UpdateApproval(context.Background(), k8sCSR.Name, k8sCSR, metav1.UpdateOptions{})
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-
-	var certPEM []byte
-	EventuallyWithOffset(1, func() ([]byte, error) {
-		err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(k8sCSR), k8sCSR)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(k8sCSR.Status.Certificate) == 0 {
-			return nil, nil
-		}
-
-		certPEM = k8sCSR.Status.Certificate
-
-		return certPEM, nil
-	}).ShouldNot(BeEmpty())
-
-	buf := bytes.NewBuffer(certPEM)
-	ExpectWithOffset(1, pem.Encode(buf, &pem.Block{
-		Type:  "PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
-	})).To(Succeed())
-
-	return k8sCSR, base64.StdEncoding.EncodeToString(buf.Bytes())
-}
-
 func obtainAdminUserCert() string {
 	crtBytes, err := base64.StdEncoding.DecodeString(mustHaveEnv("CF_ADMIN_CERT"))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -582,14 +475,6 @@ func obtainAdminUserCert() string {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	return base64.StdEncoding.EncodeToString(append(crtBytes, keyBytes...))
-}
-
-func deleteCSR(csr *certsv1.CertificateSigningRequest) {
-	if csr == nil {
-		return
-	}
-
-	ExpectWithOffset(1, k8sClient.Delete(context.Background(), csr)).To(Succeed())
 }
 
 func createApp(spaceGUID, name string) string {
