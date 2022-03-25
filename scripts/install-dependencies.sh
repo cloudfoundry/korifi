@@ -129,7 +129,7 @@ mkdir -p "${HNC_BIN}"
 curl -L "https://github.com/kubernetes-sigs/hierarchical-namespaces/releases/download/${HNC_VERSION}/kubectl-hns_${HNC_PLATFORM}" -o "${HNC_BIN}/kubectl-hns"
 chmod +x "${HNC_BIN}/kubectl-hns"
 
-kubectl apply -f "https://github.com/kubernetes-sigs/hierarchical-namespaces/releases/download/${HNC_VERSION}/hnc-manager.yaml"
+kubectl apply -f ${DEP_DIR}/hnc-manager-v0.9.0.yaml
 kubectl rollout status deployment/hnc-controller-manager -w -n hnc-system
 
 # Hierarchical namespace controller is quite asynchronous. There is no
