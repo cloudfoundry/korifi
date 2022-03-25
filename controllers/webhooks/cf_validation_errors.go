@@ -23,7 +23,17 @@ const (
 	DuplicateDomainError
 	DuplicateServiceInstanceNameError
 	RouteDestinationNotInSpace
+	HostNameIsInvalidError
+	PathValidationError
 )
+
+func (v ValidationError) Marshal() string {
+	bytes, err := json.Marshal(v)
+	if err != nil {
+		return err.Error()
+	}
+	return string(bytes)
+}
 
 func (w ValidationErrorCode) Marshal() string {
 	bytes, err := json.Marshal(ValidationError{
@@ -61,6 +71,8 @@ func (w ValidationErrorCode) GetMessage() string {
 		return "CFServiceInstance with same spec.name exists"
 	case RouteDestinationNotInSpace:
 		return "Route destination app not found in space"
+	case HostNameIsInvalidError:
+		return "Missing or Invalid host - Routes in shared domains must have a valid host defined"
 	default:
 		return "An unknown error has occurred"
 	}
@@ -78,4 +90,33 @@ func HasErrorCode(err error, code ValidationErrorCode) bool {
 		}
 	}
 	return false
+}
+
+func IsValidationError(err error) bool {
+	if statusError := new(k8serrors.StatusError); errors.As(err, &statusError) {
+		reason := statusError.Status().Reason
+
+		val := new(ValidationErrorCode)
+		val.Unmarshall(string(reason))
+
+		if *val != UnknownError {
+			return true
+		}
+	}
+	return false
+}
+
+func GetErrorMessage(err error) string {
+	if statusError := new(k8serrors.StatusError); errors.As(err, &statusError) {
+		reason := statusError.Status().Reason
+
+		val := new(ValidationError)
+		err := json.Unmarshal([]byte(reason), val)
+		if err != nil {
+			return ""
+		}
+
+		return val.Message
+	}
+	return ""
 }

@@ -4,15 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"fmt"
+	"strings"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking/fake"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,6 +42,7 @@ var _ = Describe("CF Route Validation", func() {
 
 		testRouteGUID       string
 		testRouteNamespace  string
+		testRouteProtocol   string
 		testRouteHost       string
 		testRoutePath       string
 		testDomainGUID      string
@@ -63,8 +66,9 @@ var _ = Describe("CF Route Validation", func() {
 
 		testRouteGUID = "my-guid"
 		testRouteNamespace = "my-ns"
+		testRouteProtocol = "http"
 		testRouteHost = "my-host"
-		testRoutePath = "my-path"
+		testRoutePath = "/my-path"
 		testDomainGUID = "domain-guid"
 		testDomainName = "test.domain.name"
 		testDomainNamespace = "domain-ns"
@@ -72,21 +76,7 @@ var _ = Describe("CF Route Validation", func() {
 		getDomainError = nil
 		getAppError = nil
 
-		cfRoute = &networkingv1alpha1.CFRoute{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      testRouteGUID,
-				Namespace: testRouteNamespace,
-			},
-			Spec: networkingv1alpha1.CFRouteSpec{
-				Host:     testRouteHost,
-				Path:     testRoutePath,
-				Protocol: "http",
-				DomainRef: v1.ObjectReference{
-					Name:      testDomainGUID,
-					Namespace: testDomainNamespace,
-				},
-			},
-		}
+		cfRoute = initializeRouteCR(testRouteProtocol, testRouteHost, testRoutePath, testRouteGUID, testRouteNamespace, testDomainGUID, testDomainNamespace)
 
 		cfRouteJSON, err = json.Marshal(cfRoute)
 		Expect(err).NotTo(HaveOccurred())
@@ -121,6 +111,189 @@ var _ = Describe("CF Route Validation", func() {
 		validatingWebhook = networking.NewCFRouteValidation(duplicateValidator, rootNamespace, fakeClient)
 
 		Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
+	})
+
+	Describe("validating path", func() {
+		var (
+			invalidRoutePath   string
+			invalidCFRoute     *networkingv1alpha1.CFRoute
+			invalidCFRouteJson []byte
+			err                error
+		)
+
+		JustBeforeEach(func() {
+			invalidCFRoute = initializeRouteCR(testRouteProtocol, testRouteHost, invalidRoutePath, testRouteGUID, testRouteNamespace, testDomainGUID, testDomainNamespace)
+			invalidCFRouteJson, err = json.Marshal(invalidCFRoute)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("creating route", func() {
+			JustBeforeEach(func() {
+				request = initCreateAdmissionRequestObj(testRouteGUID, testRouteNamespace, admissionv1.Create, invalidCFRouteJson)
+				response = validatingWebhook.Handle(ctx, request)
+			})
+
+			When("with an invalid URI", func() {
+				BeforeEach(func() {
+					invalidRoutePath = "/%"
+				})
+				It("denies the request", func() {
+					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+					err := webhooks.ValidationError{
+						Code:    webhooks.PathValidationError,
+						Message: networking.InvalidURIError,
+					}
+					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
+				})
+			})
+
+			When("the path is a single slash", func() {
+				BeforeEach(func() {
+					invalidRoutePath = "/"
+				})
+				It("denies the request", func() {
+					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+					err := webhooks.ValidationError{
+						Code:    webhooks.PathValidationError,
+						Message: networking.PathIsSlashError,
+					}
+					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
+				})
+			})
+
+			When("the path lacks a leading slash", func() {
+				BeforeEach(func() {
+					invalidRoutePath = "foo/bar"
+				})
+				It("denies the request", func() {
+					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+					err := webhooks.ValidationError{
+						Code:    webhooks.PathValidationError,
+						Message: networking.InvalidURIError,
+					}
+					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
+				})
+			})
+
+			When("the path contains a '?'", func() {
+				BeforeEach(func() {
+					invalidRoutePath = "/foo?/bar"
+				})
+				It("denies the request", func() {
+					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+					err := webhooks.ValidationError{
+						Code:    webhooks.PathValidationError,
+						Message: networking.PathHasQuestionMarkError,
+					}
+					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
+				})
+			})
+
+			When("the path is greater than 128 characters", func() {
+				BeforeEach(func() {
+					invalidRoutePath = fmt.Sprintf("/%s", strings.Repeat("a", 128))
+				})
+				It("denies the request", func() {
+					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+					err := webhooks.ValidationError{
+						Code:    webhooks.PathValidationError,
+						Message: networking.PathLengthExceededError,
+					}
+					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
+				})
+			})
+
+			When("with an invalid URI", func() {
+				BeforeEach(func() {
+					invalidRoutePath = "/%?"
+				})
+				It("denies the request", func() {
+					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+					err := webhooks.ValidationError{
+						Code:    webhooks.PathValidationError,
+						Message: networking.InvalidURIError + ", " + networking.PathHasQuestionMarkError,
+					}
+					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
+				})
+			})
+		})
+
+		When("updating route", func() {
+			JustBeforeEach(func() {
+				request = initUpdateAdmissionRequestObj(testRouteGUID, testRouteNamespace, admissionv1.Update, invalidCFRouteJson, cfRouteJSON)
+				response = validatingWebhook.Handle(ctx, request)
+			})
+
+			When("with an invalid URI", func() {
+				BeforeEach(func() {
+					invalidRoutePath = "/%"
+				})
+				It("denies the request", func() {
+					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+					err := webhooks.ValidationError{
+						Code:    webhooks.PathValidationError,
+						Message: networking.InvalidURIError,
+					}
+					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
+				})
+			})
+
+			When("the path is a single slash", func() {
+				BeforeEach(func() {
+					invalidRoutePath = "/"
+				})
+				It("denies the request", func() {
+					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+					err := webhooks.ValidationError{
+						Code:    webhooks.PathValidationError,
+						Message: networking.PathIsSlashError,
+					}
+					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
+				})
+			})
+
+			When("the path lacks a leading slash", func() {
+				BeforeEach(func() {
+					invalidRoutePath = "foo/bar"
+				})
+				It("denies the request", func() {
+					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+					err := webhooks.ValidationError{
+						Code:    webhooks.PathValidationError,
+						Message: networking.InvalidURIError,
+					}
+					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
+				})
+			})
+
+			When("the path contains a '?'", func() {
+				BeforeEach(func() {
+					invalidRoutePath = "/foo?/bar"
+				})
+				It("denies the request", func() {
+					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+					err := webhooks.ValidationError{
+						Code:    webhooks.PathValidationError,
+						Message: networking.PathHasQuestionMarkError,
+					}
+					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
+				})
+			})
+
+			When("the path is greater than 128 characters", func() {
+				BeforeEach(func() {
+					invalidRoutePath = fmt.Sprintf("/%s", strings.Repeat("a", 128))
+				})
+				It("denies the request", func() {
+					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+					err := webhooks.ValidationError{
+						Code:    webhooks.PathValidationError,
+						Message: networking.PathLengthExceededError,
+					}
+					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
+				})
+			})
+		})
 	})
 
 	Describe("Create", func() {
@@ -160,7 +333,11 @@ var _ = Describe("CF Route Validation", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.DuplicateRouteError.Marshal()))
+				err := webhooks.ValidationError{
+					Code:    webhooks.DuplicateRouteError,
+					Message: "Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'.",
+				}
+				Expect(string(response.Result.Reason)).To(Equal(err.Marshal()))
 			})
 		})
 
@@ -345,7 +522,7 @@ var _ = Describe("CF Route Validation", func() {
 		)
 
 		BeforeEach(func() {
-			newTestRoutePath = "new-path"
+			newTestRoutePath = "/new-path"
 			updatedCFRoute = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testRouteGUID,
@@ -354,7 +531,7 @@ var _ = Describe("CF Route Validation", func() {
 				Spec: networkingv1alpha1.CFRouteSpec{
 					Host:     testRouteHost,
 					Path:     newTestRoutePath,
-					Protocol: "http",
+					Protocol: networkingv1alpha1.Protocol(testRouteProtocol),
 					DomainRef: v1.ObjectReference{
 						Name:      testDomainGUID,
 						Namespace: testDomainNamespace,
@@ -407,7 +584,11 @@ var _ = Describe("CF Route Validation", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.DuplicateRouteError.Marshal()))
+				err := webhooks.ValidationError{
+					Code:    webhooks.DuplicateRouteError,
+					Message: "Route already exists with host 'my-host' and path '/new-path' for domain 'test.domain.name'.",
+				}
+				Expect(string(response.Result.Reason)).To(Equal(err.Marshal()))
 			})
 		})
 
@@ -514,3 +695,50 @@ var _ = Describe("CF Route Validation", func() {
 		})
 	})
 })
+
+func initializeRouteCR(routeProtocol, routeHost, routePath, routeGUID, routeSpaceGUID, domainGUID, domainSpaceGUID string) *networkingv1alpha1.CFRoute {
+	return &networkingv1alpha1.CFRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      routeGUID,
+			Namespace: routeSpaceGUID,
+		},
+		Spec: networkingv1alpha1.CFRouteSpec{
+			Host:     routeHost,
+			Path:     routePath,
+			Protocol: networkingv1alpha1.Protocol(routeProtocol),
+			DomainRef: v1.ObjectReference{
+				Name:      domainGUID,
+				Namespace: domainSpaceGUID,
+			},
+		},
+	}
+}
+
+func initAdmissionRequestObj(objName, objNamespace string, operation admissionv1.Operation) admission.Request {
+	return admission.Request{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			Name:      objName,
+			Namespace: objNamespace,
+			Operation: operation,
+		},
+	}
+}
+
+func initCreateAdmissionRequestObj(objName, objNamespace string, operation admissionv1.Operation, objBytes []byte) admission.Request {
+	obj := initAdmissionRequestObj(objName, objNamespace, operation)
+	obj.AdmissionRequest.Object = runtime.RawExtension{
+		Raw: objBytes,
+	}
+	return obj
+}
+
+func initUpdateAdmissionRequestObj(objName, objNamespace string, operation admissionv1.Operation, objBytes, oldObjBytes []byte) admission.Request {
+	obj := initAdmissionRequestObj(objName, objNamespace, operation)
+	obj.AdmissionRequest.Object = runtime.RawExtension{
+		Raw: objBytes,
+	}
+	obj.AdmissionRequest.OldObject = runtime.RawExtension{
+		Raw: oldObjBytes,
+	}
+	return obj
+}

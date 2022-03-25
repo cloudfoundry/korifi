@@ -3,6 +3,8 @@ package networking
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -22,6 +24,11 @@ import (
 
 const (
 	RouteEntityType = "route"
+
+	InvalidURIError          = "Invalid Route URI"
+	PathIsSlashError         = "Path cannot be a single slash"
+	PathHasQuestionMarkError = "Path cannot contain a question mark"
+	PathLengthExceededError  = "Path cannot exceed 128 characters"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
@@ -60,10 +67,19 @@ func (v *CFRouteValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
 	var route, oldRoute networkingv1alpha1.CFRoute
+	var domain networkingv1alpha1.CFDomain
 	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
 		err := v.decoder.Decode(req, &route)
 		if err != nil {
 			errMessage := "Error while decoding CFRoute object"
+			logger.Error(err, errMessage)
+
+			return admission.Denied(errMessage)
+		}
+
+		err = v.Client.Get(ctx, types.NamespacedName{Name: route.Spec.DomainRef.Name, Namespace: route.Spec.DomainRef.Namespace}, &domain)
+		if err != nil {
+			errMessage := "Error while retrieving CFDomain object"
 			logger.Error(err, errMessage)
 
 			return admission.Denied(errMessage)
@@ -86,7 +102,11 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 		if err != nil {
 			return admission.Denied(err.Error())
 		}
-		_, err = v.isFQDN(route)
+		_, err = IsFQDN(route.Spec.Host, domain.Spec.Name)
+		if err != nil {
+			return admission.Denied(err.Error())
+		}
+		err = validatePath(route)
 		if err != nil {
 			return admission.Denied(err.Error())
 		}
@@ -105,7 +125,11 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 		if err != nil {
 			return admission.Denied(err.Error())
 		}
-		_, err = v.isFQDN(route)
+		_, err = IsFQDN(route.Spec.Host, domain.Spec.Name)
+		if err != nil {
+			return admission.Denied(err.Error())
+		}
+		err = validatePath(route)
 		if err != nil {
 			return admission.Denied(err.Error())
 		}
@@ -127,7 +151,18 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 		logger.Info("duplicate validation failed", "error", validatorErr)
 
 		if errors.Is(validatorErr, webhooks.ErrorDuplicateName) {
-			return admission.Denied(webhooks.DuplicateRouteError.Marshal())
+			pathDetails := ""
+			if route.Spec.Path != "" {
+				pathDetails = fmt.Sprintf(" and path '%s'", route.Spec.Path)
+			}
+			errorDetail := fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
+				route.Spec.Host, pathDetails, domain.Spec.Name)
+
+			ve := webhooks.ValidationError{
+				Code:    webhooks.DuplicateRouteError,
+				Message: errorDetail,
+			}
+			return admission.Denied(ve.Marshal())
 		}
 
 		return admission.Denied(webhooks.UnknownError.Marshal())
@@ -140,20 +175,44 @@ func uniqueName(route networkingv1alpha1.CFRoute) string {
 	return strings.Join([]string{route.Spec.Host, route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
 }
 
-func (v *CFRouteValidation) InjectDecoder(d *admission.Decoder) error {
-	v.decoder = d
+func validatePath(route networkingv1alpha1.CFRoute) error {
+	var errStrings []string
+
+	if route.Spec.Path == "" {
+		return nil
+	}
+
+	_, err := url.ParseRequestURI(route.Spec.Path)
+	if err != nil {
+		errStrings = append(errStrings, InvalidURIError)
+	}
+	if route.Spec.Path == "/" {
+		errStrings = append(errStrings, PathIsSlashError)
+	}
+	if strings.Contains(route.Spec.Path, "?") {
+		errStrings = append(errStrings, PathHasQuestionMarkError)
+	}
+	if len(route.Spec.Path) > 128 {
+		errStrings = append(errStrings, PathLengthExceededError)
+	}
+	if len(errStrings) == 0 {
+		return nil
+	}
+
+	if len(errStrings) > 0 {
+		ve := webhooks.ValidationError{
+			Code:    webhooks.PathValidationError,
+			Message: strings.Join(errStrings, ", "),
+		}
+		return errors.New(ve.Marshal())
+	}
+
 	return nil
 }
 
-func (v *CFRouteValidation) isFQDN(cfRoute networkingv1alpha1.CFRoute) (bool, error) {
-	var cfDomain networkingv1alpha1.CFDomain
-	ctx := context.Background()
-	err := v.Client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, &cfDomain)
-	if err != nil {
-		return false, err
-	}
-
-	return IsFQDN(cfRoute.Spec.Host, cfDomain.Spec.Name)
+func (v *CFRouteValidation) InjectDecoder(d *admission.Decoder) error {
+	v.decoder = d
+	return nil
 }
 
 func isHost(hostname string) (bool, error) {
