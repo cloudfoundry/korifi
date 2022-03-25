@@ -53,43 +53,43 @@ controllers_debug=""
 while [[ $# -gt 0 ]]; do
   i=$1
   case $i in
-    -l | --use-local-registry)
-      use_local_registry="true"
-      shift
-      ;;
-    -c | --controllers-only)
-      controllers_only="true"
-      shift
-      ;;
-    -a | --api-only)
-      api_only="true"
-      shift
-      ;;
-    -d | --default-domain)
-      default_domain="true"
-      shift
-      ;;
-    -D | --debug)
-      controllers_debug="true"
-      shift
-      ;;
-    -v | --verbose)
-      set -x
-      shift
-      ;;
-    -h | --help | help)
+  -l | --use-local-registry)
+    use_local_registry="true"
+    shift
+    ;;
+  -c | --controllers-only)
+    controllers_only="true"
+    shift
+    ;;
+  -a | --api-only)
+    api_only="true"
+    shift
+    ;;
+  -d | --default-domain)
+    default_domain="true"
+    shift
+    ;;
+  -D | --debug)
+    controllers_debug="true"
+    shift
+    ;;
+  -v | --verbose)
+    set -x
+    shift
+    ;;
+  -h | --help | help)
+    usage_text >&2
+    exit 0
+    ;;
+  *)
+    if [[ -n "${cluster}" ]]; then
+      echo -e "Error: Unexpected argument: ${i/=*/}\n" >&2
       usage_text >&2
-      exit 0
-      ;;
-    *)
-      if [[ -n "${cluster}" ]]; then
-        echo -e "Error: Unexpected argument: ${i/=*/}\n" >&2
-        usage_text >&2
-        exit 1
-      fi
-      cluster=$1
-      shift
-      ;;
+      exit 1
+    fi
+    cluster=$1
+    shift
+    ;;
   esac
 done
 

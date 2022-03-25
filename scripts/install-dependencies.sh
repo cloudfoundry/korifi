@@ -24,20 +24,20 @@ EOF
 while [[ $# -gt 0 ]]; do
   i=$1
   case $i in
-    -g=* | --gcr-service-account-json=*)
-      GCP_SERVICE_ACCOUNT_JSON_FILE="${i#*=}"
-      shift
-      ;;
-    -g | --gcr-service-account-json)
-      GCP_SERVICE_ACCOUNT_JSON_FILE="${2}"
-      shift
-      shift
-      ;;
-    *)
-      echo -e "Error: Unknown flag: ${i/=*/}\n" >&2
-      usage_text >&2
-      exit 1
-      ;;
+  -g=* | --gcr-service-account-json=*)
+    GCP_SERVICE_ACCOUNT_JSON_FILE="${i#*=}"
+    shift
+    ;;
+  -g | --gcr-service-account-json)
+    GCP_SERVICE_ACCOUNT_JSON_FILE="${2}"
+    shift
+    shift
+    ;;
+  *)
+    echo -e "Error: Unknown flag: ${i/=*/}\n" >&2
+    usage_text >&2
+    exit 1
+    ;;
   esac
 done
 
