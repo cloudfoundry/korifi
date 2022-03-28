@@ -125,12 +125,9 @@ var _ = Describe("Orgs", func() {
 		})
 
 		AfterEach(func() {
-			var wg sync.WaitGroup
-			wg.Add(4)
 			for _, id := range []string{org1GUID, org2GUID, org3GUID, org4GUID} {
-				asyncDeleteOrg(id, &wg)
+				deleteOrg(id)
 			}
-			wg.Wait()
 		})
 
 		JustBeforeEach(func() {
@@ -215,12 +212,19 @@ var _ = Describe("Orgs", func() {
 		})
 
 		When("the org does not exist", func() {
+			var originalGUID string
+
 			BeforeEach(func() {
+				originalGUID = orgGUID
 				orgGUID = "nope"
 			})
 
 			It("returns a not found error", func() {
 				expectNotFoundError(resp, errResp, "Org")
+			})
+
+			AfterEach(func() {
+				orgGUID = originalGUID
 			})
 		})
 
