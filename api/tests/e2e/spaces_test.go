@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -358,25 +360,61 @@ var _ = Describe("Spaces", func() {
 			})
 		})
 
-		Describe("manifest diff", func() {
-			JustBeforeEach(func() {
-				var err error
-				resp, err = restyClient.R().
-					SetHeader("Content-type", "application/x-yaml").
-					SetBody(manifestBytes).
-					SetError(&resultErr).
-					Post("/v3/spaces/" + spaceGUID + "/manifest_diff")
-				Expect(err).NotTo(HaveOccurred())
+	})
+
+	Describe("manifest diff", func() {
+		var (
+			orgGUID       string
+			spaceGUID     string
+			errResp       cfErrs
+			manifestBytes []byte
+		)
+
+		BeforeEach(func() {
+			orgGUID = createOrg(generateGUID("org"))
+			createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+			spaceGUID = createSpace(generateGUID("space"), orgGUID)
+			restyClient = certClient
+			manifestBytes = []byte{}
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = restyClient.R().
+				SetHeader("Content-type", "application/x-yaml").
+				SetBody(manifestBytes).
+				SetError(&errResp).
+				Post("/v3/spaces/" + spaceGUID + "/manifest_diff")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the user has space-developer permissions in the space", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 			})
 
-			It("returns JSON diff", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
+			It("returns the diff response JSON", func() {
+				Expect(resp.StatusCode()).To(Equal(http.StatusAccepted))
 
 				diff := map[string]interface{}{}
 				Expect(json.Unmarshal(resp.Body(), &diff)).To(Succeed())
 				// The `manifest_diff` endpoint is currently a stub to return
 				// an empty diff
 				Expect(diff).To(HaveKeyWithValue("diff", BeEmpty()))
+			})
+		})
+
+		When("the user has no permissions", func() {
+			BeforeEach(func() {
+				restyClient = tokenClient
+			})
+
+			It("returns a Not-Found error", func() {
+				expectNotFoundError(resp, errResp, repositories.SpaceResourceType)
 			})
 		})
 	})
