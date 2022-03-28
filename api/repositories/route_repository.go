@@ -316,9 +316,6 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 		if webhooks.IsValidationError(err) {
 			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, webhooks.GetErrorMessage(err))
 		}
-		if webhooks.HasErrorCode(err, webhooks.RouteFQDNInvalidError) {
-			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, fmt.Sprintf("Invalid Route, %s", webhooks.RouteFQDNInvalidError.GetMessage()))
-		}
 		return RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}
 

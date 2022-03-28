@@ -94,10 +94,9 @@ func IsValidationError(err error) bool {
 	if statusError := new(k8serrors.StatusError); errors.As(err, &statusError) {
 		reason := statusError.Status().Reason
 
-		val := new(ValidationErrorCode)
-		val.Unmarshall(string(reason))
+		errorCode := ExtractCodeFromErrorReason(string(reason))
 
-		if *val != UnknownError {
+		if errorCode != UnknownError {
 			return true
 		}
 	}
