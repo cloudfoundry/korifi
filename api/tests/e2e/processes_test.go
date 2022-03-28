@@ -31,7 +31,7 @@ var _ = Describe("Processes", func() {
 		orgGUID = createOrg(generateGUID("org"))
 		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
 		spaceGUID = createSpace(generateGUID("space"), orgGUID)
-		appGUID = pushNodeApp(spaceGUID)
+		appGUID = pushTestApp(spaceGUID)
 		processGUID = getProcess(appGUID, "web")
 	})
 
@@ -72,7 +72,7 @@ var _ = Describe("Processes", func() {
 		When("the user is NOT authorized in the space", func() {
 			BeforeEach(func() {
 				space2GUID = createSpace(generateGUID("space2"), orgGUID)
-				app2GUID = pushNodeApp(space2GUID)
+				app2GUID = pushTestApp(space2GUID)
 				requestAppGUID = app2GUID
 			})
 

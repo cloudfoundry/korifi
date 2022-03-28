@@ -180,7 +180,7 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID = pushNodeApp(space1GUID)
+			appGUID = pushTestApp(space1GUID)
 			processGUID = getProcess(appGUID, "web")
 		})
 
@@ -237,7 +237,7 @@ var _ = Describe("Apps", func() {
 		BeforeEach(func() {
 			appGUID = createApp(space1GUID, generateGUID("app"))
 			pkgGUID = createPackage(appGUID)
-			uploadNodeApp(pkgGUID)
+			uploadTestApp(pkgGUID)
 			buildGUID = createBuild(pkgGUID)
 			waitForDroplet(buildGUID)
 
@@ -344,7 +344,7 @@ var _ = Describe("Apps", func() {
 		var processGUID string
 
 		BeforeEach(func() {
-			appGUID = pushNodeApp(space1GUID)
+			appGUID = pushTestApp(space1GUID)
 			processGUID = getProcess(appGUID, "web")
 		})
 

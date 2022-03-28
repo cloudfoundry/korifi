@@ -337,7 +337,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is a space developer in the space", func() {
 			BeforeEach(func() {
-				appGUID = pushNodeApp(spaceGUID)
+				appGUID = pushTestApp(spaceGUID)
 				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 			})
 
@@ -354,7 +354,7 @@ var _ = Describe("Routes", func() {
 				Expect(result.Destinations).To(HaveLen(1))
 				Expect(result.Destinations[0].App.GUID).To(Equal(appGUID))
 
-				Expect(resp.Body()).To(ContainSubstring("Hello from a node app!"))
+				Expect(resp.Body()).To(ContainSubstring("hello-world"))
 			})
 
 			When("an app from a different space is added", func() {
