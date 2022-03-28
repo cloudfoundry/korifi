@@ -518,7 +518,7 @@ spec:
         - --webhook-server-port=9443
         - --metrics-addr=:8080
         - --max-reconciles=10
-        - --apiserver-qps-throttle=50
+        - --apiserver-qps-throttle=200
         - --enable-internal-cert-management
         - --cert-restart-on-secret-refresh
         - --excluded-namespace=kube-system
