@@ -23,9 +23,8 @@ const (
 	processPrefix       = "cf-proc-"
 )
 
-func NewProcessRepo(privilegedClient client.Client, namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, namespacePermissions *authorization.NamespacePermissions) *ProcessRepo {
+func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, namespacePermissions *authorization.NamespacePermissions) *ProcessRepo {
 	return &ProcessRepo{
-		privilegedClient:     privilegedClient,
 		namespaceRetriever:   namespaceRetriever,
 		clientFactory:        userClientFactory,
 		namespacePermissions: namespacePermissions,
@@ -33,7 +32,6 @@ func NewProcessRepo(privilegedClient client.Client, namespaceRetriever Namespace
 }
 
 type ProcessRepo struct {
-	privilegedClient     client.Client
 	namespaceRetriever   NamespaceRetriever
 	clientFactory        UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
@@ -188,8 +186,13 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.I
 }
 
 func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.Info, message CreateProcessMessage) error {
+	userClient, err := r.clientFactory.BuildClient(authInfo)
+	if err != nil {
+		return fmt.Errorf("get-process: failed to build user k8s client: %w", err)
+	}
+
 	guid := GenerateProcessGUID()
-	err := r.privilegedClient.Create(ctx, &workloadsv1alpha1.CFProcess{
+	err = userClient.Create(ctx, &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: message.SpaceGUID,

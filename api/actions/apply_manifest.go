@@ -33,10 +33,11 @@ func (a *ApplyManifest) Invoke(ctx context.Context, authInfo authorization.Info,
 	exists := true
 	appRecord, err := a.appRepo.GetAppByNameAndSpace(ctx, authInfo, appInfo.Name, spaceGUID)
 	if err != nil {
-		if !errors.As(err, new(apierrors.NotFoundError)) {
-			return err
+		if errors.As(err, new(apierrors.NotFoundError)) {
+			exists = false
+		} else {
+			return apierrors.ForbiddenAsNotFound(err)
 		}
-		exists = false
 	}
 
 	if exists {
@@ -73,7 +74,11 @@ func (a *ApplyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo
 
 	_, err = a.domainRepo.GetDomainByName(ctx, authInfo, defaultDomainName)
 	if err != nil {
-		return err
+		return apierrors.AsUnprocessibleEntity(
+			err,
+			fmt.Sprintf("The configured default domain %q was not found", defaultDomainName),
+			apierrors.NotFoundError{},
+		)
 	}
 	defaultRouteString := appInfo.Name + "." + defaultDomainName
 	defaultRoute := payloads.ManifestRoute{

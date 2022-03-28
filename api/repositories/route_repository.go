@@ -25,20 +25,13 @@ const (
 //+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes/status,verbs=get
 
 type RouteRepo struct {
-	privilegedClient     client.Client
 	namespaceRetriever   NamespaceRetriever
 	userClientFactory    UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 }
 
-func NewRouteRepo(
-	privilegedClient client.Client,
-	namespaceRetriever NamespaceRetriever,
-	userClientFactory UserK8sClientFactory,
-	authPerms *authorization.NamespacePermissions,
-) *RouteRepo {
+func NewRouteRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, authPerms *authorization.NamespacePermissions) *RouteRepo {
 	return &RouteRepo{
-		privilegedClient:     privilegedClient,
 		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: authPerms,
@@ -230,8 +223,13 @@ func applyRouteListFilter(routes []networkingv1alpha1.CFRoute, message ListRoute
 }
 
 func (f *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization.Info, appGUID string, spaceGUID string) ([]RouteRecord, error) {
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return []RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
 	cfRouteList := &networkingv1alpha1.CFRouteList{}
-	err := f.privilegedClient.List(ctx, cfRouteList, client.InNamespace(spaceGUID))
+	err = userClient.List(ctx, cfRouteList, client.InNamespace(spaceGUID))
 	if err != nil {
 		return []RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}

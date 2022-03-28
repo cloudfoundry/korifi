@@ -10,7 +10,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
@@ -67,11 +66,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info,
 
 	if err := h.applyManifestAction(r.Context(), authInfo, spaceGUID, h.defaultDomainName, manifest); err != nil {
 		h.logger.Error(err, "Error applying manifest")
-		return nil, apierrors.AsUnprocessibleEntity(
-			err,
-			fmt.Sprintf("The configured default domain %q was not found", h.defaultDomainName),
-			apierrors.NotFoundError{},
-		)
+		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).

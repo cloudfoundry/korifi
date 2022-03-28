@@ -1630,6 +1630,7 @@ rules:
   resources:
   - cfprocesses
   verbs:
+  - create
   - get
   - list
   - patch
@@ -2181,6 +2182,7 @@ rules:
   resources:
   - cfprocesses
   verbs:
+  - create
   - get
   - list
   - patch

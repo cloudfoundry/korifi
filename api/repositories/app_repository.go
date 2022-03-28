@@ -39,20 +39,13 @@ const (
 )
 
 type AppRepo struct {
-	privilegedClient     client.Client
 	namespaceRetriever   NamespaceRetriever
 	userClientFactory    UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 }
 
-func NewAppRepo(
-	privilegedClient client.Client,
-	namespaceRetriever NamespaceRetriever,
-	userClientFactory UserK8sClientFactory,
-	authPerms *authorization.NamespacePermissions,
-) *AppRepo {
+func NewAppRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, authPerms *authorization.NamespacePermissions) *AppRepo {
 	return &AppRepo{
-		privilegedClient:     privilegedClient,
 		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: authPerms,
@@ -180,8 +173,13 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 }
 
 func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorization.Info, appName string, spaceGUID string) (AppRecord, error) {
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("get-app failed to build user client: %w", err)
+	}
+
 	appList := new(workloadsv1alpha1.CFAppList)
-	err := f.privilegedClient.List(ctx, appList, client.InNamespace(spaceGUID))
+	err = userClient.List(ctx, appList, client.InNamespace(spaceGUID))
 	if err != nil {
 		return AppRecord{}, apierrors.FromK8sError(fmt.Errorf("get app: failed to list apps: %w", err), AppResourceType)
 	}
@@ -347,7 +345,7 @@ func returnAppList(appList []workloadsv1alpha1.CFApp) []AppRecord {
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
 	secretObj := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateEnvSecretName(message.AppGUID),
+			Name:      GenerateEnvSecretName(message.AppGUID),
 			Namespace: message.SpaceGUID,
 		},
 	}
@@ -378,10 +376,16 @@ func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.In
 func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, authInfo authorization.Info, envVariables CreateOrPatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
 	secretObj := appEnvVarsRecordToSecret(envVariables)
 
-	_, err := controllerutil.CreateOrPatch(ctx, f.privilegedClient, &secretObj, func() error {
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return AppEnvVarsRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	_, err = controllerutil.CreateOrPatch(ctx, userClient, &secretObj, func() error {
 		secretObj.StringData = envVariables.EnvironmentVariables
 		return nil
 	})
+
 	if err != nil {
 		return AppEnvVarsRecord{}, apierrors.FromK8sError(err, AppEnvResourceType)
 	}
@@ -480,7 +484,7 @@ func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, ap
 	return convertByteSliceValuesToStrings(secret.Data), nil
 }
 
-func generateEnvSecretName(appGUID string) string {
+func GenerateEnvSecretName(appGUID string) string {
 	return appGUID + "-env"
 }
 
@@ -496,7 +500,7 @@ func (m *CreateAppMessage) toCFApp() workloadsv1alpha1.CFApp {
 		Spec: workloadsv1alpha1.CFAppSpec{
 			Name:          m.Name,
 			DesiredState:  workloadsv1alpha1.DesiredState(m.State),
-			EnvSecretName: generateEnvSecretName(guid),
+			EnvSecretName: GenerateEnvSecretName(guid),
 			Lifecycle: workloadsv1alpha1.Lifecycle{
 				Type: workloadsv1alpha1.LifecycleType(m.Lifecycle.Type),
 				Data: workloadsv1alpha1.LifecycleData{
@@ -539,7 +543,7 @@ func appEnvVarsRecordToSecret(envVars CreateOrPatchAppEnvVarsMessage) corev1.Sec
 	labels[CFAppGUIDLabel] = envVars.AppGUID
 	return corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateEnvSecretName(envVars.AppGUID),
+			Name:      GenerateEnvSecretName(envVars.AppGUID),
 			Namespace: envVars.SpaceGUID,
 			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{

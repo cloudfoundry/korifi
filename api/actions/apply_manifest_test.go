@@ -3,6 +3,7 @@ package actions_test
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/actions"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/actions/fake"
@@ -10,6 +11,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -72,7 +74,21 @@ var _ = Describe("ApplyManifest", func() {
 		applyErr = applyManifestAction.Invoke(context.Background(), authInfo, spaceGUID, defaultDomainName, manifest)
 	})
 
-	When("fetching the app errors", func() {
+	When("fetching the app returns a Forbidden error", func() {
+		BeforeEach(func() {
+			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(errors.New("boom"), repositories.AppResourceType))
+		})
+
+		It("returns a NotFound error", func() {
+			Expect(applyErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+		})
+
+		It("doesn't create an App", func() {
+			Expect(appRepo.CreateAppCallCount()).To(Equal(0))
+		})
+	})
+
+	When("fetching the app a non-API error", func() {
 		BeforeEach(func() {
 			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, errors.New("boom"))
 		})
@@ -202,12 +218,29 @@ var _ = Describe("ApplyManifest", func() {
 				})
 			})
 
+			When("fetching the default domain fails with a NotFound error", func() {
+				BeforeEach(func() {
+					domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, apierrors.NewNotFoundError(errors.New("boom"), repositories.DomainResourceType))
+				})
+
+				It("returns an UnprocessibleEntity error with a friendly message", func() {
+					Expect(applyErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+					var apierr apierrors.ApiError
+					ok := errors.As(applyErr, &apierr)
+					Expect(ok).To(BeTrue())
+					Expect(apierr.Detail()).To(Equal(
+						fmt.Sprintf("The configured default domain %q was not found", defaultDomainName),
+					))
+				})
+			})
+
 			When("fetching the default domain fails", func() {
 				BeforeEach(func() {
 					domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, errors.New("fail-on-purpose"))
 				})
+
 				It("returns an error", func() {
-					Expect(applyErr).NotTo(Succeed())
+					Expect(applyErr).To(MatchError("fail-on-purpose"))
 				})
 			})
 		})
@@ -281,6 +314,7 @@ var _ = Describe("ApplyManifest", func() {
 				}
 				manifest.Applications[0].DefaultRoute = true
 			})
+
 			It("is ignored, and AddDestinationsToRouteCallCount is called without adding a default destination to the existing route list", func() {
 				Expect(applyErr).To(Succeed())
 				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(len(manifest.Applications[0].Routes)))

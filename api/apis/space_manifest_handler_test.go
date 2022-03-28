@@ -295,11 +295,11 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 		When("applying the manifest errors with NotFoundErr", func() {
 			BeforeEach(func() {
-				applyManifestAction.Returns(apierrors.NotFoundError{})
+				applyManifestAction.Returns(apierrors.NewNotFoundError(errors.New("can't find"), repositories.DomainResourceType))
 			})
 
-			It("respond with unprocessable entity error", func() {
-				expectUnprocessableEntityError(`The configured default domain "` + defaultDomainName + `" was not found`)
+			It("respond with NotFoundErr", func() {
+				expectNotFoundError("Domain")
 			})
 		})
 	})
