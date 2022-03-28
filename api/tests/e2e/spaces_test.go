@@ -175,12 +175,9 @@ var _ = Describe("Spaces", func() {
 
 		AfterEach(func() {
 			orgIDs := []string{org1GUID, org2GUID, org3GUID}
-			var wg sync.WaitGroup
-			wg.Add(len(orgIDs))
 			for _, id := range orgIDs {
-				asyncDeleteOrg(id, &wg)
+				deleteOrg(id)
 			}
-			wg.Wait()
 		})
 
 		JustBeforeEach(func() {

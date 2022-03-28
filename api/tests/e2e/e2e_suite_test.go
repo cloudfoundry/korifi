@@ -26,7 +26,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -292,62 +291,15 @@ func generateGUID(prefix string) string {
 	return fmt.Sprintf("%s-%s", prefix, guid[:13])
 }
 
-func deleteOrg(name string) {
-	if name == "" {
+func deleteOrg(guid string) {
+	if guid == "" {
 		return
 	}
 
-	deleteSubnamespace(rootNamespace, name)
-}
-
-func asyncDeleteOrg(orgID string, wg *sync.WaitGroup) {
-	go func() {
-		defer wg.Done()
-		defer GinkgoRecover()
-
-		deleteOrg(orgID)
-	}()
-}
-
-func deleteSubnamespace(parent, name string) {
-	if parent == "" || name == "" {
-		return
-	}
-
-	ctx := context.Background()
-
-	subnsList := &hnsv1alpha2.SubnamespaceAnchorList{}
-	ExpectWithOffset(1, k8sClient.List(ctx, subnsList, client.InNamespace(name))).To(Succeed())
-
-	var wg sync.WaitGroup
-	wg.Add(len(subnsList.Items))
-	for _, subns := range subnsList.Items {
-		go func(subns string) {
-			defer wg.Done()
-			defer GinkgoRecover()
-
-			deleteSubnamespace(name, subns)
-		}(subns.Name)
-	}
-	wg.Wait()
-
-	anchor := hnsv1alpha2.SubnamespaceAnchor{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: parent,
-			Name:      name,
-		},
-	}
-	err := k8sClient.Delete(ctx, &anchor)
-	if errors.IsNotFound(err) {
-		return
-	}
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-
-	EventuallyWithOffset(1, func() bool {
-		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&anchor), &anchor)
-
-		return errors.IsNotFound(err)
-	}).Should(BeTrue())
+	resp, err := adminClient.R().
+		Delete("/v3/organizations/" + guid)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
 }
 
 func createOrgRaw(orgName string) (string, error) {
