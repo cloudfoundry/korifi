@@ -737,20 +737,19 @@ func startApp(appGUID string) {
 	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
-func uploadNodeApp(pkgGUID string) {
+func uploadTestApp(pkgGUID string) {
 	resp, err := adminClient.R().
 		SetFiles(map[string]string{
-			"bits": "assets/node.zip",
+			"bits": "assets/procfile.zip",
 		}).Post("/v3/packages/" + pkgGUID + "/upload")
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
-// pushNodeApp creates a running node app in the given space
-func pushNodeApp(spaceGUID string) string {
+func pushTestApp(spaceGUID string) string {
 	appGUID := createApp(spaceGUID, generateGUID("app"))
 	pkgGUID := createPackage(appGUID)
-	uploadNodeApp(pkgGUID)
+	uploadTestApp(pkgGUID)
 	buildGUID := createBuild(pkgGUID)
 	waitForDroplet(buildGUID)
 	setCurrentDroplet(appGUID, buildGUID)

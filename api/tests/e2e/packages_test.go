@@ -99,7 +99,7 @@ var _ = Describe("Package", func() {
 		JustBeforeEach(func() {
 			var err error
 			resp, err = certClient.R().
-				SetFile("bits", "assets/node.zip").
+				SetFile("bits", "assets/procfile.zip").
 				SetError(&resultErr).
 				SetResult(&result).
 				Post("/v3/packages/" + packageGUID + "/upload")
@@ -171,7 +171,7 @@ var _ = Describe("Package", func() {
 		BeforeEach(func() {
 			resultList = resourceList{}
 			packageGUID = createPackage(appGUID)
-			uploadNodeApp(packageGUID)
+			uploadTestApp(packageGUID)
 			buildGUID = createBuild(packageGUID)
 
 			Eventually(func() (*resty.Response, error) {
