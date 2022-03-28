@@ -22,7 +22,7 @@ require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.1.3
-	github.com/onsi/gomega v1.18.1
+	github.com/onsi/gomega v1.19.0
 	github.com/pivotal/kpack v0.5.2
 	github.com/projectcontour/contour v1.20.1
 	golang.org/x/text v0.3.7
