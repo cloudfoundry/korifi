@@ -23,10 +23,10 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 	var namespace *corev1.Namespace
 
 	BeforeEach(func() {
-		appRepo := repositories.NewAppRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
+		appRepo := repositories.NewAppRepo(namespaceRetriever, clientFactory, nsPermissions)
 		domainRepo := repositories.NewDomainRepo(clientFactory, namespaceRetriever, rootNamespace)
-		processRepo := repositories.NewProcessRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
-		routeRepo := repositories.NewRouteRepo(k8sClient, namespaceRetriever, clientFactory, nsPermissions)
+		processRepo := repositories.NewProcessRepo(namespaceRetriever, clientFactory, nsPermissions)
+		routeRepo := repositories.NewRouteRepo(namespaceRetriever, clientFactory, nsPermissions)
 		dropletRepo := repositories.NewDropletRepo(clientFactory, namespaceRetriever, nsPermissions)
 		orgRepo := repositories.NewOrgRepo("root-ns", k8sClient, clientFactory, nsPermissions, time.Minute, true)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke

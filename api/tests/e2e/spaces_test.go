@@ -216,7 +216,7 @@ var _ = Describe("Spaces", func() {
 
 			It("only lists spaces belonging to the orgs", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.Resources).To(ConsistOf(
+				Expect(result.Resources).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(space11Name)}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(space12Name)}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(space31Name)}),
@@ -234,7 +234,7 @@ var _ = Describe("Spaces", func() {
 
 			It("only lists those matching and available", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.Resources).To(ConsistOf(
+				Expect(result.Resources).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(space12Name)}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(space32Name)}),
 				))
@@ -305,7 +305,7 @@ var _ = Describe("Spaces", func() {
 
 		BeforeEach(func() {
 			orgGUID = createOrg(generateGUID("org"))
-			// createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+			createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
 			spaceGUID = createSpace(generateGUID("space"), orgGUID)
 			resultErr = cfErrs{}
 
@@ -326,8 +326,6 @@ var _ = Describe("Spaces", func() {
 				}},
 			})
 			Expect(err).NotTo(HaveOccurred())
-
-			restyClient = adminClient
 		})
 
 		AfterEach(func() {
@@ -345,18 +343,52 @@ var _ = Describe("Spaces", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("succeeds with a job redirect", func() {
-				Expect(resp).To(SatisfyAll(
-					HaveRestyStatusCode(http.StatusAccepted),
-					HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest-"+spaceGUID)),
-				))
+			When("the user has space developer role in the space", func() {
+				BeforeEach(func() {
+					createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				})
 
-				jobURL := resp.Header().Get("Location")
-				Eventually(func(g Gomega) {
-					jobResp, err := restyClient.R().Get(jobURL)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-				}).Should(Succeed())
+				It("succeeds with a job redirect", func() {
+					Expect(resp).To(SatisfyAll(
+						HaveRestyStatusCode(http.StatusAccepted),
+						HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest-"+spaceGUID)),
+					))
+
+					jobURL := resp.Header().Get("Location")
+					Eventually(func(g Gomega) {
+						jobResp, err := restyClient.R().Get(jobURL)
+						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+					}).Should(Succeed())
+				})
+			})
+
+			When("the user has space manager role in the space", func() {
+				BeforeEach(func() {
+					createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+				})
+
+				It("returns 403", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+					Expect(resultErr.Errors).To(ConsistOf(cfErr{
+						Detail: "You are not authorized to perform the requested action",
+						Title:  "CF-NotAuthorized",
+						Code:   10003,
+					}))
+				})
+			})
+
+			When("the user has no role in the space", func() {
+				It("returns 404", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+					Expect(resultErr.Errors).To(ConsistOf(
+						cfErr{
+							Detail: "App not found. Ensure it exists and you have access to it.",
+							Title:  "CF-ResourceNotFound",
+							Code:   10010,
+						},
+					))
+				})
 			})
 		})
 

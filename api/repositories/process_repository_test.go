@@ -23,16 +23,17 @@ var _ = Describe("ProcessRepo", func() {
 	var (
 		ctx          context.Context
 		processRepo  *repositories.ProcessRepo
-		orgNamespace *hnsv1alpha2.SubnamespaceAnchor
+		org          *hnsv1alpha2.SubnamespaceAnchor
+		space        *hnsv1alpha2.SubnamespaceAnchor
 		app1GUID     string
 		process1GUID string
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		processRepo = repositories.NewProcessRepo(k8sClient, namespaceRetriever, userClientFactory, nsPerms)
-		orgNamespace = createOrgAnchorAndNamespace(ctx, rootNamespace, prefixedGUID("org"))
-
+		processRepo = repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPerms)
+		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
+		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 		app1GUID = prefixedGUID("app1")
 		process1GUID = prefixedGUID("process1")
 	})
@@ -46,7 +47,7 @@ var _ = Describe("ProcessRepo", func() {
 		)
 
 		BeforeEach(func() {
-			cfProcess1 = createProcessCR(context.Background(), k8sClient, process1GUID, orgNamespace.Name, app1GUID)
+			cfProcess1 = createProcessCR(context.Background(), k8sClient, process1GUID, space.Name, app1GUID)
 			getProcessGUID = process1GUID
 		})
 
@@ -69,7 +70,7 @@ var _ = Describe("ProcessRepo", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 
 				Expect(processRecord.GUID).To(Equal(process1GUID))
-				Expect(processRecord.SpaceGUID).To(Equal(orgNamespace.Name))
+				Expect(processRecord.SpaceGUID).To(Equal(space.Name))
 				Expect(processRecord.AppGUID).To(Equal(app1GUID))
 				Expect(processRecord.Type).To(Equal(cfProcess1.Spec.ProcessType))
 				Expect(processRecord.Command).To(Equal(cfProcess1.Spec.Command))
@@ -141,8 +142,8 @@ var _ = Describe("ProcessRepo", func() {
 
 		BeforeEach(func() {
 			// createClusterRoleBinding(ctx, userName, spaceDeveloperRole.Name)
-			space1 = createSpaceAnchorAndNamespace(ctx, orgNamespace.Name, prefixedGUID("space1"))
-			space2 = createSpaceAnchorAndNamespace(ctx, orgNamespace.Name, prefixedGUID("space2"))
+			space1 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
+			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
 
 			app2GUID = prefixedGUID("app2")
 			process2GUID = prefixedGUID("process2")
@@ -216,7 +217,7 @@ var _ = Describe("ProcessRepo", func() {
 		)
 
 		BeforeEach(func() {
-			space1 = createSpaceAnchorAndNamespace(ctx, orgNamespace.Name, prefixedGUID("space1"))
+			space1 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
 			cfProcess = createProcessCR(context.Background(), k8sClient, process1GUID, space1.Name, app1GUID)
 
 			scaleProcessMessage = &repositories.ScaleProcessMessage{
@@ -304,40 +305,19 @@ var _ = Describe("ProcessRepo", func() {
 	})
 
 	Describe("CreateProcess", func() {
-		It("creates a CFProcess resource", func() {
-			Expect(
-				processRepo.CreateProcess(ctx, authInfo, repositories.CreateProcessMessage{
-					AppGUID:     app1GUID,
-					SpaceGUID:   orgNamespace.Name,
-					Type:        "web",
-					Command:     "start-web",
-					DiskQuotaMB: 123,
-					HealthCheck: repositories.HealthCheck{
-						Type: "http",
-						Data: repositories.HealthCheckData{
-							HTTPEndpoint:             "/healthz",
-							InvocationTimeoutSeconds: 20,
-							TimeoutSeconds:           10,
-						},
-					},
-					DesiredInstances: 42,
-					MemoryMB:         456,
-				}),
-			).To(Succeed())
-
-			var list workloadsv1alpha1.CFProcessList
-			Expect(k8sClient.List(ctx, &list, client.InNamespace(orgNamespace.Name))).To(Succeed())
-			Expect(list.Items).To(HaveLen(1))
-
-			process := list.Items[0]
-			Expect(process.Name).To(HavePrefix("cf-proc-"))
-			Expect(process.Spec).To(Equal(workloadsv1alpha1.CFProcessSpec{
-				AppRef:      corev1.LocalObjectReference{Name: app1GUID},
-				ProcessType: "web",
+		var (
+			createErr error
+		)
+		JustBeforeEach(func() {
+			createErr = processRepo.CreateProcess(ctx, authInfo, repositories.CreateProcessMessage{
+				AppGUID:     app1GUID,
+				SpaceGUID:   space.Name,
+				Type:        "web",
 				Command:     "start-web",
-				HealthCheck: workloadsv1alpha1.HealthCheck{
+				DiskQuotaMB: 123,
+				HealthCheck: repositories.HealthCheck{
 					Type: "http",
-					Data: workloadsv1alpha1.HealthCheckData{
+					Data: repositories.HealthCheckData{
 						HTTPEndpoint:             "/healthz",
 						InvocationTimeoutSeconds: 20,
 						TimeoutSeconds:           10,
@@ -345,10 +325,48 @@ var _ = Describe("ProcessRepo", func() {
 				},
 				DesiredInstances: 42,
 				MemoryMB:         456,
-				DiskQuotaMB:      123,
-				Ports:            []int32{},
-			}))
+			})
 		})
+
+		When("user has permissions", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("creates a CFProcess resource", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+				var list workloadsv1alpha1.CFProcessList
+				Expect(k8sClient.List(ctx, &list, client.InNamespace(space.Name))).To(Succeed())
+				Expect(list.Items).To(HaveLen(1))
+
+				process := list.Items[0]
+				Expect(process.Name).To(HavePrefix("cf-proc-"))
+				Expect(process.Spec).To(Equal(workloadsv1alpha1.CFProcessSpec{
+					AppRef:      corev1.LocalObjectReference{Name: app1GUID},
+					ProcessType: "web",
+					Command:     "start-web",
+					HealthCheck: workloadsv1alpha1.HealthCheck{
+						Type: "http",
+						Data: workloadsv1alpha1.HealthCheckData{
+							HTTPEndpoint:             "/healthz",
+							InvocationTimeoutSeconds: 20,
+							TimeoutSeconds:           10,
+						},
+					},
+					DesiredInstances: 42,
+					MemoryMB:         456,
+					DiskQuotaMB:      123,
+					Ports:            []int32{},
+				}))
+			})
+		})
+
+		When("the user is not authorized in the space", func() {
+			It("returns a forbidden error", func() {
+				Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+
 	})
 
 	Describe("GetProcessByAppTypeAndSpace", func() {
@@ -362,7 +380,7 @@ var _ = Describe("ProcessRepo", func() {
 		)
 
 		JustBeforeEach(func() {
-			processRecord, getErr = processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, app1GUID, processType, orgNamespace.Name)
+			processRecord, getErr = processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, app1GUID, processType, space.Name)
 		})
 
 		When("the user is not authorized in the space", func() {
@@ -373,15 +391,15 @@ var _ = Describe("ProcessRepo", func() {
 
 		When("the user has permission to get the process", func() {
 			BeforeEach(func() {
-				createProcessCR(context.Background(), k8sClient, process1GUID, orgNamespace.Name, app1GUID)
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, orgNamespace.Name)
+				createProcessCR(context.Background(), k8sClient, process1GUID, space.Name, app1GUID)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("returns a Process record with the specified app type and space", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 				Expect(processRecord).To(MatchAllFields(Fields{
 					"GUID":             Equal(process1GUID),
-					"SpaceGUID":        Equal(orgNamespace.Name),
+					"SpaceGUID":        Equal(space.Name),
 					"AppGUID":          Equal(app1GUID),
 					"Type":             Equal(processType),
 					"Command":          Equal(""),
@@ -418,13 +436,11 @@ var _ = Describe("ProcessRepo", func() {
 	Describe("PatchProcess", func() {
 		When("the app already has a process with the given type", func() {
 			var (
-				space     *hnsv1alpha2.SubnamespaceAnchor
 				cfProcess *workloadsv1alpha1.CFProcess
 				message   repositories.PatchProcessMessage
 			)
 
 			BeforeEach(func() {
-				space = createSpaceAnchorAndNamespace(ctx, orgNamespace.Name, prefixedGUID("space"))
 				cfProcess = &workloadsv1alpha1.CFProcess{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      process1GUID,

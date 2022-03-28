@@ -36,6 +36,7 @@ rules:
   resources:
   - cfprocesses
   verbs:
+  - create
   - get
   - list
   - patch
