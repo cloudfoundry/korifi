@@ -14,9 +14,6 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	"k8s.io/client-go/kubernetes/scheme"
-	controllerruntime "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -25,17 +22,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var (
-	k8sClient           client.WithWatch
 	adminClient         *resty.Client
 	certClient          *resty.Client
 	tokenClient         *resty.Client
-	clientset           *kubernetes.Clientset
 	rootNamespace       string
 	apiServerRoot       string
 	appFQDN             string
@@ -194,28 +186,15 @@ var _ = BeforeSuite(func() {
 	SetDefaultEventuallyTimeout(240 * time.Second)
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
 
-	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
-
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	Expect(hnsv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-
-	config, err := controllerruntime.GetConfig()
-	Expect(err).NotTo(HaveOccurred())
-
-	adminAuthHeader = "ClientCert " + obtainAdminUserCert()
-
-	k8sClient, err = client.NewWithWatch(config, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-
-	clientset, err = kubernetes.NewForConfig(config)
-	Expect(err).NotTo(HaveOccurred())
+	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
+	ensureServerIsUp()
 
 	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
 	appFQDN = mustHaveEnv("APP_FQDN")
 
-	ensureServerIsUp()
+	adminAuthHeader = "ClientCert " + obtainAdminUserCert()
 
 	serviceAccountName = mustHaveEnvIdx("E2E_SERVICE_ACCOUNTS", GinkgoParallelProcess())
 	serviceAccountToken = mustHaveEnvIdx("E2E_SERVICE_ACCOUNT_TOKENS", GinkgoParallelProcess())
