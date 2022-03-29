@@ -55,7 +55,7 @@ var _ = BeforeSuite(func() {
 		// TODO: Reconcile with CRDDirectoryPaths
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
-				filepath.Join("..", "..", "..", "..", "dependencies", "kpack-release-0.5.0.yaml"),
+				filepath.Join("..", "..", "..", "..", "dependencies", "kpack-release-0.5.2.yaml"),
 				filepath.Join("fixtures", "lrp-crd.yaml"),
 			},
 		},
