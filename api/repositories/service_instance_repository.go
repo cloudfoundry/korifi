@@ -33,13 +33,13 @@ type NamespaceGetter interface {
 type ServiceInstanceRepo struct {
 	namespaceRetriever   NamespaceRetriever
 	userClientFactory    UserK8sClientFactory
-	namespacePermissions *authorization.NamespacePermissions
+	namespacePermissions NamespacePermissions
 }
 
 func NewServiceInstanceRepo(
 	namespaceRetriever NamespaceRetriever,
 	userClientFactory UserK8sClientFactory,
-	namespacePermissions *authorization.NamespacePermissions,
+	namespacePermissions NamespacePermissions,
 ) *ServiceInstanceRepo {
 	return &ServiceInstanceRepo{
 		namespaceRetriever:   namespaceRetriever,

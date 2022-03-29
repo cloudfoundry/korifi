@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//counterfeiter:generate -o fake -fake-name UserK8sClientFactory . UserK8sClientFactory
 type UserK8sClientFactory interface {
 	BuildClient(authorization.Info) (client.WithWatch, error)
 }

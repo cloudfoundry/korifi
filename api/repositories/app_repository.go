@@ -41,10 +41,10 @@ const (
 type AppRepo struct {
 	namespaceRetriever   NamespaceRetriever
 	userClientFactory    UserK8sClientFactory
-	namespacePermissions *authorization.NamespacePermissions
+	namespacePermissions NamespacePermissions
 }
 
-func NewAppRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, authPerms *authorization.NamespacePermissions) *AppRepo {
+func NewAppRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, authPerms NamespacePermissions) *AppRepo {
 	return &AppRepo{
 		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,
@@ -160,7 +160,7 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return AppRecord{}, fmt.Errorf("get-app failed to build user client: %w", err)
+		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	app := workloadsv1alpha1.CFApp{}
@@ -395,7 +395,7 @@ func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, authInfo authoriz
 func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.Info, message SetCurrentDropletMessage) (CurrentDropletRecord, error) {
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return CurrentDropletRecord{}, fmt.Errorf("set-current-droplet: failed to create k8s user client: %w", err)
+		return CurrentDropletRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	baseCFApp := &workloadsv1alpha1.CFApp{

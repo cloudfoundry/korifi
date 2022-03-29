@@ -9,13 +9,16 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,6 +30,263 @@ const (
 	CFAppRevisionValue = "1"
 	CFAppStoppedState  = "STOPPED"
 )
+
+//counterfeiter:generate -o fake -fake-name ClientWithWatch sigs.k8s.io/controller-runtime/pkg/client.WithWatch
+var _ = Describe("AppRepository Units", func() {
+	var (
+		testCtx                context.Context
+		appRepo                *AppRepo
+		fakeUserClient         fake.ClientWithWatch
+		fakeFactory            fake.UserK8sClientFactory
+		fakeNamespaceRetriever fake.NamespaceRetriever
+		fakeNsPerms            fake.NamespacePermissions
+	)
+
+	BeforeEach(func() {
+		testCtx = context.Background()
+		fakeUserClient = fake.ClientWithWatch{}
+		fakeFactory = fake.UserK8sClientFactory{}
+		fakeFactory.BuildClientReturns(&fakeUserClient, nil)
+		fakeNsPerms = fake.NamespacePermissions{}
+		fakeNamespaceRetriever = fake.NamespaceRetriever{}
+		appRepo = NewAppRepo(&fakeNamespaceRetriever, &fakeFactory, &fakeNsPerms)
+	})
+
+	Describe("GetApp", func() {
+		var retErr error
+		JustBeforeEach(func() {
+			_, retErr = appRepo.GetApp(testCtx, authInfo, "some-app-name")
+		})
+
+		When("the client factory reports an error", func() {
+			BeforeEach(func() {
+				fakeFactory.BuildClientReturns(nil, errors.New("oh no"))
+			})
+
+			It("returns the error", func() {
+				Expect(retErr).To(MatchError(HavePrefix("failed to build user client")))
+				Expect(retErr).To(MatchError(ContainSubstring("oh no")))
+			})
+		})
+	})
+
+	Describe("CreateApp", func() {
+		var retErr error
+		JustBeforeEach(func() {
+			_, retErr = appRepo.CreateApp(testCtx, authInfo, CreateAppMessage{Name: prefixedGUID("app-")})
+		})
+
+		When("the client factory reports an error", func() {
+			BeforeEach(func() {
+				fakeFactory.BuildClientReturns(nil, errors.New("oh no"))
+			})
+
+			It("returns the error", func() {
+				Expect(retErr).To(MatchError(HavePrefix("failed to build user client")))
+				Expect(retErr).To(MatchError(ContainSubstring("oh no")))
+			})
+		})
+
+		When("the app already exists", func() {
+			BeforeEach(func() {
+				fakeUserClient.CreateReturns(&k8serrors.StatusError{
+					ErrStatus: metav1.Status{
+						Reason: metav1.StatusReason(webhooks.DuplicateAppError.Marshal()),
+					}})
+			})
+
+			It("reports a uniqueness error", func() {
+				Expect(retErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UniquenessError{}))
+			})
+		})
+
+		When("a random error occurs", func() {
+			BeforeEach(func() {
+				fakeUserClient.CreateReturns(errors.New("something unexpected"))
+			})
+			It("returns the error", func() {
+				Expect(retErr).To(MatchError(errors.New("something unexpected")))
+			})
+		})
+
+		When("we get back a random error while patching the env vars", func() {
+			BeforeEach(func() {
+				fakeUserClient.GetReturns(errors.New("shucks"))
+			})
+			It("returns the error", func() {
+				Expect(retErr).To(MatchError(errors.New("shucks")))
+			})
+		})
+	})
+
+	Describe("ListApps", func() {
+		var (
+			retErr     error
+			appRecords []AppRecord
+		)
+		BeforeEach(func() {
+			retErr = nil
+			appRecords = []AppRecord{}
+		})
+		JustBeforeEach(func() {
+			appRecords, retErr = appRepo.ListApps(testCtx, authInfo, ListAppsMessage{})
+		})
+
+		When("getting namespaces returns an error", func() {
+			BeforeEach(func() {
+				fakeNsPerms.GetAuthorizedSpaceNamespacesReturns(map[string]bool{}, errors.New("something happened"))
+			})
+
+			It("returns the error", func() {
+				Expect(retErr).To(MatchError(HavePrefix("failed to list namespaces")))
+				Expect(retErr).To(MatchError(ContainSubstring("something happened")))
+			})
+		})
+
+		When("the client factory reports an error", func() {
+			BeforeEach(func() {
+				fakeFactory.BuildClientReturns(nil, errors.New("oh no"))
+			})
+
+			It("returns the error", func() {
+				Expect(retErr).To(MatchError(HavePrefix("failed to build user client")))
+				Expect(retErr).To(MatchError(ContainSubstring("oh no")))
+			})
+		})
+
+		When("there is a namespace", func() {
+			BeforeEach(func() {
+				fakeNsPerms.GetAuthorizedSpaceNamespacesReturns(map[string]bool{"foo": true}, nil)
+			})
+			When("the user isn't authorized to list apps in the namespace", func() {
+				BeforeEach(func() {
+					fakeUserClient.ListReturns(&k8serrors.StatusError{
+						ErrStatus: metav1.Status{
+							Reason: metav1.StatusReasonForbidden,
+						}})
+				})
+				It("returns an empty result set without erroring", func() {
+					Expect(retErr).NotTo(HaveOccurred())
+					Expect(appRecords).To(BeEmpty())
+				})
+			})
+
+			When("listing apps fails for other reasons", func() {
+				BeforeEach(func() {
+					fakeUserClient.ListReturns(errors.New("random failure"))
+				})
+				It("returns the error", func() {
+					Expect(retErr).To(MatchError(HavePrefix("failed to list apps in namespace foo")))
+					Expect(retErr).To(MatchError(ContainSubstring("random failure")))
+				})
+			})
+		})
+	})
+
+	Describe("PatchAppEnvVars", func() {
+		var retErr error
+		JustBeforeEach(func() {
+			_, retErr = appRepo.PatchAppEnvVars(testCtx, authInfo, PatchAppEnvVarsMessage{})
+		})
+
+		When("the client factory reports an error", func() {
+			BeforeEach(func() {
+				fakeFactory.BuildClientReturns(nil, errors.New("oh no"))
+			})
+
+			It("returns the error", func() {
+				Expect(retErr).To(MatchError(HavePrefix("failed to build user client")))
+				Expect(retErr).To(MatchError(ContainSubstring("oh no")))
+			})
+		})
+
+		When("we get back a random error while patching the env vars", func() {
+			BeforeEach(func() {
+				fakeUserClient.GetReturns(errors.New("shucks"))
+			})
+			It("returns the error", func() {
+				Expect(retErr).To(MatchError(errors.New("shucks")))
+			})
+		})
+	})
+
+	Describe("SetCurrentDroplet", func() {
+		var retErr error
+		JustBeforeEach(func() {
+			_, retErr = appRepo.SetCurrentDroplet(testCtx, authInfo, SetCurrentDropletMessage{})
+		})
+
+		When("the client factory reports an error", func() {
+			BeforeEach(func() {
+				fakeFactory.BuildClientReturns(nil, errors.New("oh no"))
+			})
+
+			It("returns the error", func() {
+				Expect(retErr).To(MatchError(HavePrefix("failed to build user client")))
+				Expect(retErr).To(MatchError(ContainSubstring("oh no")))
+			})
+		})
+	})
+
+	Describe("SetAppDesiredState", func() {
+		var retErr error
+		JustBeforeEach(func() {
+			_, retErr = appRepo.SetAppDesiredState(testCtx, authInfo, SetAppDesiredStateMessage{})
+		})
+
+		When("the client factory reports an error", func() {
+			BeforeEach(func() {
+				fakeFactory.BuildClientReturns(nil, errors.New("oh no"))
+			})
+
+			It("returns the error", func() {
+				Expect(retErr).To(MatchError(HavePrefix("failed to build user client")))
+				Expect(retErr).To(MatchError(ContainSubstring("oh no")))
+			})
+		})
+	})
+
+	Describe("DeleteApp", func() {
+		var retErr error
+		JustBeforeEach(func() {
+			retErr = appRepo.DeleteApp(testCtx, authInfo, DeleteAppMessage{})
+		})
+
+		When("the client factory reports an error", func() {
+			BeforeEach(func() {
+				fakeFactory.BuildClientReturns(nil, errors.New("oh no"))
+			})
+
+			It("returns the error", func() {
+				Expect(retErr).To(MatchError(HavePrefix("failed to build user client")))
+				Expect(retErr).To(MatchError(ContainSubstring("oh no")))
+			})
+		})
+	})
+
+	Describe("GetAppEnv", func() {
+		var retErr error
+		JustBeforeEach(func() {
+			_, retErr = appRepo.GetAppEnv(testCtx, authInfo, "some-guid")
+		})
+
+		When("the client factory reports an error", func() {
+			BeforeEach(func() {
+				fakeUserClient.GetStub = func(ctx context.Context, name types.NamespacedName, obj client.Object) error {
+					cfApp := obj.(*workloadsv1alpha1.CFApp)
+					cfApp.Spec.EnvSecretName = "foo"
+					return nil
+				}
+				fakeFactory.BuildClientReturnsOnCall(1, nil, errors.New("oh no"))
+			})
+
+			It("returns the error", func() {
+				Expect(retErr).To(MatchError(HavePrefix("failed to build user client")))
+				Expect(retErr).To(MatchError(ContainSubstring("oh no")))
+			})
+		})
+	})
+})
 
 var _ = Describe("AppRepository", func() {
 	var (

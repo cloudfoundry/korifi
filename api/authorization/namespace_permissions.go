@@ -24,29 +24,29 @@ type IdentityProvider interface {
 	GetIdentity(context.Context, Info) (Identity, error)
 }
 
-type NamespacePermissions struct {
+type namespacePermissions struct {
 	privilegedClient client.Client
 	identityProvider IdentityProvider
 	rootNamespace    string
 }
 
-func NewNamespacePermissions(privilegedClient client.Client, identityProvider IdentityProvider, rootNamespace string) *NamespacePermissions {
-	return &NamespacePermissions{
+func NewNamespacePermissions(privilegedClient client.Client, identityProvider IdentityProvider, rootNamespace string) *namespacePermissions {
+	return &namespacePermissions{
 		privilegedClient: privilegedClient,
 		identityProvider: identityProvider,
 		rootNamespace:    rootNamespace,
 	}
 }
 
-func (o *NamespacePermissions) GetAuthorizedOrgNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
+func (o *namespacePermissions) GetAuthorizedOrgNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
 	return o.getAuthorizedNamespaces(ctx, info, orgLevel, "Org")
 }
 
-func (o *NamespacePermissions) GetAuthorizedSpaceNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
+func (o *namespacePermissions) GetAuthorizedSpaceNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
 	return o.getAuthorizedNamespaces(ctx, info, spaceLevel, "Space")
 }
 
-func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info Info, orgSpaceLevel, resourceType string) (map[string]bool, error) {
+func (o *namespacePermissions) getAuthorizedNamespaces(ctx context.Context, info Info, orgSpaceLevel, resourceType string) (map[string]bool, error) {
 	identity, err := o.identityProvider.GetIdentity(ctx, info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get identity: %w", err)
@@ -84,7 +84,7 @@ func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info
 	return authorizedNamespaces, nil
 }
 
-func (o *NamespacePermissions) AuthorizedIn(ctx context.Context, identity Identity, namespace string) (bool, error) {
+func (o *namespacePermissions) AuthorizedIn(ctx context.Context, identity Identity, namespace string) (bool, error) {
 	var rolebindings rbacv1.RoleBindingList
 	err := o.privilegedClient.List(ctx, &rolebindings, client.InNamespace(namespace))
 	if err != nil {

@@ -81,7 +81,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("could not create dynamic k8s client: %v", err))
 	}
-	namespaceRetriever := repositories.NewNamespaceRetriver(dynamicClient)
+	namespaceRetriever := repositories.NewNamespaceRetriever(dynamicClient)
 
 	mapper, err := apiutil.NewDynamicRESTMapper(k8sClientConfig)
 	if err != nil {

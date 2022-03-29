@@ -1,6 +1,7 @@
 package authorization_test
 
 import (
+	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 	"context"
 	"errors"
 	"fmt"
@@ -20,7 +21,7 @@ import (
 var _ = Describe("Namespace Permissions", func() {
 	var (
 		ctx              context.Context
-		nsPerms          *authorization.NamespacePermissions
+		nsPerms          repositories.NamespacePermissions
 		namespaces       map[string]bool
 		getErr           error
 		authInfo         authorization.Info

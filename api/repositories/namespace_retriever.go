@@ -79,17 +79,22 @@ var (
 	}
 )
 
-type NamespaceRetriever struct {
+//counterfeiter:generate -o fake -fake-name NamespaceRetriever . NamespaceRetriever
+type NamespaceRetriever interface {
+	NamespaceFor(ctx context.Context, resourceGUID, resourceType string) (string, error)
+}
+
+type namespaceRetriever struct {
 	client dynamic.Interface
 }
 
-func NewNamespaceRetriver(client dynamic.Interface) NamespaceRetriever {
-	return NamespaceRetriever{
+func NewNamespaceRetriever(client dynamic.Interface) NamespaceRetriever {
+	return &namespaceRetriever{
 		client: client,
 	}
 }
 
-func (nr NamespaceRetriever) NamespaceFor(ctx context.Context, resourceGUID, resourceType string) (string, error) {
+func (nr namespaceRetriever) NamespaceFor(ctx context.Context, resourceGUID, resourceType string) (string, error) {
 	gvr, ok := ResourceMap[resourceType]
 	if !ok {
 		return "", fmt.Errorf("resource type %q unknown", resourceType)

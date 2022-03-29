@@ -23,7 +23,7 @@ const (
 	processPrefix       = "cf-proc-"
 )
 
-func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, namespacePermissions *authorization.NamespacePermissions) *ProcessRepo {
+func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, namespacePermissions NamespacePermissions) *ProcessRepo {
 	return &ProcessRepo{
 		namespaceRetriever:   namespaceRetriever,
 		clientFactory:        userClientFactory,
@@ -34,7 +34,7 @@ func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory Use
 type ProcessRepo struct {
 	namespaceRetriever   NamespaceRetriever
 	clientFactory        UserK8sClientFactory
-	namespacePermissions *authorization.NamespacePermissions
+	namespacePermissions NamespacePermissions
 }
 
 type ProcessRecord struct {
