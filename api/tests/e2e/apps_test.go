@@ -62,7 +62,7 @@ var _ = Describe("Apps", func() {
 		It("returns apps only in authorized spaces", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
-			Expect(result.Resources).To(ConsistOf(
+			Expect(result.Resources).To(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app1GUID)}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app2GUID)}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app5GUID)}),
