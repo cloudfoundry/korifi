@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Domain", func() {
@@ -38,17 +37,6 @@ var _ = Describe("Domain", func() {
 		})
 
 		When("the user has acquired the cf_user role", func() {
-			var orgGUID string
-
-			BeforeEach(func() {
-				orgGUID = createOrg(generateGUID("org"))
-				createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-			})
-
-			AfterEach(func() {
-				deleteOrg(orgGUID)
-			})
-
 			It("returns a list of domains that includes the created domains", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.Resources).To(ContainElements(

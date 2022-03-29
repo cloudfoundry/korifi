@@ -229,8 +229,14 @@ var _ = Describe("Orgs", func() {
 		})
 
 		When("the org contains a space", func() {
+			var spaceGUID string
+
 			BeforeEach(func() {
-				createSpace(generateGUID("some-space"), orgGUID)
+				spaceGUID = createSpace(generateGUID("some-space"), orgGUID)
+			})
+
+			AfterEach(func() {
+				deleteSpace(spaceGUID)
 			})
 
 			It("can still delete the org", func() {

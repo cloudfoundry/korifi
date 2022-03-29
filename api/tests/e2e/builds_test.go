@@ -11,7 +11,6 @@ import (
 
 var _ = Describe("Builds", func() {
 	var (
-		orgGUID   string
 		spaceGUID string
 		appGUID   string
 		pkgGUID   string
@@ -20,16 +19,14 @@ var _ = Describe("Builds", func() {
 	)
 
 	BeforeEach(func() {
-		orgGUID = createOrg(generateGUID("org"))
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-		spaceGUID = createSpace(generateGUID("space1"), orgGUID)
+		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
 		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 		appGUID = createApp(spaceGUID, generateGUID("app"))
 		pkgGUID = createPackage(appGUID)
 	})
 
 	AfterEach(func() {
-		deleteOrg(orgGUID)
+		deleteSpace(spaceGUID)
 	})
 
 	Describe("get", func() {
