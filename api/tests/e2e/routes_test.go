@@ -29,8 +29,8 @@ var _ = Describe("Routes", func() {
 
 		spaceGUID = createSpace(generateGUID("space"), orgGUID)
 
-		domainName = generateGUID("domain.name")
-		domainGUID = createDomain(domainName)
+		domainName = mustHaveEnv("APP_FQDN")
+		domainGUID = mustHaveEnv("APP_DOMAIN_GUID")
 
 		host = generateGUID("myapp")
 		path = generateGUID("/some-path")
@@ -40,7 +40,6 @@ var _ = Describe("Routes", func() {
 
 	AfterEach(func() {
 		deleteOrg(orgGUID)
-		deleteDomain(domainGUID)
 	})
 
 	Describe("fetch", func() {
@@ -255,16 +254,15 @@ var _ = Describe("Routes", func() {
 				})
 			})
 
-			When("the FQDN on the route is invalid", func() {
+			When("the host on the route is invalid", func() {
 				BeforeEach(func() {
-					domainName = generateGUID("inv@lid.dom@in.n@me")
-					domainGUID = createDomain(domainName)
+					host = "inv@lid"
 				})
 
 				It("fails with a invalid route error", func() {
 					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 					Expect(createErr.Errors).To(ConsistOf(cfErr{
-						Detail: "Invalid Route, FQDN does not comply with RFC 1035 standards",
+						Detail: "Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag",
 						Title:  "CF-UnprocessableEntity",
 						Code:   10008,
 					}))

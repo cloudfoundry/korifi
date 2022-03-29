@@ -22,20 +22,11 @@ var _ = Describe("Domain", func() {
 			result responseResourceList
 			resp   *resty.Response
 
-			domain1GUID string
-			domain2GUID string
+			domainGUID string
 		)
 
 		BeforeEach(func() {
-			domain1Name := generateGUID("domain-1-name")
-			domain1GUID = createDomain(domain1Name)
-			domain2Name := generateGUID("domain-2-name")
-			domain2GUID = createDomain(domain2Name)
-		})
-
-		AfterEach(func() {
-			deleteDomain(domain1GUID)
-			deleteDomain(domain2GUID)
+			domainGUID = mustHaveEnv("APP_DOMAIN_GUID")
 		})
 
 		JustBeforeEach(func() {
@@ -61,8 +52,7 @@ var _ = Describe("Domain", func() {
 			It("returns a list of domains that includes the created domains", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.Resources).To(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(domain1GUID)}),
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(domain2GUID)}),
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID)}),
 				))
 			})
 		})

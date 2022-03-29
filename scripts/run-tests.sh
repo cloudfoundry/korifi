@@ -38,6 +38,10 @@ if ! egrep -q e2e <(echo "$@"); then
 else
   export ROOT_NAMESPACE=cf
 
+  if [[ -z "${APP_FQDN}" ]]; then
+    export APP_FQDN=vcap.me
+  fi
+
   export KUBECONFIG="${HOME}/.kube/e2e.yml"
   if [ -z "${SKIP_DEPLOY}" ]; then
     "${SCRIPT_DIR}/deploy-on-kind.sh" -l e2e
@@ -47,8 +51,10 @@ else
     export API_SERVER_ROOT=https://localhost
   fi
 
-  if [[ -z "${APP_FQDN}" ]]; then
-    export APP_FQDN=vcap.me
+  if [[ -z "${APP_DOMAIN_GUID}" ]]; then
+    sed 's/vcap\.me/'$APP_FQDN'/' $SCRIPT_DIR/../controllers/config/samples/cfdomain.yaml | kubectl apply -f-
+    APP_DOMAIN_GUID="$(awk '/name:/ { print $2 }' $SCRIPT_DIR/../controllers/config/samples/cfdomain.yaml | head -n1)"
+    export APP_DOMAIN_GUID
   fi
 
   if [[ -n "$GINKGO_NODES" ]]; then
