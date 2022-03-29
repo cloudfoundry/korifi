@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
@@ -26,7 +25,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
@@ -192,22 +190,7 @@ func TestE2E(t *testing.T) {
 	RunSpecs(t, "E2E Suite")
 }
 
-var _ = SynchronizedBeforeSuite(func() []byte {
-	Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-
-	config, err := controllerruntime.GetConfig()
-	Expect(err).NotTo(HaveOccurred())
-
-	k8sClient, err = client.NewWithWatch(config, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-
-	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
-	appFQDN = mustHaveEnv("APP_FQDN")
-
-	appDomainGUID = createDomain(appFQDN)
-
-	return []byte(appDomainGUID)
-}, func(appDomainGUIDBytes []byte) {
+var _ = BeforeSuite(func() {
 	SetDefaultEventuallyTimeout(240 * time.Second)
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
 
@@ -241,7 +224,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	certPEM = mustHaveEnvIdx("E2E_USER_PEMS", GinkgoParallelProcess())
 	certAuthHeader = "ClientCert " + certPEM
 
-	appDomainGUID = string(appDomainGUIDBytes)
+	appDomainGUID = mustHaveEnv("APP_DOMAIN_GUID")
 })
 
 var _ = BeforeEach(func() {
@@ -249,11 +232,6 @@ var _ = BeforeEach(func() {
 	adminClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert()).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	certClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(certPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	tokenClient = resty.New().SetBaseURL(apiServerRoot).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-})
-
-var _ = SynchronizedAfterSuite(func() {
-}, func() {
-	deleteDomain(appDomainGUID)
 })
 
 func mustHaveEnv(key string) string {
@@ -593,32 +571,6 @@ func pushTestApp(spaceGUID string) string {
 	startApp(appGUID)
 
 	return appGUID
-}
-
-func createDomain(name string) string {
-	domain := networkingv1alpha1.CFDomain{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      uuid.NewString(),
-			Namespace: rootNamespace,
-		},
-		Spec: networkingv1alpha1.CFDomainSpec{
-			Name: name,
-		},
-	}
-	err := k8sClient.Create(context.Background(), &domain)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-
-	return domain.Name
-}
-
-func deleteDomain(guid string) {
-	if guid == "" {
-		return
-	}
-
-	ExpectWithOffset(1, k8sClient.Delete(context.Background(), &networkingv1alpha1.CFDomain{
-		ObjectMeta: metav1.ObjectMeta{Namespace: rootNamespace, Name: guid},
-	})).To(Succeed())
 }
 
 func createRoute(host, path string, spaceGUID, domainGUID string) string {

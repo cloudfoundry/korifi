@@ -244,7 +244,6 @@ var _ = Describe("Orgs", func() {
 
 	Describe("list domains", func() {
 		var (
-			domainGUID string
 			domainName string
 			orgGUID    string
 			resultList responseResourceList
@@ -254,13 +253,11 @@ var _ = Describe("Orgs", func() {
 		BeforeEach(func() {
 			orgGUID = createOrg(generateGUID("org"))
 			createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-			domainName = generateGUID("domain-name")
-			domainGUID = createDomain(domainName)
+			domainName = mustHaveEnv("APP_FQDN")
 		})
 
 		AfterEach(func() {
 			deleteOrg(orgGUID)
-			deleteDomain(domainGUID)
 		})
 
 		JustBeforeEach(func() {
