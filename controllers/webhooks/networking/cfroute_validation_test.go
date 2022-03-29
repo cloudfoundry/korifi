@@ -377,7 +377,11 @@ var _ = Describe("CF Route Validation", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.RouteFQDNInvalidError.Marshal()))
+				err := webhooks.ValidationError{
+					Code:    webhooks.RouteFQDNInvalidError,
+					Message: "Route FQDN does not comply with RFC 1035 standards",
+				}
+				Expect(string(response.Result.Reason)).To(Equal(err.Marshal()))
 			})
 		})
 
@@ -657,7 +661,11 @@ var _ = Describe("CF Route Validation", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.RouteFQDNInvalidError.Marshal()))
+				err := webhooks.ValidationError{
+					Code:    webhooks.RouteFQDNInvalidError,
+					Message: "Route FQDN does not comply with RFC 1035 standards",
+				}
+				Expect(string(response.Result.Reason)).To(Equal(err.Marshal()))
 			})
 		})
 

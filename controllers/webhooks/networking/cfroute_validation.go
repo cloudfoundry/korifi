@@ -102,13 +102,13 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 		if err != nil {
 			return admission.Denied(err.Error())
 		}
-		_, err = IsFQDN(route.Spec.Host, domain.Spec.Name)
+		err = validatePath(route)
 		if err != nil {
 			return admission.Denied(err.Error())
 		}
-		err = validatePath(route)
+		_, err = IsFQDN(route.Spec.Host, domain.Spec.Name)
 		if err != nil {
-			return admission.Denied(webhooks.RouteFQDNInvalidError.Marshal())
+			return admission.Denied(err.Error())
 		}
 
 		if err := v.checkDestinationsExistInNamespace(ctx, route); err != nil {
@@ -125,13 +125,13 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 		if err != nil {
 			return admission.Denied(err.Error())
 		}
-		_, err = IsFQDN(route.Spec.Host, domain.Spec.Name)
+		err = validatePath(route)
 		if err != nil {
 			return admission.Denied(err.Error())
 		}
-		err = validatePath(route)
+		_, err = IsFQDN(route.Spec.Host, domain.Spec.Name)
 		if err != nil {
-			return admission.Denied(webhooks.RouteFQDNInvalidError.Marshal())
+			return admission.Denied(err.Error())
 		}
 
 		if err := v.checkDestinationsExistInNamespace(ctx, route); err != nil {
@@ -264,7 +264,13 @@ func IsFQDN(host, domain string) (bool, error) {
 	fqdnLength := len(fqdn)
 
 	if fqdnLength < MINIMUM_FQDN_DOMAIN_LENGTH || fqdnLength > MAXIMUM_FQDN_DOMAIN_LENGTH || !rxDomain.MatchString(fqdn) {
-		return false, errors.New("Route FQDN does not comply with RFC 1035 standards")
+
+		code := webhooks.RouteFQDNInvalidError
+		ve := webhooks.ValidationError{
+			Code:    code,
+			Message: code.GetMessage(),
+		}
+		return false, errors.New(ve.Marshal())
 	}
 
 	return true, nil
