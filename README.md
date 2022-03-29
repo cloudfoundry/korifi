@@ -35,11 +35,11 @@ kubectl apply -f dependencies/cert-manager.yaml
 ## Install Kpack
 To deploy cf-k8s-controller and run it in a cluster, you must first [install kpack](https://github.com/pivotal/kpack/blob/main/docs/install.md).
 ```sh
-kubectl apply -f https://github.com/pivotal/kpack/releases/download/v0.5.0/release-0.5.0.yaml
+kubectl apply -f https://github.com/pivotal/kpack/releases/download/v0.5.2/release-0.5.2.yaml
 ```
 Or
 ```sh
-kubectl apply -f dependencies/kpack-release-0.5.0.yaml
+kubectl apply -f dependencies/kpack-release-0.5.2.yaml
 ```
 
 ### Configure an Image Registry Credentials Secret
