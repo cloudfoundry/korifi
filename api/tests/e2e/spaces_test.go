@@ -298,6 +298,7 @@ var _ = Describe("Spaces", func() {
 			spaceGUID     string
 			resultErr     cfErrs
 			manifestBytes []byte
+			manifest      manifestResource
 		)
 
 		BeforeEach(func() {
@@ -308,8 +309,7 @@ var _ = Describe("Spaces", func() {
 
 			route := "manifested-app.vcap.me"
 			command := "whatever"
-			var err error
-			manifestBytes, err = yaml.Marshal(manifestResource{
+			manifest = manifestResource{
 				Version: 1,
 				Applications: []applicationResource{{
 					Name: "manifested-app",
@@ -321,8 +321,7 @@ var _ = Describe("Spaces", func() {
 						Route: &route,
 					}},
 				}},
-			})
-			Expect(err).NotTo(HaveOccurred())
+			}
 		})
 
 		AfterEach(func() {
@@ -332,6 +331,8 @@ var _ = Describe("Spaces", func() {
 		Describe("apply manifest", func() {
 			JustBeforeEach(func() {
 				var err error
+				manifestBytes, err = yaml.Marshal(manifest)
+				Expect(err).NotTo(HaveOccurred())
 				resp, err = restyClient.R().
 					SetHeader("Content-type", "application/x-yaml").
 					SetBody(manifestBytes).
@@ -357,6 +358,27 @@ var _ = Describe("Spaces", func() {
 						g.Expect(err).NotTo(HaveOccurred())
 						g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 					}).Should(Succeed())
+				})
+
+				When("the defaultRoute is set to true in the manifest", func() {
+					BeforeEach(func() {
+						manifest.Applications[0].DefaultRoute = true
+						manifest.Applications[0].Routes = []manifestRouteResource{}
+					})
+
+					It("succeeds with a job redirect", func() {
+						Expect(resp).To(SatisfyAll(
+							HaveRestyStatusCode(http.StatusAccepted),
+							HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest-"+spaceGUID)),
+						))
+
+						jobURL := resp.Header().Get("Location")
+						Eventually(func(g Gomega) {
+							jobResp, err := restyClient.R().Get(jobURL)
+							g.Expect(err).NotTo(HaveOccurred())
+							g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+						}).Should(Succeed())
+					})
 				})
 			})
 

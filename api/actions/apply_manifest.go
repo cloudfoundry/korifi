@@ -64,7 +64,7 @@ func (a *ApplyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo
 		return nil
 	}
 
-	existingRoutes, err := a.routeRepo.ListRoutesForApp(ctx, authInfo, appRecord.SpaceGUID, appRecord.GUID)
+	existingRoutes, err := a.routeRepo.ListRoutesForApp(ctx, authInfo, appRecord.GUID, appRecord.SpaceGUID)
 	if err != nil {
 		return err
 	}
