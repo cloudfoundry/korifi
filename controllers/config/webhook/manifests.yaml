@@ -119,6 +119,50 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-workloads-cloudfoundry-org-v1alpha1-cfapp
+  failurePolicy: Fail
+  name: vcfapp.workloads.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - workloads.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cfapps
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-hnc-x-k8s-io-v1alpha2-subnamespaceanchor
+  failurePolicy: Fail
+  name: vsubns.workloads.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - hnc.x-k8s.io
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - subnamespaceanchors
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
   clientConfig:
     service:
       name: webhook-service
@@ -180,48 +224,4 @@ webhooks:
     - DELETE
     resources:
     - cfserviceinstances
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-workloads-cloudfoundry-org-v1alpha1-cfapp
-  failurePolicy: Fail
-  name: vcfapp.workloads.cloudfoundry.org
-  rules:
-  - apiGroups:
-    - workloads.cloudfoundry.org
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    resources:
-    - cfapps
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-hnc-x-k8s-io-v1alpha2-subnamespaceanchor
-  failurePolicy: Fail
-  name: vsubns.workloads.cloudfoundry.org
-  rules:
-  - apiGroups:
-    - hnc.x-k8s.io
-    apiVersions:
-    - v1alpha2
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    resources:
-    - subnamespaceanchors
   sideEffects: None

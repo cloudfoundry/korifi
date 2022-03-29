@@ -815,7 +815,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError("Invalid Route, FQDN does not comply with RFC 1035 standards")
+				expectUnprocessableEntityError("Invalid Route, {\"validationErrorType\":\"RouteFQDNValidationError\",\"message\":\"FQDN does not comply with RFC 1035 standards\"}")
 			})
 		})
 

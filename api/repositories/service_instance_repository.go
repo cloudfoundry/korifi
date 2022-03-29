@@ -91,9 +91,8 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 	cfServiceInstance := message.toCFServiceInstance()
 	err = userClient.Create(ctx, &cfServiceInstance)
 	if err != nil {
-		if webhooks.HasErrorCode(err, webhooks.DuplicateServiceInstanceNameError) {
-			errorDetail := fmt.Sprintf("The service instance name is taken: %s.", message.Name)
-			return ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(err, errorDetail)
+		if webhookError, ok := webhooks.WebhookErrorToValidationError(err); ok {
+			return ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(err, webhookError.Error())
 		}
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}

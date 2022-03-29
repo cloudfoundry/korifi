@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
@@ -25,6 +26,11 @@ type NameValidator interface {
 
 const (
 	ServiceInstanceEntityType = "serviceinstance"
+
+	ServiceInstanceDecodingError      = "ServiceInstanceDecodingError"
+	DuplicateServiceInstanceNameError = "DuplicateServiceInstanceNameError"
+	// Note: the cf cli expects the specific text 'The service instance name is taken'
+	duplicateServiceInstanceNameErrorMessage = "The service instance name is taken: %s"
 )
 
 var cfserviceinstancelog = logf.Log.WithName("cfserviceinstance-validate")
@@ -54,20 +60,18 @@ func (v *CFServiceInstanceValidation) Handle(ctx context.Context, req admission.
 	var cfServiceInstance, oldCFServiceInstance v1alpha1.CFServiceInstance
 	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
 		err := v.decoder.Decode(req, &cfServiceInstance)
-		if err != nil {
+		if err != nil { // untested
 			errMessage := "Error while decoding CFServiceInstance object"
 			cfserviceinstancelog.Error(err, errMessage)
-
-			return admission.Denied(errMessage)
+			return admission.Denied(webhooks.ValidationError{Type: ServiceInstanceDecodingError, Message: errMessage}.Marshal())
 		}
 	}
 	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
 		err := v.decoder.DecodeRaw(req.OldObject, &oldCFServiceInstance)
-		if err != nil {
+		if err != nil { // untested
 			errMessage := "Error while decoding old CFServiceInstance object"
 			cfserviceinstancelog.Error(err, errMessage)
-
-			return admission.Denied(errMessage)
+			return admission.Denied(webhooks.ValidationError{Type: ServiceInstanceDecodingError, Message: errMessage}.Marshal())
 		}
 	}
 
@@ -85,10 +89,11 @@ func (v *CFServiceInstanceValidation) Handle(ctx context.Context, req admission.
 
 	if validatorErr != nil {
 		if errors.Is(validatorErr, webhooks.ErrorDuplicateName) {
-			return admission.Denied(webhooks.DuplicateServiceInstanceNameError.Marshal())
+			errorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, cfServiceInstance.Spec.Name)
+			return admission.Denied(webhooks.ValidationError{Type: DuplicateServiceInstanceNameError, Message: errorMessage}.Marshal())
 		}
 
-		return admission.Denied(webhooks.UnknownError.Marshal())
+		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
 	}
 
 	return admission.Allowed("")

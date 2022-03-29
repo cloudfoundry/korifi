@@ -3,10 +3,12 @@ package workloads
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -25,7 +27,9 @@ type NameValidator interface {
 }
 
 const (
-	AppEntityType = "app"
+	AppEntityType     = "app"
+	AppDecodingError  = "AppDecodingError"
+	DuplicateAppError = "DuplicateAppError"
 )
 
 var cfapplog = logf.Log.WithName("cfapp-validate")
@@ -55,20 +59,20 @@ func (v *CFAppValidation) Handle(ctx context.Context, req admission.Request) adm
 	var cfApp, oldCFApp v1alpha1.CFApp
 	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
 		err := v.decoder.Decode(req, &cfApp)
-		if err != nil {
+		if err != nil { // untested
 			errMessage := "Error while decoding CFApp object"
 			cfapplog.Error(err, errMessage)
 
-			return admission.Denied(errMessage)
+			return admission.Denied(webhooks.ValidationError{Type: AppDecodingError, Message: errMessage}.Marshal())
 		}
 	}
 	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
 		err := v.decoder.DecodeRaw(req.OldObject, &oldCFApp)
-		if err != nil {
+		if err != nil { // untested
 			errMessage := "Error while decoding old CFApp object"
 			cfapplog.Error(err, errMessage)
 
-			return admission.Denied(errMessage)
+			return admission.Denied(webhooks.ValidationError{Type: AppDecodingError, Message: errMessage}.Marshal())
 		}
 	}
 
@@ -90,10 +94,11 @@ func (v *CFAppValidation) Handle(ctx context.Context, req admission.Request) adm
 
 	if validatorErr != nil {
 		if errors.Is(validatorErr, webhooks.ErrorDuplicateName) {
-			return admission.Denied(webhooks.DuplicateAppError.Marshal())
+			errorMessage := fmt.Sprintf("App with the name '%s' already exists.", cfApp.Spec.Name)
+			return admission.Denied(webhooks.ValidationError{Type: DuplicateAppError, Message: errorMessage}.Marshal())
 		}
 
-		return admission.Denied(webhooks.UnknownError.Marshal())
+		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
 	}
 
 	return admission.Allowed("")

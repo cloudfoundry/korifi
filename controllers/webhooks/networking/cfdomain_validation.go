@@ -33,6 +33,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
+const (
+	DomainDecodingError  = "DomainDecodingError"
+	DuplicateDomainError = "DuplicateDomainError"
+)
+
 // log is for logging in this package.
 var log = logf.Log.WithName("domain-validation")
 
@@ -63,19 +68,23 @@ func (v *CFDomainValidation) Handle(ctx context.Context, req admission.Request) 
 	}
 
 	err := v.decoder.Decode(req, &domain)
-	if err != nil {
+	if err != nil { // untested
 		errMessage := "Error while decoding CFDomain object"
 		log.Error(err, errMessage)
-		return admission.Denied(errMessage)
+		return admission.Denied(webhooks.ValidationError{Type: DomainDecodingError, Message: errMessage}.Marshal())
 	}
 
 	isOverlapping, err := v.domainIsOverlapping(ctx, domain.Spec.Name)
 	if err != nil {
-		return admission.Denied(err.Error())
+		validationError := webhooks.ValidationError{
+			Type:    webhooks.UnknownError,
+			Message: err.Error(),
+		}
+		return admission.Denied(validationError.Marshal())
 	}
 
 	if isOverlapping {
-		return admission.Denied(webhooks.DuplicateDomainError.Marshal())
+		return admission.Denied(webhooks.ValidationError{Type: DuplicateDomainError, Message: "Overlapping domain exists"}.Marshal())
 	}
 
 	return admission.Allowed("")
