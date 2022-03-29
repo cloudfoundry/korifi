@@ -121,9 +121,10 @@ type manifestResource struct {
 }
 
 type applicationResource struct {
-	Name      string                               `yaml:"name"`
-	Processes []manifestApplicationProcessResource `yaml:"processes"`
-	Routes    []manifestRouteResource              `yaml:"routes"`
+	Name         string                               `yaml:"name"`
+	DefaultRoute bool                                 `yaml:"default-route"`
+	Processes    []manifestApplicationProcessResource `yaml:"processes"`
+	Routes       []manifestRouteResource              `yaml:"routes"`
 }
 
 type manifestApplicationProcessResource struct {
