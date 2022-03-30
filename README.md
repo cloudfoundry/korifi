@@ -85,7 +85,7 @@ To be able to create workload routes via the CF API in the absence of the domain
 ### Configuring Default Domain
 
 At the time of installation, platform operators can configure a default domain so that app developers can push an application without specifying domain information. 
-Operator can do so by setting the `defaultDomainName` at `api/config/base/apiconfig/cf_k8s_api_config.yaml`. The value should match `spec.name` on the `CFDomian` resource.
+Operator can do so by setting the `defaultDomainName` at `api/config/base/apiconfig/cf_k8s_api_config.yaml`. The value should match `spec.name` on the `CFDomain` resource.
 
 Note: Platform operators are responsible for creating the required `CFDomain` resource. See `controllers/config/samples/cfdomain.yaml` for an example.
 
