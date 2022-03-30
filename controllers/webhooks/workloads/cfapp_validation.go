@@ -27,9 +27,9 @@ type NameValidator interface {
 }
 
 const (
-	AppEntityType     = "app"
-	AppDecodingError  = "AppDecodingError"
-	DuplicateAppError = "DuplicateAppError"
+	AppEntityType         = "app"
+	AppDecodingErrorType  = "AppDecodingError"
+	DuplicateAppErrorType = "DuplicateAppError"
 )
 
 var cfapplog = logf.Log.WithName("cfapp-validate")
@@ -63,7 +63,7 @@ func (v *CFAppValidation) Handle(ctx context.Context, req admission.Request) adm
 			errMessage := "Error while decoding CFApp object"
 			cfapplog.Error(err, errMessage)
 
-			return admission.Denied(webhooks.ValidationError{Type: AppDecodingError, Message: errMessage}.Marshal())
+			return admission.Denied(webhooks.ValidationError{Type: AppDecodingErrorType, Message: errMessage}.Marshal())
 		}
 	}
 	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
@@ -72,7 +72,7 @@ func (v *CFAppValidation) Handle(ctx context.Context, req admission.Request) adm
 			errMessage := "Error while decoding old CFApp object"
 			cfapplog.Error(err, errMessage)
 
-			return admission.Denied(webhooks.ValidationError{Type: AppDecodingError, Message: errMessage}.Marshal())
+			return admission.Denied(webhooks.ValidationError{Type: AppDecodingErrorType, Message: errMessage}.Marshal())
 		}
 	}
 
@@ -95,7 +95,7 @@ func (v *CFAppValidation) Handle(ctx context.Context, req admission.Request) adm
 	if validatorErr != nil {
 		if errors.Is(validatorErr, webhooks.ErrorDuplicateName) {
 			errorMessage := fmt.Sprintf("App with the name '%s' already exists.", cfApp.Spec.Name)
-			return admission.Denied(webhooks.ValidationError{Type: DuplicateAppError, Message: errorMessage}.Marshal())
+			return admission.Denied(webhooks.ValidationError{Type: DuplicateAppErrorType, Message: errorMessage}.Marshal())
 		}
 
 		return admission.Denied(webhooks.AdmissionUnknownErrorReason())

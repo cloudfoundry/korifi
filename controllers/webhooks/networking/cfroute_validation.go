@@ -26,13 +26,13 @@ import (
 const (
 	RouteEntityType = "route"
 
-	RouteDecodingError                     = "RouteDecodingError"
-	DuplicateRouteError                    = "DuplicateRouteError"
-	RouteDestinationNotInSpaceError        = "RouteDestinationNotInSpaceError"
+	RouteDecodingErrorType                 = "RouteDecodingError"
+	DuplicateRouteErrorType                = "DuplicateRouteError"
+	RouteDestinationNotInSpaceErrorType    = "RouteDestinationNotInSpaceError"
 	RouteDestinationNotInSpaceErrorMessage = "Route destination app not found in space"
-	RouteHostNameValidationError           = "RouteHostNameValidationError"
-	RoutePathValidationError               = "RoutePathValidationError"
-	RouteFQDNValidationError               = "RouteFQDNValidationError"
+	RouteHostNameValidationErrorType       = "RouteHostNameValidationError"
+	RoutePathValidationErrorType           = "RoutePathValidationError"
+	RouteFQDNValidationErrorType           = "RouteFQDNValidationError"
 	RouteFQDNValidationErrorMessage        = "FQDN does not comply with RFC 1035 standards"
 
 	HostEmptyError  = "host cannot be empty"
@@ -87,7 +87,7 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 		if err != nil { // untested
 			errMessage := "Error while decoding CFRoute object"
 			logger.Error(err, errMessage)
-			return admission.Denied(webhooks.ValidationError{Type: RouteDecodingError, Message: errMessage}.Marshal())
+			return admission.Denied(webhooks.ValidationError{Type: RouteDecodingErrorType, Message: errMessage}.Marshal())
 		}
 
 		err = v.Client.Get(ctx, types.NamespacedName{Name: route.Spec.DomainRef.Name, Namespace: route.Spec.DomainRef.Namespace}, &domain)
@@ -95,7 +95,7 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 			errMessage := "Error while retrieving CFDomain object"
 			logger.Error(err, errMessage)
 			validationError := webhooks.ValidationError{
-				Type:    webhooks.UnknownError,
+				Type:    webhooks.UnknownErrorType,
 				Message: errMessage,
 			}
 			return admission.Denied(validationError.Marshal())
@@ -106,7 +106,7 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 		if err != nil { // untested
 			errMessage := "Error while decoding old CFRoute object"
 			logger.Error(err, errMessage)
-			return admission.Denied(webhooks.ValidationError{Type: RouteDecodingError, Message: errMessage}.Marshal())
+			return admission.Denied(webhooks.ValidationError{Type: RouteDecodingErrorType, Message: errMessage}.Marshal())
 		}
 	}
 
@@ -125,12 +125,12 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 
 		if err := v.checkDestinationsExistInNamespace(ctx, route); err != nil {
 			if k8serrors.IsNotFound(err) {
-				return admission.Denied(webhooks.ValidationError{Type: RouteDestinationNotInSpaceError, Message: RouteDestinationNotInSpaceErrorMessage}.Marshal())
+				return admission.Denied(webhooks.ValidationError{Type: RouteDestinationNotInSpaceErrorType, Message: RouteDestinationNotInSpaceErrorMessage}.Marshal())
 			}
 			errMessage := "Error while checking Route Destinations in Namespace"
 			logger.Error(err, errMessage)
 			validationError := webhooks.ValidationError{
-				Type:    webhooks.UnknownError,
+				Type:    webhooks.UnknownErrorType,
 				Message: errMessage,
 			}
 			return admission.Denied(validationError.Marshal())
@@ -151,12 +151,12 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 
 		if err := v.checkDestinationsExistInNamespace(ctx, route); err != nil {
 			if k8serrors.IsNotFound(err) {
-				return admission.Denied(webhooks.ValidationError{Type: RouteDestinationNotInSpaceError, Message: RouteDestinationNotInSpaceErrorMessage}.Marshal())
+				return admission.Denied(webhooks.ValidationError{Type: RouteDestinationNotInSpaceErrorType, Message: RouteDestinationNotInSpaceErrorMessage}.Marshal())
 			}
 			errMessage := "Error while checking Route Destinations in Namespace"
 			logger.Error(err, errMessage)
 			validationError := webhooks.ValidationError{
-				Type:    webhooks.UnknownError,
+				Type:    webhooks.UnknownErrorType,
 				Message: errMessage,
 			}
 			return admission.Denied(validationError.Marshal())
@@ -180,7 +180,7 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 				route.Spec.Host, pathDetails, domain.Spec.Name)
 
 			ve := webhooks.ValidationError{
-				Type:    DuplicateRouteError,
+				Type:    DuplicateRouteErrorType,
 				Message: errorDetail,
 			}
 			return admission.Denied(ve.Marshal())
@@ -189,7 +189,7 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 		errMessage := "Unknown error while checking Route Name Duplicate"
 		logger.Error(validatorErr, errMessage)
 		validationError := webhooks.ValidationError{
-			Type:    webhooks.UnknownError,
+			Type:    webhooks.UnknownErrorType,
 			Message: errMessage,
 		}
 		return admission.Denied(validationError.Marshal())
@@ -228,7 +228,7 @@ func validatePath(route networkingv1alpha1.CFRoute) error {
 
 	if len(errStrings) > 0 {
 		ve := webhooks.ValidationError{
-			Type:    RoutePathValidationError,
+			Type:    RoutePathValidationErrorType,
 			Message: strings.Join(errStrings, ", "),
 		}
 		return errors.New(ve.Marshal())
@@ -267,7 +267,7 @@ func isHost(hostname string) error {
 
 	if len(errStrings) > 0 {
 		ve := webhooks.ValidationError{
-			Type:    RouteHostNameValidationError,
+			Type:    RouteHostNameValidationErrorType,
 			Message: strings.Join(errStrings, ", "),
 		}
 		return errors.New(ve.Marshal())
@@ -301,7 +301,7 @@ func IsFQDN(host, domain string) (bool, error) {
 	fqdnLength := len(fqdn)
 
 	if fqdnLength < MINIMUM_FQDN_DOMAIN_LENGTH || fqdnLength > MAXIMUM_FQDN_DOMAIN_LENGTH || !rxDomain.MatchString(fqdn) {
-		return false, errors.New(webhooks.ValidationError{Type: RouteFQDNValidationError, Message: RouteFQDNValidationErrorMessage}.Marshal())
+		return false, errors.New(webhooks.ValidationError{Type: RouteFQDNValidationErrorType, Message: RouteFQDNValidationErrorMessage}.Marshal())
 	}
 
 	return true, nil

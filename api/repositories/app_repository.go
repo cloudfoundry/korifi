@@ -213,7 +213,7 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 	err = userClient.Create(ctx, &cfApp)
 	if err != nil {
 		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
-			if validationError.Type == workloads.DuplicateAppError {
+			if validationError.Type == workloads.DuplicateAppErrorType {
 				return AppRecord{}, apierrors.NewUniquenessError(err, validationError.Error())
 			}
 			return AppRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())

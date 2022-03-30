@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	UnknownError        = "UnknownError"
+	UnknownErrorType    = "UnknownError"
 	UnknownErrorMessage = "An unknown error has occurred"
 )
 
@@ -43,5 +43,5 @@ func WebhookErrorToValidationError(err error) (ValidationError, bool) {
 }
 
 func AdmissionUnknownErrorReason() string {
-	return ValidationError{Type: UnknownError, Message: UnknownErrorMessage}.Marshal()
+	return ValidationError{Type: UnknownErrorType, Message: UnknownErrorMessage}.Marshal()
 }

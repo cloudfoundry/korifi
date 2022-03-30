@@ -34,8 +34,8 @@ import (
 )
 
 const (
-	DomainDecodingError  = "DomainDecodingError"
-	DuplicateDomainError = "DuplicateDomainError"
+	DomainDecodingErrorType  = "DomainDecodingError"
+	DuplicateDomainErrorType = "DuplicateDomainError"
 )
 
 // log is for logging in this package.
@@ -71,20 +71,20 @@ func (v *CFDomainValidation) Handle(ctx context.Context, req admission.Request) 
 	if err != nil { // untested
 		errMessage := "Error while decoding CFDomain object"
 		log.Error(err, errMessage)
-		return admission.Denied(webhooks.ValidationError{Type: DomainDecodingError, Message: errMessage}.Marshal())
+		return admission.Denied(webhooks.ValidationError{Type: DomainDecodingErrorType, Message: errMessage}.Marshal())
 	}
 
 	isOverlapping, err := v.domainIsOverlapping(ctx, domain.Spec.Name)
 	if err != nil {
 		validationError := webhooks.ValidationError{
-			Type:    webhooks.UnknownError,
+			Type:    webhooks.UnknownErrorType,
 			Message: err.Error(),
 		}
 		return admission.Denied(validationError.Marshal())
 	}
 
 	if isOverlapping {
-		return admission.Denied(webhooks.ValidationError{Type: DuplicateDomainError, Message: "Overlapping domain exists"}.Marshal())
+		return admission.Denied(webhooks.ValidationError{Type: DuplicateDomainErrorType, Message: "Overlapping domain exists"}.Marshal())
 	}
 
 	return admission.Allowed("")

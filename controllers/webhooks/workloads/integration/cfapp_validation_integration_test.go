@@ -94,7 +94,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("should fail", func() {
-				Expect(createErr).To(MatchError(ContainSubstring(fmt.Sprintf("App with the name '%s' already exists.", app1Name))))
+				Expect(createErr).To(MatchError(ContainSubstring("App with the name '%s' already exists.", app1Name)))
 			})
 		})
 

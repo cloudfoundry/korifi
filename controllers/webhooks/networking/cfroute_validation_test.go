@@ -140,7 +140,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
 					err := webhooks.ValidationError{
-						Type:    networking.RoutePathValidationError,
+						Type:    networking.RoutePathValidationErrorType,
 						Message: networking.InvalidURIError,
 					}
 					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
@@ -154,7 +154,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
 					err := webhooks.ValidationError{
-						Type:    networking.RoutePathValidationError,
+						Type:    networking.RoutePathValidationErrorType,
 						Message: networking.PathIsSlashError,
 					}
 					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
@@ -168,7 +168,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
 					err := webhooks.ValidationError{
-						Type:    networking.RoutePathValidationError,
+						Type:    networking.RoutePathValidationErrorType,
 						Message: networking.InvalidURIError,
 					}
 					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
@@ -182,7 +182,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
 					err := webhooks.ValidationError{
-						Type:    networking.RoutePathValidationError,
+						Type:    networking.RoutePathValidationErrorType,
 						Message: networking.PathHasQuestionMarkError,
 					}
 					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
@@ -196,7 +196,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
 					err := webhooks.ValidationError{
-						Type:    networking.RoutePathValidationError,
+						Type:    networking.RoutePathValidationErrorType,
 						Message: networking.PathLengthExceededError,
 					}
 					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
@@ -210,7 +210,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
 					err := webhooks.ValidationError{
-						Type:    networking.RoutePathValidationError,
+						Type:    networking.RoutePathValidationErrorType,
 						Message: networking.InvalidURIError + ", " + networking.PathHasQuestionMarkError,
 					}
 					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
@@ -231,7 +231,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
 					err := webhooks.ValidationError{
-						Type:    networking.RoutePathValidationError,
+						Type:    networking.RoutePathValidationErrorType,
 						Message: networking.InvalidURIError,
 					}
 					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
@@ -245,7 +245,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
 					err := webhooks.ValidationError{
-						Type:    networking.RoutePathValidationError,
+						Type:    networking.RoutePathValidationErrorType,
 						Message: networking.PathIsSlashError,
 					}
 					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
@@ -259,7 +259,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
 					err := webhooks.ValidationError{
-						Type:    networking.RoutePathValidationError,
+						Type:    networking.RoutePathValidationErrorType,
 						Message: networking.InvalidURIError,
 					}
 					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
@@ -273,7 +273,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
 					err := webhooks.ValidationError{
-						Type:    networking.RoutePathValidationError,
+						Type:    networking.RoutePathValidationErrorType,
 						Message: networking.PathHasQuestionMarkError,
 					}
 					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
@@ -287,7 +287,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.AdmissionResponse.Allowed).To(BeFalse())
 					err := webhooks.ValidationError{
-						Type:    networking.RoutePathValidationError,
+						Type:    networking.RoutePathValidationErrorType,
 						Message: networking.PathLengthExceededError,
 					}
 					Expect(string(response.AdmissionResponse.Result.Reason)).To(Equal(err.Marshal()))
@@ -334,7 +334,7 @@ var _ = Describe("CF Route Validation", func() {
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
 				err := webhooks.ValidationError{
-					Type:    networking.DuplicateRouteError,
+					Type:    networking.DuplicateRouteErrorType,
 					Message: "Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'.",
 				}
 				Expect(string(response.Result.Reason)).To(Equal(err.Marshal()))
@@ -377,7 +377,7 @@ var _ = Describe("CF Route Validation", func() {
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
 				ve := unmarshalValidatorError(string(response.Result.Reason))
-				Expect(ve.Type).To(Equal(webhooks.UnknownError))
+				Expect(ve.Type).To(Equal(webhooks.UnknownErrorType))
 			})
 		})
 
@@ -499,7 +499,7 @@ var _ = Describe("CF Route Validation", func() {
 
 				It("denies the request", func() {
 					Expect(response.Allowed).To(BeFalse())
-					Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: networking.RouteDestinationNotInSpaceError, Message: networking.RouteDestinationNotInSpaceErrorMessage}.Marshal()))
+					Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: networking.RouteDestinationNotInSpaceErrorType, Message: networking.RouteDestinationNotInSpaceErrorMessage}.Marshal()))
 				})
 			})
 
@@ -511,7 +511,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.Allowed).To(BeFalse())
 					ve := unmarshalValidatorError(string(response.Result.Reason))
-					Expect(ve.Type).To(Equal(webhooks.UnknownError))
+					Expect(ve.Type).To(Equal(webhooks.UnknownErrorType))
 				})
 			})
 		})
@@ -587,7 +587,7 @@ var _ = Describe("CF Route Validation", func() {
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
 				err := webhooks.ValidationError{
-					Type:    networking.DuplicateRouteError,
+					Type:    networking.DuplicateRouteErrorType,
 					Message: "Route already exists with host 'my-host' and path '/new-path' for domain 'test.domain.name'.",
 				}
 				Expect(string(response.Result.Reason)).To(Equal(err.Marshal()))
@@ -602,7 +602,7 @@ var _ = Describe("CF Route Validation", func() {
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
 				ve := unmarshalValidatorError(string(response.Result.Reason))
-				Expect(ve.Type).To(Equal(webhooks.UnknownError))
+				Expect(ve.Type).To(Equal(webhooks.UnknownErrorType))
 			})
 		})
 
@@ -638,7 +638,7 @@ var _ = Describe("CF Route Validation", func() {
 
 				It("denies the request", func() {
 					Expect(response.Allowed).To(BeFalse())
-					Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: networking.RouteDestinationNotInSpaceError, Message: networking.RouteDestinationNotInSpaceErrorMessage}.Marshal()))
+					Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: networking.RouteDestinationNotInSpaceErrorType, Message: networking.RouteDestinationNotInSpaceErrorMessage}.Marshal()))
 				})
 			})
 
@@ -650,7 +650,7 @@ var _ = Describe("CF Route Validation", func() {
 				It("denies the request", func() {
 					Expect(response.Allowed).To(BeFalse())
 					ve := unmarshalValidatorError(string(response.Result.Reason))
-					Expect(ve.Type).To(Equal(webhooks.UnknownError))
+					Expect(ve.Type).To(Equal(webhooks.UnknownErrorType))
 				})
 			})
 		})
@@ -695,7 +695,7 @@ var _ = Describe("CF Route Validation", func() {
 			It("disallows the request", func() {
 				Expect(response.Allowed).To(BeFalse())
 				ve := unmarshalValidatorError(string(response.Result.Reason))
-				Expect(ve.Type).To(Equal(webhooks.UnknownError))
+				Expect(ve.Type).To(Equal(webhooks.UnknownErrorType))
 			})
 		})
 	})

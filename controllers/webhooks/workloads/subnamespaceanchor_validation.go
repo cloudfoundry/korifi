@@ -23,10 +23,10 @@ const (
 	OrgEntityType   = "org"
 	SpaceEntityType = "space"
 
-	DuplicateOrgNameError = "DuplicateOrgNameError"
+	DuplicateOrgNameErrorType = "DuplicateOrgNameError"
 	// Note: the cf cli expects the specfic text `Organization '.*' already exists.` in the error and ignores the error if it matches it.
 	duplicateOrgNameErrorMessage = "Organization '%s' already exists."
-	DuplicateSpaceNameError      = "DuplicateSpaceNameError"
+	DuplicateSpaceNameErrorType  = "DuplicateSpaceNameError"
 	// Note: the cf cli expects the specific text `Name must be unique per organization` in the error and ignores the error if it matches it.
 	duplicateSpaceNameErrorMessage = "Space '%s' already exists. Name must be unique per organization."
 )
@@ -129,7 +129,7 @@ func (v *SubnamespaceAnchorValidation) newHandler(anchor *v1alpha2.SubnamespaceA
 			subnsLogger.WithValues("entityType", OrgEntityType),
 			v.duplicateOrgValidator,
 			OrgNameLabel,
-			webhooks.ValidationError{Type: DuplicateOrgNameError, Message: duplicateOrgNameErrorMessage},
+			webhooks.ValidationError{Type: DuplicateOrgNameErrorType, Message: duplicateOrgNameErrorMessage},
 		), nil
 
 	case anchor.Labels[SpaceNameLabel] != "" && anchor.Labels[OrgNameLabel] == "":
@@ -137,7 +137,7 @@ func (v *SubnamespaceAnchorValidation) newHandler(anchor *v1alpha2.SubnamespaceA
 			subnsLogger.WithValues("entityType", SpaceEntityType),
 			v.duplicateSpaceValidator,
 			SpaceNameLabel,
-			webhooks.ValidationError{Type: DuplicateSpaceNameError, Message: duplicateSpaceNameErrorMessage},
+			webhooks.ValidationError{Type: DuplicateSpaceNameErrorType, Message: duplicateSpaceNameErrorMessage},
 		), nil
 
 	default:
