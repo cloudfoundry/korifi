@@ -3,7 +3,6 @@ package e2e_test
 import (
 	"crypto/tls"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -181,11 +180,6 @@ type cfErr struct {
 	Code   int    `json:"code"`
 }
 
-type singletonData struct {
-	ApiServerRoot string `json:"api_server_root"`
-	CommonOrgGUID string `json:"common_org_guid"`
-}
-
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(helpers.E2EFailHandler)
 	RunSpecs(t, "E2E Suite")
@@ -195,20 +189,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestSetup()
 
 	commonTestOrgGUID = createOrg(generateGUID("common-test-org"))
-
-	testDatasBytes, err := json.Marshal(singletonData{
-		ApiServerRoot: apiServerRoot,
-		CommonOrgGUID: commonTestOrgGUID,
-	})
-	Expect(err).NotTo(HaveOccurred())
-
-	return testDatasBytes
-}, func(testDataBytes []byte) {
-	var testData singletonData
-	Expect(json.Unmarshal(testDataBytes, &testData)).To(Succeed())
-
-	apiServerRoot = testData.ApiServerRoot
-	commonTestOrgGUID = testData.CommonOrgGUID
+	return []byte(commonTestOrgGUID)
+}, func(commonOrgGUIDBytes []byte) {
+	commonTestOrgGUID = string(commonOrgGUIDBytes)
 
 	SetDefaultEventuallyTimeout(240 * time.Second)
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
