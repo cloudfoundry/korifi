@@ -305,9 +305,7 @@ var _ = Describe("ProcessRepo", func() {
 	})
 
 	Describe("CreateProcess", func() {
-		var (
-			createErr error
-		)
+		var createErr error
 		JustBeforeEach(func() {
 			createErr = processRepo.CreateProcess(ctx, authInfo, repositories.CreateProcessMessage{
 				AppGUID:     app1GUID,
@@ -366,7 +364,6 @@ var _ = Describe("ProcessRepo", func() {
 				Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
-
 	})
 
 	Describe("GetProcessByAppTypeAndSpace", func() {
