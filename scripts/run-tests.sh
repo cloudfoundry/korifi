@@ -69,8 +69,12 @@ else
 
   if [[ -z "$E2E_USER_NAMES" ]]; then
     for n in $(seq 1 $usersToCreate); do
+      "$SCRIPT_DIR/create-new-user.sh" "e2e-cert-user-$n" &
+    done
+    wait
+
+    for n in $(seq 1 $usersToCreate); do
       E2E_USER_NAMES="$E2E_USER_NAMES e2e-cert-user-$n"
-      "$SCRIPT_DIR/create-new-user.sh" "e2e-cert-user-$n"
       cert="$(getCert "e2e-cert-user-$n")"
       key="$(getKey "e2e-cert-user-$n")"
       pem="$(echo -e "$cert\n$key" | base64 -w0)"
@@ -81,9 +85,15 @@ else
 
   if [[ -z "$E2E_SERVICE_ACCOUNTS" ]]; then
     for n in $(seq 1 $usersToCreate); do
+      (
+        kubectl delete serviceaccount -n "$ROOT_NAMESPACE" "e2e-service-account-$n" &>/dev/null || true
+        kubectl create serviceaccount -n "$ROOT_NAMESPACE" "e2e-service-account-$n"
+      ) &
+    done
+    wait
+
+    for n in $(seq 1 $usersToCreate); do
       E2E_SERVICE_ACCOUNTS="$E2E_SERVICE_ACCOUNTS e2e-service-account-$n"
-      kubectl delete serviceaccount -n "$ROOT_NAMESPACE" "e2e-service-account-$n" &>/dev/null || true
-      kubectl create serviceaccount -n "$ROOT_NAMESPACE" "e2e-service-account-$n"
       token="$(getToken "e2e-service-account-$n" "$ROOT_NAMESPACE")"
       E2E_SERVICE_ACCOUNT_TOKENS="$E2E_SERVICE_ACCOUNT_TOKENS $token"
     done
