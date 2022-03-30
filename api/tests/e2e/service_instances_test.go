@@ -13,7 +13,6 @@ import (
 
 var _ = Describe("Service Instances", func() {
 	var (
-		orgGUID              string
 		spaceGUID            string
 		existingInstanceGUID string
 		existingInstanceName string
@@ -22,15 +21,13 @@ var _ = Describe("Service Instances", func() {
 	)
 
 	BeforeEach(func() {
-		orgGUID = createOrg(generateGUID("org"))
-		spaceGUID = createSpace(generateGUID("space1"), orgGUID)
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
 		existingInstanceName = generateGUID("service-instance")
 		existingInstanceGUID = createServiceInstance(spaceGUID, existingInstanceName)
 	})
 
 	AfterEach(func() {
-		deleteOrg(orgGUID)
+		deleteSpace(spaceGUID)
 	})
 
 	Describe("Create", func() {

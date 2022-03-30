@@ -30,23 +30,17 @@ var _ = Describe("Spaces", func() {
 	Describe("create", func() {
 		var (
 			result     resource
-			orgGUID    string
 			parentGUID string
 			spaceName  string
-			resultErr  cfErrs
+			createErr  cfErrs
 		)
 
 		BeforeEach(func() {
 			spaceName = generateGUID("space")
-			orgGUID = createOrg(generateGUID("org"))
-			parentGUID = orgGUID
-			resultErr = cfErrs{}
+			parentGUID = commonTestOrgGUID
+			createErr = cfErrs{}
 
 			restyClient = adminClient
-		})
-
-		AfterEach(func() {
-			deleteOrg(orgGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -58,10 +52,16 @@ var _ = Describe("Spaces", func() {
 						"organization": {Data: resource{GUID: parentGUID}},
 					},
 				}).
-				SetError(&resultErr).
+				SetError(&createErr).
 				SetResult(&result).
 				Post("/v3/spaces")
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			if len(createErr.Errors) == 0 {
+				deleteSpace(result.GUID)
+			}
 		})
 
 		It("creates a space", func() {
@@ -73,12 +73,12 @@ var _ = Describe("Spaces", func() {
 
 		When("the space name already exists", func() {
 			BeforeEach(func() {
-				createSpace(spaceName, orgGUID)
+				createSpace(spaceName, commonTestOrgGUID)
 			})
 
 			It("returns an unprocessable entity error", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-				Expect(resultErr.Errors).To(ConsistOf(cfErr{
+				Expect(createErr.Errors).To(ConsistOf(cfErr{
 					Detail: fmt.Sprintf(`Space '%s' already exists. Name must be unique per organization.`, spaceName),
 					Title:  "CF-UnprocessableEntity",
 					Code:   10008,
@@ -87,14 +87,20 @@ var _ = Describe("Spaces", func() {
 		})
 
 		When("the organization relationship references a space guid", func() {
+			var otherSpaceGUID string
+
 			BeforeEach(func() {
-				otherSpaceGUID := createSpace(generateGUID("some-other-space"), orgGUID)
+				otherSpaceGUID = createSpace(generateGUID("some-other-space"), commonTestOrgGUID)
 				parentGUID = otherSpaceGUID
+			})
+
+			AfterEach(func() {
+				deleteSpace(otherSpaceGUID)
 			})
 
 			It("denies the request", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-				Expect(resultErr.Errors).To(ConsistOf(cfErr{
+				Expect(createErr.Errors).To(ConsistOf(cfErr{
 					Detail: "Invalid organization. Ensure the organization exists and you have access to it.",
 					Title:  "CF-UnprocessableEntity",
 					Code:   10008,
@@ -241,22 +247,19 @@ var _ = Describe("Spaces", func() {
 
 	Describe("delete", func() {
 		var (
-			orgGUID   string
 			spaceGUID string
 			resultErr cfErrs
 		)
 
 		BeforeEach(func() {
-			orgGUID = createOrg(generateGUID("org"))
-			// createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-			spaceGUID = createSpace(generateGUID("space"), orgGUID)
+			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 			resultErr = cfErrs{}
 
 			restyClient = adminClient
 		})
 
 		AfterEach(func() {
-			deleteOrg(orgGUID)
+			deleteSpace(spaceGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -282,8 +285,15 @@ var _ = Describe("Spaces", func() {
 		})
 
 		When("the space does not exist", func() {
+			var originalSpaceGUID string
+
 			BeforeEach(func() {
+				originalSpaceGUID = spaceGUID
 				spaceGUID = "nope"
+			})
+
+			AfterEach(func() {
+				spaceGUID = originalSpaceGUID
 			})
 
 			It("returns a not found error", func() {
@@ -294,7 +304,6 @@ var _ = Describe("Spaces", func() {
 
 	Describe("manifests", func() {
 		var (
-			orgGUID       string
 			spaceGUID     string
 			resultErr     cfErrs
 			manifestBytes []byte
@@ -302,9 +311,7 @@ var _ = Describe("Spaces", func() {
 		)
 
 		BeforeEach(func() {
-			orgGUID = createOrg(generateGUID("org"))
-			createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-			spaceGUID = createSpace(generateGUID("space"), orgGUID)
+			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 			resultErr = cfErrs{}
 
 			route := "manifested-app.vcap.me"
@@ -325,7 +332,7 @@ var _ = Describe("Spaces", func() {
 		})
 
 		AfterEach(func() {
-			deleteOrg(orgGUID)
+			deleteSpace(spaceGUID)
 		})
 
 		Describe("apply manifest", func() {
@@ -410,27 +417,23 @@ var _ = Describe("Spaces", func() {
 				})
 			})
 		})
-
 	})
 
 	Describe("manifest diff", func() {
 		var (
-			orgGUID       string
 			spaceGUID     string
 			errResp       cfErrs
 			manifestBytes []byte
 		)
 
 		BeforeEach(func() {
-			orgGUID = createOrg(generateGUID("org"))
-			createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-			spaceGUID = createSpace(generateGUID("space"), orgGUID)
+			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 			restyClient = certClient
 			manifestBytes = []byte{}
 		})
 
 		AfterEach(func() {
-			deleteOrg(orgGUID)
+			deleteSpace(spaceGUID)
 		})
 
 		JustBeforeEach(func() {

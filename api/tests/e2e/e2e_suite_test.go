@@ -28,10 +28,7 @@ var (
 	adminClient         *resty.Client
 	certClient          *resty.Client
 	tokenClient         *resty.Client
-	rootNamespace       string
 	apiServerRoot       string
-	appFQDN             string
-	appDomainGUID       string
 	serviceAccountName  string
 	serviceAccountToken string
 	tokenAuthHeader     string
@@ -39,6 +36,11 @@ var (
 	certAuthHeader      string
 	adminAuthHeader     string
 	certPEM             string
+
+	rootNamespace     string
+	appFQDN           string
+	appDomainGUID     string
+	commonTestOrgGUID string
 )
 
 type resource struct {
@@ -183,35 +185,27 @@ func TestE2E(t *testing.T) {
 	RunSpecs(t, "E2E Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = SynchronizedBeforeSuite(func() []byte {
+	commonTestSetup()
+
+	commonTestOrgGUID = createOrg(generateGUID("common-test-org"))
+	return []byte(commonTestOrgGUID)
+}, func(commonOrgGUIDBytes []byte) {
+	commonTestOrgGUID = string(commonOrgGUIDBytes)
+
 	SetDefaultEventuallyTimeout(240 * time.Second)
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
-	ensureServerIsUp()
+	commonTestSetup()
 
-	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
-	appFQDN = mustHaveEnv("APP_FQDN")
-
-	adminAuthHeader = "ClientCert " + obtainAdminUserCert()
-
-	serviceAccountName = mustHaveEnvIdx("E2E_SERVICE_ACCOUNTS", GinkgoParallelProcess())
-	serviceAccountToken = mustHaveEnvIdx("E2E_SERVICE_ACCOUNT_TOKENS", GinkgoParallelProcess())
-
-	certUserName = mustHaveEnvIdx("E2E_USER_NAMES", GinkgoParallelProcess())
-	certPEM = mustHaveEnvIdx("E2E_USER_PEMS", GinkgoParallelProcess())
-	certAuthHeader = "ClientCert " + certPEM
-
-	appDomainGUID = mustHaveEnv("APP_DOMAIN_GUID")
+	createOrgRole("organization_user", rbacv1.UserKind, certUserName, commonTestOrgGUID)
 })
 
-var _ = BeforeEach(func() {
-	tokenAuthHeader = fmt.Sprintf("Bearer %s", serviceAccountToken)
-	adminClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert()).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	certClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(certPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	tokenClient = resty.New().SetBaseURL(apiServerRoot).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+var _ = SynchronizedAfterSuite(func() {
+}, func() {
+	deleteOrg(commonTestOrgGUID)
 })
 
 func mustHaveEnv(key string) string {
@@ -317,6 +311,17 @@ func createSpaceRaw(spaceName, orgGUID string) (string, error) {
 	}
 
 	return space.GUID, nil
+}
+
+func deleteSpace(guid string) {
+	if guid == "" {
+		return
+	}
+
+	resp, err := adminClient.R().
+		Delete("/v3/spaces/" + guid)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
 }
 
 func createSpace(spaceName, orgGUID string) string {
@@ -630,4 +635,24 @@ func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail
 			Code:   10008,
 		},
 	))
+}
+
+func commonTestSetup() {
+	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
+	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
+	serviceAccountName = mustHaveEnvIdx("E2E_SERVICE_ACCOUNTS", GinkgoParallelProcess())
+	serviceAccountToken = mustHaveEnvIdx("E2E_SERVICE_ACCOUNT_TOKENS", GinkgoParallelProcess())
+	certUserName = mustHaveEnvIdx("E2E_USER_NAMES", GinkgoParallelProcess())
+	certPEM = mustHaveEnvIdx("E2E_USER_PEMS", GinkgoParallelProcess())
+	appFQDN = mustHaveEnv("APP_FQDN")
+	appDomainGUID = mustHaveEnv("APP_DOMAIN_GUID")
+
+	ensureServerIsUp()
+
+	adminClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert()).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	adminAuthHeader = "ClientCert " + obtainAdminUserCert()
+	certAuthHeader = "ClientCert " + certPEM
+	tokenAuthHeader = fmt.Sprintf("Bearer %s", serviceAccountToken)
+	certClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(certPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	tokenClient = resty.New().SetBaseURL(apiServerRoot).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 }

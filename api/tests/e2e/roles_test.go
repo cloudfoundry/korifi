@@ -13,21 +13,15 @@ import (
 var _ = Describe("Roles", func() {
 	var (
 		userName string
-		orgGUID  string
 		resp     *resty.Response
 		result   typedResource
 		client   *resty.Client
 	)
 
 	BeforeEach(func() {
-		userName = uuid.NewString()
-		orgGUID = createOrg(uuid.NewString())
+		userName = generateGUID("user")
 		client = adminClient
 		result = typedResource{}
-	})
-
-	AfterEach(func() {
-		deleteOrg(orgGUID)
 	})
 
 	Describe("creating an org role", func() {
@@ -39,7 +33,7 @@ var _ = Describe("Roles", func() {
 					resource: resource{
 						Relationships: relationships{
 							"user":         {Data: resource{GUID: userName}},
-							"organization": {Data: resource{GUID: orgGUID}},
+							"organization": {Data: resource{GUID: commonTestOrgGUID}},
 						},
 					},
 				}).
@@ -55,7 +49,7 @@ var _ = Describe("Roles", func() {
 			Expect(result.Relationships).To(HaveKey("user"))
 			Expect(result.Relationships["user"].Data.GUID).To(Equal(userName))
 			Expect(result.Relationships).To(HaveKey("organization"))
-			Expect(result.Relationships["organization"].Data.GUID).To(Equal(orgGUID))
+			Expect(result.Relationships["organization"].Data.GUID).To(Equal(commonTestOrgGUID))
 		})
 
 		When("the user is not admin", func() {
@@ -73,8 +67,12 @@ var _ = Describe("Roles", func() {
 		var spaceGUID string
 
 		BeforeEach(func() {
-			createOrgRole("organization_user", rbacv1.UserKind, userName, orgGUID)
-			spaceGUID = createSpace(uuid.NewString(), orgGUID)
+			createOrgRole("organization_user", rbacv1.UserKind, userName, commonTestOrgGUID)
+			spaceGUID = createSpace(uuid.NewString(), commonTestOrgGUID)
+		})
+
+		AfterEach(func() {
+			deleteSpace(spaceGUID)
 		})
 
 		JustBeforeEach(func() {

@@ -12,7 +12,6 @@ import (
 
 var _ = Describe("Package", func() {
 	var (
-		orgGUID     string
 		spaceGUID   string
 		appGUID     string
 		packageGUID string
@@ -22,10 +21,7 @@ var _ = Describe("Package", func() {
 	)
 
 	BeforeEach(func() {
-		orgGUID = createOrg(generateGUID("org"))
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-
-		spaceGUID = createSpace(generateGUID("space"), orgGUID)
+		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 		appGUID = createApp(spaceGUID, generateGUID("app"))
 
 		result = typedResource{}
@@ -33,7 +29,7 @@ var _ = Describe("Package", func() {
 	})
 
 	AfterEach(func() {
-		deleteOrg(orgGUID)
+		deleteSpace(spaceGUID)
 	})
 
 	Describe("Create", func() {
@@ -208,14 +204,16 @@ var _ = Describe("Package", func() {
 	Describe("List", func() {
 		var (
 			result       resourceList
+			space2GUID   string
+			space3GUID   string
 			package1GUID string
 			package2GUID string
 			package3GUID string
 		)
 
 		BeforeEach(func() {
-			space2GUID := createSpace(generateGUID("space2"), orgGUID)
-			space3GUID := createSpace(generateGUID("space3"), orgGUID)
+			space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
+			space3GUID = createSpace(generateGUID("space3"), commonTestOrgGUID)
 
 			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space2GUID)
@@ -225,6 +223,11 @@ var _ = Describe("Package", func() {
 			package2GUID = createPackage(app2GUID)
 			app3GUID := createApp(space3GUID, generateGUID("app3"))
 			package3GUID = createPackage(app3GUID)
+		})
+
+		AfterEach(func() {
+			deleteSpace(space2GUID)
+			deleteSpace(space3GUID)
 		})
 
 		When("the user has no space access", func() {

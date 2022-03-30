@@ -13,7 +13,6 @@ import (
 var _ = Describe("Service Bindings", func() {
 	var (
 		appGUID      string
-		orgGUID      string
 		spaceGUID    string
 		bindingGUID  string
 		instanceGUID string
@@ -22,16 +21,14 @@ var _ = Describe("Service Bindings", func() {
 	)
 
 	BeforeEach(func() {
-		orgGUID = createOrg(generateGUID("org"))
-		spaceGUID = createSpace(generateGUID("space1"), orgGUID)
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
 		instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"))
 		appGUID = createApp(spaceGUID, generateGUID("app"))
 		bindingGUID = createServiceBinding(appGUID, instanceGUID)
 	})
 
 	AfterEach(func() {
-		deleteOrg(orgGUID)
+		deleteSpace(spaceGUID)
 	})
 
 	Describe("Delete", func() {

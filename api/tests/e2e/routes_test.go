@@ -17,17 +17,13 @@ var _ = Describe("Routes", func() {
 		client     *resty.Client
 		domainGUID string
 		domainName string
-		orgGUID    string
 		spaceGUID  string
 		host       string
 		path       string
 	)
 
 	BeforeEach(func() {
-		orgGUID = createOrg(generateGUID("org"))
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-
-		spaceGUID = createSpace(generateGUID("space"), orgGUID)
+		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 
 		domainName = mustHaveEnv("APP_FQDN")
 		domainGUID = mustHaveEnv("APP_DOMAIN_GUID")
@@ -39,7 +35,7 @@ var _ = Describe("Routes", func() {
 	})
 
 	AfterEach(func() {
-		deleteOrg(orgGUID)
+		deleteSpace(spaceGUID)
 	})
 
 	Describe("fetch", func() {
@@ -106,9 +102,13 @@ var _ = Describe("Routes", func() {
 			route1AGUID = createRoute(host1, generateGUID("/some-path"), spaceGUID, domainGUID)
 			route1BGUID = createRoute(host1, generateGUID("/some-path"), spaceGUID, domainGUID)
 
-			space2GUID = createSpace(generateGUID("space"), orgGUID)
+			space2GUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 			host2 := generateGUID("myapp2")
 			route2AGUID = createRoute(host2, generateGUID("/some-path"), space2GUID, domainGUID)
+		})
+
+		AfterEach(func() {
+			deleteSpace(spaceGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -223,9 +223,15 @@ var _ = Describe("Routes", func() {
 			})
 
 			When("the route already exists in another space", func() {
+				var anotherSpaceGUID string
+
 				BeforeEach(func() {
-					anotherSpaceGUID := createSpace(generateGUID("another-space"), orgGUID)
+					anotherSpaceGUID = createSpace(generateGUID("another-space"), commonTestOrgGUID)
 					createRoute(host, path, anotherSpaceGUID, domainGUID)
+				})
+
+				AfterEach(func() {
+					deleteSpace(anotherSpaceGUID)
 				})
 
 				It("fails with a duplicate error", func() {
@@ -356,9 +362,15 @@ var _ = Describe("Routes", func() {
 			})
 
 			When("an app from a different space is added", func() {
+				var space2GUID string
+
 				BeforeEach(func() {
-					space2GUID := createSpace(generateGUID("space2"), orgGUID)
+					space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
 					appGUID = createApp(space2GUID, generateGUID("app2"))
+				})
+
+				AfterEach(func() {
+					deleteSpace(space2GUID)
 				})
 
 				It("fails with an unprocessable entity error", func() {

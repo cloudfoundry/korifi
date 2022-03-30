@@ -10,21 +10,15 @@ import (
 )
 
 var _ = Describe("Droplets", func() {
-	var (
-		orgGUID   string
-		spaceGUID string
-	)
+	var spaceGUID string
 
 	BeforeEach(func() {
-		orgGUID = createOrg(generateGUID("org"))
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-
-		spaceGUID = createSpace(generateGUID("space1"), orgGUID)
+		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
 		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 	})
 
 	AfterEach(func() {
-		deleteOrg(orgGUID)
+		deleteSpace(spaceGUID)
 	})
 
 	Describe("get", func() {

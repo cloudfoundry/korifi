@@ -14,20 +14,17 @@ import (
 
 var _ = Describe("Apps", func() {
 	var (
-		orgGUID    string
 		space1GUID string
 		appGUID    string
 		resp       *resty.Response
 	)
 
 	BeforeEach(func() {
-		orgGUID = createOrg(generateGUID("org"))
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-		space1GUID = createSpace(generateGUID("space1"), orgGUID)
+		space1GUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
 	})
 
 	AfterEach(func() {
-		deleteOrg(orgGUID)
+		deleteSpace(space1GUID)
 	})
 
 	Describe("List apps", func() {
@@ -39,8 +36,8 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			space2GUID = createSpace(generateGUID("space2"), orgGUID)
-			space3GUID = createSpace(generateGUID("space3"), orgGUID)
+			space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
+			space3GUID = createSpace(generateGUID("space3"), commonTestOrgGUID)
 
 			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
 			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space3GUID)
@@ -51,6 +48,11 @@ var _ = Describe("Apps", func() {
 			app4GUID = createApp(space2GUID, generateGUID("app4"))
 			app5GUID = createApp(space3GUID, generateGUID("app5"))
 			app6GUID = createApp(space3GUID, generateGUID("app6"))
+		})
+
+		AfterEach(func() {
+			deleteSpace(space2GUID)
+			deleteSpace(space3GUID)
 		})
 
 		JustBeforeEach(func() {

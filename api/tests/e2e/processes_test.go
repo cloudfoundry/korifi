@@ -16,7 +16,6 @@ import (
 
 var _ = Describe("Processes", func() {
 	var (
-		orgGUID     string
 		spaceGUID   string
 		appGUID     string
 		processGUID string
@@ -28,15 +27,13 @@ var _ = Describe("Processes", func() {
 	BeforeEach(func() {
 		restyClient = certClient
 		errResp = cfErrs{}
-		orgGUID = createOrg(generateGUID("org"))
-		createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
-		spaceGUID = createSpace(generateGUID("space"), orgGUID)
+		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 		appGUID = pushTestApp(spaceGUID)
 		processGUID = getProcess(appGUID, "web")
 	})
 
 	AfterEach(func() {
-		deleteOrg(orgGUID)
+		deleteSpace(spaceGUID)
 	})
 
 	Describe("List processes for app", func() {
@@ -71,9 +68,13 @@ var _ = Describe("Processes", func() {
 
 		When("the user is NOT authorized in the space", func() {
 			BeforeEach(func() {
-				space2GUID = createSpace(generateGUID("space2"), orgGUID)
+				space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
 				app2GUID = pushTestApp(space2GUID)
 				requestAppGUID = app2GUID
+			})
+
+			AfterEach(func() {
+				deleteSpace(space2GUID)
 			})
 
 			It("returns 404 NotFound", func() {
