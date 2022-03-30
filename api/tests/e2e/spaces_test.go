@@ -409,7 +409,7 @@ var _ = Describe("Spaces", func() {
 					Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 					Expect(resultErr.Errors).To(ConsistOf(
 						cfErr{
-							Detail: "App not found. Ensure it exists and you have access to it.",
+							Detail: "Space not found. Ensure it exists and you have access to it.",
 							Title:  "CF-ResourceNotFound",
 							Code:   10010,
 						},
