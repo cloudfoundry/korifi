@@ -147,9 +147,9 @@ var _ = Describe("AppRepository", func() {
 			appRecord, getErr = appRepo.GetAppByNameAndSpace(context.Background(), authInfo, cfApp1.Spec.Name, querySpaceName)
 		})
 
-		When("the user is authorized in the space", func() {
+		When("the user is able to get apps in the space", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, querySpaceName)
+				createRoleBinding(testCtx, userName, spaceManagerRole.Name, querySpaceName)
 			})
 
 			It("returns the record", func() {
@@ -164,9 +164,10 @@ var _ = Describe("AppRepository", func() {
 			})
 		})
 
-		When("the user is not authorized in the space", func() {
+		When("the user is not authorized in the space at all", func() {
 			It("returns a forbidden error", func() {
 				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+				Expect(getErr.(apierrors.ForbiddenError).ResourceType()).To(Equal(SpaceResourceType))
 			})
 		})
 
@@ -175,6 +176,7 @@ var _ = Describe("AppRepository", func() {
 				querySpaceName = space2.Name
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, querySpaceName)
 			})
+
 			It("returns a NotFoundError", func() {
 				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})

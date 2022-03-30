@@ -181,7 +181,7 @@ func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorizati
 	appList := new(workloadsv1alpha1.CFAppList)
 	err = userClient.List(ctx, appList, client.InNamespace(spaceGUID))
 	if err != nil {
-		return AppRecord{}, apierrors.FromK8sError(fmt.Errorf("get app: failed to list apps: %w", err), AppResourceType)
+		return AppRecord{}, apierrors.FromK8sError(fmt.Errorf("get app: failed to list apps: %w", err), SpaceResourceType)
 	}
 
 	var matchingApps []workloadsv1alpha1.CFApp
