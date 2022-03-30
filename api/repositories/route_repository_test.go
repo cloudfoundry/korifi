@@ -579,7 +579,6 @@ var _ = Describe("RouteRepository", func() {
 				Expect(listErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
-
 	})
 
 	Describe("CreateRoute", func() {
@@ -818,7 +817,6 @@ var _ = Describe("RouteRepository", func() {
 				Expect(routeErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
-
 	})
 
 	Describe("AddDestinationsToRoute", func() {

@@ -179,7 +179,6 @@ var _ = Describe("AppRepository", func() {
 				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
-
 	})
 
 	Describe("ListApps", Serial, func() {

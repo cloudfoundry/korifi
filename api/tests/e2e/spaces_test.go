@@ -410,7 +410,6 @@ var _ = Describe("Spaces", func() {
 				})
 			})
 		})
-
 	})
 
 	Describe("manifest diff", func() {
