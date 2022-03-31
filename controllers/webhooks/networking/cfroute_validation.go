@@ -32,6 +32,8 @@ const (
 	RouteDestinationNotInSpaceErrorMessage = "Route destination app not found in space"
 	RouteHostNameValidationErrorType       = "RouteHostNameValidationError"
 	RoutePathValidationErrorType           = "RoutePathValidationError"
+	RouteSubdomainValidationErrorType      = "RouteSubdomainValidationError"
+	RouteSubdomainValidationErrorMessage   = "Subdomains must each be at most 63 characters"
 	RouteFQDNValidationErrorType           = "RouteFQDNValidationError"
 	RouteFQDNValidationErrorMessage        = "FQDN does not comply with RFC 1035 standards"
 
@@ -294,7 +296,7 @@ func IsFQDN(host, domain string) (bool, error) {
 	rxSubdomain := regexp.MustCompile(SUBDOMAIN_REGEX)
 
 	if !rxSubdomain.MatchString(fqdn) {
-		return false, errors.New("subdomains must each be at most 63 characters")
+		return false, errors.New(webhooks.ValidationError{Type: RouteSubdomainValidationErrorType, Message: RouteSubdomainValidationErrorMessage}.Marshal())
 	}
 
 	rxDomain := regexp.MustCompile(DOMAIN_REGEX)
