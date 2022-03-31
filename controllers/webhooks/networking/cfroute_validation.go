@@ -201,7 +201,7 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 }
 
 func uniqueName(route networkingv1alpha1.CFRoute) string {
-	return strings.Join([]string{route.Spec.Host, route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
+	return strings.Join([]string{strings.ToLower(route.Spec.Host), route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
 }
 
 func validatePath(route networkingv1alpha1.CFRoute) error {
