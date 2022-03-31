@@ -31,7 +31,6 @@ type APIConfig struct {
 
 	DefaultLifecycleConfig DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
 
-	AuthEnabled  bool            `yaml:"authEnabled"`
 	RoleMappings map[string]Role `yaml:"roleMappings"`
 }
 

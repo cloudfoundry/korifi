@@ -38,6 +38,8 @@ require (
 	sigs.k8s.io/hierarchical-namespaces v0.9.0
 )
 
+require github.com/stretchr/testify v1.7.1 // indirect
+
 require (
 	cloud.google.com/go/compute v0.1.0 // indirect
 	github.com/Azure/azure-sdk-for-go v56.0.0+incompatible // indirect
@@ -97,7 +99,7 @@ require (
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/servicebinding/service-binding-controller v0.0.0-20220317163256-444f95cd52ae
 	github.com/sirupsen/logrus v1.8.1 // indirect
-	github.com/spf13/cobra v1.3.0 // indirect
+	github.com/spf13/cobra v1.4.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	github.com/vdemeester/k8s-pkg-credentialprovider v1.20.7 // indirect
