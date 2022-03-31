@@ -170,7 +170,7 @@ echo "**************************************"
 echo "Installing Service Binding Controller"
 echo "**************************************"
 
-#kubectl apply -f https://github.com/vmware-tanzu/servicebinding/releases/download/v0.7.1/service-bindings-0.7.1.yaml
+kubectl apply -f https://github.com/vmware-tanzu/servicebinding/releases/download/v0.7.1/service-bindings-0.7.1.yaml
 
 echo "******"
 echo "Done"

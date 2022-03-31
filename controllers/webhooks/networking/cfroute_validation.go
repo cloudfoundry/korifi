@@ -287,7 +287,7 @@ func IsFQDN(host, domain string) (bool, error) {
 		// of the domain.
 		MAXIMUM_FQDN_DOMAIN_LENGTH = 253
 		MINIMUM_FQDN_DOMAIN_LENGTH = 3
-		DOMAIN_REGEX               = "^(([a-z0-9]|[a-z0-9][a-z0-9\\-]{0,61}[a-z0-9])\\.)+([a-z0-9]|[a-z0-9][a-z0-9\\-]{0,61}[a-z0-9])$"
+		DOMAIN_REGEX               = "^[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$"
 		SUBDOMAIN_REGEX            = "^([^\\.]{0,63}\\.)*[^\\.]{0,63}$"
 	)
 
