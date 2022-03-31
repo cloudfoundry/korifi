@@ -215,7 +215,7 @@ var _ = Describe("Routes", func() {
 				It("fails with a duplicate error", func() {
 					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 					Expect(createErr.Errors).To(ConsistOf(cfErr{
-						Detail: fmt.Sprintf("Route already exists with host '%s' and path '%s' for domain '%s'.", host, path, domainName),
+						Detail: fmt.Sprintf("ValidationError-DuplicateRouteError: Route already exists with host '%s' and path '%s' for domain '%s'.", host, path, domainName),
 						Title:  "CF-UnprocessableEntity",
 						Code:   10008,
 					}))
@@ -237,7 +237,7 @@ var _ = Describe("Routes", func() {
 				It("fails with a duplicate error", func() {
 					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 					Expect(createErr.Errors).To(ConsistOf(cfErr{
-						Detail: fmt.Sprintf("Route already exists with host '%s' and path '%s' for domain '%s'.", host, path, domainName),
+						Detail: fmt.Sprintf("ValidationError-DuplicateRouteError: Route already exists with host '%s' and path '%s' for domain '%s'.", host, path, domainName),
 						Title:  "CF-UnprocessableEntity",
 						Code:   10008,
 					}))
@@ -253,7 +253,7 @@ var _ = Describe("Routes", func() {
 				It("fails with a duplicate error", func() {
 					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 					Expect(createErr.Errors).To(ConsistOf(cfErr{
-						Detail: fmt.Sprintf("Route already exists with host '%s' for domain '%s'.", host, domainName),
+						Detail: fmt.Sprintf("ValidationError-DuplicateRouteError: Route already exists with host '%s' for domain '%s'.", host, domainName),
 						Title:  "CF-UnprocessableEntity",
 						Code:   10008,
 					}))
@@ -374,7 +374,7 @@ var _ = Describe("Routes", func() {
 				})
 
 				It("fails with an unprocessable entity error", func() {
-					expectUnprocessableEntityError(resp, errResp, "Routes cannot be mapped to destinations in different spaces.")
+					expectUnprocessableEntityError(resp, errResp, "ValidationError-RouteDestinationNotInSpaceError: Route destination app not found in space")
 				})
 			})
 		})

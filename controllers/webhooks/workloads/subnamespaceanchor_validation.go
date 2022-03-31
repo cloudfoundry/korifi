@@ -3,6 +3,7 @@ package workloads
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 	"github.com/go-logr/logr"
@@ -21,6 +22,13 @@ const (
 	SpaceNameLabel  = "cloudfoundry.org/space-name"
 	OrgEntityType   = "org"
 	SpaceEntityType = "space"
+
+	DuplicateOrgNameErrorType = "DuplicateOrgNameError"
+	// Note: the cf cli expects the specfic text `Organization '.*' already exists.` in the error and ignores the error if it matches it.
+	duplicateOrgNameErrorMessage = "Organization '%s' already exists."
+	DuplicateSpaceNameErrorType  = "DuplicateSpaceNameError"
+	// Note: the cf cli expects the specific text `Name must be unique per organization` in the error and ignores the error if it matches it.
+	duplicateSpaceNameErrorMessage = "Space '%s' already exists. Name must be unique per organization."
 )
 
 var subnsLogger = logf.Log.WithName("subns-validate")
@@ -51,7 +59,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
 		if err := v.decoder.Decode(req, anchor); err != nil {
 			subnsLogger.Error(err, "failed to decode subnamespace anchor", "request", req)
-			return admission.Denied(webhooks.UnknownError.Marshal())
+			return admission.Denied(webhooks.AdmissionUnknownErrorReason())
 		}
 
 		if valid, response := v.validateLabels(anchor); !valid {
@@ -61,7 +69,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 		var err error
 		handler, err = v.newHandler(anchor)
 		if err != nil {
-			return admission.Denied(webhooks.UnknownError.Marshal())
+			return admission.Denied(webhooks.AdmissionUnknownErrorReason())
 		}
 
 	}
@@ -70,7 +78,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
 		if err := v.decoder.DecodeRaw(req.OldObject, oldAnchor); err != nil {
 			subnsLogger.Error(err, "failed to decode old subnamespace anchor", "request", req)
-			return admission.Denied(webhooks.UnknownError.Marshal())
+			return admission.Denied(webhooks.AdmissionUnknownErrorReason())
 		}
 
 		if valid, _ := v.validateLabels(oldAnchor); !valid {
@@ -97,7 +105,7 @@ func (v *SubnamespaceAnchorValidation) Handle(ctx context.Context, req admission
 	}
 
 	subnsLogger.Info("unexpected operation", "operation", req.Operation)
-	return admission.Denied(webhooks.UnknownError.Marshal())
+	return admission.Denied(webhooks.AdmissionUnknownErrorReason())
 }
 
 func (v *SubnamespaceAnchorValidation) validateLabels(anchor *v1alpha2.SubnamespaceAnchor) (bool, admission.Response) {
@@ -107,7 +115,7 @@ func (v *SubnamespaceAnchorValidation) validateLabels(anchor *v1alpha2.Subnamesp
 
 	if anchor.Labels[OrgNameLabel] != "" && anchor.Labels[SpaceNameLabel] != "" {
 		subnsLogger.Info("cannot have both org and space labels set", "anchor", anchor)
-		return false, admission.Denied(webhooks.UnknownError.Marshal())
+		return false, admission.Denied(webhooks.AdmissionUnknownErrorReason())
 	}
 
 	return true, admission.Response{}
@@ -121,7 +129,7 @@ func (v *SubnamespaceAnchorValidation) newHandler(anchor *v1alpha2.SubnamespaceA
 			subnsLogger.WithValues("entityType", OrgEntityType),
 			v.duplicateOrgValidator,
 			OrgNameLabel,
-			webhooks.DuplicateOrgNameError,
+			webhooks.ValidationError{Type: DuplicateOrgNameErrorType, Message: duplicateOrgNameErrorMessage},
 		), nil
 
 	case anchor.Labels[SpaceNameLabel] != "" && anchor.Labels[OrgNameLabel] == "":
@@ -129,7 +137,7 @@ func (v *SubnamespaceAnchorValidation) newHandler(anchor *v1alpha2.SubnamespaceA
 			subnsLogger.WithValues("entityType", SpaceEntityType),
 			v.duplicateSpaceValidator,
 			SpaceNameLabel,
-			webhooks.DuplicateSpaceNameError,
+			webhooks.ValidationError{Type: DuplicateSpaceNameErrorType, Message: duplicateSpaceNameErrorMessage},
 		), nil
 
 	default:
@@ -139,10 +147,18 @@ func (v *SubnamespaceAnchorValidation) newHandler(anchor *v1alpha2.SubnamespaceA
 	}
 }
 
+func (h *subnamespaceAnchorHandler) RenderDuplicateError(duplicateName string) string {
+	formattedDuplicateError := webhooks.ValidationError{
+		Type:    h.duplicateError.Type,
+		Message: fmt.Sprintf(h.duplicateError.Message, duplicateName),
+	}
+	return formattedDuplicateError.Marshal()
+}
+
 type subnamespaceAnchorHandler struct {
 	duplicateValidator NameValidator
 	nameLabel          string
-	duplicateError     webhooks.ValidationErrorCode
+	duplicateError     webhooks.ValidationError
 	logger             logr.Logger
 }
 
@@ -150,7 +166,7 @@ func NewSubnamespaceAnchorHandler(
 	logger logr.Logger,
 	duplicateValidator NameValidator,
 	nameLabel string,
-	duplicateError webhooks.ValidationErrorCode,
+	duplicateError webhooks.ValidationError,
 ) subnamespaceAnchorHandler {
 	return subnamespaceAnchorHandler{
 		duplicateValidator: duplicateValidator,
@@ -161,24 +177,26 @@ func NewSubnamespaceAnchorHandler(
 }
 
 func (h subnamespaceAnchorHandler) handleCreate(ctx context.Context, anchor *v1alpha2.SubnamespaceAnchor) admission.Response {
-	if err := h.duplicateValidator.ValidateCreate(ctx, h.logger, anchor.Namespace, h.getName(anchor)); err != nil {
+	anchorName := h.getName(anchor)
+	if err := h.duplicateValidator.ValidateCreate(ctx, h.logger, anchor.Namespace, anchorName); err != nil {
 		if errors.Is(err, webhooks.ErrorDuplicateName) {
-			return admission.Denied(h.duplicateError.Marshal())
+			return admission.Denied(h.RenderDuplicateError(anchorName))
 		}
 
-		return admission.Denied(webhooks.UnknownError.Marshal())
+		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
 	}
 
 	return admission.Allowed("")
 }
 
 func (h subnamespaceAnchorHandler) handleUpdate(ctx context.Context, oldAnchor, newAnchor *v1alpha2.SubnamespaceAnchor) admission.Response {
-	if err := h.duplicateValidator.ValidateUpdate(ctx, h.logger, oldAnchor.Namespace, h.getName(oldAnchor), h.getName(newAnchor)); err != nil {
+	newAnchorName := h.getName(newAnchor)
+	if err := h.duplicateValidator.ValidateUpdate(ctx, h.logger, oldAnchor.Namespace, h.getName(oldAnchor), newAnchorName); err != nil {
 		if errors.Is(err, webhooks.ErrorDuplicateName) {
-			return admission.Denied(h.duplicateError.Marshal())
+			return admission.Denied(h.RenderDuplicateError(newAnchorName))
 		}
 
-		return admission.Denied(webhooks.UnknownError.Marshal())
+		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
 	}
 
 	return admission.Allowed("")
@@ -186,7 +204,7 @@ func (h subnamespaceAnchorHandler) handleUpdate(ctx context.Context, oldAnchor, 
 
 func (h subnamespaceAnchorHandler) handleDelete(ctx context.Context, oldAnchor *v1alpha2.SubnamespaceAnchor) admission.Response {
 	if err := h.duplicateValidator.ValidateDelete(ctx, h.logger, oldAnchor.Namespace, h.getName(oldAnchor)); err != nil {
-		return admission.Denied(webhooks.UnknownError.Marshal())
+		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
 	}
 
 	return admission.Allowed("")

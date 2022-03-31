@@ -103,7 +103,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.DuplicateAppError.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.DuplicateAppErrorType, Message: `App with the name '` + app.Spec.Name + `' already exists.`}.Marshal()))
 			})
 		})
 
@@ -141,7 +141,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.UnknownError.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})
@@ -206,7 +206,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.DuplicateAppError.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.DuplicateAppErrorType, Message: `App with the name '` + updatedApp.Spec.Name + `' already exists.`}.Marshal()))
 			})
 		})
 
@@ -217,7 +217,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.UnknownError.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})
@@ -260,7 +260,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 			It("disallows the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.UnknownError.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})

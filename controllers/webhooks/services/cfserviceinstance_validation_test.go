@@ -105,7 +105,7 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.DuplicateServiceInstanceNameError.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: services.DuplicateServiceInstanceNameErrorType, Message: `The service instance name is taken: ` + serviceInstance.Spec.Name}.Marshal()))
 			})
 		})
 
@@ -143,7 +143,7 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.UnknownError.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})
@@ -208,7 +208,7 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.DuplicateServiceInstanceNameError.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: services.DuplicateServiceInstanceNameErrorType, Message: `The service instance name is taken: ` + updatedServiceInstance.Spec.Name}.Marshal()))
 			})
 		})
 
@@ -219,7 +219,7 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.UnknownError.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})
@@ -262,7 +262,7 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 			It("disallows the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.UnknownError.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})

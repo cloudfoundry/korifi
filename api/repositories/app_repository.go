@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
+
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -210,9 +212,11 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 	cfApp := appCreateMessage.toCFApp()
 	err = userClient.Create(ctx, &cfApp)
 	if err != nil {
-		if webhooks.HasErrorCode(err, webhooks.DuplicateAppError) {
-			errorDetail := fmt.Sprintf("App with the name '%s' already exists.", appCreateMessage.Name)
-			return AppRecord{}, apierrors.NewUniquenessError(err, errorDetail)
+		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
+			if validationError.Type == workloads.DuplicateAppErrorType {
+				return AppRecord{}, apierrors.NewUniquenessError(err, validationError.Error())
+			}
+			return AppRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())
 		}
 
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)

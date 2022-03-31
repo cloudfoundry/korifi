@@ -147,9 +147,8 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 		OrgResourceType,
 	)
 	if err != nil {
-		if webhooks.HasErrorCode(err, webhooks.DuplicateOrgNameError) {
-			errorDetail := fmt.Sprintf("Organization '%s' already exists.", org.Name)
-			return OrgRecord{}, apierrors.NewUnprocessableEntityError(err, errorDetail)
+		if webhookError, ok := webhooks.WebhookErrorToValidationError(err); ok {
+			return OrgRecord{}, apierrors.NewUnprocessableEntityError(err, webhookError.Error())
 		}
 		return OrgRecord{}, err
 	}
@@ -215,10 +214,8 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 		SpaceResourceType,
 	)
 	if err != nil {
-		if webhooks.HasErrorCode(err, webhooks.DuplicateSpaceNameError) {
-			// Note: the cf cli expects the specific text 'Name must be unique per organization' in the error and ignores the error if it matches it.
-			errorDetail := fmt.Sprintf("Space '%s' already exists. Name must be unique per organization.", message.Name)
-			return SpaceRecord{}, apierrors.NewUnprocessableEntityError(err, errorDetail)
+		if webhookError, ok := webhooks.WebhookErrorToValidationError(err); ok {
+			return SpaceRecord{}, apierrors.NewUnprocessableEntityError(err, webhookError.Error())
 		}
 		return SpaceRecord{}, err
 	}

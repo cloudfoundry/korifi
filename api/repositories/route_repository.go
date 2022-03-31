@@ -311,8 +311,8 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 
 	err = userClient.Create(ctx, &cfRoute)
 	if err != nil {
-		if webhooks.IsValidationError(err) {
-			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, webhooks.GetErrorMessage(err))
+		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
+			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())
 		}
 		return RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}
@@ -366,8 +366,8 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 
 	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
 	if err != nil {
-		if webhooks.HasErrorCode(err, webhooks.RouteDestinationNotInSpace) {
-			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, "Routes cannot be mapped to destinations in different spaces.")
+		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
+			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())
 		}
 		return RouteRecord{}, fmt.Errorf("failed to add destination to route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}

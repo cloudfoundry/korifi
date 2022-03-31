@@ -1,72 +1,82 @@
 package webhooks_test
 
 import (
-	"fmt"
+	"errors"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("CFWebhookValidationError", func() {
-	It("Marshals a payload", func() {
-		e := webhooks.DuplicateAppError
-		Expect(e.Marshal()).To(Equal(`{"code":1,"message":"CFApp with the same spec.name exists"}`))
+	var (
+		validationErrorType, validationErrorMessage string
+		validationError                             ValidationError
+	)
+	BeforeEach(func() {
+		validationErrorType = "some-validation-error-type"
+		validationErrorMessage = "some validation error message"
+		validationError = ValidationError{
+			Type:    validationErrorType,
+			Message: validationErrorMessage,
+		}
+	})
+	Describe("Error", func() {
+		It("returns a formatted error string", func() {
+			Expect(validationError.Error()).To(Equal("ValidationError-" + validationError.Type + ": " + validationError.Message))
+		})
 	})
 
-	It("Unmarshals UnknownError", func() {
-		e := new(webhooks.ValidationErrorCode)
-		p := `{"code":0}`
-		e.Unmarshall(p)
-		Expect(*e).To(Equal(webhooks.UnknownError))
-	})
-
-	It("Unmarshals DuplicateAppError", func() {
-		e := new(webhooks.ValidationErrorCode)
-		p := `{"code":1}`
-		e.Unmarshall(p)
-		Expect(*e).To(Equal(webhooks.DuplicateAppError))
-	})
-
-	It("Handles malformed json payloads", func() {
-		e := new(webhooks.ValidationErrorCode)
-		p := `{"code":1`
-		e.Unmarshall(p)
-		Expect(*e).To(Equal(webhooks.UnknownError))
+	Describe("Marshal", func() {
+		It("returns a Marshalled JSON string", func() {
+			expectedBody := `{"validationErrorType":"` + validationErrorType + `","message":"` + validationErrorMessage + `"}`
+			Expect(validationError.Marshal()).To(MatchJSON(expectedBody))
+		})
 	})
 })
 
-var _ = Describe("HasErrorCode", func() {
-	var err error
+var _ = Describe("WebhookErrorToValidationError", func() {
+	var (
+		validationErrorType, validationErrorMessage string
+		inputErr                                    error
+		validationError                             ValidationError
+		isValidationError                           bool
+	)
 
 	BeforeEach(func() {
-		err = &errors.StatusError{
+		validationErrorType = "some-validation-error-type"
+		validationErrorMessage = "some validation error message"
+		inputErr = &k8serrors.StatusError{
 			ErrStatus: metav1.Status{
-				Reason:  metav1.StatusReason(fmt.Sprintf(`{"code":%d,"message":"foo"}`, webhooks.DuplicateAppError)),
+				Reason:  metav1.StatusReason(`{"validationErrorType":"` + validationErrorType + `","message":"` + validationErrorMessage + `"}`),
 				Message: "oops",
 			},
 		}
 	})
 
-	When("error matches the expected error code", func() {
-		It("returns true", func() {
-			Expect(webhooks.HasErrorCode(err, webhooks.DuplicateAppError)).To(BeTrue())
-		})
+	JustBeforeEach(func() {
+		validationError, isValidationError = WebhookErrorToValidationError(inputErr)
 	})
 
-	When("error is a different webhooks error", func() {
-		It("returns false", func() {
-			Expect(webhooks.HasErrorCode(err, webhooks.UnknownError)).To(BeFalse())
-		})
+	It("unmarshals a K8s-wrapped validation error into a ValidationError, and returns true", func() {
+		Expect(isValidationError).To(BeTrue())
+		Expect(validationError).To(Equal(ValidationError{
+			Type:    validationErrorType,
+			Message: validationErrorMessage,
+		}))
 	})
 
-	When("error is not a k8s status error", func() {
-		It("returns false", func() {
-			err = fmt.Errorf("foo")
-			Expect(webhooks.HasErrorCode(err, webhooks.DuplicateAppError)).To(BeFalse())
+	When("the error is not a K8s error", func() {
+		BeforeEach(func() {
+			inputErr = errors.New("some-random-error")
+		})
+
+		It("returns an empty ValidationError and false", func() {
+			Expect(isValidationError).To(BeFalse())
+			Expect(validationError).To(Equal(ValidationError{}))
 		})
 	})
 })

@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
@@ -93,7 +94,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("should fail", func() {
-				Expect(createErr).To(MatchError(ContainSubstring("CFApp with the same spec.name exists")))
+				Expect(createErr).To(MatchError(ContainSubstring("App with the name '%s' already exists.", app1Name)))
 			})
 		})
 
@@ -106,7 +107,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("should fail", func() {
-				Expect(createErr).To(MatchError(ContainSubstring("CFApp with the same spec.name exists")))
+				Expect(createErr).To(MatchError(ContainSubstring(fmt.Sprintf("App with the name '%s' already exists.", app1Name))))
 			})
 		})
 	})
@@ -171,7 +172,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("should fail", func() {
-				Expect(updateErr).To(MatchError(ContainSubstring("CFApp with the same spec.name exists")))
+				Expect(updateErr).To(MatchError(ContainSubstring(fmt.Sprintf("App with the name '%s' already exists.", app2Name))))
 			})
 		})
 	})

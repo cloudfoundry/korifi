@@ -815,7 +815,12 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError("Invalid Route, FQDN does not comply with RFC 1035 standards")
+				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+				// This is ugly, but we are going to deprecate this test
+				Expect(rr.Body.String()).To(ContainSubstring(`FQDN does not comply with RFC 1035 standards`))
+				Expect(rr.Body.String()).To(ContainSubstring(`"code":10008`))
+				Expect(rr.Body.String()).To(ContainSubstring(`"title":"CF-UnprocessableEntity"`))
 			})
 		})
 
