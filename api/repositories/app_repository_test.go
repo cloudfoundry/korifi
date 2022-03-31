@@ -54,8 +54,23 @@ var _ = Describe("AppRepository Units", func() {
 
 	Describe("GetApp", func() {
 		var retErr error
+		const appGUID = "some-app-guid"
+
 		JustBeforeEach(func() {
-			_, retErr = appRepo.GetApp(testCtx, authInfo, "some-app-name")
+			_, retErr = appRepo.GetApp(testCtx, authInfo, appGUID)
+		})
+
+		It("builds the user client correctly", func() {
+			Expect(fakeFactory.BuildClientCallCount()).To(Equal(1))
+			Expect(fakeFactory.BuildClientArgsForCall(0)).To(Equal(authInfo))
+		})
+
+		It("retrieves the app's namespace correctly", func() {
+			Expect(fakeNamespaceRetriever.NamespaceForCallCount()).To(Equal(1))
+			actualCtx, actualObjectGUID, actualObjectType := fakeNamespaceRetriever.NamespaceForArgsForCall(0)
+			Expect(actualCtx).To(Equal(testCtx))
+			Expect(actualObjectGUID).To(Equal(appGUID))
+			Expect(actualObjectType).To(Equal("App"))
 		})
 
 		When("the client factory reports an error", func() {
@@ -74,6 +89,12 @@ var _ = Describe("AppRepository Units", func() {
 		var retErr error
 		JustBeforeEach(func() {
 			_, retErr = appRepo.CreateApp(testCtx, authInfo, CreateAppMessage{Name: prefixedGUID("app-")})
+		})
+
+		It("builds the user client correctly", func() {
+			Expect(fakeFactory.BuildClientCallCount()).To(Equal(2))
+			Expect(fakeFactory.BuildClientArgsForCall(0)).To(Equal(authInfo))
+			Expect(fakeFactory.BuildClientArgsForCall(1)).To(Equal(authInfo))
 		})
 
 		When("the client factory reports an error", func() {
@@ -124,12 +145,26 @@ var _ = Describe("AppRepository Units", func() {
 			retErr     error
 			appRecords []AppRecord
 		)
+
 		BeforeEach(func() {
 			retErr = nil
 			appRecords = []AppRecord{}
 		})
+
 		JustBeforeEach(func() {
 			appRecords, retErr = appRepo.ListApps(testCtx, authInfo, ListAppsMessage{})
+		})
+
+		It("builds the user client correctly", func() {
+			Expect(fakeFactory.BuildClientCallCount()).To(Equal(1))
+			Expect(fakeFactory.BuildClientArgsForCall(0)).To(Equal(authInfo))
+		})
+
+		It("calls the NamespacePermissions with the correct arguments", func() {
+			Expect(fakeNsPerms.GetAuthorizedSpaceNamespacesCallCount()).To(Equal(1))
+			actualCtx, actualAuthInfo := fakeNsPerms.GetAuthorizedSpaceNamespacesArgsForCall(0)
+			Expect(actualCtx).To(Equal(testCtx))
+			Expect(actualAuthInfo).To(Equal(authInfo))
 		})
 
 		When("getting namespaces returns an error", func() {
@@ -158,6 +193,7 @@ var _ = Describe("AppRepository Units", func() {
 			BeforeEach(func() {
 				fakeNsPerms.GetAuthorizedSpaceNamespacesReturns(map[string]bool{"foo": true}, nil)
 			})
+
 			When("the user isn't authorized to list apps in the namespace", func() {
 				BeforeEach(func() {
 					fakeUserClient.ListReturns(&k8serrors.StatusError{
@@ -189,6 +225,11 @@ var _ = Describe("AppRepository Units", func() {
 			_, retErr = appRepo.PatchAppEnvVars(testCtx, authInfo, PatchAppEnvVarsMessage{})
 		})
 
+		It("builds the user client correctly", func() {
+			Expect(fakeFactory.BuildClientCallCount()).To(Equal(1))
+			Expect(fakeFactory.BuildClientArgsForCall(0)).To(Equal(authInfo))
+		})
+
 		When("the client factory reports an error", func() {
 			BeforeEach(func() {
 				fakeFactory.BuildClientReturns(nil, errors.New("oh no"))
@@ -216,6 +257,11 @@ var _ = Describe("AppRepository Units", func() {
 			_, retErr = appRepo.SetCurrentDroplet(testCtx, authInfo, SetCurrentDropletMessage{})
 		})
 
+		It("builds the user client correctly", func() {
+			Expect(fakeFactory.BuildClientCallCount()).To(Equal(1))
+			Expect(fakeFactory.BuildClientArgsForCall(0)).To(Equal(authInfo))
+		})
+
 		When("the client factory reports an error", func() {
 			BeforeEach(func() {
 				fakeFactory.BuildClientReturns(nil, errors.New("oh no"))
@@ -232,6 +278,11 @@ var _ = Describe("AppRepository Units", func() {
 		var retErr error
 		JustBeforeEach(func() {
 			_, retErr = appRepo.SetAppDesiredState(testCtx, authInfo, SetAppDesiredStateMessage{})
+		})
+
+		It("builds the user client correctly", func() {
+			Expect(fakeFactory.BuildClientCallCount()).To(Equal(1))
+			Expect(fakeFactory.BuildClientArgsForCall(0)).To(Equal(authInfo))
 		})
 
 		When("the client factory reports an error", func() {
@@ -252,6 +303,11 @@ var _ = Describe("AppRepository Units", func() {
 			retErr = appRepo.DeleteApp(testCtx, authInfo, DeleteAppMessage{})
 		})
 
+		It("builds the user client correctly", func() {
+			Expect(fakeFactory.BuildClientCallCount()).To(Equal(1))
+			Expect(fakeFactory.BuildClientArgsForCall(0)).To(Equal(authInfo))
+		})
+
 		When("the client factory reports an error", func() {
 			BeforeEach(func() {
 				fakeFactory.BuildClientReturns(nil, errors.New("oh no"))
@@ -268,6 +324,11 @@ var _ = Describe("AppRepository Units", func() {
 		var retErr error
 		JustBeforeEach(func() {
 			_, retErr = appRepo.GetAppEnv(testCtx, authInfo, "some-guid")
+		})
+
+		It("builds the user client correctly", func() {
+			Expect(fakeFactory.BuildClientCallCount()).To(Equal(1))
+			Expect(fakeFactory.BuildClientArgsForCall(0)).To(Equal(authInfo))
 		})
 
 		When("the client factory reports an error", func() {
