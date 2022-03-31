@@ -7,15 +7,14 @@ import (
 	"net/http"
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
-	. "github.com/onsi/gomega/gstruct"
-
 	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
 
+	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -803,37 +802,6 @@ var _ = Describe("RouteHandler", func() {
 
 			It("returns an error", func() {
 				expectUnprocessableEntityError("Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag")
-			})
-		})
-
-		When("the FQDN is invalid with invalid characters", func() {
-			BeforeEach(func() {
-				domainRepo.GetDomainReturns(repositories.DomainRecord{
-					GUID: testDomainGUID,
-					Name: "this-is-@n-inv@lid-dom@in-n@me",
-				}, nil)
-			})
-
-			It("returns an error", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
-				// This is ugly, but we are going to deprecate this test
-				Expect(rr.Body.String()).To(ContainSubstring(`FQDN does not comply with RFC 1035 standards`))
-				Expect(rr.Body.String()).To(ContainSubstring(`"code":10008`))
-				Expect(rr.Body.String()).To(ContainSubstring(`"title":"CF-UnprocessableEntity"`))
-			})
-		})
-
-		When("the FQDN is invalid with invalid length", func() {
-			BeforeEach(func() {
-				domainRepo.GetDomainReturns(repositories.DomainRecord{
-					GUID: testDomainGUID,
-					Name: "a-very-looooooooooooong-invalid-domain-name-that-should-fail-validation",
-				}, nil)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Invalid Route, subdomains must each be at most 63 characters")
 			})
 		})
 

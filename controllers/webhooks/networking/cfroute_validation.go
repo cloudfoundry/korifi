@@ -32,6 +32,8 @@ const (
 	RouteDestinationNotInSpaceErrorMessage = "Route destination app not found in space"
 	RouteHostNameValidationErrorType       = "RouteHostNameValidationError"
 	RoutePathValidationErrorType           = "RoutePathValidationError"
+	RouteSubdomainValidationErrorType      = "RouteSubdomainValidationError"
+	RouteSubdomainValidationErrorMessage   = "Subdomains must each be at most 63 characters"
 	RouteFQDNValidationErrorType           = "RouteFQDNValidationError"
 	RouteFQDNValidationErrorMessage        = "FQDN does not comply with RFC 1035 standards"
 
@@ -199,7 +201,7 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 }
 
 func uniqueName(route networkingv1alpha1.CFRoute) string {
-	return strings.Join([]string{route.Spec.Host, route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
+	return strings.Join([]string{strings.ToLower(route.Spec.Host), route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
 }
 
 func validatePath(route networkingv1alpha1.CFRoute) error {
@@ -285,7 +287,7 @@ func IsFQDN(host, domain string) (bool, error) {
 		// of the domain.
 		MAXIMUM_FQDN_DOMAIN_LENGTH = 253
 		MINIMUM_FQDN_DOMAIN_LENGTH = 3
-		DOMAIN_REGEX               = "^(([a-z0-9]|[a-z0-9][a-z0-9\\-]{0,61}[a-z0-9])\\.)+([a-z0-9]|[a-z0-9][a-z0-9\\-]{0,61}[a-z0-9])$"
+		DOMAIN_REGEX               = "^[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$"
 		SUBDOMAIN_REGEX            = "^([^\\.]{0,63}\\.)*[^\\.]{0,63}$"
 	)
 
@@ -294,7 +296,7 @@ func IsFQDN(host, domain string) (bool, error) {
 	rxSubdomain := regexp.MustCompile(SUBDOMAIN_REGEX)
 
 	if !rxSubdomain.MatchString(fqdn) {
-		return false, errors.New("subdomains must each be at most 63 characters")
+		return false, errors.New(webhooks.ValidationError{Type: RouteSubdomainValidationErrorType, Message: RouteSubdomainValidationErrorMessage}.Marshal())
 	}
 
 	rxDomain := regexp.MustCompile(DOMAIN_REGEX)

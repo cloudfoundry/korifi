@@ -297,181 +297,8 @@ var _ = Describe("CF Route Validation", func() {
 	})
 
 	Describe("Create", func() {
-		JustBeforeEach(func() {
-			response = validatingWebhook.Handle(ctx, request)
-		})
-
-		BeforeEach(func() {
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      testRouteGUID,
-					Namespace: testRouteNamespace,
-					Operation: admissionv1.Create,
-					Object: runtime.RawExtension{
-						Raw: cfRouteJSON,
-					},
-				},
-			}
-		})
-
-		It("allows the request", func() {
-			Expect(response.Allowed).To(BeTrue())
-		})
-
-		It("invokes the validator correctly", func() {
-			Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
-			actualContext, _, namespace, name := duplicateValidator.ValidateCreateArgsForCall(0)
-			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(rootNamespace))
-			Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
-		})
-
-		When("the app name is a duplicate", func() {
-			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(webhooks.ErrorDuplicateName)
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				err := webhooks.ValidationError{
-					Type:    networking.DuplicateRouteErrorType,
-					Message: "Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'.",
-				}
-				Expect(string(response.Result.Reason)).To(Equal(err.Marshal()))
-			})
-		})
-
-		When("there is an issue decoding the request", func() {
-			BeforeEach(func() {
-				var err error
-				cfRouteJSON, err = json.Marshal(cfRoute)
-				Expect(err).NotTo(HaveOccurred())
-				badCFAppJSON := []byte("}" + string(cfRouteJSON))
-
-				request = admission.Request{
-					AdmissionRequest: admissionv1.AdmissionRequest{
-						Name:      testRouteGUID,
-						Namespace: testRouteNamespace,
-						Operation: admissionv1.Create,
-						Object: runtime.RawExtension{
-							Raw: badCFAppJSON,
-						},
-					},
-				}
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-			})
-
-			It("does not attempt to validate a name", func() {
-				Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(0))
-			})
-		})
-
-		When("validating the app name fails", func() {
-			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(errors.New("boom"))
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				ve := unmarshalValidatorError(string(response.Result.Reason))
-				Expect(ve.Type).To(Equal(webhooks.UnknownErrorType))
-			})
-		})
-
-		When("host is empty on the route", func() {
-			BeforeEach(func() {
-				var err error
-				cfRoute.Spec.Host = ""
-				cfRouteJSON, err = json.Marshal(cfRoute)
-				Expect(err).NotTo(HaveOccurred())
-
-				request = admission.Request{
-					AdmissionRequest: admissionv1.AdmissionRequest{
-						Name:      testRouteGUID,
-						Namespace: testRouteNamespace,
-						Operation: admissionv1.Create,
-						Object: runtime.RawExtension{
-							Raw: cfRouteJSON,
-						},
-					},
-				}
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-			})
-		})
-
-		When("the Host on the route is empty", func() {
-			BeforeEach(func() {
-				var err error
-				cfRoute.Spec.Host = ""
-				cfRouteJSON, err = json.Marshal(cfRoute)
-				Expect(err).NotTo(HaveOccurred())
-
-				request = admission.Request{
-					AdmissionRequest: admissionv1.AdmissionRequest{
-						Name:      testRouteGUID,
-						Namespace: testRouteNamespace,
-						Operation: admissionv1.Create,
-						Object: runtime.RawExtension{
-							Raw: cfRouteJSON,
-						},
-					},
-				}
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-			})
-		})
-
-		When("the Host is invalid with invalid characters", func() {
-			BeforeEach(func() {
-				var err error
-				cfRoute.Spec.Host = "this-is-inv@lid-host-n@me"
-				cfRouteJSON, err = json.Marshal(cfRoute)
-				Expect(err).NotTo(HaveOccurred())
-
-				request = admission.Request{
-					AdmissionRequest: admissionv1.AdmissionRequest{
-						Name:      testRouteGUID,
-						Namespace: testRouteNamespace,
-						Operation: admissionv1.Create,
-						Object: runtime.RawExtension{
-							Raw: cfRouteJSON,
-						},
-					},
-				}
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-			})
-		})
-
-		When("the FQDN is invalid with invalid length", func() {
-			BeforeEach(func() {
-				cfDomain.Spec.Name = "a-very-looooooooooooong-invalid-domain-name-that-should-fail-validation"
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-			})
-		})
-
-		When("the route has destinations", func() {
-			BeforeEach(func() {
-				cfRoute.Spec.Destinations = []networkingv1alpha1.Destination{
-					{
-						AppRef: v1.LocalObjectReference{
-							Name: "some-name",
-						},
-					},
-				}
+		When("the webhook request JSON is valid", func() {
+			JustBeforeEach(func() {
 				var err error
 				cfRouteJSON, err = json.Marshal(cfRoute)
 				Expect(err).NotTo(HaveOccurred())
@@ -486,26 +313,55 @@ var _ = Describe("CF Route Validation", func() {
 						},
 					},
 				}
+
+				response = validatingWebhook.Handle(ctx, request)
 			})
 
 			It("allows the request", func() {
 				Expect(response.Allowed).To(BeTrue())
 			})
 
-			When("the destination contains an app not found in the route's namespace", func() {
+			It("invokes the validator correctly", func() {
+				Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
+				actualContext, _, namespace, name := duplicateValidator.ValidateCreateArgsForCall(0)
+				Expect(actualContext).To(Equal(ctx))
+				Expect(namespace).To(Equal(rootNamespace))
+				Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+			})
+
+			When("the host contains upper-case characters", func() {
 				BeforeEach(func() {
-					getAppError = k8serrors.NewNotFound(schema.GroupResource{}, "foo")
+					cfRoute.Spec.Host = "vAlidnAme"
+				})
+
+				It("allows the request", func() {
+					Expect(response.Allowed).To(BeTrue())
+				})
+				It("invokes the validator with lower-case host correctly", func() {
+					Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
+					_, _, _, name := duplicateValidator.ValidateCreateArgsForCall(0)
+					Expect(name).To(Equal(strings.ToLower(cfRoute.Spec.Host) + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+				})
+			})
+
+			When("the app name is a duplicate", func() {
+				BeforeEach(func() {
+					duplicateValidator.ValidateCreateReturns(webhooks.ErrorDuplicateName)
 				})
 
 				It("denies the request", func() {
 					Expect(response.Allowed).To(BeFalse())
-					Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: networking.RouteDestinationNotInSpaceErrorType, Message: networking.RouteDestinationNotInSpaceErrorMessage}.Marshal()))
+					err := webhooks.ValidationError{
+						Type:    networking.DuplicateRouteErrorType,
+						Message: "Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'.",
+					}
+					Expect(string(response.Result.Reason)).To(Equal(err.Marshal()))
 				})
 			})
 
-			When("getting the destination app fails for another reason", func() {
+			When("validating the app name fails", func() {
 				BeforeEach(func() {
-					getAppError = errors.New("foo")
+					duplicateValidator.ValidateCreateReturns(errors.New("boom"))
 				})
 
 				It("denies the request", func() {
@@ -513,6 +369,104 @@ var _ = Describe("CF Route Validation", func() {
 					ve := unmarshalValidatorError(string(response.Result.Reason))
 					Expect(ve.Type).To(Equal(webhooks.UnknownErrorType))
 				})
+			})
+
+			When("host is empty on the route", func() {
+				BeforeEach(func() {
+					cfRoute.Spec.Host = ""
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+				})
+			})
+
+			When("the Host is invalid with invalid characters", func() {
+				BeforeEach(func() {
+					cfRoute.Spec.Host = "this-is-inv@lid-host-n@me"
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+				})
+			})
+
+			When("the FQDN is invalid with invalid length", func() {
+				BeforeEach(func() {
+					cfDomain.Spec.Name = "a-very-looooooooooooong-invalid-domain-name-that-should-fail-validation"
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+				})
+			})
+
+			When("the route has destinations", func() {
+				BeforeEach(func() {
+					cfRoute.Spec.Destinations = []networkingv1alpha1.Destination{
+						{
+							AppRef: v1.LocalObjectReference{
+								Name: "some-name",
+							},
+						},
+					}
+				})
+
+				It("allows the request", func() {
+					Expect(response.Allowed).To(BeTrue())
+				})
+
+				When("the destination contains an app not found in the route's namespace", func() {
+					BeforeEach(func() {
+						getAppError = k8serrors.NewNotFound(schema.GroupResource{}, "foo")
+					})
+
+					It("denies the request", func() {
+						Expect(response.Allowed).To(BeFalse())
+						Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: networking.RouteDestinationNotInSpaceErrorType, Message: networking.RouteDestinationNotInSpaceErrorMessage}.Marshal()))
+					})
+				})
+
+				When("getting the destination app fails for another reason", func() {
+					BeforeEach(func() {
+						getAppError = errors.New("foo")
+					})
+
+					It("denies the request", func() {
+						Expect(response.Allowed).To(BeFalse())
+						ve := unmarshalValidatorError(string(response.Result.Reason))
+						Expect(ve.Type).To(Equal(webhooks.UnknownErrorType))
+					})
+				})
+			})
+		})
+
+		When("there is an issue decoding the request", func() {
+			var (
+				badRequestResponse admission.Response
+			)
+
+			JustBeforeEach(func() {
+				badRequest := admission.Request{
+					AdmissionRequest: admissionv1.AdmissionRequest{
+						Name:      testRouteGUID,
+						Namespace: testRouteNamespace,
+						Operation: admissionv1.Create,
+						Object: runtime.RawExtension{
+							Raw: []byte("}"),
+						},
+					},
+				}
+
+				badRequestResponse = validatingWebhook.Handle(ctx, badRequest)
+			})
+
+			It("denies the request", func() {
+				Expect(badRequestResponse.Allowed).To(BeFalse())
+			})
+
+			It("does not attempt to validate a name", func() {
+				Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(0))
 			})
 		})
 	})
@@ -577,6 +531,21 @@ var _ = Describe("CF Route Validation", func() {
 			Expect(namespace).To(Equal(rootNamespace))
 			Expect(oldName).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
 			Expect(newName).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + newTestRoutePath))
+		})
+
+		When("the new hostname contains upper-case characters", func() {
+			BeforeEach(func() {
+				updatedCFRoute.Spec.Host = "vAlidnAme"
+			})
+
+			It("allows the request", func() {
+				Expect(response.Allowed).To(BeTrue())
+			})
+			It("invokes the validator with lower-case host correctly", func() {
+				Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
+				_, _, _, _, newName := duplicateValidator.ValidateUpdateArgsForCall(0)
+				Expect(newName).To(Equal(strings.ToLower(updatedCFRoute.Spec.Host) + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + newTestRoutePath))
+			})
 		})
 
 		When("the new app name is a duplicate", func() {
@@ -685,6 +654,22 @@ var _ = Describe("CF Route Validation", func() {
 			Expect(actualContext).To(Equal(ctx))
 			Expect(namespace).To(Equal(rootNamespace))
 			Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+		})
+
+		When("the host contains upper-case characters", func() {
+			BeforeEach(func() {
+				testRouteHost = "vAlidnAme"
+				cfRoute.Spec.Host = testRouteHost
+			})
+
+			It("allows the request", func() {
+				Expect(response.Allowed).To(BeTrue())
+			})
+			It("invokes the validator with lower-case host correctly", func() {
+				Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
+				_, _, _, name := duplicateValidator.ValidateDeleteArgsForCall(0)
+				Expect(name).To(Equal(strings.ToLower(testRouteHost) + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+			})
 		})
 
 		When("delete validation fails", func() {
