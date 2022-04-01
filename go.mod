@@ -35,7 +35,7 @@ require (
 	k8s.io/utils v0.0.0-20211116205334-6203023598ed
 	sigs.k8s.io/controller-runtime v0.11.2
 	sigs.k8s.io/controller-tools v0.8.0
-	sigs.k8s.io/hierarchical-namespaces v0.9.0
+	sigs.k8s.io/hierarchical-namespaces v1.0.0
 )
 
 require (
