@@ -314,7 +314,7 @@ var _ = Describe("Spaces", func() {
 			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 			resultErr = cfErrs{}
 
-			route := "manifested-app.vcap.me"
+			route := fmt.Sprintf("manifested-app.%s", appFQDN)
 			command := "whatever"
 			manifest = manifestResource{
 				Version: 1,
