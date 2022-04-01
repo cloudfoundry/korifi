@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 if [[ $# -ne 1 ]]; then
   cat <<EOF >&2
 Usage:
@@ -12,9 +14,12 @@ EOF
 fi
 
 username="$1"
-priv_key_file="$(mktemp)"
-csr_file="$(mktemp)"
-cert_file="$(mktemp)"
+tmp="$(mktemp -d)"
+trap "rm -rf $tmp" EXIT
+
+priv_key_file="$tmp/key.pem"
+csr_file="$tmp/csr.pem"
+cert_file="$tmp/cert.pem"
 csr_name="$(echo ${RANDOM} | shasum | head -c 40)"
 
 openssl req -new -newkey rsa:4096 \
@@ -36,7 +41,16 @@ spec:
 EOF
 
 kubectl certificate approve "${csr_name}"
-kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}' | base64 --decode >"${cert_file}"
+
+certificate="$(kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}')"
+until [ -n "$certificate" ]; do
+  certificate="$(kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}')"
+  echo -n .
+  sleep 1
+done
+
+echo $certificate | base64 --decode >"${cert_file}"
+
 kubectl config set-credentials "${username}" --client-certificate="${cert_file}" --client-key="${priv_key_file}" --embed-certs
 
 cat <<EOF
