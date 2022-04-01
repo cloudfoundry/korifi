@@ -1,0 +1,14 @@
+---
+apiVersion: kbld.k14s.io/v1alpha1
+kind: Config
+sources:
+- image: cloudfoundry/cf-k8s-api:latest
+  path: .
+  docker:
+    build:
+      file: api/Dockerfile
+      # rawOptions: ["--build-arg", "GIT_SHA=eirini-controller-dirty", "--tag", "eirini-controller"]
+      buildkit: true
+destinations:
+- image: cloudfoundry/cf-k8s-api:latest
+  newImage: europe-west1-docker.pkg.dev/cf-on-k8s-wg/ci/cf-k8s-api

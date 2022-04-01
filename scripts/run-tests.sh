@@ -42,7 +42,8 @@ else
     export APP_FQDN=vcap.me
   fi
 
-  export KUBECONFIG="${HOME}/.kube/e2e.yml"
+  export KUBECONFIG="${KUBECONFIG:-$HOME/kube/e2e.yml}"
+
   if [ -z "${SKIP_DEPLOY}" ]; then
     "${SCRIPT_DIR}/deploy-on-kind.sh" -l e2e
   fi
