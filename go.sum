@@ -2982,6 +2982,8 @@ sigs.k8s.io/gateway-api v0.3.0/go.mod h1:Wb8bx7QhGVZxOSEU3i9vw/JqTB5Nlai9MLMYVZe
 sigs.k8s.io/gateway-api v0.4.1/go.mod h1:r3eiNP+0el+NTLwaTfOrCNXy8TukC+dIM3ggc+fbNWk=
 sigs.k8s.io/hierarchical-namespaces v0.9.0 h1:GbNkRITpJ8SwnZoO3ZillHDn0D/AySP5Fosa2ZPEol0=
 sigs.k8s.io/hierarchical-namespaces v0.9.0/go.mod h1:qHqqjgYqzMPg7BwpkndOkK7dwmzBdUj0tvSSrmQzouk=
+sigs.k8s.io/hierarchical-namespaces v1.0.0 h1:rgfkknTEFhAF/28p1sKdiJqUa+OvvNQ20rlyFGIRaro=
+sigs.k8s.io/hierarchical-namespaces v1.0.0/go.mod h1:zqfhmqEdCUY2S75WsrmfPPu+ns35522mBDkqaHNjrSs=
 sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 h1:fD1pz4yfdADVNfFmcP2aBEtudwUQ1AlLnRBALr33v3s=
 sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6/go.mod h1:p4QtZmO4uMYipTQNzagwnNoseA6OxSUutVw05NhYDRs=
 sigs.k8s.io/kustomize/api v0.8.5/go.mod h1:M377apnKT5ZHJS++6H4rQoCHmWtt6qTpp3mbe7p6OLY=

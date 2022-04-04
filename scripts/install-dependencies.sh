@@ -24,20 +24,20 @@ EOF
 while [[ $# -gt 0 ]]; do
   i=$1
   case $i in
-  -g=* | --gcr-service-account-json=*)
-    GCP_SERVICE_ACCOUNT_JSON_FILE="${i#*=}"
-    shift
-    ;;
-  -g | --gcr-service-account-json)
-    GCP_SERVICE_ACCOUNT_JSON_FILE="${2}"
-    shift
-    shift
-    ;;
-  *)
-    echo -e "Error: Unknown flag: ${i/=*/}\n" >&2
-    usage_text >&2
-    exit 1
-    ;;
+    -g=* | --gcr-service-account-json=*)
+      GCP_SERVICE_ACCOUNT_JSON_FILE="${i#*=}"
+      shift
+      ;;
+    -g | --gcr-service-account-json)
+      GCP_SERVICE_ACCOUNT_JSON_FILE="${2}"
+      shift
+      shift
+      ;;
+    *)
+      echo -e "Error: Unknown flag: ${i/=*/}\n" >&2
+      usage_text >&2
+      exit 1
+      ;;
   esac
 done
 
@@ -112,7 +112,11 @@ echo "*******************"
 echo "Installing HNC"
 echo "*******************"
 
-readonly HNC_VERSION="v0.9.0"
+kubectl apply -k ${DEP_DIR}/hnc/cf
+kubectl rollout status deployment/hnc-controller-manager -w -n hnc-system
+
+# install kubectl addon in order to configure secrets propagation
+readonly HNC_VERSION="v1.0.0"
 readonly HNC_PLATFORM="$(go env GOHOSTOS)_$(go env GOHOSTARCH)"
 readonly HNC_BIN="${PWD}/bin"
 export PATH="${HNC_BIN}:${PATH}"
@@ -120,19 +124,6 @@ export PATH="${HNC_BIN}:${PATH}"
 mkdir -p "${HNC_BIN}"
 curl -L "https://github.com/kubernetes-sigs/hierarchical-namespaces/releases/download/${HNC_VERSION}/kubectl-hns_${HNC_PLATFORM}" -o "${HNC_BIN}/kubectl-hns"
 chmod +x "${HNC_BIN}/kubectl-hns"
-
-kubectl apply -f ${DEP_DIR}/hnc-manager-v0.9.0.yaml
-kubectl rollout status deployment/hnc-controller-manager -w -n hnc-system
-
-# Hierarchical namespace controller is quite asynchronous. There is no
-# guarantee that the operations below would succeed on first invocation,
-# so retry until they do.
-echo -n waiting for hns controller to be ready and servicing validating webhooks
-retry kubectl create namespace ping-hnc
-retry kubectl hns create -n ping-hnc ping-hnc-child
-retry kubectl get namespace ping-hnc-child
-retry kubectl hns set --allowCascadingDeletion ping-hnc
-retry kubectl delete namespace ping-hnc --wait=false
 
 # Propagate the kpack image registry write secret
 retry kubectl hns config set-resource secrets --mode Propagate
