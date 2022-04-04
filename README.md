@@ -179,6 +179,12 @@ kubectl apply -f https://github.com/vmware-tanzu/servicebinding/releases/downloa
 
 ---
 # Installation
+
+## Create the root namespace
+Create your root namespace. The default name is `cf`, but you can override this in the configuration files for cf-k8s-controller and cf-k8s-api (see below).
+
+Example: `kubectl create namespace cf`
+
 ## Configure cf-k8s-controllers
 Configuration file for cf-k8s-controllers is at `controllers/config/base/controllersconfig/cf_k8s_controllers_config.yaml`
 
@@ -200,6 +206,12 @@ make deploy
 ```
 
 ## Post Deployment
+
+### Create a role binding for your cluster admin user
+To grant your kubernetes user admin-level access to the Cloud Foundry API,
+they need the `cf-k8s-controllers-admin` role binding in your root namespace (i.e `cf`).
+
+Example: `kubectl create rolebinding default-admin-binding -n cf --role cf-k8s-controllers-admin --user <YOUR USER>`
 
 ### Configure Image Registry Credentials Secret
 Run the command below, substituting the values for the Docker credentials to the registry where source package images will be uploaded to.
