@@ -123,7 +123,9 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 		return RoleRecord{}, fmt.Errorf("invalid role type: %q", cfUserRoleType)
 	}
 
-	cfUserRoleBinding := createRoleBinding(r.rootNamespace, cfUserRoleType, role.Kind, role.User, uuid.NewString(), cfUserk8sRoleConfig.Name, annotations)
+	cfUserRoleBinding := createRoleBinding(r.rootNamespace, cfUserRoleType, role.Kind, role.User, uuid.NewString(), cfUserk8sRoleConfig.Name, map[string]string{
+		hnsv1alpha2.AnnotationNoneSelector: "true",
+	})
 	err = r.privilegedClient.Create(ctx, &cfUserRoleBinding)
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
