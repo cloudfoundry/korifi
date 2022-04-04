@@ -4,11 +4,9 @@ kind: Config
 sources:
 - image: cloudfoundry/cf-k8s-controllers:latest
   path: .
-  docker:
+  kubectlBuildkit:
     build:
       file: controllers/Dockerfile
-      # rawOptions: ["--build-arg", "GIT_SHA=eirini-controller-dirty", "--tag", "eirini-controller"]
-      buildkit: true
 destinations:
 - image: cloudfoundry/cf-k8s-controllers:latest
   newImage: europe-west1-docker.pkg.dev/cf-on-k8s-wg/ci/cf-k8s-controllers
