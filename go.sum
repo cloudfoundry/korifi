@@ -334,8 +334,8 @@ github.com/buildpacks/imgutil v0.0.0-20220310160537-4dd8bc60eaff h1:sP0G3fOfWMSD
 github.com/buildpacks/imgutil v0.0.0-20220310160537-4dd8bc60eaff/go.mod h1:zjdTnysBSl9Jeiz2J/B7Nf621dsDaEGkMfySlPqXNtY=
 github.com/buildpacks/lifecycle v0.13.5 h1:8sreGjrBu6CJDZqc6Opi+VJSqVcS1hiEqzJEhn7bqBY=
 github.com/buildpacks/lifecycle v0.13.5/go.mod h1:+X6d6xoEhNitwvSbpTcnw/mvKNTYAx2ZeR9GDPbbsds=
-github.com/buildpacks/pack v0.24.0 h1:Oeq7DImb7PLX5z/11h5kWJC/YZtgCAxJiEBTU/XsnNo=
-github.com/buildpacks/pack v0.24.0/go.mod h1:3BMdtlXEXTHUGAv31eeuPAebXq+JYZhFrAd7tEi6m0g=
+github.com/buildpacks/pack v0.24.1 h1:CkrdFCWCk/I71E3noNmKtcPha1s+1F9j8ykhbxHLV04=
+github.com/buildpacks/pack v0.24.1/go.mod h1:3BMdtlXEXTHUGAv31eeuPAebXq+JYZhFrAd7tEi6m0g=
 github.com/bytecodealliance/wasmtime-go v0.28.0/go.mod h1:q320gUxqyI8yB+ZqRuaJOEnGkAnHh6WtJjMaT2CW4wI=
 github.com/c2h5oh/datasize v0.0.0-20171227191756-4eba002a5eae/go.mod h1:S/7n9copUssQ56c7aAgHqftWO4LTf4xY6CGWt8Bc+3M=
 github.com/caarlos0/ctrlc v1.0.0/go.mod h1:CdXpj4rmq0q/1Eb44M9zi2nKB0QraNKuRGYGrrHhcQw=
