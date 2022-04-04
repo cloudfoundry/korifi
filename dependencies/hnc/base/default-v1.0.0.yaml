@@ -9,7 +9,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   name: hierarchyconfigurations.hnc.x-k8s.io
 spec:
@@ -45,6 +45,38 @@ spec:
               allowCascadingDeletion:
                 description: AllowCascadingDeletion indicates if the subnamespaces of this namespace are allowed to cascading delete.
                 type: boolean
+              annotations:
+                description: Annotations is a list of annotations and values to apply to the current namespace and all of its descendants. All annotation keys must match a regex specified on the command line by --managed-namespace-annotation. A namespace cannot have a KVP that conflicts with one of its ancestors.
+                items:
+                  description: MetaKVP represents a label or annotation
+                  properties:
+                    key:
+                      description: Key is the name of the label or annotation. It must conform to the normal rules for Kubernetes label/annotation keys.
+                      type: string
+                    value:
+                      description: Value is the value of the label or annotation. It must confirm to the normal rules for Kubernetes label or annoation values, which are far more restrictive for labels than for anntations.
+                      type: string
+                  required:
+                  - key
+                  - value
+                  type: object
+                type: array
+              labels:
+                description: Lables is a list of labels and values to apply to the current namespace and all of its descendants. All label keys must match a regex specified on the command line by --managed-namespace-label. A namespace cannot have a KVP that conflicts with one of its ancestors.
+                items:
+                  description: MetaKVP represents a label or annotation
+                  properties:
+                    key:
+                      description: Key is the name of the label or annotation. It must conform to the normal rules for Kubernetes label/annotation keys.
+                      type: string
+                    value:
+                      description: Value is the value of the label or annotation. It must confirm to the normal rules for Kubernetes label or annoation values, which are far more restrictive for labels than for anntations.
+                      type: string
+                  required:
+                  - key
+                  - value
+                  type: object
+                type: array
               parent:
                 description: Parent indicates the parent of this namespace, if any.
                 type: string
@@ -60,7 +92,7 @@ spec:
               conditions:
                 description: Conditions describes the errors, if any.
                 items:
-                  description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{     // Represents the observations of a foo's current state.     // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type     // +patchStrategy=merge     // +listType=map     // +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n     // other fields }"
+                  description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -116,7 +148,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   name: hncconfigurations.hnc.x-k8s.io
 spec:
@@ -178,7 +210,7 @@ spec:
               conditions:
                 description: Conditions describes the errors, if any. If there are any conditions with "ActivitiesHalted" reason, this means that HNC cannot function in the affected namespaces. The HierarchyConfiguration object in each of the affected namespaces will have more information. To learn more about conditions, see https://github.com/kubernetes-sigs/hierarchical-namespaces/blob/master/docs/user-guide/concepts.md#admin-conditions.
                 items:
-                  description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{     // Represents the observations of a foo's current state.     // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type     // +patchStrategy=merge     // +listType=map     // +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n     // other fields }"
+                  description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -265,7 +297,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   name: subnamespaceanchors.hnc.x-k8s.io
 spec:
@@ -291,6 +323,41 @@ spec:
             description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
+            type: object
+          spec:
+            properties:
+              annotations:
+                description: Annotations is a list of annotations and values to apply to the current subnamespace and all of its descendants. All annotation keys must match a regex specified on the command line by --managed-namespace-annotation. All annotation keys must be managed annotations (see HNC docs) and must match a regex
+                items:
+                  description: MetaKVP represents a label or annotation
+                  properties:
+                    key:
+                      description: Key is the name of the label or annotation. It must conform to the normal rules for Kubernetes label/annotation keys.
+                      type: string
+                    value:
+                      description: Value is the value of the label or annotation. It must confirm to the normal rules for Kubernetes label or annoation values, which are far more restrictive for labels than for anntations.
+                      type: string
+                  required:
+                  - key
+                  - value
+                  type: object
+                type: array
+              labels:
+                description: Labels is a list of labels and values to apply to the current subnamespace and all of its descendants. All label keys must match a regex specified on the command line by --managed-namespace-label. All label keys must be managed labels (see HNC docs) and must match a regex
+                items:
+                  description: MetaKVP represents a label or annotation
+                  properties:
+                    key:
+                      description: Key is the name of the label or annotation. It must conform to the normal rules for Kubernetes label/annotation keys.
+                      type: string
+                    value:
+                      description: Value is the value of the label or annotation. It must confirm to the normal rules for Kubernetes label or annoation values, which are far more restrictive for labels than for anntations.
+                      type: string
+                  required:
+                  - key
+                  - value
+                  type: object
+                type: array
             type: object
           status:
             description: SubnamespaceAnchorStatus defines the observed state of SubnamespaceAnchor.
@@ -518,16 +585,22 @@ spec:
         - --webhook-server-port=9443
         - --metrics-addr=:8080
         - --max-reconciles=10
-        - --apiserver-qps-throttle=200
-        - --enable-internal-cert-management
-        - --cert-restart-on-secret-refresh
+        - --apiserver-qps-throttle=50
         - --excluded-namespace=kube-system
         - --excluded-namespace=kube-public
         - --excluded-namespace=hnc-system
         - --excluded-namespace=kube-node-lease
+        - --enable-internal-cert-management
+        - --cert-restart-on-secret-refresh
         command:
         - /manager
-        image: gcr.io/k8s-staging-multitenancy/hnc-manager:v0.9.0
+        image: gcr.io/k8s-staging-multitenancy/hnc-manager:v1.0.0
+        livenessProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /healthz
+            port: 8081
+          periodSeconds: 10
         name: manager
         ports:
         - containerPort: 9443
@@ -536,13 +609,24 @@ spec:
         - containerPort: 8080
           name: metrics
           protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          periodSeconds: 5
         resources:
           limits:
-            cpu: 500m
+            cpu: 100m
             memory: 300Mi
           requests:
-            cpu: 200m
+            cpu: 100m
             memory: 150Mi
+        startupProbe:
+          failureThreshold: 100
+          httpGet:
+            path: /readyz
+            port: 8081
+          periodSeconds: 5
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
