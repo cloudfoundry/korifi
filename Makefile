@@ -135,7 +135,7 @@ uninstall-crds: manifests-controllers install-kustomize ## Uninstall CRDs from t
 
 deploy: install-crds deploy-controllers deploy-api
 
-deploy-kind: install-crds deploy-controllers deploy-api-kind-auth
+deploy-kind: install-crds deploy-controllers deploy-api-kind
 
 deploy-kind-local: install-crds deploy-controllers-kind-local deploy-api-kind-local
 
@@ -151,8 +151,8 @@ deploy-controllers-kind-local-debug: install-kustomize build-reference-controlle
 deploy-api: install-kustomize build-reference-api
 	$(KUSTOMIZE) build api/config/base | kubectl apply -f -
 
-deploy-api-kind-auth: install-kustomize build-reference-api
-	$(KUSTOMIZE) build api/config/overlays/kind-auth-enabled | kubectl apply -f -
+deploy-api-kind: install-kustomize build-reference-api
+	$(KUSTOMIZE) build api/config/overlays/kind | kubectl apply -f -
 
 deploy-api-kind-local: install-kustomize build-reference-api
 	$(KUSTOMIZE) build api/config/overlays/kind-local-registry | kubectl apply -f -

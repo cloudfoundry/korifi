@@ -105,7 +105,6 @@ type OrgRepo struct {
 	userClientFactory UserK8sClientFactory
 	nsPerms           *authorization.NamespacePermissions
 	timeout           time.Duration
-	authEnabled       bool
 }
 
 func NewOrgRepo(
@@ -114,7 +113,6 @@ func NewOrgRepo(
 	userClientFactory UserK8sClientFactory,
 	nsPerms *authorization.NamespacePermissions,
 	timeout time.Duration,
-	authEnabled bool,
 ) *OrgRepo {
 	return &OrgRepo{
 		rootNamespace:     rootNamespace,
@@ -122,7 +120,6 @@ func NewOrgRepo(
 		userClientFactory: userClientFactory,
 		nsPerms:           nsPerms,
 		timeout:           timeout,
-		authEnabled:       authEnabled,
 	}
 }
 
@@ -361,10 +358,6 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter 
 		})
 	}
 
-	if !r.authEnabled {
-		return records, nil
-	}
-
 	authorizedNamespaces, err := r.nsPerms.GetAuthorizedOrgNamespaces(ctx, info)
 	if err != nil {
 		return nil, err
@@ -432,10 +425,6 @@ func (r *OrgRepo) ListSpaces(ctx context.Context, info authorization.Info, messa
 			CreatedAt:        anchor.CreationTimestamp.Time,
 			UpdatedAt:        anchor.CreationTimestamp.Time,
 		})
-	}
-
-	if !r.authEnabled {
-		return records, nil
 	}
 
 	authorizedNamespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, info)

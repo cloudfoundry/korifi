@@ -302,7 +302,7 @@ function deploy_cf_k8s_api() {
     if [[ -n "${use_local_registry}" ]]; then
       make deploy-api-kind-local
     else
-      make deploy-api-kind-auth
+      make deploy-api-kind
     fi
 
     create_tls_secret "cf-k8s-api-ingress-cert" "cf-k8s-api-system" "localhost"

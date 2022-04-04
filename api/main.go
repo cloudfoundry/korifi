@@ -88,10 +88,7 @@ func main() {
 		panic(fmt.Sprintf("could not create kubernetes REST mapper: %v", err))
 	}
 
-	var userClientFactory repositories.UserK8sClientFactory = repositories.NewPrivilegedClientFactory(k8sClientConfig, mapper)
-	if config.AuthEnabled {
-		userClientFactory = repositories.NewUnprivilegedClientFactory(k8sClientConfig, mapper)
-	}
+	var userClientFactory repositories.UserK8sClientFactory = repositories.NewUnprivilegedClientFactory(k8sClientConfig, mapper)
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
@@ -106,7 +103,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout, config.AuthEnabled)
+	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout)
 	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	processRepo := repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	podRepo := repositories.NewPodRepo(userClientFactory, metricsFetcherFunction)

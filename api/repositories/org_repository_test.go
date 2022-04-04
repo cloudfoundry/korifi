@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	hncv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
@@ -31,7 +30,7 @@ var _ = Describe("OrgRepository", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000, true)
+		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
 	})
 
 	Describe("Create", func() {
@@ -325,7 +324,7 @@ var _ = Describe("OrgRepository", func() {
 	})
 
 	Describe("List", func() {
-		var org1Anchor, org2Anchor, org3Anchor, org4Anchor *hncv1alpha2.SubnamespaceAnchor
+		var org1Anchor, org2Anchor, org3Anchor *hncv1alpha2.SubnamespaceAnchor
 
 		BeforeEach(func() {
 			ctx = context.Background()
@@ -336,7 +335,6 @@ var _ = Describe("OrgRepository", func() {
 			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, org2Anchor.Name)
 			org3Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org3")
 			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, org3Anchor.Name)
-			org4Anchor = createOrgAnchorAndNamespace(ctx, rootNamespace, "org4")
 		})
 
 		Describe("Orgs", func() {
@@ -364,44 +362,6 @@ var _ = Describe("OrgRepository", func() {
 						GUID:      org3Anchor.Name,
 					},
 				))
-			})
-
-			When("auth is disabled", func() {
-				BeforeEach(func() {
-					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000, false)
-				})
-
-				It("returns all orgs", func() {
-					orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{})
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(orgs).To(ConsistOf(
-						repositories.OrgRecord{
-							Name:      "org1",
-							CreatedAt: org1Anchor.CreationTimestamp.Time,
-							UpdatedAt: org1Anchor.CreationTimestamp.Time,
-							GUID:      org1Anchor.Name,
-						},
-						repositories.OrgRecord{
-							Name:      "org2",
-							CreatedAt: org2Anchor.CreationTimestamp.Time,
-							UpdatedAt: org2Anchor.CreationTimestamp.Time,
-							GUID:      org2Anchor.Name,
-						},
-						repositories.OrgRecord{
-							Name:      "org3",
-							CreatedAt: org3Anchor.CreationTimestamp.Time,
-							UpdatedAt: org3Anchor.CreationTimestamp.Time,
-							GUID:      org3Anchor.Name,
-						},
-						repositories.OrgRecord{
-							Name:      "org4",
-							CreatedAt: org4Anchor.CreationTimestamp.Time,
-							UpdatedAt: org4Anchor.CreationTimestamp.Time,
-							GUID:      org4Anchor.Name,
-						},
-					))
-				})
 			})
 
 			When("the org anchor is not ready", func() {
@@ -484,7 +444,7 @@ var _ = Describe("OrgRepository", func() {
 		})
 
 		Describe("Spaces", func() {
-			var space11Anchor, space12Anchor, space21Anchor, space22Anchor, space31Anchor, space32Anchor, space33Anchor *hncv1alpha2.SubnamespaceAnchor
+			var space11Anchor, space12Anchor, space21Anchor, space22Anchor, space31Anchor, space32Anchor *hncv1alpha2.SubnamespaceAnchor
 
 			BeforeEach(func() {
 				space11Anchor = createSpaceAnchorAndNamespace(ctx, org1Anchor.Name, "space1")
@@ -501,8 +461,6 @@ var _ = Describe("OrgRepository", func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space31Anchor.Name)
 				space32Anchor = createSpaceAnchorAndNamespace(ctx, org3Anchor.Name, "space4")
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space32Anchor.Name)
-
-				space33Anchor = createSpaceAnchorAndNamespace(ctx, org3Anchor.Name, "space5")
 			})
 
 			It("returns the 6 spaces", func() {
@@ -553,28 +511,6 @@ var _ = Describe("OrgRepository", func() {
 						OrganizationGUID: org3Anchor.Name,
 					},
 				))
-			})
-
-			When("auth is disabled", func() {
-				BeforeEach(func() {
-					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000, false)
-				})
-
-				It("includes spaces without role bindings", func() {
-					spaces, err := orgRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(spaces).To(HaveLen(7))
-					Expect(spaces).To(ContainElement(
-						repositories.SpaceRecord{
-							Name:             "space5",
-							CreatedAt:        space33Anchor.CreationTimestamp.Time,
-							UpdatedAt:        space33Anchor.CreationTimestamp.Time,
-							GUID:             space33Anchor.Name,
-							OrganizationGUID: org3Anchor.Name,
-						},
-					))
-				})
 			})
 
 			When("the space anchor is not ready", func() {
@@ -883,40 +819,6 @@ var _ = Describe("OrgRepository", func() {
 							OrganizationGUID: orgAnchor.Name,
 						})
 						Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
-					})
-				})
-			})
-
-			When("auth is disabled and", func() {
-				BeforeEach(func() {
-					mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
-					Expect(err).NotTo(HaveOccurred())
-					userClientFactory = repositories.NewPrivilegedClientFactory(k8sConfig, mapper)
-					orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000, false)
-				})
-
-				When("on the happy path", func() {
-					It("deletes the subns resource", func() {
-						err := orgRepo.DeleteSpace(ctx, authInfo, repositories.DeleteSpaceMessage{
-							GUID:             spaceAnchor.Name,
-							OrganizationGUID: orgAnchor.Name,
-						})
-						Expect(err).NotTo(HaveOccurred())
-
-						Eventually(func() error {
-							anchor := &hncv1alpha2.SubnamespaceAnchor{}
-							return k8sClient.Get(ctx, client.ObjectKey{Namespace: orgAnchor.Name, Name: spaceAnchor.Name}, anchor)
-						}).Should(MatchError(ContainSubstring("not found")))
-					})
-				})
-
-				When("the space doesn't exist", func() {
-					It("errors", func() {
-						err := orgRepo.DeleteSpace(ctx, authInfo, repositories.DeleteSpaceMessage{
-							GUID:             "non-existent-space",
-							OrganizationGUID: orgAnchor.Name,
-						})
-						Expect(err).To(MatchError(ContainSubstring("not found")))
 					})
 				})
 			})
