@@ -23,8 +23,8 @@ getToken() {
   local name namespace secret
   name=${1:?}
   namespace=${2:?}
-  secret="$(kubectl get serviceaccounts -n "$namespace" "$name" -ojsonpath='{.secrets[0].name}')"
-  kubectl get secrets -n "$namespace" "$secret" -ojsonpath='{.data.token}' | base64 -d
+  secretName="$(kubectl get serviceaccounts -n "$namespace" "$name" -ojsonpath='{.secrets[0].name}')"
+  kubectl get secrets -n "$namespace" "$secretName" -ojsonpath='{.data.token}' | base64 -d
 }
 
 extra_args=()
@@ -95,7 +95,10 @@ else
 
     for n in $(seq 1 $usersToCreate); do
       E2E_SERVICE_ACCOUNTS="$E2E_SERVICE_ACCOUNTS e2e-service-account-$n"
-      token="$(getToken "e2e-service-account-$n" "$ROOT_NAMESPACE")"
+      token=""
+      while [ -z "$token" ]; do
+        token="$(getToken "e2e-service-account-$n" "$ROOT_NAMESPACE")"
+      done
       E2E_SERVICE_ACCOUNT_TOKENS="$E2E_SERVICE_ACCOUNT_TOKENS $token"
     done
     export E2E_SERVICE_ACCOUNTS E2E_SERVICE_ACCOUNT_TOKENS
