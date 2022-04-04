@@ -313,13 +313,14 @@ var _ = Describe("Spaces", func() {
 		BeforeEach(func() {
 			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 			resultErr = cfErrs{}
+			appName := generateGUID("manifested-app")
 
-			route := fmt.Sprintf("manifested-app.%s", appFQDN)
+			route := fmt.Sprintf("%s.%s", appName, appFQDN)
 			command := "whatever"
 			manifest = manifestResource{
 				Version: 1,
 				Applications: []applicationResource{{
-					Name: "manifested-app",
+					Name: appName,
 					Processes: []manifestApplicationProcessResource{{
 						Type:    "web",
 						Command: &command,
