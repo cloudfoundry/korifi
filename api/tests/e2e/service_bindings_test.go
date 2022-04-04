@@ -93,7 +93,9 @@ var _ = Describe("Service Bindings", func() {
 			It("succeeds", func() {
 				Expect(httpError).NotTo(HaveOccurred())
 				Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.Resources).To(HaveLen(1))
+				Expect(result.Resources).To(ContainElement(
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(bindingGUID)}),
+				))
 			})
 		})
 
