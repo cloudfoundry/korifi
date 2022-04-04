@@ -127,8 +127,9 @@ var _ = Describe("RoleRepository", func() {
 						roleCreateMessage.Type = "organization_manager"
 					})
 
-					It("enables the role binding propagation", func() {
+					It("enables the role binding propagation, but not for cf_user", func() {
 						Expect(getTheRoleBinding(expectedName, orgAnchor.Name).Annotations).NotTo(HaveKey(HavePrefix(hnsv1alpha2.AnnotationPropagatePrefix)))
+						Expect(getTheRoleBinding(cfUserExpectedName, rootNamespace).Annotations).To(HaveKeyWithValue(hnsv1alpha2.AnnotationNoneSelector, "true"))
 					})
 				})
 
@@ -139,9 +140,9 @@ var _ = Describe("RoleRepository", func() {
 						expectedName = "cf-2a6f4cbdd1777d57b5b7b2ee835785dafa68c147719c10948397cfc2ea7246a3"
 					})
 
-					It("enables the role binding propagation", func() {
-						Expect(createErr).NotTo(HaveOccurred())
+					It("disables the role binding propagation", func() {
 						Expect(getTheRoleBinding(expectedName, orgAnchor.Name).Annotations).To(HaveKeyWithValue(hnsv1alpha2.AnnotationNoneSelector, "true"))
+						Expect(getTheRoleBinding(cfUserExpectedName, rootNamespace).Annotations).To(HaveKeyWithValue(hnsv1alpha2.AnnotationNoneSelector, "true"))
 					})
 				})
 			})
