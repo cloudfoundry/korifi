@@ -3,28 +3,19 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
 
 ENVTEST_ASSETS_DIR="${SCRIPT_DIR}/../testbin"
 mkdir -p "${ENVTEST_ASSETS_DIR}"
-
-getCert() {
-  local name
-  name=${1:?}
-  kubectl config view --raw -o jsonpath='{.users[?(@.name == "'$name'")].user.client-certificate-data}' | base64 -d
-}
-
-getKey() {
-  local name
-  name=${1:?}
-  kubectl config view --raw -o jsonpath='{.users[?(@.name == "'$name'")].user.client-key-data}' | base64 -d
-}
 
 getToken() {
   local name namespace secret
   name=${1:?}
   namespace=${2:?}
   secretName="$(kubectl get serviceaccounts -n "$namespace" "$name" -ojsonpath='{.secrets[0].name}')"
-  kubectl get secrets -n "$namespace" "$secretName" -ojsonpath='{.data.token}' | base64 -d
+  if [[ -n "$secretName" ]]; then
+    kubectl get secrets -n "$namespace" "$secretName" -ojsonpath='{.data.token}' | base64 -d
+  fi
 }
 
 extra_args=()
@@ -68,20 +59,20 @@ else
   }
   popd
 
+  tmp="$(mktemp -d)"
+  trap "rm -rf $tmp" EXIT
   if [[ -z "$E2E_USER_NAMES" ]]; then
     for n in $(seq 1 $usersToCreate); do
-      "$SCRIPT_DIR/create-new-user.sh" "e2e-cert-user-$n" &
+      createCert "e2e-cert-user-$n" "$tmp/key-$n.pem" "$tmp/cert-$n.pem" &
     done
     wait
 
+    export E2E_USER_NAMES E2E_USER_PEMS
     for n in $(seq 1 $usersToCreate); do
       E2E_USER_NAMES="$E2E_USER_NAMES e2e-cert-user-$n"
-      cert="$(getCert "e2e-cert-user-$n")"
-      key="$(getKey "e2e-cert-user-$n")"
-      pem="$(echo -e "$cert\n$key" | base64 -w0)"
+      pem="$(cat $tmp/cert-${n}.pem $tmp/key-${n}.pem | base64 -w0)"
       E2E_USER_PEMS="$E2E_USER_PEMS $pem"
     done
-    export E2E_USER_NAMES E2E_USER_PEMS
   fi
 
   if [[ -z "$E2E_SERVICE_ACCOUNTS" ]]; then
@@ -93,19 +84,21 @@ else
     done
     wait
 
+    export E2E_SERVICE_ACCOUNTS E2E_SERVICE_ACCOUNT_TOKENS
     for n in $(seq 1 $usersToCreate); do
       E2E_SERVICE_ACCOUNTS="$E2E_SERVICE_ACCOUNTS e2e-service-account-$n"
       token=""
       while [ -z "$token" ]; do
         token="$(getToken "e2e-service-account-$n" "$ROOT_NAMESPACE")"
+        sleep 0.5
       done
       E2E_SERVICE_ACCOUNT_TOKENS="$E2E_SERVICE_ACCOUNT_TOKENS $token"
     done
-    export E2E_SERVICE_ACCOUNTS E2E_SERVICE_ACCOUNT_TOKENS
   fi
 
-  CF_ADMIN_CERT="$(getCert cf-admin | base64 -w0)"
-  CF_ADMIN_KEY="$(getKey cf-admin | base64 -w0)"
+  createCert "cf-admin" "$tmp/cf-admin-key.pem" "$tmp/cf-admin-cert.pem"
+  CF_ADMIN_KEY="$(base64 -w0 $tmp/cf-admin-key.pem)"
+  CF_ADMIN_CERT="$(base64 -w0 $tmp/cf-admin-cert.pem)"
   export CF_ADMIN_CERT CF_ADMIN_KEY
 
   extra_args+=("--slow-spec-threshold=30s")
