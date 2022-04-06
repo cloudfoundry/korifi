@@ -1,0 +1,8 @@
+---
+apiVersion: workloads.cloudfoundry.org/v1alpha1
+kind: CFOrg
+metadata:
+  name: cf-org-dac1cd95-4ac9-4ad8-aed3-029f7363517e
+  namespace: cf
+spec:
+  name: test-org

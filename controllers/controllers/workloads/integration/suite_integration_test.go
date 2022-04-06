@@ -29,6 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	hncv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
 	//+kubebuilder:scaffold:imports
 )
 
@@ -55,7 +57,10 @@ var _ = BeforeSuite(func() {
 	cancel = cancelFunc
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("fixtures", "vendor", "hierarchical-namespaces", "config", "crd", "bases"),
+		},
 		ErrorIfCRDPathMissing: true,
 		// TODO: Reconcile with CRDDirectoryPaths
 		CRDInstallOptions: envtest.CRDInstallOptions{
@@ -77,6 +82,8 @@ var _ = BeforeSuite(func() {
 	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 	// Add Eirini to Scheme
 	Expect(eiriniv1.AddToScheme(scheme.Scheme)).To(Succeed())
+	// Add hierarchical namespaces
+	Expect(hncv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	Expect(servicebindingv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
 
@@ -95,7 +102,7 @@ var _ = BeforeSuite(func() {
 		LeaderElection:     false,
 		MetricsBindAddress: "0",
 	})
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	controllerConfig := &config.ControllerConfig{
 		KpackImageTag:      "image/registry/tag",
@@ -114,7 +121,7 @@ var _ = BeforeSuite(func() {
 		Log:              ctrl.Log.WithName("controllers").WithName("CFApp"),
 		ControllerConfig: controllerConfig,
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
 	Expect(err).NotTo(HaveOccurred())
@@ -128,7 +135,7 @@ var _ = BeforeSuite(func() {
 		EnvBuilder:          env.NewBuilder(k8sManager.GetClient()),
 	}
 	err = (cfBuildReconciler).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	err = (&CFProcessReconciler{
 		Client:     k8sManager.GetClient(),
@@ -136,25 +143,32 @@ var _ = BeforeSuite(func() {
 		Log:        ctrl.Log.WithName("controllers").WithName("CFProcess"),
 		EnvBuilder: env.NewBuilder(k8sManager.GetClient()),
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	err = (&CFPackageReconciler{
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
 		Log:    ctrl.Log.WithName("controllers").WithName("CFPackage"),
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
+
+	err = NewCFOrgReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFOrgReconciler"),
+	).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
 
 	// Add new reconcilers here
 
 	// Setup index for manager
 	err = SetupIndexWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 	}()
 })
 

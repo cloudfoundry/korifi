@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"encoding/base64"
+	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 
@@ -24,10 +25,23 @@ func GenerateGUID() string {
 	return uuid.NewString()
 }
 
+func PrefixedGUID(prefix string) string {
+	return prefix + "-" + uuid.NewString()[:8]
+}
+
 func BuildNamespaceObject(name string) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
+		},
+	}
+}
+
+func BuildSubNamespaceAnchorObject(hnsGUID string, spaceGUID string) *v1alpha2.SubnamespaceAnchor {
+	return &v1alpha2.SubnamespaceAnchor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hnsGUID,
+			Namespace: spaceGUID,
 		},
 	}
 }
@@ -55,6 +69,18 @@ func BuildCFAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFA
 				},
 			},
 			EnvSecretName: appGUID + "-env",
+		},
+	}
+}
+
+func BuildCFOrgObject(orgGUID string, spaceGUID string) *workloadsv1alpha1.CFOrg {
+	return &workloadsv1alpha1.CFOrg{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      orgGUID,
+			Namespace: spaceGUID,
+		},
+		Spec: workloadsv1alpha1.CFOrgSpec{
+			Name: "test-org-name",
 		},
 	}
 }
