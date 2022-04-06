@@ -12,7 +12,7 @@ spec:
           # adding this to only check namespaces beginning with 'cf'
         - --included-namespace-regex=cf.*
           # changing this from 50
-        - --apiserver-qps-throttle=200
+        - --apiserver-qps-throttle=50
           # the rest are from the default, but must be included :(
         - --webhook-server-port=9443
         - --metrics-addr=:8080
