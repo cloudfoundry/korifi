@@ -36,6 +36,11 @@ EOF
 
   kubectl certificate approve "${csr_name}"
   kubectl wait --for=condition=Approved "csr/${csr_name}"
-  kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}' | base64 --decode >$cert_file
+  cert=
+  while [[ -z "$cert" ]]; do
+    cert="$(kubectl get csr "${csr_name}" -o jsonpath='{.status.certificate}')"
+  done
+
+  base64 --decode <<<$cert >$cert_file
   kubectl delete csr "${csr_name}"
 }
