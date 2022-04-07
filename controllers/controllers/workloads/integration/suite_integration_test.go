@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/fake"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 
@@ -124,14 +125,16 @@ var _ = BeforeSuite(func() {
 		Log:                 ctrl.Log.WithName("controllers").WithName("CFBuild"),
 		ControllerConfig:    controllerConfig,
 		RegistryAuthFetcher: NewRegistryAuthFetcher(registryAuthFetcherClient),
+		EnvBuilder:          env.NewBuilder(k8sManager.GetClient()),
 	}
 	err = (cfBuildReconciler).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&CFProcessReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFProcess"),
+		Client:     k8sManager.GetClient(),
+		Scheme:     k8sManager.GetScheme(),
+		Log:        ctrl.Log.WithName("controllers").WithName("CFProcess"),
+		EnvBuilder: env.NewBuilder(k8sManager.GetClient()),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

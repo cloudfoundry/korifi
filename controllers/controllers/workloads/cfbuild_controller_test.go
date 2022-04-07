@@ -39,6 +39,7 @@ var _ = Describe("CFBuildReconciler", func() {
 
 		fakeRegistryAuthFetcher *fake.RegistryAuthFetcher
 		fakeImageProcessFetcher *fake.ImageProcessFetcher
+		fakeEnvBuilder          *fake.EnvBuilder
 
 		cfAppGUID               string
 		cfPackageGUID           string
@@ -94,7 +95,7 @@ var _ = Describe("CFBuildReconciler", func() {
 		kpackServiceAccount = BuildServiceAccount(kpackServiceAccountName, defaultNamespace, kpackRegistrySecretName)
 		kpackServiceAccountError = nil
 
-		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
+		fakeClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
 			switch obj := obj.(type) {
 			case *workloadsv1alpha1.CFBuild:
@@ -120,15 +121,13 @@ var _ = Describe("CFBuildReconciler", func() {
 			}
 		}
 
-		// Configure mock status update to succeed
-		fakeStatusWriter = &fake.StatusWriter{}
+		fakeStatusWriter = new(fake.StatusWriter)
 		fakeClient.StatusReturns(fakeStatusWriter)
 
-		// Configure a fake RegistryAuthFetcher
-		fakeRegistryAuthFetcher = &fake.RegistryAuthFetcher{}
-
-		// Configure a fake ImageProcessFetcher
-		fakeImageProcessFetcher = &fake.ImageProcessFetcher{}
+		fakeRegistryAuthFetcher = new(fake.RegistryAuthFetcher)
+		fakeImageProcessFetcher = new(fake.ImageProcessFetcher)
+		fakeEnvBuilder = new(fake.EnvBuilder)
+		fakeEnvBuilder.BuildEnvReturns(map[string]string{"foo": "var"}, nil)
 
 		// configure a CFBuildReconciler with the client
 		Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
@@ -140,6 +139,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			ControllerConfig:    &config.ControllerConfig{KpackImageTag: "image/registry/tag"},
 			RegistryAuthFetcher: fakeRegistryAuthFetcher.Spy,
 			ImageProcessFetcher: fakeImageProcessFetcher.Spy,
+			EnvBuilder:          fakeEnvBuilder,
 		}
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{
@@ -166,8 +166,8 @@ var _ = Describe("CFBuildReconciler", func() {
 
 			It("should create kpack image with the same GUID as the CF Build", func() {
 				Expect(fakeClient.CreateCallCount()).To(Equal(1), "fakeClient Create was not called 1 time")
-				_, kpackImage, _ := fakeClient.CreateArgsForCall(0)
-				Expect(kpackImage.GetName()).To(Equal(cfBuildGUID))
+				_, actualKpackImage, _ := fakeClient.CreateArgsForCall(0)
+				Expect(actualKpackImage.GetName()).To(Equal(cfBuildGUID))
 			})
 
 			It("should update the status conditions on CFBuild", func() {
@@ -176,14 +176,29 @@ var _ = Describe("CFBuildReconciler", func() {
 
 			It("should create kpack Image with CFBuild owner reference", func() {
 				Expect(fakeClient.CreateCallCount()).To(Equal(1), "fakeClient Create was not called 1 time")
-				_, kpackImage, _ := fakeClient.CreateArgsForCall(0)
-				ownerRefs := kpackImage.GetOwnerReferences()
+				_, actualKpackImage, _ := fakeClient.CreateArgsForCall(0)
+				ownerRefs := actualKpackImage.GetOwnerReferences()
 				Expect(ownerRefs).To(ConsistOf(metav1.OwnerReference{
 					UID:        cfBuild.UID,
 					Kind:       cfBuild.Kind,
 					APIVersion: cfBuild.APIVersion,
 					Name:       cfBuild.Name,
 				}))
+			})
+
+			It("sets the env vars on the kpack image", func() {
+				Expect(fakeClient.CreateCallCount()).To(Equal(1))
+				_, obj, _ := fakeClient.CreateArgsForCall(0)
+				actualKpackImage, ok := obj.(*buildv1alpha2.Image)
+				Expect(ok).To(BeTrue(), "create wasn't passed a kpackImage")
+
+				Expect(fakeEnvBuilder.BuildEnvCallCount()).To(Equal(1))
+				_, actualApp := fakeEnvBuilder.BuildEnvArgsForCall(0)
+				Expect(actualApp).To(Equal(cfApp))
+
+				Expect(actualKpackImage.Spec.Build.Env).To(HaveLen(1))
+				Expect(actualKpackImage.Spec.Build.Env[0].Name).To(Equal("foo"))
+				Expect(actualKpackImage.Spec.Build.Env[0].Value).To(Equal("var"))
 			})
 		})
 
@@ -265,6 +280,16 @@ var _ = Describe("CFBuildReconciler", func() {
 			When("update status conditions returns an error", func() {
 				BeforeEach(func() {
 					fakeStatusWriter.UpdateReturns(errors.New("failing on purpose"))
+				})
+
+				It("should return an error", func() {
+					Expect(reconcileErr).To(HaveOccurred())
+				})
+			})
+
+			When("building environment fails", func() {
+				BeforeEach(func() {
+					fakeEnvBuilder.BuildEnvReturns(nil, errors.New("boom"))
 				})
 
 				It("should return an error", func() {
