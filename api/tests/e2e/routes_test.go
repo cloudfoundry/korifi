@@ -34,7 +34,7 @@ var _ = Describe("Routes", func() {
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 
 		domainName = mustHaveEnv("APP_FQDN")
-		domainGUID = mustHaveEnv("APP_DOMAIN_GUID")
+		domainGUID = getDomainGUID(domainName)
 
 		host = generateGUID("myapp")
 		path = generateGUID("/some-path")
@@ -273,10 +273,8 @@ var _ = Describe("Routes", func() {
 					domainName = "inv@liddom@in"
 				)
 
-				var (
-					// we need a K8s client for this test case for when the default domain name is not compliant
-					k8sClient k8sclient.WithWatch
-				)
+				// we need a K8s client for this test case for when the default domain name is not compliant
+				var k8sClient k8sclient.WithWatch
 
 				BeforeEach(func() {
 					config, err := controllerruntime.GetConfig()
@@ -359,7 +357,7 @@ var _ = Describe("Routes", func() {
 		BeforeEach(func() {
 			routeGUID = ""
 			host = generateGUID("host")
-			routeGUID = createRoute(host, "", spaceGUID, appDomainGUID)
+			routeGUID = createRoute(host, "", spaceGUID, domainGUID)
 			errResp = cfErrs{}
 		})
 

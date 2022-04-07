@@ -26,17 +26,11 @@ else
   export KUBECONFIG="${KUBECONFIG:-$HOME/kube/e2e.yml}"
 
   if [ -z "${SKIP_DEPLOY}" ]; then
-    "${SCRIPT_DIR}/deploy-on-kind.sh" -l e2e
+    "${SCRIPT_DIR}/deploy-on-kind.sh" -l -d e2e
   fi
 
   if [[ -z "${API_SERVER_ROOT}" ]]; then
     export API_SERVER_ROOT=https://localhost
-  fi
-
-  if [[ -z "${APP_DOMAIN_GUID}" ]]; then
-    sed 's/vcap\.me/'$APP_FQDN'/' $SCRIPT_DIR/../controllers/config/samples/cfdomain.yaml | kubectl apply -f-
-    APP_DOMAIN_GUID="$(awk '/name:/ { print $2 }' $SCRIPT_DIR/../controllers/config/samples/cfdomain.yaml | head -n1)"
-    export APP_DOMAIN_GUID
   fi
 
   if [[ -n "$GINKGO_NODES" ]]; then

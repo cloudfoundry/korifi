@@ -20,13 +20,7 @@ var _ = Describe("Domain", func() {
 		var (
 			result responseResourceList
 			resp   *resty.Response
-
-			domainGUID string
 		)
-
-		BeforeEach(func() {
-			domainGUID = mustHaveEnv("APP_DOMAIN_GUID")
-		})
 
 		JustBeforeEach(func() {
 			var err error
@@ -40,7 +34,7 @@ var _ = Describe("Domain", func() {
 			It("returns a list of domains that includes the created domains", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.Resources).To(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(appFQDN)}),
 				))
 			})
 		})

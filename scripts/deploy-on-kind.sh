@@ -283,7 +283,7 @@ function deploy_cf_k8s_controllers() {
   kubectl rollout status deployment/cf-k8s-controllers-controller-manager -w -n cf-k8s-controllers-system
 
   if [[ -n "${default_domain}" ]]; then
-    kubectl apply -f "${CONTROLLER_DIR}/config/samples/cfdomain.yaml"
+    sed 's/vcap\.me/'${APP_FQDN:-vcap.me}'/' ${CONTROLLER_DIR}/config/samples/cfdomain.yaml | kubectl apply -f-
   fi
 }
 

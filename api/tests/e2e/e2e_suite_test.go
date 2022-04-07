@@ -39,7 +39,6 @@ var (
 
 	rootNamespace     string
 	appFQDN           string
-	appDomainGUID     string
 	commonTestOrgGUID string
 )
 
@@ -84,6 +83,10 @@ type includedApps struct {
 type bareResource struct {
 	GUID string `json:"guid,omitempty"`
 	Name string `json:"name,omitempty"`
+}
+
+type bareResourceList struct {
+	Resources []bareResource `json:""`
 }
 
 type appResource struct {
@@ -558,6 +561,26 @@ func pushTestApp(spaceGUID string) string {
 	return appGUID
 }
 
+func getDomainGUID(domainName string) string {
+	res := bareResourceList{}
+	resp, err := adminClient.R().
+		SetResult(&res).
+		Get("/v3/domains")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+
+	for _, d := range res.Resources {
+		if d.Name == domainName {
+			return d.GUID
+		}
+	}
+
+	Fail(fmt.Sprintf("no domain found for domainName: %q", domainName))
+
+	return ""
+}
+
 func createRoute(host, path string, spaceGUID, domainGUID string) string {
 	var route resource
 
@@ -645,7 +668,6 @@ func commonTestSetup() {
 	certUserName = mustHaveEnvIdx("E2E_USER_NAMES", GinkgoParallelProcess())
 	certPEM = mustHaveEnvIdx("E2E_USER_PEMS", GinkgoParallelProcess())
 	appFQDN = mustHaveEnv("APP_FQDN")
-	appDomainGUID = mustHaveEnv("APP_DOMAIN_GUID")
 
 	ensureServerIsUp()
 
