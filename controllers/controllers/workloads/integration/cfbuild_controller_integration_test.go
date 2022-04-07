@@ -28,78 +28,68 @@ var _ = Describe("CFBuildReconciler", func() {
 		wellFormedRegistryCredentialsSecret = "image-registry-credentials"
 	)
 
-	When("CFBuild status conditions are missing or unknown", func() {
-		var (
-			namespaceGUID    string
-			cfAppGUID        string
-			cfPackageGUID    string
-			cfBuildGUID      string
-			newNamespace     *corev1.Namespace
-			desiredCFApp     *workloadsv1alpha1.CFApp
-			desiredCFPackage *workloadsv1alpha1.CFPackage
-			desiredCFBuild   *workloadsv1alpha1.CFBuild
-		)
+	var (
+		namespaceGUID    string
+		cfAppGUID        string
+		cfPackageGUID    string
+		cfBuildGUID      string
+		newNamespace     *corev1.Namespace
+		desiredCFApp     *workloadsv1alpha1.CFApp
+		desiredCFPackage *workloadsv1alpha1.CFPackage
+		desiredCFBuild   *workloadsv1alpha1.CFBuild
+	)
 
+	eventuallyKpackImageShould := func(assertion func(*buildv1alpha2.Image, Gomega)) {
+		Eventually(func(g Gomega) {
+			kpackImage := new(buildv1alpha2.Image)
+			err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, kpackImage)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(kpackImage.Spec.Build).ToNot(BeNil())
+			assertion(kpackImage, g)
+		}).Should(Succeed())
+	}
+
+	BeforeEach(func() {
+		namespaceGUID = GenerateGUID()
+		cfAppGUID = GenerateGUID()
+		cfPackageGUID = GenerateGUID()
+
+		beforeCtx := context.Background()
+
+		newNamespace = BuildNamespaceObject(namespaceGUID)
+		Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
+
+		desiredCFApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
+		Expect(k8sClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
+
+		envVarSecret := BuildCFAppEnvVarsSecret(desiredCFApp.Name, namespaceGUID, map[string]string{
+			"a_key": "a-val",
+			"b_key": "b-val",
+		})
+		Expect(k8sClient.Create(context.Background(), envVarSecret)).To(Succeed())
+
+		dockerRegistrySecret := BuildDockerRegistrySecret(wellFormedRegistryCredentialsSecret, namespaceGUID)
+		Expect(k8sClient.Create(beforeCtx, dockerRegistrySecret)).To(Succeed())
+
+		registryServiceAccountName := "kpack-service-account"
+		registryServiceAccount := BuildServiceAccount(registryServiceAccountName, namespaceGUID, wellFormedRegistryCredentialsSecret)
+		Expect(k8sClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
+	})
+
+	When("CFBuild status conditions are missing or unknown", func() {
 		BeforeEach(func() {
 			beforeCtx := context.Background()
-
-			namespaceGUID = GenerateGUID()
-			newNamespace = BuildNamespaceObject(namespaceGUID)
-			Expect(
-				k8sClient.Create(beforeCtx, newNamespace),
-			).To(Succeed())
-			DeferCleanup(func() {
-				k8sClient.Delete(context.Background(), newNamespace) //nolint
-			})
-
-			cfAppGUID = GenerateGUID()
-			desiredCFApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
-			Expect(
-				k8sClient.Create(beforeCtx, desiredCFApp),
-			).To(Succeed())
-
-			cfPackageGUID = GenerateGUID()
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
-			Expect(
-				k8sClient.Create(beforeCtx, desiredCFPackage),
-			).To(Succeed())
+			Expect(k8sClient.Create(beforeCtx, desiredCFPackage)).To(Succeed())
 
 			kpackSecret := BuildDockerRegistrySecret("source-registry-image-pull-secret", namespaceGUID)
-			Expect(
-				k8sClient.Create(beforeCtx, kpackSecret),
-			).To(Succeed())
+			Expect(k8sClient.Create(beforeCtx, kpackSecret)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
-			beforeCtx := context.Background()
-
 			cfBuildGUID = GenerateGUID()
-			desiredCFBuild = &workloadsv1alpha1.CFBuild{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfBuildGUID,
-					Namespace: namespaceGUID,
-				},
-				Spec: workloadsv1alpha1.CFBuildSpec{
-					PackageRef: corev1.LocalObjectReference{
-						Name: cfPackageGUID,
-					},
-					AppRef: corev1.LocalObjectReference{
-						Name: cfAppGUID,
-					},
-					StagingMemoryMB: 1024,
-					StagingDiskMB:   1024,
-					Lifecycle: workloadsv1alpha1.Lifecycle{
-						Type: "buildpack",
-						Data: workloadsv1alpha1.LifecycleData{
-							Buildpacks: nil,
-							Stack:      "",
-						},
-					},
-				},
-			}
-			Expect(
-				k8sClient.Create(beforeCtx, desiredCFBuild),
-			).To(Succeed())
+			desiredCFBuild = BuildCFBuildObject(cfBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
+			Expect(k8sClient.Create(context.Background(), desiredCFBuild)).To(Succeed())
 		})
 
 		It("eventually reconciles to set the owner reference on the CFBuild", func() {
@@ -116,6 +106,16 @@ var _ = Describe("CFBuildReconciler", func() {
 				Name:       desiredCFApp.Name,
 				UID:        desiredCFApp.UID,
 			}))
+		})
+
+		It("creates a kpack image with the envvars set on it", func() {
+			eventuallyKpackImageShould(func(kpackImage *buildv1alpha2.Image, g Gomega) {
+				g.Expect(kpackImage.Spec.Build.Env).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("a_key")}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("b_key")}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("VCAP_SERVICES")}),
+				))
+			})
 		})
 
 		When("kpack image with CFBuild GUID doesn't exist", func() {
@@ -302,28 +302,40 @@ var _ = Describe("CFBuildReconciler", func() {
 			})
 
 			It("eventually creates a kpack image with the underlying secret mapped onto it", func() {
-				testCtx := context.Background()
-				createdKpackImage := new(buildv1alpha2.Image)
-				Eventually(func() int {
-					err := k8sClient.Get(testCtx, types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, createdKpackImage)
-					if err != nil || createdKpackImage.Spec.Build == nil {
-						return 0
-					}
-					return len(createdKpackImage.Spec.Build.Services)
-				}).Should(Equal(2), "ServiceBinding Secrets did not show up on kpack image")
+				eventuallyKpackImageShould(func(kpackImage *buildv1alpha2.Image, g Gomega) {
+					g.Expect(kpackImage.Spec.Build.Services).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"Name":       Equal(secret1.Name),
+							"Kind":       Equal("Secret"),
+							"APIVersion": Equal("v1"),
+						}),
+						MatchFields(IgnoreExtras, Fields{
+							"Name":       Equal(secret2.Name),
+							"Kind":       Equal("Secret"),
+							"APIVersion": Equal("v1"),
+						}),
+					))
+				})
+			})
 
-				Expect(createdKpackImage.Spec.Build.Services).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{
-						"Name":       Equal(secret1.Name),
-						"Kind":       Equal("Secret"),
-						"APIVersion": Equal("v1"),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"Name":       Equal(secret2.Name),
-						"Kind":       Equal("Secret"),
-						"APIVersion": Equal("v1"),
-					}),
-				))
+			It("sets the VCAP_SERVICES env var in the image", func() {
+				eventuallyKpackImageShould(func(kpackImage *buildv1alpha2.Image, g Gomega) {
+					g.Expect(kpackImage.Spec.Build.Env).To(ContainElements(
+						MatchFields(IgnoreExtras, Fields{"Name": Equal("VCAP_SERVICES")}),
+					))
+				})
+			})
+
+			It("sets the VCAP_SERVICES key in the env var secret", func() {
+				textCtx := context.Background()
+				envVarSecret := new(corev1.Secret)
+
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(textCtx, types.NamespacedName{Name: desiredCFApp.Spec.EnvSecretName, Namespace: namespaceGUID}, envVarSecret)
+					g.Expect(err).NotTo(HaveOccurred())
+
+					g.Expect(envVarSecret.Data).To(HaveKey("VCAP_SERVICES"))
+				}).Should(Succeed())
 			})
 		})
 
@@ -383,44 +395,14 @@ var _ = Describe("CFBuildReconciler", func() {
 	})
 
 	When("CFBuild status conditions for Staging is True and others are unknown", func() {
-		var (
-			namespaceGUID    string
-			cfAppGUID        string
-			cfPackageGUID    string
-			cfBuildGUID      string
-			newNamespace     *corev1.Namespace
-			desiredCFApp     *workloadsv1alpha1.CFApp
-			desiredCFPackage *workloadsv1alpha1.CFPackage
-			desiredCFBuild   *workloadsv1alpha1.CFBuild
-		)
-
 		BeforeEach(func() {
-			namespaceGUID = GenerateGUID()
-			cfAppGUID = GenerateGUID()
-			cfPackageGUID = GenerateGUID()
-			cfBuildGUID = GenerateGUID()
-
-			beforeCtx := context.Background()
-
-			newNamespace = BuildNamespaceObject(namespaceGUID)
-			Expect(k8sClient.Create(beforeCtx, newNamespace)).To(Succeed())
-
-			desiredCFApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
-			Expect(k8sClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
-
-			dockerRegistrySecret := BuildDockerRegistrySecret(wellFormedRegistryCredentialsSecret, namespaceGUID)
-			Expect(k8sClient.Create(beforeCtx, dockerRegistrySecret)).To(Succeed())
-
-			registryServiceAccountName := "kpack-service-account"
-			registryServiceAccount := BuildServiceAccount(registryServiceAccountName, namespaceGUID, wellFormedRegistryCredentialsSecret)
-			Expect(k8sClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
-
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
 			desiredCFPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: wellFormedRegistryCredentialsSecret}}
-			Expect(k8sClient.Create(beforeCtx, desiredCFPackage)).To(Succeed())
+			Expect(k8sClient.Create(context.Background(), desiredCFPackage)).To(Succeed())
 
+			cfBuildGUID = GenerateGUID()
 			desiredCFBuild = BuildCFBuildObject(cfBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
-			Expect(k8sClient.Create(beforeCtx, desiredCFBuild)).To(Succeed())
+			Expect(k8sClient.Create(context.Background(), desiredCFBuild)).To(Succeed())
 		})
 
 		AfterEach(func() {

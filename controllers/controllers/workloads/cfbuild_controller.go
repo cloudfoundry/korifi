@@ -89,6 +89,7 @@ type CFBuildReconciler struct {
 	ControllerConfig    *config.ControllerConfig
 	RegistryAuthFetcher RegistryAuthFetcher
 	ImageProcessFetcher ImageProcessFetcher
+	EnvBuilder          EnvBuilder
 }
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete
@@ -99,7 +100,7 @@ type CFBuildReconciler struct {
 //+kubebuilder:rbac:groups=kpack.io,resources=images/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=kpack.io,resources=images/finalizers,verbs=update
 
-//+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -154,20 +155,13 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Scenario: CFBuild newly created and all status conditions are unknown, it
 		// Creates a KpackImage resource to trigger staging.
 		// Updates status on CFBuild -> sets staging to True.
-		var appServiceBindings []servicesv1alpha1.CFServiceBinding
-		appServiceBindings, err = r.getAppServiceBindings(ctx, cfApp.Name, cfApp.Namespace)
-		if err != nil {
-			r.Log.Error(err, "Error when listing CFServiceBindings")
-			return ctrl.Result{}, err
-		}
-
 		err = r.ensureKpackImageRequirements(ctx, cfPackage)
 		if err != nil {
 			r.Log.Info("Kpack image requirements for CFPackage are not met", "guid", cfPackage.Name, "reason", err)
 			return ctrl.Result{}, err
 		}
 
-		err = r.createKpackImageAndUpdateStatus(ctx, cfBuild, cfApp, cfPackage, appServiceBindings)
+		err = r.createKpackImageAndUpdateStatus(ctx, cfBuild, cfApp, cfPackage)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -228,24 +222,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func (r *CFBuildReconciler) getAppServiceBindings(ctx context.Context, appGUID string, namespace string) ([]servicesv1alpha1.CFServiceBinding, error) {
-	serviceBindings := &servicesv1alpha1.CFServiceBindingList{}
-	err := r.Client.List(ctx, serviceBindings,
-		client.InNamespace(namespace),
-		client.MatchingFields{shared.IndexServiceBindingAppGUID: appGUID},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("error listing CFServiceBindings: %w", err)
-	}
-
-	if len(serviceBindings.Items) == 0 {
-		return nil, nil
-	}
-
-	return serviceBindings.Items, nil
-}
-
-func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage, serviceBindings []servicesv1alpha1.CFServiceBinding) error {
+func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
 	serviceAccountName := kpackServiceAccount
 	kpackImageTag := path.Join(r.ControllerConfig.KpackImageTag, cfBuild.Name)
 	kpackImageName := cfBuild.Name
@@ -278,21 +255,20 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 			},
 		},
 	}
-	for _, serviceBinding := range serviceBindings {
-		if serviceBinding.Status.Binding.Name != "" {
-			objRef := corev1.ObjectReference{
-				Kind:       "Secret",
-				Name:       serviceBinding.Status.Binding.Name,
-				APIVersion: "v1",
-			}
-			desiredKpackImage.Spec.Build.Services = append(desiredKpackImage.Spec.Build.Services, objRef)
-		} else {
-			r.Log.Info("binding secret name is empty")
-			return errors.New("binding secret name is empty")
-		}
-	}
 
-	err := controllerutil.SetOwnerReference(cfBuild, &desiredKpackImage, r.Scheme)
+	buildServices, err := r.prepareBuildServices(ctx, kpackImageNamespace, cfApp.Name)
+	if err != nil {
+		return err
+	}
+	desiredKpackImage.Spec.Build.Services = buildServices
+
+	imageEnvironment, err := r.prepareEnvironment(ctx, cfApp)
+	if err != nil {
+		return err
+	}
+	desiredKpackImage.Spec.Build.Env = imageEnvironment
+
+	err = controllerutil.SetOwnerReference(cfBuild, &desiredKpackImage, r.Scheme)
 	if err != nil {
 		r.Log.Error(err, "failed to set OwnerRef on Kpack Image")
 		return err
@@ -312,6 +288,51 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 	}
 
 	return nil
+}
+
+func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace, appGUID string) (buildv1alpha2.Services, error) {
+	serviceBindingsList := &servicesv1alpha1.CFServiceBindingList{}
+	err := r.Client.List(ctx, serviceBindingsList,
+		client.InNamespace(namespace),
+		client.MatchingFields{shared.IndexServiceBindingAppGUID: appGUID},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error listing CFServiceBindings: %w", err)
+	}
+
+	buildServices := buildv1alpha2.Services{}
+	for _, serviceBinding := range serviceBindingsList.Items {
+		if serviceBinding.Status.Binding.Name != "" {
+			objRef := corev1.ObjectReference{
+				Kind:       "Secret",
+				Name:       serviceBinding.Status.Binding.Name,
+				APIVersion: "v1",
+			}
+			buildServices = append(buildServices, objRef)
+		} else {
+			r.Log.Info("binding secret name is empty")
+			return nil, errors.New("binding secret name is empty")
+		}
+	}
+	return buildServices, nil
+}
+
+func (r *CFBuildReconciler) prepareEnvironment(ctx context.Context, cfApp *workloadsv1alpha1.CFApp) ([]corev1.EnvVar, error) {
+	env, err := r.EnvBuilder.BuildEnv(ctx, cfApp)
+	if err != nil {
+		r.Log.Error(err, "failed building environment")
+		return nil, err
+	}
+
+	imageEnvironment := []corev1.EnvVar{}
+	for k, v := range env {
+		imageEnvironment = append(imageEnvironment, corev1.EnvVar{
+			Name:  k,
+			Value: v,
+		})
+	}
+
+	return imageEnvironment, nil
 }
 
 func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, desiredKpackImage buildv1alpha2.Image) error {
