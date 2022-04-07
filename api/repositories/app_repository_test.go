@@ -30,11 +30,11 @@ const (
 
 var _ = Describe("AppRepository", func() {
 	var (
-		testCtx                context.Context
-		appRepo                *AppRepo
-		org                    *v1alpha2.SubnamespaceAnchor
-		space1, space2, space3 *v1alpha2.SubnamespaceAnchor
-		cfApp1, cfApp2, cfApp3 *workloadsv1alpha1.CFApp
+		testCtx context.Context
+		appRepo *AppRepo
+		org     *v1alpha2.SubnamespaceAnchor
+		space   *v1alpha2.SubnamespaceAnchor
+		cfApp   *workloadsv1alpha1.CFApp
 	)
 
 	BeforeEach(func() {
@@ -43,9 +43,9 @@ var _ = Describe("AppRepository", func() {
 		appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms)
 
 		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
-		space1 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
-		space2 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space2"))
-		space3 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space3"))
+		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
+
+		cfApp = createApp(space.Name)
 	})
 
 	Describe("GetApp", func() {
@@ -56,8 +56,7 @@ var _ = Describe("AppRepository", func() {
 		)
 
 		BeforeEach(func() {
-			cfApp1 = createApp(space1.Name)
-			appGUID = cfApp1.Name
+			appGUID = cfApp.Name
 		})
 
 		JustBeforeEach(func() {
@@ -66,28 +65,28 @@ var _ = Describe("AppRepository", func() {
 
 		When("authorized in the space", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space1.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			AfterEach(func() {
-				Expect(k8sClient.Delete(context.Background(), cfApp1)).To(Succeed())
+				Expect(k8sClient.Delete(context.Background(), cfApp)).To(Succeed())
 			})
 
 			It("can fetch the AppRecord CR we're looking for", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 
-				Expect(app.GUID).To(Equal(cfApp1.Name))
-				Expect(app.EtcdUID).To(Equal(cfApp1.GetUID()))
+				Expect(app.GUID).To(Equal(cfApp.Name))
+				Expect(app.EtcdUID).To(Equal(cfApp.GetUID()))
 				Expect(app.Revision).To(Equal(CFAppRevisionValue))
-				Expect(app.Name).To(Equal(cfApp1.Spec.Name))
-				Expect(app.SpaceGUID).To(Equal(space1.Name))
+				Expect(app.Name).To(Equal(cfApp.Spec.Name))
+				Expect(app.SpaceGUID).To(Equal(space.Name))
 				Expect(app.State).To(Equal(DesiredState("STOPPED")))
-				Expect(app.DropletGUID).To(Equal(cfApp1.Spec.CurrentDropletRef.Name))
+				Expect(app.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
 				Expect(app.Lifecycle).To(Equal(Lifecycle{
-					Type: string(cfApp1.Spec.Lifecycle.Type),
+					Type: string(cfApp.Spec.Lifecycle.Type),
 					Data: LifecycleData{
-						Buildpacks: cfApp1.Spec.Lifecycle.Data.Buildpacks,
-						Stack:      cfApp1.Spec.Lifecycle.Data.Stack,
+						Buildpacks: cfApp.Spec.Lifecycle.Data.Buildpacks,
+						Stack:      cfApp.Spec.Lifecycle.Data.Stack,
 					},
 				}))
 			})
@@ -101,12 +100,8 @@ var _ = Describe("AppRepository", func() {
 
 		When("duplicate Apps exist across namespaces with the same GUIDs", func() {
 			BeforeEach(func() {
-				cfApp2 = createAppWithGUID(space2.Name, appGUID)
-			})
-
-			AfterEach(func() {
-				Expect(k8sClient.Delete(context.Background(), cfApp1)).To(Succeed())
-				Expect(k8sClient.Delete(context.Background(), cfApp2)).To(Succeed())
+				space2 := createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space2"))
+				createAppWithGUID(space2.Name, appGUID)
 			})
 
 			It("returns an error", func() {
@@ -135,16 +130,15 @@ var _ = Describe("AppRepository", func() {
 		)
 
 		BeforeEach(func() {
-			cfApp1 = createApp(space1.Name)
-			querySpaceName = space1.Name
+			querySpaceName = space.Name
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(context.Background(), cfApp1)).To(Succeed())
+			Expect(k8sClient.Delete(context.Background(), cfApp)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
-			appRecord, getErr = appRepo.GetAppByNameAndSpace(context.Background(), authInfo, cfApp1.Spec.Name, querySpaceName)
+			appRecord, getErr = appRepo.GetAppByNameAndSpace(context.Background(), authInfo, cfApp.Spec.Name, querySpaceName)
 		})
 
 		When("the user is able to get apps in the space", func() {
@@ -155,12 +149,12 @@ var _ = Describe("AppRepository", func() {
 			It("returns the record", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 
-				Expect(appRecord.Name).To(Equal(cfApp1.Spec.Name))
-				Expect(appRecord.GUID).To(Equal(cfApp1.Name))
-				Expect(appRecord.EtcdUID).To(Equal(cfApp1.UID))
-				Expect(appRecord.SpaceGUID).To(Equal(space1.Name))
-				Expect(appRecord.State).To(BeEquivalentTo(cfApp1.Spec.DesiredState))
-				Expect(appRecord.Lifecycle.Type).To(BeEquivalentTo(cfApp1.Spec.Lifecycle.Type))
+				Expect(appRecord.Name).To(Equal(cfApp.Spec.Name))
+				Expect(appRecord.GUID).To(Equal(cfApp.Name))
+				Expect(appRecord.EtcdUID).To(Equal(cfApp.UID))
+				Expect(appRecord.SpaceGUID).To(Equal(space.Name))
+				Expect(appRecord.State).To(BeEquivalentTo(cfApp.Spec.DesiredState))
+				Expect(appRecord.Lifecycle.Type).To(BeEquivalentTo(cfApp.Spec.Lifecycle.Type))
 			})
 		})
 
@@ -173,6 +167,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the App doesn't exist in the Space (but is in another Space)", func() {
 			BeforeEach(func() {
+				space2 := createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space2"))
 				querySpaceName = space2.Name
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, querySpaceName)
 			})
@@ -183,195 +178,165 @@ var _ = Describe("AppRepository", func() {
 		})
 	})
 
-	Describe("ListApps", Serial, func() {
+	Describe("ListApps", func() {
 		var (
-			message        ListAppsMessage
-			nonCFNamespace string
+			message ListAppsMessage
+			appList []AppRecord
+			cfApp2  *workloadsv1alpha1.CFApp
 		)
 
 		BeforeEach(func() {
 			message = ListAppsMessage{}
 
-			var cfAppList workloadsv1alpha1.CFAppList
-			Expect(
-				k8sClient.List(context.Background(), &cfAppList),
-			).To(Succeed())
-
-			for _, app := range cfAppList.Items {
-				Expect(
-					k8sClient.Delete(context.Background(), &app),
-				).To(Succeed())
-			}
-
-			nonCFNamespace = prefixedGUID("non-cf")
-			Expect(k8sClient.Create(
-				testCtx,
-				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
-			)).To(Succeed())
-
-			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space1.Name)
+			space2 := createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space2"))
+			space3 := createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space3"))
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
-			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, nonCFNamespace)
+
+			cfApp2 = createApp(space2.Name)
+			createApp(space3.Name)
 		})
 
-		Describe("when filters are NOT provided", func() {
-			When("no Apps exist", func() {
-				It("returns an empty list of apps", func() {
-					appList, err := appRepo.ListApps(testCtx, authInfo, message)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(appList).To(BeEmpty())
-				})
+		JustBeforeEach(func() {
+			var err error
+			appList, err = appRepo.ListApps(testCtx, authInfo, message)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns all the AppRecord CRs where client has permission", func() {
+			Expect(appList).To(ConsistOf(
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
+			))
+
+			sortedByName := sort.SliceIsSorted(appList, func(i, j int) bool {
+				return appList[i].Name < appList[j].Name
 			})
 
-			When("multiple Apps exist", func() {
-				BeforeEach(func() {
-					cfApp1 = createApp(space1.Name)
-					cfApp2 = createApp(space2.Name)
-					createApp(space3.Name)
-					createApp(nonCFNamespace)
-				})
+			Expect(sortedByName).To(BeTrue(), fmt.Sprintf("AppList was not sorted by Name : App1 : %s , App2: %s", appList[0].Name, appList[1].Name))
+		})
 
-				It("returns all the AppRecord CRs where client has permission", func() {
-					appList, err := appRepo.ListApps(testCtx, authInfo, message)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(appList).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp1.Name)}),
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
-					))
+		When("there are apps in non-cf namespaces", func() {
+			var nonCFApp *workloadsv1alpha1.CFApp
 
-					sortedByName := sort.SliceIsSorted(appList, func(i, j int) bool {
-						return appList[i].Name < appList[j].Name
-					})
+			BeforeEach(func() {
+				nonCFNamespace := prefixedGUID("non-cf")
+				Expect(k8sClient.Create(
+					testCtx,
+					&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
+				)).To(Succeed())
 
-					Expect(sortedByName).To(BeTrue(), fmt.Sprintf("AppList was not sorted by Name : App1 : %s , App2: %s", appList[0].Name, appList[1].Name))
-				})
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, nonCFNamespace)
+				nonCFApp = createApp(nonCFNamespace)
+			})
+
+			It("does not list them", func() {
+				Expect(appList).NotTo(ContainElement(
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(nonCFApp.Name)}),
+				))
 			})
 		})
 
-		Describe("when filters are provided", func() {
-			When("a name filter is provided", func() {
+		Describe("filtering", func() {
+			var cfApp12 *workloadsv1alpha1.CFApp
+
+			BeforeEach(func() {
+				cfApp12 = createApp(space.Name)
+			})
+
+			Describe("filtering by name", func() {
 				When("no Apps exist that match the filter", func() {
 					BeforeEach(func() {
-						createApp(space1.Name)
-						createApp(space2.Name)
-					})
-
-					It("returns an empty list of apps", func() {
 						message = ListAppsMessage{Names: []string{"some-other-app"}}
-						appList, err := appRepo.ListApps(testCtx, authInfo, message)
-						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("returns an empty list of apps", func() {
 						Expect(appList).To(BeEmpty())
 					})
 				})
 
 				When("some Apps match the filter", func() {
 					BeforeEach(func() {
-						createApp(space1.Name)
-						cfApp2 = createApp(space2.Name)
-						cfApp3 = createApp(space1.Name)
+						message = ListAppsMessage{Names: []string{cfApp2.Spec.Name, cfApp12.Spec.Name}}
 					})
 
 					It("returns the matching apps", func() {
-						message = ListAppsMessage{Names: []string{cfApp2.Spec.Name, cfApp3.Spec.Name}}
-						appList, err := appRepo.ListApps(testCtx, authInfo, message)
-						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp3.Name)}),
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp12.Name)}),
 						))
 					})
 				})
 			})
 
-			When("a guid filter is provided", func() {
+			Describe("filtering by guid", func() {
 				When("no Apps exist that match the filter", func() {
 					BeforeEach(func() {
-						createApp(space1.Name)
-						createApp(space2.Name)
-					})
-
-					It("returns an empty list of apps", func() {
 						message = ListAppsMessage{Guids: []string{"some-other-app-guid"}}
-						appList, err := appRepo.ListApps(testCtx, authInfo, message)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(appList).To(BeEmpty())
-					})
-				})
-
-				When("some Apps match the filter", func() {
-					BeforeEach(func() {
-						createApp(space1.Name)
-						cfApp2 = createAppWithGUID(space2.Name, "app-guid-2")
-						cfApp3 = createAppWithGUID(space1.Name, "app-guid-3")
-					})
-
-					It("returns the matching apps", func() {
-						message = ListAppsMessage{Guids: []string{"app-guid-2", "app-guid-3"}}
-						appList, err := appRepo.ListApps(testCtx, authInfo, message)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(appList).To(ConsistOf(
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp3.Name)}),
-						))
-					})
-				})
-			})
-
-			When("a space filter is provided", func() {
-				When("no Apps exist that match the filter", func() {
-					BeforeEach(func() {
-						createApp(space1.Name)
-						createApp(space1.Name)
 					})
 
 					It("returns an empty list of apps", func() {
-						message = ListAppsMessage{SpaceGuids: []string{"some-other-space-guid"}}
-						appList, err := appRepo.ListApps(testCtx, authInfo, message)
-						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(BeEmpty())
 					})
 				})
 
 				When("some Apps match the filter", func() {
 					BeforeEach(func() {
-						createApp(space1.Name)
-						cfApp2 = createApp(space2.Name)
-						cfApp3 = createApp(space2.Name)
+						message = ListAppsMessage{Guids: []string{cfApp.Name, cfApp2.Name}}
 					})
 
 					It("returns the matching apps", func() {
-						message = ListAppsMessage{SpaceGuids: []string{space2.Name}}
-						appList, err := appRepo.ListApps(testCtx, authInfo, message)
-						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp3.Name)}),
 						))
 					})
 				})
 			})
 
-			When("both name and space filters are provided", func() {
+			Describe("filtering by space", func() {
+				When("no Apps exist that match the filter", func() {
+					BeforeEach(func() {
+						message = ListAppsMessage{SpaceGuids: []string{"some-other-space-guid"}}
+					})
+
+					It("returns an empty list of apps", func() {
+						Expect(appList).To(BeEmpty())
+					})
+				})
+
+				When("some Apps match the filter", func() {
+					BeforeEach(func() {
+						message = ListAppsMessage{SpaceGuids: []string{space.Name}}
+					})
+
+					It("returns the matching apps", func() {
+						Expect(appList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp12.Name)}),
+						))
+					})
+				})
+			})
+
+			Describe("filtering by both name and space", func() {
 				When("no Apps exist that match the union of the filters", func() {
 					BeforeEach(func() {
-						cfApp1 = createApp(space1.Name)
-						cfApp2 = createApp(space1.Name)
+						message = ListAppsMessage{Names: []string{cfApp.Spec.Name}, SpaceGuids: []string{"some-other-space-guid"}}
 					})
 
 					When("an App matches by Name but not by Space", func() {
 						It("returns an empty list of apps", func() {
-							message = ListAppsMessage{Names: []string{cfApp1.Spec.Name}, SpaceGuids: []string{"some-other-space-guid"}}
-							appList, err := appRepo.ListApps(testCtx, authInfo, message)
-							Expect(err).NotTo(HaveOccurred())
 							Expect(appList).To(BeEmpty())
 						})
 					})
 
 					When("an App matches by Space but not by Name", func() {
+						BeforeEach(func() {
+							message = ListAppsMessage{Names: []string{"fake-app-name"}, SpaceGuids: []string{space.Name}}
+						})
+
 						It("returns an empty list of apps", func() {
-							message = ListAppsMessage{Names: []string{"fake-app-name"}, SpaceGuids: []string{space1.Name}}
-							appList, err := appRepo.ListApps(testCtx, authInfo, message)
-							Expect(err).NotTo(HaveOccurred())
 							Expect(appList).To(BeEmpty())
 						})
 					})
@@ -379,18 +344,12 @@ var _ = Describe("AppRepository", func() {
 
 				When("some Apps match the union of the filters", func() {
 					BeforeEach(func() {
-						cfApp1 = createApp(space1.Name)
-						cfApp2 = createApp(space2.Name)
-						cfApp3 = createApp(space2.Name)
+						message = ListAppsMessage{Names: []string{cfApp12.Spec.Name}, SpaceGuids: []string{space.Name}}
 					})
 
 					It("returns the matching apps", func() {
-						message = ListAppsMessage{Names: []string{cfApp2.Spec.Name}, SpaceGuids: []string{space2.Name}}
-						appList, err := appRepo.ListApps(testCtx, authInfo, message)
-						Expect(err).NotTo(HaveOccurred())
 						Expect(appList).To(HaveLen(1))
-
-						Expect(appList[0].GUID).To(Equal(cfApp2.Name))
+						Expect(appList[0].GUID).To(Equal(cfApp12.Name))
 					})
 				})
 			})
@@ -547,7 +506,7 @@ var _ = Describe("AppRepository", func() {
 			secret := corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      GenerateEnvSecretName(testAppGUID),
-					Namespace: space1.Name,
+					Namespace: space.Name,
 				},
 				StringData: originalEnvVars,
 			}
@@ -562,7 +521,7 @@ var _ = Describe("AppRepository", func() {
 			}
 			testAppEnvSecretPatchMsg = PatchAppEnvVarsMessage{
 				AppGUID:              testAppGUID,
-				SpaceGUID:            space1.Name,
+				SpaceGUID:            space.Name,
 				EnvironmentVariables: requestEnvVars,
 			}
 
@@ -578,7 +537,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the user is authorized and an app exists with a secret", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space1.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("returns the updated secret record", func() {
@@ -587,7 +546,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("eventually patches the underlying secret", func() {
-				cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: space1.Name}
+				cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: space.Name}
 
 				var updatedSecret corev1.Secret
 				Eventually(func() map[string][]byte {
@@ -633,7 +592,7 @@ var _ = Describe("AppRepository", func() {
 
 		BeforeEach(func() {
 			testAppGUID = generateGUID()
-			cfAppCR = createAppCR(testCtx, k8sClient, testAppName, testAppGUID, space1.Name, CFAppStoppedState)
+			cfAppCR = createAppCR(testCtx, k8sClient, testAppName, testAppGUID, space.Name, CFAppStoppedState)
 
 			testAppEnvSecretName = generateAppEnvSecretName(testAppGUID)
 			requestEnvVars = map[string]string{
@@ -643,7 +602,7 @@ var _ = Describe("AppRepository", func() {
 			testAppEnvSecret = CreateOrPatchAppEnvVarsMessage{
 				AppGUID:              testAppGUID,
 				AppEtcdUID:           cfAppCR.GetUID(),
-				SpaceGUID:            space1.Name,
+				SpaceGUID:            space.Name,
 				EnvironmentVariables: requestEnvVars,
 			}
 		})
@@ -654,7 +613,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the user is authorized", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space1.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			When("the secret doesn't already exist", func() {
@@ -679,7 +638,7 @@ var _ = Describe("AppRepository", func() {
 				})
 
 				It("eventually creates a secret that matches the request record", func() {
-					cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: space1.Name}
+					cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: space.Name}
 					createdCFAppSecret := &corev1.Secret{}
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), cfAppSecretLookupKey, createdCFAppSecret)
@@ -718,7 +677,7 @@ var _ = Describe("AppRepository", func() {
 					originalSecret := corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      testAppEnvSecretName,
-							Namespace: space1.Name,
+							Namespace: space.Name,
 							Labels: map[string]string{
 								CFAppGUIDLabel: testAppGUID,
 							},
@@ -743,7 +702,7 @@ var _ = Describe("AppRepository", func() {
 				})
 
 				It("eventually creates a secret that matches the request record", func() {
-					cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: space1.Name}
+					cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: space.Name}
 
 					var updatedSecret corev1.Secret
 					Eventually(func() error {
@@ -979,15 +938,15 @@ var _ = Describe("AppRepository", func() {
 
 		BeforeEach(func() {
 			appGUID = generateGUID()
-			_ = createAppCR(context.Background(), k8sClient, "some-app", appGUID, space1.Name, CFAppStoppedState)
-			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space1.Name)
+			_ = createAppCR(context.Background(), k8sClient, "some-app", appGUID, space.Name, CFAppStoppedState)
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 		})
 
 		When("on the happy path", func() {
 			It("deletes the CFApp resource", func() {
 				err := appRepo.DeleteApp(testCtx, authInfo, DeleteAppMessage{
 					AppGUID:   appGUID,
-					SpaceGUID: space1.Name,
+					SpaceGUID: space.Name,
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -997,7 +956,7 @@ var _ = Describe("AppRepository", func() {
 			It("errors", func() {
 				err := appRepo.DeleteApp(testCtx, authInfo, DeleteAppMessage{
 					AppGUID:   "no-such-app",
-					SpaceGUID: space1.Name,
+					SpaceGUID: space.Name,
 				})
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(ContainSubstring("not found")))
@@ -1006,117 +965,89 @@ var _ = Describe("AppRepository", func() {
 	})
 
 	Describe("GetAppEnv", func() {
-		When("the app exists", func() {
-			var (
-				envVars map[string]string
-				secret  *corev1.Secret
-			)
+		var (
+			envVars      map[string]string
+			secretName   string
+			appGUID      string
+			appEnv       map[string]string
+			getAppEnvErr error
+		)
 
+		BeforeEach(func() {
+			appGUID = cfApp.Name
+			secretName = "the-env-secret"
+
+			envVars = map[string]string{
+				"RAILS_ENV": "production",
+				"LUNCHTIME": "12:00",
+			}
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: space.Name,
+				},
+				StringData: envVars,
+			}
+
+			Expect(
+				k8sClient.Create(context.Background(), secret),
+			).To(Succeed())
+
+			appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms)
+		})
+
+		JustBeforeEach(func() {
+			ogCFApp := cfApp.DeepCopy()
+			cfApp.Spec.EnvSecretName = secretName
+			Expect(
+				k8sClient.Patch(context.Background(), cfApp, client.MergeFrom(ogCFApp)),
+			).To(Succeed())
+
+			appEnv, getAppEnvErr = appRepo.GetAppEnv(testCtx, authInfo, appGUID)
+		})
+
+		When("the user can read secrets in the space", func() {
 			BeforeEach(func() {
-				cfApp1 = createApp(space1.Name)
-				cfApp2 = createApp(space2.Name)
-
-				envVars = map[string]string{
-					"RAILS_ENV": "production",
-					"LUNCHTIME": "12:00",
-				}
-
-				secret = &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "the-env-secret",
-						Namespace: space2.Name,
-					},
-					StringData: envVars,
-				}
-
-				Expect(
-					k8sClient.Create(context.Background(), secret),
-				).To(Succeed())
-
-				appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			AfterEach(func() {
-				Expect(k8sClient.Delete(context.Background(), cfApp1)).To(Succeed())
-				Expect(k8sClient.Delete(context.Background(), cfApp2)).To(Succeed())
+			It("returns the env vars stored on the secret", func() {
+				Expect(getAppEnvErr).NotTo(HaveOccurred())
+				Expect(appEnv).To(Equal(envVars))
 			})
 
-			When("the user can read secrets in the space", func() {
+			When("the EnvSecret doesn't exist", func() {
 				BeforeEach(func() {
-					createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
+					secretName = "doIReallyExist"
 				})
 
-				When("the EnvSecret exists", func() {
-					BeforeEach(func() {
-						ogCFApp2 := cfApp2.DeepCopy()
-						cfApp2.Spec.EnvSecretName = secret.Name
-						Expect(
-							k8sClient.Patch(context.Background(), cfApp2, client.MergeFrom(ogCFApp2)),
-						).To(Succeed())
-					})
-
-					It("returns the env vars stored on the secret", func() {
-						res, err := appRepo.GetAppEnv(testCtx, authInfo, cfApp2.Name)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(res).To(Equal(envVars))
-					})
-				})
-
-				When("the EnvSecret doesn't exist", func() {
-					BeforeEach(func() {
-						ogCFApp2 := cfApp2.DeepCopy()
-						cfApp2.Spec.EnvSecretName = "no-such-secret"
-						Expect(
-							k8sClient.Patch(context.Background(), cfApp2, client.MergeFrom(ogCFApp2)),
-						).To(Succeed())
-					})
-
-					It("errors", func() {
-						_, err := appRepo.GetAppEnv(testCtx, authInfo, cfApp2.Name)
-						Expect(err).To(MatchError(ContainSubstring("Secret")))
-					})
-				})
-
-				When("EnvSecretName is blank", func() {
-					BeforeEach(func() {
-						ogCFApp2 := cfApp2.DeepCopy()
-						cfApp2.Spec.EnvSecretName = ""
-						Expect(
-							k8sClient.Patch(context.Background(), cfApp2, client.MergeFrom(ogCFApp2)),
-						).To(Succeed())
-					})
-
-					It("returns an empty map", func() {
-						res, err := appRepo.GetAppEnv(testCtx, authInfo, cfApp2.Name)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(res).To(BeEmpty())
-					})
-				})
-			})
-
-			When("the user doesn't have permission to get secrets in the space", func() {
-				BeforeEach(func() {
-					createRoleBinding(testCtx, userName, spaceAuditorRole.Name, space2.Name)
-				})
-
-				When("the EnvSecret exists", func() {
-					BeforeEach(func() {
-						ogCFApp2 := cfApp2.DeepCopy()
-						cfApp2.Spec.EnvSecretName = secret.Name
-						Expect(
-							k8sClient.Patch(context.Background(), cfApp2, client.MergeFrom(ogCFApp2)),
-						).To(Succeed())
-					})
-
-					It("errors", func() {
-						_, err := appRepo.GetAppEnv(testCtx, authInfo, cfApp2.Name)
-						Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
-					})
+				It("errors", func() {
+					Expect(getAppEnvErr).To(MatchError(ContainSubstring("Secret")))
 				})
 			})
 		})
 
-		When("no Apps exist", func() {
+		When("EnvSecretName is blank", func() {
+			BeforeEach(func() {
+				secretName = ""
+			})
+
+			It("returns an empty map", func() {
+				Expect(appEnv).To(BeEmpty())
+			})
+		})
+
+		When("the user doesn't have permission to get secrets in the space", func() {
+			It("errors", func() {
+				Expect(getAppEnvErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+
+		When("the app does not exist", func() {
+			BeforeEach(func() {
+				appGUID = "i don't exist"
+			})
 			It("returns an error", func() {
 				_, err := appRepo.GetAppEnv(testCtx, authInfo, "i don't exist")
 				Expect(err).To(HaveOccurred())
