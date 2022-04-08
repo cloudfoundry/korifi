@@ -2,7 +2,6 @@ package repositories_test
 
 import (
 	"context"
-	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
@@ -42,28 +41,32 @@ var _ = Describe("ServiceBindingRepo", func() {
 	})
 
 	Describe("CreateServiceBinding", func() {
+		var (
+			bindingName *string
+			record      repositories.ServiceBindingRecord
+			createErr   error
+		)
+		BeforeEach(func() {
+			bindingName = nil
+		})
+
+		JustBeforeEach(func() {
+			record, createErr = repo.CreateServiceBinding(testCtx, authInfo, repositories.CreateServiceBindingMessage{
+				Name:                bindingName,
+				ServiceInstanceGUID: serviceInstanceGUID,
+				AppGUID:             appGUID,
+				SpaceGUID:           space.Name,
+			})
+		})
+
 		When("the user can create CFServiceBindings in the Space", func() {
-			var (
-				bindingName *string
-				record      repositories.ServiceBindingRecord
-			)
 			BeforeEach(func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
-				bindingName = nil
-			})
-
-			JustBeforeEach(func() {
-				var err error
-				record, err = repo.CreateServiceBinding(testCtx, authInfo, repositories.CreateServiceBindingMessage{
-					Name:                bindingName,
-					ServiceInstanceGUID: serviceInstanceGUID,
-					AppGUID:             appGUID,
-					SpaceGUID:           space.Name,
-				})
-				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("creates a new CFServiceBinding resource and returns a record", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
 				Expect(record.GUID).NotTo(BeEmpty())
 				Expect(record.Type).To(Equal("app"))
 				Expect(record.Name).To(BeNil())
@@ -114,13 +117,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 		When("the user doesn't have permission to create CFServiceBindings in the Space", func() {
 			It("returns a Forbidden error", func() {
-				_, err := repo.CreateServiceBinding(testCtx, authInfo, repositories.CreateServiceBindingMessage{
-					Name:                nil,
-					ServiceInstanceGUID: serviceInstanceGUID,
-					AppGUID:             appGUID,
-					SpaceGUID:           space.Name,
-				})
-				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+				Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
@@ -132,7 +129,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 		)
 
 		BeforeEach(func() {
-			ret = nil
 			serviceBindingGUID = prefixedGUID("binding")
 			app := &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
@@ -231,6 +227,11 @@ var _ = Describe("ServiceBindingRepo", func() {
 	})
 
 	Describe("ServiceBindingExists", func() {
+		var (
+			exists    bool
+			existsErr error
+		)
+
 		BeforeEach(func() {
 			app := &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
@@ -269,6 +270,10 @@ var _ = Describe("ServiceBindingRepo", func() {
 			).To(Succeed())
 		})
 
+		JustBeforeEach(func() {
+			exists, existsErr = repo.ServiceBindingExists(testCtx, authInfo, space.Name, appGUID, serviceInstanceGUID)
+		})
+
 		When("the user can list ServiceBindings in the Space", func() {
 			BeforeEach(func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
@@ -298,8 +303,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				})
 
 				It("returns true", func() {
-					exists, err := repo.ServiceBindingExists(testCtx, authInfo, space.Name, appGUID, serviceInstanceGUID)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(existsErr).NotTo(HaveOccurred())
 					Expect(exists).To(BeTrue())
 				})
 			})
@@ -328,8 +332,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				})
 
 				It("returns false", func() {
-					exists, err := repo.ServiceBindingExists(testCtx, authInfo, space.Name, appGUID, serviceInstanceGUID)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(existsErr).NotTo(HaveOccurred())
 					Expect(exists).To(BeFalse())
 				})
 			})
@@ -337,20 +340,21 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 		When("the user doesn't have permission to list ServiceBindings in the Space", func() {
 			It("returns a Forbidden error", func() {
-				_, err := repo.ServiceBindingExists(testCtx, authInfo, space.Name, appGUID, serviceInstanceGUID)
-				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+				Expect(existsErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
 
-	Describe("ListServiceBindings", Serial, func() {
+	Describe("ListServiceBindings", func() {
 		var (
 			serviceBinding1, serviceBinding2, serviceBinding3                *servicesv1alpha1.CFServiceBinding
 			space2                                                           *hnsv1alpha2.SubnamespaceAnchor
 			cfApp1, cfApp2, cfApp3                                           *workloadsv1alpha1.CFApp
 			serviceInstance1GUID, serviceInstance2GUID, serviceInstance3GUID string
 
-			requestMessage repositories.ListServiceBindingsMessage
+			requestMessage          repositories.ListServiceBindingsMessage
+			responseServiceBindings []repositories.ServiceBindingRecord
+			listErr                 error
 		)
 
 		BeforeEach(func() {
@@ -374,19 +378,23 @@ var _ = Describe("ServiceBindingRepo", func() {
 			requestMessage = repositories.ListServiceBindingsMessage{}
 		})
 
+		JustBeforeEach(func() {
+			responseServiceBindings, listErr = repo.ListServiceBindings(context.Background(), authInfo, requestMessage)
+		})
+
 		When("the user has access to both namespaces", func() {
 			BeforeEach(func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
 
+			It("succeeds", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+			})
+
 			When("no query parameters are specified", func() {
 				It("returns a list of ServiceBindingRecords in the spaces the user has access to", func() {
-					Eventually(func() []repositories.ServiceBindingRecord {
-						responseServiceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, requestMessage)
-						Expect(err).NotTo(HaveOccurred())
-						return responseServiceBindings
-					}, timeCheckThreshold*time.Second).Should(ConsistOf(
+					Expect(responseServiceBindings).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":                Equal(serviceBinding1.Name),
 							"Type":                Equal("app"),
@@ -435,8 +443,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 				})
 
 				It("returns only the ServiceBindings that match the provided service instance guids", func() {
-					responseServiceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, requestMessage)
-					Expect(err).NotTo(HaveOccurred())
 					Expect(responseServiceBindings).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":                Equal(serviceBinding2.Name),
@@ -457,8 +463,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 					}
 				})
 				It("returns only the ServiceBindings that match the provided app guids", func() {
-					responseServiceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, requestMessage)
-					Expect(err).NotTo(HaveOccurred())
 					Expect(responseServiceBindings).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":                Equal(serviceBinding1.Name),
@@ -480,8 +484,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 					}
 				})
 				It("returns only the ServiceBindings that match all provided filters", func() {
-					responseServiceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, requestMessage)
-					Expect(err).NotTo(HaveOccurred())
 					Expect(responseServiceBindings).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":                Equal(serviceBinding2.Name),
@@ -493,20 +495,15 @@ var _ = Describe("ServiceBindingRepo", func() {
 		})
 
 		When("the user does not have access to any namespaces", func() {
-			It("always returns an empty list and no error", func() {
-				Consistently(func() []repositories.ServiceBindingRecord {
-					responseServiceBindings, err := repo.ListServiceBindings(testCtx, authInfo, requestMessage)
-					Expect(err).NotTo(HaveOccurred())
-					return responseServiceBindings
-				}, 500*time.Millisecond).Should(HaveLen(0))
+			It("returns an empty list and no error", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(responseServiceBindings).To(BeEmpty())
 			})
 		})
 
 		When("fetching authorized namespaces fails", func() {
-			var listErr error
-
 			BeforeEach(func() {
-				_, listErr = repo.ListServiceBindings(testCtx, authorization.Info{}, repositories.ListServiceBindingsMessage{ServiceInstanceGUIDs: []string{"org1", "org3"}})
+				authInfo = authorization.Info{}
 			})
 
 			It("returns the error", func() {
