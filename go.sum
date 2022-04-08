@@ -332,8 +332,9 @@ github.com/bugsnag/panicwrap v0.0.0-20151223152923-e2c28503fcd0/go.mod h1:D/8v3k
 github.com/buildpacks/imgutil v0.0.0-20211203200417-76206845baac/go.mod h1:YZReWjuSxwyvuN92Vlcul+WgaCXylpecgFn7T3rNang=
 github.com/buildpacks/imgutil v0.0.0-20220310160537-4dd8bc60eaff h1:sP0G3fOfWMSDabqIuPY1o6aeiX35eQz9mWhYCMqgp08=
 github.com/buildpacks/imgutil v0.0.0-20220310160537-4dd8bc60eaff/go.mod h1:zjdTnysBSl9Jeiz2J/B7Nf621dsDaEGkMfySlPqXNtY=
-github.com/buildpacks/lifecycle v0.13.5 h1:8sreGjrBu6CJDZqc6Opi+VJSqVcS1hiEqzJEhn7bqBY=
 github.com/buildpacks/lifecycle v0.13.5/go.mod h1:+X6d6xoEhNitwvSbpTcnw/mvKNTYAx2ZeR9GDPbbsds=
+github.com/buildpacks/lifecycle v0.14.0 h1:GD0HIfyI8I9tlT193+P1EJeUXjka50+TnnwpC+Ki5Cg=
+github.com/buildpacks/lifecycle v0.14.0/go.mod h1:WVrbLGvWd3f96qWZglI+RlEcPZDXMDuJDK+i7G7hZjU=
 github.com/buildpacks/pack v0.24.1 h1:CkrdFCWCk/I71E3noNmKtcPha1s+1F9j8ykhbxHLV04=
 github.com/buildpacks/pack v0.24.1/go.mod h1:3BMdtlXEXTHUGAv31eeuPAebXq+JYZhFrAd7tEi6m0g=
 github.com/bytecodealliance/wasmtime-go v0.28.0/go.mod h1:q320gUxqyI8yB+ZqRuaJOEnGkAnHh6WtJjMaT2CW4wI=
@@ -585,8 +586,9 @@ github.com/docker/docker v20.10.7+incompatible/go.mod h1:eEKB0N0r5NX/I1kEveEz05b
 github.com/docker/docker v20.10.10+incompatible/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
 github.com/docker/docker v20.10.11+incompatible/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
 github.com/docker/docker v20.10.12+incompatible/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
-github.com/docker/docker v20.10.13+incompatible h1:5s7uxnKZG+b8hYWlPYUi6x1Sjpq2MSt96d15eLZeHyw=
 github.com/docker/docker v20.10.13+incompatible/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
+github.com/docker/docker v20.10.14+incompatible h1:+T9/PRYWNDo5SZl5qS1r9Mo/0Q8AwxKKPtu9S1yxM0w=
+github.com/docker/docker v20.10.14+incompatible/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
 github.com/docker/docker-credential-helpers v0.6.3/go.mod h1:WRaJzqw3CTB9bk10avuGsjVBZsD05qeibJ1/TYlvc0Y=
 github.com/docker/docker-credential-helpers v0.6.4 h1:axCks+yV+2MR3/kZhAmy07yC56WZ2Pwu/fKWtKuZB0o=
 github.com/docker/docker-credential-helpers v0.6.4/go.mod h1:ofX3UI0Gz1TteYBjtgs07O36Pyasyp66D2uKT7H8W1c=
@@ -2982,8 +2984,6 @@ sigs.k8s.io/controller-tools v0.8.0 h1:uUkfTGEwrguqYYfcI2RRGUnC8mYdCFDqfwPKUcNJh
 sigs.k8s.io/controller-tools v0.8.0/go.mod h1:qE2DXhVOiEq5ijmINcFbqi9GZrrUjzB1TuJU0xa6eoY=
 sigs.k8s.io/gateway-api v0.3.0/go.mod h1:Wb8bx7QhGVZxOSEU3i9vw/JqTB5Nlai9MLMYVZeDmRQ=
 sigs.k8s.io/gateway-api v0.4.1/go.mod h1:r3eiNP+0el+NTLwaTfOrCNXy8TukC+dIM3ggc+fbNWk=
-sigs.k8s.io/hierarchical-namespaces v0.9.0 h1:GbNkRITpJ8SwnZoO3ZillHDn0D/AySP5Fosa2ZPEol0=
-sigs.k8s.io/hierarchical-namespaces v0.9.0/go.mod h1:qHqqjgYqzMPg7BwpkndOkK7dwmzBdUj0tvSSrmQzouk=
 sigs.k8s.io/hierarchical-namespaces v1.0.0 h1:rgfkknTEFhAF/28p1sKdiJqUa+OvvNQ20rlyFGIRaro=
 sigs.k8s.io/hierarchical-namespaces v1.0.0/go.mod h1:zqfhmqEdCUY2S75WsrmfPPu+ns35522mBDkqaHNjrSs=
 sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 h1:fD1pz4yfdADVNfFmcP2aBEtudwUQ1AlLnRBALr33v3s=
