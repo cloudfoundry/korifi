@@ -5,7 +5,7 @@ go 1.18
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 	code.cloudfoundry.org/eirini-controller v0.2.0
-	github.com/buildpacks/lifecycle v0.13.5
+	github.com/buildpacks/lifecycle v0.14.0
 	github.com/buildpacks/pack v0.24.1
 	github.com/cloudfoundry-incubator/cf-test-helpers v1.0.0
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
@@ -61,7 +61,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/cli v20.10.13+incompatible // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
-	github.com/docker/docker v20.10.13+incompatible // indirect
+	github.com/docker/docker v20.10.14+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fatih/color v1.13.0 // indirect
