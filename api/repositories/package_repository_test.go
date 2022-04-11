@@ -15,7 +15,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
@@ -27,12 +26,14 @@ var _ = Describe("PackageRepository", func() {
 		packageRepo *repositories.PackageRepo
 		ctx         context.Context
 		org         *hnsv1alpha2.SubnamespaceAnchor
+		space       *hnsv1alpha2.SubnamespaceAnchor
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		packageRepo = repositories.NewPackageRepo(userClientFactory, namespaceRetriever, nsPerms)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
+		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 	})
 
 	Describe("CreatePackage", func() {
@@ -40,11 +41,9 @@ var _ = Describe("PackageRepository", func() {
 			packageCreate  repositories.CreatePackageMessage
 			createdPackage repositories.PackageRecord
 			createErr      error
-			space          *hnsv1alpha2.SubnamespaceAnchor
 		)
 
 		BeforeEach(func() {
-			space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 			packageCreate = repositories.CreatePackageMessage{
 				Type:      "bits",
 				AppGUID:   appGUID,
@@ -69,10 +68,6 @@ var _ = Describe("PackageRepository", func() {
 		When("the user is a SpaceDeveloper", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-			})
-
-			AfterEach(func() {
-				cleanupPackage(ctx, k8sClient, createdPackage.GUID, createdPackage.SpaceGUID)
 			})
 
 			It("creates a Package record", func() {
@@ -119,25 +114,17 @@ var _ = Describe("PackageRepository", func() {
 	Describe("GetPackage", func() {
 		var (
 			packageGUID   string
-			cfPackage     *workloadsv1alpha1.CFPackage
-			space         *hnsv1alpha2.SubnamespaceAnchor
 			packageRecord repositories.PackageRecord
 			getErr        error
 		)
 
 		BeforeEach(func() {
-			space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
-
 			packageGUID = generateGUID()
-			cfPackage = createPackageCR(ctx, k8sClient, packageGUID, appGUID, space.Name, "")
+			createPackageCR(ctx, k8sClient, packageGUID, appGUID, space.Name, "")
 		})
 
 		JustBeforeEach(func() {
 			packageRecord, getErr = packageRepo.GetPackage(ctx, authInfo, packageGUID)
-		})
-
-		AfterEach(func() {
-			Expect(k8sClient.Delete(ctx, cfPackage)).To(Succeed())
 		})
 
 		When("the user is authorized in the namespace", func() {
@@ -167,15 +154,9 @@ var _ = Describe("PackageRepository", func() {
 				})
 
 				When("an source image is set", func() {
-					var cfPackage2 *workloadsv1alpha1.CFPackage
-
 					BeforeEach(func() {
 						packageGUID = generateGUID()
-						cfPackage2 = createPackageCR(ctx, k8sClient, packageGUID, appGUID, space.Name, "some-org/some-repo")
-					})
-
-					AfterEach(func() {
-						Expect(k8sClient.Delete(ctx, cfPackage2)).To(Succeed())
+						createPackageCR(ctx, k8sClient, packageGUID, appGUID, space.Name, "some-org/some-repo")
 					})
 
 					It("equals READY", func() {
@@ -192,19 +173,9 @@ var _ = Describe("PackageRepository", func() {
 		})
 
 		When("duplicate Packages exist across namespaces with the same GUID", func() {
-			var (
-				duplicatePackage *workloadsv1alpha1.CFPackage
-				anotherSpace     *hnsv1alpha2.SubnamespaceAnchor
-			)
-
 			BeforeEach(func() {
-				anotherSpace = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
-
-				duplicatePackage = createPackageCR(ctx, k8sClient, packageGUID, appGUID, anotherSpace.Name, "")
-			})
-
-			AfterEach(func() {
-				Expect(k8sClient.Delete(ctx, duplicatePackage)).To(Succeed())
+				anotherSpace := createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
+				createPackageCR(ctx, k8sClient, packageGUID, appGUID, anotherSpace.Name, "")
 			})
 
 			It("returns an error", func() {
@@ -225,56 +196,58 @@ var _ = Describe("PackageRepository", func() {
 
 	Describe("ListPackages", func() {
 		const (
-			appGUID1 = "the-app-guid-1"
 			appGUID2 = "the-app-guid-2"
 		)
 
-		var space1, space2 *hnsv1alpha2.SubnamespaceAnchor
+		var (
+			space2      *hnsv1alpha2.SubnamespaceAnchor
+			packageList []repositories.PackageRecord
+			listMessage repositories.ListPackagesMessage
+		)
 
 		BeforeEach(func() {
-			space1 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
 			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
+			listMessage = repositories.ListPackagesMessage{}
 		})
 
-		When("multiple packages exist in different namespaces", func() {
+		JustBeforeEach(func() {
+			var err error
+			packageList, err = packageRepo.ListPackages(context.Background(), authInfo, listMessage)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("there are packages in multiple namespaces", func() {
 			var (
 				package1GUID, package2GUID, noPermissionsPackageGUID string
-				package1, package2, noPermissionsPackage             *workloadsv1alpha1.CFPackage
 				noPermissionsSpace                                   *hnsv1alpha2.SubnamespaceAnchor
 			)
 
 			BeforeEach(func() {
 				package1GUID = generateGUID()
-				package2GUID = generateGUID()
-				package1 = createPackageCR(ctx, k8sClient, package1GUID, appGUID1, space1.Name, "")
+				createPackageCR(ctx, k8sClient, package1GUID, appGUID, space.Name, "")
 
 				// add a small delay to test ordering on created_by
 				time.Sleep(1 * time.Second)
 
-				package2 = createPackageCR(ctx, k8sClient, package2GUID, appGUID2, space2.Name, "my-image-url")
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space1.Name)
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
+				package2GUID = generateGUID()
+				createPackageCR(ctx, k8sClient, package2GUID, appGUID2, space2.Name, "my-image-url")
 
 				noPermissionsSpace = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("no-permissions-space"))
 				noPermissionsPackageGUID = prefixedGUID("no-permissions-package")
-				noPermissionsPackage = createPackageCR(ctx, k8sClient, noPermissionsPackageGUID, appGUID2, noPermissionsSpace.Name, "")
+				createPackageCR(ctx, k8sClient, noPermissionsPackageGUID, appGUID2, noPermissionsSpace.Name, "")
 			})
 
-			AfterEach(func() {
-				Expect(k8sClient.Delete(context.Background(), package1)).To(Succeed())
-				Expect(k8sClient.Delete(context.Background(), package2)).To(Succeed())
-				Expect(k8sClient.Delete(context.Background(), noPermissionsPackage)).To(Succeed())
-			})
+			When("the user is allowed to list packages in some namespaces", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
+				})
 
-			When("no filters are specified", func() {
 				It("returns all Packages in spaces where the user has access", func() {
-					packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{})
-					Expect(err).NotTo(HaveOccurred())
-
 					Expect(packageList).To(ContainElements(
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":    Equal(package1GUID),
-							"AppGUID": Equal(appGUID1),
+							"AppGUID": Equal(appGUID),
 						}),
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":    Equal(package2GUID),
@@ -288,223 +261,161 @@ var _ = Describe("PackageRepository", func() {
 					))
 				})
 
-				When("three packages exist", func() {
-					var (
-						package3GUID string
-						package3     *workloadsv1alpha1.CFPackage
-					)
+				It("orders the results in ascending created_at order by default", func() {
+					Expect(packageList).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"GUID": Equal(package1GUID),
+						}),
+						MatchFields(IgnoreExtras, Fields{
+							"GUID": Equal(package2GUID),
+						}),
+					))
 
-					BeforeEach(func() {
-						package3GUID = generateGUID()
-						package3 = &workloadsv1alpha1.CFPackage{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      package3GUID,
-								Namespace: space1.Name,
-							},
-							Spec: workloadsv1alpha1.CFPackageSpec{
-								Type: "bits",
-								AppRef: corev1.LocalObjectReference{
-									Name: appGUID1,
-								},
-							},
-						}
-						// add a small delay to test ordering on created_by
-						time.Sleep(time.Second * 1)
-						Expect(k8sClient.Create(context.Background(), package3)).To(Succeed())
-					})
-
-					AfterEach(func() {
-						Expect(k8sClient.Delete(context.Background(), package3)).To(Succeed())
-					})
-
-					It("orders the results in ascending created_at order by default", func() {
-						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{})
-						Expect(err).NotTo(HaveOccurred())
-						Expect(packageList).To(ContainElements(
-							MatchFields(IgnoreExtras, Fields{
-								"GUID": Equal(package1GUID),
-							}),
-							MatchFields(IgnoreExtras, Fields{
-								"GUID": Equal(package2GUID),
-							}),
-							MatchFields(IgnoreExtras, Fields{
-								"GUID": Equal(package3GUID),
-							}),
-						))
-
-						for i := 0; i < len(packageList)-1; i++ {
-							currentCreatedAt, err := time.Parse(time.RFC3339, packageList[i].CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-							nextCreatedAt, err := time.Parse(time.RFC3339, packageList[i+1].CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-							Expect(currentCreatedAt).To(BeTemporally("<=", nextCreatedAt))
-						}
-					})
-				})
-			})
-
-			When("app_guids filter is provided", func() {
-				It("fetches all PackageRecords", func() {
-					packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{AppGUIDs: []string{appGUID1}})
+					firstCreatedAt, err := time.Parse(time.RFC3339, packageList[0].CreatedAt)
 					Expect(err).NotTo(HaveOccurred())
-
-					for _, packageRecord := range packageList {
-						Expect(packageRecord).To(
-							MatchFields(IgnoreExtras, Fields{
-								"AppGUID": Equal(appGUID1),
-							}),
-						)
-					}
-				})
-			})
-
-			When("SortBy is provided and value is created_at", func() {
-				var (
-					package3GUID string
-					package3     *workloadsv1alpha1.CFPackage
-				)
-				BeforeEach(func() {
-					package3GUID = generateGUID()
-					package3 = &workloadsv1alpha1.CFPackage{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      package3GUID,
-							Namespace: space2.Name,
-						},
-						Spec: workloadsv1alpha1.CFPackageSpec{
-							Type: "bits",
-							AppRef: corev1.LocalObjectReference{
-								Name: appGUID1,
-							},
-						},
-					}
-					// add a small delay to test ordering on created_by
-					time.Sleep(1 * time.Second)
-
-					Expect(k8sClient.Create(context.Background(), package3)).To(Succeed())
+					secondCreatedAt, err := time.Parse(time.RFC3339, packageList[1].CreatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(firstCreatedAt).To(BeTemporally("<=", secondCreatedAt))
 				})
 
-				AfterEach(func() {
-					Expect(k8sClient.Delete(context.Background(), package3)).To(Succeed())
-				})
-
-				When("descending order is false", func() {
-					It("fetches packages sorted by created_at in ascending order", func() {
-						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{SortBy: "created_at", DescendingOrder: false})
-						Expect(err).NotTo(HaveOccurred())
-
-						Expect(packageList).To(ContainElements(
-							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package1GUID),
-								"AppGUID": Equal(appGUID1),
-							}),
-							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package2GUID),
-								"AppGUID": Equal(appGUID2),
-							}),
-							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package3GUID),
-								"AppGUID": Equal(appGUID1),
-							}),
-						))
-
-						for i := 0; i < len(packageList)-1; i++ {
-							currentCreatedAt, err := time.Parse(time.RFC3339, packageList[i].CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-							nextCreatedAt, err := time.Parse(time.RFC3339, packageList[i+1].CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-							Expect(currentCreatedAt).To(BeTemporally("<=", nextCreatedAt))
-						}
+				When("app_guids filter is provided", func() {
+					BeforeEach(func() {
+						listMessage = repositories.ListPackagesMessage{AppGUIDs: []string{appGUID}}
 					})
-				})
 
-				When("descending order is true", func() {
-					It("fetches packages sorted by created_at in descending order", func() {
-						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{SortBy: "created_at", DescendingOrder: true})
-						Expect(err).NotTo(HaveOccurred())
-
-						Expect(packageList).To(ContainElements(
-							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package1GUID),
-								"AppGUID": Equal(appGUID1),
-							}),
-							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package2GUID),
-								"AppGUID": Equal(appGUID2),
-							}),
-							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package3GUID),
-								"AppGUID": Equal(appGUID1),
-							}),
-						))
-
-						for i := 0; i < len(packageList)-1; i++ {
-							currentCreatedAt, err := time.Parse(time.RFC3339, packageList[i].CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-							nextCreatedAt, err := time.Parse(time.RFC3339, packageList[i+1].CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-							Expect(currentCreatedAt).To(BeTemporally(">=", nextCreatedAt))
-						}
-					})
-				})
-			})
-
-			When("State filter is provided", func() {
-				When("filtering by State=READY", func() {
-					It("filters the packages", func() {
-						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{States: []string{"READY"}})
-						Expect(err).NotTo(HaveOccurred())
-
+					It("fetches all PackageRecords for that app", func() {
 						for _, packageRecord := range packageList {
 							Expect(packageRecord).To(
 								MatchFields(IgnoreExtras, Fields{
-									"State": Equal("READY"),
+									"AppGUID": Equal(appGUID),
 								}),
 							)
 						}
 					})
 				})
 
-				When("filtering by State=AWAITING_UPLOAD", func() {
-					It("filters the packages", func() {
-						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{States: []string{"AWAITING_UPLOAD"}})
-						Expect(err).NotTo(HaveOccurred())
+				When("SortBy is provided and value is created_at", func() {
+					When("descending order is false", func() {
+						BeforeEach(func() {
+							listMessage = repositories.ListPackagesMessage{SortBy: "created_at", DescendingOrder: false}
+						})
 
-						for _, packageRecord := range packageList {
-							Expect(packageRecord).To(
+						It("fetches packages sorted by created_at in ascending order", func() {
+							Expect(packageList).To(ConsistOf(
 								MatchFields(IgnoreExtras, Fields{
-									"State": Equal("AWAITING_UPLOAD"),
+									"GUID":    Equal(package1GUID),
+									"AppGUID": Equal(appGUID),
 								}),
-							)
-						}
+								MatchFields(IgnoreExtras, Fields{
+									"GUID":    Equal(package2GUID),
+									"AppGUID": Equal(appGUID2),
+								}),
+							))
+
+							firstCreatedAt, err := time.Parse(time.RFC3339, packageList[0].CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+							secondCreatedAt, err := time.Parse(time.RFC3339, packageList[1].CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(firstCreatedAt).To(BeTemporally("<=", secondCreatedAt))
+						})
+					})
+
+					When("descending order is true", func() {
+						BeforeEach(func() {
+							listMessage = repositories.ListPackagesMessage{SortBy: "created_at", DescendingOrder: true}
+						})
+
+						It("fetches packages sorted by created_at in descending order", func() {
+							Expect(packageList).To(ContainElements(
+								MatchFields(IgnoreExtras, Fields{
+									"GUID":    Equal(package1GUID),
+									"AppGUID": Equal(appGUID),
+								}),
+								MatchFields(IgnoreExtras, Fields{
+									"GUID":    Equal(package2GUID),
+									"AppGUID": Equal(appGUID2),
+								}),
+							))
+
+							firstCreatedAt, err := time.Parse(time.RFC3339, packageList[0].CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+							secondCreatedAt, err := time.Parse(time.RFC3339, packageList[1].CreatedAt)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(firstCreatedAt).To(BeTemporally(">=", secondCreatedAt))
+						})
 					})
 				})
 
-				When("filtering by State=AWAITING_UPLOAD,READY", func() {
-					It("filters the packages", func() {
-						packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{States: []string{"AWAITING_UPLOAD", "READY"}})
-						Expect(err).NotTo(HaveOccurred())
+				When("State filter is provided", func() {
+					When("filtering by State=READY", func() {
+						BeforeEach(func() {
+							listMessage = repositories.ListPackagesMessage{States: []string{"READY"}}
+						})
 
-						Expect(packageList).To(ContainElements(
-							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package1GUID),
-								"AppGUID": Equal(appGUID1),
-								"State":   Equal("AWAITING_UPLOAD"),
-							}),
-							MatchFields(IgnoreExtras, Fields{
-								"GUID":    Equal(package2GUID),
-								"AppGUID": Equal(appGUID2),
-								"State":   Equal("READY"),
-							}),
-						))
+						It("filters the packages", func() {
+							for _, packageRecord := range packageList {
+								Expect(packageRecord).To(
+									MatchFields(IgnoreExtras, Fields{
+										"State": Equal("READY"),
+									}),
+								)
+							}
+						})
 					})
+
+					When("filtering by State=AWAITING_UPLOAD", func() {
+						BeforeEach(func() {
+							listMessage = repositories.ListPackagesMessage{States: []string{"AWAITING_UPLOAD"}}
+						})
+
+						It("filters the packages", func() {
+							for _, packageRecord := range packageList {
+								Expect(packageRecord).To(
+									MatchFields(IgnoreExtras, Fields{
+										"State": Equal("AWAITING_UPLOAD"),
+									}),
+								)
+							}
+						})
+					})
+
+					When("filtering by State=AWAITING_UPLOAD,READY", func() {
+						BeforeEach(func() {
+							listMessage = repositories.ListPackagesMessage{States: []string{"AWAITING_UPLOAD", "READY"}}
+						})
+
+						It("filters the packages", func() {
+							Expect(packageList).To(ContainElements(
+								MatchFields(IgnoreExtras, Fields{
+									"GUID":    Equal(package1GUID),
+									"AppGUID": Equal(appGUID),
+									"State":   Equal("AWAITING_UPLOAD"),
+								}),
+								MatchFields(IgnoreExtras, Fields{
+									"GUID":    Equal(package2GUID),
+									"AppGUID": Equal(appGUID2),
+									"State":   Equal("READY"),
+								}),
+							))
+						})
+					})
+				})
+			})
+
+			When("the user is not allowed to list packages in namespaces with packages", func() {
+				It("returns an empty list of PackageRecords", func() {
+					Expect(packageList).To(BeEmpty())
 				})
 			})
 		})
 
-		When("no packages exist", Serial, func() {
+		When("there are no packages in allowed namespaces", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
+			})
+
 			It("returns an empty list of PackageRecords", func() {
-				packageList, err := packageRepo.ListPackages(context.Background(), authInfo, repositories.ListPackagesMessage{})
-				Expect(err).NotTo(HaveOccurred())
 				Expect(packageList).To(BeEmpty())
 			})
 		})
@@ -512,9 +423,9 @@ var _ = Describe("PackageRepository", func() {
 
 	Describe("UpdatePackageSource", func() {
 		var (
-			existingCFPackage workloadsv1alpha1.CFPackage
-			updateMessage     repositories.UpdatePackageSourceMessage
-			space             *hnsv1alpha2.SubnamespaceAnchor
+			existingCFPackage     workloadsv1alpha1.CFPackage
+			returnedPackageRecord repositories.PackageRecord
+			updateErr             error
 		)
 
 		const (
@@ -524,8 +435,6 @@ var _ = Describe("PackageRepository", func() {
 		)
 
 		BeforeEach(func() {
-			space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
-
 			existingCFPackage = workloadsv1alpha1.CFPackage{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFPackage",
@@ -541,22 +450,19 @@ var _ = Describe("PackageRepository", func() {
 				},
 			}
 
-			updateMessage = repositories.UpdatePackageSourceMessage{
-				GUID:               packageGUID,
-				SpaceGUID:          space.Name,
-				ImageRef:           packageSourceImageRef,
-				RegistrySecretName: packageRegistrySecretName,
-			}
-
 			Expect(
 				k8sClient.Create(ctx, &existingCFPackage),
 			).To(Succeed())
 		})
 
-		AfterEach(func() {
-			Expect(
-				k8sClient.Delete(ctx, &existingCFPackage),
-			).To(Succeed())
+		JustBeforeEach(func() {
+			updateMessage := repositories.UpdatePackageSourceMessage{
+				GUID:               packageGUID,
+				SpaceGUID:          space.Name,
+				ImageRef:           packageSourceImageRef,
+				RegistrySecretName: packageRegistrySecretName,
+			}
+			returnedPackageRecord, updateErr = packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
 		})
 
 		When("the user is authorized", func() {
@@ -565,8 +471,7 @@ var _ = Describe("PackageRepository", func() {
 			})
 
 			It("returns an updated record", func() {
-				returnedPackageRecord, err := packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(updateErr).NotTo(HaveOccurred())
 
 				Expect(returnedPackageRecord.GUID).To(Equal(existingCFPackage.Name))
 				Expect(returnedPackageRecord.Type).To(Equal(string(existingCFPackage.Spec.Type)))
@@ -584,9 +489,6 @@ var _ = Describe("PackageRepository", func() {
 			})
 
 			It("updates only the Registry field of the existing CFPackage", func() {
-				_, err := packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
-				Expect(err).NotTo(HaveOccurred())
-
 				packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
 				createdCFPackage := new(workloadsv1alpha1.CFPackage)
 				Eventually(func() bool {
@@ -607,19 +509,8 @@ var _ = Describe("PackageRepository", func() {
 
 		When("user is not authorized to update a package", func() {
 			It("returns a forbidden error", func() {
-				_, err := packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
-				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+				Expect(updateErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
 })
-
-func cleanupPackage(ctx context.Context, k8sClient client.Client, packageGUID, namespace string) {
-	cfPackage := workloadsv1alpha1.CFPackage{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      packageGUID,
-			Namespace: namespace,
-		},
-	}
-	Expect(k8sClient.Delete(ctx, &cfPackage)).To(Succeed())
-}

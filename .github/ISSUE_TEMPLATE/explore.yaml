@@ -25,7 +25,9 @@ body:
   - type: textarea
     id: timebox
     attributes:
-      label: Number of days this exploration is expected to take. This is what is “pointed”.
+      label: Timebox
+      description: Is there a timebox for this exploration? If so, record how many days we plan on spending on this.
+      value: No timebox
   - type: textarea
     id: dev-notes
     attributes:

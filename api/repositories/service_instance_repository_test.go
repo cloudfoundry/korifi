@@ -43,6 +43,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			serviceInstanceCreateMessage repositories.CreateServiceInstanceMessage
 			serviceInstanceTags          []string
 			serviceInstanceCredentials   map[string]string
+
+			createdServiceInstanceRecord repositories.ServiceInstanceRecord
+			createErr                    error
 		)
 
 		BeforeEach(func() {
@@ -55,14 +58,28 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			serviceInstanceCreateMessage = initializeServiceInstanceCreateMessage(serviceInstanceName, space.Name, serviceInstanceTags, serviceInstanceCredentials)
 		})
 
+		JustBeforeEach(func() {
+			createdServiceInstanceRecord, createErr = serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
+		})
+
 		When("user has permissions to create ServiceInstances", func() {
+			var createdSecret *corev1.Secret
+
 			BeforeEach(func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
+			JustBeforeEach(func() {
+				secretLookupKey := types.NamespacedName{Name: createdServiceInstanceRecord.SecretName, Namespace: createdServiceInstanceRecord.SpaceGUID}
+				createdSecret = &corev1.Secret{}
+				Expect(k8sClient.Get(context.Background(), secretLookupKey, createdSecret)).To(Succeed())
+			})
+
+			It("succeeds", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+			})
+
 			It("creates a new ServiceInstance CR", func() {
-				createdServiceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
-				Expect(err).NotTo(HaveOccurred())
 				Expect(createdServiceInstanceRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
 				Expect(createdServiceInstanceRecord.SpaceGUID).To(Equal(space.Name), "SpaceGUID in record did not match input")
 				Expect(createdServiceInstanceRecord.Name).To(Equal(serviceInstanceName), "Name in record did not match input")
@@ -84,16 +101,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				})
 
 				It("creates the secret and sets the type fields to user-provided since projected bindings must have a type", func() {
-					createdServiceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(createdServiceInstanceRecord).NotTo(BeNil())
 					Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
-
-					secretLookupKey := types.NamespacedName{Name: createdServiceInstanceRecord.SecretName, Namespace: createdServiceInstanceRecord.SpaceGUID}
-					createdSecret := new(corev1.Secret)
-					Eventually(func() error {
-						return k8sClient.Get(context.Background(), secretLookupKey, createdSecret)
-					}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
 
 					Expect(createdSecret.Data).To(MatchAllKeys(Keys{
 						"type": BeEquivalentTo("user-provided"),
@@ -116,16 +124,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					})
 
 					It("creates the secret and does not override the type that the user specified", func() {
-						createdServiceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(createdServiceInstanceRecord).NotTo(BeNil())
 						Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
-
-						secretLookupKey := types.NamespacedName{Name: createdServiceInstanceRecord.SecretName, Namespace: createdServiceInstanceRecord.SpaceGUID}
-						createdSecret := new(corev1.Secret)
-						Eventually(func() error {
-							return k8sClient.Get(context.Background(), secretLookupKey, createdSecret)
-						}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
 
 						Expect(createdSecret.Data).To(MatchAllKeys(Keys{
 							"type":     BeEquivalentTo("mysql"),
@@ -139,16 +138,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 				When("the instance credentials DO NOT a user-specified type", func() {
 					It("creates a secret and defaults type fields to 'user-provided' since projected bindings must have a type", func() {
-						createdServiceInstanceRecord, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(createdServiceInstanceRecord).NotTo(BeNil())
 						Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
-
-						secretLookupKey := types.NamespacedName{Name: createdServiceInstanceRecord.SecretName, Namespace: createdServiceInstanceRecord.SpaceGUID}
-						createdSecret := new(corev1.Secret)
-						Eventually(func() error {
-							return k8sClient.Get(context.Background(), secretLookupKey, createdSecret)
-						}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
 
 						Expect(createdSecret.Data).To(MatchAllKeys(Keys{
 							"type":     BeEquivalentTo("user-provided"),
@@ -163,18 +153,19 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("user does not have permissions to create ServiceInstances", func() {
 			It("returns a Forbidden error", func() {
-				_, err := serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
-				Expect(err).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
+				Expect(createErr).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
 
-	Describe("ListServiceInstances", Serial, func() {
+	Describe("ListServiceInstances", func() {
 		var (
 			space2, space3                                             *hnsv1alpha2.SubnamespaceAnchor
 			cfServiceInstance1, cfServiceInstance2, cfServiceInstance3 *servicesv1alpha1.CFServiceInstance
 			nonCFNamespace                                             string
 			filters                                                    repositories.ListServiceInstanceMessage
+
+			serviceInstanceList []repositories.ServiceInstanceRecord
 		)
 
 		BeforeEach(func() {
@@ -187,19 +178,18 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
 			)).To(Succeed())
 
-			DeferCleanup(func() {
-				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})
-				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}})
-				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org.Name}})
-				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space.Name}})
-				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space2.Name}})
-				_ = k8sClient.Delete(testCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space3.Name}})
-			})
-
 			cfServiceInstance1 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space.Name, "service-instance-1", prefixedGUID("secret"))
 			cfServiceInstance2 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space2.Name, "service-instance-2", prefixedGUID("secret"))
 			cfServiceInstance3 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space3.Name, "service-instance-3", prefixedGUID("secret"))
 			createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), nonCFNamespace, "service-instance-4", prefixedGUID("secret"))
+
+			filters = repositories.ListServiceInstanceMessage{}
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("query parameters are not provided and", func() {
@@ -209,8 +199,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 			When("no service instances exist in spaces where the user has permission", func() {
 				It("returns an empty list of ServiceInstanceRecord", func() {
-					serviceInstanceList, err := serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
-					Expect(err).NotTo(HaveOccurred())
 					Expect(serviceInstanceList).To(BeEmpty())
 				})
 			})
@@ -221,12 +209,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
 				})
 
-				It("eventually returns ServiceInstance records from only the spaces where the user has permission", func() {
-					Eventually(func() []repositories.ServiceInstanceRecord {
-						serviceInstanceList, err := serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
-						Expect(err).NotTo(HaveOccurred())
-						return serviceInstanceList
-					}, timeCheckThreshold*time.Second).Should(ConsistOf(
+				It("returns ServiceInstance records from only the spaces where the user has permission", func() {
+					Expect(serviceInstanceList).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
 					))
@@ -250,12 +234,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						},
 					}
 				})
-				It("eventually returns only records for the ServiceInstances with matching spec.name fields", func() {
-					Eventually(func() []repositories.ServiceInstanceRecord {
-						serviceInstanceList, err := serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
-						Expect(err).NotTo(HaveOccurred())
-						return serviceInstanceList
-					}, timeCheckThreshold*time.Second).Should(ConsistOf(
+				It("returns only records for the ServiceInstances with matching spec.name fields", func() {
+					Expect(serviceInstanceList).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
 					))
@@ -271,12 +251,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						},
 					}
 				})
-				It("eventually returns only records for the ServiceInstances within the matching spaces", func() {
-					Eventually(func() []repositories.ServiceInstanceRecord {
-						serviceInstanceList, err := serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
-						Expect(err).NotTo(HaveOccurred())
-						return serviceInstanceList
-					}, timeCheckThreshold*time.Second).Should(ConsistOf(
+				It("returns only records for the ServiceInstances within the matching spaces", func() {
+					Expect(serviceInstanceList).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
 					))
@@ -295,14 +271,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					}
 				})
 
-				It("eventually returns the ServiceBindings in ascending name order", func() {
-					var serviceInstanceList []repositories.ServiceInstanceRecord
-					Eventually(func() []repositories.ServiceInstanceRecord {
-						var err error
-						serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
-						Expect(err).NotTo(HaveOccurred())
-						return serviceInstanceList
-					}, timeCheckThreshold*time.Second).Should(HaveLen(3))
+				It("returns the ServiceBindings in ascending name order", func() {
+					Expect(serviceInstanceList).To(HaveLen(3))
 					Expect(serviceInstanceList[0]).To(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}))
 					Expect(serviceInstanceList[1]).To(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}))
 					Expect(serviceInstanceList[2]).To(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}))
@@ -313,14 +283,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						filters.DescendingOrder = true
 					})
 
-					It("eventually returns the ServiceBindings in descending name order", func() {
-						var serviceInstanceList []repositories.ServiceInstanceRecord
-						Eventually(func() []repositories.ServiceInstanceRecord {
-							var err error
-							serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
-							Expect(err).NotTo(HaveOccurred())
-							return serviceInstanceList
-						}, timeCheckThreshold*time.Second).Should(HaveLen(3))
+					It("returns the ServiceBindings in descending name order", func() {
+						Expect(serviceInstanceList).To(HaveLen(3))
 						Expect(serviceInstanceList[0]).To(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}))
 						Expect(serviceInstanceList[1]).To(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}))
 						Expect(serviceInstanceList[2]).To(MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}))
@@ -342,14 +306,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space3.Name, "another-service-instance", prefixedGUID("secret"))
 				})
 
-				It("eventually returns the ServiceBindings in ascending creation order", func() {
-					var serviceInstanceList []repositories.ServiceInstanceRecord
-					Eventually(func() []repositories.ServiceInstanceRecord {
-						var err error
-						serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
-						Expect(err).NotTo(HaveOccurred())
-						return serviceInstanceList
-					}, timeCheckThreshold*time.Second).Should(HaveLen(4))
+				It("returns the ServiceBindings in ascending creation order", func() {
+					Expect(serviceInstanceList).To(HaveLen(4))
+
 					createTime1, err := time.Parse(time.RFC3339, serviceInstanceList[0].CreatedAt)
 					Expect(err).NotTo(HaveOccurred())
 					createTime2, err := time.Parse(time.RFC3339, serviceInstanceList[1].CreatedAt)
@@ -368,14 +327,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						filters.DescendingOrder = true
 					})
 
-					It("eventually returns the ServiceBindings in descending creation order", func() {
-						var serviceInstanceList []repositories.ServiceInstanceRecord
-						Eventually(func() []repositories.ServiceInstanceRecord {
-							var err error
-							serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
-							Expect(err).NotTo(HaveOccurred())
-							return serviceInstanceList
-						}, timeCheckThreshold*time.Second).Should(HaveLen(4))
+					It("returns the ServiceBindings in descending creation order", func() {
+						Expect(serviceInstanceList).To(HaveLen(4))
+
 						createTime1, err := time.Parse(time.RFC3339, serviceInstanceList[0].CreatedAt)
 						Expect(err).NotTo(HaveOccurred())
 						createTime2, err := time.Parse(time.RFC3339, serviceInstanceList[1].CreatedAt)
@@ -405,14 +359,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space3.Name, "another-service-instance", prefixedGUID("secret"))
 				})
 
-				It("eventually returns the ServiceBindings in ascending update order", func() {
-					var serviceInstanceList []repositories.ServiceInstanceRecord
-					Eventually(func() []repositories.ServiceInstanceRecord {
-						var err error
-						serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
-						Expect(err).NotTo(HaveOccurred())
-						return serviceInstanceList
-					}, timeCheckThreshold*time.Second).Should(HaveLen(4))
+				It("returns the ServiceBindings in ascending update order", func() {
+					Expect(serviceInstanceList).To(HaveLen(4))
+
 					updateTime1, err := time.Parse(time.RFC3339, serviceInstanceList[0].UpdatedAt)
 					Expect(err).NotTo(HaveOccurred())
 					updateTime2, err := time.Parse(time.RFC3339, serviceInstanceList[1].UpdatedAt)
@@ -431,14 +380,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						filters.DescendingOrder = true
 					})
 
-					It("eventually returns the ServiceBindings in descending update order", func() {
-						var serviceInstanceList []repositories.ServiceInstanceRecord
-						Eventually(func() []repositories.ServiceInstanceRecord {
-							var err error
-							serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
-							Expect(err).NotTo(HaveOccurred())
-							return serviceInstanceList
-						}, timeCheckThreshold*time.Second).Should(HaveLen(4))
+					It("returns the ServiceBindings in descending update order", func() {
+						Expect(serviceInstanceList).To(HaveLen(4))
+
 						updateTime1, err := time.Parse(time.RFC3339, serviceInstanceList[0].UpdatedAt)
 						Expect(err).NotTo(HaveOccurred())
 						updateTime2, err := time.Parse(time.RFC3339, serviceInstanceList[1].UpdatedAt)
