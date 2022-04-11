@@ -51,6 +51,9 @@ var (
 )
 
 func TestWorkloadsMutatingWebhooks(t *testing.T) {
+	SetDefaultEventuallyTimeout(10 * time.Second)
+	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Workloads Mutating Webhooks Integration Test Suite")
 }

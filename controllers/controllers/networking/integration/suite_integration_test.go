@@ -29,6 +29,9 @@ var (
 )
 
 func TestNetworkingControllers(t *testing.T) {
+	SetDefaultEventuallyTimeout(10 * time.Second)
+	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Networking Controllers Integration Suite")
 }

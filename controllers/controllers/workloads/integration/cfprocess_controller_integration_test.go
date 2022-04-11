@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 
@@ -43,13 +42,12 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		CFProcessGUIDLabelKey = "workloads.cloudfoundry.org/process-guid"
 		CFProcessTypeLabelKey = "workloads.cloudfoundry.org/process-type"
 
-		defaultEventuallyTimeoutSeconds = 2
-		processTypeWeb                  = "web"
-		processTypeWebCommand           = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
-		processTypeWorker               = "worker"
-		processTypeWorkerCommand        = "bundle exec rackup config.ru"
-		port8080                        = 8080
-		port9000                        = 9000
+		processTypeWeb           = "web"
+		processTypeWebCommand    = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
+		processTypeWorker        = "worker"
+		processTypeWorkerCommand = "bundle exec rackup config.ru"
+		port8080                 = 8080
+		port9000                 = 9000
 	)
 
 	BeforeEach(func() {
@@ -114,7 +112,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					return nil
 				}
 				return createdCFProcess.GetOwnerReferences()
-			}, 5*time.Second).Should(ConsistOf(metav1.OwnerReference{
+			}).Should(ConsistOf(metav1.OwnerReference{
 				APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
 				Kind:       "CFApp",
 				Name:       cfApp.Name,
@@ -151,7 +149,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				}
 
 				return ""
-			}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
+			}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
 			Expect(lrp.OwnerReferences).To(HaveLen(1), "expected length of ownerReferences to be 1")
 			Expect(lrp.OwnerReferences[0].Name).To(Equal(cfProcess.Name))
@@ -200,7 +198,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 
 					return ""
-				}, defaultEventuallyTimeoutSeconds*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
+				}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
 				originalCFApp := cfApp.DeepCopy()
 				cfApp.Spec.DesiredState = workloadsv1alpha1.StoppedState
@@ -224,7 +222,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 
 					return true
-				}, 10*time.Second).Should(BeTrue(), "Timed out waiting for deletion of LRP/%s in namespace %s to cause NotFound error", testProcessGUID, testNamespace)
+				}).Should(BeTrue(), "Timed out waiting for deletion of LRP/%s in namespace %s to cause NotFound error", testProcessGUID, testNamespace)
 			})
 		})
 
@@ -397,7 +395,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 
 					return nil
-				}, 5*time.Second).Should(
+				}).Should(
 					HaveKeyWithValue("VCAP_SERVICES",
 						SatisfyAll(ContainSubstring(*serviceBinding1.Spec.Name), ContainSubstring(*serviceBinding2.Spec.Name)),
 					), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to get VCAP_SERVICES env vars", testProcessGUID, testNamespace))
@@ -510,7 +508,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				}
 
 				return ""
-			}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
+			}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
 			Expect(lrp.Spec.Env).To(HaveKeyWithValue("VCAP_APP_PORT", "9000"))
 			Expect(lrp.Spec.Env).To(HaveKeyWithValue("PORT", "9000"))
@@ -543,7 +541,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 
 					return ""
-				}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
+				}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
 				Expect(lrp.Spec.Health.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
 				Expect(lrp.Spec.Health.Port).To(BeEquivalentTo(9000))
@@ -612,7 +610,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 				}
 				return false
-			}, defaultEventuallyTimeoutSeconds*time.Second).Should(BeTrue(), "Timed out waiting for creation of LRP/%s in namespace %s", testProcessGUID, testNamespace)
+			}).Should(BeTrue(), "Timed out waiting for creation of LRP/%s in namespace %s", testProcessGUID, testNamespace)
 
 			Expect(rev2LRP.ObjectMeta.Labels).To(HaveKeyWithValue(CFAppGUIDLabelKey, testAppGUID))
 			Expect(rev2LRP.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppRevisionKey, cfApp.Annotations[cfAppRevisionKey]))
@@ -635,7 +633,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 				}
 				return false
-			}, defaultEventuallyTimeoutSeconds*time.Second).Should(BeFalse(), "Timed out waiting for deletion of LRP/%s in namespace %s", testProcessGUID, testNamespace)
+			}).Should(BeFalse(), "Timed out waiting for deletion of LRP/%s in namespace %s", testProcessGUID, testNamespace)
 		})
 	})
 
@@ -674,7 +672,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				}
 
 				return ""
-			}, 5*time.Second).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
+			}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
 			Expect(lrp.Spec.Health.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
 			Expect(lrp.Spec.Health.Port).To(BeEquivalentTo(8080))

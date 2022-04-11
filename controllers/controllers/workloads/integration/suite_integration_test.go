@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
@@ -39,6 +40,9 @@ var (
 )
 
 func TestWorkloadsControllers(t *testing.T) {
+	SetDefaultEventuallyTimeout(10 * time.Second)
+	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Workloads Controllers Integration Suite")
 }

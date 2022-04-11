@@ -46,10 +46,6 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-const (
-	defaultEventuallyTimeoutSeconds = 30
-)
-
 var (
 	cancel    context.CancelFunc
 	testEnv   *envtest.Environment
@@ -57,15 +53,15 @@ var (
 )
 
 func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
+	SetDefaultEventuallyTimeout(30 * time.Second)
+	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
 
+	RegisterFailHandler(Fail)
 	RunSpecs(t, "Services Controllers Integration Suite")
 }
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	SetDefaultEventuallyTimeout(defaultEventuallyTimeoutSeconds * time.Second)
 
 	ctx, cancelFunc := context.WithCancel(context.TODO())
 	cancel = cancelFunc

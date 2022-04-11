@@ -2,7 +2,6 @@ package integration_test
 
 import (
 	"context"
-	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
@@ -72,7 +71,7 @@ var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
 					return nil
 				}
 				return createdCFRoute.ObjectMeta.Labels
-			}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFRoute resource does not have any metadata.labels")
+			}).ShouldNot(BeEmpty(), "CFRoute resource does not have any metadata.labels")
 
 			Expect(createdCFRoute.ObjectMeta.Labels).To(HaveKeyWithValue(cfDomainLabelKey, cfDomainGUID))
 			Expect(createdCFRoute.ObjectMeta.Labels).To(HaveKeyWithValue(cfRouteLabelKey, cfRouteGUID))
