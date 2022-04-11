@@ -191,7 +191,7 @@ var _ = Describe("CFServiceBinding", func() {
 					return nil
 				}
 				return createdCFServiceBinding.GetOwnerReferences()
-			}, 5*time.Second).Should(ConsistOf(metav1.OwnerReference{
+			}).Should(ConsistOf(metav1.OwnerReference{
 				APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
 				Kind:       "CFApp",
 				Name:       desiredCFApp.Name,

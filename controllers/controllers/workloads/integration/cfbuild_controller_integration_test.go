@@ -2,7 +2,6 @@ package integration_test
 
 import (
 	"context"
-	"time"
 
 	. "github.com/onsi/gomega/gstruct"
 
@@ -111,7 +110,7 @@ var _ = Describe("CFBuildReconciler", func() {
 					return nil
 				}
 				return createdCFBuild.GetOwnerReferences()
-			}, 5*time.Second).Should(ConsistOf(metav1.OwnerReference{
+			}).Should(ConsistOf(metav1.OwnerReference{
 				APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
 				Kind:       "CFApp",
 				Name:       desiredCFApp.Name,
@@ -127,7 +126,7 @@ var _ = Describe("CFBuildReconciler", func() {
 				Eventually(func() bool {
 					err := k8sClient.Get(testCtx, kpackImageLookupKey, createdKpackImage)
 					return err == nil
-				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not retrieve the kpack image")
+				}).Should(BeTrue(), "could not retrieve the kpack image")
 				kpackImageTag := "image/registry/tag" + "/" + cfBuildGUID
 				Expect(createdKpackImage.Spec.Tag).To(Equal(kpackImageTag))
 				Expect(createdKpackImage.GetOwnerReferences()).To(ConsistOf(metav1.OwnerReference{
@@ -150,7 +149,7 @@ var _ = Describe("CFBuildReconciler", func() {
 						return nil
 					}
 					return createdCFBuild.Status.Conditions
-				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFBuild status conditions were empty")
+				}).ShouldNot(BeEmpty(), "CFBuild status conditions were empty")
 			})
 		})
 
@@ -311,7 +310,7 @@ var _ = Describe("CFBuildReconciler", func() {
 						return 0
 					}
 					return len(createdKpackImage.Spec.Build.Services)
-				}, 10*time.Second, 250*time.Millisecond).Should(Equal(2), "ServiceBinding Secrets did not show up on kpack image")
+				}).Should(Equal(2), "ServiceBinding Secrets did not show up on kpack image")
 
 				Expect(createdKpackImage.Spec.Build.Services).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
@@ -378,7 +377,7 @@ var _ = Describe("CFBuildReconciler", func() {
 						return nil
 					}
 					return createdCFBuild.Status.Conditions
-				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFBuild status conditions were empty")
+				}).ShouldNot(BeEmpty(), "CFBuild status conditions were empty")
 			})
 		})
 	})
@@ -440,7 +439,7 @@ var _ = Describe("CFBuildReconciler", func() {
 				Eventually(func() bool {
 					err := k8sClient.Get(testCtx, kpackImageLookupKey, createdKpackImage)
 					return err == nil
-				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not retrieve the kpack image")
+				}).Should(BeTrue(), "could not retrieve the kpack image")
 				setKpackImageStatus(createdKpackImage, kpackReadyConditionType, "False")
 				Expect(k8sClient.Status().Update(testCtx, createdKpackImage)).To(Succeed())
 			})
@@ -455,7 +454,7 @@ var _ = Describe("CFBuildReconciler", func() {
 						return false
 					}
 					return meta.IsStatusConditionFalse(createdCFBuild.Status.Conditions, succeededConditionType)
-				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
+				}).Should(BeTrue())
 			})
 		})
 
@@ -487,7 +486,7 @@ var _ = Describe("CFBuildReconciler", func() {
 				Eventually(func() bool {
 					err := k8sClient.Get(testCtx, kpackImageLookupKey, createdKpackImage)
 					return err == nil
-				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue(), "could not retrieve the kpack image")
+				}).Should(BeTrue(), "could not retrieve the kpack image")
 				setKpackImageStatus(createdKpackImage, kpackReadyConditionType, "True")
 				createdKpackImage.Status.LatestImage = kpackBuildImageRef
 				createdKpackImage.Status.LatestStack = kpackImageLatestStack
@@ -505,7 +504,7 @@ var _ = Describe("CFBuildReconciler", func() {
 						return false
 					}
 					return meta.IsStatusConditionTrue(createdCFBuild.Status.Conditions, succeededConditionType)
-				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
+				}).Should(BeTrue())
 			})
 
 			It("eventually sets BuildStatusDroplet object", func() {
@@ -518,7 +517,7 @@ var _ = Describe("CFBuildReconciler", func() {
 						return nil
 					}
 					return createdCFBuild.Status.BuildDropletStatus
-				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeNil(), "BuildStatusDroplet was nil on CFBuild")
+				}).ShouldNot(BeNil(), "BuildStatusDroplet was nil on CFBuild")
 				Expect(fakeImageProcessFetcher.CallCount()).NotTo(Equal(0), "Build Controller imageProcessFetcher was not called")
 				Expect(createdCFBuild.Status.BuildDropletStatus.Registry.Image).To(Equal(kpackBuildImageRef), "droplet registry image does not match kpack image latestImage")
 				Expect(createdCFBuild.Status.BuildDropletStatus.Stack).To(Equal(kpackImageLatestStack), "droplet stack does not match kpack image latestStack")

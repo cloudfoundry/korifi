@@ -2,7 +2,6 @@ package integration_test
 
 import (
 	"context"
-	"time"
 
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
@@ -96,7 +95,7 @@ var _ = Describe("CFPackageMutatingWebhook Integration Tests", func() {
 						return nil
 					}
 					return createdCFPackage.ObjectMeta.Labels
-				}, 10*time.Second, 250*time.Millisecond).ShouldNot(BeEmpty(), "CFPackage resource does not have any metadata.labels")
+				}).ShouldNot(BeEmpty(), "CFPackage resource does not have any metadata.labels")
 
 				Expect(createdCFPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
 			})

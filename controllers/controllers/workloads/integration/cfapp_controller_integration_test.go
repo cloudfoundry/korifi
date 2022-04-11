@@ -69,7 +69,7 @@ var _ = Describe("CFAppReconciler", func() {
 					return ""
 				}
 				return string(createdCFApp.Status.ObservedDesiredState)
-			}, 10*time.Second, 250*time.Millisecond).Should(Equal(string(cfApp.Spec.DesiredState)))
+			}).Should(Equal(string(cfApp.Spec.DesiredState)))
 
 			runningConditionFalse := meta.IsStatusConditionFalse(createdCFApp.Status.Conditions, "Running")
 			Expect(runningConditionFalse).To(BeTrue())
@@ -151,7 +151,7 @@ var _ = Describe("CFAppReconciler", func() {
 							}),
 						).To(Succeed())
 						return cfProcessList.Items
-					}, 10*time.Second, 250*time.Millisecond).Should(HaveLen(1), "expected CFProcess to eventually be created")
+					}).Should(HaveLen(1), "expected CFProcess to eventually be created")
 					createdCFProcess := cfProcessList.Items[0]
 					Expect(createdCFProcess.Spec.Command).To(Equal(process.Command), "cfprocess command does not match with droplet command")
 					Expect(createdCFProcess.Spec.AppRef.Name).To(Equal(cfAppGUID), "cfprocess app ref does not match app-guid")
@@ -195,7 +195,7 @@ var _ = Describe("CFAppReconciler", func() {
 						}),
 					).To(Succeed())
 					return cfProcessList.Items
-				}, 10*time.Second, 250*time.Millisecond).Should(HaveLen(1), "Count of CFProcess is not equal to 1")
+				}).Should(HaveLen(1), "Count of CFProcess is not equal to 1")
 
 				cfProcessList = workloadsv1alpha1.CFProcessList{}
 				Expect(
@@ -226,7 +226,7 @@ var _ = Describe("CFAppReconciler", func() {
 							}),
 						).To(Succeed())
 						return webProcessesList.Items
-					}, "10s").Should(HaveLen(1))
+					}).Should(HaveLen(1))
 
 					webProcess := webProcessesList.Items[0]
 					Expect(webProcess.Spec.AppRef.Name).To(Equal(cfAppGUID))
@@ -254,7 +254,7 @@ var _ = Describe("CFAppReconciler", func() {
 							}),
 						).To(Succeed())
 						return webProcessesList.Items
-					}, "5s").Should(HaveLen(1))
+					}, 5*time.Second).Should(HaveLen(1))
 					webProcess := webProcessesList.Items[0]
 					Expect(webProcess.Name).To(Equal(existingWebProcess.Name))
 					Expect(webProcess.Spec).To(Equal(existingWebProcess.Spec))
@@ -295,7 +295,7 @@ var _ = Describe("CFAppReconciler", func() {
 							}),
 						).To(Succeed())
 						return cfProcessList.Items
-					}, 10*time.Second, 250*time.Millisecond).Should(HaveLen(1), "expected CFProcess to eventually be created")
+					}).Should(HaveLen(1), "expected CFProcess to eventually be created")
 					createdCFProcess := cfProcessList.Items[0]
 					Expect(createdCFProcess.Spec.Ports).To(Equal(droplet.Ports), "cfprocess ports does not match ports on droplet")
 					Expect(string(createdCFProcess.Spec.HealthCheck.Type)).To(Equal("process"))
@@ -374,7 +374,7 @@ var _ = Describe("CFAppReconciler", func() {
 					return []networkingv1alpha1.Destination{}
 				}
 				return createdCFRoute.Spec.Destinations
-			}, 5*time.Second).Should(HaveLen(1), "expecting length of destinations to be 1 after cfapp delete")
+			}).Should(HaveLen(1), "expecting length of destinations to be 1 after cfapp delete")
 
 			Expect(createdCFRoute.Spec.Destinations).Should(ConsistOf(networkingv1alpha1.Destination{
 				GUID: "destination-2-guid",

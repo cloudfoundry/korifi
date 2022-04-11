@@ -3,6 +3,7 @@ package services_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -13,6 +14,9 @@ import (
 )
 
 func TestServicesValidatingWebhooks(t *testing.T) {
+	SetDefaultEventuallyTimeout(10 * time.Second)
+	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Services Validating Webhooks Unit Test Suite")
 }

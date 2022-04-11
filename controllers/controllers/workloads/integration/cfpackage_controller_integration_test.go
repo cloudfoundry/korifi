@@ -2,7 +2,6 @@ package integration_test
 
 import (
 	"context"
-	"time"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
@@ -52,7 +51,7 @@ var _ = Describe("CFPackageReconciler", func() {
 					return nil
 				}
 				return createdCFPackage.GetOwnerReferences()
-			}, 5*time.Second).Should(ConsistOf(metav1.OwnerReference{
+			}).Should(ConsistOf(metav1.OwnerReference{
 				APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
 				Kind:       "CFApp",
 				Name:       cfApp.Name,
