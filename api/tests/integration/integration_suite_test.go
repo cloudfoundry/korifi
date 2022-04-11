@@ -41,12 +41,14 @@ func TestIntegration(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	SetDefaultEventuallyTimeout(10 * time.Second)
+})
 
+var _ = BeforeEach(func() {
 	authProvider = helpers.NewAuthProvider()
 	startEnvTest(authProvider.APIServerExtraArgs(oidcPrefix))
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterEach(func() {
 	authProvider.Stop()
 	Expect(testEnv.Stop()).To(Succeed())
 })
