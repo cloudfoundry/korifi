@@ -79,7 +79,7 @@ jobs:
       run: sed -i -E '/(fake|generated|vendor)/d' **/cover.out
 
     - name: Upload coverage report
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: controllers-coverage
         path: "**/cover.out"
@@ -109,7 +109,7 @@ jobs:
       run: sed -i -E '/(fake|generated|vendor)/d' **/cover.out
 
     - name: Upload coverage report
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: api-unit-coverage
         path: "**/cover.out"
@@ -139,7 +139,7 @@ jobs:
       run: sed -i -E '/(fake|generated|vendor)/d' **/cover.out
 
     - name: Upload coverage report
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: api-integration-coverage
         path: "**/cover.out"
@@ -201,7 +201,7 @@ jobs:
           outputs: type=docker,dest=/tmp/cf-k8s-api.image.tar
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: cf-k8s-api.image
           path: /tmp/cf-k8s-api.image.tar
@@ -227,7 +227,7 @@ jobs:
           outputs: type=docker,dest=/tmp/cf-k8s-controllers.image.tar
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: cf-k8s-controllers.image
           path: /tmp/cf-k8s-controllers.image.tar
