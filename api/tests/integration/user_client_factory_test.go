@@ -103,7 +103,7 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 					allowListingPods(userName)
 				})
 
-				It("allows listing pods", func() {
+				FIt("allows listing pods", func() {
 					Expect(buildClientErr).NotTo(HaveOccurred())
 					Expect(podListErr).NotTo(HaveOccurred())
 				})

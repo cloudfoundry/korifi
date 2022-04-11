@@ -82,7 +82,7 @@ test-api-unit: install-ginkgo fmt vet
 	cd api && ../scripts/run-tests.sh --skip-package=test
 
 test-api-integration: install-ginkgo
-	cd api && ../scripts/run-tests.sh tests/integration
+	cd api && UNTIL_IT_FAILS=true ../scripts/run-tests.sh tests/integration
 
 test-e2e: install-ginkgo
 	cd api && ../scripts/run-tests.sh tests/e2e
