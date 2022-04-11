@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -308,13 +309,14 @@ outer:
 			return nil, fmt.Errorf("failed establishing permissions in new namespace after %s: %w", time.Since(t1), err)
 		default:
 			appList := &workloadsv1alpha1.CFAppList{}
-			err := userClient.List(ctx, appList, client.InNamespace(anchor.Name))
+			err = userClient.List(ctx, appList, client.InNamespace(anchor.Name))
 			if err == nil {
 				break outer
 			}
-			if !k8serrors.IsForbidden(err) {
+			if !(k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err)) {
 				return nil, apierrors.FromK8sError(err, resourceType)
 			}
+
 			time.Sleep(500 * time.Millisecond)
 		}
 	}
