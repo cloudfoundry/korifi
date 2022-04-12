@@ -28,6 +28,11 @@ var _ = Describe("OrgRepository", func() {
 		orgRepo *repositories.OrgRepo
 	)
 
+	const (
+		orgLevel   = "1"
+		spaceLevel = "2"
+	)
+
 	BeforeEach(func() {
 		ctx = context.Background()
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
@@ -69,7 +74,7 @@ var _ = Describe("OrgRepository", func() {
 		// namespace and sets the status on the subnamespaceanchor to Ok. It
 		// will stop waiting for the subnamespaceanchor to appear if anything
 		// is written to the done channel
-		simulateHNC := func(anchorNamespace string, anchorLabel map[string]string, createRoleBindings bool, done chan bool) {
+		simulateHNC := func(anchorNamespace string, anchorLabel map[string]string, createRoleBindings bool, depthLevel string, done chan bool) {
 			defer GinkgoRecover()
 
 			anchor, err := waitForAnchor(anchorNamespace, anchorLabel, done)
@@ -77,7 +82,10 @@ var _ = Describe("OrgRepository", func() {
 				return
 			}
 
-			createNamespace(ctx, anchorNamespace, anchor.Name)
+			namespaceLabels := map[string]string{
+				rootNamespace + hncv1alpha2.LabelTreeDepthSuffix: depthLevel,
+			}
+			createNamespace(ctx, anchorNamespace, anchor.Name, namespaceLabels)
 
 			Expect(k8sClient.Create(ctx, &hncv1alpha2.HierarchyConfiguration{
 				ObjectMeta: metav1.ObjectMeta{Namespace: anchor.Name, Name: "hierarchy"},
@@ -109,7 +117,7 @@ var _ = Describe("OrgRepository", func() {
 
 			JustBeforeEach(func() {
 				if doHNCSimulation {
-					go simulateHNC(rootNamespace, map[string]string{repositories.OrgNameLabel: orgName}, createRoleBindings, done)
+					go simulateHNC(rootNamespace, map[string]string{repositories.OrgNameLabel: orgName}, createRoleBindings, orgLevel, done)
 				}
 				org, createErr = orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
 					Name: orgName,
@@ -210,7 +218,7 @@ var _ = Describe("OrgRepository", func() {
 					done := make(chan bool, 1)
 					defer func(done chan bool) { done <- true }(done)
 
-					go simulateHNC(orgGUID, map[string]string{repositories.SpaceNameLabel: spaceName}, true, done)
+					go simulateHNC(orgGUID, map[string]string{repositories.SpaceNameLabel: spaceName}, true, spaceLevel, done)
 				}
 				space, createErr = orgRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
 					Name:                     spaceName,

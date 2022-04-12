@@ -229,13 +229,14 @@ func createSpaceAnchorAndNamespace(ctx context.Context, orgName, name string) *h
 	return space
 }
 
-func createNamespace(ctx context.Context, orgName, name string) *corev1.Namespace {
+func createNamespace(ctx context.Context, orgName, name string, labels map[string]string) *corev1.Namespace {
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Annotations: map[string]string{
 				hnsv1alpha2.SubnamespaceOf: orgName,
 			},
+			Labels: labels,
 		},
 	}
 	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())

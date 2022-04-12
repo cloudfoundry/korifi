@@ -7,12 +7,10 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
 	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -130,6 +128,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 	orgGUID := OrgPrefix + uuid.NewString()
 	anchor, err := r.createSubnamespaceAnchor(
 		ctx,
+		info,
 		userClient,
 		&v1alpha2.SubnamespaceAnchor{
 			ObjectMeta: metav1.ObjectMeta{
@@ -197,6 +196,7 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 
 	anchor, err := r.createSubnamespaceAnchor(
 		ctx,
+		info,
 		userClient,
 		&v1alpha2.SubnamespaceAnchor{
 			ObjectMeta: metav1.ObjectMeta{
@@ -256,6 +256,7 @@ func (r *OrgRepo) CreateSpace(ctx context.Context, info authorization.Info, mess
 }
 
 func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context,
+	info authorization.Info,
 	userClient client.Client,
 	anchor *v1alpha2.SubnamespaceAnchor,
 	resourceType string,
@@ -296,7 +297,7 @@ func (r *OrgRepo) createSubnamespaceAnchor(ctx context.Context,
 		return nil, fmt.Errorf("subnamespaceanchor did not get state 'ok' within timeout period %d ms", r.timeout.Milliseconds())
 	}
 
-	// wait for the user to have permissions in the new namespace
+	// wait for the namespace to be created and user to have permissions
 
 	timeoutChan := time.After(r.timeout)
 
@@ -308,13 +309,17 @@ outer:
 			// HNC is broken
 			return nil, fmt.Errorf("failed establishing permissions in new namespace after %s: %w", time.Since(t1), err)
 		default:
-			appList := &workloadsv1alpha1.CFAppList{}
-			err = userClient.List(ctx, appList, client.InNamespace(anchor.Name))
-			if err == nil {
-				break outer
+			var authorizedNamespaces map[string]bool
+			if resourceType == OrgResourceType {
+				authorizedNamespaces, err = r.nsPerms.GetAuthorizedOrgNamespaces(ctx, info)
+			} else {
+				authorizedNamespaces, err = r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, info)
 			}
-			if !(k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err)) {
-				return nil, apierrors.FromK8sError(err, resourceType)
+			if err != nil {
+				return nil, err
+			}
+			if _, ok := authorizedNamespaces[anchor.Name]; ok {
+				break outer
 			}
 
 			time.Sleep(500 * time.Millisecond)
