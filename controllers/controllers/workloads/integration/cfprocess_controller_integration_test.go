@@ -399,45 +399,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					HaveKeyWithValue("VCAP_SERVICES",
 						SatisfyAll(ContainSubstring(*serviceBinding1.Spec.Name), ContainSubstring(*serviceBinding2.Spec.Name)),
 					), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to get VCAP_SERVICES env vars", testProcessGUID, testNamespace))
-
-				Expect(lrp.Spec.Env["VCAP_SERVICES"]).To(MatchJSON(fmt.Sprintf(`{
-						"user-provided":[
-							{
-								"label": "user-provided",
-								"name": "%s",
-								"tags": [
-									"%s",
-									"%s"
-								],
-								"instance_guid": "%s",
-								"instance_name": "%s",
-								"binding_guid": "%s",
-								"binding_name": "%s",
-								"credentials": {
-									"foo": "bar"
-								},
-								"syslog_drain_url": null,
-								"volume_mounts": []
-							},
-							{
-								"label": "user-provided",
-								"name": "%s",
-								"tags": [],
-								"instance_guid": "%s",
-								"instance_name": "%s",
-								"binding_guid": "%s",
-								"binding_name": "%s",
-								"credentials": {
-									"key1": "value1",
-									"key2": "value2"
-								},
-								"syslog_drain_url": null,
-								"volume_mounts": []
-							}
-						]
-					}`, *serviceBinding1.Spec.Name, serviceInstance1.Spec.Tags[0], serviceInstance1.Spec.Tags[1], serviceInstance1.Name, serviceInstance1.Spec.Name, serviceBinding1.Name, *serviceBinding1.Spec.Name,
-					*serviceBinding2.Spec.Name, serviceInstance2.Name, serviceInstance2.Spec.Name, serviceBinding2.Name, *serviceBinding2.Spec.Name),
-				))
 			})
 		})
 	})
