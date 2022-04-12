@@ -259,7 +259,7 @@ subjects:
 apiVersion: v1
 data:
   cf_k8s_api_config.yaml: |
-    externalFQDN: "api.example.org"
+    externalFQDN: "pinniped-poc-api.cf-for-k8s.relint.rocks"
     internalPort: 9000
 
     rootNamespace: cf
@@ -271,7 +271,7 @@ data:
     packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
     packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
     clusterBuilderName: cf-kpack-cluster-builder
-    defaultDomainName: apps.example.org
+    defaultDomainName: pinniped-poc-apps.cf-for-k8s.relint.rocks
   role_mappings_config.yaml: |
     roleMappings:
       admin:
@@ -387,6 +387,6 @@ spec:
     timeoutPolicy:
       response: 5m
   virtualhost:
-    fqdn: ""
+    fqdn: pinniped-poc-api.cf-for-k8s.relint.rocks
     tls:
       secretName: cf-k8s-api-ingress-cert

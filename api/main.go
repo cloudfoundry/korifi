@@ -62,6 +62,25 @@ func main() {
 	payloads.DefaultLifecycleConfig = config.DefaultLifecycleConfig
 	k8sClientConfig := ctrl.GetConfigOrDie()
 
+	fmt.Printf("\nclientConfig before messing with it: \n%#v\n", k8sClientConfig)
+	// TODO: 🤦
+	k8sClientConfig.CAData = []byte(`-----BEGIN CERTIFICATE-----
+MIIBxTCCAWugAwIBAgIQDkSIs8rdMiN3q9GZ09/poTAKBggqhkjOPQQDAjAyMTAw
+LgYDVQQDEydQaW5uaXBlZCBJbXBlcnNvbmF0aW9uIFByb3h5IFNlcnZpbmcgQ0Ew
+IBcNMjIwNDExMjI0ODM1WhgPMjEyMjAzMTgyMjUzMzVaMDIxMDAuBgNVBAMTJ1Bp
+bm5pcGVkIEltcGVyc29uYXRpb24gUHJveHkgU2VydmluZyBDQTBZMBMGByqGSM49
+AgEGCCqGSM49AwEHA0IABJoA0EC/Q2E0bT2n+YCF8F+vfQJ6fRvb4OXI6wDiwLo0
+YbQa9GefzTg2plUTBeTUZMXqjO/gz3H4Rftt/l8BO0KjYTBfMA4GA1UdDwEB/wQE
+AwIChDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwEwDwYDVR0TAQH/BAUw
+AwEB/zAdBgNVHQ4EFgQUm7CKEESES1RfISHos/N2dGjeQ2AwCgYIKoZIzj0EAwID
+SAAwRQIgR2NDpyJEd5Yq5DyZ7rX19kLiciCxWGN/07gAUGBpim8CIQCKRMX7bmPS
+frRQHdP9SnUFr3bAFyNz0J8vAaE3MO/Uww==
+-----END CERTIFICATE-----`)
+
+	k8sClientConfig.Host = "34.121.182.202"
+
+	fmt.Printf("\nclientConfig after messing with it: \n%#v\n", k8sClientConfig)
+
 	zapOpts := zap.Options{
 		// TODO: this needs to be configurable
 		Development: true,
