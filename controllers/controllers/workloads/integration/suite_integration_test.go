@@ -30,7 +30,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	hncv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
 	//+kubebuilder:scaffold:imports
 )
 
@@ -155,7 +154,14 @@ var _ = BeforeSuite(func() {
 	err = NewCFOrgReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFOrgReconciler"),
+		ctrl.Log.WithName("controllers").WithName("CFOrg"),
+	).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = NewCFSpaceReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFSpace"),
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -204,6 +210,16 @@ func createNamespace(ctx context.Context, k8sClient client.Client, name string) 
 	Expect(
 		k8sClient.Create(ctx, ns)).To(Succeed())
 	return ns
+}
+
+func createNamespaceWithCleanup(ctx context.Context, k8sClient client.Client, name string) *corev1.Namespace {
+	namespace := createNamespace(ctx, k8sClient, name)
+
+	DeferCleanup(func() {
+		Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
+	})
+
+	return namespace
 }
 
 func patchAppWithDroplet(ctx context.Context, k8sClient client.Client, appGUID, spaceGUID, buildGUID string) *workloadsv1alpha1.CFApp {

@@ -137,31 +137,6 @@ var _ = Describe("CFOrgReconciler", func() {
 			Expect(namespacedName.Name).To(Equal(cfOrgGUID))
 		})
 
-		It("creates the subnamespace anchor", func() {
-			Expect(fakeClient.CreateCallCount()).To(Equal(1))
-			_, createArg, _ := fakeClient.CreateArgsForCall(0)
-			castAnchor, ok := createArg.(*v1alpha2.SubnamespaceAnchor)
-			Expect(ok).To(BeTrue(), "Cast to v1alpha2.SubnamespaceAnchor failed")
-			Expect(castAnchor.ObjectMeta).To(Equal(metav1.ObjectMeta{
-				Name:      cfOrgGUID,
-				Namespace: defaultNamespace,
-				Labels: map[string]string{
-					OrgNameLabel: cfOrg.Spec.Name,
-				},
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: APIVersion,
-						Kind:       Kind,
-						Name:       cfOrg.Name,
-						UID:        cfOrg.GetUID(),
-					},
-				},
-			}))
-			Expect(castAnchor.Status).To(Equal(v1alpha2.SubnamespaceAnchorStatus{
-				State: v1alpha2.Ok,
-			}))
-		})
-
 		It("does not set allowCascadingDeletion on the subnamespace anchor", func() {
 			Expect(fakeClient.PatchCallCount()).To(Equal(0))
 		})

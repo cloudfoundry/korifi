@@ -24,11 +24,9 @@ import (
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
@@ -55,7 +53,6 @@ const (
 	OrgNameLabel          = "cloudfoundry.org/org-name"
 	hierarchyMetadataName = "hierarchy"
 	APIVersion            = "workloads.cloudfoundry.org/v1alpha1"
-	Kind                  = "CFOrg"
 )
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cforgs,verbs=get;list;watch;create;update;patch;delete
@@ -95,8 +92,18 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return ctrl.Result{}, err
 		}
 
-		anchor, err = r.createSubnamespaceAnchor(ctx, req, cfOrg)
+		anchorLabels := map[string]string{
+			OrgNameLabel: cfOrg.Spec.Name,
+		}
+		anchor, err = createSubnamespaceAnchor(ctx, r.client, req, cfOrg, anchorLabels)
 		if err != nil {
+			r.log.Error(err, fmt.Sprintf("Error creating SubnamespaceAnchor for CFOrg %s/%s", req.Namespace, req.Name))
+			return ctrl.Result{}, err
+		}
+
+		err = updateStatus(ctx, r.client, cfOrg, metav1.ConditionUnknown)
+		if err != nil {
+			r.log.Error(err, "unable to update CFOrg status")
 			return ctrl.Result{}, err
 		}
 
@@ -108,7 +115,7 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
-	namespace, ok := r.getNamespace(ctx, cfOrg.ObjectMeta.Name)
+	namespace, ok := getNamespace(ctx, r.client, cfOrg.Name)
 	if !ok {
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
@@ -120,59 +127,13 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	cfOrg.Status.GUID = namespace.Name
-	setStatusConditionOnLocalCopy(&cfOrg.Status.Conditions, StatusConditionReady, metav1.ConditionTrue, StatusConditionReady, "")
-	err = r.client.Status().Update(ctx, cfOrg)
+	err = updateStatus(ctx, r.client, cfOrg, metav1.ConditionTrue)
 	if err != nil {
 		r.log.Error(err, "unable to update CFOrg status")
-		r.log.Info(fmt.Sprintf("CFOrg status: %+v", cfOrg.Status))
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *CFOrgReconciler) createSubnamespaceAnchor(ctx context.Context, req ctrl.Request, cfOrg *workloadsv1alpha1.CFOrg) (v1alpha2.SubnamespaceAnchor, error) {
-	anchor := v1alpha2.SubnamespaceAnchor{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.Name,
-			Namespace: req.Namespace,
-			Labels: map[string]string{
-				OrgNameLabel: cfOrg.Spec.Name,
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: APIVersion,
-					Kind:       Kind,
-					Name:       cfOrg.Name,
-					UID:        cfOrg.GetUID(),
-				},
-			},
-		},
-	}
-
-	err := r.client.Create(ctx, &anchor)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error creating SubnamespaceAnchor for CFOrg %s/%s", req.Namespace, req.Name))
-		return anchor, err
-	}
-
-	setStatusConditionOnLocalCopy(&cfOrg.Status.Conditions, StatusConditionReady, metav1.ConditionUnknown, StatusConditionReady, "")
-	err = r.client.Status().Update(ctx, cfOrg)
-	if err != nil {
-		r.log.Error(err, "unable to update CFOrg status")
-		r.log.Info(fmt.Sprintf("CFOrg status: %+v", cfOrg.Status))
-		return anchor, err
-	}
-	return anchor, nil
-}
-
-func (r *CFOrgReconciler) getNamespace(ctx context.Context, namespaceName string) (*corev1.Namespace, bool) {
-	namespace := new(corev1.Namespace)
-	err := r.client.Get(ctx, types.NamespacedName{Name: namespaceName}, namespace)
-	if err != nil {
-		return nil, false
-	}
-	return namespace, true
 }
 
 func setCascadingDelete(ctx context.Context, userClient client.Client, orgGUID string) error {

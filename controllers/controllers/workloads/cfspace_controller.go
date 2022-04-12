@@ -18,19 +18,37 @@ package workloads
 
 import (
 	"context"
+	"fmt"
+	"time"
 
+	"github.com/go-logr/logr"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+)
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+const (
+	SpaceNameLabel = "cloudfoundry.org/space-name"
 )
 
 // CFSpaceReconciler reconciles a CFSpace object
 type CFSpaceReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
+	client client.Client
+	scheme *runtime.Scheme
+	log    logr.Logger
+}
+
+func NewCFSpaceReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *CFSpaceReconciler {
+	return &CFSpaceReconciler{
+		client: client,
+		scheme: scheme,
+		log:    log,
+	}
 }
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfspaces,verbs=get;list;watch;create;update;patch;delete
@@ -47,9 +65,54 @@ type CFSpaceReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	cfSpace := new(workloadsv1alpha1.CFSpace)
+	err := r.client.Get(ctx, req.NamespacedName, cfSpace)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error when trying to fetch CFSpace %s/%s", req.Namespace, req.Name))
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-	// TODO(user): your logic here
+	var anchor v1alpha2.SubnamespaceAnchor
+	err = r.client.Get(ctx, req.NamespacedName, &anchor)
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			r.log.Error(err, fmt.Sprintf("Error getting SubnamespaceAnchor for CFSpace %s/%s", req.Namespace, req.Name))
+			return ctrl.Result{}, err
+		}
+
+		anchorLabels := map[string]string{
+			SpaceNameLabel: cfSpace.Spec.Name,
+		}
+		anchor, err = createSubnamespaceAnchor(ctx, r.client, req, cfSpace, anchorLabels)
+		if err != nil {
+			r.log.Error(err, fmt.Sprintf("Error creating SubnamespaceAnchor for CFSpace %s/%s", req.Namespace, req.Name))
+			return ctrl.Result{}, err
+		}
+		err = updateStatus(ctx, r.client, cfSpace, metav1.ConditionUnknown)
+		if err != nil {
+			r.log.Error(err, "unable to update CFSpace status")
+			return ctrl.Result{}, err
+		}
+
+		// Requeue to verify subnamespaceanchor is ready
+		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
+	}
+
+	if anchor.Status.State != v1alpha2.Ok {
+		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
+	}
+
+	namespace, ok := getNamespace(ctx, r.client, cfSpace.Name)
+	if !ok {
+		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
+	}
+
+	cfSpace.Status.GUID = namespace.Name
+	err = updateStatus(ctx, r.client, cfSpace, metav1.ConditionTrue)
+	if err != nil {
+		r.log.Error(err, "unable to update CFSpace status")
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
