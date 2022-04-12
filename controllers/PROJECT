@@ -102,4 +102,13 @@ resources:
   kind: CFOrg
   path: code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloudfoundry.org
+  group: workloads
+  kind: CFSpace
+  path: code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1
+  version: v1alpha1
 version: "3"
