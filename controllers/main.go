@@ -52,7 +52,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+	hncv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -68,7 +68,7 @@ func init() {
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(contourv1.AddToScheme(scheme))
 	utilruntime.Must(eiriniv1.AddToScheme(scheme))
-	utilruntime.Must(hnsv1alpha2.AddToScheme(scheme))
+	utilruntime.Must(hncv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(servicesv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
@@ -202,6 +202,15 @@ func main() {
 		Log:    ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
+		os.Exit(1)
+	}
+
+	if err = workloadscontrollers.NewCFOrgReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFOrgReconciler"),
+	).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFOrg")
 		os.Exit(1)
 	}
 

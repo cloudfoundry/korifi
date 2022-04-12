@@ -8,6 +8,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
   - get
@@ -62,6 +70,25 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - hnc.x-k8s.io
+  resources:
+  - hierarchyconfigurations
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - hnc.x-k8s.io
+  resources:
+  - subnamespaceanchors
+  verbs:
+  - create
+  - delete
+  - list
   - watch
 - apiGroups:
   - kpack.io
@@ -276,6 +303,32 @@ rules:
   - workloads.cloudfoundry.org
   resources:
   - cfbuilds/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs/status
   verbs:
   - get
   - patch
