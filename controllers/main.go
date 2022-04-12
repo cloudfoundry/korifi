@@ -29,6 +29,7 @@ import (
 	servicescontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/services"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
 	workloadscontrollers "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
+	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/imageprocessfetcher"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
 	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
@@ -144,6 +145,7 @@ func main() {
 		ControllerConfig:    controllerConfig,
 		RegistryAuthFetcher: workloadscontrollers.NewRegistryAuthFetcher(privilegedK8sClient),
 		ImageProcessFetcher: cfBuildImageProcessFetcher.Fetch,
+		EnvBuilder:          env.NewBuilder(mgr.GetClient()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
 		os.Exit(1)
@@ -167,9 +169,10 @@ func main() {
 	}
 
 	if err = (&workloadscontrollers.CFProcessReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFProcess"),
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		Log:        ctrl.Log.WithName("controllers").WithName("CFProcess"),
+		EnvBuilder: env.NewBuilder(mgr.GetClient()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFProcess")
 		os.Exit(1)

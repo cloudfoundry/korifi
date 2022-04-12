@@ -414,6 +414,33 @@ func createApp(spaceGUID, name string) string {
 	return app.GUID
 }
 
+func setEnv(appName string, envVars map[string]interface{}) {
+	resp, err := adminClient.R().
+		SetBody(
+			struct {
+				Var map[string]interface{} `json:"var"`
+			}{
+
+				Var: envVars,
+			},
+		).
+		Patch(fmt.Sprintf("/v3/apps/%s/environment_variables", appName))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+}
+
+func getEnv(appName string) map[string]interface{} {
+	var env map[string]interface{}
+
+	resp, err := adminClient.R().
+		SetResult(&env).
+		Get(fmt.Sprintf("/v3/apps/%s/env", appName))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+
+	return env
+}
+
 func getProcess(appGUID, processType string) string {
 	var processList resourceList
 	EventuallyWithOffset(1, func(g Gomega) {

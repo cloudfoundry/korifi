@@ -305,6 +305,10 @@ var _ = Describe("Apps", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.State).To(Equal("STARTED"))
 			})
+
+			It("has the VCAP_SERVICES env var set", func() {
+				Expect(getEnv(appGUID)).To(HaveKeyWithValue("environment_variables", HaveKey("VCAP_SERVICES")))
+			})
 		})
 
 		Describe("Restart an app", func() {
@@ -323,6 +327,18 @@ var _ = Describe("Apps", func() {
 			It("succeeds", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.State).To(Equal("STARTED"))
+			})
+
+			When("app environment has been changed", func() {
+				BeforeEach(func() {
+					setEnv(appGUID, map[string]interface{}{
+						"foo": "var",
+					})
+				})
+
+				It("sets the new env var to the app environment", func() {
+					Expect(getEnv(appGUID)).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
+				})
 			})
 		})
 
