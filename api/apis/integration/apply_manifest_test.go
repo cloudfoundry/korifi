@@ -506,7 +506,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				var app1 workloadsv1alpha1.CFApp
 				By("confirming that the app fields are unchanged", func() {
 					var appList workloadsv1alpha1.CFAppList
-					Eventually(func() []workloadsv1alpha1.CFApp {
+					Consistently(func() []workloadsv1alpha1.CFApp {
 						Expect(
 							k8sClient.List(context.Background(), &appList, client.InNamespace(namespace.Name)),
 						).To(Succeed())

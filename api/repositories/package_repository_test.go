@@ -89,10 +89,7 @@ var _ = Describe("PackageRepository", func() {
 
 				packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
 				createdCFPackage := new(workloadsv1alpha1.CFPackage)
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, packageNSName, createdCFPackage)
-					return err == nil
-				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
+				Expect(k8sClient.Get(ctx, packageNSName, createdCFPackage)).To(Succeed())
 
 				Expect(createdCFPackage.Name).To(Equal(packageGUID))
 				Expect(createdCFPackage.Namespace).To(Equal(space.Name))
@@ -490,17 +487,14 @@ var _ = Describe("PackageRepository", func() {
 
 			It("updates only the Registry field of the existing CFPackage", func() {
 				packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
-				createdCFPackage := new(workloadsv1alpha1.CFPackage)
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, packageNSName, createdCFPackage)
-					return err == nil
-				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
+				updatedCFPackage := new(workloadsv1alpha1.CFPackage)
+				Expect(k8sClient.Get(ctx, packageNSName, updatedCFPackage)).To(Succeed())
 
-				Expect(createdCFPackage.Name).To(Equal(existingCFPackage.Name))
-				Expect(createdCFPackage.Namespace).To(Equal(existingCFPackage.Namespace))
-				Expect(createdCFPackage.Spec.Type).To(Equal(existingCFPackage.Spec.Type))
-				Expect(createdCFPackage.Spec.AppRef).To(Equal(existingCFPackage.Spec.AppRef))
-				Expect(createdCFPackage.Spec.Source.Registry).To(Equal(workloadsv1alpha1.Registry{
+				Expect(updatedCFPackage.Name).To(Equal(existingCFPackage.Name))
+				Expect(updatedCFPackage.Namespace).To(Equal(existingCFPackage.Namespace))
+				Expect(updatedCFPackage.Spec.Type).To(Equal(existingCFPackage.Spec.Type))
+				Expect(updatedCFPackage.Spec.AppRef).To(Equal(existingCFPackage.Spec.AppRef))
+				Expect(updatedCFPackage.Spec.Source.Registry).To(Equal(workloadsv1alpha1.Registry{
 					Image:            packageSourceImageRef,
 					ImagePullSecrets: []corev1.LocalObjectReference{{Name: packageRegistrySecretName}},
 				}))

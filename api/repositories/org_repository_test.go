@@ -265,15 +265,8 @@ var _ = Describe("OrgRepository", func() {
 
 					By("Creating ServiceAccounts in the Space namespace", func() {
 						serviceAccountList := corev1.ServiceAccountList{}
-						var err error
-						Eventually(func() []corev1.ServiceAccount {
-							err = k8sClient.List(ctx, &serviceAccountList, client.InNamespace(space.GUID))
-							if err != nil {
-								return []corev1.ServiceAccount{}
-							}
-							return serviceAccountList.Items
-						}, timeCheckThreshold*time.Second, 250*time.Millisecond).Should(HaveLen(2), "could not find the service accounts created by the repo")
-						Expect(err).NotTo(HaveOccurred())
+						Expect(k8sClient.List(ctx, &serviceAccountList, client.InNamespace(space.GUID))).To(Succeed())
+						Expect(serviceAccountList.Items).To(HaveLen(2))
 
 						sort.Slice(serviceAccountList.Items, func(i, j int) bool {
 							return serviceAccountList.Items[i].Name < serviceAccountList.Items[j].Name
@@ -738,10 +731,9 @@ var _ = Describe("OrgRepository", func() {
 						})
 						Expect(err).NotTo(HaveOccurred())
 
-						Eventually(func() error {
-							anchor := &hncv1alpha2.SubnamespaceAnchor{}
-							return k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: orgAnchor.Name}, anchor)
-						}).Should(MatchError(ContainSubstring("not found")))
+						anchor := &hncv1alpha2.SubnamespaceAnchor{}
+						err = k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: orgAnchor.Name}, anchor)
+						Expect(err).To(MatchError(ContainSubstring("not found")))
 					})
 				})
 
@@ -794,10 +786,9 @@ var _ = Describe("OrgRepository", func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 
-					Eventually(func() error {
-						anchor := &hncv1alpha2.SubnamespaceAnchor{}
-						return k8sClient.Get(ctx, client.ObjectKey{Namespace: orgAnchor.Name, Name: spaceAnchor.Name}, anchor)
-					}).Should(MatchError(ContainSubstring("not found")))
+					anchor := &hncv1alpha2.SubnamespaceAnchor{}
+					err = k8sClient.Get(ctx, client.ObjectKey{Namespace: orgAnchor.Name, Name: spaceAnchor.Name}, anchor)
+					Expect(err).To(MatchError(ContainSubstring("not found")))
 				})
 
 				When("the space doesn't exist", func() {

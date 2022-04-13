@@ -30,11 +30,9 @@ var _ = Describe("TokenReviewer", func() {
 	})
 
 	JustBeforeEach(func() {
-		Eventually(func() error {
-			var err error
-			id, err = tokenReviewer.WhoAmI(ctx, token)
-			return err
-		}).Should(passErrConstraints)
+		var err error
+		id, err = tokenReviewer.WhoAmI(ctx, token)
+		Expect(err).To(passErrConstraints)
 	})
 
 	It("extracts identity from a valid token", func() {
