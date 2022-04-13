@@ -29,7 +29,7 @@ metadata:
   name: ${csr_name}
 spec:
   signerName: "kubernetes.io/kube-apiserver-client"
-  request: "$(base64 -w0 "${csr_file}")"
+  request: "$(base64 "${csr_file}" | tr -d "\n\r")"
   usages:
   - client auth
 EOF

@@ -38,7 +38,7 @@ if [[ -z "${E2E_USER_NAMES:=}" ]]; then
   export E2E_USER_NAMES E2E_USER_PEMS
   for n in $(seq 1 $usersToCreate); do
     E2E_USER_NAMES="$E2E_USER_NAMES e2e-cert-user-$n"
-    pem="$(cat $tmp/cert-${n}.pem $tmp/key-${n}.pem | base64 -w0)"
+    pem="$(cat $tmp/cert-${n}.pem $tmp/key-${n}.pem | base64 | tr -d "\n\r")"
     E2E_USER_PEMS="$E2E_USER_PEMS $pem"
   done
 fi
@@ -67,7 +67,7 @@ fi
 
 if [[ -z "${CF_ADMIN_CERT:=}" ]]; then
   createCert "cf-admin" "$tmp/cf-admin-key.pem" "$tmp/cf-admin-cert.pem"
-  CF_ADMIN_KEY="$(base64 -w0 $tmp/cf-admin-key.pem)"
-  CF_ADMIN_CERT="$(base64 -w0 $tmp/cf-admin-cert.pem)"
+  CF_ADMIN_KEY="$(base64 $tmp/cf-admin-key.pem | tr -d "\n\r")"
+  CF_ADMIN_CERT="$(base64 $tmp/cf-admin-cert.pem | tr -d "\n\r")"
   export CF_ADMIN_CERT CF_ADMIN_KEY
 fi
