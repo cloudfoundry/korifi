@@ -527,12 +527,8 @@ var _ = Describe("ProcessRepo", func() {
 						Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(*message.DiskQuotaMB))
 
 						var process workloadsv1alpha1.CFProcess
-						Eventually(func() workloadsv1alpha1.CFProcessSpec {
-							Expect(
-								k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: space.Name}, &process),
-							).To(Succeed())
-							return process.Spec
-						}).Should(Equal(workloadsv1alpha1.CFProcessSpec{
+						Expect(k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: space.Name}, &process)).To(Succeed())
+						Expect(process.Spec).To(Equal(workloadsv1alpha1.CFProcessSpec{
 							AppRef:      corev1.LocalObjectReference{Name: app1GUID},
 							ProcessType: "web",
 							Command:     "start-web",
@@ -579,12 +575,9 @@ var _ = Describe("ProcessRepo", func() {
 						Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(cfProcess.Spec.DiskQuotaMB))
 
 						var process workloadsv1alpha1.CFProcess
-						Eventually(func() workloadsv1alpha1.CFProcessSpec {
-							Expect(
-								k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: space.Name}, &process),
-							).To(Succeed())
-							return process.Spec
-						}).Should(Equal(workloadsv1alpha1.CFProcessSpec{
+						Expect(k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: space.Name}, &process)).To(Succeed())
+
+						Expect(process.Spec).To(Equal(workloadsv1alpha1.CFProcessSpec{
 							AppRef:      corev1.LocalObjectReference{Name: app1GUID},
 							ProcessType: "web",
 							Command:     "new-command",

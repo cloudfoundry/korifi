@@ -379,14 +379,12 @@ var _ = Describe("Route Handler", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceManagerRole.Name, namespace.Name)
 
-				// Added Eventually for eventual consistency flakes where Domain shows up after the Route- can't put at top level due to RBAC of unhappy path
-				Eventually(func() int {
-					getReq, err := http.NewRequestWithContext(ctx, "GET", serverURI("/v3/routes/"+cfRoute.Name), strings.NewReader(""))
-					Expect(err).NotTo(HaveOccurred())
-					eventuallyRR := new(httptest.ResponseRecorder)
-					router.ServeHTTP(eventuallyRR, getReq)
-					return eventuallyRR.Code
-				}, 3*time.Second).Should(Equal(200))
+				getReq, err := http.NewRequestWithContext(ctx, "GET", serverURI("/v3/routes/"+cfRoute.Name), strings.NewReader(""))
+				Expect(err).NotTo(HaveOccurred())
+
+				getReqRR := httptest.NewRecorder()
+				router.ServeHTTP(getReqRR, getReq)
+				Expect(getReqRR.Code).To(Equal(http.StatusOK))
 			})
 
 			It("returns a forbidden error", func() {
@@ -398,13 +396,12 @@ var _ = Describe("Route Handler", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
 
-				Eventually(func() int {
-					getReq, err := http.NewRequestWithContext(ctx, "GET", serverURI("/v3/routes/"+cfRoute.Name), strings.NewReader(""))
-					Expect(err).NotTo(HaveOccurred())
-					eventuallyRR := new(httptest.ResponseRecorder)
-					router.ServeHTTP(eventuallyRR, getReq)
-					return eventuallyRR.Code
-				}, 3*time.Second).Should(Equal(200))
+				getReq, err := http.NewRequestWithContext(ctx, "GET", serverURI("/v3/routes/"+cfRoute.Name), strings.NewReader(""))
+				Expect(err).NotTo(HaveOccurred())
+
+				getReqRR := httptest.NewRecorder()
+				router.ServeHTTP(getReqRR, getReq)
+				Expect(getReqRR.Code).To(Equal(http.StatusOK))
 			})
 
 			It("updates the route", func() {
@@ -413,13 +410,7 @@ var _ = Describe("Route Handler", func() {
 
 				cfRouteLookupKey := types.NamespacedName{Name: cfRoute.Name, Namespace: cfRoute.Namespace}
 				updatedCFRoute := new(networkingv1alpha1.CFRoute)
-				Eventually(func() []networkingv1alpha1.Destination {
-					err := k8sClient.Get(context.Background(), cfRouteLookupKey, updatedCFRoute)
-					if err != nil {
-						return nil
-					}
-					return updatedCFRoute.Spec.Destinations
-				}, 5*time.Second).Should(HaveLen(2), "could not retrieve cfRoute with exactly 2 destinations")
+				Expect(k8sClient.Get(context.Background(), cfRouteLookupKey, updatedCFRoute)).To(Succeed())
 
 				Expect(updatedCFRoute.Spec.Destinations).To(ConsistOf(
 					Equal(cfRoute.Spec.Destinations[0]),

@@ -199,9 +199,7 @@ var _ = Describe("App Handler", func() {
 					Namespace: spaceGUID,
 				}
 				var appRecord workloads.CFApp
-				Eventually(func() error {
-					return k8sClient.Get(ctx, appNSName, &appRecord)
-				}).Should(Succeed())
+				Expect(k8sClient.Get(ctx, appNSName, &appRecord)).To(Succeed())
 
 				Expect(appRecord.Spec.Name).To(Equal("my-test-app"))
 				Expect(appRecord.Spec.DesiredState).To(BeEquivalentTo("STOPPED"))
@@ -212,9 +210,7 @@ var _ = Describe("App Handler", func() {
 					Namespace: spaceGUID,
 				}
 				var secretCR corev1.Secret
-				Eventually(func() error {
-					return k8sClient.Get(ctx, secretNSName, &secretCR)
-				}).Should(Succeed())
+				Expect(k8sClient.Get(ctx, secretNSName, &secretCR)).To(Succeed())
 
 				Expect(secretCR.Data).To(MatchAllKeys(Keys{
 					"foo": BeEquivalentTo(testEnvironmentVariables["foo"]),

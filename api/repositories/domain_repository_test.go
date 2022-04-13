@@ -288,12 +288,9 @@ var _ = Describe("DomainRepository", func() {
 						}
 					})
 
-					It("eventually returns a list of domainRecords for each CFDomain CR that matches the key with value", func() {
-						var domainRecords []DomainRecord
-						Eventually(func() []DomainRecord {
-							domainRecords, _ = domainRepo.ListDomains(testCtx, authInfo, domainListMessage)
-							return domainRecords
-						}, timeCheckThreshold*time.Second).Should(HaveLen(2), "returned records count should equal number of created CRs")
+					It("returns a list of domainRecords for each CFDomain CR that matches the key with value", func() {
+						domainRecords, err := domainRepo.ListDomains(testCtx, authInfo, domainListMessage)
+						Expect(err).NotTo(HaveOccurred())
 
 						var domain1, domain2 DomainRecord
 						for _, domainRecord := range domainRecords {

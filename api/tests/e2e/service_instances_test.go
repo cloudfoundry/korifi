@@ -64,14 +64,11 @@ var _ = Describe("Service Instances", func() {
 				Expect(httpError).NotTo(HaveOccurred())
 				Expect(httpResp).To(HaveRestyStatusCode(http.StatusCreated))
 
-				Eventually(func(g Gomega) {
-					serviceInstances := listServiceInstances()
-					g.Expect(serviceInstances.Resources).To(ContainElement(
-						MatchFields(IgnoreExtras, Fields{
-							"Name": Equal(instanceName),
-						})),
-					)
-				}).Should(Succeed())
+				Expect(listServiceInstances().Resources).To(ContainElement(
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal(instanceName),
+					})),
+				)
 			})
 		})
 
@@ -120,9 +117,7 @@ var _ = Describe("Service Instances", func() {
 			})
 
 			It("deletes the service instance", func() {
-				Eventually(func() []resource {
-					return listServiceInstances().Resources
-				}).ShouldNot(ContainElement(
+				Expect(listServiceInstances().Resources).NotTo(ContainElement(
 					MatchFields(IgnoreExtras, Fields{
 						"Name": Equal(existingInstanceName),
 						"GUID": Equal(existingInstanceGUID),

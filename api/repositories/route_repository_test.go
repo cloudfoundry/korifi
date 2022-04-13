@@ -262,6 +262,9 @@ var _ = Describe("RouteRepository", func() {
 				cfRoute2A            *networkingv1alpha1.CFRoute
 				space3               *hnsv1alpha2.SubnamespaceAnchor
 				cfRoute3A            *networkingv1alpha1.CFRoute
+
+				routeRecords []RouteRecord
+				message      ListRoutesMessage
 			)
 
 			BeforeEach(func() {
@@ -274,21 +277,14 @@ var _ = Describe("RouteRepository", func() {
 
 				space3 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space3"))
 				cfRoute3A = createRoute(generateGUID(), space3.Name, "my-subdomain-3-a", "", domainGUID, "some-app-guid-4")
+
+				message = ListRoutesMessage{}
 			})
 
-			AfterEach(func() {
-				Expect(
-					k8sClient.Delete(testCtx, cfRoute1A),
-				).To(Succeed())
-				Expect(
-					k8sClient.Delete(testCtx, cfRoute1B),
-				).To(Succeed())
-				Expect(
-					k8sClient.Delete(testCtx, cfRoute2A),
-				).To(Succeed())
-				Expect(
-					k8sClient.Delete(testCtx, cfRoute3A),
-				).To(Succeed())
+			JustBeforeEach(func() {
+				var err error
+				routeRecords, err = routeRepo.ListRoutes(testCtx, authInfo, message)
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			When("the user has space developer access in space1 & space2, but not space3", func() {
@@ -298,9 +294,7 @@ var _ = Describe("RouteRepository", func() {
 				})
 
 				When("filters are not provided", func() {
-					It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-						routeRecords, err := routeRepo.ListRoutes(testCtx, authInfo, ListRoutesMessage{})
-						Expect(err).NotTo(HaveOccurred())
+					It("returns a list of routeRecords for each CFRoute CR", func() {
 						Expect(routeRecords).To(ContainElements(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute1A.Name)}),
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute1B.Name)}),
@@ -331,114 +325,104 @@ var _ = Describe("RouteRepository", func() {
 					})
 				})
 
-				When("filters are provided", func() {
-					var routeRecords []RouteRecord
-					var message ListRoutesMessage
-
-					JustBeforeEach(func() {
-						Eventually(func() []RouteRecord {
-							var err error
-							routeRecords, err = routeRepo.ListRoutes(testCtx, authInfo, message)
-							Expect(err).NotTo(HaveOccurred())
-							return routeRecords
-						}, timeCheckThreshold*time.Second).ShouldNot(BeEmpty())
+				When("space_guid filters are provided", func() {
+					BeforeEach(func() {
+						message = ListRoutesMessage{SpaceGUIDs: []string{space2.Name}}
 					})
 
-					When("space_guid filters are provided", func() {
-						BeforeEach(func() {
-							message = ListRoutesMessage{SpaceGUIDs: []string{space2.Name}}
-						})
-						It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-							Expect(routeRecords).To(HaveLen(1))
-							Expect(routeRecords[0].GUID).To(Equal(cfRoute2A.Name))
-						})
+					It("returns a list of routeRecords for each CFRoute CR", func() {
+						Expect(routeRecords).To(HaveLen(1))
+						Expect(routeRecords[0].GUID).To(Equal(cfRoute2A.Name))
+					})
+				})
+
+				When("domain_guid filters are provided", func() {
+					BeforeEach(func() {
+						message = ListRoutesMessage{DomainGUIDs: []string{domainGUID2}}
 					})
 
-					When("domain_guid filters are provided", func() {
-						BeforeEach(func() {
-							message = ListRoutesMessage{DomainGUIDs: []string{domainGUID2}}
-						})
-						It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-							Expect(routeRecords).To(HaveLen(1))
-							Expect(routeRecords[0].GUID).To(Equal(cfRoute1B.Name))
-						})
+					It("returns a list of routeRecords for each CFRoute CR", func() {
+						Expect(routeRecords).To(HaveLen(1))
+						Expect(routeRecords[0].GUID).To(Equal(cfRoute1B.Name))
+					})
+				})
+
+				When("host filters are provided", func() {
+					BeforeEach(func() {
+						message = ListRoutesMessage{Hosts: []string{"my-subdomain-1-a"}}
 					})
 
-					When("host filters are provided", func() {
-						BeforeEach(func() {
-							message = ListRoutesMessage{Hosts: []string{"my-subdomain-1-a"}}
-						})
-						It("eventually returns a list of routeRecords for one of the CFRoute CRs", func() {
-							Expect(routeRecords).To(HaveLen(1))
-							Expect(routeRecords[0].GUID).To(Equal(cfRoute1A.Name))
-						})
+					It("returns a list of routeRecords for one of the CFRoute CRs", func() {
+						Expect(routeRecords).To(HaveLen(1))
+						Expect(routeRecords[0].GUID).To(Equal(cfRoute1A.Name))
+					})
+				})
+
+				When("path filters are provided", func() {
+					BeforeEach(func() {
+						message = ListRoutesMessage{Paths: []string{"/some/path"}}
 					})
 
-					When("path filters are provided", func() {
-						BeforeEach(func() {
-							message = ListRoutesMessage{Paths: []string{"/some/path"}}
-						})
-						It("eventually returns a list of routeRecords for one of the CFRoute CRs", func() {
-							Expect(routeRecords).To(HaveLen(1))
-							Expect(routeRecords[0].GUID).To(Equal(cfRoute1B.Name))
-							Expect(routeRecords[0].Path).To(Equal("/some/path"))
-						})
+					It("returns a list of routeRecords for one of the CFRoute CRs", func() {
+						Expect(routeRecords).To(HaveLen(1))
+						Expect(routeRecords[0].GUID).To(Equal(cfRoute1B.Name))
+						Expect(routeRecords[0].Path).To(Equal("/some/path"))
+					})
+				})
+
+				When("an empty path filter is provided", func() {
+					BeforeEach(func() {
+						message = ListRoutesMessage{
+							SpaceGUIDs: []string{space.Name},
+							Paths:      []string{""},
+						}
 					})
 
-					When("an empty path filter is provided", func() {
-						BeforeEach(func() {
-							message = ListRoutesMessage{
-								SpaceGUIDs: []string{space.Name},
-								Paths:      []string{""},
-							}
-						})
-						It("eventually returns a list of routeRecords for one of the CFRoute CRs", func() {
-							Expect(routeRecords).To(HaveLen(1))
-							Expect(routeRecords[0].GUID).To(Equal(cfRoute1A.Name))
-							Expect(routeRecords[0].Path).To(Equal(""))
-						})
+					It("returns a list of routeRecords for one of the CFRoute CRs", func() {
+						Expect(routeRecords).To(HaveLen(1))
+						Expect(routeRecords[0].GUID).To(Equal(cfRoute1A.Name))
+						Expect(routeRecords[0].Path).To(Equal(""))
+					})
+				})
+
+				When("app_guid filters are provided", func() {
+					BeforeEach(func() {
+						message = ListRoutesMessage{AppGUIDs: []string{cfRoute1A.Spec.Destinations[0].AppRef.Name}}
 					})
 
-					When("app_guid filters are provided", func() {
-						BeforeEach(func() {
-							message = ListRoutesMessage{AppGUIDs: []string{cfRoute1A.Spec.Destinations[0].AppRef.Name}}
-						})
-						It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-							Expect(routeRecords).To(HaveLen(1))
-							route1 := routeRecords[0]
-							Expect(route1).NotTo(BeZero())
-							validateRoute(route1, cfRoute1A)
-						})
+					It("returns a list of routeRecords for each CFRoute CR", func() {
+						Expect(routeRecords).To(HaveLen(1))
+						route1 := routeRecords[0]
+						Expect(route1).NotTo(BeZero())
+						validateRoute(route1, cfRoute1A)
 					})
 				})
 
 				When("non-matching space_guid filters are provided", func() {
-					It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-						message := ListRoutesMessage{SpaceGUIDs: []string{"something-not-matching"}}
-						routeRecords, err := routeRepo.ListRoutes(testCtx, authInfo, message)
-						Expect(err).ToNot(HaveOccurred())
+					BeforeEach(func() {
+						message = ListRoutesMessage{SpaceGUIDs: []string{"something-not-matching"}}
+					})
+
+					It("returns a list of routeRecords for each CFRoute CR", func() {
 						Expect(routeRecords).To(BeEmpty())
 					})
 				})
 
 				When("non-matching domain_guid filters are provided", func() {
-					It("eventually returns a list of routeRecords for each CFRoute CR", func() {
-						message := ListRoutesMessage{DomainGUIDs: []string{"something-not-matching"}}
-						routeRecords, err := routeRepo.ListRoutes(testCtx, authInfo, message)
-						Expect(err).ToNot(HaveOccurred())
+					BeforeEach(func() {
+						message = ListRoutesMessage{DomainGUIDs: []string{"something-not-matching"}}
+					})
+
+					It("returns a list of routeRecords for each CFRoute CR", func() {
 						Expect(routeRecords).To(BeEmpty())
 					})
 				})
 			})
-		})
 
-		When("the user does not have space developer permissions", func() {
-			It("returns an empty list and no error", func() {
-				Consistently(func() []RouteRecord {
-					routeRecords, err := routeRepo.ListRoutes(testCtx, authInfo, ListRoutesMessage{})
-					Expect(err).ToNot(HaveOccurred())
-					return routeRecords
-				}, timeCheckThreshold*time.Second).Should(BeEmpty())
+			When("the user does not have space developer permissions", func() {
+				It("returns an empty list and no error", func() {
+					Expect(routeRecords).To(BeEmpty())
+				})
 			})
 		})
 	})
@@ -689,10 +673,8 @@ var _ = Describe("RouteRepository", func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 
-					Eventually(func() error {
-						route := &networkingv1alpha1.CFRoute{}
-						return k8sClient.Get(testCtx, client.ObjectKey{Namespace: space.Name, Name: route1GUID}, route)
-					}).Should(MatchError(ContainSubstring("not found")))
+					err = k8sClient.Get(testCtx, client.ObjectKey{Namespace: space.Name, Name: route1GUID}, &networkingv1alpha1.CFRoute{})
+					Expect(err).To(MatchError(ContainSubstring("not found")))
 				})
 			})
 
@@ -919,13 +901,7 @@ var _ = Describe("RouteRepository", func() {
 					It("adds the destinations to CFRoute successfully", func() {
 						cfRouteLookupKey := types.NamespacedName{Name: route1GUID, Namespace: space.Name}
 						createdCFRoute := new(networkingv1alpha1.CFRoute)
-						Eventually(func() []networkingv1alpha1.Destination {
-							err := k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)
-							if err != nil {
-								return nil
-							}
-							return createdCFRoute.Spec.Destinations
-						}, 5*time.Second).Should(HaveLen(2), "could not retrieve cfRoute having exactly 2 destinations")
+						Expect(k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)).To(Succeed())
 
 						Expect(createdCFRoute.Spec.Destinations).To(ConsistOf(
 							MatchAllFields(
@@ -1077,13 +1053,7 @@ var _ = Describe("RouteRepository", func() {
 					It("adds the destinations to CFRoute successfully", func() {
 						cfRouteLookupKey := types.NamespacedName{Name: route1GUID, Namespace: space.Name}
 						createdCFRoute := new(networkingv1alpha1.CFRoute)
-						Eventually(func() []networkingv1alpha1.Destination {
-							err := k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)
-							if err != nil {
-								return nil
-							}
-							return createdCFRoute.Spec.Destinations
-						}, 5*time.Second).Should(HaveLen(3))
+						Expect(k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)).To(Succeed())
 
 						Expect(createdCFRoute.Spec.Destinations).To(ConsistOf(
 							MatchAllFields(
@@ -1197,13 +1167,7 @@ var _ = Describe("RouteRepository", func() {
 						testCtx = context.Background()
 						cfRouteLookupKey := types.NamespacedName{Name: route1GUID, Namespace: space.Name}
 						createdCFRoute := new(networkingv1alpha1.CFRoute)
-						Eventually(func() []networkingv1alpha1.Destination {
-							err := k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)
-							if err != nil {
-								return nil
-							}
-							return createdCFRoute.Spec.Destinations
-						}, 5*time.Second).Should(HaveLen(2))
+						Expect(k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)).To(Succeed())
 
 						Expect(createdCFRoute.Spec.Destinations).To(ConsistOf(
 							networkingv1alpha1.Destination{
