@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/apierrors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"

@@ -20,9 +20,9 @@ import (
 	"context"
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
+	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
 	admissionv1 "k8s.io/api/admission/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"

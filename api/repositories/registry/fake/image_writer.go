@@ -4,7 +4,7 @@ package fake
 import (
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/registry"
+	"code.cloudfoundry.org/korifi/api/repositories/registry"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"

@@ -1,8 +1,8 @@
 package payloads
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 
 	"code.cloudfoundry.org/bytefmt"
 )

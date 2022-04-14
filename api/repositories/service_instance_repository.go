@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sort"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/authorization"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"

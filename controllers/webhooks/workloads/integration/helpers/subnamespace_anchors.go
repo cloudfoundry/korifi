@@ -1,7 +1,7 @@
 package helpers
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"

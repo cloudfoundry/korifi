@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

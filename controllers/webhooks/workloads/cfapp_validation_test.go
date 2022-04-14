@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads/fake"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

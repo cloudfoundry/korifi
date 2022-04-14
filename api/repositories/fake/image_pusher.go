@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )

@@ -7,7 +7,7 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"k8s.io/apimachinery/pkg/types"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/korifi/api/authorization"
 )
 
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders,verbs=get;list;watch;

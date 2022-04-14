@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/services"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/services/fake"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/services/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

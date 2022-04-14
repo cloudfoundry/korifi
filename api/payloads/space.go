@@ -1,6 +1,6 @@
 package payloads
 
-import "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+import "code.cloudfoundry.org/korifi/api/repositories"
 
 type SpaceCreate struct {
 	Name          string             `json:"name" validate:"required"`

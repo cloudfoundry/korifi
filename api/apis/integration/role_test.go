@@ -6,9 +6,9 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/config"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/korifi/api/apis"
+	"code.cloudfoundry.org/korifi/api/config"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"

@@ -15,9 +15,9 @@ import (
 	k8sclient "k8s.io/client-go/kubernetes"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
+	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 )
 
 var _ = Describe("ImageRepository", func() {

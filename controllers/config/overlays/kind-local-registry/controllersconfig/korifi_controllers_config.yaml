@@ -1,0 +1,8 @@
+kpackImageTag: localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images
+clusterBuilderName: cf-kpack-cluster-builder
+cfProcessDefaults:
+  memoryMB: 1024
+  diskQuotaMB: 1024
+cfRootNamespace: cf
+korifi_controller_namespace: korifi-controllers-system
+workloads_tls_secret_name: korifi-workloads-ingress-cert

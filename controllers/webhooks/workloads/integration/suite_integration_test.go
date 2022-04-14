@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/coordination"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

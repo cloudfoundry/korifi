@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
 
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -32,9 +32,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/integration/helpers"
+	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/tests/integration/helpers"
 )
 
 const (

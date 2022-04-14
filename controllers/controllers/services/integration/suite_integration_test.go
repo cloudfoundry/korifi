@@ -22,11 +22,11 @@ import (
 	"testing"
 	"time"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/services"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
+	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/services"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,7 +39,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 

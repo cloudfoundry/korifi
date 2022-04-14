@@ -3,7 +3,7 @@ package integration_test
 import (
 	"context"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
+	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

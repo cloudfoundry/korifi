@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"code.cloudfoundry.org/korifi/api/apis"
+	"code.cloudfoundry.org/korifi/api/presenter"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"

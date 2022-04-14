@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/fake"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
+	"code.cloudfoundry.org/korifi/api/apierrors"
+	. "code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 

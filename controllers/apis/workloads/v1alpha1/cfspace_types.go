@@ -22,7 +22,6 @@ import (
 
 // CFSpaceSpec defines the desired state of CFSpace
 type CFSpaceSpec struct {
-
 	// Name of the space displayed to the user
 	Name string `json:"name"`
 }

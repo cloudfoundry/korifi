@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/authorization"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"

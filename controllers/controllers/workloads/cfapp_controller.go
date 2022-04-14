@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"

@@ -29,7 +29,7 @@ spec:
         - "--health-probe-bind-address=:8081"
         - "--metrics-bind-address=127.0.0.1:8080"
         - "--leader-elect"
-        image: cloudfoundry/cf-k8s-controllers:latest
+        image: cloudfoundry/korifi-controllers:latest
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
@@ -54,15 +54,14 @@ spec:
             memory: 500Mi
         env:
         - name: CONTROLLERSCONFIG
-          value: "/etc/cf-k8s-controllers-config"
+          value: "/etc/korifi-controllers-config"
         volumeMounts:
-        - name: cf-k8s-controllers-config
-          mountPath: /etc/cf-k8s-controllers-config
+        - name: korifi-controllers-config
+          mountPath: /etc/korifi-controllers-config
           readOnly: true
       volumes:
-      - name: cf-k8s-controllers-config
+      - name: korifi-controllers-config
         configMap:
-          name: cf-k8s-controllers-config
+          name: korifi-controllers-config
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
-

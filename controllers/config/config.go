@@ -11,12 +11,12 @@ import (
 )
 
 type ControllerConfig struct {
-	KpackImageTag            string            `yaml:"kpackImageTag"`
-	ClusterBuilderName       string            `yaml:"clusterBuilderName"`
-	CFProcessDefaults        CFProcessDefaults `yaml:"cfProcessDefaults"`
-	CFRootNamespace          string            `yaml:"cfRootNamespace"`
-	CFK8sControllerNamespace string            `yaml:"cfk8s_controller_namespace"`
-	WorkloadsTLSSecretName   string            `yaml:"workloads_tls_secret_name"`
+	KpackImageTag             string            `yaml:"kpackImageTag"`
+	ClusterBuilderName        string            `yaml:"clusterBuilderName"`
+	CFProcessDefaults         CFProcessDefaults `yaml:"cfProcessDefaults"`
+	CFRootNamespace           string            `yaml:"cfRootNamespace"`
+	KorifiControllerNamespace string            `yaml:"korifi_controller_namespace"`
+	WorkloadsTLSSecretName    string            `yaml:"workloads_tls_secret_name"`
 }
 
 type CFProcessDefaults struct {
@@ -57,5 +57,5 @@ func (c ControllerConfig) WorkloadsTLSSecretNameWithNamespace() string {
 	if c.WorkloadsTLSSecretName == "" {
 		return ""
 	}
-	return filepath.Join(c.CFK8sControllerNamespace, c.WorkloadsTLSSecretName)
+	return filepath.Join(c.KorifiControllerNamespace, c.WorkloadsTLSSecretName)
 }

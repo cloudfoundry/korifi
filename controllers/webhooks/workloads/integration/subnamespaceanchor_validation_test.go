@@ -3,8 +3,8 @@ package integration_test
 import (
 	"context"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/workloads/integration/helpers"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/integration/helpers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

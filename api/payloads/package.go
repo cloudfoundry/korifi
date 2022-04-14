@@ -5,7 +5,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
 type PackageCreate struct {

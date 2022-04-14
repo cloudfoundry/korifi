@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/apierrors"
 	authv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

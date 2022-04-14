@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/apierrors"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
+	"code.cloudfoundry.org/korifi/api/apis/fake"
 
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	. "code.cloudfoundry.org/korifi/api/apis"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	. "github.com/onsi/ginkgo/v2"

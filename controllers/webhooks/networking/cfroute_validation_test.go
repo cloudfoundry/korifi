@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"strings"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/networking/fake"
+	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/networking/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -442,9 +442,7 @@ var _ = Describe("CF Route Validation", func() {
 		})
 
 		When("there is an issue decoding the request", func() {
-			var (
-				badRequestResponse admission.Response
-			)
+			var badRequestResponse admission.Response
 
 			JustBeforeEach(func() {
 				badRequest := admission.Request{

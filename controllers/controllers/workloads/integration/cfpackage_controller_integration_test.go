@@ -3,8 +3,8 @@ package integration_test
 import (
 	"context"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 

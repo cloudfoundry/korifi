@@ -1,4 +1,4 @@
-module code.cloudfoundry.org/cf-k8s-controllers
+module code.cloudfoundry.org/korifi
 
 go 1.18
 

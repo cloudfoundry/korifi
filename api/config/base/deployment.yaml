@@ -2,35 +2,35 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: cf-k8s-api
+    app: korifi-api
   name: deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cf-k8s-api
+      app: korifi-api
   strategy: {}
   template:
     metadata:
       labels:
-        app: cf-k8s-api
+        app: korifi-api
     spec:
       serviceAccountName: cf-admin-serviceaccount
       containers:
-      - image: cloudfoundry/cf-k8s-api:latest
-        name: cf-k8s-api
+      - image: cloudfoundry/korifi-api:latest
+        name: korifi-api
         ports:
         - containerPort: 9000
           name: web
         resources: {}
         env:
         - name: APICONFIG
-          value: "/etc/cf-k8s-api-config"
+          value: "/etc/korifi-api-config"
         volumeMounts:
-        - name: &configname cf-k8s-api-config
-          mountPath: /etc/cf-k8s-api-config
+        - name: &configname korifi-api-config
+          mountPath: /etc/korifi-api-config
           readOnly: true
       volumes:
       - name: *configname
         configMap:
-          name: cf-k8s-api-config
+          name: korifi-api-config

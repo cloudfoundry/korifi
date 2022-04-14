@@ -1,6 +1,6 @@
 # Image URL to use all building/pushing image targets
-IMG_CONTROLLERS ?= cloudfoundry/cf-k8s-controllers:latest
-IMG_API ?= cloudfoundry/cf-k8s-api:latest
+IMG_CONTROLLERS ?= cloudfoundry/korifi-controllers:latest
+IMG_API ?= cloudfoundry/korifi-api:latest
 CRD_OPTIONS ?= "crd"
 
 # Run controllers tests with two nodes by default to (potentially) minimise
@@ -165,13 +165,13 @@ undeploy-api: ## Undeploy api from the K8s cluster specified in ~/.kube/config.
 
 build-reference: build-reference-controllers build-reference-api
 
-build-reference-controllers: manifests-controllers install-kustomize ## Generate reference yaml and output to ./reference/cf-k8s-controllers.yaml
-	cd controllers/config/manager && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-controllers=${IMG_CONTROLLERS}
-	$(KUSTOMIZE) build controllers/config/default -o controllers/reference/cf-k8s-controllers.yaml
+build-reference-controllers: manifests-controllers install-kustomize ## Generate reference yaml and output to ./reference/korifi-controllers.yaml
+	cd controllers/config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-controllers=${IMG_CONTROLLERS}
+	$(KUSTOMIZE) build controllers/config/default -o controllers/reference/korifi-controllers.yaml
 
 build-reference-api: manifests-api install-kustomize
-	cd api/config/base && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-api=${IMG_API}
-	$(KUSTOMIZE) build api/config/base -o api/reference/cf-k8s-api.yaml
+	cd api/config/base && $(KUSTOMIZE) edit set image cloudfoundry/korifi-api=${IMG_API}
+	$(KUSTOMIZE) build api/config/base -o api/reference/korifi-api.yaml
 
 CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.

@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"strings"
 
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	. "code.cloudfoundry.org/korifi/api/apis"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

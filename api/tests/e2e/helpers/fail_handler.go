@@ -33,13 +33,13 @@ func E2EFailHandler(message string, callerSkip ...int) {
 
 	printPodsLogs(clientset, []podContainerDescriptor{
 		{
-			Namespace:  "cf-k8s-api-system",
+			Namespace:  "korifi-api-system",
 			LabelKey:   "app",
-			LabelValue: "cf-k8s-api",
-			Container:  "cf-k8s-api",
+			LabelValue: "korifi-api",
+			Container:  "korifi-api",
 		},
 		{
-			Namespace:  "cf-k8s-controllers-system",
+			Namespace:  "korifi-controllers-system",
 			LabelKey:   "control-plane",
 			LabelValue: "controller-manager",
 			Container:  "manager",

@@ -1,4 +1,4 @@
-![Build Status](https://github.com/cloudfoundry/cf-k8s-controllers/actions/workflows/test-build-push-main.yml/badge.svg) [![Maintainability](https://api.codeclimate.com/v1/badges/f8dff20cd9bab4fb4117/maintainability)](https://codeclimate.com/github/cloudfoundry/cf-k8s-controllers/maintainability) [![Test Coverage](https://api.codeclimate.com/v1/badges/f8dff20cd9bab4fb4117/test_coverage)](https://codeclimate.com/github/cloudfoundry/cf-k8s-controllers/test_coverage)
+![Build Status](https://github.com/cloudfoundry/korifi/actions/workflows/test-build-push-main.yml/badge.svg) [![Maintainability](https://api.codeclimate.com/v1/badges/f8dff20cd9bab4fb4117/maintainability)](https://codeclimate.com/github/cloudfoundry/korifi/maintainability) [![Test Coverage](https://api.codeclimate.com/v1/badges/f8dff20cd9bab4fb4117/test_coverage)](https://codeclimate.com/github/cloudfoundry/korifi/test_coverage)
 
 # Introduction
 This repository contains an experimental implementation of the [V3 Cloud Foundry API](http://v3-apidocs.cloudfoundry.org) that is backed entirely by Kubernetes [custom resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/).
@@ -17,13 +17,13 @@ Before installing, ensure that you have the following:
 - A cloned copy of this repository:
   ```sh
   cd ~/workspace
-  git clone git@github.com:cloudfoundry/cf-k8s-controllers.git
-  cd cf-k8s-controllers
+  git clone git@github.com:cloudfoundry/korifi.git
+  cd korifi
   ```
 
 # Dependencies
 ## Install Cert-Manager
-To deploy cf-k8s-controller and run it in a cluster, you must first [install cert-manager](https://cert-manager.io/docs/installation/).
+To deploy Korifi and run it in a cluster, you must first [install cert-manager](https://cert-manager.io/docs/installation/).
 ```sh
 kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
 ```
@@ -33,7 +33,7 @@ kubectl apply -f dependencies/cert-manager.yaml
 ```
 ---
 ## Install Kpack
-To deploy cf-k8s-controller and run it in a cluster, you must first [install kpack](https://github.com/pivotal/kpack/blob/main/docs/install.md).
+To deploy Korifi and run it in a cluster, you must first [install kpack](https://github.com/pivotal/kpack/blob/main/docs/install.md).
 ```sh
 kubectl apply -f https://github.com/pivotal/kpack/releases/download/v0.5.2/release-0.5.2.yaml
 ```
@@ -63,7 +63,7 @@ kubectl apply -f dependencies/kpack/service_account.yaml \
 > note: Edit `cluster_builder.yaml` to specify an image tag that you have write access to using the credentials above.
 ---
 ## Install Contour and Envoy
-To deploy cf-k8s-controller and run it in a cluster, you must first [install contour](https://projectcontour.io/getting-started/).
+To deploy Korifi and run it in a cluster, you must first [install contour](https://projectcontour.io/getting-started/).
 ```sh
 kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
 ```
@@ -85,7 +85,7 @@ To be able to create workload routes via the CF API in the absence of the domain
 ### Configuring Default Domain
 
 At the time of installation, platform operators can configure a default domain so that app developers can push an application without specifying domain information. 
-Operator can do so by setting the `defaultDomainName` at `api/config/base/apiconfig/cf_k8s_api_config.yaml`. The value should match `spec.name` on the `CFDomain` resource.
+Operator can do so by setting the `defaultDomainName` at `api/config/base/apiconfig/korifi_api_config.yaml`. The value should match `spec.name` on the `CFDomain` resource.
 
 Note: Platform operators are responsible for creating the required `CFDomain` resource. See `controllers/config/samples/cfdomain.yaml` for an example.
 
@@ -167,7 +167,7 @@ kubectl hns config set-resource secrets --mode Propagate
 ## Optional: Install Service Bindings Controller
 
 Cloud Native Buildpacks and other app frameworks (such as [Spring Cloud Bindings](https://github.com/spring-cloud/spring-cloud-bindings)) are adopting the [K8s ServiceBinding spec](https://github.com/servicebinding/spec#workload-projection) model of volume mounted secrets. 
-We currently are providing apps access to these via the `VCAP_SERVICES` environment variable ([see this issue](https://github.com/cloudfoundry/cf-k8s-controllers/issues/462)) for backwards compatibility reasons.
+We currently are providing apps access to these via the `VCAP_SERVICES` environment variable ([see this issue](https://github.com/cloudfoundry/korifi/issues/462)) for backwards compatibility reasons.
 We would also want to support the newer developments in the ServiceBinding ecosystem as well.
 
 We are not implementing this ourselves but allowing controller that adopts the [ServiceBinding Spec](https://github.com/servicebinding/spec) that volume mounts secrets to workload containers to be used. 
@@ -181,26 +181,26 @@ kubectl apply -f https://github.com/vmware-tanzu/servicebinding/releases/downloa
 # Installation
 
 ## Create the root namespace
-Create your root namespace. The default name is `cf`, but you can override this in the configuration files for cf-k8s-controller and cf-k8s-api (see below).
+Create your root namespace. The default name is `cf`, but you can override this in the configuration files for korifi-controllers and korifi-api (see below).
 
 Example: `kubectl create namespace cf`
 
-## Configure cf-k8s-controllers
-Configuration file for cf-k8s-controllers is at `controllers/config/base/controllersconfig/cf_k8s_controllers_config.yaml`
+## Configure korifi-controllers
+Configuration file for korifi-controllers is at `controllers/config/base/controllersconfig/korifi_controllers_config.yaml`
 
 ### Configure kpack
 Edit the configuration file
 - (required) set the `kpackImageTag` to be the registry location you want for storing the images.
 - (optional) set the `clusterBuilderName`, if you want to use a different cluster builder with kpack.
 
-## Configure cf-k8s-api
-Configuration file for cf-k8s-api is at `api/config/base/apiconfig/cf_k8s_api_config.yaml`
+## Configure korifi-api
+Configuration file for korifi-api is at `api/config/base/apiconfig/korifi_api_config.yaml`
 
-Edit the file `api/config/base/apiconfig/cf_k8s_api_config.yaml` and set the `packageRegistryBase` field to be the registry location to which you want your source package image uploaded.
+Edit the file `api/config/base/apiconfig/korifi_api_config.yaml` and set the `packageRegistryBase` field to be the registry location to which you want your source package image uploaded.
 Edit the file `api/config/base/api_url_patch.yaml` to specify the desired URL for the deployed API.
 
-## Install cf-k8s-controllers and cf-k8s-api
-From the `cf-k8s-controllers` directory use the Makefile to deploy the controllers and API shim:
+## Install korifi-controllers and korifi-api
+From the `korifi` directory use the Makefile to deploy the controllers and API shim:
 ```
 make deploy
 ```
@@ -209,9 +209,9 @@ make deploy
 
 ### Create a role binding for your cluster admin user
 To grant your kubernetes user admin-level access to the Cloud Foundry API,
-they need the `cf-k8s-controllers-admin` role binding in your root namespace (i.e `cf`).
+they need the `korifi-controllers-admin` role binding in your root namespace (i.e `cf`).
 
-Example: `kubectl create rolebinding default-admin-binding -n cf --role cf-k8s-controllers-admin --user <YOUR USER>`
+Example: `kubectl create rolebinding default-admin-binding -n cf --role korifi-controllers-admin --user <YOUR USER>`
 
 ### Configure Image Registry Credentials Secret
 Run the command below, substituting the values for the Docker credentials to the registry where source package images will be uploaded to.
@@ -220,7 +220,7 @@ Run the command below, substituting the values for the Docker credentials to the
 kubectl create secret docker-registry image-registry-secret \
   --docker-username="<DOCKER_USERNAME>" \
   --docker-password="<DOCKER_PASSWORD>" \
-  --docker-server="<DOCKER_SERVER>" --namespace cf-k8s-api-system
+  --docker-server="<DOCKER_SERVER>" --namespace korifi-api-system
 ```
 
 ### Configure API Ingress TLS Certificate Secret
@@ -242,13 +242,13 @@ openssl req -x509 -newkey rsa:4096 \
   -days 365
 ```
 
-Create a TLS secret called `cf-k8s-api-ingress-cert` using the self-signed
+Create a TLS secret called `korifi-api-ingress-cert` using the self-signed
 certificate generated above, or from your own existing certificate:
 ```
 kubectl create secret tls \
-  cf-k8s-api-ingress-cert \
+  korifi-api-ingress-cert \
   --cert=./tls.crt --key=./tls.key \
-  -n cf-k8s-api-system
+  -n korifi-api-system
 ```
 
 **NOTE**: If you choose to generate a self-signed certificate, you will need to
@@ -273,13 +273,13 @@ openssl req -x509 -newkey rsa:4096 \
   -days 365
 ```
 
-Create a TLS secret called `cf-k8s-workloads-ingress-cert` using the self-signed
+Create a TLS secret called `korifi-workloads-ingress-cert` using the self-signed
 certificate generated above, or from your own existing certificate:
 ```
 kubectl create secret tls \
-  cf-k8s-workloads-ingress-cert \
+  korifi-workloads-ingress-cert \
   --cert=./tls.crt --key=./tls.key \
-  -n cf-k8s-controllers-system
+  -n korifi-controllers-system
 ```
 
 **NOTE**: If you choose to generate a self-signed certificate, you will need to
@@ -351,8 +351,8 @@ scripts/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
 ## Build, Install and Deploy to a K8s cluster
 Set the $IMG_CONTROLLERS and $IMG_API environment variables to locations where you have push/pull access. For example:
 ```sh
-export IMG_CONTROLLERS=foo/cf-k8s-controllers:bar #Replace this with your image ref
-export IMG_API=foo/cf-k8s-api:bar #Replace this with your image ref
+export IMG_CONTROLLERS=foo/korifi-controllers:bar #Replace this with your image ref
+export IMG_API=foo/korifi-api:bar #Replace this with your image ref
 make generate-controllers docker-build docker-push deploy
 ```
 *This will generate the CRD bases, build and push images with the repository and tags specified by the environment variables, install CRDs and deploy the controller manager and API Shim.*
@@ -379,15 +379,15 @@ make run-controllers
 make run-api
 ```
 
-To specify a custom configuration file, set the `APICONFIG` environment variable to its path when running the web server. Refer to the [default config](api/config/base/apiconfig/cf_k8s_api_config.yaml) for the config file structure and options.
+To specify a custom configuration file, set the `APICONFIG` environment variable to its path when running the web server. Refer to the [default config](api/config/base/apiconfig/korifi_api_config.yaml) for the config file structure and options.
 
 ### Set image respository and tag for controller manager
 ```sh
-export IMG_CONTROLLERS=foo/cf-k8s-controllers:bar #Replace this with your image ref
+export IMG_CONTROLLERS=foo/korifi-controllers:bar #Replace this with your image ref
 ```
 ### Set image respository and tag for API
 ```sh
-export IMG_API=foo/cf-k8s-api:bar #Replace this with your image ref
+export IMG_API=foo/korifi-api:bar #Replace this with your image ref
 ```
 ### Generate CRD bases
 ```sh

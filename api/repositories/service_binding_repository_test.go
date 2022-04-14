@@ -3,9 +3,9 @@ package repositories_test
 import (
 	"context"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	"code.cloudfoundry.org/cf-k8s-controllers/tests/matchers"
+	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,9 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 )
 
 var _ = Describe("ServiceBindingRepo", func() {

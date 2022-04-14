@@ -3,7 +3,7 @@ package webhooks_test
 import (
 	"errors"
 
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+	. "code.cloudfoundry.org/korifi/controllers/webhooks"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

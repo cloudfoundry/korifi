@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 
 	"github.com/buildpacks/lifecycle/launch"
 	"github.com/buildpacks/lifecycle/platform"
