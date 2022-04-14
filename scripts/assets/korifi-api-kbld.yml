@@ -1,0 +1,12 @@
+---
+apiVersion: kbld.k14s.io/v1alpha1
+kind: Config
+sources:
+- image: cloudfoundry/korifi-api:latest
+  path: .
+  kubectlBuildkit:
+    build:
+      file: api/Dockerfile
+destinations:
+- image: cloudfoundry/korifi-api:latest
+  newImage: europe-west1-docker.pkg.dev/cf-on-k8s-wg/ci/korifi-api

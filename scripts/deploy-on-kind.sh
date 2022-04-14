@@ -230,7 +230,7 @@ function install_dependencies() {
       export DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
       export DOCKER_USERNAME="whatevs"
       export DOCKER_PASSWORD="whatevs"
-      export KPACK_TAG="localregistry-docker-registry.default.svc.cluster.local:30050/cf-relint-greengrass/cf-k8s-controllers/kpack/beta"
+      export KPACK_TAG="localregistry-docker-registry.default.svc.cluster.local:30050/cf-relint-greengrass/korifi/kpack/beta"
     fi
 
     "${SCRIPT_DIR}/install-dependencies.sh"
@@ -246,7 +246,7 @@ function install_dependencies() {
   popd >/dev/null
 }
 
-function deploy_cf_k8s_controllers() {
+function deploy_korifi_controllers() {
   if [[ -n "${api_only}" ]]; then return 0; fi
 
   pushd "${ROOT_DIR}" >/dev/null
@@ -254,7 +254,7 @@ function deploy_cf_k8s_controllers() {
     export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
     echo "${PWD}"
     make generate-controllers
-    IMG_CONTROLLERS=${IMG_CONTROLLERS:-"cf-k8s-controllers:$(uuidgen)"}
+    IMG_CONTROLLERS=${IMG_CONTROLLERS:-"korifi-controllers:$(uuidgen)"}
     export IMG_CONTROLLERS
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
       if [[ -z "${controllers_debug}" ]]; then
@@ -276,23 +276,23 @@ function deploy_cf_k8s_controllers() {
       make deploy-controllers
     fi
 
-    create_tls_secret "cf-k8s-workloads-ingress-cert" "cf-k8s-controllers-system" "*.vcap.me"
+    create_tls_secret "korifi-workloads-ingress-cert" "korifi-controllers-system" "*.vcap.me"
   }
   popd >/dev/null
 
-  kubectl rollout status deployment/cf-k8s-controllers-controller-manager -w -n cf-k8s-controllers-system
+  kubectl rollout status deployment/korifi-controllers-controller-manager -w -n korifi-controllers-system
 
   if [[ -n "${default_domain}" ]]; then
     sed 's/vcap\.me/'${APP_FQDN:-vcap.me}'/' ${CONTROLLER_DIR}/config/samples/cfdomain.yaml | kubectl apply -f-
   fi
 }
 
-function deploy_cf_k8s_api() {
+function deploy_korifi_api() {
   if [[ -n "${controllers_only}" ]]; then return 0; fi
 
   pushd "${ROOT_DIR}" >/dev/null
   {
-    IMG_API=${IMG_API:-"cf-k8s-api:$(uuidgen)"}
+    IMG_API=${IMG_API:-"korifi-api:$(uuidgen)"}
     export IMG_API
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
       make docker-build-api
@@ -305,7 +305,7 @@ function deploy_cf_k8s_api() {
       make deploy-api-kind
     fi
 
-    create_tls_secret "cf-k8s-api-ingress-cert" "cf-k8s-api-system" "localhost"
+    create_tls_secret "korifi-api-ingress-cert" "korifi-api-system" "localhost"
   }
   popd >/dev/null
 }
@@ -313,5 +313,5 @@ function deploy_cf_k8s_api() {
 ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
-deploy_cf_k8s_controllers
-deploy_cf_k8s_api
+deploy_korifi_controllers
+deploy_korifi_api

@@ -11,8 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/coordination/fake"
+	"code.cloudfoundry.org/korifi/controllers/coordination"
+	"code.cloudfoundry.org/korifi/controllers/coordination/fake"
 )
 
 var _ = Describe("NameRegistry", func() {

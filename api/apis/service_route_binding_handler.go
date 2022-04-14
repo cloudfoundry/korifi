@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/presenter"
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"

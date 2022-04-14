@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/services"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	. "github.com/onsi/gomega/gstruct"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"

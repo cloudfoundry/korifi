@@ -3,8 +3,8 @@ package repositories_test
 import (
 	"context"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/repositories"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

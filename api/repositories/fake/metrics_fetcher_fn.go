@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 )
 

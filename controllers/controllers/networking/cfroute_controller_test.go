@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking/fake"
+	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/networking"
+	"code.cloudfoundry.org/korifi/controllers/controllers/networking/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,16 +27,16 @@ import (
 )
 
 const (
-	testNamespace            = "test-ns"
-	testDomainGUID           = "test-domain-guid"
-	testDomainName           = "test.domain.name"
-	testRouteGUID            = "test-route-guid"
-	testRouteHost            = "test-route-host"
-	testRouteDestinationGUID = "test-route-destination-guid"
-	testFQDN                 = testRouteHost + "." + testDomainName
-	testServiceGUID          = "s-" + testRouteDestinationGUID
-	routeGUIDLabelKey        = "networking.cloudfoundry.org/route-guid"
-	cfK8sControllerNamespace = "cf-k8s-controllers-system"
+	testNamespace             = "test-ns"
+	testDomainGUID            = "test-domain-guid"
+	testDomainName            = "test.domain.name"
+	testRouteGUID             = "test-route-guid"
+	testRouteHost             = "test-route-host"
+	testRouteDestinationGUID  = "test-route-destination-guid"
+	testFQDN                  = testRouteHost + "." + testDomainName
+	testServiceGUID           = "s-" + testRouteDestinationGUID
+	routeGUIDLabelKey         = "networking.cloudfoundry.org/route-guid"
+	korifiControllerNamespace = "korifi-controllers-system"
 )
 
 var _ = Describe("CFRouteReconciler.Reconcile", func() {
@@ -233,7 +233,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 			Scheme: scheme.Scheme,
 			Log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
 			ControllerConfig: &config.ControllerConfig{
-				CFK8sControllerNamespace: cfK8sControllerNamespace,
+				KorifiControllerNamespace: korifiControllerNamespace,
 			},
 		}
 
@@ -318,7 +318,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					Expect(fqdnProxy).NotTo(BeNil())
 
 					Expect(fqdnProxy.Spec.VirtualHost.TLS).To(PointTo(Equal(contourv1.TLS{
-						SecretName: cfK8sControllerNamespace + "/the-tls-secret",
+						SecretName: korifiControllerNamespace + "/the-tls-secret",
 					})))
 				})
 			})

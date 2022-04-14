@@ -1,19 +1,19 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: cf-k8s-api-system
+  name: korifi-api-system
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cf-k8s-api-cf-admin-serviceaccount
-  namespace: cf-k8s-api-system
+  name: korifi-api-cf-admin-serviceaccount
+  namespace: korifi-api-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: cf-k8s-api-cf-admin-clusterrole
+  name: korifi-api-cf-admin-clusterrole
 rules:
 - apiGroups:
   - ""
@@ -246,19 +246,19 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: cf-k8s-api-cf-admin-clusterrolebinding
+  name: korifi-api-cf-admin-clusterrolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cf-k8s-api-cf-admin-clusterrole
+  name: korifi-api-cf-admin-clusterrole
 subjects:
 - kind: ServiceAccount
-  name: cf-k8s-api-cf-admin-serviceaccount
-  namespace: cf-k8s-api-system
+  name: korifi-api-cf-admin-serviceaccount
+  namespace: korifi-api-system
 ---
 apiVersion: v1
 data:
-  cf_k8s_api_config.yaml: |
+  korifi_api_config.yaml: |
     externalFQDN: "api.example.org"
     internalPort: 9000
 
@@ -268,60 +268,60 @@ data:
       stack: cflinuxfs3
       stagingMemoryMB: 1024
       stagingDiskMB: 1024
-    packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
+    packageRegistryBase: gcr.io/cf-relint-greengrass/korifi-controllers/kpack/beta
     packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
     clusterBuilderName: cf-kpack-cluster-builder
     defaultDomainName: apps.example.org
   role_mappings_config.yaml: |
     roleMappings:
       admin:
-        name: cf-k8s-controllers-admin
+        name: korifi-admin
         propagate: true
       admin_read_only:
-        name: cf-k8s-controllers-admin-read-only
+        name: korifi-admin-read-only
         propagate: true
       cf_user:
-        name: cf-k8s-controllers-root-namespace-user
+        name: korifi-root-namespace-user
         propagate: false
       global_auditor:
-        name: cf-k8s-controllers-global-auditor
+        name: korifi-global-auditor
         propagate: true
       organization_auditor:
-        name: cf-k8s-controllers-organization-auditor
+        name: korifi-organization-auditor
         propagate: false
       organization_billing_manager:
-        name: cf-k8s-controllers-organization-billing-manager
+        name: korifi-organization-billing-manager
         propagate: false
       organization_manager:
-        name: cf-k8s-controllers-organization-manager
+        name: korifi-organization-manager
         propagate: true
       organization_user:
-        name: cf-k8s-controllers-organization-user
+        name: korifi-organization-user
         propagate: false
       space_auditor:
-        name: cf-k8s-controllers-space-auditor
+        name: korifi-space-auditor
         propagate: false
       space_developer:
-        name: cf-k8s-controllers-space-developer
+        name: korifi-space-developer
         propagate: false
       space_manager:
-        name: cf-k8s-controllers-space-manager
+        name: korifi-space-manager
         propagate: false
       space_supporter:
-        name: cf-k8s-controllers-space-supporter
+        name: korifi-space-supporter
         propagate: false
 kind: ConfigMap
 metadata:
-  name: cf-k8s-api-config-446hhfhb5b
-  namespace: cf-k8s-api-system
+  name: korifi-api-config-c59c2cm5m6
+  namespace: korifi-api-system
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: cf-k8s-api
-  name: cf-k8s-api-svc
-  namespace: cf-k8s-api-system
+    app: korifi-api
+  name: korifi-api-svc
+  namespace: korifi-api-system
 spec:
   ports:
   - name: web
@@ -329,64 +329,64 @@ spec:
     protocol: TCP
     targetPort: web
   selector:
-    app: cf-k8s-api
+    app: korifi-api
   type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: cf-k8s-api
-  name: cf-k8s-api-deployment
-  namespace: cf-k8s-api-system
+    app: korifi-api
+  name: korifi-api-deployment
+  namespace: korifi-api-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cf-k8s-api
+      app: korifi-api
   strategy: {}
   template:
     metadata:
       labels:
-        app: cf-k8s-api
+        app: korifi-api
     spec:
       containers:
       - env:
         - name: APICONFIG
-          value: /etc/cf-k8s-api-config
-        image: cloudfoundry/cf-k8s-api:latest
-        name: cf-k8s-api
+          value: /etc/korifi-api-config
+        image: cloudfoundry/korifi-api:latest
+        name: korifi-api
         ports:
         - containerPort: 9000
           name: web
         resources: {}
         volumeMounts:
-        - mountPath: /etc/cf-k8s-api-config
-          name: cf-k8s-api-config
+        - mountPath: /etc/korifi-api-config
+          name: korifi-api-config
           readOnly: true
-      serviceAccountName: cf-k8s-api-cf-admin-serviceaccount
+      serviceAccountName: korifi-api-cf-admin-serviceaccount
       volumes:
       - configMap:
-          name: cf-k8s-api-config-446hhfhb5b
-        name: cf-k8s-api-config
+          name: korifi-api-config-c59c2cm5m6
+        name: korifi-api-config
 ---
 apiVersion: projectcontour.io/v1
 kind: HTTPProxy
 metadata:
   labels:
-    app: cf-k8s-api
-  name: cf-k8s-api-proxy
-  namespace: cf-k8s-api-system
+    app: korifi-api
+  name: korifi-api-proxy
+  namespace: korifi-api-system
 spec:
   routes:
   - conditions:
     - prefix: /
     services:
-    - name: cf-k8s-api-svc
+    - name: korifi-api-svc
       port: 443
     timeoutPolicy:
       response: 5m
   virtualhost:
     fqdn: ""
     tls:
-      secretName: cf-k8s-api-ingress-cert
+      secretName: korifi-api-ingress-cert

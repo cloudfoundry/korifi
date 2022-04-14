@@ -3,7 +3,7 @@ generatorOptions:
 
 configMapGenerator:
   - files:
-      - controllersconfig/cf_k8s_controllers_config.yaml
+      - controllersconfig/korifi_controllers_config.yaml
     name: config
 
 resources:

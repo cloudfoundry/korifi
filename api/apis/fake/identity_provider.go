@@ -5,8 +5,8 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/korifi/api/apis"
+	"code.cloudfoundry.org/korifi/api/authorization"
 )
 
 type IdentityProvider struct {

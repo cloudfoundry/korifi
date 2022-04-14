@@ -3,13 +3,13 @@ kind: Namespace
 metadata:
   labels:
     control-plane: controller-manager
-  name: cf-k8s-controllers-system
+  name: korifi-controllers-system
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
     controller-gen.kubebuilder.io/version: v0.8.0
   name: cfapps.workloads.cloudfoundry.org
 spec:
@@ -18,8 +18,8 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: cf-k8s-controllers-webhook-service
-          namespace: cf-k8s-controllers-system
+          name: korifi-controllers-webhook-service
+          namespace: korifi-controllers-system
           path: /convert
       conversionReviewVersions:
       - v1
@@ -206,7 +206,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
     controller-gen.kubebuilder.io/version: v0.8.0
   name: cfbuilds.workloads.cloudfoundry.org
 spec:
@@ -215,8 +215,8 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: cf-k8s-controllers-webhook-service
-          namespace: cf-k8s-controllers-system
+          name: korifi-controllers-webhook-service
+          namespace: korifi-controllers-system
           path: /convert
       conversionReviewVersions:
       - v1
@@ -454,7 +454,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
     controller-gen.kubebuilder.io/version: v0.8.0
   name: cfdomains.networking.cloudfoundry.org
 spec:
@@ -463,8 +463,8 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: cf-k8s-controllers-webhook-service
-          namespace: cf-k8s-controllers-system
+          name: korifi-controllers-webhook-service
+          namespace: korifi-controllers-system
           path: /convert
       conversionReviewVersions:
       - v1
@@ -662,7 +662,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
     controller-gen.kubebuilder.io/version: v0.8.0
   name: cfpackages.workloads.cloudfoundry.org
 spec:
@@ -671,8 +671,8 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: cf-k8s-controllers-webhook-service
-          namespace: cf-k8s-controllers-system
+          name: korifi-controllers-webhook-service
+          namespace: korifi-controllers-system
           path: /convert
       conversionReviewVersions:
       - v1
@@ -843,7 +843,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
     controller-gen.kubebuilder.io/version: v0.8.0
   name: cfprocesses.workloads.cloudfoundry.org
 spec:
@@ -852,8 +852,8 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: cf-k8s-controllers-webhook-service
-          namespace: cf-k8s-controllers-system
+          name: korifi-controllers-webhook-service
+          namespace: korifi-controllers-system
           path: /convert
       conversionReviewVersions:
       - v1
@@ -1057,7 +1057,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
+    cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
     controller-gen.kubebuilder.io/version: v0.8.0
   name: cfroutes.networking.cloudfoundry.org
 spec:
@@ -1066,8 +1066,8 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: cf-k8s-controllers-webhook-service
-          namespace: cf-k8s-controllers-system
+          name: korifi-controllers-webhook-service
+          namespace: korifi-controllers-system
           path: /convert
       conversionReviewVersions:
       - v1
@@ -1821,14 +1821,14 @@ status:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cf-k8s-controllers-controller-manager
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-controller-manager
+  namespace: korifi-controllers-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: cf-k8s-controllers-leader-election-role
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-leader-election-role
+  namespace: korifi-controllers-system
 rules:
 - apiGroups:
   - ""
@@ -1865,7 +1865,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cf-k8s-controllers-admin
+  name: korifi-controllers-admin
 rules:
 - apiGroups:
   - ""
@@ -1995,7 +1995,7 @@ kind: ClusterRole
 metadata:
   labels:
     servicebinding.io/controller: "true"
-  name: cf-k8s-controllers-cfservicebinding-reconciler-role
+  name: korifi-controllers-cfservicebinding-reconciler-role
 rules:
 - apiGroups:
   - services.cloudfoundry.org
@@ -2012,7 +2012,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: cf-k8s-controllers-manager-role
+  name: korifi-controllers-manager-role
 rules:
 - apiGroups:
   - ""
@@ -2424,7 +2424,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cf-k8s-controllers-metrics-reader
+  name: korifi-controllers-metrics-reader
 rules:
 - nonResourceURLs:
   - /metrics
@@ -2434,19 +2434,19 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cf-k8s-controllers-organization-manager
+  name: korifi-controllers-organization-manager
 rules: []
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cf-k8s-controllers-organization-user
+  name: korifi-controllers-organization-user
 rules: []
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cf-k8s-controllers-proxy-role
+  name: korifi-controllers-proxy-role
 rules:
 - apiGroups:
   - authentication.k8s.io
@@ -2466,7 +2466,7 @@ kind: ClusterRole
 metadata:
   annotations:
     hncv1alpha2.AnnotationNoneSelector: "true"
-  name: cf-k8s-controllers-root-namespace-user
+  name: korifi-controllers-root-namespace-user
 rules:
 - apiGroups:
   - networking.cloudfoundry.org
@@ -2479,7 +2479,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cf-k8s-controllers-space-auditor
+  name: korifi-controllers-space-auditor
 rules:
 - apiGroups:
   - workloads.cloudfoundry.org
@@ -2498,7 +2498,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cf-k8s-controllers-space-developer
+  name: korifi-controllers-space-developer
 rules:
 - apiGroups:
   - ""
@@ -2588,7 +2588,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cf-k8s-controllers-space-manager
+  name: korifi-controllers-space-manager
 rules:
 - apiGroups:
   - workloads.cloudfoundry.org
@@ -2643,58 +2643,58 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: cf-k8s-controllers-leader-election-rolebinding
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-leader-election-rolebinding
+  namespace: korifi-controllers-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: cf-k8s-controllers-leader-election-role
+  name: korifi-controllers-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: cf-k8s-controllers-controller-manager
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-controller-manager
+  namespace: korifi-controllers-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: cf-k8s-controllers-manager-rolebinding
+  name: korifi-controllers-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cf-k8s-controllers-manager-role
+  name: korifi-controllers-manager-role
 subjects:
 - kind: ServiceAccount
-  name: cf-k8s-controllers-controller-manager
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-controller-manager
+  namespace: korifi-controllers-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: cf-k8s-controllers-proxy-rolebinding
+  name: korifi-controllers-proxy-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cf-k8s-controllers-proxy-role
+  name: korifi-controllers-proxy-role
 subjects:
 - kind: ServiceAccount
-  name: cf-k8s-controllers-controller-manager
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-controller-manager
+  namespace: korifi-controllers-system
 ---
 apiVersion: v1
 data:
-  cf_k8s_controllers_config.yaml: |
-    kpackImageTag: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
+  korifi_controllers_config.yaml: |
+    kpackImageTag: gcr.io/cf-relint-greengrass/korifi-controllers/kpack/beta
     clusterBuilderName: cf-kpack-cluster-builder
     cfProcessDefaults:
       memoryMB: 1024
       diskQuotaMB: 1024
     cfRootNamespace: cf
-    cfk8s_controller_namespace: cf-k8s-controllers-system
-    workloads_tls_secret_name: cf-k8s-workloads-ingress-cert
+    korifi_controller_namespace: korifi-controllers-system
+    workloads_tls_secret_name: korifi-workloads-ingress-cert
 kind: ConfigMap
 metadata:
-  name: cf-k8s-controllers-config
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-config
+  namespace: korifi-controllers-system
 ---
 apiVersion: v1
 data:
@@ -2712,16 +2712,16 @@ data:
       resourceName: 13c200ec.cloudfoundry.org
 kind: ConfigMap
 metadata:
-  name: cf-k8s-controllers-manager-config
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-manager-config
+  namespace: korifi-controllers-system
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
     control-plane: controller-manager
-  name: cf-k8s-controllers-controller-manager-metrics-service
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-controller-manager-metrics-service
+  namespace: korifi-controllers-system
 spec:
   ports:
   - name: https
@@ -2733,8 +2733,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: cf-k8s-controllers-webhook-service
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-webhook-service
+  namespace: korifi-controllers-system
 spec:
   ports:
   - port: 443
@@ -2747,8 +2747,8 @@ kind: Deployment
 metadata:
   labels:
     control-plane: controller-manager
-  name: cf-k8s-controllers-controller-manager
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-controller-manager
+  namespace: korifi-controllers-system
 spec:
   replicas: 1
   selector:
@@ -2766,8 +2766,8 @@ spec:
         - --leader-elect
         env:
         - name: CONTROLLERSCONFIG
-          value: /etc/cf-k8s-controllers-config
-        image: cloudfoundry/cf-k8s-controllers:latest
+          value: /etc/korifi-controllers-config
+        image: cloudfoundry/korifi-controllers:latest
         livenessProbe:
           httpGet:
             path: /healthz
@@ -2798,8 +2798,8 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
-        - mountPath: /etc/cf-k8s-controllers-config
-          name: cf-k8s-controllers-config
+        - mountPath: /etc/korifi-controllers-config
+          name: korifi-controllers-config
           readOnly: true
       - args:
         - --secure-listen-address=0.0.0.0:8443
@@ -2813,7 +2813,7 @@ spec:
           name: https
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: cf-k8s-controllers-controller-manager
+      serviceAccountName: korifi-controllers-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
       - name: cert
@@ -2821,39 +2821,39 @@ spec:
           defaultMode: 420
           secretName: webhook-server-cert
       - configMap:
-          name: cf-k8s-controllers-config
-        name: cf-k8s-controllers-config
+          name: korifi-controllers-config
+        name: korifi-controllers-config
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: cf-k8s-controllers-serving-cert
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-serving-cert
+  namespace: korifi-controllers-system
 spec:
   dnsNames:
-  - cf-k8s-controllers-webhook-service.cf-k8s-controllers-system.svc
-  - cf-k8s-controllers-webhook-service.cf-k8s-controllers-system.svc.cluster.local
+  - korifi-controllers-webhook-service.korifi-controllers-system.svc
+  - korifi-controllers-webhook-service.korifi-controllers-system.svc.cluster.local
   issuerRef:
     kind: Issuer
-    name: cf-k8s-controllers-selfsigned-issuer
+    name: korifi-controllers-selfsigned-issuer
   secretName: webhook-server-cert
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: cf-k8s-controllers-selfsigned-issuer
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-selfsigned-issuer
+  namespace: korifi-controllers-system
 spec:
   selfSigned: {}
 ---
 apiVersion: projectcontour.io/v1
 kind: TLSCertificateDelegation
 metadata:
-  name: cf-k8s-controllers-workloads-fallback-delegation
-  namespace: cf-k8s-controllers-system
+  name: korifi-controllers-workloads-fallback-delegation
+  namespace: korifi-controllers-system
 spec:
   delegations:
-  - secretName: cf-k8s-workloads-ingress-cert
+  - secretName: korifi-workloads-ingress-cert
     targetNamespaces:
     - '*'
 ---
@@ -2861,16 +2861,16 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
-  name: cf-k8s-controllers-mutating-webhook-configuration
+    cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
+  name: korifi-controllers-mutating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
   - v1
   - v1beta1
   clientConfig:
     service:
-      name: cf-k8s-controllers-webhook-service
-      namespace: cf-k8s-controllers-system
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
       path: /mutate-networking-cloudfoundry-org-v1alpha1-cfroute
   failurePolicy: Fail
   name: mcfroute.networking.cloudfoundry.org
@@ -2890,8 +2890,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: cf-k8s-controllers-webhook-service
-      namespace: cf-k8s-controllers-system
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
       path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfapp
   failurePolicy: Fail
   name: mcfapp.workloads.cloudfoundry.org
@@ -2911,8 +2911,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: cf-k8s-controllers-webhook-service
-      namespace: cf-k8s-controllers-system
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
       path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfbuild
   failurePolicy: Fail
   name: mcfbuild.workloads.cloudfoundry.org
@@ -2932,8 +2932,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: cf-k8s-controllers-webhook-service
-      namespace: cf-k8s-controllers-system
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
       path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfpackage
   failurePolicy: Fail
   name: mcfpackage.workloads.cloudfoundry.org
@@ -2953,8 +2953,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: cf-k8s-controllers-webhook-service
-      namespace: cf-k8s-controllers-system
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
       path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfprocess
   failurePolicy: Fail
   name: mcfprocess.workloads.cloudfoundry.org
@@ -2974,16 +2974,16 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: cf-k8s-controllers-system/cf-k8s-controllers-serving-cert
-  name: cf-k8s-controllers-validating-webhook-configuration
+    cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
+  name: korifi-controllers-validating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
   - v1
   - v1beta1
   clientConfig:
     service:
-      name: cf-k8s-controllers-webhook-service
-      namespace: cf-k8s-controllers-system
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
       path: /validate-workloads-cloudfoundry-org-v1alpha1-cfapp
   failurePolicy: Fail
   name: vcfapp.workloads.cloudfoundry.org
@@ -3004,8 +3004,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: cf-k8s-controllers-webhook-service
-      namespace: cf-k8s-controllers-system
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
       path: /validate-hnc-x-k8s-io-v1alpha2-subnamespaceanchor
   failurePolicy: Fail
   name: vsubns.workloads.cloudfoundry.org
@@ -3025,8 +3025,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: cf-k8s-controllers-webhook-service
-      namespace: cf-k8s-controllers-system
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
       path: /validate-networking-cloudfoundry-org-v1alpha1-cfdomain
   failurePolicy: Fail
   name: vcfdomain.kb.io
@@ -3046,8 +3046,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: cf-k8s-controllers-webhook-service
-      namespace: cf-k8s-controllers-system
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
       path: /validate-networking-cloudfoundry-org-v1alpha1-cfroute
   failurePolicy: Fail
   name: vcfroute.networking.cloudfoundry.org
@@ -3068,8 +3068,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: cf-k8s-controllers-webhook-service
-      namespace: cf-k8s-controllers-system
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
       path: /validate-services-cloudfoundry-org-v1alpha1-cfserviceinstance
   failurePolicy: Fail
   name: vcfserviceinstance.services.cloudfoundry.org

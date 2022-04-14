@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/env"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/fake"
+	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
@@ -110,8 +110,8 @@ var _ = BeforeSuite(func() {
 			MemoryMB:           500,
 			DefaultDiskQuotaMB: 512,
 		},
-		CFK8sControllerNamespace: "cf-k8s-controllers-system",
-		WorkloadsTLSSecretName:   "cf-k8s-workloads-ingress-cert",
+		KorifiControllerNamespace: "korifi-controllers-system",
+		WorkloadsTLSSecretName:    "korifi-workloads-ingress-cert",
 	}
 
 	err = (&CFAppReconciler{

@@ -3,7 +3,7 @@ package presenter
 import (
 	"net/url"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
 type DropletResponse struct {

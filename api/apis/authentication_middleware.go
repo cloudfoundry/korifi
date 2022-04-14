@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/korifi/api/authorization"
 	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 )

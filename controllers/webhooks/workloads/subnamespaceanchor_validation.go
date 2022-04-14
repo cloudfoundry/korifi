@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
 	ctrl "sigs.k8s.io/controller-runtime"

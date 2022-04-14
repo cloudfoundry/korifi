@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	. "code.cloudfoundry.org/korifi/api/apis"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	. "github.com/onsi/ginkgo/v2"

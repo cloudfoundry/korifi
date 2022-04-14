@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"strings"
 
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/apis"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	. "code.cloudfoundry.org/korifi/api/apis"
+	"code.cloudfoundry.org/korifi/api/apis/fake"
+	"code.cloudfoundry.org/korifi/api/repositories"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"

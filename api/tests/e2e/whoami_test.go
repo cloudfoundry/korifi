@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/helpers"
+	"code.cloudfoundry.org/korifi/api/tests/helpers"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

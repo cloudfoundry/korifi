@@ -6,7 +6,7 @@ import (
 	"encoding/pem"
 	"fmt"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/apierrors"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"

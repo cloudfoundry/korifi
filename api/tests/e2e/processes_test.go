@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/korifi/api/presenter"
+	"code.cloudfoundry.org/korifi/api/repositories"
 
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"

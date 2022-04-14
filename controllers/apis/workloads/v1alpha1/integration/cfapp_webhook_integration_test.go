@@ -4,8 +4,8 @@ import (
 	"context"
 	"strconv"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

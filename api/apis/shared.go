@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
+	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/payloads"
 
 	"code.cloudfoundry.org/bytefmt"
 	"github.com/go-http-utils/headers"

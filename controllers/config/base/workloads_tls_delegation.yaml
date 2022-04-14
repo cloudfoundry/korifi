@@ -8,6 +8,6 @@ metadata:
   name: workloads-fallback-delegation
 spec:
   delegations:
-    - secretName: cf-k8s-workloads-ingress-cert
+    - secretName: korifi-workloads-ingress-cert
       targetNamespaces:
         - "*"

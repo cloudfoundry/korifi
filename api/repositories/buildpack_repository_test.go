@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	. "code.cloudfoundry.org/korifi/api/repositories"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

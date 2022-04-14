@@ -7,7 +7,7 @@ defaultLifecycleConfig:
   stack: cflinuxfs3
   stagingMemoryMB: 1024
   stagingDiskMB: 1024
-packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
+packageRegistryBase: gcr.io/cf-relint-greengrass/korifi/kpack/beta
 packageRegistrySecretName: image-registry-credentials
 clusterBuilderName: cf-kpack-cluster-builder
 defaultDomainName: vcap.me

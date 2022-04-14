@@ -1,11 +1,12 @@
 package integration_test
 
 import (
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/workloads/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
 	"context"
 	"time"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -64,7 +65,6 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Namespace: rootNamespace.Name, Name: orgGUID}, &anchor)).To(Succeed())
 				g.Expect(anchor.Labels).To(HaveKeyWithValue(workloads.OrgNameLabel, orgName))
 			}).Should(Succeed())
-
 		})
 
 		It("makes the CFOrg the owner of its subnamespace anchor", func() {

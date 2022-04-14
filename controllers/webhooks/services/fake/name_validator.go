@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks/services"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
 	"github.com/go-logr/logr"
 )
 
