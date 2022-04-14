@@ -385,3 +385,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfspaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfspaces/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfspaces/status
+  verbs:
+  - get
+  - patch
+  - update

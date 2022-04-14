@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"encoding/base64"
+
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -81,6 +82,18 @@ func BuildCFOrgObject(orgGUID string, spaceGUID string) *workloadsv1alpha1.CFOrg
 		},
 		Spec: workloadsv1alpha1.CFOrgSpec{
 			Name: "test-org-name",
+		},
+	}
+}
+
+func BuildCFSpaceObject(spaceGUID string, orgGUID string) *workloadsv1alpha1.CFSpace {
+	return &workloadsv1alpha1.CFSpace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      spaceGUID,
+			Namespace: orgGUID,
+		},
+		Spec: workloadsv1alpha1.CFSpaceSpec{
+			Name: "test-space-name",
 		},
 	}
 }
