@@ -1882,6 +1882,12 @@ rules:
   verbs:
   - list
 - apiGroups:
+  - ""
+  resources:
+  - pods/log
+  verbs:
+  - get
+- apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
@@ -2514,6 +2520,12 @@ rules:
   - pods
   verbs:
   - list
+- apiGroups:
+  - ""
+  resources:
+  - pods/log
+  verbs:
+  - get
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:

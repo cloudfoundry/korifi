@@ -28,10 +28,18 @@ type CFAppRepository interface {
 	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
 }
 
+//counterfeiter:generate -o fake -fake-name CFBuildRepository . CFBuildRepository
+
+type CFBuildRepository interface {
+	GetLatestBuildByAppGUID(context.Context, authorization.Info, string, string) (repositories.BuildRecord, error)
+	GetBuildLogs(context.Context, authorization.Info, string, string) ([]repositories.LogRecord, error)
+}
+
 //counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
 
 type PodRepository interface {
 	ListPodStats(ctx context.Context, authInfo authorization.Info, message repositories.ListPodStatsMessage) ([]repositories.PodStatsRecord, error)
+	GetRuntimeLogsForApp(context.Context, authorization.Info, repositories.RuntimeLogsMessage) ([]repositories.LogRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name CFDomainRepository . CFDomainRepository

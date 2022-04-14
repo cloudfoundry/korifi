@@ -14,14 +14,15 @@ import (
 	"code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var (
@@ -171,6 +172,14 @@ type serviceInstanceResource struct {
 	resource     `json:",inline"`
 	Credentials  map[string]string `json:"credentials"`
 	InstanceType string            `json:"type"`
+}
+
+type appLogResource struct {
+	Envelopes appLogResourceEnvelopes `json:"envelopes"`
+}
+
+type appLogResourceEnvelopes struct {
+	Batch []loggregator_v2.Envelope `json:"batch"`
 }
 
 type cfErrs struct {

@@ -5,6 +5,7 @@ go 1.18
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 	code.cloudfoundry.org/eirini-controller v0.2.0
+	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
 	github.com/buildpacks/lifecycle v0.14.0
 	github.com/buildpacks/pack v0.24.1
 	github.com/cloudfoundry-incubator/cf-test-helpers v1.0.0
@@ -12,6 +13,7 @@ require (
 	github.com/go-logr/logr v1.2.3
 	github.com/go-playground/locales v0.14.0
 	github.com/go-playground/universal-translator v0.18.0
+	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-playground/validator/v10 v10.10.1
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
@@ -38,7 +40,11 @@ require (
 	sigs.k8s.io/hierarchical-namespaces v1.0.0
 )
 
-require github.com/stretchr/testify v1.7.1 // indirect
+require (
+	github.com/stretchr/testify v1.7.1 // indirect
+	google.golang.org/genproto v0.0.0-20220317150908-0efb43f6373e // indirect
+	google.golang.org/grpc v1.45.0 // indirect
+)
 
 require (
 	cloud.google.com/go/compute v0.1.0 // indirect
