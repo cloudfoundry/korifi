@@ -39,7 +39,7 @@ func E2EFailHandler(message string, callerSkip ...int) {
 			Container:  "cf-k8s-api",
 		},
 		{
-			Namespace:  "cf-k8s-controllers-system",
+			Namespace:  "korifi-system",
 			LabelKey:   "control-plane",
 			LabelValue: "controller-manager",
 			Container:  "manager",

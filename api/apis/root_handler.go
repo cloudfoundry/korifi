@@ -3,7 +3,7 @@ package apis
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
+	"code.cloudfoundry.org/korifi/api/presenter"
 	"github.com/gorilla/mux"
 )
 

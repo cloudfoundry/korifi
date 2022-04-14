@@ -3,7 +3,7 @@ package payloads
 import (
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
 type ServiceInstanceCreate struct {

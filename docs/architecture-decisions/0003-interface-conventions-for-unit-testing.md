@@ -75,7 +75,7 @@ Comparing the two, we found them to be very similar. However, we decided to prio
 
 ## Decision
 
-The cf-k8s-controllers Controllers will be implemented with a transparent interface that define the subset of Kubernetes Client functions the specific Controller Client will use.
+The korifi Controllers will be implemented with a transparent interface that define the subset of Kubernetes Client functions the specific Controller Client will use.
 
 ## Consequences
 

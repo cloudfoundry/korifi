@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking/fake"
+	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/networking"
+	"code.cloudfoundry.org/korifi/controllers/controllers/networking/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,7 +36,7 @@ const (
 	testFQDN                 = testRouteHost + "." + testDomainName
 	testServiceGUID          = "s-" + testRouteDestinationGUID
 	routeGUIDLabelKey        = "networking.cloudfoundry.org/route-guid"
-	cfK8sControllerNamespace = "cf-k8s-controllers-system"
+	cfK8sControllerNamespace = "korifi-system"
 )
 
 var _ = Describe("CFRouteReconciler.Reconcile", func() {

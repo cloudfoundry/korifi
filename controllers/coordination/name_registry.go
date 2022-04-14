@@ -5,7 +5,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

@@ -1,7 +1,7 @@
 package presenter
 
 import (
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/korifi/api/authorization"
 )
 
 type IdentityResponse struct {

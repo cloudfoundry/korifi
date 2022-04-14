@@ -14,7 +14,7 @@ if ! egrep -q e2e <(echo "$@"); then
   source "${ENVTEST_ASSETS_DIR}/setup-envtest.sh"
   fetch_envtest_tools "${ENVTEST_ASSETS_DIR}"
   setup_envtest_env "${ENVTEST_ASSETS_DIR}"
-  extra_args+=("--skip-package=e2e" "--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/cf-k8s-controllers/...")
+  extra_args+=("--skip-package=e2e" "--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/korifi/...")
 
 else
   export ROOT_NAMESPACE="${ROOT_NAMESPACE:-cf}"

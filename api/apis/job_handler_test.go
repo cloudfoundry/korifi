@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis"
+	"code.cloudfoundry.org/korifi/api/apis"
 
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"

@@ -1,8 +1,8 @@
-kpackImageTag: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
+kpackImageTag: gcr.io/cf-relint-greengrass/korifi/kpack/beta
 clusterBuilderName: cf-kpack-cluster-builder
 cfProcessDefaults:
   memoryMB: 1024
   diskQuotaMB: 1024
 cfRootNamespace: cf
-cfk8s_controller_namespace: cf-k8s-controllers-system
+cfk8s_controller_namespace: korifi-system
 workloads_tls_secret_name: cf-k8s-workloads-ingress-cert

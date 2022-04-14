@@ -268,51 +268,51 @@ data:
       stack: cflinuxfs3
       stagingMemoryMB: 1024
       stagingDiskMB: 1024
-    packageRegistryBase: gcr.io/cf-relint-greengrass/cf-k8s-controllers/kpack/beta
+    packageRegistryBase: gcr.io/cf-relint-greengrass/korifi/kpack/beta
     packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
     clusterBuilderName: cf-kpack-cluster-builder
     defaultDomainName: apps.example.org
   role_mappings_config.yaml: |
     roleMappings:
       admin:
-        name: cf-k8s-controllers-admin
+        name: korifi-admin
         propagate: true
       admin_read_only:
-        name: cf-k8s-controllers-admin-read-only
+        name: korifi-admin-read-only
         propagate: true
       cf_user:
-        name: cf-k8s-controllers-root-namespace-user
+        name: korifi-root-namespace-user
         propagate: false
       global_auditor:
-        name: cf-k8s-controllers-global-auditor
+        name: korifi-global-auditor
         propagate: true
       organization_auditor:
-        name: cf-k8s-controllers-organization-auditor
+        name: korifi-organization-auditor
         propagate: false
       organization_billing_manager:
-        name: cf-k8s-controllers-organization-billing-manager
+        name: korifi-organization-billing-manager
         propagate: false
       organization_manager:
-        name: cf-k8s-controllers-organization-manager
+        name: korifi-organization-manager
         propagate: true
       organization_user:
-        name: cf-k8s-controllers-organization-user
+        name: korifi-organization-user
         propagate: false
       space_auditor:
-        name: cf-k8s-controllers-space-auditor
+        name: korifi-space-auditor
         propagate: false
       space_developer:
-        name: cf-k8s-controllers-space-developer
+        name: korifi-space-developer
         propagate: false
       space_manager:
-        name: cf-k8s-controllers-space-manager
+        name: korifi-space-manager
         propagate: false
       space_supporter:
-        name: cf-k8s-controllers-space-supporter
+        name: korifi-space-supporter
         propagate: false
 kind: ConfigMap
 metadata:
-  name: cf-k8s-api-config-446hhfhb5b
+  name: cf-k8s-api-config-7fmd8gg788
   namespace: cf-k8s-api-system
 ---
 apiVersion: v1
@@ -367,7 +367,7 @@ spec:
       serviceAccountName: cf-k8s-api-cf-admin-serviceaccount
       volumes:
       - configMap:
-          name: cf-k8s-api-config-446hhfhb5b
+          name: cf-k8s-api-config-7fmd8gg788
         name: cf-k8s-api-config
 ---
 apiVersion: projectcontour.io/v1

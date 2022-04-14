@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/apierrors"
 )
 
 type InfoParser struct{}

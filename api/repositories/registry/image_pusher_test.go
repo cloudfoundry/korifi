@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/registry"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories/registry/fake"
+	"code.cloudfoundry.org/korifi/api/repositories/registry"
+	"code.cloudfoundry.org/korifi/api/repositories/registry/fake"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"

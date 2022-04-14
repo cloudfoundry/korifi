@@ -1,4 +1,4 @@
-![Build Status](https://github.com/cloudfoundry/cf-k8s-controllers/actions/workflows/test-build-push-main.yml/badge.svg) [![Maintainability](https://api.codeclimate.com/v1/badges/f8dff20cd9bab4fb4117/maintainability)](https://codeclimate.com/github/cloudfoundry/cf-k8s-controllers/maintainability) [![Test Coverage](https://api.codeclimate.com/v1/badges/f8dff20cd9bab4fb4117/test_coverage)](https://codeclimate.com/github/cloudfoundry/cf-k8s-controllers/test_coverage)
+![Build Status](https://github.com/cloudfoundry/korifi/actions/workflows/test-build-push-main.yml/badge.svg) [![Maintainability](https://api.codeclimate.com/v1/badges/f8dff20cd9bab4fb4117/maintainability)](https://codeclimate.com/github/cloudfoundry/korifi/maintainability) [![Test Coverage](https://api.codeclimate.com/v1/badges/f8dff20cd9bab4fb4117/test_coverage)](https://codeclimate.com/github/cloudfoundry/korifi/test_coverage)
 
 # Introduction
 This repository contains an experimental implementation of the [V3 Cloud Foundry API](http://v3-apidocs.cloudfoundry.org) that is backed entirely by Kubernetes [custom resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/).
@@ -17,8 +17,8 @@ Before installing, ensure that you have the following:
 - A cloned copy of this repository:
   ```sh
   cd ~/workspace
-  git clone git@github.com:cloudfoundry/cf-k8s-controllers.git
-  cd cf-k8s-controllers
+  git clone git@github.com:cloudfoundry/korifi.git
+  cd korifi
   ```
 
 # Dependencies
@@ -167,7 +167,7 @@ kubectl hns config set-resource secrets --mode Propagate
 ## Optional: Install Service Bindings Controller
 
 Cloud Native Buildpacks and other app frameworks (such as [Spring Cloud Bindings](https://github.com/spring-cloud/spring-cloud-bindings)) are adopting the [K8s ServiceBinding spec](https://github.com/servicebinding/spec#workload-projection) model of volume mounted secrets. 
-We currently are providing apps access to these via the `VCAP_SERVICES` environment variable ([see this issue](https://github.com/cloudfoundry/cf-k8s-controllers/issues/462)) for backwards compatibility reasons.
+We currently are providing apps access to these via the `VCAP_SERVICES` environment variable ([see this issue](https://github.com/cloudfoundry/korifi/issues/462)) for backwards compatibility reasons.
 We would also want to support the newer developments in the ServiceBinding ecosystem as well.
 
 We are not implementing this ourselves but allowing controller that adopts the [ServiceBinding Spec](https://github.com/servicebinding/spec) that volume mounts secrets to workload containers to be used. 
@@ -185,8 +185,8 @@ Create your root namespace. The default name is `cf`, but you can override this 
 
 Example: `kubectl create namespace cf`
 
-## Configure cf-k8s-controllers
-Configuration file for cf-k8s-controllers is at `controllers/config/base/controllersconfig/cf_k8s_controllers_config.yaml`
+## Configure korifi
+Configuration file for korifi is at `controllers/config/base/controllersconfig/cf_k8s_controllers_config.yaml`
 
 ### Configure kpack
 Edit the configuration file
@@ -199,8 +199,8 @@ Configuration file for cf-k8s-api is at `api/config/base/apiconfig/cf_k8s_api_co
 Edit the file `api/config/base/apiconfig/cf_k8s_api_config.yaml` and set the `packageRegistryBase` field to be the registry location to which you want your source package image uploaded.
 Edit the file `api/config/base/api_url_patch.yaml` to specify the desired URL for the deployed API.
 
-## Install cf-k8s-controllers and cf-k8s-api
-From the `cf-k8s-controllers` directory use the Makefile to deploy the controllers and API shim:
+## Install korifi and cf-k8s-api
+From the `korifi` directory use the Makefile to deploy the controllers and API shim:
 ```
 make deploy
 ```
@@ -209,9 +209,9 @@ make deploy
 
 ### Create a role binding for your cluster admin user
 To grant your kubernetes user admin-level access to the Cloud Foundry API,
-they need the `cf-k8s-controllers-admin` role binding in your root namespace (i.e `cf`).
+they need the `korifi-admin` role binding in your root namespace (i.e `cf`).
 
-Example: `kubectl create rolebinding default-admin-binding -n cf --role cf-k8s-controllers-admin --user <YOUR USER>`
+Example: `kubectl create rolebinding default-admin-binding -n cf --role korifi-admin --user <YOUR USER>`
 
 ### Configure Image Registry Credentials Secret
 Run the command below, substituting the values for the Docker credentials to the registry where source package images will be uploaded to.
@@ -279,7 +279,7 @@ certificate generated above, or from your own existing certificate:
 kubectl create secret tls \
   cf-k8s-workloads-ingress-cert \
   --cert=./tls.crt --key=./tls.key \
-  -n cf-k8s-controllers-system
+  -n korifi-system
 ```
 
 **NOTE**: If you choose to generate a self-signed certificate, you will need to
@@ -351,7 +351,7 @@ scripts/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
 ## Build, Install and Deploy to a K8s cluster
 Set the $IMG_CONTROLLERS and $IMG_API environment variables to locations where you have push/pull access. For example:
 ```sh
-export IMG_CONTROLLERS=foo/cf-k8s-controllers:bar #Replace this with your image ref
+export IMG_CONTROLLERS=foo/korifi:bar #Replace this with your image ref
 export IMG_API=foo/cf-k8s-api:bar #Replace this with your image ref
 make generate-controllers docker-build docker-push deploy
 ```
@@ -383,7 +383,7 @@ To specify a custom configuration file, set the `APICONFIG` environment variable
 
 ### Set image respository and tag for controller manager
 ```sh
-export IMG_CONTROLLERS=foo/cf-k8s-controllers:bar #Replace this with your image ref
+export IMG_CONTROLLERS=foo/korifi:bar #Replace this with your image ref
 ```
 ### Set image respository and tag for API
 ```sh

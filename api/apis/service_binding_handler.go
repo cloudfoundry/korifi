@@ -9,11 +9,11 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apierrors"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/presenter"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/presenter"
+	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
 const (
@@ -159,7 +159,7 @@ func (h *ServiceBindingHandler) RegisterRoutes(router *mux.Router) {
 }
 
 // TODO: Separate commit/PR to move this function into shared.go and refactor all the handlers
-// https://github.com/cloudfoundry/cf-k8s-controllers/issues/698
+// https://github.com/cloudfoundry/korifi/issues/698
 func isUnknownKeyError(err error) bool {
 	switch err.(type) {
 	case schema.MultiError:

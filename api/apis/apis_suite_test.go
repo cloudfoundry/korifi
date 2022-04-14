@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/korifi/api/authorization"
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"

@@ -8,11 +8,11 @@ Accepted
 
 ## Context
 
-As part of the initial `v0.1` release, we implemented `cf restart` via the `v3/apps/<app-guid>/actions/restart` endpoint in the api shim: [implementation reference](https://github.com/cloudfoundry/cf-k8s-controllers/blob/8154b97397a8f46bd4c6150b22ea8cf34654a426/api/apis/app_handler.go#L613-L694). 
+As part of the initial `v0.1` release, we implemented `cf restart` via the `v3/apps/<app-guid>/actions/restart` endpoint in the api shim: [implementation reference](https://github.com/cloudfoundry/korifi/blob/8154b97397a8f46bd4c6150b22ea8cf34654a426/api/apis/app_handler.go#L613-L694). 
 
 However, we discovered that the `cf cli` actually uses a combination of `actions/stop` and `actions/start` to execute a restart. Due to how the CF Process Controller created Eirini Long Running Processes(LRPs), this quick shut off and power on did not properly roll the underlying pods due to Erini setting its pod selectors and names deterministically.
 
-As part of issue [#260](https://github.com/cloudfoundry/cf-k8s-controllers/issues/260), we searched for a solution to support the cf cli’s `cf restart` but still followed the established conventions of Kubernetes.
+As part of issue [#260](https://github.com/cloudfoundry/korifi/issues/260), we searched for a solution to support the cf cli’s `cf restart` but still followed the established conventions of Kubernetes.
 
 ## Decision
 

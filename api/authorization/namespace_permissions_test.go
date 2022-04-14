@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/apis/fake"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/authorization"
+	"code.cloudfoundry.org/korifi/api/apis/fake"
+	"code.cloudfoundry.org/korifi/api/authorization"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

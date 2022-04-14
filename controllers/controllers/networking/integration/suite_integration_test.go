@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/config"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/networking"
+	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/networking"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -92,7 +92,7 @@ var _ = BeforeSuite(func() {
 				MemoryMB:           500,
 				DefaultDiskQuotaMB: 512,
 			},
-			CFK8sControllerNamespace: "cf-k8s-controllers-system",
+			CFK8sControllerNamespace: "korifi-system",
 			WorkloadsTLSSecretName:   "cf-k8s-workloads-ingress-cert",
 		},
 	}).SetupWithManager(k8sManager)

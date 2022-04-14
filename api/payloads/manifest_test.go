@@ -5,8 +5,8 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
-	. "code.cloudfoundry.org/cf-k8s-controllers/api/payloads"
-	"code.cloudfoundry.org/cf-k8s-controllers/api/repositories"
+	. "code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
 var _ = Describe("ManifestApplicationProcess", func() {

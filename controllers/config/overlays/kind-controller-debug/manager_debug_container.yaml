@@ -6,7 +6,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: controller-manager
-  namespace: cf-k8s-controllers-system
+  namespace: korifi-system
   labels:
     app: cf-k8s-controller-manager
 spec:
@@ -38,4 +38,3 @@ spec:
           capabilities:
             add:
               - SYS_PTRACE
-

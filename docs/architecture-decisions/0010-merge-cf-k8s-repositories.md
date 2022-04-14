@@ -8,15 +8,15 @@ Accepted
 
 ## Context
 
-The `cf-k8s-api` and `cf-k8s-controllers` repositories were originally created separately to create a deliberate interface between "client" and "server" code. The intention was to motivate developers and users to reason about, change, and install the pieces separately. Instead, it has become difficult to decide which repository should house helper code and dependencies. Recently, we started working on a new `cf-on-k8s-integration` repository to pull the two components together and provide a home for both installation instructions and CI configuration for testing. As we worked on initialising this new repository, it became clear that different types of users wanted different things from it:
+The `cf-k8s-api` and `korifi` repositories were originally created separately to create a deliberate interface between "client" and "server" code. The intention was to motivate developers and users to reason about, change, and install the pieces separately. Instead, it has become difficult to decide which repository should house helper code and dependencies. Recently, we started working on a new `cf-on-k8s-integration` repository to pull the two components together and provide a home for both installation instructions and CI configuration for testing. As we worked on initialising this new repository, it became clear that different types of users wanted different things from it:
 
 * developers want a single place to work regardless of which component they are modifying
 * users want a single place to install both components and any required dependencies
 
 ## Decision
 
-* The contents of the existing `cf-k8s-api` and `cf-k8s-controllers` repositories are going to be merged into a single repository.
-* The `cf-k8s-controllers` repository will be reused for this purpose.
+* The contents of the existing `cf-k8s-api` and `korifi` repositories are going to be merged into a single repository.
+* The `korifi` repository will be reused for this purpose.
 * The current separation between the API and controllers code bases will be maintained using sub-directories in the new repository.
 * There will be a shared `go.mod` that defines the Go dependencies for both components.
 * The interface between the API and the controllers will continue to be the CF custom resource definitions.

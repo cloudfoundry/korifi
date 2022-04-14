@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	servicesv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/services/v1alpha1"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
 )
 
 const (

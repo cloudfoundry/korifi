@@ -3,7 +3,7 @@ package e2e_test
 import (
 	"fmt"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/api/tests/e2e/helpers"
+	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
 	"github.com/go-resty/resty/v2"
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/matchers"

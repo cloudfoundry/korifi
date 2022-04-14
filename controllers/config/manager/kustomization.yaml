@@ -12,6 +12,6 @@ configMapGenerator:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-- name: cloudfoundry/cf-k8s-controllers
-  newName: cloudfoundry/cf-k8s-controllers
+- name: cloudfoundry/korifi
+  newName: cloudfoundry/korifi
   newTag: latest

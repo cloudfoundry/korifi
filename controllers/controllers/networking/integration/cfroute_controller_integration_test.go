@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	networkingv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
+	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -117,7 +117,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			}).ShouldNot(BeEmpty(), "Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace)
 
 			Expect(proxy.Spec.VirtualHost.Fqdn).To(Equal(testFQDN), "HTTPProxy FQDN mismatch")
-			Expect(proxy.Spec.VirtualHost.TLS.SecretName).To(Equal("cf-k8s-controllers-system/cf-k8s-workloads-ingress-cert"))
+			Expect(proxy.Spec.VirtualHost.TLS.SecretName).To(Equal("korifi-system/cf-k8s-workloads-ingress-cert"))
 			Expect(proxy.Spec.Includes).To(HaveLen(1), "HTTPProxy doesn't have the expected number of includes")
 			Expect(proxy.Spec.Includes[0]).To(Equal(contourv1.Include{
 				Name:      testRouteGUID,

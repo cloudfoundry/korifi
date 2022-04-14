@@ -3,8 +3,8 @@ package integration_test
 import (
 	"context"
 
-	"code.cloudfoundry.org/cf-k8s-controllers/controllers/apis/networking/v1alpha1"
-	. "code.cloudfoundry.org/cf-k8s-controllers/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
