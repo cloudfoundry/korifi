@@ -1549,8 +1549,8 @@ github.com/pierrec/lz4 v1.0.2-0.20190131084431-473cd7ce01a1/go.mod h1:3/3N9NVKO0
 github.com/pierrec/lz4 v2.0.5+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
 github.com/pierrec/lz4 v2.5.2+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
 github.com/pierrec/lz4 v2.6.1+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
-github.com/pivotal/kpack v0.5.2 h1:zAhtaQz8Db/PR32/8vik0JzzS1S3SJgLy9GBI6qkbwQ=
-github.com/pivotal/kpack v0.5.2/go.mod h1:e6l7Jl3HsCl77GhGTq95bSF/n9IpXabgvdb5MJTuzoo=
+github.com/pivotal/kpack v0.5.3 h1:QAVZGXEHVPb1LqOSbC0RNByun2DpBrRkqCxqaGaK5YU=
+github.com/pivotal/kpack v0.5.3/go.mod h1:e6l7Jl3HsCl77GhGTq95bSF/n9IpXabgvdb5MJTuzoo=
 github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e/go.mod h1:pJLUxLENpZxwdsKMEsNbx1VGcRFpLqf3715MtcvvzbA=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1-0.20171018195549-f15c970de5b7/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
