@@ -275,44 +275,44 @@ data:
   role_mappings_config.yaml: |
     roleMappings:
       admin:
-        name: korifi-admin
+        name: korifi-controllers-admin
         propagate: true
       admin_read_only:
-        name: korifi-admin-read-only
+        name: korifi-controllers-admin-read-only
         propagate: true
       cf_user:
-        name: korifi-root-namespace-user
+        name: korifi-controllers-root-namespace-user
         propagate: false
       global_auditor:
-        name: korifi-global-auditor
+        name: korifi-controllers-global-auditor
         propagate: true
       organization_auditor:
-        name: korifi-organization-auditor
+        name: korifi-controllers-organization-auditor
         propagate: false
       organization_billing_manager:
-        name: korifi-organization-billing-manager
+        name: korifi-controllers-organization-billing-manager
         propagate: false
       organization_manager:
-        name: korifi-organization-manager
+        name: korifi-controllers-organization-manager
         propagate: true
       organization_user:
-        name: korifi-organization-user
+        name: korifi-controllers-organization-user
         propagate: false
       space_auditor:
-        name: korifi-space-auditor
+        name: korifi-controllers-space-auditor
         propagate: false
       space_developer:
-        name: korifi-space-developer
+        name: korifi-controllers-space-developer
         propagate: false
       space_manager:
-        name: korifi-space-manager
+        name: korifi-controllers-space-manager
         propagate: false
       space_supporter:
-        name: korifi-space-supporter
+        name: korifi-controllers-space-supporter
         propagate: false
 kind: ConfigMap
 metadata:
-  name: korifi-api-config-c59c2cm5m6
+  name: korifi-api-config-f8ccbtc64g
   namespace: korifi-api-system
 ---
 apiVersion: v1
@@ -367,7 +367,7 @@ spec:
       serviceAccountName: korifi-api-cf-admin-serviceaccount
       volumes:
       - configMap:
-          name: korifi-api-config-c59c2cm5m6
+          name: korifi-api-config-f8ccbtc64g
         name: korifi-api-config
 ---
 apiVersion: projectcontour.io/v1
