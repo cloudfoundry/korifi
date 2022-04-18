@@ -79,10 +79,12 @@ var _ = Describe("Service Bindings", func() {
 			httpResp, httpError = certClient.R().SetResult(&result).Get("/v3/service_credential_bindings" + queryString)
 		})
 
-		It("Returns an empty list", func() {
+		It("returns a list without ServiceBindings in spaces where the user doesn't have access", func() {
 			Expect(httpError).NotTo(HaveOccurred())
 			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-			Expect(result.Resources).To(HaveLen(0))
+			Expect(result.Resources).NotTo(ContainElement(
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(bindingGUID)}),
+			))
 		})
 
 		When("the user has space manager role", func() {
