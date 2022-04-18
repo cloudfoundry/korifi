@@ -3,6 +3,11 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/pivotal/kpack/pkg/logs"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -42,8 +47,14 @@ type BuildRecord struct {
 	Annotations     map[string]string
 }
 
+type LogRecord struct {
+	Message   string
+	Timestamp int64
+}
+
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds/status,verbs=get
+//+kubebuilder:rbac:groups="",resources=pods/log,verbs=get;list
 
 type BuildRepo struct {
 	namespaceRetriever NamespaceRetriever
@@ -74,6 +85,63 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 	}
 
 	return cfBuildToBuildRecord(build), nil
+}
+
+func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo authorization.Info, spaceGUID string, appGUID string) (BuildRecord, error) {
+	userClient, err := b.userClientFactory.BuildClient(authInfo)
+	if err != nil { // Untested
+		return BuildRecord{}, apierrors.NewUnknownError(err)
+	}
+	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
+		workloadsv1alpha1.CFAppGUIDLabelKey: appGUID,
+	})
+	if err != nil { // Untested
+		return BuildRecord{}, apierrors.NewUnknownError(err)
+	}
+
+	listOpts := &client.ListOptions{Namespace: spaceGUID, LabelSelector: labelSelector}
+	buildList := &workloadsv1alpha1.CFBuildList{}
+
+	err = userClient.List(ctx, buildList, listOpts)
+	if err != nil {
+		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
+	}
+
+	if len(buildList.Items) == 0 {
+		return BuildRecord{}, apierrors.NewNotFoundError(fmt.Errorf("builds for app %q in space %q not found", appGUID, spaceGUID), BuildResourceType)
+	}
+
+	sortedBuilds := orderBuilds(buildList.Items)
+
+	return cfBuildToBuildRecord(sortedBuilds[0]), nil
+}
+
+func orderBuilds(builds []workloadsv1alpha1.CFBuild) []workloadsv1alpha1.CFBuild {
+	sort.Slice(builds, func(i, j int) bool {
+		return !builds[i].CreationTimestamp.Before(&builds[j].CreationTimestamp)
+	})
+	return builds
+}
+
+func (b *BuildRepo) GetBuildLogs(ctx context.Context, authInfo authorization.Info, spaceGUID string, buildGUID string) ([]LogRecord, error) {
+	userClient, err := b.userClientFactory.BuildK8sClient(authInfo)
+	if err != nil { // Untested
+		return []LogRecord{}, apierrors.NewUnknownError(err)
+	}
+	logWriter := new(strings.Builder)
+	err = logs.NewBuildLogsClient(userClient).GetImageLogs(ctx, logWriter, buildGUID, spaceGUID)
+	if err != nil {
+		return nil, err
+	}
+	buildLogs := strings.Split(logWriter.String(), "\n")
+	toReturn := make([]LogRecord, 0, len(buildLogs))
+	for _, log := range buildLogs {
+		toReturn = append(toReturn, LogRecord{
+			Message: log,
+			// TODO: Parse timestamps once we sort out kpack GetImageLogs
+		})
+	}
+	return toReturn, nil
 }
 
 func cfBuildToBuildRecord(cfBuild workloadsv1alpha1.CFBuild) BuildRecord {

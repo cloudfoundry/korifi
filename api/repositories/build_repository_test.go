@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("BuildRepository", func() {
@@ -24,7 +25,6 @@ var _ = Describe("BuildRepository", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-
 		buildRepo = repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
 	})
 
@@ -271,6 +271,93 @@ var _ = Describe("BuildRepository", func() {
 				_, err := buildRepo.GetBuild(ctx, authInfo, buildGUID)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+	})
+
+	Describe("GetLatestBuildByAppGUID", func() {
+		const (
+			packageGUID = "package-guid"
+		)
+
+		var (
+			space       *v1alpha2.SubnamespaceAnchor
+			appGUID     string
+			checkSpace  string
+			buildRecord repositories.BuildRecord
+			fetchError  error
+		)
+
+		BeforeEach(func() {
+			orgGUID := prefixedGUID("get-latest-build-org")
+			org := createOrgWithCleanup(ctx, orgGUID)
+			space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("get-latest-build-space"))
+			checkSpace = space.Name
+			appGUID = prefixedGUID("get-latest-build-app")
+		})
+
+		JustBeforeEach(func() {
+			buildRecord, fetchError = buildRepo.GetLatestBuildByAppGUID(ctx, authInfo, checkSpace, appGUID)
+		})
+
+		When("the user has space developer role", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			When("on the happy path", func() {
+				const (
+					StagingConditionType   = "Staging"
+					SucceededConditionType = "Succeeded"
+				)
+
+				var build3 *workloadsv1alpha1.CFBuild
+
+				BeforeEach(func() {
+					_ = createBuild(ctx, k8sClient, space.Name, prefixedGUID("first"), packageGUID, appGUID)
+					_ = createBuild(ctx, k8sClient, space.Name, prefixedGUID("second"), packageGUID, appGUID)
+					time.Sleep(1001 * time.Millisecond)
+					build3 = createBuild(ctx, k8sClient, space.Name, prefixedGUID("third"), packageGUID, appGUID)
+				})
+
+				When("fetching builds for an app", func() {
+					It("it returns a record that matches the last created build and no error", func() {
+						Expect(fetchError).NotTo(HaveOccurred())
+						Expect(buildRecord.GUID).To(Equal(build3.Name))
+						Expect(buildRecord.AppGUID).To(Equal(appGUID))
+					})
+				})
+			})
+
+			When("the app has no builds", func() {
+				BeforeEach(func() {
+					appGUID = "i-dont-exist"
+				})
+				It("returns an empty record and a not found error", func() {
+					Expect(fetchError).To(HaveOccurred())
+					Expect(fetchError).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+					Expect(buildRecord).To(Equal(repositories.BuildRecord{}))
+				})
+			})
+		})
+
+		When("the user has no role in the space", func() {
+			It("returns a forbidden error", func() {
+				Expect(fetchError).To(HaveOccurred())
+				Expect(fetchError).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
+				Expect(buildRecord).To(Equal(repositories.BuildRecord{}))
+			})
+		})
+
+		When("the namespace doesn't exist", func() {
+			BeforeEach(func() {
+				checkSpace = "i-dont-exist"
+			})
+
+			It("returns a forbidden error", func() {
+				Expect(fetchError).To(HaveOccurred())
+				Expect(fetchError).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
+				Expect(buildRecord).To(Equal(repositories.BuildRecord{}))
 			})
 		})
 	})

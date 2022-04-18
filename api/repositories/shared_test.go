@@ -75,6 +75,44 @@ func createPackageCR(ctx context.Context, k8sClient client.Client, packageGUID, 
 	return toReturn
 }
 
+func createBuild(ctx context.Context, k8sClient client.Client, namespace, buildGUID, packageGUID, appGUID string) *workloadsv1alpha1.CFBuild {
+	const (
+		stagingMemory = 1024
+		stagingDisk   = 2048
+	)
+
+	record := &workloadsv1alpha1.CFBuild{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      buildGUID,
+			Namespace: namespace,
+			Labels: map[string]string{
+				workloadsv1alpha1.CFAppGUIDLabelKey: appGUID,
+			},
+		},
+		Spec: workloadsv1alpha1.CFBuildSpec{
+			PackageRef: corev1.LocalObjectReference{
+				Name: packageGUID,
+			},
+			AppRef: corev1.LocalObjectReference{
+				Name: appGUID,
+			},
+			StagingMemoryMB: stagingMemory,
+			StagingDiskMB:   stagingDisk,
+			Lifecycle: workloadsv1alpha1.Lifecycle{
+				Type: "buildpack",
+				Data: workloadsv1alpha1.LifecycleData{
+					Buildpacks: []string{},
+					Stack:      "",
+				},
+			},
+		},
+	}
+	Expect(
+		k8sClient.Create(ctx, record),
+	).To(Succeed())
+	return record
+}
+
 func createProcessCR(ctx context.Context, k8sClient client.Client, processGUID, spaceGUID, appGUID string) *workloadsv1alpha1.CFProcess {
 	toReturn := &workloadsv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{

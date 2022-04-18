@@ -104,9 +104,9 @@ func main() {
 		panic(err)
 	}
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout)
-	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	processRepo := repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPermissions)
-	podRepo := repositories.NewPodRepo(userClientFactory, metricsFetcherFunction)
+	podRepo := repositories.NewPodRepo(ctrl.Log.WithName("PodRepository"), userClientFactory, metricsFetcherFunction)
+	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	dropletRepo := repositories.NewDropletRepo(userClientFactory, namespaceRetriever, nsPermissions)
 	routeRepo := repositories.NewRouteRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	domainRepo := repositories.NewDomainRepo(userClientFactory, namespaceRetriever, config.RootNamespace)
@@ -144,6 +144,7 @@ func main() {
 		processRepo,
 		routeRepo,
 	).Invoke
+	readAppLogsAction := actions.NewReadAppLogs(ctrl.Log.WithName("NewReadAppLogsAction"), appRepo, buildRepo, podRepo)
 
 	decoderValidator, err := apis.NewDefaultDecoderValidator()
 	if err != nil {
@@ -221,8 +222,12 @@ func main() {
 			ctrl.Log.WithName("JobHandler"),
 			*serverURL,
 		),
-		apis.NewLogCacheHandler(),
-
+		apis.NewLogCacheHandler(
+			ctrl.Log.WithName("LogCacheHandler"),
+			appRepo,
+			buildRepo,
+			readAppLogsAction.Invoke,
+		),
 		apis.NewOrgHandler(*serverURL, orgRepo, domainRepo, decoderValidator),
 
 		apis.NewSpaceHandler(*serverURL, config.PackageRegistrySecretName, orgRepo, decoderValidator),
