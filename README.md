@@ -185,21 +185,26 @@ Create your root namespace. The default name is `cf`, but you can override this 
 
 Example: `kubectl create namespace cf`
 
-## Configure korifi-controllers
-Configuration file for korifi-controllers is at `controllers/config/base/controllersconfig/korifi_controllers_config.yaml`
-
-### Configure kpack
-Edit the configuration file
-- (required) set the `kpackImageTag` to be the registry location you want for storing the images.
-- (optional) set the `clusterBuilderName`, if you want to use a different cluster builder with kpack.
-
 ## Configure korifi-api
-Configuration file for korifi-api is at `api/config/base/apiconfig/korifi_api_config.yaml`
+The configuration file for korifi-api is located at `api/config/base/apiconfig/korifi_api_config.yaml`.
 
-Edit the file `api/config/base/apiconfig/korifi_api_config.yaml` and set the `packageRegistryBase` field to be the registry location to which you want your source package image uploaded.
-Edit the file `api/config/base/api_url_patch.yaml` to specify the desired URL for the deployed API.
+### Configure the API
+- Set the `packageRegistryBase` field to be the registry location to which you want your source package image uploaded. (required)
+- Edit the file `api/config/base/api_url_patch.yaml` to specify the desired URL for the deployed API. (required)
 
-## Install korifi-controllers and korifi-api
+### Configure Kpack
+- Set the `kpackImageTag` to be the registry location you want for storing the images. (required)
+- Set the `clusterBuilderName`, if you want Kpack to use a different cluster builder. (optional)
+
+### Configure an Auth Proxy (optional) 
+This section is only required if you are using an authentication proxy with your cluster to enable SSO.
+- Set the `authProxyHost` field to the IP address of your cluster's auth proxy.
+- Set the `authProxyCACert` field to the CA certificate of your cluster's auth proxy.
+
+## Configure korifi-controllers
+The configuration file for korifi-controllers is located at `controllers/config/base/controllersconfig/korifi_controllers_config.yaml`.
+
+## Install korifi-api and korifi-controllers
 From the `korifi` directory use the Makefile to deploy the controllers and API shim:
 ```
 make deploy

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"k8s.io/client-go/rest"
 )
 
 const (
@@ -32,6 +33,9 @@ type APIConfig struct {
 	DefaultLifecycleConfig DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
 
 	RoleMappings map[string]Role `yaml:"roleMappings"`
+
+	AuthProxyHost   string `yaml:"authProxyHost"`
+	AuthProxyCACert string `yaml:"authProxyCACert"`
 }
 
 type Role struct {
@@ -74,6 +78,11 @@ func LoadFromPath(path string) (*APIConfig, error) {
 		}
 	}
 
+	err = config.validate()
+	if err != nil {
+		return nil, err
+	}
+
 	config.ServerURL, err = config.composeServerURL()
 	if err != nil {
 		return nil, err
@@ -82,11 +91,23 @@ func LoadFromPath(path string) (*APIConfig, error) {
 	return &config, nil
 }
 
-func (c *APIConfig) composeServerURL() (string, error) {
+func (c *APIConfig) validate() error {
 	if c.ExternalFQDN == "" {
-		return "", errors.New("ExternalFQDN not specified")
+		return errors.New("ExternalFQDN not specified")
 	}
 
+	if c.AuthProxyHost != "" && c.AuthProxyCACert == "" {
+		return errors.New("AuthProxyHost requires a value for AuthProxyCACert")
+	}
+
+	if c.AuthProxyCACert != "" && c.AuthProxyHost == "" {
+		return errors.New("AuthProxyCACert requires a value for AuthProxyHost")
+	}
+
+	return nil
+}
+
+func (c *APIConfig) composeServerURL() (string, error) {
 	toReturn := defaultExternalProtocol + "://" + c.ExternalFQDN
 
 	if c.ExternalPort != 0 {
@@ -94,4 +115,13 @@ func (c *APIConfig) composeServerURL() (string, error) {
 	}
 
 	return toReturn, nil
+}
+
+func (c *APIConfig) GenerateK8sClientConfig(k8sClientConfig *rest.Config) *rest.Config {
+	if c.AuthProxyHost != "" && c.AuthProxyCACert != "" {
+		k8sClientConfig.Host = c.AuthProxyHost
+		k8sClientConfig.CAData = []byte(c.AuthProxyCACert)
+	}
+
+	return k8sClientConfig
 }
