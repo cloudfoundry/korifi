@@ -60,7 +60,7 @@ func main() {
 		panic(errorMessage)
 	}
 	payloads.DefaultLifecycleConfig = config.DefaultLifecycleConfig
-	k8sClientConfig := ctrl.GetConfigOrDie()
+	k8sClientConfig := config.GenerateK8sClientConfig(ctrl.GetConfigOrDie())
 
 	zapOpts := zap.Options{
 		// TODO: this needs to be configurable
