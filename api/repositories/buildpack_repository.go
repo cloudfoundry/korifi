@@ -10,9 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 )
 
-//+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders,verbs=get;list;watch;
-//+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders/status,verbs=get
-
 type BuildpackRepository struct {
 	userClientFactory UserK8sClientFactory
 }

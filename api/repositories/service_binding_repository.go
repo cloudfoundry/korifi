@@ -15,8 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfservicebindings,verbs=get;list;create;delete
-
 const (
 	LabelServiceBindingProvisionedService = "servicebinding.io/provisioned-service"
 	ServiceBindingResourceType            = "Service Binding"

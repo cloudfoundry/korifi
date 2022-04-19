@@ -20,10 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
-//+kubebuilder:rbac:groups="",resources=pods/status,verbs=get
-//+kubebuilder:rbac:groups="metrics.k8s.io",resources=pods,verbs=get;list;watch
-
 const (
 	workloadsContainerName = "opi"
 	cfInstanceIndexKey     = "CF_INSTANCE_INDEX"

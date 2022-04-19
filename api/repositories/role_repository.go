@@ -19,6 +19,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/config"
 )
 
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create
+
 const (
 	RoleGuidLabel         = "cloudfoundry.org/role-guid"
 	roleBindingNamePrefix = "cf"
@@ -31,8 +33,6 @@ const (
 type AuthorizedInChecker interface {
 	AuthorizedIn(ctx context.Context, identity authorization.Identity, namespace string) (bool, error)
 }
-
-//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create
 
 type CreateRoleMessage struct {
 	GUID  string

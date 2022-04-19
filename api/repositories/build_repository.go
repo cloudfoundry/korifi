@@ -42,9 +42,6 @@ type BuildRecord struct {
 	Annotations     map[string]string
 }
 
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds/status,verbs=get
-
 type BuildRepo struct {
 	namespaceRetriever NamespaceRetriever
 	userClientFactory  UserK8sClientFactory
