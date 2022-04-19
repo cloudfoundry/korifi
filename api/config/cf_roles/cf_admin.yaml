@@ -1,85 +1,53 @@
-# The CF Admin Role
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  creationTimestamp: null
   name: admin
 rules:
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - patch
-  - get
-  - create
-
 - apiGroups:
   - ""
   resources:
   - pods
   verbs:
   - list
-
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - ""
   resources:
-  - cfapps
+  - secrets
   verbs:
-  - get
   - create
+  - get
   - patch
-  - delete
-  - list
-
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - hnc.x-k8s.io
   resources:
-  - cfprocesses
+  - hierarchyconfigurations
   verbs:
-  - create
-  - get
-  - list
   - patch
-
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - hnc.x-k8s.io
   resources:
-  - cfpackages
+  - subnamespaceanchors
   verbs:
-  - get
-  - list
-  - create
-  - patch
-
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfbuilds
-  verbs:
-  - get
-  - list
-  - create
-
-- apiGroups:
-  - services.cloudfoundry.org
-  resources:
-  - cfserviceinstances
-  verbs:
-  - get
-  - list
   - create
   - delete
-
 - apiGroups:
-    - services.cloudfoundry.org
+  - kpack.io
   resources:
-    - cfservicebindings
+  - clusterbuilders
   verbs:
-    - get
-    - list
-    - create
-    - delete
-
+  - get
+  - list
+  - watch
+- apiGroups:
+  - metrics.k8s.io
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - networking.cloudfoundry.org
   resources:
@@ -87,7 +55,6 @@ rules:
   verbs:
   - get
   - list
-
 - apiGroups:
   - networking.cloudfoundry.org
   resources:
@@ -100,43 +67,63 @@ rules:
   - patch
   - update
   - watch
-
-- apiGroups:
-  - kpack.io
-  resources:
-  - clusterbuilders
-  verbs:
-  - get
-  - list
-  - watch
-
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - rolebindings
   verbs:
   - create
-
 - apiGroups:
-  - hnc.x-k8s.io
+  - services.cloudfoundry.org
   resources:
-  - subnamespaceanchors
+  - cfservicebindings
   verbs:
   - create
   - delete
-
-- apiGroups:
-  - hnc.x-k8s.io
-  resources:
-  - hierarchyconfigurations
-  verbs:
-  - patch
-
-- apiGroups:
-  - metrics.k8s.io
-  resources:
-  - pods
-  verbs:
   - get
   - list
-  - watch
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - create
+  - get
+  - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfprocesses
+  verbs:
+  - create
+  - get
+  - list
+  - patch

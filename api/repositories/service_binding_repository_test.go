@@ -110,6 +110,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				})
 
 				It("creates the binding with the specified name", func() {
+					Expect(createErr).NotTo(HaveOccurred())
 					Expect(record.Name).To(Equal(bindingName))
 				})
 			})

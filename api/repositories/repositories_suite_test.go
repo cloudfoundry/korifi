@@ -278,7 +278,7 @@ func createClusterRoleBinding(ctx context.Context, userName, roleName string) {
 }
 
 func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {
-	filepath := filepath.Join("..", "..", "controllers", "config", "cf_roles", filename+".yaml")
+	filepath := filepath.Join("..", "..", "api", "config", "cf_roles", filename+".yaml")
 	content, err := ioutil.ReadFile(filepath)
 	Expect(err).NotTo(HaveOccurred())
 

@@ -8,6 +8,9 @@ namespace: korifi-api-system
 # field above.
 namePrefix: korifi-api-
 
+bases:
+- ../cf_roles
+
 resources:
 - namespace.yaml
 - deployment.yaml

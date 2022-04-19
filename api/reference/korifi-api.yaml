@@ -13,18 +13,45 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: korifi-api-cf-admin-clusterrole
+  name: korifi-api-admin
 rules:
 - apiGroups:
   - ""
   resources:
-  - namespaces
+  - pods
+  verbs:
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - get
+  - patch
+- apiGroups:
+  - hnc.x-k8s.io
+  resources:
+  - hierarchyconfigurations
+  verbs:
+  - patch
+- apiGroups:
+  - hnc.x-k8s.io
+  resources:
+  - subnamespaceanchors
+  verbs:
+  - create
+  - delete
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - ""
+  - metrics.k8s.io
   resources:
   - pods
   verbs:
@@ -32,37 +59,117 @@ rules:
   - list
   - watch
 - apiGroups:
-  - ""
+  - networking.cloudfoundry.org
   resources:
-  - pods/status
+  - cfdomains
   verbs:
   - get
+  - list
 - apiGroups:
-  - ""
+  - networking.cloudfoundry.org
   resources:
-  - secrets
-  verbs:
-  - create
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  - serviceaccounts
+  - cfroutes
   verbs:
   - create
   - delete
   - get
   - list
+  - patch
+  - update
   - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - create
+  - get
+  - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfprocesses
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: korifi-api-cf-admin-clusterrole
+rules:
 - apiGroups:
   - ""
   resources:
-  - secrets/status
-  - serviceaccounts/status
+  - namespaces
   verbs:
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
   - get
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
 - apiGroups:
   - authentication.k8s.io
   resources:
@@ -75,9 +182,7 @@ rules:
   - hierarchyconfigurations
   verbs:
   - get
-  - list
-  - update
-  - watch
+  - patch
 - apiGroups:
   - hnc.x-k8s.io
   resources:
@@ -96,12 +201,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - kpack.io
-  resources:
-  - clusterbuilders/status
-  verbs:
-  - get
-- apiGroups:
   - metrics.k8s.io
   resources:
   - pods
@@ -114,19 +213,8 @@ rules:
   resources:
   - cfdomains
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfdomains/status
-  verbs:
-  - get
 - apiGroups:
   - networking.cloudfoundry.org
   resources:
@@ -139,12 +227,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfroutes/status
-  verbs:
-  - get
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -180,68 +262,225 @@ rules:
   - get
   - list
   - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfapps/status
-  verbs:
-  - get
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfbuilds
   verbs:
   - create
-  - delete
   - get
   - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfbuilds/status
-  verbs:
-  - get
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfpackages
   verbs:
   - create
-  - delete
   - get
   - list
   - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfpackages/status
-  verbs:
-  - get
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfprocesses
   verbs:
   - create
+  - get
+  - list
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: korifi-api-organization-manager
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: korifi-api-organization-user
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: korifi-api-root-namespace-user
+rules:
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfdomains
+  verbs:
+  - get
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: korifi-api-space-auditor
+rules:
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders
+  verbs:
+  - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - get
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: korifi-api-space-developer
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - get
+  - patch
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders
+  verbs:
+  - get
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - create
   - delete
   - get
   - list
   - patch
-  - update
-  - watch
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
-  - cfprocesses/status
+  - cfapps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - create
+  - get
+  - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfprocesses
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: korifi-api-space-manager
+rules:
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes
   verbs:
   - get
+  - list
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfprocesses
+  verbs:
+  - get
+  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

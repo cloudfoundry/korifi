@@ -1,36 +1,85 @@
-# The CF Space Developer Role
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  creationTimestamp: null
   name: space-developer
 rules:
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - patch
-  - get
-  - create
-
 - apiGroups:
   - ""
   resources:
   - pods
   verbs:
   - list
-
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - get
+  - patch
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders
+  verbs:
+  - get
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+- apiGroups:
+  - services.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
   verbs:
-  - get
   - create
-  - patch
   - delete
+  - get
   - list
-
+  - patch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - create
+  - get
+  - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - create
+  - get
+  - list
+  - patch
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
@@ -40,60 +89,3 @@ rules:
   - get
   - list
   - patch
-
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfpackages
-  verbs:
-  - get
-  - list
-  - create
-  - patch
-
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfbuilds
-  verbs:
-  - get
-  - list
-  - create
-
-- apiGroups:
-  - services.cloudfoundry.org
-  resources:
-  - cfserviceinstances
-  verbs:
-  - get
-  - list
-  - create
-  - delete
-
-- apiGroups:
-    - services.cloudfoundry.org
-  resources:
-    - cfservicebindings
-  verbs:
-    - get
-    - list
-    - create
-    - delete
-
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfroutes
-  verbs:
-  - get
-  - create
-  - delete
-  - list
-  - patch
-
-- apiGroups:
-  - kpack.io
-  resources:
-  - clusterbuilders
-  verbs:
-  - get

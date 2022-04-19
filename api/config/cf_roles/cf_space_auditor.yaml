@@ -1,9 +1,16 @@
-# The CF Space Auditor Role
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  creationTimestamp: null
   name: space-auditor
 rules:
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders
+  verbs:
+  - get
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
@@ -11,10 +18,3 @@ rules:
   verbs:
   - get
   - list
-
-- apiGroups:
-  - kpack.io
-  resources:
-  - clusterbuilders
-  verbs:
-  - get

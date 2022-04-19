@@ -10,49 +10,27 @@ rules:
   resources:
   - namespaces
   verbs:
-  - get
   - list
-  - watch
 - apiGroups:
   - ""
   resources:
   - pods
   verbs:
-  - get
   - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods/status
-  verbs:
-  - get
 - apiGroups:
   - ""
   resources:
   - secrets
   verbs:
   - create
+  - get
   - patch
-  - update
 - apiGroups:
   - ""
   resources:
-  - secrets
   - serviceaccounts
   verbs:
   - create
-  - delete
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets/status
-  - serviceaccounts/status
-  verbs:
-  - get
 - apiGroups:
   - authentication.k8s.io
   resources:
@@ -65,9 +43,7 @@ rules:
   - hierarchyconfigurations
   verbs:
   - get
-  - list
-  - update
-  - watch
+  - patch
 - apiGroups:
   - hnc.x-k8s.io
   resources:
@@ -86,12 +62,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - kpack.io
-  resources:
-  - clusterbuilders/status
-  verbs:
-  - get
-- apiGroups:
   - metrics.k8s.io
   resources:
   - pods
@@ -104,19 +74,8 @@ rules:
   resources:
   - cfdomains
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfdomains/status
-  verbs:
-  - get
 - apiGroups:
   - networking.cloudfoundry.org
   resources:
@@ -129,12 +88,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfroutes/status
-  verbs:
-  - get
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -170,65 +123,29 @@ rules:
   - get
   - list
   - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfapps/status
-  verbs:
-  - get
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfbuilds
   verbs:
   - create
-  - delete
   - get
   - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfbuilds/status
-  verbs:
-  - get
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfpackages
   verbs:
   - create
-  - delete
   - get
   - list
   - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfpackages/status
-  verbs:
-  - get
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfprocesses
   verbs:
   - create
-  - delete
   - get
   - list
   - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfprocesses/status
-  verbs:
-  - get

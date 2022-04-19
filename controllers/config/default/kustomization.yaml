@@ -14,7 +14,6 @@ namePrefix: korifi-controllers-
 
 bases:
 - ../crd
-- ../cf_roles
 - ../rbac
 - ../manager
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
