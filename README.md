@@ -13,7 +13,7 @@ Before installing, ensure that you have the following:
 - a compatible kubernetes cluster (e.g. kind, GKE)
 - a container registry that you have write access for (e.g. GCR, Harbor)
 - [the CloudFoundry cli](https://docs.cloudfoundry.org/cf-cli/install-go-cli.html) version 8.1 or later
-- [Helm](https://helm.sh/docs/helm/helm_install/)
+- [Helm](https://helm.sh/docs/intro/install/)
 - A cloned copy of this repository:
   ```sh
   cd ~/workspace
