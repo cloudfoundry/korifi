@@ -77,7 +77,7 @@ func (h *OrgHandler) orgDeleteHandler(info authorization.Info, r *http.Request) 
 	err := h.orgRepo.DeleteOrg(ctx, info, deleteOrgMessage)
 	if err != nil {
 		h.logger.Error(err, "Failed to delete org", "OrgGUID", orgGUID)
-		return nil, err
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", fmt.Sprintf("%s/v3/jobs/org.delete-%s", h.apiBaseURL.String(), orgGUID)), nil

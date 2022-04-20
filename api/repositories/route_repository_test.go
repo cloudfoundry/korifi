@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,7 +26,7 @@ var _ = Describe("RouteRepository", func() {
 	var (
 		testCtx context.Context
 
-		org   *hnsv1alpha2.SubnamespaceAnchor
+		org   *workloadsv1alpha1.CFOrg
 		space *hnsv1alpha2.SubnamespaceAnchor
 
 		route1GUID string

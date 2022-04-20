@@ -9,6 +9,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -24,7 +26,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		testCtx             context.Context
 		serviceInstanceRepo *repositories.ServiceInstanceRepo
 
-		org                 *hnsv1alpha2.SubnamespaceAnchor
+		org                 *workloadsv1alpha1.CFOrg
 		space               *hnsv1alpha2.SubnamespaceAnchor
 		serviceInstanceName string
 	)
@@ -33,7 +35,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		testCtx = context.Background()
 		serviceInstanceRepo = repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPerms)
 
-		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
+		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
 		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
 		serviceInstanceName = prefixedGUID("service-instance")
 	})

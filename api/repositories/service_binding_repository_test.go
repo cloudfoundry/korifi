@@ -24,7 +24,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 	var (
 		repo                *repositories.ServiceBindingRepo
 		testCtx             context.Context
-		org                 *hnsv1alpha2.SubnamespaceAnchor
+		org                 *workloadsv1alpha1.CFOrg
 		space               *hnsv1alpha2.SubnamespaceAnchor
 		appGUID             string
 		serviceInstanceGUID string
@@ -34,7 +34,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		testCtx = context.Background()
 		repo = repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPerms)
 
-		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
+		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
 		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
 		appGUID = prefixedGUID("app")
 		serviceInstanceGUID = prefixedGUID("service-instance")

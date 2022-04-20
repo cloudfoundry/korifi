@@ -18,6 +18,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
+	"code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 )
 
 var _ = Describe("ImageRepository", func() {
@@ -32,10 +33,11 @@ var _ = Describe("ImageRepository", func() {
 
 		imageRepo *repositories.ImageRepository
 
-		imageRef   string
-		uploadErr  error
-		ctx        context.Context
-		org, space *hnsv1alpha2.SubnamespaceAnchor
+		imageRef  string
+		uploadErr error
+		ctx       context.Context
+		org       *v1alpha1.CFOrg
+		space     *hnsv1alpha2.SubnamespaceAnchor
 	)
 
 	BeforeEach(func() {
@@ -55,7 +57,7 @@ var _ = Describe("ImageRepository", func() {
 
 		ctx = context.Background()
 
-		org = createOrgAnchorAndNamespace(ctx, rootNamespace, prefixedGUID("org"))
+		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceAnchorAndNamespace(ctx, org.Name, prefixedGUID("space"))
 
 		_, err = privilegedK8sClient.

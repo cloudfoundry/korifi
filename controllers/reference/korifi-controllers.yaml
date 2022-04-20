@@ -562,6 +562,7 @@ spec:
             properties:
               name:
                 description: Name that is displayed to users
+                pattern: ^[-\w]+$
                 type: string
             required:
             - name
@@ -1885,6 +1886,24 @@ rules:
   - ""
   resources:
   - pods/log
+  verbs:
+  - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs/status
   verbs:
   - get
 - apiGroups:

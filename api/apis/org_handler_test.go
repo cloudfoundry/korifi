@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/apis/fake"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -409,6 +410,17 @@ var _ = Describe("OrgHandler", func() {
 				Expect(message).To(Equal(repositories.DeleteOrgMessage{
 					GUID: orgGUID,
 				}))
+			})
+		})
+
+		When("invoking the delete org repository yields a forbidden error", func() {
+			BeforeEach(func() {
+				orgRepo.DeleteOrgReturns(apierrors.NewForbiddenError(errors.New("boom"), repositories.OrgResourceType))
+				router.ServeHTTP(rr, request)
+			})
+
+			It("returns NotFound error", func() {
+				expectNotFoundError(repositories.OrgResourceType)
 			})
 		})
 
