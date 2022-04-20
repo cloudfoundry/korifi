@@ -43,7 +43,7 @@ kubectl apply -f dependencies/kpack-release-0.5.2.yaml
 ```
 
 ### Configure an Image Registry Credentials Secret
-Edit the file: `config/kpack/cluster_builder.yaml` and set the `tag` field to be the registry location you want your ClusterBuilder image to be uploaded to.
+Edit the file: `ddependencies/kpack/cluster_builder.yaml` and set the `tag` field to be the registry location you want your ClusterBuilder image to be uploaded to.
 
 Run the command below, substituting the values for the Docker credentials to the registry where images will be uploaded to.
 ```sh
