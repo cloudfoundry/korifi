@@ -193,7 +193,7 @@ The configuration file for korifi-api is located at `api/config/base/apiconfig/k
 - Edit the file `api/config/base/api_url_patch.yaml` to specify the desired URL for the deployed API. (required)
 
 ### Configure Kpack
-- Set the `kpackImageTag` to be the registry location you want for storing the images. (required)
+- Set the `kpackImageTag` locate at `controllers/config/base/controllersconfig/korifi_controllers_config.yaml` to be the registry location you want for storing the images. (required)
 - Set the `clusterBuilderName`, if you want Kpack to use a different cluster builder. (optional)
 
 ### Configure an Auth Proxy (optional) 
