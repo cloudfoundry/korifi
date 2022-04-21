@@ -105,7 +105,7 @@ func (h *OrgHandler) orgListDomainHandler(info authorization.Info, r *http.Reque
 
 	if _, err := h.orgRepo.GetOrg(ctx, info, orgGUID); err != nil {
 		h.logger.Error(err, "Unable to get organization")
-		return nil, err
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	if err := r.ParseForm(); err != nil {

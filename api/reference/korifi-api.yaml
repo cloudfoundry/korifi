@@ -88,20 +88,6 @@ rules:
   - cfprocesses
   verbs:
   - list
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cforgs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cforgs/status
-  verbs:
-  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

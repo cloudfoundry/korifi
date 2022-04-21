@@ -43,13 +43,6 @@ rules:
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
-  - cforgs/status
-  verbs:
-  - get
-
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
   - cfapps
   verbs:
   - get

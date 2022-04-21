@@ -525,13 +525,23 @@ var _ = Describe("OrgHandler", func() {
 			})
 		})
 
-		When("fails to get the org", func() {
+		When("getting the Org fails", func() {
 			BeforeEach(func() {
 				orgRepo.GetOrgReturns(repositories.OrgRecord{}, errors.New("failed to get org"))
 			})
 
 			It("returns an unknown error", func() {
 				expectUnknownError()
+			})
+		})
+
+		When("getting the Org is forbidden", func() {
+			BeforeEach(func() {
+				orgRepo.GetOrgReturns(repositories.OrgRecord{}, apierrors.NewForbiddenError(errors.New("boom"), repositories.OrgResourceType))
+			})
+
+			It("returns an NotFound error", func() {
+				expectNotFoundError(repositories.OrgResourceType)
 			})
 		})
 

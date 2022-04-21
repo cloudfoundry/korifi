@@ -78,17 +78,3 @@ rules:
   - cfprocesses
   verbs:
   - list
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cforgs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cforgs/status
-  verbs:
-  - get

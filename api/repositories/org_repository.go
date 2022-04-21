@@ -18,9 +18,6 @@ import (
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cforgs,verbs=get;list;watch
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cforgs/status,verbs=get
-
 //+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;watch
 //+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=hierarchyconfigurations,verbs=get
 
@@ -162,7 +159,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 
 func (r *OrgRepo) createOrgCR(ctx context.Context,
 	info authorization.Info,
-	userClient client.Client,
+	userClient client.WithWatch,
 	org *workloads.CFOrg,
 ) (*workloads.CFOrg, error) {
 	err := userClient.Create(ctx, org)
@@ -172,8 +169,7 @@ func (r *OrgRepo) createOrgCR(ctx context.Context,
 
 	timeoutCtx, cancelFn := context.WithTimeout(ctx, r.timeout)
 	defer cancelFn()
-
-	watch, err := r.privilegedClient.Watch(timeoutCtx, &workloads.CFOrgList{},
+	watch, err := userClient.Watch(timeoutCtx, &workloads.CFOrgList{},
 		client.InNamespace(org.Namespace),
 		client.MatchingFields{"metadata.name": org.Name},
 	)
@@ -378,8 +374,17 @@ outer:
 }
 
 func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter ListOrgsMessage) ([]OrgRecord, error) {
-	cfOrgList := &workloads.CFOrgList{}
-	err := r.privilegedClient.List(ctx, cfOrgList, client.InNamespace(r.rootNamespace))
+	authorizedNamespaces, err := r.nsPerms.GetAuthorizedOrgNamespaces(ctx, info)
+	if err != nil {
+		return nil, err
+	}
+
+	userClient, err := r.userClientFactory.BuildClient(info)
+	if err != nil {
+		return []OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+	cfOrgList := new(workloads.CFOrgList)
+	err = userClient.List(ctx, cfOrgList, client.InNamespace(r.rootNamespace))
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, OrgResourceType)
 	}
@@ -390,7 +395,7 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter 
 			continue
 		}
 
-		if matchesFilter(cfOrg.Name, filter.GUIDs) && matchesFilter(cfOrg.Spec.Name, filter.Names) {
+		if matchesFilter(cfOrg.Name, filter.GUIDs) && matchesFilter(cfOrg.Spec.Name, filter.Names) && authorizedNamespaces[cfOrg.Name] {
 			records = append(records, OrgRecord{
 				Name:      cfOrg.Spec.Name,
 				GUID:      cfOrg.Name,
@@ -399,22 +404,8 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter 
 			})
 		}
 	}
-
-	authorizedNamespaces, err := r.nsPerms.GetAuthorizedOrgNamespaces(ctx, info)
-	if err != nil {
-		return nil, err
-	}
-
-	var result []OrgRecord
-	for _, org := range records {
-		if !authorizedNamespaces[org.GUID] {
-			continue
-		}
-
-		result = append(result, org)
-	}
-
-	return result, nil
+	
+	return records, nil
 }
 
 func (r *OrgRepo) ListSpaces(ctx context.Context, info authorization.Info, message ListSpacesMessage) ([]SpaceRecord, error) {

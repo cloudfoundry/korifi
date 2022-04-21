@@ -15,11 +15,9 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
@@ -299,27 +297,6 @@ var _ = Describe("RoleRepository", func() {
 				_, identity, _ := authorizedInChecker.AuthorizedInArgsForCall(0)
 				Expect(identity.Kind).To(Equal(rbacv1.ServiceAccountKind))
 				Expect(identity.Name).To(Equal("my-service-account"))
-			})
-		})
-
-		When("getting the parent org fails", func() {
-			BeforeEach(func() {
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: spaceAnchor.Name,
-						Annotations: map[string]string{
-							hnsv1alpha2.SubnamespaceOf: cfOrg.Name,
-						},
-					},
-				}
-				nsCopy := namespace.DeepCopy()
-				nsCopy.Annotations[hnsv1alpha2.SubnamespaceOf] = ""
-
-				Expect(k8sClient.Patch(ctx, nsCopy, client.MergeFrom(namespace))).To(Succeed())
-			})
-
-			It("returns an error", func() {
-				Expect(createErr).To(MatchError(ContainSubstring("does not have a parent")))
 			})
 		})
 
