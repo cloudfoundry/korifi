@@ -74,20 +74,10 @@ rules:
   resources:
   - cfapps
   - cfbuilds
+  - cfpackages
+  - cfprocesses
   verbs:
-  - create
-  - delete
-  - get
   - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfbuilds/status
-  verbs:
-  - get
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
@@ -102,10 +92,3 @@ rules:
   - cforgs/status
   verbs:
   - get
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfpackages
-  - cfprocesses
-  verbs:
-  - list

@@ -58,7 +58,7 @@ var _ = Describe("Orgs", func() {
 			Expect(result.GUID).To(HavePrefix("cf-org-"))
 		})
 
-		When("the org name already exists", func() {
+		When("the org name already exists", Pending, func() {
 			var duplOrgGUID string
 
 			BeforeEach(func() {
