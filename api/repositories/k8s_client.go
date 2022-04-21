@@ -101,22 +101,3 @@ func (f UnprivilegedClientFactory) BuildK8sClient(authInfo authorization.Info) (
 
 	return userK8sClient, nil
 }
-
-func NewPrivilegedClientFactory(config *rest.Config, mapper meta.RESTMapper) PrivilegedClientFactory {
-	return PrivilegedClientFactory{
-		config: config,
-		mapper: mapper,
-	}
-}
-
-type PrivilegedClientFactory struct {
-	config *rest.Config
-	mapper meta.RESTMapper
-}
-
-func (f PrivilegedClientFactory) BuildClient(_ authorization.Info) (client.WithWatch, error) {
-	return client.NewWithWatch(f.config, client.Options{
-		Scheme: scheme.Scheme,
-		Mapper: f.mapper,
-	})
-}

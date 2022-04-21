@@ -18,8 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfserviceinstances,verbs=list;create;get;delete
-
 const (
 	CFServiceInstanceGUIDLabel     = "services.cloudfoundry.org/service-instance-guid"
 	ServiceInstanceResourceType    = "Service Instance"

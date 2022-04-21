@@ -7,11 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -31,8 +29,6 @@ const (
 type AuthorizedInChecker interface {
 	AuthorizedIn(ctx context.Context, identity authorization.Identity, namespace string) (bool, error)
 }
-
-//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create
 
 type CreateRoleMessage struct {
 	GUID  string
@@ -55,20 +51,20 @@ type RoleRecord struct {
 }
 
 type RoleRepo struct {
-	privilegedClient    client.Client
 	rootNamespace       string
 	roleMappings        map[string]config.Role
 	authorizedInChecker AuthorizedInChecker
 	userClientFactory   UserK8sClientFactory
+	orgRepo             *OrgRepo
 }
 
-func NewRoleRepo(privilegedClient client.Client, userClientFactory UserK8sClientFactory, authorizedInChecker AuthorizedInChecker, rootNamespace string, roleMappings map[string]config.Role) *RoleRepo {
+func NewRoleRepo(userClientFactory UserK8sClientFactory, orgRepo *OrgRepo, authorizedInChecker AuthorizedInChecker, rootNamespace string, roleMappings map[string]config.Role) *RoleRepo {
 	return &RoleRepo{
-		privilegedClient:    privilegedClient,
 		rootNamespace:       rootNamespace,
 		roleMappings:        roleMappings,
 		authorizedInChecker: authorizedInChecker,
 		userClientFactory:   userClientFactory,
+		orgRepo:             orgRepo,
 	}
 }
 
@@ -89,7 +85,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 	}
 
 	if role.Space != "" {
-		if err = r.validateOrgRequirements(ctx, role, userIdentity); err != nil {
+		if err = r.validateOrgRequirements(ctx, role, userIdentity, authInfo); err != nil {
 			return RoleRecord{}, err
 		}
 	}
@@ -126,7 +122,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 	cfUserRoleBinding := createRoleBinding(r.rootNamespace, cfUserRoleType, role.Kind, role.User, uuid.NewString(), cfUserk8sRoleConfig.Name, map[string]string{
 		hnsv1alpha2.AnnotationNoneSelector: "true",
 	})
-	err = r.privilegedClient.Create(ctx, &cfUserRoleBinding)
+	err = userClient.Create(ctx, &cfUserRoleBinding)
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
 			return RoleRecord{}, fmt.Errorf("failed to assign user %q to role %q: %w", role.User, role.Type, err)
@@ -147,44 +143,24 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 	return roleRecord, nil
 }
 
-func (r *RoleRepo) validateOrgRequirements(ctx context.Context, role CreateRoleMessage, userIdentity authorization.Identity) error {
-	orgName, err := r.getOrgName(ctx, role.Space)
+func (r *RoleRepo) validateOrgRequirements(ctx context.Context, role CreateRoleMessage, userIdentity authorization.Identity, authInfo authorization.Info) error {
+	space, err := r.orgRepo.GetSpace(ctx, authInfo, role.Space)
 	if err != nil {
-		return err
+		return apierrors.NotFoundAsUnprocessableEntity(err, "space not found")
 	}
 
-	hasOrgBinding, err := r.authorizedInChecker.AuthorizedIn(ctx, userIdentity, orgName)
+	hasOrgBinding, err := r.authorizedInChecker.AuthorizedIn(ctx, userIdentity, space.OrganizationGUID)
 	if err != nil {
 		return fmt.Errorf("failed to check for role in parent org: %w", err)
 	}
 
 	if !hasOrgBinding {
 		return apierrors.NewUnprocessableEntityError(
-			fmt.Errorf("no RoleBinding found in parent org %q for user %q", orgName, userIdentity.Name),
+			fmt.Errorf("no RoleBinding found in parent org %q for user %q", space.OrganizationGUID, userIdentity.Name),
 			"no RoleBinding found in parent org",
 		)
 	}
 	return nil
-}
-
-func (r *RoleRepo) getOrgName(ctx context.Context, spaceGUID string) (string, error) {
-	namespace := corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: spaceGUID,
-		},
-	}
-
-	err := r.privilegedClient.Get(ctx, client.ObjectKeyFromObject(&namespace), &namespace)
-	if err != nil {
-		return "", fmt.Errorf("failed to get namespace with name %q: %w", spaceGUID, apierrors.FromK8sError(err, OrgResourceType))
-	}
-
-	orgName := namespace.Annotations[hnsv1alpha2.SubnamespaceOf]
-	if orgName == "" {
-		return "", fmt.Errorf("namespace %s does not have a parent", spaceGUID)
-	}
-
-	return orgName, nil
 }
 
 func calculateRoleBindingName(roleType, roleUser string) string {

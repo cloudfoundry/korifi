@@ -20,55 +20,19 @@ rules:
   resources:
   - namespaces
   verbs:
-  - get
   - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods/log
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ""
-  resources:
-  - pods/status
-  verbs:
-  - get
 - apiGroups:
   - ""
   resources:
   - secrets
   verbs:
-  - create
-  - patch
-  - update
+  - get
 - apiGroups:
   - ""
   resources:
-  - secrets
   - serviceaccounts
   verbs:
   - create
-  - delete
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets/status
-  - serviceaccounts/status
-  verbs:
   - get
 - apiGroups:
   - authentication.k8s.io
@@ -82,173 +46,48 @@ rules:
   - hierarchyconfigurations
   verbs:
   - get
-  - list
-  - update
-  - watch
 - apiGroups:
   - hnc.x-k8s.io
   resources:
   - subnamespaceanchors
   verbs:
-  - create
-  - delete
   - list
   - watch
-- apiGroups:
-  - kpack.io
-  resources:
-  - clusterbuilders
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - kpack.io
-  resources:
-  - clusterbuilders/status
-  verbs:
-  - get
 - apiGroups:
   - metrics.k8s.io
   resources:
   - pods
   verbs:
   - get
-  - list
-  - watch
 - apiGroups:
   - networking.cloudfoundry.org
   resources:
   - cfdomains
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfdomains/status
-  verbs:
-  - get
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
   - cfroutes
   verbs:
-  - create
-  - delete
-  - get
   - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfroutes/status
-  verbs:
-  - get
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - rolebindings
   verbs:
-  - create
   - list
 - apiGroups:
   - services.cloudfoundry.org
   resources:
   - cfservicebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-- apiGroups:
-  - services.cloudfoundry.org
-  resources:
   - cfserviceinstances
   verbs:
-  - create
-  - delete
-  - get
   - list
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfapps/status
-  verbs:
-  - get
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
   - cfbuilds
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfbuilds/status
-  verbs:
-  - get
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
   - cfpackages
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfpackages/status
-  verbs:
-  - get
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
   - cfprocesses
   verbs:
-  - create
-  - delete
-  - get
   - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfprocesses/status
-  verbs:
-  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -21,9 +21,6 @@ const (
 	RoutePrefix       = "cf-route-"
 )
 
-//+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes/status,verbs=get
-
 type RouteRepo struct {
 	namespaceRetriever   NamespaceRetriever
 	userClientFactory    UserK8sClientFactory

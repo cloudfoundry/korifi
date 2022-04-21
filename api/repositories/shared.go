@@ -9,8 +9,6 @@ import (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
-//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
-
 // getTimeLastUpdatedTimestamp takes the ObjectMeta from a CR and extracts the last updated time from its list of ManagedFields
 // Returns an error if the list is empty or the time could not be extracted
 func getTimeLastUpdatedTimestamp(metadata *metav1.ObjectMeta) (string, error) {

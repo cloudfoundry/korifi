@@ -12,6 +12,7 @@ import (
 )
 
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=list
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=list
 
 //counterfeiter:generate -o fake -fake-name IdentityProvider . IdentityProvider
 

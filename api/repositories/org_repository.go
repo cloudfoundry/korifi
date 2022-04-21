@@ -19,9 +19,9 @@ import (
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
-//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;create;delete;watch
-//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=hierarchyconfigurations,verbs=get;list;watch;update
-//+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;create;delete;watch
+//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;watch
+//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=hierarchyconfigurations,verbs=get
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=create
 
 //counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
 
