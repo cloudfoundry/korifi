@@ -31,7 +31,7 @@ var _ = Describe("AppRepository", func() {
 	var (
 		testCtx context.Context
 		appRepo *AppRepo
-		org     *v1alpha2.SubnamespaceAnchor
+		org     *workloadsv1alpha1.CFOrg
 		space   *v1alpha2.SubnamespaceAnchor
 		cfApp   *workloadsv1alpha1.CFApp
 	)

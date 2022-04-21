@@ -23,7 +23,7 @@ var _ = Describe("ProcessRepo", func() {
 	var (
 		ctx          context.Context
 		processRepo  *repositories.ProcessRepo
-		org          *hnsv1alpha2.SubnamespaceAnchor
+		org          *workloadsv1alpha1.CFOrg
 		space        *hnsv1alpha2.SubnamespaceAnchor
 		app1GUID     string
 		process1GUID string

@@ -37,6 +37,7 @@ spec:
             properties:
               name:
                 description: Name that is displayed to users
+                pattern: ^[-\w]+$
                 type: string
             required:
             - name

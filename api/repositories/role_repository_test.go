@@ -5,6 +5,13 @@ import (
 	"errors"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/config"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/matchers"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,12 +19,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
-	"code.cloudfoundry.org/korifi/api/apierrors"
-	"code.cloudfoundry.org/korifi/api/config"
-	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/fake"
-	"code.cloudfoundry.org/korifi/tests/matchers"
 )
 
 var _ = Describe("RoleRepository", func() {
@@ -25,7 +26,7 @@ var _ = Describe("RoleRepository", func() {
 		ctx                 context.Context
 		roleCreateMessage   repositories.CreateRoleMessage
 		roleRepo            *repositories.RoleRepo
-		orgAnchor           *hnsv1alpha2.SubnamespaceAnchor
+		cfOrg               *workloadsv1alpha1.CFOrg
 		createdRole         repositories.RoleRecord
 		authorizedInChecker *fake.AuthorizedInChecker
 		createErr           error
@@ -51,7 +52,7 @@ var _ = Describe("RoleRepository", func() {
 		)
 
 		roleCreateMessage = repositories.CreateRoleMessage{}
-		orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, uuid.NewString())
+		cfOrg = createOrgWithCleanup(ctx, uuid.NewString())
 	})
 
 	getTheRoleBinding := func(name, namespace string) rbacv1.RoleBinding {
@@ -68,7 +69,7 @@ var _ = Describe("RoleRepository", func() {
 				Type: "organization_manager",
 				User: "myuser@example.com",
 				Kind: rbacv1.UserKind,
-				Org:  orgAnchor.Name,
+				Org:  cfOrg.Name,
 			}
 		})
 
@@ -94,7 +95,7 @@ var _ = Describe("RoleRepository", func() {
 				// Sha256 sum of "cf_user::myuser@example.com"
 				cfUserExpectedName = "cf-156eb9a28b4143e61a5b43fb7e7a6b8de98495aa4b5da4ba871dc4eaa4c35433"
 				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
-				createRoleBinding(ctx, userName, adminRole.Name, orgAnchor.Name)
+				createRoleBinding(ctx, userName, adminRole.Name, cfOrg.Name)
 			})
 
 			It("succeeds", func() {
@@ -102,7 +103,7 @@ var _ = Describe("RoleRepository", func() {
 			})
 
 			It("creates a role binding in the org namespace", func() {
-				roleBinding := getTheRoleBinding(expectedName, orgAnchor.Name)
+				roleBinding := getTheRoleBinding(expectedName, cfOrg.Name)
 
 				Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleCreateMessage.GUID))
 				Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
@@ -135,7 +136,7 @@ var _ = Describe("RoleRepository", func() {
 					})
 
 					It("enables the role binding propagation, but not for cf_user", func() {
-						Expect(getTheRoleBinding(expectedName, orgAnchor.Name).Annotations).NotTo(HaveKey(HavePrefix(hnsv1alpha2.AnnotationPropagatePrefix)))
+						Expect(getTheRoleBinding(expectedName, cfOrg.Name).Annotations).NotTo(HaveKey(HavePrefix(hnsv1alpha2.AnnotationPropagatePrefix)))
 						Expect(getTheRoleBinding(cfUserExpectedName, rootNamespace).Annotations).To(HaveKeyWithValue(hnsv1alpha2.AnnotationNoneSelector, "true"))
 					})
 				})
@@ -149,7 +150,7 @@ var _ = Describe("RoleRepository", func() {
 
 					It("disables the role binding propagation", func() {
 						Expect(createErr).NotTo(HaveOccurred())
-						Expect(getTheRoleBinding(expectedName, orgAnchor.Name).Annotations).To(HaveKeyWithValue(hnsv1alpha2.AnnotationNoneSelector, "true"))
+						Expect(getTheRoleBinding(expectedName, cfOrg.Name).Annotations).To(HaveKeyWithValue(hnsv1alpha2.AnnotationNoneSelector, "true"))
 						Expect(getTheRoleBinding(cfUserExpectedName, rootNamespace).Annotations).To(HaveKeyWithValue(hnsv1alpha2.AnnotationNoneSelector, "true"))
 					})
 				})
@@ -166,7 +167,7 @@ var _ = Describe("RoleRepository", func() {
 				It("succeeds and uses a service account subject kind", func() {
 					Expect(createErr).NotTo(HaveOccurred())
 
-					roleBinding := getTheRoleBinding(expectedName, orgAnchor.Name)
+					roleBinding := getTheRoleBinding(expectedName, cfOrg.Name)
 					Expect(roleBinding.Subjects).To(HaveLen(1))
 					Expect(roleBinding.Subjects[0].Name).To(Equal("my-service-account"))
 					Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.ServiceAccountKind))
@@ -222,7 +223,7 @@ var _ = Describe("RoleRepository", func() {
 			// Sha256 sum of "space_developer::myuser@example.com"
 			expectedName = "cf-94662df3659074e12fbb2a05fbda554db8fd0bf2f59394874412ebb0dddf6ba4"
 			authorizedInChecker.AuthorizedInReturns(true, nil)
-			spaceAnchor = createSpaceAnchorAndNamespace(ctx, orgAnchor.Name, uuid.NewString())
+			spaceAnchor = createSpaceAnchorAndNamespace(ctx, cfOrg.Name, uuid.NewString())
 
 			roleCreateMessage = repositories.CreateRoleMessage{
 				GUID:  uuid.NewString(),
@@ -240,7 +241,7 @@ var _ = Describe("RoleRepository", func() {
 			Expect(k8sClient.Create(context.Background(), &rbacv1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
-					Namespace: orgAnchor.Name,
+					Namespace: cfOrg.Name,
 				},
 				Subjects: []rbacv1.Subject{
 					{
@@ -277,7 +278,7 @@ var _ = Describe("RoleRepository", func() {
 			_, userIdentity, org := authorizedInChecker.AuthorizedInArgsForCall(0)
 			Expect(userIdentity.Name).To(Equal("myuser@example.com"))
 			Expect(userIdentity.Kind).To(Equal(rbacv1.UserKind))
-			Expect(org).To(Equal(orgAnchor.Name))
+			Expect(org).To(Equal(cfOrg.Name))
 		})
 
 		It("updated the create/updated timestamps", func() {

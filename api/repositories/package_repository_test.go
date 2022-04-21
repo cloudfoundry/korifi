@@ -25,7 +25,7 @@ var _ = Describe("PackageRepository", func() {
 	var (
 		packageRepo *repositories.PackageRepo
 		ctx         context.Context
-		org         *hnsv1alpha2.SubnamespaceAnchor
+		org         *workloadsv1alpha1.CFOrg
 		space       *hnsv1alpha2.SubnamespaceAnchor
 	)
 

@@ -562,6 +562,7 @@ spec:
             properties:
               name:
                 description: Name that is displayed to users
+                pattern: ^[-\w]+$
                 type: string
             required:
             - name
@@ -1890,6 +1891,18 @@ rules:
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
   - cfapps
   verbs:
   - get
@@ -2441,13 +2454,29 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: korifi-controllers-organization-manager
-rules: []
+rules:
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: korifi-controllers-organization-user
-rules: []
+rules:
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -2481,6 +2510,14 @@ rules:
   verbs:
   - get
   - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

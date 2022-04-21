@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
-
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
+	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/tests/integration/helpers"
 	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/uuid"
@@ -19,6 +19,7 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -31,10 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/tests/integration/helpers"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 const (
@@ -192,22 +190,43 @@ func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLa
 	return anchor, namespace, hierarchy
 }
 
-func createOrgWithCleanup(ctx context.Context, name string) *hnsv1alpha2.SubnamespaceAnchor {
-	org, namespace, hierarchy := createAnchorAndNamespace(ctx, rootNamespace, name, repositories.OrgNameLabel)
+func createOrgWithCleanup(ctx context.Context, name string) *workloadsv1alpha1.CFOrg {
+	guid := uuid.NewString()
+	cfOrg := &workloadsv1alpha1.CFOrg{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      guid,
+			Namespace: rootNamespace,
+		},
+		Spec: workloadsv1alpha1.CFOrgSpec{
+			Name: name,
+		},
+	}
+	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
+
+	meta.SetStatusCondition(&(cfOrg.Status.Conditions), metav1.Condition{
+		Type:    "Ready",
+		Status:  metav1.ConditionTrue,
+		Reason:  "cus",
+		Message: "cus",
+	})
+	Expect(k8sClient.Status().Update(ctx, cfOrg)).To(Succeed())
+
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: cfOrg.Name,
+			Labels: map[string]string{
+				rootNamespace + hnsv1alpha2.LabelTreeDepthSuffix: "1",
+			},
+		},
+	}
+	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 
 	DeferCleanup(func() {
-		Expect(k8sClient.Delete(ctx, hierarchy)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, org)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
+		_ = k8sClient.Delete(ctx, cfOrg)
+		_ = k8sClient.Delete(ctx, namespace)
 	})
 
-	return org
-}
-
-func createOrgAnchorAndNamespace(ctx context.Context, rootNamespace, name string) *hnsv1alpha2.SubnamespaceAnchor {
-	org, _, _ := createAnchorAndNamespace(ctx, rootNamespace, name, repositories.OrgNameLabel)
-
-	return org
+	return cfOrg
 }
 
 func createSpaceWithCleanup(ctx context.Context, orgName, name string) *hnsv1alpha2.SubnamespaceAnchor {

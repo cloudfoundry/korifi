@@ -29,7 +29,7 @@ var _ = Describe("DropletRepository", func() {
 		testCtx = context.Background()
 		orgName := prefixedGUID("org-")
 		spaceName := prefixedGUID("space-")
-		org := createOrgAnchorAndNamespace(testCtx, rootNamespace, orgName)
+		org := createOrgWithCleanup(testCtx, orgName)
 		space = createSpaceAnchorAndNamespace(testCtx, org.Name, spaceName)
 
 		dropletRepo = repositories.NewDropletRepo(userClientFactory, namespaceRetriever, nsPerms)

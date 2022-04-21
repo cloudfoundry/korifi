@@ -4,10 +4,6 @@ import (
 	"context"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/apierrors"
-	"code.cloudfoundry.org/korifi/api/repositories"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
-	"code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -15,6 +11,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+
+	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 )
 
 var _ = Describe("BuildRepository", func() {

@@ -26,7 +26,7 @@ var _ = Describe("NamespaceRetriever", func() {
 
 		resourceType = repositories.AppResourceType
 		appGUID = prefixedGUID("app")
-		org := createOrgAnchorAndNamespace(ctx, rootNamespace, prefixedGUID("org"))
+		org := createOrgWithCleanup(ctx, prefixedGUID("org"))
 		orgGUID = org.Name
 		space := createSpaceAnchorAndNamespace(ctx, org.Name, prefixedGUID("space"))
 		spaceGUID = space.Name

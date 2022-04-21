@@ -29,6 +29,7 @@ type CFOrgSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Name that is displayed to users
+	// +kubebuilder:validation:Pattern="^[-\\w]+$"
 	Name string `json:"name"`
 }
 

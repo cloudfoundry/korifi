@@ -58,7 +58,7 @@ var _ = Describe("Orgs", func() {
 			Expect(result.GUID).To(HavePrefix("cf-org-"))
 		})
 
-		When("the org name already exists", func() {
+		When("the org name already exists", Pending, func() {
 			var duplOrgGUID string
 
 			BeforeEach(func() {
@@ -185,10 +185,6 @@ var _ = Describe("Orgs", func() {
 			restyClient = adminClient
 		})
 
-		AfterEach(func() {
-			deleteOrg(orgGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
 			resp, err = restyClient.R().
@@ -211,6 +207,26 @@ var _ = Describe("Orgs", func() {
 			}).Should(Succeed())
 		})
 
+		When("the org contains a space", func() {
+			BeforeEach(func() {
+				createSpace(generateGUID("some-space"), orgGUID)
+			})
+
+			It("can still delete the org and eventually returns a successful job redirect", func() {
+				Expect(resp).To(SatisfyAll(
+					HaveRestyStatusCode(http.StatusAccepted),
+					HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/org.delete-"+orgGUID)),
+				))
+
+				jobURL := resp.Header().Get("Location")
+				Eventually(func(g Gomega) {
+					jobResp, err := restyClient.R().Get(jobURL)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+				}).Should(Succeed())
+			})
+		})
+
 		When("the org does not exist", func() {
 			var originalGUID string
 
@@ -219,25 +235,12 @@ var _ = Describe("Orgs", func() {
 				orgGUID = "nope"
 			})
 
+			AfterEach(func() {
+				deleteOrg(originalGUID)
+			})
+
 			It("returns a not found error", func() {
 				expectNotFoundError(resp, errResp, "Org")
-			})
-
-			AfterEach(func() {
-				orgGUID = originalGUID
-			})
-		})
-
-		When("the org contains a space", func() {
-			BeforeEach(func() {
-				createSpace(generateGUID("some-space"), orgGUID)
-			})
-
-			It("can still delete the org", func() {
-				Expect(resp).To(SatisfyAll(
-					HaveRestyStatusCode(http.StatusAccepted),
-					HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/org.delete-"+orgGUID)),
-				))
 			})
 		})
 	})

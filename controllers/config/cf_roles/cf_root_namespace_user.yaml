@@ -13,3 +13,11 @@ rules:
     verbs:
       - get
       - list
+  - apiGroups:
+      - workloads.cloudfoundry.org
+    resources:
+      - cforgs
+    verbs:
+      - get
+      - list
+      - watch

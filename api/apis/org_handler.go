@@ -77,7 +77,7 @@ func (h *OrgHandler) orgDeleteHandler(info authorization.Info, r *http.Request) 
 	err := h.orgRepo.DeleteOrg(ctx, info, deleteOrgMessage)
 	if err != nil {
 		h.logger.Error(err, "Failed to delete org", "OrgGUID", orgGUID)
-		return nil, err
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", fmt.Sprintf("%s/v3/jobs/org.delete-%s", h.apiBaseURL.String(), orgGUID)), nil
@@ -105,7 +105,7 @@ func (h *OrgHandler) orgListDomainHandler(info authorization.Info, r *http.Reque
 
 	if _, err := h.orgRepo.GetOrg(ctx, info, orgGUID); err != nil {
 		h.logger.Error(err, "Unable to get organization")
-		return nil, err
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	if err := r.ParseForm(); err != nil {
