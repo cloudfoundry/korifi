@@ -116,8 +116,8 @@ func main() {
 	serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)
 	roleRepo := repositories.NewRoleRepo(
-		privilegedCRClient,
 		userClientFactory,
+		orgRepo,
 		authorization.NewNamespacePermissions(
 			privilegedCRClient,
 			cachingIdentityProvider,

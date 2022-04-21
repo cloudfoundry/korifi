@@ -8,12 +8,9 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -37,12 +34,21 @@ var _ = Describe("RoleRepository", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		authorizedInChecker = new(fake.AuthorizedInChecker)
-		roleRepo = repositories.NewRoleRepo(k8sClient, userClientFactory, authorizedInChecker, rootNamespace, map[string]config.Role{
+		roleMappings := map[string]config.Role{
 			"space_developer":      {Name: spaceDeveloperRole.Name},
 			"organization_manager": {Name: orgManagerRole.Name, Propagate: true},
 			"organization_user":    {Name: orgUserRole.Name},
 			"cf_user":              {Name: rootNamespaceUserRole.Name},
-		})
+		}
+		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
+
+		roleRepo = repositories.NewRoleRepo(
+			userClientFactory,
+			orgRepo,
+			authorizedInChecker,
+			rootNamespace,
+			roleMappings,
+		)
 
 		roleCreateMessage = repositories.CreateRoleMessage{}
 		orgAnchor = createOrgAnchorAndNamespace(ctx, rootNamespace, uuid.NewString())
@@ -87,6 +93,7 @@ var _ = Describe("RoleRepository", func() {
 				expectedName = "cf-172b9594a1f617258057870643bce8476179a4078845cb4d9d44171d7a8b648b"
 				// Sha256 sum of "cf_user::myuser@example.com"
 				cfUserExpectedName = "cf-156eb9a28b4143e61a5b43fb7e7a6b8de98495aa4b5da4ba871dc4eaa4c35433"
+				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 				createRoleBinding(ctx, userName, adminRole.Name, orgAnchor.Name)
 			})
 
@@ -141,6 +148,7 @@ var _ = Describe("RoleRepository", func() {
 					})
 
 					It("disables the role binding propagation", func() {
+						Expect(createErr).NotTo(HaveOccurred())
 						Expect(getTheRoleBinding(expectedName, orgAnchor.Name).Annotations).To(HaveKeyWithValue(hnsv1alpha2.AnnotationNoneSelector, "true"))
 						Expect(getTheRoleBinding(cfUserExpectedName, rootNamespace).Annotations).To(HaveKeyWithValue(hnsv1alpha2.AnnotationNoneSelector, "true"))
 					})
@@ -225,6 +233,7 @@ var _ = Describe("RoleRepository", func() {
 			}
 
 			createRoleBinding(ctx, userName, adminRole.Name, spaceAnchor.Name)
+			createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 		})
 
 		JustBeforeEach(func() {
@@ -290,27 +299,6 @@ var _ = Describe("RoleRepository", func() {
 			})
 		})
 
-		When("getting the parent org fails", func() {
-			BeforeEach(func() {
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: spaceAnchor.Name,
-						Annotations: map[string]string{
-							hnsv1alpha2.SubnamespaceOf: orgAnchor.Name,
-						},
-					},
-				}
-				nsCopy := namespace.DeepCopy()
-				nsCopy.Annotations[hnsv1alpha2.SubnamespaceOf] = ""
-
-				Expect(k8sClient.Patch(ctx, nsCopy, client.MergeFrom(namespace))).To(Succeed())
-			})
-
-			It("returns an error", func() {
-				Expect(createErr).To(MatchError(ContainSubstring("does not have a parent")))
-			})
-		})
-
 		When("checking an org role exists fails", func() {
 			BeforeEach(func() {
 				authorizedInChecker.AuthorizedInReturns(false, errors.New("boom!"))
@@ -327,7 +315,7 @@ var _ = Describe("RoleRepository", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(k8serrors.IsNotFound(createErr)).To(BeTrue())
+				Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 			})
 		})
 

@@ -107,8 +107,8 @@ var _ = Describe("Roles", func() {
 				client = certClient
 			})
 
-			It("returns 403 Forbidden", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+			It("returns unprocessable entity", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 			})
 		})
 	})
