@@ -290,3 +290,33 @@ func ForbiddenAsNotFound(err error) error {
 	}
 	return err
 }
+
+// DropletForbiddenAsNotFound is a special case due to the CF CLI expecting the error message "Droplet not found" exactly instead of the generic case
+// https://github.com/cloudfoundry/korifi/issues/965
+func DropletForbiddenAsNotFound(err error) error {
+	var forbiddenErr ForbiddenError
+	if errors.As(err, &forbiddenErr) {
+		return NotFoundError{
+			apiError{
+				cause:      forbiddenErr.Unwrap(),
+				title:      "CF-ResourceNotFound",
+				detail:     "Droplet not found",
+				code:       10010,
+				httpStatus: http.StatusNotFound,
+			},
+		}
+	}
+	var notFoundErr NotFoundError
+	if errors.As(err, &notFoundErr) {
+		return NotFoundError{
+			apiError{
+				cause:      notFoundErr.Unwrap(),
+				title:      "CF-ResourceNotFound",
+				detail:     "Droplet not found",
+				code:       10010,
+				httpStatus: http.StatusNotFound,
+			},
+		}
+	}
+	return err
+}
