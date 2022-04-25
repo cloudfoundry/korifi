@@ -12,6 +12,7 @@ import (
 	. "code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,18 +22,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("Route Handler", func() {
 	var (
 		apiHandler *RouteHandler
-		namespace  *hnsv1alpha2.SubnamespaceAnchor
+		space      *workloadsv1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
 		appRepo := repositories.NewAppRepo(namespaceRetriever, clientFactory, nsPermissions)
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPermissions, time.Minute)
+		spaceRepo := repositories.NewSpaceRepo(orgRepo, k8sClient, clientFactory, nsPermissions, time.Minute)
 		routeRepo := repositories.NewRouteRepo(namespaceRetriever, clientFactory, nsPermissions)
 		domainRepo := repositories.NewDomainRepo(clientFactory, namespaceRetriever, rootNamespace)
 		decoderValidator, err := NewDefaultDecoderValidator()
@@ -44,13 +45,13 @@ var _ = Describe("Route Handler", func() {
 			routeRepo,
 			domainRepo,
 			appRepo,
-			orgRepo,
+			spaceRepo,
 			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
 
-		org := createOrgAnchorAndNamespace(ctx, rootNamespace, generateGUID())
-		namespace = createSpaceAnchorAndNamespace(ctx, org.Name, "spacename-"+generateGUID())
+		org := createOrgWithCleanup(ctx, generateGUID())
+		space = createSpaceWithCleanup(ctx, org.Name, "spacename-"+generateGUID())
 	})
 
 	Describe("GET /v3/routes endpoint", func() {
@@ -65,7 +66,7 @@ var _ = Describe("Route Handler", func() {
 			)
 
 			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 
 				domainGUID = generateGUIDWithPrefix("domain")
 				routeGUID1 = generateGUIDWithPrefix("route1")
@@ -85,7 +86,7 @@ var _ = Describe("Route Handler", func() {
 				cfRoute1 = &networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      routeGUID1,
-						Namespace: namespace.Name,
+						Namespace: space.Name,
 					},
 					Spec: networkingv1alpha1.CFRouteSpec{
 						Host:     "my-subdomain-1",
@@ -113,7 +114,7 @@ var _ = Describe("Route Handler", func() {
 				cfRoute2 = &networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      routeGUID2,
-						Namespace: namespace.Name,
+						Namespace: space.Name,
 					},
 					Spec: networkingv1alpha1.CFRouteSpec{
 						Host:     "my-subdomain-2",
@@ -218,7 +219,7 @@ var _ = Describe("Route Handler", func() {
 			)
 
 			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 
 				routeGUID = generateGUIDWithPrefix("route")
 				domainGUID = generateGUIDWithPrefix("domain")
@@ -237,7 +238,7 @@ var _ = Describe("Route Handler", func() {
 				cfRoute = &networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      routeGUID,
-						Namespace: namespace.Name,
+						Namespace: space.Name,
 					},
 					Spec: networkingv1alpha1.CFRouteSpec{
 						Host:     "my-subdomain-1",
@@ -283,7 +284,7 @@ var _ = Describe("Route Handler", func() {
 
 				Eventually(func() error {
 					route := &networkingv1alpha1.CFRoute{}
-					return k8sClient.Get(testCtx, client.ObjectKey{Namespace: namespace.Name, Name: routeGUID}, route)
+					return k8sClient.Get(testCtx, client.ObjectKey{Namespace: space.Name, Name: routeGUID}, route)
 				}).Should(MatchError(ContainSubstring("not found")))
 			})
 		})
@@ -317,7 +318,7 @@ var _ = Describe("Route Handler", func() {
 			cfRoute = &networkingv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      generateGUIDWithPrefix("route"),
-					Namespace: namespace.Name,
+					Namespace: space.Name,
 				},
 				Spec: networkingv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
@@ -377,7 +378,7 @@ var _ = Describe("Route Handler", func() {
 
 		When("the user has readonly access to the route", func() {
 			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceManagerRole.Name, namespace.Name)
+				createRoleBinding(ctx, userName, spaceManagerRole.Name, space.Name)
 
 				getReq, err := http.NewRequestWithContext(ctx, "GET", serverURI("/v3/routes/"+cfRoute.Name), strings.NewReader(""))
 				Expect(err).NotTo(HaveOccurred())
@@ -394,7 +395,7 @@ var _ = Describe("Route Handler", func() {
 
 		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 
 				getReq, err := http.NewRequestWithContext(ctx, "GET", serverURI("/v3/routes/"+cfRoute.Name), strings.NewReader(""))
 				Expect(err).NotTo(HaveOccurred())

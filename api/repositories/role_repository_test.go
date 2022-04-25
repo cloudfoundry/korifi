@@ -42,10 +42,10 @@ var _ = Describe("RoleRepository", func() {
 			"cf_user":              {Name: rootNamespaceUserRole.Name},
 		}
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
-
+		spaceRepo := repositories.NewSpaceRepo(orgRepo, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
 		roleRepo = repositories.NewRoleRepo(
 			userClientFactory,
-			orgRepo,
+			spaceRepo,
 			authorizedInChecker,
 			rootNamespace,
 			roleMappings,
@@ -215,7 +215,7 @@ var _ = Describe("RoleRepository", func() {
 
 	Describe("Create Space Role", func() {
 		var (
-			spaceAnchor  *hnsv1alpha2.SubnamespaceAnchor
+			cfSpace      *workloadsv1alpha1.CFSpace
 			expectedName string
 		)
 
@@ -223,18 +223,19 @@ var _ = Describe("RoleRepository", func() {
 			// Sha256 sum of "space_developer::myuser@example.com"
 			expectedName = "cf-94662df3659074e12fbb2a05fbda554db8fd0bf2f59394874412ebb0dddf6ba4"
 			authorizedInChecker.AuthorizedInReturns(true, nil)
-			spaceAnchor = createSpaceAnchorAndNamespace(ctx, cfOrg.Name, uuid.NewString())
+			cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, uuid.NewString())
 
 			roleCreateMessage = repositories.CreateRoleMessage{
 				GUID:  uuid.NewString(),
 				Type:  "space_developer",
 				User:  "myuser@example.com",
-				Space: spaceAnchor.Name,
+				Space: cfSpace.Name,
 				Kind:  rbacv1.UserKind,
 			}
 
-			createRoleBinding(ctx, userName, adminRole.Name, spaceAnchor.Name)
 			createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+			createRoleBinding(ctx, userName, adminRole.Name, cfOrg.Name)
+			createRoleBinding(ctx, userName, adminRole.Name, cfSpace.Name)
 		})
 
 		JustBeforeEach(func() {
@@ -263,7 +264,7 @@ var _ = Describe("RoleRepository", func() {
 		})
 
 		It("creates a role binding in the space namespace", func() {
-			roleBinding := getTheRoleBinding(expectedName, spaceAnchor.Name)
+			roleBinding := getTheRoleBinding(expectedName, cfSpace.Name)
 
 			Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleCreateMessage.GUID))
 			Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))

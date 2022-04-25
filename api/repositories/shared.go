@@ -7,6 +7,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	StatusConditionReady = "Ready"
+)
+
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 // getTimeLastUpdatedTimestamp takes the ObjectMeta from a CR and extracts the last updated time from its list of ManagedFields

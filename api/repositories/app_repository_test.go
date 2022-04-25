@@ -18,7 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 const (
@@ -32,7 +31,7 @@ var _ = Describe("AppRepository", func() {
 		testCtx context.Context
 		appRepo *AppRepo
 		org     *workloadsv1alpha1.CFOrg
-		space   *v1alpha2.SubnamespaceAnchor
+		space   *workloadsv1alpha1.CFSpace
 		cfApp   *workloadsv1alpha1.CFApp
 	)
 
@@ -64,6 +63,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("authorized in the space", func() {
 			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, orgUserRole.Name, org.Name)
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 

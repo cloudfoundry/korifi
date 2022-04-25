@@ -27,6 +27,7 @@ import (
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -179,6 +180,85 @@ func generateGUIDWithPrefix(prefix string) string {
 	return prefix + uuid.NewString()
 }
 
+func createOrgWithCleanup(ctx context.Context, name string) *workloadsv1alpha1.CFOrg {
+	guid := uuid.NewString()
+	cfOrg := &workloadsv1alpha1.CFOrg{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      guid,
+			Namespace: rootNamespace,
+		},
+		Spec: workloadsv1alpha1.CFOrgSpec{
+			DisplayName: name,
+		},
+	}
+	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
+
+	meta.SetStatusCondition(&(cfOrg.Status.Conditions), metav1.Condition{
+		Type:    "Ready",
+		Status:  metav1.ConditionTrue,
+		Reason:  "cus",
+		Message: "cus",
+	})
+	Expect(k8sClient.Status().Update(ctx, cfOrg)).To(Succeed())
+
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: cfOrg.Name,
+			Labels: map[string]string{
+				rootNamespace + hnsv1alpha2.LabelTreeDepthSuffix: "1",
+			},
+		},
+	}
+	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
+
+	DeferCleanup(func() {
+		_ = k8sClient.Delete(ctx, cfOrg)
+		_ = k8sClient.Delete(ctx, namespace)
+	})
+
+	return cfOrg
+}
+
+func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *workloadsv1alpha1.CFSpace {
+	guid := uuid.NewString()
+	cfSpace := &workloadsv1alpha1.CFSpace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      guid,
+			Namespace: orgGUID,
+		},
+		Spec: workloadsv1alpha1.CFSpaceSpec{
+			DisplayName: name,
+		},
+	}
+	Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+
+	cfSpace.Status.GUID = cfSpace.Name
+	meta.SetStatusCondition(&(cfSpace.Status.Conditions), metav1.Condition{
+		Type:    "Ready",
+		Status:  metav1.ConditionTrue,
+		Reason:  "cus",
+		Message: "cus",
+	})
+	Expect(k8sClient.Status().Update(ctx, cfSpace)).To(Succeed())
+
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: cfSpace.Name,
+			Labels: map[string]string{
+				rootNamespace + hnsv1alpha2.LabelTreeDepthSuffix: "2",
+			},
+		},
+	}
+	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
+
+	DeferCleanup(func() {
+		_ = k8sClient.Delete(ctx, cfSpace)
+		_ = k8sClient.Delete(ctx, namespace)
+	})
+
+	return cfSpace
+}
+
 func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {
 	filepath := filepath.Join("..", "..", "..", "controllers", "config", "cf_roles", filename+".yaml")
 	content, err := ioutil.ReadFile(filepath)
@@ -211,63 +291,4 @@ func createRoleBinding(ctx context.Context, userName, roleName, namespace string
 		},
 	}
 	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
-}
-
-func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLabel string) (*hnsv1alpha2.SubnamespaceAnchor, *corev1.Namespace) {
-	guid := uuid.NewString()
-	anchor := &hnsv1alpha2.SubnamespaceAnchor{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      guid,
-			Namespace: inNamespace,
-			Labels:    map[string]string{orgSpaceLabel: name},
-		},
-		Status: hnsv1alpha2.SubnamespaceAnchorStatus{
-			State: hnsv1alpha2.Ok,
-		},
-	}
-
-	Expect(k8sClient.Create(ctx, anchor)).To(Succeed())
-
-	depth := "1"
-	if orgSpaceLabel == repositories.SpaceNameLabel {
-		depth = "2"
-	}
-
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: anchor.Name,
-			Labels: map[string]string{
-				rootNamespace + hnsv1alpha2.LabelTreeDepthSuffix: depth,
-			},
-			Annotations: map[string]string{
-				hnsv1alpha2.SubnamespaceOf: inNamespace,
-			},
-		},
-	}
-	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
-
-	hierarchy := &hnsv1alpha2.HierarchyConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "hierarchy",
-			Namespace: guid,
-		},
-		Spec: hnsv1alpha2.HierarchyConfigurationSpec{
-			Parent: inNamespace,
-		},
-	}
-	Expect(k8sClient.Create(ctx, hierarchy)).To(Succeed())
-
-	return anchor, namespace
-}
-
-func createOrgAnchorAndNamespace(ctx context.Context, rootNamespace, name string) *hnsv1alpha2.SubnamespaceAnchor {
-	org, _ := createAnchorAndNamespace(ctx, rootNamespace, name, repositories.OrgNameLabel)
-
-	return org
-}
-
-func createSpaceAnchorAndNamespace(ctx context.Context, orgGUID, spaceName string) *hnsv1alpha2.SubnamespaceAnchor {
-	space, _ := createAnchorAndNamespace(ctx, orgGUID, spaceName, repositories.SpaceNameLabel)
-
-	return space
 }

@@ -71,7 +71,7 @@ var _ = Describe("Spaces", func() {
 			Expect(result.GUID).NotTo(BeEmpty())
 		})
 
-		When("the space name already exists", func() {
+		When("the space name already exists", Pending, func() {
 			BeforeEach(func() {
 				createSpace(spaceName, commonTestOrgGUID)
 			})
@@ -258,10 +258,6 @@ var _ = Describe("Spaces", func() {
 			restyClient = adminClient
 		})
 
-		AfterEach(func() {
-			deleteSpace(spaceGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
 			resp, err = restyClient.R().
@@ -293,7 +289,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			AfterEach(func() {
-				spaceGUID = originalSpaceGUID
+				deleteSpace(originalSpaceGUID)
 			})
 
 			It("returns a not found error", func() {

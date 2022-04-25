@@ -104,6 +104,7 @@ func main() {
 		panic(err)
 	}
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout)
+	spaceRepo := repositories.NewSpaceRepo(orgRepo, privilegedCRClient, userClientFactory, nsPermissions, createTimeout)
 	processRepo := repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	podRepo := repositories.NewPodRepo(ctrl.Log.WithName("PodRepository"), userClientFactory, metricsFetcherFunction)
 	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions)
@@ -117,7 +118,7 @@ func main() {
 	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)
 	roleRepo := repositories.NewRoleRepo(
 		userClientFactory,
-		orgRepo,
+		spaceRepo,
 		authorization.NewNamespacePermissions(
 			privilegedCRClient,
 			cachingIdentityProvider,
@@ -165,7 +166,7 @@ func main() {
 			processRepo,
 			routeRepo,
 			domainRepo,
-			orgRepo,
+			spaceRepo,
 			scaleAppProcessAction.Invoke,
 			decoderValidator,
 		),
@@ -175,7 +176,7 @@ func main() {
 			routeRepo,
 			domainRepo,
 			appRepo,
-			orgRepo,
+			spaceRepo,
 			decoderValidator,
 		),
 		apis.NewServiceRouteBindingHandler(
@@ -228,16 +229,26 @@ func main() {
 			buildRepo,
 			readAppLogsAction.Invoke,
 		),
-		apis.NewOrgHandler(*serverURL, orgRepo, domainRepo, decoderValidator),
+		apis.NewOrgHandler(
+			*serverURL,
+			orgRepo,
+			domainRepo,
+			decoderValidator,
+		),
 
-		apis.NewSpaceHandler(*serverURL, config.PackageRegistrySecretName, orgRepo, decoderValidator),
+		apis.NewSpaceHandler(
+			*serverURL,
+			config.PackageRegistrySecretName,
+			spaceRepo,
+			decoderValidator,
+		),
 
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
 			config.DefaultDomainName,
 			applyManifestAction,
-			orgRepo,
+			spaceRepo,
 			decoderValidator,
 		),
 
@@ -260,7 +271,7 @@ func main() {
 			ctrl.Log.WithName("ServiceInstanceHandler"),
 			*serverURL,
 			serviceInstanceRepo,
-			orgRepo,
+			spaceRepo,
 			decoderValidator,
 		),
 

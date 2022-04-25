@@ -4,11 +4,11 @@ kind: ClusterRole
 metadata:
   name: organization-manager
 rules:
-  - apiGroups:
-      - workloads.cloudfoundry.org
-    resources:
-      - cforgs
-    verbs:
-      - get
-      - list
-      - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch

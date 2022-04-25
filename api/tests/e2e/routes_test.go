@@ -116,7 +116,7 @@ var _ = Describe("Routes", func() {
 		})
 
 		AfterEach(func() {
-			deleteSpace(spaceGUID)
+			deleteSpace(space2GUID)
 		})
 
 		JustBeforeEach(func() {
