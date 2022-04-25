@@ -6,14 +6,14 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: korifi-api-cf-admin-serviceaccount
+  name: korifi-api-system-serviceaccount
   namespace: korifi-api-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: korifi-api-cf-admin-clusterrole
+  name: korifi-api-system-clusterrole
 rules:
 - apiGroups:
   - ""
@@ -92,14 +92,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: korifi-api-cf-admin-clusterrolebinding
+  name: korifi-api-system-clusterrolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: korifi-api-cf-admin-clusterrole
+  name: korifi-api-system-clusterrole
 subjects:
 - kind: ServiceAccount
-  name: korifi-api-cf-admin-serviceaccount
+  name: korifi-api-system-serviceaccount
   namespace: korifi-api-system
 ---
 apiVersion: v1
@@ -210,7 +210,7 @@ spec:
         - mountPath: /etc/korifi-api-config
           name: korifi-api-config
           readOnly: true
-      serviceAccountName: korifi-api-cf-admin-serviceaccount
+      serviceAccountName: korifi-api-system-serviceaccount
       volumes:
       - configMap:
           name: korifi-api-config-f8ccbtc64g
