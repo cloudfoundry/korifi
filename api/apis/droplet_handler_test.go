@@ -148,7 +148,7 @@ var _ = Describe("DropletHandler", func() {
 				router.ServeHTTP(rr, req)
 			})
 
-			It("returns an error", func() {
+			It("returns a Not Found error", func() {
 				expectNotFoundError("Droplet not found")
 			})
 		})

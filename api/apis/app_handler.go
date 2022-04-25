@@ -222,13 +222,13 @@ func (h *AppHandler) appGetCurrentDropletHandler(authInfo authorization.Info, r 
 
 	if app.DropletGUID == "" {
 		h.logger.Info("App does not have a current droplet assigned", "appGUID", app.GUID)
-		return nil, apierrors.NewNotFoundError(err, repositories.DropletResourceType)
+		return nil, apierrors.DropletForbiddenAsNotFound(apierrors.NewNotFoundError(err, repositories.DropletResourceType))
 	}
 
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, app.DropletGUID)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch droplet from Kubernetes", "dropletGUID", app.DropletGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.DropletForbiddenAsNotFound(err)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDroplet(droplet, h.serverURL)), nil

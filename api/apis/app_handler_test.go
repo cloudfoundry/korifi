@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-http-utils/headers"
+	"github.com/onsi/gomega/gstruct"
+
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/apis/fake"
@@ -2307,8 +2310,21 @@ var _ = Describe("AppHandler", func() {
 				appRepo.GetAppReturns(repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID, DropletGUID: ""}, nil)
 			})
 
-			It("returns an error", func() {
-				expectNotFoundError("Droplet not found")
+			// This test case is special due to [issue/965](https://github.com/cloudfoundry/korifi/issues/965)
+			It("returns a Not Found error", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+				Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+				var bodyJSON map[string]interface{}
+				Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
+				Expect(bodyJSON).To(HaveKey("errors"))
+				Expect(bodyJSON["errors"]).To(HaveLen(1))
+				Expect(bodyJSON["errors"]).To(ConsistOf(
+					gstruct.MatchAllKeys(gstruct.Keys{
+						"code":   BeEquivalentTo(10010),
+						"title":  Equal("CF-ResourceNotFound"),
+						"detail": Equal("Droplet not found"),
+					}),
+				))
 			})
 		})
 
@@ -2317,8 +2333,21 @@ var _ = Describe("AppHandler", func() {
 				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, apierrors.NewForbiddenError(nil, repositories.DropletResourceType))
 			})
 
-			It("returns an error", func() {
-				expectNotFoundError("Droplet not found")
+			// This test case is special due to [issue/965](https://github.com/cloudfoundry/korifi/issues/965)
+			It("returns a Not Found error", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+				Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+				var bodyJSON map[string]interface{}
+				Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
+				Expect(bodyJSON).To(HaveKey("errors"))
+				Expect(bodyJSON["errors"]).To(HaveLen(1))
+				Expect(bodyJSON["errors"]).To(ConsistOf(
+					gstruct.MatchAllKeys(gstruct.Keys{
+						"code":   BeEquivalentTo(10010),
+						"title":  Equal("CF-ResourceNotFound"),
+						"detail": Equal("Droplet not found"),
+					}),
+				))
 			})
 		})
 
