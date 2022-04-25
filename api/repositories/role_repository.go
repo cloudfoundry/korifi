@@ -55,16 +55,16 @@ type RoleRepo struct {
 	roleMappings        map[string]config.Role
 	authorizedInChecker AuthorizedInChecker
 	userClientFactory   UserK8sClientFactory
-	orgRepo             *OrgRepo
+	spaceRepo           *SpaceRepo
 }
 
-func NewRoleRepo(userClientFactory UserK8sClientFactory, orgRepo *OrgRepo, authorizedInChecker AuthorizedInChecker, rootNamespace string, roleMappings map[string]config.Role) *RoleRepo {
+func NewRoleRepo(userClientFactory UserK8sClientFactory, spaceRepo *SpaceRepo, authorizedInChecker AuthorizedInChecker, rootNamespace string, roleMappings map[string]config.Role) *RoleRepo {
 	return &RoleRepo{
 		rootNamespace:       rootNamespace,
 		roleMappings:        roleMappings,
 		authorizedInChecker: authorizedInChecker,
 		userClientFactory:   userClientFactory,
-		orgRepo:             orgRepo,
+		spaceRepo:           spaceRepo,
 	}
 }
 
@@ -144,7 +144,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 }
 
 func (r *RoleRepo) validateOrgRequirements(ctx context.Context, role CreateRoleMessage, userIdentity authorization.Identity, authInfo authorization.Info) error {
-	space, err := r.orgRepo.GetSpace(ctx, authInfo, role.Space)
+	space, err := r.spaceRepo.GetSpace(ctx, authInfo, role.Space)
 	if err != nil {
 		return apierrors.NotFoundAsUnprocessableEntity(err, "space not found")
 	}

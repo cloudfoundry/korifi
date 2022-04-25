@@ -18,7 +18,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("ServiceInstanceRepository", func() {
@@ -27,7 +26,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		serviceInstanceRepo *repositories.ServiceInstanceRepo
 
 		org                 *workloadsv1alpha1.CFOrg
-		space               *hnsv1alpha2.SubnamespaceAnchor
+		space               *workloadsv1alpha1.CFSpace
 		serviceInstanceName string
 	)
 
@@ -36,7 +35,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		serviceInstanceRepo = repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPerms)
 
 		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
-		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
+		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
 		serviceInstanceName = prefixedGUID("service-instance")
 	})
 
@@ -162,7 +161,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	Describe("ListServiceInstances", func() {
 		var (
-			space2, space3                                             *hnsv1alpha2.SubnamespaceAnchor
+			space2, space3                                             *workloadsv1alpha1.CFSpace
 			cfServiceInstance1, cfServiceInstance2, cfServiceInstance3 *servicesv1alpha1.CFServiceInstance
 			nonCFNamespace                                             string
 			filters                                                    repositories.ListServiceInstanceMessage
@@ -171,8 +170,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
-			space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space3"))
+			space2 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space2"))
+			space3 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space3"))
 
 			nonCFNamespace = prefixedGUID("non-cf")
 			Expect(k8sClient.Create(
@@ -404,7 +403,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	Describe("GetServiceInstance", func() {
 		var (
-			space2          *hnsv1alpha2.SubnamespaceAnchor
+			space2          *workloadsv1alpha1.CFSpace
 			serviceInstance *servicesv1alpha1.CFServiceInstance
 			record          repositories.ServiceInstanceRecord
 			getErr          error
@@ -412,7 +411,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
+			space2 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space2"))
 
 			serviceInstance = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
 			createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space2.Name, "some-other-service-instance", prefixedGUID("secret"))

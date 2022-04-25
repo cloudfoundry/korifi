@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
@@ -22,7 +20,7 @@ var _ = Describe("DropletRepository", func() {
 	var (
 		testCtx     context.Context
 		dropletRepo *repositories.DropletRepo
-		space       *v1alpha2.SubnamespaceAnchor
+		space       *workloadsv1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
@@ -30,7 +28,7 @@ var _ = Describe("DropletRepository", func() {
 		orgName := prefixedGUID("org-")
 		spaceName := prefixedGUID("space-")
 		org := createOrgWithCleanup(testCtx, orgName)
-		space = createSpaceAnchorAndNamespace(testCtx, org.Name, spaceName)
+		space = createSpaceWithCleanup(testCtx, org.Name, spaceName)
 
 		dropletRepo = repositories.NewDropletRepo(userClientFactory, namespaceRetriever, nsPerms)
 	})

@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", func() {
@@ -35,6 +34,8 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 		domainRepo := repositories.NewDomainRepo(clientFactory, namespaceRetriever, rootNamespace)
 		processRepo := repositories.NewProcessRepo(namespaceRetriever, clientFactory, nsPermissions)
 		routeRepo := repositories.NewRouteRepo(namespaceRetriever, clientFactory, nsPermissions)
+		orgRepo := repositories.NewOrgRepo("cf", k8sClient, clientFactory, nsPermissions, time.Minute)
+		spaceRepo := repositories.NewSpaceRepo(orgRepo, k8sClient, clientFactory, nsPermissions, time.Minute)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -43,7 +44,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			*serverURL,
 			domainName,
 			actions.NewApplyManifest(appRepo, domainRepo, processRepo, routeRepo).Invoke,
-			repositories.NewOrgRepo("cf", k8sClient, clientFactory, nsPermissions, 1*time.Minute),
+			spaceRepo,
 			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
@@ -51,7 +52,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 	When("on the happy path", func() {
 		var (
-			namespace      *hnsv1alpha2.SubnamespaceAnchor
+			space          *workloadsv1alpha1.CFSpace
 			requestEnvVars map[string]string
 			requestBody    string
 			domainGUID     string
@@ -65,10 +66,10 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 		BeforeEach(func() {
 			domainGUID = generateGUID()
-			org := createOrgAnchorAndNamespace(ctx, rootNamespace, generateGUID())
-			namespace = createSpaceAnchorAndNamespace(ctx, org.Name, "spacename-"+generateGUID())
+			org := createOrgWithCleanup(ctx, generateGUID())
+			space = createSpaceWithCleanup(ctx, org.Name, "spacename-"+generateGUID())
 
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 
 			requestEnvVars = map[string]string{
 				key1: "VAL1",
@@ -97,7 +98,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			req, err = http.NewRequestWithContext(
 				ctx,
 				"POST",
-				serverURI("/v3/spaces/", namespace.Name, "/actions/apply_manifest"),
+				serverURI("/v3/spaces/", space.Name, "/actions/apply_manifest"),
 				strings.NewReader(requestBody),
 			)
 			Expect(err).NotTo(HaveOccurred())
@@ -150,14 +151,14 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				Expect(err).NotTo(HaveOccurred())
 				Expect(body).To(BeEmpty())
 
-				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/space.apply_manifest-", namespace.Name)))
+				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/space.apply_manifest-", space.Name)))
 
 				var app1 workloadsv1alpha1.CFApp
 				By("confirming that the app was created", func() {
 					var appList workloadsv1alpha1.CFAppList
 					Eventually(func() []workloadsv1alpha1.CFApp {
 						Expect(
-							k8sClient.List(context.Background(), &appList, client.InNamespace(namespace.Name)),
+							k8sClient.List(context.Background(), &appList, client.InNamespace(space.Name)),
 						).To(Succeed())
 						return appList.Items
 					}).Should(HaveLen(1))
@@ -172,7 +173,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				By("confirming that the secret was created", func() {
 					secretNSName := types.NamespacedName{
 						Name:      app1.Spec.EnvSecretName,
-						Namespace: namespace.Name,
+						Namespace: space.Name,
 					}
 					var secretRecord corev1.Secret
 					Eventually(func() error {
@@ -189,7 +190,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					var processList workloadsv1alpha1.CFProcessList
 					Eventually(func() []workloadsv1alpha1.CFProcess {
 						Expect(
-							k8sClient.List(context.Background(), &processList, client.InNamespace(namespace.Name)),
+							k8sClient.List(context.Background(), &processList, client.InNamespace(space.Name)),
 						).To(Succeed())
 						return processList.Items
 					}).Should(HaveLen(2))
@@ -243,7 +244,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					var appList workloadsv1alpha1.CFAppList
 					Eventually(func() []workloadsv1alpha1.CFApp {
 						Expect(
-							k8sClient.List(context.Background(), &appList, client.InNamespace(namespace.Name)),
+							k8sClient.List(context.Background(), &appList, client.InNamespace(space.Name)),
 						).To(Succeed())
 						return appList.Items
 					}).Should(HaveLen(1))
@@ -253,7 +254,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					var routeList networkingv1alpha1.CFRouteList
 					Eventually(func() []networkingv1alpha1.CFRoute {
 						Expect(
-							k8sClient.List(context.Background(), &routeList, client.InNamespace(namespace.Name)),
+							k8sClient.List(context.Background(), &routeList, client.InNamespace(space.Name)),
 						).To(Succeed())
 						return routeList.Items
 					}).Should(HaveLen(1))
@@ -288,7 +289,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					originalRoute = networkingv1alpha1.CFRoute{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      routeGUID,
-							Namespace: namespace.Name,
+							Namespace: space.Name,
 						},
 						Spec: networkingv1alpha1.CFRouteSpec{
 							Host:     host,
@@ -296,7 +297,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 							Protocol: "http",
 							DomainRef: corev1.ObjectReference{
 								Name:      domainGUID,
-								Namespace: namespace.Name,
+								Namespace: space.Name,
 							},
 							Destinations: []networkingv1alpha1.Destination{
 								{
@@ -319,7 +320,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					var appList workloadsv1alpha1.CFAppList
 					Eventually(func() []workloadsv1alpha1.CFApp {
 						Expect(
-							k8sClient.List(context.Background(), &appList, client.InNamespace(namespace.Name)),
+							k8sClient.List(context.Background(), &appList, client.InNamespace(space.Name)),
 						).To(Succeed())
 						return appList.Items
 					}).Should(HaveLen(1))
@@ -329,7 +330,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					var routeList networkingv1alpha1.CFRouteList
 					Eventually(func() []networkingv1alpha1.CFRoute {
 						Expect(
-							k8sClient.List(context.Background(), &routeList, client.InNamespace(namespace.Name)),
+							k8sClient.List(context.Background(), &routeList, client.InNamespace(space.Name)),
 						).To(Succeed())
 						return routeList.Items
 					}).Should(HaveLen(1))
@@ -338,7 +339,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					Expect(route.Spec).To(MatchAllFields(Fields{
 						"DomainRef": Equal(corev1.ObjectReference{
 							Name:      domainGUID,
-							Namespace: namespace.Name,
+							Namespace: space.Name,
 						}),
 						"Host":     Equal(host),
 						"Path":     Equal(path),
@@ -400,7 +401,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				beforeCtx := context.Background()
 				Expect(
 					k8sClient.Create(beforeCtx, &workloadsv1alpha1.CFApp{
-						ObjectMeta: metav1.ObjectMeta{Name: appGUID, Namespace: namespace.Name},
+						ObjectMeta: metav1.ObjectMeta{Name: appGUID, Namespace: space.Name},
 						Spec: workloadsv1alpha1.CFAppSpec{
 							DisplayName:   appName,
 							EnvSecretName: appGUID + "-env",
@@ -420,7 +421,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					k8sClient.Create(beforeCtx, &corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      appGUID + "-env",
-							Namespace: namespace.Name,
+							Namespace: space.Name,
 						},
 						StringData: originalEnvVars,
 					}),
@@ -429,7 +430,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				originalExistingProcess = workloadsv1alpha1.CFProcess{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "existing-process-guid",
-						Namespace: namespace.Name,
+						Namespace: space.Name,
 					},
 					Spec: workloadsv1alpha1.CFProcessSpec{
 						AppRef:           corev1.LocalObjectReference{Name: appGUID},
@@ -450,7 +451,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					k8sClient.Create(beforeCtx, &workloadsv1alpha1.CFProcess{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "web-process-guid",
-							Namespace: namespace.Name,
+							Namespace: space.Name,
 						},
 						Spec: workloadsv1alpha1.CFProcessSpec{
 							AppRef:           corev1.LocalObjectReference{Name: appGUID},
@@ -468,7 +469,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				originalRoute = networkingv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      routeGUID,
-						Namespace: namespace.Name,
+						Namespace: space.Name,
 					},
 					Spec: networkingv1alpha1.CFRouteSpec{
 						Host:     "custom",
@@ -476,7 +477,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 						Protocol: "http",
 						DomainRef: corev1.ObjectReference{
 							Name:      domainGUID,
-							Namespace: namespace.Name,
+							Namespace: space.Name,
 						},
 						Destinations: []networkingv1alpha1.Destination{
 							{
@@ -501,14 +502,14 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				Expect(err).NotTo(HaveOccurred())
 				Expect(body).To(BeEmpty())
 
-				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/space.apply_manifest-", namespace.Name)))
+				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/space.apply_manifest-", space.Name)))
 
 				var app1 workloadsv1alpha1.CFApp
 				By("confirming that the app fields are unchanged", func() {
 					var appList workloadsv1alpha1.CFAppList
 					Consistently(func() []workloadsv1alpha1.CFApp {
 						Expect(
-							k8sClient.List(context.Background(), &appList, client.InNamespace(namespace.Name)),
+							k8sClient.List(context.Background(), &appList, client.InNamespace(space.Name)),
 						).To(Succeed())
 						return appList.Items
 					}).Should(HaveLen(1))
@@ -523,7 +524,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				By("confirming that the new env vars were added to the secret", func() {
 					secretNSName := types.NamespacedName{
 						Name:      app1.Spec.EnvSecretName,
-						Namespace: namespace.Name,
+						Namespace: space.Name,
 					}
 					var updatedSecret corev1.Secret
 					Eventually(func() map[string][]byte {
@@ -542,7 +543,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					var processList workloadsv1alpha1.CFProcessList
 					Eventually(func() []workloadsv1alpha1.CFProcess {
 						Expect(
-							k8sClient.List(context.Background(), &processList, client.InNamespace(namespace.Name)),
+							k8sClient.List(context.Background(), &processList, client.InNamespace(space.Name)),
 						).To(Succeed())
 						return processList.Items
 					}).Should(HaveLen(3))
@@ -591,7 +592,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					var routeList networkingv1alpha1.CFRouteList
 					Consistently(func() []networkingv1alpha1.CFRoute {
 						Expect(
-							k8sClient.List(context.Background(), &routeList, client.InNamespace(namespace.Name)),
+							k8sClient.List(context.Background(), &routeList, client.InNamespace(space.Name)),
 						).To(Succeed())
 						return routeList.Items
 					}, "3s").Should(HaveLen(1))

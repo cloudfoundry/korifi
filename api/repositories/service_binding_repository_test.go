@@ -5,6 +5,9 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -13,11 +16,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
-	"code.cloudfoundry.org/korifi/api/repositories"
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 )
 
 var _ = Describe("ServiceBindingRepo", func() {
@@ -25,7 +23,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		repo                *repositories.ServiceBindingRepo
 		testCtx             context.Context
 		org                 *workloadsv1alpha1.CFOrg
-		space               *hnsv1alpha2.SubnamespaceAnchor
+		space               *workloadsv1alpha1.CFSpace
 		appGUID             string
 		serviceInstanceGUID string
 	)
@@ -35,7 +33,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		repo = repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPerms)
 
 		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
-		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
+		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
 		appGUID = prefixedGUID("app")
 		serviceInstanceGUID = prefixedGUID("service-instance")
 	})
@@ -348,7 +346,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 	Describe("ListServiceBindings", func() {
 		var (
 			serviceBinding1, serviceBinding2, serviceBinding3                *servicesv1alpha1.CFServiceBinding
-			space2                                                           *hnsv1alpha2.SubnamespaceAnchor
+			space2                                                           *workloadsv1alpha1.CFSpace
 			cfApp1, cfApp2, cfApp3                                           *workloadsv1alpha1.CFApp
 			serviceInstance1GUID, serviceInstance2GUID, serviceInstance3GUID string
 
@@ -364,7 +362,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			serviceBinding1Name := "service-binding-1-name"
 			serviceBinding1 = createServiceBindingCR(testCtx, k8sClient, prefixedGUID("binding-1"), space.Name, &serviceBinding1Name, cfServiceInstance1.Name, cfApp1.Name)
 
-			space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space-2"))
+			space2 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space-2"))
 			cfApp2 = createAppCR(testCtx, k8sClient, "app-2-name", prefixedGUID("app-2"), space2.Name, "STOPPED")
 			serviceInstance2GUID = prefixedGUID("instance-2")
 			cfServiceInstance2 := createServiceInstanceCR(testCtx, k8sClient, serviceInstance2GUID, space2.Name, "service-instance-2-name", "secret-2-name")

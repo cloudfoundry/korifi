@@ -3,12 +3,11 @@ package repositories_test
 import (
 	"context"
 
-	. "github.com/onsi/gomega/gstruct"
-
 	. "code.cloudfoundry.org/korifi/api/repositories"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -136,7 +135,7 @@ var _ = Describe("BuildpackRepository", func() {
 				))
 			})
 
-			When("insufficient perm", func() {
+			When("the user does not have permission to list ClusterBuilders", func() {
 				It("fails to retrieve buildpack records", func() {
 					buildpackRepo = NewBuildpackRepository(userClientFactory)
 					_, err := buildpackRepo.GetBuildpacksForBuilder(context.Background(), authInfo, clusterBuilder.Name)

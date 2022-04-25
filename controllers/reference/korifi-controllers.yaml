@@ -1725,6 +1725,7 @@ spec:
             properties:
               displayName:
                 description: DisplayName of the space displayed to the user
+                pattern: ^[-\w]+$
                 type: string
             required:
             - displayName
@@ -1892,6 +1893,18 @@ rules:
   - workloads.cloudfoundry.org
   resources:
   - cforgs
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfspaces
   verbs:
   - get
   - list
@@ -2477,6 +2490,12 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfspaces
+  verbs:
+  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
