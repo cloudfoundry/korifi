@@ -21,6 +21,7 @@ const (
 	RoutePath             = "/v3/routes/{guid}"
 	RoutesPath            = "/v3/routes"
 	RouteDestinationsPath = "/v3/routes/{guid}/destinations"
+	RouteDestinationPath  = "/v3/routes/{guid}/destinations/{destination_guid}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository
@@ -32,6 +33,7 @@ type CFRouteRepository interface {
 	CreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
 	DeleteRoute(context.Context, authorization.Info, repositories.DeleteRouteMessage) error
 	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
+	RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message repositories.RemoveDestinationFromRouteMessage) (repositories.RouteRecord, error)
 }
 
 type RouteHandler struct {
@@ -199,6 +201,32 @@ func (h *RouteHandler) routeAddDestinationsHandler(authInfo authorization.Info, 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteDestinations(responseRouteRecord, h.serverURL)), nil
 }
 
+func (h *RouteHandler) routeDeleteDestinationHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	vars := mux.Vars(r)
+	routeGUID := vars["guid"]
+	destinationGUID := vars["destination_guid"]
+
+	routeRecord, err := h.lookupRouteAndDomain(r.Context(), routeGUID, authInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	message := repositories.RemoveDestinationFromRouteMessage{
+		DestinationGuid:      destinationGUID,
+		RouteGUID:            routeRecord.GUID,
+		SpaceGUID:            routeRecord.SpaceGUID,
+		ExistingDestinations: routeRecord.Destinations,
+	}
+
+	_, err = h.routeRepo.RemoveDestinationFromRoute(r.Context(), authInfo, message)
+	if err != nil {
+		h.logger.Error(err, "Failed to remove destination from route", "Route GUID", routeRecord.GUID, "Destination GUID", destinationGUID)
+		return nil, err
+	}
+
+	return NewHandlerResponse(http.StatusNoContent), nil
+}
+
 func (h *RouteHandler) routeDeleteHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
 
@@ -230,6 +258,7 @@ func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(RoutesPath).Methods("POST").HandlerFunc(w.Wrap(h.routeCreateHandler))
 	router.Path(RoutePath).Methods("DELETE").HandlerFunc(w.Wrap(h.routeDeleteHandler))
 	router.Path(RouteDestinationsPath).Methods("POST").HandlerFunc(w.Wrap(h.routeAddDestinationsHandler))
+	router.Path(RouteDestinationPath).Methods("DELETE").HandlerFunc(w.Wrap(h.routeDeleteDestinationHandler))
 }
 
 // Fetch Route and compose related Domain information within
