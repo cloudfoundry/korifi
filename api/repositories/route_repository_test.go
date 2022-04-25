@@ -1216,6 +1216,100 @@ var _ = Describe("RouteRepository", func() {
 			})
 		})
 	})
+
+	Describe("RemoveDestinationFromRoute", func() {
+		const (
+			testRouteHost = "test-route-host"
+			testRoutePath = "/test/route/path"
+		)
+
+		var (
+			routeDestination     networkingv1alpha1.Destination
+			destinationGUID      string
+			appGUID              string
+			removeDestinationErr error
+			routeRecord          RouteRecord
+		)
+
+		BeforeEach(func() {
+			removeDestinationErr = nil
+			cfRoute := initializeRouteCR(testRouteHost, testRoutePath, route1GUID, domainGUID, space.Name)
+			destinationGUID = generateGUID()
+			appGUID = generateGUID()
+			routeDestination = networkingv1alpha1.Destination{
+				GUID: destinationGUID,
+				Port: 8000,
+				AppRef: corev1.LocalObjectReference{
+					Name: appGUID,
+				},
+				ProcessType: "web",
+				Protocol:    "http1",
+			}
+
+			cfRoute.Spec.Destinations = []networkingv1alpha1.Destination{routeDestination}
+			Expect(k8sClient.Create(testCtx, cfRoute)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			routeRecord, err = routeRepo.GetRoute(testCtx, authInfo, route1GUID)
+			Expect(err).NotTo(HaveOccurred())
+
+			destinationDeleteMessage := RemoveDestinationFromRouteMessage{
+				RouteGUID:            routeRecord.GUID,
+				SpaceGUID:            routeRecord.SpaceGUID,
+				ExistingDestinations: routeRecord.Destinations,
+				DestinationGuid:      destinationGUID,
+			}
+			_, removeDestinationErr = routeRepo.RemoveDestinationFromRoute(testCtx, authInfo, destinationDeleteMessage)
+
+		})
+
+		AfterEach(func() {
+			Expect(cleanupRoute(k8sClient, testCtx, route1GUID, space.Name)).To(Succeed())
+		})
+
+		When("the user is a space manager in this space", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceManagerRole.Name, space.Name)
+			})
+
+			It("returns an error", func() {
+				Expect(removeDestinationErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+
+			It("fails to update the destination list", func() {
+				currentRouteRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(currentRouteRecord).To(Equal(routeRecord))
+			})
+		})
+
+		When("the user is a space developer in this space", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("removes the destination from CFRoute successfully", func() {
+				Expect(removeDestinationErr).NotTo(HaveOccurred())
+				cfRouteLookupKey := types.NamespacedName{Name: route1GUID, Namespace: space.Name}
+				createdCFRoute := new(networkingv1alpha1.CFRoute)
+				Expect(k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)).To(Succeed())
+
+				Expect(createdCFRoute.Spec.Destinations).To(BeEmpty())
+			})
+
+			When("the destination isn't on the route", func() {
+				BeforeEach(func() {
+					destinationGUID = "some-bogus-guid"
+				})
+
+				It("returns an unprocessable entity error", func() {
+					Expect(removeDestinationErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+				})
+			})
+		})
+	})
 })
 
 func createRoute(guid, namespace, host, path, domainGUID, appGUID string) *networkingv1alpha1.CFRoute {

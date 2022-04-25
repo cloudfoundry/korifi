@@ -259,28 +259,29 @@ curl "http://localhost:9000/v3/domains?names=cf-apps.io" \
 
 ### Routes
 
-| Resource                  | Endpoint                              |
-| ------------------------- | ------------------------------------- |
-| Get Route                 | GET /v3/routes/\<guid>                |
-| Get Route List            | GET /v3/routes                        |
-| Get Route Destinations    | GET /v3/routes/\<guid\>/destinations  |
-| Create Route              | POST /v3/routes                       |
-| Add Destinations to Route | POST /v3/routes/\<guid\>/destinations |
-| Delete Route              | [DELETE /v3/routes/:guid](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#delete-a-route)
+| Resource                      | Endpoint                                                                                                 |
+|-------------------------------|----------------------------------------------------------------------------------------------------------|
+| Get Route                     | GET /v3/routes/\<guid>                                                                                   |
+| Get Route List                | GET /v3/routes                                                                                           |
+| Get Route Destinations        | GET /v3/routes/\<guid\>/destinations                                                                     |
+| Create Route                  | POST /v3/routes                                                                                          |
+| Add Destinations to Route     | POST /v3/routes/\<guid\>/destinations                                                                    |
+| Remove Destination from Route | DELETE /v3/routes/\<guid\>/destinations/\<destination-guid\>                                             |
+| Delete Route                  | [DELETE /v3/routes/:guid](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#delete-a-route) 
 
 #### [List Routes](https://v3-apidocs.cloudfoundry.org/version/3.111.0/index.html#list-routes)
 **Query Parameters:** Currently supports filtering by `app_guids`, `space_guids`, `domain_guids`, `hosts` and `paths`.
 
 #### [Creating Routes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#create-a-route)
 ```bash
-curl "http://localhost:9000/v3/routes/<guid>/destinations" \
+curl "http://localhost:9000/v3/routes" \
   -X POST \
   -d '{"host": "hostname","path": "/path","relationships": {"domain": {"data": { "guid": "<domain-guid-goes-here>" }},"space": {"data": { "guid": "<namespace-name>" }}}}'
 ```
 
 #### [Add Destinations to Route](https://v3-apidocs.cloudfoundry.org/version/3.108.0/index.html#insert-destinations-for-a-route)
 ```bash
-curl "http://localhost:9000/v3/routes" \
+curl "http://localhost:9000/v3/routes/<guid>/destinations" \
   -X POST \
   -d '{
         "destinations": [
@@ -303,6 +304,11 @@ curl "http://localhost:9000/v3/routes" \
       }'
 ```
 
+#### [Remove Destination from Route](https://v3-apidocs.cloudfoundry.org/version/3.108.0/index.html#remove-destination-for-a-route)
+```bash
+curl "http://localhost:9000/v3/routes/<guid>/destinations/<destination-guid>" \
+  -X DELETE
+```
 ### Manifest
 
 | Resource         | Endpoint                                             |
