@@ -51,7 +51,7 @@ var _ = Describe("CFAppReconciler", func() {
 					Namespace: namespaceGUID,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
-					Name:         "test-app",
+					DisplayName:  "test-app",
 					DesiredState: "STOPPED",
 					Lifecycle: workloadsv1alpha1.Lifecycle{
 						Type: "buildpack",

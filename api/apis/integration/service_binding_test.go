@@ -62,7 +62,7 @@ var _ = Describe("ServiceBinding Handler", func() {
 				Namespace: spaceGUID,
 			},
 			Spec: workloadsv1alpha1.CFAppSpec{
-				Name:         "name-for-" + appGUID,
+				DisplayName:  "name-for-" + appGUID,
 				DesiredState: "STOPPED",
 				Lifecycle: workloadsv1alpha1.Lifecycle{
 					Type: "buildpack",
@@ -264,9 +264,9 @@ func createServiceInstance(ctx context.Context, k8sClient client.Client, service
 			Namespace: spaceGUID,
 		},
 		Spec: servicesv1alpha1.CFServiceInstanceSpec{
-			Name:       name,
-			SecretName: secretName,
-			Type:       "user-provided",
+			DisplayName: name,
+			SecretName:  secretName,
+			Type:        "user-provided",
 		},
 	}
 	Expect(
@@ -282,7 +282,7 @@ func createServiceBinding(ctx context.Context, k8sClient client.Client, serviceB
 			Namespace: spaceGUID,
 		},
 		Spec: servicesv1alpha1.CFServiceBindingSpec{
-			Name: name,
+			DisplayName: name,
 			Service: corev1.ObjectReference{
 				Kind:       "ServiceInstance",
 				Name:       serviceInstanceName,

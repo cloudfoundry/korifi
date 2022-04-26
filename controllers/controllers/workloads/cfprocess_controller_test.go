@@ -170,7 +170,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				Spec: eiriniv1.LRPSpec{
 					GUID:        testProcessGUID,
 					ProcessType: testProcessType,
-					AppName:     cfApp.Spec.Name,
+					AppName:     cfApp.Spec.DisplayName,
 					AppGUID:     testAppGUID,
 					Image:       "test-image-ref",
 					Instances:   0,

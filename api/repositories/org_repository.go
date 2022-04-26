@@ -133,7 +133,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, org Cr
 			Namespace: r.rootNamespace,
 		},
 		Spec: workloads.CFOrgSpec{
-			Name: org.Name,
+			DisplayName: org.Name,
 		},
 	})
 
@@ -395,16 +395,16 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter 
 			continue
 		}
 
-		if matchesFilter(cfOrg.Name, filter.GUIDs) && matchesFilter(cfOrg.Spec.Name, filter.Names) && authorizedNamespaces[cfOrg.Name] {
+		if matchesFilter(cfOrg.Name, filter.GUIDs) && matchesFilter(cfOrg.Spec.DisplayName, filter.Names) && authorizedNamespaces[cfOrg.Name] {
 			records = append(records, OrgRecord{
-				Name:      cfOrg.Spec.Name,
+				Name:      cfOrg.Spec.DisplayName,
 				GUID:      cfOrg.Name,
 				CreatedAt: cfOrg.CreationTimestamp.Time,
 				UpdatedAt: cfOrg.CreationTimestamp.Time,
 			})
 		}
 	}
-	
+
 	return records, nil
 }
 

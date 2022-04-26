@@ -183,7 +183,7 @@ func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorizati
 
 	var matchingApps []workloadsv1alpha1.CFApp
 	for _, app := range appList.Items {
-		if app.Spec.Name == appName {
+		if app.Spec.DisplayName == appName {
 			matchingApps = append(matchingApps, app)
 		}
 	}
@@ -257,7 +257,7 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 
 	appRecords := returnAppList(filteredApps)
 
-	// By default sort it by App.Name
+	// By default sort it by App.DisplayName
 	sort.Sort(byName(appRecords))
 
 	return appRecords, nil
@@ -325,7 +325,7 @@ func appBelongsToSpace(app workloadsv1alpha1.CFApp, spaceGUID string) bool {
 }
 
 func appMatchesName(app workloadsv1alpha1.CFApp, name string) bool {
-	return app.Spec.Name == name
+	return app.Spec.DisplayName == name
 }
 
 func appMatchesGUID(app workloadsv1alpha1.CFApp, guid string) bool {
@@ -497,7 +497,7 @@ func (m *CreateAppMessage) toCFApp() workloadsv1alpha1.CFApp {
 			Annotations: m.Annotations,
 		},
 		Spec: workloadsv1alpha1.CFAppSpec{
-			Name:          m.Name,
+			DisplayName:   m.Name,
 			DesiredState:  workloadsv1alpha1.DesiredState(m.State),
 			EnvSecretName: GenerateEnvSecretName(guid),
 			Lifecycle: workloadsv1alpha1.Lifecycle{
@@ -518,7 +518,7 @@ func cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
 		GUID:        cfApp.Name,
 		EtcdUID:     cfApp.GetUID(),
 		Revision:    getLabelOrAnnotation(cfApp.GetAnnotations(), workloadsv1alpha1.CFAppRevisionKey),
-		Name:        cfApp.Spec.Name,
+		Name:        cfApp.Spec.DisplayName,
 		SpaceGUID:   cfApp.Namespace,
 		DropletGUID: cfApp.Spec.CurrentDropletRef.Name,
 		Labels:      cfApp.Labels,

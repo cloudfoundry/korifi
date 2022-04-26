@@ -231,8 +231,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				BeforeEach(func() {
 					filters = repositories.ListServiceInstanceMessage{
 						Names: []string{
-							cfServiceInstance1.Spec.Name,
-							cfServiceInstance3.Spec.Name,
+							cfServiceInstance1.Spec.DisplayName,
+							cfServiceInstance3.Spec.DisplayName,
 						},
 					}
 				})
@@ -438,7 +438,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			It("returns the correct service instance", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 
-				Expect(record.Name).To(Equal(serviceInstance.Spec.Name))
+				Expect(record.Name).To(Equal(serviceInstance.Spec.DisplayName))
 				Expect(record.GUID).To(Equal(serviceInstance.Name))
 				Expect(record.SpaceGUID).To(Equal(serviceInstance.Namespace))
 				Expect(record.SecretName).To(Equal(serviceInstance.Spec.SecretName))

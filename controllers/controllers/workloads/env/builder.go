@@ -85,11 +85,11 @@ func fromServiceBinding(
 	var serviceName string
 	var bindingName *string
 
-	if serviceBinding.Spec.Name != nil {
-		serviceName = *serviceBinding.Spec.Name
-		bindingName = serviceBinding.Spec.Name
+	if serviceBinding.Spec.DisplayName != nil {
+		serviceName = *serviceBinding.Spec.DisplayName
+		bindingName = serviceBinding.Spec.DisplayName
 	} else {
-		serviceName = serviceInstance.Spec.Name
+		serviceName = serviceInstance.Spec.DisplayName
 		bindingName = nil
 	}
 
@@ -103,7 +103,7 @@ func fromServiceBinding(
 		Name:           serviceName,
 		Tags:           tags,
 		InstanceGUID:   serviceInstance.Name,
-		InstanceName:   serviceInstance.Spec.Name,
+		InstanceName:   serviceInstance.Spec.DisplayName,
 		BindingGUID:    serviceBinding.Name,
 		BindingName:    bindingName,
 		Credentials:    fromSecret(&serviceBindingSecret),

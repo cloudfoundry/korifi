@@ -6,7 +6,7 @@ metadata:
   labels:
     servicebinding.io/provisioned-service: "true"
 spec:
-  name: my-binding-name
+  displayName: my-binding-name
   service:
     apiVersion: services.cloudfoundry.org/v1alpha1
     kind: CFServiceInstance

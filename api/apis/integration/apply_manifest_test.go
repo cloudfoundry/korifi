@@ -163,7 +163,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					}).Should(HaveLen(1))
 
 					app1 = appList.Items[0]
-					Expect(app1.Spec.Name).To(Equal(appName))
+					Expect(app1.Spec.DisplayName).To(Equal(appName))
 					Expect(app1.Spec.DesiredState).To(BeEquivalentTo("STOPPED"))
 					Expect(app1.Spec.Lifecycle.Type).To(BeEquivalentTo("buildpack"))
 					Expect(app1.Spec.EnvSecretName).NotTo(BeEmpty())
@@ -402,7 +402,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					k8sClient.Create(beforeCtx, &workloadsv1alpha1.CFApp{
 						ObjectMeta: metav1.ObjectMeta{Name: appGUID, Namespace: namespace.Name},
 						Spec: workloadsv1alpha1.CFAppSpec{
-							Name:          appName,
+							DisplayName:   appName,
 							EnvSecretName: appGUID + "-env",
 							DesiredState:  workloadsv1alpha1.StoppedState,
 							Lifecycle: workloadsv1alpha1.Lifecycle{
@@ -514,7 +514,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					}).Should(HaveLen(1))
 
 					app1 = appList.Items[0]
-					Expect(app1.Spec.Name).To(Equal(appName))
+					Expect(app1.Spec.DisplayName).To(Equal(appName))
 					Expect(app1.Spec.DesiredState).To(BeEquivalentTo("STOPPED"))
 					Expect(app1.Spec.Lifecycle.Type).To(BeEquivalentTo("buildpack"))
 					Expect(app1.Spec.EnvSecretName).NotTo(BeEmpty())

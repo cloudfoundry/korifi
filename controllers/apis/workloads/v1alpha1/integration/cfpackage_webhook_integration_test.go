@@ -40,7 +40,7 @@ var _ = Describe("CFPackageMutatingWebhook Integration Tests", func() {
 					Namespace: namespace,
 				},
 				Spec: v1alpha1.CFAppSpec{
-					Name:         "test-app",
+					DisplayName:  "test-app",
 					DesiredState: "STOPPED",
 					Lifecycle: v1alpha1.Lifecycle{
 						Type: "buildpack",

@@ -55,7 +55,7 @@ var _ = Describe("Builder", func() {
 				Name:      "my-service-binding-guid",
 			},
 			Spec: servicesv1alpha1.CFServiceBindingSpec{
-				Name: &serviceBindingName,
+				DisplayName: &serviceBindingName,
 				Service: corev1.ObjectReference{
 					Name: "bound-service",
 				},
@@ -71,8 +71,8 @@ var _ = Describe("Builder", func() {
 				Name: "my-service-instance-guid",
 			},
 			Spec: servicesv1alpha1.CFServiceInstanceSpec{
-				Name: "my-service-instance",
-				Tags: []string{"t1", "t2"},
+				DisplayName: "my-service-instance",
+				Tags:        []string{"t1", "t2"},
 			},
 		}
 		serviceBindingSecret = corev1.Secret{
@@ -210,11 +210,11 @@ var _ = Describe("Builder", func() {
 
 	When("the service binding has no name", func() {
 		BeforeEach(func() {
-			serviceBinding.Spec.Name = nil
+			serviceBinding.Spec.DisplayName = nil
 		})
 
 		It("uses the service instance name as name", func() {
-			Expect(extractServiceInfo(envMap)).To(HaveKeyWithValue("name", serviceInstance.Spec.Name))
+			Expect(extractServiceInfo(envMap)).To(HaveKeyWithValue("name", serviceInstance.Spec.DisplayName))
 		})
 
 		It("sets the binding name to nil", func() {

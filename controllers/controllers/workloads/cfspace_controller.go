@@ -81,7 +81,7 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 
 		anchorLabels := map[string]string{
-			SpaceNameLabel: cfSpace.Spec.Name,
+			SpaceNameLabel: cfSpace.Spec.DisplayName,
 		}
 		anchor, err = createSubnamespaceAnchor(ctx, r.client, req, cfSpace, anchorLabels)
 		if err != nil {

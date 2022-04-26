@@ -34,7 +34,7 @@ func createAppCR(ctx context.Context, k8sClient client.Client, appName, appGUID,
 			Namespace: spaceGUID,
 		},
 		Spec: workloadsv1alpha1.CFAppSpec{
-			Name:         appName,
+			DisplayName:  appName,
 			DesiredState: workloadsv1alpha1.DesiredState(desiredState),
 			Lifecycle: workloadsv1alpha1.Lifecycle{
 				Type: "buildpack",
@@ -173,9 +173,9 @@ func createServiceInstanceCR(ctx context.Context, k8sClient client.Client, servi
 			Namespace: spaceGUID,
 		},
 		Spec: servicesv1alpha1.CFServiceInstanceSpec{
-			Name:       name,
-			SecretName: secretName,
-			Type:       "user-provided",
+			DisplayName: name,
+			SecretName:  secretName,
+			Type:        "user-provided",
 		},
 	}
 	Expect(
@@ -191,7 +191,7 @@ func createServiceBindingCR(ctx context.Context, k8sClient client.Client, servic
 			Namespace: spaceGUID,
 		},
 		Spec: servicesv1alpha1.CFServiceBindingSpec{
-			Name: name,
+			DisplayName: name,
 			Service: corev1.ObjectReference{
 				Kind:       "ServiceInstance",
 				Name:       serviceInstanceName,
