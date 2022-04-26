@@ -1544,11 +1544,6 @@ var _ = Describe("RouteHandler", func() {
 			routeRepo.GetRouteReturns(routeRecord, nil)
 			domainRepo.GetDomainReturns(domain, nil)
 
-			updatedRoute := routeRecord
-			updatedRoute.Domain = domain
-			updatedRoute.Destinations = nil
-			routeRepo.AddDestinationsToRouteReturns(updatedRoute, nil)
-
 			requestMethod = http.MethodDelete
 			requestPath = "/v3/routes/" + routeGuid + "/destinations/" + destinationGuid
 			requestBody = ""
