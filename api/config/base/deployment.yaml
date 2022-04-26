@@ -15,7 +15,7 @@ spec:
       labels:
         app: korifi-api
     spec:
-      serviceAccountName: cf-admin-serviceaccount
+      serviceAccountName: system-serviceaccount
       containers:
       - image: cloudfoundry/korifi-api:latest
         name: korifi-api
