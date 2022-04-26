@@ -30,7 +30,7 @@ var _ = Describe("CFAppMutatingWebhook Unit Tests", func() {
 					Namespace: namespace,
 				},
 				Spec: v1alpha1.CFAppSpec{
-					Name:         "test-app",
+					DisplayName:  "test-app",
 					DesiredState: "STOPPED",
 					Lifecycle: v1alpha1.Lifecycle{
 						Type: "buildpack",
@@ -62,7 +62,7 @@ var _ = Describe("CFAppMutatingWebhook Unit Tests", func() {
 					},
 				},
 				Spec: v1alpha1.CFAppSpec{
-					Name:         "test-app",
+					DisplayName:  "test-app",
 					DesiredState: "STOPPED",
 					Lifecycle: v1alpha1.Lifecycle{
 						Type: "buildpack",
@@ -178,7 +178,7 @@ func initializeCFAppCR(appGUID, namespace string) *v1alpha1.CFApp {
 			Annotations: map[string]string{},
 		},
 		Spec: v1alpha1.CFAppSpec{
-			Name:         "test-app",
+			DisplayName:  "test-app",
 			DesiredState: "STOPPED",
 			Lifecycle: v1alpha1.Lifecycle{
 				Type: "buildpack",

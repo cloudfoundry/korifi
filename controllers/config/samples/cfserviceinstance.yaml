@@ -6,7 +6,7 @@ metadata:
   labels:
     servicebinding.io/provisioned-service: "true"
 spec:
-  name: my-upsi # service instance name requested by dev
+  displayName: my-upsi # service instance name requested by dev
   secretName: cf-service-credentials-7e0dec79-2f4e-43ee-a682-3c3f4b8e7fd1
   type: user-provided
   tags:

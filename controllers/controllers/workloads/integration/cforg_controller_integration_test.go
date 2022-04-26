@@ -38,7 +38,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				Namespace: rootNamespace.Name,
 			},
 			Spec: workloadsv1alpha1.CFOrgSpec{
-				Name: orgName,
+				DisplayName: orgName,
 			},
 		}
 	})

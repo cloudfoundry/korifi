@@ -90,7 +90,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Expect(serviceBinding.Labels).To(HaveKeyWithValue("servicebinding.io/provisioned-service", "true"))
 				Expect(serviceBinding.Spec).To(Equal(
 					servicesv1alpha1.CFServiceBindingSpec{
-						Name: nil,
+						DisplayName: nil,
 						Service: corev1.ObjectReference{
 							Kind:       "CFServiceInstance",
 							APIVersion: servicesv1alpha1.GroupVersion.Identifier(),
@@ -136,7 +136,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space.Name,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
-					Name:         "some-app",
+					DisplayName:  "some-app",
 					DesiredState: workloadsv1alpha1.DesiredState(repositories.StoppedState),
 					Lifecycle: workloadsv1alpha1.Lifecycle{
 						Type: "buildpack",
@@ -157,9 +157,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space.Name,
 				},
 				Spec: servicesv1alpha1.CFServiceInstanceSpec{
-					Name:       "some-instance",
-					SecretName: "",
-					Type:       "user-provided",
+					DisplayName: "some-instance",
+					SecretName:  "",
+					Type:        "user-provided",
 				},
 			}
 			Expect(
@@ -239,7 +239,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space.Name,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
-					Name:         "some-app",
+					DisplayName:  "some-app",
 					DesiredState: workloadsv1alpha1.DesiredState(repositories.StoppedState),
 					Lifecycle: workloadsv1alpha1.Lifecycle{
 						Type: "buildpack",
@@ -260,9 +260,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space.Name,
 				},
 				Spec: servicesv1alpha1.CFServiceInstanceSpec{
-					Name:       "some-instance",
-					SecretName: "",
-					Type:       "user-provided",
+					DisplayName: "some-instance",
+					SecretName:  "",
+					Type:        "user-provided",
 				},
 			}
 			Expect(
@@ -398,7 +398,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":                Equal(serviceBinding1.Name),
 							"Type":                Equal("app"),
-							"Name":                Equal(serviceBinding1.Spec.Name),
+							"Name":                Equal(serviceBinding1.Spec.DisplayName),
 							"AppGUID":             Equal(serviceBinding1.Spec.AppRef.Name),
 							"ServiceInstanceGUID": Equal(serviceBinding1.Spec.Service.Name),
 							"SpaceGUID":           Equal(serviceBinding1.Namespace),
@@ -410,7 +410,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":                Equal(serviceBinding2.Name),
 							"Type":                Equal("app"),
-							"Name":                Equal(serviceBinding2.Spec.Name),
+							"Name":                Equal(serviceBinding2.Spec.DisplayName),
 							"AppGUID":             Equal(serviceBinding2.Spec.AppRef.Name),
 							"ServiceInstanceGUID": Equal(serviceBinding2.Spec.Service.Name),
 							"SpaceGUID":           Equal(serviceBinding2.Namespace),
@@ -422,7 +422,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":                Equal(serviceBinding3.Name),
 							"Type":                Equal("app"),
-							"Name":                Equal(serviceBinding3.Spec.Name),
+							"Name":                Equal(serviceBinding3.Spec.DisplayName),
 							"AppGUID":             Equal(serviceBinding3.Spec.AppRef.Name),
 							"ServiceInstanceGUID": Equal(serviceBinding3.Spec.Service.Name),
 							"SpaceGUID":           Equal(serviceBinding3.Namespace),

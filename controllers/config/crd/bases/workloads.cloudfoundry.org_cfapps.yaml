@@ -51,6 +51,12 @@ spec:
                 - STOPPED
                 - STARTED
                 type: string
+              displayName:
+                description: DisplayName defines the name of the app This is more
+                  restrictive than CC's app model- to make default route validation
+                  errors less likely
+                pattern: ^[-\w]+$
+                type: string
               envSecretName:
                 description: Name of a secret containing a map of multiple environment
                   variables passed to every CFProcess of the app
@@ -81,16 +87,10 @@ spec:
                 - data
                 - type
                 type: object
-              name:
-                description: Name defines the name of the app This is more restrictive
-                  than CC's app model- to make default route validation errors less
-                  likely
-                pattern: ^[-\w]+$
-                type: string
             required:
             - desiredState
+            - displayName
             - lifecycle
-            - name
             type: object
           status:
             description: CFAppStatus defines the observed state of CFApp

@@ -67,6 +67,12 @@ spec:
                 - STOPPED
                 - STARTED
                 type: string
+              displayName:
+                description: DisplayName defines the name of the app This is more
+                  restrictive than CC's app model- to make default route validation
+                  errors less likely
+                pattern: ^[-\w]+$
+                type: string
               envSecretName:
                 description: Name of a secret containing a map of multiple environment
                   variables passed to every CFProcess of the app
@@ -97,16 +103,10 @@ spec:
                 - data
                 - type
                 type: object
-              name:
-                description: Name defines the name of the app This is more restrictive
-                  than CC's app model- to make default route validation errors less
-                  likely
-                pattern: ^[-\w]+$
-                type: string
             required:
             - desiredState
+            - displayName
             - lifecycle
-            - name
             type: object
           status:
             description: CFAppStatus defines the observed state of CFApp
@@ -560,12 +560,12 @@ spec:
           spec:
             description: CFOrgSpec defines the desired state of CFOrg
             properties:
-              name:
-                description: Name that is displayed to users
+              displayName:
+                description: DisplayName that is displayed to users
                 pattern: ^[-\w]+$
                 type: string
             required:
-            - name
+            - displayName
             type: object
           status:
             description: CFOrgStatus defines the observed state of CFOrg
@@ -1391,8 +1391,8 @@ spec:
                       TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
                 type: object
-              name:
-                description: Name defines the name of the Service Binding
+              displayName:
+                description: DisplayName defines the name of the Service Binding
                 type: string
               service:
                 description: Specifies the Service this binding uses
@@ -1568,8 +1568,8 @@ spec:
           spec:
             description: CFServiceInstanceSpec defines the desired state of CFServiceInstance
             properties:
-              name:
-                description: Name defines the name of the Service Instance
+              displayName:
+                description: DisplayName defines the name of the Service Instance
                 type: string
               secretName:
                 description: Name of a secret containing the service credentials
@@ -1585,7 +1585,7 @@ spec:
                 - user-provided
                 type: string
             required:
-            - name
+            - displayName
             - secretName
             - type
             type: object
@@ -1723,11 +1723,11 @@ spec:
           spec:
             description: CFSpaceSpec defines the desired state of CFSpace
             properties:
-              name:
-                description: Name of the space displayed to the user
+              displayName:
+                description: DisplayName of the space displayed to the user
                 type: string
             required:
-            - name
+            - displayName
             type: object
           status:
             description: CFSpaceStatus defines the observed state of CFSpace

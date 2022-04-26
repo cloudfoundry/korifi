@@ -83,10 +83,10 @@ var _ = Describe("CFServiceBinding", func() {
 					Namespace: namespace.Name,
 				},
 				Spec: servicesv1alpha1.CFServiceInstanceSpec{
-					Name:       "service-instance-name",
-					SecretName: secret.Name,
-					Type:       "user-provided",
-					Tags:       []string{},
+					DisplayName: "service-instance-name",
+					SecretName:  secret.Name,
+					Type:        "user-provided",
+					Tags:        []string{},
 				},
 			}
 			Expect(
@@ -216,10 +216,10 @@ var _ = Describe("CFServiceBinding", func() {
 						Namespace: namespace.Name,
 					},
 					Spec: servicesv1alpha1.CFServiceInstanceSpec{
-						Name:       "other-service-instance-name",
-						SecretName: otherSecret.Name,
-						Type:       "user-provided",
-						Tags:       []string{},
+						DisplayName: "other-service-instance-name",
+						SecretName:  otherSecret.Name,
+						Type:        "user-provided",
+						Tags:        []string{},
 					},
 				}
 				Expect(

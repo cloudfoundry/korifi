@@ -129,7 +129,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 			BeforeEach(func() {
 				newName = uuid.NewString()
-				app1.Spec.Name = newName
+				app1.Spec.DisplayName = newName
 			})
 
 			It("should succeed", func() {
@@ -137,7 +137,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 				app1Actual := v1alpha1.CFApp{}
 				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(app1), &app1Actual)).To(Succeed())
-				Expect(app1Actual.Spec.Name).To(Equal(newName))
+				Expect(app1Actual.Spec.DisplayName).To(Equal(newName))
 			})
 
 			When("reusing an old name", func() {
@@ -164,10 +164,10 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 		})
 
-		When("modifying spec.Name to match another CFApp spec.Name", func() {
+		When("modifying spec.DisplayName to match another CFApp spec.DisplayName", func() {
 			BeforeEach(func() {
 				app2 := makeCFApp(app2Guid, namespace1, app2Name)
-				app1.Spec.Name = app2Name
+				app1.Spec.DisplayName = app2Name
 				Expect(k8sClient.Create(ctx, app2)).To(Succeed())
 			})
 
@@ -206,7 +206,7 @@ func makeCFApp(cfAppGUID string, namespace string, name string) *v1alpha1.CFApp 
 			Namespace: namespace,
 		},
 		Spec: v1alpha1.CFAppSpec{
-			Name:         name,
+			DisplayName:  name,
 			DesiredState: "STOPPED",
 			Lifecycle: v1alpha1.Lifecycle{
 				Type: "buildpack",

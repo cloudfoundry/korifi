@@ -40,7 +40,7 @@ var _ = Describe("App Handler", func() {
 				Namespace: spaceGUID,
 			},
 			Spec: workloads.CFAppSpec{
-				Name:         generateGUID(),
+				DisplayName:  generateGUID(),
 				DesiredState: "STOPPED",
 				Lifecycle: workloads.Lifecycle{
 					Type: "buildpack",
@@ -201,7 +201,7 @@ var _ = Describe("App Handler", func() {
 				var appRecord workloads.CFApp
 				Expect(k8sClient.Get(ctx, appNSName, &appRecord)).To(Succeed())
 
-				Expect(appRecord.Spec.Name).To(Equal("my-test-app"))
+				Expect(appRecord.Spec.DisplayName).To(Equal("my-test-app"))
 				Expect(appRecord.Spec.DesiredState).To(BeEquivalentTo("STOPPED"))
 				Expect(appRecord.Spec.EnvSecretName).NotTo(BeEmpty())
 

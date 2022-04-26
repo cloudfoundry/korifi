@@ -39,7 +39,7 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 				Namespace: orgNamespace.Name,
 			},
 			Spec: workloadsv1alpha1.CFSpaceSpec{
-				Name: spaceName,
+				DisplayName: spaceName,
 			},
 		}
 	})

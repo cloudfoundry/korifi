@@ -68,7 +68,7 @@ var _ = Describe("OrgRepository", func() {
 
 					var matches []workloads.CFOrg
 					for _, org := range orgList.Items {
-						if org.Spec.Name == orgName {
+						if org.Spec.DisplayName == orgName {
 							matches = append(matches, org)
 						}
 					}
@@ -391,19 +391,19 @@ var _ = Describe("OrgRepository", func() {
 
 				Expect(orgs).To(ContainElements(
 					repositories.OrgRecord{
-						Name:      cfOrg1.Spec.Name,
+						Name:      cfOrg1.Spec.DisplayName,
 						CreatedAt: cfOrg1.CreationTimestamp.Time,
 						UpdatedAt: cfOrg1.CreationTimestamp.Time,
 						GUID:      cfOrg1.Name,
 					},
 					repositories.OrgRecord{
-						Name:      cfOrg2.Spec.Name,
+						Name:      cfOrg2.Spec.DisplayName,
 						CreatedAt: cfOrg2.CreationTimestamp.Time,
 						UpdatedAt: cfOrg2.CreationTimestamp.Time,
 						GUID:      cfOrg2.Name,
 					},
 					repositories.OrgRecord{
-						Name:      cfOrg3.Spec.Name,
+						Name:      cfOrg3.Spec.DisplayName,
 						CreatedAt: cfOrg3.CreationTimestamp.Time,
 						UpdatedAt: cfOrg3.CreationTimestamp.Time,
 						GUID:      cfOrg3.Name,
@@ -454,18 +454,18 @@ var _ = Describe("OrgRepository", func() {
 
 			When("we filter for names org1 and org3", func() {
 				It("returns just those", func() {
-					orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{Names: []string{cfOrg1.Spec.Name, cfOrg3.Spec.Name}})
+					orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{Names: []string{cfOrg1.Spec.DisplayName, cfOrg3.Spec.DisplayName}})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(orgs).To(ConsistOf(
 						repositories.OrgRecord{
-							Name:      cfOrg1.Spec.Name,
+							Name:      cfOrg1.Spec.DisplayName,
 							CreatedAt: cfOrg1.CreationTimestamp.Time,
 							UpdatedAt: cfOrg1.CreationTimestamp.Time,
 							GUID:      cfOrg1.Name,
 						},
 						repositories.OrgRecord{
-							Name:      cfOrg3.Spec.Name,
+							Name:      cfOrg3.Spec.DisplayName,
 							CreatedAt: cfOrg3.CreationTimestamp.Time,
 							UpdatedAt: cfOrg3.CreationTimestamp.Time,
 							GUID:      cfOrg3.Name,
@@ -481,13 +481,13 @@ var _ = Describe("OrgRepository", func() {
 
 					Expect(orgs).To(ConsistOf(
 						repositories.OrgRecord{
-							Name:      cfOrg1.Spec.Name,
+							Name:      cfOrg1.Spec.DisplayName,
 							CreatedAt: cfOrg1.CreationTimestamp.Time,
 							UpdatedAt: cfOrg1.CreationTimestamp.Time,
 							GUID:      cfOrg1.Name,
 						},
 						repositories.OrgRecord{
-							Name:      cfOrg2.Spec.Name,
+							Name:      cfOrg2.Spec.DisplayName,
 							CreatedAt: cfOrg2.CreationTimestamp.Time,
 							UpdatedAt: cfOrg2.CreationTimestamp.Time,
 							GUID:      cfOrg2.Name,
@@ -500,7 +500,7 @@ var _ = Describe("OrgRepository", func() {
 				var listErr error
 
 				BeforeEach(func() {
-					_, listErr = orgRepo.ListOrgs(ctx, authorization.Info{}, repositories.ListOrgsMessage{Names: []string{cfOrg1.Spec.Name, cfOrg3.Spec.Name}})
+					_, listErr = orgRepo.ListOrgs(ctx, authorization.Info{}, repositories.ListOrgsMessage{Names: []string{cfOrg1.Spec.DisplayName, cfOrg3.Spec.DisplayName}})
 				})
 
 				It("returns the error", func() {
@@ -725,7 +725,7 @@ var _ = Describe("OrgRepository", func() {
 				It("gets the org", func() {
 					orgRecord, err := orgRepo.GetOrg(ctx, authInfo, cfOrg.Name)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(orgRecord.Name).To(Equal(cfOrg.Spec.Name))
+					Expect(orgRecord.Name).To(Equal(cfOrg.Spec.DisplayName))
 				})
 			})
 

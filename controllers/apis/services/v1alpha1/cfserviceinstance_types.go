@@ -30,8 +30,8 @@ const (
 
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance
 type CFServiceInstanceSpec struct {
-	// Name defines the name of the Service Instance
-	Name string `json:"name"`
+	// DisplayName defines the name of the Service Instance
+	DisplayName string `json:"displayName"`
 
 	// Name of a secret containing the service credentials
 	SecretName string `json:"secretName"`

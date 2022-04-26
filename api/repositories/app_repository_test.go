@@ -73,7 +73,7 @@ var _ = Describe("AppRepository", func() {
 				Expect(app.GUID).To(Equal(cfApp.Name))
 				Expect(app.EtcdUID).To(Equal(cfApp.GetUID()))
 				Expect(app.Revision).To(Equal(CFAppRevisionValue))
-				Expect(app.Name).To(Equal(cfApp.Spec.Name))
+				Expect(app.Name).To(Equal(cfApp.Spec.DisplayName))
 				Expect(app.SpaceGUID).To(Equal(space.Name))
 				Expect(app.State).To(Equal(DesiredState("STOPPED")))
 				Expect(app.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
@@ -129,7 +129,7 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			appRecord, getErr = appRepo.GetAppByNameAndSpace(testCtx, authInfo, cfApp.Spec.Name, querySpaceName)
+			appRecord, getErr = appRepo.GetAppByNameAndSpace(testCtx, authInfo, cfApp.Spec.DisplayName, querySpaceName)
 		})
 
 		When("the user is able to get apps in the space", func() {
@@ -140,7 +140,7 @@ var _ = Describe("AppRepository", func() {
 			It("returns the record", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 
-				Expect(appRecord.Name).To(Equal(cfApp.Spec.Name))
+				Expect(appRecord.Name).To(Equal(cfApp.Spec.DisplayName))
 				Expect(appRecord.GUID).To(Equal(cfApp.Name))
 				Expect(appRecord.EtcdUID).To(Equal(cfApp.UID))
 				Expect(appRecord.SpaceGUID).To(Equal(space.Name))
@@ -248,7 +248,7 @@ var _ = Describe("AppRepository", func() {
 
 				When("some Apps match the filter", func() {
 					BeforeEach(func() {
-						message = ListAppsMessage{Names: []string{cfApp2.Spec.Name, cfApp12.Spec.Name}}
+						message = ListAppsMessage{Names: []string{cfApp2.Spec.DisplayName, cfApp12.Spec.DisplayName}}
 					})
 
 					It("returns the matching apps", func() {
@@ -313,7 +313,7 @@ var _ = Describe("AppRepository", func() {
 			Describe("filtering by both name and space", func() {
 				When("no Apps exist that match the union of the filters", func() {
 					BeforeEach(func() {
-						message = ListAppsMessage{Names: []string{cfApp.Spec.Name}, SpaceGuids: []string{"some-other-space-guid"}}
+						message = ListAppsMessage{Names: []string{cfApp.Spec.DisplayName}, SpaceGuids: []string{"some-other-space-guid"}}
 					})
 
 					When("an App matches by Name but not by Space", func() {
@@ -335,7 +335,7 @@ var _ = Describe("AppRepository", func() {
 
 				When("some Apps match the union of the filters", func() {
 					BeforeEach(func() {
-						message = ListAppsMessage{Names: []string{cfApp12.Spec.Name}, SpaceGuids: []string{space.Name}}
+						message = ListAppsMessage{Names: []string{cfApp12.Spec.DisplayName}, SpaceGuids: []string{space.Name}}
 					})
 
 					It("returns the matching apps", func() {
@@ -967,7 +967,7 @@ func createAppWithGUID(space, guid string) *workloadsv1alpha1.CFApp {
 			},
 		},
 		Spec: workloadsv1alpha1.CFAppSpec{
-			Name:         generateGUID(),
+			DisplayName:  generateGUID(),
 			DesiredState: "STOPPED",
 			Lifecycle: workloadsv1alpha1.Lifecycle{
 				Type: "buildpack",

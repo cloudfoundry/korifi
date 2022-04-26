@@ -52,7 +52,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 				Namespace: testAppNamespace,
 			},
 			Spec: workloadsv1alpha1.CFAppSpec{
-				Name:         testAppName,
+				DisplayName:  testAppName,
 				DesiredState: workloadsv1alpha1.StoppedState,
 			},
 		}
@@ -103,7 +103,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.DuplicateAppErrorType, Message: `App with the name '` + app.Spec.Name + `' already exists.`}.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.DuplicateAppErrorType, Message: `App with the name '` + app.Spec.DisplayName + `' already exists.`}.Marshal()))
 			})
 		})
 
@@ -156,7 +156,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 					Namespace: testAppNamespace,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
-					Name:         "the-new-name",
+					DisplayName:  "the-new-name",
 					DesiredState: workloadsv1alpha1.StoppedState,
 				},
 			}
@@ -195,8 +195,8 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			actualContext, _, namespace, oldName, newName := duplicateValidator.ValidateUpdateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(namespace).To(Equal(app.Namespace))
-			Expect(oldName).To(Equal(app.Spec.Name))
-			Expect(newName).To(Equal(updatedApp.Spec.Name))
+			Expect(oldName).To(Equal(app.Spec.DisplayName))
+			Expect(newName).To(Equal(updatedApp.Spec.DisplayName))
 		})
 
 		When("the new app name is a duplicate", func() {
@@ -206,7 +206,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.DuplicateAppErrorType, Message: `App with the name '` + updatedApp.Spec.Name + `' already exists.`}.Marshal()))
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.DuplicateAppErrorType, Message: `App with the name '` + updatedApp.Spec.DisplayName + `' already exists.`}.Marshal()))
 			})
 		})
 
@@ -250,7 +250,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			actualContext, _, namespace, name := duplicateValidator.ValidateDeleteArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(namespace).To(Equal(app.Namespace))
-			Expect(name).To(Equal(app.Spec.Name))
+			Expect(name).To(Equal(app.Spec.DisplayName))
 		})
 
 		When("delete validation fails", func() {

@@ -28,9 +28,9 @@ type CFOrgSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Name that is displayed to users
+	// DisplayName that is displayed to users
 	// +kubebuilder:validation:Pattern="^[-\\w]+$"
-	Name string `json:"name"`
+	DisplayName string `json:"displayName"`
 }
 
 // CFOrgStatus defines the observed state of CFOrg

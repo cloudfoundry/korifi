@@ -198,7 +198,7 @@ func createOrgWithCleanup(ctx context.Context, name string) *workloadsv1alpha1.C
 			Namespace: rootNamespace,
 		},
 		Spec: workloadsv1alpha1.CFOrgSpec{
-			Name: name,
+			DisplayName: name,
 		},
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())

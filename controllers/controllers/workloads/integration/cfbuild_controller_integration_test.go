@@ -186,9 +186,9 @@ var _ = Describe("CFBuildReconciler", func() {
 						Namespace: newNamespace.Name,
 					},
 					Spec: servicesv1alpha1.CFServiceInstanceSpec{
-						Name:       "service-instance-1-name",
-						SecretName: secret1.Name,
-						Type:       "user-provided",
+						DisplayName: "service-instance-1-name",
+						SecretName:  secret1.Name,
+						Type:        "user-provided",
 						Tags: []string{
 							"tag1",
 							"tag2",
@@ -209,7 +209,7 @@ var _ = Describe("CFBuildReconciler", func() {
 						},
 					},
 					Spec: servicesv1alpha1.CFServiceBindingSpec{
-						Name: &serviceBinding1Name,
+						DisplayName: &serviceBinding1Name,
 						Service: corev1.ObjectReference{
 							Kind:       "ServiceInstance",
 							Name:       serviceInstance1.Name,
@@ -245,10 +245,10 @@ var _ = Describe("CFBuildReconciler", func() {
 						Namespace: newNamespace.Name,
 					},
 					Spec: servicesv1alpha1.CFServiceInstanceSpec{
-						Name:       "service-instance-2-name",
-						SecretName: secret2.Name,
-						Type:       "user-provided",
-						Tags:       []string{},
+						DisplayName: "service-instance-2-name",
+						SecretName:  secret2.Name,
+						Type:        "user-provided",
+						Tags:        []string{},
 					},
 				}
 				Expect(
@@ -265,7 +265,7 @@ var _ = Describe("CFBuildReconciler", func() {
 						},
 					},
 					Spec: servicesv1alpha1.CFServiceBindingSpec{
-						Name: &serviceBinding2Name,
+						DisplayName: &serviceBinding2Name,
 						Service: corev1.ObjectReference{
 							Kind:       "ServiceInstance",
 							Name:       serviceInstance2.Name,

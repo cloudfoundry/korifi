@@ -35,8 +35,8 @@ spec:
           spec:
             description: CFServiceInstanceSpec defines the desired state of CFServiceInstance
             properties:
-              name:
-                description: Name defines the name of the Service Instance
+              displayName:
+                description: DisplayName defines the name of the Service Instance
                 type: string
               secretName:
                 description: Name of a secret containing the service credentials
@@ -52,7 +52,7 @@ spec:
                 - user-provided
                 type: string
             required:
-            - name
+            - displayName
             - secretName
             - type
             type: object

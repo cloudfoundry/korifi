@@ -125,7 +125,7 @@ func createAppWithGUID(space, guid, secretName string) *workloadsv1alpha1.CFApp 
 			Namespace: space,
 		},
 		Spec: workloadsv1alpha1.CFAppSpec{
-			Name:          "name-for-" + guid,
+			DisplayName:   "name-for-" + guid,
 			EnvSecretName: secretName,
 			DesiredState:  "STOPPED",
 			Lifecycle: workloadsv1alpha1.Lifecycle{
