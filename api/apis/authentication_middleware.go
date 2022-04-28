@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+
 	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 )
@@ -27,8 +28,9 @@ func NewAuthenticationMiddleware(logger logr.Logger, authInfoParser AuthInfoPars
 		authInfoParser:   authInfoParser,
 		identityProvider: identityProvider,
 		unauthenticatedEndpoints: map[string]interface{}{
-			"/":   struct{}{},
-			"/v3": struct{}{},
+			"/":            struct{}{},
+			"/v3":          struct{}{},
+			"/api/v1/info": struct{}{},
 		},
 	}
 }

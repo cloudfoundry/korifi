@@ -4,12 +4,11 @@ import (
 	"context"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/repositories"
-
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"code.cloudfoundry.org/korifi/api/repositories"
 
 	"github.com/go-logr/logr"
 	"github.com/go-playground/validator"
@@ -46,11 +45,11 @@ func NewLogCacheHandler(logger logr.Logger, appRepo CFAppRepository,
 	}
 }
 
-func (h *LogCacheHandler) logCacheInfoHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	return NewHandlerResponse(http.StatusOK).WithBody(map[string]interface{}{
+func (h *LogCacheHandler) logCacheInfoHandler(w http.ResponseWriter, r *http.Request) {
+	writeResponse(w, http.StatusOK, map[string]interface{}{
 		"version":   logCacheVersion,
 		"vm_uptime": "0",
-	}), nil
+	})
 }
 
 func (h *LogCacheHandler) logCacheReadHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
@@ -103,6 +102,6 @@ func (h *LogCacheHandler) logCacheReadHandler(authInfo authorization.Info, r *ht
 
 func (h *LogCacheHandler) RegisterRoutes(router *mux.Router) {
 	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(LogCacheInfoPath).Methods("GET").HandlerFunc(w.Wrap(h.logCacheInfoHandler))
+	router.Path(LogCacheInfoPath).Methods("GET").HandlerFunc(h.logCacheInfoHandler)
 	router.Path(LogCacheReadPath).Methods("GET").HandlerFunc(w.Wrap(h.logCacheReadHandler))
 }
