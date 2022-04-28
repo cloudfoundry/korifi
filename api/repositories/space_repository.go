@@ -24,14 +24,6 @@ import (
 
 //counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
 
-// TODO: Move this into space_manifest_handler.go
-type CFSpaceRepository interface {
-	CreateSpace(context.Context, authorization.Info, CreateSpaceMessage) (SpaceRecord, error)
-	ListSpaces(context.Context, authorization.Info, ListSpacesMessage) ([]SpaceRecord, error)
-	GetSpace(context.Context, authorization.Info, string) (SpaceRecord, error)
-	DeleteSpace(context.Context, authorization.Info, DeleteSpaceMessage) error
-}
-
 const (
 	SpaceNameLabel    = "cloudfoundry.org/space-name"
 	SpacePrefix       = "cf-space-"

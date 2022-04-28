@@ -1261,7 +1261,6 @@ var _ = Describe("RouteRepository", func() {
 				DestinationGuid:      destinationGUID,
 			}
 			_, removeDestinationErr = routeRepo.RemoveDestinationFromRoute(testCtx, authInfo, destinationDeleteMessage)
-
 		})
 
 		AfterEach(func() {
