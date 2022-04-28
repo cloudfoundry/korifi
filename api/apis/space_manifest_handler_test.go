@@ -7,8 +7,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	repositoriesfake "code.cloudfoundry.org/korifi/api/repositories/fake"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -20,14 +18,14 @@ import (
 var _ = Describe("SpaceManifestHandler", func() {
 	var (
 		applyManifestAction *fake.ApplyManifestAction
-		spaceRepo           *repositoriesfake.CFSpaceRepository
+		spaceRepo           *fake.CFSpaceRepository
 		req                 *http.Request
 		defaultDomainName   string
 	)
 
 	BeforeEach(func() {
 		applyManifestAction = new(fake.ApplyManifestAction)
-		spaceRepo = new(repositoriesfake.CFSpaceRepository)
+		spaceRepo = new(fake.CFSpaceRepository)
 		defaultDomainName = "apps.example.org"
 
 		decoderValidator, err := NewDefaultDecoderValidator()

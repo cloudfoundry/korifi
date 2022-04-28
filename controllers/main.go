@@ -297,6 +297,13 @@ func main() {
 			os.Exit(1)
 		}
 
+		if err = workloads.NewCFSpaceValidation(
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType)),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFSpace")
+			os.Exit(1)
+		}
+
 		if err = (&networkingv1alpha1.CFRoute{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
 			os.Exit(1)

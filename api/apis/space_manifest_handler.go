@@ -20,12 +20,21 @@ const (
 	SpaceManifestDiffPath  = "/v3/spaces/{spaceGUID}/manifest_diff"
 )
 
+//counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
+
+type CFSpaceRepository interface {
+	CreateSpace(context.Context, authorization.Info, repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)
+	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) ([]repositories.SpaceRecord, error)
+	GetSpace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
+	DeleteSpace(context.Context, authorization.Info, repositories.DeleteSpaceMessage) error
+}
+
 type SpaceManifestHandler struct {
 	logger              logr.Logger
 	serverURL           url.URL
 	defaultDomainName   string
 	applyManifestAction ApplyManifestAction
-	spaceRepo           repositories.CFSpaceRepository
+	spaceRepo           CFSpaceRepository
 	decoderValidator    *DecoderValidator
 }
 
@@ -37,7 +46,7 @@ func NewSpaceManifestHandler(
 	serverURL url.URL,
 	defaultDomainName string,
 	applyManifestAction ApplyManifestAction,
-	spaceRepo repositories.CFSpaceRepository,
+	spaceRepo CFSpaceRepository,
 	decoderValidator *DecoderValidator,
 ) *SpaceManifestHandler {
 	return &SpaceManifestHandler{
