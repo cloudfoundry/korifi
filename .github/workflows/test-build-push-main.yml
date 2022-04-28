@@ -175,7 +175,7 @@ jobs:
     - name: Generate and publish code coverage report
       uses: paambaati/codeclimate-action@v3.0.0
       env:
-        CC_TEST_REPORTER_ID: eac10b59cb33cb6a2ae137260587e43e3e148c72f0d2a3b7cca35761cfe257ee
+        CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_TEST_REPORTER_ID }}
       with:
         coverageLocations: "**/cover.out:gocov"
         prefix: "code.cloudfoundry.org/korifi"
