@@ -120,7 +120,7 @@ function create_tls_secret() {
       -nodes \
       -subj "/CN=${tls_cn}" \
       -addext "subjectAltName = DNS:${tls_cn}" \
-      -days 365
+      -days 365 2> /dev/null
   else
     openssl req -x509 -newkey rsa:4096 \
       -keyout ${tmp_dir}/tls.key \
@@ -128,7 +128,7 @@ function create_tls_secret() {
       -nodes \
       -subj "/CN=${tls_cn}" \
       -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:${tls_cn}'")) \
-      -days 365
+      -days 365 2> /dev/null
   fi
 
   cat <<EOF >${tmp_dir}/kustomization.yml
