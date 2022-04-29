@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/actions"
@@ -288,7 +289,14 @@ func main() {
 
 	portString := fmt.Sprintf(":%v", config.InternalPort)
 	log.Println("Listening on ", portString)
-	log.Fatal(http.ListenAndServe(portString, router))
+
+	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")
+	if tlsFound {
+		log.Fatal(http.ListenAndServeTLS(portString, path.Join(tlsPath, "tls.crt"), path.Join(tlsPath, "tls.key"), router))
+	} else {
+		log.Fatal(http.ListenAndServe(portString, router))
+	}
+
 }
 
 func wireIdentityProvider(client client.Client, restConfig *rest.Config) authorization.IdentityProvider {

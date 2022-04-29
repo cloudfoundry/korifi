@@ -236,7 +236,7 @@ spec:
               debug:
                 default:
                   kubernetesLogLevel: 0
-                  logLevel: info
+                  logLevel: debug
                 description: Debug contains parameters to enable debug logging and
                   debug interfaces inside Contour.
                 properties:
@@ -1146,7 +1146,7 @@ spec:
                   debug:
                     default:
                       kubernetesLogLevel: 0
-                      logLevel: info
+                      logLevel: debug
                     description: Debug contains parameters to enable debug logging
                       and debug interfaces inside Contour.
                     properties:
@@ -5129,7 +5129,7 @@ spec:
         - /config/envoy.json
         - --service-cluster $(CONTOUR_NAMESPACE)
         - --service-node $(ENVOY_POD_NAME)
-        - --log-level info
+        - --log-level debug
         command:
         - envoy
         image: docker.io/envoyproxy/envoy:v1.19.1

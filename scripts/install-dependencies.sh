@@ -108,9 +108,9 @@ echo "*******************"
 
 kubectl apply -f "${DEP_DIR}/contour-1.19.1.yaml"
 
-echo "*******************"
+echo "***************"
 echo "Installing HNC"
-echo "*******************"
+echo "***************"
 
 kubectl apply -k ${DEP_DIR}/hnc/cf
 kubectl rollout status deployment/hnc-controller-manager -w -n hnc-system

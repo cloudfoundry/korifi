@@ -118,6 +118,7 @@ data:
     packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
     clusterBuilderName: cf-kpack-cluster-builder
     defaultDomainName: apps.example.org
+    serverCertificateSecretName: ""
   role_mappings_config.yaml: |
     roleMappings:
       admin:
@@ -158,12 +159,14 @@ data:
         propagate: false
 kind: ConfigMap
 metadata:
-  name: korifi-api-config-f8ccbtc64g
+  name: korifi-api-config-72mk62ggft
   namespace: korifi-api-system
 ---
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    projectcontour.io/upstream-protocol.tls: "443"
   labels:
     app: korifi-api
   name: korifi-api-svc
@@ -198,6 +201,8 @@ spec:
     spec:
       containers:
       - env:
+        - name: TLSCONFIG
+          value: /etc/korifi-tls-config
         - name: APICONFIG
           value: /etc/korifi-api-config
         image: cloudfoundry/korifi-api:latest
@@ -210,11 +215,17 @@ spec:
         - mountPath: /etc/korifi-api-config
           name: korifi-api-config
           readOnly: true
+        - mountPath: /etc/korifi-tls-config
+          name: korifi-tls-config
+          readOnly: true
       serviceAccountName: korifi-api-system-serviceaccount
       volumes:
       - configMap:
-          name: korifi-api-config-f8ccbtc64g
+          name: korifi-api-config-72mk62ggft
         name: korifi-api-config
+      - name: korifi-tls-config
+        secret:
+          secretName: korifi-api-backplane-cert
 ---
 apiVersion: projectcontour.io/v1
 kind: HTTPProxy
@@ -230,6 +241,9 @@ spec:
     services:
     - name: korifi-api-svc
       port: 443
+      validation:
+        caSecret: korifi-api-backplane-ca
+        subjectName: korifi-api-svc.korifi-api-system.svc.cluster.local
     timeoutPolicy:
       response: 5m
   virtualhost:

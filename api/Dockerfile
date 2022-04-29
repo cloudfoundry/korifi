@@ -22,10 +22,12 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o cfapi api/main.go
 
-FROM gcr.io/distroless/static:nonroot
+FROM ubuntu
+
+RUN apt update
+RUN apt-get install -y tcpdump
 
 WORKDIR /
 COPY --from=builder /workspace/cfapi .
-USER 1000:1000
 
 ENTRYPOINT [ "/cfapi" ]

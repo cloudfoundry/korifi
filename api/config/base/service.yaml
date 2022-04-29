@@ -4,6 +4,8 @@ metadata:
   labels:
     app: korifi-api
   name: svc
+  annotations:
+    projectcontour.io/upstream-protocol.tls: "443"
 spec:
   type: ClusterIP
   ports:

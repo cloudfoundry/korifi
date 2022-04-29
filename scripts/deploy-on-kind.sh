@@ -148,6 +148,71 @@ EOF
   rm -r ${tmp_dir}
 }
 
+function create_tls_secret_and_ca() {
+  local secret_name=${1:?}
+  local secret_namespace=${2:?}
+  local tls_cn=${3:?}
+  local ca_secret_name=${4:?}
+
+  tmp_dir=$(mktemp -d -t cf-tls-XXXXXX)
+
+  openssl genrsa -out ${tmp_dir}/ca.key 2048
+  openssl req -new -x509 -nodes \
+    -days 365 \
+    -key ${tmp_dir}/ca.key \
+    -out ${tmp_dir}/ca.pem \
+    -subj "/CN=unused"
+
+  openssl genrsa -out ${tmp_dir}/server.key 2048
+
+  if [[ "${OPENSSL_VERSION}" == "OpenSSL" ]]; then
+    openssl req -new \
+      -key ${tmp_dir}/server.key \
+      -out ${tmp_dir}/server.csr \
+      -subj "/CN=${tls_cn}" \
+      -addext "subjectAltName = DNS:${tls_cn}"
+  else
+    openssl req -new \
+      -key ${tmp_dir}/server.key \
+      -out ${tmp_dir}/server.csr \
+      -subj "/CN=${tls_cn}" \
+      -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:${tls_cn}'"))
+  fi
+
+  openssl x509 -req \
+    -days 365 \
+    -set_serial 01 \
+    -in ${tmp_dir}/server.csr  \
+    -out ${tmp_dir}/server.pem \
+    -CA ${tmp_dir}/ca.pem  \
+    -CAkey ${tmp_dir}/ca.key
+  cat ${tmp_dir}/ca.pem >> ${tmp_dir}/server.pem
+
+  cat <<EOF >${tmp_dir}/kustomization.yml
+secretGenerator:
+- name: ${secret_name}
+  namespace: ${secret_namespace}
+  files:
+  - tls.crt=server.pem
+  - tls.key=server.key
+  type: "kubernetes.io/tls"
+- name: ${ca_secret_name}
+  namespace: ${secret_namespace}
+  files:
+  - tls.crt=ca.pem
+  - tls.key=ca.key
+  - ca.crt=ca.pem
+  type: "kubernetes.io/tls"
+generatorOptions:
+  disableNameSuffixHash: true
+EOF
+
+  kubectl apply -k $tmp_dir
+
+  rm -r ${tmp_dir}
+}
+
+
 # undo *_IMG changes in config and reference
 function clean_up_img_refs() {
   cd "${ROOT_DIR}"
@@ -165,6 +230,8 @@ function ensure_kind_cluster() {
     cat <<EOF | kind create cluster --name "${cluster}" --wait 5m --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+featureGates:
+  EphemeralContainers: true
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
@@ -305,6 +372,7 @@ function deploy_korifi_api() {
       make deploy-api-kind
     fi
 
+    create_tls_secret_and_ca "korifi-api-backplane-cert" "korifi-api-system" "korifi-api-svc.korifi-api-system.svc.cluster.local" "korifi-api-backplane-ca"
     create_tls_secret "korifi-api-ingress-cert" "korifi-api-system" "localhost"
   }
   popd >/dev/null
