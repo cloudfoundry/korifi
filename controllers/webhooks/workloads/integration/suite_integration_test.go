@@ -97,8 +97,12 @@ var _ = BeforeSuite(func() {
 
 	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType))
 	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType))
+
 	anchorValidationWebhook := workloads.NewSubnamespaceAnchorValidation(orgNameDuplicateValidator, spaceNameDuplicateValidator)
 	Expect(anchorValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
+
+	orgValidationWebhook := workloads.NewCFOrgValidation(orgNameDuplicateValidator)
+	Expect(orgValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook
 

@@ -3074,6 +3074,28 @@ webhooks:
     service:
       name: korifi-controllers-webhook-service
       namespace: korifi-controllers-system
+      path: /validate-workloads-cloudfoundry-org-v1alpha1-cforg
+  failurePolicy: Fail
+  name: vcforg.workloads.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - workloads.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cforgs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
       path: /validate-hnc-x-k8s-io-v1alpha2-subnamespaceanchor
   failurePolicy: Fail
   name: vsubns.workloads.cloudfoundry.org
