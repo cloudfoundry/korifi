@@ -13,6 +13,7 @@ resources:
 - deployment.yaml
 - ingress.yaml
 - service.yaml
+- certificate.yaml
 - rbac
 
 configMapGenerator:
@@ -34,4 +35,20 @@ patches:
     group: projectcontour.io
     kind: HTTPProxy
     name: proxy
+    version: v1
+
+# the following config is for teaching kustomize how to do var substitution
+vars:
+- fieldref:
+    fieldPath: metadata.namespace
+  name: SERVICE_NAMESPACE
+  objref:
+    kind: Service
+    name: svc
+    version: v1
+- fieldref: {}
+  name: SERVICE_NAME
+  objref:
+    kind: Service
+    name: svc
     version: v1

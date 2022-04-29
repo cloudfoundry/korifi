@@ -372,7 +372,7 @@ function deploy_korifi_api() {
       make deploy-api-kind
     fi
 
-    create_tls_secret_and_ca "korifi-api-backplane-cert" "korifi-api-system" "korifi-api-svc.korifi-api-system.svc.cluster.local" "korifi-api-backplane-ca"
+#    create_tls_secret_and_ca "korifi-api-backplane-cert" "korifi-api-system" "korifi-api-svc.korifi-api-system.svc.cluster.local" "korifi-api-backplane-ca"
     create_tls_secret "korifi-api-ingress-cert" "korifi-api-system" "localhost"
   }
   popd >/dev/null
