@@ -20,7 +20,7 @@ createCert() {
     -keyout "${priv_key_file}" \
     -out "${csr_file}" \
     -nodes \
-    -subj "/CN=${username}"
+    -subj "/CN=${username}" 2> /dev/null
 
   cat <<EOF | kubectl create -f -
 apiVersion: certificates.k8s.io/v1
