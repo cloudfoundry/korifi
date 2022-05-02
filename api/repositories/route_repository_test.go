@@ -17,7 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("RouteRepository", func() {
@@ -27,7 +26,7 @@ var _ = Describe("RouteRepository", func() {
 		testCtx context.Context
 
 		org   *workloadsv1alpha1.CFOrg
-		space *hnsv1alpha2.SubnamespaceAnchor
+		space *workloadsv1alpha1.CFSpace
 
 		route1GUID string
 		route2GUID string
@@ -259,9 +258,9 @@ var _ = Describe("RouteRepository", func() {
 			var (
 				cfRoute1A, cfRoute1B *networkingv1alpha1.CFRoute
 				domainGUID2          string
-				space2               *hnsv1alpha2.SubnamespaceAnchor
+				space2               *workloadsv1alpha1.CFSpace
 				cfRoute2A            *networkingv1alpha1.CFRoute
-				space3               *hnsv1alpha2.SubnamespaceAnchor
+				space3               *workloadsv1alpha1.CFSpace
 				cfRoute3A            *networkingv1alpha1.CFRoute
 
 				routeRecords []RouteRecord

@@ -37,6 +37,7 @@ spec:
             properties:
               displayName:
                 description: DisplayName of the space displayed to the user
+                pattern: ^[-\w]+$
                 type: string
             required:
             - displayName

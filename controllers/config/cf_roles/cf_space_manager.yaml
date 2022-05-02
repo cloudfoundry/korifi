@@ -53,9 +53,9 @@ rules:
   - get
 
 - apiGroups:
-    - services.cloudfoundry.org
+  - services.cloudfoundry.org
   resources:
-    - cfservicebindings
+  - cfservicebindings
   verbs:
-    - get
-    - list
+  - get
+  - list

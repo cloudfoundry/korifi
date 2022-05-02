@@ -28,7 +28,7 @@ var _ = Describe("NamespaceRetriever", func() {
 		appGUID = prefixedGUID("app")
 		org := createOrgWithCleanup(ctx, prefixedGUID("org"))
 		orgGUID = org.Name
-		space := createSpaceAnchorAndNamespace(ctx, org.Name, prefixedGUID("space"))
+		space := createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 		spaceGUID = space.Name
 		_ = createAppCR(ctx, k8sClient, "app1", appGUID, space.Name, "STOPPED")
 	})
@@ -64,7 +64,7 @@ var _ = Describe("NamespaceRetriever", func() {
 
 	When("there are duplicate guids", func() {
 		BeforeEach(func() {
-			space2 := createSpaceAnchorAndNamespace(ctx, orgGUID, prefixedGUID("space2"))
+			space2 := createSpaceWithCleanup(ctx, orgGUID, prefixedGUID("space2"))
 			_ = createAppCR(ctx, k8sClient, "app2", appGUID, space2.Name, "STOPPED")
 		})
 

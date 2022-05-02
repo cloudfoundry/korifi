@@ -51,8 +51,8 @@ var _ = Describe("ServiceBinding Handler", func() {
 		)
 		apiHandler.RegisterRoutes(router)
 
-		org := createOrgAnchorAndNamespace(ctx, rootNamespace, generateGUID())
-		space := createSpaceAnchorAndNamespace(ctx, org.Name, "spacename-"+generateGUID())
+		org := createOrgWithCleanup(ctx, generateGUID())
+		space := createSpaceWithCleanup(ctx, org.Name, "spacename-"+generateGUID())
 		spaceGUID = space.Name
 
 		appGUID = generateGUID()
