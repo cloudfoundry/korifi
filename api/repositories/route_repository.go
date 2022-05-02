@@ -418,6 +418,7 @@ func (f *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo aut
 
 	return cfRouteToRouteRecord(*cfRoute), err
 }
+
 func mergeDestinations(existingDestinations []DestinationRecord, newDestinations []DestinationMessage) []networkingv1alpha1.Destination {
 	result := destinationRecordsToCFDestinations(existingDestinations)
 

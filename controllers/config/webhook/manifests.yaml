@@ -146,6 +146,50 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-workloads-cloudfoundry-org-v1alpha1-cforg
+  failurePolicy: Fail
+  name: vcforg.workloads.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - workloads.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cforgs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-workloads-cloudfoundry-org-v1alpha1-cfspace
+  failurePolicy: Fail
+  name: vcfspace.workloads.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - workloads.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cfspaces
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-hnc-x-k8s-io-v1alpha2-subnamespaceanchor
   failurePolicy: Fail
   name: vsubns.workloads.cloudfoundry.org
