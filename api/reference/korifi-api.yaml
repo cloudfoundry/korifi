@@ -221,11 +221,28 @@ spec:
       serviceAccountName: korifi-api-system-serviceaccount
       volumes:
       - configMap:
-          name: korifi-api-config-72mk62ggft
+          name: korifi-api-config-7md5gm4c8f
         name: korifi-api-config
       - name: korifi-tls-config
         secret:
-          secretName: korifi-api-backplane-cert
+          secretName: api-backing-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: korifi-api-serving-ca-cert
+  namespace: korifi-api-system
+spec:
+  dnsNames:
+  - ca.example.com
+  isCA: true
+  issuerRef:
+    kind: Issuer
+    name: korifi-api-selfsigned-issuer
+  secretName: ca-key-pair
+  subject:
+    organizations:
+    - korifi
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -233,13 +250,28 @@ metadata:
   name: korifi-api-serving-cert
   namespace: korifi-api-system
 spec:
+  commonName: korifi-api-svc.korifi-api-system.svc.cluster.local
   dnsNames:
-  - $(SERVICE_NAME).$(SERVICE_NAMESPACE).svc
-  - $(SERVICE_NAME).$(SERVICE_NAMESPACE).svc.cluster.local
+  - korifi-api-svc.korifi-api-system.svc
+  - korifi-api-svc.korifi-api-system.svc.cluster.local
   issuerRef:
     kind: Issuer
-    name: selfsigned-issuer
+    name: korifi-api-ca-issuer
   secretName: api-backing-cert
+  subject:
+    organizations:
+    - korifi
+  usages:
+  - server auth
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: korifi-api-ca-issuer
+  namespace: korifi-api-system
+spec:
+  ca:
+    secretName: ca-key-pair
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
@@ -264,7 +296,7 @@ spec:
     - name: korifi-api-svc
       port: 443
       validation:
-        caSecret: korifi-api-backplane-ca
+        caSecret: api-backing-cert
         subjectName: korifi-api-svc.korifi-api-system.svc.cluster.local
     timeoutPolicy:
       response: 5m

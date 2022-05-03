@@ -16,7 +16,7 @@ spec:
     - name: korifi-api-svc
       port: 443
       validation:
-        caSecret: korifi-api-backplane-ca
+        caSecret: api-backing-cert
         subjectName: korifi-api-svc.korifi-api-system.svc.cluster.local
     timeoutPolicy:
       response: "5m"

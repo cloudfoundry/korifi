@@ -10,6 +10,32 @@ spec:
   selfSigned: {}
 ---
 apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ca-issuer
+  namespace: system
+spec:
+  ca:
+    secretName: ca-key-pair
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: serving-ca-cert  # this name should match the one appeared in kustomizeconfig.yaml
+  namespace: system
+spec:
+  isCA: true
+  subject:
+    organizations:
+      - korifi
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  dnsNames:
+  - ca.example.com
+  secretName: ca-key-pair # this secret will not be prefixed, since it's not managed by kustomize
+---
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: serving-cert  # this name should match the one appeared in kustomizeconfig.yaml
@@ -19,7 +45,13 @@ spec:
   dnsNames:
   - $(SERVICE_NAME).$(SERVICE_NAMESPACE).svc
   - $(SERVICE_NAME).$(SERVICE_NAMESPACE).svc.cluster.local
+  usages:
+  - server auth
+  commonName: $(SERVICE_NAME).$(SERVICE_NAMESPACE).svc.cluster.local
+  subject:
+    organizations:
+      - korifi
   issuerRef:
     kind: Issuer
-    name: selfsigned-issuer
+    name: ca-issuer
   secretName: api-backing-cert # this secret will not be prefixed, since it's not managed by kustomize

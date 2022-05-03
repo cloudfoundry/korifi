@@ -52,3 +52,6 @@ vars:
     kind: Service
     name: svc
     version: v1
+
+configurations:
+- kustomizeconfig.yaml
