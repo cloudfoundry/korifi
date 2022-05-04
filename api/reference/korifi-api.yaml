@@ -164,6 +164,8 @@ metadata:
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    projectcontour.io/upstream-protocol.tls: "443"
   labels:
     app: korifi-api
   name: korifi-api-svc
@@ -200,6 +202,8 @@ spec:
       - env:
         - name: APICONFIG
           value: /etc/korifi-api-config
+        - name: TLSCONFIG
+          value: /etc/korifi-tls-config
         image: cloudfoundry/korifi-api:latest
         name: korifi-api
         ports:
@@ -210,11 +214,45 @@ spec:
         - mountPath: /etc/korifi-api-config
           name: korifi-api-config
           readOnly: true
+        - mountPath: /etc/korifi-tls-config
+          name: korifi-tls-config
+          readOnly: true
       serviceAccountName: korifi-api-system-serviceaccount
       volumes:
       - configMap:
           name: korifi-api-config-f8ccbtc64g
         name: korifi-api-config
+      - name: korifi-tls-config
+        secret:
+          secretName: korifi-api-internal-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: korifi-api-internal-cert
+  namespace: korifi-api-system
+spec:
+  commonName: korifi-api-svc.korifi-api-system.svc.cluster.local
+  dnsNames:
+  - korifi-api-svc.korifi-api-system.svc
+  - korifi-api-svc.korifi-api-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: korifi-api-selfsigned-issuer
+  secretName: korifi-api-internal-cert
+  subject:
+    organizations:
+    - korifi
+  usages:
+  - server auth
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: korifi-api-selfsigned-issuer
+  namespace: korifi-api-system
+spec:
+  selfSigned: {}
 ---
 apiVersion: projectcontour.io/v1
 kind: HTTPProxy
@@ -230,6 +268,9 @@ spec:
     services:
     - name: korifi-api-svc
       port: 443
+      validation:
+        caSecret: korifi-api-internal-cert
+        subjectName: korifi-api-svc.korifi-api-system.svc.cluster.local
     timeoutPolicy:
       response: 5m
   virtualhost:
