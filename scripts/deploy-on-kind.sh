@@ -165,6 +165,8 @@ function ensure_kind_cluster() {
     cat <<EOF | kind create cluster --name "${cluster}" --wait 5m --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+featureGates:
+  EphemeralContainers: true
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
