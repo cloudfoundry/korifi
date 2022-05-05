@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -230,6 +231,9 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, info authorization.Info, mes
 		cfSpaceList := new(workloads.CFSpaceList)
 
 		err = userClient.List(ctx, cfSpaceList, client.InNamespace(org))
+		if k8serrors.IsForbidden(err) {
+			continue
+		}
 		if err != nil {
 			return nil, apierrors.FromK8sError(err, SpaceResourceType)
 		}
