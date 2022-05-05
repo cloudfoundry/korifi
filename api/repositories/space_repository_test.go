@@ -408,6 +408,22 @@ var _ = Describe("SpaceRepository", func() {
 				Expect(spaces).To(BeEmpty())
 			})
 		})
+
+		When("an org exists with a rolebinding for the user, but without permission to list spaces", func() {
+			var org *workloads.CFOrg
+
+			BeforeEach(func() {
+				org = createOrgWithCleanup(ctx, "org-without-list-space-perm")
+				createRoleBinding(ctx, userName, rootNamespaceUserRole.Name, org.Name)
+			})
+
+			It("returns the 6 spaces", func() {
+				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(spaces).To(HaveLen(6))
+			})
+		})
 	})
 
 	Describe("Get", func() {
