@@ -345,5 +345,23 @@ var _ = Describe("SpaceManifestHandler", func() {
 				expectUnknownError()
 			})
 		})
+
+		When("getting the space is forbidden", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewForbiddenError(errors.New("foo"), repositories.SpaceResourceType))
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+"fake-space-guid"+"/manifest_diff", strings.NewReader(`---
+				version: 1
+				applications:
+				  - name: app1
+			`))
+				Expect(err).NotTo(HaveOccurred())
+				req.Header.Add("Content-type", "application/x-yaml")
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Space")
+			})
+		})
 	})
 })

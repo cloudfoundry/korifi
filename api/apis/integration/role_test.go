@@ -31,7 +31,7 @@ var _ = Describe("Role", func() {
 			"cf_user":              {Name: "cf-root-namespace-user"},
 		}
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPermissions, time.Minute)
-		spaceRepo := repositories.NewSpaceRepo(orgRepo, k8sClient, clientFactory, nsPermissions, time.Minute)
+		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, k8sClient, clientFactory, nsPermissions, time.Minute)
 		roleRepo := repositories.NewRoleRepo(clientFactory, spaceRepo, nsPermissions, rootNamespace, roleMappings)
 		decoderValidator, err := apis.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())

@@ -181,13 +181,19 @@ var _ = Describe("Routes", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns an unprocessable entity error when the user has no role in the space", func() {
-			Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-			Expect(createErr.Errors).To(ConsistOf(cfErr{
-				Detail: "Invalid space. Ensure that the space exists and you have access to it.",
-				Title:  "CF-UnprocessableEntity",
-				Code:   10008,
-			}))
+		When("the user cannot access the space", func() {
+			BeforeEach(func() {
+				client = tokenClient
+			})
+
+			It("returns an unprocessable entity error", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+				Expect(createErr.Errors).To(ConsistOf(cfErr{
+					Detail: "Invalid space. Ensure that the space exists and you have access to it.",
+					Title:  "CF-UnprocessableEntity",
+					Code:   10008,
+				}))
+			})
 		})
 
 		When("the user is a space manager", func() {
@@ -195,7 +201,7 @@ var _ = Describe("Routes", func() {
 				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
 			})
 
-			It("returns an unprocessable entity error when the user has no role in the space", func() {
+			It("returns an forbidden error", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
 				Expect(resp).To(HaveRestyBody(ContainSubstring("CF-NotAuthorized")))
 			})

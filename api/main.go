@@ -105,7 +105,7 @@ func main() {
 		panic(err)
 	}
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout)
-	spaceRepo := repositories.NewSpaceRepo(orgRepo, privilegedCRClient, userClientFactory, nsPermissions, createTimeout)
+	spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, privilegedCRClient, userClientFactory, nsPermissions, createTimeout)
 	processRepo := repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	podRepo := repositories.NewPodRepo(ctrl.Log.WithName("PodRepository"), userClientFactory, metricsFetcherFunction)
 	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions)

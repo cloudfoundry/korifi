@@ -86,6 +86,7 @@ rules:
   - cfbuilds
   - cfpackages
   - cfprocesses
+  - cfspaces
   verbs:
   - list
 ---

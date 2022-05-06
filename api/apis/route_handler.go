@@ -144,10 +144,11 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, r *http.R
 	_, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch space from Kubernetes", "spaceGUID", spaceGUID)
-		return nil, apierrors.AsUnprocessibleEntity(
+		return nil, apierrors.AsUnprocessableEntity(
 			err,
 			"Invalid space. Ensure that the space exists and you have access to it.",
 			apierrors.NotFoundError{},
+			apierrors.ForbiddenError{},
 		)
 	}
 
@@ -155,7 +156,7 @@ func (h *RouteHandler) routeCreateHandler(authInfo authorization.Info, r *http.R
 	domain, err := h.domainRepo.GetDomain(ctx, authInfo, domainGUID)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch domain from Kubernetes", "Domain GUID", domainGUID)
-		return nil, apierrors.AsUnprocessibleEntity(
+		return nil, apierrors.AsUnprocessableEntity(
 			err,
 			"Invalid domain. Ensure that the domain exists and you have access to it.",
 			apierrors.NotFoundError{},
