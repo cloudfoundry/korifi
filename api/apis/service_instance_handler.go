@@ -59,6 +59,7 @@ func NewServiceInstanceHandler(
 	}
 }
 
+//nolint:dupl
 func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := context.Background()
 
