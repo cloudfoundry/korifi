@@ -42,7 +42,7 @@ var _ = Describe("RoleRepository", func() {
 			"cf_user":              {Name: rootNamespaceUserRole.Name},
 		}
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
-		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
+		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, time.Millisecond*2000)
 		roleRepo = repositories.NewRoleRepo(
 			userClientFactory,
 			spaceRepo,

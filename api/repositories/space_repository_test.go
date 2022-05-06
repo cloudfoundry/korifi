@@ -33,7 +33,7 @@ var _ = Describe("SpaceRepository", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
-		spaceRepo = repositories.NewSpaceRepo(namespaceRetriever, orgRepo, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
+		spaceRepo = repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, time.Millisecond*2000)
 	})
 
 	Describe("Create", func() {

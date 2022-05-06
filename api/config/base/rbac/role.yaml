@@ -22,7 +22,6 @@ rules:
   resources:
   - serviceaccounts
   verbs:
-  - create
   - get
 - apiGroups:
   - authentication.k8s.io
