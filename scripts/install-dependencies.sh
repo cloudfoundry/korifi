@@ -109,26 +109,6 @@ echo "*******************"
 kubectl apply -f "${DEP_DIR}/contour-1.19.1.yaml"
 
 echo "*******************"
-echo "Installing HNC"
-echo "*******************"
-
-kubectl apply -k ${DEP_DIR}/hnc/cf
-kubectl rollout status deployment/hnc-controller-manager -w -n hnc-system
-
-# install kubectl addon in order to configure secrets propagation
-readonly HNC_VERSION="v1.0.0"
-readonly HNC_PLATFORM="$(go env GOHOSTOS)_$(go env GOHOSTARCH)"
-readonly HNC_BIN="${PWD}/bin"
-export PATH="${HNC_BIN}:${PATH}"
-
-mkdir -p "${HNC_BIN}"
-curl -L "https://github.com/kubernetes-sigs/hierarchical-namespaces/releases/download/${HNC_VERSION}/kubectl-hns_${HNC_PLATFORM}" -o "${HNC_BIN}/kubectl-hns"
-chmod +x "${HNC_BIN}/kubectl-hns"
-
-# Propagate the kpack image registry write secret
-retry kubectl hns config set-resource secrets --mode Propagate
-
-echo "*******************"
 echo "Installing Eirini"
 echo "*******************"
 

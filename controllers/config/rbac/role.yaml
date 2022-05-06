@@ -8,16 +8,40 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - events
+  verbs:
+  - create
+  - update
+- apiGroups:
+  - ""
+  resources:
   - namespaces
   verbs:
+  - create
   - get
   - list
   - watch
 - apiGroups:
   - ""
   resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods/log
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
+  - create
+  - delete
   - get
   - list
   - patch
@@ -52,6 +76,21 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - deletecollection
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
@@ -72,22 +111,23 @@ rules:
   - update
   - watch
 - apiGroups:
-  - hnc.x-k8s.io
+  - eirini.cloudfoundry.org
   resources:
-  - hierarchyconfigurations
+  - lrps/status
+  verbs:
+  - patch
+- apiGroups:
+  - eirini.cloudfoundry.org
+  resources:
+  - tasks/status
+  verbs:
+  - patch
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders
   verbs:
   - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - hnc.x-k8s.io
-  resources:
-  - subnamespaceanchors
-  verbs:
-  - create
-  - delete
   - list
   - watch
 - apiGroups:
@@ -116,6 +156,14 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - metrics.k8s.io
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - networking.cloudfoundry.org
   resources:
@@ -169,6 +217,19 @@ rules:
   - patch
   - update
 - apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - create
+  - deletecollection
+- apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+- apiGroups:
   - projectcontour.io
   resources:
   - httpproxies
@@ -192,6 +253,28 @@ rules:
   - httpproxies/status
   verbs:
   - get
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
 - apiGroups:
   - servicebinding.io
   resources:

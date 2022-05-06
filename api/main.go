@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var createTimeout = time.Second * 120
@@ -43,7 +42,6 @@ func init() {
 	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(servicesv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme.Scheme))
-	utilruntime.Must(hnsv1alpha2.AddToScheme(scheme.Scheme))
 }
 
 type APIHandler interface {

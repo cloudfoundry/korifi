@@ -4,16 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -39,31 +35,6 @@ func setStatusConditionOnLocalCopy(conditions *[]metav1.Condition, conditionType
 		Reason:  reason,
 		Message: message,
 	})
-}
-
-func createSubnamespaceAnchor(ctx context.Context, client client.Client, req ctrl.Request, object client.Object, labels map[string]string) (v1alpha2.SubnamespaceAnchor, error) {
-	anchor := v1alpha2.SubnamespaceAnchor{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.Name,
-			Namespace: req.Namespace,
-			Labels:    labels,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: APIVersion,
-					Kind:       object.GetObjectKind().GroupVersionKind().Kind,
-					Name:       object.GetName(),
-					UID:        object.GetUID(),
-				},
-			},
-		},
-	}
-
-	err := client.Create(ctx, &anchor)
-	if err != nil {
-		return anchor, err
-	}
-
-	return anchor, nil
 }
 
 func updateStatus(ctx context.Context, client client.Client, object client.Object, conditionStatus metav1.ConditionStatus) error {

@@ -185,28 +185,6 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-hnc-x-k8s-io-v1alpha2-subnamespaceanchor
-  failurePolicy: Fail
-  name: vsubns.workloads.cloudfoundry.org
-  rules:
-  - apiGroups:
-    - hnc.x-k8s.io
-    apiVersions:
-    - v1alpha2
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    resources:
-    - subnamespaceanchors
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
   clientConfig:
     service:
       name: webhook-service

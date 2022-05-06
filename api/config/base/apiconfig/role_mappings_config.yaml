@@ -19,7 +19,7 @@ roleMappings:
     propagate: false
   organization_manager:
     name: korifi-controllers-organization-manager
-    propagate: true
+    propagate: false
   organization_user:
     name: korifi-controllers-organization-user
     propagate: false

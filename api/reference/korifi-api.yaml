@@ -141,7 +141,7 @@ data:
         propagate: false
       organization_manager:
         name: korifi-controllers-organization-manager
-        propagate: true
+        propagate: false
       organization_user:
         name: korifi-controllers-organization-user
         propagate: false
@@ -159,7 +159,7 @@ data:
         propagate: false
 kind: ConfigMap
 metadata:
-  name: korifi-api-config-f8ccbtc64g
+  name: korifi-api-config-9g5585d78k
   namespace: korifi-api-system
 ---
 apiVersion: v1
@@ -221,7 +221,7 @@ spec:
       serviceAccountName: korifi-api-system-serviceaccount
       volumes:
       - configMap:
-          name: korifi-api-config-f8ccbtc64g
+          name: korifi-api-config-9g5585d78k
         name: korifi-api-config
       - name: korifi-tls-config
         secret:

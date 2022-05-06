@@ -24,12 +24,16 @@ import (
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 
 	"github.com/go-logr/logr"
+	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // CFOrgReconciler reconciles a CFOrg object
@@ -49,19 +53,31 @@ func NewCFOrgReconciler(client client.Client, scheme *runtime.Scheme, log logr.L
 }
 
 const (
-	StatusConditionReady  = "Ready"
-	OrgNameLabel          = "cloudfoundry.org/org-name"
-	hierarchyMetadataName = "hierarchy"
-	APIVersion            = "workloads.cloudfoundry.org/v1alpha1"
+	StatusConditionReady = "Ready"
+	OrgNameLabel         = "cloudfoundry.org/org-name"
+	APIVersion           = "workloads.cloudfoundry.org/v1alpha1"
 )
 
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cforgs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cforgs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cforgs/finalizers,verbs=update
 
-//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
-//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;create;delete;watch
-//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=hierarchyconfigurations,verbs=get;list;watch;update;patch
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=create;get;list;watch
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=create;patch;delete;get;list;watch
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=create;patch;delete;get;list;watch
+
+//+kubebuilder:rbac:groups="",resources=events,verbs=create;update
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;patch
+//+kubebuilder:rbac:groups="",resources=pods/log,verbs=get
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=create;delete
+//+kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=create;patch
+//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=create;delete;deletecollection
+//+kubebuilder:rbac:groups="eirini.cloudfoundry.org",resources=lrps/status,verbs=patch
+//+kubebuilder:rbac:groups="eirini.cloudfoundry.org",resources=tasks/status,verbs=patch
+//+kubebuilder:rbac:groups="kpack.io",resources=clusterbuilders,verbs=get;list;watch
+//+kubebuilder:rbac:groups="metrics.k8s.io",resources=pods,verbs=get;list;watch
+//+kubebuilder:rbac:groups="policy",resources=poddisruptionbudgets,verbs=create;deletecollection
+//+kubebuilder:rbac:groups="policy",resources=podsecuritypolicies,verbs=use
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -84,35 +100,10 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	var anchor v1alpha2.SubnamespaceAnchor
-	err = r.client.Get(ctx, req.NamespacedName, &anchor)
+	err = r.createOrPatchNamespace(ctx, cfOrg)
 	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			r.log.Error(err, fmt.Sprintf("Error getting SubnamespaceAnchor for CFOrg %s/%s", req.Namespace, req.Name))
-			return ctrl.Result{}, err
-		}
-
-		anchorLabels := map[string]string{
-			OrgNameLabel: cfOrg.Spec.DisplayName,
-		}
-		anchor, err = createSubnamespaceAnchor(ctx, r.client, req, cfOrg, anchorLabels)
-		if err != nil {
-			r.log.Error(err, fmt.Sprintf("Error creating SubnamespaceAnchor for CFOrg %s/%s", req.Namespace, req.Name))
-			return ctrl.Result{}, err
-		}
-
-		err = updateStatus(ctx, r.client, cfOrg, metav1.ConditionUnknown)
-		if err != nil {
-			r.log.Error(err, "unable to update CFOrg status")
-			return ctrl.Result{}, err
-		}
-
-		// Requeue to verify subnamespaceanchor is ready
-		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
-	}
-
-	if anchor.Status.State != v1alpha2.Ok {
-		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
+		r.log.Error(err, fmt.Sprintf("Error when trying to create namespace %s", req.Name))
+		return ctrl.Result{}, err
 	}
 
 	namespace, ok := getNamespace(ctx, r.client, cfOrg.Name)
@@ -120,9 +111,21 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
-	err = setCascadingDelete(ctx, r.client, req.Name)
+	err = r.duplicateRoles(ctx, cfOrg)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error updating HierarchyConfiguration for CFOrg %s/%s", req.Namespace, req.Name))
+		r.log.Error(err, fmt.Sprintf("Error when trying to duplicate roles into namespace %s", req.Name))
+		return ctrl.Result{}, err
+	}
+
+	err = r.duplicateRoleBindings(ctx, cfOrg)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error when trying to duplicate rolebindings into namespace %s", req.Name))
+		return ctrl.Result{}, err
+	}
+
+	err = r.duplicateSecrets(ctx, cfOrg)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error when trying to duplicate secrets into namespace %s", req.Name))
 		return ctrl.Result{}, err
 	}
 
@@ -136,20 +139,208 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	return ctrl.Result{}, nil
 }
 
-func setCascadingDelete(ctx context.Context, userClient client.Client, orgGUID string) error {
-	oldHC := v1alpha2.HierarchyConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      hierarchyMetadataName,
-			Namespace: orgGUID,
-		},
-	}
-	newHC := oldHC
-	newHC.Spec.AllowCascadingDeletion = true
+func (r *CFOrgReconciler) createOrPatchNamespace(ctx context.Context, cfOrg *workloadsv1alpha1.CFOrg) error {
+	ns := new(v1.Namespace)
+	err := r.client.Get(ctx, types.NamespacedName{Name: cfOrg.Name}, ns)
 
-	if err := userClient.Patch(ctx, &newHC, client.MergeFrom(&oldHC)); err != nil {
-		return fmt.Errorf("failed to update hierarchy configuration: %w", err)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			ns = &v1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: cfOrg.Name,
+				},
+			}
+		} else {
+			return err
+		}
 	}
 
+	result, err := controllerutil.CreateOrPatch(ctx, r.client, ns, func() error {
+		if ns.ObjectMeta.Labels == nil {
+			ns.ObjectMeta.Labels = make(map[string]string)
+		}
+
+		ns.ObjectMeta.Labels["cloudfoundry.org/org-name"] = cfOrg.Spec.DisplayName
+
+		// TODO: Need to use a finalizer to handle deletion of the namespace
+		// err = controllerutil.SetOwnerReference(cfOrg, ns, r.scheme)
+		// if err != nil {
+		// 	r.log.Error(err, "failed to set OwnerRef on Namespace")
+		// 	return err
+		// }
+
+		return nil
+	})
+	if err != nil {
+		r.log.Error(err, "failed to create/patch ns")
+		return err
+	}
+
+	r.log.Info(fmt.Sprintf("Namespace/%s %s", cfOrg.Name, result))
+	return nil
+}
+
+func (r *CFOrgReconciler) duplicateRoles(ctx context.Context, cfOrg *workloadsv1alpha1.CFOrg) error {
+	var roles rbacv1.RoleList
+	listOptions := client.ListOptions{Namespace: cfOrg.Namespace}
+	err := r.client.List(ctx, &roles, &listOptions)
+	if err != nil {
+		r.log.Error(err, "failed to list roles")
+		return err
+	}
+
+	for _, role := range roles.Items {
+		err = r.createOrPatchRole(ctx, cfOrg, role)
+		if err != nil {
+			r.log.Error(err, "failed to duplicate role")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *CFOrgReconciler) createOrPatchRole(ctx context.Context, cfOrg *workloadsv1alpha1.CFOrg, role rbacv1.Role) error {
+	newRole := new(rbacv1.Role)
+	err := r.client.Get(ctx, types.NamespacedName{Name: role.Name, Namespace: cfOrg.Name}, newRole)
+
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			newRole = &rbacv1.Role{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      role.Name,
+					Namespace: cfOrg.Name,
+				},
+			}
+		} else {
+			return err
+		}
+	}
+
+	result, err := controllerutil.CreateOrPatch(ctx, r.client, newRole, func() error {
+		newRole.Rules = role.Rules
+
+		return nil
+	})
+	if err != nil {
+		r.log.Error(err, "failed to create/patch role")
+		return err
+	}
+
+	r.log.Info(fmt.Sprintf("Role/%s %s", role.Name, result))
+	return nil
+}
+
+func (r *CFOrgReconciler) duplicateRoleBindings(ctx context.Context, cfOrg *workloadsv1alpha1.CFOrg) error {
+	var rolebindings rbacv1.RoleBindingList
+	labelSelector, err := labels.Parse("cloudfoundry.org/propagate-cf-role notin (false)")
+	if err != nil {
+		r.log.Error(err, "failed to generate label selector to exclude cf roles")
+		return err
+	}
+
+	listOptions := client.ListOptions{
+		LabelSelector: labelSelector,
+		Namespace:     cfOrg.Namespace,
+	}
+	err = r.client.List(ctx, &rolebindings, &listOptions)
+	if err != nil {
+		r.log.Error(err, "failed to list roles")
+		return err
+	}
+
+	for _, rolebinding := range rolebindings.Items {
+		err = r.createOrPatchRoleBinding(ctx, cfOrg, rolebinding)
+		if err != nil {
+			r.log.Error(err, "failed to duplicate rolebinding")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *CFOrgReconciler) createOrPatchRoleBinding(ctx context.Context, cfOrg *workloadsv1alpha1.CFOrg, rolebinding rbacv1.RoleBinding) error {
+	newRoleBinding := new(rbacv1.RoleBinding)
+	err := r.client.Get(ctx, types.NamespacedName{Name: rolebinding.Name, Namespace: cfOrg.Name}, newRoleBinding)
+
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			newRoleBinding = &rbacv1.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      rolebinding.Name,
+					Namespace: cfOrg.Name,
+				},
+			}
+		} else {
+			return err
+		}
+	}
+
+	result, err := controllerutil.CreateOrPatch(ctx, r.client, newRoleBinding, func() error {
+		newRoleBinding.Subjects = rolebinding.Subjects
+		newRoleBinding.RoleRef = rolebinding.RoleRef
+
+		return nil
+	})
+	if err != nil {
+		r.log.Error(err, "failed to create/patch role binding")
+		return err
+	}
+
+	r.log.Info(fmt.Sprintf("RoleBinding/%s %s", rolebinding.Name, result))
+	return nil
+}
+
+func (r *CFOrgReconciler) duplicateSecrets(ctx context.Context, cfOrg *workloadsv1alpha1.CFOrg) error {
+	var secret v1.Secret
+
+	err := r.client.Get(ctx, types.NamespacedName{Name: "image-registry-credentials", Namespace: cfOrg.Namespace}, &secret)
+	if err != nil {
+		r.log.Error(err, "failed to get secret in parent namespace")
+		return err
+	}
+
+	err = r.createOrPatchSecret(ctx, cfOrg, secret)
+	if err != nil {
+		r.log.Error(err, "failed to duplicate secret")
+		return err
+	}
+
+	return nil
+}
+
+func (r *CFOrgReconciler) createOrPatchSecret(ctx context.Context, cfOrg *workloadsv1alpha1.CFOrg, secret v1.Secret) error {
+	newSecret := new(v1.Secret)
+	err := r.client.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: cfOrg.Name}, newSecret)
+
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			newSecret = &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secret.Name,
+					Namespace: cfOrg.Name,
+				},
+			}
+		} else {
+			return err
+		}
+	}
+
+	result, err := controllerutil.CreateOrPatch(ctx, r.client, newSecret, func() error {
+		newSecret.Immutable = secret.Immutable
+		newSecret.Data = secret.Data
+		newSecret.StringData = secret.StringData
+		newSecret.Type = secret.Type
+
+		return nil
+	})
+	if err != nil {
+		r.log.Error(err, "failed to create/patch secret")
+		return err
+	}
+
+	r.log.Info(fmt.Sprintf("Secret/%s %s", secret.Name, result))
 	return nil
 }
 
