@@ -59,4 +59,4 @@ if [[ -z "$NO_RACE" ]]; then
   extra_args+=("--race")
 fi
 
-echo ginkgo -p --randomize-all --randomize-suites "${extra_args[@]}" $@
+ginkgo -p --randomize-all --randomize-suites "${extra_args[@]}" $@
