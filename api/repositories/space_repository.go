@@ -57,14 +57,16 @@ type SpaceRecord struct {
 }
 
 type SpaceRepo struct {
-	orgRepo           *OrgRepo
-	privilegedClient  client.WithWatch
-	userClientFactory UserK8sClientFactory
-	nsPerms           *authorization.NamespacePermissions
-	timeout           time.Duration
+	orgRepo            *OrgRepo
+	privilegedClient   client.WithWatch
+	namespaceRetriever NamespaceRetriever
+	userClientFactory  UserK8sClientFactory
+	nsPerms            *authorization.NamespacePermissions
+	timeout            time.Duration
 }
 
 func NewSpaceRepo(
+	namespaceRetriever NamespaceRetriever,
 	orgRepo *OrgRepo,
 	privilegedClient client.WithWatch,
 	userClientFactory UserK8sClientFactory,
@@ -72,11 +74,12 @@ func NewSpaceRepo(
 	timeout time.Duration,
 ) *SpaceRepo {
 	return &SpaceRepo{
-		orgRepo:           orgRepo,
-		privilegedClient:  privilegedClient,
-		userClientFactory: userClientFactory,
-		nsPerms:           nsPerms,
-		timeout:           timeout,
+		orgRepo:            orgRepo,
+		privilegedClient:   privilegedClient,
+		namespaceRetriever: namespaceRetriever,
+		userClientFactory:  userClientFactory,
+		nsPerms:            nsPerms,
+		timeout:            timeout,
 	}
 }
 
@@ -268,29 +271,40 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, info authorization.Info, mes
 			continue
 		}
 
-		records = append(records, SpaceRecord{
-			Name:             cfSpace.Spec.DisplayName,
-			GUID:             cfSpace.Name,
-			OrganizationGUID: cfSpace.Namespace,
-			CreatedAt:        cfSpace.CreationTimestamp.Time,
-			UpdatedAt:        cfSpace.CreationTimestamp.Time,
-		})
+		records = append(records, cfSpaceToSpaceRecord(cfSpace))
 	}
 
 	return records, nil
 }
 
 func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGUID string) (SpaceRecord, error) {
-	spaceRecords, err := r.ListSpaces(ctx, info, ListSpacesMessage{GUIDs: []string{spaceGUID}})
+	ns, err := r.namespaceRetriever.NamespaceFor(ctx, spaceGUID, SpaceResourceType)
 	if err != nil {
 		return SpaceRecord{}, err
 	}
 
-	if len(spaceRecords) == 0 {
-		return SpaceRecord{}, apierrors.NewNotFoundError(fmt.Errorf("space %q not found", spaceGUID), SpaceResourceType)
+	userClient, err := r.userClientFactory.BuildClient(info)
+	if err != nil {
+		return SpaceRecord{}, fmt.Errorf("get-space failed to build user client: %w", err)
 	}
 
-	return spaceRecords[0], nil
+	cfSpace := workloads.CFSpace{}
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: spaceGUID}, &cfSpace)
+	if err != nil {
+		return SpaceRecord{}, fmt.Errorf("failed to get space: %w", apierrors.FromK8sError(err, SpaceResourceType))
+	}
+
+	return cfSpaceToSpaceRecord(cfSpace), nil
+}
+
+func cfSpaceToSpaceRecord(cfSpace workloads.CFSpace) SpaceRecord {
+	return SpaceRecord{
+		Name:             cfSpace.Spec.DisplayName,
+		GUID:             cfSpace.Name,
+		OrganizationGUID: cfSpace.Namespace,
+		CreatedAt:        cfSpace.CreationTimestamp.Time,
+		UpdatedAt:        cfSpace.CreationTimestamp.Time,
+	}
 }
 
 func (r *SpaceRepo) DeleteSpace(ctx context.Context, info authorization.Info, message DeleteSpaceMessage) error {

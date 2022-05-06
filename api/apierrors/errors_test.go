@@ -220,7 +220,7 @@ var _ = Describe("AsUnprocessibleEntity", func() {
 	})
 
 	JustBeforeEach(func() {
-		actualErr = apierrors.AsUnprocessibleEntity(err, "detail", apierrors.ForbiddenError{}, apierrors.NotFoundError{})
+		actualErr = apierrors.AsUnprocessableEntity(err, "detail", apierrors.ForbiddenError{}, apierrors.NotFoundError{})
 	})
 
 	It("returns nil", func() {

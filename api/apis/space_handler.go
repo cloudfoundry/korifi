@@ -64,7 +64,7 @@ func (h *SpaceHandler) spaceCreateHandler(info authorization.Info, r *http.Reque
 	record, err := h.spaceRepo.CreateSpace(ctx, info, space)
 	if err != nil {
 		h.logger.Error(err, "Failed to create space", "Space Name", space.Name)
-		return nil, apierrors.AsUnprocessibleEntity(err, "Invalid organization. Ensure the organization exists and you have access to it.", apierrors.NotFoundError{})
+		return nil, apierrors.AsUnprocessableEntity(err, "Invalid organization. Ensure the organization exists and you have access to it.", apierrors.NotFoundError{})
 	}
 
 	spaceResponse := presenter.ForCreateSpace(record, h.apiBaseURL)

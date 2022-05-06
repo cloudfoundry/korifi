@@ -146,7 +146,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 func (r *RoleRepo) validateOrgRequirements(ctx context.Context, role CreateRoleMessage, userIdentity authorization.Identity, authInfo authorization.Info) error {
 	space, err := r.spaceRepo.GetSpace(ctx, authInfo, role.Space)
 	if err != nil {
-		return apierrors.NotFoundAsUnprocessableEntity(err, "space not found")
+		return apierrors.AsUnprocessableEntity(err, "space not found", apierrors.NotFoundError{}, apierrors.ForbiddenError{})
 	}
 
 	hasOrgBinding, err := r.authorizedInChecker.AuthorizedIn(ctx, userIdentity, space.OrganizationGUID)

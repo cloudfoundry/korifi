@@ -76,7 +76,7 @@ func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, r *http.R
 	packageRecord, err := h.packageRepo.GetPackage(r.Context(), authInfo, payload.Package.GUID)
 	if err != nil {
 		h.logger.Info("Error finding Package", "Package GUID", payload.Package.GUID)
-		return nil, apierrors.AsUnprocessibleEntity(err,
+		return nil, apierrors.AsUnprocessableEntity(err,
 			"Unable to use package. Ensure that the package exists and you have access to it.",
 			apierrors.ForbiddenError{},
 			apierrors.NotFoundError{},

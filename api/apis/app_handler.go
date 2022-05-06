@@ -118,7 +118,7 @@ func (h *AppHandler) appCreateHandler(authInfo authorization.Info, r *http.Reque
 	_, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch space from Kubernetes", "spaceGUID", spaceGUID)
-		return nil, apierrors.NotFoundAsUnprocessableEntity(err, "Invalid space. Ensure that the space exists and you have access to it.")
+		return nil, apierrors.AsUnprocessableEntity(err, "Invalid space. Ensure that the space exists and you have access to it.", apierrors.NotFoundError{}, apierrors.ForbiddenError{})
 	}
 
 	appRecord, err := h.appRepo.CreateApp(ctx, authInfo, payload.ToAppCreateMessage())
@@ -189,7 +189,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, r 
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
 		h.logger.Error(err, "Error fetching droplet")
-		return nil, apierrors.AsUnprocessibleEntity(err, invalidDropletMsg, apierrors.ForbiddenError{}, apierrors.NotFoundError{})
+		return nil, apierrors.AsUnprocessableEntity(err, invalidDropletMsg, apierrors.ForbiddenError{}, apierrors.NotFoundError{})
 	}
 
 	if droplet.AppGUID != appGUID {
