@@ -106,6 +106,7 @@ func (h *AppHandler) appGetHandler(authInfo authorization.Info, r *http.Request)
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
 }
 
+//nolint:dupl
 func (h *AppHandler) appCreateHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
 
