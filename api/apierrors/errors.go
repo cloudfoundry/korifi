@@ -250,10 +250,6 @@ func FromK8sError(err error, resourceType string) error {
 	}
 }
 
-func NotFoundAsUnprocessableEntity(err error, detail string) error {
-	return AsUnprocessableEntity(err, detail, NotFoundError{})
-}
-
 func AsUnprocessableEntity(err error, detail string, errTypes ...ApiError) error {
 	if err == nil {
 		return nil
