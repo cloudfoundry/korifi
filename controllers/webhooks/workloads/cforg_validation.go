@@ -17,23 +17,27 @@ import (
 )
 
 const (
-	CFOrgEntityType       = "cforg"
-	OrgDecodingErrorType  = "OrgDecodingError"
-	DuplicateOrgErrorType = "DuplicateOrgNameError"
+	CFOrgEntityType          = "cforg"
+	OrgDecodingErrorType     = "OrgDecodingError"
+	DuplicateOrgErrorType    = "DuplicateOrgNameError"
+	OrgPlacementErrorType    = "OrgPlacementError"
+	OrgPlacementErrorMessage = "Organization '%s' must be placed in the root 'cf' namespace"
 )
 
-var cforglog = logf.Log.WithName("cforg-validate")
+var cfOrgLog = logf.Log.WithName("cforg-validate")
 
 //+kubebuilder:webhook:path=/validate-workloads-cloudfoundry-org-v1alpha1-cforg,mutating=false,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cforgs,verbs=create;update;delete,versions=v1alpha1,name=vcforg.workloads.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFOrgValidation struct {
 	decoder            *admission.Decoder
 	duplicateValidator NameValidator
+	placementValidator PlacementValidator
 }
 
-func NewCFOrgValidation(duplicateValidator NameValidator) *CFOrgValidation {
+func NewCFOrgValidation(duplicateValidator NameValidator, placementValidator PlacementValidator) *CFOrgValidation {
 	return &CFOrgValidation{
 		duplicateValidator: duplicateValidator,
+		placementValidator: placementValidator,
 	}
 }
 
@@ -44,14 +48,14 @@ func (v *CFOrgValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 func (v *CFOrgValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	cforglog.Info("Validate", "name", req.Name)
+	cfOrgLog.Info("Validate", "name", req.Name)
 
 	var cfOrg, oldCFOrg v1alpha1.CFOrg
 	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
 		err := v.decoder.Decode(req, &cfOrg)
 		if err != nil { // untested
 			errMessage := "Error while decoding CFOrg object"
-			cforglog.Error(err, errMessage)
+			cfOrgLog.Error(err, errMessage)
 			return admission.Denied(webhooks.ValidationError{Type: OrgDecodingErrorType, Message: errMessage}.Marshal())
 		}
 	}
@@ -59,8 +63,16 @@ func (v *CFOrgValidation) Handle(ctx context.Context, req admission.Request) adm
 		err := v.decoder.DecodeRaw(req.OldObject, &oldCFOrg)
 		if err != nil { // untested
 			errMessage := "Error while decoding old CFOrg object"
-			cforglog.Error(err, errMessage)
+			cfOrgLog.Error(err, errMessage)
 			return admission.Denied(webhooks.ValidationError{Type: OrgDecodingErrorType, Message: errMessage}.Marshal())
+		}
+	}
+
+	if req.Operation == admissionv1.Create {
+		err := v.placementValidator.ValidateOrgCreate(cfOrg)
+		if err != nil {
+			cfOrgLog.Error(err, err.Error())
+			return admission.Denied(webhooks.ValidationError{Type: OrgPlacementErrorType, Message: err.Error()}.Marshal())
 		}
 	}
 
@@ -68,15 +80,15 @@ func (v *CFOrgValidation) Handle(ctx context.Context, req admission.Request) adm
 	cfOrgNameLeaseValue := strings.ToLower(cfOrg.Spec.DisplayName)
 	switch req.Operation {
 	case admissionv1.Create:
-		validatorErr = v.duplicateValidator.ValidateCreate(ctx, cforglog, cfOrg.Namespace, cfOrgNameLeaseValue)
+		validatorErr = v.duplicateValidator.ValidateCreate(ctx, cfOrgLog, cfOrg.Namespace, cfOrgNameLeaseValue)
 
 	case admissionv1.Update:
 		oldCFOrgNameLeaseValue := strings.ToLower(oldCFOrg.Spec.DisplayName)
-		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, cforglog, cfOrg.Namespace, oldCFOrgNameLeaseValue, cfOrgNameLeaseValue)
+		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, cfOrgLog, cfOrg.Namespace, oldCFOrgNameLeaseValue, cfOrgNameLeaseValue)
 
 	case admissionv1.Delete:
 		oldCFOrgNameLeaseValue := strings.ToLower(oldCFOrg.Spec.DisplayName)
-		validatorErr = v.duplicateValidator.ValidateDelete(ctx, cforglog, oldCFOrg.Namespace, oldCFOrgNameLeaseValue)
+		validatorErr = v.duplicateValidator.ValidateDelete(ctx, cfOrgLog, oldCFOrg.Namespace, oldCFOrgNameLeaseValue)
 	}
 
 	if validatorErr != nil {

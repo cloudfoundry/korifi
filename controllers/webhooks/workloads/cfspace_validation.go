@@ -26,11 +26,13 @@ var spaceLogger = logf.Log.WithName("cfspace-validate")
 type CFSpaceValidation struct {
 	duplicateSpaceValidator NameValidator
 	decoder                 *admission.Decoder
+	placementValidator      PlacementValidator
 }
 
-func NewCFSpaceValidation(duplicateSpaceValidator NameValidator) *CFSpaceValidation {
+func NewCFSpaceValidation(duplicateSpaceValidator NameValidator, placementValidator PlacementValidator) *CFSpaceValidation {
 	return &CFSpaceValidation{
 		duplicateSpaceValidator: duplicateSpaceValidator,
+		placementValidator:      placementValidator,
 	}
 }
 
@@ -90,10 +92,11 @@ func (v *CFSpaceValidation) Handle(ctx context.Context, req admission.Request) a
 
 func (v *CFSpaceValidation) newHandler() (cfSpaceHandler, error) {
 	return NewCFSpaceHandler(
-		spaceLogger.WithValues("entityType", CFSpaceEntityType),
-		v.duplicateSpaceValidator,
-		SpaceNameLabel,
 		webhooks.ValidationError{Type: DuplicateSpaceNameErrorType, Message: duplicateSpaceNameErrorMessage},
+		v.duplicateSpaceValidator,
+		spaceLogger.WithValues("entityType", CFSpaceEntityType),
+		SpaceNameLabel,
+		v.placementValidator,
 	), nil
 }
 
@@ -106,23 +109,26 @@ func (h *cfSpaceHandler) RenderDuplicateError(duplicateName string) string {
 }
 
 type cfSpaceHandler struct {
-	duplicateValidator NameValidator
-	nameLabel          string
 	duplicateError     webhooks.ValidationError
+	duplicateValidator NameValidator
 	logger             logr.Logger
+	nameLabel          string
+	placementValidator PlacementValidator
 }
 
 func NewCFSpaceHandler(
-	logger logr.Logger,
-	duplicateValidator NameValidator,
-	nameLabel string,
 	duplicateError webhooks.ValidationError,
+	duplicateValidator NameValidator,
+	logger logr.Logger,
+	nameLabel string,
+	placementValidator PlacementValidator,
 ) cfSpaceHandler {
 	return cfSpaceHandler{
-		duplicateValidator: duplicateValidator,
-		nameLabel:          nameLabel,
 		duplicateError:     duplicateError,
+		duplicateValidator: duplicateValidator,
 		logger:             logger,
+		nameLabel:          nameLabel,
+		placementValidator: placementValidator,
 	}
 }
 
@@ -134,6 +140,10 @@ func (h cfSpaceHandler) handleCreate(ctx context.Context, cfSpace *workloadsv1al
 		}
 
 		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
+	}
+
+	if err := h.placementValidator.ValidateSpaceCreate(*cfSpace); err != nil {
+		return admission.Denied(err.Error())
 	}
 
 	return admission.Allowed("")

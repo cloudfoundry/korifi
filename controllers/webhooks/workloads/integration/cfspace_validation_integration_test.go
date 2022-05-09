@@ -25,10 +25,20 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 
-		orgNamespace = "test-org" + uuid.NewString()
+		orgNamespace = "test-org-" + uuid.NewString()
 		Expect(k8sClient.Create(ctx, &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: orgNamespace,
+			},
+		})).To(Succeed())
+
+		Expect(k8sClient.Create(ctx, &workloadsv1alpha1.CFOrg{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      orgNamespace,
+				Namespace: rootNamespace,
+			},
+			Spec: workloadsv1alpha1.CFOrgSpec{
+				DisplayName: orgNamespace,
 			},
 		})).To(Succeed())
 	})
@@ -46,6 +56,21 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 
 		It("succeeds", func() {
 			Expect(err).To(Succeed())
+		})
+
+		When("a corresponding CFOrg does not exit", func() {
+			BeforeEach(func() {
+				cfSpace.ObjectMeta.Namespace = "not-an-org"
+				Expect(k8sClient.Create(ctx, &v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "not-an-org",
+					},
+				})).To(Succeed())
+			})
+
+			It("fails", func() {
+				Expect(err).To(MatchError(ContainSubstring("Organization 'not-an-org' does not exist for Space 'my-space'")))
+			})
 		})
 
 		When("the name already exists in the org namespace", func() {
