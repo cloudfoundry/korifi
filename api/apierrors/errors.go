@@ -255,25 +255,25 @@ func AsUnprocessableEntity(err error, detail string, errTypes ...ApiError) error
 		return nil
 	}
 
-	for _, errType := range errTypes {
+	for i := range errTypes {
 		// At this point in time the errors in the errType array are downgraded
 		// to `ApiError`. This means that pointers to api errors that only
 		// embed `apiError` are assignable to each other. Therefore `errors.As`
 		// would return `true` and would change the initial value type of the
 		// array entry. That is why we need to get the "desiredType" first and
 		// compare it to the type that has been set by `errors.As`
-		desiredErrType := reflect.ValueOf(errType).Type()
+		desiredErrType := reflect.ValueOf(errTypes[i]).Type()
 
-		if !errors.As(err, &errType) {
+		if !errors.As(err, &errTypes[i]) {
 			continue
 		}
 
-		asErrType := reflect.ValueOf(errType).Type()
+		asErrType := reflect.ValueOf(errTypes[i]).Type()
 		if asErrType != desiredErrType {
 			continue
 		}
 
-		return NewUnprocessableEntityError(errType.Unwrap(), detail)
+		return NewUnprocessableEntityError(errTypes[i].Unwrap(), detail)
 	}
 
 	return err

@@ -381,7 +381,7 @@ func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, authInfo authorizati
 				if err == io.EOF {
 					break
 				} else {
-					logReadCloser.Close()
+					_ = logReadCloser.Close()
 					return nil, fmt.Errorf("failed to parse pod logs: %w", err)
 				}
 			}
@@ -398,7 +398,7 @@ func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, authInfo authorizati
 			appLogs = append(appLogs, logRecord)
 		}
 
-		logReadCloser.Close()
+		_ = logReadCloser.Close()
 	}
 
 	return appLogs, nil

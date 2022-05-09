@@ -156,8 +156,8 @@ func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Cont
 		return ctrl.Result{}, fmt.Errorf("error listing CFServiceBindings: %w", err)
 	}
 
-	for _, cfServiceBinding := range cfServiceBindingList.Items {
-		err = r.Client.Delete(ctx, &cfServiceBinding)
+	for i, cfServiceBinding := range cfServiceBindingList.Items {
+		err = r.Client.Delete(ctx, &cfServiceBindingList.Items[i])
 		if err != nil {
 			r.Log.Error(err, fmt.Sprintf("Error deleting %s", cfServiceBinding.Name))
 			return ctrl.Result{}, err
