@@ -173,9 +173,9 @@ func (r *CFProcessReconciler) cleanUpLRPs(ctx context.Context, cfProcess *worklo
 		return err
 	}
 
-	for _, currentLRP := range lrpsForProcess {
+	for i, currentLRP := range lrpsForProcess {
 		if desiredState == workloadsv1alpha1.StoppedState || currentLRP.Labels[workloadsv1alpha1.CFAppRevisionKey] != cfAppRev {
-			err := r.Client.Delete(ctx, &currentLRP)
+			err := r.Client.Delete(ctx, &lrpsForProcess[i])
 			if err != nil {
 				r.Log.Info(fmt.Sprintf("Error occurred deleting LRP: %s, %s", currentLRP.Name, err))
 				return err
