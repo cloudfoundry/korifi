@@ -128,7 +128,7 @@ var _ = BeforeEach(func() {
 
 	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
 	Expect(err).NotTo(HaveOccurred())
-	clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper)
+	clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper, repositories.NewDefaultBackoff())
 	tokenInspector := authorization.NewTokenReviewer(k8sClient)
 	certInspector := authorization.NewCertInspector(k8sConfig)
 	identityProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)

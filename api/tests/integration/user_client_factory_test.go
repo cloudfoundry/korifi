@@ -17,6 +17,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -37,7 +38,7 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 		userName = uuid.NewString()
 		mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
 		Expect(err).NotTo(HaveOccurred())
-		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper)
+		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper, wait.Backoff{Steps: 1})
 	})
 
 	JustBeforeEach(func() {
