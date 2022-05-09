@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,14 +23,16 @@ type UserK8sClientFactory interface {
 }
 
 type UnprivilegedClientFactory struct {
-	config *rest.Config
-	mapper meta.RESTMapper
+	config  *rest.Config
+	mapper  meta.RESTMapper
+	backoff wait.Backoff
 }
 
-func NewUnprivilegedClientFactory(config *rest.Config, mapper meta.RESTMapper) UnprivilegedClientFactory {
+func NewUnprivilegedClientFactory(config *rest.Config, mapper meta.RESTMapper, backoff wait.Backoff) UnprivilegedClientFactory {
 	return UnprivilegedClientFactory{
-		config: rest.AnonymousClientConfig(rest.CopyConfig(config)),
-		mapper: mapper,
+		config:  rest.AnonymousClientConfig(rest.CopyConfig(config)),
+		mapper:  mapper,
+		backoff: backoff,
 	}
 }
 
@@ -66,7 +69,7 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 		return nil, apierrors.FromK8sError(err, "")
 	}
 
-	return userClient, nil
+	return NewAuthRetryingClient(userClient, f.backoff), nil
 }
 
 func (f UnprivilegedClientFactory) BuildK8sClient(authInfo authorization.Info) (k8sclient.Interface, error) {
