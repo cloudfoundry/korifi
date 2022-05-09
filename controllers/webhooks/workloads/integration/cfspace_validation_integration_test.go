@@ -108,9 +108,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 	})
 
 	Describe("deleting a space", func() {
-		var (
-			err error
-		)
+		var err error
 		BeforeEach(func() {
 			cfSpace = MakeCFSpace(orgNamespace, "my-space")
 			err = k8sClient.Create(ctx, cfSpace)

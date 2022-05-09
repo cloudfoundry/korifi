@@ -35,7 +35,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 		processRepo := repositories.NewProcessRepo(namespaceRetriever, clientFactory, nsPermissions)
 		routeRepo := repositories.NewRouteRepo(namespaceRetriever, clientFactory, nsPermissions)
 		orgRepo := repositories.NewOrgRepo("cf", k8sClient, clientFactory, nsPermissions, time.Minute)
-		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, k8sClient, clientFactory, nsPermissions, time.Minute)
+		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, clientFactory, nsPermissions, time.Minute)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 

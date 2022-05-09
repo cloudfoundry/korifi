@@ -24,6 +24,9 @@ import (
 )
 
 var _ = Describe("CFSpace Reconciler", func() {
+	const (
+		packageRegistrySecretName = "test-package-registry-secret"
+	)
 	var (
 		fakeClient       *fake.Client
 		fakeStatusWriter *fake.StatusWriter
@@ -34,11 +37,17 @@ var _ = Describe("CFSpace Reconciler", func() {
 		subNamespaceAnchor *v1alpha2.SubnamespaceAnchor
 		namespace          *v1.Namespace
 
-		subNamespaceAnchorState v1alpha2.SubnamespaceAnchorState
-		cfSpaceError            error
-		subNamespaceAnchorError error
-		createError             error
-		namespaceError          error
+		subNamespaceAnchorState             v1alpha2.SubnamespaceAnchorState
+		cfSpaceError                        error
+		subNamespaceAnchorError             error
+		createSubnamespaceAnchorError       error
+		namespaceError                      error
+		getEiriniServiceAccountError        error
+		createEiriniServiceAccountError     error
+		createEiriniServiceAccountCallCount int
+		getKpackServiceAccountError         error
+		createKpackServiceAccountError      error
+		createKpackServiceAccountCallCount  int
 
 		cfSpaceReconciler *CFSpaceReconciler
 		ctx               context.Context
@@ -61,10 +70,17 @@ var _ = Describe("CFSpace Reconciler", func() {
 		cfSpaceError = nil
 		subNamespaceAnchorError = nil
 		namespaceError = nil
-		createError = nil
+		createSubnamespaceAnchorError = nil
 		reconcileErr = nil
 
-		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
+		getEiriniServiceAccountError = nil
+		createEiriniServiceAccountError = nil
+		createEiriniServiceAccountCallCount = 0
+		getKpackServiceAccountError = nil
+		createKpackServiceAccountError = nil
+		createKpackServiceAccountCallCount = 0
+
+		fakeClient.GetStub = func(_ context.Context, nn types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
 			case *workloadsv1alpha1.CFSpace:
 				cfSpace.DeepCopyInto(obj)
@@ -75,6 +91,12 @@ var _ = Describe("CFSpace Reconciler", func() {
 			case *v1.Namespace:
 				namespace.DeepCopyInto(obj)
 				return namespaceError
+			case *v1.ServiceAccount:
+				if nn.Name == "eirini" {
+					return getEiriniServiceAccountError
+				} else {
+					return getKpackServiceAccountError
+				}
 			default:
 				panic("TestClient Get provided a weird obj")
 			}
@@ -84,7 +106,15 @@ var _ = Describe("CFSpace Reconciler", func() {
 			switch obj := obj.(type) {
 			case *v1alpha2.SubnamespaceAnchor:
 				obj.Status.State = subNamespaceAnchorState
-				return createError
+				return createSubnamespaceAnchorError
+			case *v1.ServiceAccount:
+				if obj.Name == "eirini" {
+					createEiriniServiceAccountCallCount++
+					return createEiriniServiceAccountError
+				} else {
+					createKpackServiceAccountCallCount++
+					return createKpackServiceAccountError
+				}
 			default:
 				panic("TestClient Create provided an unexpected object type")
 			}
@@ -100,6 +130,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			fakeClient,
 			scheme.Scheme,
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+			packageRegistrySecretName,
 		)
 		ctx = context.Background()
 		req = ctrl.Request{
@@ -140,7 +171,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			})
 		})
 
-		When("fetch CFSpace returns an error", func() {
+		When("fetching the CFSpace errors", func() {
 			BeforeEach(func() {
 				cfSpaceError = errors.New("get CFSpace failed")
 			})
@@ -150,7 +181,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			})
 		})
 
-		When("fetch subnamespace anchor returns an error other than not found", func() {
+		When("fetching the subnamespace anchor returns an error other than not found", func() {
 			BeforeEach(func() {
 				subNamespaceAnchorError = errors.New("get subnamespace anchor failed")
 			})
@@ -160,10 +191,10 @@ var _ = Describe("CFSpace Reconciler", func() {
 			})
 		})
 
-		When("create subnamespace anchor returns an error ", func() {
+		When("creating the subnamespace anchor errors", func() {
 			BeforeEach(func() {
 				subNamespaceAnchorError = k8serrors.NewNotFound(schema.GroupResource{}, "CFSpace")
-				createError = errors.New("create subnamespace anchor failed")
+				createSubnamespaceAnchorError = errors.New("create subnamespace anchor failed")
 			})
 
 			It("should return an error", func() {
@@ -171,7 +202,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			})
 		})
 
-		When("update CFSpace status to unknown returns an error", func() {
+		When("updating the CFSpace status to 'Unknown' errors", func() {
 			BeforeEach(func() {
 				subNamespaceAnchorError = k8serrors.NewNotFound(schema.GroupResource{}, "CFSpace")
 				fakeStatusWriter.UpdateReturns(errors.New("update CFSpace status failed"))
@@ -182,7 +213,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			})
 		})
 
-		When("Subnamespace anchor status never goes to ok", func() {
+		When("the subnamespace anchor status never becomes Ok", func() {
 			BeforeEach(func() {
 				subNamespaceAnchorError = nil
 				subNamespaceAnchor.Status.State = v1alpha2.Missing
@@ -194,7 +225,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			})
 		})
 
-		When("fetch namespace returns an error ", func() {
+		When("fetching the namespace errors", func() {
 			BeforeEach(func() {
 				subNamespaceAnchorError = nil
 				subNamespaceAnchor.Status.State = v1alpha2.Ok
@@ -207,7 +238,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			})
 		})
 
-		When("update CFSpace status to ready returns an error", func() {
+		When("updating the CFSpace status to 'Ready' errors", func() {
 			BeforeEach(func() {
 				subNamespaceAnchorError = nil
 				subNamespaceAnchor.Status.State = v1alpha2.Ok
@@ -216,6 +247,54 @@ var _ = Describe("CFSpace Reconciler", func() {
 
 			It("should return an error", func() {
 				Expect(reconcileErr).To(MatchError("update CFSpace status failed"))
+			})
+		})
+
+		When("creating the kpack service account errors", func() {
+			BeforeEach(func() {
+				subNamespaceAnchorError = nil
+				subNamespaceAnchor.Status.State = v1alpha2.Ok
+				getKpackServiceAccountError = errors.New("not found")
+				createKpackServiceAccountError = errors.New("boom")
+			})
+
+			It("should return an error", func() {
+				Expect(reconcileErr).To(MatchError("boom"))
+			})
+		})
+
+		When("creating the eirini service account errors", func() {
+			BeforeEach(func() {
+				subNamespaceAnchorError = nil
+				subNamespaceAnchor.Status.State = v1alpha2.Ok
+				getEiriniServiceAccountError = errors.New("not found")
+				createEiriniServiceAccountError = errors.New("boom")
+			})
+
+			It("should return an error", func() {
+				Expect(reconcileErr).To(MatchError("boom"))
+			})
+		})
+
+		When("the kpack service account already exists", func() {
+			BeforeEach(func() {
+				subNamespaceAnchorError = nil
+				subNamespaceAnchor.Status.State = v1alpha2.Ok
+			})
+
+			It("should doesn't try to create it", func() {
+				Expect(createKpackServiceAccountCallCount).To(Equal(0))
+			})
+		})
+
+		When("the eirini service account already exists", func() {
+			BeforeEach(func() {
+				subNamespaceAnchorError = nil
+				subNamespaceAnchor.Status.State = v1alpha2.Ok
+			})
+
+			It("should doesn't try to create it", func() {
+				Expect(createEiriniServiceAccountCallCount).To(Equal(0))
 			})
 		})
 	})

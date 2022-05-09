@@ -19,8 +19,6 @@ import (
 //+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;watch
 //+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=hierarchyconfigurations,verbs=get
 
-//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=create
-
 const (
 	OrgNameLabel    = "cloudfoundry.org/org-name"
 	OrgPrefix       = "cf-org-"

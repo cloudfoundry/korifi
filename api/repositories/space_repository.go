@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/google/uuid"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,8 +19,6 @@ import (
 
 //+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;watch
 //+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=hierarchyconfigurations,verbs=get
-
-//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=create
 
 const (
 	SpaceNameLabel    = "cloudfoundry.org/space-name"
@@ -58,7 +55,6 @@ type SpaceRecord struct {
 
 type SpaceRepo struct {
 	orgRepo            *OrgRepo
-	privilegedClient   client.WithWatch
 	namespaceRetriever NamespaceRetriever
 	userClientFactory  UserK8sClientFactory
 	nsPerms            *authorization.NamespacePermissions
@@ -68,14 +64,12 @@ type SpaceRepo struct {
 func NewSpaceRepo(
 	namespaceRetriever NamespaceRetriever,
 	orgRepo *OrgRepo,
-	privilegedClient client.WithWatch,
 	userClientFactory UserK8sClientFactory,
 	nsPerms *authorization.NamespacePermissions,
 	timeout time.Duration,
 ) *SpaceRepo {
 	return &SpaceRepo{
 		orgRepo:            orgRepo,
-		privilegedClient:   privilegedClient,
 		namespaceRetriever: namespaceRetriever,
 		userClientFactory:  userClientFactory,
 		nsPerms:            nsPerms,
@@ -108,35 +102,6 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 			return SpaceRecord{}, apierrors.NewUnprocessableEntityError(err, webhookError.Error())
 		}
 		return SpaceRecord{}, err
-	}
-
-	// TODO: Should this move to the controller?
-	kpackServiceAccount := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kpack-service-account",
-			Namespace: spaceCR.Name,
-		},
-		ImagePullSecrets: []corev1.LocalObjectReference{
-			{Name: message.ImageRegistryCredentials},
-		},
-		Secrets: []corev1.ObjectReference{
-			{Name: message.ImageRegistryCredentials},
-		},
-	}
-	err = r.privilegedClient.Create(ctx, &kpackServiceAccount)
-	if err != nil {
-		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
-	}
-
-	eiriniServiceAccount := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "eirini",
-			Namespace: spaceCR.Name,
-		},
-	}
-	err = r.privilegedClient.Create(ctx, &eiriniServiceAccount)
-	if err != nil {
-		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
 	return SpaceRecord{
