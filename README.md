@@ -9,6 +9,8 @@ We maintain our own set of [API Endpoint docs](docs/api.md) for tracking what is
 
 For more information about what we're building, check out the [Vision for CF on Kubernetes](https://docs.google.com/document/d/1rG814raI5UfGUsF_Ycrr8hKQMo1RH9TRMxuvkgHSdLg/edit) document.
 
+If you are interested in learning about [Differences between Korifi and CF-for-Vms](https://github.com/cloudfoundry/korifi/blob/main/docs/known-differences-with-cf-for-vms.md)
+
 # Prerequisites
 Before installing, ensure that you have the following:
 - [the kubernetes cli](https://kubernetes.io/docs/tasks/tools/#kubectl)
