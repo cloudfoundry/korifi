@@ -7,7 +7,6 @@ import (
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
-	hncv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	hncv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("CFSpace Reconciler Integration Tests", func() {
@@ -90,6 +90,27 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 				Expect(k8sClient.Update(ctx, subnamespaceAnchor)).To(Succeed())
 
 				createNamespaceWithCleanup(ctx, k8sClient, spaceGUID)
+			})
+
+			It("creates the kpack service account", func() {
+				var serviceAccount corev1.ServiceAccount
+				Eventually(func() error {
+					return k8sClient.Get(ctx, types.NamespacedName{Namespace: spaceGUID, Name: "kpack-service-account"}, &serviceAccount)
+				}).Should(Succeed())
+
+				Expect(serviceAccount.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{
+					{Name: packageRegistrySecretName},
+				}))
+				Expect(serviceAccount.Secrets).To(Equal([]corev1.ObjectReference{
+					{Name: packageRegistrySecretName},
+				}))
+			})
+
+			It("creates the eirini service account", func() {
+				Eventually(func() error {
+					var serviceAccount corev1.ServiceAccount
+					return k8sClient.Get(ctx, types.NamespacedName{Namespace: spaceGUID, Name: "eirini"}, &serviceAccount)
+				}).Should(Succeed())
 			})
 
 			It("sets the CFSpace 'Ready' condition to 'True'", func() {

@@ -22,7 +22,6 @@ rules:
   resources:
   - serviceaccounts
   verbs:
-  - create
   - get
 - apiGroups:
   - authentication.k8s.io
@@ -76,5 +75,6 @@ rules:
   - cfbuilds
   - cfpackages
   - cfprocesses
+  - cfspaces
   verbs:
   - list

@@ -881,6 +881,19 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
+		When("the space is forbidden", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{},
+					apierrors.NewForbiddenError(errors.New("not found"), repositories.SpaceResourceType))
+
+				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, "no-such-space", testDomainGUID, nil, nil)
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("Invalid space. Ensure that the space exists and you have access to it.")
+			})
+		})
+
 		When("GetSpace returns an unknown error", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{},

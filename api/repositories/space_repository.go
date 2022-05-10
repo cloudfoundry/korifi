@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/google/uuid"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,8 +19,6 @@ import (
 
 //+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;watch
 //+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=hierarchyconfigurations,verbs=get
-
-//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=create
 
 const (
 	SpaceNameLabel    = "cloudfoundry.org/space-name"
@@ -57,26 +54,26 @@ type SpaceRecord struct {
 }
 
 type SpaceRepo struct {
-	orgRepo           *OrgRepo
-	privilegedClient  client.WithWatch
-	userClientFactory UserK8sClientFactory
-	nsPerms           *authorization.NamespacePermissions
-	timeout           time.Duration
+	orgRepo            *OrgRepo
+	namespaceRetriever NamespaceRetriever
+	userClientFactory  UserK8sClientFactory
+	nsPerms            *authorization.NamespacePermissions
+	timeout            time.Duration
 }
 
 func NewSpaceRepo(
+	namespaceRetriever NamespaceRetriever,
 	orgRepo *OrgRepo,
-	privilegedClient client.WithWatch,
 	userClientFactory UserK8sClientFactory,
 	nsPerms *authorization.NamespacePermissions,
 	timeout time.Duration,
 ) *SpaceRepo {
 	return &SpaceRepo{
-		orgRepo:           orgRepo,
-		privilegedClient:  privilegedClient,
-		userClientFactory: userClientFactory,
-		nsPerms:           nsPerms,
-		timeout:           timeout,
+		orgRepo:            orgRepo,
+		namespaceRetriever: namespaceRetriever,
+		userClientFactory:  userClientFactory,
+		nsPerms:            nsPerms,
+		timeout:            timeout,
 	}
 }
 
@@ -105,35 +102,6 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 			return SpaceRecord{}, apierrors.NewUnprocessableEntityError(err, webhookError.Error())
 		}
 		return SpaceRecord{}, err
-	}
-
-	// TODO: Should this move to the controller?
-	kpackServiceAccount := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kpack-service-account",
-			Namespace: spaceCR.Name,
-		},
-		ImagePullSecrets: []corev1.LocalObjectReference{
-			{Name: message.ImageRegistryCredentials},
-		},
-		Secrets: []corev1.ObjectReference{
-			{Name: message.ImageRegistryCredentials},
-		},
-	}
-	err = r.privilegedClient.Create(ctx, &kpackServiceAccount)
-	if err != nil {
-		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
-	}
-
-	eiriniServiceAccount := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "eirini",
-			Namespace: spaceCR.Name,
-		},
-	}
-	err = r.privilegedClient.Create(ctx, &eiriniServiceAccount)
-	if err != nil {
-		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
 	return SpaceRecord{
@@ -268,29 +236,40 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, info authorization.Info, mes
 			continue
 		}
 
-		records = append(records, SpaceRecord{
-			Name:             cfSpace.Spec.DisplayName,
-			GUID:             cfSpace.Name,
-			OrganizationGUID: cfSpace.Namespace,
-			CreatedAt:        cfSpace.CreationTimestamp.Time,
-			UpdatedAt:        cfSpace.CreationTimestamp.Time,
-		})
+		records = append(records, cfSpaceToSpaceRecord(cfSpace))
 	}
 
 	return records, nil
 }
 
 func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGUID string) (SpaceRecord, error) {
-	spaceRecords, err := r.ListSpaces(ctx, info, ListSpacesMessage{GUIDs: []string{spaceGUID}})
+	ns, err := r.namespaceRetriever.NamespaceFor(ctx, spaceGUID, SpaceResourceType)
 	if err != nil {
 		return SpaceRecord{}, err
 	}
 
-	if len(spaceRecords) == 0 {
-		return SpaceRecord{}, apierrors.NewNotFoundError(fmt.Errorf("space %q not found", spaceGUID), SpaceResourceType)
+	userClient, err := r.userClientFactory.BuildClient(info)
+	if err != nil {
+		return SpaceRecord{}, fmt.Errorf("get-space failed to build user client: %w", err)
 	}
 
-	return spaceRecords[0], nil
+	cfSpace := workloads.CFSpace{}
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: spaceGUID}, &cfSpace)
+	if err != nil {
+		return SpaceRecord{}, fmt.Errorf("failed to get space: %w", apierrors.FromK8sError(err, SpaceResourceType))
+	}
+
+	return cfSpaceToSpaceRecord(cfSpace), nil
+}
+
+func cfSpaceToSpaceRecord(cfSpace workloads.CFSpace) SpaceRecord {
+	return SpaceRecord{
+		Name:             cfSpace.Spec.DisplayName,
+		GUID:             cfSpace.Name,
+		OrganizationGUID: cfSpace.Namespace,
+		CreatedAt:        cfSpace.CreationTimestamp.Time,
+		UpdatedAt:        cfSpace.CreationTimestamp.Time,
+	}
 }
 
 func (r *SpaceRepo) DeleteSpace(ctx context.Context, info authorization.Info, message DeleteSpaceMessage) error {

@@ -16,6 +16,7 @@ type ControllerConfig struct {
 	CFProcessDefaults         CFProcessDefaults `yaml:"cfProcessDefaults"`
 	CFRootNamespace           string            `yaml:"cfRootNamespace"`
 	KorifiControllerNamespace string            `yaml:"korifi_controller_namespace"`
+	PackageRegistrySecretName string            `yaml:"packageRegistrySecretName"`
 	WorkloadsTLSSecretName    string            `yaml:"workloads_tls_secret_name"`
 }
 
