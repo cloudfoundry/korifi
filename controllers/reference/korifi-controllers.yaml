@@ -2759,7 +2759,7 @@ subjects:
 apiVersion: v1
 data:
   korifi_controllers_config.yaml: |
-    kpackImageTag: gcr.io/cf-relint-greengrass/korifi-controllers/kpack/beta
+    kpackImageTag: europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test
     clusterBuilderName: cf-kpack-cluster-builder
     cfProcessDefaults:
       memoryMB: 1024

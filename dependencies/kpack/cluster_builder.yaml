@@ -7,7 +7,7 @@ spec:
     name: kpack-service-account
     namespace: cf
   # Replace with real docker registry
-  tag: gcr.io/cf-relint-greengrass/korifi/kpack/beta
+  tag: europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test
   stack:
     name: cf-default-stack
     kind: ClusterStack

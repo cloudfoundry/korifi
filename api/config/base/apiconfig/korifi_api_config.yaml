@@ -1,4 +1,4 @@
-externalFQDN: "api.example.org"
+externalFQDN: api.install.korifi.cf-app.com
 internalPort: 9000
 
 rootNamespace: cf
@@ -7,7 +7,7 @@ defaultLifecycleConfig:
   stack: cflinuxfs3
   stagingMemoryMB: 1024
   stagingDiskMB: 1024
-packageRegistryBase: gcr.io/cf-relint-greengrass/korifi-controllers/kpack/beta
+packageRegistryBase: europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test
 packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
 clusterBuilderName: cf-kpack-cluster-builder
-defaultDomainName: apps.example.org
+defaultDomainName: apps.install.korifi.cf-app.com

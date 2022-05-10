@@ -105,7 +105,7 @@ subjects:
 apiVersion: v1
 data:
   korifi_api_config.yaml: |
-    externalFQDN: "api.example.org"
+    externalFQDN: api.install.korifi.cf-app.com
     internalPort: 9000
 
     rootNamespace: cf
@@ -114,10 +114,10 @@ data:
       stack: cflinuxfs3
       stagingMemoryMB: 1024
       stagingDiskMB: 1024
-    packageRegistryBase: gcr.io/cf-relint-greengrass/korifi-controllers/kpack/beta
+    packageRegistryBase: europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test
     packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
     clusterBuilderName: cf-kpack-cluster-builder
-    defaultDomainName: apps.example.org
+    defaultDomainName: apps.install.korifi.cf-app.com
   role_mappings_config.yaml: |
     roleMappings:
       admin:
@@ -274,6 +274,6 @@ spec:
     timeoutPolicy:
       response: 5m
   virtualhost:
-    fqdn: ""
+    fqdn: api.install.korifi.cf-app.com
     tls:
       secretName: korifi-api-ingress-cert

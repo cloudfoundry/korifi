@@ -1,3 +1,3 @@
 - op: replace
   path: /spec/virtualhost/fqdn
-  value: ""
+  value: api.install.korifi.cf-app.com
