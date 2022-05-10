@@ -7,8 +7,9 @@ import (
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
+	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/controllers/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,12 +35,12 @@ var _ = Describe("CFBuildReconciler", func() {
 	)
 
 	var (
-		fakeClient       *fake.CFClient
+		fakeClient       *workloadsfakes.CFClient
 		fakeStatusWriter *fake.StatusWriter
 
-		fakeRegistryAuthFetcher *fake.RegistryAuthFetcher
-		fakeImageProcessFetcher *fake.ImageProcessFetcher
-		fakeEnvBuilder          *fake.EnvBuilder
+		fakeRegistryAuthFetcher *workloadsfakes.RegistryAuthFetcher
+		fakeImageProcessFetcher *workloadsfakes.ImageProcessFetcher
+		fakeEnvBuilder          *workloadsfakes.EnvBuilder
 
 		cfAppGUID               string
 		cfPackageGUID           string
@@ -71,7 +72,7 @@ var _ = Describe("CFBuildReconciler", func() {
 	)
 
 	BeforeEach(func() {
-		fakeClient = new(fake.CFClient)
+		fakeClient = new(workloadsfakes.CFClient)
 
 		cfAppGUID = "cf-app-guid"
 		cfPackageGUID = "cf-package-guid"
@@ -124,9 +125,9 @@ var _ = Describe("CFBuildReconciler", func() {
 		fakeStatusWriter = new(fake.StatusWriter)
 		fakeClient.StatusReturns(fakeStatusWriter)
 
-		fakeRegistryAuthFetcher = new(fake.RegistryAuthFetcher)
-		fakeImageProcessFetcher = new(fake.ImageProcessFetcher)
-		fakeEnvBuilder = new(fake.EnvBuilder)
+		fakeRegistryAuthFetcher = new(workloadsfakes.RegistryAuthFetcher)
+		fakeImageProcessFetcher = new(workloadsfakes.ImageProcessFetcher)
+		fakeEnvBuilder = new(workloadsfakes.EnvBuilder)
 		fakeEnvBuilder.BuildEnvReturns(map[string]string{"foo": "var"}, nil)
 
 		// configure a CFBuildReconciler with the client

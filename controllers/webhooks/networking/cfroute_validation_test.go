@@ -9,9 +9,10 @@ import (
 
 	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/networking/fake"
+	networkingfakes "code.cloudfoundry.org/korifi/controllers/webhooks/networking/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,7 +30,7 @@ import (
 var _ = Describe("CF Route Validation", func() {
 	var (
 		ctx                context.Context
-		duplicateValidator *fake.NameValidator
+		duplicateValidator *networkingfakes.NameValidator
 		fakeClient         *fake.Client
 		realDecoder        *admission.Decoder
 		cfRoute            *networkingv1alpha1.CFRoute
@@ -92,7 +93,7 @@ var _ = Describe("CF Route Validation", func() {
 
 		cfApp = &workloadsv1alpha1.CFApp{}
 
-		duplicateValidator = new(fake.NameValidator)
+		duplicateValidator = new(networkingfakes.NameValidator)
 		fakeClient = new(fake.Client)
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {

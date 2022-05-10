@@ -9,8 +9,9 @@ import (
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
+	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/controllers/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,7 +36,7 @@ const (
 
 var _ = Describe("CFAppReconciler", func() {
 	var (
-		fakeClient       *fake.CFClient
+		fakeClient       *workloadsfakes.CFClient
 		fakeStatusWriter *fake.StatusWriter
 
 		cfAppGUID     string
@@ -60,7 +61,7 @@ var _ = Describe("CFAppReconciler", func() {
 	)
 
 	BeforeEach(func() {
-		fakeClient = new(fake.CFClient)
+		fakeClient = new(workloadsfakes.CFClient)
 
 		cfAppGUID = "cf-app-guid"
 		cfPackageGUID = "cf-package-guid"

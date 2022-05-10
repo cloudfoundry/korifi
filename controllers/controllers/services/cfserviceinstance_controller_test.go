@@ -13,7 +13,7 @@ import (
 
 	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/services"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/fake"
+	"code.cloudfoundry.org/korifi/controllers/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

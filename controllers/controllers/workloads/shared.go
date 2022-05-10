@@ -19,8 +19,6 @@ import (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
-//counterfeiter:generate -o fake -fake-name Client sigs.k8s.io/controller-runtime/pkg/client.Client
-
 //counterfeiter:generate -o fake -fake-name CFClient . CFClient
 type CFClient interface {
 	Get(ctx context.Context, key client.ObjectKey, obj client.Object) error
@@ -93,5 +91,3 @@ func getNamespace(ctx context.Context, client client.Client, namespaceName strin
 	}
 	return namespace, true
 }
-
-//counterfeiter:generate -o fake -fake-name StatusWriter sigs.k8s.io/controller-runtime/pkg/client.StatusWriter
