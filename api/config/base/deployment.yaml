@@ -15,7 +15,7 @@ spec:
       labels:
         app: korifi-api
     spec:
-      serviceAccountName: cf-admin-serviceaccount
+      serviceAccountName: system-serviceaccount
       containers:
       - image: cloudfoundry/korifi-api:latest
         name: korifi-api
@@ -26,11 +26,19 @@ spec:
         env:
         - name: APICONFIG
           value: "/etc/korifi-api-config"
+        - name: TLSCONFIG
+          value: "/etc/korifi-tls-config"
         volumeMounts:
         - name: &configname korifi-api-config
           mountPath: /etc/korifi-api-config
+          readOnly: true
+        - name: &tlsname korifi-tls-config
+          mountPath: /etc/korifi-tls-config
           readOnly: true
       volumes:
       - name: *configname
         configMap:
           name: korifi-api-config
+      - name: *tlsname
+        secret:
+          secretName: korifi-api-internal-cert

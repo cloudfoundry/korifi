@@ -15,5 +15,8 @@ spec:
     services:
     - name: korifi-api-svc
       port: 443
+      validation:
+        caSecret: korifi-api-internal-cert
+        subjectName: $(SERVICE_NAME).$(SERVICE_NAMESPACE).svc.cluster.local
     timeoutPolicy:
       response: "5m"

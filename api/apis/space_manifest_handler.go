@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 
+	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -20,12 +21,21 @@ const (
 	SpaceManifestDiffPath  = "/v3/spaces/{spaceGUID}/manifest_diff"
 )
 
+//counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
+
+type CFSpaceRepository interface {
+	CreateSpace(context.Context, authorization.Info, repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)
+	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) ([]repositories.SpaceRecord, error)
+	GetSpace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
+	DeleteSpace(context.Context, authorization.Info, repositories.DeleteSpaceMessage) error
+}
+
 type SpaceManifestHandler struct {
 	logger              logr.Logger
 	serverURL           url.URL
 	defaultDomainName   string
 	applyManifestAction ApplyManifestAction
-	spaceRepo           repositories.CFSpaceRepository
+	spaceRepo           CFSpaceRepository
 	decoderValidator    *DecoderValidator
 }
 
@@ -37,7 +47,7 @@ func NewSpaceManifestHandler(
 	serverURL url.URL,
 	defaultDomainName string,
 	applyManifestAction ApplyManifestAction,
-	spaceRepo repositories.CFSpaceRepository,
+	spaceRepo CFSpaceRepository,
 	decoderValidator *DecoderValidator,
 ) *SpaceManifestHandler {
 	return &SpaceManifestHandler{
@@ -79,7 +89,7 @@ func (h *SpaceManifestHandler) diffManifestHandler(authInfo authorization.Info, 
 
 	if _, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID); err != nil {
 		h.logger.Error(err, "failed to get space", "guid", spaceGUID)
-		return nil, err
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).WithBody(map[string]interface{}{"diff": []string{}}), nil

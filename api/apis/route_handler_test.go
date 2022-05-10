@@ -881,6 +881,19 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
+		When("the space is forbidden", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{},
+					apierrors.NewForbiddenError(errors.New("not found"), repositories.SpaceResourceType))
+
+				requestBody = initializeCreateRouteRequestBody(testRouteHost, testRoutePath, "no-such-space", testDomainGUID, nil, nil)
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("Invalid space. Ensure that the space exists and you have access to it.")
+			})
+		})
+
 		When("GetSpace returns an unknown error", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{},
@@ -1293,6 +1306,20 @@ var _ = Describe("RouteHandler", func() {
 				})
 			})
 
+			When("the user lacks permission to fetch the route", func() {
+				BeforeEach(func() {
+					routeRepo.GetRouteReturns(repositories.RouteRecord{}, apierrors.NewForbiddenError(nil, repositories.RouteResourceType))
+				})
+
+				It("responds with 404 and an error", func() {
+					expectNotFoundError("Route not found")
+				})
+
+				It("doesn't add any destinations to a route", func() {
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+
 			When("the destination protocol is not provided", func() {
 				BeforeEach(func() {
 					requestBody = fmt.Sprintf(`{
@@ -1483,6 +1510,146 @@ var _ = Describe("RouteHandler", func() {
 
 				It("doesn't add any destinations to a route", func() {
 					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+		})
+	})
+
+	Describe("the DELETE /v3/routes/:guid/destinations/:destination_guid endpoint", func() {
+		const (
+			routeGuid       = "test-route-guid"
+			domainGuid      = "test-domain-guid"
+			spaceGuid       = "test-space-guid"
+			routeHost       = "test-app"
+			appGuid         = "1cb006ee-fb05-47e1-b541-c34179ddc446"
+			destinationGuid = "destination-guid"
+		)
+
+		var (
+			domain      repositories.DomainRecord
+			routeRecord repositories.RouteRecord
+		)
+
+		BeforeEach(func() {
+			routeRecord = repositories.RouteRecord{
+				GUID:      routeGuid,
+				SpaceGUID: spaceGuid,
+				Domain:    repositories.DomainRecord{GUID: domainGuid},
+				Host:      routeHost,
+				Path:      "",
+				Protocol:  "http",
+				Destinations: []repositories.DestinationRecord{
+					{
+						GUID:        destinationGuid,
+						AppGUID:     appGuid,
+						ProcessType: "web",
+						Port:        8080,
+						Protocol:    "http1",
+					},
+				},
+			}
+
+			domain = repositories.DomainRecord{
+				GUID: domainGuid,
+				Name: "my-tld.com",
+			}
+
+			routeRepo.GetRouteReturns(routeRecord, nil)
+			domainRepo.GetDomainReturns(domain, nil)
+
+			requestMethod = http.MethodDelete
+			requestPath = "/v3/routes/" + routeGuid + "/destinations/" + destinationGuid
+			requestBody = ""
+		})
+
+		When("the request is valid", func() {
+			It("passes the authInfo into the repo calls", func() {
+				Expect(routeRepo.GetRouteCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := routeRepo.GetRouteArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+
+				Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ = domainRepo.GetDomainArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+
+				Expect(routeRepo.RemoveDestinationFromRouteCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ = routeRepo.RemoveDestinationFromRouteArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+
+			It("returns a success and a valid response", func() {
+				Expect(rr.Code).To(Equal(http.StatusNoContent), "Matching HTTP response code:")
+
+				Expect(rr.Body.String()).To(BeEmpty())
+			})
+
+			It("removes the destination from the Route", func() {
+				Expect(routeRepo.RemoveDestinationFromRouteCallCount()).To(Equal(1))
+				_, _, message := routeRepo.RemoveDestinationFromRouteArgsForCall(0)
+				Expect(message.RouteGUID).To(Equal(routeGuid))
+				Expect(message.SpaceGUID).To(Equal(spaceGuid))
+				Expect(message.DestinationGuid).To(Equal(destinationGuid))
+
+				Expect(message.ExistingDestinations).To(ConsistOf(
+					MatchAllFields(Fields{
+						"GUID":        Equal(destinationGuid),
+						"AppGUID":     Equal(appGuid),
+						"ProcessType": Equal("web"),
+						"Port":        Equal(8080),
+						"Protocol":    Equal("http1"),
+					}),
+				))
+			})
+
+			When("the route doesn't exist", func() {
+				BeforeEach(func() {
+					routeRepo.GetRouteReturns(repositories.RouteRecord{}, apierrors.NewNotFoundError(nil, repositories.RouteResourceType))
+				})
+
+				It("responds with 404 and an error", func() {
+					expectNotFoundError("Route not found")
+				})
+
+				It("doesn't add any destinations to a route", func() {
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+
+			When("the user lacks permission to fetch the route", func() {
+				BeforeEach(func() {
+					routeRepo.GetRouteReturns(repositories.RouteRecord{}, apierrors.NewForbiddenError(nil, repositories.RouteResourceType))
+				})
+
+				It("responds with 404 and an error", func() {
+					expectNotFoundError("Route not found")
+				})
+
+				It("doesn't add any destinations to a route", func() {
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+
+			When("fetching the route errors", func() {
+				BeforeEach(func() {
+					routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
+				})
+
+				It("responds with an Unknown Error", func() {
+					expectUnknownError()
+				})
+
+				It("doesn't add any destinations to a route", func() {
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+
+			When("removing the destinations from the Route errors", func() {
+				BeforeEach(func() {
+					routeRepo.RemoveDestinationFromRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
+				})
+
+				It("responds with an Unknown Error", func() {
+					expectUnknownError()
 				})
 			})
 		})

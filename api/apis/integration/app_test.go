@@ -23,13 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("App Handler", func() {
 	var (
 		apiHandler *apis.AppHandler
-		org, space *hnsv1alpha2.SubnamespaceAnchor
+		org        *workloads.CFOrg
+		space      *workloads.CFSpace
 		spaceGUID  string
 	)
 
@@ -40,7 +40,7 @@ var _ = Describe("App Handler", func() {
 				Namespace: spaceGUID,
 			},
 			Spec: workloads.CFAppSpec{
-				Name:         generateGUID(),
+				DisplayName:  generateGUID(),
 				DesiredState: "STOPPED",
 				Lifecycle: workloads.Lifecycle{
 					Type: "buildpack",
@@ -109,6 +109,7 @@ var _ = Describe("App Handler", func() {
 		routeRepo := repositories.NewRouteRepo(namespaceRetriever, clientFactory, nsPermissions)
 		domainRepo := repositories.NewDomainRepo(clientFactory, namespaceRetriever, rootNamespace)
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPermissions, time.Minute)
+		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, clientFactory, nsPermissions, time.Minute)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
 		decoderValidator, err := apis.NewDefaultDecoderValidator()
@@ -122,14 +123,14 @@ var _ = Describe("App Handler", func() {
 			processRepo,
 			routeRepo,
 			domainRepo,
-			orgRepo,
+			spaceRepo,
 			scaleAppProcess,
 			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
 
-		org = createOrgAnchorAndNamespace(ctx, rootNamespace, generateGUID())
-		space = createSpaceAnchorAndNamespace(ctx, org.Name, "spacename-"+generateGUID())
+		org = createOrgWithCleanup(ctx, generateGUID())
+		space = createSpaceWithCleanup(ctx, org.Name, "spacename-"+generateGUID())
 		spaceGUID = space.Name
 	})
 
@@ -141,6 +142,7 @@ var _ = Describe("App Handler", func() {
 			var testEnvironmentVariables map[string]string
 
 			BeforeEach(func() {
+				createRoleBinding(ctx, userName, orgUserRole.Name, org.Name)
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
 
 				testEnvironmentVariables = map[string]string{"foo": "foo", "bar": "bar"}
@@ -169,7 +171,7 @@ var _ = Describe("App Handler", func() {
 			})
 
 			It("creates a CFApp and Secret, returns 201 and an App object as JSON", func() {
-				Expect(rr.Code).To(Equal(201))
+				Expect(rr.Code).To(Equal(http.StatusCreated))
 
 				var parsedBody map[string]interface{}
 				body, err := ioutil.ReadAll(rr.Body)
@@ -201,7 +203,7 @@ var _ = Describe("App Handler", func() {
 				var appRecord workloads.CFApp
 				Expect(k8sClient.Get(ctx, appNSName, &appRecord)).To(Succeed())
 
-				Expect(appRecord.Spec.Name).To(Equal("my-test-app"))
+				Expect(appRecord.Spec.DisplayName).To(Equal("my-test-app"))
 				Expect(appRecord.Spec.DesiredState).To(BeEquivalentTo("STOPPED"))
 				Expect(appRecord.Spec.EnvSecretName).NotTo(BeEmpty())
 

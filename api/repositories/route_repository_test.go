@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -16,7 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("RouteRepository", func() {
@@ -25,8 +25,8 @@ var _ = Describe("RouteRepository", func() {
 	var (
 		testCtx context.Context
 
-		org   *hnsv1alpha2.SubnamespaceAnchor
-		space *hnsv1alpha2.SubnamespaceAnchor
+		org   *workloadsv1alpha1.CFOrg
+		space *workloadsv1alpha1.CFSpace
 
 		route1GUID string
 		route2GUID string
@@ -258,9 +258,9 @@ var _ = Describe("RouteRepository", func() {
 			var (
 				cfRoute1A, cfRoute1B *networkingv1alpha1.CFRoute
 				domainGUID2          string
-				space2               *hnsv1alpha2.SubnamespaceAnchor
+				space2               *workloadsv1alpha1.CFSpace
 				cfRoute2A            *networkingv1alpha1.CFRoute
-				space3               *hnsv1alpha2.SubnamespaceAnchor
+				space3               *workloadsv1alpha1.CFSpace
 				cfRoute3A            *networkingv1alpha1.CFRoute
 
 				routeRecords []RouteRecord
@@ -1211,6 +1211,99 @@ var _ = Describe("RouteRepository", func() {
 							),
 						))
 					})
+				})
+			})
+		})
+	})
+
+	Describe("RemoveDestinationFromRoute", func() {
+		const (
+			testRouteHost = "test-route-host"
+			testRoutePath = "/test/route/path"
+		)
+
+		var (
+			routeDestination     networkingv1alpha1.Destination
+			destinationGUID      string
+			appGUID              string
+			removeDestinationErr error
+			routeRecord          RouteRecord
+		)
+
+		BeforeEach(func() {
+			removeDestinationErr = nil
+			cfRoute := initializeRouteCR(testRouteHost, testRoutePath, route1GUID, domainGUID, space.Name)
+			destinationGUID = generateGUID()
+			appGUID = generateGUID()
+			routeDestination = networkingv1alpha1.Destination{
+				GUID: destinationGUID,
+				Port: 8000,
+				AppRef: corev1.LocalObjectReference{
+					Name: appGUID,
+				},
+				ProcessType: "web",
+				Protocol:    "http1",
+			}
+
+			cfRoute.Spec.Destinations = []networkingv1alpha1.Destination{routeDestination}
+			Expect(k8sClient.Create(testCtx, cfRoute)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			routeRecord, err = routeRepo.GetRoute(testCtx, authInfo, route1GUID)
+			Expect(err).NotTo(HaveOccurred())
+
+			destinationDeleteMessage := RemoveDestinationFromRouteMessage{
+				RouteGUID:            routeRecord.GUID,
+				SpaceGUID:            routeRecord.SpaceGUID,
+				ExistingDestinations: routeRecord.Destinations,
+				DestinationGuid:      destinationGUID,
+			}
+			_, removeDestinationErr = routeRepo.RemoveDestinationFromRoute(testCtx, authInfo, destinationDeleteMessage)
+		})
+
+		AfterEach(func() {
+			Expect(cleanupRoute(k8sClient, testCtx, route1GUID, space.Name)).To(Succeed())
+		})
+
+		When("the user is a space manager in this space", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceManagerRole.Name, space.Name)
+			})
+
+			It("returns an error", func() {
+				Expect(removeDestinationErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+
+			It("fails to update the destination list", func() {
+				currentRouteRecord, err := routeRepo.GetRoute(testCtx, authInfo, route1GUID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(currentRouteRecord).To(Equal(routeRecord))
+			})
+		})
+
+		When("the user is a space developer in this space", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("removes the destination from CFRoute successfully", func() {
+				Expect(removeDestinationErr).NotTo(HaveOccurred())
+				cfRouteLookupKey := types.NamespacedName{Name: route1GUID, Namespace: space.Name}
+				createdCFRoute := new(networkingv1alpha1.CFRoute)
+				Expect(k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)).To(Succeed())
+
+				Expect(createdCFRoute.Spec.Destinations).To(BeEmpty())
+			})
+
+			When("the destination isn't on the route", func() {
+				BeforeEach(func() {
+					destinationGUID = "some-bogus-guid"
+				})
+
+				It("returns an unprocessable entity error", func() {
+					Expect(removeDestinationErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 				})
 			})
 		})

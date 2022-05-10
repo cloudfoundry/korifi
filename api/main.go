@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/actions"
@@ -88,7 +89,7 @@ func main() {
 		panic(fmt.Sprintf("could not create kubernetes REST mapper: %v", err))
 	}
 
-	var userClientFactory repositories.UserK8sClientFactory = repositories.NewUnprivilegedClientFactory(k8sClientConfig, mapper)
+	userClientFactory := repositories.NewUnprivilegedClientFactory(k8sClientConfig, mapper, repositories.NewDefaultBackoff())
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
@@ -104,6 +105,7 @@ func main() {
 		panic(err)
 	}
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout)
+	spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPermissions, createTimeout)
 	processRepo := repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	podRepo := repositories.NewPodRepo(ctrl.Log.WithName("PodRepository"), userClientFactory, metricsFetcherFunction)
 	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions)
@@ -116,8 +118,8 @@ func main() {
 	serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)
 	roleRepo := repositories.NewRoleRepo(
-		privilegedCRClient,
 		userClientFactory,
+		spaceRepo,
 		authorization.NewNamespacePermissions(
 			privilegedCRClient,
 			cachingIdentityProvider,
@@ -165,7 +167,7 @@ func main() {
 			processRepo,
 			routeRepo,
 			domainRepo,
-			orgRepo,
+			spaceRepo,
 			scaleAppProcessAction.Invoke,
 			decoderValidator,
 		),
@@ -175,7 +177,7 @@ func main() {
 			routeRepo,
 			domainRepo,
 			appRepo,
-			orgRepo,
+			spaceRepo,
 			decoderValidator,
 		),
 		apis.NewServiceRouteBindingHandler(
@@ -228,16 +230,26 @@ func main() {
 			buildRepo,
 			readAppLogsAction.Invoke,
 		),
-		apis.NewOrgHandler(*serverURL, orgRepo, domainRepo, decoderValidator),
+		apis.NewOrgHandler(
+			*serverURL,
+			orgRepo,
+			domainRepo,
+			decoderValidator,
+		),
 
-		apis.NewSpaceHandler(*serverURL, config.PackageRegistrySecretName, orgRepo, decoderValidator),
+		apis.NewSpaceHandler(
+			*serverURL,
+			config.PackageRegistrySecretName,
+			spaceRepo,
+			decoderValidator,
+		),
 
 		apis.NewSpaceManifestHandler(
 			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
 			config.DefaultDomainName,
 			applyManifestAction,
-			orgRepo,
+			spaceRepo,
 			decoderValidator,
 		),
 
@@ -260,7 +272,7 @@ func main() {
 			ctrl.Log.WithName("ServiceInstanceHandler"),
 			*serverURL,
 			serviceInstanceRepo,
-			orgRepo,
+			spaceRepo,
 			decoderValidator,
 		),
 
@@ -287,8 +299,14 @@ func main() {
 	).Middleware)
 
 	portString := fmt.Sprintf(":%v", config.InternalPort)
-	log.Println("Listening on ", portString)
-	log.Fatal(http.ListenAndServe(portString, router))
+	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")
+	if tlsFound {
+		log.Println("Listening with TLS on ", portString)
+		log.Fatal(http.ListenAndServeTLS(portString, path.Join(tlsPath, "tls.crt"), path.Join(tlsPath, "tls.key"), router))
+	} else {
+		log.Println("Listening without TLS on ", portString)
+		log.Fatal(http.ListenAndServe(portString, router))
+	}
 }
 
 func wireIdentityProvider(client client.Client, restConfig *rest.Config) authorization.IdentityProvider {

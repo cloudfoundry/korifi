@@ -78,18 +78,18 @@ func (v *CFServiceInstanceValidation) Handle(ctx context.Context, req admission.
 	var validatorErr error
 	switch req.Operation {
 	case admissionv1.Create:
-		validatorErr = v.duplicateValidator.ValidateCreate(ctx, cfserviceinstancelog, cfServiceInstance.Namespace, cfServiceInstance.Spec.Name)
+		validatorErr = v.duplicateValidator.ValidateCreate(ctx, cfserviceinstancelog, cfServiceInstance.Namespace, cfServiceInstance.Spec.DisplayName)
 
 	case admissionv1.Update:
-		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, cfserviceinstancelog, cfServiceInstance.Namespace, oldCFServiceInstance.Spec.Name, cfServiceInstance.Spec.Name)
+		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, cfserviceinstancelog, cfServiceInstance.Namespace, oldCFServiceInstance.Spec.DisplayName, cfServiceInstance.Spec.DisplayName)
 
 	case admissionv1.Delete:
-		validatorErr = v.duplicateValidator.ValidateDelete(ctx, cfserviceinstancelog, oldCFServiceInstance.Namespace, oldCFServiceInstance.Spec.Name)
+		validatorErr = v.duplicateValidator.ValidateDelete(ctx, cfserviceinstancelog, oldCFServiceInstance.Namespace, oldCFServiceInstance.Spec.DisplayName)
 	}
 
 	if validatorErr != nil {
 		if errors.Is(validatorErr, webhooks.ErrorDuplicateName) {
-			errorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, cfServiceInstance.Spec.Name)
+			errorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, cfServiceInstance.Spec.DisplayName)
 			return admission.Denied(webhooks.ValidationError{Type: DuplicateServiceInstanceNameErrorType, Message: errorMessage}.Marshal())
 		}
 

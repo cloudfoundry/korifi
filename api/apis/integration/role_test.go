@@ -5,19 +5,22 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("Role", func() {
 	var (
 		apiHandler *apis.RoleHandler
-		org, space *hnsv1alpha2.SubnamespaceAnchor
+		org        *workloadsv1alpha1.CFOrg
+		space      *workloadsv1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
@@ -25,17 +28,19 @@ var _ = Describe("Role", func() {
 		roleMappings := map[string]config.Role{
 			"space_developer":      {Name: "cf-space-developer"},
 			"organization_manager": {Name: "cf-organization-manager"},
-			"cf_user":              {Name: "cf-user"},
+			"cf_user":              {Name: "cf-root-namespace-user"},
 		}
-		roleRepo := repositories.NewRoleRepo(k8sClient, clientFactory, nsPermissions, rootNamespace, roleMappings)
+		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPermissions, time.Minute)
+		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, clientFactory, nsPermissions, time.Minute)
+		roleRepo := repositories.NewRoleRepo(clientFactory, spaceRepo, nsPermissions, rootNamespace, roleMappings)
 		decoderValidator, err := apis.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler = apis.NewRoleHandler(*serverURL, roleRepo, decoderValidator)
 		apiHandler.RegisterRoutes(router)
 
-		org = createOrgAnchorAndNamespace(ctx, rootNamespace, generateGUID())
-		space = createSpaceAnchorAndNamespace(ctx, org.Name, "spacename-"+generateGUID())
+		org = createOrgWithCleanup(ctx, generateGUID())
+		space = createSpaceWithCleanup(ctx, org.Name, "spacename-"+generateGUID())
 	})
 
 	Describe("creation", func() {
@@ -49,7 +54,7 @@ var _ = Describe("Role", func() {
 
 		BeforeEach(func() {
 			roleName = ""
-			userGUID = generateGUID()
+			userGUID = "testuser-" + generateGUID()
 			orgSpaceLabel = ""
 			orgSpaceGUID = ""
 
@@ -89,6 +94,7 @@ var _ = Describe("Role", func() {
 
 			When("the user is admin", func() {
 				BeforeEach(func() {
+					createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 					createRoleBinding(ctx, userName, adminRole.Name, org.Name)
 				})
 
@@ -124,6 +130,9 @@ var _ = Describe("Role", func() {
 			When("the user is an org user", func() {
 				BeforeEach(func() {
 					createRoleBinding(ctx, userGUID, orgUserRole.Name, org.Name)
+
+					createRoleBinding(ctx, userName, orgUserRole.Name, org.Name)
+					createRoleBinding(ctx, userName, orgUserRole.Name, space.Name)
 				})
 
 				It("fails when the user is not allowed to create space roles", func() {
@@ -132,6 +141,8 @@ var _ = Describe("Role", func() {
 
 				When("the user is admin", func() {
 					BeforeEach(func() {
+						createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+						createRoleBinding(ctx, userName, adminRole.Name, org.Name)
 						createRoleBinding(ctx, userName, adminRole.Name, space.Name)
 					})
 

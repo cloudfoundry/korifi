@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
-
 	. "code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/apis/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -49,7 +49,7 @@ var _ = Describe("LogCacheHandler", func() {
 	Describe("the GET /api/v1/info endpoint", func() {
 		BeforeEach(func() {
 			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/api/v1/info", nil)
+			req, err = http.NewRequest("GET", "/api/v1/info", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 

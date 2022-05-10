@@ -93,7 +93,7 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 
 		anchorLabels := map[string]string{
-			OrgNameLabel: cfOrg.Spec.Name,
+			OrgNameLabel: cfOrg.Spec.DisplayName,
 		}
 		anchor, err = createSubnamespaceAnchor(ctx, r.client, req, cfOrg, anchorLabels)
 		if err != nil {

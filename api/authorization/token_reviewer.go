@@ -20,8 +20,6 @@ const (
 	serviceAccountNamePrefix = "system:serviceaccount:"
 )
 
-//+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
-
 type TokenReviewer struct {
 	privilegedClient client.Client
 }

@@ -5,6 +5,9 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -13,19 +16,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
-	"code.cloudfoundry.org/korifi/api/repositories"
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 )
 
 var _ = Describe("ServiceBindingRepo", func() {
 	var (
 		repo                *repositories.ServiceBindingRepo
 		testCtx             context.Context
-		org                 *hnsv1alpha2.SubnamespaceAnchor
-		space               *hnsv1alpha2.SubnamespaceAnchor
+		org                 *workloadsv1alpha1.CFOrg
+		space               *workloadsv1alpha1.CFSpace
 		appGUID             string
 		serviceInstanceGUID string
 	)
@@ -34,8 +32,8 @@ var _ = Describe("ServiceBindingRepo", func() {
 		testCtx = context.Background()
 		repo = repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPerms)
 
-		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
-		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
+		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
+		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
 		appGUID = prefixedGUID("app")
 		serviceInstanceGUID = prefixedGUID("service-instance")
 	})
@@ -90,7 +88,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Expect(serviceBinding.Labels).To(HaveKeyWithValue("servicebinding.io/provisioned-service", "true"))
 				Expect(serviceBinding.Spec).To(Equal(
 					servicesv1alpha1.CFServiceBindingSpec{
-						Name: nil,
+						DisplayName: nil,
 						Service: corev1.ObjectReference{
 							Kind:       "CFServiceInstance",
 							APIVersion: servicesv1alpha1.GroupVersion.Identifier(),
@@ -136,7 +134,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space.Name,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
-					Name:         "some-app",
+					DisplayName:  "some-app",
 					DesiredState: workloadsv1alpha1.DesiredState(repositories.StoppedState),
 					Lifecycle: workloadsv1alpha1.Lifecycle{
 						Type: "buildpack",
@@ -157,9 +155,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space.Name,
 				},
 				Spec: servicesv1alpha1.CFServiceInstanceSpec{
-					Name:       "some-instance",
-					SecretName: "",
-					Type:       "user-provided",
+					DisplayName: "some-instance",
+					SecretName:  "",
+					Type:        "user-provided",
 				},
 			}
 			Expect(
@@ -239,7 +237,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space.Name,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
-					Name:         "some-app",
+					DisplayName:  "some-app",
 					DesiredState: workloadsv1alpha1.DesiredState(repositories.StoppedState),
 					Lifecycle: workloadsv1alpha1.Lifecycle{
 						Type: "buildpack",
@@ -260,9 +258,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space.Name,
 				},
 				Spec: servicesv1alpha1.CFServiceInstanceSpec{
-					Name:       "some-instance",
-					SecretName: "",
-					Type:       "user-provided",
+					DisplayName: "some-instance",
+					SecretName:  "",
+					Type:        "user-provided",
 				},
 			}
 			Expect(
@@ -348,7 +346,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 	Describe("ListServiceBindings", func() {
 		var (
 			serviceBinding1, serviceBinding2, serviceBinding3                *servicesv1alpha1.CFServiceBinding
-			space2                                                           *hnsv1alpha2.SubnamespaceAnchor
+			space2                                                           *workloadsv1alpha1.CFSpace
 			cfApp1, cfApp2, cfApp3                                           *workloadsv1alpha1.CFApp
 			serviceInstance1GUID, serviceInstance2GUID, serviceInstance3GUID string
 
@@ -364,7 +362,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			serviceBinding1Name := "service-binding-1-name"
 			serviceBinding1 = createServiceBindingCR(testCtx, k8sClient, prefixedGUID("binding-1"), space.Name, &serviceBinding1Name, cfServiceInstance1.Name, cfApp1.Name)
 
-			space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space-2"))
+			space2 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space-2"))
 			cfApp2 = createAppCR(testCtx, k8sClient, "app-2-name", prefixedGUID("app-2"), space2.Name, "STOPPED")
 			serviceInstance2GUID = prefixedGUID("instance-2")
 			cfServiceInstance2 := createServiceInstanceCR(testCtx, k8sClient, serviceInstance2GUID, space2.Name, "service-instance-2-name", "secret-2-name")
@@ -398,7 +396,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":                Equal(serviceBinding1.Name),
 							"Type":                Equal("app"),
-							"Name":                Equal(serviceBinding1.Spec.Name),
+							"Name":                Equal(serviceBinding1.Spec.DisplayName),
 							"AppGUID":             Equal(serviceBinding1.Spec.AppRef.Name),
 							"ServiceInstanceGUID": Equal(serviceBinding1.Spec.Service.Name),
 							"SpaceGUID":           Equal(serviceBinding1.Namespace),
@@ -410,7 +408,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":                Equal(serviceBinding2.Name),
 							"Type":                Equal("app"),
-							"Name":                Equal(serviceBinding2.Spec.Name),
+							"Name":                Equal(serviceBinding2.Spec.DisplayName),
 							"AppGUID":             Equal(serviceBinding2.Spec.AppRef.Name),
 							"ServiceInstanceGUID": Equal(serviceBinding2.Spec.Service.Name),
 							"SpaceGUID":           Equal(serviceBinding2.Namespace),
@@ -422,7 +420,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":                Equal(serviceBinding3.Name),
 							"Type":                Equal("app"),
-							"Name":                Equal(serviceBinding3.Spec.Name),
+							"Name":                Equal(serviceBinding3.Spec.DisplayName),
 							"AppGUID":             Equal(serviceBinding3.Spec.AppRef.Name),
 							"ServiceInstanceGUID": Equal(serviceBinding3.Spec.Service.Name),
 							"SpaceGUID":           Equal(serviceBinding3.Namespace),

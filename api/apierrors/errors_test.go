@@ -70,48 +70,6 @@ var _ = Describe("FromK8sError", func() {
 	})
 })
 
-var _ = Describe("NotFoundAsUnprocessableEntity", func() {
-	var (
-		err       error
-		actualErr error
-	)
-
-	BeforeEach(func() {
-		err = nil
-	})
-
-	JustBeforeEach(func() {
-		actualErr = apierrors.NotFoundAsUnprocessableEntity(err, "hello")
-	})
-
-	It("returns nil", func() {
-		Expect(actualErr).To(BeNil())
-	})
-
-	When("not found error", func() {
-		BeforeEach(func() {
-			err = apierrors.NewNotFoundError(errors.New("foo"), "bar")
-		})
-
-		It("returns an unprocessable entity error", func() {
-			var unprocessableEntityError apierrors.UnprocessableEntityError
-			Expect(errors.As(actualErr, &unprocessableEntityError)).To(BeTrue())
-			Expect(unprocessableEntityError.Detail()).To(Equal("hello"))
-			Expect(unprocessableEntityError.Unwrap()).To(MatchError("foo"))
-		})
-	})
-
-	When("any other error", func() {
-		BeforeEach(func() {
-			err = errors.New("other")
-		})
-
-		It("returns it", func() {
-			Expect(actualErr).To(Equal(err))
-		})
-	})
-})
-
 var _ = Describe("ForbiddenAsNotFound", func() {
 	var (
 		err       error
@@ -154,6 +112,61 @@ var _ = Describe("ForbiddenAsNotFound", func() {
 	})
 })
 
+var _ = Describe("DropletForbiddenAsNotFound", func() {
+	var (
+		err       error
+		actualErr error
+	)
+
+	BeforeEach(func() {
+		err = nil
+	})
+
+	JustBeforeEach(func() {
+		actualErr = apierrors.DropletForbiddenAsNotFound(err)
+	})
+
+	It("returns nil", func() {
+		Expect(actualErr).To(BeNil())
+	})
+
+	When("forbidden error", func() {
+		BeforeEach(func() {
+			err = apierrors.NewForbiddenError(errors.New("foo"), "Droplet")
+		})
+
+		It("returns a not found error", func() {
+			var notFoundError apierrors.NotFoundError
+			Expect(errors.As(actualErr, &notFoundError)).To(BeTrue())
+			Expect(notFoundError.Detail()).To(Equal("Droplet not found"))
+			Expect(notFoundError.Unwrap()).To(MatchError("foo"))
+		})
+	})
+
+	When("not found error", func() {
+		BeforeEach(func() {
+			err = apierrors.NewNotFoundError(errors.New("foo"), "Droplet")
+		})
+
+		It("returns a not found error", func() {
+			var notFoundError apierrors.NotFoundError
+			Expect(errors.As(actualErr, &notFoundError)).To(BeTrue())
+			Expect(notFoundError.Detail()).To(Equal("Droplet not found"))
+			Expect(notFoundError.Unwrap()).To(MatchError("foo"))
+		})
+	})
+
+	When("any other error", func() {
+		BeforeEach(func() {
+			err = errors.New("other")
+		})
+
+		It("returns it", func() {
+			Expect(actualErr).To(Equal(err))
+		})
+	})
+})
+
 var _ = Describe("AsUnprocessibleEntity", func() {
 	var (
 		err       error
@@ -165,7 +178,7 @@ var _ = Describe("AsUnprocessibleEntity", func() {
 	})
 
 	JustBeforeEach(func() {
-		actualErr = apierrors.AsUnprocessibleEntity(err, "detail", apierrors.ForbiddenError{}, apierrors.NotFoundError{})
+		actualErr = apierrors.AsUnprocessableEntity(err, "detail", apierrors.ForbiddenError{}, apierrors.NotFoundError{})
 	})
 
 	It("returns nil", func() {

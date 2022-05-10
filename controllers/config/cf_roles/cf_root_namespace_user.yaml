@@ -6,10 +6,19 @@ metadata:
   annotations:
     hncv1alpha2.AnnotationNoneSelector: "true"
 rules:
-  - apiGroups:
-      - networking.cloudfoundry.org
-    resources:
-      - cfdomains
-    verbs:
-      - get
-      - list
+- apiGroups:
+  - networking.cloudfoundry.org
+  resources:
+  - cfdomains
+  verbs:
+  - get
+  - list
+
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch

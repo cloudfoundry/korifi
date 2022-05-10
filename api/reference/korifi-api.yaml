@@ -6,68 +6,31 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: korifi-api-cf-admin-serviceaccount
+  name: korifi-api-system-serviceaccount
   namespace: korifi-api-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: korifi-api-cf-admin-clusterrole
+  name: korifi-api-system-clusterrole
 rules:
 - apiGroups:
   - ""
   resources:
   - namespaces
   verbs:
-  - get
   - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods/log
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ""
-  resources:
-  - pods/status
-  verbs:
-  - get
 - apiGroups:
   - ""
   resources:
   - secrets
   verbs:
-  - create
-  - patch
-  - update
+  - get
 - apiGroups:
   - ""
   resources:
-  - secrets
   - serviceaccounts
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets/status
-  - serviceaccounts/status
   verbs:
   - get
 - apiGroups:
@@ -82,185 +45,61 @@ rules:
   - hierarchyconfigurations
   verbs:
   - get
-  - list
-  - update
-  - watch
 - apiGroups:
   - hnc.x-k8s.io
   resources:
   - subnamespaceanchors
   verbs:
-  - create
-  - delete
   - list
   - watch
-- apiGroups:
-  - kpack.io
-  resources:
-  - clusterbuilders
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - kpack.io
-  resources:
-  - clusterbuilders/status
-  verbs:
-  - get
 - apiGroups:
   - metrics.k8s.io
   resources:
   - pods
   verbs:
   - get
-  - list
-  - watch
 - apiGroups:
   - networking.cloudfoundry.org
   resources:
   - cfdomains
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfdomains/status
-  verbs:
-  - get
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
   - cfroutes
   verbs:
-  - create
-  - delete
-  - get
   - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfroutes/status
-  verbs:
-  - get
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - rolebindings
   verbs:
-  - create
   - list
 - apiGroups:
   - services.cloudfoundry.org
   resources:
   - cfservicebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-- apiGroups:
-  - services.cloudfoundry.org
-  resources:
   - cfserviceinstances
   verbs:
-  - create
-  - delete
-  - get
   - list
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
   - cfapps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfapps/status
-  verbs:
-  - get
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
   - cfbuilds
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfbuilds/status
-  verbs:
-  - get
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
   - cfpackages
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfpackages/status
-  verbs:
-  - get
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
   - cfprocesses
+  - cfspaces
   verbs:
-  - create
-  - delete
-  - get
   - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfprocesses/status
-  verbs:
-  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: korifi-api-cf-admin-clusterrolebinding
+  name: korifi-api-system-clusterrolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: korifi-api-cf-admin-clusterrole
+  name: korifi-api-system-clusterrole
 subjects:
 - kind: ServiceAccount
-  name: korifi-api-cf-admin-serviceaccount
+  name: korifi-api-system-serviceaccount
   namespace: korifi-api-system
 ---
 apiVersion: v1
@@ -325,6 +164,8 @@ metadata:
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    projectcontour.io/upstream-protocol.tls: "443"
   labels:
     app: korifi-api
   name: korifi-api-svc
@@ -361,6 +202,8 @@ spec:
       - env:
         - name: APICONFIG
           value: /etc/korifi-api-config
+        - name: TLSCONFIG
+          value: /etc/korifi-tls-config
         image: cloudfoundry/korifi-api:latest
         name: korifi-api
         ports:
@@ -371,11 +214,45 @@ spec:
         - mountPath: /etc/korifi-api-config
           name: korifi-api-config
           readOnly: true
-      serviceAccountName: korifi-api-cf-admin-serviceaccount
+        - mountPath: /etc/korifi-tls-config
+          name: korifi-tls-config
+          readOnly: true
+      serviceAccountName: korifi-api-system-serviceaccount
       volumes:
       - configMap:
           name: korifi-api-config-f8ccbtc64g
         name: korifi-api-config
+      - name: korifi-tls-config
+        secret:
+          secretName: korifi-api-internal-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: korifi-api-internal-cert
+  namespace: korifi-api-system
+spec:
+  commonName: korifi-api-svc.korifi-api-system.svc.cluster.local
+  dnsNames:
+  - korifi-api-svc.korifi-api-system.svc
+  - korifi-api-svc.korifi-api-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: korifi-api-selfsigned-issuer
+  secretName: korifi-api-internal-cert
+  subject:
+    organizations:
+    - korifi
+  usages:
+  - server auth
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: korifi-api-selfsigned-issuer
+  namespace: korifi-api-system
+spec:
+  selfSigned: {}
 ---
 apiVersion: projectcontour.io/v1
 kind: HTTPProxy
@@ -391,6 +268,9 @@ spec:
     services:
     - name: korifi-api-svc
       port: 443
+      validation:
+        caSecret: korifi-api-internal-cert
+        subjectName: korifi-api-svc.korifi-api-system.svc.cluster.local
     timeoutPolicy:
       response: 5m
   virtualhost:

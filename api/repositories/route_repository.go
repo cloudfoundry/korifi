@@ -21,9 +21,6 @@ const (
 	RoutePrefix       = "cf-route-"
 )
 
-//+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes/status,verbs=get
-
 type RouteRepo struct {
 	namespaceRetriever   NamespaceRetriever
 	userClientFactory    UserK8sClientFactory
@@ -66,6 +63,13 @@ type AddDestinationsToRouteMessage struct {
 	SpaceGUID            string
 	ExistingDestinations []DestinationRecord
 	NewDestinations      []DestinationMessage
+}
+
+type RemoveDestinationFromRouteMessage struct {
+	RouteGUID            string
+	SpaceGUID            string
+	ExistingDestinations []DestinationRecord
+	DestinationGuid      string
 }
 
 type DestinationMessage struct {
@@ -370,6 +374,46 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())
 		}
 		return RouteRecord{}, fmt.Errorf("failed to add destination to route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
+	}
+
+	return cfRouteToRouteRecord(*cfRoute), err
+}
+
+func (f *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message RemoveDestinationFromRouteMessage) (RouteRecord, error) {
+	baseCFRoute := &networkingv1alpha1.CFRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.RouteGUID,
+			Namespace: message.SpaceGUID,
+		},
+	}
+
+	cfRoute := baseCFRoute.DeepCopy()
+
+	var newDestinationList []DestinationRecord
+	for _, dest := range message.ExistingDestinations {
+		if dest.GUID != message.DestinationGuid {
+			newDestinationList = append(newDestinationList, dest)
+		}
+	}
+
+	if len(newDestinationList) == len(message.ExistingDestinations) {
+		return RouteRecord{}, apierrors.NewUnprocessableEntityError(nil, "Unable to unmap route from destination. Ensure the route has a destination with this guid.")
+	}
+
+	baseCFRoute.Spec.Destinations = destinationRecordsToCFDestinations(message.ExistingDestinations)
+	cfRoute.Spec.Destinations = destinationRecordsToCFDestinations(newDestinationList)
+
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
+	if err != nil {
+		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
+			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())
+		}
+		return RouteRecord{}, fmt.Errorf("failed to remove destination from route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
 
 	return cfRouteToRouteRecord(*cfRoute), err

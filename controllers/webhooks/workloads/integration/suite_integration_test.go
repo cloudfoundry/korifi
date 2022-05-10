@@ -95,10 +95,17 @@ var _ = BeforeSuite(func() {
 	cfAppValidatingWebhook := workloads.NewCFAppValidation(appNameDuplicateValidator)
 	Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
-	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType))
-	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType))
+	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFOrgEntityType))
+	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType))
+
 	anchorValidationWebhook := workloads.NewSubnamespaceAnchorValidation(orgNameDuplicateValidator, spaceNameDuplicateValidator)
 	Expect(anchorValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
+
+	orgValidationWebhook := workloads.NewCFOrgValidation(orgNameDuplicateValidator)
+	Expect(orgValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
+
+	spaceValidationWebhook := workloads.NewCFSpaceValidation(spaceNameDuplicateValidator)
+	Expect(spaceValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook
 

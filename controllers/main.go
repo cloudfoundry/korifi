@@ -218,6 +218,7 @@ func main() {
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
+		controllerConfig.PackageRegistrySecretName,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFSpace")
 		os.Exit(1)
@@ -287,6 +288,20 @@ func main() {
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "SubnamespaceAnchors")
+			os.Exit(1)
+		}
+
+		if err = workloads.NewCFOrgValidation(
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFOrgEntityType)),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFOrg")
+			os.Exit(1)
+		}
+
+		if err = workloads.NewCFSpaceValidation(
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType)),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFSpace")
 			os.Exit(1)
 		}
 

@@ -9,6 +9,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -16,7 +18,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("ServiceInstanceRepository", func() {
@@ -24,8 +25,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		testCtx             context.Context
 		serviceInstanceRepo *repositories.ServiceInstanceRepo
 
-		org                 *hnsv1alpha2.SubnamespaceAnchor
-		space               *hnsv1alpha2.SubnamespaceAnchor
+		org                 *workloadsv1alpha1.CFOrg
+		space               *workloadsv1alpha1.CFSpace
 		serviceInstanceName string
 	)
 
@@ -33,8 +34,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		testCtx = context.Background()
 		serviceInstanceRepo = repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPerms)
 
-		org = createOrgAnchorAndNamespace(testCtx, rootNamespace, prefixedGUID("org"))
-		space = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space1"))
+		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
+		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
 		serviceInstanceName = prefixedGUID("service-instance")
 	})
 
@@ -160,7 +161,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	Describe("ListServiceInstances", func() {
 		var (
-			space2, space3                                             *hnsv1alpha2.SubnamespaceAnchor
+			space2, space3                                             *workloadsv1alpha1.CFSpace
 			cfServiceInstance1, cfServiceInstance2, cfServiceInstance3 *servicesv1alpha1.CFServiceInstance
 			nonCFNamespace                                             string
 			filters                                                    repositories.ListServiceInstanceMessage
@@ -169,8 +170,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
-			space3 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space3"))
+			space2 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space2"))
+			space3 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space3"))
 
 			nonCFNamespace = prefixedGUID("non-cf")
 			Expect(k8sClient.Create(
@@ -229,8 +230,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				BeforeEach(func() {
 					filters = repositories.ListServiceInstanceMessage{
 						Names: []string{
-							cfServiceInstance1.Spec.Name,
-							cfServiceInstance3.Spec.Name,
+							cfServiceInstance1.Spec.DisplayName,
+							cfServiceInstance3.Spec.DisplayName,
 						},
 					}
 				})
@@ -402,7 +403,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	Describe("GetServiceInstance", func() {
 		var (
-			space2          *hnsv1alpha2.SubnamespaceAnchor
+			space2          *workloadsv1alpha1.CFSpace
 			serviceInstance *servicesv1alpha1.CFServiceInstance
 			record          repositories.ServiceInstanceRecord
 			getErr          error
@@ -410,7 +411,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			space2 = createSpaceAnchorAndNamespace(testCtx, org.Name, prefixedGUID("space2"))
+			space2 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space2"))
 
 			serviceInstance = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
 			createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space2.Name, "some-other-service-instance", prefixedGUID("secret"))
@@ -436,7 +437,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			It("returns the correct service instance", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 
-				Expect(record.Name).To(Equal(serviceInstance.Spec.Name))
+				Expect(record.Name).To(Equal(serviceInstance.Spec.DisplayName))
 				Expect(record.GUID).To(Equal(serviceInstance.Name))
 				Expect(record.SpaceGUID).To(Equal(serviceInstance.Namespace))
 				Expect(record.SecretName).To(Equal(serviceInstance.Spec.SecretName))

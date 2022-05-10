@@ -67,6 +67,12 @@ spec:
                 - STOPPED
                 - STARTED
                 type: string
+              displayName:
+                description: DisplayName defines the name of the app This is more
+                  restrictive than CC's app model- to make default route validation
+                  errors less likely
+                pattern: ^[-\w]+$
+                type: string
               envSecretName:
                 description: Name of a secret containing a map of multiple environment
                   variables passed to every CFProcess of the app
@@ -97,16 +103,10 @@ spec:
                 - data
                 - type
                 type: object
-              name:
-                description: Name defines the name of the app This is more restrictive
-                  than CC's app model- to make default route validation errors less
-                  likely
-                pattern: ^[-\w]+$
-                type: string
             required:
             - desiredState
+            - displayName
             - lifecycle
-            - name
             type: object
           status:
             description: CFAppStatus defines the observed state of CFApp
@@ -560,11 +560,12 @@ spec:
           spec:
             description: CFOrgSpec defines the desired state of CFOrg
             properties:
-              name:
-                description: Name that is displayed to users
+              displayName:
+                description: DisplayName that is displayed to users
+                pattern: ^[-\w]+$
                 type: string
             required:
-            - name
+            - displayName
             type: object
           status:
             description: CFOrgStatus defines the observed state of CFOrg
@@ -1390,8 +1391,8 @@ spec:
                       TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
                 type: object
-              name:
-                description: Name defines the name of the Service Binding
+              displayName:
+                description: DisplayName defines the name of the Service Binding
                 type: string
               service:
                 description: Specifies the Service this binding uses
@@ -1567,8 +1568,8 @@ spec:
           spec:
             description: CFServiceInstanceSpec defines the desired state of CFServiceInstance
             properties:
-              name:
-                description: Name defines the name of the Service Instance
+              displayName:
+                description: DisplayName defines the name of the Service Instance
                 type: string
               secretName:
                 description: Name of a secret containing the service credentials
@@ -1584,7 +1585,7 @@ spec:
                 - user-provided
                 type: string
             required:
-            - name
+            - displayName
             - secretName
             - type
             type: object
@@ -1722,11 +1723,12 @@ spec:
           spec:
             description: CFSpaceSpec defines the desired state of CFSpace
             properties:
-              name:
-                description: Name of the space displayed to the user
+              displayName:
+                description: DisplayName of the space displayed to the user
+                pattern: ^[-\w]+$
                 type: string
             required:
-            - name
+            - displayName
             type: object
           status:
             description: CFSpaceStatus defines the observed state of CFSpace
@@ -1887,6 +1889,30 @@ rules:
   - pods/log
   verbs:
   - get
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfspaces
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
@@ -2053,6 +2079,13 @@ rules:
   - secrets/status
   - serviceaccounts/status
   verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
   - get
 - apiGroups:
   - ""
@@ -2441,13 +2474,36 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: korifi-controllers-organization-manager
-rules: []
+rules:
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: korifi-controllers-organization-user
-rules: []
+rules:
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfspaces
+  verbs:
+  - list
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -2481,6 +2537,14 @@ rules:
   verbs:
   - get
   - list
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -2702,6 +2766,7 @@ data:
       diskQuotaMB: 1024
     cfRootNamespace: cf
     korifi_controller_namespace: korifi-controllers-system
+    packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
     workloads_tls_secret_name: korifi-workloads-ingress-cert
 kind: ConfigMap
 metadata:
@@ -2818,7 +2883,7 @@ spec:
         - --upstream=http://127.0.0.1:8080/
         - --logtostderr=true
         - --v=10
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
+        image: quay.io/brancz/kube-rbac-proxy:v0.12.0
         name: kube-rbac-proxy
         ports:
         - containerPort: 8443
@@ -3010,6 +3075,50 @@ webhooks:
     - DELETE
     resources:
     - cfapps
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
+      path: /validate-workloads-cloudfoundry-org-v1alpha1-cforg
+  failurePolicy: Fail
+  name: vcforg.workloads.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - workloads.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cforgs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
+      path: /validate-workloads-cloudfoundry-org-v1alpha1-cfspace
+  failurePolicy: Fail
+  name: vcfspace.workloads.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - workloads.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cfspaces
   sideEffects: None
 - admissionReviewVersions:
   - v1

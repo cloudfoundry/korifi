@@ -18,8 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfserviceinstances,verbs=list;create;get;delete
-
 const (
 	CFServiceInstanceGUIDLabel     = "services.cloudfoundry.org/service-instance-guid"
 	ServiceInstanceResourceType    = "Service Instance"
@@ -196,10 +194,10 @@ func (m CreateServiceInstanceMessage) toCFServiceInstance() servicesv1alpha1.CFS
 			Annotations: m.Annotations,
 		},
 		Spec: servicesv1alpha1.CFServiceInstanceSpec{
-			Name:       m.Name,
-			SecretName: guid,
-			Type:       servicesv1alpha1.InstanceType(m.Type),
-			Tags:       m.Tags,
+			DisplayName: m.Name,
+			SecretName:  guid,
+			Type:        servicesv1alpha1.InstanceType(m.Type),
+			Tags:        m.Tags,
 		},
 	}
 }
@@ -208,7 +206,7 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance servicesv1alpha1
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfServiceInstance.ObjectMeta)
 
 	return ServiceInstanceRecord{
-		Name:       cfServiceInstance.Spec.Name,
+		Name:       cfServiceInstance.Spec.DisplayName,
 		GUID:       cfServiceInstance.Name,
 		SpaceGUID:  cfServiceInstance.Namespace,
 		SecretName: cfServiceInstance.Spec.SecretName,
@@ -247,7 +245,7 @@ func applyServiceInstanceListFilter(serviceInstanceList []servicesv1alpha1.CFSer
 
 	var filtered []servicesv1alpha1.CFServiceInstance
 	for _, serviceInstance := range serviceInstanceList {
-		if matchesFilter(serviceInstance.Spec.Name, message.Names) &&
+		if matchesFilter(serviceInstance.Spec.DisplayName, message.Names) &&
 			matchesFilter(serviceInstance.Namespace, message.SpaceGuids) {
 			filtered = append(filtered, serviceInstance)
 		}
@@ -279,7 +277,7 @@ func orderServiceInstances(serviceInstances []servicesv1alpha1.CFServiceInstance
 			less = updateTime1 < updateTime2
 		default:
 			// Default to sorting by name
-			less = serviceInstances[i].Spec.Name < serviceInstances[j].Spec.Name
+			less = serviceInstances[i].Spec.DisplayName < serviceInstances[j].Spec.DisplayName
 		}
 
 		if desc {

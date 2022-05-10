@@ -194,9 +194,9 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 					},
 				},
 				Spec: servicesv1alpha1.CFServiceInstanceSpec{
-					Name:       "",
-					SecretName: "",
-					Type:       "",
+					DisplayName: "",
+					SecretName:  "",
+					Type:        "",
 				},
 			}
 

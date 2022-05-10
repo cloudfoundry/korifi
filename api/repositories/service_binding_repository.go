@@ -15,8 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfservicebindings,verbs=get;list;create;delete
-
 const (
 	LabelServiceBindingProvisionedService = "servicebinding.io/provisioned-service"
 	ServiceBindingResourceType            = "Service Binding"
@@ -86,7 +84,7 @@ func (m CreateServiceBindingMessage) toCFServiceBinding() servicesv1alpha1.CFSer
 			Labels:    map[string]string{LabelServiceBindingProvisionedService: "true"},
 		},
 		Spec: servicesv1alpha1.CFServiceBindingSpec{
-			Name: m.Name,
+			DisplayName: m.Name,
 			Service: corev1.ObjectReference{
 				Kind:       "CFServiceInstance",
 				APIVersion: servicesv1alpha1.GroupVersion.Identifier(),
@@ -165,7 +163,7 @@ func cfServiceBindingToRecord(binding servicesv1alpha1.CFServiceBinding) Service
 	return ServiceBindingRecord{
 		GUID:                binding.Name,
 		Type:                ServiceBindingTypeApp,
-		Name:                binding.Spec.Name,
+		Name:                binding.Spec.DisplayName,
 		AppGUID:             binding.Spec.AppRef.Name,
 		ServiceInstanceGUID: binding.Spec.Service.Name,
 		SpaceGUID:           binding.Namespace,

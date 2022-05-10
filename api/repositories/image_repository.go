@@ -17,6 +17,9 @@ import (
 	k8sclient "k8s.io/client-go/kubernetes"
 )
 
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get
+
 const SourceImageResourceType = "SourceImage"
 
 //counterfeiter:generate -o fake -fake-name ImageBuilder . ImageBuilder

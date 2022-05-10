@@ -1,4 +1,6 @@
-![Build Status](https://github.com/cloudfoundry/korifi/actions/workflows/test-build-push-main.yml/badge.svg) [![Maintainability](https://api.codeclimate.com/v1/badges/f8dff20cd9bab4fb4117/maintainability)](https://codeclimate.com/github/cloudfoundry/korifi/maintainability) [![Test Coverage](https://api.codeclimate.com/v1/badges/f8dff20cd9bab4fb4117/test_coverage)](https://codeclimate.com/github/cloudfoundry/korifi/test_coverage)
+![Build Status](https://github.com/cloudfoundry/korifi/actions/workflows/test-build-push-main.yml/badge.svg)
+[![Maintainability](https://api.codeclimate.com/v1/badges/1112ab5cfa6a0654cfd2/maintainability)](https://codeclimate.com/github/cloudfoundry/korifi/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/1112ab5cfa6a0654cfd2/test_coverage)](https://codeclimate.com/github/cloudfoundry/korifi/test_coverage)
 
 # Introduction
 This repository contains an experimental implementation of the [V3 Cloud Foundry API](http://v3-apidocs.cloudfoundry.org) that is backed entirely by Kubernetes [custom resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/).

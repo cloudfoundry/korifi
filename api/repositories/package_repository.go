@@ -26,12 +26,6 @@ const (
 	PackageResourceType = "Package"
 )
 
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages/status,verbs=get
-
-//+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch
-//+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
-
 type PackageRepo struct {
 	userClientFactory    UserK8sClientFactory
 	namespaceRetriever   NamespaceRetriever

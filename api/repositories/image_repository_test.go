@@ -6,6 +6,11 @@ import (
 	"errors"
 	"io"
 
+	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	. "github.com/onsi/ginkgo/v2"
@@ -13,11 +18,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
-	"code.cloudfoundry.org/korifi/api/apierrors"
-	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/fake"
 )
 
 var _ = Describe("ImageRepository", func() {
@@ -32,10 +32,11 @@ var _ = Describe("ImageRepository", func() {
 
 		imageRepo *repositories.ImageRepository
 
-		imageRef   string
-		uploadErr  error
-		ctx        context.Context
-		org, space *hnsv1alpha2.SubnamespaceAnchor
+		imageRef  string
+		uploadErr error
+		ctx       context.Context
+		org       *workloadsv1alpha1.CFOrg
+		space     *workloadsv1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
@@ -55,8 +56,8 @@ var _ = Describe("ImageRepository", func() {
 
 		ctx = context.Background()
 
-		org = createOrgAnchorAndNamespace(ctx, rootNamespace, prefixedGUID("org"))
-		space = createSpaceAnchorAndNamespace(ctx, org.Name, prefixedGUID("space"))
+		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
+		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 
 		_, err = privilegedK8sClient.
 			CoreV1().

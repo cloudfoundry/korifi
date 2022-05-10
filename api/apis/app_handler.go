@@ -106,6 +106,7 @@ func (h *AppHandler) appGetHandler(authInfo authorization.Info, r *http.Request)
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
 }
 
+//nolint:dupl
 func (h *AppHandler) appCreateHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	ctx := r.Context()
 
@@ -118,7 +119,7 @@ func (h *AppHandler) appCreateHandler(authInfo authorization.Info, r *http.Reque
 	_, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch space from Kubernetes", "spaceGUID", spaceGUID)
-		return nil, apierrors.NotFoundAsUnprocessableEntity(err, "Invalid space. Ensure that the space exists and you have access to it.")
+		return nil, apierrors.AsUnprocessableEntity(err, "Invalid space. Ensure that the space exists and you have access to it.", apierrors.NotFoundError{}, apierrors.ForbiddenError{})
 	}
 
 	appRecord, err := h.appRepo.CreateApp(ctx, authInfo, payload.ToAppCreateMessage())
@@ -189,7 +190,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(authInfo authorization.Info, r 
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
 		h.logger.Error(err, "Error fetching droplet")
-		return nil, apierrors.AsUnprocessibleEntity(err, invalidDropletMsg, apierrors.ForbiddenError{}, apierrors.NotFoundError{})
+		return nil, apierrors.AsUnprocessableEntity(err, invalidDropletMsg, apierrors.ForbiddenError{}, apierrors.NotFoundError{})
 	}
 
 	if droplet.AppGUID != appGUID {
@@ -222,13 +223,13 @@ func (h *AppHandler) appGetCurrentDropletHandler(authInfo authorization.Info, r 
 
 	if app.DropletGUID == "" {
 		h.logger.Info("App does not have a current droplet assigned", "appGUID", app.GUID)
-		return nil, apierrors.NewNotFoundError(err, repositories.DropletResourceType)
+		return nil, apierrors.DropletForbiddenAsNotFound(apierrors.NewNotFoundError(err, repositories.DropletResourceType))
 	}
 
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, app.DropletGUID)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch droplet from Kubernetes", "dropletGUID", app.DropletGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.DropletForbiddenAsNotFound(err)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDroplet(droplet, h.serverURL)), nil

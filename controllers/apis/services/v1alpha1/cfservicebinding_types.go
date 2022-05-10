@@ -26,8 +26,8 @@ import (
 
 // CFServiceBindingSpec defines the desired state of CFServiceBinding
 type CFServiceBindingSpec struct {
-	// Name defines the name of the Service Binding
-	Name *string `json:"name,omitempty"`
+	// DisplayName defines the name of the Service Binding
+	DisplayName *string `json:"displayName,omitempty"`
 
 	// Specifies the Service this binding uses
 	Service v1.ObjectReference `json:"service"`

@@ -6,7 +6,7 @@ metadata: #workloads.cloudfoundry.org/* labels are managed by a mutating webhook
   name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
   namespace: cf
 spec:
-  name: my-app # validated to be unique per namespace by validating webhook
+  displayName: my-app # validated to be unique per namespace by validating webhook
   currentDropletRef: # starts empty and is filled by CF Shim PATCH endpoint /v3/apps/:guid/current_droplet
     name: 1591ee05-e208-4cf3-a662-1c2da42f20a7
   desiredState: STARTED

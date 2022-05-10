@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/apis/fake"
 	"code.cloudfoundry.org/korifi/api/authorization"
+
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -69,6 +70,21 @@ var _ = Describe("Authentication Middleware", func() {
 		Describe("/v3", func() {
 			BeforeEach(func() {
 				requestPath = "/v3"
+			})
+
+			It("passes through", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
+			})
+
+			It("does not inject an authorization.Info in the context", func() {
+				_, ok := authorization.InfoFromContext(actualReq.Context())
+				Expect(ok).To(BeFalse())
+			})
+		})
+
+		Describe("/api/v1/info", func() {
+			BeforeEach(func() {
+				requestPath = "/api/v1/info"
 			})
 
 			It("passes through", func() {

@@ -29,6 +29,7 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 		routeRepo := repositories.NewRouteRepo(namespaceRetriever, clientFactory, nsPermissions)
 		dropletRepo := repositories.NewDropletRepo(clientFactory, namespaceRetriever, nsPermissions)
 		orgRepo := repositories.NewOrgRepo("root-ns", k8sClient, clientFactory, nsPermissions, time.Minute)
+		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, clientFactory, nsPermissions, time.Minute)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
 		decoderValidator, err := NewDefaultDecoderValidator()
@@ -42,7 +43,7 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 			processRepo,
 			routeRepo,
 			domainRepo,
-			orgRepo,
+			spaceRepo,
 			scaleAppProcess,
 			decoderValidator,
 		)
@@ -125,7 +126,7 @@ func createAppWithGUID(space, guid, secretName string) *workloadsv1alpha1.CFApp 
 			Namespace: space,
 		},
 		Spec: workloadsv1alpha1.CFAppSpec{
-			Name:          "name-for-" + guid,
+			DisplayName:   "name-for-" + guid,
 			EnvSecretName: secretName,
 			DesiredState:  "STOPPED",
 			Lifecycle: workloadsv1alpha1.Lifecycle{

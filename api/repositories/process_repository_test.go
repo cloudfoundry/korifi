@@ -16,15 +16,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("ProcessRepo", func() {
 	var (
 		ctx          context.Context
 		processRepo  *repositories.ProcessRepo
-		org          *hnsv1alpha2.SubnamespaceAnchor
-		space        *hnsv1alpha2.SubnamespaceAnchor
+		org          *workloadsv1alpha1.CFOrg
+		space        *workloadsv1alpha1.CFSpace
 		app1GUID     string
 		process1GUID string
 	)
@@ -63,7 +62,7 @@ var _ = Describe("ProcessRepo", func() {
 
 		When("the user has permission to get the process", func() {
 			BeforeEach(func() {
-				createClusterRoleBinding(ctx, userName, spaceDeveloperRole.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("returns a Process record for the Process CR we request", func() {
@@ -134,14 +133,13 @@ var _ = Describe("ProcessRepo", func() {
 		var (
 			app2GUID       string
 			process2GUID   string
-			space1, space2 *hnsv1alpha2.SubnamespaceAnchor
+			space1, space2 *workloadsv1alpha1.CFSpace
 
 			listProcessesMessage repositories.ListProcessesMessage
 			processes            []repositories.ProcessRecord
 		)
 
 		BeforeEach(func() {
-			// createClusterRoleBinding(ctx, userName, spaceDeveloperRole.Name)
 			space1 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
 			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
 
@@ -168,10 +166,10 @@ var _ = Describe("ProcessRepo", func() {
 
 		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				// createClusterRoleBinding(ctx, userName, spaceDeveloperRole.Name)
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space1.Name)
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
+
 			It("returns Process records for the AppGUID we request", func() {
 				Expect(processes).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(process1GUID)}),
@@ -207,7 +205,7 @@ var _ = Describe("ProcessRepo", func() {
 
 	Describe("ScaleProcess", func() {
 		var (
-			space1              *hnsv1alpha2.SubnamespaceAnchor
+			space1              *workloadsv1alpha1.CFSpace
 			cfProcess           *workloadsv1alpha1.CFProcess
 			scaleProcessMessage *repositories.ScaleProcessMessage
 

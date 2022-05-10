@@ -5,4 +5,4 @@ metadata:
   name: cf-space-ecd1cd95-4ac9-4ad8-aed3-029f7365256c
   namespace: cf-org-dac1cd95-4ac9-4ad8-aed3-029f7363517e
 spec:
-  name: test-space
+  displayName: test-space

@@ -35,11 +35,12 @@ spec:
           spec:
             description: CFSpaceSpec defines the desired state of CFSpace
             properties:
-              name:
-                description: Name of the space displayed to the user
+              displayName:
+                description: DisplayName of the space displayed to the user
+                pattern: ^[-\w]+$
                 type: string
             required:
-            - name
+            - displayName
             type: object
           status:
             description: CFSpaceStatus defines the observed state of CFSpace

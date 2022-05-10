@@ -35,3 +35,7 @@ issues:
     - path: service\w+_controller\.go
       linters:
         - dupl
+    # Ignore false positive duplicate linter errors comparing validating webhooks for cforg and cfapp.
+    - path: workloads/cf\w+_validation\.go
+      linters:
+        - dupl

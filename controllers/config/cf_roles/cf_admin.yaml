@@ -30,6 +30,32 @@ rules:
 - apiGroups:
   - workloads.cloudfoundry.org
   resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfspaces
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
   - cfapps
   verbs:
   - get

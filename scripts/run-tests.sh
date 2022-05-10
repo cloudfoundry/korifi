@@ -9,6 +9,10 @@ ENVTEST_ASSETS_DIR="${SCRIPT_DIR}/../testbin"
 mkdir -p "${ENVTEST_ASSETS_DIR}"
 
 extra_args=()
+if [[ -n "$GINKGO_NODES" ]]; then
+  extra_args+=("--procs=${GINKGO_NODES}")
+fi
+
 if ! egrep -q e2e <(echo "$@"); then
   test -f "${ENVTEST_ASSETS_DIR}/setup-envtest.sh" || curl -sSLo "${ENVTEST_ASSETS_DIR}/setup-envtest.sh" https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh
   source "${ENVTEST_ASSETS_DIR}/setup-envtest.sh"
@@ -33,10 +37,6 @@ else
     export API_SERVER_ROOT=https://localhost
   fi
 
-  if [[ -n "$GINKGO_NODES" ]]; then
-    extra_args+=("--procs=${GINKGO_NODES}")
-  fi
-
   # creates user keys/certs and service accounts and exports vars for them
   source "$SCRIPT_DIR/account-creation.sh" "$SCRIPT_DIR"
 
@@ -55,4 +55,8 @@ if [[ -n "$SEED" ]]; then
   extra_args+=("--seed=${SEED}")
 fi
 
-ginkgo --race -p --randomize-all --randomize-suites "${extra_args[@]}" $@
+if [[ -z "$NO_RACE" ]]; then
+  extra_args+=("--race")
+fi
+
+ginkgo -p --randomize-all --randomize-suites "${extra_args[@]}" $@

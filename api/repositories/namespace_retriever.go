@@ -11,6 +11,10 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
+//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfapps;cfbuilds;cfpackages;cfprocesses;cfspaces,verbs=list
+//+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfdomains;cfroutes,verbs=list
+//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfservicebindings;cfserviceinstances,verbs=list
+
 var (
 	CFAppsGVR = schema.GroupVersionResource{
 		Group:    "workloads.cloudfoundry.org",
@@ -66,6 +70,12 @@ var (
 		Resource: "cfserviceinstances",
 	}
 
+	CFSpacesGVR = schema.GroupVersionResource{
+		Group:    "workloads.cloudfoundry.org",
+		Version:  "v1alpha1",
+		Resource: "cfspaces",
+	}
+
 	ResourceMap = map[string]schema.GroupVersionResource{
 		AppResourceType:             CFAppsGVR,
 		BuildResourceType:           CFBuildsGVR,
@@ -76,6 +86,7 @@ var (
 		RouteResourceType:           CFRoutesGVR,
 		ServiceBindingResourceType:  CFServiceBindingsGVR,
 		ServiceInstanceResourceType: CFServiceInstancesGVR,
+		SpaceResourceType:           CFSpacesGVR,
 	}
 )
 

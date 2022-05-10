@@ -52,10 +52,6 @@ type LogRecord struct {
 	Timestamp int64
 }
 
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds/status,verbs=get
-//+kubebuilder:rbac:groups="",resources=pods/log,verbs=get;list
-
 type BuildRepo struct {
 	namespaceRetriever NamespaceRetriever
 	userClientFactory  UserK8sClientFactory

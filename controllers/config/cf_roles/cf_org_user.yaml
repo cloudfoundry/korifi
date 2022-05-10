@@ -1,6 +1,22 @@
-# The CF Organization Manager Role
+# The CF Organization User Role
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: organization-user
-rules: []
+rules:
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
+
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - cfspaces
+  verbs:
+  - list
+  - get

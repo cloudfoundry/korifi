@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;create
+
 package workloads
 
 import (
@@ -22,32 +24,39 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 )
 
 const (
-	SpaceNameLabel = "cloudfoundry.org/space-name"
+	SpaceNameLabel           = "cloudfoundry.org/space-name"
+	kpackServiceAccountName  = "kpack-service-account"
+	eiriniServiceAccountName = "eirini"
 )
 
 // CFSpaceReconciler reconciles a CFSpace object
 type CFSpaceReconciler struct {
-	client client.Client
-	scheme *runtime.Scheme
-	log    logr.Logger
+	client                    client.Client
+	scheme                    *runtime.Scheme
+	log                       logr.Logger
+	packageRegistrySecretName string
 }
 
-func NewCFSpaceReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *CFSpaceReconciler {
+func NewCFSpaceReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger, packageRegistrySecretName string) *CFSpaceReconciler {
 	return &CFSpaceReconciler{
-		client: client,
-		scheme: scheme,
-		log:    log,
+		client:                    client,
+		scheme:                    scheme,
+		log:                       log,
+		packageRegistrySecretName: packageRegistrySecretName,
 	}
 }
 
@@ -81,7 +90,7 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 
 		anchorLabels := map[string]string{
-			SpaceNameLabel: cfSpace.Spec.Name,
+			SpaceNameLabel: cfSpace.Spec.DisplayName,
 		}
 		anchor, err = createSubnamespaceAnchor(ctx, r.client, req, cfSpace, anchorLabels)
 		if err != nil {
@@ -107,6 +116,11 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
+	err = r.createServiceAccounts(ctx, namespace.Name)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	cfSpace.Status.GUID = namespace.Name
 	err = updateStatus(ctx, r.client, cfSpace, metav1.ConditionTrue)
 	if err != nil {
@@ -115,6 +129,46 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *CFSpaceReconciler) createServiceAccounts(ctx context.Context, namespace string) error {
+	err := r.createServiceAccountIfMissing(ctx, &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kpackServiceAccountName,
+			Namespace: namespace,
+		},
+		ImagePullSecrets: []corev1.LocalObjectReference{
+			{Name: r.packageRegistrySecretName},
+		},
+		Secrets: []corev1.ObjectReference{
+			{Name: r.packageRegistrySecretName},
+		},
+	})
+	if err != nil {
+		r.log.Error(err, "unable to create kpack service account ")
+		return err
+	}
+
+	err = r.createServiceAccountIfMissing(ctx, &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      eiriniServiceAccountName,
+			Namespace: namespace,
+		},
+	})
+	if err != nil {
+		r.log.Error(err, "unable to create eirini service account")
+		return err
+	}
+
+	return nil
+}
+
+func (r *CFSpaceReconciler) createServiceAccountIfMissing(ctx context.Context, serviceAccount *corev1.ServiceAccount) error {
+	err := r.client.Get(ctx, types.NamespacedName{Name: serviceAccount.Name, Namespace: serviceAccount.Namespace}, new(corev1.ServiceAccount))
+	if err != nil {
+		return r.client.Create(ctx, serviceAccount)
+	}
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

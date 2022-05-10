@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
-
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
+	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/tests/integration/helpers"
 	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 
 	"github.com/google/uuid"
@@ -19,6 +19,7 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -31,10 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/tests/integration/helpers"
+	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 const (
@@ -135,7 +133,7 @@ var _ = BeforeEach(func() {
 
 	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
 	Expect(err).NotTo(HaveOccurred())
-	userClientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper)
+	userClientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper, repositories.NewDefaultBackoff())
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)
@@ -145,87 +143,83 @@ var _ = AfterEach(func() {
 	Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 })
 
-func createAnchorAndNamespace(ctx context.Context, inNamespace, name, orgSpaceLabel string) (*hnsv1alpha2.SubnamespaceAnchor, *corev1.Namespace, *hnsv1alpha2.HierarchyConfiguration) {
+func createOrgWithCleanup(ctx context.Context, name string) *workloadsv1alpha1.CFOrg {
 	guid := uuid.NewString()
-	anchor := &hnsv1alpha2.SubnamespaceAnchor{
+	cfOrg := &workloadsv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
-			Namespace: inNamespace,
-			Labels:    map[string]string{orgSpaceLabel: name},
+			Namespace: rootNamespace,
 		},
-		Status: hnsv1alpha2.SubnamespaceAnchorStatus{
-			State: hnsv1alpha2.Ok,
+		Spec: workloadsv1alpha1.CFOrgSpec{
+			DisplayName: name,
 		},
 	}
+	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
 
-	Expect(k8sClient.Create(ctx, anchor)).To(Succeed())
-
-	depth := "1"
-	if orgSpaceLabel == repositories.SpaceNameLabel {
-		depth = "2"
-	}
+	meta.SetStatusCondition(&(cfOrg.Status.Conditions), metav1.Condition{
+		Type:    "Ready",
+		Status:  metav1.ConditionTrue,
+		Reason:  "cus",
+		Message: "cus",
+	})
+	Expect(k8sClient.Status().Update(ctx, cfOrg)).To(Succeed())
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: anchor.Name,
+			Name: cfOrg.Name,
 			Labels: map[string]string{
-				rootNamespace + hnsv1alpha2.LabelTreeDepthSuffix: depth,
-			},
-			Annotations: map[string]string{
-				hnsv1alpha2.SubnamespaceOf: inNamespace,
+				rootNamespace + hnsv1alpha2.LabelTreeDepthSuffix: "1",
 			},
 		},
 	}
 	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 
-	hierarchy := &hnsv1alpha2.HierarchyConfiguration{
+	DeferCleanup(func() {
+		_ = k8sClient.Delete(ctx, cfOrg)
+		_ = k8sClient.Delete(ctx, namespace)
+	})
+
+	return cfOrg
+}
+
+func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *workloadsv1alpha1.CFSpace {
+	guid := uuid.NewString()
+	cfSpace := &workloadsv1alpha1.CFSpace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "hierarchy",
-			Namespace: guid,
+			Name:      guid,
+			Namespace: orgGUID,
 		},
-		Spec: hnsv1alpha2.HierarchyConfigurationSpec{
-			Parent: inNamespace,
+		Spec: workloadsv1alpha1.CFSpaceSpec{
+			DisplayName: name,
 		},
 	}
-	Expect(k8sClient.Create(ctx, hierarchy)).To(Succeed())
+	Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 
-	return anchor, namespace, hierarchy
-}
+	cfSpace.Status.GUID = cfSpace.Name
+	meta.SetStatusCondition(&(cfSpace.Status.Conditions), metav1.Condition{
+		Type:    "Ready",
+		Status:  metav1.ConditionTrue,
+		Reason:  "cus",
+		Message: "cus",
+	})
+	Expect(k8sClient.Status().Update(ctx, cfSpace)).To(Succeed())
 
-func createOrgWithCleanup(ctx context.Context, name string) *hnsv1alpha2.SubnamespaceAnchor {
-	org, namespace, hierarchy := createAnchorAndNamespace(ctx, rootNamespace, name, repositories.OrgNameLabel)
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: cfSpace.Name,
+			Labels: map[string]string{
+				rootNamespace + hnsv1alpha2.LabelTreeDepthSuffix: "2",
+			},
+		},
+	}
+	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 
 	DeferCleanup(func() {
-		Expect(k8sClient.Delete(ctx, hierarchy)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, org)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
+		_ = k8sClient.Delete(ctx, cfSpace)
+		_ = k8sClient.Delete(ctx, namespace)
 	})
 
-	return org
-}
-
-func createOrgAnchorAndNamespace(ctx context.Context, rootNamespace, name string) *hnsv1alpha2.SubnamespaceAnchor {
-	org, _, _ := createAnchorAndNamespace(ctx, rootNamespace, name, repositories.OrgNameLabel)
-
-	return org
-}
-
-func createSpaceWithCleanup(ctx context.Context, orgName, name string) *hnsv1alpha2.SubnamespaceAnchor {
-	space, namespace, hierarchy := createAnchorAndNamespace(ctx, orgName, name, repositories.SpaceNameLabel)
-
-	DeferCleanup(func() {
-		Expect(k8sClient.Delete(ctx, hierarchy)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, space)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
-	})
-
-	return space
-}
-
-func createSpaceAnchorAndNamespace(ctx context.Context, orgName, name string) *hnsv1alpha2.SubnamespaceAnchor {
-	space, _, _ := createAnchorAndNamespace(ctx, orgName, name, repositories.SpaceNameLabel)
-
-	return space
+	return cfSpace
 }
 
 func createNamespace(ctx context.Context, orgName, name string, labels map[string]string) *corev1.Namespace {
@@ -240,6 +234,40 @@ func createNamespace(ctx context.Context, orgName, name string, labels map[strin
 	}
 	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 	return namespace
+}
+
+func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {
+	filepath := filepath.Join("..", "..", "controllers", "config", "cf_roles", filename+".yaml")
+	content, err := ioutil.ReadFile(filepath)
+	Expect(err).NotTo(HaveOccurred())
+
+	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDecoder()
+	clusterRole := &rbacv1.ClusterRole{}
+	err = runtime.DecodeInto(decoder, content, clusterRole)
+	Expect(err).NotTo(HaveOccurred())
+
+	clusterRole.ObjectMeta.Name = "cf-" + clusterRole.ObjectMeta.Name
+	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
+
+	return clusterRole
+}
+
+// TODO: We shouldn't be creating cluster role bindings, right?
+func createClusterRoleBinding(ctx context.Context, userName, roleName string) {
+	clusterRoleBinding := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: generateGUID(),
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind: rbacv1.UserKind,
+			Name: userName,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: roleName,
+		},
+	}
+	Expect(k8sClient.Create(ctx, &clusterRoleBinding)).To(Succeed())
 }
 
 func createRoleBinding(ctx context.Context, userName, roleName, namespace string) {
@@ -258,37 +286,4 @@ func createRoleBinding(ctx context.Context, userName, roleName, namespace string
 		},
 	}
 	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
-}
-
-func createClusterRoleBinding(ctx context.Context, userName, roleName string) {
-	clusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: generateGUID(),
-		},
-		Subjects: []rbacv1.Subject{{
-			Kind: rbacv1.UserKind,
-			Name: userName,
-		}},
-		RoleRef: rbacv1.RoleRef{
-			Kind: "ClusterRole",
-			Name: roleName,
-		},
-	}
-	Expect(k8sClient.Create(ctx, &clusterRoleBinding)).To(Succeed())
-}
-
-func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {
-	filepath := filepath.Join("..", "..", "controllers", "config", "cf_roles", filename+".yaml")
-	content, err := ioutil.ReadFile(filepath)
-	Expect(err).NotTo(HaveOccurred())
-
-	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDecoder()
-	clusterRole := &rbacv1.ClusterRole{}
-	err = runtime.DecodeInto(decoder, content, clusterRole)
-	Expect(err).NotTo(HaveOccurred())
-
-	clusterRole.ObjectMeta.Name = "cf-" + clusterRole.ObjectMeta.Name
-	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
-
-	return clusterRole
 }

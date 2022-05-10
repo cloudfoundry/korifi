@@ -117,13 +117,13 @@ func (r *CFProcessReconciler) createOrPatchLRP(ctx context.Context, cfApp *workl
 	var appPort int
 	appPort, err = r.getPort(ctx, cfProcess, cfApp)
 	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch routes for CFApp %s/%s", cfProcess.Namespace, cfApp.Spec.Name))
+		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch routes for CFApp %s/%s", cfProcess.Namespace, cfApp.Spec.DisplayName))
 		return err
 	}
 
 	envVars, err := r.EnvBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
-		r.Log.Error(err, "error when trying build the process environment for app: %s/%s", cfProcess.Namespace, cfApp.Spec.Name)
+		r.Log.Error(err, "error when trying build the process environment for app: %s/%s", cfProcess.Namespace, cfApp.Spec.DisplayName)
 		return err
 	}
 
@@ -217,7 +217,7 @@ func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *worklo
 	desiredLRP.Spec.MemoryMB = cfProcess.Spec.MemoryMB
 	desiredLRP.Spec.ProcessType = cfProcess.Spec.ProcessType
 	desiredLRP.Spec.Command = commandForProcess(cfProcess, cfApp)
-	desiredLRP.Spec.AppName = cfApp.Spec.Name
+	desiredLRP.Spec.AppName = cfApp.Spec.DisplayName
 	desiredLRP.Spec.AppGUID = cfApp.Name
 	desiredLRP.Spec.Image = cfBuild.Status.BuildDropletStatus.Registry.Image
 	desiredLRP.Spec.Ports = cfProcess.Spec.Ports

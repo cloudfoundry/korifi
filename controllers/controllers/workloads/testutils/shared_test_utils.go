@@ -60,7 +60,7 @@ func BuildCFAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFA
 			},
 		},
 		Spec: workloadsv1alpha1.CFAppSpec{
-			Name:         "test-app-name",
+			DisplayName:  "test-app-name",
 			DesiredState: "STOPPED",
 			Lifecycle: workloadsv1alpha1.Lifecycle{
 				Type: "buildpack",
@@ -81,7 +81,7 @@ func BuildCFOrgObject(orgGUID string, spaceGUID string) *workloadsv1alpha1.CFOrg
 			Namespace: spaceGUID,
 		},
 		Spec: workloadsv1alpha1.CFOrgSpec{
-			Name: "test-org-name",
+			DisplayName: "test-org-name",
 		},
 	}
 }
@@ -93,7 +93,7 @@ func BuildCFSpaceObject(spaceGUID string, orgGUID string) *workloadsv1alpha1.CFS
 			Namespace: orgGUID,
 		},
 		Spec: workloadsv1alpha1.CFSpaceSpec{
-			Name: "test-space-name",
+			DisplayName: "test-space-name",
 		},
 	}
 }

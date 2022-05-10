@@ -15,7 +15,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("PackageRepository", func() {
@@ -25,8 +24,8 @@ var _ = Describe("PackageRepository", func() {
 	var (
 		packageRepo *repositories.PackageRepo
 		ctx         context.Context
-		org         *hnsv1alpha2.SubnamespaceAnchor
-		space       *hnsv1alpha2.SubnamespaceAnchor
+		org         *workloadsv1alpha1.CFOrg
+		space       *workloadsv1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
@@ -197,7 +196,7 @@ var _ = Describe("PackageRepository", func() {
 		)
 
 		var (
-			space2      *hnsv1alpha2.SubnamespaceAnchor
+			space2      *workloadsv1alpha1.CFSpace
 			packageList []repositories.PackageRecord
 			listMessage repositories.ListPackagesMessage
 		)
@@ -216,7 +215,7 @@ var _ = Describe("PackageRepository", func() {
 		When("there are packages in multiple namespaces", func() {
 			var (
 				package1GUID, package2GUID, noPermissionsPackageGUID string
-				noPermissionsSpace                                   *hnsv1alpha2.SubnamespaceAnchor
+				noPermissionsSpace                                   *workloadsv1alpha1.CFSpace
 			)
 
 			BeforeEach(func() {

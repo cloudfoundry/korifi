@@ -230,7 +230,7 @@ func mustHaveEnv(key string) string {
 func mustHaveEnvIdx(key string, idx int) string {
 	val := mustHaveEnv(key)
 	vals := strings.Fields(val)
-	Expect(len(vals)).To(BeNumerically(">=", idx), val)
+	ExpectWithOffset(1, len(vals)).To(BeNumerically(">=", idx), val)
 
 	return vals[idx-1]
 }
@@ -262,8 +262,8 @@ func deleteOrg(guid string) {
 
 	resp, err := adminClient.R().
 		Delete("/v3/organizations/" + guid)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusAccepted))
 }
 
 func createOrgRaw(orgName string) (string, error) {
@@ -332,8 +332,8 @@ func deleteSpace(guid string) {
 
 	resp, err := adminClient.R().
 		Delete("/v3/spaces/" + guid)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusAccepted))
 }
 
 func createSpace(spaceName, orgGUID string) string {
@@ -602,8 +602,8 @@ func getDomainGUID(domainName string) string {
 		SetResult(&res).
 		Get("/v3/domains")
 
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 
 	for _, d := range res.Resources {
 		if d.Name == domainName {
@@ -685,8 +685,8 @@ func expectForbiddenError(resp *resty.Response, errResp cfErrs) {
 }
 
 func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail string) {
-	Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-	Expect(errResp.Errors).To(ConsistOf(
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+	ExpectWithOffset(1, errResp.Errors).To(ConsistOf(
 		cfErr{
 			Detail: detail,
 			Title:  "CF-UnprocessableEntity",

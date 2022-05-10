@@ -116,7 +116,7 @@ var _ = Describe("Routes", func() {
 		})
 
 		AfterEach(func() {
-			deleteSpace(spaceGUID)
+			deleteSpace(space2GUID)
 		})
 
 		JustBeforeEach(func() {
@@ -181,13 +181,19 @@ var _ = Describe("Routes", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns an unprocessable entity error when the user has no role in the space", func() {
-			Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-			Expect(createErr.Errors).To(ConsistOf(cfErr{
-				Detail: "Invalid space. Ensure that the space exists and you have access to it.",
-				Title:  "CF-UnprocessableEntity",
-				Code:   10008,
-			}))
+		When("the user cannot access the space", func() {
+			BeforeEach(func() {
+				client = tokenClient
+			})
+
+			It("returns an unprocessable entity error", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+				Expect(createErr.Errors).To(ConsistOf(cfErr{
+					Detail: "Invalid space. Ensure that the space exists and you have access to it.",
+					Title:  "CF-UnprocessableEntity",
+					Code:   10008,
+				}))
+			})
 		})
 
 		When("the user is a space manager", func() {
@@ -195,7 +201,7 @@ var _ = Describe("Routes", func() {
 				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
 			})
 
-			It("returns an unprocessable entity error when the user has no role in the space", func() {
+			It("returns an forbidden error", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
 				Expect(resp).To(HaveRestyBody(ContainSubstring("CF-NotAuthorized")))
 			})
@@ -472,6 +478,64 @@ var _ = Describe("Routes", func() {
 			It("returns the destinations", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.Destinations).To(ConsistOf(MatchFields(IgnoreExtras, Fields{"GUID": Equal(destinationGUIDs[0])})))
+			})
+		})
+
+		When("the user is not authorized in the space", func() {
+			It("returns resource not found response", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+				Expect(errResp.Errors).To(ConsistOf(
+					cfErr{
+						Title:  "CF-ResourceNotFound",
+						Code:   10010,
+						Detail: "Route not found. Ensure it exists and you have access to it.",
+					},
+				))
+			})
+		})
+	})
+
+	Describe("delete destination", func() {
+		var (
+			appGUID          string
+			routeGUID        string
+			destinationGUIDs []string
+			errResp          cfErrs
+			resp             *resty.Response
+		)
+
+		BeforeEach(func() {
+			appGUID = createApp(spaceGUID, generateGUID("app"))
+			routeGUID = createRoute(host, generateGUID("/some-path"), spaceGUID, domainGUID)
+			destinationGUIDs = addDestinationForRoute(appGUID, routeGUID)
+			Expect(destinationGUIDs).To(HaveLen(1))
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = client.R().
+				SetError(&errResp).
+				Delete("/v3/routes/" + routeGUID + "/destinations/" + destinationGUIDs[0])
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the user is a space developer in the space", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("succeeds with 204 No Content", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusNoContent))
+			})
+		})
+
+		When("the user is a space manager in the space", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("fails with 403 Forbidden", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
 			})
 		})
 

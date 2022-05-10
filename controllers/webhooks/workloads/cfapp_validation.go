@@ -78,23 +78,23 @@ func (v *CFAppValidation) Handle(ctx context.Context, req admission.Request) adm
 
 	var validatorErr error
 
-	cfAppNameLeaseValue := strings.ToLower(cfApp.Spec.Name)
+	cfAppNameLeaseValue := strings.ToLower(cfApp.Spec.DisplayName)
 	switch req.Operation {
 	case admissionv1.Create:
 		validatorErr = v.duplicateValidator.ValidateCreate(ctx, cfapplog, cfApp.Namespace, cfAppNameLeaseValue)
 
 	case admissionv1.Update:
-		oldCFAppNameLeaseValue := strings.ToLower(oldCFApp.Spec.Name)
+		oldCFAppNameLeaseValue := strings.ToLower(oldCFApp.Spec.DisplayName)
 		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, cfapplog, cfApp.Namespace, oldCFAppNameLeaseValue, cfAppNameLeaseValue)
 
 	case admissionv1.Delete:
-		oldCFAppNameLeaseValue := strings.ToLower(oldCFApp.Spec.Name)
+		oldCFAppNameLeaseValue := strings.ToLower(oldCFApp.Spec.DisplayName)
 		validatorErr = v.duplicateValidator.ValidateDelete(ctx, cfapplog, oldCFApp.Namespace, oldCFAppNameLeaseValue)
 	}
 
 	if validatorErr != nil {
 		if errors.Is(validatorErr, webhooks.ErrorDuplicateName) {
-			errorMessage := fmt.Sprintf("App with the name '%s' already exists.", cfApp.Spec.Name)
+			errorMessage := fmt.Sprintf("App with the name '%s' already exists.", cfApp.Spec.DisplayName)
 			return admission.Denied(webhooks.ValidationError{Type: DuplicateAppErrorType, Message: errorMessage}.Marshal())
 		}
 
