@@ -133,7 +133,7 @@ var _ = BeforeEach(func() {
 
 	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
 	Expect(err).NotTo(HaveOccurred())
-	userClientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper)
+	userClientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper, repositories.NewDefaultBackoff())
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)

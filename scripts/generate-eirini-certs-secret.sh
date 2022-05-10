@@ -19,7 +19,7 @@ if [[ "$(openssl version | awk '{ print $1 }')" == "OpenSSL" ]]; then
     -nodes \
     -subj '/CN=localhost' \
     -addext "subjectAltName = DNS:${otherDNS}, DNS:${otherDNS}.cluster.local" \
-    -days 365 2> /dev/null
+    -days 365 2>/dev/null
 else
   openssl req -x509 -newkey rsa:4096 \
     -keyout "${keys}/tls.key" \
@@ -27,7 +27,7 @@ else
     -nodes \
     -subj '/CN=localhost' \
     -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:${otherDNS}, DNS:${otherDNS}.cluster.local'")) \
-    -days 365 2> /dev/null
+    -days 365 2>/dev/null
 fi
 
 for secret_name in eirini-webhooks-certs; do

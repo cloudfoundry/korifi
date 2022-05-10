@@ -2083,6 +2083,13 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - ""
+  resources:
   - services
   verbs:
   - create
@@ -2496,6 +2503,7 @@ rules:
   - cfspaces
   verbs:
   - list
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -2758,6 +2766,7 @@ data:
       diskQuotaMB: 1024
     cfRootNamespace: cf
     korifi_controller_namespace: korifi-controllers-system
+    packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
     workloads_tls_secret_name: korifi-workloads-ingress-cert
 kind: ConfigMap
 metadata:

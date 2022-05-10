@@ -74,7 +74,7 @@ func (a *ApplyManifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo
 
 	_, err = a.domainRepo.GetDomainByName(ctx, authInfo, defaultDomainName)
 	if err != nil {
-		return apierrors.AsUnprocessibleEntity(
+		return apierrors.AsUnprocessableEntity(
 			err,
 			fmt.Sprintf("The configured default domain %q was not found", defaultDomainName),
 			apierrors.NotFoundError{},

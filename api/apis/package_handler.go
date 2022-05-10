@@ -131,7 +131,7 @@ func (h PackageHandler) packageCreateHandler(authInfo authorization.Info, r *htt
 	appRecord, err := h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
 		h.logger.Info("Error finding App", "App GUID", payload.Relationships.App.Data.GUID)
-		return nil, apierrors.AsUnprocessibleEntity(
+		return nil, apierrors.AsUnprocessableEntity(
 			err,
 			"App is invalid. Ensure it exists and you have access to it.",
 			apierrors.NotFoundError{},

@@ -14,12 +14,12 @@ import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
-	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
@@ -39,6 +39,10 @@ var (
 	k8sClient               client.Client
 	cfBuildReconciler       *CFBuildReconciler
 	fakeImageProcessFetcher *fake.ImageProcessFetcher
+)
+
+const (
+	packageRegistrySecretName = "test-package-registry-secret"
 )
 
 func TestWorkloadsControllers(t *testing.T) {
@@ -111,6 +115,7 @@ var _ = BeforeSuite(func() {
 			DefaultDiskQuotaMB: 512,
 		},
 		KorifiControllerNamespace: "korifi-controllers-system",
+		PackageRegistrySecretName: packageRegistrySecretName,
 		WorkloadsTLSSecretName:    "korifi-workloads-ingress-cert",
 	}
 
@@ -162,6 +167,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
+		packageRegistrySecretName,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 

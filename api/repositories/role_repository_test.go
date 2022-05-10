@@ -42,7 +42,7 @@ var _ = Describe("RoleRepository", func() {
 			"cf_user":              {Name: rootNamespaceUserRole.Name},
 		}
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
-		spaceRepo := repositories.NewSpaceRepo(orgRepo, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
+		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, time.Millisecond*2000)
 		roleRepo = repositories.NewRoleRepo(
 			userClientFactory,
 			spaceRepo,
@@ -314,6 +314,18 @@ var _ = Describe("RoleRepository", func() {
 		When("the space does not exist", func() {
 			BeforeEach(func() {
 				roleCreateMessage.Space = "i-do-not-exist"
+			})
+
+			It("returns an error", func() {
+				Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+			})
+		})
+
+		When("the space is forbidden", func() {
+			BeforeEach(func() {
+				anotherOrg := createOrgWithCleanup(ctx, uuid.NewString())
+				cfSpace = createSpaceWithCleanup(ctx, anotherOrg.Name, uuid.NewString())
+				roleCreateMessage.Space = cfSpace.Name
 			})
 
 			It("returns an error", func() {
