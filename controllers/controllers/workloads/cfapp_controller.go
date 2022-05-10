@@ -250,19 +250,19 @@ func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *workloadsv1a
 
 func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []networkingv1alpha1.CFRoute) error {
 	var updatedDestinations []networkingv1alpha1.Destination
-	for _, cfRoute := range cfRoutes {
-		originalCFRoute := cfRoute.DeepCopy()
-		if cfRoute.Spec.Destinations != nil {
-			for _, destination := range cfRoute.Spec.Destinations {
+	for i := range cfRoutes {
+		originalCFRoute := cfRoutes[i].DeepCopy()
+		if cfRoutes[i].Spec.Destinations != nil {
+			for _, destination := range cfRoutes[i].Spec.Destinations {
 				if destination.AppRef.Name != cfAppGUID {
 					updatedDestinations = append(updatedDestinations, destination)
 				} else {
-					r.Log.Info(fmt.Sprintf("Removing destination for cfapp %s from cfroute %s", cfAppGUID, cfRoute.Name))
+					r.Log.Info(fmt.Sprintf("Removing destination for cfapp %s from cfroute %s", cfAppGUID, cfRoutes[i].Name))
 				}
 			}
 		}
-		cfRoute.Spec.Destinations = updatedDestinations
-		err := r.Client.Patch(ctx, &cfRoute, client.MergeFrom(originalCFRoute))
+		cfRoutes[i].Spec.Destinations = updatedDestinations
+		err := r.Client.Patch(ctx, &cfRoutes[i], client.MergeFrom(originalCFRoute))
 		if err != nil {
 			r.Log.Error(err, "failed to patch cfRoute to remove a destination")
 			return err

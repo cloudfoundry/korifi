@@ -131,8 +131,8 @@ func applyDomainListFilterAndOrder(domainList []networkingv1alpha1.CFDomain, mes
 func returnDomainList(domainList []networkingv1alpha1.CFDomain) []DomainRecord {
 	domainRecords := make([]DomainRecord, 0, len(domainList))
 
-	for _, domain := range domainList {
-		domainRecords = append(domainRecords, cfDomainToDomainRecord(&domain))
+	for i := range domainList {
+		domainRecords = append(domainRecords, cfDomainToDomainRecord(&domainList[i]))
 	}
 	return domainRecords
 }

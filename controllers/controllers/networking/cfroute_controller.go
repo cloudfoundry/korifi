@@ -228,10 +228,10 @@ func (r *CFRouteReconciler) finalizeFQDNProxy(ctx context.Context, cfRouteName s
 }
 
 func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute) error {
-	for _, destination := range cfRoute.Spec.Destinations {
+	for i, destination := range cfRoute.Spec.Destinations {
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      generateServiceName(&destination),
+				Name:      generateServiceName(&cfRoute.Spec.Destinations[i]),
 				Namespace: cfRoute.Namespace,
 			},
 		}
@@ -272,9 +272,9 @@ func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, cfRoute *
 func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute) error {
 	services := make([]contourv1.Service, 0, len(cfRoute.Spec.Destinations))
 
-	for _, destination := range cfRoute.Spec.Destinations {
+	for i, destination := range cfRoute.Spec.Destinations {
 		services = append(services, contourv1.Service{
-			Name: generateServiceName(&destination),
+			Name: generateServiceName(&cfRoute.Spec.Destinations[i]),
 			Port: destination.Port,
 		})
 	}
@@ -422,16 +422,16 @@ func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, cfRoute 
 		return err
 	}
 
-	for _, service := range serviceList.Items {
+	for i, service := range serviceList.Items {
 		isOrphan := true
-		for _, destination := range cfRoute.Spec.Destinations {
-			if service.Name == generateServiceName(&destination) {
+		for j := range cfRoute.Spec.Destinations {
+			if service.Name == generateServiceName(&cfRoute.Spec.Destinations[j]) {
 				isOrphan = false
 				break
 			}
 		}
 		if isOrphan {
-			err = r.Client.Delete(ctx, &service)
+			err = r.Client.Delete(ctx, &serviceList.Items[i])
 			if err != nil {
 				r.Log.Error(err, fmt.Sprintf("failed to delete service %s", service.Name))
 				return err
