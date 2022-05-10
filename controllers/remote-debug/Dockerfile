@@ -19,7 +19,7 @@ COPY controllers/config/config.go controllers/config/
 COPY controllers/main.go controllers/
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o manager controllers/main.go
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -gcflags=all="-N -l" -o manager controllers/main.go
 
 # Get Delve from a GOPATH not from a Go Modules project
 WORKDIR /go/src/

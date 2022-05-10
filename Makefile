@@ -109,6 +109,9 @@ docker-build-controllers-debug:
 docker-build-api:
 	docker buildx build --load -f api/Dockerfile -t ${IMG_API} .
 
+docker-build-api-debug:
+	docker buildx build --load -f api/remote-debug/Dockerfile -t ${IMG_API} .
+
 docker-push: docker-push-controllers docker-push-api
 
 docker-push-controllers:
@@ -156,6 +159,9 @@ deploy-api-kind: install-kustomize build-reference-api
 
 deploy-api-kind-local: install-kustomize build-reference-api
 	$(KUSTOMIZE) build api/config/overlays/kind-local-registry | kubectl apply -f -
+
+deploy-api-kind-local-debug: install-kustomize build-reference-api
+	$(KUSTOMIZE) build api/config/overlays/kind-api-debug | kubectl apply -f -
 
 undeploy-controllers: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build controllers/config/default | kubectl delete -f -
