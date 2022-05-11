@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -201,6 +200,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestSetup()
 
 	commonTestOrgGUID = createOrg(generateGUID("common-test-org"))
+	createOrgRole("organization_user", rbacv1.UserKind, certUserName, commonTestOrgGUID)
+
 	return []byte(commonTestOrgGUID)
 }, func(commonOrgGUIDBytes []byte) {
 	commonTestOrgGUID = string(commonOrgGUIDBytes)
@@ -211,8 +212,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	commonTestSetup()
-
-	createOrgRole("organization_user", rbacv1.UserKind, certUserName, commonTestOrgGUID)
 })
 
 var _ = SynchronizedAfterSuite(func() {
@@ -225,14 +224,6 @@ func mustHaveEnv(key string) string {
 	ExpectWithOffset(1, ok).To(BeTrue(), "must set env var %q", key)
 
 	return val
-}
-
-func mustHaveEnvIdx(key string, idx int) string {
-	val := mustHaveEnv(key)
-	vals := strings.Fields(val)
-	ExpectWithOffset(1, len(vals)).To(BeNumerically(">=", idx), val)
-
-	return vals[idx-1]
 }
 
 func ensureServerIsUp() {
@@ -698,10 +689,10 @@ func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail
 func commonTestSetup() {
 	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
 	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
-	serviceAccountName = mustHaveEnvIdx("E2E_SERVICE_ACCOUNTS", GinkgoParallelProcess())
-	serviceAccountToken = mustHaveEnvIdx("E2E_SERVICE_ACCOUNT_TOKENS", GinkgoParallelProcess())
-	certUserName = mustHaveEnvIdx("E2E_USER_NAMES", GinkgoParallelProcess())
-	certPEM = mustHaveEnvIdx("E2E_USER_PEMS", GinkgoParallelProcess())
+	serviceAccountName = mustHaveEnv("E2E_SERVICE_ACCOUNT")
+	serviceAccountToken = mustHaveEnv("E2E_SERVICE_ACCOUNT_TOKEN")
+	certUserName = mustHaveEnv("E2E_USER_NAME")
+	certPEM = mustHaveEnv("E2E_USER_PEM")
 	appFQDN = mustHaveEnv("APP_FQDN")
 
 	ensureServerIsUp()

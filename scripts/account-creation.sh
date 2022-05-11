@@ -16,53 +16,27 @@ getToken() {
   fi
 }
 
-if [[ -n "$GINKGO_NODES" ]]; then
-  extra_args+=("--procs=${GINKGO_NODES}")
-fi
-
-pushd "$SCRIPT_DIR/assets/ginkgo_parallel_count"
-{
-  usersToCreate="$(ginkgo -p "${extra_args[@]}" | awk '/ParallelNodes:/ { print $2 }' | head -n1)"
-}
-popd
-
 tmp="$(mktemp -d)"
 trap "rm -rf $tmp" EXIT
-if [[ -z "${E2E_USER_NAMES:=}" ]]; then
-  E2E_USER_PEMS=
-  for n in $(seq 1 $usersToCreate); do
-    createCert "e2e-cert-user-$n" "$tmp/key-$n.pem" "$tmp/cert-$n.pem" &
-  done
-  wait
+if [[ -z "${E2E_USER_NAME:=}" ]]; then
+  export E2E_USER_NAME="e2e-cert-user"
+  createCert "$E2E_USER_NAME" "$tmp/key.pem" "$tmp/cert.pem"
 
-  export E2E_USER_NAMES E2E_USER_PEMS
-  for n in $(seq 1 $usersToCreate); do
-    E2E_USER_NAMES="$E2E_USER_NAMES e2e-cert-user-$n"
-    pem="$(cat $tmp/cert-${n}.pem $tmp/key-${n}.pem | base64 | tr -d "\n\r")"
-    E2E_USER_PEMS="$E2E_USER_PEMS $pem"
-  done
+  export E2E_USER_PEM="$(cat $tmp/cert.pem $tmp/key.pem | base64 | tr -d "\n\r")"
 fi
 
-if [[ -z "${E2E_SERVICE_ACCOUNTS:=}" ]]; then
-  E2E_SERVICE_ACCOUNT_TOKENS=
-  for n in $(seq 1 $usersToCreate); do
-    (
-      kubectl delete serviceaccount -n "$ROOT_NAMESPACE" "e2e-service-account-$n" &>/dev/null || true
-      kubectl create serviceaccount -n "$ROOT_NAMESPACE" "e2e-service-account-$n"
-    ) &
-  done
-  wait
+if [[ -z "${E2E_SERVICE_ACCOUNT:=}" ]]; then
+  export E2E_SERVICE_ACCOUNT="e2e-service-account"
+  kubectl delete serviceaccount --ignore-not-found=true -n "$ROOT_NAMESPACE" "$E2E_SERVICE_ACCOUNT" &>/dev/null
+  kubectl create serviceaccount -n "$ROOT_NAMESPACE" "$E2E_SERVICE_ACCOUNT"
 
-  export E2E_SERVICE_ACCOUNTS E2E_SERVICE_ACCOUNT_TOKENS
-  for n in $(seq 1 $usersToCreate); do
-    E2E_SERVICE_ACCOUNTS="$E2E_SERVICE_ACCOUNTS e2e-service-account-$n"
-    token=""
-    while [ -z "$token" ]; do
-      token="$(getToken "e2e-service-account-$n" "$ROOT_NAMESPACE")"
-      sleep 0.5
-    done
-    E2E_SERVICE_ACCOUNT_TOKENS="$E2E_SERVICE_ACCOUNT_TOKENS $token"
+  token=""
+  while [ -z "$token" ]; do
+    token="$(getToken "e2e-service-account" "$ROOT_NAMESPACE")"
+    sleep 0.5
   done
+
+  export E2E_SERVICE_ACCOUNT_TOKEN="$token"
 fi
 
 if [[ -z "${CF_ADMIN_CERT:=}" ]]; then
