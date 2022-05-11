@@ -78,15 +78,6 @@ kubectl create secret docker-registry image-registry-credentials \
     --namespace $ROOT_NAMESPACE
 ```
 
-### Edit domain details in the API config
-
-Edit `api/config/base/apiconfig/korifi_api_config.yaml`
-
-```sh
-sed -i "s/externalFQDN.*/externalFQDN: api.$BASE_DOMAIN/" api/config/base/apiconfig/korifi_api_config.yaml
-sed -i "s/defaultDomainName.*/defaultDomainName: apps.$BASE_DOMAIN/" api/config/base/apiconfig/korifi_api_config.yaml
-```
-
 ## Dependency Installation
 
 ### Install cert-manager
@@ -204,6 +195,15 @@ ZONE_DOMAIN=<YOUR ZONE FULL DOMAIN> // omitting the trailing dot
 BASE_DOMAIN=$CLUSTER_NAME.$ZONE_DOMAIN
 gcloud dns record-sets create "api.$BASE_DOMAIN." --type=A --rrdatas=$EXTERNAL_IP --zone=$ZONE_NAME --project=$GCP_PROJECT
 gcloud dns record-sets create "*.apps.$BASE_DOMAIN." --type=A --rrdatas=$EXTERNAL_IP --zone=$ZONE_NAME --project=$GCP_PROJECT
+```
+
+### Edit domain details in the API config
+
+Edit `api/config/base/apiconfig/korifi_api_config.yaml`
+
+```sh
+sed -i "s/externalFQDN.*/externalFQDN: api.$BASE_DOMAIN/" api/config/base/apiconfig/korifi_api_config.yaml
+sed -i "s/defaultDomainName.*/defaultDomainName: apps.$BASE_DOMAIN/" api/config/base/apiconfig/korifi_api_config.yaml
 ```
 
 ## Install Korifi
