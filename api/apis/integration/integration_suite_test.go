@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/tests/integration/helpers"
 	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
 	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
@@ -67,7 +67,7 @@ var (
 	orgManagerRole        *rbacv1.ClusterRole
 	rootNamespaceUserRole *rbacv1.ClusterRole
 	rootNamespace         string
-	clientFactory         repositories.UserK8sClientFactory
+	clientFactory         authorization.UserK8sClientFactory
 	nsPermissions         *authorization.NamespacePermissions
 )
 
@@ -128,7 +128,7 @@ var _ = BeforeEach(func() {
 
 	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
 	Expect(err).NotTo(HaveOccurred())
-	clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper, repositories.NewDefaultBackoff())
+	clientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, authorization.NewDefaultBackoff())
 	tokenInspector := authorization.NewTokenReviewer(k8sClient)
 	certInspector := authorization.NewCertInspector(k8sConfig)
 	identityProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
@@ -136,8 +136,8 @@ var _ = BeforeEach(func() {
 
 	userName = generateGUID()
 
-	cert, key := helpers.ObtainClientCert(testEnv, userName)
-	authInfo := authorization.Info{CertData: helpers.JoinCertAndKey(cert, key)}
+	cert, key := testhelpers.ObtainClientCert(testEnv, userName)
+	authInfo := authorization.Info{CertData: testhelpers.JoinCertAndKey(cert, key)}
 	ctx = authorization.NewContext(context.Background(), &authInfo)
 
 	Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())

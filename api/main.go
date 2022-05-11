@@ -89,7 +89,7 @@ func main() {
 		panic(fmt.Sprintf("could not create kubernetes REST mapper: %v", err))
 	}
 
-	userClientFactory := repositories.NewUnprivilegedClientFactory(k8sClientConfig, mapper, repositories.NewDefaultBackoff())
+	userClientFactory := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper, authorization.NewDefaultBackoff())
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())

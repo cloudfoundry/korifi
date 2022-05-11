@@ -35,7 +35,7 @@ type ImagePusher interface {
 
 type ImageRepository struct {
 	privilegedK8sClient k8sclient.Interface
-	userClientFactory   UserK8sClientFactory
+	userClientFactory   authorization.UserK8sClientFactory
 	rootNamespace       string
 	registrySecretName  string
 
@@ -45,7 +45,7 @@ type ImageRepository struct {
 
 func NewImageRepository(
 	privilegedK8sClient k8sclient.Interface,
-	userClientFactory UserK8sClientFactory,
+	userClientFactory authorization.UserK8sClientFactory,
 	rootNamespace,
 	registrySecretName string,
 	builder ImageBuilder,

@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/tests/integration/helpers"
 	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
 	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
@@ -48,7 +48,7 @@ var (
 	testEnv               *envtest.Environment
 	k8sClient             client.WithWatch
 	namespaceRetriever    repositories.NamespaceRetriever
-	userClientFactory     repositories.UserK8sClientFactory
+	userClientFactory     authorization.UserK8sClientFactory
 	k8sConfig             *rest.Config
 	userName              string
 	authInfo              authorization.Info
@@ -122,8 +122,8 @@ var _ = AfterSuite(func() {
 
 var _ = BeforeEach(func() {
 	userName = generateGUID()
-	cert, key := helpers.ObtainClientCert(testEnv, userName)
-	authInfo.CertData = helpers.JoinCertAndKey(cert, key)
+	cert, key := testhelpers.ObtainClientCert(testEnv, userName)
+	authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
 	rootNamespace = prefixedGUID("root-ns")
 	tokenInspector := authorization.NewTokenReviewer(k8sClient)
 	certInspector := authorization.NewCertInspector(k8sConfig)
@@ -133,7 +133,7 @@ var _ = BeforeEach(func() {
 
 	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
 	Expect(err).NotTo(HaveOccurred())
-	userClientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper, repositories.NewDefaultBackoff())
+	userClientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, authorization.NewDefaultBackoff())
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)

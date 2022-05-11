@@ -23,11 +23,11 @@ const (
 
 type RouteRepo struct {
 	namespaceRetriever   NamespaceRetriever
-	userClientFactory    UserK8sClientFactory
+	userClientFactory    authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 }
 
-func NewRouteRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, authPerms *authorization.NamespacePermissions) *RouteRepo {
+func NewRouteRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory, authPerms *authorization.NamespacePermissions) *RouteRepo {
 	return &RouteRepo{
 		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,

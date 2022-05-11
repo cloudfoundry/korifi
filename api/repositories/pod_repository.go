@@ -43,7 +43,7 @@ const (
 
 type PodRepo struct {
 	logger            logr.Logger
-	userClientFactory UserK8sClientFactory
+	userClientFactory authorization.UserK8sClientFactory
 	metricsFetcher    MetricsFetcherFn
 }
 
@@ -52,7 +52,7 @@ type MetricsFetcherFn func(ctx context.Context, namespace, name string) (*metric
 
 func NewPodRepo(
 	logger logr.Logger,
-	userClientFactory UserK8sClientFactory,
+	userClientFactory authorization.UserK8sClientFactory,
 	metricsFetcher MetricsFetcherFn,
 ) *PodRepo {
 	return &PodRepo{
