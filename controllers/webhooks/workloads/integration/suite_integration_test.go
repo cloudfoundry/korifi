@@ -19,6 +19,8 @@ import (
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,6 +36,8 @@ var (
 	testEnv   *envtest.Environment
 	k8sClient client.Client
 )
+
+const rootNamespace = "cf"
 
 func TestWorkloadsValidatingWebhooks(t *testing.T) {
 	SetDefaultEventuallyTimeout(10 * time.Second)
@@ -77,6 +81,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	// Create root namespace
+	Expect(k8sClient.Create(ctx, &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: rootNamespace,
+		},
+	})).To(Succeed())
+
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
@@ -97,14 +108,16 @@ var _ = BeforeSuite(func() {
 
 	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFOrgEntityType))
 	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType))
+	orgPlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
+	spacePlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
 
 	anchorValidationWebhook := workloads.NewSubnamespaceAnchorValidation(orgNameDuplicateValidator, spaceNameDuplicateValidator)
 	Expect(anchorValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
-	orgValidationWebhook := workloads.NewCFOrgValidation(orgNameDuplicateValidator)
+	orgValidationWebhook := workloads.NewCFOrgValidation(orgNameDuplicateValidator, orgPlacementValidator)
 	Expect(orgValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
-	spaceValidationWebhook := workloads.NewCFSpaceValidation(spaceNameDuplicateValidator)
+	spaceValidationWebhook := workloads.NewCFSpaceValidation(spaceNameDuplicateValidator, spacePlacementValidator)
 	Expect(spaceValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook

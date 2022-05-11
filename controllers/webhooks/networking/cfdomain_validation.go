@@ -43,8 +43,6 @@ var log = logf.Log.WithName("domain-validation")
 
 //+kubebuilder:webhook:path=/validate-networking-cloudfoundry-org-v1alpha1-cfdomain,mutating=false,failurePolicy=fail,sideEffects=None,groups=networking.cloudfoundry.org,resources=cfdomains,verbs=create;update,versions=v1alpha1,name=vcfdomain.kb.io,admissionReviewVersions=v1
 
-//counterfeiter:generate -o fake -fake-name Client sigs.k8s.io/controller-runtime/pkg/client.Client
-
 type CFDomainValidation struct {
 	client  client.Client
 	decoder *admission.Decoder

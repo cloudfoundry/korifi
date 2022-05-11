@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/fake"
+	workloadsfake "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +28,8 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 
 	var (
 		ctx                context.Context
-		duplicateValidator *fake.NameValidator
+		duplicateValidator *workloadsfake.NameValidator
+		placementValidator *workloadsfake.PlacementValidator
 		realDecoder        *admission.Decoder
 		org                *workloadsv1alpha1.CFOrg
 		request            admission.Request
@@ -59,8 +61,9 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		cfOrgJSON, err = json.Marshal(org)
 		Expect(err).NotTo(HaveOccurred())
 
-		duplicateValidator = new(fake.NameValidator)
-		validatingWebhook = workloads.NewCFOrgValidation(duplicateValidator)
+		duplicateValidator = new(workloadsfake.NameValidator)
+		placementValidator = new(workloadsfake.PlacementValidator)
+		validatingWebhook = workloads.NewCFOrgValidation(duplicateValidator, placementValidator)
 
 		Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
 	})
@@ -103,6 +106,27 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			It("denies the request", func() {
 				Expect(response.Allowed).To(BeFalse())
 				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.DuplicateOrgErrorType, Message: `Organization '` + org.Spec.DisplayName + `' already exists.`}.Marshal()))
+			})
+		})
+
+		When("the org placement validator passes", func() {
+			BeforeEach(func() {
+				placementValidator.ValidateOrgCreateReturns(nil)
+			})
+
+			It("allows the request", func() {
+				Expect(response.Allowed).To(BeTrue())
+			})
+		})
+
+		When("the org placement validator fails", func() {
+			BeforeEach(func() {
+				placementValidator.ValidateOrgCreateReturns(fmt.Errorf(webhooks.OrgPlacementErrorMessage, org.Spec.DisplayName))
+			})
+
+			It("denies the request", func() {
+				Expect(response.Allowed).To(BeFalse())
+				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.OrgPlacementErrorType, Message: `Organization '` + org.Spec.DisplayName + `' must be placed in the root 'cf' namespace`}.Marshal()))
 			})
 		})
 

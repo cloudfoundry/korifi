@@ -16,8 +16,9 @@ import (
 
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
+	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/controllers/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,7 +42,7 @@ const (
 var _ = Describe("CFProcessReconciler Unit Tests", func() {
 	var (
 		fakeClient *fake.Client
-		envBuilder *fake.EnvBuilder
+		envBuilder *workloadsfakes.EnvBuilder
 
 		cfBuild   *workloadsv1alpha1.CFBuild
 		cfProcess *workloadsv1alpha1.CFProcess
@@ -66,7 +67,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 	BeforeEach(func() {
 		fakeClient = new(fake.Client)
 
-		envBuilder = new(fake.EnvBuilder)
+		envBuilder = new(workloadsfakes.EnvBuilder)
 
 		cfApp = BuildCFAppCRObject(testAppGUID, testNamespace)
 		cfAppError = nil

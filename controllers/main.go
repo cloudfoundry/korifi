@@ -74,6 +74,11 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
+//counterfeiter:generate -o fake -fake-name Client sigs.k8s.io/controller-runtime/pkg/client.Client
+//counterfeiter:generate -o fake -fake-name StatusWriter sigs.k8s.io/controller-runtime/pkg/client.StatusWriter
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
@@ -293,6 +298,7 @@ func main() {
 
 		if err = workloads.NewCFOrgValidation(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFOrgEntityType)),
+			webhooks.NewPlacementValidator(mgr.GetClient(), controllerConfig.CFRootNamespace),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFOrg")
 			os.Exit(1)
@@ -300,6 +306,7 @@ func main() {
 
 		if err = workloads.NewCFSpaceValidation(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType)),
+			webhooks.NewPlacementValidator(mgr.GetClient(), controllerConfig.CFRootNamespace),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFSpace")
 			os.Exit(1)

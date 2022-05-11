@@ -26,6 +26,7 @@ var _ = Describe("CFSpaceValidation", func() {
 		cfSpace                 *workloadsv1alpha1.CFSpace
 		orgDuplicateValidator   *fake.NameValidator
 		spaceDuplicateValidator *fake.NameValidator
+		spacePlacementValidator *fake.PlacementValidator
 		request                 admission.Request
 		response                admission.Response
 	)
@@ -35,7 +36,9 @@ var _ = Describe("CFSpaceValidation", func() {
 		namespace = "my-namespace"
 		orgDuplicateValidator = new(fake.NameValidator)
 		spaceDuplicateValidator = new(fake.NameValidator)
-		validatingWebhook = workloads.NewCFSpaceValidation(spaceDuplicateValidator)
+		spacePlacementValidator = new(fake.PlacementValidator)
+
+		validatingWebhook = workloads.NewCFSpaceValidation(spaceDuplicateValidator, spacePlacementValidator)
 
 		scheme := runtime.NewScheme()
 		err := workloadsv1alpha1.AddToScheme(scheme)
@@ -94,10 +97,30 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 		})
 
-		When("create validate throws another error", func() {
+		When("duplicate validator throws a generic error", func() {
 			BeforeEach(func() {
 				cfSpace = helpers.MakeCFSpace(namespace, "my-space")
 				spaceDuplicateValidator.ValidateCreateReturns(errors.New("another error"))
+			})
+
+			It("denies the request", func() {
+				Expect(response.Allowed).To(BeFalse())
+			})
+		})
+
+		When("placement validator passes", func() {
+			BeforeEach(func() {
+				spacePlacementValidator.ValidateSpaceCreateReturns(nil)
+			})
+
+			It("allows the request", func() {
+				Expect(response.Allowed).To(BeTrue())
+			})
+		})
+
+		When("placement validator throws an error", func() {
+			BeforeEach(func() {
+				spacePlacementValidator.ValidateSpaceCreateReturns(errors.New("some error"))
 			})
 
 			It("denies the request", func() {

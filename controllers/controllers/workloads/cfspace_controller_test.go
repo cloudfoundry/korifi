@@ -7,8 +7,8 @@ import (
 
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/controllers/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

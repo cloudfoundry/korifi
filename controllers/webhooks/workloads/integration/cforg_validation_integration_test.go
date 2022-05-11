@@ -11,32 +11,21 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("CFOrgValidatingWebhook", func() {
 	var (
-		ctx           context.Context
-		rootNamespace string
-		org1Guid      string
-		org2Guid      string
-		org1Name      string
-		org2Name      string
-		org1          *v1alpha1.CFOrg
+		ctx      context.Context
+		org1Guid string
+		org2Guid string
+		org1Name string
+		org2Name string
+		org1     *v1alpha1.CFOrg
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-
-		rootNamespace = "root-" + uuid.NewString()
-
-		Expect(k8sClient.Create(ctx, &v1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: rootNamespace,
-			},
-		})).To(Succeed())
 
 		org1Guid = "guid-1-" + uuid.NewString()
 		org2Guid = "guid-2-" + uuid.NewString()
@@ -57,6 +46,16 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 
 		It("should succeed", func() {
 			Expect(createErr).NotTo(HaveOccurred())
+		})
+
+		When("CFOrg is requested outside of root namespace", func() {
+			BeforeEach(func() {
+				org1.Namespace = "default"
+			})
+
+			It("should fail", func() {
+				Expect(createErr.Error()).To(ContainSubstring(fmt.Sprintf("Organization '%s' must be placed in the root 'cf' namespace", org1Name)))
+			})
 		})
 
 		When("another CFOrg exists with a different name in the same namespace", func() {

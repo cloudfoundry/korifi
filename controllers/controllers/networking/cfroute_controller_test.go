@@ -8,7 +8,7 @@ import (
 	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/networking"
-	"code.cloudfoundry.org/korifi/controllers/controllers/networking/fake"
+	"code.cloudfoundry.org/korifi/controllers/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
