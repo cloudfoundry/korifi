@@ -1,4 +1,4 @@
-kpackImageTag: europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test
+kpackImageTag: europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test/kpack/beta
 clusterBuilderName: cf-kpack-cluster-builder
 cfProcessDefaults:
   memoryMB: 1024

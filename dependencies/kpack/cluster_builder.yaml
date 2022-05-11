@@ -7,7 +7,7 @@ spec:
     name: kpack-service-account
     namespace: cf
   # Replace with real docker registry
-  tag: europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test
+  tag: europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test/kpack
   stack:
     name: cf-default-stack
     kind: ClusterStack
