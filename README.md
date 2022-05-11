@@ -350,6 +350,56 @@ Of these options, `cf-admin` is the user with permissions set up by default. Sel
 successfully create resources, but you may notice that the user lacks the permissions to list those resources once created.
 
 ---
+## Deploying to `kind` for remote debugging with a locally deployed container registry
+This is the above method, but run with `dlv` for remote debugging.
+
+```
+./scripts/deploy-on-kind <kind-cluster-name> --local --debug
+```
+To remote debug, connect with `dlv` on `localhost:30051` (controller) or `localhost:30052` (api)
+
+A sample VSCode `launch.json` configuration is provided below:
+```
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Attach to Debug Controller on Kind",
+            "type": "go",
+            "debugAdapter": "dlv-dap",
+            "request": "attach",
+            "mode": "remote",
+            "substitutePath": [
+                {
+                    "from": "${workspaceFolder}",
+                    "to": "/workspace"
+                }
+            ],
+            "host": "localhost",
+            "port": 30051
+        },
+        {
+            "name": "Attach to Debug API on Kind",
+            "type": "go",
+            "debugAdapter": "dlv-dap",
+            "request": "attach",
+            "mode": "remote",
+            "substitutePath": [
+                {
+                    "from": "${workspaceFolder}",
+                    "to": "/workspace"
+                }
+            ],
+            "host": "localhost",
+            "port": 30052
+        }
+    ]
+}
+
+```
+
+
+---
 ## Install all dependencies with script
 ```sh
 # modify kpack dependency files to point towards your registry

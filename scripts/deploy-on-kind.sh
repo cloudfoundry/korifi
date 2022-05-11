@@ -38,8 +38,8 @@ flags:
       Creates the vcap.me CF domain.
 
   -D, --debug
-      Builds controller image with debugging hooks and
-      wires up localhost:30051 for remote debugging.
+      Builds controller and api images with debugging hooks and
+      wires up localhost:30051 (controller) and localhost:30052 (api) for remote debugging.
 EOF
   exit 1
 }
@@ -49,7 +49,7 @@ use_local_registry=""
 controllers_only=""
 api_only=""
 default_domain=""
-controllers_debug=""
+debug=""
 while [[ $# -gt 0 ]]; do
   i=$1
   case $i in
@@ -70,7 +70,7 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   -D | --debug)
-    controllers_debug="true"
+    debug="true"
     shift
     ;;
   -v | --verbose)
@@ -99,9 +99,9 @@ if [[ -z "${cluster}" ]]; then
   exit 1
 fi
 
-if [[ -n "${controllers_debug}" ]]; then
+if [[ -n "${debug}" ]]; then
   if [[ -z "${use_local_registry}" ]]; then
-    echo -e "Error: currently controller debugging requires local registry (only because Kustomize is hard, not for real reasons)" >&2
+    echo -e "Error: currently debugging requires local registry (only because Kustomize is hard, not for real reasons)" >&2
     exit 1
   fi
 fi
@@ -188,6 +188,9 @@ nodes:
   - containerPort: 30051
     hostPort: 30051
     protocol: TCP
+  - containerPort: 30052
+    hostPort: 30052
+    protocol: TCP
 EOF
   fi
 
@@ -259,7 +262,7 @@ function deploy_korifi_controllers() {
     IMG_CONTROLLERS=${IMG_CONTROLLERS:-"korifi-controllers:$(uuidgen)"}
     export IMG_CONTROLLERS
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      if [[ -z "${controllers_debug}" ]]; then
+      if [[ -z "${debug}" ]]; then
         make docker-build-controllers
       else
         make docker-build-controllers-debug
@@ -269,7 +272,7 @@ function deploy_korifi_controllers() {
 
     make install-crds
     if [[ -n "${use_local_registry}" ]]; then
-      if [[ -z "${controllers_debug}" ]]; then
+      if [[ -z "${debug}" ]]; then
         make deploy-controllers-kind-local
       else
         make deploy-controllers-kind-local-debug
@@ -297,12 +300,20 @@ function deploy_korifi_api() {
     IMG_API=${IMG_API:-"korifi-api:$(uuidgen)"}
     export IMG_API
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      make docker-build-api
+      if [[ -z "${debug}" ]]; then
+        make docker-build-api
+      else
+        make docker-build-api-debug
+      fi
     fi
     kind load docker-image --name "${cluster}" "${IMG_API}"
 
     if [[ -n "${use_local_registry}" ]]; then
-      make deploy-api-kind-local
+      if [[ -z "${debug}" ]]; then
+        make deploy-api-kind-local
+      else
+        make deploy-api-kind-local-debug
+      fi
     else
       make deploy-api-kind
     fi
