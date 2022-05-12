@@ -109,6 +109,63 @@ var _ = Describe("ApplyManifest", func() {
 		})
 	})
 
+	When("the manifest includes application resource properties, but no web process", func() {
+		BeforeEach(func() {
+			manifest = payloads.Manifest{
+				Version: 1,
+				Applications: []payloads.ManifestApplication{
+					{
+						Name:      appName,
+						Memory:    stringPointer("128M"),
+						Processes: []payloads.ManifestApplicationProcess{},
+					},
+				},
+			}
+
+			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
+			appRepo.CreateAppReturns(repositories.AppRecord{GUID: appGUID}, nil)
+		})
+
+		It("creates a web process with the given resource properties", func() {
+			Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+			_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+			Expect(processMessage.AppGUID).To(Equal(appGUID))
+			Expect(processMessage.Type).To(Equal("web"))
+			Expect(processMessage.MemoryMB).To(Equal(int64(128)))
+		})
+	})
+
+	When("the manifest includes application resource properties, and a web process", func() {
+		BeforeEach(func() {
+			manifest = payloads.Manifest{
+				Version: 1,
+				Applications: []payloads.ManifestApplication{
+					{
+						Name:   appName,
+						Memory: stringPointer("128M"),
+						Processes: []payloads.ManifestApplicationProcess{
+							{
+								Type:   "web",
+								Memory: stringPointer("256M"),
+							},
+						},
+					},
+				},
+			}
+
+			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
+			appRepo.CreateAppReturns(repositories.AppRecord{GUID: appGUID}, nil)
+		})
+
+		It("creates a web process with the given resource properties", func() {
+			Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+			_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+			Expect(processMessage.AppGUID).To(Equal(appGUID))
+			Expect(processMessage.Type).To(Equal("web"))
+			Expect(processMessage.MemoryMB).To(Equal(int64(256)))
+		})
+	})
+
 	When("the app does not exist", func() {
 		BeforeEach(func() {
 			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))

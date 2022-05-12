@@ -6,13 +6,14 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
-	"code.cloudfoundry.org/korifi/api/repositories"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
 	. "code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/apis/fake"
+	"code.cloudfoundry.org/korifi/api/repositories"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("SpaceManifestHandler", func() {
@@ -21,6 +22,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		spaceRepo           *fake.CFSpaceRepository
 		req                 *http.Request
 		defaultDomainName   string
+		requestBody         *strings.Reader
 	)
 
 	BeforeEach(func() {
@@ -43,226 +45,258 @@ var _ = Describe("SpaceManifestHandler", func() {
 	})
 
 	Describe("POST /v3/spaces/{spaceGUID}/actions/apply_manifest", func() {
-		BeforeEach(func() {
+		JustBeforeEach(func() {
 			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
-                version: 1
-                applications:
-                  - name: app1
-            `))
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", requestBody)
 			Expect(err).NotTo(HaveOccurred())
 			req.Header.Add("Content-type", "application/x-yaml")
-		})
 
-		JustBeforeEach(func() {
 			router.ServeHTTP(rr, req)
 		})
 
-		When("unsupported fields are provided", func() {
+		When("the manifest is valid", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				requestBody = strings.NewReader(`---
                 version: 1
                 applications:
                 - name: app1
-                  buildpacks:
-                  - ruby_buildpack
-                  - java_buildpack
-                  env:
-                    VAR1: value1
-                    VAR2: value2
-                  routes:
-                  - route: route.example.com
-                  - route: another-route.example.com
-                    protocol: http2
-                  services:
-                  - my-service1
-                  - my-service2
-                  - name: my-service-with-arbitrary-params
-                    binding_name: my-binding
-                    parameters:
-                      key1: value1
-                      key2: value2
-                  stack: cflinuxfs3
-                  metadata:
-                    annotations:
-                      contact: "bob@example.com jane@example.com"
-                    labels:
-                      sensitive: true
+                  default-route: true
+                  memory: 128M
                   processes:
                   - type: web
                     command: start-web.sh
                     disk_quota: 512M
                     health-check-http-endpoint: /healthcheck
+                    health-check-invocation-timeout: 5
                     health-check-type: http
-                    health-check-invocation-timeout: 10
-                    instances: 3
-                    memory: 500M
-                    timeout: 10
-                  - type: worker
-                    command: start-worker.sh
-                    disk_quota: 1G
-                    health-check-type: process
-                    instances: 2
+                    instances: 1
                     memory: 256M
-                    timeout: 15
-            `))
-				Expect(err).NotTo(HaveOccurred())
-				req.Header.Add("Content-type", "application/x-yaml")
+                    timeout: 10
+                `)
 			})
 
-			It("returns 202 with an empty diff", func() {
+			It("returns 202 with a Location header", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Location", Not(BeEmpty())))
 			})
 
-			It("passes the authInfo from context to applyManifestAction", func() {
+			It("calls applyManifestAction and passes it the authInfo from the context", func() {
 				Expect(applyManifestAction.CallCount()).To(Equal(1))
 				_, actualAuthInfo, _, _, _ := applyManifestAction.ArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
-			It("creates the record without erroring", func() {
-				Expect(rr.Code).To(Equal(http.StatusAccepted))
-				Expect(rr.Header().Get("Location")).To(Equal(defaultServerURI("/v3/jobs/space.apply_manifest-", spaceGUID)))
+			It("passes the parsed manifest to the action", func() {
 				Expect(applyManifestAction.CallCount()).To(Equal(1))
+				_, _, _, _, payload := applyManifestAction.ArgsForCall(0)
+
+				Expect(payload.Applications).To(HaveLen(1))
+				Expect(payload.Applications[0].Name).To(Equal("app1"))
+				Expect(payload.Applications[0].DefaultRoute).To(BeTrue())
+				Expect(payload.Applications[0].Memory).To(PointTo(Equal("128M")))
+
+				Expect(payload.Applications[0].Processes).To(HaveLen(1))
+				Expect(payload.Applications[0].Processes[0].Type).To(Equal("web"))
+				Expect(payload.Applications[0].Processes[0].Command).NotTo(BeNil())
+				Expect(payload.Applications[0].Processes[0].Command).To(PointTo(Equal("start-web.sh")))
+				Expect(payload.Applications[0].Processes[0].DiskQuota).To(PointTo(Equal("512M")))
+				Expect(payload.Applications[0].Processes[0].HealthCheckHTTPEndpoint).To(PointTo(Equal("/healthcheck")))
+				Expect(payload.Applications[0].Processes[0].HealthCheckInvocationTimeout).To(PointTo(Equal(int64(5))))
+				Expect(payload.Applications[0].Processes[0].HealthCheckType).To(PointTo(Equal("http")))
+				Expect(payload.Applications[0].Processes[0].Instances).To(PointTo(Equal(1)))
+				Expect(payload.Applications[0].Processes[0].Memory).To(PointTo(Equal("256M")))
+				Expect(payload.Applications[0].Processes[0].Timeout).To(PointTo(Equal(int64(10))))
+			})
+		})
+
+		When("the manifest contains unsupported fields", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                version: 1
+                applications:
+                - name: app1
+                  metadata:
+                    annotations:
+                      contact: "bob@example.com jane@example.com"
+                    labels:
+                      sensitive: true
+                `)
+			})
+
+			It("calls applyManifestAction and passes it the authInfo from the context", func() {
+				Expect(applyManifestAction.CallCount()).To(Equal(1))
+				_, actualAuthInfo, _, _, _ := applyManifestAction.ArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 		})
 
 		When("the manifest contains multiple apps", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				requestBody = strings.NewReader(`---
                 version: 1
                 applications:
-                  - name: app1
-                  - name: app2
-            `))
-				Expect(err).NotTo(HaveOccurred())
-				req.Header.Add("Content-type", "application/x-yaml")
+                - name: app1
+                - name: app2
+                `)
 			})
 
-			It("responds 422", func() {
+			It("response with an unprocessable entity error", func() {
 				expectUnprocessableEntityError("Applications must contain at maximum 1 item")
 			})
 
-			It("doesn't apply the manifest", func() {
+			It("doesn't call applyManifestAction", func() {
 				Expect(applyManifestAction.CallCount()).To(Equal(0))
 			})
 		})
 
 		When("the application name is missing", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				requestBody = strings.NewReader(`---
                 version: 1
                 applications:
                 - {}
-            `))
-				Expect(err).NotTo(HaveOccurred())
+                `)
 			})
 
-			It("responds 422", func() {
+			It("response with an unprocessable entity error", func() {
 				expectUnprocessableEntityError("Name is a required field")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(applyManifestAction.CallCount()).To(Equal(0))
+			})
+		})
+
+		When("the application memory is not a positive integer", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                version: 1
+                applications:
+                - name: test-app
+                  memory: 0
+                `)
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].Memory' Error:Field validation for 'Memory' failed on the 'megabytestring' tag")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(applyManifestAction.CallCount()).To(Equal(0))
 			})
 		})
 
 		When("the application route is invalid", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				requestBody = strings.NewReader(`---
                 version: 1
                 applications:
                 - name: my-app
                   routes:
                   - route: not-a-uri?
-            `))
-				Expect(err).NotTo(HaveOccurred())
+                `)
 			})
 
-			It("responds 422", func() {
+			It("response with an unprocessable entity error", func() {
 				expectUnprocessableEntityError(`"not-a-uri?" is not a valid route URI`)
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(applyManifestAction.CallCount()).To(Equal(0))
 			})
 		})
 
 		When("the application process instance count is negative", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				requestBody = strings.NewReader(`---
                 version: 1
                 applications:
                 - name: test-app
                   processes:
                   - type: web
                     instances: -1
-            `))
-				Expect(err).NotTo(HaveOccurred())
+                `)
 			})
 
-			It("responds 422", func() {
+			It("response with an unprocessable entity error", func() {
 				expectUnprocessableEntityError("Instances must be 0 or greater")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(applyManifestAction.CallCount()).To(Equal(0))
 			})
 		})
 
 		When("the application process disk is not a positive integer", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				requestBody = strings.NewReader(`---
                 version: 1
                 applications:
                 - name: test-app
                   processes:
                   - type: web
                     disk_quota: 0
-            `))
-				Expect(err).NotTo(HaveOccurred())
+                `)
 			})
 
-			It("responds 422", func() {
+			It("response with an unprocessable entity error", func() {
 				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].Processes[0].DiskQuota' Error:Field validation for 'DiskQuota' failed on the 'megabytestring' tag")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(applyManifestAction.CallCount()).To(Equal(0))
 			})
 		})
 
 		When("the application process memory is not a positive integer", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				requestBody = strings.NewReader(`---
                 version: 1
                 applications:
                 - name: test-app
                   processes:
                   - type: web
                     memory: 0
-            `))
-				Expect(err).NotTo(HaveOccurred())
+                `)
 			})
 
-			It("responds 422", func() {
+			It("response with an unprocessable entity error", func() {
 				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].Processes[0].Memory' Error:Field validation for 'Memory' failed on the 'megabytestring' tag")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(applyManifestAction.CallCount()).To(Equal(0))
 			})
 		})
 
 		When("a process's health-check-type is invalid", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
+				requestBody = strings.NewReader(`---
                 version: 1
                 applications:
                 - name: test-app
                   processes:
                   - type: web
                     health-check-type: bogus-type
-            `))
-				Expect(err).NotTo(HaveOccurred())
+                `)
 			})
 
-			It("responds 422", func() {
+			It("response with an unprocessable entity error", func() {
 				expectUnprocessableEntityError("HealthCheckType must be one of [none process port http]")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(applyManifestAction.CallCount()).To(Equal(0))
 			})
 		})
 
 		When("applying the manifest errors", func() {
 			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                version: 1
+                applications:
+                - name: app1
+                `)
 				applyManifestAction.Returns(errors.New("boom"))
 			})
 
@@ -271,28 +305,13 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 		})
 
-		When("a manifest with default-route: true is applied", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/actions/apply_manifest", strings.NewReader(`---
-                version: 1
-                applications:
-                  - name: app1
-                    default-route: true
-            `))
-				Expect(err).NotTo(HaveOccurred())
-				req.Header.Add("Content-type", "application/x-yaml")
-			})
-
-			It("passes through the default-route payload to the action", func() {
-				Expect(applyManifestAction.CallCount()).To(Equal(1))
-				_, _, _, _, payload := applyManifestAction.ArgsForCall(0)
-				Expect(payload.Applications[0].DefaultRoute).To(BeTrue())
-			})
-		})
-
 		When("applying the manifest errors with NotFoundErr", func() {
 			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                version: 1
+                applications:
+                - name: app1
+                `)
 				applyManifestAction.Returns(apierrors.NewNotFoundError(errors.New("can't find"), repositories.DomainResourceType))
 			})
 
@@ -303,22 +322,22 @@ var _ = Describe("SpaceManifestHandler", func() {
 	})
 
 	Describe("POST /v3/spaces/{spaceGUID}/manifest_diff", func() {
-		BeforeEach(func() {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/manifest_diff", strings.NewReader(`---
-				version: 1
-				applications:
-				  - name: app1
-			`))
-			Expect(err).NotTo(HaveOccurred())
-			req.Header.Add("Content-type", "application/x-yaml")
-		})
-
 		JustBeforeEach(func() {
 			router.ServeHTTP(rr, req)
 		})
 
 		When("the space exists", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+spaceGUID+"/manifest_diff", strings.NewReader(`---
+					version: 1
+					applications:
+					  - name: app1
+				`))
+				Expect(err).NotTo(HaveOccurred())
+				req.Header.Add("Content-type", "application/x-yaml")
+			})
+
 			It("returns 202 with an empty diff", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -332,11 +351,11 @@ var _ = Describe("SpaceManifestHandler", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("foo"))
 				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+"fake-space-guid"+"/manifest_diff", strings.NewReader(`---
-				version: 1
-				applications:
-				  - name: app1
-			`))
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/fake-space-guid/manifest_diff", strings.NewReader(`---
+					version: 1
+					applications:
+					- name: app1
+				`))
 				Expect(err).NotTo(HaveOccurred())
 				req.Header.Add("Content-type", "application/x-yaml")
 			})
@@ -350,11 +369,11 @@ var _ = Describe("SpaceManifestHandler", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewForbiddenError(errors.New("foo"), repositories.SpaceResourceType))
 				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/"+"fake-space-guid"+"/manifest_diff", strings.NewReader(`---
-				version: 1
-				applications:
-				  - name: app1
-			`))
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/spaces/fake-space-guid/manifest_diff", strings.NewReader(`---
+					version: 1
+					applications:
+					- name: app1
+				`))
 				Expect(err).NotTo(HaveOccurred())
 				req.Header.Add("Content-type", "application/x-yaml")
 			})

@@ -12,6 +12,10 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
+const (
+	processTypeWeb = "web"
+)
+
 type ApplyManifest struct {
 	appRepo     CFAppRepository
 	domainRepo  CFDomainRepository
@@ -37,6 +41,22 @@ func (a *ApplyManifest) Invoke(ctx context.Context, authInfo authorization.Info,
 			exists = false
 		} else {
 			return apierrors.ForbiddenAsNotFound(err)
+		}
+	}
+
+	if appInfo.Memory != nil {
+		found := false
+		for _, process := range appInfo.Processes {
+			if process.Type == processTypeWeb {
+				found = true
+			}
+		}
+
+		if !found {
+			appInfo.Processes = append(appInfo.Processes, payloads.ManifestApplicationProcess{
+				Type:   processTypeWeb,
+				Memory: appInfo.Memory,
+			})
 		}
 	}
 
