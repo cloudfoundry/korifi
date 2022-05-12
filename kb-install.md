@@ -58,17 +58,7 @@ kubectl create secret docker-registry image-registry-credentials \
 #### GCP Artifact Registry example
 
 Use the following for GCP's artifact registry, using service account credentials,
-with the credential key optionally base64 encoded
-
-```sh
-kubectl create secret docker-registry image-registry-credentials \
-    --docker-username="_json_key" \
-    --docker-password="<SERVICE_ACCOUNT_KEY_JSON>" \
-    --docker-server="<ARTIFACT_REGISTRY_REGION>-docker.pkg.dev" \
-    --namespace $ROOT_NAMESPACE
-```
-
-or, if base64 encoding the key json
+with the credential key base64 encoded
 
 ```sh
 kubectl create secret docker-registry image-registry-credentials \
@@ -211,8 +201,8 @@ gcloud dns record-sets create "*.apps.$BASE_DOMAIN." --type=A --rrdatas=$EXTERNA
 Edit `api/config/base/apiconfig/korifi_api_config.yaml`
 
 ```sh
-sed -i "s/externalFQDN.*/externalFQDN: api.$BASE_DOMAIN/" api/config/base/apiconfig/korifi_api_config.yaml
-sed -i "s/defaultDomainName.*/defaultDomainName: apps.$BASE_DOMAIN/" api/config/base/apiconfig/korifi_api_config.yaml
+sed -i".bak" -e "s/externalFQDN.*/externalFQDN: api.$BASE_DOMAIN/" api/config/base/apiconfig/korifi_api_config.yaml
+sed -i".bak" -e "s/defaultDomainName.*/defaultDomainName: apps.$BASE_DOMAIN/" api/config/base/apiconfig/korifi_api_config.yaml
 ```
 
 ## Install Korifi

@@ -53,7 +53,7 @@ function create_tls_secret() {
   tmp_dir=$(mktemp -d -t cf-tls-XXXXXX)
 
   opensslVersion="$(openssl version)"
-  if [[ "$opensslVersion" =~ "^OpenSSL" ]]; then
+  if [[ $opensslVersion =~ ^OpenSSL ]]; then
     openssl req -x509 -newkey rsa:4096 \
       -keyout ${tmp_dir}/tls.key \
       -out ${tmp_dir}/tls.crt \
@@ -61,7 +61,7 @@ function create_tls_secret() {
       -subj "/CN=${tls_cn}" \
       -addext "subjectAltName = DNS:${tls_cn}" \
       -days 365 2>/dev/null
-  elif [[ "$opensslVersion" =~ "^LibreSSL" ]]; then
+  elif [[ $opensslVersion =~ ^LibreSSL ]]; then
     openssl req -x509 -newkey rsa:4096 \
       -keyout ${tmp_dir}/tls.key \
       -out ${tmp_dir}/tls.crt \
@@ -69,6 +69,8 @@ function create_tls_secret() {
       -subj "/CN=${tls_cn}" \
       -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:${tls_cn}'")) \
       -days 365 2>/dev/null
+  else
+    echo "OpenSSL $(openssl version) not supported"
   fi
 
   cat <<EOF >${tmp_dir}/kustomization.yml
