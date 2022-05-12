@@ -356,6 +356,112 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					}))
 				})
 			})
+
+			When("the manifest includes application resource properties, but no web process", func() {
+				BeforeEach(func() {
+					requestBody = fmt.Sprintf(`---
+                    version: 1
+                    applications:
+                    - name: %s
+                      memory: 512M
+                      processes:
+                      - type: worker
+                        memory: 256M`, appName)
+				})
+
+				It("creates a web process with the specified resource properties", func() {
+					var app1 workloadsv1alpha1.CFApp
+					var appList workloadsv1alpha1.CFAppList
+					Eventually(func() []workloadsv1alpha1.CFApp {
+						Expect(
+							k8sClient.List(context.Background(), &appList, client.InNamespace(space.Name)),
+						).To(Succeed())
+						return appList.Items
+					}).Should(HaveLen(1))
+
+					app1 = appList.Items[0]
+					Expect(app1.Spec.DisplayName).To(Equal(appName))
+
+					var processList workloadsv1alpha1.CFProcessList
+					Eventually(func() []workloadsv1alpha1.CFProcess {
+						Expect(
+							k8sClient.List(context.Background(), &processList, client.InNamespace(space.Name)),
+						).To(Succeed())
+						return processList.Items
+					}).Should(HaveLen(2))
+
+					Expect(processList.Items).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"Spec": MatchFields(IgnoreExtras, Fields{
+								"AppRef":      Equal(corev1.LocalObjectReference{Name: app1.Name}),
+								"ProcessType": Equal("web"),
+								"MemoryMB":    Equal(int64(512)),
+							}),
+						}),
+						MatchFields(IgnoreExtras, Fields{
+							"Spec": MatchFields(IgnoreExtras, Fields{
+								"AppRef":      Equal(corev1.LocalObjectReference{Name: app1.Name}),
+								"ProcessType": Equal("worker"),
+								"MemoryMB":    Equal(int64(256)),
+							}),
+						}),
+					))
+				})
+			})
+
+			When("the manifest includes application resource properties and a web process", func() {
+				BeforeEach(func() {
+					requestBody = fmt.Sprintf(`---
+                    version: 1
+                    applications:
+                    - name: %s
+                      memory: 512M
+                      processes:
+                      - type: web
+                        memory: 1024M
+                      - type: worker
+                        memory: 256M`, appName)
+				})
+
+				It("creates a web process with the specified resource properties", func() {
+					var app1 workloadsv1alpha1.CFApp
+					var appList workloadsv1alpha1.CFAppList
+					Eventually(func() []workloadsv1alpha1.CFApp {
+						Expect(
+							k8sClient.List(context.Background(), &appList, client.InNamespace(space.Name)),
+						).To(Succeed())
+						return appList.Items
+					}).Should(HaveLen(1))
+
+					app1 = appList.Items[0]
+					Expect(app1.Spec.DisplayName).To(Equal(appName))
+
+					var processList workloadsv1alpha1.CFProcessList
+					Eventually(func() []workloadsv1alpha1.CFProcess {
+						Expect(
+							k8sClient.List(context.Background(), &processList, client.InNamespace(space.Name)),
+						).To(Succeed())
+						return processList.Items
+					}).Should(HaveLen(2))
+
+					Expect(processList.Items).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"Spec": MatchFields(IgnoreExtras, Fields{
+								"AppRef":      Equal(corev1.LocalObjectReference{Name: app1.Name}),
+								"ProcessType": Equal("web"),
+								"MemoryMB":    Equal(int64(1024)),
+							}),
+						}),
+						MatchFields(IgnoreExtras, Fields{
+							"Spec": MatchFields(IgnoreExtras, Fields{
+								"AppRef":      Equal(corev1.LocalObjectReference{Name: app1.Name}),
+								"ProcessType": Equal("worker"),
+								"MemoryMB":    Equal(int64(256)),
+							}),
+						}),
+					))
+				})
+			})
 		})
 
 		When("an app with that name already exists with env vars, processes, and a route", func() {

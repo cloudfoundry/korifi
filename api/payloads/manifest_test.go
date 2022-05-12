@@ -1,12 +1,12 @@
 package payloads_test
 
 import (
+	. "code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-
-	. "code.cloudfoundry.org/korifi/api/payloads"
-	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
 var _ = Describe("ManifestApplicationProcess", func() {
