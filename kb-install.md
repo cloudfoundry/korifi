@@ -102,13 +102,13 @@ E.g. for GCP artifact registry
 apiVersion: kpack.io/v1alpha2
 kind: ClusterBuilder
 metadata:
-    name: cf-kpack-cluster-builder
+  name: cf-kpack-cluster-builder
 spec:
-    serviceAccountRef:
-        name: kpack-service-account
-        namespace: cf
-    tag: europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test/kpack
-    stack: ...
+  serviceAccountRef:
+    name: kpack-service-account
+    namespace: cf
+  tag: europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test/kpack
+  stack: ...
 ```
 
 Ensure the kpack CRDs are ready.
@@ -173,8 +173,8 @@ kubectl apply -f dependencies/service-bindings-0.7.1.yaml
 We need DNS entries for the CF API, and for apps running on CF. They should not overlap.
 So you can use entries like:
 
--   api.my-korifi.example.org for the API, and
--   \*.apps.my-korifi.example.org for the apps.
+- api.my-korifi.example.org for the API, and
+- \*.apps.my-korifi.example.org for the apps.
 
 Contour creates a load balancer endpoint. We can find the external IP for that endpoint,
 and configure two DNS entries for it appropriately. This might be a CNAME for a URL that EKS provides,
@@ -182,16 +182,25 @@ or an A record for the IP address provided by GKE.
 
 It may take some time before the address is available. Retry this until you see a result.
 
+For GCP
+
 ```sh
 EXTERNAL_IP="$(kubectl get service envoy -n projectcontour -ojsonpath='{.status.loadBalancer.ingress[0].ip}')"
 echo $EXTERNAL_IP
+```
+
+For AWS
+
+```sh
+EXTERNAL_HOSTNAME="$(kubectl get service envoy -n projectcontour -ojsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+echo $EXTERNAL_HOSTNAME
 ```
 
 To set up DNS entries in GCP Cloud DNS, for example, for this IP address
 
 ```sh
 ZONE_NAME=<YOUR DNS ZONE>
-ZONE_DOMAIN=<YOUR ZONE FULL DOMAIN> // omitting the trailing dot
+ZONE_DOMAIN=<YOUR ZONE FULL DOMAIN> # omitting the trailing dot
 BASE_DOMAIN=$CLUSTER_NAME.$ZONE_DOMAIN
 gcloud dns record-sets create "api.$BASE_DOMAIN." --type=A --rrdatas=$EXTERNAL_IP --zone=$ZONE_NAME --project=$GCP_PROJECT
 gcloud dns record-sets create "*.apps.$BASE_DOMAIN." --type=A --rrdatas=$EXTERNAL_IP --zone=$ZONE_NAME --project=$GCP_PROJECT
@@ -212,15 +221,15 @@ sed -i "s/defaultDomainName.*/defaultDomainName: apps.$BASE_DOMAIN/" api/config/
 
 Edit `controllers/config/base/controllersconfig/korifi_controllers_config.yaml`
 
--   Update `kpackImageTag` to set the prefix for droplet (staged app) images (e.g. `europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test/droplets`)
+- Update `kpackImageTag` to set the prefix for droplet (staged app) images (e.g. `europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test/droplets`)
 
 Edit `api/config/base/apiconfig/korifi_api_config.yaml`
 
--   Update `packageRegistryBase` to set the prefix for package (app source code) images (e.g. `europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test/packages`)
+- Update `packageRegistryBase` to set the prefix for package (app source code) images (e.g. `europe-west6-docker.pkg.dev/cf-on-k8s-wg/installation-test/packages`)
 
 Edit `api/config/base/api_url_patch.yaml`
 
--   Update `value` to the api domain name (e.g. the value of api.$BASE_DOMAIN)
+- Update `value` to the api domain name (e.g. the value of api.$BASE_DOMAIN)
 
 Then deploy
 
