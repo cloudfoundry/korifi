@@ -44,6 +44,8 @@ type CFOrgStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Display Name",type=string,JSONPath=`.spec.displayName`
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 
 // CFOrg is the Schema for the cforgs API
 type CFOrg struct {

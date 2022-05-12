@@ -31,7 +31,14 @@ spec:
     singular: cfapp
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Display Name
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: CFApp is the Schema for the cfapps API
@@ -540,7 +547,14 @@ spec:
     singular: cforg
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Display Name
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: CFOrg is the Schema for the cforgs API
@@ -1363,7 +1377,14 @@ spec:
     singular: cfservicebinding
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Display Name
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: CFServiceBinding is the Schema for the cfservicebindings API
@@ -1548,7 +1569,14 @@ spec:
     singular: cfserviceinstance
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Display Name
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: CFServiceInstance is the Schema for the cfserviceinstances API
@@ -1703,7 +1731,14 @@ spec:
     singular: cfspace
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Display Name
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: CFSpace is the Schema for the cfspaces API

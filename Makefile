@@ -76,13 +76,8 @@ test-unit: test-controllers test-api-unit
 test-controllers: install-ginkgo manifests-controllers generate-controllers fmt vet ## Run tests.
 	cd controllers && GINKGO_NODES=$(CONTROLLERS_GINKGO_NODES) ../scripts/run-tests.sh
 
-test-api: test-api-unit test-api-integration
-
-test-api-unit: install-ginkgo fmt vet
+test-api: install-ginkgo fmt vet
 	cd api && ../scripts/run-tests.sh --skip-package=test
-
-test-api-integration: install-ginkgo
-	cd api && ../scripts/run-tests.sh tests/integration
 
 test-e2e: install-ginkgo
 	cd api && ../scripts/run-tests.sh tests/e2e
@@ -108,6 +103,9 @@ docker-build-controllers-debug:
 
 docker-build-api:
 	docker buildx build --load -f api/Dockerfile -t ${IMG_API} .
+
+docker-build-api-debug:
+	docker buildx build --load -f api/remote-debug/Dockerfile -t ${IMG_API} .
 
 docker-push: docker-push-controllers docker-push-api
 
@@ -156,6 +154,9 @@ deploy-api-kind: install-kustomize build-reference-api
 
 deploy-api-kind-local: install-kustomize build-reference-api
 	$(KUSTOMIZE) build api/config/overlays/kind-local-registry | kubectl apply -f -
+
+deploy-api-kind-local-debug: install-kustomize build-reference-api
+	$(KUSTOMIZE) build api/config/overlays/kind-api-debug | kubectl apply -f -
 
 undeploy-controllers: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build controllers/config/default | kubectl delete -f -

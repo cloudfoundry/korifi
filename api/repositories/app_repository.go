@@ -37,11 +37,11 @@ const (
 
 type AppRepo struct {
 	namespaceRetriever   NamespaceRetriever
-	userClientFactory    UserK8sClientFactory
+	userClientFactory    authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 }
 
-func NewAppRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory, authPerms *authorization.NamespacePermissions) *AppRepo {
+func NewAppRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory, authPerms *authorization.NamespacePermissions) *AppRepo {
 	return &AppRepo{
 		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,

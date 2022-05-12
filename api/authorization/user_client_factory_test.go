@@ -1,4 +1,4 @@
-package integration_test
+package authorization_test
 
 import (
 	"context"
@@ -6,9 +6,8 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/repositories"
-	thelpers "code.cloudfoundry.org/korifi/api/tests/helpers"
-	"code.cloudfoundry.org/korifi/api/tests/integration/helpers"
+	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +28,7 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 		authInfo       authorization.Info
 		ctx            context.Context
 		userName       string
-		clientFactory  repositories.UnprivilegedClientFactory
+		clientFactory  authorization.UnprivilegedClientFactory
 	)
 
 	BeforeEach(func() {
@@ -38,7 +37,7 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 		userName = uuid.NewString()
 		mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
 		Expect(err).NotTo(HaveOccurred())
-		clientFactory = repositories.NewUnprivilegedClientFactory(k8sConfig, mapper, wait.Backoff{Steps: 1})
+		clientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, wait.Backoff{Steps: 1})
 	})
 
 	JustBeforeEach(func() {
@@ -90,8 +89,8 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 
 		Context("certificates", func() {
 			BeforeEach(func() {
-				cert, key := helpers.ObtainClientCert(testEnv, userName)
-				authInfo.CertData = helpers.JoinCertAndKey(cert, key)
+				cert, key := testhelpers.ObtainClientCert(testEnv, userName)
+				authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
 			})
 
 			It("succeeds and forbids access to the user", func() {
@@ -149,10 +148,10 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 			BeforeEach(func() {
 				name1 = uuid.NewString()
 				name2 = uuid.NewString()
-				cert1, key1 := helpers.ObtainClientCert(testEnv, name1)
-				cert2, key2 := helpers.ObtainClientCert(testEnv, name2)
-				authInfo1.CertData = helpers.JoinCertAndKey(cert1, key1)
-				authInfo2.CertData = helpers.JoinCertAndKey(cert2, key2)
+				cert1, key1 := testhelpers.ObtainClientCert(testEnv, name1)
+				cert2, key2 := testhelpers.ObtainClientCert(testEnv, name2)
+				authInfo1.CertData = testhelpers.JoinCertAndKey(cert1, key1)
+				authInfo2.CertData = testhelpers.JoinCertAndKey(cert2, key2)
 				allowListingPods(name1)
 			})
 
@@ -229,7 +228,7 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 
 		When("the cert is not valid on this cluster", func() {
 			BeforeEach(func() {
-				authInfo.CertData = thelpers.CreateCertificatePEM()
+				authInfo.CertData = helpers.CreateCertificatePEM()
 			})
 
 			It("creates an unusable client", func() {

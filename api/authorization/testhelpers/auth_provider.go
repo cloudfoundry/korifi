@@ -1,4 +1,4 @@
-package helpers
+package testhelpers
 
 import (
 	"crypto/rand"

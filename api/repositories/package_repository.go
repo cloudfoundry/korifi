@@ -27,13 +27,13 @@ const (
 )
 
 type PackageRepo struct {
-	userClientFactory    UserK8sClientFactory
+	userClientFactory    authorization.UserK8sClientFactory
 	namespaceRetriever   NamespaceRetriever
 	namespacePermissions *authorization.NamespacePermissions
 }
 
 func NewPackageRepo(
-	userClientFactory UserK8sClientFactory,
+	userClientFactory authorization.UserK8sClientFactory,
 	namespaceRetriever NamespaceRetriever,
 	authPerms *authorization.NamespacePermissions,
 ) *PackageRepo {

@@ -1,4 +1,4 @@
-package integration_test
+package authorization_test
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/tests/integration/helpers"
+	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,7 +26,7 @@ var _ = Describe("CertInspector", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		certInspector = authorization.NewCertInspector(k8sConfig)
-		certData, keyData := helpers.ObtainClientCert(testEnv, "alice")
+		certData, keyData := testhelpers.ObtainClientCert(testEnv, "alice")
 		certPEM = certData
 		certPEM = append(certPEM, keyData...)
 	})

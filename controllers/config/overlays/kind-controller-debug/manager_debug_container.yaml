@@ -19,8 +19,9 @@ spec:
         runAsNonRoot: false
       containers:
       - name: manager
-        args:
+        command:
         - "/dlv"
+        args:
         - "--listen=:40000"
         - "--headless=true"
         - "--api-version=2"

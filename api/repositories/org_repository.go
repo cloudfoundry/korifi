@@ -54,7 +54,7 @@ type OrgRecord struct {
 type OrgRepo struct {
 	rootNamespace     string
 	privilegedClient  client.WithWatch
-	userClientFactory UserK8sClientFactory
+	userClientFactory authorization.UserK8sClientFactory
 	nsPerms           *authorization.NamespacePermissions
 	timeout           time.Duration
 }
@@ -62,7 +62,7 @@ type OrgRepo struct {
 func NewOrgRepo(
 	rootNamespace string,
 	privilegedClient client.WithWatch,
-	userClientFactory UserK8sClientFactory,
+	userClientFactory authorization.UserK8sClientFactory,
 	nsPerms *authorization.NamespacePermissions,
 	timeout time.Duration,
 ) *OrgRepo {

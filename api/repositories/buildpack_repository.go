@@ -11,7 +11,7 @@ import (
 )
 
 type BuildpackRepository struct {
-	userClientFactory UserK8sClientFactory
+	userClientFactory authorization.UserK8sClientFactory
 }
 
 type BuildpackRecord struct {
@@ -28,7 +28,7 @@ type ListBuildpacksMessage struct {
 }
 
 func NewBuildpackRepository(
-	userClientFactory UserK8sClientFactory,
+	userClientFactory authorization.UserK8sClientFactory,
 ) *BuildpackRepository {
 	return &BuildpackRepository{
 		userClientFactory: userClientFactory,

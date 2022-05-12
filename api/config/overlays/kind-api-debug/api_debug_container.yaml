@@ -1,0 +1,65 @@
+---
+# This patch sets up the manger container to run Delve and exposes the debug port at
+# :40000
+# It requires the `remote-debug` controller container built with ubuntu and Delve
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: korifi-api
+  name: deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: korifi-api
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: korifi-api
+    spec:
+      securityContext:
+        runAsNonRoot: false
+      serviceAccountName: system-serviceaccount
+      containers:
+      - name: korifi-api
+        command:
+        - "/dlv"
+        args:
+        - "--listen=:40000"
+        - "--headless=true"
+        - "--api-version=2"
+        - "exec"
+        - "/cfapi"
+        - "--continue"
+        - "--accept-multiclient"
+        securityContext:
+          runAsNonRoot: false
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+              - SYS_PTRACE
+        ports:
+        - containerPort: 9000
+          name: web
+        resources: {}
+        env:
+        - name: APICONFIG
+          value: "/etc/korifi-api-config"
+        - name: TLSCONFIG
+          value: "/etc/korifi-tls-config"
+        volumeMounts:
+        - name: &configname korifi-api-config
+          mountPath: /etc/korifi-api-config
+          readOnly: true
+        - name: &tlsname korifi-tls-config
+          mountPath: /etc/korifi-tls-config
+          readOnly: true
+      volumes:
+      - name: *configname
+        configMap:
+          name: korifi-api-config
+      - name: *tlsname
+        secret:
+          secretName: korifi-api-internal-cert

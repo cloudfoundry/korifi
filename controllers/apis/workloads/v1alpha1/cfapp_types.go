@@ -58,6 +58,8 @@ type CFAppStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Display Name",type=string,JSONPath=`.spec.displayName`
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 
 // CFApp is the Schema for the cfapps API
 type CFApp struct {
