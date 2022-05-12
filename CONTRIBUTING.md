@@ -52,7 +52,7 @@ patterns for testing, some of which may be in flux at any point in time.
 Consider commenting on the issue to seek input or  or opening a draft pull
 request to seek feedback on approaches to testing a particular change.
 
-To build the project from source, please consider the docs on [local development](README.md#development-workflows).
+To build the project from source, please consider the docs on [local development](HACKING.md).
 
 ### Commit Messages
 
