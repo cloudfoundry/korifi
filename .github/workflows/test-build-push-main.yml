@@ -84,7 +84,7 @@ jobs:
         name: controllers-coverage
         path: "**/cover.out"
 
-  api-unit-tests:
+  api-tests:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -102,8 +102,8 @@ jobs:
       with:
         go-version: '^1.17'
 
-    - name: Run API unit tests
-      run: make test-api-unit
+    - name: Run API tests
+      run: make test-api
 
     - name: Sanitize coverage report
       run: sed -i -E '/(fake|generated|vendor)/d' **/cover.out
@@ -111,44 +111,13 @@ jobs:
     - name: Upload coverage report
       uses: actions/upload-artifact@v3
       with:
-        name: api-unit-coverage
-        path: "**/cover.out"
-
-  api-integration-tests:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-
-    - uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('api/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
-
-    - uses: actions/setup-go@v3
-      with:
-        go-version: '^1.17'
-
-    - name: Run API integration tests
-      run: make test-api-integration
-
-    - name: Sanitize coverage report
-      run: sed -i -E '/(fake|generated|vendor)/d' **/cover.out
-
-    - name: Upload coverage report
-      uses: actions/upload-artifact@v3
-      with:
-        name: api-integration-coverage
+        name: api-coverage
         path: "**/cover.out"
 
   publish-code-coverage:
     needs:
     - controllers-tests
-    - api-unit-tests
-    - api-integration-tests
+    - api-tests
 
     runs-on: ubuntu-latest
     steps:
@@ -160,17 +129,11 @@ jobs:
         name: controllers-coverage
         path: controllers-coverage
 
-    - name: Download api unit coverage
+    - name: Download api test coverage
       uses: actions/download-artifact@v3
       with:
-        name: api-unit-coverage
-        path: api-unit-coverage
-
-    - name: Download api integration coverage
-      uses: actions/download-artifact@v3
-      with:
-        name: api-integration-coverage
-        path: api-integration-coverage
+        name: api-coverage
+        path: api-coverage
 
     - name: Generate and publish code coverage report
       uses: paambaati/codeclimate-action@v3.0.0
@@ -297,8 +260,7 @@ jobs:
 
   push-latest-docker-images:
     needs:
-    - api-unit-tests
-    - api-integration-tests
+    - api-tests
     - controllers-tests
     - e2e-tests
 

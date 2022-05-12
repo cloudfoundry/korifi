@@ -1,4 +1,4 @@
-package helpers
+package testhelpers
 
 import (
 	. "github.com/onsi/gomega"

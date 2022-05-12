@@ -18,13 +18,13 @@ const (
 )
 
 type DomainRepo struct {
-	userClientFactory  UserK8sClientFactory
+	userClientFactory  authorization.UserK8sClientFactory
 	namespaceRetriever NamespaceRetriever
 	rootNamespace      string
 }
 
 func NewDomainRepo(
-	userClientFactory UserK8sClientFactory,
+	userClientFactory authorization.UserK8sClientFactory,
 	namespaceRetriever NamespaceRetriever,
 	rootNamespace string,
 ) *DomainRepo {

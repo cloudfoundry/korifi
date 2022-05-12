@@ -54,11 +54,11 @@ type RoleRepo struct {
 	rootNamespace       string
 	roleMappings        map[string]config.Role
 	authorizedInChecker AuthorizedInChecker
-	userClientFactory   UserK8sClientFactory
+	userClientFactory   authorization.UserK8sClientFactory
 	spaceRepo           *SpaceRepo
 }
 
-func NewRoleRepo(userClientFactory UserK8sClientFactory, spaceRepo *SpaceRepo, authorizedInChecker AuthorizedInChecker, rootNamespace string, roleMappings map[string]config.Role) *RoleRepo {
+func NewRoleRepo(userClientFactory authorization.UserK8sClientFactory, spaceRepo *SpaceRepo, authorizedInChecker AuthorizedInChecker, rootNamespace string, roleMappings map[string]config.Role) *RoleRepo {
 	return &RoleRepo{
 		rootNamespace:       rootNamespace,
 		roleMappings:        roleMappings,

@@ -56,7 +56,7 @@ type SpaceRecord struct {
 type SpaceRepo struct {
 	orgRepo            *OrgRepo
 	namespaceRetriever NamespaceRetriever
-	userClientFactory  UserK8sClientFactory
+	userClientFactory  authorization.UserK8sClientFactory
 	nsPerms            *authorization.NamespacePermissions
 	timeout            time.Duration
 }
@@ -64,7 +64,7 @@ type SpaceRepo struct {
 func NewSpaceRepo(
 	namespaceRetriever NamespaceRetriever,
 	orgRepo *OrgRepo,
-	userClientFactory UserK8sClientFactory,
+	userClientFactory authorization.UserK8sClientFactory,
 	nsPerms *authorization.NamespacePermissions,
 	timeout time.Duration,
 ) *SpaceRepo {

@@ -1,10 +1,10 @@
-package repositories_test
+package authorization_test
 
 import (
 	"context"
 	"errors"
 
-	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,7 +30,7 @@ var _ = Describe("RetryingK8sClient", func() {
 		backoff := wait.Backoff{
 			Steps: 5,
 		}
-		retryingClient = repositories.NewAuthRetryingClient(k8sClient, backoff)
+		retryingClient = authorization.NewAuthRetryingClient(k8sClient, backoff)
 		ctx = context.Background()
 	})
 

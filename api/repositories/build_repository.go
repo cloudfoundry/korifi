@@ -54,10 +54,10 @@ type LogRecord struct {
 
 type BuildRepo struct {
 	namespaceRetriever NamespaceRetriever
-	userClientFactory  UserK8sClientFactory
+	userClientFactory  authorization.UserK8sClientFactory
 }
 
-func NewBuildRepo(namespaceRetriever NamespaceRetriever, userClientFactory UserK8sClientFactory) *BuildRepo {
+func NewBuildRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory) *BuildRepo {
 	return &BuildRepo{
 		namespaceRetriever: namespaceRetriever,
 		userClientFactory:  userClientFactory,

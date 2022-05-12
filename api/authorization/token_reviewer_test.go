@@ -1,4 +1,4 @@
-package integration_test
+package authorization_test
 
 import (
 	"context"

@@ -22,14 +22,14 @@ const (
 )
 
 type ServiceBindingRepo struct {
-	userClientFactory    UserK8sClientFactory
+	userClientFactory    authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 	namespaceRetriever   NamespaceRetriever
 }
 
 func NewServiceBindingRepo(
 	namespaceRetriever NamespaceRetriever,
-	userClientFactory UserK8sClientFactory,
+	userClientFactory authorization.UserK8sClientFactory,
 	namespacePermissions *authorization.NamespacePermissions,
 ) *ServiceBindingRepo {
 	return &ServiceBindingRepo{

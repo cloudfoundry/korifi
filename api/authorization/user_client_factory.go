@@ -1,4 +1,4 @@
-package repositories
+package authorization
 
 import (
 	"encoding/pem"
@@ -9,7 +9,6 @@ import (
 	k8sclient "k8s.io/client-go/kubernetes"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
-	"code.cloudfoundry.org/korifi/api/authorization"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -18,8 +17,8 @@ import (
 )
 
 type UserK8sClientFactory interface {
-	BuildClient(authorization.Info) (client.WithWatch, error)
-	BuildK8sClient(info authorization.Info) (k8sclient.Interface, error)
+	BuildClient(Info) (client.WithWatch, error)
+	BuildK8sClient(info Info) (k8sclient.Interface, error)
 }
 
 type UnprivilegedClientFactory struct {
@@ -36,14 +35,14 @@ func NewUnprivilegedClientFactory(config *rest.Config, mapper meta.RESTMapper, b
 	}
 }
 
-func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (client.WithWatch, error) {
+func (f UnprivilegedClientFactory) BuildClient(authInfo Info) (client.WithWatch, error) {
 	config := rest.CopyConfig(f.config)
 
 	switch strings.ToLower(authInfo.Scheme()) {
-	case authorization.BearerScheme:
+	case BearerScheme:
 		config.BearerToken = authInfo.Token
 
-	case authorization.CertScheme:
+	case CertScheme:
 		certBlock, rst := pem.Decode(authInfo.CertData)
 		if certBlock == nil {
 			return nil, fmt.Errorf("failed to decode cert PEM")
@@ -72,14 +71,14 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo authorization.Info) (cli
 	return NewAuthRetryingClient(userClient, f.backoff), nil
 }
 
-func (f UnprivilegedClientFactory) BuildK8sClient(authInfo authorization.Info) (k8sclient.Interface, error) {
+func (f UnprivilegedClientFactory) BuildK8sClient(authInfo Info) (k8sclient.Interface, error) {
 	config := rest.CopyConfig(f.config)
 
 	switch strings.ToLower(authInfo.Scheme()) {
-	case authorization.BearerScheme:
+	case BearerScheme:
 		config.BearerToken = authInfo.Token
 
-	case authorization.CertScheme:
+	case CertScheme:
 		certBlock, rst := pem.Decode(authInfo.CertData)
 		if certBlock == nil {
 			return nil, fmt.Errorf("failed to decode cert PEM")
