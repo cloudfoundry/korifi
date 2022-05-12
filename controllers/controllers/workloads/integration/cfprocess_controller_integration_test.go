@@ -5,8 +5,6 @@ import (
 	"crypto/sha1"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-
 	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
 	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
@@ -16,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -169,7 +168,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			Expect(lrp.Spec.AppGUID).To(Equal(cfApp.Name), "lrp app GUID does not match CFApp")
 			Expect(lrp.Spec.Ports).To(Equal(cfProcess.Spec.Ports), "lrp ports do not match")
 			Expect(lrp.Spec.Instances).To(Equal(cfProcess.Spec.DesiredInstances), "lrp desired instances does not match CFApp")
-			Expect(lrp.Spec.CPUWeight).To(BeZero(), "expected cpu to always be 0")
+			Expect(lrp.Spec.CPUWeight).NotTo(BeZero(), "expected cpu to be nonzero")
 			Expect(lrp.Spec.Sidecars).To(BeNil(), "expected sidecars to always be nil")
 			Expect(lrp.Spec.Env).To(HaveKeyWithValue("test-env-key", "test-env-val"))
 			Expect(lrp.Spec.Env).To(HaveKeyWithValue("VCAP_APP_HOST", "0.0.0.0"))

@@ -7,21 +7,19 @@ import (
 	"time"
 
 	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
-
-	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/fake"
 
+	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -138,196 +136,225 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 			},
 		}
 	})
-	JustBeforeEach(func() {
-		_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
-	})
 
-	It("suceeds", func() {
-		Expect(reconcileErr).NotTo(HaveOccurred())
-	})
-
-	When("the CFApp is created with desired state stopped", func() {
-		BeforeEach(func() {
-			cfApp.Spec.DesiredState = workloadsv1alpha1.StoppedState
+	Describe("Process Controller Reconcile", func() {
+		JustBeforeEach(func() {
+			_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 		})
 
-		It("does not attempt to create any new LRPs", func() {
-			Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
-		})
-	})
-
-	When("the CFApp is updated from desired state STARTED to STOPPED", func() {
-		BeforeEach(func() {
-			cfApp.Spec.DesiredState = workloadsv1alpha1.StoppedState
-			lrp = &eiriniv1.LRP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:         testProcessGUID,
-					GenerateName: "",
-					Namespace:    testNamespace,
-					Labels: map[string]string{
-						workloadsv1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
-					},
-				},
-				Spec: eiriniv1.LRPSpec{
-					GUID:        testProcessGUID,
-					ProcessType: testProcessType,
-					AppName:     cfApp.Spec.DisplayName,
-					AppGUID:     testAppGUID,
-					Image:       "test-image-ref",
-					Instances:   0,
-					MemoryMB:    100,
-					DiskMB:      100,
-					CPUWeight:   0,
-				},
-				Status: eiriniv1.LRPStatus{
-					Replicas: 0,
-				},
-			}
+		It("succeeds", func() {
+			Expect(reconcileErr).NotTo(HaveOccurred())
 		})
 
-		It("deletes any existing LRPs for the CFApp", func() {
-			Expect(fakeClient.DeleteCallCount()).To(Equal(1), "Client.Delete call count mismatch")
+		When("the CFApp is created with desired state stopped", func() {
+			BeforeEach(func() {
+				cfApp.Spec.DesiredState = workloadsv1alpha1.StoppedState
+			})
+
+			It("does not attempt to create any new LRPs", func() {
+				Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
+			})
 		})
-	})
 
-	When("the CFApp is started and there are existing routes matching", func() {
-		const testPort = 1234
-
-		BeforeEach(func() {
-			cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
-			lrpError = apierrors.NewNotFound(schema.GroupResource{}, "some-guid")
-
-			routes = []networkingv1alpha1.CFRoute{
-				{
+		When("the CFApp is updated from desired state STARTED to STOPPED", func() {
+			BeforeEach(func() {
+				cfApp.Spec.DesiredState = workloadsv1alpha1.StoppedState
+				lrp = &eiriniv1.LRP{
 					ObjectMeta: metav1.ObjectMeta{
-						CreationTimestamp: metav1.Time{
-							Time: time.Now(),
+						Name:         testProcessGUID,
+						GenerateName: "",
+						Namespace:    testNamespace,
+						Labels: map[string]string{
+							workloadsv1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
 						},
 					},
-					Status: networkingv1alpha1.CFRouteStatus{
-						Destinations: []networkingv1alpha1.Destination{
-							{
-								GUID: "some-other-guid",
-								Port: testPort + 1000,
-								AppRef: corev1.LocalObjectReference{
-									Name: testAppGUID,
+					Spec: eiriniv1.LRPSpec{
+						GUID:        testProcessGUID,
+						ProcessType: testProcessType,
+						AppName:     cfApp.Spec.DisplayName,
+						AppGUID:     testAppGUID,
+						Image:       "test-image-ref",
+						Instances:   0,
+						MemoryMB:    100,
+						DiskMB:      100,
+						CPUWeight:   0,
+					},
+					Status: eiriniv1.LRPStatus{
+						Replicas: 0,
+					},
+				}
+			})
+
+			It("deletes any existing LRPs for the CFApp", func() {
+				Expect(fakeClient.DeleteCallCount()).To(Equal(1), "Client.Delete call count mismatch")
+			})
+		})
+
+		When("the CFApp is started and there are existing routes matching", func() {
+			const testPort = 1234
+
+			BeforeEach(func() {
+				cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
+				lrpError = apierrors.NewNotFound(schema.GroupResource{}, "some-guid")
+
+				routes = []networkingv1alpha1.CFRoute{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: time.Now(),
+							},
+						},
+						Status: networkingv1alpha1.CFRouteStatus{
+							Destinations: []networkingv1alpha1.Destination{
+								{
+									GUID: "some-other-guid",
+									Port: testPort + 1000,
+									AppRef: corev1.LocalObjectReference{
+										Name: testAppGUID,
+									},
+									ProcessType: testProcessType,
+									Protocol:    "http1",
 								},
-								ProcessType: testProcessType,
-								Protocol:    "http1",
 							},
 						},
 					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						CreationTimestamp: metav1.Time{
-							Time: time.Now().Add(-5 * time.Second),
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							CreationTimestamp: metav1.Time{
+								Time: time.Now().Add(-5 * time.Second),
+							},
 						},
-					},
-					Status: networkingv1alpha1.CFRouteStatus{
-						Destinations: []networkingv1alpha1.Destination{
-							{
-								GUID: "some-guid",
-								Port: testPort,
-								AppRef: corev1.LocalObjectReference{
-									Name: testAppGUID,
+						Status: networkingv1alpha1.CFRouteStatus{
+							Destinations: []networkingv1alpha1.Destination{
+								{
+									GUID: "some-guid",
+									Port: testPort,
+									AppRef: corev1.LocalObjectReference{
+										Name: testAppGUID,
+									},
+									ProcessType: testProcessType,
+									Protocol:    "http1",
 								},
-								ProcessType: testProcessType,
-								Protocol:    "http1",
 							},
 						},
 					},
-				},
-			}
+				}
+			})
+
+			It("builds the environment for the app", func() {
+				Expect(envBuilder.BuildEnvCallCount()).To(Equal(1))
+				_, actualApp := envBuilder.BuildEnvArgsForCall(0)
+				Expect(actualApp).To(Equal(cfApp))
+			})
+
+			It("chooses the oldest matching route", func() {
+				_, obj, _ := fakeClient.CreateArgsForCall(0)
+				returnedLRP := obj.(*eiriniv1.LRP)
+				Expect(returnedLRP.Spec.Env).To(HaveKeyWithValue("PORT", strconv.Itoa(testPort)))
+				Expect(returnedLRP.Spec.Env).To(HaveKeyWithValue("VCAP_APP_PORT", strconv.Itoa(testPort)))
+			})
 		})
 
-		It("builds the environment for the app", func() {
-			Expect(envBuilder.BuildEnvCallCount()).To(Equal(1))
-			_, actualApp := envBuilder.BuildEnvArgsForCall(0)
-			Expect(actualApp).To(Equal(cfApp))
-		})
+		When("the app is started", func() {
+			BeforeEach(func() {
+				cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
+			})
 
-		It("chooses the oldest matching route", func() {
-			_, obj, _ := fakeClient.CreateArgsForCall(0)
-			returnedLRP := obj.(*eiriniv1.LRP)
-			Expect(returnedLRP.Spec.Env).To(HaveKeyWithValue("PORT", strconv.Itoa(testPort)))
-			Expect(returnedLRP.Spec.Env).To(HaveKeyWithValue("VCAP_APP_PORT", strconv.Itoa(testPort)))
+			When("fetch CFProcess returns an error", func() {
+				BeforeEach(func() {
+					cfProcessError = errors.New(failsOnPurposeErrorMessage)
+				})
+
+				It("returns an error", func() {
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
+				})
+			})
+
+			When("fetch CFProcess returns a NotFoundError", func() {
+				BeforeEach(func() {
+					cfProcessError = apierrors.NewNotFound(schema.GroupResource{}, cfProcess.Name)
+				})
+
+				It("doesn't return an error", func() {
+					Expect(reconcileErr).NotTo(HaveOccurred())
+				})
+			})
+
+			When("fetch CFApp returns an error", func() {
+				BeforeEach(func() {
+					cfAppError = errors.New(failsOnPurposeErrorMessage)
+				})
+
+				It("returns an error", func() {
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
+				})
+			})
+
+			When("fetch CFBuild returns an error", func() {
+				BeforeEach(func() {
+					cfBuildError = errors.New(failsOnPurposeErrorMessage)
+				})
+
+				It("returns an error", func() {
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
+				})
+			})
+
+			When("CFBuild does not have a build droplet status", func() {
+				BeforeEach(func() {
+					cfBuild.Status.BuildDropletStatus = nil
+				})
+
+				It("returns an error", func() {
+					Expect(reconcileErr).To(MatchError("no build droplet status on CFBuild"))
+				})
+			})
+
+			When("building the LRP environment fails", func() {
+				BeforeEach(func() {
+					envBuilder.BuildEnvReturns(nil, errors.New("build-env-err"))
+				})
+
+				It("returns an error", func() {
+					Expect(reconcileErr).To(MatchError(ContainSubstring("build-env-err")))
+				})
+			})
+
+			When("fetch LRPList returns an error", func() {
+				BeforeEach(func() {
+					lrpListError = errors.New(failsOnPurposeErrorMessage)
+				})
+
+				It("returns an error", func() {
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
+				})
+			})
 		})
 	})
 
-	When("the app is started", func() {
+	When("generating LRP CPU weight parameters", func() {
 		BeforeEach(func() {
 			cfApp.Spec.DesiredState = workloadsv1alpha1.StartedState
+			lrpError = apierrors.NewNotFound(schema.GroupResource{}, "")
 		})
 
-		When("fetch CFProcess returns an error", func() {
-			BeforeEach(func() {
-				cfProcessError = errors.New(failsOnPurposeErrorMessage)
-			})
+		DescribeTable("matches expected output",
+			func(processMemoryMB int64, outputCTPUWeight uint8) {
+				cfProcess.Spec.MemoryMB = processMemoryMB
 
-			It("returns an error", func() {
-				Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
-			})
-		})
+				_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
+				Expect(reconcileErr).To(Succeed())
 
-		When("fetch CFProcess returns a NotFoundError", func() {
-			BeforeEach(func() {
-				cfProcessError = apierrors.NewNotFound(schema.GroupResource{}, cfProcess.Name)
-			})
-
-			It("doesn't return an error", func() {
-				Expect(reconcileErr).NotTo(HaveOccurred())
-			})
-		})
-
-		When("fetch CFApp returns an error", func() {
-			BeforeEach(func() {
-				cfAppError = errors.New(failsOnPurposeErrorMessage)
-			})
-
-			It("returns an error", func() {
-				Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
-			})
-		})
-
-		When("fetch CFBuild returns an error", func() {
-			BeforeEach(func() {
-				cfBuildError = errors.New(failsOnPurposeErrorMessage)
-			})
-
-			It("returns an error", func() {
-				Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
-			})
-		})
-
-		When("CFBuild does not have a build droplet status", func() {
-			BeforeEach(func() {
-				cfBuild.Status.BuildDropletStatus = nil
-			})
-
-			It("returns an error", func() {
-				Expect(reconcileErr).To(MatchError("no build droplet status on CFBuild"))
-			})
-		})
-
-		When("building the LRP environment fails", func() {
-			BeforeEach(func() {
-				envBuilder.BuildEnvReturns(nil, errors.New("build-env-err"))
-			})
-
-			It("returns an error", func() {
-				Expect(reconcileErr).To(MatchError(ContainSubstring("build-env-err")))
-			})
-		})
-
-		When("fetch LRPList returns an error", func() {
-			BeforeEach(func() {
-				lrpListError = errors.New(failsOnPurposeErrorMessage)
-			})
-
-			It("returns an error", func() {
-				Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
-			})
-		})
+				Expect(fakeClient.CreateCallCount()).To(BeNumerically(">=", 1))
+				_, createObj, _ := fakeClient.CreateArgsForCall(0)
+				createdLRP, ok := createObj.(*eiriniv1.LRP)
+				Expect(ok).To(BeTrue(), "client Create() object cooerce to eirini.LRP failed")
+				Expect(createdLRP.Spec.CPUWeight).To(Equal(outputCTPUWeight))
+			},
+			Entry("Memory is zero", int64(0), uint8(100*128/8192)),
+			Entry("Memory is less than 8192", int64(4096), uint8(100*4096/8192)),
+			Entry("Memory is greater than 8192", int64(16384), uint8(100)),
+		)
 	})
+
 })

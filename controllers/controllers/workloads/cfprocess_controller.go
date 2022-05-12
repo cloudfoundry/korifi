@@ -21,6 +21,7 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 
@@ -136,8 +137,7 @@ func (r *CFProcessReconciler) createOrPatchLRP(ctx context.Context, cfApp *workl
 
 	var desiredLRP *eiriniv1.LRP
 	desiredLRP, err = r.generateLRP(actualLRP, cfApp, cfProcess, cfBuild, appPort, envVars)
-	if err != nil {
-		// untested
+	if err != nil { // untested
 		r.Log.Error(err, "Error when initializing LRP")
 		return err
 	}
@@ -230,7 +230,7 @@ func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *worklo
 		Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
 		TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
 	}
-	desiredLRP.Spec.CPUWeight = 0
+	desiredLRP.Spec.CPUWeight = calculateCPUWeight(cfProcess.Spec.MemoryMB)
 	desiredLRP.Spec.Sidecars = nil
 
 	err := controllerutil.SetOwnerReference(cfProcess, &desiredLRP, r.Scheme)
@@ -239,6 +239,17 @@ func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *worklo
 	}
 
 	return &desiredLRP, err
+}
+
+func calculateCPUWeight(memoryMB int64) uint8 {
+	const (
+		MIN_CPU_PROXY = 128
+		MAX_CPU_PROXY = 8192
+	)
+	if memoryMB >= MAX_CPU_PROXY {
+		return 100
+	}
+	return uint8(100 * math.Max(float64(memoryMB), float64(MIN_CPU_PROXY)) / MAX_CPU_PROXY)
 }
 
 func generateLRPName(cfAppRev string, processGUID string) string {
