@@ -14,11 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-)
-
-const (
-	testLogCacheHandlerLoggerName = "TestLogCacheHandler"
 )
 
 var _ = Describe("LogCacheHandler", func() {
@@ -34,7 +29,6 @@ var _ = Describe("LogCacheHandler", func() {
 		buildRepo = new(fake.CFBuildRepository)
 		readAppLogsAction = new(fake.ReadAppLogs)
 		handler := NewLogCacheHandler(
-			logf.Log.WithName(testLogCacheHandlerLoggerName),
 			appRepo,
 			buildRepo,
 			readAppLogsAction.Spy,

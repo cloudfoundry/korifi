@@ -9,16 +9,18 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"github.com/go-logr/logr"
 )
 
 type ReadAppLogs struct {
-	Stub        func(context.Context, authorization.Info, string, payloads.LogRead) ([]repositories.LogRecord, error)
+	Stub        func(context.Context, logr.Logger, authorization.Info, string, payloads.LogRead) ([]repositories.LogRecord, error)
 	mutex       sync.RWMutex
 	argsForCall []struct {
 		arg1 context.Context
-		arg2 authorization.Info
-		arg3 string
-		arg4 payloads.LogRead
+		arg2 logr.Logger
+		arg3 authorization.Info
+		arg4 string
+		arg5 payloads.LogRead
 	}
 	returns struct {
 		result1 []repositories.LogRecord
@@ -32,21 +34,22 @@ type ReadAppLogs struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ReadAppLogs) Spy(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 payloads.LogRead) ([]repositories.LogRecord, error) {
+func (fake *ReadAppLogs) Spy(arg1 context.Context, arg2 logr.Logger, arg3 authorization.Info, arg4 string, arg5 payloads.LogRead) ([]repositories.LogRecord, error) {
 	fake.mutex.Lock()
 	ret, specificReturn := fake.returnsOnCall[len(fake.argsForCall)]
 	fake.argsForCall = append(fake.argsForCall, struct {
 		arg1 context.Context
-		arg2 authorization.Info
-		arg3 string
-		arg4 payloads.LogRead
-	}{arg1, arg2, arg3, arg4})
+		arg2 logr.Logger
+		arg3 authorization.Info
+		arg4 string
+		arg5 payloads.LogRead
+	}{arg1, arg2, arg3, arg4, arg5})
 	stub := fake.Stub
 	returns := fake.returns
-	fake.recordInvocation("ReadAppLogsAction", []interface{}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("ReadAppLogsAction", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.mutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -60,16 +63,16 @@ func (fake *ReadAppLogs) CallCount() int {
 	return len(fake.argsForCall)
 }
 
-func (fake *ReadAppLogs) Calls(stub func(context.Context, authorization.Info, string, payloads.LogRead) ([]repositories.LogRecord, error)) {
+func (fake *ReadAppLogs) Calls(stub func(context.Context, logr.Logger, authorization.Info, string, payloads.LogRead) ([]repositories.LogRecord, error)) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = stub
 }
 
-func (fake *ReadAppLogs) ArgsForCall(i int) (context.Context, authorization.Info, string, payloads.LogRead) {
+func (fake *ReadAppLogs) ArgsForCall(i int) (context.Context, logr.Logger, authorization.Info, string, payloads.LogRead) {
 	fake.mutex.RLock()
 	defer fake.mutex.RUnlock()
-	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2, fake.argsForCall[i].arg3, fake.argsForCall[i].arg4
+	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2, fake.argsForCall[i].arg3, fake.argsForCall[i].arg4, fake.argsForCall[i].arg5
 }
 
 func (fake *ReadAppLogs) Returns(result1 []repositories.LogRecord, result2 error) {

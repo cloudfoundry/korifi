@@ -1,11 +1,13 @@
 package apis
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
@@ -16,25 +18,23 @@ const (
 )
 
 type ServiceRouteBindingHandler struct {
-	logger    logr.Logger
-	serverURL url.URL
+	handlerWrapper *AuthAwareHandlerFuncWrapper
+	serverURL      url.URL
 }
 
 func NewServiceRouteBindingHandler(
-	logger logr.Logger,
 	serverURL url.URL,
 ) *ServiceRouteBindingHandler {
 	return &ServiceRouteBindingHandler{
-		logger:    logger,
-		serverURL: serverURL,
+		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ServiceRouteBindingHandler")),
+		serverURL:      serverURL,
 	}
 }
 
-func (h *ServiceRouteBindingHandler) serviceRouteBindingsListHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *ServiceRouteBindingHandler) serviceRouteBindingsListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceRouteBindingsList(h.serverURL, *r.URL)), nil
 }
 
 func (h *ServiceRouteBindingHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(ServiceRouteBindingsPath).Methods("GET").HandlerFunc(w.Wrap(h.serviceRouteBindingsListHandler))
+	router.Path(ServiceRouteBindingsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.serviceRouteBindingsListHandler))
 }

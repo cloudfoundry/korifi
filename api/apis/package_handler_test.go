@@ -20,7 +20,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("PackageHandler", func() {
@@ -57,7 +56,6 @@ var _ = Describe("PackageHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewPackageHandler(
-			logf.Log.WithName("PackageHandlerTest"),
 			*serverURL,
 			packageRepo,
 			appRepo,

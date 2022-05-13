@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("RouteHandler", func() {
@@ -48,7 +47,6 @@ var _ = Describe("RouteHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		routeHandler := NewRouteHandler(
-			logf.Log.WithName("TestRouteHandler"),
 			*serverURL,
 			routeRepo,
 			domainRepo,

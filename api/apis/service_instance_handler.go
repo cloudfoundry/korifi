@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/schema"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -36,7 +37,7 @@ type CFServiceInstanceRepository interface {
 }
 
 type ServiceInstanceHandler struct {
-	logger              logr.Logger
+	handlerWrapper      *AuthAwareHandlerFuncWrapper
 	serverURL           url.URL
 	serviceInstanceRepo CFServiceInstanceRepository
 	spaceRepo           SpaceRepository
@@ -44,14 +45,13 @@ type ServiceInstanceHandler struct {
 }
 
 func NewServiceInstanceHandler(
-	logger logr.Logger,
 	serverURL url.URL,
 	serviceInstanceRepo CFServiceInstanceRepository,
 	spaceRepo SpaceRepository,
 	decoderValidator *DecoderValidator,
 ) *ServiceInstanceHandler {
 	return &ServiceInstanceHandler{
-		logger:              logger,
+		handlerWrapper:      NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ServiceInstanceHandler")),
 		serverURL:           serverURL,
 		serviceInstanceRepo: serviceInstanceRepo,
 		spaceRepo:           spaceRepo,
@@ -60,9 +60,7 @@ func NewServiceInstanceHandler(
 }
 
 //nolint:dupl
-func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	ctx := context.Background()
-
+func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.ServiceInstanceCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, err
@@ -71,24 +69,22 @@ func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(authInfo authoriza
 	spaceGUID := payload.Relationships.Space.Data.GUID
 	_, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
-		h.logger.Error(err, "Failed to fetch namespace from Kubernetes", "spaceGUID", spaceGUID)
+		logger.Error(err, "Failed to fetch namespace from Kubernetes", "spaceGUID", spaceGUID)
 		return nil, apierrors.AsUnprocessableEntity(err, "Invalid space. Ensure that the space exists and you have access to it.", apierrors.NotFoundError{}, apierrors.ForbiddenError{})
 	}
 
 	serviceInstanceRecord, err := h.serviceInstanceRepo.CreateServiceInstance(ctx, authInfo, payload.ToServiceInstanceCreateMessage())
 	if err != nil {
-		h.logger.Error(err, "Failed to create service instance", "Service Instance Name", serviceInstanceRecord.Name)
+		logger.Error(err, "Failed to create service instance", "Service Instance Name", serviceInstanceRecord.Name)
 		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForServiceInstance(serviceInstanceRecord, h.serverURL)), nil
 }
 
-func (h *ServiceInstanceHandler) serviceInstanceListHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	ctx := context.Background()
-
+func (h *ServiceInstanceHandler) serviceInstanceListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
-		h.logger.Error(err, "Unable to parse request query parameters")
+		logger.Error(err, "Unable to parse request query parameters")
 		return nil, err
 	}
 
@@ -107,36 +103,35 @@ func (h *ServiceInstanceHandler) serviceInstanceListHandler(authInfo authorizati
 			for _, v := range multiError {
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
-					h.logger.Info("Unknown key used in ServiceInstance filter")
+					logger.Info("Unknown key used in ServiceInstance filter")
 					return nil, apierrors.NewUnknownKeyError(err, listFilter.SupportedFilterKeys())
 				}
 			}
 
-			h.logger.Error(err, "Unable to decode request query parameters")
+			logger.Error(err, "Unable to decode request query parameters")
 			return nil, err
 		default:
-			h.logger.Error(err, "Unable to decode request query parameters")
+			logger.Error(err, "Unable to decode request query parameters")
 			return nil, err
 		}
 	}
 
 	serviceInstanceList, err := h.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, listFilter.ToMessage())
 	if err != nil {
-		h.logger.Error(err, "Failed to list service instance")
+		logger.Error(err, "Failed to list service instance")
 		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceInstanceList(serviceInstanceList, h.serverURL, *r.URL)), nil
 }
 
-func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	ctx := r.Context()
+func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	vars := mux.Vars(r)
 	serviceInstanceGUID := vars["guid"]
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, serviceInstanceGUID)
 	if err != nil {
-		h.logger.Error(err, "failed to get service instance")
+		logger.Error(err, "failed to get service instance")
 		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
@@ -145,7 +140,7 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authoriza
 		SpaceGUID: serviceInstance.SpaceGUID,
 	})
 	if err != nil {
-		h.logger.Error(err, "error when deleting service instance", "guid", serviceInstanceGUID)
+		logger.Error(err, "error when deleting service instance", "guid", serviceInstanceGUID)
 		return nil, err
 	}
 
@@ -153,8 +148,7 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(authInfo authoriza
 }
 
 func (h *ServiceInstanceHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(ServiceInstancesPath).Methods(http.MethodPost).HandlerFunc(w.Wrap(h.serviceInstanceCreateHandler))
-	router.Path(ServiceInstancesPath).Methods(http.MethodGet).HandlerFunc(w.Wrap(h.serviceInstanceListHandler))
-	router.Path(ServiceInstancePath).Methods(http.MethodDelete).HandlerFunc(w.Wrap(h.serviceInstanceDeleteHandler))
+	router.Path(ServiceInstancesPath).Methods(http.MethodPost).HandlerFunc(h.handlerWrapper.Wrap(h.serviceInstanceCreateHandler))
+	router.Path(ServiceInstancesPath).Methods(http.MethodGet).HandlerFunc(h.handlerWrapper.Wrap(h.serviceInstanceListHandler))
+	router.Path(ServiceInstancePath).Methods(http.MethodDelete).HandlerFunc(h.handlerWrapper.Wrap(h.serviceInstanceDeleteHandler))
 }

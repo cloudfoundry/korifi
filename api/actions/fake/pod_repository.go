@@ -8,15 +8,17 @@ import (
 	"code.cloudfoundry.org/korifi/api/actions"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"github.com/go-logr/logr"
 )
 
 type PodRepository struct {
-	GetRuntimeLogsForAppStub        func(context.Context, authorization.Info, repositories.RuntimeLogsMessage) ([]repositories.LogRecord, error)
+	GetRuntimeLogsForAppStub        func(context.Context, logr.Logger, authorization.Info, repositories.RuntimeLogsMessage) ([]repositories.LogRecord, error)
 	getRuntimeLogsForAppMutex       sync.RWMutex
 	getRuntimeLogsForAppArgsForCall []struct {
 		arg1 context.Context
-		arg2 authorization.Info
-		arg3 repositories.RuntimeLogsMessage
+		arg2 logr.Logger
+		arg3 authorization.Info
+		arg4 repositories.RuntimeLogsMessage
 	}
 	getRuntimeLogsForAppReturns struct {
 		result1 []repositories.LogRecord
@@ -45,20 +47,21 @@ type PodRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *PodRepository) GetRuntimeLogsForApp(arg1 context.Context, arg2 authorization.Info, arg3 repositories.RuntimeLogsMessage) ([]repositories.LogRecord, error) {
+func (fake *PodRepository) GetRuntimeLogsForApp(arg1 context.Context, arg2 logr.Logger, arg3 authorization.Info, arg4 repositories.RuntimeLogsMessage) ([]repositories.LogRecord, error) {
 	fake.getRuntimeLogsForAppMutex.Lock()
 	ret, specificReturn := fake.getRuntimeLogsForAppReturnsOnCall[len(fake.getRuntimeLogsForAppArgsForCall)]
 	fake.getRuntimeLogsForAppArgsForCall = append(fake.getRuntimeLogsForAppArgsForCall, struct {
 		arg1 context.Context
-		arg2 authorization.Info
-		arg3 repositories.RuntimeLogsMessage
-	}{arg1, arg2, arg3})
+		arg2 logr.Logger
+		arg3 authorization.Info
+		arg4 repositories.RuntimeLogsMessage
+	}{arg1, arg2, arg3, arg4})
 	stub := fake.GetRuntimeLogsForAppStub
 	fakeReturns := fake.getRuntimeLogsForAppReturns
-	fake.recordInvocation("GetRuntimeLogsForApp", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("GetRuntimeLogsForApp", []interface{}{arg1, arg2, arg3, arg4})
 	fake.getRuntimeLogsForAppMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -72,17 +75,17 @@ func (fake *PodRepository) GetRuntimeLogsForAppCallCount() int {
 	return len(fake.getRuntimeLogsForAppArgsForCall)
 }
 
-func (fake *PodRepository) GetRuntimeLogsForAppCalls(stub func(context.Context, authorization.Info, repositories.RuntimeLogsMessage) ([]repositories.LogRecord, error)) {
+func (fake *PodRepository) GetRuntimeLogsForAppCalls(stub func(context.Context, logr.Logger, authorization.Info, repositories.RuntimeLogsMessage) ([]repositories.LogRecord, error)) {
 	fake.getRuntimeLogsForAppMutex.Lock()
 	defer fake.getRuntimeLogsForAppMutex.Unlock()
 	fake.GetRuntimeLogsForAppStub = stub
 }
 
-func (fake *PodRepository) GetRuntimeLogsForAppArgsForCall(i int) (context.Context, authorization.Info, repositories.RuntimeLogsMessage) {
+func (fake *PodRepository) GetRuntimeLogsForAppArgsForCall(i int) (context.Context, logr.Logger, authorization.Info, repositories.RuntimeLogsMessage) {
 	fake.getRuntimeLogsForAppMutex.RLock()
 	defer fake.getRuntimeLogsForAppMutex.RUnlock()
 	argsForCall := fake.getRuntimeLogsForAppArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
 func (fake *PodRepository) GetRuntimeLogsForAppReturns(result1 []repositories.LogRecord, result2 error) {

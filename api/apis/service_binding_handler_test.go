@@ -11,8 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/apis/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
 	. "code.cloudfoundry.org/korifi/api/apis"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,12 +19,11 @@ import (
 
 var _ = Describe("ServiceBindingHandler", func() {
 	const (
-		testServiceBindingHandlerLoggerName = "TestServiceBindingHandler"
-		appGUID                             = "test-app-guid"
-		serviceBindingGUID                  = "some-generated-guid"
-		serviceInstanceGUID                 = "test-service-instance-guid"
-		spaceGUID                           = "test-space-guid"
-		listServiceBindingsUrl              = "/v3/service_credential_bindings"
+		appGUID                = "test-app-guid"
+		serviceBindingGUID     = "some-generated-guid"
+		serviceInstanceGUID    = "test-service-instance-guid"
+		spaceGUID              = "test-space-guid"
+		listServiceBindingsUrl = "/v3/service_credential_bindings"
 	)
 
 	var (
@@ -44,7 +41,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		handler := NewServiceBindingHandler(
-			logf.Log.WithName(testServiceBindingHandlerLoggerName),
 			*serverURL,
 			serviceBindingRepo,
 			appRepo,

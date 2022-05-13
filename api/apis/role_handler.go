@@ -12,7 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	controllerruntime "sigs.k8s.io/controller-runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -42,7 +42,7 @@ type CFRoleRepository interface {
 }
 
 type RoleHandler struct {
-	logger           logr.Logger
+	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	apiBaseURL       url.URL
 	roleRepo         CFRoleRepository
 	decoderValidator *DecoderValidator
@@ -50,14 +50,14 @@ type RoleHandler struct {
 
 func NewRoleHandler(apiBaseURL url.URL, roleRepo CFRoleRepository, decoderValidator *DecoderValidator) *RoleHandler {
 	return &RoleHandler{
-		logger:           controllerruntime.Log.WithName("Role Handler"),
+		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("RoleHandler")),
 		apiBaseURL:       apiBaseURL,
 		roleRepo:         roleRepo,
 		decoderValidator: decoderValidator,
 	}
 }
 
-func (h *RoleHandler) roleCreateHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *RoleHandler) roleCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.RoleCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, err
@@ -66,9 +66,9 @@ func (h *RoleHandler) roleCreateHandler(authInfo authorization.Info, r *http.Req
 	role := payload.ToMessage()
 	role.GUID = uuid.NewString()
 
-	record, err := h.roleRepo.CreateRole(r.Context(), authInfo, role)
+	record, err := h.roleRepo.CreateRole(ctx, authInfo, role)
 	if err != nil {
-		h.logger.Error(err, "Failed to create role", "Role Type", role.Type, "Space", role.Space, "User", role.User)
+		logger.Error(err, "Failed to create role", "Role Type", role.Type, "Space", role.Space, "User", role.User)
 		return nil, err
 	}
 
@@ -76,6 +76,5 @@ func (h *RoleHandler) roleCreateHandler(authInfo authorization.Info, r *http.Req
 }
 
 func (h *RoleHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(RolesPath).Methods("POST").HandlerFunc(w.Wrap(h.roleCreateHandler))
+	router.Path(RolesPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.roleCreateHandler))
 }

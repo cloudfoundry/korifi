@@ -12,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("Droplet", func() {
@@ -25,7 +24,6 @@ var _ = Describe("Droplet", func() {
 		dropletRepo := repositories.NewDropletRepo(clientFactory, namespaceRetriever, nsPermissions)
 
 		dropletHandler = apis.NewDropletHandler(
-			logf.Log.WithName("integration tests"),
 			*serverURL,
 			dropletRepo,
 		)

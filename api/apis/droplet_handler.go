@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -26,32 +27,29 @@ type CFDropletRepository interface {
 }
 
 type DropletHandler struct {
-	serverURL   url.URL
-	dropletRepo CFDropletRepository
-	logger      logr.Logger
+	serverURL      url.URL
+	dropletRepo    CFDropletRepository
+	handlerWrapper *AuthAwareHandlerFuncWrapper
 }
 
 func NewDropletHandler(
-	logger logr.Logger,
 	serverURL url.URL,
 	dropletRepo CFDropletRepository,
 ) *DropletHandler {
 	return &DropletHandler{
-		logger:      logger,
-		serverURL:   serverURL,
-		dropletRepo: dropletRepo,
+		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("DropletHandler")),
+		serverURL:      serverURL,
+		dropletRepo:    dropletRepo,
 	}
 }
 
-func (h *DropletHandler) dropletGetHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	ctx := r.Context()
-
+func (h *DropletHandler) dropletGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	vars := mux.Vars(r)
 	dropletGUID := vars["guid"]
 
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
-		h.logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.DropletResourceType), "guid", dropletGUID)
+		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.DropletResourceType), "guid", dropletGUID)
 		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
@@ -59,6 +57,5 @@ func (h *DropletHandler) dropletGetHandler(authInfo authorization.Info, r *http.
 }
 
 func (h *DropletHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(DropletPath).Methods("GET").HandlerFunc(w.Wrap(h.dropletGetHandler))
+	router.Path(DropletPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.dropletGetHandler))
 }

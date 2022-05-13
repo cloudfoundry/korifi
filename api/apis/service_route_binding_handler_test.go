@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
 	"code.cloudfoundry.org/korifi/api/apis"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,7 +16,6 @@ var _ = Describe("ServiceRouteBinding", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			apiHandler := apis.NewServiceRouteBindingHandler(
-				logf.Log.WithName("ServiceRouteBinding"),
 				*serverURL)
 
 			apiHandler.RegisterRoutes(router)

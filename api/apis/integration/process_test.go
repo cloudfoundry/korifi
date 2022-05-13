@@ -12,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("Process", func() {
@@ -26,7 +25,6 @@ var _ = Describe("Process", func() {
 		processRepo := repositories.NewProcessRepo(namespaceRetriever, clientFactory, nsPermissions)
 
 		processHandler = apis.NewProcessHandler(
-			logf.Log.WithName("integration tests"),
 			*serverURL,
 			processRepo,
 			nil,

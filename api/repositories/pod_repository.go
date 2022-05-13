@@ -42,7 +42,6 @@ const (
 )
 
 type PodRepo struct {
-	logger            logr.Logger
 	userClientFactory authorization.UserK8sClientFactory
 	metricsFetcher    MetricsFetcherFn
 }
@@ -51,12 +50,10 @@ type PodRepo struct {
 type MetricsFetcherFn func(ctx context.Context, namespace, name string) (*metricsv1beta1.PodMetrics, error)
 
 func NewPodRepo(
-	logger logr.Logger,
 	userClientFactory authorization.UserK8sClientFactory,
 	metricsFetcher MetricsFetcherFn,
 ) *PodRepo {
 	return &PodRepo{
-		logger:            logger,
 		userClientFactory: userClientFactory,
 		metricsFetcher:    metricsFetcher,
 	}
@@ -342,7 +339,7 @@ type RuntimeLogsMessage struct {
 	Limit       int64
 }
 
-func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, authInfo authorization.Info, message RuntimeLogsMessage) ([]LogRecord, error) {
+func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, logger logr.Logger, authInfo authorization.Info, message RuntimeLogsMessage) ([]LogRecord, error) {
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
 		workloadsv1alpha1.CFAppGUIDLabelKey:  message.AppGUID,
 		"workloads.cloudfoundry.org/version": message.AppRevision,
@@ -369,7 +366,7 @@ func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, authInfo authorizati
 		logReadCloser, err = k8sClient.CoreV1().Pods(message.SpaceGUID).GetLogs(pod.Name, &corev1.PodLogOptions{Timestamps: true, TailLines: &message.Limit}).Stream(ctx)
 		if err != nil {
 			// untested
-			r.logger.Error(err, fmt.Sprintf("failed to fetch logs for pod: %s", pod.Name))
+			logger.Error(err, fmt.Sprintf("failed to fetch logs for pod: %s", pod.Name))
 			continue
 		}
 

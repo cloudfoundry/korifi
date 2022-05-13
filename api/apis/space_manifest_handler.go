@@ -9,6 +9,7 @@ import (
 	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -31,7 +32,7 @@ type CFSpaceRepository interface {
 }
 
 type SpaceManifestHandler struct {
-	logger              logr.Logger
+	handlerWrapper      *AuthAwareHandlerFuncWrapper
 	serverURL           url.URL
 	defaultDomainName   string
 	applyManifestAction ApplyManifestAction
@@ -43,7 +44,6 @@ type SpaceManifestHandler struct {
 type ApplyManifestAction func(ctx context.Context, authInfo authorization.Info, spaceGUID string, defaultDomainName string, manifest payloads.Manifest) error
 
 func NewSpaceManifestHandler(
-	logger logr.Logger,
 	serverURL url.URL,
 	defaultDomainName string,
 	applyManifestAction ApplyManifestAction,
@@ -51,7 +51,7 @@ func NewSpaceManifestHandler(
 	decoderValidator *DecoderValidator,
 ) *SpaceManifestHandler {
 	return &SpaceManifestHandler{
-		logger:              logger,
+		handlerWrapper:      NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("SpaceManifestHandler")),
 		serverURL:           serverURL,
 		defaultDomainName:   defaultDomainName,
 		applyManifestAction: applyManifestAction,
@@ -61,12 +61,11 @@ func NewSpaceManifestHandler(
 }
 
 func (h *SpaceManifestHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(SpaceManifestApplyPath).Methods("POST").HandlerFunc(w.Wrap(h.applyManifestHandler))
-	router.Path(SpaceManifestDiffPath).Methods("POST").HandlerFunc(w.Wrap(h.diffManifestHandler))
+	router.Path(SpaceManifestApplyPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.applyManifestHandler))
+	router.Path(SpaceManifestDiffPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.diffManifestHandler))
 }
 
-func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *SpaceManifestHandler) applyManifestHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	vars := mux.Vars(r)
 	spaceGUID := vars["spaceGUID"]
 	var manifest payloads.Manifest
@@ -74,8 +73,8 @@ func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info,
 		return nil, err
 	}
 
-	if err := h.applyManifestAction(r.Context(), authInfo, spaceGUID, h.defaultDomainName, manifest); err != nil {
-		h.logger.Error(err, "Error applying manifest")
+	if err := h.applyManifestAction(ctx, authInfo, spaceGUID, h.defaultDomainName, manifest); err != nil {
+		logger.Error(err, "Error applying manifest")
 		return nil, err
 	}
 
@@ -83,12 +82,12 @@ func (h *SpaceManifestHandler) applyManifestHandler(authInfo authorization.Info,
 		WithHeader(headers.Location, fmt.Sprintf("%s/v3/jobs/space.apply_manifest-%s", h.serverURL.String(), spaceGUID)), nil
 }
 
-func (h *SpaceManifestHandler) diffManifestHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *SpaceManifestHandler) diffManifestHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	vars := mux.Vars(r)
 	spaceGUID := vars["spaceGUID"]
 
 	if _, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID); err != nil {
-		h.logger.Error(err, "failed to get space", "guid", spaceGUID)
+		logger.Error(err, "failed to get space", "guid", spaceGUID)
 		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 

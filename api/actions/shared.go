@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"github.com/go-logr/logr"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
@@ -39,7 +40,7 @@ type CFBuildRepository interface {
 
 type PodRepository interface {
 	ListPodStats(ctx context.Context, authInfo authorization.Info, message repositories.ListPodStatsMessage) ([]repositories.PodStatsRecord, error)
-	GetRuntimeLogsForApp(context.Context, authorization.Info, repositories.RuntimeLogsMessage) ([]repositories.LogRecord, error)
+	GetRuntimeLogsForApp(context.Context, logr.Logger, authorization.Info, repositories.RuntimeLogsMessage) ([]repositories.LogRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name CFDomainRepository . CFDomainRepository
