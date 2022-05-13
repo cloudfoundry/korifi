@@ -1,12 +1,14 @@
 package apis
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/correlation"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
@@ -37,7 +39,7 @@ func (r *HandlerResponse) WithBody(body interface{}) *HandlerResponse {
 
 //counterfeiter:generate -o fake -fake-name AuthAwareHandlerFunc . AuthAwareHandlerFunc
 
-type AuthAwareHandlerFunc func(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error)
+type AuthAwareHandlerFunc func(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error)
 
 type AuthAwareHandlerFuncWrapper struct {
 	logger logr.Logger
@@ -47,18 +49,21 @@ func NewAuthAwareHandlerFuncWrapper(logger logr.Logger) *AuthAwareHandlerFuncWra
 	return &AuthAwareHandlerFuncWrapper{logger: logger}
 }
 
-func (wrapper *AuthAwareHandlerFuncWrapper) Wrap(delegate AuthAwareHandlerFunc) http.HandlerFunc {
+func (h *AuthAwareHandlerFuncWrapper) Wrap(delegate AuthAwareHandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		logger := correlation.AddCorrelationIDToLogger(ctx, h.logger)
 		authInfo, ok := authorization.InfoFromContext(r.Context())
 		if !ok {
-			wrapper.logger.Error(nil, "unable to get auth info")
+			logger.Error(nil, "unable to get auth info")
 			presentError(w, nil)
 			return
 		}
 
-		handlerResponse, err := delegate(authInfo, r)
+		handlerResponse, err := delegate(ctx, logger, authInfo, r)
 		if err != nil {
-			wrapper.logger.Info("handler returned error", "error", err)
+			logger.Info("handler returned error", "error", err)
 			presentError(w, err)
 			return
 		}

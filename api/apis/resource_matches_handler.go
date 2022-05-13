@@ -1,11 +1,13 @@
 package apis
 
 import (
+	"context"
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -13,22 +15,21 @@ const (
 )
 
 type ResourceMatchesHandler struct {
-	logger logr.Logger
+	handlerWrapper *AuthAwareHandlerFuncWrapper
 }
 
-func NewResourceMatchesHandler(logger logr.Logger) *ResourceMatchesHandler {
+func NewResourceMatchesHandler() *ResourceMatchesHandler {
 	return &ResourceMatchesHandler{
-		logger: logger,
+		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ResourceMatchesHandler")),
 	}
 }
 
-func (h *ResourceMatchesHandler) resourceMatchesPostHandler(_ authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *ResourceMatchesHandler) resourceMatchesPostHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	return NewHandlerResponse(http.StatusCreated).WithBody(map[string]interface{}{
 		"resources": []interface{}{},
 	}), nil
 }
 
 func (h *ResourceMatchesHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(ResourceMatchesPath).Methods("POST").HandlerFunc(w.Wrap(h.resourceMatchesPostHandler))
+	router.Path(ResourceMatchesPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.resourceMatchesPostHandler))
 }

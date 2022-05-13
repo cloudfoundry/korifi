@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	controllerruntime "sigs.k8s.io/controller-runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -23,20 +23,20 @@ type IdentityProvider interface {
 }
 
 type WhoAmIHandler struct {
+	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	identityProvider IdentityProvider
-	logger           logr.Logger
 	apiBaseURL       url.URL
 }
 
 func NewWhoAmI(identityProvider IdentityProvider, apiBaseURL url.URL) *WhoAmIHandler {
 	return &WhoAmIHandler{
+		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("WhoAmIHandler")),
 		identityProvider: identityProvider,
 		apiBaseURL:       apiBaseURL,
-		logger:           controllerruntime.Log.WithName("Org Handler"),
 	}
 }
 
-func (h *WhoAmIHandler) whoAmIHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *WhoAmIHandler) whoAmIHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	identity, err := h.identityProvider.GetIdentity(r.Context(), authInfo)
 	if err != nil {
 		return nil, err
@@ -46,6 +46,5 @@ func (h *WhoAmIHandler) whoAmIHandler(authInfo authorization.Info, r *http.Reque
 }
 
 func (h *WhoAmIHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(WhoAmIPath).Methods("GET").HandlerFunc(w.Wrap(h.whoAmIHandler))
+	router.Path(WhoAmIPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.whoAmIHandler))
 }

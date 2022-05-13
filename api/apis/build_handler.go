@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -32,19 +33,18 @@ type BuildHandler struct {
 	serverURL        url.URL
 	buildRepo        CFBuildRepository
 	packageRepo      CFPackageRepository
-	logger           logr.Logger
+	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	decoderValidator *DecoderValidator
 }
 
 func NewBuildHandler(
-	logger logr.Logger,
 	serverURL url.URL,
 	buildRepo CFBuildRepository,
 	packageRepo CFPackageRepository,
 	decoderValidator *DecoderValidator,
 ) *BuildHandler {
 	return &BuildHandler{
-		logger:           logger,
+		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("BuildHandler")),
 		serverURL:        serverURL,
 		buildRepo:        buildRepo,
 		packageRepo:      packageRepo,
@@ -52,22 +52,20 @@ func NewBuildHandler(
 	}
 }
 
-func (h *BuildHandler) buildGetHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	ctx := r.Context()
-
+func (h *BuildHandler) buildGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	vars := mux.Vars(r)
 	buildGUID := vars["guid"]
 
 	build, err := h.buildRepo.GetBuild(ctx, authInfo, buildGUID)
 	if err != nil {
-		h.logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.BuildResourceType), "guid", buildGUID)
+		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.BuildResourceType), "guid", buildGUID)
 		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForBuild(build, h.serverURL)), nil
 }
 
-func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *BuildHandler) buildCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.BuildCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, err
@@ -75,7 +73,7 @@ func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, r *http.R
 
 	packageRecord, err := h.packageRepo.GetPackage(r.Context(), authInfo, payload.Package.GUID)
 	if err != nil {
-		h.logger.Info("Error finding Package", "Package GUID", payload.Package.GUID)
+		logger.Info("Error finding Package", "Package GUID", payload.Package.GUID)
 		return nil, apierrors.AsUnprocessableEntity(err,
 			"Unable to use package. Ensure that the package exists and you have access to it.",
 			apierrors.ForbiddenError{},
@@ -87,7 +85,7 @@ func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, r *http.R
 
 	record, err := h.buildRepo.CreateBuild(r.Context(), authInfo, buildCreateMessage)
 	if err != nil {
-		h.logger.Info("Error creating build with repository", "error", err.Error())
+		logger.Info("Error creating build with repository", "error", err.Error())
 		return nil, err
 	}
 
@@ -95,7 +93,6 @@ func (h *BuildHandler) buildCreateHandler(authInfo authorization.Info, r *http.R
 }
 
 func (h *BuildHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(BuildPath).Methods("GET").HandlerFunc(w.Wrap(h.buildGetHandler))
-	router.Path(BuildsPath).Methods("POST").HandlerFunc(w.Wrap(h.buildCreateHandler))
+	router.Path(BuildPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.buildGetHandler))
+	router.Path(BuildsPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.buildCreateHandler))
 }

@@ -2,19 +2,23 @@
 package fake
 
 import (
+	"context"
 	"net/http"
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"github.com/go-logr/logr"
 )
 
 type AuthAwareHandlerFunc struct {
-	Stub        func(authorization.Info, *http.Request) (*apis.HandlerResponse, error)
+	Stub        func(context.Context, logr.Logger, authorization.Info, *http.Request) (*apis.HandlerResponse, error)
 	mutex       sync.RWMutex
 	argsForCall []struct {
-		arg1 authorization.Info
-		arg2 *http.Request
+		arg1 context.Context
+		arg2 logr.Logger
+		arg3 authorization.Info
+		arg4 *http.Request
 	}
 	returns struct {
 		result1 *apis.HandlerResponse
@@ -28,19 +32,21 @@ type AuthAwareHandlerFunc struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *AuthAwareHandlerFunc) Spy(arg1 authorization.Info, arg2 *http.Request) (*apis.HandlerResponse, error) {
+func (fake *AuthAwareHandlerFunc) Spy(arg1 context.Context, arg2 logr.Logger, arg3 authorization.Info, arg4 *http.Request) (*apis.HandlerResponse, error) {
 	fake.mutex.Lock()
 	ret, specificReturn := fake.returnsOnCall[len(fake.argsForCall)]
 	fake.argsForCall = append(fake.argsForCall, struct {
-		arg1 authorization.Info
-		arg2 *http.Request
-	}{arg1, arg2})
+		arg1 context.Context
+		arg2 logr.Logger
+		arg3 authorization.Info
+		arg4 *http.Request
+	}{arg1, arg2, arg3, arg4})
 	stub := fake.Stub
 	returns := fake.returns
-	fake.recordInvocation("AuthAwareHandlerFunc", []interface{}{arg1, arg2})
+	fake.recordInvocation("AuthAwareHandlerFunc", []interface{}{arg1, arg2, arg3, arg4})
 	fake.mutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -54,16 +60,16 @@ func (fake *AuthAwareHandlerFunc) CallCount() int {
 	return len(fake.argsForCall)
 }
 
-func (fake *AuthAwareHandlerFunc) Calls(stub func(authorization.Info, *http.Request) (*apis.HandlerResponse, error)) {
+func (fake *AuthAwareHandlerFunc) Calls(stub func(context.Context, logr.Logger, authorization.Info, *http.Request) (*apis.HandlerResponse, error)) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = stub
 }
 
-func (fake *AuthAwareHandlerFunc) ArgsForCall(i int) (authorization.Info, *http.Request) {
+func (fake *AuthAwareHandlerFunc) ArgsForCall(i int) (context.Context, logr.Logger, authorization.Info, *http.Request) {
 	fake.mutex.RLock()
 	defer fake.mutex.RUnlock()
-	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2
+	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2, fake.argsForCall[i].arg3, fake.argsForCall[i].arg4
 }
 
 func (fake *AuthAwareHandlerFunc) Returns(result1 *apis.HandlerResponse, result2 error) {

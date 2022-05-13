@@ -19,14 +19,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
-	appGUID                  = "test-app-guid"
-	appName                  = "test-app"
-	spaceGUID                = "test-space-guid"
-	testAppHandlerLoggerName = "TestAppHandler"
+	appGUID   = "test-app-guid"
+	appName   = "test-app"
+	spaceGUID = "test-space-guid"
 )
 
 var _ = Describe("AppHandler", func() {
@@ -53,7 +51,6 @@ var _ = Describe("AppHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewAppHandler(
-			logf.Log.WithName(testAppHandlerLoggerName),
 			*serverURL,
 			appRepo,
 			dropletRepo,

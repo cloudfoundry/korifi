@@ -10,11 +10,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-)
-
-const (
-	testBuildpackHandlerLoggerName = "TestBuildpackHandler"
 )
 
 var _ = Describe("BuildpackHandler", func() {
@@ -27,7 +22,6 @@ var _ = Describe("BuildpackHandler", func() {
 		buildpackRepo = new(fake.BuildpackRepository)
 
 		apiHandler := NewBuildpackHandler(
-			logf.Log.WithName(testBuildpackHandlerLoggerName),
 			*serverURL,
 			buildpackRepo,
 			"cf-kpack-cluster-builder",

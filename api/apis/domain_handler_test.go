@@ -11,7 +11,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("DomainHandler", func() {
@@ -39,7 +38,6 @@ var _ = Describe("DomainHandler", func() {
 			domainRepo.ListDomainsReturns([]repositories.DomainRecord{*domainRecord}, nil)
 
 			domainHandler := NewDomainHandler(
-				logf.Log.WithName("TestDomainHandler"),
 				*serverURL,
 				domainRepo,
 			)

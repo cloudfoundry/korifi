@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("Route Handler", func() {
@@ -40,7 +39,6 @@ var _ = Describe("Route Handler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler = NewRouteHandler(
-			logf.Log.WithName("TestRouteHandler"),
 			*serverURL,
 			routeRepo,
 			domainRepo,

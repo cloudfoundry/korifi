@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("JobHandler", func() {
@@ -24,7 +23,6 @@ var _ = Describe("JobHandler", func() {
 		BeforeEach(func() {
 			resourceGUID = uuid.NewString()
 			jobsHandler := apis.NewJobHandler(
-				logf.Log.WithName("TestJobsHandler"),
 				*serverURL,
 			)
 			jobsHandler.RegisterRoutes(router)

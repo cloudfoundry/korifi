@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -146,6 +147,7 @@ var _ = BeforeEach(func() {
 
 	rr = httptest.NewRecorder()
 	router = mux.NewRouter()
+	router.Use(apis.NewCorrelationIDMiddleware().Middleware)
 
 	port = 1024 + rand.Intn(8975)
 
