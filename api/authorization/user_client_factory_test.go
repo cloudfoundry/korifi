@@ -3,6 +3,7 @@ package authorization_test
 import (
 	"context"
 	"sync"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -37,7 +38,10 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 		userName = uuid.NewString()
 		mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
 		Expect(err).NotTo(HaveOccurred())
-		clientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, wait.Backoff{Steps: 1})
+		clientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, wait.Backoff{
+			Steps:    10,
+			Duration: 10 * time.Millisecond,
+		})
 	})
 
 	JustBeforeEach(func() {
