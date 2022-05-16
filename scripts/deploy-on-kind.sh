@@ -279,8 +279,35 @@ function deploy_korifi_api() {
   popd >/dev/null
 }
 
+function deploy_kpack_image_builder() {
+  if [[ -n "${api_only}" ]]; then return 0; fi
+
+  pushd "${ROOT_DIR}/kpack-image-builder" >/dev/null
+  {
+    export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
+    echo "${PWD}"
+    make generate
+    IMG=${IMG_KIB:-"korifi-kpack-image-builder:$(uuidgen)"}
+    export IMG
+    if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
+        make docker-build
+    fi
+    kind load docker-image --name "${cluster}" "${IMG}"
+
+    if [[ -n "${use_local_registry}" ]]; then
+        make deploy-on-kind
+    else
+        make deploy
+    fi
+  }
+  popd >/dev/null
+
+  kubectl rollout status deployment/korifi-kpack-build-controller-manager -w -n korifi-kpack-build-system
+}
+
 ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
 deploy_korifi_controllers
 deploy_korifi_api
+deploy_kpack_image_builder

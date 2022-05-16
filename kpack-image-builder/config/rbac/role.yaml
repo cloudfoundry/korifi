@@ -1,0 +1,76 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets/status
+  - serviceaccounts/status
+  verbs:
+  - get
+- apiGroups:
+  - kpack.io
+  resources:
+  - images
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kpack.io
+  resources:
+  - images/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kpack.io
+  resources:
+  - images/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - buildworkloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - buildworkloads/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - workloads.cloudfoundry.org
+  resources:
+  - buildworkloads/status
+  verbs:
+  - get
+  - patch
+  - update

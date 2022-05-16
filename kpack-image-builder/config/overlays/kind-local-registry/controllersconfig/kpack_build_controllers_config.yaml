@@ -1,0 +1,3 @@
+kpackImageTag: localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images # TODO: use overlays like the core project
+clusterBuilderName: cf-kpack-cluster-builder
+packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace

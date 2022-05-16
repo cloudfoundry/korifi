@@ -82,6 +82,9 @@ test-api: install-ginkgo fmt vet
 test-e2e: install-ginkgo
 	cd api && ../scripts/run-tests.sh tests/e2e
 
+test-kpack-image-builder: ## Run tests.
+	cd kpack-image-builder && make test
+
 ##@ Build
 
 build: generate-controllers fmt vet ## Build manager binary.

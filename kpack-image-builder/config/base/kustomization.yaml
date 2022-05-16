@@ -1,0 +1,7 @@
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - files:
+      - controllersconfig/kpack_build_controllers_config.yaml
+    name: config

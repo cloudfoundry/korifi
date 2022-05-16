@@ -21,7 +21,7 @@ jobs:
 
     - uses: actions/setup-go@v3
       with:
-        go-version: '^1.17'
+        go-version: '^1.18'
 
     - name: Check for reference YAML drift
       run: |
@@ -36,7 +36,7 @@ jobs:
 
     - uses: actions/setup-go@v3
       with:
-        go-version: '^1.17'
+        go-version: '^1.18'
 
     - name: Check for reference YAML drift
       run: |
@@ -49,7 +49,7 @@ jobs:
     - uses: actions/checkout@v3
     - uses: actions/setup-go@v3
       with:
-        go-version: '^1.17'
+        go-version: '^1.18'
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3
 
@@ -70,7 +70,7 @@ jobs:
 
     - uses: actions/setup-go@v3
       with:
-        go-version: '^1.17'
+        go-version: '^1.18'
 
     - name: Run Controllers tests
       run: make test-controllers
@@ -100,7 +100,7 @@ jobs:
 
     - uses: actions/setup-go@v3
       with:
-        go-version: '^1.17'
+        go-version: '^1.18'
 
     - name: Run API tests
       run: make test-api
@@ -114,10 +114,42 @@ jobs:
         name: api-coverage
         path: "**/cover.out"
 
+  kpack-image-builder-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('controllers/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '^1.18'
+
+      - name: Run kpack-image-builder tests
+        run: make test-kpack-image-builder
+
+      - name: Sanitize coverage report
+        run: sed -i -E '/(fake|generated|vendor)/d' **/cover.out
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: kpack-image-builder-coverage
+          path: "**/cover.out"
+
   publish-code-coverage:
     needs:
     - controllers-tests
     - api-tests
+    - kpack-image-builder-tests
 
     runs-on: ubuntu-latest
     steps:
@@ -134,6 +166,12 @@ jobs:
       with:
         name: api-coverage
         path: api-coverage
+
+    - name: Download kpack-image-builder coverage
+      uses: actions/download-artifact@v3
+      with:
+        name: kpack-image-builder-coverage
+        path: kpack-image-builder-coverage
 
     - name: Generate and publish code coverage report
       uses: paambaati/codeclimate-action@v3.0.0
@@ -195,10 +233,37 @@ jobs:
           name: korifi-controllers.image
           path: /tmp/korifi-controllers.image.tar
 
+  build-kpack-image-builder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and export
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./kpack-image-builder/Dockerfile
+          push: false
+          tags: cloudfoundry/korifi-kpack-image-builder:${{ github.sha }},cloudfoundry/korifi-kpack-image-builder:latest
+          cache-from: type=gha,scope=controllers-${{ matrix.buildx_version }}
+          cache-to: type=gha,scope=controllers-${{ matrix.buildx_version }}
+          outputs: type=docker,dest=/tmp/korifi-kpack-image-builder.image.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: korifi-controllers.image
+          path: /tmp/korifi-controllers.image.tar
+
   e2e-tests:
     needs:
     - build-api
     - build-controllers
+    - build-kpack-image-builder
     - check-reference-api
     - check-reference-controllers
 
@@ -225,7 +290,7 @@ jobs:
 
     - uses: actions/setup-go@v3
       with:
-        go-version: '^1.17'
+        go-version: '^1.18'
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
@@ -250,11 +315,23 @@ jobs:
       run: |
         docker load --input /tmp/korifi-controllers.image.tar
 
+    - name: Download kpack-image-builder image
+      uses: actions/download-artifact@v3
+      with:
+        name: korifi-kpack-image-builder.image
+        path: /tmp
+
+    - name: Load controllers image
+      run: |
+        docker load --input /tmp/korifi-kpack-image-builder.image.tar
+
     - name: Run e2e tests
       env:
         SKIP_DOCKER_BUILD: true
         IMG_API: cloudfoundry/korifi-api:${{ github.sha }}
         IMG_CONTROLLERS: cloudfoundry/korifi-controllers:${{ github.sha }}
+        # TODO: uncomment once we actually use this variable
+        # IMG_KPACK_IMAGE_BUILDER: cloudfoundry/korifi-kpack-image-builder:${{ github.sha }}
       run: make test-e2e
       working-directory: ./korifi
 
@@ -262,6 +339,7 @@ jobs:
     needs:
     - api-tests
     - controllers-tests
+    - kpack-image-builder-tests
     - e2e-tests
 
     runs-on: ubuntu-latest
@@ -298,6 +376,16 @@ jobs:
         run: |
           docker load --input /tmp/korifi-controllers.image.tar
 
+      - name: Download kpack-image-builder image
+        uses: actions/download-artifact@v3
+        with:
+          name: korifi-kpack-image-builder.image
+          path: /tmp
+
+      - name: Load kpack-image-builder image
+        run: |
+          docker load --input /tmp/korifi-kpack-image-builder.image.tar
+
       - name: Push API image
         run: |
           docker push cloudfoundry/korifi-api:latest
@@ -305,3 +393,7 @@ jobs:
       - name: Push Controller image
         run: |
           docker push cloudfoundry/korifi-controllers:latest
+
+      - name: Push kpack-image-builder image
+        run: |
+          docker push cloudfoundry/korifi-kpack-image-builder:latest

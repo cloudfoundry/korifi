@@ -1,0 +1,16 @@
+domain: cloudfoundry.org
+layout:
+- go.kubebuilder.io/v3
+projectName: korifi-kpack-build
+repo: code.cloudfoundry.org/korifi/kpack-image-builder
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloudfoundry.org
+  group: ext
+  kind: BuildWorkload
+  path: code.cloudfoundry.org/korifi/kpack-image-builder/api/v1alpha1
+  version: v1alpha1
+version: "3"

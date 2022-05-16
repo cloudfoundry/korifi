@@ -1,0 +1,3 @@
+kpackImageTag: gcr.io/cf-relint-greengrass/korifi-controllers/kpack/beta
+clusterBuilderName: cf-kpack-cluster-builder
+packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace

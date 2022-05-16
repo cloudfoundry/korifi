@@ -12,6 +12,7 @@ resources:
 - bases/services.cloudfoundry.org_cfservicebindings.yaml
 - bases/workloads.cloudfoundry.org_cforgs.yaml
 - bases/workloads.cloudfoundry.org_cfspaces.yaml
+- bases/workloads.cloudfoundry.org_buildworkloads.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
