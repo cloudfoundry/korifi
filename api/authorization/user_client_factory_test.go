@@ -39,8 +39,9 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 		mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
 		Expect(err).NotTo(HaveOccurred())
 		clientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, wait.Backoff{
-			Steps:    10,
-			Duration: 10 * time.Millisecond,
+			Steps:    6,
+			Duration: 5 * time.Millisecond,
+			Factor:   2.0,
 		})
 	})
 

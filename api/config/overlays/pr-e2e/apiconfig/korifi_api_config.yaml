@@ -1,4 +1,4 @@
-externalFQDN: cf.pr-e2e.cf-k8s.cf
+externalFQDN: cf.pr-e2e.korifi.cf-app.com
 internalPort: 9000
 
 rootNamespace: cf
@@ -11,4 +11,4 @@ packageRegistryBase: europe-west1-docker.pkg.dev/cf-on-k8s-wg/pr-e2e-images
 packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
 authEnabled: true
 clusterBuilderName: cf-kpack-cluster-builder
-defaultDomainName: pr-e2e.cf-k8s.cf
+defaultDomainName: pr-e2e.korifi.cf-app.com
