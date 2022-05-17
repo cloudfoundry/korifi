@@ -11,8 +11,6 @@ export PATH="${PATH}:${API_DIR}/bin"
 release_dir="$(mktemp -d)"
 trap "rm -rf $release_dir" EXIT
 
-OPENSSL_VERSION="$(openssl version | awk '{ print $1 }')"
-
 source "$SCRIPT_DIR/common.sh"
 
 cluster="korifi"
@@ -24,47 +22,6 @@ function unpack_release() {
     exit 1
   fi
   tar xzf "$1" -C "$release_dir"
-}
-
-function create_tls_secret() {
-  local secret_name=${1:?}
-  local secret_namespace=${2:?}
-  local tls_cn=${3:?}
-
-  tmp_dir=$(mktemp -d -t cf-tls-XXXXXX)
-  trap "rm -rf $tmp_dir" RETURN
-
-  if [[ "${OPENSSL_VERSION}" == "OpenSSL" ]]; then
-    openssl req -x509 -newkey rsa:4096 \
-      -keyout ${tmp_dir}/tls.key \
-      -out ${tmp_dir}/tls.crt \
-      -nodes \
-      -subj "/CN=${tls_cn}" \
-      -addext "subjectAltName = DNS:${tls_cn}" \
-      -days 365
-  else
-    openssl req -x509 -newkey rsa:4096 \
-      -keyout ${tmp_dir}/tls.key \
-      -out ${tmp_dir}/tls.crt \
-      -nodes \
-      -subj "/CN=${tls_cn}" \
-      -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:${tls_cn}'")) \
-      -days 365
-  fi
-
-  cat <<EOF >${tmp_dir}/kustomization.yml
-secretGenerator:
-- name: ${secret_name}
-  namespace: ${secret_namespace}
-  files:
-  - tls.crt=tls.crt
-  - tls.key=tls.key
-  type: "kubernetes.io/tls"
-generatorOptions:
-  disableNameSuffixHash: true
-EOF
-
-  kubectl apply -k $tmp_dir
 }
 
 function ensure_kind_cluster() {
