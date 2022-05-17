@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
 
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -20,7 +21,7 @@ import (
 var _ = Describe("Spaces", func() {
 	var (
 		resp        *resty.Response
-		restyClient *resty.Client
+		restyClient *helpers.CorrelatedRestyClient
 	)
 
 	BeforeEach(func() {

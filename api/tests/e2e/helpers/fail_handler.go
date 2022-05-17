@@ -1,9 +1,11 @@
 package helpers
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"strings"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -18,41 +20,46 @@ const (
 )
 
 type podContainerDescriptor struct {
-	Namespace  string
-	LabelKey   string
-	LabelValue string
-	Container  string
+	Namespace     string
+	LabelKey      string
+	LabelValue    string
+	Container     string
+	CorrelationId string
 }
 
-func E2EFailHandler(message string, callerSkip ...int) {
-	config, err := controllerruntime.GetConfig()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+func E2EFailHandler(correlationId func() string) func(string, ...int) {
+	return func(message string, callerSkip ...int) {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "Failure correlation ID: %q\n", correlationId())
+		config, err := controllerruntime.GetConfig()
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	clientset, err := kubernetes.NewForConfig(config)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		clientset, err := kubernetes.NewForConfig(config)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	printPodsLogs(clientset, []podContainerDescriptor{
-		{
-			Namespace:  "korifi-api-system",
-			LabelKey:   "app",
-			LabelValue: "korifi-api",
-			Container:  "korifi-api",
-		},
-		{
-			Namespace:  "korifi-controllers-system",
-			LabelKey:   "control-plane",
-			LabelValue: "controller-manager",
-			Container:  "manager",
-		},
-	})
+		printPodsLogs(clientset, []podContainerDescriptor{
+			{
+				Namespace:     "korifi-api-system",
+				LabelKey:      "app",
+				LabelValue:    "korifi-api",
+				Container:     "korifi-api",
+				CorrelationId: correlationId(),
+			},
+			{
+				Namespace:  "korifi-controllers-system",
+				LabelKey:   "control-plane",
+				LabelValue: "controller-manager",
+				Container:  "manager",
+			},
+		})
 
-	if len(callerSkip) > 0 {
-		callerSkip[0] = callerSkip[0] + 1
-	} else {
-		callerSkip = []int{1}
+		if len(callerSkip) > 0 {
+			callerSkip[0] = callerSkip[0] + 1
+		} else {
+			callerSkip = []int{1}
+		}
+
+		ginkgo.Fail(message, callerSkip...)
 	}
-
-	ginkgo.Fail(message, callerSkip...)
 }
 
 func printPodsLogs(clientset kubernetes.Interface, podContainerDescriptors []podContainerDescriptor) {
@@ -63,17 +70,33 @@ func printPodsLogs(clientset kubernetes.Interface, podContainerDescriptors []pod
 		}
 
 		for _, pod := range pods {
-			log, err := getSinglePodLog(clientset, pod, desc.Container)
+			log, err := getSinglePodLog(clientset, pod, desc.Container, desc.CorrelationId)
 			if err != nil {
 				fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to get logs for pod %s: %v\n", pod.Name, err)
 
 				continue
 			}
+			if log == "" {
+				log = "No relevant logs found"
+			}
 
-			fmt.Fprintf(ginkgo.GinkgoWriter,
-				"\n\n===== Logs for pod %q (last %d lines) =====\n%s\n==============================================\n\n",
+			logHeader := fmt.Sprintf(
+				"Logs for pod %q (last %d lines)",
 				pod.Name,
 				logTailLines,
+			)
+			if desc.CorrelationId != "" {
+				logHeader = fmt.Sprintf(
+					"Logs for pod %q with correlation ID %q (last %d lines)",
+					pod.Name,
+					desc.CorrelationId,
+					logTailLines,
+				)
+			}
+
+			fmt.Fprintf(ginkgo.GinkgoWriter,
+				"\n\n===== %s =====\n%s\n==============================================\n\n",
+				logHeader,
 				log)
 		}
 	}
@@ -90,7 +113,7 @@ func getPods(clientset kubernetes.Interface, namespace, labelKey, labelValue str
 	return pods.Items, nil
 }
 
-func getSinglePodLog(clientset kubernetes.Interface, pod corev1.Pod, container string) (string, error) {
+func getSinglePodLog(clientset kubernetes.Interface, pod corev1.Pod, container, correlationId string) (string, error) {
 	podLogOpts := corev1.PodLogOptions{TailLines: int64ptr(logTailLines), Container: container}
 	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
 
@@ -100,12 +123,16 @@ func getSinglePodLog(clientset kubernetes.Interface, pod corev1.Pod, container s
 	}
 	defer logStream.Close()
 
-	logBytes, err := ioutil.ReadAll(logStream)
-	if err != nil {
-		return "", err
+	var logBuf bytes.Buffer
+	logScanner := bufio.NewScanner(logStream)
+
+	for logScanner.Scan() {
+		if strings.Contains(logScanner.Text(), correlationId) {
+			logBuf.WriteString(logScanner.Text() + "\n")
+		}
 	}
 
-	return string(logBytes), nil
+	return logBuf.String(), logScanner.Err()
 }
 
 func int64ptr(i int64) *int64 {
