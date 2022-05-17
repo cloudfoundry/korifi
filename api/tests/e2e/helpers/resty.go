@@ -2,11 +2,13 @@ package helpers
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 
+	"code.cloudfoundry.org/korifi/api/apis"
 	"github.com/go-http-utils/headers"
 	"github.com/go-resty/resty/v2"
 )
@@ -81,4 +83,39 @@ func formatAsPrettyJson(b []byte) string {
 	}
 
 	return prettyBuf.String()
+}
+
+type CorrelatedRestyClient struct {
+	*resty.Client
+
+	getCorrelationId func() string
+}
+
+func NewCorrelatedRestyClient(apiServerRoot string, getCorrelationId func() string) *CorrelatedRestyClient {
+	return &CorrelatedRestyClient{
+		Client:           resty.New().SetBaseURL(apiServerRoot),
+		getCorrelationId: getCorrelationId,
+	}
+}
+
+func (c *CorrelatedRestyClient) R() *resty.Request {
+	request := c.Client.R()
+	request.SetHeader(apis.CorrelationIDHeader, c.getCorrelationId())
+
+	return request
+}
+
+func (c *CorrelatedRestyClient) SetAuthToken(token string) *CorrelatedRestyClient {
+	c.Client.SetAuthToken(token)
+	return c
+}
+
+func (c *CorrelatedRestyClient) SetTLSClientConfig(config *tls.Config) *CorrelatedRestyClient {
+	c.Client.SetTLSClientConfig(config)
+	return c
+}
+
+func (c *CorrelatedRestyClient) SetAuthScheme(scheme string) *CorrelatedRestyClient {
+	c.Client.SetAuthScheme(scheme)
+	return c
 }

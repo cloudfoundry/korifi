@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"net/http"
 
+	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -15,7 +16,7 @@ var _ = Describe("Roles", func() {
 		userName string
 		resp     *resty.Response
 		result   typedResource
-		client   *resty.Client
+		client   *helpers.CorrelatedRestyClient
 	)
 
 	BeforeEach(func() {
