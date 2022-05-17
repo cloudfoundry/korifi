@@ -25,9 +25,11 @@ import (
 )
 
 var (
-	adminClient         *resty.Client
-	certClient          *resty.Client
-	tokenClient         *resty.Client
+	correlationId string
+
+	adminClient         *helpers.CorrelatedRestyClient
+	certClient          *helpers.CorrelatedRestyClient
+	tokenClient         *helpers.CorrelatedRestyClient
 	apiServerRoot       string
 	serviceAccountName  string
 	serviceAccountToken string
@@ -191,8 +193,12 @@ type cfErr struct {
 	Code   int    `json:"code"`
 }
 
+func getCorrelationId() string {
+	return correlationId
+}
+
 func TestE2E(t *testing.T) {
-	RegisterFailHandler(helpers.E2EFailHandler)
+	RegisterFailHandler(helpers.E2EFailHandler(getCorrelationId))
 	RunSpecs(t, "E2E Suite")
 }
 
@@ -217,6 +223,10 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = SynchronizedAfterSuite(func() {
 }, func() {
 	deleteOrg(commonTestOrgGUID)
+})
+
+var _ = BeforeEach(func() {
+	correlationId = uuid.NewString()
 })
 
 func mustHaveEnv(key string) string {
@@ -697,10 +707,10 @@ func commonTestSetup() {
 
 	ensureServerIsUp()
 
-	adminClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert()).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	adminClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert()).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	adminAuthHeader = "ClientCert " + obtainAdminUserCert()
 	certAuthHeader = "ClientCert " + certPEM
 	tokenAuthHeader = fmt.Sprintf("Bearer %s", serviceAccountToken)
-	certClient = resty.New().SetBaseURL(apiServerRoot).SetAuthScheme("ClientCert").SetAuthToken(certPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	tokenClient = resty.New().SetBaseURL(apiServerRoot).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	certClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(certPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	tokenClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 }

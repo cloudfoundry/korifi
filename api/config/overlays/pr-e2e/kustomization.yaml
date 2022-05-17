@@ -19,4 +19,4 @@ patches:
   patch: |-
     - op: replace
       path: /spec/virtualhost/fqdn
-      value: "cf.pr-e2e.cf-k8s.cf"
+      value: "cf.pr-e2e.korifi.cf-app.com"

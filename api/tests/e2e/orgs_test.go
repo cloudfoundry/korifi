@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"sync"
 
+	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,7 +16,7 @@ import (
 var _ = Describe("Orgs", func() {
 	var (
 		resp        *resty.Response
-		restyClient *resty.Client
+		restyClient *helpers.CorrelatedRestyClient
 	)
 
 	BeforeEach(func() {

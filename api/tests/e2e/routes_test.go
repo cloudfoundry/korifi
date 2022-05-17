@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
 	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +23,7 @@ import (
 
 var _ = Describe("Routes", func() {
 	var (
-		client     *resty.Client
+		client     *helpers.CorrelatedRestyClient
 		domainGUID string
 		domainName string
 		spaceGUID  string
