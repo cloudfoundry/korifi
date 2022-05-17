@@ -1,0 +1,14 @@
+apiVersion: workloads.cloudfoundry.org/v1alpha1
+kind: BuildWorkload
+metadata:
+  name: buildworkload-sample
+  namespace: cf
+spec:
+  buildRef:
+    name: 1591ee05-e208-4cf3-a662-1c2da42f20a7
+  env: []
+  source:
+    registry:
+      image: gcr.io/cf-relint-greengrass/cf-crd-staging-spike/packages/665a78f8-ed97-47e6-85b2-60cbcc21d5e2
+      imagePullSecrets:
+        - name: image-registry-credentials
