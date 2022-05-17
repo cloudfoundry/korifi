@@ -20,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("ServiceBinding Handler", func() {
@@ -42,7 +41,6 @@ var _ = Describe("ServiceBinding Handler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewServiceBindingHandler(
-			logf.Log.WithName("TestServiceBinding"),
 			*serverURL,
 			serviceBindingRepo,
 			appRepo,

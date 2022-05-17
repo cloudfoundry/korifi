@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -25,31 +26,28 @@ type BuildpackRepository interface {
 }
 
 type BuildpackHandler struct {
-	logger             logr.Logger
+	handlerWrapper     *AuthAwareHandlerFuncWrapper
 	serverURL          url.URL
 	buildpackRepo      BuildpackRepository
 	clusterBuilderName string
 }
 
 func NewBuildpackHandler(
-	logger logr.Logger,
 	serverURL url.URL,
 	buildpackRepo BuildpackRepository,
 	clusterBuilderName string,
 ) *BuildpackHandler {
 	return &BuildpackHandler{
-		logger:             logger,
+		handlerWrapper:     NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("BuildpackHandler")),
 		serverURL:          serverURL,
 		buildpackRepo:      buildpackRepo,
 		clusterBuilderName: clusterBuilderName,
 	}
 }
 
-func (h *BuildpackHandler) buildpackListHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	ctx := r.Context()
-
+func (h *BuildpackHandler) buildpackListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
-		h.logger.Error(err, "Unable to parse request query parameters")
+		logger.Error(err, "Unable to parse request query parameters")
 		return nil, err
 	}
 
@@ -63,22 +61,22 @@ func (h *BuildpackHandler) buildpackListHandler(authInfo authorization.Info, r *
 			for _, v := range multiError {
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
-					h.logger.Info("Unknown key used in Buildpacks")
+					logger.Info("Unknown key used in Buildpacks")
 					return nil, apierrors.NewUnknownKeyError(err, buildpackListFilter.SupportedQueryParams())
 				}
 			}
 
-			h.logger.Error(err, "Unable to decode request query parameters")
+			logger.Error(err, "Unable to decode request query parameters")
 			return nil, err
 		default:
-			h.logger.Error(err, "Unable to decode request query parameters")
+			logger.Error(err, "Unable to decode request query parameters")
 			return nil, err
 		}
 	}
 
 	buildpacks, err := h.buildpackRepo.GetBuildpacksForBuilder(ctx, authInfo, h.clusterBuilderName)
 	if err != nil {
-		h.logger.Error(err, "Failed to fetch buildpacks from Kubernetes")
+		logger.Error(err, "Failed to fetch buildpacks from Kubernetes")
 		return nil, err
 	}
 
@@ -86,6 +84,5 @@ func (h *BuildpackHandler) buildpackListHandler(authInfo authorization.Info, r *
 }
 
 func (h *BuildpackHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(BuildpacksPath).Methods("GET").HandlerFunc(w.Wrap(h.buildpackListHandler))
+	router.Path(BuildpacksPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.buildpackListHandler))
 }

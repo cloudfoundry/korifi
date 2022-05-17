@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -22,7 +23,7 @@ const (
 )
 
 type ServiceBindingHandler struct {
-	logger              logr.Logger
+	handlerWrapper      *AuthAwareHandlerFuncWrapper
 	appRepo             CFAppRepository
 	serviceBindingRepo  CFServiceBindingRepository
 	serviceInstanceRepo CFServiceInstanceRepository
@@ -38,9 +39,9 @@ type CFServiceBindingRepository interface {
 	ListServiceBindings(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error)
 }
 
-func NewServiceBindingHandler(logger logr.Logger, serverURL url.URL, serviceBindingRepo CFServiceBindingRepository, appRepo CFAppRepository, serviceInstanceRepo CFServiceInstanceRepository, decoderValidator *DecoderValidator) *ServiceBindingHandler {
+func NewServiceBindingHandler(serverURL url.URL, serviceBindingRepo CFServiceBindingRepository, appRepo CFAppRepository, serviceInstanceRepo CFServiceInstanceRepository, decoderValidator *DecoderValidator) *ServiceBindingHandler {
 	return &ServiceBindingHandler{
-		logger:              logger,
+		handlerWrapper:      NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ServiceBindingHandler")),
 		appRepo:             appRepo,
 		serviceInstanceRepo: serviceInstanceRepo,
 		serviceBindingRepo:  serviceBindingRepo,
@@ -49,9 +50,7 @@ func NewServiceBindingHandler(logger logr.Logger, serverURL url.URL, serviceBind
 	}
 }
 
-func (h *ServiceBindingHandler) createHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	ctx := r.Context()
-
+func (h *ServiceBindingHandler) createHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.ServiceBindingCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, err
@@ -59,59 +58,56 @@ func (h *ServiceBindingHandler) createHandler(authInfo authorization.Info, r *ht
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
-		h.logger.Error(err, "failed to get %s", repositories.AppResourceType)
+		logger.Error(err, "failed to get %s", repositories.AppResourceType)
 		return nil, err
 	}
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, payload.Relationships.ServiceInstance.Data.GUID)
 	if err != nil {
-		h.logger.Error(err, "failed to get %s", repositories.ServiceInstanceResourceType)
+		logger.Error(err, "failed to get %s", repositories.ServiceInstanceResourceType)
 		return nil, err
 	}
 
 	if app.SpaceGUID != serviceInstance.SpaceGUID {
-		h.logger.Info("App and ServiceInstance in different spaces", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
+		logger.Info("App and ServiceInstance in different spaces", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
 		return nil, apierrors.NewUnprocessableEntityError(err, "The service instance and the app are in different spaces")
 	}
 
 	bindingExists, err := h.serviceBindingRepo.ServiceBindingExists(ctx, authInfo, app.SpaceGUID, app.GUID, serviceInstance.GUID)
 	if err != nil {
-		h.logger.Error(err, "failed to get %s", repositories.ServiceBindingResourceType)
+		logger.Error(err, "failed to get %s", repositories.ServiceBindingResourceType)
 		return nil, err
 	}
 	if bindingExists {
-		h.logger.Info("ServiceBinding already exists for App and ServiceInstance", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
+		logger.Info("ServiceBinding already exists for App and ServiceInstance", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
 		return nil, apierrors.NewUnprocessableEntityError(err, "The app is already bound to the service instance")
 	}
 
 	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, payload.ToMessage(app.SpaceGUID))
 	if err != nil {
-		h.logger.Error(err, "failed to create %s", repositories.ServiceBindingResourceType)
+		logger.Error(err, "failed to create %s", repositories.ServiceBindingResourceType)
 		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForServiceBinding(serviceBinding, h.serverURL)), nil
 }
 
-func (h *ServiceBindingHandler) deleteHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	ctx := r.Context()
+func (h *ServiceBindingHandler) deleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	vars := mux.Vars(r)
 	serviceBindingGUID := vars["guid"]
 
 	err := h.serviceBindingRepo.DeleteServiceBinding(ctx, authInfo, serviceBindingGUID)
 	if err != nil {
-		h.logger.Error(err, "error when deleting service binding", "guid", serviceBindingGUID)
+		logger.Error(err, "error when deleting service binding", "guid", serviceBindingGUID)
 		return nil, err
 	}
 
 	return NewHandlerResponse(http.StatusNoContent).WithBody(map[string]interface{}{}), nil
 }
 
-func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	ctx := context.Background()
-
+func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
-		h.logger.Error(err, "Unable to parse request query parameters")
+		logger.Error(err, "Unable to parse request query parameters")
 		return nil, apierrors.NewUnprocessableEntityError(err, "unable to parse query")
 	}
 
@@ -119,17 +115,17 @@ func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, r *http
 	err := schema.NewDecoder().Decode(listFilter, r.Form)
 	if err != nil {
 		if isUnknownKeyError(err) {
-			h.logger.Info("Unknown key used in ServiceInstance query parameters")
+			logger.Info("Unknown key used in ServiceInstance query parameters")
 			return nil, apierrors.NewUnknownKeyError(err, listFilter.SupportedFilterKeys())
 		} else {
-			h.logger.Error(err, "Unable to decode request query parameters")
+			logger.Error(err, "Unable to decode request query parameters")
 			return nil, err
 		}
 	}
 
 	serviceBindingList, err := h.serviceBindingRepo.ListServiceBindings(ctx, authInfo, listFilter.ToMessage())
 	if err != nil {
-		h.logger.Error(err, "failed to list %s", repositories.ServiceBindingResourceType)
+		logger.Error(err, "failed to list %s", repositories.ServiceBindingResourceType)
 		return nil, err
 	}
 
@@ -143,7 +139,7 @@ func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, r *http
 
 		appRecords, err = h.appRepo.ListApps(ctx, authInfo, listAppsMessage)
 		if err != nil {
-			h.logger.Error(err, "failed to list %s", repositories.AppResourceType)
+			logger.Error(err, "failed to list %s", repositories.AppResourceType)
 			return nil, err
 		}
 	}
@@ -152,10 +148,9 @@ func (h *ServiceBindingHandler) listHandler(authInfo authorization.Info, r *http
 }
 
 func (h *ServiceBindingHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(ServiceBindingsPath).Methods("POST").HandlerFunc(w.Wrap(h.createHandler))
-	router.Path(ServiceBindingsPath).Methods("GET").HandlerFunc(w.Wrap(h.listHandler))
-	router.Path(ServiceBindingPath).Methods("DELETE").HandlerFunc(w.Wrap(h.deleteHandler))
+	router.Path(ServiceBindingsPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.createHandler))
+	router.Path(ServiceBindingsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.listHandler))
+	router.Path(ServiceBindingPath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.deleteHandler))
 }
 
 // TODO: Separate commit/PR to move this function into shared.go and refactor all the handlers

@@ -9,16 +9,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	. "code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/apis/fake"
 )
 
 var _ = Describe("DropletHandler", func() {
-	const (
-		testDropletHandlerLoggerName = "TestDropletHandler"
-	)
 	Describe("the GET /v3/droplet/:guid endpoint", func() {
 		const (
 			appGUID     = "test-app-guid"
@@ -40,7 +36,6 @@ var _ = Describe("DropletHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			dropletHandler := NewDropletHandler(
-				logf.Log.WithName(testDropletHandlerLoggerName),
 				*serverURL,
 				dropletRepo,
 			)

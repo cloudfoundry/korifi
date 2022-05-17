@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("GET /v3/apps/:guid/env", func() {
@@ -36,7 +35,6 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewAppHandler(
-			logf.Log.WithName("integration tests"),
 			*serverURL,
 			appRepo,
 			dropletRepo,

@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/go-logr/logr"
 	"github.com/go-playground/validator"
@@ -23,22 +24,22 @@ const (
 )
 
 //counterfeiter:generate -o fake -fake-name ReadAppLogs . ReadAppLogsAction
-type ReadAppLogsAction func(ctx context.Context, authInfo authorization.Info, appGUID string, read payloads.LogRead) ([]repositories.LogRecord, error)
+type ReadAppLogsAction func(ctx context.Context, logger logr.Logger, authInfo authorization.Info, appGUID string, read payloads.LogRead) ([]repositories.LogRecord, error)
 
 // LogCacheHandler implements the minimal set of log-cache API endpoints/features necessary
-// to support the "cf push" workflow.
+// to support the "cf push" workfloh.handlerWrapper.
 type LogCacheHandler struct {
-	logger            logr.Logger
+	handlerWrapper    *AuthAwareHandlerFuncWrapper
 	appRepo           CFAppRepository
 	buildRepo         CFBuildRepository
 	readAppLogsAction ReadAppLogsAction
 }
 
-func NewLogCacheHandler(logger logr.Logger, appRepo CFAppRepository,
+func NewLogCacheHandler(appRepo CFAppRepository,
 	buildRepository CFBuildRepository, readAppLogsAction ReadAppLogsAction,
 ) *LogCacheHandler {
 	return &LogCacheHandler{
-		logger:            logger,
+		handlerWrapper:    NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("LogCacheHandler")),
 		appRepo:           appRepo,
 		buildRepo:         buildRepository,
 		readAppLogsAction: readAppLogsAction,
@@ -52,11 +53,9 @@ func (h *LogCacheHandler) logCacheInfoHandler(w http.ResponseWriter, r *http.Req
 	})
 }
 
-func (h *LogCacheHandler) logCacheReadHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	ctx := r.Context()
-
+func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
-		h.logger.Error(err, "Unable to parse request query parameters")
+		logger.Error(err, "Unable to parse request query parameters")
 		return nil, err
 	}
 
@@ -69,22 +68,22 @@ func (h *LogCacheHandler) logCacheReadHandler(authInfo authorization.Info, r *ht
 			for _, v := range multiError {
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
-					h.logger.Info("Unknown key used in log read payload")
+					logger.Info("Unknown key used in log read payload")
 					return nil, apierrors.NewUnknownKeyError(err, logReadPayload.SupportedFilterKeys())
 				}
 			}
 
-			h.logger.Error(err, "Unable to decode request query parameters")
+			logger.Error(err, "Unable to decode request query parameters")
 			return nil, err
 		default:
-			h.logger.Error(err, "Unable to decode request query parameters")
+			logger.Error(err, "Unable to decode request query parameters")
 			return nil, err
 		}
 	}
 
 	v := validator.New()
 	if logReadPayloadErr := v.Struct(logReadPayload); logReadPayloadErr != nil {
-		h.logger.Error(logReadPayloadErr, "Error validating log read request query parameters")
+		logger.Error(logReadPayloadErr, "Error validating log read request query parameters")
 		return nil, apierrors.NewUnprocessableEntityError(logReadPayloadErr, "error validating log read query parameters")
 	}
 
@@ -92,7 +91,7 @@ func (h *LogCacheHandler) logCacheReadHandler(authInfo authorization.Info, r *ht
 	appGUID := vars["guid"]
 
 	var logs []repositories.LogRecord
-	logs, err = h.readAppLogsAction(ctx, authInfo, appGUID, *logReadPayload)
+	logs, err = h.readAppLogsAction(ctx, logger, authInfo, appGUID, *logReadPayload)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +100,6 @@ func (h *LogCacheHandler) logCacheReadHandler(authInfo authorization.Info, r *ht
 }
 
 func (h *LogCacheHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
 	router.Path(LogCacheInfoPath).Methods("GET").HandlerFunc(h.logCacheInfoHandler)
-	router.Path(LogCacheReadPath).Methods("GET").HandlerFunc(w.Wrap(h.logCacheReadHandler))
+	router.Path(LogCacheReadPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.logCacheReadHandler))
 }

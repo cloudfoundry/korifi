@@ -15,7 +15,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/apis/fake"
 
 	. "code.cloudfoundry.org/korifi/api/apis"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,10 +22,9 @@ import (
 
 var _ = Describe("ServiceInstanceHandler", func() {
 	const (
-		testServiceInstanceHandlerLoggerName = "TestServiceInstanceHandler"
-		serviceInstanceGUID                  = "test-service-instance-guid"
-		serviceInstanceSpaceGUID             = "test-space-guid"
-		serviceInstanceTypeUserProvided      = "user-provided"
+		serviceInstanceGUID             = "test-service-instance-guid"
+		serviceInstanceSpaceGUID        = "test-space-guid"
+		serviceInstanceTypeUserProvided = "user-provided"
 	)
 
 	var (
@@ -42,7 +40,6 @@ var _ = Describe("ServiceInstanceHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		serviceInstanceHandler := NewServiceInstanceHandler(
-			logf.Log.WithName(testServiceInstanceHandlerLoggerName),
 			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,

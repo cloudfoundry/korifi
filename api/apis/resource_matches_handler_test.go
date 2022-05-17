@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	. "code.cloudfoundry.org/korifi/api/apis"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,7 +14,7 @@ var _ = Describe("ResourceMatchesHandler", func() {
 	var req *http.Request
 
 	BeforeEach(func() {
-		handler := NewResourceMatchesHandler(logf.Log.WithName("TestResourceMatchesHandler"))
+		handler := NewResourceMatchesHandler()
 		handler.RegisterRoutes(router)
 	})
 

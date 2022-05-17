@@ -18,10 +18,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const (
-	testLogCacheHandlerLoggerName = "TestLogCacheHandler"
-)
-
 var _ = Describe("ReadAppLogs", func() {
 	const (
 		appGUID   = "test-app-guid"
@@ -51,7 +47,7 @@ var _ = Describe("ReadAppLogs", func() {
 		buildRepo = new(fake.CFBuildRepository)
 		podRepo = new(fake.PodRepository)
 
-		readAppLogsAction = NewReadAppLogs(logf.Log.WithName(testLogCacheHandlerLoggerName), appRepo, buildRepo, podRepo)
+		readAppLogsAction = NewReadAppLogs(appRepo, buildRepo, podRepo)
 
 		appRepo.GetAppReturns(repositories.AppRecord{
 			GUID:      appGUID,
@@ -101,12 +97,12 @@ var _ = Describe("ReadAppLogs", func() {
 	})
 
 	JustBeforeEach(func() {
-		returnedRecords, returnedErr = readAppLogsAction.Invoke(context.Background(), authInfo, appGUID, requestPayload)
+		returnedRecords, returnedErr = readAppLogsAction.Invoke(context.Background(), logf.Log.WithName("testlogger"), authInfo, appGUID, requestPayload)
 	})
 
 	It("sets the log limit to 100 when not specified", func() {
 		Expect(podRepo.GetRuntimeLogsForAppCallCount()).To(BeNumerically(">=", 1))
-		_, _, message := podRepo.GetRuntimeLogsForAppArgsForCall(0)
+		_, _, _, message := podRepo.GetRuntimeLogsForAppArgsForCall(0)
 		Expect(message.Limit).To(Equal(int64(100)))
 	})
 

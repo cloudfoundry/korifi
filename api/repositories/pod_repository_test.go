@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
@@ -31,11 +29,10 @@ const (
 
 var _ = Describe("PodRepository", func() {
 	const (
-		appGUID                 = "the-app-guid"
-		pod1Name                = "some-pod-1"
-		pod2Name                = "some-pod-2"
-		podOtherVersionName     = "other-version-2"
-		podRepositoryLoggerName = "podrepository-test-logger"
+		appGUID             = "the-app-guid"
+		pod1Name            = "some-pod-1"
+		pod2Name            = "some-pod-2"
+		podOtherVersionName = "other-version-2"
 	)
 
 	var (
@@ -52,7 +49,7 @@ var _ = Describe("PodRepository", func() {
 		metricFetcherFn = new(fake.MetricsFetcherFn)
 		spaceGUID = prefixedGUID("space")
 		processGUID = prefixedGUID("process")
-		podRepo = NewPodRepo(logf.Log.WithName(podRepositoryLoggerName), userClientFactory, metricFetcherFn.Spy)
+		podRepo = NewPodRepo(userClientFactory, metricFetcherFn.Spy)
 		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}
 
 		Expect(k8sClient.Create(ctx, namespace)).To(Succeed())

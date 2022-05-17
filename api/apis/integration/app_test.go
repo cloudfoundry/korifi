@@ -22,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("App Handler", func() {
@@ -116,7 +115,6 @@ var _ = Describe("App Handler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler = apis.NewAppHandler(
-			logf.Log.WithName("integration tests"),
 			*serverURL,
 			appRepo,
 			dropletRepo,

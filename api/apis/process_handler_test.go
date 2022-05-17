@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("ProcessHandler", func() {
@@ -37,7 +36,6 @@ var _ = Describe("ProcessHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewProcessHandler(
-			logf.Log.WithName(testAppHandlerLoggerName),
 			*serverURL,
 			processRepo,
 			fetchProcessStats.Spy,

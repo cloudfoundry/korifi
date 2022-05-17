@@ -13,6 +13,7 @@ COPY api/actions api/actions/
 COPY api/apis api/apis/
 COPY api/apierrors api/apierrors
 COPY api/authorization api/authorization/
+COPY api/correlation api/correlation/
 COPY api/payloads api/payloads/
 COPY api/presenter api/presenter/
 COPY api/repositories api/repositories/

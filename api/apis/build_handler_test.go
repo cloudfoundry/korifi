@@ -16,11 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-)
-
-const (
-	testBuildHandlerLoggerName = "TestBuildHandler"
 )
 
 var _ = Describe("BuildHandler", func() {
@@ -71,7 +66,6 @@ var _ = Describe("BuildHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			buildHandler := NewBuildHandler(
-				logf.Log.WithName(testBuildHandlerLoggerName),
 				*serverURL,
 				buildRepo,
 				new(fake.CFPackageRepository),
@@ -391,7 +385,6 @@ var _ = Describe("BuildHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			buildHandler := NewBuildHandler(
-				logf.Log.WithName(testBuildHandlerLoggerName),
 				*serverURL,
 				buildRepo,
 				packageRepo,

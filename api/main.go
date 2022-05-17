@@ -65,7 +65,7 @@ func main() {
 
 	zapOpts := zap.Options{
 		// TODO: this needs to be configurable
-		Development: true,
+		Development: false,
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
 
@@ -107,7 +107,7 @@ func main() {
 	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout)
 	spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPermissions, createTimeout)
 	processRepo := repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPermissions)
-	podRepo := repositories.NewPodRepo(ctrl.Log.WithName("PodRepository"), userClientFactory, metricsFetcherFunction)
+	podRepo := repositories.NewPodRepo(userClientFactory, metricsFetcherFunction)
 	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	dropletRepo := repositories.NewDropletRepo(userClientFactory, namespaceRetriever, nsPermissions)
 	routeRepo := repositories.NewRouteRepo(namespaceRetriever, userClientFactory, nsPermissions)
@@ -146,7 +146,7 @@ func main() {
 		processRepo,
 		routeRepo,
 	).Invoke
-	readAppLogsAction := actions.NewReadAppLogs(ctrl.Log.WithName("NewReadAppLogsAction"), appRepo, buildRepo, podRepo)
+	readAppLogsAction := actions.NewReadAppLogs(appRepo, buildRepo, podRepo)
 
 	decoderValidator, err := apis.NewDefaultDecoderValidator()
 	if err != nil {
@@ -158,9 +158,8 @@ func main() {
 		apis.NewRootHandler(
 			config.ServerURL,
 		),
-		apis.NewResourceMatchesHandler(ctrl.Log.WithName("ResourceMatchesHandler")),
+		apis.NewResourceMatchesHandler(),
 		apis.NewAppHandler(
-			ctrl.Log.WithName("AppHandler"),
 			*serverURL,
 			appRepo,
 			dropletRepo,
@@ -172,7 +171,6 @@ func main() {
 			decoderValidator,
 		),
 		apis.NewRouteHandler(
-			ctrl.Log.WithName("RouteHandler"),
 			*serverURL,
 			routeRepo,
 			domainRepo,
@@ -181,11 +179,9 @@ func main() {
 			decoderValidator,
 		),
 		apis.NewServiceRouteBindingHandler(
-			ctrl.Log.WithName("ServiceRouteBinding"),
 			*serverURL,
 		),
 		apis.NewPackageHandler(
-			ctrl.Log.WithName("PackageHandler"),
 			*serverURL,
 			packageRepo,
 			appRepo,
@@ -196,19 +192,16 @@ func main() {
 			config.PackageRegistrySecretName,
 		),
 		apis.NewBuildHandler(
-			ctrl.Log.WithName("BuildHandler"),
 			*serverURL,
 			buildRepo,
 			packageRepo,
 			decoderValidator,
 		),
 		apis.NewDropletHandler(
-			ctrl.Log.WithName("DropletHandler"),
 			*serverURL,
 			dropletRepo,
 		),
 		apis.NewProcessHandler(
-			ctrl.Log.WithName("ProcessHandler"),
 			*serverURL,
 			processRepo,
 			fetchProcessStatsAction.Invoke,
@@ -216,16 +209,13 @@ func main() {
 			decoderValidator,
 		),
 		apis.NewDomainHandler(
-			ctrl.Log.WithName("DomainHandler"),
 			*serverURL,
 			domainRepo,
 		),
 		apis.NewJobHandler(
-			ctrl.Log.WithName("JobHandler"),
 			*serverURL,
 		),
 		apis.NewLogCacheHandler(
-			ctrl.Log.WithName("LogCacheHandler"),
 			appRepo,
 			buildRepo,
 			readAppLogsAction.Invoke,
@@ -245,7 +235,6 @@ func main() {
 		),
 
 		apis.NewSpaceManifestHandler(
-			ctrl.Log.WithName("SpaceManifestHandler"),
 			*serverURL,
 			config.DefaultDomainName,
 			applyManifestAction,
@@ -262,14 +251,12 @@ func main() {
 		apis.NewWhoAmI(cachingIdentityProvider, *serverURL),
 
 		apis.NewBuildpackHandler(
-			ctrl.Log.WithName("BuildpackHandler"),
 			*serverURL,
 			buildpackRepo,
 			config.ClusterBuilderName,
 		),
 
 		apis.NewServiceInstanceHandler(
-			ctrl.Log.WithName("ServiceInstanceHandler"),
 			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
@@ -277,7 +264,6 @@ func main() {
 		),
 
 		apis.NewServiceBindingHandler(
-			ctrl.Log.WithName("ServiceBindingHandler"),
 			*serverURL,
 			serviceBindingRepo,
 			appRepo,
@@ -292,11 +278,13 @@ func main() {
 	}
 
 	authInfoParser := authorization.NewInfoParser()
-	router.Use(apis.NewAuthenticationMiddleware(
-		ctrl.Log.WithName("AuthenticationMiddleware"),
-		authInfoParser,
-		cachingIdentityProvider,
-	).Middleware)
+	router.Use(
+		apis.NewCorrelationIDMiddleware().Middleware,
+		apis.NewAuthenticationMiddleware(
+			authInfoParser,
+			cachingIdentityProvider,
+		).Middleware,
+	)
 
 	portString := fmt.Sprintf(":%v", config.InternalPort)
 	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")

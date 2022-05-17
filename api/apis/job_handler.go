@@ -1,6 +1,7 @@
 package apis
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -9,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
@@ -26,25 +28,25 @@ const (
 const JobResourceType = "Job"
 
 type JobHandler struct {
-	logger    logr.Logger
-	serverURL url.URL
+	handlerWrapper *AuthAwareHandlerFuncWrapper
+	serverURL      url.URL
 }
 
-func NewJobHandler(logger logr.Logger, serverURL url.URL) *JobHandler {
+func NewJobHandler(serverURL url.URL) *JobHandler {
 	return &JobHandler{
-		logger:    logger,
-		serverURL: serverURL,
+		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("JobHandler")),
+		serverURL:      serverURL,
 	}
 }
 
-func (h *JobHandler) jobGetHandler(_ authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *JobHandler) jobGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	vars := mux.Vars(r)
 	jobGUID := vars["guid"]
 
 	jobType, resourceGUID, match := parseJobGUID(jobGUID)
 
 	if !match {
-		h.logger.Info("Invalid Job GUID")
+		logger.Info("Invalid Job GUID")
 		return nil, apierrors.NewNotFoundError(fmt.Errorf("invalid job guid: %s", jobGUID), JobResourceType)
 	}
 
@@ -56,7 +58,7 @@ func (h *JobHandler) jobGetHandler(_ authorization.Info, r *http.Request) (*Hand
 	case appDeletePrefix, orgDeletePrefix, spaceDeletePrefix, routeDeletePrefix:
 		jobResponse = presenter.ForDeleteJob(jobGUID, jobType, h.serverURL)
 	default:
-		h.logger.Info("Invalid Job type: %s", jobType)
+		logger.Info("Invalid Job type: %s", jobType)
 		return nil, apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", jobType), JobResourceType)
 	}
 
@@ -64,8 +66,7 @@ func (h *JobHandler) jobGetHandler(_ authorization.Info, r *http.Request) (*Hand
 }
 
 func (h *JobHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(JobPath).Methods("GET").HandlerFunc(w.Wrap(h.jobGetHandler))
+	router.Path(JobPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.jobGetHandler))
 }
 
 func parseJobGUID(jobGUID string) (string, string, bool) {

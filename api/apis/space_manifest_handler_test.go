@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("SpaceManifestHandler", func() {
@@ -34,7 +33,6 @@ var _ = Describe("SpaceManifestHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewSpaceManifestHandler(
-			logf.Log.WithName("testSpaceManifestHandler"),
 			*serverURL,
 			defaultDomainName,
 			applyManifestAction.Spy,

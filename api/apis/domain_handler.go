@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
@@ -29,28 +30,25 @@ type CFDomainRepository interface {
 }
 
 type DomainHandler struct {
-	logger     logr.Logger
-	serverURL  url.URL
-	domainRepo CFDomainRepository
+	handlerWrapper *AuthAwareHandlerFuncWrapper
+	serverURL      url.URL
+	domainRepo     CFDomainRepository
 }
 
 func NewDomainHandler(
-	logger logr.Logger,
 	serverURL url.URL,
 	domainRepo CFDomainRepository,
 ) *DomainHandler {
 	return &DomainHandler{
-		logger:     logger,
-		serverURL:  serverURL,
-		domainRepo: domainRepo,
+		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("DomainHandler")),
+		serverURL:      serverURL,
+		domainRepo:     domainRepo,
 	}
 }
 
-func (h *DomainHandler) DomainListHandler(authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) { //nolint:dupl
-	ctx := r.Context()
-
+func (h *DomainHandler) DomainListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) { //nolint:dupl
 	if err := r.ParseForm(); err != nil {
-		h.logger.Error(err, "Unable to parse request query parameters")
+		logger.Error(err, "Unable to parse request query parameters")
 		return nil, err
 	}
 
@@ -63,22 +61,22 @@ func (h *DomainHandler) DomainListHandler(authInfo authorization.Info, r *http.R
 			for _, v := range multiError {
 				_, ok := v.(schema.UnknownKeyError)
 				if ok {
-					h.logger.Info("Unknown key used in Domain filter")
+					logger.Info("Unknown key used in Domain filter")
 					return nil, apierrors.NewUnknownKeyError(err, domainListFilter.SupportedFilterKeys())
 				}
 			}
-			h.logger.Error(err, "Unable to decode request query parameters")
+			logger.Error(err, "Unable to decode request query parameters")
 			return nil, err
 
 		default:
-			h.logger.Error(err, "Unable to decode request query parameters")
+			logger.Error(err, "Unable to decode request query parameters")
 			return nil, err
 		}
 	}
 
 	domainList, err := h.domainRepo.ListDomains(ctx, authInfo, domainListFilter.ToMessage())
 	if err != nil {
-		h.logger.Error(err, "Failed to fetch domain(s) from Kubernetes")
+		logger.Error(err, "Failed to fetch domain(s) from Kubernetes")
 		return nil, err
 	}
 
@@ -86,6 +84,5 @@ func (h *DomainHandler) DomainListHandler(authInfo authorization.Info, r *http.R
 }
 
 func (h *DomainHandler) RegisterRoutes(router *mux.Router) {
-	w := NewAuthAwareHandlerFuncWrapper(h.logger)
-	router.Path(DomainsPath).Methods("GET").HandlerFunc(w.Wrap(h.DomainListHandler))
+	router.Path(DomainsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.DomainListHandler))
 }

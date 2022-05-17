@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint", func() {
@@ -40,7 +39,6 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewSpaceManifestHandler(
-			logf.Log.WithName("integration tests"),
 			*serverURL,
 			domainName,
 			actions.NewApplyManifest(appRepo, domainRepo, processRepo, routeRepo).Invoke,
