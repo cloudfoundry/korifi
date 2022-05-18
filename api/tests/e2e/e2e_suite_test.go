@@ -40,6 +40,11 @@ var (
 	rootNamespace     string
 	appFQDN           string
 	commonTestOrgGUID string
+	appBitsFile       string
+)
+
+const (
+	defaultAppBitsFile = "assets/procfile.zip"
 )
 
 type resource struct {
@@ -566,19 +571,19 @@ func startApp(appGUID string) {
 	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
-func uploadTestApp(pkgGUID string) {
+func uploadTestApp(pkgGUID, appBitsFile string) {
 	resp, err := adminClient.R().
 		SetFiles(map[string]string{
-			"bits": "assets/procfile.zip",
+			"bits": appBitsFile,
 		}).Post("/v3/packages/" + pkgGUID + "/upload")
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
-func pushTestApp(spaceGUID string) string {
+func pushTestApp(spaceGUID, appBitsFile string) string {
 	appGUID := createApp(spaceGUID, generateGUID("app"))
 	pkgGUID := createPackage(appGUID)
-	uploadTestApp(pkgGUID)
+	uploadTestApp(pkgGUID, appBitsFile)
 	buildGUID := createBuild(pkgGUID)
 	waitForDroplet(buildGUID)
 	setCurrentDroplet(appGUID, buildGUID)
@@ -686,6 +691,15 @@ func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail
 	))
 }
 
+func getAppBitsFile() string {
+	val, ok := os.LookupEnv("APP_BITS_FILE")
+	if ok {
+		return val
+	} else {
+		return defaultAppBitsFile
+	}
+}
+
 func commonTestSetup() {
 	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
 	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
@@ -694,6 +708,7 @@ func commonTestSetup() {
 	certUserName = mustHaveEnv("E2E_USER_NAME")
 	certPEM = mustHaveEnv("E2E_USER_PEM")
 	appFQDN = mustHaveEnv("APP_FQDN")
+	appBitsFile = getAppBitsFile()
 
 	ensureServerIsUp()
 

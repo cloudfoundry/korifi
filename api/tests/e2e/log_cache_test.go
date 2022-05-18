@@ -19,7 +19,7 @@ var _ = Describe("LogCache", func() {
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
-		appGUID = pushTestApp(spaceGUID)
+		appGUID = pushTestApp(spaceGUID, appBitsFile)
 		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 	})
 

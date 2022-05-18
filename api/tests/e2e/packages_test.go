@@ -167,7 +167,7 @@ var _ = Describe("Package", func() {
 		BeforeEach(func() {
 			resultList = resourceList{}
 			packageGUID = createPackage(appGUID)
-			uploadTestApp(packageGUID)
+			uploadTestApp(packageGUID, appBitsFile)
 			buildGUID = createBuild(packageGUID)
 
 			Eventually(func() (*resty.Response, error) {
