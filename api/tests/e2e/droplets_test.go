@@ -30,7 +30,7 @@ var _ = Describe("Droplets", func() {
 		BeforeEach(func() {
 			appGUID := createApp(spaceGUID, generateGUID("app"))
 			pkgGUID := createPackage(appGUID)
-			uploadTestApp(pkgGUID)
+			uploadTestApp(pkgGUID, appBitsFile)
 			buildGUID = createBuild(pkgGUID)
 		})
 
