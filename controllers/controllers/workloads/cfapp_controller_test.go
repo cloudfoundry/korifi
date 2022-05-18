@@ -166,7 +166,6 @@ var _ = Describe("CFAppReconciler", func() {
 			Scheme: scheme.Scheme,
 			Log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
 			ControllerConfig: &config.ControllerConfig{
-				KpackImageTag: "image/registry/tag",
 				CFProcessDefaults: config.CFProcessDefaults{
 					MemoryMB:           0,
 					DefaultDiskQuotaMB: 0,
@@ -324,7 +323,7 @@ var _ = Describe("CFAppReconciler", func() {
 
 			When("Droplet status on CFBuild is nil", func() {
 				BeforeEach(func() {
-					cfBuild.Status.BuildDropletStatus = nil
+					cfBuild.Status.Droplet = nil
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
@@ -335,7 +334,7 @@ var _ = Describe("CFAppReconciler", func() {
 
 			When("Label value doesnt conform to the syntax", func() {
 				BeforeEach(func() {
-					cfBuild.Status.BuildDropletStatus.ProcessTypes[0].Type = "#web"
+					cfBuild.Status.Droplet.ProcessTypes[0].Type = "#web"
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 

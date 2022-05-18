@@ -72,7 +72,7 @@ var _ = Describe("Droplet", func() {
 						LastTransitionTime: metav1.NewTime(time.Now()),
 					},
 				},
-				BuildDropletStatus: &v1alpha1.BuildDropletStatus{
+				Droplet: &v1alpha1.BuildDropletStatus{
 					ProcessTypes: []v1alpha1.ProcessType{},
 					Ports:        []int32{},
 				},

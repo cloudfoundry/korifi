@@ -86,7 +86,7 @@ Edit to set the `tag` line. This must point to your container registry and needs
   tag: us-east4-docker.pkg.dev/vigilant-card-347116/korifi/kpack
 ```
 
-* `controllers/config/base/controllersconfig/korifi_controllers_config.yaml`
+* `kpack-image-builder/config/base/controllersconfig/kpack_build_controllers_config.yaml`
 
 Edit to set the `kpackImageTag` line. The 4 path segment rule applies:
 
