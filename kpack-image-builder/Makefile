@@ -93,11 +93,11 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-kpack-image-builder=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 deploy-on-kind: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-kpack-image-builder=${IMG}
 	$(KUSTOMIZE) build config/overlays/kind-local-registry | kubectl apply -f -
 
 .PHONY: undeploy
