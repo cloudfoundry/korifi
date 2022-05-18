@@ -16,11 +16,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("CFBuildReconciler", func() {
+var _ = Describe("CFBuildReconciler Integration", func() {
 	const (
 		stagingConditionType                = "Staging"
 		succeededConditionType              = "Succeeded"
-		runningConditionType                = "Running"
 		wellFormedRegistryCredentialsSecret = "image-registry-credentials"
 	)
 
@@ -404,7 +403,6 @@ var _ = Describe("CFBuildReconciler", func() {
 					return k8sClient.Get(testCtx, lookupKey, workload)
 				}).Should(Succeed())
 				setBuildWorkloadStatus(workload, succeededConditionType, metav1.ConditionFalse)
-				setBuildWorkloadStatus(workload, runningConditionType, metav1.ConditionFalse)
 				Expect(k8sClient.Status().Update(testCtx, workload)).To(Succeed())
 			})
 
@@ -448,7 +446,6 @@ var _ = Describe("CFBuildReconciler", func() {
 				}
 
 				setBuildWorkloadStatus(workload, succeededConditionType, "True")
-				setBuildWorkloadStatus(workload, runningConditionType, "False")
 				workload.Status.Droplet = &v1alpha1.BuildDropletStatus{
 					Registry: v1alpha1.Registry{
 						Image:            buildImageRef,
