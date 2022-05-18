@@ -256,8 +256,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: korifi-controllers.image
-          path: /tmp/korifi-controllers.image.tar
+          name: korifi-kpack-image-builder.image
+          path: /tmp/korifi-kpack-image-builder.image.tar
 
   e2e-tests:
     needs:
