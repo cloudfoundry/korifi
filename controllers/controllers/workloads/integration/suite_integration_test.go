@@ -6,9 +6,7 @@ import (
 	"testing"
 	"time"
 
-	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
@@ -78,9 +76,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(servicesv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 	// Add Eirini to Scheme
@@ -194,7 +192,7 @@ var _ = BeforeEach(func() {
 	cfBuildReconciler.ImageProcessFetcher = fakeImageProcessFetcher.Spy
 })
 
-func createBuildWithDroplet(ctx context.Context, k8sClient client.Client, cfBuild *workloadsv1alpha1.CFBuild, droplet *workloadsv1alpha1.BuildDropletStatus) *workloadsv1alpha1.CFBuild {
+func createBuildWithDroplet(ctx context.Context, k8sClient client.Client, cfBuild *v1alpha1.CFBuild, droplet *v1alpha1.BuildDropletStatus) *v1alpha1.CFBuild {
 	Expect(
 		k8sClient.Create(ctx, cfBuild),
 	).To(Succeed())
@@ -228,8 +226,8 @@ func createNamespaceWithCleanup(ctx context.Context, k8sClient client.Client, na
 	return namespace
 }
 
-func patchAppWithDroplet(ctx context.Context, k8sClient client.Client, appGUID, spaceGUID, buildGUID string) *workloadsv1alpha1.CFApp {
-	baseCFApp := &workloadsv1alpha1.CFApp{
+func patchAppWithDroplet(ctx context.Context, k8sClient client.Client, appGUID, spaceGUID, buildGUID string) *v1alpha1.CFApp {
+	baseCFApp := &v1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
 			Namespace: spaceGUID,

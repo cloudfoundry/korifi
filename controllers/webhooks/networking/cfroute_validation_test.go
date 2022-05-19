@@ -7,8 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
@@ -33,9 +32,9 @@ var _ = Describe("CF Route Validation", func() {
 		duplicateValidator *networkingfakes.NameValidator
 		fakeClient         *fake.Client
 		realDecoder        *admission.Decoder
-		cfRoute            *networkingv1alpha1.CFRoute
-		cfDomain           *networkingv1alpha1.CFDomain
-		cfApp              *workloadsv1alpha1.CFApp
+		cfRoute            *v1alpha1.CFRoute
+		cfDomain           *v1alpha1.CFDomain
+		cfApp              *v1alpha1.CFApp
 		request            admission.Request
 		validatingWebhook  *networking.CFRouteValidation
 		response           admission.Response
@@ -59,7 +58,7 @@ var _ = Describe("CF Route Validation", func() {
 		ctx = context.Background()
 
 		scheme := runtime.NewScheme()
-		err := networkingv1alpha1.AddToScheme(scheme)
+		err := v1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
 		realDecoder, err = admission.NewDecoder(scheme)
@@ -82,26 +81,26 @@ var _ = Describe("CF Route Validation", func() {
 		cfRouteJSON, err = json.Marshal(cfRoute)
 		Expect(err).NotTo(HaveOccurred())
 
-		cfDomain = &networkingv1alpha1.CFDomain{
+		cfDomain = &v1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: testDomainGUID,
 			},
-			Spec: networkingv1alpha1.CFDomainSpec{
+			Spec: v1alpha1.CFDomainSpec{
 				Name: testDomainName,
 			},
 		}
 
-		cfApp = &workloadsv1alpha1.CFApp{}
+		cfApp = &v1alpha1.CFApp{}
 
 		duplicateValidator = new(networkingfakes.NameValidator)
 		fakeClient = new(fake.Client)
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
-			case *networkingv1alpha1.CFDomain:
+			case *v1alpha1.CFDomain:
 				cfDomain.DeepCopyInto(obj)
 				return getDomainError
-			case *workloadsv1alpha1.CFApp:
+			case *v1alpha1.CFApp:
 				cfApp.DeepCopyInto(obj)
 				return getAppError
 			default:
@@ -117,7 +116,7 @@ var _ = Describe("CF Route Validation", func() {
 	Describe("validating path", func() {
 		var (
 			invalidRoutePath   string
-			invalidCFRoute     *networkingv1alpha1.CFRoute
+			invalidCFRoute     *v1alpha1.CFRoute
 			invalidCFRouteJson []byte
 			err                error
 		)
@@ -404,7 +403,7 @@ var _ = Describe("CF Route Validation", func() {
 
 			When("the route has destinations", func() {
 				BeforeEach(func() {
-					cfRoute.Spec.Destinations = []networkingv1alpha1.Destination{
+					cfRoute.Spec.Destinations = []v1alpha1.Destination{
 						{
 							AppRef: v1.LocalObjectReference{
 								Name: "some-name",
@@ -472,21 +471,21 @@ var _ = Describe("CF Route Validation", func() {
 
 	Describe("Update", func() {
 		var (
-			updatedCFRoute   *networkingv1alpha1.CFRoute
+			updatedCFRoute   *v1alpha1.CFRoute
 			newTestRoutePath string
 		)
 
 		BeforeEach(func() {
 			newTestRoutePath = "/new-path"
-			updatedCFRoute = &networkingv1alpha1.CFRoute{
+			updatedCFRoute = &v1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testRouteGUID,
 					Namespace: testRouteNamespace,
 				},
-				Spec: networkingv1alpha1.CFRouteSpec{
+				Spec: v1alpha1.CFRouteSpec{
 					Host:     testRouteHost,
 					Path:     newTestRoutePath,
-					Protocol: networkingv1alpha1.Protocol(testRouteProtocol),
+					Protocol: v1alpha1.Protocol(testRouteProtocol),
 					DomainRef: v1.ObjectReference{
 						Name:      testDomainGUID,
 						Namespace: testDomainNamespace,
@@ -586,7 +585,7 @@ var _ = Describe("CF Route Validation", func() {
 
 		When("the route has destinations", func() {
 			BeforeEach(func() {
-				updatedCFRoute.Spec.Destinations = []networkingv1alpha1.Destination{
+				updatedCFRoute.Spec.Destinations = []v1alpha1.Destination{
 					{
 						AppRef: v1.LocalObjectReference{
 							Name: "some-name",
@@ -685,16 +684,16 @@ var _ = Describe("CF Route Validation", func() {
 	})
 })
 
-func initializeRouteCR(routeProtocol, routeHost, routePath, routeGUID, routeSpaceGUID, domainGUID, domainSpaceGUID string) *networkingv1alpha1.CFRoute {
-	return &networkingv1alpha1.CFRoute{
+func initializeRouteCR(routeProtocol, routeHost, routePath, routeGUID, routeSpaceGUID, domainGUID, domainSpaceGUID string) *v1alpha1.CFRoute {
+	return &v1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      routeGUID,
 			Namespace: routeSpaceGUID,
 		},
-		Spec: networkingv1alpha1.CFRouteSpec{
+		Spec: v1alpha1.CFRouteSpec{
 			Host:     routeHost,
 			Path:     routePath,
-			Protocol: networkingv1alpha1.Protocol(routeProtocol),
+			Protocol: v1alpha1.Protocol(routeProtocol),
 			DomainRef: v1.ObjectReference{
 				Name:      domainGUID,
 				Namespace: domainSpaceGUID,

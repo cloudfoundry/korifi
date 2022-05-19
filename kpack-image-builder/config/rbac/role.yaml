@@ -23,6 +23,32 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - buildworkloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - buildworkloads/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - buildworkloads/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - kpack.io
   resources:
   - images
@@ -44,32 +70,6 @@ rules:
   - kpack.io
   resources:
   - images/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - buildworkloads
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - buildworkloads/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - buildworkloads/status
   verbs:
   - get
   - patch

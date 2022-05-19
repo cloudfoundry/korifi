@@ -4,8 +4,7 @@ import (
 	"testing"
 	"time"
 
-	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
-
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -21,11 +20,11 @@ func TestNetworkingControllers(t *testing.T) {
 	RunSpecs(t, "Networking Controllers Unit Test Suite")
 }
 
-func expectCFRouteValidStatus(cfRouteStatus networkingv1alpha1.CFRouteStatus, valid bool, desc ...string) {
-	expectedCurrentStatus := networkingv1alpha1.ValidStatus
+func expectCFRouteValidStatus(cfRouteStatus v1alpha1.CFRouteStatus, valid bool, desc ...string) {
+	expectedCurrentStatus := v1alpha1.ValidStatus
 	expectedValidStatusCondition := metav1.ConditionTrue
 	if !valid {
-		expectedCurrentStatus = networkingv1alpha1.InvalidStatus
+		expectedCurrentStatus = v1alpha1.InvalidStatus
 		expectedValidStatusCondition = metav1.ConditionFalse
 	}
 	Expect(cfRouteStatus.CurrentStatus).To(Equal(expectedCurrentStatus))

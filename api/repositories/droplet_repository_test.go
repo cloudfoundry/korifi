@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,7 +20,7 @@ var _ = Describe("DropletRepository", func() {
 	var (
 		testCtx     context.Context
 		dropletRepo *repositories.DropletRepo
-		space       *workloadsv1alpha1.CFSpace
+		space       *v1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
@@ -36,7 +36,7 @@ var _ = Describe("DropletRepository", func() {
 	Describe("GetDroplet", func() {
 		var (
 			buildGUID string
-			build     *workloadsv1alpha1.CFBuild
+			build     *v1alpha1.CFBuild
 
 			dropletRecord repositories.DropletRecord
 			fetchErr      error
@@ -54,12 +54,12 @@ var _ = Describe("DropletRepository", func() {
 
 		BeforeEach(func() {
 			buildGUID = generateGUID()
-			build = &workloadsv1alpha1.CFBuild{
+			build = &v1alpha1.CFBuild{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      buildGUID,
 					Namespace: space.Name,
 				},
-				Spec: workloadsv1alpha1.CFBuildSpec{
+				Spec: v1alpha1.CFBuildSpec{
 					PackageRef: corev1.LocalObjectReference{
 						Name: packageGUID,
 					},
@@ -68,9 +68,9 @@ var _ = Describe("DropletRepository", func() {
 					},
 					StagingMemoryMB: stagingMemory,
 					StagingDiskMB:   stagingDisk,
-					Lifecycle: workloadsv1alpha1.Lifecycle{
+					Lifecycle: v1alpha1.Lifecycle{
 						Type: "buildpack",
-						Data: workloadsv1alpha1.LifecycleData{
+						Data: v1alpha1.LifecycleData{
 							Buildpacks: []string{},
 							Stack:      "",
 						},
@@ -103,9 +103,9 @@ var _ = Describe("DropletRepository", func() {
 						Reason:  "Unknown",
 						Message: "Unknown",
 					})
-					build.Status.BuildDropletStatus = &workloadsv1alpha1.BuildDropletStatus{
+					build.Status.BuildDropletStatus = &v1alpha1.BuildDropletStatus{
 						Stack: dropletStack,
-						Registry: workloadsv1alpha1.Registry{
+						Registry: v1alpha1.Registry{
 							Image: registryImage,
 							ImagePullSecrets: []corev1.LocalObjectReference{
 								{
@@ -113,7 +113,7 @@ var _ = Describe("DropletRepository", func() {
 								},
 							},
 						},
-						ProcessTypes: []workloadsv1alpha1.ProcessType{
+						ProcessTypes: []v1alpha1.ProcessType{
 							{
 								Type:    "rake",
 								Command: "bundle exec rake",
@@ -260,7 +260,7 @@ var _ = Describe("DropletRepository", func() {
 
 	Describe("ListDroplets", func() {
 		var (
-			build       *workloadsv1alpha1.CFBuild
+			build       *v1alpha1.CFBuild
 			packageGUID string
 		)
 
@@ -275,12 +275,12 @@ var _ = Describe("DropletRepository", func() {
 
 		BeforeEach(func() {
 			packageGUID = prefixedGUID("package-")
-			build = &workloadsv1alpha1.CFBuild{
+			build = &v1alpha1.CFBuild{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      prefixedGUID("build-"),
 					Namespace: space.Name,
 				},
-				Spec: workloadsv1alpha1.CFBuildSpec{
+				Spec: v1alpha1.CFBuildSpec{
 					PackageRef: corev1.LocalObjectReference{
 						Name: packageGUID,
 					},
@@ -289,9 +289,9 @@ var _ = Describe("DropletRepository", func() {
 					},
 					StagingMemoryMB: stagingMemory,
 					StagingDiskMB:   stagingDisk,
-					Lifecycle: workloadsv1alpha1.Lifecycle{
+					Lifecycle: v1alpha1.Lifecycle{
 						Type: "buildpack",
-						Data: workloadsv1alpha1.LifecycleData{
+						Data: v1alpha1.LifecycleData{
 							Buildpacks: []string{},
 							Stack:      "",
 						},
@@ -311,9 +311,9 @@ var _ = Describe("DropletRepository", func() {
 				Reason:  "Unknown",
 				Message: "Unknown",
 			})
-			build.Status.BuildDropletStatus = &workloadsv1alpha1.BuildDropletStatus{
+			build.Status.BuildDropletStatus = &v1alpha1.BuildDropletStatus{
 				Stack: dropletStack,
-				Registry: workloadsv1alpha1.Registry{
+				Registry: v1alpha1.Registry{
 					Image: registryImage,
 					ImagePullSecrets: []corev1.LocalObjectReference{
 						{
@@ -321,7 +321,7 @@ var _ = Describe("DropletRepository", func() {
 						},
 					},
 				},
-				ProcessTypes: []workloadsv1alpha1.ProcessType{
+				ProcessTypes: []v1alpha1.ProcessType{
 					{
 						Type:    "rake",
 						Command: "bundle exec rake",

@@ -140,13 +140,13 @@ EIRINI_DIR="$(cd "$(dirname "$0")/../../eirini-controller" && pwd)"
 
 webhooks_ca_bundle="$(kubectl get secret -n eirini-controller eirini-webhooks-certs -o jsonpath="{.data['tls\.ca']}")"
 
-# Install image built based on eirini-controller/main@309b9c21 w/ values-template as default values file
+# Install image built based on eirini-controller/master@dd915fd80a13297cd727262ae7917d42a5d4375a w/ values-template as default values file
 helm template eirini-controller "${EIRINI_DIR}/deployment/helm" \
   --values "${EIRINI_DIR}/deployment/helm/values-template.yaml" \
   --set "webhooks.ca_bundle=${webhooks_ca_bundle}" \
   --set "workloads.default_namespace=cf" \
   --set "controller.registry_secret_name=image-registry-credentials" \
-  --set "images.eirini_controller=eirini/eirini-controller@sha256:42e22b3222e9b3788782f5c141d260a5e163da4f4032e2926752ef2e5bae0685" \
+  --set "images.eirini_controller=eirini/eirini-controller@sha256:7b2ad538d603589de2539c186439919ad004d901fc7067302769799bf4309d30" \
   --namespace "eirini-controller" | kubectl apply -f -
 
 echo "**************************************"

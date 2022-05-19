@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/fake"
@@ -29,7 +29,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		ctx                context.Context
 		duplicateValidator *fake.NameValidator
 		realDecoder        *admission.Decoder
-		app                *workloadsv1alpha1.CFApp
+		app                *v1alpha1.CFApp
 		request            admission.Request
 		validatingWebhook  *workloads.CFAppValidation
 		response           admission.Response
@@ -40,20 +40,20 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		ctx = context.Background()
 
 		scheme := runtime.NewScheme()
-		err := workloadsv1alpha1.AddToScheme(scheme)
+		err := v1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
 		realDecoder, err = admission.NewDecoder(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
-		app = &workloadsv1alpha1.CFApp{
+		app = &v1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testAppGUID,
 				Namespace: testAppNamespace,
 			},
-			Spec: workloadsv1alpha1.CFAppSpec{
+			Spec: v1alpha1.CFAppSpec{
 				DisplayName:  testAppName,
-				DesiredState: workloadsv1alpha1.StoppedState,
+				DesiredState: v1alpha1.StoppedState,
 			},
 		}
 
@@ -147,17 +147,17 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 	})
 
 	Describe("Update", func() {
-		var updatedApp *workloadsv1alpha1.CFApp
+		var updatedApp *v1alpha1.CFApp
 
 		BeforeEach(func() {
-			updatedApp = &workloadsv1alpha1.CFApp{
+			updatedApp = &v1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testAppGUID,
 					Namespace: testAppNamespace,
 				},
-				Spec: workloadsv1alpha1.CFAppSpec{
+				Spec: v1alpha1.CFAppSpec{
 					DisplayName:  "the-new-name",
-					DesiredState: workloadsv1alpha1.StoppedState,
+					DesiredState: v1alpha1.StoppedState,
 				},
 			}
 		})

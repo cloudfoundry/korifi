@@ -13,7 +13,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -30,8 +30,8 @@ import (
 const (
 	workloadsContainerName = "opi"
 	cfInstanceIndexKey     = "CF_INSTANCE_INDEX"
-	eiriniLabelVersionKey  = "workloads.cloudfoundry.org/version"
-	cfProcessGuidKey       = "workloads.cloudfoundry.org/guid"
+	eiriniLabelVersionKey  = "korifi.cloudfoundry.org/version"
+	cfProcessGuidKey       = "korifi.cloudfoundry.org/guid"
 	RunningState           = "RUNNING"
 	pendingState           = "STARTING"
 	// All below statuses changed to "DOWN" until we decide what statuses we want to support in the future
@@ -84,9 +84,9 @@ type ListPodStatsMessage struct {
 
 func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info, message ListPodStatsMessage) ([]PodStatsRecord, error) {
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
-		workloadsv1alpha1.CFAppGUIDLabelKey: message.AppGUID,
-		eiriniLabelVersionKey:               message.AppRevision,
-		cfProcessGuidKey:                    message.ProcessGUID,
+		v1alpha1.CFAppGUIDLabelKey: message.AppGUID,
+		eiriniLabelVersionKey:      message.AppRevision,
+		cfProcessGuidKey:           message.ProcessGUID,
 	})
 	if err != nil {
 		return nil, err
@@ -341,8 +341,8 @@ type RuntimeLogsMessage struct {
 
 func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, logger logr.Logger, authInfo authorization.Info, message RuntimeLogsMessage) ([]LogRecord, error) {
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
-		workloadsv1alpha1.CFAppGUIDLabelKey:  message.AppGUID,
-		"workloads.cloudfoundry.org/version": message.AppRevision,
+		v1alpha1.CFAppGUIDLabelKey:        message.AppGUID,
+		"korifi.cloudfoundry.org/version": message.AppRevision,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to build labelSelector: %w", err)

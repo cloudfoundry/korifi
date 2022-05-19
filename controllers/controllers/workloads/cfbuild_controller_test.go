@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
@@ -49,11 +49,11 @@ var _ = Describe("CFBuildReconciler", func() {
 		kpackRegistrySecretName string
 		kpackServiceAccountName string
 
-		cfBuild        *workloadsv1alpha1.CFBuild
+		cfBuild        *v1alpha1.CFBuild
 		cfBuildError   error
-		cfApp          *workloadsv1alpha1.CFApp
+		cfApp          *v1alpha1.CFApp
 		cfAppError     error
-		cfPackage      *workloadsv1alpha1.CFPackage
+		cfPackage      *v1alpha1.CFPackage
 		cfPackageError error
 
 		kpackServiceAccount      *corev1.ServiceAccount
@@ -99,13 +99,13 @@ var _ = Describe("CFBuildReconciler", func() {
 		fakeClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
 			switch obj := obj.(type) {
-			case *workloadsv1alpha1.CFBuild:
+			case *v1alpha1.CFBuild:
 				cfBuild.DeepCopyInto(obj)
 				return cfBuildError
-			case *workloadsv1alpha1.CFApp:
+			case *v1alpha1.CFApp:
 				cfApp.DeepCopyInto(obj)
 				return cfAppError
-			case *workloadsv1alpha1.CFPackage:
+			case *v1alpha1.CFPackage:
 				cfPackage.DeepCopyInto(obj)
 				return cfPackageError
 			case *buildv1alpha2.Image:
@@ -131,7 +131,7 @@ var _ = Describe("CFBuildReconciler", func() {
 		fakeEnvBuilder.BuildEnvReturns(map[string]string{"foo": "var"}, nil)
 
 		// configure a CFBuildReconciler with the client
-		Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfBuildReconciler = &CFBuildReconciler{
 			Client:              fakeClient,

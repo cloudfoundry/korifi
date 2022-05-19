@@ -10,7 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,8 +19,8 @@ import (
 var _ = Describe("Role", func() {
 	var (
 		apiHandler *apis.RoleHandler
-		org        *workloadsv1alpha1.CFOrg
-		space      *workloadsv1alpha1.CFSpace
+		org        *v1alpha1.CFOrg
+		space      *v1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {

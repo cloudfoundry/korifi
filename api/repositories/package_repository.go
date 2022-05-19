@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -69,20 +69,20 @@ type CreatePackageMessage struct {
 	OwnerRef  metav1.OwnerReference
 }
 
-func (message CreatePackageMessage) toCFPackage() workloadsv1alpha1.CFPackage {
+func (message CreatePackageMessage) toCFPackage() v1alpha1.CFPackage {
 	guid := uuid.NewString()
-	return workloadsv1alpha1.CFPackage{
+	return v1alpha1.CFPackage{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       kind,
-			APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
+			APIVersion: v1alpha1.GroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            guid,
 			Namespace:       message.SpaceGUID,
 			OwnerReferences: []metav1.OwnerReference{message.OwnerRef},
 		},
-		Spec: workloadsv1alpha1.CFPackageSpec{
-			Type: workloadsv1alpha1.PackageType(message.Type),
+		Spec: v1alpha1.CFPackageSpec{
+			Type: v1alpha1.PackageType(message.Type),
 			AppRef: corev1.LocalObjectReference{
 				Name: message.AppGUID,
 			},
@@ -123,7 +123,7 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 		return PackageRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
 	}
 
-	cfpackage := workloadsv1alpha1.CFPackage{}
+	cfpackage := v1alpha1.CFPackage{}
 	if err := userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: guid}, &cfpackage); err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to get package %q: %w", guid, apierrors.FromK8sError(err, PackageResourceType))
 	}
@@ -141,9 +141,9 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 		return []PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	var filteredPackages []workloadsv1alpha1.CFPackage
+	var filteredPackages []v1alpha1.CFPackage
 	for ns := range nsList {
-		packageList := &workloadsv1alpha1.CFPackageList{}
+		packageList := &v1alpha1.CFPackageList{}
 		err = userClient.List(ctx, packageList, client.InNamespace(ns))
 		if k8serrors.IsForbidden(err) {
 			continue
@@ -158,7 +158,7 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 	return convertToPackageRecords(orderedPackages), nil
 }
 
-func orderPackages(packages []workloadsv1alpha1.CFPackage, message ListPackagesMessage) []workloadsv1alpha1.CFPackage {
+func orderPackages(packages []v1alpha1.CFPackage, message ListPackagesMessage) []v1alpha1.CFPackage {
 	sort.Slice(packages, func(i, j int) bool {
 		if message.SortBy == "created_at" && message.DescendingOrder {
 			return !packages[i].CreationTimestamp.Before(&packages[j].CreationTimestamp)
@@ -170,8 +170,8 @@ func orderPackages(packages []workloadsv1alpha1.CFPackage, message ListPackagesM
 	return packages
 }
 
-func applyPackageFilter(packages []workloadsv1alpha1.CFPackage, message ListPackagesMessage) []workloadsv1alpha1.CFPackage {
-	var appFiltered []workloadsv1alpha1.CFPackage
+func applyPackageFilter(packages []v1alpha1.CFPackage, message ListPackagesMessage) []v1alpha1.CFPackage {
+	var appFiltered []v1alpha1.CFPackage
 	if len(message.AppGUIDs) > 0 {
 		for _, currentPackage := range packages {
 			for _, appGUID := range message.AppGUIDs {
@@ -185,7 +185,7 @@ func applyPackageFilter(packages []workloadsv1alpha1.CFPackage, message ListPack
 		appFiltered = packages
 	}
 
-	var stateFiltered []workloadsv1alpha1.CFPackage
+	var stateFiltered []v1alpha1.CFPackage
 	if len(message.States) > 0 {
 		for _, currentPackage := range appFiltered {
 			for _, state := range message.States {
@@ -209,7 +209,7 @@ func applyPackageFilter(packages []workloadsv1alpha1.CFPackage, message ListPack
 }
 
 func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message UpdatePackageSourceMessage) (PackageRecord, error) {
-	baseCFPackage := &workloadsv1alpha1.CFPackage{
+	baseCFPackage := &v1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
 			Namespace: message.SpaceGUID,
@@ -233,7 +233,7 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 	return record, nil
 }
 
-func cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPackage) PackageRecord {
+func cfPackageToPackageRecord(cfPackage v1alpha1.CFPackage) PackageRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfPackage.ObjectMeta)
 	state := PackageStateAwaitingUpload
 	if cfPackage.Spec.Source.Registry.Image != "" {
@@ -251,7 +251,7 @@ func cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPackage) PackageReco
 	}
 }
 
-func convertToPackageRecords(packages []workloadsv1alpha1.CFPackage) []PackageRecord {
+func convertToPackageRecords(packages []v1alpha1.CFPackage) []PackageRecord {
 	packageRecords := make([]PackageRecord, 0, len(packages))
 
 	for _, currentPackage := range packages {

@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,8 +22,8 @@ var _ = Describe("ProcessRepo", func() {
 	var (
 		ctx          context.Context
 		processRepo  *repositories.ProcessRepo
-		org          *workloadsv1alpha1.CFOrg
-		space        *workloadsv1alpha1.CFSpace
+		org          *v1alpha1.CFOrg
+		space        *v1alpha1.CFSpace
 		app1GUID     string
 		process1GUID string
 	)
@@ -39,7 +39,7 @@ var _ = Describe("ProcessRepo", func() {
 
 	Describe("GetProcess", func() {
 		var (
-			cfProcess1     *workloadsv1alpha1.CFProcess
+			cfProcess1     *v1alpha1.CFProcess
 			getProcessGUID string
 			processRecord  repositories.ProcessRecord
 			getErr         error
@@ -133,7 +133,7 @@ var _ = Describe("ProcessRepo", func() {
 		var (
 			app2GUID       string
 			process2GUID   string
-			space1, space2 *workloadsv1alpha1.CFSpace
+			space1, space2 *v1alpha1.CFSpace
 
 			listProcessesMessage repositories.ListProcessesMessage
 			processes            []repositories.ProcessRecord
@@ -205,8 +205,8 @@ var _ = Describe("ProcessRepo", func() {
 
 	Describe("ScaleProcess", func() {
 		var (
-			space1              *workloadsv1alpha1.CFSpace
-			cfProcess           *workloadsv1alpha1.CFProcess
+			space1              *v1alpha1.CFSpace
+			cfProcess           *v1alpha1.CFProcess
 			scaleProcessMessage *repositories.ScaleProcessMessage
 
 			instanceScale int
@@ -280,7 +280,7 @@ var _ = Describe("ProcessRepo", func() {
 				_, err := processRepo.ScaleProcess(ctx, authInfo, *scaleProcessMessage)
 				Expect(err).ToNot(HaveOccurred())
 
-				var updatedCFProcess workloadsv1alpha1.CFProcess
+				var updatedCFProcess v1alpha1.CFProcess
 				Expect(k8sClient.Get(
 					ctx,
 					client.ObjectKey{Name: process1GUID, Namespace: space1.Name},
@@ -331,19 +331,19 @@ var _ = Describe("ProcessRepo", func() {
 
 			It("creates a CFProcess resource", func() {
 				Expect(createErr).NotTo(HaveOccurred())
-				var list workloadsv1alpha1.CFProcessList
+				var list v1alpha1.CFProcessList
 				Expect(k8sClient.List(ctx, &list, client.InNamespace(space.Name))).To(Succeed())
 				Expect(list.Items).To(HaveLen(1))
 
 				process := list.Items[0]
 				Expect(process.Name).To(HavePrefix("cf-proc-"))
-				Expect(process.Spec).To(Equal(workloadsv1alpha1.CFProcessSpec{
+				Expect(process.Spec).To(Equal(v1alpha1.CFProcessSpec{
 					AppRef:      corev1.LocalObjectReference{Name: app1GUID},
 					ProcessType: "web",
 					Command:     "start-web",
-					HealthCheck: workloadsv1alpha1.HealthCheck{
+					HealthCheck: v1alpha1.HealthCheck{
 						Type: "http",
-						Data: workloadsv1alpha1.HealthCheckData{
+						Data: v1alpha1.HealthCheckData{
 							HTTPEndpoint:             "/healthz",
 							InvocationTimeoutSeconds: 20,
 							TimeoutSeconds:           10,
@@ -431,12 +431,12 @@ var _ = Describe("ProcessRepo", func() {
 	Describe("PatchProcess", func() {
 		When("the app already has a process with the given type", func() {
 			var (
-				cfProcess *workloadsv1alpha1.CFProcess
+				cfProcess *v1alpha1.CFProcess
 				message   repositories.PatchProcessMessage
 			)
 
 			BeforeEach(func() {
-				cfProcess = &workloadsv1alpha1.CFProcess{
+				cfProcess = &v1alpha1.CFProcess{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      process1GUID,
 						Namespace: space.Name,
@@ -444,15 +444,15 @@ var _ = Describe("ProcessRepo", func() {
 							cfAppGUIDLabelKey: app1GUID,
 						},
 					},
-					Spec: workloadsv1alpha1.CFProcessSpec{
+					Spec: v1alpha1.CFProcessSpec{
 						AppRef: corev1.LocalObjectReference{
 							Name: app1GUID,
 						},
 						ProcessType: "web",
 						Command:     "original-command",
-						HealthCheck: workloadsv1alpha1.HealthCheck{
+						HealthCheck: v1alpha1.HealthCheck{
 							Type: "process",
-							Data: workloadsv1alpha1.HealthCheckData{
+							Data: v1alpha1.HealthCheckData{
 								InvocationTimeoutSeconds: 1,
 								TimeoutSeconds:           2,
 							},
@@ -524,15 +524,15 @@ var _ = Describe("ProcessRepo", func() {
 						Expect(updatedProcessRecord.MemoryMB).To(Equal(*message.MemoryMB))
 						Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(*message.DiskQuotaMB))
 
-						var process workloadsv1alpha1.CFProcess
+						var process v1alpha1.CFProcess
 						Expect(k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: space.Name}, &process)).To(Succeed())
-						Expect(process.Spec).To(Equal(workloadsv1alpha1.CFProcessSpec{
+						Expect(process.Spec).To(Equal(v1alpha1.CFProcessSpec{
 							AppRef:      corev1.LocalObjectReference{Name: app1GUID},
 							ProcessType: "web",
 							Command:     "start-web",
-							HealthCheck: workloadsv1alpha1.HealthCheck{
+							HealthCheck: v1alpha1.HealthCheck{
 								Type: "http",
-								Data: workloadsv1alpha1.HealthCheckData{
+								Data: v1alpha1.HealthCheckData{
 									HTTPEndpoint:             "/healthz",
 									InvocationTimeoutSeconds: 20,
 									TimeoutSeconds:           10,
@@ -572,16 +572,16 @@ var _ = Describe("ProcessRepo", func() {
 						Expect(updatedProcessRecord.MemoryMB).To(Equal(*message.MemoryMB))
 						Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(cfProcess.Spec.DiskQuotaMB))
 
-						var process workloadsv1alpha1.CFProcess
+						var process v1alpha1.CFProcess
 						Expect(k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: space.Name}, &process)).To(Succeed())
 
-						Expect(process.Spec).To(Equal(workloadsv1alpha1.CFProcessSpec{
+						Expect(process.Spec).To(Equal(v1alpha1.CFProcessSpec{
 							AppRef:      corev1.LocalObjectReference{Name: app1GUID},
 							ProcessType: "web",
 							Command:     "new-command",
-							HealthCheck: workloadsv1alpha1.HealthCheck{
+							HealthCheck: v1alpha1.HealthCheck{
 								Type: "process",
-								Data: workloadsv1alpha1.HealthCheckData{
+								Data: v1alpha1.HealthCheckData{
 									InvocationTimeoutSeconds: 1,
 									TimeoutSeconds:           42,
 								},

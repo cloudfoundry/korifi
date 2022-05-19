@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	workloads "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/google/uuid"
@@ -80,13 +80,13 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, messag
 	if err != nil {
 		return OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
-	var orgCR *workloads.CFOrg
-	orgCR, err = r.createOrgCR(ctx, info, userClient, &workloads.CFOrg{
+	var orgCR *v1alpha1.CFOrg
+	orgCR, err = r.createOrgCR(ctx, info, userClient, &v1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OrgPrefix + uuid.NewString(),
 			Namespace: r.rootNamespace,
 		},
-		Spec: workloads.CFOrgSpec{
+		Spec: v1alpha1.CFOrgSpec{
 			DisplayName: message.Name,
 		},
 	})
@@ -113,8 +113,8 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, messag
 func (r *OrgRepo) createOrgCR(ctx context.Context,
 	info authorization.Info,
 	userClient client.WithWatch,
-	org *workloads.CFOrg,
-) (*workloads.CFOrg, error) {
+	org *v1alpha1.CFOrg,
+) (*v1alpha1.CFOrg, error) {
 	err := userClient.Create(ctx, org)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cf org: %w", apierrors.FromK8sError(err, OrgResourceType))
@@ -122,7 +122,7 @@ func (r *OrgRepo) createOrgCR(ctx context.Context,
 
 	timeoutCtx, cancelFn := context.WithTimeout(ctx, r.timeout)
 	defer cancelFn()
-	watch, err := userClient.Watch(timeoutCtx, &workloads.CFOrgList{},
+	watch, err := userClient.Watch(timeoutCtx, &v1alpha1.CFOrgList{},
 		client.InNamespace(org.Namespace),
 		client.MatchingFields{"metadata.name": org.Name},
 	)
@@ -131,10 +131,10 @@ func (r *OrgRepo) createOrgCR(ctx context.Context,
 	}
 
 	conditionReady := false
-	var createdOrg *workloads.CFOrg
+	var createdOrg *v1alpha1.CFOrg
 	for res := range watch.ResultChan() {
 		var ok bool
-		createdOrg, ok = res.Object.(*workloads.CFOrg)
+		createdOrg, ok = res.Object.(*v1alpha1.CFOrg)
 		if !ok {
 			// should never happen, but avoids panic above
 			continue
@@ -190,7 +190,7 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter 
 		return []OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	cfOrgList := new(workloads.CFOrgList)
+	cfOrgList := new(v1alpha1.CFOrgList)
 	err = userClient.List(ctx, cfOrgList, client.InNamespace(r.rootNamespace))
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, OrgResourceType)
@@ -243,7 +243,7 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	if err != nil {
 		return fmt.Errorf("failed to build user client: %w", err)
 	}
-	err = userClient.Delete(ctx, &workloads.CFOrg{
+	err = userClient.Delete(ctx, &v1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
 			Namespace: r.rootNamespace,

@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	workloads "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -46,7 +46,7 @@ var _ = Describe("SpaceRepository", func() {
 			createRoleBindings          bool
 		)
 
-		waitForCFSpace := func(anchorNamespace string, spaceName string, done chan bool) (*workloads.CFSpace, error) {
+		waitForCFSpace := func(anchorNamespace string, spaceName string, done chan bool) (*v1alpha1.CFSpace, error) {
 			for {
 				select {
 				case <-done:
@@ -54,13 +54,13 @@ var _ = Describe("SpaceRepository", func() {
 				default:
 				}
 
-				var spaceList workloads.CFSpaceList
+				var spaceList v1alpha1.CFSpaceList
 				err := k8sClient.List(ctx, &spaceList, client.InNamespace(anchorNamespace))
 				if err != nil {
 					return nil, fmt.Errorf("waitForCFSpace failed")
 				}
 
-				var matches []workloads.CFSpace
+				var matches []v1alpha1.CFSpace
 				for _, space := range spaceList.Items {
 					if space.Spec.DisplayName == spaceName {
 						matches = append(matches, space)
@@ -146,7 +146,7 @@ var _ = Describe("SpaceRepository", func() {
 			It("creates a CFSpace resource in the org namespace", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				spaceCR := new(workloads.CFSpace)
+				spaceCR := new(v1alpha1.CFSpace)
 				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: orgGUID, Name: space.GUID}, spaceCR)).To(Succeed())
 
 				Expect(space.Name).To(Equal(spaceName))
@@ -198,8 +198,8 @@ var _ = Describe("SpaceRepository", func() {
 	})
 
 	Describe("List", func() {
-		var cfOrg1, cfOrg2, cfOrg3 *workloads.CFOrg
-		var space11, space12, space21, space22, space31, space32 *workloads.CFSpace
+		var cfOrg1, cfOrg2, cfOrg3 *v1alpha1.CFOrg
+		var space11, space12, space21, space22, space31, space32 *v1alpha1.CFSpace
 
 		BeforeEach(func() {
 			ctx = context.Background()
@@ -410,7 +410,7 @@ var _ = Describe("SpaceRepository", func() {
 		})
 
 		When("an org exists with a rolebinding for the user, but without permission to list spaces", func() {
-			var org *workloads.CFOrg
+			var org *v1alpha1.CFOrg
 
 			BeforeEach(func() {
 				org = createOrgWithCleanup(ctx, "org-without-list-space-perm")
@@ -428,8 +428,8 @@ var _ = Describe("SpaceRepository", func() {
 
 	Describe("Get", func() {
 		var (
-			cfOrg   *workloads.CFOrg
-			cfSpace *workloads.CFSpace
+			cfOrg   *v1alpha1.CFOrg
+			cfSpace *v1alpha1.CFSpace
 		)
 
 		BeforeEach(func() {
@@ -455,8 +455,8 @@ var _ = Describe("SpaceRepository", func() {
 	})
 
 	Describe("Delete", func() {
-		var cfOrg *workloads.CFOrg
-		var cfSpace *workloads.CFSpace
+		var cfOrg *v1alpha1.CFOrg
+		var cfSpace *v1alpha1.CFSpace
 
 		BeforeEach(func() {
 			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))

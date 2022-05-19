@@ -20,11 +20,11 @@ import (
 	"context"
 	"fmt"
 
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,9 +37,9 @@ type CFPackageReconciler struct {
 	Log    logr.Logger
 }
 
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfpackages/finalizers,verbs=update
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -51,14 +51,14 @@ type CFPackageReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CFPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var cfPackage workloadsv1alpha1.CFPackage
+	var cfPackage v1alpha1.CFPackage
 	err := r.Client.Get(ctx, req.NamespacedName, &cfPackage)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFPackage")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	var cfApp workloadsv1alpha1.CFApp
+	var cfApp v1alpha1.CFApp
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFApp")
@@ -84,6 +84,6 @@ func (r *CFPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFPackageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&workloadsv1alpha1.CFPackage{}).
+		For(&v1alpha1.CFPackage{}).
 		Complete(r)
 }

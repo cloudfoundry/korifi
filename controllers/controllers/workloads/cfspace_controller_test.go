@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/fake"
@@ -33,7 +33,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 
 		cfSpaceGUID string
 
-		cfSpace            *workloadsv1alpha1.CFSpace
+		cfSpace            *v1alpha1.CFSpace
 		subNamespaceAnchor *v1alpha2.SubnamespaceAnchor
 		namespace          *v1.Namespace
 
@@ -82,7 +82,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 
 		fakeClient.GetStub = func(_ context.Context, nn types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
-			case *workloadsv1alpha1.CFSpace:
+			case *v1alpha1.CFSpace:
 				cfSpace.DeepCopyInto(obj)
 				return cfSpaceError
 			case *v1alpha2.SubnamespaceAnchor:
@@ -125,7 +125,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 		fakeClient.StatusReturns(fakeStatusWriter)
 
 		// configure a CFSpaceReconciler with the client
-		Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfSpaceReconciler = NewCFSpaceReconciler(
 			fakeClient,
 			scheme.Scheme,

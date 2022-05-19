@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/integration/helpers"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -23,7 +23,7 @@ var _ = Describe("CFSpaceValidation", func() {
 		ctx                     context.Context
 		validatingWebhook       *workloads.CFSpaceValidation
 		namespace               string
-		cfSpace                 *workloadsv1alpha1.CFSpace
+		cfSpace                 *v1alpha1.CFSpace
 		orgDuplicateValidator   *fake.NameValidator
 		spaceDuplicateValidator *fake.NameValidator
 		spacePlacementValidator *fake.PlacementValidator
@@ -41,14 +41,14 @@ var _ = Describe("CFSpaceValidation", func() {
 		validatingWebhook = workloads.NewCFSpaceValidation(spaceDuplicateValidator, spacePlacementValidator)
 
 		scheme := runtime.NewScheme()
-		err := workloadsv1alpha1.AddToScheme(scheme)
+		err := v1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
 		decoder, err := admission.NewDecoder(scheme)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(validatingWebhook.InjectDecoder(decoder)).To(Succeed())
 
-		cfSpace = &workloadsv1alpha1.CFSpace{}
+		cfSpace = &v1alpha1.CFSpace{}
 	})
 
 	Describe("Create", func() {
@@ -130,7 +130,7 @@ var _ = Describe("CFSpaceValidation", func() {
 	})
 
 	Describe("Update", func() {
-		var newCFSpace *workloadsv1alpha1.CFSpace
+		var newCFSpace *v1alpha1.CFSpace
 
 		BeforeEach(func() {
 			cfSpace = helpers.MakeCFSpace(namespace, "my-space")

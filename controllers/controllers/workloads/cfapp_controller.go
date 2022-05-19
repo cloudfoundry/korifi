@@ -6,8 +6,7 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
@@ -28,7 +27,7 @@ const (
 	StatusConditionRunning    = "Running"
 	processHealthCheckType    = "process"
 	processTypeWeb            = "web"
-	finalizerName             = "cfApp.workloads.cloudfoundry.org"
+	finalizerName             = "cfApp.korifi.cloudfoundry.org"
 )
 
 // CFAppReconciler reconciles a CFApp object
@@ -39,9 +38,9 @@ type CFAppReconciler struct {
 	ControllerConfig *config.ControllerConfig
 }
 
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfapps,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfapps/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfapps/finalizers,verbs=update
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -53,7 +52,7 @@ type CFAppReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	cfApp := &workloadsv1alpha1.CFApp{}
+	cfApp := &v1alpha1.CFApp{}
 	err := r.Client.Get(ctx, req.NamespacedName, cfApp)
 	if err != nil {
 		r.Log.Error(err, "unable to fetch CFApp")
@@ -73,7 +72,7 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	if cfApp.Spec.CurrentDropletRef.Name != "" {
-		var cfBuild workloadsv1alpha1.CFBuild
+		var cfBuild v1alpha1.CFBuild
 		err = r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfApp.Namespace}, &cfBuild)
 		if err != nil {
 			r.Log.Error(err, "Error when fetching CFBuild")
@@ -122,35 +121,35 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	return ctrl.Result{}, nil
 }
 
-func addWebIfMissing(processTypes []workloadsv1alpha1.ProcessType) []workloadsv1alpha1.ProcessType {
+func addWebIfMissing(processTypes []v1alpha1.ProcessType) []v1alpha1.ProcessType {
 	for _, p := range processTypes {
 		if p.Type == processTypeWeb {
 			return processTypes
 		}
 	}
-	return append([]workloadsv1alpha1.ProcessType{{Type: processTypeWeb}}, processTypes...)
+	return append([]v1alpha1.ProcessType{{Type: processTypeWeb}}, processTypes...)
 }
 
-func (r *CFAppReconciler) createCFProcess(ctx context.Context, process workloadsv1alpha1.ProcessType, ports []int32, cfApp *workloadsv1alpha1.CFApp) error {
+func (r *CFAppReconciler) createCFProcess(ctx context.Context, process v1alpha1.ProcessType, ports []int32, cfApp *v1alpha1.CFApp) error {
 	cfProcessGUID := repositories.GenerateProcessGUID()
 
-	desiredCFProcess := workloadsv1alpha1.CFProcess{
+	desiredCFProcess := v1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfProcessGUID,
 			Namespace: cfApp.Namespace,
 			Labels: map[string]string{
-				workloadsv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
-				workloadsv1alpha1.CFProcessGUIDLabelKey: cfProcessGUID,
-				workloadsv1alpha1.CFProcessTypeLabelKey: process.Type,
+				v1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
+				v1alpha1.CFProcessGUIDLabelKey: cfProcessGUID,
+				v1alpha1.CFProcessTypeLabelKey: process.Type,
 			},
 		},
-		Spec: workloadsv1alpha1.CFProcessSpec{
+		Spec: v1alpha1.CFProcessSpec{
 			AppRef:      corev1.LocalObjectReference{Name: cfApp.Name},
 			ProcessType: process.Type,
 			Command:     process.Command,
-			HealthCheck: workloadsv1alpha1.HealthCheck{
+			HealthCheck: v1alpha1.HealthCheck{
 				Type: processHealthCheckType,
-				Data: workloadsv1alpha1.HealthCheckData{
+				Data: v1alpha1.HealthCheckData{
 					InvocationTimeoutSeconds: 0,
 					TimeoutSeconds:           0,
 				},
@@ -173,15 +172,15 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process workloads
 
 func (r *CFAppReconciler) checkCFProcessExistsForType(ctx context.Context, appGUID string, namespace string, processType string) (bool, error) {
 	selector, err := labels.ValidatedSelectorFromSet(map[string]string{
-		workloadsv1alpha1.CFAppGUIDLabelKey:     appGUID,
-		workloadsv1alpha1.CFProcessTypeLabelKey: processType,
+		v1alpha1.CFAppGUIDLabelKey:     appGUID,
+		v1alpha1.CFProcessTypeLabelKey: processType,
 	})
 	if err != nil {
 		r.Log.Error(err, "Error initializing label selector")
 		return false, err
 	}
 
-	cfProcessList := workloadsv1alpha1.CFProcessList{}
+	cfProcessList := v1alpha1.CFProcessList{}
 	err = r.Client.List(ctx, &cfProcessList, &client.ListOptions{LabelSelector: selector, Namespace: namespace})
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("Error fetching CFProcess for Type: %s", processType))
@@ -198,7 +197,7 @@ func getDesiredInstanceCount(processType string) int {
 	return 0
 }
 
-func (r *CFAppReconciler) addFinalizer(ctx context.Context, cfApp *workloadsv1alpha1.CFApp) error {
+func (r *CFAppReconciler) addFinalizer(ctx context.Context, cfApp *v1alpha1.CFApp) error {
 	if controllerutil.ContainsFinalizer(cfApp, finalizerName) {
 		return nil
 	}
@@ -216,11 +215,11 @@ func (r *CFAppReconciler) addFinalizer(ctx context.Context, cfApp *workloadsv1al
 	return nil
 }
 
-func isFinalizing(cfApp *workloadsv1alpha1.CFApp) bool {
+func isFinalizing(cfApp *v1alpha1.CFApp) bool {
 	return cfApp.ObjectMeta.DeletionTimestamp != nil && !cfApp.ObjectMeta.DeletionTimestamp.IsZero()
 }
 
-func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *workloadsv1alpha1.CFApp) (ctrl.Result, error) {
+func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *v1alpha1.CFApp) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling deletion of CFApp/%s", cfApp.Name))
 
 	if !controllerutil.ContainsFinalizer(cfApp, finalizerName) {
@@ -248,8 +247,8 @@ func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *workloadsv1a
 	return ctrl.Result{}, nil
 }
 
-func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []networkingv1alpha1.CFRoute) error {
-	var updatedDestinations []networkingv1alpha1.Destination
+func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []v1alpha1.CFRoute) error {
+	var updatedDestinations []v1alpha1.Destination
 	for i := range cfRoutes {
 		originalCFRoute := cfRoutes[i].DeepCopy()
 		if cfRoutes[i].Spec.Destinations != nil {
@@ -271,12 +270,12 @@ func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID
 	return nil
 }
 
-func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfAppNamespace string) ([]networkingv1alpha1.CFRoute, error) {
-	var foundRoutes networkingv1alpha1.CFRouteList
+func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfAppNamespace string) ([]v1alpha1.CFRoute, error) {
+	var foundRoutes v1alpha1.CFRouteList
 	matchingFields := client.MatchingFields{IndexRouteDestinationAppName: cfAppGUID}
 	err := r.Client.List(context.Background(), &foundRoutes, client.InNamespace(cfAppNamespace), matchingFields)
 	if err != nil {
-		return []networkingv1alpha1.CFRoute{}, err
+		return []v1alpha1.CFRoute{}, err
 	}
 
 	return foundRoutes.Items, nil
@@ -285,6 +284,6 @@ func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfA
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFAppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&workloadsv1alpha1.CFApp{}).
+		For(&v1alpha1.CFApp{}).
 		Complete(r)
 }

@@ -20,17 +20,17 @@ Since a set of labels needs to be unique for an object, we will try to come up w
 Referring to the [syntax documentation about labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/), some options to consider:
 
 - AppGUID:
-    - workloads.cloudfoundry.org/CFAppGUID
-    - workloads.cloudfoundry.org/cfappguid
-    - workloads.cloudfoundry.org/cf-app-guid
+    - korifi.cloudfoundry.org/CFAppGUID
+    - korifi.cloudfoundry.org/cfappguid
+    - korifi.cloudfoundry.org/cf-app-guid
 
 ## Decision
 
 We have decided to use lower-case-kebabs for label-names and API Group as the prefix.
 
-- AppGUID     : workloads.cloudfoundry.org/app-guid
-- Build GUID  : workloads.cloudfoundry.org/build-guid
-- Package GUID: workloads.cloudfoundry.org/package-guid
-- Process GUID: workloads.cloudfoundry.org/process-guid
-- Process Type: workloads.cloudfoundry.org/process-type
+- AppGUID     : korifi.cloudfoundry.org/app-guid
+- Build GUID  : korifi.cloudfoundry.org/build-guid
+- Package GUID: korifi.cloudfoundry.org/package-guid
+- Process GUID: korifi.cloudfoundry.org/process-guid
+- Process Type: korifi.cloudfoundry.org/process-type
 

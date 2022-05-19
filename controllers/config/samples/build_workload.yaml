@@ -1,4 +1,4 @@
-apiVersion: workloads.cloudfoundry.org/v1alpha1
+apiVersion: korifi.cloudfoundry.org/v1alpha1
 kind: BuildWorkload
 metadata:
   name: buildworkload-sample
