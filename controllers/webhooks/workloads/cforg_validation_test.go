@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	workloadsfake "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/fake"
@@ -31,7 +31,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		duplicateValidator *workloadsfake.NameValidator
 		placementValidator *workloadsfake.PlacementValidator
 		realDecoder        *admission.Decoder
-		org                *workloadsv1alpha1.CFOrg
+		org                *v1alpha1.CFOrg
 		request            admission.Request
 		validatingWebhook  *workloads.CFOrgValidation
 		response           admission.Response
@@ -42,18 +42,18 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		ctx = context.Background()
 
 		scheme := runtime.NewScheme()
-		err := workloadsv1alpha1.AddToScheme(scheme)
+		err := v1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
 		realDecoder, err = admission.NewDecoder(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
-		org = &workloadsv1alpha1.CFOrg{
+		org = &v1alpha1.CFOrg{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testOrgGUID,
 				Namespace: rootNamespace,
 			},
-			Spec: workloadsv1alpha1.CFOrgSpec{
+			Spec: v1alpha1.CFOrgSpec{
 				DisplayName: testOrgName,
 			},
 		}
@@ -170,15 +170,15 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 	})
 
 	Describe("Update", func() {
-		var updatedOrg *workloadsv1alpha1.CFOrg
+		var updatedOrg *v1alpha1.CFOrg
 
 		BeforeEach(func() {
-			updatedOrg = &workloadsv1alpha1.CFOrg{
+			updatedOrg = &v1alpha1.CFOrg{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testOrgGUID,
 					Namespace: rootNamespace,
 				},
-				Spec: workloadsv1alpha1.CFOrgSpec{
+				Spec: v1alpha1.CFOrgSpec{
 					DisplayName: "the-new-name",
 				},
 			}

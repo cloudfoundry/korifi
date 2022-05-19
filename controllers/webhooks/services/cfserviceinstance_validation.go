@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -35,7 +35,7 @@ const (
 
 var cfserviceinstancelog = logf.Log.WithName("cfserviceinstance-validate")
 
-//+kubebuilder:webhook:path=/validate-services-cloudfoundry-org-v1alpha1-cfserviceinstance,mutating=false,failurePolicy=fail,sideEffects=None,groups=services.cloudfoundry.org,resources=cfserviceinstances,verbs=create;update;delete,versions=v1alpha1,name=vcfserviceinstance.services.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=create;update;delete,versions=v1alpha1,name=vcfserviceinstance.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFServiceInstanceValidation struct {
 	decoder            *admission.Decoder
@@ -49,7 +49,7 @@ func NewCFServiceInstanceValidation(duplicateValidator NameValidator) *CFService
 }
 
 func (v *CFServiceInstanceValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	mgr.GetWebhookServer().Register("/validate-services-cloudfoundry-org-v1alpha1-cfserviceinstance", &webhook.Admission{Handler: v})
+	mgr.GetWebhookServer().Register("/validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance", &webhook.Admission{Handler: v})
 
 	return nil
 }

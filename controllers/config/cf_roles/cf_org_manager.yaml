@@ -5,7 +5,7 @@ metadata:
   name: organization-manager
 rules:
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cforgs
   verbs:

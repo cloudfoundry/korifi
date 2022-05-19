@@ -13,7 +13,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 )
 
@@ -58,13 +58,13 @@ var _ = Describe("BuildRepository", func() {
 			Expect(k8sClient.Delete(ctx, namespace2)).To(Succeed())
 		})
 
-		makeBuild := func(namespace, buildGUID, packageGUID, appGUID string) *workloadsv1alpha1.CFBuild {
-			return &workloadsv1alpha1.CFBuild{
+		makeBuild := func(namespace, buildGUID, packageGUID, appGUID string) *v1alpha1.CFBuild {
+			return &v1alpha1.CFBuild{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      buildGUID,
 					Namespace: namespace,
 				},
-				Spec: workloadsv1alpha1.CFBuildSpec{
+				Spec: v1alpha1.CFBuildSpec{
 					PackageRef: corev1.LocalObjectReference{
 						Name: packageGUID,
 					},
@@ -73,9 +73,9 @@ var _ = Describe("BuildRepository", func() {
 					},
 					StagingMemoryMB: stagingMemory,
 					StagingDiskMB:   stagingDisk,
-					Lifecycle: workloadsv1alpha1.Lifecycle{
+					Lifecycle: v1alpha1.Lifecycle{
 						Type: "buildpack",
-						Data: workloadsv1alpha1.LifecycleData{
+						Data: v1alpha1.LifecycleData{
 							Buildpacks: []string{},
 							Stack:      "",
 						},
@@ -93,8 +93,8 @@ var _ = Describe("BuildRepository", func() {
 			var (
 				build1GUID string
 				build2GUID string
-				build1     *workloadsv1alpha1.CFBuild
-				build2     *workloadsv1alpha1.CFBuild
+				build1     *v1alpha1.CFBuild
+				build2     *v1alpha1.CFBuild
 			)
 
 			BeforeEach(func() {
@@ -281,7 +281,7 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		var (
-			space       *workloadsv1alpha1.CFSpace
+			space       *v1alpha1.CFSpace
 			appGUID     string
 			checkSpace  string
 			buildRecord repositories.BuildRecord
@@ -311,7 +311,7 @@ var _ = Describe("BuildRepository", func() {
 					SucceededConditionType = "Succeeded"
 				)
 
-				var build3 *workloadsv1alpha1.CFBuild
+				var build3 *v1alpha1.CFBuild
 
 				BeforeEach(func() {
 					_ = createBuild(ctx, k8sClient, space.Name, prefixedGUID("first"), packageGUID, appGUID)
@@ -487,13 +487,13 @@ var _ = Describe("BuildRepository", func() {
 
 			It("should eventually create a new Build CR", func() {
 				cfBuildLookupKey := types.NamespacedName{Name: buildCreateRecord.GUID, Namespace: spaceGUID}
-				createdCFBuild := new(workloadsv1alpha1.CFBuild)
+				createdCFBuild := new(v1alpha1.CFBuild)
 				err := k8sClient.Get(ctx, cfBuildLookupKey, createdCFBuild)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(createdCFBuild.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 					{
-						APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 						Kind:       "CFPackage",
 						Name:       packageGUID,
 						UID:        packageUID,
@@ -513,7 +513,7 @@ var _ = Describe("BuildRepository", func() {
 })
 
 func cleanupBuild(ctx context.Context, buildGUID, namespace string) error {
-	cfBuild := workloadsv1alpha1.CFBuild{
+	cfBuild := v1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      buildGUID,
 			Namespace: namespace,

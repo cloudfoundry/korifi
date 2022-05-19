@@ -7,7 +7,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/fake"
@@ -29,9 +29,9 @@ var _ = Describe("CFPackageReconciler", func() {
 		cfAppGUID     string
 		cfPackageGUID string
 
-		cfApp                *workloadsv1alpha1.CFApp
+		cfApp                *v1alpha1.CFApp
 		cfAppError           error
-		cfPackage            *workloadsv1alpha1.CFPackage
+		cfPackage            *v1alpha1.CFPackage
 		cfPackageError       error
 		cfPackageUpdateError error
 
@@ -56,10 +56,10 @@ var _ = Describe("CFPackageReconciler", func() {
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
-			case *workloadsv1alpha1.CFApp:
+			case *v1alpha1.CFApp:
 				cfApp.DeepCopyInto(obj)
 				return cfAppError
-			case *workloadsv1alpha1.CFPackage:
+			case *v1alpha1.CFPackage:
 				cfPackage.DeepCopyInto(obj)
 				return cfPackageError
 
@@ -73,7 +73,7 @@ var _ = Describe("CFPackageReconciler", func() {
 			return cfPackageUpdateError
 		}
 
-		Expect(workloadsv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfPackageReconciler = &CFPackageReconciler{
 			Client: fakeClient,

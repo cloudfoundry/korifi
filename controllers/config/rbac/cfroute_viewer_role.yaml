@@ -5,7 +5,7 @@ metadata:
   name: cfroute-viewer-role
 rules:
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfroutes
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfroutes/status
   verbs:

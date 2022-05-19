@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services/fake"
@@ -29,7 +29,7 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 		ctx                   context.Context
 		duplicateValidator    *fake.NameValidator
 		realDecoder           *admission.Decoder
-		serviceInstance       *servicesv1alpha1.CFServiceInstance
+		serviceInstance       *v1alpha1.CFServiceInstance
 		request               admission.Request
 		validatingWebhook     *services.CFServiceInstanceValidation
 		response              admission.Response
@@ -40,7 +40,7 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 		ctx = context.Background()
 
 		scheme := runtime.NewScheme()
-		err := servicesv1alpha1.AddToScheme(scheme)
+		err := v1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
 		realDecoder, err = admission.NewDecoder(scheme)
@@ -48,14 +48,14 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 		serviceInstanceName = generateGUID("service-instance")
 		serviceInstanceGUID = generateGUID("service-instance")
-		serviceInstance = &servicesv1alpha1.CFServiceInstance{
+		serviceInstance = &v1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      serviceInstanceGUID,
 				Namespace: defaultNamespace,
 			},
-			Spec: servicesv1alpha1.CFServiceInstanceSpec{
+			Spec: v1alpha1.CFServiceInstanceSpec{
 				DisplayName: serviceInstanceName,
-				Type:        servicesv1alpha1.UserProvidedType,
+				Type:        v1alpha1.UserProvidedType,
 			},
 		}
 
@@ -149,17 +149,17 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 	})
 
 	Describe("Update", func() {
-		var updatedServiceInstance *servicesv1alpha1.CFServiceInstance
+		var updatedServiceInstance *v1alpha1.CFServiceInstance
 
 		BeforeEach(func() {
-			updatedServiceInstance = &servicesv1alpha1.CFServiceInstance{
+			updatedServiceInstance = &v1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceInstanceGUID,
 					Namespace: defaultNamespace,
 				},
-				Spec: servicesv1alpha1.CFServiceInstanceSpec{
+				Spec: v1alpha1.CFServiceInstanceSpec{
 					DisplayName: "the-new-name",
-					Type:        servicesv1alpha1.UserProvidedType,
+					Type:        v1alpha1.UserProvidedType,
 				},
 			}
 		})

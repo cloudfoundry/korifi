@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	workloads "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,8 +25,8 @@ func NewPlacementValidator(client client.Client, rootNamespace string) *Placemen
 	return &PlacementValidator{client: client, rootNamespace: rootNamespace}
 }
 
-func (v PlacementValidator) ValidateOrgCreate(org workloads.CFOrg) error {
-	if org.ObjectMeta.Namespace != v.rootNamespace {
+func (v PlacementValidator) ValidateOrgCreate(org v1alpha1.CFOrg) error {
+	if org.Namespace != v.rootNamespace {
 		err := fmt.Errorf(OrgPlacementErrorMessage, org.Spec.DisplayName)
 		return err
 	}
@@ -34,12 +34,12 @@ func (v PlacementValidator) ValidateOrgCreate(org workloads.CFOrg) error {
 	return nil
 }
 
-func (v PlacementValidator) ValidateSpaceCreate(space workloads.CFSpace) error {
+func (v PlacementValidator) ValidateSpaceCreate(space v1alpha1.CFSpace) error {
 	ctx := context.Background()
-	cfOrg := workloads.CFOrg{}
-	err := v.client.Get(ctx, types.NamespacedName{Name: space.ObjectMeta.Namespace, Namespace: v.rootNamespace}, &cfOrg)
+	cfOrg := v1alpha1.CFOrg{}
+	err := v.client.Get(ctx, types.NamespacedName{Name: space.Namespace, Namespace: v.rootNamespace}, &cfOrg)
 	if err != nil {
-		err = fmt.Errorf(SpacePlacementErrorMessage, space.ObjectMeta.Namespace, space.Spec.DisplayName)
+		err = fmt.Errorf(SpacePlacementErrorMessage, space.Namespace, space.Spec.DisplayName)
 		return err
 	}
 	return nil

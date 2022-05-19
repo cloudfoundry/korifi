@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,8 +24,8 @@ var _ = Describe("PackageRepository", func() {
 	var (
 		packageRepo *repositories.PackageRepo
 		ctx         context.Context
-		org         *workloadsv1alpha1.CFOrg
-		space       *workloadsv1alpha1.CFSpace
+		org         *v1alpha1.CFOrg
+		space       *v1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
@@ -48,7 +48,7 @@ var _ = Describe("PackageRepository", func() {
 				AppGUID:   appGUID,
 				SpaceGUID: space.Name,
 				OwnerRef: metav1.OwnerReference{
-					APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 					Kind:       "CFApp",
 					Name:       appGUID,
 					UID:        appUID,
@@ -87,17 +87,17 @@ var _ = Describe("PackageRepository", func() {
 				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 
 				packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
-				createdCFPackage := new(workloadsv1alpha1.CFPackage)
+				createdCFPackage := new(v1alpha1.CFPackage)
 				Expect(k8sClient.Get(ctx, packageNSName, createdCFPackage)).To(Succeed())
 
 				Expect(createdCFPackage.Name).To(Equal(packageGUID))
 				Expect(createdCFPackage.Namespace).To(Equal(space.Name))
-				Expect(createdCFPackage.Spec.Type).To(Equal(workloadsv1alpha1.PackageType("bits")))
+				Expect(createdCFPackage.Spec.Type).To(Equal(v1alpha1.PackageType("bits")))
 				Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(appGUID))
 				Expect(createdCFPackage.ObjectMeta.OwnerReferences).To(Equal(
 					[]metav1.OwnerReference{
 						{
-							APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 							Kind:       "CFApp",
 							Name:       appGUID,
 							UID:        appUID,
@@ -196,7 +196,7 @@ var _ = Describe("PackageRepository", func() {
 		)
 
 		var (
-			space2      *workloadsv1alpha1.CFSpace
+			space2      *v1alpha1.CFSpace
 			packageList []repositories.PackageRecord
 			listMessage repositories.ListPackagesMessage
 		)
@@ -215,7 +215,7 @@ var _ = Describe("PackageRepository", func() {
 		When("there are packages in multiple namespaces", func() {
 			var (
 				package1GUID, package2GUID, noPermissionsPackageGUID string
-				noPermissionsSpace                                   *workloadsv1alpha1.CFSpace
+				noPermissionsSpace                                   *v1alpha1.CFSpace
 			)
 
 			BeforeEach(func() {
@@ -419,7 +419,7 @@ var _ = Describe("PackageRepository", func() {
 
 	Describe("UpdatePackageSource", func() {
 		var (
-			existingCFPackage     workloadsv1alpha1.CFPackage
+			existingCFPackage     v1alpha1.CFPackage
 			returnedPackageRecord repositories.PackageRecord
 			updateErr             error
 		)
@@ -431,16 +431,16 @@ var _ = Describe("PackageRepository", func() {
 		)
 
 		BeforeEach(func() {
-			existingCFPackage = workloadsv1alpha1.CFPackage{
+			existingCFPackage = v1alpha1.CFPackage{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFPackage",
-					APIVersion: workloadsv1alpha1.GroupVersion.String(),
+					APIVersion: v1alpha1.GroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      packageGUID,
 					Namespace: space.Name,
 				},
-				Spec: workloadsv1alpha1.CFPackageSpec{
+				Spec: v1alpha1.CFPackageSpec{
 					Type:   "bits",
 					AppRef: corev1.LocalObjectReference{Name: appGUID},
 				},
@@ -486,14 +486,14 @@ var _ = Describe("PackageRepository", func() {
 
 			It("updates only the Registry field of the existing CFPackage", func() {
 				packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
-				updatedCFPackage := new(workloadsv1alpha1.CFPackage)
+				updatedCFPackage := new(v1alpha1.CFPackage)
 				Expect(k8sClient.Get(ctx, packageNSName, updatedCFPackage)).To(Succeed())
 
 				Expect(updatedCFPackage.Name).To(Equal(existingCFPackage.Name))
 				Expect(updatedCFPackage.Namespace).To(Equal(existingCFPackage.Namespace))
 				Expect(updatedCFPackage.Spec.Type).To(Equal(existingCFPackage.Spec.Type))
 				Expect(updatedCFPackage.Spec.AppRef).To(Equal(existingCFPackage.Spec.AppRef))
-				Expect(updatedCFPackage.Spec.Source.Registry).To(Equal(workloadsv1alpha1.Registry{
+				Expect(updatedCFPackage.Spec.Source.Registry).To(Equal(v1alpha1.Registry{
 					Image:            packageSourceImageRef,
 					ImagePullSecrets: []corev1.LocalObjectReference{{Name: packageRegistrySecretName}},
 				}))

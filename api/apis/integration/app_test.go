@@ -13,7 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	workloads "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,21 +27,21 @@ import (
 var _ = Describe("App Handler", func() {
 	var (
 		apiHandler *apis.AppHandler
-		org        *workloads.CFOrg
-		space      *workloads.CFSpace
+		org        *v1alpha1.CFOrg
+		space      *v1alpha1.CFSpace
 		spaceGUID  string
 	)
 
 	createStoppedApp := func(appGUID, spaceGUID, dropletGUID string) {
-		app := &workloads.CFApp{
+		app := &v1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      appGUID,
 				Namespace: spaceGUID,
 			},
-			Spec: workloads.CFAppSpec{
+			Spec: v1alpha1.CFAppSpec{
 				DisplayName:  generateGUID(),
 				DesiredState: "STOPPED",
-				Lifecycle: workloads.Lifecycle{
+				Lifecycle: v1alpha1.Lifecycle{
 					Type: "buildpack",
 				},
 				CurrentDropletRef: corev1.LocalObjectReference{
@@ -53,23 +53,23 @@ var _ = Describe("App Handler", func() {
 	}
 
 	createDroplet := func(dropletGUID, spaceGUID, appGUID string) {
-		droplet := &workloads.CFBuild{
+		droplet := &v1alpha1.CFBuild{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      dropletGUID,
 				Namespace: spaceGUID,
 			},
-			Spec: workloads.CFBuildSpec{
+			Spec: v1alpha1.CFBuildSpec{
 				AppRef: corev1.LocalObjectReference{
 					Name: appGUID,
 				},
-				Lifecycle: workloads.Lifecycle{
+				Lifecycle: v1alpha1.Lifecycle{
 					Type: "buildpack",
 				},
 			},
 		}
 		Expect(k8sClient.Create(ctx, droplet)).To(Succeed())
 
-		droplet.Status = workloads.CFBuildStatus{
+		droplet.Status = v1alpha1.CFBuildStatus{
 			Conditions: []metav1.Condition{
 				{
 					Type:               "Staging",
@@ -84,8 +84,8 @@ var _ = Describe("App Handler", func() {
 					LastTransitionTime: metav1.NewTime(time.Now()),
 				},
 			},
-			BuildDropletStatus: &workloads.BuildDropletStatus{
-				ProcessTypes: []workloads.ProcessType{},
+			BuildDropletStatus: &v1alpha1.BuildDropletStatus{
+				ProcessTypes: []v1alpha1.ProcessType{},
 				Ports:        []int32{},
 			},
 		}
@@ -93,7 +93,7 @@ var _ = Describe("App Handler", func() {
 	}
 
 	startApp := func(spaceGUID, appGUID string) {
-		var app workloads.CFApp
+		var app v1alpha1.CFApp
 		Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: spaceGUID, Name: appGUID}, &app)).To(Succeed())
 		startedApp := app.DeepCopy()
 		startedApp.Spec.DesiredState = "STARTED"
@@ -198,7 +198,7 @@ var _ = Describe("App Handler", func() {
 					Name:      appGUID,
 					Namespace: spaceGUID,
 				}
-				var appRecord workloads.CFApp
+				var appRecord v1alpha1.CFApp
 				Expect(k8sClient.Get(ctx, appNSName, &appRecord)).To(Succeed())
 
 				Expect(appRecord.Spec.DisplayName).To(Equal("my-test-app"))

@@ -5,7 +5,7 @@ metadata:
   name: cfspace-editor-role
 rules:
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfspaces
   verbs:
@@ -17,7 +17,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfspaces/status
   verbs:

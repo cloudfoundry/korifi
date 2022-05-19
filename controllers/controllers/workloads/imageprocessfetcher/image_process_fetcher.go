@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
-
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"github.com/buildpacks/lifecycle/launch"
 	"github.com/buildpacks/lifecycle/platform"
 	"github.com/go-logr/logr"
@@ -20,7 +19,7 @@ type ImageProcessFetcher struct {
 	Log logr.Logger
 }
 
-func (f *ImageProcessFetcher) Fetch(imageRef string, credsOption remote.Option) ([]workloadsv1alpha1.ProcessType, []int32, error) {
+func (f *ImageProcessFetcher) Fetch(imageRef string, credsOption remote.Option) ([]v1alpha1.ProcessType, []int32, error) {
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
 		f.Log.Info(fmt.Sprintf("Error fetching image config: %s\n", err))
@@ -48,9 +47,9 @@ func (f *ImageProcessFetcher) Fetch(imageRef string, credsOption remote.Option) 
 	}
 
 	// Loop over all the Processes and extract the complete command string
-	processTypes := []workloadsv1alpha1.ProcessType{}
+	processTypes := []v1alpha1.ProcessType{}
 	for _, process := range buildMetadata.Processes {
-		processTypes = append(processTypes, workloadsv1alpha1.ProcessType{
+		processTypes = append(processTypes, v1alpha1.ProcessType{
 			Type:    process.Type,
 			Command: extractFullCommand(process),
 		})

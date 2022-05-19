@@ -4,8 +4,7 @@ import (
 	"context"
 	"time"
 
-	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,19 +40,19 @@ var _ = Describe("CFAppReconciler", func() {
 
 		It("sets its status.conditions", func() {
 			ctx := context.Background()
-			cfApp := &workloadsv1alpha1.CFApp{
+			cfApp := &v1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
-					APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
+					APIVersion: v1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
 					Namespace: namespaceGUID,
 				},
-				Spec: workloadsv1alpha1.CFAppSpec{
+				Spec: v1alpha1.CFAppSpec{
 					DisplayName:  "test-app",
 					DesiredState: "STOPPED",
-					Lifecycle: workloadsv1alpha1.Lifecycle{
+					Lifecycle: v1alpha1.Lifecycle{
 						Type: "buildpack",
 					},
 				},
@@ -61,7 +60,7 @@ var _ = Describe("CFAppReconciler", func() {
 			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 
 			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}
-			createdCFApp := new(workloadsv1alpha1.CFApp)
+			createdCFApp := new(v1alpha1.CFApp)
 
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)
@@ -91,9 +90,9 @@ var _ = Describe("CFAppReconciler", func() {
 			cfAppGUID           string
 			cfBuildGUID         string
 			cfPackageGUID       string
-			cfApp               *workloadsv1alpha1.CFApp
-			cfPackage           *workloadsv1alpha1.CFPackage
-			cfBuild             *workloadsv1alpha1.CFBuild
+			cfApp               *v1alpha1.CFApp
+			cfPackage           *v1alpha1.CFPackage
+			cfBuild             *v1alpha1.CFBuild
 			dropletProcessTypes map[string]string
 		)
 
@@ -142,8 +141,8 @@ var _ = Describe("CFAppReconciler", func() {
 				droplet := cfBuild.Status.BuildDropletStatus
 				processTypes := droplet.ProcessTypes
 				for _, process := range processTypes {
-					cfProcessList := workloadsv1alpha1.CFProcessList{}
-					Eventually(func() []workloadsv1alpha1.CFProcess {
+					cfProcessList := v1alpha1.CFProcessList{}
+					Eventually(func() []v1alpha1.CFProcess {
 						Expect(
 							k8sClient.List(testCtx, &cfProcessList, &client.ListOptions{
 								LabelSelector: labelSelectorForAppAndProcess(cfAppGUID, process.Type),
@@ -159,7 +158,7 @@ var _ = Describe("CFAppReconciler", func() {
 
 					Expect(createdCFProcess.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 						{
-							APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 							Kind:       "CFApp",
 							Name:       cfApp.Name,
 							UID:        cfApp.GetUID(),
@@ -172,7 +171,7 @@ var _ = Describe("CFAppReconciler", func() {
 		When("CFProcesses exist for the app", func() {
 			var (
 				cfProcessForTypeWebGUID string
-				cfProcessForTypeWeb     *workloadsv1alpha1.CFProcess
+				cfProcessForTypeWeb     *v1alpha1.CFProcess
 			)
 
 			BeforeEach(func() {
@@ -186,8 +185,8 @@ var _ = Describe("CFAppReconciler", func() {
 				testCtx := context.Background()
 
 				// Checking for worker type first ensures that we wait long enough for processes to be created.
-				cfProcessList := workloadsv1alpha1.CFProcessList{}
-				Eventually(func() []workloadsv1alpha1.CFProcess {
+				cfProcessList := v1alpha1.CFProcessList{}
+				Eventually(func() []v1alpha1.CFProcess {
 					Expect(
 						k8sClient.List(testCtx, &cfProcessList, &client.ListOptions{
 							LabelSelector: labelSelectorForAppAndProcess(cfAppGUID, processTypeWorker),
@@ -197,7 +196,7 @@ var _ = Describe("CFAppReconciler", func() {
 					return cfProcessList.Items
 				}).Should(HaveLen(1), "Count of CFProcess is not equal to 1")
 
-				cfProcessList = workloadsv1alpha1.CFProcessList{}
+				cfProcessList = v1alpha1.CFProcessList{}
 				Expect(
 					k8sClient.List(testCtx, &cfProcessList, &client.ListOptions{
 						LabelSelector: labelSelectorForAppAndProcess(cfAppGUID, processTypeWorker),
@@ -217,8 +216,8 @@ var _ = Describe("CFAppReconciler", func() {
 
 			When("no `web` CFProcess exists for the app", func() {
 				It("adds a `web` process without a start command", func() {
-					var webProcessesList workloadsv1alpha1.CFProcessList
-					Eventually(func() []workloadsv1alpha1.CFProcess {
+					var webProcessesList v1alpha1.CFProcessList
+					Eventually(func() []v1alpha1.CFProcess {
 						Expect(
 							k8sClient.List(context.Background(), &webProcessesList, &client.ListOptions{
 								LabelSelector: labelSelectorForAppAndProcess(cfAppGUID, processTypeWeb),
@@ -235,7 +234,7 @@ var _ = Describe("CFAppReconciler", func() {
 			})
 
 			When("the `web` CFProcess already exists", func() {
-				var existingWebProcess *workloadsv1alpha1.CFProcess
+				var existingWebProcess *v1alpha1.CFProcess
 
 				BeforeEach(func() {
 					existingWebProcess = BuildCFProcessCRObject(GenerateGUID(), namespaceGUID, cfAppGUID, processTypeWeb, processTypeWebCommand)
@@ -245,8 +244,8 @@ var _ = Describe("CFAppReconciler", func() {
 				})
 
 				It("doesn't alter the existing `web` process", func() {
-					var webProcessesList workloadsv1alpha1.CFProcessList
-					Consistently(func() []workloadsv1alpha1.CFProcess {
+					var webProcessesList v1alpha1.CFProcessList
+					Consistently(func() []v1alpha1.CFProcess {
 						Expect(
 							k8sClient.List(context.Background(), &webProcessesList, &client.ListOptions{
 								LabelSelector: labelSelectorForAppAndProcess(cfAppGUID, processTypeWeb),
@@ -265,7 +264,7 @@ var _ = Describe("CFAppReconciler", func() {
 		When("the droplet has no ports set", func() {
 			var (
 				otherBuildGUID string
-				otherCFBuild   *workloadsv1alpha1.CFBuild
+				otherCFBuild   *v1alpha1.CFBuild
 			)
 
 			BeforeEach(func() {
@@ -286,8 +285,8 @@ var _ = Describe("CFAppReconciler", func() {
 				droplet := cfBuild.Status.BuildDropletStatus
 				processTypes := droplet.ProcessTypes
 				for _, process := range processTypes {
-					cfProcessList := workloadsv1alpha1.CFProcessList{}
-					Eventually(func() []workloadsv1alpha1.CFProcess {
+					cfProcessList := v1alpha1.CFProcessList{}
+					Eventually(func() []v1alpha1.CFProcess {
 						Expect(
 							k8sClient.List(testCtx, &cfProcessList, &client.ListOptions{
 								LabelSelector: labelSelectorForAppAndProcess(cfAppGUID, process.Type),
@@ -308,8 +307,8 @@ var _ = Describe("CFAppReconciler", func() {
 		var (
 			cfAppGUID   string
 			cfRouteGUID string
-			cfApp       *workloadsv1alpha1.CFApp
-			cfRoute     *networkingv1alpha1.CFRoute
+			cfApp       *v1alpha1.CFApp
+			cfRoute     *v1alpha1.CFRoute
 		)
 
 		BeforeEach(func() {
@@ -318,12 +317,12 @@ var _ = Describe("CFAppReconciler", func() {
 			Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
 			cfRouteGUID = GenerateGUID()
-			cfRoute = &networkingv1alpha1.CFRoute{
+			cfRoute = &v1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfRouteGUID,
 					Namespace: namespaceGUID,
 				},
-				Spec: networkingv1alpha1.CFRouteSpec{
+				Spec: v1alpha1.CFRouteSpec{
 					Host:     "testRouteHost",
 					Path:     "",
 					Protocol: "http",
@@ -331,7 +330,7 @@ var _ = Describe("CFAppReconciler", func() {
 						Name:      "testDomainGUID",
 						Namespace: namespaceGUID,
 					},
-					Destinations: []networkingv1alpha1.Destination{
+					Destinations: []v1alpha1.Destination{
 						{
 							GUID: "destination-1-guid",
 							Port: 0,
@@ -360,23 +359,23 @@ var _ = Describe("CFAppReconciler", func() {
 
 		It("eventually deletes the CFApp", func() {
 			Eventually(func() bool {
-				var createdCFApp workloadsv1alpha1.CFApp
+				var createdCFApp v1alpha1.CFApp
 				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}, &createdCFApp)
 				return apierrors.IsNotFound(err)
 			}).Should(BeTrue(), "timed out waiting for app to be deleted")
 		})
 
 		It("eventually deletes the destination on the CFRoute", func() {
-			var createdCFRoute networkingv1alpha1.CFRoute
-			Eventually(func() []networkingv1alpha1.Destination {
+			var createdCFRoute v1alpha1.CFRoute
+			Eventually(func() []v1alpha1.Destination {
 				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfRouteGUID, Namespace: namespaceGUID}, &createdCFRoute)
 				if err != nil {
-					return []networkingv1alpha1.Destination{}
+					return []v1alpha1.Destination{}
 				}
 				return createdCFRoute.Spec.Destinations
 			}).Should(HaveLen(1), "expecting length of destinations to be 1 after cfapp delete")
 
-			Expect(createdCFRoute.Spec.Destinations).Should(ConsistOf(networkingv1alpha1.Destination{
+			Expect(createdCFRoute.Spec.Destinations).Should(ConsistOf(v1alpha1.Destination{
 				GUID: "destination-2-guid",
 				Port: 0,
 				AppRef: corev1.LocalObjectReference{

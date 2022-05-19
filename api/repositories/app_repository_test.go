@@ -8,7 +8,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	CFAppRevisionKey   = "workloads.cloudfoundry.org/app-rev"
+	CFAppRevisionKey   = "korifi.cloudfoundry.org/app-rev"
 	CFAppRevisionValue = "1"
 	CFAppStoppedState  = "STOPPED"
 )
@@ -30,9 +30,9 @@ var _ = Describe("AppRepository", func() {
 	var (
 		testCtx context.Context
 		appRepo *AppRepo
-		org     *workloadsv1alpha1.CFOrg
-		space   *workloadsv1alpha1.CFSpace
-		cfApp   *workloadsv1alpha1.CFApp
+		org     *v1alpha1.CFOrg
+		space   *v1alpha1.CFSpace
+		cfApp   *v1alpha1.CFApp
 	)
 
 	BeforeEach(func() {
@@ -173,7 +173,7 @@ var _ = Describe("AppRepository", func() {
 		var (
 			message ListAppsMessage
 			appList []AppRecord
-			cfApp2  *workloadsv1alpha1.CFApp
+			cfApp2  *v1alpha1.CFApp
 		)
 
 		BeforeEach(func() {
@@ -208,7 +208,7 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		When("there are apps in non-cf namespaces", func() {
-			var nonCFApp *workloadsv1alpha1.CFApp
+			var nonCFApp *v1alpha1.CFApp
 
 			BeforeEach(func() {
 				nonCFNamespace := prefixedGUID("non-cf")
@@ -229,7 +229,7 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		Describe("filtering", func() {
-			var cfApp12 *workloadsv1alpha1.CFApp
+			var cfApp12 *v1alpha1.CFApp
 
 			BeforeEach(func() {
 				cfApp12 = createApp(space.Name)
@@ -370,7 +370,7 @@ var _ = Describe("AppRepository", func() {
 
 		It("creates a new app CR", func() {
 			cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: space.Name}
-			createdCFApp := new(workloadsv1alpha1.CFApp)
+			createdCFApp := new(v1alpha1.CFApp)
 			Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
 		})
 
@@ -395,7 +395,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("creates an empty secret and sets the environment variable secret ref on the App", func() {
 				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: space.Name}
-				createdCFApp := new(workloadsv1alpha1.CFApp)
+				createdCFApp := new(v1alpha1.CFApp)
 				Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
 
 				Expect(createdCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
@@ -417,7 +417,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("creates an secret for the environment variables and sets the ref on the App", func() {
 				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: space.Name}
-				createdCFApp := new(workloadsv1alpha1.CFApp)
+				createdCFApp := new(v1alpha1.CFApp)
 				Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
 				Expect(createdCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
 
@@ -582,7 +582,7 @@ var _ = Describe("AppRepository", func() {
 					Expect(createdCFAppSecret.OwnerReferences)
 					Expect(createdCFAppSecret.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 						{
-							APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 							Kind:       "CFApp",
 							Name:       cfApp.Name,
 							UID:        cfApp.GetUID(),
@@ -697,7 +697,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("sets the spec.current_droplet_ref.name to the Droplet GUID", func() {
 				lookupKey := types.NamespacedName{Name: cfApp.Name, Namespace: space.Name}
-				updatedApp := new(workloadsv1alpha1.CFApp)
+				updatedApp := new(v1alpha1.CFApp)
 				Expect(k8sClient.Get(testCtx, lookupKey, updatedApp)).To(Succeed())
 				Expect(updatedApp.Spec.CurrentDropletRef.Name).To(Equal(dropletGUID))
 			})
@@ -775,7 +775,7 @@ var _ = Describe("AppRepository", func() {
 
 				It("changes the desired state of the App", func() {
 					cfAppLookupKey := types.NamespacedName{Name: appGUID, Namespace: space.Name}
-					updatedCFApp := new(workloadsv1alpha1.CFApp)
+					updatedCFApp := new(v1alpha1.CFApp)
 					Expect(k8sClient.Get(testCtx, cfAppLookupKey, updatedCFApp)).To(Succeed())
 					Expect(string(updatedCFApp.Spec.DesiredState)).To(Equal(appStartedValue))
 				})
@@ -799,7 +799,7 @@ var _ = Describe("AppRepository", func() {
 
 				It("changes the desired state of the App", func() {
 					cfAppLookupKey := types.NamespacedName{Name: appGUID, Namespace: space.Name}
-					updatedCFApp := new(workloadsv1alpha1.CFApp)
+					updatedCFApp := new(v1alpha1.CFApp)
 					Expect(k8sClient.Get(testCtx, cfAppLookupKey, updatedCFApp)).To(Succeed())
 					Expect(string(updatedCFApp.Spec.DesiredState)).To(Equal(appStoppedValue))
 				})
@@ -953,12 +953,12 @@ var _ = Describe("AppRepository", func() {
 	})
 })
 
-func createApp(space string) *workloadsv1alpha1.CFApp {
+func createApp(space string) *v1alpha1.CFApp {
 	return createAppWithGUID(space, generateGUID())
 }
 
-func createAppWithGUID(space, guid string) *workloadsv1alpha1.CFApp {
-	cfApp := &workloadsv1alpha1.CFApp{
+func createAppWithGUID(space, guid string) *v1alpha1.CFApp {
+	cfApp := &v1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: space,
@@ -966,12 +966,12 @@ func createAppWithGUID(space, guid string) *workloadsv1alpha1.CFApp {
 				CFAppRevisionKey: CFAppRevisionValue,
 			},
 		},
-		Spec: workloadsv1alpha1.CFAppSpec{
+		Spec: v1alpha1.CFAppSpec{
 			DisplayName:  generateGUID(),
 			DesiredState: "STOPPED",
-			Lifecycle: workloadsv1alpha1.Lifecycle{
+			Lifecycle: v1alpha1.Lifecycle{
 				Type: "buildpack",
-				Data: workloadsv1alpha1.LifecycleData{
+				Data: v1alpha1.LifecycleData{
 					Buildpacks: []string{"java"},
 				},
 			},

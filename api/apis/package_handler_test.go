@@ -523,7 +523,7 @@ var _ = Describe("PackageHandler", func() {
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
 				OwnerRef: metav1.OwnerReference{
-					APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 					Kind:       "CFApp",
 					Name:       appGUID,
 					UID:        appUID,

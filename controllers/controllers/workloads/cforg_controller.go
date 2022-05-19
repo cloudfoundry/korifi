@@ -21,8 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
-
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,12 +51,12 @@ const (
 	StatusConditionReady  = "Ready"
 	OrgNameLabel          = "cloudfoundry.org/org-name"
 	hierarchyMetadataName = "hierarchy"
-	APIVersion            = "workloads.cloudfoundry.org/v1alpha1"
+	APIVersion            = "korifi.cloudfoundry.org/v1alpha1"
 )
 
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cforgs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cforgs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cforgs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cforgs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cforgs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cforgs/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 //+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;create;delete;watch
@@ -73,7 +72,7 @@ const (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	cfOrg := new(workloadsv1alpha1.CFOrg)
+	cfOrg := new(v1alpha1.CFOrg)
 	err := r.client.Get(ctx, req.NamespacedName, cfOrg)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error when trying to fetch CFOrg %s/%s", req.Namespace, req.Name))
@@ -156,6 +155,6 @@ func setCascadingDelete(ctx context.Context, userClient client.Client, orgGUID s
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFOrgReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&workloadsv1alpha1.CFOrg{}).
+		For(&v1alpha1.CFOrg{}).
 		Complete(r)
 }

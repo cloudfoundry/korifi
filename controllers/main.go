@@ -21,9 +21,7 @@ import (
 	"fmt"
 	"os"
 
-	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	networkingcontrollers "code.cloudfoundry.org/korifi/controllers/controllers/networking"
 	servicescontrollers "code.cloudfoundry.org/korifi/controllers/controllers/services"
@@ -63,13 +61,13 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(workloadsv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(contourv1.AddToScheme(scheme))
 	utilruntime.Must(eiriniv1.AddToScheme(scheme))
 	utilruntime.Must(hncv1alpha2.AddToScheme(scheme))
-	utilruntime.Must(servicesv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
@@ -239,21 +237,21 @@ func main() {
 	// Setup webhooks with manager
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&workloadsv1alpha1.CFApp{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&v1alpha1.CFApp{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
 			os.Exit(1)
 		}
 
-		if err = (&workloadsv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&v1alpha1.CFPackage{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
 			os.Exit(1)
 		}
-		if err = (&workloadsv1alpha1.CFBuild{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&v1alpha1.CFBuild{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFBuild")
 			os.Exit(1)
 		}
 
-		if err = (&workloadsv1alpha1.CFProcess{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&v1alpha1.CFProcess{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFProcess")
 			os.Exit(1)
 		}
@@ -312,7 +310,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (&networkingv1alpha1.CFRoute{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&v1alpha1.CFRoute{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
 			os.Exit(1)
 		}

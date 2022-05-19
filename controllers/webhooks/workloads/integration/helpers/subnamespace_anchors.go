@@ -1,8 +1,7 @@
 package helpers
 
 import (
-	"code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 
 	"github.com/google/uuid"
@@ -18,14 +17,14 @@ func MakeSpace(namespace, name string) *hnsv1alpha2.SubnamespaceAnchor {
 	return MakeSubnamespaceAnchor(namespace, map[string]string{workloads.SpaceNameLabel: name})
 }
 
-func MakeCFSpace(namespace string, displayName string) *workloadsv1alpha1.CFSpace {
-	return &workloadsv1alpha1.CFSpace{
+func MakeCFSpace(namespace string, displayName string) *v1alpha1.CFSpace {
+	return &v1alpha1.CFSpace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      uuid.NewString(),
 			Namespace: namespace,
 			Labels:    map[string]string{workloads.SpaceNameLabel: displayName},
 		},
-		Spec: workloadsv1alpha1.CFSpaceSpec{
+		Spec: v1alpha1.CFSpaceSpec{
 			DisplayName: displayName,
 		},
 	}

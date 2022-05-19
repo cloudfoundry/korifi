@@ -1,4 +1,4 @@
-apiVersion: services.cloudfoundry.org/v1alpha1
+apiVersion: korifi.cloudfoundry.org/v1alpha1
 kind: CFServiceInstance
 metadata:
   name: 7e0dec79-2f4e-43ee-a682-3c3f4b8e7fd1 # service instance guid

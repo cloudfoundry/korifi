@@ -5,9 +5,7 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
-
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,9 +32,9 @@ var _ = Describe("CFBuildReconciler", func() {
 		cfPackageGUID    string
 		cfBuildGUID      string
 		newNamespace     *corev1.Namespace
-		desiredCFApp     *workloadsv1alpha1.CFApp
-		desiredCFPackage *workloadsv1alpha1.CFPackage
-		desiredCFBuild   *workloadsv1alpha1.CFBuild
+		desiredCFApp     *v1alpha1.CFApp
+		desiredCFPackage *v1alpha1.CFPackage
+		desiredCFBuild   *v1alpha1.CFBuild
 	)
 
 	eventuallyKpackImageShould := func(assertion func(*buildv1alpha2.Image, Gomega)) {
@@ -94,14 +92,14 @@ var _ = Describe("CFBuildReconciler", func() {
 
 		It("eventually reconciles to set the owner reference on the CFBuild", func() {
 			Eventually(func() []metav1.OwnerReference {
-				var createdCFBuild workloadsv1alpha1.CFBuild
+				var createdCFBuild v1alpha1.CFBuild
 				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, &createdCFBuild)
 				if err != nil {
 					return nil
 				}
 				return createdCFBuild.GetOwnerReferences()
 			}).Should(ConsistOf(metav1.OwnerReference{
-				APIVersion: workloadsv1alpha1.GroupVersion.Identifier(),
+				APIVersion: v1alpha1.GroupVersion.Identifier(),
 				Kind:       "CFApp",
 				Name:       desiredCFApp.Name,
 				UID:        desiredCFApp.UID,
@@ -132,7 +130,7 @@ var _ = Describe("CFBuildReconciler", func() {
 				Expect(createdKpackImage.GetOwnerReferences()).To(ConsistOf(metav1.OwnerReference{
 					UID:        desiredCFBuild.UID,
 					Kind:       "CFBuild",
-					APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 					Name:       desiredCFBuild.Name,
 				}))
 				Expect(createdKpackImage.Spec.Builder.Name).To(Equal("cf-kpack-builder"))
@@ -142,7 +140,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			It("eventually sets the status conditions on CFBuild", func() {
 				testCtx := context.Background()
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-				createdCFBuild := new(workloadsv1alpha1.CFBuild)
+				createdCFBuild := new(v1alpha1.CFBuild)
 				Eventually(func() []metav1.Condition {
 					err := k8sClient.Get(testCtx, cfBuildLookupKey, createdCFBuild)
 					if err != nil {
@@ -157,10 +155,10 @@ var _ = Describe("CFBuildReconciler", func() {
 			var (
 				secret1          *corev1.Secret
 				secret2          *corev1.Secret
-				serviceInstance1 *servicesv1alpha1.CFServiceInstance
-				serviceInstance2 *servicesv1alpha1.CFServiceInstance
-				serviceBinding1  *servicesv1alpha1.CFServiceBinding
-				serviceBinding2  *servicesv1alpha1.CFServiceBinding
+				serviceInstance1 *v1alpha1.CFServiceInstance
+				serviceInstance2 *v1alpha1.CFServiceInstance
+				serviceBinding1  *v1alpha1.CFServiceBinding
+				serviceBinding2  *v1alpha1.CFServiceBinding
 			)
 
 			BeforeEach(func() {
@@ -180,12 +178,12 @@ var _ = Describe("CFBuildReconciler", func() {
 					k8sClient.Create(ctx, secret1),
 				).To(Succeed())
 
-				serviceInstance1 = &servicesv1alpha1.CFServiceInstance{
+				serviceInstance1 = &v1alpha1.CFServiceInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service-instance-1-guid",
 						Namespace: newNamespace.Name,
 					},
-					Spec: servicesv1alpha1.CFServiceInstanceSpec{
+					Spec: v1alpha1.CFServiceInstanceSpec{
 						DisplayName: "service-instance-1-name",
 						SecretName:  secret1.Name,
 						Type:        "user-provided",
@@ -200,20 +198,20 @@ var _ = Describe("CFBuildReconciler", func() {
 				).To(Succeed())
 
 				serviceBinding1Name := "service-binding-1-name"
-				serviceBinding1 = &servicesv1alpha1.CFServiceBinding{
+				serviceBinding1 = &v1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service-binding-1-guid",
 						Namespace: newNamespace.Name,
 						Labels: map[string]string{
-							workloadsv1alpha1.CFAppGUIDLabelKey: desiredCFApp.Name,
+							v1alpha1.CFAppGUIDLabelKey: desiredCFApp.Name,
 						},
 					},
-					Spec: servicesv1alpha1.CFServiceBindingSpec{
+					Spec: v1alpha1.CFServiceBindingSpec{
 						DisplayName: &serviceBinding1Name,
 						Service: corev1.ObjectReference{
 							Kind:       "ServiceInstance",
 							Name:       serviceInstance1.Name,
-							APIVersion: "services.cloudfoundry.org/v1alpha1",
+							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 						},
 						AppRef: corev1.LocalObjectReference{
 							Name: desiredCFApp.Name,
@@ -239,12 +237,12 @@ var _ = Describe("CFBuildReconciler", func() {
 					k8sClient.Create(ctx, secret2),
 				).To(Succeed())
 
-				serviceInstance2 = &servicesv1alpha1.CFServiceInstance{
+				serviceInstance2 = &v1alpha1.CFServiceInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service-instance-2-guid",
 						Namespace: newNamespace.Name,
 					},
-					Spec: servicesv1alpha1.CFServiceInstanceSpec{
+					Spec: v1alpha1.CFServiceInstanceSpec{
 						DisplayName: "service-instance-2-name",
 						SecretName:  secret2.Name,
 						Type:        "user-provided",
@@ -256,20 +254,20 @@ var _ = Describe("CFBuildReconciler", func() {
 				).To(Succeed())
 
 				serviceBinding2Name := "service-binding-2-name"
-				serviceBinding2 = &servicesv1alpha1.CFServiceBinding{
+				serviceBinding2 = &v1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service-binding-2-guid",
 						Namespace: newNamespace.Name,
 						Labels: map[string]string{
-							workloadsv1alpha1.CFAppGUIDLabelKey: desiredCFApp.Name,
+							v1alpha1.CFAppGUIDLabelKey: desiredCFApp.Name,
 						},
 					},
-					Spec: servicesv1alpha1.CFServiceBindingSpec{
+					Spec: v1alpha1.CFServiceBindingSpec{
 						DisplayName: &serviceBinding2Name,
 						Service: corev1.ObjectReference{
 							Kind:       "ServiceInstance",
 							Name:       serviceInstance2.Name,
-							APIVersion: "services.cloudfoundry.org/v1alpha1",
+							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 						},
 						AppRef: corev1.LocalObjectReference{
 							Name: desiredCFApp.Name,
@@ -343,7 +341,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			var (
 				newCFBuildGUID     string
 				existingKpackImage *buildv1alpha2.Image
-				newCFBuild         *workloadsv1alpha1.CFBuild
+				newCFBuild         *v1alpha1.CFBuild
 			)
 
 			BeforeEach(func() {
@@ -382,7 +380,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			It("eventually sets the status conditions on CFBuild", func() {
 				testCtx := context.Background()
 				cfBuildLookupKey := types.NamespacedName{Name: newCFBuildGUID, Namespace: namespaceGUID}
-				createdCFBuild := new(workloadsv1alpha1.CFBuild)
+				createdCFBuild := new(v1alpha1.CFBuild)
 				Eventually(func() []metav1.Condition {
 					err := k8sClient.Get(testCtx, cfBuildLookupKey, createdCFBuild)
 					if err != nil {
@@ -429,7 +427,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			It("eventually sets the status condition for Type Succeeded on CFBuild to False", func() {
 				testCtx := context.Background()
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-				createdCFBuild := new(workloadsv1alpha1.CFBuild)
+				createdCFBuild := new(v1alpha1.CFBuild)
 				Eventually(func() bool {
 					err := k8sClient.Get(testCtx, cfBuildLookupKey, createdCFBuild)
 					if err != nil {
@@ -447,7 +445,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			)
 
 			var (
-				returnedProcessTypes []workloadsv1alpha1.ProcessType
+				returnedProcessTypes []v1alpha1.ProcessType
 				returnedPorts        []int32
 			)
 
@@ -455,7 +453,7 @@ var _ = Describe("CFBuildReconciler", func() {
 				testCtx := context.Background()
 
 				// Fill out fake ImageProcessFetcher
-				returnedProcessTypes = []workloadsv1alpha1.ProcessType{{Type: "web", Command: "my-command"}, {Type: "db", Command: "my-command2"}}
+				returnedProcessTypes = []v1alpha1.ProcessType{{Type: "web", Command: "my-command"}, {Type: "db", Command: "my-command2"}}
 				returnedPorts = []int32{8080, 8443}
 				fakeImageProcessFetcher.Returns(
 					returnedProcessTypes,
@@ -478,7 +476,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			It("eventually sets the status condition for Type Succeeded on CFBuild to True", func() {
 				testCtx := context.Background()
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-				createdCFBuild := new(workloadsv1alpha1.CFBuild)
+				createdCFBuild := new(v1alpha1.CFBuild)
 
 				Eventually(func() bool {
 					err := k8sClient.Get(testCtx, cfBuildLookupKey, createdCFBuild)
@@ -492,8 +490,8 @@ var _ = Describe("CFBuildReconciler", func() {
 			It("eventually sets BuildStatusDroplet object", func() {
 				testCtx := context.Background()
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-				createdCFBuild := new(workloadsv1alpha1.CFBuild)
-				Eventually(func() *workloadsv1alpha1.BuildDropletStatus {
+				createdCFBuild := new(v1alpha1.CFBuild)
+				Eventually(func() *v1alpha1.BuildDropletStatus {
 					err := k8sClient.Get(testCtx, cfBuildLookupKey, createdCFBuild)
 					if err != nil {
 						return nil

@@ -1,4 +1,4 @@
-apiVersion: services.cloudfoundry.org/v1alpha1
+apiVersion: korifi.cloudfoundry.org/v1alpha1
 kind: CFServiceBinding
 metadata:
   name: my-service-binding-guid
@@ -8,7 +8,7 @@ metadata:
 spec:
   displayName: my-binding-name
   service:
-    apiVersion: services.cloudfoundry.org/v1alpha1
+    apiVersion: korifi.cloudfoundry.org/v1alpha1
     kind: CFServiceInstance
     name: 7e0dec79-2f4e-43ee-a682-3c3f4b8e7fd1
   secretName: cf-service-credentials-7e0dec79-2f4e-43ee-a682-3c3f4b8e7fd1 # shares the same secret as the UPSI, may be a different secret in the case of managed service bindings

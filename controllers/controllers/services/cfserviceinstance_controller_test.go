@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/services"
 	"code.cloudfoundry.org/korifi/controllers/fake"
 
@@ -30,7 +30,7 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 		fakeClient       *fake.Client
 		fakeStatusWriter *fake.StatusWriter
 
-		cfServiceInstance       *servicesv1alpha1.CFServiceInstance
+		cfServiceInstance       *v1alpha1.CFServiceInstance
 		cfServiceInstanceSecret *corev1.Secret
 
 		getCFServiceInstanceError          error
@@ -54,12 +54,12 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 		fakeStatusWriter = new(fake.StatusWriter)
 		fakeClient.StatusReturns(fakeStatusWriter)
 
-		cfServiceInstance = new(servicesv1alpha1.CFServiceInstance)
+		cfServiceInstance = new(v1alpha1.CFServiceInstance)
 		cfServiceInstanceSecret = new(corev1.Secret)
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
-			case *servicesv1alpha1.CFServiceInstance:
+			case *v1alpha1.CFServiceInstance:
 				cfServiceInstance.DeepCopyInto(obj)
 				return getCFServiceInstanceError
 			case *corev1.Secret:
@@ -74,7 +74,7 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 			return updateCFServiceInstanceStatusError
 		}
 
-		Expect(servicesv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 		cfServiceInstanceReconciler = &CFServiceInstanceReconciler{
 			Client: fakeClient,
@@ -102,7 +102,7 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 				_, serviceInstanceObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-				updatedCFServiceInstance, ok := serviceInstanceObj.(*servicesv1alpha1.CFServiceInstance)
+				updatedCFServiceInstance, ok := serviceInstanceObj.(*v1alpha1.CFServiceInstance)
 				Expect(ok).To(BeTrue())
 				Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal(cfServiceInstanceSecret.Name))
 				Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -124,7 +124,7 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 				_, serviceInstanceObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-				updatedCFServiceInstance, ok := serviceInstanceObj.(*servicesv1alpha1.CFServiceInstance)
+				updatedCFServiceInstance, ok := serviceInstanceObj.(*v1alpha1.CFServiceInstance)
 				Expect(ok).To(BeTrue())
 				Expect(updatedCFServiceInstance.Status.Binding.Name).To(BeEmpty())
 				Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -145,7 +145,7 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 				_, serviceInstanceObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-				updatedCFServiceInstance, ok := serviceInstanceObj.(*servicesv1alpha1.CFServiceInstance)
+				updatedCFServiceInstance, ok := serviceInstanceObj.(*v1alpha1.CFServiceInstance)
 				Expect(ok).To(BeTrue())
 				Expect(updatedCFServiceInstance.Status.Binding.Name).To(BeEmpty())
 				Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -178,36 +178,36 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 
 	When("the CFServiceInstance is being deleted", func() {
 		var (
-			cfServiceBindingList    servicesv1alpha1.CFServiceBindingList
+			cfServiceBindingList    v1alpha1.CFServiceBindingList
 			listCFServiceBindingErr error
 		)
 		BeforeEach(func() {
-			cfServiceInstance = &servicesv1alpha1.CFServiceInstance{
+			cfServiceInstance = &v1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "",
 					Namespace: "",
 					Finalizers: []string{
-						"cfServiceInstance.services.cloudfoundry.org",
+						"cfServiceInstance.korifi.cloudfoundry.org",
 					},
 					DeletionTimestamp: &metav1.Time{
 						Time: time.Now(),
 					},
 				},
-				Spec: servicesv1alpha1.CFServiceInstanceSpec{
+				Spec: v1alpha1.CFServiceInstanceSpec{
 					DisplayName: "",
 					SecretName:  "",
 					Type:        "",
 				},
 			}
 
-			cfServiceBindingList = servicesv1alpha1.CFServiceBindingList{
-				Items: []servicesv1alpha1.CFServiceBinding{{}},
+			cfServiceBindingList = v1alpha1.CFServiceBindingList{
+				Items: []v1alpha1.CFServiceBinding{{}},
 			}
 			listCFServiceBindingErr = nil
 
 			fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
 				switch list := list.(type) {
-				case *servicesv1alpha1.CFServiceBindingList:
+				case *v1alpha1.CFServiceBindingList:
 					cfServiceBindingList.DeepCopyInto(list)
 					return listCFServiceBindingErr
 				default:

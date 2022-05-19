@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	workloads "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,23 +41,23 @@ var _ = Describe("Droplet", func() {
 	})
 
 	Describe("get", func() {
-		var droplet *workloads.CFBuild
+		var droplet *v1alpha1.CFBuild
 
 		BeforeEach(func() {
 			dropletGUID := generateGUID()
-			droplet = &workloads.CFBuild{
+			droplet = &v1alpha1.CFBuild{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      dropletGUID,
 					Namespace: namespace.Name,
 				},
-				Spec: workloads.CFBuildSpec{
-					Lifecycle: workloads.Lifecycle{
+				Spec: v1alpha1.CFBuildSpec{
+					Lifecycle: v1alpha1.Lifecycle{
 						Type: "buildpack",
 					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, droplet)).To(Succeed())
-			droplet.Status = workloads.CFBuildStatus{
+			droplet.Status = v1alpha1.CFBuildStatus{
 				Conditions: []metav1.Condition{
 					{
 						Type:               "Staging",
@@ -72,8 +72,8 @@ var _ = Describe("Droplet", func() {
 						LastTransitionTime: metav1.NewTime(time.Now()),
 					},
 				},
-				BuildDropletStatus: &workloads.BuildDropletStatus{
-					ProcessTypes: []workloads.ProcessType{},
+				BuildDropletStatus: &v1alpha1.BuildDropletStatus{
+					ProcessTypes: []v1alpha1.ProcessType{},
 					Ports:        []int32{},
 				},
 			}

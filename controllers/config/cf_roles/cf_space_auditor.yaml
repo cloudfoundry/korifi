@@ -5,7 +5,7 @@ metadata:
   name: space-auditor
 rules:
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfapps
   verbs:

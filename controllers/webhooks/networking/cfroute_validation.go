@@ -8,8 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/go-logr/logr"
@@ -58,7 +57,7 @@ type NameValidator interface {
 
 var logger = logf.Log.WithName("route-validation")
 
-//+kubebuilder:webhook:path=/validate-networking-cloudfoundry-org-v1alpha1-cfroute,mutating=false,failurePolicy=fail,sideEffects=None,groups=networking.cloudfoundry.org,resources=cfroutes,verbs=create;update;delete,versions=v1alpha1,name=vcfroute.networking.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfroute,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes,verbs=create;update;delete,versions=v1alpha1,name=vcfroute.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFRouteValidation struct {
 	decoder            *admission.Decoder
@@ -76,14 +75,14 @@ func NewCFRouteValidation(nameValidator NameValidator, rootNamespace string, cli
 }
 
 func (v *CFRouteValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	mgr.GetWebhookServer().Register("/validate-networking-cloudfoundry-org-v1alpha1-cfroute", &webhook.Admission{Handler: v})
+	mgr.GetWebhookServer().Register("/validate-korifi-cloudfoundry-org-v1alpha1-cfroute", &webhook.Admission{Handler: v})
 
 	return nil
 }
 
 func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	var route, oldRoute networkingv1alpha1.CFRoute
-	var domain networkingv1alpha1.CFDomain
+	var route, oldRoute v1alpha1.CFRoute
+	var domain v1alpha1.CFDomain
 	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
 		err := v.decoder.Decode(req, &route)
 		if err != nil { // untested
@@ -200,11 +199,11 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 	return admission.Allowed("")
 }
 
-func uniqueName(route networkingv1alpha1.CFRoute) string {
+func uniqueName(route v1alpha1.CFRoute) string {
 	return strings.Join([]string{strings.ToLower(route.Spec.Host), route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
 }
 
-func validatePath(route networkingv1alpha1.CFRoute) error {
+func validatePath(route v1alpha1.CFRoute) error {
 	var errStrings []string
 
 	if route.Spec.Path == "" {
@@ -309,10 +308,10 @@ func IsFQDN(host, domain string) (bool, error) {
 	return true, nil
 }
 
-func (v *CFRouteValidation) checkDestinationsExistInNamespace(ctx context.Context, route networkingv1alpha1.CFRoute) error {
+func (v *CFRouteValidation) checkDestinationsExistInNamespace(ctx context.Context, route v1alpha1.CFRoute) error {
 	for _, destination := range route.Spec.Destinations {
 		if err := v.Client.Get(
-			ctx, client.ObjectKey{Namespace: route.Namespace, Name: destination.AppRef.Name}, &workloadsv1alpha1.CFApp{},
+			ctx, client.ObjectKey{Namespace: route.Namespace, Name: destination.AppRef.Name}, &v1alpha1.CFApp{},
 		); err != nil {
 			return err
 		}
