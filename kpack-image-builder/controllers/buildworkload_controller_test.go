@@ -112,18 +112,12 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		It("sets the status conditions on BuildWorkload", func() {
 			cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 			updatedBuildWorkload := new(workloadsv1alpha1.BuildWorkload)
-			Eventually(func() []metav1.Condition {
+			Eventually(func(g Gomega) {
 				err := k8sClient.Get(context.Background(), cfBuildLookupKey, updatedBuildWorkload)
-				if err != nil {
-					return nil
-				}
-				return updatedBuildWorkload.Status.Conditions
-			}).ShouldNot(BeEmpty(), "BuildWorkload status conditions were empty")
-
-			runningCondition := meta.FindStatusCondition(updatedBuildWorkload.Status.Conditions, runningConditionType)
-			succeededCondition := meta.FindStatusCondition(updatedBuildWorkload.Status.Conditions, succeededConditionType)
-			Expect(runningCondition.Status).To(Equal(metav1.ConditionTrue))
-			Expect(succeededCondition.Status).To(Equal(metav1.ConditionUnknown))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, runningConditionType).Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionUnknown))
+			}).Should(Succeed())
 		})
 
 		When("kpack image already exists", func() {
@@ -158,18 +152,12 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			It("sets the status conditions on BuildWorkload", func() {
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedBuildWorkload := new(workloadsv1alpha1.BuildWorkload)
-				Eventually(func() []metav1.Condition {
+				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), cfBuildLookupKey, updatedBuildWorkload)
-					if err != nil {
-						return nil
-					}
-					return updatedBuildWorkload.Status.Conditions
-				}).ShouldNot(BeEmpty(), "BuildWorkload status conditions were empty")
-
-				runningCondition := meta.FindStatusCondition(updatedBuildWorkload.Status.Conditions, runningConditionType)
-				succeededCondition := meta.FindStatusCondition(updatedBuildWorkload.Status.Conditions, succeededConditionType)
-				Expect(runningCondition.Status).To(Equal(metav1.ConditionTrue))
-				Expect(succeededCondition.Status).To(Equal(metav1.ConditionUnknown))
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, runningConditionType).Status).To(Equal(metav1.ConditionTrue))
+					g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionUnknown))
+				}).Should(Succeed())
 			})
 		})
 
@@ -215,14 +203,11 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			It("sets the Running and Succeeded conditions to False", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedWorkload := new(workloadsv1alpha1.BuildWorkload)
-				Eventually(func() metav1.ConditionStatus {
+				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), lookupKey, updatedWorkload)
-					Expect(err).NotTo(HaveOccurred())
-					return meta.FindStatusCondition(updatedWorkload.Status.Conditions, succeededConditionType).Status
-				}).Should(Equal(metav1.ConditionFalse))
-
-				runningCondition := meta.FindStatusCondition(updatedWorkload.Status.Conditions, runningConditionType)
-				Expect(runningCondition.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, runningConditionType).Status).To(Equal(metav1.ConditionFalse))
+				}).Should(Succeed())
 			})
 		})
 
@@ -252,14 +237,12 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			It("sets the Running condition to False and the Succeeded condition to True", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedWorkload := new(workloadsv1alpha1.BuildWorkload)
-				Eventually(func() metav1.ConditionStatus {
+				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), lookupKey, updatedWorkload)
-					Expect(err).NotTo(HaveOccurred())
-					return meta.FindStatusCondition(updatedWorkload.Status.Conditions, succeededConditionType).Status
-				}).Should(Equal(metav1.ConditionTrue))
-
-				runningCondition := meta.FindStatusCondition(updatedWorkload.Status.Conditions, runningConditionType)
-				Expect(runningCondition.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionTrue))
+					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, runningConditionType).Status).To(Equal(metav1.ConditionFalse))
+				}).Should(Succeed())
 			})
 
 			It("sets status.droplet", func() {
@@ -345,4 +328,10 @@ func BuildWorkloadObject(cfBuildGUID string, namespace string, source workloadsv
 			Services: services,
 		},
 	}
+}
+
+func mustHaveCondition(g Gomega, conditions []metav1.Condition, conditionType string) *metav1.Condition {
+	foundCondition := meta.FindStatusCondition(conditions, conditionType)
+	g.ExpectWithOffset(1, foundCondition).NotTo(BeNil())
+	return foundCondition
 }
