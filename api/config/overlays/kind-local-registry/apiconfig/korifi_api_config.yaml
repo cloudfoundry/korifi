@@ -11,3 +11,4 @@ packageRegistryBase: localregistry-docker-registry.default.svc.cluster.local:300
 packageRegistrySecretName: image-registry-credentials
 clusterBuilderName: cf-kpack-cluster-builder
 defaultDomainName: vcap.me
+userCertificateExpirationWarningDuration: 168h

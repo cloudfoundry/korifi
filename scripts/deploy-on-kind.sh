@@ -118,7 +118,7 @@ function ensure_kind_cluster() {
   if [[ -n "${api_only}" ]]; then return 0; fi
 
   if ! kind get clusters | grep -q "${cluster}"; then
-    cat <<EOF | kind create cluster --name "${cluster}" --wait 5m --config=-
+    cat <<EOF | kind create cluster --name "${cluster}" --wait 5m --image kindest/node:v1.23.4 --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 featureGates:

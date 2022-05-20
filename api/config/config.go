@@ -3,13 +3,13 @@ package config
 import (
 	"errors"
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"io/ioutil"
+	"k8s.io/client-go/rest"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"gopkg.in/yaml.v3"
-	"k8s.io/client-go/rest"
+	"time"
 )
 
 const (
@@ -24,13 +24,13 @@ type APIConfig struct {
 
 	ServerURL string
 
-	RootNamespace             string `yaml:"rootNamespace"`
-	PackageRegistryBase       string `yaml:"packageRegistryBase"`
-	PackageRegistrySecretName string `yaml:"packageRegistrySecretName"`
-	ClusterBuilderName        string `yaml:"clusterBuilderName"`
-	DefaultDomainName         string `yaml:"defaultDomainName"`
-
-	DefaultLifecycleConfig DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
+	RootNamespace                            string                 `yaml:"rootNamespace"`
+	PackageRegistryBase                      string                 `yaml:"packageRegistryBase"`
+	PackageRegistrySecretName                string                 `yaml:"packageRegistrySecretName"`
+	ClusterBuilderName                       string                 `yaml:"clusterBuilderName"`
+	DefaultDomainName                        string                 `yaml:"defaultDomainName"`
+	UserCertificateExpirationWarningDuration string                 `yaml:"userCertificateExpirationWarningDuration"`
+	DefaultLifecycleConfig                   DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
 
 	RoleMappings map[string]Role `yaml:"roleMappings"`
 
@@ -104,7 +104,21 @@ func (c *APIConfig) validate() error {
 		return errors.New("AuthProxyCACert requires a value for AuthProxyHost")
 	}
 
+	if c.UserCertificateExpirationWarningDuration != "" {
+		if _, err := time.ParseDuration(c.UserCertificateExpirationWarningDuration); err != nil {
+			return errors.New(`Invalid duration format for userCertificateExpirationWarningDuration. Use a format like "48h"`)
+		}
+	}
+
 	return nil
+}
+
+func (c *APIConfig) GetUserCertificateDuration() time.Duration {
+	if c.UserCertificateExpirationWarningDuration == "" {
+		return time.Hour * 24 * 7
+	}
+	d, _ := time.ParseDuration(c.UserCertificateExpirationWarningDuration)
+	return d
 }
 
 func (c *APIConfig) composeServerURL() (string, error) {
