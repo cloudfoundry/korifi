@@ -1,0 +1,12 @@
+---
+apiVersion: kbld.k14s.io/v1alpha1
+kind: Config
+sources:
+- image: cloudfoundry/korifi-kpack-image-builder:latest
+  path: .
+  kubectlBuildkit:
+    build:
+      file: kpack-image-builder/Dockerfile
+destinations:
+- image: cloudfoundry/korifi-kpack-image-builder:latest
+  newImage: europe-west1-docker.pkg.dev/cf-on-k8s-wg/ci/korifi-kpack-image-builder

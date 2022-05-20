@@ -1,0 +1,3 @@
+kpackImageTag: europe-west1-docker.pkg.dev/cf-on-k8s-wg/pr-e2e-images/kpack/beta
+clusterBuilderName: cf-kpack-cluster-builder
+packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
