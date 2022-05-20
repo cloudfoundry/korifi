@@ -41,7 +41,7 @@ var _ = Describe("OrgHandler", func() {
 		decoderValidator, err := apis.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		orgHandler = apis.NewOrgHandler(*serverURL, orgRepo, domainRepo, decoderValidator)
+		orgHandler = apis.NewOrgHandler(*serverURL, orgRepo, domainRepo, decoderValidator, time.Hour)
 		orgHandler.RegisterRoutes(router)
 	})
 
@@ -270,10 +270,11 @@ var _ = Describe("OrgHandler", func() {
 			req.Header.Add(headers.Authorization, "Bearer my-token")
 		})
 
+		JustBeforeEach(func() {
+			router.ServeHTTP(rr, req)
+		})
+
 		When("happy path", func() {
-			BeforeEach(func() {
-				router.ServeHTTP(rr, req)
-			})
 
 			It("returns 200", func() {
 				Expect(rr.Result().StatusCode).To(Equal(http.StatusOK))
@@ -352,8 +353,6 @@ var _ = Describe("OrgHandler", func() {
 					"names": []string{"foo,bar"},
 				}
 				req.URL.RawQuery = values.Encode()
-
-				router.ServeHTTP(rr, req)
 			})
 
 			It("filters by them", func() {
@@ -367,7 +366,6 @@ var _ = Describe("OrgHandler", func() {
 		When("fetching the orgs fails", func() {
 			BeforeEach(func() {
 				orgRepo.ListOrgsReturns(nil, errors.New("boom!"))
-				router.ServeHTTP(rr, req)
 			})
 
 			It("returns an error", func() {

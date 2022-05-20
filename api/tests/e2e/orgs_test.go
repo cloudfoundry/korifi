@@ -152,6 +152,14 @@ var _ = Describe("Orgs", func() {
 			))
 		})
 
+		It("doesn't set an HTTP warning header for long certs", func() {
+			if clusterVersionMajor < 1 || (clusterVersionMajor == 1 && clusterVersionMinor < 22) {
+				GinkgoWriter.Printf("Skipping certificate warning test as k8s v%d.%d doesn't support creation of short lived test client certificates\n", clusterVersionMajor, clusterVersionMinor)
+				return
+			}
+			Expect(resp.Header().Get("X-Cf-Warnings")).To(BeEmpty())
+		})
+
 		When("org names are filtered", func() {
 			BeforeEach(func() {
 				query = map[string]string{
@@ -166,6 +174,26 @@ var _ = Describe("Orgs", func() {
 				))
 				Expect(result.Resources).ToNot(ContainElement(
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(org2Name)}),
+				))
+			})
+		})
+
+		// Note: It may seem arbitrary that we check for certificate issues on
+		// the /v3/orgs endpoint. Ideally, we would do it on the /whoami endpoint
+		// instead.
+		// However the CLI doesn't currently check for X-Cf-Warnings headers on
+		// the /whoami endpoint, so we settled on the /v3/orgs endpoint because
+		// that gets called by the CLI on each login.
+		When("The client has a certificate with a long expiry date", func() {
+			BeforeEach(func() {
+				restyClient = longCertClient
+				createOrgRole("organization_manager", rbacv1.UserKind, longCertUserName, org3GUID)
+			})
+			It("returns orgs that the client has a role in and sets an HTTP warning header", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(resp).To(HaveRestyHeaderWithValue("X-Cf-Warnings", "Warning: Client certificate has an unsafe expiry date. Please use a short-lived certificate"))
+				Expect(result.Resources).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org3Name)}),
 				))
 			})
 		})

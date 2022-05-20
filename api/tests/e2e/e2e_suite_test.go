@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -30,6 +31,7 @@ var (
 	adminClient         *helpers.CorrelatedRestyClient
 	certClient          *helpers.CorrelatedRestyClient
 	tokenClient         *helpers.CorrelatedRestyClient
+	longCertClient      *helpers.CorrelatedRestyClient
 	apiServerRoot       string
 	serviceAccountName  string
 	serviceAccountToken string
@@ -38,11 +40,14 @@ var (
 	certAuthHeader      string
 	adminAuthHeader     string
 	certPEM             string
-
-	rootNamespace     string
-	appFQDN           string
-	commonTestOrgGUID string
-	appBitsFile       string
+	longCertUserName    string
+	longCertPEM         string
+	rootNamespace       string
+	appFQDN             string
+	commonTestOrgGUID   string
+	appBitsFile         string
+	clusterVersionMinor int
+	clusterVersionMajor int
 )
 
 const (
@@ -717,8 +722,12 @@ func commonTestSetup() {
 	serviceAccountToken = mustHaveEnv("E2E_SERVICE_ACCOUNT_TOKEN")
 	certUserName = mustHaveEnv("E2E_USER_NAME")
 	certPEM = mustHaveEnv("E2E_USER_PEM")
+	longCertUserName = mustHaveEnv("E2E_LONGCERT_USER_NAME")
+	longCertPEM = mustHaveEnv("E2E_LONGCERT_USER_PEM")
 	appFQDN = mustHaveEnv("APP_FQDN")
 	appBitsFile = getAppBitsFile()
+	clusterVersionMinor, _ = strconv.Atoi(mustHaveEnv("CLUSTER_VERSION_MINOR"))
+	clusterVersionMajor, _ = strconv.Atoi(mustHaveEnv("CLUSTER_VERSION_MAJOR"))
 
 	ensureServerIsUp()
 
@@ -728,4 +737,5 @@ func commonTestSetup() {
 	tokenAuthHeader = fmt.Sprintf("Bearer %s", serviceAccountToken)
 	certClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(certPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	tokenClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	longCertClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(longCertPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 }

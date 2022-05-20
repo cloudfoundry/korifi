@@ -2,14 +2,16 @@ package apis
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
-	"net/http"
-	"net/url"
-
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
+	"net/http"
+	"net/url"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -33,20 +35,22 @@ type CFOrgRepository interface {
 }
 
 type OrgHandler struct {
-	handlerWrapper   *AuthAwareHandlerFuncWrapper
-	apiBaseURL       url.URL
-	orgRepo          CFOrgRepository
-	domainRepo       CFDomainRepository
-	decoderValidator *DecoderValidator
+	handlerWrapper                           *AuthAwareHandlerFuncWrapper
+	apiBaseURL                               url.URL
+	orgRepo                                  CFOrgRepository
+	domainRepo                               CFDomainRepository
+	decoderValidator                         *DecoderValidator
+	userCertificateExpirationWarningDuration time.Duration
 }
 
-func NewOrgHandler(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDomainRepository, decoderValidator *DecoderValidator) *OrgHandler {
+func NewOrgHandler(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDomainRepository, decoderValidator *DecoderValidator, userCertificateExpirationWarningDuration time.Duration) *OrgHandler {
 	return &OrgHandler{
-		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("Org Handler")),
-		apiBaseURL:       apiBaseURL,
-		orgRepo:          orgRepo,
-		domainRepo:       domainRepo,
-		decoderValidator: decoderValidator,
+		handlerWrapper:                           NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("Org Handler")),
+		apiBaseURL:                               apiBaseURL,
+		orgRepo:                                  orgRepo,
+		domainRepo:                               domainRepo,
+		decoderValidator:                         decoderValidator,
+		userCertificateExpirationWarningDuration: userCertificateExpirationWarningDuration,
 	}
 }
 
@@ -91,7 +95,11 @@ func (h *OrgHandler) orgListHandler(ctx context.Context, logger logr.Logger, aut
 		return nil, err
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForOrgList(orgs, h.apiBaseURL, *r.URL)), nil
+	resp := NewHandlerResponse(http.StatusOK).WithBody(presenter.ForOrgList(orgs, h.apiBaseURL, *r.URL))
+	if !isExpirationValid(authInfo.CertData, h.userCertificateExpirationWarningDuration) {
+		resp = resp.WithHeader("X-Cf-Warnings", "Warning: Client certificate has an unsafe expiry date. Please use a short-lived certificate")
+	}
+	return resp, nil
 }
 
 func (h *OrgHandler) orgListDomainHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
@@ -144,4 +152,18 @@ func (h *OrgHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(OrgPath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.orgDeleteHandler))
 	router.Path(OrgsPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.orgCreateHandler))
 	router.Path(OrgDomainsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.orgListDomainHandler))
+}
+
+func isExpirationValid(certPEM []byte, maxDuration time.Duration) bool {
+	certBlock, _ := pem.Decode(certPEM)
+	if certBlock == nil {
+		return true
+	}
+
+	cert, err := x509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		return true
+	}
+
+	return time.Until(cert.NotAfter) < maxDuration
 }

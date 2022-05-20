@@ -24,6 +24,12 @@ if [[ -z "${E2E_USER_NAME:=}" ]]; then
 
   export E2E_USER_PEM="$(cat $tmp/cert.pem $tmp/key.pem | base64 | tr -d "\n\r")"
 fi
+if [[ -z "${E2E_LONGCERT_USER_NAME:=}" ]]; then
+  export E2E_LONGCERT_USER_NAME="e2e-longcert-user"
+  createCert "$E2E_LONGCERT_USER_NAME" "$tmp/longkey.pem" "$tmp/longcert.pem" "365"
+
+  export E2E_LONGCERT_USER_PEM="$(cat $tmp/longcert.pem $tmp/longkey.pem | base64 | tr -d "\n\r")"
+fi
 
 if [[ -z "${E2E_SERVICE_ACCOUNT:=}" ]]; then
   export E2E_SERVICE_ACCOUNT="e2e-service-account"
@@ -45,3 +51,6 @@ if [[ -z "${CF_ADMIN_CERT:=}" ]]; then
   CF_ADMIN_CERT="$(base64 $tmp/cf-admin-cert.pem | tr -d "\n\r")"
   export CF_ADMIN_CERT CF_ADMIN_KEY
 fi
+
+export CLUSTER_VERSION_MINOR="$(kubectl version -ojson | jq -r .serverVersion.minor)"
+export CLUSTER_VERSION_MAJOR="$(kubectl version -ojson | jq -r .serverVersion.major)"
