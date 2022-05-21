@@ -1,8 +1,8 @@
 ---
 # Defines the CF App
-apiVersion: workloads.cloudfoundry.org/v1alpha1
+apiVersion: korifi.cloudfoundry.org/v1alpha1
 kind: CFApp
-metadata: #workloads.cloudfoundry.org/* labels are managed by a mutating webhook
+metadata: #korifi.cloudfoundry.org/* labels are managed by a mutating webhook
   name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
   namespace: cf
 spec:

@@ -43,38 +43,38 @@ rules:
   - list
   - watch
 - apiGroups:
-  - metrics.k8s.io
-  resources:
-  - pods
-  verbs:
-  - get
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfdomains
-  - cfroutes
-  verbs:
-  - list
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - rolebindings
-  verbs:
-  - list
-- apiGroups:
-  - services.cloudfoundry.org
-  resources:
-  - cfservicebindings
-  - cfserviceinstances
-  verbs:
-  - list
-- apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfapps
   - cfbuilds
   - cfpackages
   - cfprocesses
   - cfspaces
+  verbs:
+  - list
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfdomains
+  - cfroutes
+  verbs:
+  - list
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  - cfserviceinstances
+  verbs:
+  - list
+- apiGroups:
+  - metrics.k8s.io
+  resources:
+  - pods
+  verbs:
+  - get
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
   verbs:
   - list

@@ -2,17 +2,17 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/workloads.cloudfoundry.org_cfapps.yaml
-- bases/workloads.cloudfoundry.org_cfpackages.yaml
-- bases/workloads.cloudfoundry.org_cfprocesses.yaml
-- bases/workloads.cloudfoundry.org_cfbuilds.yaml
-- bases/networking.cloudfoundry.org_cfroutes.yaml
-- bases/networking.cloudfoundry.org_cfdomains.yaml
-- bases/services.cloudfoundry.org_cfserviceinstances.yaml
-- bases/services.cloudfoundry.org_cfservicebindings.yaml
-- bases/workloads.cloudfoundry.org_cforgs.yaml
-- bases/workloads.cloudfoundry.org_cfspaces.yaml
-- bases/workloads.cloudfoundry.org_buildworkloads.yaml
+- bases/korifi.cloudfoundry.org_cfapps.yaml
+- bases/korifi.cloudfoundry.org_cfpackages.yaml
+- bases/korifi.cloudfoundry.org_cfprocesses.yaml
+- bases/korifi.cloudfoundry.org_cfbuilds.yaml
+- bases/korifi.cloudfoundry.org_cfroutes.yaml
+- bases/korifi.cloudfoundry.org_cfdomains.yaml
+- bases/korifi.cloudfoundry.org_cfserviceinstances.yaml
+- bases/korifi.cloudfoundry.org_cfservicebindings.yaml
+- bases/korifi.cloudfoundry.org_cforgs.yaml
+- bases/korifi.cloudfoundry.org_cfspaces.yaml
+- bases/korifi.cloudfoundry.org_buildworkloads.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

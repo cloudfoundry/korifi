@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -26,7 +26,7 @@ const (
 
 var cfOrgLog = logf.Log.WithName("cforg-validate")
 
-//+kubebuilder:webhook:path=/validate-workloads-cloudfoundry-org-v1alpha1-cforg,mutating=false,failurePolicy=fail,sideEffects=None,groups=workloads.cloudfoundry.org,resources=cforgs,verbs=create;update;delete,versions=v1alpha1,name=vcforg.workloads.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cforg,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cforgs,verbs=create;update;delete,versions=v1alpha1,name=vcforg.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFOrgValidation struct {
 	decoder            *admission.Decoder
@@ -42,7 +42,7 @@ func NewCFOrgValidation(duplicateValidator NameValidator, placementValidator Pla
 }
 
 func (v *CFOrgValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	mgr.GetWebhookServer().Register("/validate-workloads-cloudfoundry-org-v1alpha1-cforg", &webhook.Admission{Handler: v})
+	mgr.GetWebhookServer().Register("/validate-korifi-cloudfoundry-org-v1alpha1-cforg", &webhook.Admission{Handler: v})
 
 	return nil
 }

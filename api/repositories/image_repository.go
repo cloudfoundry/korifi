@@ -100,7 +100,7 @@ func (r *ImageRepository) canIPatchCFPackage(ctx context.Context, authInfo autho
 			ResourceAttributes: &authv1.ResourceAttributes{
 				Namespace: spaceGUID,
 				Verb:      "patch",
-				Group:     "workloads.cloudfoundry.org",
+				Group:     "korifi.cloudfoundry.org",
 				Resource:  "cfpackages",
 			},
 		},

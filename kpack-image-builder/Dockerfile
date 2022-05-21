@@ -18,7 +18,9 @@ COPY kpack-image-builder/controllers/ kpack-image-builder/controllers/
 COPY kpack-image-builder/config/config.go kpack-image-builder/config/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager kpack-image-builder/main.go
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o manager kpack-image-builder/main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details

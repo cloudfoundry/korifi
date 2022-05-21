@@ -21,9 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
-
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"github.com/go-logr/logr"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,18 +45,18 @@ type CFServiceBindingReconciler struct {
 
 const (
 	BindingSecretAvailableCondition   = "BindingSecretAvailable"
-	ServiceBindingGUIDLabel           = "services.cloudfoundry.org/service-binding-guid"
-	ServiceCredentialBindingTypeLabel = "services.cloudfoundry.org/service-credential-binding-type"
+	ServiceBindingGUIDLabel           = "korifi.cloudfoundry.org/service-binding-guid"
+	ServiceCredentialBindingTypeLabel = "korifi.cloudfoundry.org/service-credential-binding-type"
 )
 
-//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfservicebindings,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfservicebindings/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfservicebindings/finalizers,verbs=update
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings/finalizers,verbs=update
 //+kubebuilder:rbac:groups=servicebinding.io,resources=servicebindings,verbs=get;list;create;update;patch;watch
 
 func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
-	cfServiceBinding := new(servicesv1alpha1.CFServiceBinding)
+	cfServiceBinding := new(v1alpha1.CFServiceBinding)
 	err := r.Client.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, cfServiceBinding)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -67,7 +65,7 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	cfApp := new(workloadsv1alpha1.CFApp)
+	cfApp := new(v1alpha1.CFApp)
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFApp")
@@ -87,7 +85,7 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	instance := new(servicesv1alpha1.CFServiceInstance)
+	instance := new(v1alpha1.CFServiceInstance)
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: req.Namespace}, instance)
 	if err != nil {
 		var result ctrl.Result
@@ -189,17 +187,17 @@ func sbServiceBindingMutateFn(actualSBServiceBinding, desiredSBServiceBinding *s
 	}
 }
 
-func generateDesiredServiceBinding(actualServiceBinding *servicebindingv1beta1.ServiceBinding, cfServiceBinding *servicesv1alpha1.CFServiceBinding, cfApp *workloadsv1alpha1.CFApp, secret *corev1.Secret) *servicebindingv1beta1.ServiceBinding {
+func generateDesiredServiceBinding(actualServiceBinding *servicebindingv1beta1.ServiceBinding, cfServiceBinding *v1alpha1.CFServiceBinding, cfApp *v1alpha1.CFApp, secret *corev1.Secret) *servicebindingv1beta1.ServiceBinding {
 	var desiredServiceBinding servicebindingv1beta1.ServiceBinding
 	actualServiceBinding.DeepCopyInto(&desiredServiceBinding)
 	desiredServiceBinding.ObjectMeta.Labels = map[string]string{
-		ServiceBindingGUIDLabel:             cfServiceBinding.Name,
-		workloadsv1alpha1.CFAppGUIDLabelKey: cfApp.Name,
-		ServiceCredentialBindingTypeLabel:   "app",
+		ServiceBindingGUIDLabel:           cfServiceBinding.Name,
+		v1alpha1.CFAppGUIDLabelKey:        cfApp.Name,
+		ServiceCredentialBindingTypeLabel: "app",
 	}
 	desiredServiceBinding.OwnerReferences = []metav1.OwnerReference{
 		{
-			APIVersion: "services.cloudfoundry.org/v1alpha1",
+			APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 			Kind:       "CFServiceBinding",
 			Name:       cfServiceBinding.Name,
 			UID:        cfServiceBinding.UID,
@@ -213,12 +211,12 @@ func generateDesiredServiceBinding(actualServiceBinding *servicebindingv1beta1.S
 			Kind:       "StatefulSet",
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					workloadsv1alpha1.CFAppGUIDLabelKey: cfApp.Name,
+					v1alpha1.CFAppGUIDLabelKey: cfApp.Name,
 				},
 			},
 		},
 		Service: servicebindingv1beta1.ServiceBindingServiceReference{
-			APIVersion: "services.cloudfoundry.org/v1alpha1",
+			APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 			Kind:       "CFServiceBinding",
 			Name:       cfServiceBinding.Name,
 		},
@@ -234,7 +232,7 @@ func generateDesiredServiceBinding(actualServiceBinding *servicebindingv1beta1.S
 	return &desiredServiceBinding
 }
 
-func (r *CFServiceBindingReconciler) setStatus(ctx context.Context, cfServiceBinding *servicesv1alpha1.CFServiceBinding) error {
+func (r *CFServiceBindingReconciler) setStatus(ctx context.Context, cfServiceBinding *v1alpha1.CFServiceBinding) error {
 	if statusErr := r.Client.Status().Update(ctx, cfServiceBinding); statusErr != nil {
 		r.Log.Error(statusErr, "unable to update CFServiceBinding status")
 		return statusErr
@@ -245,6 +243,6 @@ func (r *CFServiceBindingReconciler) setStatus(ctx context.Context, cfServiceBin
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFServiceBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&servicesv1alpha1.CFServiceBinding{}).
+		For(&v1alpha1.CFServiceBinding{}).
 		Complete(r)
 }

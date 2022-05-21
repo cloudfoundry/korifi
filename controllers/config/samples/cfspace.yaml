@@ -1,5 +1,5 @@
 ---
-apiVersion: workloads.cloudfoundry.org/v1alpha1
+apiVersion: korifi.cloudfoundry.org/v1alpha1
 kind: CFSpace
 metadata:
   name: cf-space-ecd1cd95-4ac9-4ad8-aed3-029f7365256c

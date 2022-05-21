@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/google/uuid"
@@ -80,8 +80,8 @@ type DestinationMessage struct {
 	// Weight intentionally omitted as experimental features
 }
 
-func (m DestinationMessage) toCFDestination() networkingv1alpha1.Destination {
-	return networkingv1alpha1.Destination{
+func (m DestinationMessage) toCFDestination() v1alpha1.Destination {
+	return v1alpha1.Destination{
 		GUID: uuid.NewString(),
 		Port: m.Port,
 		AppRef: v1.LocalObjectReference{
@@ -116,8 +116,8 @@ type DeleteRouteMessage struct {
 	SpaceGUID string
 }
 
-func (m CreateRouteMessage) toCFRoute() networkingv1alpha1.CFRoute {
-	return networkingv1alpha1.CFRoute{
+func (m CreateRouteMessage) toCFRoute() v1alpha1.CFRoute {
+	return v1alpha1.CFRoute{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       Kind,
 			APIVersion: APIVersion,
@@ -128,7 +128,7 @@ func (m CreateRouteMessage) toCFRoute() networkingv1alpha1.CFRoute {
 			Labels:      m.Labels,
 			Annotations: m.Annotations,
 		},
-		Spec: networkingv1alpha1.CFRouteSpec{
+		Spec: v1alpha1.CFRouteSpec{
 			Host:     m.Host,
 			Path:     m.Path,
 			Protocol: "http",
@@ -151,7 +151,7 @@ func (f *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, r
 		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	var route networkingv1alpha1.CFRoute
+	var route v1alpha1.CFRoute
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: routeGUID}, &route)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to get route %q: %w", routeGUID, apierrors.FromK8sError(err, RouteResourceType))
@@ -171,9 +171,9 @@ func (f *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 		return []RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	filteredRoutes := []networkingv1alpha1.CFRoute{}
+	filteredRoutes := []v1alpha1.CFRoute{}
 	for ns := range nsList {
-		cfRouteList := &networkingv1alpha1.CFRouteList{}
+		cfRouteList := &v1alpha1.CFRouteList{}
 		err := userClient.List(ctx, cfRouteList, client.InNamespace(ns))
 		if k8serrors.IsForbidden(err) {
 			continue
@@ -187,7 +187,7 @@ func (f *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 	return returnRouteList(filteredRoutes), nil
 }
 
-func applyRouteListFilter(routes []networkingv1alpha1.CFRoute, message ListRoutesMessage) []networkingv1alpha1.CFRoute {
+func applyRouteListFilter(routes []v1alpha1.CFRoute, message ListRoutesMessage) []v1alpha1.CFRoute {
 	if len(message.AppGUIDs) == 0 &&
 		len(message.SpaceGUIDs) == 0 &&
 		len(message.DomainGUIDs) == 0 &&
@@ -196,7 +196,7 @@ func applyRouteListFilter(routes []networkingv1alpha1.CFRoute, message ListRoute
 		return routes
 	}
 
-	var filtered []networkingv1alpha1.CFRoute
+	var filtered []v1alpha1.CFRoute
 	for _, route := range routes {
 		if matchesFilter(route.Namespace, message.SpaceGUIDs) &&
 			matchesFilter(route.Spec.DomainRef.Name, message.DomainGUIDs) &&
@@ -210,7 +210,7 @@ func applyRouteListFilter(routes []networkingv1alpha1.CFRoute, message ListRoute
 		return filtered
 	}
 
-	var appFiltered []networkingv1alpha1.CFRoute
+	var appFiltered []v1alpha1.CFRoute
 
 	for _, route := range filtered {
 		for _, destination := range route.Spec.Destinations {
@@ -232,7 +232,7 @@ func (f *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization
 		return []RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	cfRouteList := &networkingv1alpha1.CFRouteList{}
+	cfRouteList := &v1alpha1.CFRouteList{}
 	err = userClient.List(ctx, cfRouteList, client.InNamespace(spaceGUID))
 	if err != nil {
 		return []RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
@@ -248,8 +248,8 @@ func (r RouteRecord) UpdateDomainRef(d DomainRecord) RouteRecord {
 	return r
 }
 
-func filterByAppDestination(routeList []networkingv1alpha1.CFRoute, appGUID string) []networkingv1alpha1.CFRoute {
-	var filtered []networkingv1alpha1.CFRoute
+func filterByAppDestination(routeList []v1alpha1.CFRoute, appGUID string) []v1alpha1.CFRoute {
+	var filtered []v1alpha1.CFRoute
 
 	for i, route := range routeList {
 		if len(route.Spec.Destinations) == 0 {
@@ -266,7 +266,7 @@ func filterByAppDestination(routeList []networkingv1alpha1.CFRoute, appGUID stri
 	return filtered
 }
 
-func returnRouteList(routeList []networkingv1alpha1.CFRoute) []RouteRecord {
+func returnRouteList(routeList []v1alpha1.CFRoute) []RouteRecord {
 	routeRecords := make([]RouteRecord, 0, len(routeList))
 
 	for _, route := range routeList {
@@ -275,7 +275,7 @@ func returnRouteList(routeList []networkingv1alpha1.CFRoute) []RouteRecord {
 	return routeRecords
 }
 
-func cfRouteToRouteRecord(cfRoute networkingv1alpha1.CFRoute) RouteRecord {
+func cfRouteToRouteRecord(cfRoute v1alpha1.CFRoute) RouteRecord {
 	destinations := []DestinationRecord{}
 	for _, destination := range cfRoute.Spec.Destinations {
 		destinations = append(destinations, cfRouteDestinationToDestination(destination))
@@ -296,7 +296,7 @@ func cfRouteToRouteRecord(cfRoute networkingv1alpha1.CFRoute) RouteRecord {
 	}
 }
 
-func cfRouteDestinationToDestination(cfRouteDestination networkingv1alpha1.Destination) DestinationRecord {
+func cfRouteDestinationToDestination(cfRouteDestination v1alpha1.Destination) DestinationRecord {
 	return DestinationRecord{
 		GUID:        cfRouteDestination.GUID,
 		AppGUID:     cfRouteDestination.AppRef.Name,
@@ -329,7 +329,7 @@ func (f *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info
 	if err != nil {
 		return fmt.Errorf("failed to build user client: %w", err)
 	}
-	err = userClient.Delete(ctx, &networkingv1alpha1.CFRoute{
+	err = userClient.Delete(ctx, &v1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
 			Namespace: message.SpaceGUID,
@@ -353,7 +353,7 @@ func (f *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization
 }
 
 func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message AddDestinationsToRouteMessage) (RouteRecord, error) {
-	baseCFRoute := &networkingv1alpha1.CFRoute{
+	baseCFRoute := &v1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.RouteGUID,
 			Namespace: message.SpaceGUID,
@@ -380,7 +380,7 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 }
 
 func (f *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message RemoveDestinationFromRouteMessage) (RouteRecord, error) {
-	baseCFRoute := &networkingv1alpha1.CFRoute{
+	baseCFRoute := &v1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.RouteGUID,
 			Namespace: message.SpaceGUID,
@@ -419,7 +419,7 @@ func (f *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo aut
 	return cfRouteToRouteRecord(*cfRoute), err
 }
 
-func mergeDestinations(existingDestinations []DestinationRecord, newDestinations []DestinationMessage) []networkingv1alpha1.Destination {
+func mergeDestinations(existingDestinations []DestinationRecord, newDestinations []DestinationMessage) []v1alpha1.Destination {
 	result := destinationRecordsToCFDestinations(existingDestinations)
 
 outer:
@@ -456,10 +456,10 @@ func (f *RouteRepo) fetchRouteByFields(ctx context.Context, authInfo authorizati
 	return matches[0], true, nil
 }
 
-func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) []networkingv1alpha1.Destination {
-	var destinations []networkingv1alpha1.Destination
+func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) []v1alpha1.Destination {
+	var destinations []v1alpha1.Destination
 	for _, destinationRecord := range destinationRecords {
-		destinations = append(destinations, networkingv1alpha1.Destination{
+		destinations = append(destinations, v1alpha1.Destination{
 			GUID: destinationRecord.GUID,
 			Port: destinationRecord.Port,
 			AppRef: v1.LocalObjectReference{

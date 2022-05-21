@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -67,7 +67,7 @@ func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Inf
 		return DropletRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	var userDroplet workloadsv1alpha1.CFBuild
+	var userDroplet v1alpha1.CFBuild
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: dropletGUID}, &userDroplet)
 	if err != nil {
 		return DropletRecord{}, apierrors.FromK8sError(err, DropletResourceType)
@@ -76,7 +76,7 @@ func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Inf
 	return returnDroplet(userDroplet)
 }
 
-func returnDroplet(cfBuild workloadsv1alpha1.CFBuild) (DropletRecord, error) {
+func returnDroplet(cfBuild v1alpha1.CFBuild) (DropletRecord, error) {
 	stagingStatus := getConditionValue(&cfBuild.Status.Conditions, StagingConditionType)
 	succeededStatus := getConditionValue(&cfBuild.Status.Conditions, SucceededConditionType)
 	if stagingStatus == metav1.ConditionFalse &&
@@ -86,7 +86,7 @@ func returnDroplet(cfBuild workloadsv1alpha1.CFBuild) (DropletRecord, error) {
 	return DropletRecord{}, apierrors.NewNotFoundError(nil, DropletResourceType)
 }
 
-func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {
+func cfBuildToDropletRecord(cfBuild v1alpha1.CFBuild) DropletRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfBuild.ObjectMeta)
 	processTypesMap := make(map[string]string)
 	processTypesArrayObject := cfBuild.Status.BuildDropletStatus.ProcessTypes
@@ -116,7 +116,7 @@ func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {
 }
 
 func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) ([]DropletRecord, error) {
-	buildList := &workloadsv1alpha1.CFBuildList{}
+	buildList := &v1alpha1.CFBuildList{}
 
 	namespaces, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
@@ -128,7 +128,7 @@ func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.I
 		return []DropletRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	var allBuilds []workloadsv1alpha1.CFBuild
+	var allBuilds []v1alpha1.CFBuild
 	for ns := range namespaces {
 		err := userClient.List(ctx, buildList, client.InNamespace(ns))
 		if err != nil {
@@ -141,7 +141,7 @@ func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.I
 	return returnDropletList(matches), nil
 }
 
-func returnDropletList(droplets []workloadsv1alpha1.CFBuild) []DropletRecord {
+func returnDropletList(droplets []v1alpha1.CFBuild) []DropletRecord {
 	dropletRecords := make([]DropletRecord, 0, len(droplets))
 
 	for _, currentBuild := range droplets {
@@ -150,8 +150,8 @@ func returnDropletList(droplets []workloadsv1alpha1.CFBuild) []DropletRecord {
 	return dropletRecords
 }
 
-func applyDropletFilters(builds []workloadsv1alpha1.CFBuild, message ListDropletsMessage) []workloadsv1alpha1.CFBuild {
-	var filtered []workloadsv1alpha1.CFBuild
+func applyDropletFilters(builds []v1alpha1.CFBuild, message ListDropletsMessage) []v1alpha1.CFBuild {
+	var filtered []v1alpha1.CFBuild
 	for i, build := range builds {
 
 		stagingStatus := getConditionValue(&build.Status.Conditions, StagingConditionType)

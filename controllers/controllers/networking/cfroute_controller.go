@@ -21,8 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 
 	"github.com/go-logr/logr"
@@ -39,7 +38,7 @@ import (
 )
 
 const (
-	FinalizerName = "cfRoute.networking.cloudfoundry.org"
+	FinalizerName = "cfRoute.korifi.cloudfoundry.org"
 )
 
 // CFRouteReconciler reconciles a CFRoute object to create Contour resources
@@ -50,9 +49,9 @@ type CFRouteReconciler struct {
 	ControllerConfig *config.ControllerConfig
 }
 
-//+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfroutes/finalizers,verbs=update
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups=projectcontour.io,resources=httpproxies,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=projectcontour.io,resources=httpproxies/status,verbs=get
@@ -61,7 +60,7 @@ type CFRouteReconciler struct {
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
 func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	cfRoute := new(networkingv1alpha1.CFRoute)
+	cfRoute := new(v1alpha1.CFRoute)
 	err := r.Client.Get(ctx, req.NamespacedName, cfRoute)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -70,7 +69,7 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	var cfDomain networkingv1alpha1.CFDomain
+	var cfDomain v1alpha1.CFDomain
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, &cfDomain)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -84,7 +83,7 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		description := "Error adding finalizer"
 		r.Log.Error(err, description)
 		errMsg := fmt.Sprintf("%v", err)
-		if statusErr := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.InvalidStatus, description, "AddFinalizer", errMsg); statusErr != nil {
+		if statusErr := r.setRouteStatus(ctx, cfRoute, v1alpha1.InvalidStatus, description, "AddFinalizer", errMsg); statusErr != nil {
 			r.Log.Error(statusErr, "Error when updating CFRoute status")
 			return ctrl.Result{}, statusErr
 		}
@@ -120,21 +119,21 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	cfRoute.Status.URI = cfRoute.Status.FQDN + cfRoute.Spec.Path
 	cfRoute.Status.Destinations = cfRoute.Spec.Destinations
 
-	if err := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.ValidStatus, "Valid CFRoute", "Valid", "Valid CFRoute"); err != nil {
+	if err := r.setRouteStatus(ctx, cfRoute, v1alpha1.ValidStatus, "Valid CFRoute", "Valid", "Valid CFRoute"); err != nil {
 		r.Log.Error(err, "Error when updating CFRoute status")
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *CFRouteReconciler) setRouteStatus(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute, statusValue networkingv1alpha1.CurrentStatus, description, reason, message string) error {
+func (r *CFRouteReconciler) setRouteStatus(ctx context.Context, cfRoute *v1alpha1.CFRoute, statusValue v1alpha1.CurrentStatus, description, reason, message string) error {
 	cfRoute.Status.CurrentStatus = statusValue
 	cfRoute.Status.Description = description
 
 	statusConditionValue := metav1.ConditionUnknown
-	if statusValue == networkingv1alpha1.InvalidStatus {
+	if statusValue == v1alpha1.InvalidStatus {
 		statusConditionValue = metav1.ConditionFalse
-	} else if statusValue == networkingv1alpha1.ValidStatus {
+	} else if statusValue == v1alpha1.ValidStatus {
 		statusConditionValue = metav1.ConditionTrue
 	}
 
@@ -143,10 +142,10 @@ func (r *CFRouteReconciler) setRouteStatus(ctx context.Context, cfRoute *network
 	return r.Client.Status().Update(ctx, cfRoute)
 }
 
-func (r *CFRouteReconciler) setRouteErrorStatusAndReturn(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute, err error, description, reason string) (ctrl.Result, error) {
+func (r *CFRouteReconciler) setRouteErrorStatusAndReturn(ctx context.Context, cfRoute *v1alpha1.CFRoute, err error, description, reason string) (ctrl.Result, error) {
 	r.Log.Error(err, description)
 	errMsg := fmt.Sprintf("%v", err)
-	if statusErr := r.setRouteStatus(ctx, cfRoute, networkingv1alpha1.InvalidStatus, description, reason, errMsg); statusErr != nil {
+	if statusErr := r.setRouteStatus(ctx, cfRoute, v1alpha1.InvalidStatus, description, reason, errMsg); statusErr != nil {
 		r.Log.Error(statusErr, "Error when updating CFRoute status")
 		return ctrl.Result{}, statusErr
 	}
@@ -156,11 +155,11 @@ func (r *CFRouteReconciler) setRouteErrorStatusAndReturn(ctx context.Context, cf
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&networkingv1alpha1.CFRoute{}).
+		For(&v1alpha1.CFRoute{}).
 		Complete(r)
 }
 
-func (r *CFRouteReconciler) addFinalizer(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute) error {
+func (r *CFRouteReconciler) addFinalizer(ctx context.Context, cfRoute *v1alpha1.CFRoute) error {
 	if controllerutil.ContainsFinalizer(cfRoute, FinalizerName) {
 		return nil
 	}
@@ -178,7 +177,7 @@ func (r *CFRouteReconciler) addFinalizer(ctx context.Context, cfRoute *networkin
 	return nil
 }
 
-func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute, cfDomain *networkingv1alpha1.CFDomain) (ctrl.Result, error) {
+func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *v1alpha1.CFRoute, cfDomain *v1alpha1.CFDomain) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling deletion of CFRoute/%s", cfRoute.Name))
 
 	if !controllerutil.ContainsFinalizer(cfRoute, FinalizerName) {
@@ -227,7 +226,7 @@ func (r *CFRouteReconciler) finalizeFQDNProxy(ctx context.Context, cfRouteName s
 	return nil
 }
 
-func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute) error {
+func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, cfRoute *v1alpha1.CFRoute) error {
 	for i, destination := range cfRoute.Spec.Destinations {
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -238,8 +237,8 @@ func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, cfRoute *
 
 		result, err := controllerutil.CreateOrPatch(ctx, r.Client, service, func() error {
 			service.ObjectMeta.Labels = map[string]string{
-				workloadsv1alpha1.CFAppGUIDLabelKey:    destination.AppRef.Name,
-				networkingv1alpha1.CFRouteGUIDLabelKey: cfRoute.Name,
+				v1alpha1.CFAppGUIDLabelKey:   destination.AppRef.Name,
+				v1alpha1.CFRouteGUIDLabelKey: cfRoute.Name,
 			}
 
 			err := controllerutil.SetOwnerReference(cfRoute, service, r.Scheme)
@@ -252,8 +251,8 @@ func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, cfRoute *
 				Port: int32(destination.Port),
 			}}
 			service.Spec.Selector = map[string]string{
-				workloadsv1alpha1.CFAppGUIDLabelKey:     destination.AppRef.Name,
-				workloadsv1alpha1.CFProcessTypeLabelKey: destination.ProcessType,
+				v1alpha1.CFAppGUIDLabelKey:     destination.AppRef.Name,
+				v1alpha1.CFProcessTypeLabelKey: destination.ProcessType,
 			}
 
 			return nil
@@ -269,7 +268,7 @@ func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, cfRoute *
 	return nil
 }
 
-func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute) error {
+func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, cfRoute *v1alpha1.CFRoute) error {
 	services := make([]contourv1.Service, 0, len(cfRoute.Spec.Destinations))
 
 	for i, destination := range cfRoute.Spec.Destinations {
@@ -317,7 +316,7 @@ func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, cfRoute
 	return nil
 }
 
-func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute, cfDomain *networkingv1alpha1.CFDomain) error {
+func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, cfRoute *v1alpha1.CFRoute, cfDomain *v1alpha1.CFDomain) error {
 	fqdnHTTPProxy, foundFQDNPRoxy, err := r.getFQDNProxy(ctx, cfRoute.Spec.Host, cfDomain.Spec.Name, cfRoute.Namespace, true)
 	if err != nil {
 		return err
@@ -411,14 +410,14 @@ func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, routeHostname, dom
 	return &fqdnHTTPProxy, found, nil
 }
 
-func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, cfRoute *networkingv1alpha1.CFRoute) error {
+func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, cfRoute *v1alpha1.CFRoute) error {
 	matchingLabelSet := map[string]string{
-		networkingv1alpha1.CFRouteGUIDLabelKey: cfRoute.Name,
+		v1alpha1.CFRouteGUIDLabelKey: cfRoute.Name,
 	}
 
 	serviceList, err := r.fetchServicesByMatchingLabels(ctx, matchingLabelSet, cfRoute.Namespace)
 	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("Failed to fetch services using label - %s : %s", networkingv1alpha1.CFRouteGUIDLabelKey, cfRoute.Name))
+		r.Log.Error(err, fmt.Sprintf("Failed to fetch services using label - %s : %s", v1alpha1.CFRouteGUIDLabelKey, cfRoute.Name))
 		return err
 	}
 
@@ -459,10 +458,10 @@ func (r *CFRouteReconciler) fetchServicesByMatchingLabels(ctx context.Context, l
 	return &serviceList, nil
 }
 
-func isFinalizing(cfRoute *networkingv1alpha1.CFRoute) bool {
+func isFinalizing(cfRoute *v1alpha1.CFRoute) bool {
 	return cfRoute.ObjectMeta.DeletionTimestamp != nil && !cfRoute.ObjectMeta.DeletionTimestamp.IsZero()
 }
 
-func generateServiceName(destination *networkingv1alpha1.Destination) string {
+func generateServiceName(destination *v1alpha1.Destination) string {
 	return fmt.Sprintf("s-%s", destination.GUID)
 }

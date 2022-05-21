@@ -5,7 +5,7 @@ metadata:
   name: space-manager
 rules:
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfapps
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
 
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfpackages
   verbs:
@@ -21,7 +21,7 @@ rules:
   - list
 
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfprocesses
   verbs:
@@ -29,7 +29,7 @@ rules:
   - list
 
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfbuilds
   verbs:
@@ -37,7 +37,7 @@ rules:
   - list
 
 - apiGroups:
-  - networking.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfroutes
   verbs:
@@ -45,7 +45,7 @@ rules:
   - list
 
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfserviceinstances
   verbs:
@@ -53,7 +53,7 @@ rules:
   - get
 
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfservicebindings
   verbs:

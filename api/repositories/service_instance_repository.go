@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/google/uuid"
@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	CFServiceInstanceGUIDLabel     = "services.cloudfoundry.org/service-instance-guid"
+	CFServiceInstanceGUIDLabel     = "korifi.cloudfoundry.org/service-instance-guid"
 	ServiceInstanceResourceType    = "Service Instance"
 	serviceBindingSecretTypePrefix = "servicebinding.io/"
 )
@@ -124,9 +124,9 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		return []ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	var filteredServiceInstances []servicesv1alpha1.CFServiceInstance
+	var filteredServiceInstances []v1alpha1.CFServiceInstance
 	for ns := range nsList {
-		serviceInstanceList := new(servicesv1alpha1.CFServiceInstanceList)
+		serviceInstanceList := new(v1alpha1.CFServiceInstanceList)
 		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns))
 		if k8serrors.IsForbidden(err) {
 			continue
@@ -156,7 +156,7 @@ func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo a
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to get namespace for service instance: %w", err)
 	}
 
-	var serviceInstance servicesv1alpha1.CFServiceInstance
+	var serviceInstance v1alpha1.CFServiceInstance
 	if err := userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: guid}, &serviceInstance); err != nil {
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
@@ -170,7 +170,7 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 		return fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	serviceInstance := &servicesv1alpha1.CFServiceInstance{
+	serviceInstance := &v1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
 			Namespace: message.SpaceGUID,
@@ -184,25 +184,25 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 	return nil
 }
 
-func (m CreateServiceInstanceMessage) toCFServiceInstance() servicesv1alpha1.CFServiceInstance {
+func (m CreateServiceInstanceMessage) toCFServiceInstance() v1alpha1.CFServiceInstance {
 	guid := uuid.NewString()
-	return servicesv1alpha1.CFServiceInstance{
+	return v1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        guid,
 			Namespace:   m.SpaceGUID,
 			Labels:      m.Labels,
 			Annotations: m.Annotations,
 		},
-		Spec: servicesv1alpha1.CFServiceInstanceSpec{
+		Spec: v1alpha1.CFServiceInstanceSpec{
 			DisplayName: m.Name,
 			SecretName:  guid,
-			Type:        servicesv1alpha1.InstanceType(m.Type),
+			Type:        v1alpha1.InstanceType(m.Type),
 			Tags:        m.Tags,
 		},
 	}
 }
 
-func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance servicesv1alpha1.CFServiceInstance) ServiceInstanceRecord {
+func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance v1alpha1.CFServiceInstance) ServiceInstanceRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfServiceInstance.ObjectMeta)
 
 	return ServiceInstanceRecord{
@@ -217,7 +217,7 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance servicesv1alpha1
 	}
 }
 
-func cfServiceInstanceToSecret(cfServiceInstance servicesv1alpha1.CFServiceInstance) corev1.Secret {
+func cfServiceInstanceToSecret(cfServiceInstance v1alpha1.CFServiceInstance) corev1.Secret {
 	labels := make(map[string]string, 1)
 	labels[CFServiceInstanceGUIDLabel] = cfServiceInstance.Name
 
@@ -228,7 +228,7 @@ func cfServiceInstanceToSecret(cfServiceInstance servicesv1alpha1.CFServiceInsta
 			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: servicesv1alpha1.GroupVersion.String(),
+					APIVersion: v1alpha1.GroupVersion.String(),
 					Kind:       "CFServiceInstance",
 					Name:       cfServiceInstance.Name,
 					UID:        cfServiceInstance.UID,
@@ -238,12 +238,12 @@ func cfServiceInstanceToSecret(cfServiceInstance servicesv1alpha1.CFServiceInsta
 	}
 }
 
-func applyServiceInstanceListFilter(serviceInstanceList []servicesv1alpha1.CFServiceInstance, message ListServiceInstanceMessage) []servicesv1alpha1.CFServiceInstance {
+func applyServiceInstanceListFilter(serviceInstanceList []v1alpha1.CFServiceInstance, message ListServiceInstanceMessage) []v1alpha1.CFServiceInstance {
 	if len(message.Names) == 0 && len(message.SpaceGuids) == 0 {
 		return serviceInstanceList
 	}
 
-	var filtered []servicesv1alpha1.CFServiceInstance
+	var filtered []v1alpha1.CFServiceInstance
 	for _, serviceInstance := range serviceInstanceList {
 		if matchesFilter(serviceInstance.Spec.DisplayName, message.Names) &&
 			matchesFilter(serviceInstance.Namespace, message.SpaceGuids) {
@@ -254,7 +254,7 @@ func applyServiceInstanceListFilter(serviceInstanceList []servicesv1alpha1.CFSer
 	return filtered
 }
 
-func returnServiceInstanceList(serviceInstanceList []servicesv1alpha1.CFServiceInstance) []ServiceInstanceRecord {
+func returnServiceInstanceList(serviceInstanceList []v1alpha1.CFServiceInstance) []ServiceInstanceRecord {
 	serviceInstanceRecords := make([]ServiceInstanceRecord, 0, len(serviceInstanceList))
 
 	for _, serviceInstance := range serviceInstanceList {
@@ -263,7 +263,7 @@ func returnServiceInstanceList(serviceInstanceList []servicesv1alpha1.CFServiceI
 	return serviceInstanceRecords
 }
 
-func orderServiceInstances(serviceInstances []servicesv1alpha1.CFServiceInstance, sortBy string, desc bool) []servicesv1alpha1.CFServiceInstance {
+func orderServiceInstances(serviceInstances []v1alpha1.CFServiceInstance, sortBy string, desc bool) []v1alpha1.CFServiceInstance {
 	sort.Slice(serviceInstances, func(i, j int) bool {
 		var less bool
 
@@ -295,7 +295,7 @@ func updateSecretTypeFields(secret *corev1.Secret) {
 	if typeSpecified {
 		secret.Type = corev1.SecretType(serviceBindingSecretTypePrefix + userSpecifiedType)
 	} else {
-		secret.StringData["type"] = servicesv1alpha1.UserProvidedType
-		secret.Type = serviceBindingSecretTypePrefix + servicesv1alpha1.UserProvidedType
+		secret.StringData["type"] = v1alpha1.UserProvidedType
+		secret.Type = serviceBindingSecretTypePrefix + v1alpha1.UserProvidedType
 	}
 }

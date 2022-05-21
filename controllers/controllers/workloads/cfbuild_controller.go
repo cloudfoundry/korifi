@@ -23,10 +23,9 @@ import (
 	"path"
 	"strings"
 
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 
 	"github.com/go-logr/logr"
@@ -79,7 +78,7 @@ func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface) RegistryAut
 }
 
 //counterfeiter:generate -o fake -fake-name ImageProcessFetcher . ImageProcessFetcher
-type ImageProcessFetcher func(imageRef string, credsOption remote.Option) ([]workloadsv1alpha1.ProcessType, []int32, error)
+type ImageProcessFetcher func(imageRef string, credsOption remote.Option) ([]v1alpha1.ProcessType, []int32, error)
 
 // CFBuildReconciler reconciles a CFBuild object
 type CFBuildReconciler struct {
@@ -92,9 +91,9 @@ type CFBuildReconciler struct {
 	EnvBuilder          EnvBuilder
 }
 
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfbuilds/finalizers,verbs=update
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfbuilds/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfbuilds/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups=kpack.io,resources=images,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=kpack.io,resources=images/status,verbs=get;update;patch
@@ -113,14 +112,14 @@ type CFBuildReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	cfBuild := new(workloadsv1alpha1.CFBuild)
+	cfBuild := new(v1alpha1.CFBuild)
 	err := r.Client.Get(ctx, req.NamespacedName, cfBuild)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFBuild")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	cfApp := new(workloadsv1alpha1.CFApp)
+	cfApp := new(v1alpha1.CFApp)
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.AppRef.Name, Namespace: cfBuild.Namespace}, cfApp)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFApp")
@@ -140,15 +139,15 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	cfPackage := new(workloadsv1alpha1.CFPackage)
+	cfPackage := new(v1alpha1.CFPackage)
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, cfPackage)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFPackage")
 		return ctrl.Result{}, err
 	}
 
-	stagingStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType)
-	succeededStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType)
+	stagingStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, v1alpha1.StagingConditionType)
+	succeededStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, v1alpha1.SucceededConditionType)
 
 	if stagingStatus == metav1.ConditionUnknown &&
 		succeededStatus == metav1.ConditionUnknown {
@@ -184,16 +183,16 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if kpackReadyStatusCondition.IsFalse() {
 			// Set CFBuild status Conditions on local copy - Staging and Succeeded to False
 			failureStatusConditionMessage := r.concatenateStrings(":", kpackReadyStatusCondition.Reason, kpackReadyStatusCondition.Message)
-			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
-			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType, metav1.ConditionFalse, "kpack", failureStatusConditionMessage)
+			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, v1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
+			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, v1alpha1.SucceededConditionType, metav1.ConditionFalse, "kpack", failureStatusConditionMessage)
 			if err = r.Client.Status().Update(ctx, cfBuild); err != nil {
 				r.Log.Error(err, "Error when updating CFBuild status")
 				return ctrl.Result{}, err
 			}
 		} else if kpackReadyStatusCondition.IsTrue() {
 			// Set CFBuild status Conditions on local copy- Staging to False and Succeeded to True
-			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
-			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.SucceededConditionType, metav1.ConditionTrue, "kpack", "kpack")
+			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, v1alpha1.StagingConditionType, metav1.ConditionFalse, "kpack", "kpack")
+			setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, v1alpha1.SucceededConditionType, metav1.ConditionTrue, "kpack", "kpack")
 
 			// try to find the ServiceAccount image pull secrets from the kpack service account
 			serviceAccountName := kpackServiceAccount
@@ -222,7 +221,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *workloadsv1alpha1.CFBuild, cfApp *workloadsv1alpha1.CFApp, cfPackage *workloadsv1alpha1.CFPackage) error {
+func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context, cfBuild *v1alpha1.CFBuild, cfApp *v1alpha1.CFApp, cfPackage *v1alpha1.CFPackage) error {
 	serviceAccountName := kpackServiceAccount
 	kpackImageTag := path.Join(r.ControllerConfig.KpackImageTag, cfBuild.Name)
 	kpackImageName := cfBuild.Name
@@ -232,8 +231,8 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 			Name:      kpackImageName,
 			Namespace: kpackImageNamespace,
 			Labels: map[string]string{
-				workloadsv1alpha1.CFBuildGUIDLabelKey: cfBuild.Name,
-				workloadsv1alpha1.CFAppGUIDLabelKey:   cfApp.Name,
+				v1alpha1.CFBuildGUIDLabelKey: cfBuild.Name,
+				v1alpha1.CFAppGUIDLabelKey:   cfApp.Name,
 			},
 		},
 		Spec: buildv1alpha2.ImageSpec{
@@ -279,7 +278,7 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 		return err
 	}
 
-	setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, workloadsv1alpha1.StagingConditionType, metav1.ConditionTrue, "kpack", "kpack")
+	setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, v1alpha1.StagingConditionType, metav1.ConditionTrue, "kpack", "kpack")
 
 	// Update CFBuild record based on changes made to local copy
 	if err := r.Client.Status().Update(ctx, cfBuild); err != nil {
@@ -291,7 +290,7 @@ func (r *CFBuildReconciler) createKpackImageAndUpdateStatus(ctx context.Context,
 }
 
 func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace, appGUID string) (buildv1alpha2.Services, error) {
-	serviceBindingsList := &servicesv1alpha1.CFServiceBindingList{}
+	serviceBindingsList := &v1alpha1.CFServiceBindingList{}
 	err := r.Client.List(ctx, serviceBindingsList,
 		client.InNamespace(namespace),
 		client.MatchingFields{shared.IndexServiceBindingAppGUID: appGUID},
@@ -317,7 +316,7 @@ func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace,
 	return buildServices, nil
 }
 
-func (r *CFBuildReconciler) prepareEnvironment(ctx context.Context, cfApp *workloadsv1alpha1.CFApp) ([]corev1.EnvVar, error) {
+func (r *CFBuildReconciler) prepareEnvironment(ctx context.Context, cfApp *v1alpha1.CFApp) ([]corev1.EnvVar, error) {
 	env, err := r.EnvBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
 		r.Log.Error(err, "failed building environment")
@@ -353,7 +352,7 @@ func (r *CFBuildReconciler) createKpackImageIfNotExists(ctx context.Context, des
 	return nil
 }
 
-func (r *CFBuildReconciler) ensureKpackImageRequirements(ctx context.Context, cfPackage *workloadsv1alpha1.CFPackage) error {
+func (r *CFBuildReconciler) ensureKpackImageRequirements(ctx context.Context, cfPackage *v1alpha1.CFPackage) error {
 	for _, secret := range cfPackage.Spec.Source.Registry.ImagePullSecrets {
 		err := r.Client.Get(ctx, types.NamespacedName{Namespace: cfPackage.Namespace, Name: secret.Name}, &corev1.Secret{})
 		if err != nil {
@@ -364,7 +363,7 @@ func (r *CFBuildReconciler) ensureKpackImageRequirements(ctx context.Context, cf
 	return nil
 }
 
-func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpackImage *buildv1alpha2.Image, imagePullSecrets []corev1.LocalObjectReference) (*workloadsv1alpha1.BuildDropletStatus, error) {
+func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpackImage *buildv1alpha2.Image, imagePullSecrets []corev1.LocalObjectReference) (*v1alpha1.BuildDropletStatus, error) {
 	imageRef := kpackImage.Status.LatestImage
 	// imagePullSecrets := kpackImage.Spec.Source.Registry.ImagePullSecrets
 
@@ -383,8 +382,8 @@ func (r *CFBuildReconciler) generateBuildDropletStatus(ctx context.Context, kpac
 		return nil, err
 	}
 
-	return &workloadsv1alpha1.BuildDropletStatus{
-		Registry: workloadsv1alpha1.Registry{
+	return &v1alpha1.BuildDropletStatus{
+		Registry: v1alpha1.Registry{
 			Image:            imageRef,
 			ImagePullSecrets: imagePullSecrets,
 		},
@@ -422,14 +421,14 @@ func getConditionOrSetAsUnknown(conditions *[]metav1.Condition, conditionType st
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFBuildReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&workloadsv1alpha1.CFBuild{}).
+		For(&v1alpha1.CFBuild{}).
 		Watches(
 			&source.Kind{Type: &buildv1alpha2.Image{}},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
 				var requests []reconcile.Request
 				requests = append(requests, reconcile.Request{
 					NamespacedName: types.NamespacedName{
-						Name:      obj.GetLabels()[workloadsv1alpha1.CFBuildGUIDLabelKey],
+						Name:      obj.GetLabels()[v1alpha1.CFBuildGUIDLabelKey],
 						Namespace: obj.GetNamespace(),
 					},
 				})

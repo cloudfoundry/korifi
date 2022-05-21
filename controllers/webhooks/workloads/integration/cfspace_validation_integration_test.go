@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/integration/helpers"
 
 	"github.com/google/uuid"
@@ -18,7 +18,7 @@ import (
 var _ = Describe("CFSpaceValidatingWebhook", func() {
 	var (
 		ctx               context.Context
-		cfSpace, cfSpace2 *workloadsv1alpha1.CFSpace
+		cfSpace, cfSpace2 *v1alpha1.CFSpace
 		orgNamespace      string
 	)
 
@@ -32,12 +32,12 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 			},
 		})).To(Succeed())
 
-		Expect(k8sClient.Create(ctx, &workloadsv1alpha1.CFOrg{
+		Expect(k8sClient.Create(ctx, &v1alpha1.CFOrg{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      orgNamespace,
 				Namespace: rootNamespace,
 			},
-			Spec: workloadsv1alpha1.CFOrgSpec{
+			Spec: v1alpha1.CFOrgSpec{
 				DisplayName: orgNamespace,
 			},
 		})).To(Succeed())
@@ -98,7 +98,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 
 	Describe("updating a space", func() {
 		var (
-			updatedCFSpace *workloadsv1alpha1.CFSpace
+			updatedCFSpace *v1alpha1.CFSpace
 			err            error
 		)
 

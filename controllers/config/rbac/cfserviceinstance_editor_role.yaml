@@ -5,7 +5,7 @@ metadata:
   name: cfserviceinstance-editor-role
 rules:
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfserviceinstances
   verbs:
@@ -17,7 +17,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfserviceinstances/status
   verbs:

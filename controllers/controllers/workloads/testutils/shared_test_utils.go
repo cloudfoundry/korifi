@@ -7,7 +7,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -15,11 +15,11 @@ import (
 )
 
 const (
-	CFAppLabelKey         = "workloads.cloudfoundry.org/app-guid"
-	cfAppRevisionKey      = "workloads.cloudfoundry.org/app-rev"
-	CFProcessGUIDLabelKey = "workloads.cloudfoundry.org/process-guid"
-	CFProcessTypeLabelKey = "workloads.cloudfoundry.org/process-type"
-	appFinalizerName      = "cfApp.workloads.cloudfoundry.org"
+	CFAppLabelKey         = "korifi.cloudfoundry.org/app-guid"
+	cfAppRevisionKey      = "korifi.cloudfoundry.org/app-rev"
+	CFProcessGUIDLabelKey = "korifi.cloudfoundry.org/process-guid"
+	CFProcessTypeLabelKey = "korifi.cloudfoundry.org/process-type"
+	appFinalizerName      = "cfApp.korifi.cloudfoundry.org"
 )
 
 func GenerateGUID() string {
@@ -47,8 +47,8 @@ func BuildSubNamespaceAnchorObject(hnsGUID string, spaceGUID string) *v1alpha2.S
 	}
 }
 
-func BuildCFAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFApp {
-	return &workloadsv1alpha1.CFApp{
+func BuildCFAppCRObject(appGUID string, spaceGUID string) *v1alpha1.CFApp {
+	return &v1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
 			Namespace: spaceGUID,
@@ -59,12 +59,12 @@ func BuildCFAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFA
 				appFinalizerName,
 			},
 		},
-		Spec: workloadsv1alpha1.CFAppSpec{
+		Spec: v1alpha1.CFAppSpec{
 			DisplayName:  "test-app-name",
 			DesiredState: "STOPPED",
-			Lifecycle: workloadsv1alpha1.Lifecycle{
+			Lifecycle: v1alpha1.Lifecycle{
 				Type: "buildpack",
-				Data: workloadsv1alpha1.LifecycleData{
+				Data: v1alpha1.LifecycleData{
 					Buildpacks: []string{},
 					Stack:      "",
 				},
@@ -74,25 +74,25 @@ func BuildCFAppCRObject(appGUID string, spaceGUID string) *workloadsv1alpha1.CFA
 	}
 }
 
-func BuildCFOrgObject(orgGUID string, spaceGUID string) *workloadsv1alpha1.CFOrg {
-	return &workloadsv1alpha1.CFOrg{
+func BuildCFOrgObject(orgGUID string, spaceGUID string) *v1alpha1.CFOrg {
+	return &v1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      orgGUID,
 			Namespace: spaceGUID,
 		},
-		Spec: workloadsv1alpha1.CFOrgSpec{
+		Spec: v1alpha1.CFOrgSpec{
 			DisplayName: "test-org-name",
 		},
 	}
 }
 
-func BuildCFSpaceObject(spaceGUID string, orgGUID string) *workloadsv1alpha1.CFSpace {
-	return &workloadsv1alpha1.CFSpace{
+func BuildCFSpaceObject(spaceGUID string, orgGUID string) *v1alpha1.CFSpace {
+	return &v1alpha1.CFSpace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      spaceGUID,
 			Namespace: orgGUID,
 		},
-		Spec: workloadsv1alpha1.CFSpaceSpec{
+		Spec: v1alpha1.CFSpaceSpec{
 			DisplayName: "test-space-name",
 		},
 	}
@@ -108,19 +108,19 @@ func BuildCFAppEnvVarsSecret(appGUID, spaceGUID string, envVars map[string]strin
 	}
 }
 
-func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID string) *workloadsv1alpha1.CFPackage {
-	return &workloadsv1alpha1.CFPackage{
+func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID string) *v1alpha1.CFPackage {
+	return &v1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageGUID,
 			Namespace: namespaceGUID,
 		},
-		Spec: workloadsv1alpha1.CFPackageSpec{
+		Spec: v1alpha1.CFPackageSpec{
 			Type: "bits",
 			AppRef: corev1.LocalObjectReference{
 				Name: appGUID,
 			},
-			Source: workloadsv1alpha1.PackageSource{
-				Registry: workloadsv1alpha1.Registry{
+			Source: v1alpha1.PackageSource{
+				Registry: v1alpha1.Registry{
 					Image:            "PACKAGE_IMAGE",
 					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "source-registry-image-pull-secret"}},
 				},
@@ -129,17 +129,17 @@ func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID string) *workloa
 	}
 }
 
-func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID string, cfAppGUID string) *workloadsv1alpha1.CFBuild {
-	return &workloadsv1alpha1.CFBuild{
+func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID string, cfAppGUID string) *v1alpha1.CFBuild {
+	return &v1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfBuildGUID,
 			Namespace: namespace,
 		},
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "CFBuild",
-			APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+			APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 		},
-		Spec: workloadsv1alpha1.CFBuildSpec{
+		Spec: v1alpha1.CFBuildSpec{
 			PackageRef: corev1.LocalObjectReference{
 				Name: cfPackageGUID,
 			},
@@ -148,9 +148,9 @@ func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID stri
 			},
 			StagingMemoryMB: 1024,
 			StagingDiskMB:   1024,
-			Lifecycle: workloadsv1alpha1.Lifecycle{
+			Lifecycle: v1alpha1.Lifecycle{
 				Type: "buildpack",
-				Data: workloadsv1alpha1.LifecycleData{
+				Data: v1alpha1.LifecycleData{
 					Buildpacks: nil,
 					Stack:      "",
 				},
@@ -159,16 +159,16 @@ func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID stri
 	}
 }
 
-func BuildCFBuildDropletStatusObject(dropletProcessTypeMap map[string]string, dropletPorts []int32) *workloadsv1alpha1.BuildDropletStatus {
-	dropletProcessTypes := make([]workloadsv1alpha1.ProcessType, 0, len(dropletProcessTypeMap))
+func BuildCFBuildDropletStatusObject(dropletProcessTypeMap map[string]string, dropletPorts []int32) *v1alpha1.BuildDropletStatus {
+	dropletProcessTypes := make([]v1alpha1.ProcessType, 0, len(dropletProcessTypeMap))
 	for k, v := range dropletProcessTypeMap {
-		dropletProcessTypes = append(dropletProcessTypes, workloadsv1alpha1.ProcessType{
+		dropletProcessTypes = append(dropletProcessTypes, v1alpha1.ProcessType{
 			Type:    k,
 			Command: v,
 		})
 	}
-	return &workloadsv1alpha1.BuildDropletStatus{
-		Registry: workloadsv1alpha1.Registry{
+	return &v1alpha1.BuildDropletStatus{
+		Registry: v1alpha1.Registry{
 			Image:            "image/registry/url",
 			ImagePullSecrets: nil,
 		},
@@ -208,8 +208,8 @@ func BuildServiceAccount(name, namespace, imagePullSecretName string) *corev1.Se
 	}
 }
 
-func BuildCFProcessCRObject(cfProcessGUID string, namespace string, cfAppGUID string, processType string, processCommand string) *workloadsv1alpha1.CFProcess {
-	return &workloadsv1alpha1.CFProcess{
+func BuildCFProcessCRObject(cfProcessGUID string, namespace string, cfAppGUID string, processType string, processCommand string) *v1alpha1.CFProcess {
+	return &v1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfProcessGUID,
 			Namespace: namespace,
@@ -219,13 +219,13 @@ func BuildCFProcessCRObject(cfProcessGUID string, namespace string, cfAppGUID st
 				CFProcessTypeLabelKey: processType,
 			},
 		},
-		Spec: workloadsv1alpha1.CFProcessSpec{
+		Spec: v1alpha1.CFProcessSpec{
 			AppRef:      corev1.LocalObjectReference{Name: cfAppGUID},
 			ProcessType: processType,
 			Command:     processCommand,
-			HealthCheck: workloadsv1alpha1.HealthCheck{
+			HealthCheck: v1alpha1.HealthCheck{
 				Type: "process",
-				Data: workloadsv1alpha1.HealthCheckData{
+				Data: v1alpha1.HealthCheckData{
 					InvocationTimeoutSeconds: 0,
 					TimeoutSeconds:           0,
 				},
@@ -247,14 +247,14 @@ func SetStatusCondition(conditions *[]metav1.Condition, conditionType string, st
 	})
 }
 
-func UpdateCFBuildWithDropletStatus(cfbuild *workloadsv1alpha1.CFBuild) {
-	cfbuild.Status.BuildDropletStatus = &workloadsv1alpha1.BuildDropletStatus{
-		Registry: workloadsv1alpha1.Registry{
+func UpdateCFBuildWithDropletStatus(cfbuild *v1alpha1.CFBuild) {
+	cfbuild.Status.BuildDropletStatus = &v1alpha1.BuildDropletStatus{
+		Registry: v1alpha1.Registry{
 			Image:            "my-image",
 			ImagePullSecrets: nil,
 		},
 		Stack: "cflinuxfs3",
-		ProcessTypes: []workloadsv1alpha1.ProcessType{
+		ProcessTypes: []v1alpha1.ProcessType{
 			{
 				Type:    "web",
 				Command: "web-command",
@@ -264,6 +264,6 @@ func UpdateCFBuildWithDropletStatus(cfbuild *workloadsv1alpha1.CFBuild) {
 	}
 }
 
-func UpdateCFAppWithCurrentDropletRef(cfApp *workloadsv1alpha1.CFApp, buildGUID string) {
+func UpdateCFAppWithCurrentDropletRef(cfApp *v1alpha1.CFApp, buildGUID string) {
 	cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: buildGUID}
 }

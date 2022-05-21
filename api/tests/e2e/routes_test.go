@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
-	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -286,16 +286,16 @@ var _ = Describe("Routes", func() {
 				BeforeEach(func() {
 					config, err := controllerruntime.GetConfig()
 					Expect(err).NotTo(HaveOccurred())
-					Expect(networkingv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+					Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 					k8sClient, err = k8sclient.NewWithWatch(config, k8sclient.Options{Scheme: scheme.Scheme})
 					Expect(err).NotTo(HaveOccurred())
 					domainGUID = uuid.NewString()
-					domain := &networkingv1alpha1.CFDomain{
+					domain := &v1alpha1.CFDomain{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      domainGUID,
 							Namespace: rootNamespace,
 						},
-						Spec: networkingv1alpha1.CFDomainSpec{
+						Spec: v1alpha1.CFDomainSpec{
 							Name: domainName,
 						},
 					}
@@ -306,7 +306,7 @@ var _ = Describe("Routes", func() {
 
 				AfterEach(func() {
 					Expect(
-						k8sClient.Delete(context.Background(), &networkingv1alpha1.CFDomain{ObjectMeta: metav1.ObjectMeta{Namespace: rootNamespace, Name: domainGUID}})).To(Succeed())
+						k8sClient.Delete(context.Background(), &v1alpha1.CFDomain{ObjectMeta: metav1.ObjectMeta{Namespace: rootNamespace, Name: domainGUID}})).To(Succeed())
 				})
 
 				It("fails with a invalid route error", func() {
@@ -385,7 +385,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is a space developer in the space", func() {
 			BeforeEach(func() {
-				appGUID = pushTestApp(spaceGUID, appBitsFile)
+				appGUID = pushTestApp(spaceGUID, defaultAppBitsFile)
 				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
 			})
 

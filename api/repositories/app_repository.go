@@ -9,7 +9,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 
@@ -28,9 +28,9 @@ const (
 	StoppedState DesiredState = "STOPPED"
 
 	Kind               string = "CFApp"
-	APIVersion         string = "workloads.cloudfoundry.org/v1alpha1"
+	APIVersion         string = "korifi.cloudfoundry.org/v1alpha1"
 	TimestampFormat    string = time.RFC3339
-	CFAppGUIDLabel     string = "workloads.cloudfoundry.org/app-guid"
+	CFAppGUIDLabel     string = "korifi.cloudfoundry.org/app-guid"
 	AppResourceType    string = "App"
 	AppEnvResourceType string = "App Env"
 )
@@ -160,7 +160,7 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 		return AppRecord{}, fmt.Errorf("get-app failed to build user client: %w", err)
 	}
 
-	app := workloadsv1alpha1.CFApp{}
+	app := v1alpha1.CFApp{}
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: appGUID}, &app)
 	if err != nil {
 		return AppRecord{}, fmt.Errorf("failed to get app: %w", apierrors.FromK8sError(err, AppResourceType))
@@ -175,13 +175,13 @@ func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorizati
 		return AppRecord{}, fmt.Errorf("get-app failed to build user client: %w", err)
 	}
 
-	appList := new(workloadsv1alpha1.CFAppList)
+	appList := new(v1alpha1.CFAppList)
 	err = userClient.List(ctx, appList, client.InNamespace(spaceGUID))
 	if err != nil {
 		return AppRecord{}, apierrors.FromK8sError(fmt.Errorf("get app: failed to list apps: %w", err), SpaceResourceType)
 	}
 
-	var matchingApps []workloadsv1alpha1.CFApp
+	var matchingApps []v1alpha1.CFApp
 	for _, app := range appList.Items {
 		if app.Spec.DisplayName == appName {
 			matchingApps = append(matchingApps, app)
@@ -242,9 +242,9 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		return []AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	var filteredApps []workloadsv1alpha1.CFApp
+	var filteredApps []v1alpha1.CFApp
 	for ns := range nsList {
-		appList := &workloadsv1alpha1.CFAppList{}
+		appList := &v1alpha1.CFAppList{}
 		err := userClient.List(ctx, appList, client.InNamespace(ns))
 		if k8serrors.IsForbidden(err) {
 			continue
@@ -263,12 +263,12 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 	return appRecords, nil
 }
 
-func applyAppListFilter(appList []workloadsv1alpha1.CFApp, message ListAppsMessage) []workloadsv1alpha1.CFApp {
+func applyAppListFilter(appList []v1alpha1.CFApp, message ListAppsMessage) []v1alpha1.CFApp {
 	nameFilterSpecified := len(message.Names) > 0
 	guidsFilterSpecified := len(message.Guids) > 0
 	spaceGUIDFilterSpecified := len(message.SpaceGuids) > 0
 
-	var filtered []workloadsv1alpha1.CFApp
+	var filtered []v1alpha1.CFApp
 
 	if guidsFilterSpecified {
 		for _, app := range appList {
@@ -286,7 +286,7 @@ func applyAppListFilter(appList []workloadsv1alpha1.CFApp, message ListAppsMessa
 
 	if len(filtered) > 0 {
 		appList = filtered
-		filtered = []workloadsv1alpha1.CFApp{}
+		filtered = []v1alpha1.CFApp{}
 	}
 
 	if !nameFilterSpecified && !spaceGUIDFilterSpecified {
@@ -320,19 +320,19 @@ func applyAppListFilter(appList []workloadsv1alpha1.CFApp, message ListAppsMessa
 	return filtered
 }
 
-func appBelongsToSpace(app workloadsv1alpha1.CFApp, spaceGUID string) bool {
+func appBelongsToSpace(app v1alpha1.CFApp, spaceGUID string) bool {
 	return app.Namespace == spaceGUID
 }
 
-func appMatchesName(app workloadsv1alpha1.CFApp, name string) bool {
+func appMatchesName(app v1alpha1.CFApp, name string) bool {
 	return app.Spec.DisplayName == name
 }
 
-func appMatchesGUID(app workloadsv1alpha1.CFApp, guid string) bool {
+func appMatchesGUID(app v1alpha1.CFApp, guid string) bool {
 	return app.Name == guid
 }
 
-func returnAppList(appList []workloadsv1alpha1.CFApp) []AppRecord {
+func returnAppList(appList []v1alpha1.CFApp) []AppRecord {
 	appRecords := make([]AppRecord, 0, len(appList))
 
 	for _, app := range appList {
@@ -397,7 +397,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 		return CurrentDropletRecord{}, fmt.Errorf("set-current-droplet: failed to create k8s user client: %w", err)
 	}
 
-	baseCFApp := &workloadsv1alpha1.CFApp{
+	baseCFApp := &v1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.AppGUID,
 			Namespace: message.SpaceGUID,
@@ -418,14 +418,14 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 }
 
 func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization.Info, message SetAppDesiredStateMessage) (AppRecord, error) {
-	baseCFApp := &workloadsv1alpha1.CFApp{
+	baseCFApp := &v1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.AppGUID,
 			Namespace: message.SpaceGUID,
 		},
 	}
 	cfApp := baseCFApp.DeepCopy()
-	cfApp.Spec.DesiredState = workloadsv1alpha1.DesiredState(message.DesiredState)
+	cfApp.Spec.DesiredState = v1alpha1.DesiredState(message.DesiredState)
 
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
@@ -441,7 +441,7 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 }
 
 func (f *AppRepo) DeleteApp(ctx context.Context, authInfo authorization.Info, message DeleteAppMessage) error {
-	cfApp := &workloadsv1alpha1.CFApp{
+	cfApp := &v1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.AppGUID,
 			Namespace: message.SpaceGUID,
@@ -487,22 +487,22 @@ func GenerateEnvSecretName(appGUID string) string {
 	return appGUID + "-env"
 }
 
-func (m *CreateAppMessage) toCFApp() workloadsv1alpha1.CFApp {
+func (m *CreateAppMessage) toCFApp() v1alpha1.CFApp {
 	guid := uuid.NewString()
-	return workloadsv1alpha1.CFApp{
+	return v1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        guid,
 			Namespace:   m.SpaceGUID,
 			Labels:      m.Labels,
 			Annotations: m.Annotations,
 		},
-		Spec: workloadsv1alpha1.CFAppSpec{
+		Spec: v1alpha1.CFAppSpec{
 			DisplayName:   m.Name,
-			DesiredState:  workloadsv1alpha1.DesiredState(m.State),
+			DesiredState:  v1alpha1.DesiredState(m.State),
 			EnvSecretName: GenerateEnvSecretName(guid),
-			Lifecycle: workloadsv1alpha1.Lifecycle{
-				Type: workloadsv1alpha1.LifecycleType(m.Lifecycle.Type),
-				Data: workloadsv1alpha1.LifecycleData{
+			Lifecycle: v1alpha1.Lifecycle{
+				Type: v1alpha1.LifecycleType(m.Lifecycle.Type),
+				Data: v1alpha1.LifecycleData{
 					Buildpacks: m.Lifecycle.Data.Buildpacks,
 					Stack:      m.Lifecycle.Data.Stack,
 				},
@@ -511,13 +511,13 @@ func (m *CreateAppMessage) toCFApp() workloadsv1alpha1.CFApp {
 	}
 }
 
-func cfAppToAppRecord(cfApp workloadsv1alpha1.CFApp) AppRecord {
+func cfAppToAppRecord(cfApp v1alpha1.CFApp) AppRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfApp.ObjectMeta)
 
 	return AppRecord{
 		GUID:        cfApp.Name,
 		EtcdUID:     cfApp.GetUID(),
-		Revision:    getLabelOrAnnotation(cfApp.GetAnnotations(), workloadsv1alpha1.CFAppRevisionKey),
+		Revision:    getLabelOrAnnotation(cfApp.GetAnnotations(), v1alpha1.CFAppRevisionKey),
 		Name:        cfApp.Spec.DisplayName,
 		SpaceGUID:   cfApp.Namespace,
 		DropletGUID: cfApp.Spec.CurrentDropletRef.Name,

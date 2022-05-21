@@ -8,7 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	workloads "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -43,7 +43,7 @@ var _ = Describe("OrgRepository", func() {
 			doOrgControllerSimulation bool
 		)
 
-		waitForCFOrg := func(anchorNamespace string, orgName string, done chan bool) (*workloads.CFOrg, error) {
+		waitForCFOrg := func(anchorNamespace string, orgName string, done chan bool) (*v1alpha1.CFOrg, error) {
 			for {
 				select {
 				case <-done:
@@ -51,13 +51,13 @@ var _ = Describe("OrgRepository", func() {
 				default:
 				}
 
-				var orgList workloads.CFOrgList
+				var orgList v1alpha1.CFOrgList
 				err := k8sClient.List(ctx, &orgList, client.InNamespace(anchorNamespace))
 				if err != nil {
 					return nil, fmt.Errorf("waitForCFOrg failed")
 				}
 
-				var matches []workloads.CFOrg
+				var matches []v1alpha1.CFOrg
 				for _, org := range orgList.Items {
 					if org.Spec.DisplayName == orgName {
 						matches = append(matches, org)
@@ -135,7 +135,7 @@ var _ = Describe("OrgRepository", func() {
 			It("creates a CFOrg resource in the root namespace", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				orgCR := new(workloads.CFOrg)
+				orgCR := new(v1alpha1.CFOrg)
 				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: org.GUID}, orgCR)).To(Succeed())
 
 				Expect(org.Name).To(Equal(orgName))
@@ -177,7 +177,7 @@ var _ = Describe("OrgRepository", func() {
 	})
 
 	Describe("List", func() {
-		var cfOrg1, cfOrg2, cfOrg3 *workloads.CFOrg
+		var cfOrg1, cfOrg2, cfOrg3 *v1alpha1.CFOrg
 
 		BeforeEach(func() {
 			ctx = context.Background()
@@ -315,7 +315,7 @@ var _ = Describe("OrgRepository", func() {
 	})
 
 	Describe("Get", func() {
-		var cfOrg *workloads.CFOrg
+		var cfOrg *v1alpha1.CFOrg
 
 		BeforeEach(func() {
 			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("the-org"))
@@ -342,7 +342,7 @@ var _ = Describe("OrgRepository", func() {
 	})
 
 	Describe("Delete", func() {
-		var cfOrg *workloads.CFOrg
+		var cfOrg *v1alpha1.CFOrg
 
 		BeforeEach(func() {
 			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
@@ -363,7 +363,7 @@ var _ = Describe("OrgRepository", func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 
-					foundCFOrg := &workloads.CFOrg{}
+					foundCFOrg := &v1alpha1.CFOrg{}
 					err = k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: cfOrg.Name}, foundCFOrg)
 					Expect(err).To(MatchError(ContainSubstring("not found")))
 				})

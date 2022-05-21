@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -36,12 +37,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
 )
 
 const (
-	FinalizerName = "cfServiceInstance.services.cloudfoundry.org"
+	FinalizerName = "cfServiceInstance.korifi.cloudfoundry.org"
 )
 
 // CFServiceInstanceReconciler reconciles a CFServiceInstance object
@@ -51,15 +50,15 @@ type CFServiceInstanceReconciler struct {
 	Log    logr.Logger
 }
 
-//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfserviceinstances,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfserviceinstances/finalizers,verbs=update
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/finalizers,verbs=update
 
 func (r *CFServiceInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 	result := ctrl.Result{}
 
-	cfServiceInstance := new(servicesv1alpha1.CFServiceInstance)
+	cfServiceInstance := new(v1alpha1.CFServiceInstance)
 	err := r.Client.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, cfServiceInstance)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -118,11 +117,11 @@ func (r *CFServiceInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&servicesv1alpha1.CFServiceInstance{}).
+		For(&v1alpha1.CFServiceInstance{}).
 		Complete(r)
 }
 
-func (r *CFServiceInstanceReconciler) addFinalizer(ctx context.Context, cfServiceInstance *servicesv1alpha1.CFServiceInstance) error {
+func (r *CFServiceInstanceReconciler) addFinalizer(ctx context.Context, cfServiceInstance *v1alpha1.CFServiceInstance) error {
 	if controllerutil.ContainsFinalizer(cfServiceInstance, FinalizerName) {
 		return nil
 	}
@@ -140,14 +139,14 @@ func (r *CFServiceInstanceReconciler) addFinalizer(ctx context.Context, cfServic
 	return nil
 }
 
-func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Context, cfServiceInstance *servicesv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Context, cfServiceInstance *v1alpha1.CFServiceInstance) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling deletion of CFServiceInstance/%s", cfServiceInstance.Name))
 
 	if !controllerutil.ContainsFinalizer(cfServiceInstance, FinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
-	cfServiceBindingList := &servicesv1alpha1.CFServiceBindingList{}
+	cfServiceBindingList := &v1alpha1.CFServiceBindingList{}
 	err := r.Client.List(ctx, cfServiceBindingList,
 		client.InNamespace(cfServiceInstance.Namespace),
 		client.MatchingFields{shared.IndexServiceBindingServiceInstanceGUID: cfServiceInstance.Name},
@@ -173,6 +172,6 @@ func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Cont
 	return ctrl.Result{}, nil
 }
 
-func isFinalizing(cfServiceInstance *servicesv1alpha1.CFServiceInstance) bool {
+func isFinalizing(cfServiceInstance *v1alpha1.CFServiceInstance) bool {
 	return cfServiceInstance.ObjectMeta.DeletionTimestamp != nil && !cfServiceInstance.ObjectMeta.DeletionTimestamp.IsZero()
 }

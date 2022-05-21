@@ -10,8 +10,7 @@ import (
 
 	. "code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	servicesv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/services/v1alpha1"
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,7 +29,7 @@ var _ = Describe("ServiceBinding Handler", func() {
 	var (
 		spaceGUID string
 		appGUID   string
-		cfApp     *workloadsv1alpha1.CFApp
+		cfApp     *v1alpha1.CFApp
 	)
 
 	BeforeEach(func() {
@@ -54,17 +53,17 @@ var _ = Describe("ServiceBinding Handler", func() {
 		spaceGUID = space.Name
 
 		appGUID = generateGUID()
-		cfApp = &workloadsv1alpha1.CFApp{
+		cfApp = &v1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      appGUID,
 				Namespace: spaceGUID,
 			},
-			Spec: workloadsv1alpha1.CFAppSpec{
+			Spec: v1alpha1.CFAppSpec{
 				DisplayName:  "name-for-" + appGUID,
 				DesiredState: "STOPPED",
-				Lifecycle: workloadsv1alpha1.Lifecycle{
+				Lifecycle: v1alpha1.Lifecycle{
 					Type: "buildpack",
-					Data: workloadsv1alpha1.LifecycleData{Buildpacks: []string{"java"}},
+					Data: v1alpha1.LifecycleData{Buildpacks: []string{"java"}},
 				},
 			},
 		}
@@ -159,7 +158,7 @@ var _ = Describe("ServiceBinding Handler", func() {
 
 		It("successfully creates a CFServiceBinding", func() {
 			guid := getServiceBindingGuidFromResponseBody(rr.Body)
-			serviceBinding := new(servicesv1alpha1.CFServiceBinding)
+			serviceBinding := new(v1alpha1.CFServiceBinding)
 			Expect(
 				k8sClient.Get(context.Background(), types.NamespacedName{Namespace: spaceGUID, Name: guid}, serviceBinding),
 			).To(Succeed())
@@ -168,7 +167,7 @@ var _ = Describe("ServiceBinding Handler", func() {
 			Expect(serviceBinding.Spec.AppRef).To(Equal(corev1.LocalObjectReference{Name: appGUID}))
 			Expect(serviceBinding.Spec.Service).To(Equal(
 				corev1.ObjectReference{
-					APIVersion: "services.cloudfoundry.org/v1alpha1",
+					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 					Kind:       "CFServiceInstance",
 					Name:       serviceInstanceGUID,
 				},
@@ -255,13 +254,13 @@ func getServiceBindingGuidFromResponseBody(body io.Reader) string {
 	return response["guid"].(string)
 }
 
-func createServiceInstance(ctx context.Context, k8sClient client.Client, serviceInstanceGUID, spaceGUID, name, secretName string) *servicesv1alpha1.CFServiceInstance {
-	toReturn := &servicesv1alpha1.CFServiceInstance{
+func createServiceInstance(ctx context.Context, k8sClient client.Client, serviceInstanceGUID, spaceGUID, name, secretName string) *v1alpha1.CFServiceInstance {
+	toReturn := &v1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceInstanceGUID,
 			Namespace: spaceGUID,
 		},
-		Spec: servicesv1alpha1.CFServiceInstanceSpec{
+		Spec: v1alpha1.CFServiceInstanceSpec{
 			DisplayName: name,
 			SecretName:  secretName,
 			Type:        "user-provided",
@@ -273,18 +272,18 @@ func createServiceInstance(ctx context.Context, k8sClient client.Client, service
 	return toReturn
 }
 
-func createServiceBinding(ctx context.Context, k8sClient client.Client, serviceBindingGUID, spaceGUID string, name *string, serviceInstanceName, appName string) *servicesv1alpha1.CFServiceBinding {
-	toReturn := &servicesv1alpha1.CFServiceBinding{
+func createServiceBinding(ctx context.Context, k8sClient client.Client, serviceBindingGUID, spaceGUID string, name *string, serviceInstanceName, appName string) *v1alpha1.CFServiceBinding {
+	toReturn := &v1alpha1.CFServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceBindingGUID,
 			Namespace: spaceGUID,
 		},
-		Spec: servicesv1alpha1.CFServiceBindingSpec{
+		Spec: v1alpha1.CFServiceBindingSpec{
 			DisplayName: name,
 			Service: corev1.ObjectReference{
 				Kind:       "ServiceInstance",
 				Name:       serviceInstanceName,
-				APIVersion: "services.cloudfoundry.org/v1alpha1",
+				APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 			},
 			AppRef: corev1.LocalObjectReference{
 				Name: appName,

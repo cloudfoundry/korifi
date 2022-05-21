@@ -11,9 +11,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
-  name: buildworkloads.workloads.cloudfoundry.org
+  name: buildworkloads.korifi.cloudfoundry.org
 spec:
-  group: workloads.cloudfoundry.org
+  group: korifi.cloudfoundry.org
   names:
     kind: BuildWorkload
     listKind: BuildWorkloadList
@@ -401,7 +401,7 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
     controller-gen.kubebuilder.io/version: v0.8.0
-  name: cfapps.workloads.cloudfoundry.org
+  name: cfapps.korifi.cloudfoundry.org
 spec:
   conversion:
     strategy: Webhook
@@ -413,7 +413,7 @@ spec:
           path: /convert
       conversionReviewVersions:
       - v1
-  group: workloads.cloudfoundry.org
+  group: korifi.cloudfoundry.org
   names:
     kind: CFApp
     listKind: CFAppList
@@ -605,7 +605,7 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
     controller-gen.kubebuilder.io/version: v0.8.0
-  name: cfbuilds.workloads.cloudfoundry.org
+  name: cfbuilds.korifi.cloudfoundry.org
 spec:
   conversion:
     strategy: Webhook
@@ -617,7 +617,7 @@ spec:
           path: /convert
       conversionReviewVersions:
       - v1
-  group: workloads.cloudfoundry.org
+  group: korifi.cloudfoundry.org
   names:
     kind: CFBuild
     listKind: CFBuildList
@@ -853,7 +853,7 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
     controller-gen.kubebuilder.io/version: v0.8.0
-  name: cfdomains.networking.cloudfoundry.org
+  name: cfdomains.korifi.cloudfoundry.org
 spec:
   conversion:
     strategy: Webhook
@@ -865,7 +865,7 @@ spec:
           path: /convert
       conversionReviewVersions:
       - v1
-  group: networking.cloudfoundry.org
+  group: korifi.cloudfoundry.org
   names:
     kind: CFDomain
     listKind: CFDomainList
@@ -927,9 +927,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
-  name: cforgs.workloads.cloudfoundry.org
+  name: cforgs.korifi.cloudfoundry.org
 spec:
-  group: workloads.cloudfoundry.org
+  group: korifi.cloudfoundry.org
   names:
     kind: CFOrg
     listKind: CFOrgList
@@ -1069,7 +1069,7 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
     controller-gen.kubebuilder.io/version: v0.8.0
-  name: cfpackages.workloads.cloudfoundry.org
+  name: cfpackages.korifi.cloudfoundry.org
 spec:
   conversion:
     strategy: Webhook
@@ -1081,7 +1081,7 @@ spec:
           path: /convert
       conversionReviewVersions:
       - v1
-  group: workloads.cloudfoundry.org
+  group: korifi.cloudfoundry.org
   names:
     kind: CFPackage
     listKind: CFPackageList
@@ -1250,7 +1250,7 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
     controller-gen.kubebuilder.io/version: v0.8.0
-  name: cfprocesses.workloads.cloudfoundry.org
+  name: cfprocesses.korifi.cloudfoundry.org
 spec:
   conversion:
     strategy: Webhook
@@ -1262,7 +1262,7 @@ spec:
           path: /convert
       conversionReviewVersions:
       - v1
-  group: workloads.cloudfoundry.org
+  group: korifi.cloudfoundry.org
   names:
     kind: CFProcess
     listKind: CFProcessList
@@ -1464,7 +1464,7 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: korifi-controllers-system/korifi-controllers-serving-cert
     controller-gen.kubebuilder.io/version: v0.8.0
-  name: cfroutes.networking.cloudfoundry.org
+  name: cfroutes.korifi.cloudfoundry.org
 spec:
   conversion:
     strategy: Webhook
@@ -1476,7 +1476,7 @@ spec:
           path: /convert
       conversionReviewVersions:
       - v1
-  group: networking.cloudfoundry.org
+  group: korifi.cloudfoundry.org
   names:
     kind: CFRoute
     listKind: CFRouteList
@@ -1757,9 +1757,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
-  name: cfservicebindings.services.cloudfoundry.org
+  name: cfservicebindings.korifi.cloudfoundry.org
 spec:
-  group: services.cloudfoundry.org
+  group: korifi.cloudfoundry.org
   names:
     kind: CFServiceBinding
     listKind: CFServiceBindingList
@@ -1949,9 +1949,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
-  name: cfserviceinstances.services.cloudfoundry.org
+  name: cfserviceinstances.korifi.cloudfoundry.org
 spec:
-  group: services.cloudfoundry.org
+  group: korifi.cloudfoundry.org
   names:
     kind: CFServiceInstance
     listKind: CFServiceInstanceList
@@ -2111,9 +2111,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
-  name: cfspaces.workloads.cloudfoundry.org
+  name: cfspaces.korifi.cloudfoundry.org
 spec:
-  group: workloads.cloudfoundry.org
+  group: korifi.cloudfoundry.org
   names:
     kind: CFSpace
     listKind: CFSpaceList
@@ -2315,7 +2315,7 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cforgs
   verbs:
@@ -2327,7 +2327,7 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfspaces
   verbs:
@@ -2339,7 +2339,7 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfapps
   verbs:
@@ -2349,7 +2349,7 @@ rules:
   - delete
   - list
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfprocesses
   verbs:
@@ -2358,7 +2358,7 @@ rules:
   - list
   - patch
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfpackages
   verbs:
@@ -2367,7 +2367,7 @@ rules:
   - create
   - patch
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfbuilds
   verbs:
@@ -2375,7 +2375,7 @@ rules:
   - list
   - create
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfserviceinstances
   verbs:
@@ -2384,7 +2384,7 @@ rules:
   - create
   - delete
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfservicebindings
   verbs:
@@ -2393,14 +2393,14 @@ rules:
   - create
   - delete
 - apiGroups:
-  - networking.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfdomains
   verbs:
   - get
   - list
 - apiGroups:
-  - networking.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfroutes
   verbs:
@@ -2455,7 +2455,7 @@ metadata:
   name: korifi-controllers-cfservicebinding-reconciler-role
 rules:
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfservicebindings
   verbs:
@@ -2564,6 +2564,266 @@ rules:
   - list
   - watch
 - apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfapps/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfapps/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfbuilds/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfbuilds/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfdomains
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfdomains/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfdomains/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cforgs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cforgs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfpackages/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfpackages/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfprocesses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfprocesses/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfprocesses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfroutes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfroutes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfservicebindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfservicebindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceinstances/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceinstances/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfspaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfspaces/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfspaces/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - kpack.io
   resources:
   - images
@@ -2585,58 +2845,6 @@ rules:
   - kpack.io
   resources:
   - images/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfdomains
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfdomains/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfdomains/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfroutes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfroutes/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - networking.cloudfoundry.org
-  resources:
-  - cfroutes/status
   verbs:
   - get
   - patch
@@ -2676,214 +2884,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - services.cloudfoundry.org
-  resources:
-  - cfservicebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - services.cloudfoundry.org
-  resources:
-  - cfservicebindings/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - services.cloudfoundry.org
-  resources:
-  - cfservicebindings/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - services.cloudfoundry.org
-  resources:
-  - cfserviceinstances
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - services.cloudfoundry.org
-  resources:
-  - cfserviceinstances/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - services.cloudfoundry.org
-  resources:
-  - cfserviceinstances/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfapps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfapps/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfapps/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfbuilds
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfbuilds/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfbuilds/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cforgs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cforgs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cforgs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfpackages
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfpackages/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfpackages/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfprocesses
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfprocesses/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfprocesses/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfspaces
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfspaces/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - workloads.cloudfoundry.org
-  resources:
-  - cfspaces/status
-  verbs:
-  - get
-  - patch
-  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -2901,7 +2901,7 @@ metadata:
   name: korifi-controllers-organization-manager
 rules:
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cforgs
   verbs:
@@ -2915,7 +2915,7 @@ metadata:
   name: korifi-controllers-organization-user
 rules:
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cforgs
   verbs:
@@ -2923,7 +2923,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfspaces
   verbs:
@@ -2956,14 +2956,14 @@ metadata:
   name: korifi-controllers-root-namespace-user
 rules:
 - apiGroups:
-  - networking.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfdomains
   verbs:
   - get
   - list
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cforgs
   verbs:
@@ -2977,7 +2977,7 @@ metadata:
   name: korifi-controllers-space-auditor
 rules:
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfapps
   verbs:
@@ -3016,7 +3016,7 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfapps
   verbs:
@@ -3026,7 +3026,7 @@ rules:
   - delete
   - list
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfprocesses
   verbs:
@@ -3035,7 +3035,7 @@ rules:
   - list
   - patch
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfpackages
   verbs:
@@ -3044,7 +3044,7 @@ rules:
   - create
   - patch
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfbuilds
   verbs:
@@ -3052,7 +3052,7 @@ rules:
   - list
   - create
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfserviceinstances
   verbs:
@@ -3061,7 +3061,7 @@ rules:
   - create
   - delete
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfservicebindings
   verbs:
@@ -3070,7 +3070,7 @@ rules:
   - create
   - delete
 - apiGroups:
-  - networking.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfroutes
   verbs:
@@ -3092,49 +3092,49 @@ metadata:
   name: korifi-controllers-space-manager
 rules:
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfapps
   verbs:
   - get
   - list
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfpackages
   verbs:
   - get
   - list
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfprocesses
   verbs:
   - get
   - list
 - apiGroups:
-  - workloads.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfbuilds
   verbs:
   - get
   - list
 - apiGroups:
-  - networking.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfroutes
   verbs:
   - get
   - list
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfserviceinstances
   verbs:
   - list
   - get
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfservicebindings
   verbs:
@@ -3373,33 +3373,12 @@ webhooks:
     service:
       name: korifi-controllers-webhook-service
       namespace: korifi-controllers-system
-      path: /mutate-networking-cloudfoundry-org-v1alpha1-cfroute
+      path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfapp
   failurePolicy: Fail
-  name: mcfroute.networking.cloudfoundry.org
+  name: mcfapp.korifi.cloudfoundry.org
   rules:
   - apiGroups:
-    - networking.cloudfoundry.org
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - cfroutes
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
-      path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfapp
-  failurePolicy: Fail
-  name: mcfapp.workloads.cloudfoundry.org
-  rules:
-  - apiGroups:
-    - workloads.cloudfoundry.org
+    - korifi.cloudfoundry.org
     apiVersions:
     - v1alpha1
     operations:
@@ -3415,12 +3394,12 @@ webhooks:
     service:
       name: korifi-controllers-webhook-service
       namespace: korifi-controllers-system
-      path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfbuild
+      path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfbuild
   failurePolicy: Fail
-  name: mcfbuild.workloads.cloudfoundry.org
+  name: mcfbuild.korifi.cloudfoundry.org
   rules:
   - apiGroups:
-    - workloads.cloudfoundry.org
+    - korifi.cloudfoundry.org
     apiVersions:
     - v1alpha1
     operations:
@@ -3436,12 +3415,12 @@ webhooks:
     service:
       name: korifi-controllers-webhook-service
       namespace: korifi-controllers-system
-      path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfpackage
+      path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfpackage
   failurePolicy: Fail
-  name: mcfpackage.workloads.cloudfoundry.org
+  name: mcfpackage.korifi.cloudfoundry.org
   rules:
   - apiGroups:
-    - workloads.cloudfoundry.org
+    - korifi.cloudfoundry.org
     apiVersions:
     - v1alpha1
     operations:
@@ -3457,12 +3436,12 @@ webhooks:
     service:
       name: korifi-controllers-webhook-service
       namespace: korifi-controllers-system
-      path: /mutate-workloads-cloudfoundry-org-v1alpha1-cfprocess
+      path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfprocess
   failurePolicy: Fail
-  name: mcfprocess.workloads.cloudfoundry.org
+  name: mcfprocess.korifi.cloudfoundry.org
   rules:
   - apiGroups:
-    - workloads.cloudfoundry.org
+    - korifi.cloudfoundry.org
     apiVersions:
     - v1alpha1
     operations:
@@ -3470,6 +3449,27 @@ webhooks:
     - UPDATE
     resources:
     - cfprocesses
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: korifi-controllers-webhook-service
+      namespace: korifi-controllers-system
+      path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfroute
+  failurePolicy: Fail
+  name: mcfroute.korifi.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - korifi.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfroutes
   sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
@@ -3486,12 +3486,12 @@ webhooks:
     service:
       name: korifi-controllers-webhook-service
       namespace: korifi-controllers-system
-      path: /validate-workloads-cloudfoundry-org-v1alpha1-cfapp
+      path: /validate-korifi-cloudfoundry-org-v1alpha1-cfapp
   failurePolicy: Fail
-  name: vcfapp.workloads.cloudfoundry.org
+  name: vcfapp.korifi.cloudfoundry.org
   rules:
   - apiGroups:
-    - workloads.cloudfoundry.org
+    - korifi.cloudfoundry.org
     apiVersions:
     - v1alpha1
     operations:
@@ -3508,12 +3508,12 @@ webhooks:
     service:
       name: korifi-controllers-webhook-service
       namespace: korifi-controllers-system
-      path: /validate-workloads-cloudfoundry-org-v1alpha1-cforg
+      path: /validate-korifi-cloudfoundry-org-v1alpha1-cforg
   failurePolicy: Fail
-  name: vcforg.workloads.cloudfoundry.org
+  name: vcforg.korifi.cloudfoundry.org
   rules:
   - apiGroups:
-    - workloads.cloudfoundry.org
+    - korifi.cloudfoundry.org
     apiVersions:
     - v1alpha1
     operations:
@@ -3530,12 +3530,12 @@ webhooks:
     service:
       name: korifi-controllers-webhook-service
       namespace: korifi-controllers-system
-      path: /validate-workloads-cloudfoundry-org-v1alpha1-cfspace
+      path: /validate-korifi-cloudfoundry-org-v1alpha1-cfspace
   failurePolicy: Fail
-  name: vcfspace.workloads.cloudfoundry.org
+  name: vcfspace.korifi.cloudfoundry.org
   rules:
   - apiGroups:
-    - workloads.cloudfoundry.org
+    - korifi.cloudfoundry.org
     apiVersions:
     - v1alpha1
     operations:
@@ -3554,7 +3554,7 @@ webhooks:
       namespace: korifi-controllers-system
       path: /validate-hnc-x-k8s-io-v1alpha2-subnamespaceanchor
   failurePolicy: Fail
-  name: vsubns.workloads.cloudfoundry.org
+  name: vsubns.korifi.cloudfoundry.org
   rules:
   - apiGroups:
     - hnc.x-k8s.io
@@ -3573,12 +3573,12 @@ webhooks:
     service:
       name: korifi-controllers-webhook-service
       namespace: korifi-controllers-system
-      path: /validate-networking-cloudfoundry-org-v1alpha1-cfdomain
+      path: /validate-korifi-cloudfoundry-org-v1alpha1-cfdomain
   failurePolicy: Fail
-  name: vcfdomain.kb.io
+  name: vcfdomain.korifi.cloudfoundry.org
   rules:
   - apiGroups:
-    - networking.cloudfoundry.org
+    - korifi.cloudfoundry.org
     apiVersions:
     - v1alpha1
     operations:
@@ -3594,12 +3594,12 @@ webhooks:
     service:
       name: korifi-controllers-webhook-service
       namespace: korifi-controllers-system
-      path: /validate-networking-cloudfoundry-org-v1alpha1-cfroute
+      path: /validate-korifi-cloudfoundry-org-v1alpha1-cfroute
   failurePolicy: Fail
-  name: vcfroute.networking.cloudfoundry.org
+  name: vcfroute.korifi.cloudfoundry.org
   rules:
   - apiGroups:
-    - networking.cloudfoundry.org
+    - korifi.cloudfoundry.org
     apiVersions:
     - v1alpha1
     operations:
@@ -3616,12 +3616,12 @@ webhooks:
     service:
       name: korifi-controllers-webhook-service
       namespace: korifi-controllers-system
-      path: /validate-services-cloudfoundry-org-v1alpha1-cfserviceinstance
+      path: /validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance
   failurePolicy: Fail
-  name: vcfserviceinstance.services.cloudfoundry.org
+  name: vcfserviceinstance.korifi.cloudfoundry.org
   rules:
   - apiGroups:
-    - services.cloudfoundry.org
+    - korifi.cloudfoundry.org
     apiVersions:
     - v1alpha1
     operations:

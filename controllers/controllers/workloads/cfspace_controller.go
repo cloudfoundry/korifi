@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,8 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
 )
 
 const (
@@ -60,9 +59,9 @@ func NewCFSpaceReconciler(client client.Client, scheme *runtime.Scheme, log logr
 	}
 }
 
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfspaces,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfspaces/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfspaces/finalizers,verbs=update
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfspaces,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfspaces/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfspaces/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -74,7 +73,7 @@ func NewCFSpaceReconciler(client client.Client, scheme *runtime.Scheme, log logr
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	cfSpace := new(workloadsv1alpha1.CFSpace)
+	cfSpace := new(v1alpha1.CFSpace)
 	err := r.client.Get(ctx, req.NamespacedName, cfSpace)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error when trying to fetch CFSpace %s/%s", req.Namespace, req.Name))
@@ -174,6 +173,6 @@ func (r *CFSpaceReconciler) createServiceAccountIfMissing(ctx context.Context, s
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFSpaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&workloadsv1alpha1.CFSpace{}).
+		For(&v1alpha1.CFSpace{}).
 		Complete(r)
 }

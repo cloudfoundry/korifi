@@ -2,7 +2,7 @@ package payloads
 
 import (
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 
 	"code.cloudfoundry.org/bytefmt"
 )

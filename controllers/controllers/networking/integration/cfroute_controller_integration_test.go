@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,8 +30,8 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 		ns *corev1.Namespace
 
-		cfDomain *networkingv1alpha1.CFDomain
-		cfRoute  *networkingv1alpha1.CFRoute
+		cfDomain *v1alpha1.CFDomain
+		cfRoute  *v1alpha1.CFRoute
 	)
 
 	BeforeEach(func() {
@@ -53,12 +53,12 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		testRouteGUID = GenerateGUID()
 		testFQDN = fmt.Sprintf("%s.%s", testRouteHost, testDomainName)
 
-		cfDomain = &networkingv1alpha1.CFDomain{
+		cfDomain = &v1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testDomainGUID,
 				Namespace: testNamespace,
 			},
-			Spec: networkingv1alpha1.CFDomainSpec{
+			Spec: v1alpha1.CFDomainSpec{
 				Name: testDomainName,
 			},
 		}
@@ -70,7 +70,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					Namespace: testNamespace,
 					Name:      testDomainGUID,
 				},
-				&networkingv1alpha1.CFDomain{},
+				&v1alpha1.CFDomain{},
 			)
 		}).Should(Succeed())
 	})
@@ -87,12 +87,12 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		JustBeforeEach(func() {
 			ctx := context.Background()
 
-			cfRoute = &networkingv1alpha1.CFRoute{
+			cfRoute = &v1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testRouteGUID,
 					Namespace: testNamespace,
 				},
-				Spec: networkingv1alpha1.CFRouteSpec{
+				Spec: v1alpha1.CFRouteSpec{
 					Host:     testRouteHost,
 					Path:     "",
 					Protocol: "http",
@@ -100,7 +100,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 						Name:      testDomainGUID,
 						Namespace: testNamespace,
 					},
-					Destinations: []networkingv1alpha1.Destination{},
+					Destinations: []v1alpha1.Destination{},
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
@@ -126,7 +126,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 			Expect(proxy.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 				{
-					APIVersion: "networking.cloudfoundry.org/v1alpha1",
+					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 					Kind:       "CFRoute",
 					Name:       cfRoute.Name,
 					UID:        cfRoute.GetUID(),
@@ -153,7 +153,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 			Expect(proxy.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 				{
-					APIVersion: "networking.cloudfoundry.org/v1alpha1",
+					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 					Kind:       "CFRoute",
 					Name:       cfRoute.Name,
 					UID:        cfRoute.GetUID(),
@@ -169,7 +169,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				Expect(err).NotTo(HaveOccurred())
 				return cfRoute.ObjectMeta.Finalizers
 			}).Should(ConsistOf([]string{
-				"cfRoute.networking.cloudfoundry.org",
+				"cfRoute.korifi.cloudfoundry.org",
 			}))
 		})
 
@@ -195,12 +195,12 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 	})
 
 	When("the CFRoute includes destinations", func() {
-		var destinations []networkingv1alpha1.Destination
+		var destinations []v1alpha1.Destination
 
 		BeforeEach(func() {
 			ctx := context.Background()
 
-			destinations = []networkingv1alpha1.Destination{
+			destinations = []v1alpha1.Destination{
 				{
 					GUID: GenerateGUID(),
 					AppRef: corev1.LocalObjectReference{
@@ -211,12 +211,12 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					Protocol:    "http1",
 				},
 			}
-			cfRoute = &networkingv1alpha1.CFRoute{
+			cfRoute = &v1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testRouteGUID,
 					Namespace: testNamespace,
 				},
-				Spec: networkingv1alpha1.CFRouteSpec{
+				Spec: v1alpha1.CFRouteSpec{
 					Host:     testRouteHost,
 					Path:     "/test/path",
 					Protocol: "http",
@@ -295,21 +295,21 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			})
 
 			By("setting the labels on the created Service", func() {
-				Expect(svc.Labels["workloads.cloudfoundry.org/app-guid"]).To(Equal(cfRoute.Spec.Destinations[0].AppRef.Name))
-				Expect(svc.Labels["networking.cloudfoundry.org/route-guid"]).To(Equal(cfRoute.Name))
+				Expect(svc.Labels["korifi.cloudfoundry.org/app-guid"]).To(Equal(cfRoute.Spec.Destinations[0].AppRef.Name))
+				Expect(svc.Labels["korifi.cloudfoundry.org/route-guid"]).To(Equal(cfRoute.Name))
 			})
 
 			By("setting the selectors on the created Service", func() {
 				Expect(svc.Spec.Selector).To(Equal(map[string]string{
-					"workloads.cloudfoundry.org/app-guid":     "the-app-guid",
-					"workloads.cloudfoundry.org/process-type": "web",
+					"korifi.cloudfoundry.org/app-guid":     "the-app-guid",
+					"korifi.cloudfoundry.org/process-type": "web",
 				}))
 			})
 
 			By("setting the OwnerReferences on the created Service", func() {
 				Expect(svc.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 					{
-						APIVersion: "networking.cloudfoundry.org/v1alpha1",
+						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 						Kind:       "CFRoute",
 						Name:       cfRoute.Name,
 						UID:        cfRoute.GetUID(),
@@ -337,7 +337,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		It("eventually adds the Destinations status field to the CFRoute", func() {
 			ctx := context.Background()
 
-			Eventually(func() []networkingv1alpha1.Destination {
+			Eventually(func() []v1alpha1.Destination {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)
 				Expect(err).NotTo(HaveOccurred())
 				return cfRoute.Status.Destinations
@@ -348,18 +348,18 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 	When("the FQDN of a CFRoute is not unique within a space", func() {
 		var (
 			duplicateRouteGUID string
-			duplicateRoute     *networkingv1alpha1.CFRoute
+			duplicateRoute     *v1alpha1.CFRoute
 		)
 
 		BeforeEach(func() {
 			ctx := context.Background()
 
-			cfRoute = &networkingv1alpha1.CFRoute{
+			cfRoute = &v1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testRouteGUID,
 					Namespace: testNamespace,
 				},
-				Spec: networkingv1alpha1.CFRouteSpec{
+				Spec: v1alpha1.CFRouteSpec{
 					Host:     testRouteHost,
 					Path:     "/",
 					Protocol: "http",
@@ -367,7 +367,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 						Name:      testDomainGUID,
 						Namespace: testNamespace,
 					},
-					Destinations: []networkingv1alpha1.Destination{
+					Destinations: []v1alpha1.Destination{
 						{
 							GUID: GenerateGUID(),
 							AppRef: corev1.LocalObjectReference{
@@ -390,12 +390,12 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 			duplicateRouteGUID = GenerateGUID()
 
-			duplicateRoute = &networkingv1alpha1.CFRoute{
+			duplicateRoute = &v1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      duplicateRouteGUID,
 					Namespace: testNamespace,
 				},
-				Spec: networkingv1alpha1.CFRouteSpec{
+				Spec: v1alpha1.CFRouteSpec{
 					Host:     testRouteHost,
 					Path:     "/",
 					Protocol: "http",
@@ -403,7 +403,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 						Name:      testDomainGUID,
 						Namespace: testNamespace,
 					},
-					Destinations: []networkingv1alpha1.Destination{
+					Destinations: []v1alpha1.Destination{
 						{
 							GUID: GenerateGUID(),
 							AppRef: corev1.LocalObjectReference{
@@ -481,12 +481,12 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		BeforeEach(func() {
 			ctx := context.Background()
 
-			cfRoute = &networkingv1alpha1.CFRoute{
+			cfRoute = &v1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testRouteGUID,
 					Namespace: testNamespace,
 				},
-				Spec: networkingv1alpha1.CFRouteSpec{
+				Spec: v1alpha1.CFRouteSpec{
 					Host:     testRouteHost,
 					Path:     "/",
 					Protocol: "http",
@@ -494,7 +494,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 						Name:      testDomainGUID,
 						Namespace: testNamespace,
 					},
-					Destinations: []networkingv1alpha1.Destination{
+					Destinations: []v1alpha1.Destination{
 						{
 							GUID: GenerateGUID(),
 							AppRef: corev1.LocalObjectReference{
@@ -517,7 +517,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 			originalCFRoute := cfRoute.DeepCopy()
 			// Why not just set up the CFRoute with this in the first place?
-			cfRoute.Spec.Destinations = append(cfRoute.Spec.Destinations, networkingv1alpha1.Destination{
+			cfRoute.Spec.Destinations = append(cfRoute.Spec.Destinations, v1alpha1.Destination{
 				GUID: GenerateGUID(),
 				AppRef: corev1.LocalObjectReference{
 					Name: "app-guid-2",
@@ -579,21 +579,21 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			})
 
 			By("setting the labels on the created Service", func() {
-				Expect(svc.Labels["workloads.cloudfoundry.org/app-guid"]).To(Equal(cfRoute.Spec.Destinations[1].AppRef.Name))
-				Expect(svc.Labels["networking.cloudfoundry.org/route-guid"]).To(Equal(cfRoute.Name))
+				Expect(svc.Labels["korifi.cloudfoundry.org/app-guid"]).To(Equal(cfRoute.Spec.Destinations[1].AppRef.Name))
+				Expect(svc.Labels["korifi.cloudfoundry.org/route-guid"]).To(Equal(cfRoute.Name))
 			})
 
 			By("setting the selectors on the created Service", func() {
 				Expect(svc.Spec.Selector).To(Equal(map[string]string{
-					"workloads.cloudfoundry.org/app-guid":     cfRoute.Spec.Destinations[1].AppRef.Name,
-					"workloads.cloudfoundry.org/process-type": cfRoute.Spec.Destinations[1].ProcessType,
+					"korifi.cloudfoundry.org/app-guid":     cfRoute.Spec.Destinations[1].AppRef.Name,
+					"korifi.cloudfoundry.org/process-type": cfRoute.Spec.Destinations[1].ProcessType,
 				}))
 			})
 
 			By("setting the OwnerReferences on the created Service", func() {
 				Expect(svc.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 					{
-						APIVersion: "networking.cloudfoundry.org/v1alpha1",
+						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 						Kind:       "CFRoute",
 						Name:       cfRoute.Name,
 						UID:        cfRoute.GetUID(),
@@ -610,12 +610,12 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			ctx := context.Background()
 
 			By("Creating a CFRoute with a destination and waiting for it to reconcile", func() {
-				cfRoute = &networkingv1alpha1.CFRoute{
+				cfRoute = &v1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      testRouteGUID,
 						Namespace: testNamespace,
 					},
-					Spec: networkingv1alpha1.CFRouteSpec{
+					Spec: v1alpha1.CFRouteSpec{
 						Host:     testRouteHost,
 						Path:     "/",
 						Protocol: "http",
@@ -623,7 +623,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 							Name:      testDomainGUID,
 							Namespace: testNamespace,
 						},
-						Destinations: []networkingv1alpha1.Destination{
+						Destinations: []v1alpha1.Destination{
 							{
 								GUID: GenerateGUID(),
 								AppRef: corev1.LocalObjectReference{
@@ -660,7 +660,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 			By("Deleting the destination from the CFRoute", func() {
 				originalCFRoute := cfRoute.DeepCopy()
-				cfRoute.Spec.Destinations = []networkingv1alpha1.Destination{}
+				cfRoute.Spec.Destinations = []v1alpha1.Destination{}
 
 				Expect(k8sClient.Patch(ctx, cfRoute, client.MergeFrom(originalCFRoute))).To(Succeed())
 			})

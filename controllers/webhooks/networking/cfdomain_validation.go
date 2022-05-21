@@ -20,9 +20,9 @@ import (
 	"context"
 	"strings"
 
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
-	networkingv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/networking/v1alpha1"
 	admissionv1 "k8s.io/api/admission/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -41,7 +41,7 @@ const (
 // log is for logging in this package.
 var log = logf.Log.WithName("domain-validation")
 
-//+kubebuilder:webhook:path=/validate-networking-cloudfoundry-org-v1alpha1-cfdomain,mutating=false,failurePolicy=fail,sideEffects=None,groups=networking.cloudfoundry.org,resources=cfdomains,verbs=create;update,versions=v1alpha1,name=vcfdomain.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfdomain,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfdomains,verbs=create;update,versions=v1alpha1,name=vcfdomain.korifi.cloudfoundry.org,admissionReviewVersions=v1
 
 type CFDomainValidation struct {
 	client  client.Client
@@ -55,12 +55,12 @@ func NewCFDomainValidation(client client.Client) *CFDomainValidation {
 }
 
 func (v *CFDomainValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	mgr.GetWebhookServer().Register("/validate-networking-cloudfoundry-org-v1alpha1-cfdomain", &webhook.Admission{Handler: v})
+	mgr.GetWebhookServer().Register("/validate-korifi-cloudfoundry-org-v1alpha1-cfdomain", &webhook.Admission{Handler: v})
 	return nil
 }
 
 func (v *CFDomainValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	var domain networkingv1alpha1.CFDomain
+	var domain v1alpha1.CFDomain
 	if req.Operation != admissionv1.Create {
 		return admission.Allowed("")
 	}
@@ -89,7 +89,7 @@ func (v *CFDomainValidation) Handle(ctx context.Context, req admission.Request) 
 }
 
 func (v *CFDomainValidation) domainIsOverlapping(ctx context.Context, domainName string) (bool, error) {
-	var existingDomainList networkingv1alpha1.CFDomainList
+	var existingDomainList v1alpha1.CFDomainList
 	err := v.client.List(ctx, &existingDomainList)
 	if err != nil {
 		return true, err

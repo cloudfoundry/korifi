@@ -11,67 +11,67 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-//+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfapps;cfbuilds;cfpackages;cfprocesses;cfspaces,verbs=list
-//+kubebuilder:rbac:groups=networking.cloudfoundry.org,resources=cfdomains;cfroutes,verbs=list
-//+kubebuilder:rbac:groups=services.cloudfoundry.org,resources=cfservicebindings;cfserviceinstances,verbs=list
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps;cfbuilds;cfpackages;cfprocesses;cfspaces,verbs=list
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains;cfroutes,verbs=list
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings;cfserviceinstances,verbs=list
 
 var (
 	CFAppsGVR = schema.GroupVersionResource{
-		Group:    "workloads.cloudfoundry.org",
+		Group:    "korifi.cloudfoundry.org",
 		Version:  "v1alpha1",
 		Resource: "cfapps",
 	}
 
 	CFBuildsGVR = schema.GroupVersionResource{
-		Group:    "workloads.cloudfoundry.org",
+		Group:    "korifi.cloudfoundry.org",
 		Version:  "v1alpha1",
 		Resource: "cfbuilds",
 	}
 
 	CFDomainsGVR = schema.GroupVersionResource{
-		Group:    "networking.cloudfoundry.org",
+		Group:    "korifi.cloudfoundry.org",
 		Version:  "v1alpha1",
 		Resource: "cfdomains",
 	}
 
 	CFDropletsGVR = schema.GroupVersionResource{
-		Group:    "workloads.cloudfoundry.org",
+		Group:    "korifi.cloudfoundry.org",
 		Version:  "v1alpha1",
 		Resource: "cfbuilds",
 	}
 
 	CFPackagesGVR = schema.GroupVersionResource{
-		Group:    "workloads.cloudfoundry.org",
+		Group:    "korifi.cloudfoundry.org",
 		Version:  "v1alpha1",
 		Resource: "cfpackages",
 	}
 
 	CFProcessesGVR = schema.GroupVersionResource{
-		Group:    "workloads.cloudfoundry.org",
+		Group:    "korifi.cloudfoundry.org",
 		Version:  "v1alpha1",
 		Resource: "cfprocesses",
 	}
 
 	CFRoutesGVR = schema.GroupVersionResource{
-		Group:    "networking.cloudfoundry.org",
+		Group:    "korifi.cloudfoundry.org",
 		Version:  "v1alpha1",
 		Resource: "cfroutes",
 	}
 
 	CFServiceBindingsGVR = schema.GroupVersionResource{
-		Group:    "services.cloudfoundry.org",
+		Group:    "korifi.cloudfoundry.org",
 		Version:  "v1alpha1",
 		Resource: "cfservicebindings",
 	}
 
 	CFServiceInstancesGVR = schema.GroupVersionResource{
-		Group:    "services.cloudfoundry.org",
+		Group:    "korifi.cloudfoundry.org",
 		Version:  "v1alpha1",
 		Resource: "cfserviceinstances",
 	}
 
 	CFSpacesGVR = schema.GroupVersionResource{
-		Group:    "workloads.cloudfoundry.org",
+		Group:    "korifi.cloudfoundry.org",
 		Version:  "v1alpha1",
 		Resource: "cfspaces",
 	}

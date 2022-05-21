@@ -5,7 +5,7 @@ metadata:
   name: cfservicebinding-viewer-role
 rules:
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfservicebindings
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfservicebindings/status
   verbs:

@@ -6,7 +6,7 @@ metadata:
     servicebinding.io/controller: "true" # matches the aggregation rule selector
 rules:
 - apiGroups:
-  - services.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfservicebindings
   verbs:

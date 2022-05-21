@@ -3,7 +3,7 @@ package webhooks_test
 import (
 	"errors"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/korifi/controllers/apis/workloads/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
@@ -22,8 +22,8 @@ var _ = Describe("CFPlacementValidation", func() {
 		testNamespace      string
 		rootNamespace      string
 
-		org   workloadsv1alpha1.CFOrg
-		space workloadsv1alpha1.CFSpace
+		org   v1alpha1.CFOrg
+		space v1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
@@ -33,19 +33,19 @@ var _ = Describe("CFPlacementValidation", func() {
 		testNamespace = "foo"
 
 		scheme := runtime.NewScheme()
-		Expect(workloadsv1alpha1.AddToScheme(scheme)).To(Succeed())
+		Expect(v1alpha1.AddToScheme(scheme)).To(Succeed())
 
 		placementValidator = webhooks.NewPlacementValidator(fakeClient, rootNamespace)
 	})
 
 	Describe("ValidateOrgCreate", func() {
 		BeforeEach(func() {
-			org = workloadsv1alpha1.CFOrg{
+			org = v1alpha1.CFOrg{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-org",
 					Namespace: testNamespace,
 				},
-				Spec: workloadsv1alpha1.CFOrgSpec{
+				Spec: v1alpha1.CFOrgSpec{
 					DisplayName: "test-org-display-name",
 				},
 			}
@@ -59,12 +59,12 @@ var _ = Describe("CFPlacementValidation", func() {
 
 	Describe("ValidateSpaceCreate", func() {
 		BeforeEach(func() {
-			space = workloadsv1alpha1.CFSpace{
+			space = v1alpha1.CFSpace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-space",
 					Namespace: testNamespace,
 				},
-				Spec: workloadsv1alpha1.CFSpaceSpec{
+				Spec: v1alpha1.CFSpaceSpec{
 					DisplayName: "test-space-display-name",
 				},
 			}

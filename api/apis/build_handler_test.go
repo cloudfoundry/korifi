@@ -420,7 +420,7 @@ var _ = Describe("BuildHandler", func() {
 				Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal([]string{}))
 				Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
 				Expect(actualCreate.OwnerRef).To(Equal(metav1.OwnerReference{
-					APIVersion: "workloads.cloudfoundry.org/v1alpha1",
+					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 					Kind:       "CFPackage",
 					Name:       packageGUID,
 					UID:        packageUID,
