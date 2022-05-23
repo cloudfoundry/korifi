@@ -249,8 +249,8 @@ jobs:
           file: ./kpack-image-builder/Dockerfile
           push: false
           tags: cloudfoundry/korifi-kpack-image-builder:${{ github.sha }},cloudfoundry/korifi-kpack-image-builder:latest
-          cache-from: type=gha,scope=controllers-${{ matrix.buildx_version }}
-          cache-to: type=gha,scope=controllers-${{ matrix.buildx_version }}
+          cache-from: type=gha,scope=kpack-image-builder-${{ matrix.buildx_version }}
+          cache-to: type=gha,scope=kpack-image-builder-${{ matrix.buildx_version }}
           outputs: type=docker,dest=/tmp/korifi-kpack-image-builder.image.tar
 
       - name: Upload artifact
@@ -321,7 +321,7 @@ jobs:
         name: korifi-kpack-image-builder.image
         path: /tmp
 
-    - name: Load controllers image
+    - name: Load kpack-image-builder image
       run: |
         docker load --input /tmp/korifi-kpack-image-builder.image.tar
 
