@@ -50,6 +50,10 @@ var _ = Describe("TokenReviewer", func() {
 			tokenReviewer = authorization.NewTokenReviewer(k8sClient)
 		})
 
+		AfterEach(func() {
+			restartEnvTest(authProvider.APIServerExtraArgs(oidcPrefix))
+		})
+
 		It("extracts the identity of the serviceaccount", func() {
 			Expect(id.Kind).To(Equal(rbacv1.ServiceAccountKind))
 			Expect(id.Name).To(Equal("my-serviceaccount"))
@@ -65,6 +69,10 @@ var _ = Describe("TokenReviewer", func() {
 			)
 			tokenReviewer = authorization.NewTokenReviewer(k8sClient)
 			passErrConstraints = MatchError(ContainSubstring("invalid serviceaccount name"))
+		})
+
+		AfterEach(func() {
+			restartEnvTest(authProvider.APIServerExtraArgs(oidcPrefix))
 		})
 
 		It("returns an error", func() {
