@@ -27,7 +27,7 @@ if [[ -z "${E2E_SERVICE_ACCOUNT:=}" ]]; then
   kubectl create serviceaccount -n "$ROOT_NAMESPACE" "$E2E_SERVICE_ACCOUNT"
 fi
 
-if [[ -z "$E2E_SERVICE_ACCOUNT_TOKEN" ]]; then
+if [[ -z "${E2E_SERVICE_ACCOUNT_TOKEN:=}" ]]; then
   E2E_SERVICE_ACCOUNT_TOKEN_NAME="${E2E_SERVICE_ACCOUNT}-token"
   kubectl delete secret --ignore-not-found=true -n "$ROOT_NAMESPACE" "$E2E_SERVICE_ACCOUNT_TOKEN_NAME" &>/dev/null
   kubectl apply -f - <<TOKEN_SECRET
