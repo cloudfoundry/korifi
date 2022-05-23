@@ -209,7 +209,10 @@ spec:
         ports:
         - containerPort: 9000
           name: web
-        resources: {}
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
         volumeMounts:
         - mountPath: /etc/korifi-api-config
           name: korifi-api-config
