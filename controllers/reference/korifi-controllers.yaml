@@ -1306,7 +1306,7 @@ spec:
                 description: Specifies the desired number of Process replicas to deploy
                 type: integer
               diskQuotaMB:
-                description: Specifies the Process disk limit
+                description: Specifies the Process disk limit in MiB
                 format: int64
                 type: integer
               healthCheck:
@@ -1345,7 +1345,7 @@ spec:
                 - type
                 type: object
               memoryMB:
-                description: Specifies the Process memory limit
+                description: Specifies the Process memory limit in MiB
                 format: int64
                 type: integer
               ports:

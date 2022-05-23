@@ -38,10 +38,10 @@ type CFProcessSpec struct {
 	// Specifies the desired number of Process replicas to deploy
 	DesiredInstances int `json:"desiredInstances"`
 
-	// Specifies the Process memory limit
+	// Specifies the Process memory limit in MiB
 	MemoryMB int64 `json:"memoryMB"`
 
-	// Specifies the Process disk limit
+	// Specifies the Process disk limit in MiB
 	DiskQuotaMB int64 `json:"diskQuotaMB"`
 
 	// Specifies the Process ports to expose
