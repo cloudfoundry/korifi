@@ -22,7 +22,10 @@ spec:
         ports:
         - containerPort: 9000
           name: web
-        resources: {}
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
         env:
         - name: APICONFIG
           value: "/etc/korifi-api-config"
