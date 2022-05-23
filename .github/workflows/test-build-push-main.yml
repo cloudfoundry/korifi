@@ -330,8 +330,7 @@ jobs:
         SKIP_DOCKER_BUILD: true
         IMG_API: cloudfoundry/korifi-api:${{ github.sha }}
         IMG_CONTROLLERS: cloudfoundry/korifi-controllers:${{ github.sha }}
-        # TODO: uncomment once we actually use this variable
-        # IMG_KPACK_IMAGE_BUILDER: cloudfoundry/korifi-kpack-image-builder:${{ github.sha }}
+        IMG_KIB: cloudfoundry/korifi-kpack-image-builder:${{ github.sha }}
       run: make test-e2e
       working-directory: ./korifi
 
