@@ -6,16 +6,6 @@ fi
 
 source "$SCRIPT_DIR/common.sh"
 
-getToken() {
-  local name namespace secret
-  name=${1:?}
-  namespace=${2:?}
-  secretName="$(kubectl get serviceaccounts -n "$namespace" "$name" -ojsonpath='{.secrets[0].name}')"
-  if [[ -n "$secretName" ]]; then
-    kubectl get secrets -n "$namespace" "$secretName" -ojsonpath='{.data.token}' | base64 -d
-  fi
-}
-
 tmp="$(mktemp -d)"
 trap "rm -rf $tmp" EXIT
 if [[ -z "${E2E_USER_NAME:=}" ]]; then
@@ -35,10 +25,26 @@ if [[ -z "${E2E_SERVICE_ACCOUNT:=}" ]]; then
   export E2E_SERVICE_ACCOUNT="e2e-service-account"
   kubectl delete serviceaccount --ignore-not-found=true -n "$ROOT_NAMESPACE" "$E2E_SERVICE_ACCOUNT" &>/dev/null
   kubectl create serviceaccount -n "$ROOT_NAMESPACE" "$E2E_SERVICE_ACCOUNT"
+fi
+
+if [[ -z "${E2E_SERVICE_ACCOUNT_TOKEN:=}" ]]; then
+  E2E_SERVICE_ACCOUNT_TOKEN_NAME="${E2E_SERVICE_ACCOUNT}-token"
+  kubectl delete secret --ignore-not-found=true -n "$ROOT_NAMESPACE" "$E2E_SERVICE_ACCOUNT_TOKEN_NAME" &>/dev/null
+  kubectl apply -f - <<TOKEN_SECRET
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: "$E2E_SERVICE_ACCOUNT_TOKEN_NAME"
+      namespace: "$ROOT_NAMESPACE"
+      annotations:
+        kubernetes.io/service-account.name: "$E2E_SERVICE_ACCOUNT"
+    type: kubernetes.io/service-account-token
+    data:
+TOKEN_SECRET
 
   token=""
   while [ -z "$token" ]; do
-    token="$(getToken "e2e-service-account" "$ROOT_NAMESPACE")"
+    token="$(kubectl get secrets -n "$ROOT_NAMESPACE" "$E2E_SERVICE_ACCOUNT_TOKEN_NAME" -ojsonpath='{.data.token}' | base64 -d)"
     sleep 0.5
   done
 
