@@ -24,20 +24,20 @@ EOF
 while [[ $# -gt 0 ]]; do
   i=$1
   case $i in
-  -g=* | --gcr-service-account-json=*)
-    GCP_SERVICE_ACCOUNT_JSON_FILE="${i#*=}"
-    shift
-    ;;
-  -g | --gcr-service-account-json)
-    GCP_SERVICE_ACCOUNT_JSON_FILE="${2}"
-    shift
-    shift
-    ;;
-  *)
-    echo -e "Error: Unknown flag: ${i/=*/}\n" >&2
-    usage_text >&2
-    exit 1
-    ;;
+    -g=* | --gcr-service-account-json=*)
+      GCP_SERVICE_ACCOUNT_JSON_FILE="${i#*=}"
+      shift
+      ;;
+    -g | --gcr-service-account-json)
+      GCP_SERVICE_ACCOUNT_JSON_FILE="${2}"
+      shift
+      shift
+      ;;
+    *)
+      echo -e "Error: Unknown flag: ${i/=*/}\n" >&2
+      usage_text >&2
+      exit 1
+      ;;
   esac
 done
 
@@ -113,40 +113,26 @@ echo "Installing HNC"
 echo "*******************"
 
 kubectl apply -k ${DEP_DIR}/hnc/cf
-kubectl rollout status deployment/hnc-controller-manager -w -n hnc-system
-
-# install kubectl addon in order to configure secrets propagation
-readonly HNC_VERSION="v1.0.0"
-readonly HNC_PLATFORM="$(go env GOHOSTOS)_$(go env GOHOSTARCH)"
-readonly HNC_BIN="${PWD}/bin"
-export PATH="${HNC_BIN}:${PATH}"
-
-mkdir -p "${HNC_BIN}"
-curl -L "https://github.com/kubernetes-sigs/hierarchical-namespaces/releases/download/${HNC_VERSION}/kubectl-hns_${HNC_PLATFORM}" -o "${HNC_BIN}/kubectl-hns"
-chmod +x "${HNC_BIN}/kubectl-hns"
-
-# Propagate the kpack image registry write secret
-retry kubectl hns config set-resource secrets --mode Propagate
+kubectl rollout status deployment/hnc-controller-manager --watch --namespace hnc-system
+while ! kubectl get hncconfigurations.hnc.x-k8s.io config; do
+  sleep 1
+done
+kubectl patch hncconfigurations.hnc.x-k8s.io config --type=merge -p '{"spec":{"resources":[{"mode":"Propagate", "resource": "secrets"}]}}'
 
 echo "*******************"
 echo "Installing Eirini"
 echo "*******************"
 
-## Assumes eirini-controller repository is available at the same level as this project's repository in the filesystem
-## Make sure you have the latest copy of the repository
-EIRINI_DIR="$(cd "$(dirname "$0")/../../eirini-controller" && pwd)"
-
-"${SCRIPT_DIR}/generate-eirini-certs-secret.sh" "*.eirini-controller.svc"
-
-webhooks_ca_bundle="$(kubectl get secret -n eirini-controller eirini-webhooks-certs -o jsonpath="{.data['tls\.ca']}")"
-
-# Install image built based on eirini-controller/master@dd915fd80a13297cd727262ae7917d42a5d4375a w/ values-template as default values file
-helm template eirini-controller "${EIRINI_DIR}/deployment/helm" \
-  --values "${EIRINI_DIR}/deployment/helm/values-template.yaml" \
-  --set "webhooks.ca_bundle=${webhooks_ca_bundle}" \
+EIRINI_VERSION="0.3.0"
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: eirini-controller
+EOF
+helm template eirini-controller "https://github.com/cloudfoundry/eirini-controller/releases/download/v$EIRINI_VERSION/eirini-controller-$EIRINI_VERSION.tgz" \
   --set "workloads.default_namespace=cf" \
   --set "controller.registry_secret_name=image-registry-credentials" \
-  --set "images.eirini_controller=eirini/eirini-controller@sha256:7b2ad538d603589de2539c186439919ad004d901fc7067302769799bf4309d30" \
   --namespace "eirini-controller" | kubectl apply -f -
 
 echo "**************************************"
