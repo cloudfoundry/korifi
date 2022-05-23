@@ -89,7 +89,7 @@ func returnDroplet(cfBuild v1alpha1.CFBuild) (DropletRecord, error) {
 func cfBuildToDropletRecord(cfBuild v1alpha1.CFBuild) DropletRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfBuild.ObjectMeta)
 	processTypesMap := make(map[string]string)
-	processTypesArrayObject := cfBuild.Status.BuildDropletStatus.ProcessTypes
+	processTypesArrayObject := cfBuild.Status.Droplet.ProcessTypes
 	for index := range processTypesArrayObject {
 		processTypesMap[processTypesArrayObject[index].Type] = processTypesArrayObject[index].Command
 	}
@@ -106,7 +106,7 @@ func cfBuildToDropletRecord(cfBuild v1alpha1.CFBuild) DropletRecord {
 				Stack:      cfBuild.Spec.Lifecycle.Data.Stack,
 			},
 		},
-		Stack:        cfBuild.Status.BuildDropletStatus.Stack,
+		Stack:        cfBuild.Status.Droplet.Stack,
 		ProcessTypes: processTypesMap,
 		AppGUID:      cfBuild.Spec.AppRef.Name,
 		PackageGUID:  cfBuild.Spec.PackageRef.Name,

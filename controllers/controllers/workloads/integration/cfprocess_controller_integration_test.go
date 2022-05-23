@@ -160,7 +160,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			Expect(lrp.Spec.Version).To(Equal(cfApp.Annotations[cfAppRevisionKey]), "Expected lrp version to match cfApp's app-rev annotation")
 			Expect(lrp.Spec.DiskMB).To(Equal(cfProcess.Spec.DiskQuotaMB), "lrp DiskMB does not match")
 			Expect(lrp.Spec.MemoryMB).To(Equal(cfProcess.Spec.MemoryMB), "lrp MemoryMB does not match")
-			Expect(lrp.Spec.Image).To(Equal(cfBuild.Status.BuildDropletStatus.Registry.Image), "lrp Image does not match Droplet")
+			Expect(lrp.Spec.Image).To(Equal(cfBuild.Status.Droplet.Registry.Image), "lrp Image does not match Droplet")
 			Expect(lrp.Spec.ProcessType).To(Equal(processTypeWeb), "lrp process type does not match")
 			Expect(lrp.Spec.AppName).To(Equal(cfApp.Spec.DisplayName), "lrp app name does not match CFApp")
 			Expect(lrp.Spec.AppGUID).To(Equal(cfApp.Name), "lrp app GUID does not match CFApp")

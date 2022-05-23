@@ -109,7 +109,7 @@ func (r *CFProcessReconciler) createOrPatchLRP(ctx context.Context, cfApp *v1alp
 		return err
 	}
 
-	if cfBuild.Status.BuildDropletStatus == nil {
+	if cfBuild.Status.Droplet == nil {
 		r.Log.Error(err, fmt.Sprintf("No build droplet status on CFBuild %s/%s", cfProcess.Namespace, cfApp.Spec.CurrentDropletRef.Name))
 		return errors.New("no build droplet status on CFBuild")
 	}
@@ -218,7 +218,7 @@ func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *v1alph
 	desiredLRP.Spec.Command = commandForProcess(cfProcess, cfApp)
 	desiredLRP.Spec.AppName = cfApp.Spec.DisplayName
 	desiredLRP.Spec.AppGUID = cfApp.Name
-	desiredLRP.Spec.Image = cfBuild.Status.BuildDropletStatus.Registry.Image
+	desiredLRP.Spec.Image = cfBuild.Status.Droplet.Registry.Image
 	desiredLRP.Spec.Ports = cfProcess.Spec.Ports
 	desiredLRP.Spec.Instances = cfProcess.Spec.DesiredInstances
 

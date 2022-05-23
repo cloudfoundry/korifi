@@ -138,7 +138,7 @@ var _ = Describe("CFAppReconciler", func() {
 		When("CFProcesses do not exist for the app", func() {
 			It("eventually creates CFProcess for each process listed on the droplet", func() {
 				testCtx := context.Background()
-				droplet := cfBuild.Status.BuildDropletStatus
+				droplet := cfBuild.Status.Droplet
 				processTypes := droplet.ProcessTypes
 				for _, process := range processTypes {
 					cfProcessList := v1alpha1.CFProcessList{}
@@ -282,7 +282,7 @@ var _ = Describe("CFAppReconciler", func() {
 
 			It("eventually creates CFProcess with empty ports and a healthCheck type of \"process\"", func() {
 				testCtx := context.Background()
-				droplet := cfBuild.Status.BuildDropletStatus
+				droplet := cfBuild.Status.Droplet
 				processTypes := droplet.ProcessTypes
 				for _, process := range processTypes {
 					cfProcessList := v1alpha1.CFProcessList{}

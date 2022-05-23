@@ -1,4 +1,3 @@
-kpackImageTag: localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images
 clusterBuilderName: cf-kpack-cluster-builder
 cfProcessDefaults:
   memoryMB: 1024

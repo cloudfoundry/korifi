@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;create
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;create
 
 package workloads
 
@@ -24,16 +24,16 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 const (

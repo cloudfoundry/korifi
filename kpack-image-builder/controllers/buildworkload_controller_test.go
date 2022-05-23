@@ -22,7 +22,6 @@ import (
 
 var _ = Describe("BuildWorkloadReconciler", func() {
 	const (
-		runningConditionType                = "Running"
 		succeededConditionType              = "Succeeded"
 		kpackReadyConditionType             = "Ready"
 		wellFormedRegistryCredentialsSecret = "image-registry-credentials"
@@ -108,13 +107,12 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			})
 		})
 
-		It("sets the status conditions on BuildWorkload", func() {
+		It("sets the status condition on BuildWorkload", func() {
 			cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 			updatedBuildWorkload := new(v1alpha1.BuildWorkload)
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(context.Background(), cfBuildLookupKey, updatedBuildWorkload)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, runningConditionType).Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionUnknown))
 			}).Should(Succeed())
 		})
@@ -148,13 +146,12 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				Expect(k8sClient.Create(context.Background(), existingKpackImage)).To(Succeed())
 			})
 
-			It("sets the status conditions on BuildWorkload", func() {
+			It("sets the status condition on BuildWorkload", func() {
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedBuildWorkload := new(v1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), cfBuildLookupKey, updatedBuildWorkload)
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, runningConditionType).Status).To(Equal(metav1.ConditionTrue))
 					g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionUnknown))
 				}).Should(Succeed())
 			})
@@ -199,13 +196,13 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				Expect(k8sClient.Status().Update(context.Background(), createdKpackImage)).To(Succeed())
 			})
 
-			It("sets the Running and Succeeded conditions to False", func() {
+			It("sets the Succeeded conditions to False", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedWorkload := new(v1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), lookupKey, updatedWorkload)
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, runningConditionType).Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionFalse))
 				}).Should(Succeed())
 			})
 		})
@@ -233,14 +230,13 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				Expect(k8sClient.Status().Update(context.Background(), createdKpackImage)).To(Succeed())
 			})
 
-			It("sets the Running condition to False and the Succeeded condition to True", func() {
+			It("sets the Succeeded condition to True", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedWorkload := new(v1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), lookupKey, updatedWorkload)
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionTrue))
-					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, runningConditionType).Status).To(Equal(metav1.ConditionFalse))
 				}).Should(Succeed())
 			})
 
