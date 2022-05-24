@@ -280,6 +280,7 @@ function deploy_korifi_api() {
 }
 
 function deploy_kpack_image_builder() {
+  set -x
   if [[ -n "${api_only}" ]]; then return 0; fi
 
   pushd "${ROOT_DIR}/kpack-image-builder" >/dev/null
@@ -302,6 +303,7 @@ function deploy_kpack_image_builder() {
   }
   popd >/dev/null
 
+  set +x
   kubectl rollout status deployment/korifi-kpack-build-controller-manager -w -n korifi-kpack-build-system
 }
 

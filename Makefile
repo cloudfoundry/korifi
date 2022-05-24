@@ -1,6 +1,7 @@
 # Image URL to use all building/pushing image targets
 IMG_CONTROLLERS ?= cloudfoundry/korifi-controllers:latest
 IMG_API ?= cloudfoundry/korifi-api:latest
+IMG_KIB ?= cloudfoundry/korifi-kpack-image-builder:latest
 CRD_OPTIONS ?= "crd"
 
 # Run controllers tests with two nodes by default to (potentially) minimise
