@@ -234,7 +234,7 @@ Create the default `CFDomain` that will be used by all apps running on Korifi:
 
 ```sh
 cat <<EOF | kubectl apply --namespace "$ROOT_NAMESPACE" -f -
-apiVersion: networking.cloudfoundry.org/v1alpha1
+apiVersion: korifi.cloudfoundry.org/v1alpha1
 kind: CFDomain
 metadata:
   name: default-domain
