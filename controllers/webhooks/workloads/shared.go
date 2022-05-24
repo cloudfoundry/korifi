@@ -1,6 +1,6 @@
 package workloads
 
-import "code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+import "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 //counterfeiter:generate -o fake -fake-name PlacementValidator . PlacementValidator

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	admissionv1 "k8s.io/api/admission/v1"

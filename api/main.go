@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"k8s.io/client-go/rest"
 	"log"
 	"net/http"
 	"net/url"
@@ -11,13 +10,13 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/actions"
-	"code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/config"
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	reporegistry "code.cloudfoundry.org/korifi/api/repositories/registry"
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
@@ -27,6 +26,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -146,18 +146,18 @@ func main() {
 	).Invoke
 	readAppLogsAction := actions.NewReadAppLogs(appRepo, buildRepo, podRepo)
 
-	decoderValidator, err := apis.NewDefaultDecoderValidator()
+	decoderValidator, err := handlers.NewDefaultDecoderValidator()
 	if err != nil {
 		panic(fmt.Sprintf("could not wire validator: %v", err))
 	}
 
-	handlers := []APIHandler{
-		apis.NewRootV3Handler(config.ServerURL),
-		apis.NewRootHandler(
+	apiHandlers := []APIHandler{
+		handlers.NewRootV3Handler(config.ServerURL),
+		handlers.NewRootHandler(
 			config.ServerURL,
 		),
-		apis.NewResourceMatchesHandler(),
-		apis.NewAppHandler(
+		handlers.NewResourceMatchesHandler(),
+		handlers.NewAppHandler(
 			*serverURL,
 			appRepo,
 			dropletRepo,
@@ -168,7 +168,7 @@ func main() {
 			scaleAppProcessAction.Invoke,
 			decoderValidator,
 		),
-		apis.NewRouteHandler(
+		handlers.NewRouteHandler(
 			*serverURL,
 			routeRepo,
 			domainRepo,
@@ -176,10 +176,10 @@ func main() {
 			spaceRepo,
 			decoderValidator,
 		),
-		apis.NewServiceRouteBindingHandler(
+		handlers.NewServiceRouteBindingHandler(
 			*serverURL,
 		),
-		apis.NewPackageHandler(
+		handlers.NewPackageHandler(
 			*serverURL,
 			packageRepo,
 			appRepo,
@@ -189,36 +189,36 @@ func main() {
 			config.PackageRegistryBase,
 			config.PackageRegistrySecretName,
 		),
-		apis.NewBuildHandler(
+		handlers.NewBuildHandler(
 			*serverURL,
 			buildRepo,
 			packageRepo,
 			decoderValidator,
 		),
-		apis.NewDropletHandler(
+		handlers.NewDropletHandler(
 			*serverURL,
 			dropletRepo,
 		),
-		apis.NewProcessHandler(
+		handlers.NewProcessHandler(
 			*serverURL,
 			processRepo,
 			fetchProcessStatsAction.Invoke,
 			scaleProcessAction.Invoke,
 			decoderValidator,
 		),
-		apis.NewDomainHandler(
+		handlers.NewDomainHandler(
 			*serverURL,
 			domainRepo,
 		),
-		apis.NewJobHandler(
+		handlers.NewJobHandler(
 			*serverURL,
 		),
-		apis.NewLogCacheHandler(
+		handlers.NewLogCacheHandler(
 			appRepo,
 			buildRepo,
 			readAppLogsAction.Invoke,
 		),
-		apis.NewOrgHandler(
+		handlers.NewOrgHandler(
 			*serverURL,
 			orgRepo,
 			domainRepo,
@@ -226,14 +226,14 @@ func main() {
 			config.GetUserCertificateDuration(),
 		),
 
-		apis.NewSpaceHandler(
+		handlers.NewSpaceHandler(
 			*serverURL,
 			config.PackageRegistrySecretName,
 			spaceRepo,
 			decoderValidator,
 		),
 
-		apis.NewSpaceManifestHandler(
+		handlers.NewSpaceManifestHandler(
 			*serverURL,
 			config.DefaultDomainName,
 			applyManifestAction,
@@ -241,28 +241,28 @@ func main() {
 			decoderValidator,
 		),
 
-		apis.NewRoleHandler(
+		handlers.NewRoleHandler(
 			*serverURL,
 			roleRepo,
 			decoderValidator,
 		),
 
-		apis.NewWhoAmI(cachingIdentityProvider, *serverURL),
+		handlers.NewWhoAmI(cachingIdentityProvider, *serverURL),
 
-		apis.NewBuildpackHandler(
+		handlers.NewBuildpackHandler(
 			*serverURL,
 			buildpackRepo,
 			config.ClusterBuilderName,
 		),
 
-		apis.NewServiceInstanceHandler(
+		handlers.NewServiceInstanceHandler(
 			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
 			decoderValidator,
 		),
 
-		apis.NewServiceBindingHandler(
+		handlers.NewServiceBindingHandler(
 			*serverURL,
 			serviceBindingRepo,
 			appRepo,
@@ -272,14 +272,14 @@ func main() {
 	}
 
 	router := mux.NewRouter()
-	for _, handler := range handlers {
+	for _, handler := range apiHandlers {
 		handler.RegisterRoutes(router)
 	}
 
 	authInfoParser := authorization.NewInfoParser()
 	router.Use(
-		apis.NewCorrelationIDMiddleware().Middleware,
-		apis.NewAuthenticationMiddleware(
+		handlers.NewCorrelationIDMiddleware().Middleware,
+		handlers.NewAuthenticationMiddleware(
 			authInfoParser,
 			cachingIdentityProvider,
 		).Middleware,

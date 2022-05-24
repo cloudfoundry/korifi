@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"

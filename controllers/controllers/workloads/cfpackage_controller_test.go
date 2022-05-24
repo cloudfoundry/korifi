@@ -7,7 +7,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/fake"

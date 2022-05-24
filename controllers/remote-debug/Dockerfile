@@ -11,7 +11,7 @@ COPY api/repositories api/repositories/
 COPY api/apierrors api/apierrors/
 COPY api/authorization api/authorization/
 COPY api/config api/config/
-COPY controllers/apis controllers/apis/
+COPY controllers/api controllers/api/
 COPY controllers/controllers controllers/controllers/
 COPY controllers/coordination controllers/coordination/
 COPY controllers/webhooks controllers/webhooks/

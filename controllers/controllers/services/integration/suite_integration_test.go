@@ -23,7 +23,7 @@ import (
 	"time"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/services"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"

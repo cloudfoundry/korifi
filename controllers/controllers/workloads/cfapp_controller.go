@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 

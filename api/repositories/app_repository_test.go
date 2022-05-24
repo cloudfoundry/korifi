@@ -8,7 +8,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"

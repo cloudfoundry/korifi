@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/google/uuid"

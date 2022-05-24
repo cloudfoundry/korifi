@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/apis"
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
 
@@ -371,7 +371,7 @@ func asyncCreateSpace(spaceName, orgGUID string, createdSpaceGUID *string, wg *s
 // createRole creates an org or space role
 // You should probably invoke this via createOrgRole or createSpaceRole
 func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) {
-	rolesURL := apiServerRoot + apis.RolesPath
+	rolesURL := apiServerRoot + handlers.RolesPath
 
 	userOrServiceAccount := "user"
 	if kind == rbacv1.ServiceAccountKind {

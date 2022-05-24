@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services"
 
 	"k8s.io/apimachinery/pkg/types"

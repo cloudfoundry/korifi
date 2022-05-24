@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"

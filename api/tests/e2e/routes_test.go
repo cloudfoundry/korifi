@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

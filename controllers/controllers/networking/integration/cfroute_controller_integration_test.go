@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"

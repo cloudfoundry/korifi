@@ -1,7 +1,7 @@
 package helpers
 
 import (
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 
 	"github.com/google/uuid"

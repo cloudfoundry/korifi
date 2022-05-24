@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
