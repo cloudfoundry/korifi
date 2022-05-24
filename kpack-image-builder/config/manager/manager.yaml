@@ -27,9 +27,7 @@ spec:
       securityContext:
         runAsNonRoot: true
       containers:
-      - command:
-        - /manager
-        args:
+      - args:
         - --leader-elect
         image: cloudfoundry/korifi-kpack-image-builder:latest
         name: manager
@@ -55,15 +53,15 @@ spec:
             cpu: 50m
             memory: 100Mi
         env:
-          - name: CONTROLLERSCONFIG
-            value: "/etc/kpack-build-controllers-config"
+        - name: CONTROLLERSCONFIG
+          value: "/etc/kpack-build-controllers-config"
         volumeMounts:
-          - name: korifi-kpack-build-config
-            mountPath: /etc/kpack-build-controllers-config
-            readOnly: true
-      volumes:
         - name: korifi-kpack-build-config
-          configMap:
-            name: korifi-kpack-build-config
+          mountPath: /etc/kpack-build-controllers-config
+          readOnly: true
+      volumes:
+      - name: korifi-kpack-build-config
+        configMap:
+          name: korifi-kpack-build-config
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
