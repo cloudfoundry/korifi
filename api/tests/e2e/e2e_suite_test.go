@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/apis"
+	apis "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
 

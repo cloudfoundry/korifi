@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"k8s.io/client-go/rest"
 	"log"
 	"net/http"
 	"net/url"
@@ -10,10 +9,12 @@ import (
 	"path"
 	"time"
 
+	"k8s.io/client-go/rest"
+
 	"code.cloudfoundry.org/korifi/api/actions"
-	"code.cloudfoundry.org/korifi/api/apis"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/config"
+	apis "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	reporegistry "code.cloudfoundry.org/korifi/api/repositories/registry"

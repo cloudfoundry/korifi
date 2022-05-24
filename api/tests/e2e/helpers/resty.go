@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/api/apis"
+	apis "code.cloudfoundry.org/korifi/api/handlers"
 	"github.com/go-http-utils/headers"
 	"github.com/go-resty/resty/v2"
 )
