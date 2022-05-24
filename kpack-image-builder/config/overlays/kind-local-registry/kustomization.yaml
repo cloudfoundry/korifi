@@ -9,8 +9,3 @@ configMapGenerator:
 
 resources:
   - ../../default
-
-images:
-- name: cloudfoundry/korifi-kpack-image-builder
-  newName: korifi-kpack-image-builder
-  newTag: latest
