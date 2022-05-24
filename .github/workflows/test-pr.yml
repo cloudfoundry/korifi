@@ -113,3 +113,162 @@ jobs:
 
       - name: Run kpack-image-builder tests
         run: make test-kpack-image-builder
+
+  build-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and export
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./api/Dockerfile
+          push: false
+          tags: cloudfoundry/korifi-api:${{ github.sha }},cloudfoundry/korifi-api:latest
+          cache-from: type=gha,scope=api-${{ matrix.buildx_version }}
+          cache-to: type=gha,scope=api-${{ matrix.buildx_version }}
+          outputs: type=docker,dest=/tmp/korifi-api.image.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: korifi-api.image
+          path: /tmp/korifi-api.image.tar
+
+  build-controllers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and export
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./controllers/Dockerfile
+          push: false
+          tags: cloudfoundry/korifi-controllers:${{ github.sha }},cloudfoundry/korifi-controllers:latest
+          cache-from: type=gha,scope=controllers-${{ matrix.buildx_version }}
+          cache-to: type=gha,scope=controllers-${{ matrix.buildx_version }}
+          outputs: type=docker,dest=/tmp/korifi-controllers.image.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: korifi-controllers.image
+          path: /tmp/korifi-controllers.image.tar
+
+  build-kpack-image-builder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and export
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./kpack-image-builder/Dockerfile
+          push: false
+          tags: cloudfoundry/korifi-kpack-image-builder:${{ github.sha }},cloudfoundry/korifi-kpack-image-builder:latest
+          cache-from: type=gha,scope=kpack-image-builder-${{ matrix.buildx_version }}
+          cache-to: type=gha,scope=kpack-image-builder-${{ matrix.buildx_version }}
+          outputs: type=docker,dest=/tmp/korifi-kpack-image-builder.image.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: korifi-kpack-image-builder.image
+          path: /tmp/korifi-kpack-image-builder.image.tar
+
+  e2e-tests:
+    needs:
+    - build-api
+    - build-controllers
+    - build-kpack-image-builder
+    - check-reference-api
+    - check-reference-controllers
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        path: korifi
+
+    - uses: actions/checkout@v3
+      with:
+        repository: cloudfoundry-incubator/eirini-controller
+        path: eirini-controller
+
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('korifi/**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - uses: actions/setup-go@v3
+      with:
+        go-version: '^1.18'
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Download API image
+      uses: actions/download-artifact@v3
+      with:
+        name: korifi-api.image
+        path: /tmp
+
+    - name: Load API image
+      run: |
+        docker load --input /tmp/korifi-api.image.tar
+
+    - name: Download controllers image
+      uses: actions/download-artifact@v3
+      with:
+        name: korifi-controllers.image
+        path: /tmp
+
+    - name: Load controllers image
+      run: |
+        docker load --input /tmp/korifi-controllers.image.tar
+
+    - name: Download kpack-image-builder image
+      uses: actions/download-artifact@v3
+      with:
+        name: korifi-kpack-image-builder.image
+        path: /tmp
+
+    - name: Load kpack-image-builder image
+      run: |
+        docker load --input /tmp/korifi-kpack-image-builder.image.tar
+
+    - name: Setup upterm session
+      uses: lhotari/action-upterm@v1
+      with:
+        ## limits ssh access and adds the ssh public key for the user which triggered the workflow
+        limit-access-to-actor: true
+
+    - name: Run e2e tests
+      env:
+        SKIP_DOCKER_BUILD: true
+        IMG_API: cloudfoundry/korifi-api:${{ github.sha }}
+        IMG_CONTROLLERS: cloudfoundry/korifi-controllers:${{ github.sha }}
+        IMG_KIB: cloudfoundry/korifi-kpack-image-builder:${{ github.sha }}
+      run: make test-e2e
+      working-directory: ./korifi
