@@ -9,7 +9,7 @@ COPY go.sum go.sum
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-COPY controllers/apis controllers/apis/
+COPY controllers/api controllers/api/
 
 # Copy the go source
 COPY kpack-image-builder/main.go kpack-image-builder/main.go
