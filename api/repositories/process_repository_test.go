@@ -200,6 +200,17 @@ var _ = Describe("ProcessRepo", func() {
 					Expect(processes).ToNot(BeNil())
 				})
 			})
+
+			When("a space exists with a rolebinding for the user, but without permission to list processes", func() {
+				BeforeEach(func() {
+					anotherSpace := createSpaceWithCleanup(ctx, org.Name, "space-without-process-space-perm")
+					createRoleBinding(ctx, userName, rootNamespaceUserRole.Name, anotherSpace.Name)
+				})
+
+				It("returns the processes", func() {
+					Expect(processes).To(HaveLen(2))
+				})
+			})
 		})
 	})
 

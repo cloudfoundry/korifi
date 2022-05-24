@@ -20,6 +20,7 @@ var _ = Describe("DropletRepository", func() {
 	var (
 		testCtx     context.Context
 		dropletRepo *repositories.DropletRepo
+		org         *v1alpha1.CFOrg
 		space       *v1alpha1.CFSpace
 	)
 
@@ -27,7 +28,7 @@ var _ = Describe("DropletRepository", func() {
 		testCtx = context.Background()
 		orgName := prefixedGUID("org-")
 		spaceName := prefixedGUID("space-")
-		org := createOrgWithCleanup(testCtx, orgName)
+		org = createOrgWithCleanup(testCtx, orgName)
 		space = createSpaceWithCleanup(testCtx, org.Name, spaceName)
 
 		dropletRepo = repositories.NewDropletRepo(userClientFactory, namespaceRetriever, nsPerms)
@@ -360,6 +361,17 @@ var _ = Describe("DropletRepository", func() {
 				It("returns a list of droplet records with the packageGUID label set on them", func() {
 					Expect(dropletRecords).To(HaveLen(1))
 					Expect(dropletRecords[0].GUID).To(Equal(build.Name))
+				})
+
+				When("a space exists with a rolebinding for the user, but without permission to list droplets", func() {
+					BeforeEach(func() {
+						anotherSpace := createSpaceWithCleanup(testCtx, org.Name, "space-without-droplet-space-perm")
+						createRoleBinding(testCtx, userName, rootNamespaceUserRole.Name, anotherSpace.Name)
+					})
+
+					It("returns the droplet", func() {
+						Expect(dropletRecords).To(HaveLen(1))
+					})
 				})
 			})
 		})
