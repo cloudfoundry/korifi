@@ -161,17 +161,17 @@ var _ = Describe("CFAppReconciler", func() {
 
 		// configure a CFAppReconciler with the client
 		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-		cfAppReconciler = &CFAppReconciler{
-			Client: fakeClient,
-			Scheme: scheme.Scheme,
-			Log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			ControllerConfig: &config.ControllerConfig{
+		cfAppReconciler = NewCFAppReconciler(
+			fakeClient,
+			scheme.Scheme,
+			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+			&config.ControllerConfig{
 				CFProcessDefaults: config.CFProcessDefaults{
 					MemoryMB:           0,
 					DefaultDiskQuotaMB: 0,
 				},
 			},
-		}
+		)
 		ctx = context.Background()
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{

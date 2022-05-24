@@ -43,6 +43,10 @@ type CFServiceBindingReconciler struct {
 	Log    logr.Logger
 }
 
+func NewCFServiceBindingReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *CFServiceBindingReconciler {
+	return &CFServiceBindingReconciler{Client: client, Scheme: scheme, Log: log}
+}
+
 const (
 	BindingSecretAvailableCondition   = "BindingSecretAvailable"
 	ServiceBindingGUIDLabel           = "korifi.cloudfoundry.org/service-binding-guid"

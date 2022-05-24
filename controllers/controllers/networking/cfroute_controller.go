@@ -49,6 +49,10 @@ type CFRouteReconciler struct {
 	ControllerConfig *config.ControllerConfig
 }
 
+func NewCFRouteReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger, controllerConfig *config.ControllerConfig) *CFRouteReconciler {
+	return &CFRouteReconciler{Client: client, Scheme: scheme, Log: log, ControllerConfig: controllerConfig}
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/finalizers,verbs=update

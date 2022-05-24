@@ -75,17 +75,17 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&CFDomainReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
-	}).SetupWithManager(k8sManager)
+	err = (NewCFDomainReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+	)).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&CFRouteReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFRoute"),
-		ControllerConfig: &config.ControllerConfig{
+	err = (NewCFRouteReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFRoute"),
+		&config.ControllerConfig{
 			ClusterBuilderName: "cf-kpack-builder",
 			CFProcessDefaults: config.CFProcessDefaults{
 				MemoryMB:           500,
@@ -94,7 +94,7 @@ var _ = BeforeSuite(func() {
 			KorifiControllerNamespace: "korifi-controllers-system",
 			WorkloadsTLSSecretName:    "korifi-workloads-ingress-cert",
 		},
-	}).SetupWithManager(k8sManager)
+	)).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme

@@ -50,6 +50,10 @@ type CFServiceInstanceReconciler struct {
 	Log    logr.Logger
 }
 
+func NewCFServiceInstanceReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *CFServiceInstanceReconciler {
+	return &CFServiceInstanceReconciler{Client: client, Scheme: scheme, Log: log}
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/finalizers,verbs=update

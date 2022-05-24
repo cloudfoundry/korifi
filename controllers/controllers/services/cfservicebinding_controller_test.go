@@ -134,11 +134,11 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(servicebindingv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-		cfServiceBindingReconciler = &CFServiceBindingReconciler{
-			Client: fakeClient,
-			Scheme: scheme.Scheme,
-			Log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-		}
+		cfServiceBindingReconciler = NewCFServiceBindingReconciler(
+			fakeClient,
+			scheme.Scheme,
+			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+		)
 		ctx = context.Background()
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{

@@ -76,11 +76,11 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 
 		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-		cfServiceInstanceReconciler = &CFServiceInstanceReconciler{
-			Client: fakeClient,
-			Scheme: scheme.Scheme,
-			Log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-		}
+		cfServiceInstanceReconciler = NewCFServiceInstanceReconciler(
+			fakeClient,
+			scheme.Scheme,
+			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+		)
 		ctx = context.Background()
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{

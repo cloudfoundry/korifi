@@ -121,12 +121,12 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 		// configure a CFProcessReconciler with the client
 		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-		cfProcessReconciler = &CFProcessReconciler{
-			Client:     fakeClient,
-			Scheme:     scheme.Scheme,
-			Log:        zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			EnvBuilder: envBuilder,
-		}
+		cfProcessReconciler = NewCFProcessReconciler(
+			fakeClient,
+			scheme.Scheme,
+			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+			envBuilder,
+		)
 		ctx = context.Background()
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{

@@ -118,77 +118,77 @@ func main() {
 
 	// Setup with manager
 
-	if err = (&workloadscontrollers.CFAppReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		Log:              ctrl.Log.WithName("controllers").WithName("CFApp"),
-		ControllerConfig: controllerConfig,
-	}).SetupWithManager(mgr); err != nil {
+	if err = (workloadscontrollers.NewCFAppReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFApp"),
+		controllerConfig,
+	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFApp")
 		os.Exit(1)
 	}
 
-	if err = (&workloadscontrollers.CFBuildReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		Log:              ctrl.Log.WithName("controllers").WithName("CFBuild"),
-		ControllerConfig: controllerConfig,
-		EnvBuilder:       env.NewBuilder(mgr.GetClient()),
-	}).SetupWithManager(mgr); err != nil {
+	if err = (workloadscontrollers.NewCFBuildReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFBuild"),
+		controllerConfig,
+		env.NewBuilder(mgr.GetClient()),
+	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
 		os.Exit(1)
 	}
 
-	if err = (&networkingcontrollers.CFDomainReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	if err = (networkingcontrollers.NewCFDomainReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
 		os.Exit(1)
 	}
 
-	if err = (&workloadscontrollers.CFPackageReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFPackage"),
-	}).SetupWithManager(mgr); err != nil {
+	if err = (workloadscontrollers.NewCFPackageReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFPackage"),
+	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
 		os.Exit(1)
 	}
 
-	if err = (&workloadscontrollers.CFProcessReconciler{
-		Client:     mgr.GetClient(),
-		Scheme:     mgr.GetScheme(),
-		Log:        ctrl.Log.WithName("controllers").WithName("CFProcess"),
-		EnvBuilder: env.NewBuilder(mgr.GetClient()),
-	}).SetupWithManager(mgr); err != nil {
+	if err = (workloadscontrollers.NewCFProcessReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFProcess"),
+		env.NewBuilder(mgr.GetClient()),
+	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFProcess")
 		os.Exit(1)
 	}
 
-	if err = (&networkingcontrollers.CFRouteReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		Log:              ctrl.Log.WithName("controllers").WithName("CFRoute"),
-		ControllerConfig: controllerConfig,
-	}).SetupWithManager(mgr); err != nil {
+	if err = (networkingcontrollers.NewCFRouteReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFRoute"),
+		controllerConfig,
+	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
 		os.Exit(1)
 	}
 
-	if err = (&servicescontrollers.CFServiceInstanceReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
-	}).SetupWithManager(mgr); err != nil {
+	if err = (servicescontrollers.NewCFServiceInstanceReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
+	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
 		os.Exit(1)
 	}
-	if err = (&servicescontrollers.CFServiceBindingReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
-	}).SetupWithManager(mgr); err != nil {
+	if err = (servicescontrollers.NewCFServiceBindingReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
+	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
 		os.Exit(1)
 	}
