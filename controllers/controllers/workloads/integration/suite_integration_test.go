@@ -11,12 +11,13 @@ import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
-	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
@@ -31,9 +32,11 @@ import (
 )
 
 var (
-	cancel    context.CancelFunc
-	testEnv   *envtest.Environment
-	k8sClient client.Client
+	cancel                  context.CancelFunc
+	testEnv                 *envtest.Environment
+	k8sClient               client.Client
+	cfBuildReconciler       *CFBuildReconciler
+	fakeImageProcessFetcher *fake.ImageProcessFetcher
 )
 
 const (
@@ -49,7 +52,7 @@ func TestWorkloadsControllers(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.DebugLevel)))
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ctx, cancelFunc := context.WithCancel(context.TODO())
 	cancel = cancelFunc
@@ -77,6 +80,7 @@ var _ = BeforeSuite(func() {
 	Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
+	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 	// Add Eirini to Scheme
 	Expect(eiriniv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	// Add hierarchical namespaces
@@ -102,6 +106,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	controllerConfig := &config.ControllerConfig{
+		KpackImageTag:      "image/registry/tag",
 		ClusterBuilderName: "cf-kpack-builder",
 		CFProcessDefaults: config.CFProcessDefaults{
 			MemoryMB:           500,
@@ -123,12 +128,13 @@ var _ = BeforeSuite(func() {
 	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(registryAuthFetcherClient).NotTo(BeNil())
-	cfBuildReconciler := &CFBuildReconciler{
-		Client:           k8sManager.GetClient(),
-		Scheme:           k8sManager.GetScheme(),
-		Log:              ctrl.Log.WithName("controllers").WithName("CFBuild"),
-		ControllerConfig: controllerConfig,
-		EnvBuilder:       env.NewBuilder(k8sManager.GetClient()),
+	cfBuildReconciler = &CFBuildReconciler{
+		Client:              k8sManager.GetClient(),
+		Scheme:              k8sManager.GetScheme(),
+		Log:                 ctrl.Log.WithName("controllers").WithName("CFBuild"),
+		ControllerConfig:    controllerConfig,
+		RegistryAuthFetcher: NewRegistryAuthFetcher(registryAuthFetcherClient),
+		EnvBuilder:          env.NewBuilder(k8sManager.GetClient()),
 	}
 	err = (cfBuildReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -181,13 +187,18 @@ var _ = AfterSuite(func() {
 	Expect(testEnv.Stop()).To(Succeed())
 })
 
+var _ = BeforeEach(func() {
+	fakeImageProcessFetcher = new(fake.ImageProcessFetcher)
+	cfBuildReconciler.ImageProcessFetcher = fakeImageProcessFetcher.Spy
+})
+
 func createBuildWithDroplet(ctx context.Context, k8sClient client.Client, cfBuild *v1alpha1.CFBuild, droplet *v1alpha1.BuildDropletStatus) *v1alpha1.CFBuild {
 	Expect(
 		k8sClient.Create(ctx, cfBuild),
 	).To(Succeed())
 	patchedCFBuild := cfBuild.DeepCopy()
 	patchedCFBuild.Status.Conditions = []metav1.Condition{}
-	patchedCFBuild.Status.Droplet = droplet
+	patchedCFBuild.Status.BuildDropletStatus = droplet
 	Expect(
 		k8sClient.Status().Patch(ctx, patchedCFBuild, client.MergeFrom(cfBuild)),
 	).To(Succeed())

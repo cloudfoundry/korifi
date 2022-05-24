@@ -39,7 +39,7 @@ type CFBuildSpec struct {
 
 // CFBuildStatus defines the observed state of CFBuild
 type CFBuildStatus struct {
-	Droplet *BuildDropletStatus `json:"droplet,omitempty"`
+	BuildDropletStatus *BuildDropletStatus `json:"droplet,omitempty"`
 	// Conditions capture the current status of the Build
 	Conditions []metav1.Condition `json:"conditions"`
 }

@@ -248,7 +248,7 @@ func SetStatusCondition(conditions *[]metav1.Condition, conditionType string, st
 }
 
 func UpdateCFBuildWithDropletStatus(cfbuild *v1alpha1.CFBuild) {
-	cfbuild.Status.Droplet = &v1alpha1.BuildDropletStatus{
+	cfbuild.Status.BuildDropletStatus = &v1alpha1.BuildDropletStatus{
 		Registry: v1alpha1.Registry{
 			Image:            "my-image",
 			ImagePullSecrets: nil,

@@ -11,6 +11,7 @@ import (
 )
 
 type ControllerConfig struct {
+	KpackImageTag             string            `yaml:"kpackImageTag"`
 	ClusterBuilderName        string            `yaml:"clusterBuilderName"`
 	CFProcessDefaults         CFProcessDefaults `yaml:"cfProcessDefaults"`
 	CFRootNamespace           string            `yaml:"cfRootNamespace"`

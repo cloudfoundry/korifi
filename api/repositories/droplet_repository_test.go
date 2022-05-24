@@ -89,7 +89,7 @@ var _ = Describe("DropletRepository", func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			When("status.Droplet is set", func() {
+			When("status.BuildDropletStatus is set", func() {
 				BeforeEach(func() {
 					meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
 						Type:    "Staging",
@@ -103,7 +103,7 @@ var _ = Describe("DropletRepository", func() {
 						Reason:  "Unknown",
 						Message: "Unknown",
 					})
-					build.Status.Droplet = &v1alpha1.BuildDropletStatus{
+					build.Status.BuildDropletStatus = &v1alpha1.BuildDropletStatus{
 						Stack: dropletStack,
 						Registry: v1alpha1.Registry{
 							Image: registryImage,
@@ -147,7 +147,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					By("returning a record with stack field matching the CR", func() {
-						Expect(dropletRecord.Stack).To(Equal(build.Status.Droplet.Stack))
+						Expect(dropletRecord.Stack).To(Equal(build.Status.BuildDropletStatus.Stack))
 					})
 
 					By("returning a record with Lifecycle fields matching the CR", func() {
@@ -165,7 +165,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					By("returning a record with all process types and commands matching the CR", func() {
-						processTypesArray := build.Status.Droplet.ProcessTypes
+						processTypesArray := build.Status.BuildDropletStatus.ProcessTypes
 						for index := range processTypesArray {
 							Expect(dropletRecord.ProcessTypes).To(HaveKeyWithValue(processTypesArray[index].Type, processTypesArray[index].Command))
 						}
@@ -173,7 +173,7 @@ var _ = Describe("DropletRepository", func() {
 				})
 			})
 
-			When("status.Droplet is not set", func() {
+			When("status.BuildDropletStatus is not set", func() {
 				When("status.Conditions \"Staging\": Unknown, \"Succeeded\": Unknown, is set", func() {
 					BeforeEach(func() {
 						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
@@ -311,7 +311,7 @@ var _ = Describe("DropletRepository", func() {
 				Reason:  "Unknown",
 				Message: "Unknown",
 			})
-			build.Status.Droplet = &v1alpha1.BuildDropletStatus{
+			build.Status.BuildDropletStatus = &v1alpha1.BuildDropletStatus{
 				Stack: dropletStack,
 				Registry: v1alpha1.Registry{
 					Image: registryImage,

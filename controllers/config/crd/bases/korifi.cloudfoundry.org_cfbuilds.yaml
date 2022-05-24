@@ -61,7 +61,7 @@ spec:
                     type: object
                   type:
                     description: 'Specifies the CF Lifecycle type: Valid values are:
-                      "buildpack": stage the app using buildpacks'
+                      "buildpack": stage the app using kpack'
                     enum:
                     - buildpack
                     type: string

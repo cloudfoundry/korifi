@@ -23,9 +23,6 @@ import (
 	"fmt"
 	"path"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
-	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
-
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -36,16 +33,20 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	k8sclient "k8s.io/client-go/kubernetes"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -117,59 +118,76 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	succeededStatus := meta.FindStatusCondition(buildWorkload.Status.Conditions, v1alpha1.SucceededConditionType)
+	runningStatus := getConditionOrSetAsUnknown(&buildWorkload.Status.Conditions, v1alpha1.RunningConditionType)
+	succeededStatus := getConditionOrSetAsUnknown(&buildWorkload.Status.Conditions, v1alpha1.SucceededConditionType)
 
-	if succeededStatus != nil && succeededStatus.Status != metav1.ConditionUnknown {
-		return ctrl.Result{}, err
-	}
-
-	if succeededStatus == nil {
+	if runningStatus == metav1.ConditionUnknown &&
+		succeededStatus == metav1.ConditionUnknown {
+		// Scenario: Build newly created and all status conditions are unknown, it
+		// Creates a KpackImage resource to trigger staging.
+		// Updates status on buildWorkload -> sets running to True.
 		err = r.ensureKpackImageRequirements(ctx, buildWorkload)
 		if err != nil {
 			r.Log.Info("Kpack image requirements for buildWorkload are not met", "guid", buildWorkload.Name, "reason", err)
 			return ctrl.Result{}, err
 		}
 
-		return ctrl.Result{}, r.createKpackImageAndUpdateStatus(ctx, buildWorkload)
-	}
-
-	var kpackImage buildv1alpha2.Image
-	err = r.Client.Get(ctx, types.NamespacedName{Name: buildWorkload.Name, Namespace: buildWorkload.Namespace}, &kpackImage)
-	if err != nil {
-		r.Log.Error(err, "Error when fetching Kpack Image")
-		// Ignore Image NotFound errors to account for eventual consistency
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
-	kpackReadyStatusCondition := kpackImage.Status.GetCondition(kpackReadyConditionType)
-	if kpackReadyStatusCondition.IsFalse() {
-		failureStatusConditionMessage := kpackReadyStatusCondition.Reason + ":" + kpackReadyStatusCondition.Message
-		setStatusConditionOnLocalCopy(&buildWorkload.Status.Conditions, v1alpha1.SucceededConditionType, metav1.ConditionFalse, "kpack", failureStatusConditionMessage)
-		if err = r.Client.Status().Update(ctx, buildWorkload); err != nil {
-			r.Log.Error(err, "Error when updating buildWorkload status")
-			return ctrl.Result{}, err
-		}
-	} else if kpackReadyStatusCondition.IsTrue() {
-		setStatusConditionOnLocalCopy(&buildWorkload.Status.Conditions, v1alpha1.SucceededConditionType, metav1.ConditionTrue, "kpack", "kpack")
-
-		serviceAccountName := kpackServiceAccount
-		serviceAccountLookupKey := types.NamespacedName{Name: serviceAccountName, Namespace: req.Namespace}
-		foundServiceAccount := corev1.ServiceAccount{}
-		err = r.Client.Get(ctx, serviceAccountLookupKey, &foundServiceAccount)
+		err = r.createKpackImageAndUpdateStatus(ctx, buildWorkload)
 		if err != nil {
-			r.Log.Error(err, "Error when fetching kpack ServiceAccount")
 			return ctrl.Result{}, err
 		}
-
-		buildWorkload.Status.Droplet, err = r.generateDropletStatus(ctx, &kpackImage, foundServiceAccount.ImagePullSecrets)
+	} else if runningStatus == metav1.ConditionTrue &&
+		succeededStatus == metav1.ConditionUnknown {
+		// Scenario: buildWorkload reconciles when Type running is True and Type ready is False, it
+		// Retrieves and Checks Kpack Image Status Condition for Type "Succeeded"
+		// If NotFound error - Ignore and return
+		// If Found, check Succeeded status condition
+		// If Succeeded is True - Update Status Conditions and Droplet fields on CFBuild
+		// If Succeeded is False - Update Status Conditions on CFBuild
+		var kpackImage buildv1alpha2.Image
+		err = r.Client.Get(ctx, types.NamespacedName{Name: buildWorkload.Name, Namespace: buildWorkload.Namespace}, &kpackImage)
 		if err != nil {
-			r.Log.Error(err, "Error when compiling the DropletStatus")
-			return ctrl.Result{}, err
+			r.Log.Error(err, "Error when fetching Kpack Image")
+			// Ignore Image NotFound errors to account for eventual consistency
+			return ctrl.Result{}, client.IgnoreNotFound(err)
 		}
+		kpackReadyStatusCondition := kpackImage.Status.GetCondition(kpackReadyConditionType)
+		if kpackReadyStatusCondition.IsFalse() {
+			// Set buildWorkload status Conditions on local copy - Staging and Succeeded to False
+			failureStatusConditionMessage := kpackReadyStatusCondition.Reason + ":" + kpackReadyStatusCondition.Message
+			setStatusConditionOnLocalCopy(&buildWorkload.Status.Conditions, v1alpha1.RunningConditionType, metav1.ConditionFalse, "kpack", "kpack")
+			setStatusConditionOnLocalCopy(&buildWorkload.Status.Conditions, v1alpha1.SucceededConditionType, metav1.ConditionFalse, "kpack", failureStatusConditionMessage)
+			if err = r.Client.Status().Update(ctx, buildWorkload); err != nil {
+				r.Log.Error(err, "Error when updating buildWorkload status")
+				return ctrl.Result{}, err
+			}
+		} else if kpackReadyStatusCondition.IsTrue() {
+			// Set buildWorkload status Conditions on local copy- Staging to False and Succeeded to True
+			setStatusConditionOnLocalCopy(&buildWorkload.Status.Conditions, v1alpha1.RunningConditionType, metav1.ConditionFalse, "kpack", "kpack")
+			setStatusConditionOnLocalCopy(&buildWorkload.Status.Conditions, v1alpha1.SucceededConditionType, metav1.ConditionTrue, "kpack", "kpack")
 
-		if err := r.Client.Status().Update(ctx, buildWorkload); err != nil {
-			r.Log.Error(err, "Error when updating CFBuild status")
-			return ctrl.Result{}, err
+			// try to find the ServiceAccount image pull secrets from the kpack service account
+			serviceAccountName := kpackServiceAccount
+			serviceAccountLookupKey := types.NamespacedName{Name: serviceAccountName, Namespace: req.Namespace}
+			foundServiceAccount := corev1.ServiceAccount{}
+			err = r.Client.Get(ctx, serviceAccountLookupKey, &foundServiceAccount)
+			if err != nil {
+				r.Log.Error(err, "Error when fetching kpack ServiceAccount")
+				return ctrl.Result{}, err
+			}
+
+			// Generate Droplet object using kpack Image and set it on CFBuild local copy
+			buildWorkload.Status.Droplet, err = r.generateDropletStatus(ctx, &kpackImage, foundServiceAccount.ImagePullSecrets)
+			if err != nil {
+				r.Log.Error(err, "Error when compiling the DropletStatus")
+				return ctrl.Result{}, err
+			}
+
+			// Call Status().Update() tp push updates to the server
+			if err := r.Client.Status().Update(ctx, buildWorkload); err != nil {
+				r.Log.Error(err, "Error when updating CFBuild status")
+				return ctrl.Result{}, err
+			}
 		}
 	}
 
@@ -189,7 +207,7 @@ func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Conte
 
 func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Context, buildWorkload *v1alpha1.BuildWorkload) error {
 	serviceAccountName := kpackServiceAccount
-	kpackImageTag := path.Join(r.ControllerConfig.KpackImageTag, buildWorkload.Name)
+	kpackImageTag := path.Join(r.ControllerConfig.KpackImageTag, buildWorkload.Name) // TODO should this come from the buildRef?
 	kpackImageName := buildWorkload.Name
 	kpackImageNamespace := buildWorkload.Namespace
 	desiredKpackImage := buildv1alpha2.Image{
@@ -215,11 +233,14 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 				},
 			},
 			Build: &buildv1alpha2.ImageBuild{
-				Services: buildWorkload.Spec.Services,
-				Env:      buildWorkload.Spec.Env,
+				Services: buildv1alpha2.Services{},
 			},
 		},
 	}
+
+	desiredKpackImage.Spec.Build.Services = buildWorkload.Spec.Services
+
+	desiredKpackImage.Spec.Build.Env = buildWorkload.Spec.Env
 
 	err := controllerutil.SetOwnerReference(buildWorkload, &desiredKpackImage, r.Scheme)
 	if err != nil {
@@ -232,7 +253,9 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 		return err
 	}
 
-	setStatusConditionOnLocalCopy(&buildWorkload.Status.Conditions, v1alpha1.SucceededConditionType, metav1.ConditionUnknown, "Unknown", "Unknown")
+	setStatusConditionOnLocalCopy(&buildWorkload.Status.Conditions, v1alpha1.RunningConditionType, metav1.ConditionTrue, "kpack", "kpack")
+
+	// Update buildWorkload record based on changes made to local copy
 	if err := r.Client.Status().Update(ctx, buildWorkload); err != nil {
 		r.Log.Error(err, "Error when updating buildWorkload status")
 		return err
@@ -295,6 +318,25 @@ func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpa
 		ProcessTypes: dropletProcessTypes,
 		Ports:        dropletPorts,
 	}, nil
+}
+
+// getConditionOrSetAsUnknown is a helper function that retrieves the value of the provided conditionType, like "Succeeded" and returns the value: "True", "False", or "Unknown"
+// If the value is not present, the pointer to the list of conditions provided to the function is used to add an entry to the list of Conditions with a value of "Unknown" and "Unknown" is returned
+func getConditionOrSetAsUnknown(conditions *[]metav1.Condition, conditionType string) metav1.ConditionStatus {
+	conditionStatus := meta.FindStatusCondition(*conditions, conditionType)
+	conditionStatusValue := metav1.ConditionUnknown
+	if conditionStatus != nil {
+		conditionStatusValue = conditionStatus.Status
+	} else {
+		// set local copy of CR condition to "unknown" because it had no value
+		meta.SetStatusCondition(conditions, metav1.Condition{
+			Type:    conditionType,
+			Status:  metav1.ConditionUnknown,
+			Reason:  "Unknown",
+			Message: "Unknown",
+		})
+	}
+	return conditionStatusValue
 }
 
 // SetupWithManager sets up the controller with the Manager.

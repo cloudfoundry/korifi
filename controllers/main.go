@@ -28,6 +28,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	workloadscontrollers "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/imageprocessfetcher"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
@@ -35,10 +36,12 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	k8sclient "k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -60,6 +63,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(buildv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(contourv1.AddToScheme(scheme))
 	utilruntime.Must(eiriniv1.AddToScheme(scheme))
 	utilruntime.Must(hncv1alpha2.AddToScheme(scheme))
@@ -116,6 +120,12 @@ func main() {
 		panic(errorMessage)
 	}
 
+	k8sClientConfig := ctrl.GetConfigOrDie()
+	privilegedK8sClient, err := k8sclient.NewForConfig(k8sClientConfig)
+	if err != nil {
+		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
+	}
+
 	// Setup with manager
 
 	if err = (&workloadscontrollers.CFAppReconciler{
@@ -128,12 +138,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	cfBuildImageProcessFetcher := &imageprocessfetcher.ImageProcessFetcher{
+		Log: ctrl.Log.WithName("controllers").WithName("CFBuildImageProcessFetcher"),
+	}
 	if err = (&workloadscontrollers.CFBuildReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		Log:              ctrl.Log.WithName("controllers").WithName("CFBuild"),
-		ControllerConfig: controllerConfig,
-		EnvBuilder:       env.NewBuilder(mgr.GetClient()),
+		Client:              mgr.GetClient(),
+		Scheme:              mgr.GetScheme(),
+		Log:                 ctrl.Log.WithName("controllers").WithName("CFBuild"),
+		ControllerConfig:    controllerConfig,
+		RegistryAuthFetcher: workloadscontrollers.NewRegistryAuthFetcher(privilegedK8sClient),
+		ImageProcessFetcher: cfBuildImageProcessFetcher.Fetch,
+		EnvBuilder:          env.NewBuilder(mgr.GetClient()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
 		os.Exit(1)

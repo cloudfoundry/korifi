@@ -79,13 +79,13 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return ctrl.Result{}, err
 		}
 
-		if cfBuild.Status.Droplet == nil {
+		if cfBuild.Status.BuildDropletStatus == nil {
 			err = errors.New("status field CFBuildDropletStatus is nil on CFBuild")
 			r.Log.Error(err, "CFBuildDropletStatus is nil on CFBuild.Status, check if referenced Build/Droplet was successfully staged")
 			return ctrl.Result{}, err
 		}
 
-		droplet := cfBuild.Status.Droplet
+		droplet := cfBuild.Status.BuildDropletStatus
 
 		for _, process := range addWebIfMissing(droplet.ProcessTypes) {
 			var processExistsForType bool

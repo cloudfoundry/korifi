@@ -301,7 +301,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 			When("CFBuild does not have a build droplet status", func() {
 				BeforeEach(func() {
-					cfBuild.Status.Droplet = nil
+					cfBuild.Status.BuildDropletStatus = nil
 				})
 
 				It("returns an error", func() {

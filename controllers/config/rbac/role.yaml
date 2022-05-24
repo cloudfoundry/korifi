@@ -25,11 +25,27 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - secrets
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets/status
+  - serviceaccounts/status
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
   - serviceaccounts
   verbs:
   - create
   - get
-  - list
 - apiGroups:
   - ""
   resources:
@@ -81,24 +97,6 @@ rules:
   - delete
   - list
   - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - buildworkloads
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - buildworkloads/status
-  verbs:
-  - get
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
@@ -355,6 +353,32 @@ rules:
   - korifi.cloudfoundry.org
   resources:
   - cfspaces/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - kpack.io
+  resources:
+  - images
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kpack.io
+  resources:
+  - images/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kpack.io
+  resources:
+  - images/status
   verbs:
   - get
   - patch

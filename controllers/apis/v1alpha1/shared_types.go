@@ -23,7 +23,7 @@ const (
 type Lifecycle struct {
 	// Specifies the CF Lifecycle type:
 	// Valid values are:
-	// "buildpack": stage the app using buildpacks
+	// "buildpack": stage the app using kpack
 	Type LifecycleType `json:"type"`
 	// Lifecycle data used to specify details for the Lifecycle
 	Data LifecycleData `json:"data"`
