@@ -1,4 +1,4 @@
-package apis_test
+package handlers_test
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
-	"code.cloudfoundry.org/korifi/api/handlers"
+	apis "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
 

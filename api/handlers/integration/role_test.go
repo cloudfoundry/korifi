@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/config"
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("Role", func() {
 	var (
-		apiHandler *apis.RoleHandler
+		apiHandler *handlers.RoleHandler
 		org        *v1alpha1.CFOrg
 		space      *v1alpha1.CFSpace
 	)
@@ -33,10 +33,10 @@ var _ = Describe("Role", func() {
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPermissions, time.Minute)
 		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, clientFactory, nsPermissions, time.Minute)
 		roleRepo := repositories.NewRoleRepo(clientFactory, spaceRepo, nsPermissions, rootNamespace, roleMappings)
-		decoderValidator, err := apis.NewDefaultDecoderValidator()
+		decoderValidator, err := handlers.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		apiHandler = apis.NewRoleHandler(*serverURL, roleRepo, decoderValidator)
+		apiHandler = handlers.NewRoleHandler(*serverURL, roleRepo, decoderValidator)
 		apiHandler.RegisterRoutes(router)
 
 		org = createOrgWithCleanup(ctx, generateGUID())

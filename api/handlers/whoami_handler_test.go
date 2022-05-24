@@ -1,12 +1,12 @@
-package apis_test
+package handlers_test
 
 import (
 	"errors"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
-	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/authorization"
+	apis "code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

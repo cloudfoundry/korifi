@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	apis "code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/handlers"
 )
 
 type ImageRepository struct {
@@ -124,4 +124,4 @@ func (fake *ImageRepository) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ apis.ImageRepository = new(ImageRepository)
+var _ handlers.ImageRepository = new(ImageRepository)

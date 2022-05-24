@@ -1,4 +1,4 @@
-package apis_test
+package handlers_test
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
-	"code.cloudfoundry.org/korifi/api/handlers"
-	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/authorization"
+	apis "code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"

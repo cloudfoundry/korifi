@@ -1,10 +1,10 @@
-package apis_test
+package handlers_test
 
 import (
 	"fmt"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
+	apis "code.cloudfoundry.org/korifi/api/handlers"
 
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"

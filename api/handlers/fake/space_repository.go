@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	apis "code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -364,4 +364,4 @@ func (fake *SpaceRepository) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ apis.SpaceRepository = new(SpaceRepository)
+var _ handlers.SpaceRepository = new(SpaceRepository)

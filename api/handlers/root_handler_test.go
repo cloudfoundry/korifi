@@ -1,10 +1,10 @@
-package apis_test
+package handlers_test
 
 import (
 	"encoding/json"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
+	apis "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

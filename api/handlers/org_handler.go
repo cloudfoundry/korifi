@@ -1,17 +1,18 @@
-package apis
+package handlers
 
 import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"net/http"
+	"net/url"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
-	"net/http"
-	"net/url"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"

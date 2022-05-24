@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,13 +17,13 @@ import (
 var _ = Describe("Droplet", func() {
 	var (
 		namespace      *corev1.Namespace
-		dropletHandler *apis.DropletHandler
+		dropletHandler *handlers.DropletHandler
 	)
 
 	BeforeEach(func() {
 		dropletRepo := repositories.NewDropletRepo(clientFactory, namespaceRetriever, nsPermissions)
 
-		dropletHandler = apis.NewDropletHandler(
+		dropletHandler = handlers.NewDropletHandler(
 			*serverURL,
 			dropletRepo,
 		)

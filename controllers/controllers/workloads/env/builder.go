@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"sigs.k8s.io/controller-runtime/pkg/client"

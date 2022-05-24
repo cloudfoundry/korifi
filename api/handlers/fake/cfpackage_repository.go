@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	apis "code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -369,4 +369,4 @@ func (fake *CFPackageRepository) recordInvocation(key string, args []interface{}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ apis.CFPackageRepository = new(CFPackageRepository)
+var _ handlers.CFPackageRepository = new(CFPackageRepository)

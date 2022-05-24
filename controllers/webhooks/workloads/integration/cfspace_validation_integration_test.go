@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/integration/helpers"
 
 	"github.com/google/uuid"

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	workloadsfake "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/fake"

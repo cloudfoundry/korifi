@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,14 +17,14 @@ import (
 var _ = Describe("Process", func() {
 	var (
 		namespace      *corev1.Namespace
-		processHandler *apis.ProcessHandler
+		processHandler *handlers.ProcessHandler
 		appGUID        string
 	)
 
 	BeforeEach(func() {
 		processRepo := repositories.NewProcessRepo(namespaceRetriever, clientFactory, nsPermissions)
 
-		processHandler = apis.NewProcessHandler(
+		processHandler = handlers.NewProcessHandler(
 			*serverURL,
 			processRepo,
 			nil,

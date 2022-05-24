@@ -1,13 +1,10 @@
-package apis
+package handlers
 
 import (
 	"context"
 	"fmt"
 	"net/http"
 	"net/url"
-
-	"github.com/gorilla/schema"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -17,6 +14,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (

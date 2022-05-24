@@ -1,10 +1,10 @@
-package apis_test
+package handlers_test
 
 import (
 	"fmt"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
+	apis "code.cloudfoundry.org/korifi/api/handlers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

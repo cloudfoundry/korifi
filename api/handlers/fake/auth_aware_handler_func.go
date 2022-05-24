@@ -7,12 +7,12 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	apis "code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"github.com/go-logr/logr"
 )
 
 type AuthAwareHandlerFunc struct {
-	Stub        func(context.Context, logr.Logger, authorization.Info, *http.Request) (*apis.HandlerResponse, error)
+	Stub        func(context.Context, logr.Logger, authorization.Info, *http.Request) (*handlers.HandlerResponse, error)
 	mutex       sync.RWMutex
 	argsForCall []struct {
 		arg1 context.Context
@@ -21,18 +21,18 @@ type AuthAwareHandlerFunc struct {
 		arg4 *http.Request
 	}
 	returns struct {
-		result1 *apis.HandlerResponse
+		result1 *handlers.HandlerResponse
 		result2 error
 	}
 	returnsOnCall map[int]struct {
-		result1 *apis.HandlerResponse
+		result1 *handlers.HandlerResponse
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *AuthAwareHandlerFunc) Spy(arg1 context.Context, arg2 logr.Logger, arg3 authorization.Info, arg4 *http.Request) (*apis.HandlerResponse, error) {
+func (fake *AuthAwareHandlerFunc) Spy(arg1 context.Context, arg2 logr.Logger, arg3 authorization.Info, arg4 *http.Request) (*handlers.HandlerResponse, error) {
 	fake.mutex.Lock()
 	ret, specificReturn := fake.returnsOnCall[len(fake.argsForCall)]
 	fake.argsForCall = append(fake.argsForCall, struct {
@@ -60,7 +60,7 @@ func (fake *AuthAwareHandlerFunc) CallCount() int {
 	return len(fake.argsForCall)
 }
 
-func (fake *AuthAwareHandlerFunc) Calls(stub func(context.Context, logr.Logger, authorization.Info, *http.Request) (*apis.HandlerResponse, error)) {
+func (fake *AuthAwareHandlerFunc) Calls(stub func(context.Context, logr.Logger, authorization.Info, *http.Request) (*handlers.HandlerResponse, error)) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = stub
@@ -72,28 +72,28 @@ func (fake *AuthAwareHandlerFunc) ArgsForCall(i int) (context.Context, logr.Logg
 	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2, fake.argsForCall[i].arg3, fake.argsForCall[i].arg4
 }
 
-func (fake *AuthAwareHandlerFunc) Returns(result1 *apis.HandlerResponse, result2 error) {
+func (fake *AuthAwareHandlerFunc) Returns(result1 *handlers.HandlerResponse, result2 error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = nil
 	fake.returns = struct {
-		result1 *apis.HandlerResponse
+		result1 *handlers.HandlerResponse
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *AuthAwareHandlerFunc) ReturnsOnCall(i int, result1 *apis.HandlerResponse, result2 error) {
+func (fake *AuthAwareHandlerFunc) ReturnsOnCall(i int, result1 *handlers.HandlerResponse, result2 error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = nil
 	if fake.returnsOnCall == nil {
 		fake.returnsOnCall = make(map[int]struct {
-			result1 *apis.HandlerResponse
+			result1 *handlers.HandlerResponse
 			result2 error
 		})
 	}
 	fake.returnsOnCall[i] = struct {
-		result1 *apis.HandlerResponse
+		result1 *handlers.HandlerResponse
 		result2 error
 	}{result1, result2}
 }
@@ -122,4 +122,4 @@ func (fake *AuthAwareHandlerFunc) recordInvocation(key string, args []interface{
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ apis.AuthAwareHandlerFunc = new(AuthAwareHandlerFunc).Spy
+var _ handlers.AuthAwareHandlerFunc = new(AuthAwareHandlerFunc).Spy

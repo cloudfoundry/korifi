@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	apis "code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 )
 
@@ -118,4 +118,4 @@ func (fake *ApplyManifestAction) recordInvocation(key string, args []interface{}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ apis.ApplyManifestAction = new(ApplyManifestAction).Spy
+var _ handlers.ApplyManifestAction = new(ApplyManifestAction).Spy

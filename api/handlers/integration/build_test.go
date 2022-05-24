@@ -8,7 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,16 +19,16 @@ import (
 var _ = Describe("Build", func() {
 	var (
 		namespace    *corev1.Namespace
-		buildHandler *apis.BuildHandler
+		buildHandler *handlers.BuildHandler
 	)
 
 	BeforeEach(func() {
 		buildRepo := repositories.NewBuildRepo(namespaceRetriever, clientFactory)
 		packageRepo := repositories.NewPackageRepo(clientFactory, namespaceRetriever, nsPermissions)
-		decoderValidator, err := apis.NewDefaultDecoderValidator()
+		decoderValidator, err := handlers.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		buildHandler = apis.NewBuildHandler(
+		buildHandler = handlers.NewBuildHandler(
 			*serverURL,
 			buildRepo,
 			packageRepo,

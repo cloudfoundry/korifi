@@ -13,7 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/apis/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,7 +26,7 @@ import (
 
 var _ = Describe("App Handler", func() {
 	var (
-		apiHandler *apis.AppHandler
+		apiHandler *handlers.AppHandler
 		org        *v1alpha1.CFOrg
 		space      *v1alpha1.CFSpace
 		spaceGUID  string
@@ -111,10 +111,10 @@ var _ = Describe("App Handler", func() {
 		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, clientFactory, nsPermissions, time.Minute)
 		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
 		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
-		decoderValidator, err := apis.NewDefaultDecoderValidator()
+		decoderValidator, err := handlers.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		apiHandler = apis.NewAppHandler(
+		apiHandler = handlers.NewAppHandler(
 			*serverURL,
 			appRepo,
 			dropletRepo,

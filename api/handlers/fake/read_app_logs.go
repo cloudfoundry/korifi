@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	apis "code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"github.com/go-logr/logr"
@@ -125,4 +125,4 @@ func (fake *ReadAppLogs) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ apis.ReadAppLogsAction = new(ReadAppLogs).Spy
+var _ handlers.ReadAppLogsAction = new(ReadAppLogs).Spy

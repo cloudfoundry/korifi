@@ -1,9 +1,10 @@
-package apis
+package handlers
 
 import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/correlation"
+
 	"github.com/google/uuid"
 )
 
