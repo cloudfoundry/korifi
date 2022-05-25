@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+
 	"github.com/go-logr/logr"
 )
 
@@ -66,5 +67,13 @@ func (a *ReadAppLogs) Invoke(ctx context.Context, logger logr.Logger, authInfo a
 		return nil, err
 	}
 
-	return append(buildLogs, runtimeLogs...), nil
+	logs := append(buildLogs, runtimeLogs...)
+
+	if read.Descending != nil && *read.Descending {
+		for i, j := 0, len(logs)-1; i < j; i, j = i+1, j-1 {
+			logs[i], logs[j] = logs[j], logs[i]
+		}
+	}
+
+	return logs, nil
 }

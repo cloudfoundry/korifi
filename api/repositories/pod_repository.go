@@ -9,12 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
-
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -384,12 +383,12 @@ func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, logger logr.Logger, 
 			}
 
 			logLine := string(line)
-			var logTime time.Time
-			logTime, _ = parseRFC3339NanoTime(logLine)
+			var logTime int64
+			logLine, logTime, _ = parseRFC3339NanoTime(logLine)
 
 			logRecord := LogRecord{
-				Message:   string(line),
-				Timestamp: logTime.UnixNano(),
+				Message:   logLine,
+				Timestamp: logTime,
 			}
 
 			appLogs = append(appLogs, logRecord)
@@ -401,9 +400,15 @@ func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, logger logr.Logger, 
 	return appLogs, nil
 }
 
-func parseRFC3339NanoTime(input string) (time.Time, error) {
+func parseRFC3339NanoTime(input string) (string, int64, error) {
 	if len(input) < 30 {
-		return time.Time{}, fmt.Errorf("string not long enough")
+		return input, 0, fmt.Errorf("string not long enough")
 	}
-	return time.Parse(time.RFC3339Nano, input[:30])
+
+	t, err := time.Parse(time.RFC3339Nano, input[:30])
+	if err != nil {
+		return input, 0, err
+	}
+
+	return input[31:], t.UnixNano(), nil
 }

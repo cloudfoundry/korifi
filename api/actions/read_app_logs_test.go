@@ -111,6 +111,20 @@ var _ = Describe("ReadAppLogs", func() {
 		Expect(returnedRecords).To(Equal(append(buildLogs, appLogs...)))
 	})
 
+	When("the descending flag in the request is set to true", func() {
+		BeforeEach(func() {
+			descending := true
+			requestPayload.Descending = &descending
+		})
+
+		It("returns the logs in the reverse order", func() {
+			Expect(returnedErr).NotTo(HaveOccurred())
+			Expect(returnedRecords).To(HaveLen(4))
+			Expect(returnedRecords[0].Message).To(Equal("AppMessage2"))
+			Expect(returnedRecords[3].Message).To(Equal("BuildMessage1"))
+		})
+	})
+
 	When("GetApp returns a Forbidden error", func() {
 		BeforeEach(func() {
 			appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(errors.New("blah"), repositories.AppResourceType))
