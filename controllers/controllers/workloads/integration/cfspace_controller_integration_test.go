@@ -101,9 +101,29 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 				Expect(serviceAccount.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{
 					{Name: packageRegistrySecretName},
 				}))
+
 				Expect(serviceAccount.Secrets).To(Equal([]corev1.ObjectReference{
 					{Name: packageRegistrySecretName},
 				}))
+			})
+
+			When("the kpack service account already exists", func() {
+				JustBeforeEach(func() {
+					Expect(k8sClient.Create(ctx, &corev1.ServiceAccount{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "kpack-service-account",
+							Namespace: spaceGUID,
+						},
+					})).To(Succeed())
+				})
+
+				It("doesn't fail", func() {
+					Eventually(func(g Gomega) {
+						var createdCFSpace v1alpha1.CFSpace
+						g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdCFSpace)).To(Succeed())
+						g.Expect(meta.IsStatusConditionTrue(createdCFSpace.Status.Conditions, "Ready")).To(BeTrue())
+					}, 5*time.Second).Should(Succeed())
+				})
 			})
 
 			It("creates the eirini service account", func() {
@@ -111,6 +131,25 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 					var serviceAccount corev1.ServiceAccount
 					return k8sClient.Get(ctx, types.NamespacedName{Namespace: spaceGUID, Name: "eirini"}, &serviceAccount)
 				}).Should(Succeed())
+			})
+
+			When("the eirini service account already exists", func() {
+				JustBeforeEach(func() {
+					Expect(k8sClient.Create(ctx, &corev1.ServiceAccount{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "eirini",
+							Namespace: spaceGUID,
+						},
+					})).To(Succeed())
+				})
+
+				It("doesn't fail", func() {
+					Eventually(func(g Gomega) {
+						var createdCFSpace v1alpha1.CFSpace
+						g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdCFSpace)).To(Succeed())
+						g.Expect(meta.IsStatusConditionTrue(createdCFSpace.Status.Conditions, "Ready")).To(BeTrue())
+					}, 5*time.Second).Should(Succeed())
+				})
 			})
 
 			It("sets the CFSpace 'Ready' condition to 'True'", func() {
