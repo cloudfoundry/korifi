@@ -25,7 +25,6 @@ func (r *ImageBuilder) Build(ctx context.Context, srcReader io.Reader) (v1.Image
 	if err != nil {
 		return nil, err
 	}
-	defer os.Remove(tempFile)
 
 	return createImage(tempFile)
 }
@@ -49,7 +48,9 @@ func createImage(srcFile string) (v1.Image, error) {
 		return nil, fmt.Errorf("failed to create a new image: %w", err)
 	}
 
-	layer, err := tarball.LayerFromReader(archive.ReadZipAsTar(srcFile, "/", 0, 0, -1, true, nil))
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		return archive.ReadZipAsTar(srcFile, "/", 0, 0, -1, true, nil), nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a layer out of '%s': %w", srcFile, err)
 	}
