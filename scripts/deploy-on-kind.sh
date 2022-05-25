@@ -110,6 +110,10 @@ function clean_up_img_refs() {
   unset IMG_CONTROLLERS
   unset IMG_API
   make build-reference
+
+  cd kpack-image-builder
+  unset IMG_KIB
+  make set-image-ref
 }
 trap clean_up_img_refs EXIT
 
@@ -287,12 +291,12 @@ function deploy_kpack_image_builder() {
     export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
     echo "${PWD}"
     make generate
-    IMG=${IMG_KIB:-"korifi-kpack-image-builder:$(uuidgen)"}
-    export IMG
+    IMG_KIB=${IMG_KIB:-"korifi-kpack-image-builder:$(uuidgen)"}
+    export IMG_KIB
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
         make docker-build
     fi
-    kind load docker-image --name "${cluster}" "${IMG}"
+    kind load docker-image --name "${cluster}" "${IMG_KIB}"
 
     if [[ -n "${use_local_registry}" ]]; then
         make deploy-on-kind

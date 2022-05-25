@@ -1,6 +1,5 @@
-
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG_KIB ?= cloudfoundry/korifi-kpack-image-builder:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.23
 
@@ -71,11 +70,11 @@ run: manifests generate fmt vet ## Run a controller from your host.
 
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	docker buildx build --load -f ./Dockerfile -t ${IMG} ..
+	docker buildx build --load -f ./Dockerfile -t ${IMG_KIB} ..
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
-	docker push ${IMG}
+	docker push ${IMG_KIB}
 
 ##@ Deployment
 
@@ -91,13 +90,16 @@ install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
+.PHONY: set-image-ref
+set-image-ref: kustomize
+	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-kpack-image-builder=${IMG_KIB}
+
 .PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-kpack-image-builder=${IMG}
+deploy: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
-deploy-on-kind: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-kpack-image-builder=${IMG}
+.PHONY: deploy-on-kind
+deploy-on-kind: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/overlays/kind-local-registry | kubectl apply -f -
 
 .PHONY: undeploy
