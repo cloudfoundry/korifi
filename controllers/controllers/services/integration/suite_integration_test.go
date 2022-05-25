@@ -102,18 +102,18 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&CFServiceBindingReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
-	}).SetupWithManager(k8sManager)
+	err = (NewCFServiceBindingReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
+	)).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&CFServiceInstanceReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
-	}).SetupWithManager(k8sManager)
+	err = (NewCFServiceInstanceReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
+	)).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Add new reconcilers here

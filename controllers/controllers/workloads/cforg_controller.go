@@ -39,12 +39,11 @@ type CFOrgReconciler struct {
 }
 
 func NewCFOrgReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *CFOrgReconciler {
-	r := CFOrgReconciler{
+	return &CFOrgReconciler{
 		client: client,
 		scheme: scheme,
 		log:    log,
 	}
-	return &r
 }
 
 const (

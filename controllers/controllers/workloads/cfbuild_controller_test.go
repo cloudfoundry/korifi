@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"code.cloudfoundry.org/korifi/controllers/config"
+
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
@@ -103,12 +105,13 @@ var _ = Describe("CFBuildReconciler", func() {
 
 		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
-		cfBuildReconciler = &CFBuildReconciler{
-			Client:     fakeClient,
-			Scheme:     scheme.Scheme,
-			Log:        zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			EnvBuilder: fakeEnvBuilder,
-		}
+		cfBuildReconciler = NewCFBuildReconciler(
+			fakeClient,
+			scheme.Scheme,
+			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+			&config.ControllerConfig{},
+			fakeEnvBuilder,
+		)
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: defaultNamespace,

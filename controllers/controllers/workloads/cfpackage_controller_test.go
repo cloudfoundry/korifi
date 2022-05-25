@@ -75,11 +75,11 @@ var _ = Describe("CFPackageReconciler", func() {
 
 		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
-		cfPackageReconciler = &CFPackageReconciler{
-			Client: fakeClient,
-			Scheme: scheme.Scheme,
-			Log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-		}
+		cfPackageReconciler = NewCFPackageReconciler(
+			fakeClient,
+			scheme.Scheme,
+			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+		)
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: defaultNamespace,

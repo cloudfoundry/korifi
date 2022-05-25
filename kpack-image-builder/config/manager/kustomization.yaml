@@ -13,6 +13,6 @@ configMapGenerator:
   name: manager-config
 
 images:
-  - name: cloudfoundry/korifi-kpack-image-builder
-    newName: cloudfoundry/korifi-kpack-image-builder
-    newTag: latest
+- name: cloudfoundry/korifi-kpack-image-builder
+  newName: cloudfoundry/korifi-kpack-image-builder
+  newTag: latest

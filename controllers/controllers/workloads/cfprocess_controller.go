@@ -54,6 +54,10 @@ type CFProcessReconciler struct {
 	EnvBuilder EnvBuilder
 }
 
+func NewCFProcessReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger, envBuilder EnvBuilder) *CFProcessReconciler {
+	return &CFProcessReconciler{Client: client, Scheme: scheme, Log: log, EnvBuilder: envBuilder}
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses/finalizers,verbs=update

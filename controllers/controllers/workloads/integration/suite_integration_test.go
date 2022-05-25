@@ -112,40 +112,40 @@ var _ = BeforeSuite(func() {
 		WorkloadsTLSSecretName:    "korifi-workloads-ingress-cert",
 	}
 
-	err = (&CFAppReconciler{
-		Client:           k8sManager.GetClient(),
-		Scheme:           k8sManager.GetScheme(),
-		Log:              ctrl.Log.WithName("controllers").WithName("CFApp"),
-		ControllerConfig: controllerConfig,
-	}).SetupWithManager(k8sManager)
+	err = (NewCFAppReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFApp"),
+		controllerConfig,
+	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(registryAuthFetcherClient).NotTo(BeNil())
-	cfBuildReconciler := &CFBuildReconciler{
-		Client:           k8sManager.GetClient(),
-		Scheme:           k8sManager.GetScheme(),
-		Log:              ctrl.Log.WithName("controllers").WithName("CFBuild"),
-		ControllerConfig: controllerConfig,
-		EnvBuilder:       env.NewBuilder(k8sManager.GetClient()),
-	}
+	cfBuildReconciler := NewCFBuildReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFBuild"),
+		controllerConfig,
+		env.NewBuilder(k8sManager.GetClient()),
+	)
 	err = (cfBuildReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&CFProcessReconciler{
-		Client:     k8sManager.GetClient(),
-		Scheme:     k8sManager.GetScheme(),
-		Log:        ctrl.Log.WithName("controllers").WithName("CFProcess"),
-		EnvBuilder: env.NewBuilder(k8sManager.GetClient()),
-	}).SetupWithManager(k8sManager)
+	err = (NewCFProcessReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFProcess"),
+		env.NewBuilder(k8sManager.GetClient()),
+	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&CFPackageReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CFPackage"),
-	}).SetupWithManager(k8sManager)
+	err = (NewCFPackageReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFPackage"),
+	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = NewCFOrgReconciler(

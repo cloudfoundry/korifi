@@ -228,14 +228,14 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-		cfRouteReconciler = &CFRouteReconciler{
-			Client: fakeClient,
-			Scheme: scheme.Scheme,
-			Log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			ControllerConfig: &config.ControllerConfig{
+		cfRouteReconciler = NewCFRouteReconciler(
+			fakeClient,
+			scheme.Scheme,
+			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+			&config.ControllerConfig{
 				KorifiControllerNamespace: korifiControllerNamespace,
 			},
-		}
+		)
 
 		ctx = context.Background()
 		req = ctrl.Request{

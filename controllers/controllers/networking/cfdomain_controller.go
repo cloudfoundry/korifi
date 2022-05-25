@@ -32,6 +32,10 @@ type CFDomainReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+func NewCFDomainReconciler(client client.Client, scheme *runtime.Scheme) *CFDomainReconciler {
+	return &CFDomainReconciler{Client: client, Scheme: scheme}
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/finalizers,verbs=update

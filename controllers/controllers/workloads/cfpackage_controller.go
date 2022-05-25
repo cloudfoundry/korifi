@@ -37,6 +37,10 @@ type CFPackageReconciler struct {
 	Log    logr.Logger
 }
 
+func NewCFPackageReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *CFPackageReconciler {
+	return &CFPackageReconciler{Client: client, Scheme: scheme, Log: log}
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages/finalizers,verbs=update

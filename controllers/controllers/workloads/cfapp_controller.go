@@ -38,6 +38,10 @@ type CFAppReconciler struct {
 	ControllerConfig *config.ControllerConfig
 }
 
+func NewCFAppReconciler(client CFClient, scheme *runtime.Scheme, log logr.Logger, controllerConfig *config.ControllerConfig) *CFAppReconciler {
+	return &CFAppReconciler{Client: client, Scheme: scheme, Log: log, ControllerConfig: controllerConfig}
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps/finalizers,verbs=update
