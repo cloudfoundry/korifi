@@ -34,7 +34,7 @@ const (
 	RouteSubdomainValidationErrorType      = "RouteSubdomainValidationError"
 	RouteSubdomainValidationErrorMessage   = "Subdomains must each be at most 63 characters"
 	RouteFQDNValidationErrorType           = "RouteFQDNValidationError"
-	RouteFQDNValidationErrorMessage        = "FQDN does not comply with RFC 1035 standards"
+	RouteFQDNValidationErrorMessage        = "FQDN '%s' does not comply with RFC 1035 standards"
 
 	HostEmptyError  = "host cannot be empty"
 	HostLengthError = "host is too long (maximum is 63 characters)"
@@ -302,7 +302,7 @@ func IsFQDN(host, domain string) (bool, error) {
 	fqdnLength := len(fqdn)
 
 	if fqdnLength < MINIMUM_FQDN_DOMAIN_LENGTH || fqdnLength > MAXIMUM_FQDN_DOMAIN_LENGTH || !rxDomain.MatchString(fqdn) {
-		return false, errors.New(webhooks.ValidationError{Type: RouteFQDNValidationErrorType, Message: RouteFQDNValidationErrorMessage}.Marshal())
+		return false, errors.New(webhooks.ValidationError{Type: RouteFQDNValidationErrorType, Message: fmt.Sprintf(RouteFQDNValidationErrorMessage, fqdn)}.Marshal())
 	}
 
 	return true, nil

@@ -401,6 +401,21 @@ var _ = Describe("CF Route Validation", func() {
 				})
 			})
 
+			When("the FQDN does not match the domain regex", func() {
+				BeforeEach(func() {
+					cfDomain.Spec.Name = "foo..bar"
+				})
+
+				It("denies the request", func() {
+					Expect(response.Allowed).To(BeFalse())
+					err := webhooks.ValidationError{
+						Type:    networking.RouteFQDNValidationErrorType,
+						Message: "FQDN 'my-host.foo..bar' does not comply with RFC 1035 standards",
+					}
+					Expect(string(response.Result.Reason)).To(Equal(err.Marshal()))
+				})
+			})
+
 			When("the route has destinations", func() {
 				BeforeEach(func() {
 					cfRoute.Spec.Destinations = []v1alpha1.Destination{

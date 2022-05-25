@@ -312,7 +312,7 @@ var _ = Describe("Routes", func() {
 				It("fails with a invalid route error", func() {
 					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 					Expect(createErr.Errors).To(ConsistOf(cfErr{
-						Detail: "ValidationError-RouteFQDNValidationError: FQDN does not comply with RFC 1035 standards",
+						Detail: fmt.Sprintf("ValidationError-RouteFQDNValidationError: FQDN '%s.%s' does not comply with RFC 1035 standards", host, domainName),
 						Title:  "CF-UnprocessableEntity",
 						Code:   10008,
 					}))
