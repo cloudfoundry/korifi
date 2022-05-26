@@ -41,11 +41,10 @@ var _ = Describe("CFSpace Reconciler", func() {
 		cfSpaceError                        error
 		subNamespaceAnchorError             error
 		createSubnamespaceAnchorError       error
+		createSubnamespaceAnchorCallCount   int
 		namespaceError                      error
-		getEiriniServiceAccountError        error
 		createEiriniServiceAccountError     error
 		createEiriniServiceAccountCallCount int
-		getKpackServiceAccountError         error
 		createKpackServiceAccountError      error
 		createKpackServiceAccountCallCount  int
 
@@ -71,12 +70,11 @@ var _ = Describe("CFSpace Reconciler", func() {
 		subNamespaceAnchorError = nil
 		namespaceError = nil
 		createSubnamespaceAnchorError = nil
+		createSubnamespaceAnchorCallCount = 0
 		reconcileErr = nil
 
-		getEiriniServiceAccountError = nil
 		createEiriniServiceAccountError = nil
 		createEiriniServiceAccountCallCount = 0
-		getKpackServiceAccountError = nil
 		createKpackServiceAccountError = nil
 		createKpackServiceAccountCallCount = 0
 
@@ -91,12 +89,6 @@ var _ = Describe("CFSpace Reconciler", func() {
 			case *v1.Namespace:
 				namespace.DeepCopyInto(obj)
 				return namespaceError
-			case *v1.ServiceAccount:
-				if nn.Name == "eirini" {
-					return getEiriniServiceAccountError
-				} else {
-					return getKpackServiceAccountError
-				}
 			default:
 				panic("TestClient Get provided a weird obj")
 			}
@@ -106,6 +98,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			switch obj := obj.(type) {
 			case *v1alpha2.SubnamespaceAnchor:
 				obj.Status.State = subNamespaceAnchorState
+				createSubnamespaceAnchorCallCount++
 				return createSubnamespaceAnchorError
 			case *v1.ServiceAccount:
 				if obj.Name == "eirini" {
@@ -167,7 +160,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			})
 
 			It("does not create the subsnamespace anchor", func() {
-				Expect(fakeClient.CreateCallCount()).To(Equal(0))
+				Expect(createSubnamespaceAnchorCallCount).To(Equal(0))
 			})
 		})
 
@@ -254,7 +247,6 @@ var _ = Describe("CFSpace Reconciler", func() {
 			BeforeEach(func() {
 				subNamespaceAnchorError = nil
 				subNamespaceAnchor.Status.State = v1alpha2.Ok
-				getKpackServiceAccountError = errors.New("not found")
 				createKpackServiceAccountError = errors.New("boom")
 			})
 
@@ -267,7 +259,6 @@ var _ = Describe("CFSpace Reconciler", func() {
 			BeforeEach(func() {
 				subNamespaceAnchorError = nil
 				subNamespaceAnchor.Status.State = v1alpha2.Ok
-				getEiriniServiceAccountError = errors.New("not found")
 				createEiriniServiceAccountError = errors.New("boom")
 			})
 
@@ -280,10 +271,11 @@ var _ = Describe("CFSpace Reconciler", func() {
 			BeforeEach(func() {
 				subNamespaceAnchorError = nil
 				subNamespaceAnchor.Status.State = v1alpha2.Ok
+				createEiriniServiceAccountError = k8serrors.NewAlreadyExists(schema.GroupResource{}, "")
 			})
 
-			It("should doesn't try to create it", func() {
-				Expect(createKpackServiceAccountCallCount).To(Equal(0))
+			It("should not fail", func() {
+				Expect(reconcileErr).To(Not(HaveOccurred()))
 			})
 		})
 
@@ -291,10 +283,11 @@ var _ = Describe("CFSpace Reconciler", func() {
 			BeforeEach(func() {
 				subNamespaceAnchorError = nil
 				subNamespaceAnchor.Status.State = v1alpha2.Ok
+				createEiriniServiceAccountError = k8serrors.NewAlreadyExists(schema.GroupResource{}, "")
 			})
 
-			It("should doesn't try to create it", func() {
-				Expect(createEiriniServiceAccountCallCount).To(Equal(0))
+			It("should not fail", func() {
+				Expect(reconcileErr).To(Not(HaveOccurred()))
 			})
 		})
 	})

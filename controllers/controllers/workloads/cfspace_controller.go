@@ -30,7 +30,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
@@ -144,7 +143,7 @@ func (r *CFSpaceReconciler) createServiceAccounts(ctx context.Context, namespace
 		},
 	})
 	if err != nil {
-		r.log.Error(err, "unable to create kpack service account ")
+		r.log.Error(err, "unable to create kpack service account")
 		return err
 	}
 
@@ -163,11 +162,12 @@ func (r *CFSpaceReconciler) createServiceAccounts(ctx context.Context, namespace
 }
 
 func (r *CFSpaceReconciler) createServiceAccountIfMissing(ctx context.Context, serviceAccount *corev1.ServiceAccount) error {
-	err := r.client.Get(ctx, types.NamespacedName{Name: serviceAccount.Name, Namespace: serviceAccount.Namespace}, new(corev1.ServiceAccount))
-	if err != nil {
-		return r.client.Create(ctx, serviceAccount)
+	err := r.client.Create(ctx, serviceAccount)
+	if k8serrors.IsAlreadyExists(err) {
+		r.log.Info("service account already exists, skipping", "error", err)
+		return nil
 	}
-	return nil
+	return err
 }
 
 // SetupWithManager sets up the controller with the Manager.
