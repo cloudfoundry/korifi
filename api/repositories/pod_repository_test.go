@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
@@ -369,9 +369,9 @@ func createPodDef(name, namespace, appGUID, processGUID, index, version string) 
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				v1alpha1.CFAppGUIDLabelKey: appGUID,
-				eiriniLabelVersionKey:      version,
-				cfProcessGuidKey:           processGUID,
+				korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
+				eiriniLabelVersionKey:            version,
+				cfProcessGuidKey:                 processGUID,
 			},
 		},
 		Spec: corev1.PodSpec{

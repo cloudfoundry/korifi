@@ -11,7 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/actions"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,7 +49,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 	When("on the happy path", func() {
 		var (
-			space          *v1alpha1.CFSpace
+			space          *korifiv1alpha1.CFSpace
 			requestEnvVars map[string]string
 			requestBody    string
 			domainGUID     string
@@ -73,12 +73,12 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				key2: "VAL2",
 			}
 
-			domain := &v1alpha1.CFDomain{
+			domain := &korifiv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      domainGUID,
 					Namespace: rootNamespace,
 				},
-				Spec: v1alpha1.CFDomainSpec{Name: domainName},
+				Spec: korifiv1alpha1.CFDomainSpec{Name: domainName},
 			}
 
 			Expect(
@@ -150,10 +150,10 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/space.apply_manifest-", space.Name)))
 
-				var app1 v1alpha1.CFApp
+				var app1 korifiv1alpha1.CFApp
 				By("confirming that the app was created", func() {
-					var appList v1alpha1.CFAppList
-					Eventually(func() []v1alpha1.CFApp {
+					var appList korifiv1alpha1.CFAppList
+					Eventually(func() []korifiv1alpha1.CFApp {
 						Expect(
 							k8sClient.List(context.Background(), &appList, client.InNamespace(space.Name)),
 						).To(Succeed())
@@ -184,8 +184,8 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				})
 
 				By("confirming that the processes from the manifest were created", func() {
-					var processList v1alpha1.CFProcessList
-					Eventually(func() []v1alpha1.CFProcess {
+					var processList korifiv1alpha1.CFProcessList
+					Eventually(func() []korifiv1alpha1.CFProcess {
 						Expect(
 							k8sClient.List(context.Background(), &processList, client.InNamespace(space.Name)),
 						).To(Succeed())
@@ -194,13 +194,13 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 					Expect(processList.Items).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
-							"Spec": Equal(v1alpha1.CFProcessSpec{
+							"Spec": Equal(korifiv1alpha1.CFProcessSpec{
 								AppRef:      corev1.LocalObjectReference{Name: app1.Name},
 								ProcessType: "web",
 								Command:     "start-web.sh",
-								HealthCheck: v1alpha1.HealthCheck{
+								HealthCheck: korifiv1alpha1.HealthCheck{
 									Type: "http",
-									Data: v1alpha1.HealthCheckData{
+									Data: korifiv1alpha1.HealthCheckData{
 										HTTPEndpoint:             "/stuff",
 										InvocationTimeoutSeconds: 60,
 										TimeoutSeconds:           60,
@@ -213,13 +213,13 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 							}),
 						}),
 						MatchFields(IgnoreExtras, Fields{
-							"Spec": Equal(v1alpha1.CFProcessSpec{
+							"Spec": Equal(korifiv1alpha1.CFProcessSpec{
 								AppRef:      corev1.LocalObjectReference{Name: app1.Name},
 								ProcessType: "worker",
 								Command:     "start-worker.sh",
-								HealthCheck: v1alpha1.HealthCheck{
+								HealthCheck: korifiv1alpha1.HealthCheck{
 									Type: "http",
-									Data: v1alpha1.HealthCheckData{
+									Data: korifiv1alpha1.HealthCheckData{
 										HTTPEndpoint:             "/things",
 										InvocationTimeoutSeconds: 90,
 										TimeoutSeconds:           90,
@@ -237,9 +237,9 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 			When("the route doesn't exist", func() {
 				It("creates the route from the manifest", func() {
-					var app v1alpha1.CFApp
-					var appList v1alpha1.CFAppList
-					Eventually(func() []v1alpha1.CFApp {
+					var app korifiv1alpha1.CFApp
+					var appList korifiv1alpha1.CFAppList
+					Eventually(func() []korifiv1alpha1.CFApp {
 						Expect(
 							k8sClient.List(context.Background(), &appList, client.InNamespace(space.Name)),
 						).To(Succeed())
@@ -248,8 +248,8 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 					app = appList.Items[0]
 
-					var routeList v1alpha1.CFRouteList
-					Eventually(func() []v1alpha1.CFRoute {
+					var routeList korifiv1alpha1.CFRouteList
+					Eventually(func() []korifiv1alpha1.CFRoute {
 						Expect(
 							k8sClient.List(context.Background(), &routeList, client.InNamespace(space.Name)),
 						).To(Succeed())
@@ -280,15 +280,15 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					otherAppGUID    = "the-other-app-guid"
 				)
 
-				var originalRoute v1alpha1.CFRoute
+				var originalRoute korifiv1alpha1.CFRoute
 
 				BeforeEach(func() {
-					originalRoute = v1alpha1.CFRoute{
+					originalRoute = korifiv1alpha1.CFRoute{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      routeGUID,
 							Namespace: space.Name,
 						},
-						Spec: v1alpha1.CFRouteSpec{
+						Spec: korifiv1alpha1.CFRouteSpec{
 							Host:     host,
 							Path:     path,
 							Protocol: "http",
@@ -296,7 +296,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 								Name:      domainGUID,
 								Namespace: space.Name,
 							},
-							Destinations: []v1alpha1.Destination{
+							Destinations: []korifiv1alpha1.Destination{
 								{
 									GUID:        destinationGUID,
 									Port:        8080,
@@ -313,9 +313,9 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				})
 
 				It("adds the app to the route's destinations", func() {
-					var app v1alpha1.CFApp
-					var appList v1alpha1.CFAppList
-					Eventually(func() []v1alpha1.CFApp {
+					var app korifiv1alpha1.CFApp
+					var appList korifiv1alpha1.CFAppList
+					Eventually(func() []korifiv1alpha1.CFApp {
 						Expect(
 							k8sClient.List(context.Background(), &appList, client.InNamespace(space.Name)),
 						).To(Succeed())
@@ -324,8 +324,8 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 					app = appList.Items[0]
 
-					var routeList v1alpha1.CFRouteList
-					Eventually(func() []v1alpha1.CFRoute {
+					var routeList korifiv1alpha1.CFRouteList
+					Eventually(func() []korifiv1alpha1.CFRoute {
 						Expect(
 							k8sClient.List(context.Background(), &routeList, client.InNamespace(space.Name)),
 						).To(Succeed())
@@ -367,9 +367,9 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				})
 
 				It("creates a web process with the specified resource properties", func() {
-					var app1 v1alpha1.CFApp
-					var appList v1alpha1.CFAppList
-					Eventually(func() []v1alpha1.CFApp {
+					var app1 korifiv1alpha1.CFApp
+					var appList korifiv1alpha1.CFAppList
+					Eventually(func() []korifiv1alpha1.CFApp {
 						Expect(
 							k8sClient.List(context.Background(), &appList, client.InNamespace(space.Name)),
 						).To(Succeed())
@@ -379,8 +379,8 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					app1 = appList.Items[0]
 					Expect(app1.Spec.DisplayName).To(Equal(appName))
 
-					var processList v1alpha1.CFProcessList
-					Eventually(func() []v1alpha1.CFProcess {
+					var processList korifiv1alpha1.CFProcessList
+					Eventually(func() []korifiv1alpha1.CFProcess {
 						Expect(
 							k8sClient.List(context.Background(), &processList, client.InNamespace(space.Name)),
 						).To(Succeed())
@@ -421,9 +421,9 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				})
 
 				It("creates a web process with the specified resource properties", func() {
-					var app1 v1alpha1.CFApp
-					var appList v1alpha1.CFAppList
-					Eventually(func() []v1alpha1.CFApp {
+					var app1 korifiv1alpha1.CFApp
+					var appList korifiv1alpha1.CFAppList
+					Eventually(func() []korifiv1alpha1.CFApp {
 						Expect(
 							k8sClient.List(context.Background(), &appList, client.InNamespace(space.Name)),
 						).To(Succeed())
@@ -433,8 +433,8 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					app1 = appList.Items[0]
 					Expect(app1.Spec.DisplayName).To(Equal(appName))
 
-					var processList v1alpha1.CFProcessList
-					Eventually(func() []v1alpha1.CFProcess {
+					var processList korifiv1alpha1.CFProcessList
+					Eventually(func() []korifiv1alpha1.CFProcess {
 						Expect(
 							k8sClient.List(context.Background(), &processList, client.InNamespace(space.Name)),
 						).To(Succeed())
@@ -472,8 +472,8 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 			var (
 				originalEnvVars         map[string]string
-				originalExistingProcess v1alpha1.CFProcess
-				originalRoute           v1alpha1.CFRoute
+				originalExistingProcess korifiv1alpha1.CFProcess
+				originalRoute           korifiv1alpha1.CFRoute
 			)
 
 			BeforeEach(func() {
@@ -503,14 +503,14 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 				beforeCtx := context.Background()
 				Expect(
-					k8sClient.Create(beforeCtx, &v1alpha1.CFApp{
+					k8sClient.Create(beforeCtx, &korifiv1alpha1.CFApp{
 						ObjectMeta: metav1.ObjectMeta{Name: appGUID, Namespace: space.Name},
-						Spec: v1alpha1.CFAppSpec{
+						Spec: korifiv1alpha1.CFAppSpec{
 							DisplayName:   appName,
 							EnvSecretName: appGUID + "-env",
-							DesiredState:  v1alpha1.StoppedState,
-							Lifecycle: v1alpha1.Lifecycle{
-								Type: v1alpha1.BuildpackLifecycle,
+							DesiredState:  korifiv1alpha1.StoppedState,
+							Lifecycle: korifiv1alpha1.Lifecycle{
+								Type: korifiv1alpha1.BuildpackLifecycle,
 							},
 						},
 					}),
@@ -530,16 +530,16 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					}),
 				).To(Succeed())
 
-				originalExistingProcess = v1alpha1.CFProcess{
+				originalExistingProcess = korifiv1alpha1.CFProcess{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "existing-process-guid",
 						Namespace: space.Name,
 					},
-					Spec: v1alpha1.CFProcessSpec{
+					Spec: korifiv1alpha1.CFProcessSpec{
 						AppRef:           corev1.LocalObjectReference{Name: appGUID},
 						ProcessType:      "existing",
 						Command:          "do-the-thing.sh",
-						HealthCheck:      v1alpha1.HealthCheck{Type: "process"},
+						HealthCheck:      korifiv1alpha1.HealthCheck{Type: "process"},
 						DesiredInstances: 1,
 						MemoryMB:         123,
 						Ports:            []int32{},
@@ -551,16 +551,16 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				).To(Succeed())
 
 				Expect(
-					k8sClient.Create(beforeCtx, &v1alpha1.CFProcess{
+					k8sClient.Create(beforeCtx, &korifiv1alpha1.CFProcess{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "web-process-guid",
 							Namespace: space.Name,
 						},
-						Spec: v1alpha1.CFProcessSpec{
+						Spec: korifiv1alpha1.CFProcessSpec{
 							AppRef:           corev1.LocalObjectReference{Name: appGUID},
 							ProcessType:      "web",
 							Command:          "original-command.sh",
-							HealthCheck:      v1alpha1.HealthCheck{Type: "process"},
+							HealthCheck:      korifiv1alpha1.HealthCheck{Type: "process"},
 							DesiredInstances: 42,
 							MemoryMB:         42,
 							DiskQuotaMB:      42,
@@ -569,12 +569,12 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 					}),
 				).To(Succeed())
 
-				originalRoute = v1alpha1.CFRoute{
+				originalRoute = korifiv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      routeGUID,
 						Namespace: space.Name,
 					},
-					Spec: v1alpha1.CFRouteSpec{
+					Spec: korifiv1alpha1.CFRouteSpec{
 						Host:     "custom",
 						Path:     "/path",
 						Protocol: "http",
@@ -582,7 +582,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 							Name:      domainGUID,
 							Namespace: space.Name,
 						},
-						Destinations: []v1alpha1.Destination{
+						Destinations: []korifiv1alpha1.Destination{
 							{
 								GUID:        destinationGUID,
 								Port:        8080,
@@ -607,10 +607,10 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/space.apply_manifest-", space.Name)))
 
-				var app1 v1alpha1.CFApp
+				var app1 korifiv1alpha1.CFApp
 				By("confirming that the app fields are unchanged", func() {
-					var appList v1alpha1.CFAppList
-					Consistently(func() []v1alpha1.CFApp {
+					var appList korifiv1alpha1.CFAppList
+					Consistently(func() []korifiv1alpha1.CFApp {
 						Expect(
 							k8sClient.List(context.Background(), &appList, client.InNamespace(space.Name)),
 						).To(Succeed())
@@ -643,8 +643,8 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				})
 
 				By("confirming that the new processes were created", func() {
-					var processList v1alpha1.CFProcessList
-					Eventually(func() []v1alpha1.CFProcess {
+					var processList korifiv1alpha1.CFProcessList
+					Eventually(func() []korifiv1alpha1.CFProcess {
 						Expect(
 							k8sClient.List(context.Background(), &processList, client.InNamespace(space.Name)),
 						).To(Succeed())
@@ -656,11 +656,11 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 							"Spec": Equal(originalExistingProcess.Spec),
 						}),
 						MatchFields(IgnoreExtras, Fields{
-							"Spec": Equal(v1alpha1.CFProcessSpec{
+							"Spec": Equal(korifiv1alpha1.CFProcessSpec{
 								AppRef:      corev1.LocalObjectReference{Name: app1.Name},
 								ProcessType: "web",
 								Command:     "new-command",
-								HealthCheck: v1alpha1.HealthCheck{
+								HealthCheck: korifiv1alpha1.HealthCheck{
 									Type: "process",
 								},
 								DesiredInstances: 42,
@@ -670,13 +670,13 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 							}),
 						}),
 						MatchFields(IgnoreExtras, Fields{
-							"Spec": Equal(v1alpha1.CFProcessSpec{
+							"Spec": Equal(korifiv1alpha1.CFProcessSpec{
 								AppRef:      corev1.LocalObjectReference{Name: app1.Name},
 								ProcessType: "worker",
 								Command:     "start-worker.sh",
-								HealthCheck: v1alpha1.HealthCheck{
+								HealthCheck: korifiv1alpha1.HealthCheck{
 									Type: "http",
-									Data: v1alpha1.HealthCheckData{
+									Data: korifiv1alpha1.HealthCheckData{
 										HTTPEndpoint:             "/things",
 										InvocationTimeoutSeconds: 90,
 										TimeoutSeconds:           90,
@@ -692,8 +692,8 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				})
 
 				By("confirming that the route is unchanged and no new route was created", func() {
-					var routeList v1alpha1.CFRouteList
-					Consistently(func() []v1alpha1.CFRoute {
+					var routeList korifiv1alpha1.CFRouteList
+					Consistently(func() []korifiv1alpha1.CFRoute {
 						Expect(
 							k8sClient.List(context.Background(), &routeList, client.InNamespace(space.Name)),
 						).To(Succeed())

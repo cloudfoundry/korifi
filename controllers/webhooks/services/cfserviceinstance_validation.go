@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -57,7 +57,7 @@ func (v *CFServiceInstanceValidation) SetupWebhookWithManager(mgr ctrl.Manager) 
 func (v *CFServiceInstanceValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
 	cfserviceinstancelog.Info("Validate", "name", req.Name)
 
-	var cfServiceInstance, oldCFServiceInstance v1alpha1.CFServiceInstance
+	var cfServiceInstance, oldCFServiceInstance korifiv1alpha1.CFServiceInstance
 	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
 		err := v.decoder.Decode(req, &cfServiceInstance)
 		if err != nil { // untested

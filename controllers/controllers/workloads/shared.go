@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -65,14 +65,14 @@ func createSubnamespaceAnchor(ctx context.Context, client client.Client, req ctr
 
 func updateStatus(ctx context.Context, client client.Client, object client.Object, conditionStatus metav1.ConditionStatus) error {
 	switch obj := object.(type) {
-	case *v1alpha1.CFOrg:
-		cfOrg := new(v1alpha1.CFOrg)
+	case *korifiv1alpha1.CFOrg:
+		cfOrg := new(korifiv1alpha1.CFOrg)
 		obj.DeepCopyInto(cfOrg)
 		setStatusConditionOnLocalCopy(&cfOrg.Status.Conditions, StatusConditionReady, conditionStatus, StatusConditionReady, "")
 		err := client.Status().Update(ctx, cfOrg)
 		return err
-	case *v1alpha1.CFSpace:
-		cfSpace := new(v1alpha1.CFSpace)
+	case *korifiv1alpha1.CFSpace:
+		cfSpace := new(korifiv1alpha1.CFSpace)
 		obj.DeepCopyInto(cfSpace)
 		setStatusConditionOnLocalCopy(&cfSpace.Status.Conditions, StatusConditionReady, conditionStatus, StatusConditionReady, "")
 		err := client.Status().Update(ctx, cfSpace)

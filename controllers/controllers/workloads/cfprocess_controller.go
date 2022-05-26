@@ -25,7 +25,7 @@ import (
 	"sort"
 	"strconv"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
@@ -43,7 +43,7 @@ import (
 
 //counterfeiter:generate -o fake -fake-name EnvBuilder . EnvBuilder
 type EnvBuilder interface {
-	BuildEnv(ctx context.Context, cfApp *v1alpha1.CFApp) (map[string]string, error)
+	BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (map[string]string, error)
 }
 
 // CFProcessReconciler reconciles a CFProcess object
@@ -65,7 +65,7 @@ func NewCFProcessReconciler(client client.Client, scheme *runtime.Scheme, log lo
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;patch
 
 func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	cfProcess := new(v1alpha1.CFProcess)
+	cfProcess := new(korifiv1alpha1.CFProcess)
 	var err error
 	err = r.Client.Get(ctx, req.NamespacedName, cfProcess)
 	if err != nil {
@@ -73,7 +73,7 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	cfApp := new(v1alpha1.CFApp)
+	cfApp := new(korifiv1alpha1.CFApp)
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfProcess.Spec.AppRef.Name, Namespace: cfProcess.Namespace}, cfApp)
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch CFApp %s/%s", req.Namespace, cfProcess.Spec.AppRef.Name))
@@ -85,12 +85,12 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	cfAppRev := v1alpha1.CFAppRevisionKeyDefault
-	if foundValue, ok := cfApp.GetAnnotations()[v1alpha1.CFAppRevisionKey]; ok {
+	cfAppRev := korifiv1alpha1.CFAppRevisionKeyDefault
+	if foundValue, ok := cfApp.GetAnnotations()[korifiv1alpha1.CFAppRevisionKey]; ok {
 		cfAppRev = foundValue
 	}
 
-	if cfApp.Spec.DesiredState == v1alpha1.StartedState {
+	if cfApp.Spec.DesiredState == korifiv1alpha1.StartedState {
 		err = r.createOrPatchLRP(ctx, cfApp, cfProcess, cfAppRev)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -105,8 +105,8 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return ctrl.Result{}, nil
 }
 
-func (r *CFProcessReconciler) createOrPatchLRP(ctx context.Context, cfApp *v1alpha1.CFApp, cfProcess *v1alpha1.CFProcess, cfAppRev string) error {
-	cfBuild := new(v1alpha1.CFBuild)
+func (r *CFProcessReconciler) createOrPatchLRP(ctx context.Context, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfAppRev string) error {
+	cfBuild := new(korifiv1alpha1.CFBuild)
 	err := r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfProcess.Namespace}, cfBuild)
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch CFBuild %s/%s", cfProcess.Namespace, cfApp.Spec.CurrentDropletRef.Name))
@@ -153,7 +153,7 @@ func (r *CFProcessReconciler) createOrPatchLRP(ctx context.Context, cfApp *v1alp
 	return nil
 }
 
-func (r *CFProcessReconciler) setOwnerRef(ctx context.Context, cfProcess *v1alpha1.CFProcess, cfApp *v1alpha1.CFApp) error {
+func (r *CFProcessReconciler) setOwnerRef(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, cfApp *korifiv1alpha1.CFApp) error {
 	originalCFProcess := cfProcess.DeepCopy()
 	err := controllerutil.SetOwnerReference(cfApp, cfProcess, r.Scheme)
 	if err != nil {
@@ -169,7 +169,7 @@ func (r *CFProcessReconciler) setOwnerRef(ctx context.Context, cfProcess *v1alph
 	return nil
 }
 
-func (r *CFProcessReconciler) cleanUpLRPs(ctx context.Context, cfProcess *v1alpha1.CFProcess, desiredState v1alpha1.DesiredState, cfAppRev string) error {
+func (r *CFProcessReconciler) cleanUpLRPs(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, desiredState korifiv1alpha1.DesiredState, cfAppRev string) error {
 	lrpsForProcess, err := r.fetchLRPsForProcess(ctx, cfProcess)
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch LRPs for Process %s/%s", cfProcess.Namespace, cfProcess.Name))
@@ -177,7 +177,7 @@ func (r *CFProcessReconciler) cleanUpLRPs(ctx context.Context, cfProcess *v1alph
 	}
 
 	for i, currentLRP := range lrpsForProcess {
-		if desiredState == v1alpha1.StoppedState || currentLRP.Labels[v1alpha1.CFAppRevisionKey] != cfAppRev {
+		if desiredState == korifiv1alpha1.StoppedState || currentLRP.Labels[korifiv1alpha1.CFAppRevisionKey] != cfAppRev {
 			err := r.Client.Delete(ctx, &lrpsForProcess[i])
 			if err != nil {
 				r.Log.Info(fmt.Sprintf("Error occurred deleting LRP: %s, %s", currentLRP.Name, err))
@@ -198,21 +198,21 @@ func lrpMutateFunction(actuallrp, desiredlrp *eiriniv1.LRP) controllerutil.Mutat
 	}
 }
 
-func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *v1alpha1.CFApp, cfProcess *v1alpha1.CFProcess, cfBuild *v1alpha1.CFBuild, appPort int, envVars map[string]string) (*eiriniv1.LRP, error) {
+func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfBuild *korifiv1alpha1.CFBuild, appPort int, envVars map[string]string) (*eiriniv1.LRP, error) {
 	var desiredLRP eiriniv1.LRP
 	actualLRP.DeepCopyInto(&desiredLRP)
 
 	desiredLRP.Labels = make(map[string]string)
-	desiredLRP.Labels[v1alpha1.CFAppGUIDLabelKey] = cfApp.Name
-	cfAppRevisionKeyValue := v1alpha1.CFAppRevisionKeyDefault
+	desiredLRP.Labels[korifiv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
+	cfAppRevisionKeyValue := korifiv1alpha1.CFAppRevisionKeyDefault
 	if cfApp.Annotations != nil {
-		if foundValue, has := cfApp.Annotations[v1alpha1.CFAppRevisionKey]; has {
+		if foundValue, has := cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey]; has {
 			cfAppRevisionKeyValue = foundValue
 		}
 	}
-	desiredLRP.Labels[v1alpha1.CFAppRevisionKey] = cfAppRevisionKeyValue
-	desiredLRP.Labels[v1alpha1.CFProcessGUIDLabelKey] = cfProcess.Name
-	desiredLRP.Labels[v1alpha1.CFProcessTypeLabelKey] = cfProcess.Spec.ProcessType
+	desiredLRP.Labels[korifiv1alpha1.CFAppRevisionKey] = cfAppRevisionKeyValue
+	desiredLRP.Labels[korifiv1alpha1.CFProcessGUIDLabelKey] = cfProcess.Name
+	desiredLRP.Labels[korifiv1alpha1.CFProcessTypeLabelKey] = cfProcess.Spec.ProcessType
 
 	desiredLRP.Spec.GUID = cfProcess.Name
 	desiredLRP.Spec.Version = cfAppRevisionKeyValue
@@ -263,7 +263,7 @@ func generateLRPName(cfAppRev string, processGUID string) string {
 	return lrpName
 }
 
-func (r *CFProcessReconciler) fetchLRPsForProcess(ctx context.Context, cfProcess *v1alpha1.CFProcess) ([]eiriniv1.LRP, error) {
+func (r *CFProcessReconciler) fetchLRPsForProcess(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) ([]eiriniv1.LRP, error) {
 	allLRPs := &eiriniv1.LRPList{}
 	err := r.Client.List(ctx, allLRPs, client.InNamespace(cfProcess.Namespace))
 	if err != nil {
@@ -271,16 +271,16 @@ func (r *CFProcessReconciler) fetchLRPsForProcess(ctx context.Context, cfProcess
 	}
 	var lrpsForProcess []eiriniv1.LRP
 	for _, currentLRP := range allLRPs.Items {
-		if processGUID, has := currentLRP.Labels[v1alpha1.CFProcessGUIDLabelKey]; has && processGUID == cfProcess.Name {
+		if processGUID, has := currentLRP.Labels[korifiv1alpha1.CFProcessGUIDLabelKey]; has && processGUID == cfProcess.Name {
 			lrpsForProcess = append(lrpsForProcess, currentLRP)
 		}
 	}
 	return lrpsForProcess, err
 }
 
-func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess *v1alpha1.CFProcess, cfApp *v1alpha1.CFApp) (int, error) {
+func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, cfApp *korifiv1alpha1.CFApp) (int, error) {
 	// Get Routes for the process
-	var cfRoutesForProcess v1alpha1.CFRouteList
+	var cfRoutesForProcess korifiv1alpha1.CFRouteList
 	err := r.Client.List(ctx, &cfRoutesForProcess, client.InNamespace(cfApp.GetNamespace()), client.MatchingFields{shared.IndexRouteDestinationAppName: cfApp.Name})
 	if err != nil {
 		return 0, err
@@ -318,10 +318,10 @@ func generateEnvMap(port int, commonEnv map[string]string) map[string]string {
 	return result
 }
 
-func commandForProcess(process *v1alpha1.CFProcess, app *v1alpha1.CFApp) []string {
+func commandForProcess(process *korifiv1alpha1.CFProcess, app *korifiv1alpha1.CFApp) []string {
 	if process.Spec.Command == "" {
 		return []string{}
-	} else if app.Spec.Lifecycle.Type == v1alpha1.BuildpackLifecycle {
+	} else if app.Spec.Lifecycle.Type == korifiv1alpha1.BuildpackLifecycle {
 		return []string{"/cnb/lifecycle/launcher", process.Spec.Command}
 	} else {
 		return []string{"/bin/sh", "-c", process.Spec.Command}
@@ -331,10 +331,10 @@ func commandForProcess(process *v1alpha1.CFProcess, app *v1alpha1.CFApp) []strin
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFProcessReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.CFProcess{}).
-		Watches(&source.Kind{Type: &v1alpha1.CFApp{}}, handler.EnqueueRequestsFromMapFunc(func(app client.Object) []reconcile.Request {
-			processList := &v1alpha1.CFProcessList{}
-			err := mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{v1alpha1.CFAppGUIDLabelKey: app.GetName()})
+		For(&korifiv1alpha1.CFProcess{}).
+		Watches(&source.Kind{Type: &korifiv1alpha1.CFApp{}}, handler.EnqueueRequestsFromMapFunc(func(app client.Object) []reconcile.Request {
+			processList := &korifiv1alpha1.CFProcessList{}
+			err := mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{korifiv1alpha1.CFAppGUIDLabelKey: app.GetName()})
 			if err != nil {
 				r.Log.Error(err, fmt.Sprintf("Error when trying to list CFProcesses in namespace %q", app.GetNamespace()))
 				return []reconcile.Request{}

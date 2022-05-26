@@ -16,7 +16,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	reporegistry "code.cloudfoundry.org/korifi/api/repositories/registry"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
@@ -37,9 +37,7 @@ import (
 var createTimeout = time.Second * 120
 
 func init() {
-	utilruntime.Must(v1alpha1.AddToScheme(scheme.Scheme))
-	utilruntime.Must(v1alpha1.AddToScheme(scheme.Scheme))
-	utilruntime.Must(v1alpha1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme.Scheme))
 	utilruntime.Must(hnsv1alpha2.AddToScheme(scheme.Scheme))
 }

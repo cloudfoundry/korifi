@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -62,7 +62,7 @@ func (r *CFServiceInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	_ = log.FromContext(ctx)
 	result := ctrl.Result{}
 
-	cfServiceInstance := new(v1alpha1.CFServiceInstance)
+	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 	err := r.Client.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, cfServiceInstance)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -121,11 +121,11 @@ func (r *CFServiceInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.CFServiceInstance{}).
+		For(&korifiv1alpha1.CFServiceInstance{}).
 		Complete(r)
 }
 
-func (r *CFServiceInstanceReconciler) addFinalizer(ctx context.Context, cfServiceInstance *v1alpha1.CFServiceInstance) error {
+func (r *CFServiceInstanceReconciler) addFinalizer(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) error {
 	if controllerutil.ContainsFinalizer(cfServiceInstance, FinalizerName) {
 		return nil
 	}
@@ -143,14 +143,14 @@ func (r *CFServiceInstanceReconciler) addFinalizer(ctx context.Context, cfServic
 	return nil
 }
 
-func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Context, cfServiceInstance *v1alpha1.CFServiceInstance) (ctrl.Result, error) {
+func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling deletion of CFServiceInstance/%s", cfServiceInstance.Name))
 
 	if !controllerutil.ContainsFinalizer(cfServiceInstance, FinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
-	cfServiceBindingList := &v1alpha1.CFServiceBindingList{}
+	cfServiceBindingList := &korifiv1alpha1.CFServiceBindingList{}
 	err := r.Client.List(ctx, cfServiceBindingList,
 		client.InNamespace(cfServiceInstance.Namespace),
 		client.MatchingFields{shared.IndexServiceBindingServiceInstanceGUID: cfServiceInstance.Name},
@@ -176,6 +176,6 @@ func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Cont
 	return ctrl.Result{}, nil
 }
 
-func isFinalizing(cfServiceInstance *v1alpha1.CFServiceInstance) bool {
+func isFinalizing(cfServiceInstance *korifiv1alpha1.CFServiceInstance) bool {
 	return cfServiceInstance.ObjectMeta.DeletionTimestamp != nil && !cfServiceInstance.ObjectMeta.DeletionTimestamp.IsZero()
 }

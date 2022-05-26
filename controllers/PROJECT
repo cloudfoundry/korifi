@@ -1,7 +1,6 @@
 domain: cloudfoundry.org
 layout:
 - go.kubebuilder.io/v3
-multigroup: true
 projectName: korifi
 repo: code.cloudfoundry.org/korifi/controllers
 resources:
@@ -10,7 +9,7 @@ resources:
     namespaced: true
   controller: true
   domain: cloudfoundry.org
-  group: workloads
+  group: korifi
   kind: CFApp
   path: code.cloudfoundry.org/korifi/controllers/api/v1alpha1
   version: v1alpha1
@@ -23,7 +22,7 @@ resources:
     namespaced: true
   controller: true
   domain: cloudfoundry.org
-  group: workloads
+  group: korifi
   kind: CFPackage
   path: code.cloudfoundry.org/korifi/controllers/api/v1alpha1
   version: v1alpha1
@@ -35,7 +34,7 @@ resources:
     namespaced: true
   controller: true
   domain: cloudfoundry.org
-  group: workloads
+  group: korifi
   kind: CFProcess
   path: code.cloudfoundry.org/korifi/controllers/api/v1alpha1
   version: v1alpha1
@@ -47,7 +46,7 @@ resources:
     namespaced: true
   controller: true
   domain: cloudfoundry.org
-  group: workloads
+  group: korifi
   kind: CFBuild
   path: code.cloudfoundry.org/korifi/controllers/api/v1alpha1
   plural: cfbuilds
@@ -57,7 +56,7 @@ resources:
     namespaced: true
   controller: true
   domain: cloudfoundry.org
-  group: networking
+  group: korifi
   kind: CFRoute
   path: code.cloudfoundry.org/korifi/controllers/api/v1alpha1
   version: v1alpha1
@@ -68,7 +67,7 @@ resources:
     crdVersion: v1
   controller: true
   domain: cloudfoundry.org
-  group: networking
+  group: korifi
   kind: CFDomain
   path: code.cloudfoundry.org/korifi/controllers/api/v1alpha1
   version: v1alpha1
@@ -80,7 +79,7 @@ resources:
     namespaced: true
   controller: true
   domain: cloudfoundry.org
-  group: services
+  group: korifi
   kind: CFServiceInstance
   path: code.cloudfoundry.org/korifi/controllers/api/v1alpha1
   version: v1alpha1
@@ -89,7 +88,7 @@ resources:
     namespaced: true
   controller: true
   domain: cloudfoundry.org
-  group: services
+  group: korifi
   kind: CFServiceBinding
   path: code.cloudfoundry.org/korifi/controllers/api/v1alpha1
   version: v1alpha1
@@ -98,7 +97,7 @@ resources:
     namespaced: true
   controller: true
   domain: cloudfoundry.org
-  group: workloads
+  group: korifi
   kind: CFOrg
   path: code.cloudfoundry.org/korifi/controllers/api/v1alpha1
   version: v1alpha1
@@ -107,7 +106,7 @@ resources:
     namespaced: true
   controller: true
   domain: cloudfoundry.org
-  group: workloads
+  group: korifi
   kind: CFSpace
   path: code.cloudfoundry.org/korifi/controllers/api/v1alpha1
   version: v1alpha1

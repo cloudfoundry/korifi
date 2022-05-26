@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/google/uuid"
@@ -88,12 +88,12 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 		return SpaceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	spaceCR, err := r.createSpaceCR(ctx, info, userClient, &v1alpha1.CFSpace{
+	spaceCR, err := r.createSpaceCR(ctx, info, userClient, &korifiv1alpha1.CFSpace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SpacePrefix + uuid.NewString(),
 			Namespace: message.OrganizationGUID,
 		},
-		Spec: v1alpha1.CFSpaceSpec{
+		Spec: korifiv1alpha1.CFSpaceSpec{
 			DisplayName: message.Name,
 		},
 	})
@@ -117,8 +117,8 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 func (r *SpaceRepo) createSpaceCR(ctx context.Context,
 	info authorization.Info,
 	userClient client.WithWatch,
-	space *v1alpha1.CFSpace,
-) (*v1alpha1.CFSpace, error) {
+	space *korifiv1alpha1.CFSpace,
+) (*korifiv1alpha1.CFSpace, error) {
 	err := userClient.Create(ctx, space)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cf space: %w", apierrors.FromK8sError(err, SpaceResourceType))
@@ -126,7 +126,7 @@ func (r *SpaceRepo) createSpaceCR(ctx context.Context,
 
 	timeoutCtx, cancelFn := context.WithTimeout(ctx, r.timeout)
 	defer cancelFn()
-	watch, err := userClient.Watch(timeoutCtx, &v1alpha1.CFSpaceList{},
+	watch, err := userClient.Watch(timeoutCtx, &korifiv1alpha1.CFSpaceList{},
 		client.InNamespace(space.Namespace),
 		client.MatchingFields{"metadata.name": space.Name},
 	)
@@ -135,10 +135,10 @@ func (r *SpaceRepo) createSpaceCR(ctx context.Context,
 	}
 
 	conditionReady := false
-	var createdSpace *v1alpha1.CFSpace
+	var createdSpace *korifiv1alpha1.CFSpace
 	for res := range watch.ResultChan() {
 		var ok bool
-		createdSpace, ok = res.Object.(*v1alpha1.CFSpace)
+		createdSpace, ok = res.Object.(*korifiv1alpha1.CFSpace)
 		if !ok {
 			// should never happen, but avoids panic above
 			continue
@@ -193,10 +193,10 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, info authorization.Info, mes
 		return nil, err
 	}
 
-	cfSpaces := []v1alpha1.CFSpace{}
+	cfSpaces := []korifiv1alpha1.CFSpace{}
 
 	for org := range authorizedOrgNamespaces {
-		cfSpaceList := new(v1alpha1.CFSpaceList)
+		cfSpaceList := new(korifiv1alpha1.CFSpaceList)
 
 		err = userClient.List(ctx, cfSpaceList, client.InNamespace(org))
 		if k8serrors.IsForbidden(err) {
@@ -253,7 +253,7 @@ func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, space
 		return SpaceRecord{}, fmt.Errorf("get-space failed to build user client: %w", err)
 	}
 
-	cfSpace := v1alpha1.CFSpace{}
+	cfSpace := korifiv1alpha1.CFSpace{}
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: spaceGUID}, &cfSpace)
 	if err != nil {
 		return SpaceRecord{}, fmt.Errorf("failed to get space: %w", apierrors.FromK8sError(err, SpaceResourceType))
@@ -262,7 +262,7 @@ func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, space
 	return cfSpaceToSpaceRecord(cfSpace), nil
 }
 
-func cfSpaceToSpaceRecord(cfSpace v1alpha1.CFSpace) SpaceRecord {
+func cfSpaceToSpaceRecord(cfSpace korifiv1alpha1.CFSpace) SpaceRecord {
 	return SpaceRecord{
 		Name:             cfSpace.Spec.DisplayName,
 		GUID:             cfSpace.Name,
@@ -278,7 +278,7 @@ func (r *SpaceRepo) DeleteSpace(ctx context.Context, info authorization.Info, me
 		return fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	err = userClient.Delete(ctx, &v1alpha1.CFSpace{
+	err = userClient.Delete(ctx, &korifiv1alpha1.CFSpace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
 			Namespace: message.OrganizationGUID,

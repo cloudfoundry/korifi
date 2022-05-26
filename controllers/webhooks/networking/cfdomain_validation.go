@@ -20,7 +20,7 @@ import (
 	"context"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -60,7 +60,7 @@ func (v *CFDomainValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 func (v *CFDomainValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	var domain v1alpha1.CFDomain
+	var domain korifiv1alpha1.CFDomain
 	if req.Operation != admissionv1.Create {
 		return admission.Allowed("")
 	}
@@ -89,7 +89,7 @@ func (v *CFDomainValidation) Handle(ctx context.Context, req admission.Request) 
 }
 
 func (v *CFDomainValidation) domainIsOverlapping(ctx context.Context, domainName string) (bool, error) {
-	var existingDomainList v1alpha1.CFDomainList
+	var existingDomainList korifiv1alpha1.CFDomainList
 	err := v.client.List(ctx, &existingDomainList)
 	if err != nil {
 		return true, err

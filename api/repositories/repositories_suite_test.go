@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -83,11 +83,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sConfig).NotTo(BeNil())
 
-	err = v1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = v1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = v1alpha1.AddToScheme(scheme.Scheme)
+	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = hnsv1alpha2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -141,14 +137,14 @@ var _ = AfterEach(func() {
 	Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 })
 
-func createOrgWithCleanup(ctx context.Context, name string) *v1alpha1.CFOrg {
+func createOrgWithCleanup(ctx context.Context, name string) *korifiv1alpha1.CFOrg {
 	guid := uuid.NewString()
-	cfOrg := &v1alpha1.CFOrg{
+	cfOrg := &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: rootNamespace,
 		},
-		Spec: v1alpha1.CFOrgSpec{
+		Spec: korifiv1alpha1.CFOrgSpec{
 			DisplayName: name,
 		},
 	}
@@ -180,14 +176,14 @@ func createOrgWithCleanup(ctx context.Context, name string) *v1alpha1.CFOrg {
 	return cfOrg
 }
 
-func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *v1alpha1.CFSpace {
+func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1alpha1.CFSpace {
 	guid := uuid.NewString()
-	cfSpace := &v1alpha1.CFSpace{
+	cfSpace := &korifiv1alpha1.CFSpace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: orgGUID,
 		},
-		Spec: v1alpha1.CFSpaceSpec{
+		Spec: korifiv1alpha1.CFSpaceSpec{
 			DisplayName: name,
 		},
 	}

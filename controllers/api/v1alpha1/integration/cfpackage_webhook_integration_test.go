@@ -3,7 +3,7 @@ package integration_test
 import (
 	"context"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +22,7 @@ var _ = Describe("CFPackageMutatingWebhook Integration Tests", func() {
 		)
 
 		var (
-			cfApp         *v1alpha1.CFApp
+			cfApp         *korifiv1alpha1.CFApp
 			cfAppGUID     string
 			cfPackageGUID string
 		)
@@ -30,19 +30,19 @@ var _ = Describe("CFPackageMutatingWebhook Integration Tests", func() {
 		BeforeEach(func() {
 			cfAppGUID = GenerateGUID()
 			cfPackageGUID = GenerateGUID()
-			cfApp = &v1alpha1.CFApp{
+			cfApp = &korifiv1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
 					Namespace: namespace,
 				},
-				Spec: v1alpha1.CFAppSpec{
+				Spec: korifiv1alpha1.CFAppSpec{
 					DisplayName:  "test-app",
 					DesiredState: "STOPPED",
-					Lifecycle: v1alpha1.Lifecycle{
+					Lifecycle: korifiv1alpha1.Lifecycle{
 						Type: "buildpack",
 					},
 				},
@@ -56,16 +56,16 @@ var _ = Describe("CFPackageMutatingWebhook Integration Tests", func() {
 
 		When("a CFPackage record referencing the CFAPP is created", func() {
 			BeforeEach(func() {
-				cfPackage := &v1alpha1.CFPackage{
+				cfPackage := &korifiv1alpha1.CFPackage{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "CFPackage",
-						APIVersion: v1alpha1.GroupVersion.Identifier(),
+						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      cfPackageGUID,
 						Namespace: namespace,
 					},
-					Spec: v1alpha1.CFPackageSpec{
+					Spec: korifiv1alpha1.CFPackageSpec{
 						Type: cfPackageType,
 						AppRef: v1.LocalObjectReference{
 							Name: cfAppGUID,
@@ -76,7 +76,7 @@ var _ = Describe("CFPackageMutatingWebhook Integration Tests", func() {
 			})
 
 			AfterEach(func() {
-				cfPackage := &v1alpha1.CFPackage{
+				cfPackage := &korifiv1alpha1.CFPackage{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      cfPackageGUID,
 						Namespace: namespace,
@@ -87,7 +87,7 @@ var _ = Describe("CFPackageMutatingWebhook Integration Tests", func() {
 
 			It("should have CFAppGUID metadata label on it and its value should matches spec.appRef", func() {
 				cfPackageLookupKey := types.NamespacedName{Name: cfPackageGUID, Namespace: namespace}
-				createdCFPackage := new(v1alpha1.CFPackage)
+				createdCFPackage := new(korifiv1alpha1.CFPackage)
 
 				Eventually(func() map[string]string {
 					err := k8sClient.Get(context.Background(), cfPackageLookupKey, createdCFPackage)

@@ -1,7 +1,7 @@
 package v1alpha1_test
 
 import (
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -19,16 +19,16 @@ var _ = Describe("CFRouteMutatingWebhook Unit Tests", func() {
 
 	When("there are no existing labels on the CFRoute record", func() {
 		It("should add new domain-guid and route-guid labels", func() {
-			cfRoute := &v1alpha1.CFRoute{
+			cfRoute := &korifiv1alpha1.CFRoute{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFRoute",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfRouteGUID,
 					Namespace: namespace,
 				},
-				Spec: v1alpha1.CFRouteSpec{
+				Spec: korifiv1alpha1.CFRouteSpec{
 					DomainRef: v1.ObjectReference{
 						Name:      cfDomainGUID,
 						Namespace: namespace,
@@ -44,10 +44,10 @@ var _ = Describe("CFRouteMutatingWebhook Unit Tests", func() {
 
 	When("there are other existing labels on the CFRoute record", func() {
 		It("should preserve the other labels", func() {
-			cfRoute := &v1alpha1.CFRoute{
+			cfRoute := &korifiv1alpha1.CFRoute{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFRoute",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfRouteGUID,
@@ -56,7 +56,7 @@ var _ = Describe("CFRouteMutatingWebhook Unit Tests", func() {
 						"anotherLabel": "route-label",
 					},
 				},
-				Spec: v1alpha1.CFRouteSpec{
+				Spec: korifiv1alpha1.CFRouteSpec{
 					DomainRef: v1.ObjectReference{
 						Name:      cfDomainGUID,
 						Namespace: namespace,

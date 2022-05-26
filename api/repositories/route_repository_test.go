@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,8 +24,8 @@ var _ = Describe("RouteRepository", func() {
 	var (
 		testCtx context.Context
 
-		org   *v1alpha1.CFOrg
-		space *v1alpha1.CFSpace
+		org   *korifiv1alpha1.CFOrg
+		space *korifiv1alpha1.CFSpace
 
 		route1GUID string
 		route2GUID string
@@ -33,7 +33,7 @@ var _ = Describe("RouteRepository", func() {
 		routeRepo  *RouteRepo
 	)
 
-	validateRoute := func(route RouteRecord, expectedRoute *v1alpha1.CFRoute) {
+	validateRoute := func(route RouteRecord, expectedRoute *korifiv1alpha1.CFRoute) {
 		By("returning a routeRecord in the list for one of the created CRs", func() {
 			Expect(route.GUID).To(Equal(expectedRoute.Name))
 			Expect(route.Host).To(Equal(expectedRoute.Spec.Host))
@@ -68,12 +68,12 @@ var _ = Describe("RouteRepository", func() {
 		domainGUID = prefixedGUID("domain")
 		routeRepo = NewRouteRepo(namespaceRetriever, userClientFactory, nsPerms)
 
-		cfDomain := &v1alpha1.CFDomain{
+		cfDomain := &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      domainGUID,
 				Namespace: rootNamespace,
 			},
-			Spec: v1alpha1.CFDomainSpec{
+			Spec: korifiv1alpha1.CFDomainSpec{
 				Name: domainName,
 			},
 		}
@@ -81,26 +81,26 @@ var _ = Describe("RouteRepository", func() {
 	})
 
 	AfterEach(func() {
-		Expect(k8sClient.Delete(testCtx, &v1alpha1.CFDomain{
+		Expect(k8sClient.Delete(testCtx, &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{Name: domainGUID, Namespace: rootNamespace},
 		})).To(Succeed())
 	})
 
 	Describe("GetRoute", func() {
 		var (
-			cfRoute1 *v1alpha1.CFRoute
-			cfRoute2 *v1alpha1.CFRoute
+			cfRoute1 *korifiv1alpha1.CFRoute
+			cfRoute2 *korifiv1alpha1.CFRoute
 			route    RouteRecord
 			getErr   error
 		)
 
 		BeforeEach(func() {
-			cfRoute1 = &v1alpha1.CFRoute{
+			cfRoute1 = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route1GUID,
 					Namespace: space.Name,
 				},
-				Spec: v1alpha1.CFRouteSpec{
+				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
 					Path:     "",
 					Protocol: "http",
@@ -108,7 +108,7 @@ var _ = Describe("RouteRepository", func() {
 						Name:      domainGUID,
 						Namespace: rootNamespace,
 					},
-					Destinations: []v1alpha1.Destination{
+					Destinations: []korifiv1alpha1.Destination{
 						{
 							GUID: "destination-guid",
 							Port: 8080,
@@ -123,12 +123,12 @@ var _ = Describe("RouteRepository", func() {
 			}
 			Expect(k8sClient.Create(testCtx, cfRoute1)).To(Succeed())
 
-			cfRoute2 = &v1alpha1.CFRoute{
+			cfRoute2 = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route2GUID,
 					Namespace: space.Name,
 				},
-				Spec: v1alpha1.CFRouteSpec{
+				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-2",
 					Path:     "",
 					Protocol: "http",
@@ -136,7 +136,7 @@ var _ = Describe("RouteRepository", func() {
 						Name:      domainGUID,
 						Namespace: rootNamespace,
 					},
-					Destinations: []v1alpha1.Destination{},
+					Destinations: []korifiv1alpha1.Destination{},
 				},
 			}
 			Expect(k8sClient.Create(testCtx, cfRoute2)).To(Succeed())
@@ -210,7 +210,7 @@ var _ = Describe("RouteRepository", func() {
 				otherNamespaceGUID string
 				otherNamespace     *corev1.Namespace
 
-				cfRoute1A *v1alpha1.CFRoute
+				cfRoute1A *korifiv1alpha1.CFRoute
 			)
 
 			BeforeEach(func() {
@@ -219,12 +219,12 @@ var _ = Describe("RouteRepository", func() {
 				otherNamespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: otherNamespaceGUID}}
 				Expect(k8sClient.Create(testCtx, otherNamespace)).To(Succeed())
 
-				cfRoute1A = &v1alpha1.CFRoute{
+				cfRoute1A = &korifiv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      route1GUID,
 						Namespace: otherNamespaceGUID,
 					},
-					Spec: v1alpha1.CFRouteSpec{
+					Spec: korifiv1alpha1.CFRouteSpec{
 						Host:     "my-subdomain-1",
 						Path:     "",
 						Protocol: "http",
@@ -255,12 +255,12 @@ var _ = Describe("RouteRepository", func() {
 	Describe("ListRoutes", func() {
 		When("multiple CFRoutes exist", func() {
 			var (
-				cfRoute1A, cfRoute1B *v1alpha1.CFRoute
+				cfRoute1A, cfRoute1B *korifiv1alpha1.CFRoute
 				domainGUID2          string
-				space2               *v1alpha1.CFSpace
-				cfRoute2A            *v1alpha1.CFRoute
-				space3               *v1alpha1.CFSpace
-				cfRoute3A            *v1alpha1.CFRoute
+				space2               *korifiv1alpha1.CFSpace
+				cfRoute2A            *korifiv1alpha1.CFRoute
+				space3               *korifiv1alpha1.CFSpace
+				cfRoute3A            *korifiv1alpha1.CFRoute
 
 				routeRecords []RouteRecord
 				message      ListRoutesMessage
@@ -429,8 +429,8 @@ var _ = Describe("RouteRepository", func() {
 	Describe("ListRoutesForApp", func() {
 		var (
 			appGUID      string
-			cfRoute1     *v1alpha1.CFRoute
-			cfRoute2     *v1alpha1.CFRoute
+			cfRoute1     *korifiv1alpha1.CFRoute
+			cfRoute2     *korifiv1alpha1.CFRoute
 			routeRecords []RouteRecord
 			listErr      error
 			queryAppGUID string
@@ -439,12 +439,12 @@ var _ = Describe("RouteRepository", func() {
 		BeforeEach(func() {
 			appGUID = generateGUID()
 
-			cfRoute1 = &v1alpha1.CFRoute{
+			cfRoute1 = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route1GUID,
 					Namespace: space.Name,
 				},
-				Spec: v1alpha1.CFRouteSpec{
+				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
 					Path:     "",
 					Protocol: "http",
@@ -452,7 +452,7 @@ var _ = Describe("RouteRepository", func() {
 						Name:      domainGUID,
 						Namespace: rootNamespace,
 					},
-					Destinations: []v1alpha1.Destination{
+					Destinations: []korifiv1alpha1.Destination{
 						{
 							GUID: "destination-guid",
 							Port: 8080,
@@ -481,12 +481,12 @@ var _ = Describe("RouteRepository", func() {
 
 			When("multiple CFRoutes exist", func() {
 				BeforeEach(func() {
-					cfRoute2 = &v1alpha1.CFRoute{
+					cfRoute2 = &korifiv1alpha1.CFRoute{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      route2GUID,
 							Namespace: space.Name,
 						},
-						Spec: v1alpha1.CFRouteSpec{
+						Spec: korifiv1alpha1.CFRouteSpec{
 							Host:     "my-subdomain-2",
 							Path:     "",
 							Protocol: "http",
@@ -494,7 +494,7 @@ var _ = Describe("RouteRepository", func() {
 								Name:      domainGUID,
 								Namespace: rootNamespace,
 							},
-							Destinations: []v1alpha1.Destination{},
+							Destinations: []korifiv1alpha1.Destination{},
 						},
 					}
 					Expect(k8sClient.Create(testCtx, cfRoute2)).To(Succeed())
@@ -597,7 +597,7 @@ var _ = Describe("RouteRepository", func() {
 			It("creates a new CFRoute CR successfully", func() {
 				Expect(createdRouteErr).NotTo(HaveOccurred())
 				cfRouteLookupKey := types.NamespacedName{Name: createdRouteRecord.GUID, Namespace: space.Name}
-				createdCFRoute := new(v1alpha1.CFRoute)
+				createdCFRoute := new(korifiv1alpha1.CFRoute)
 				Expect(k8sClient.Get(context.Background(), cfRouteLookupKey, createdCFRoute)).To(Succeed())
 			})
 
@@ -624,15 +624,15 @@ var _ = Describe("RouteRepository", func() {
 	})
 
 	Describe("DeleteRoute", func() {
-		var cfRoute1 *v1alpha1.CFRoute
+		var cfRoute1 *korifiv1alpha1.CFRoute
 
 		BeforeEach(func() {
-			cfRoute1 = &v1alpha1.CFRoute{
+			cfRoute1 = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route1GUID,
 					Namespace: space.Name,
 				},
-				Spec: v1alpha1.CFRouteSpec{
+				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
 					Path:     "",
 					Protocol: "http",
@@ -640,7 +640,7 @@ var _ = Describe("RouteRepository", func() {
 						Name:      domainGUID,
 						Namespace: rootNamespace,
 					},
-					Destinations: []v1alpha1.Destination{
+					Destinations: []korifiv1alpha1.Destination{
 						{
 							GUID: "destination-guid",
 							Port: 8080,
@@ -672,7 +672,7 @@ var _ = Describe("RouteRepository", func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 
-					err = k8sClient.Get(testCtx, client.ObjectKey{Namespace: space.Name, Name: route1GUID}, &v1alpha1.CFRoute{})
+					err = k8sClient.Get(testCtx, client.ObjectKey{Namespace: space.Name, Name: route1GUID}, &korifiv1alpha1.CFRoute{})
 					Expect(err).To(MatchError(ContainSubstring("not found")))
 				})
 			})
@@ -743,7 +743,7 @@ var _ = Describe("RouteRepository", func() {
 
 			It("creates a new CFRoute CR successfully", func() {
 				cfRouteLookupKey := types.NamespacedName{Name: routeRecord.GUID, Namespace: space.Name}
-				createdCFRoute := new(v1alpha1.CFRoute)
+				createdCFRoute := new(korifiv1alpha1.CFRoute)
 				Expect(k8sClient.Get(context.Background(), cfRouteLookupKey, createdCFRoute)).To(Succeed())
 			})
 
@@ -771,7 +771,7 @@ var _ = Describe("RouteRepository", func() {
 				It("doesn't create a new route", func() {
 					Expect(routeErr).NotTo(HaveOccurred())
 
-					var routeList v1alpha1.CFRouteList
+					var routeList korifiv1alpha1.CFRouteList
 					Expect(k8sClient.List(testCtx, &routeList, client.InNamespace(space.Name))).To(Succeed())
 					Expect(routeList.Items).To(HaveLen(1))
 				})
@@ -899,7 +899,7 @@ var _ = Describe("RouteRepository", func() {
 
 					It("adds the destinations to CFRoute successfully", func() {
 						cfRouteLookupKey := types.NamespacedName{Name: route1GUID, Namespace: space.Name}
-						createdCFRoute := new(v1alpha1.CFRoute)
+						createdCFRoute := new(korifiv1alpha1.CFRoute)
 						Expect(k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)).To(Succeed())
 
 						Expect(createdCFRoute.Spec.Destinations).To(ConsistOf(
@@ -974,7 +974,7 @@ var _ = Describe("RouteRepository", func() {
 
 			When("the route exists with a destination", func() {
 				var (
-					routeDestination v1alpha1.Destination
+					routeDestination korifiv1alpha1.Destination
 					destinationGUID  string
 					appGUID          string
 				)
@@ -984,7 +984,7 @@ var _ = Describe("RouteRepository", func() {
 
 					destinationGUID = generateGUID()
 					appGUID = generateGUID()
-					routeDestination = v1alpha1.Destination{
+					routeDestination = korifiv1alpha1.Destination{
 						GUID: destinationGUID,
 						Port: 8000,
 						AppRef: corev1.LocalObjectReference{
@@ -994,7 +994,7 @@ var _ = Describe("RouteRepository", func() {
 						Protocol:    "http1",
 					}
 
-					cfRoute.Spec.Destinations = []v1alpha1.Destination{routeDestination}
+					cfRoute.Spec.Destinations = []korifiv1alpha1.Destination{routeDestination}
 					Expect(k8sClient.Create(testCtx, cfRoute)).To(Succeed())
 				})
 
@@ -1051,7 +1051,7 @@ var _ = Describe("RouteRepository", func() {
 
 					It("adds the destinations to CFRoute successfully", func() {
 						cfRouteLookupKey := types.NamespacedName{Name: route1GUID, Namespace: space.Name}
-						createdCFRoute := new(v1alpha1.CFRoute)
+						createdCFRoute := new(korifiv1alpha1.CFRoute)
 						Expect(k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)).To(Succeed())
 
 						Expect(createdCFRoute.Spec.Destinations).To(ConsistOf(
@@ -1165,11 +1165,11 @@ var _ = Describe("RouteRepository", func() {
 					It("adds only the new destination to CFRoute successfully", func() {
 						testCtx = context.Background()
 						cfRouteLookupKey := types.NamespacedName{Name: route1GUID, Namespace: space.Name}
-						createdCFRoute := new(v1alpha1.CFRoute)
+						createdCFRoute := new(korifiv1alpha1.CFRoute)
 						Expect(k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)).To(Succeed())
 
 						Expect(createdCFRoute.Spec.Destinations).To(ConsistOf(
-							v1alpha1.Destination{
+							korifiv1alpha1.Destination{
 								GUID:        routeDestination.GUID,
 								AppRef:      corev1.LocalObjectReference{Name: routeDestination.AppRef.Name},
 								ProcessType: routeDestination.ProcessType,
@@ -1222,7 +1222,7 @@ var _ = Describe("RouteRepository", func() {
 		)
 
 		var (
-			routeDestination     v1alpha1.Destination
+			routeDestination     korifiv1alpha1.Destination
 			destinationGUID      string
 			appGUID              string
 			removeDestinationErr error
@@ -1234,7 +1234,7 @@ var _ = Describe("RouteRepository", func() {
 			cfRoute := initializeRouteCR(testRouteHost, testRoutePath, route1GUID, domainGUID, space.Name)
 			destinationGUID = generateGUID()
 			appGUID = generateGUID()
-			routeDestination = v1alpha1.Destination{
+			routeDestination = korifiv1alpha1.Destination{
 				GUID: destinationGUID,
 				Port: 8000,
 				AppRef: corev1.LocalObjectReference{
@@ -1244,7 +1244,7 @@ var _ = Describe("RouteRepository", func() {
 				Protocol:    "http1",
 			}
 
-			cfRoute.Spec.Destinations = []v1alpha1.Destination{routeDestination}
+			cfRoute.Spec.Destinations = []korifiv1alpha1.Destination{routeDestination}
 			Expect(k8sClient.Create(testCtx, cfRoute)).To(Succeed())
 		})
 
@@ -1290,7 +1290,7 @@ var _ = Describe("RouteRepository", func() {
 			It("removes the destination from CFRoute successfully", func() {
 				Expect(removeDestinationErr).NotTo(HaveOccurred())
 				cfRouteLookupKey := types.NamespacedName{Name: route1GUID, Namespace: space.Name}
-				createdCFRoute := new(v1alpha1.CFRoute)
+				createdCFRoute := new(korifiv1alpha1.CFRoute)
 				Expect(k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)).To(Succeed())
 
 				Expect(createdCFRoute.Spec.Destinations).To(BeEmpty())
@@ -1309,13 +1309,13 @@ var _ = Describe("RouteRepository", func() {
 	})
 })
 
-func createRoute(guid, namespace, host, path, domainGUID, appGUID string) *v1alpha1.CFRoute {
-	toReturn := &v1alpha1.CFRoute{
+func createRoute(guid, namespace, host, path, domainGUID, appGUID string) *korifiv1alpha1.CFRoute {
+	toReturn := &korifiv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.CFRouteSpec{
+		Spec: korifiv1alpha1.CFRouteSpec{
 			Host:     host,
 			Path:     path,
 			Protocol: "http",
@@ -1323,7 +1323,7 @@ func createRoute(guid, namespace, host, path, domainGUID, appGUID string) *v1alp
 				Name:      domainGUID,
 				Namespace: rootNamespace,
 			},
-			Destinations: []v1alpha1.Destination{
+			Destinations: []korifiv1alpha1.Destination{
 				{
 					GUID: appGUID + "destination",
 					Port: 8080,
@@ -1342,13 +1342,13 @@ func createRoute(guid, namespace, host, path, domainGUID, appGUID string) *v1alp
 	return toReturn
 }
 
-func initializeRouteCR(routeHost, routePath, routeGUID, domainGUID, spaceGUID string) *v1alpha1.CFRoute {
-	return &v1alpha1.CFRoute{
+func initializeRouteCR(routeHost, routePath, routeGUID, domainGUID, spaceGUID string) *korifiv1alpha1.CFRoute {
+	return &korifiv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      routeGUID,
 			Namespace: spaceGUID,
 		},
-		Spec: v1alpha1.CFRouteSpec{
+		Spec: korifiv1alpha1.CFRouteSpec{
 			Host: routeHost,
 			Path: routePath,
 			DomainRef: corev1.ObjectReference{
@@ -1379,7 +1379,7 @@ func buildCreateRouteMessage(routeHost, routePath, domainGUID, spaceGUID, domain
 }
 
 func cleanupRoute(k8sClient client.Client, ctx context.Context, routeGUID, routeNamespace string) error {
-	return k8sClient.Delete(ctx, &v1alpha1.CFRoute{
+	return k8sClient.Delete(ctx, &korifiv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      routeGUID,
 			Namespace: routeNamespace,

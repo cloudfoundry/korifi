@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -115,7 +115,7 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 		return ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
 	}
 
-	var process v1alpha1.CFProcess
+	var process korifiv1alpha1.CFProcess
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: processGUID}, &process)
 	if err != nil {
 		return ProcessRecord{}, fmt.Errorf("failed to get process %q: %w", processGUID, apierrors.FromK8sError(err, ProcessResourceType))
@@ -135,8 +135,8 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 		return []ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
 	}
 
-	processList := &v1alpha1.CFProcessList{}
-	var matches []v1alpha1.CFProcess
+	processList := &korifiv1alpha1.CFProcessList{}
+	var matches []korifiv1alpha1.CFProcess
 	for ns := range nsList {
 		if message.SpaceGUID != "" && message.SpaceGUID != ns {
 			continue
@@ -156,7 +156,7 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 }
 
 func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage ScaleProcessMessage) (ProcessRecord, error) {
-	baseCFProcess := &v1alpha1.CFProcess{
+	baseCFProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scaleProcessMessage.GUID,
 			Namespace: scaleProcessMessage.SpaceGUID,
@@ -193,18 +193,18 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 	}
 
 	guid := GenerateProcessGUID()
-	err = userClient.Create(ctx, &v1alpha1.CFProcess{
+	err = userClient.Create(ctx, &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: message.SpaceGUID,
 		},
-		Spec: v1alpha1.CFProcessSpec{
+		Spec: korifiv1alpha1.CFProcessSpec{
 			AppRef:      corev1.LocalObjectReference{Name: message.AppGUID},
 			ProcessType: message.Type,
 			Command:     message.Command,
-			HealthCheck: v1alpha1.HealthCheck{
-				Type: v1alpha1.HealthCheckType(message.HealthCheck.Type),
-				Data: v1alpha1.HealthCheckData(message.HealthCheck.Data),
+			HealthCheck: korifiv1alpha1.HealthCheck{
+				Type: korifiv1alpha1.HealthCheckType(message.HealthCheck.Type),
+				Data: korifiv1alpha1.HealthCheckData(message.HealthCheck.Data),
 			},
 			DesiredInstances: message.DesiredInstances,
 			MemoryMB:         message.MemoryMB,
@@ -223,13 +223,13 @@ func (r *ProcessRepo) GetProcessByAppTypeAndSpace(ctx context.Context, authInfo 
 		return ProcessRecord{}, fmt.Errorf("get-process-by-app-type-and-space: failed to build user k8s client: %w", err)
 	}
 
-	var processList v1alpha1.CFProcessList
+	var processList korifiv1alpha1.CFProcessList
 	err = userClient.List(ctx, &processList, client.InNamespace(spaceGUID))
 	if err != nil {
 		return ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
 	}
 
-	var matches []v1alpha1.CFProcess
+	var matches []korifiv1alpha1.CFProcess
 	for _, process := range processList.Items {
 		if process.Spec.AppRef.Name == appGUID && process.Spec.ProcessType == processType {
 			matches = append(matches, process)
@@ -244,7 +244,7 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 	if err != nil {
 		return ProcessRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
-	baseProcess := &v1alpha1.CFProcess{
+	baseProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.ProcessGUID,
 			Namespace: message.SpaceGUID,
@@ -265,7 +265,7 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 	}
 	if message.HealthCheckType != nil {
 		// TODO: how do we handle when the type changes? Clear the HTTPEndpoint when type != http? Should we require the endpoint when type == http?
-		updatedProcess.Spec.HealthCheck.Type = v1alpha1.HealthCheckType(*message.HealthCheckType)
+		updatedProcess.Spec.HealthCheck.Type = korifiv1alpha1.HealthCheckType(*message.HealthCheckType)
 	}
 	if message.HealthCheckHTTPEndpoint != nil {
 		updatedProcess.Spec.HealthCheck.Data.HTTPEndpoint = *message.HealthCheckHTTPEndpoint
@@ -285,7 +285,7 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 	return cfProcessToProcessRecord(*updatedProcess), nil
 }
 
-func returnProcess(processes []v1alpha1.CFProcess) (ProcessRecord, error) {
+func returnProcess(processes []korifiv1alpha1.CFProcess) (ProcessRecord, error) {
 	if len(processes) == 0 {
 		return ProcessRecord{}, apierrors.NewNotFoundError(nil, ProcessResourceType)
 	}
@@ -296,12 +296,12 @@ func returnProcess(processes []v1alpha1.CFProcess) (ProcessRecord, error) {
 	return cfProcessToProcessRecord(processes[0]), nil
 }
 
-func filterProcessesByAppGUID(processes []v1alpha1.CFProcess, appGUIDs []string) []v1alpha1.CFProcess {
+func filterProcessesByAppGUID(processes []korifiv1alpha1.CFProcess, appGUIDs []string) []korifiv1alpha1.CFProcess {
 	if len(appGUIDs) == 0 {
 		return processes
 	}
 
-	var filtered []v1alpha1.CFProcess
+	var filtered []korifiv1alpha1.CFProcess
 	for _, process := range processes {
 		for _, appGUID := range appGUIDs {
 			if process.Spec.AppRef.Name == appGUID {
@@ -313,7 +313,7 @@ func filterProcessesByAppGUID(processes []v1alpha1.CFProcess, appGUIDs []string)
 	return filtered
 }
 
-func returnProcesses(processes []v1alpha1.CFProcess) ([]ProcessRecord, error) {
+func returnProcesses(processes []korifiv1alpha1.CFProcess) ([]ProcessRecord, error) {
 	processRecords := make([]ProcessRecord, 0, len(processes))
 	for _, process := range processes {
 		processRecord := cfProcessToProcessRecord(process)
@@ -323,7 +323,7 @@ func returnProcesses(processes []v1alpha1.CFProcess) ([]ProcessRecord, error) {
 	return processRecords, nil
 }
 
-func cfProcessToProcessRecord(cfProcess v1alpha1.CFProcess) ProcessRecord {
+func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfProcess.ObjectMeta)
 
 	return ProcessRecord{

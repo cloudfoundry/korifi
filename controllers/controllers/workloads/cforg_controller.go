@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +71,7 @@ const (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	cfOrg := new(v1alpha1.CFOrg)
+	cfOrg := new(korifiv1alpha1.CFOrg)
 	err := r.client.Get(ctx, req.NamespacedName, cfOrg)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error when trying to fetch CFOrg %s/%s", req.Namespace, req.Name))
@@ -154,6 +154,6 @@ func setCascadingDelete(ctx context.Context, userClient client.Client, orgGUID s
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFOrgReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.CFOrg{}).
+		For(&korifiv1alpha1.CFOrg{}).
 		Complete(r)
 }

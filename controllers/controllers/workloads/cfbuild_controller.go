@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
@@ -70,14 +70,14 @@ func NewCFBuildReconciler(client CFClient, scheme *runtime.Scheme, log logr.Logg
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	cfBuild := new(v1alpha1.CFBuild)
+	cfBuild := new(korifiv1alpha1.CFBuild)
 	err := r.Client.Get(ctx, req.NamespacedName, cfBuild)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFBuild")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	cfApp := new(v1alpha1.CFApp)
+	cfApp := new(korifiv1alpha1.CFApp)
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.AppRef.Name, Namespace: cfBuild.Namespace}, cfApp)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFApp")
@@ -97,15 +97,15 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	cfPackage := new(v1alpha1.CFPackage)
+	cfPackage := new(korifiv1alpha1.CFPackage)
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, cfPackage)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFPackage")
 		return ctrl.Result{}, err
 	}
 
-	stagingStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, v1alpha1.StagingConditionType)
-	succeededStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, v1alpha1.SucceededConditionType)
+	stagingStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)
+	succeededStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
 
 	if succeededStatus != metav1.ConditionUnknown {
 		return ctrl.Result{}, nil
@@ -116,7 +116,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	var buildWorkload v1alpha1.BuildWorkload
+	var buildWorkload korifiv1alpha1.BuildWorkload
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Name, Namespace: cfBuild.Namespace}, &buildWorkload)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching BuildWorkload")
@@ -124,7 +124,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	workloadSucceededStatus := meta.FindStatusCondition(buildWorkload.Status.Conditions, v1alpha1.SucceededConditionType)
+	workloadSucceededStatus := meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)
 	if workloadSucceededStatus == nil {
 		return ctrl.Result{}, nil
 	}
@@ -132,11 +132,11 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	switch workloadSucceededStatus.Status {
 	case metav1.ConditionFalse:
 		failureStatusConditionMessage := fmt.Sprintf("%s:%s", workloadSucceededStatus.Reason, workloadSucceededStatus.Message)
-		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, v1alpha1.StagingConditionType, metav1.ConditionFalse, "BuildWorkload", "BuildWorkload")
-		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, v1alpha1.SucceededConditionType, metav1.ConditionFalse, "BuildWorkload", failureStatusConditionMessage)
+		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, metav1.ConditionFalse, "BuildWorkload", "BuildWorkload")
+		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType, metav1.ConditionFalse, "BuildWorkload", failureStatusConditionMessage)
 	case metav1.ConditionTrue:
-		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, v1alpha1.StagingConditionType, metav1.ConditionFalse, "BuildWorkload", "BuildWorkload")
-		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, v1alpha1.SucceededConditionType, metav1.ConditionTrue, "BuildWorkload", "BuildWorkload")
+		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, metav1.ConditionFalse, "BuildWorkload", "BuildWorkload")
+		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType, metav1.ConditionTrue, "BuildWorkload", "BuildWorkload")
 		cfBuild.Status.Droplet = buildWorkload.Status.Droplet
 	default:
 		return ctrl.Result{}, nil
@@ -150,21 +150,21 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func (r *CFBuildReconciler) createBuildWorkloadAndUpdateStatus(ctx context.Context, cfBuild *v1alpha1.CFBuild, cfApp *v1alpha1.CFApp, cfPackage *v1alpha1.CFPackage) error {
+func (r *CFBuildReconciler) createBuildWorkloadAndUpdateStatus(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild, cfApp *korifiv1alpha1.CFApp, cfPackage *korifiv1alpha1.CFPackage) error {
 	workloadName := cfBuild.Name
 	namespace := cfBuild.Namespace
-	desiredWorkload := v1alpha1.BuildWorkload{
+	desiredWorkload := korifiv1alpha1.BuildWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      workloadName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				v1alpha1.CFBuildGUIDLabelKey: cfBuild.Name,
-				v1alpha1.CFAppGUIDLabelKey:   cfApp.Name,
+				korifiv1alpha1.CFBuildGUIDLabelKey: cfBuild.Name,
+				korifiv1alpha1.CFAppGUIDLabelKey:   cfApp.Name,
 			},
 		},
-		Spec: v1alpha1.BuildWorkloadSpec{
-			Source: v1alpha1.PackageSource{
-				Registry: v1alpha1.Registry{
+		Spec: korifiv1alpha1.BuildWorkloadSpec{
+			Source: korifiv1alpha1.PackageSource{
+				Registry: korifiv1alpha1.Registry{
 					Image:            cfPackage.Spec.Source.Registry.Image,
 					ImagePullSecrets: cfPackage.Spec.Source.Registry.ImagePullSecrets,
 				},
@@ -195,7 +195,7 @@ func (r *CFBuildReconciler) createBuildWorkloadAndUpdateStatus(ctx context.Conte
 		return fmt.Errorf("createBuildWorkloadIfNotExists: %w", err)
 	}
 
-	setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, v1alpha1.StagingConditionType, metav1.ConditionTrue, "BuildWorkload", "BuildWorkload")
+	setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, metav1.ConditionTrue, "BuildWorkload", "BuildWorkload")
 	if err := r.Client.Status().Update(ctx, cfBuild); err != nil {
 		r.Log.Error(err, "Error when updating CFBuild status")
 		return fmt.Errorf("failed updating CFBuild status: %w", err)
@@ -205,7 +205,7 @@ func (r *CFBuildReconciler) createBuildWorkloadAndUpdateStatus(ctx context.Conte
 }
 
 func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace, appGUID string) ([]corev1.ObjectReference, error) {
-	serviceBindingsList := &v1alpha1.CFServiceBindingList{}
+	serviceBindingsList := &korifiv1alpha1.CFServiceBindingList{}
 	err := r.Client.List(ctx, serviceBindingsList,
 		client.InNamespace(namespace),
 		client.MatchingFields{shared.IndexServiceBindingAppGUID: appGUID},
@@ -231,7 +231,7 @@ func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace,
 	return buildServices, nil
 }
 
-func (r *CFBuildReconciler) prepareEnvironment(ctx context.Context, cfApp *v1alpha1.CFApp) ([]corev1.EnvVar, error) {
+func (r *CFBuildReconciler) prepareEnvironment(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]corev1.EnvVar, error) {
 	env, err := r.EnvBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
 		r.Log.Error(err, "failed building environment")
@@ -249,8 +249,8 @@ func (r *CFBuildReconciler) prepareEnvironment(ctx context.Context, cfApp *v1alp
 	return imageEnvironment, nil
 }
 
-func (r *CFBuildReconciler) createBuildWorkloadIfNotExists(ctx context.Context, desiredWorkload v1alpha1.BuildWorkload) error {
-	var foundWorkload v1alpha1.BuildWorkload
+func (r *CFBuildReconciler) createBuildWorkloadIfNotExists(ctx context.Context, desiredWorkload korifiv1alpha1.BuildWorkload) error {
+	var foundWorkload korifiv1alpha1.BuildWorkload
 	err := r.Client.Get(ctx, types.NamespacedName{Name: desiredWorkload.Name, Namespace: desiredWorkload.Namespace}, &foundWorkload)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -288,14 +288,14 @@ func getConditionOrSetAsUnknown(conditions *[]metav1.Condition, conditionType st
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFBuildReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.CFBuild{}).
+		For(&korifiv1alpha1.CFBuild{}).
 		Watches(
-			&source.Kind{Type: &v1alpha1.BuildWorkload{}},
+			&source.Kind{Type: &korifiv1alpha1.BuildWorkload{}},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
 				var requests []reconcile.Request
 				requests = append(requests, reconcile.Request{
 					NamespacedName: types.NamespacedName{
-						Name:      obj.GetLabels()[v1alpha1.CFBuildGUIDLabelKey],
+						Name:      obj.GetLabels()[korifiv1alpha1.CFBuildGUIDLabelKey],
 						Namespace: obj.GetNamespace(),
 					},
 				})

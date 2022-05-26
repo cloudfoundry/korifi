@@ -10,7 +10,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -77,7 +77,7 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 		return BuildRecord{}, fmt.Errorf("get-build failed to build user client: %w", err)
 	}
 
-	build := v1alpha1.CFBuild{}
+	build := korifiv1alpha1.CFBuild{}
 	if err := userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: buildGUID}, &build); err != nil {
 		return BuildRecord{}, fmt.Errorf("failed to get build: %w", apierrors.FromK8sError(err, BuildResourceType))
 	}
@@ -91,14 +91,14 @@ func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo author
 		return BuildRecord{}, apierrors.NewUnknownError(err)
 	}
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
-		v1alpha1.CFAppGUIDLabelKey: appGUID,
+		korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
 	})
 	if err != nil { // Untested
 		return BuildRecord{}, apierrors.NewUnknownError(err)
 	}
 
 	listOpts := &client.ListOptions{Namespace: spaceGUID, LabelSelector: labelSelector}
-	buildList := &v1alpha1.CFBuildList{}
+	buildList := &korifiv1alpha1.CFBuildList{}
 
 	err = userClient.List(ctx, buildList, listOpts)
 	if err != nil {
@@ -114,7 +114,7 @@ func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo author
 	return cfBuildToBuildRecord(sortedBuilds[0]), nil
 }
 
-func orderBuilds(builds []v1alpha1.CFBuild) []v1alpha1.CFBuild {
+func orderBuilds(builds []korifiv1alpha1.CFBuild) []korifiv1alpha1.CFBuild {
 	sort.Slice(builds, func(i, j int) bool {
 		return !builds[i].CreationTimestamp.Before(&builds[j].CreationTimestamp)
 	})
@@ -146,7 +146,7 @@ func (b *BuildRepo) GetBuildLogs(ctx context.Context, authInfo authorization.Inf
 	return toReturn, nil
 }
 
-func cfBuildToBuildRecord(cfBuild v1alpha1.CFBuild) BuildRecord {
+func cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfBuild.ObjectMeta)
 
 	toReturn := BuildRecord{
@@ -218,9 +218,9 @@ type CreateBuildMessage struct {
 	Annotations     map[string]string
 }
 
-func (m CreateBuildMessage) toCFBuild() v1alpha1.CFBuild {
+func (m CreateBuildMessage) toCFBuild() korifiv1alpha1.CFBuild {
 	guid := uuid.NewString()
-	return v1alpha1.CFBuild{
+	return korifiv1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        guid,
 			Namespace:   m.SpaceGUID,
@@ -230,7 +230,7 @@ func (m CreateBuildMessage) toCFBuild() v1alpha1.CFBuild {
 				m.OwnerRef,
 			},
 		},
-		Spec: v1alpha1.CFBuildSpec{
+		Spec: korifiv1alpha1.CFBuildSpec{
 			PackageRef: corev1.LocalObjectReference{
 				Name: m.PackageGUID,
 			},
@@ -239,9 +239,9 @@ func (m CreateBuildMessage) toCFBuild() v1alpha1.CFBuild {
 			},
 			StagingMemoryMB: m.StagingMemoryMB,
 			StagingDiskMB:   m.StagingDiskMB,
-			Lifecycle: v1alpha1.Lifecycle{
-				Type: v1alpha1.LifecycleType(m.Lifecycle.Type),
-				Data: v1alpha1.LifecycleData{
+			Lifecycle: korifiv1alpha1.Lifecycle{
+				Type: korifiv1alpha1.LifecycleType(m.Lifecycle.Type),
+				Data: korifiv1alpha1.LifecycleData{
 					Buildpacks: m.Lifecycle.Data.Buildpacks,
 					Stack:      m.Lifecycle.Data.Stack,
 				},

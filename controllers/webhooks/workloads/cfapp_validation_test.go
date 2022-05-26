@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/fake"
@@ -29,7 +29,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		ctx                context.Context
 		duplicateValidator *fake.NameValidator
 		realDecoder        *admission.Decoder
-		app                *v1alpha1.CFApp
+		app                *korifiv1alpha1.CFApp
 		request            admission.Request
 		validatingWebhook  *workloads.CFAppValidation
 		response           admission.Response
@@ -40,20 +40,20 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		ctx = context.Background()
 
 		scheme := runtime.NewScheme()
-		err := v1alpha1.AddToScheme(scheme)
+		err := korifiv1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
 		realDecoder, err = admission.NewDecoder(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
-		app = &v1alpha1.CFApp{
+		app = &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testAppGUID,
 				Namespace: testAppNamespace,
 			},
-			Spec: v1alpha1.CFAppSpec{
+			Spec: korifiv1alpha1.CFAppSpec{
 				DisplayName:  testAppName,
-				DesiredState: v1alpha1.StoppedState,
+				DesiredState: korifiv1alpha1.StoppedState,
 			},
 		}
 
@@ -147,17 +147,17 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 	})
 
 	Describe("Update", func() {
-		var updatedApp *v1alpha1.CFApp
+		var updatedApp *korifiv1alpha1.CFApp
 
 		BeforeEach(func() {
-			updatedApp = &v1alpha1.CFApp{
+			updatedApp = &korifiv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testAppGUID,
 					Namespace: testAppNamespace,
 				},
-				Spec: v1alpha1.CFAppSpec{
+				Spec: korifiv1alpha1.CFAppSpec{
 					DisplayName:  "the-new-name",
-					DesiredState: v1alpha1.StoppedState,
+					DesiredState: korifiv1alpha1.StoppedState,
 				},
 			}
 		})

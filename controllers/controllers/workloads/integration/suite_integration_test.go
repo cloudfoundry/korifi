@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
@@ -73,9 +73,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	// Add Eirini to Scheme
 	Expect(eiriniv1.AddToScheme(scheme.Scheme)).To(Succeed())
@@ -181,7 +179,7 @@ var _ = AfterSuite(func() {
 	Expect(testEnv.Stop()).To(Succeed())
 })
 
-func createBuildWithDroplet(ctx context.Context, k8sClient client.Client, cfBuild *v1alpha1.CFBuild, droplet *v1alpha1.BuildDropletStatus) *v1alpha1.CFBuild {
+func createBuildWithDroplet(ctx context.Context, k8sClient client.Client, cfBuild *korifiv1alpha1.CFBuild, droplet *korifiv1alpha1.BuildDropletStatus) *korifiv1alpha1.CFBuild {
 	Expect(
 		k8sClient.Create(ctx, cfBuild),
 	).To(Succeed())
@@ -215,8 +213,8 @@ func createNamespaceWithCleanup(ctx context.Context, k8sClient client.Client, na
 	return namespace
 }
 
-func patchAppWithDroplet(ctx context.Context, k8sClient client.Client, appGUID, spaceGUID, buildGUID string) *v1alpha1.CFApp {
-	baseCFApp := &v1alpha1.CFApp{
+func patchAppWithDroplet(ctx context.Context, k8sClient client.Client, appGUID, spaceGUID, buildGUID string) *korifiv1alpha1.CFApp {
+	baseCFApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
 			Namespace: spaceGUID,

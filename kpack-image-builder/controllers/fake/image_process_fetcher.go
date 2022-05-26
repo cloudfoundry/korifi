@@ -4,25 +4,25 @@ package fake
 import (
 	"sync"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
 type ImageProcessFetcher struct {
-	Stub        func(string, remote.Option) ([]v1alpha1.ProcessType, []int32, error)
+	Stub        func(string, remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error)
 	mutex       sync.RWMutex
 	argsForCall []struct {
 		arg1 string
 		arg2 remote.Option
 	}
 	returns struct {
-		result1 []v1alpha1.ProcessType
+		result1 []korifiv1alpha1.ProcessType
 		result2 []int32
 		result3 error
 	}
 	returnsOnCall map[int]struct {
-		result1 []v1alpha1.ProcessType
+		result1 []korifiv1alpha1.ProcessType
 		result2 []int32
 		result3 error
 	}
@@ -30,7 +30,7 @@ type ImageProcessFetcher struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ImageProcessFetcher) Spy(arg1 string, arg2 remote.Option) ([]v1alpha1.ProcessType, []int32, error) {
+func (fake *ImageProcessFetcher) Spy(arg1 string, arg2 remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error) {
 	fake.mutex.Lock()
 	ret, specificReturn := fake.returnsOnCall[len(fake.argsForCall)]
 	fake.argsForCall = append(fake.argsForCall, struct {
@@ -56,7 +56,7 @@ func (fake *ImageProcessFetcher) CallCount() int {
 	return len(fake.argsForCall)
 }
 
-func (fake *ImageProcessFetcher) Calls(stub func(string, remote.Option) ([]v1alpha1.ProcessType, []int32, error)) {
+func (fake *ImageProcessFetcher) Calls(stub func(string, remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error)) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = stub
@@ -68,30 +68,30 @@ func (fake *ImageProcessFetcher) ArgsForCall(i int) (string, remote.Option) {
 	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2
 }
 
-func (fake *ImageProcessFetcher) Returns(result1 []v1alpha1.ProcessType, result2 []int32, result3 error) {
+func (fake *ImageProcessFetcher) Returns(result1 []korifiv1alpha1.ProcessType, result2 []int32, result3 error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = nil
 	fake.returns = struct {
-		result1 []v1alpha1.ProcessType
+		result1 []korifiv1alpha1.ProcessType
 		result2 []int32
 		result3 error
 	}{result1, result2, result3}
 }
 
-func (fake *ImageProcessFetcher) ReturnsOnCall(i int, result1 []v1alpha1.ProcessType, result2 []int32, result3 error) {
+func (fake *ImageProcessFetcher) ReturnsOnCall(i int, result1 []korifiv1alpha1.ProcessType, result2 []int32, result3 error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = nil
 	if fake.returnsOnCall == nil {
 		fake.returnsOnCall = make(map[int]struct {
-			result1 []v1alpha1.ProcessType
+			result1 []korifiv1alpha1.ProcessType
 			result2 []int32
 			result3 error
 		})
 	}
 	fake.returnsOnCall[i] = struct {
-		result1 []v1alpha1.ProcessType
+		result1 []korifiv1alpha1.ProcessType
 		result2 []int32
 		result3 error
 	}{result1, result2, result3}

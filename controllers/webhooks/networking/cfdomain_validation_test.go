@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
 
@@ -31,7 +31,7 @@ var _ = Describe("CF Domain Validation", func() {
 		request         admission.Request
 		response        admission.Response
 		fakeClient      *fake.Client
-		existingDomains []v1alpha1.CFDomain
+		existingDomains []korifiv1alpha1.CFDomain
 		listDomainsErr  error
 
 		validatingWebhook *networking.CFDomainValidation
@@ -41,7 +41,7 @@ var _ = Describe("CF Domain Validation", func() {
 		ctx = context.Background()
 
 		scheme := runtime.NewScheme()
-		err := v1alpha1.AddToScheme(scheme)
+		err := korifiv1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 		realDecoder, err = admission.NewDecoder(scheme)
 		Expect(err).NotTo(HaveOccurred())
@@ -51,8 +51,8 @@ var _ = Describe("CF Domain Validation", func() {
 		fakeClient = new(fake.Client)
 		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
 			switch list := list.(type) {
-			case *v1alpha1.CFDomainList:
-				existingDomainList := v1alpha1.CFDomainList{
+			case *korifiv1alpha1.CFDomainList:
+				existingDomainList := korifiv1alpha1.CFDomainList{
 					Items: existingDomains,
 				}
 				existingDomainList.DeepCopyInto(list)
@@ -69,7 +69,7 @@ var _ = Describe("CF Domain Validation", func() {
 	Describe("Create", func() {
 		DescribeTable("returns validation",
 			func(requestDomainName string, existingDomainNames []string, allowed bool) {
-				existingDomains = make([]v1alpha1.CFDomain, len(existingDomainNames))
+				existingDomains = make([]korifiv1alpha1.CFDomain, len(existingDomainNames))
 				for _, existingDomainName := range existingDomainNames {
 					existingDomains = append(existingDomains, createCFDomain(existingDomainName))
 				}
@@ -151,13 +151,13 @@ var _ = Describe("CF Domain Validation", func() {
 	})
 })
 
-func createCFDomain(name string) v1alpha1.CFDomain {
-	return v1alpha1.CFDomain{
+func createCFDomain(name string) korifiv1alpha1.CFDomain {
+	return korifiv1alpha1.CFDomain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      uuid.NewString(),
 			Namespace: rootNamespace,
 		},
-		Spec: v1alpha1.CFDomainSpec{
+		Spec: korifiv1alpha1.CFDomainSpec{
 			Name: name,
 		},
 	}

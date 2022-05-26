@@ -11,7 +11,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -83,9 +83,9 @@ type ListPodStatsMessage struct {
 
 func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info, message ListPodStatsMessage) ([]PodStatsRecord, error) {
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
-		v1alpha1.CFAppGUIDLabelKey: message.AppGUID,
-		eiriniLabelVersionKey:      message.AppRevision,
-		cfProcessGuidKey:           message.ProcessGUID,
+		korifiv1alpha1.CFAppGUIDLabelKey: message.AppGUID,
+		eiriniLabelVersionKey:            message.AppRevision,
+		cfProcessGuidKey:                 message.ProcessGUID,
 	})
 	if err != nil {
 		return nil, err
@@ -340,7 +340,7 @@ type RuntimeLogsMessage struct {
 
 func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, logger logr.Logger, authInfo authorization.Info, message RuntimeLogsMessage) ([]LogRecord, error) {
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
-		v1alpha1.CFAppGUIDLabelKey:        message.AppGUID,
+		korifiv1alpha1.CFAppGUIDLabelKey:  message.AppGUID,
 		"korifi.cloudfoundry.org/version": message.AppRevision,
 	})
 	if err != nil {

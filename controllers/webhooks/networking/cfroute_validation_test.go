@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
@@ -32,9 +32,9 @@ var _ = Describe("CF Route Validation", func() {
 		duplicateValidator *networkingfakes.NameValidator
 		fakeClient         *fake.Client
 		realDecoder        *admission.Decoder
-		cfRoute            *v1alpha1.CFRoute
-		cfDomain           *v1alpha1.CFDomain
-		cfApp              *v1alpha1.CFApp
+		cfRoute            *korifiv1alpha1.CFRoute
+		cfDomain           *korifiv1alpha1.CFDomain
+		cfApp              *korifiv1alpha1.CFApp
 		request            admission.Request
 		validatingWebhook  *networking.CFRouteValidation
 		response           admission.Response
@@ -58,7 +58,7 @@ var _ = Describe("CF Route Validation", func() {
 		ctx = context.Background()
 
 		scheme := runtime.NewScheme()
-		err := v1alpha1.AddToScheme(scheme)
+		err := korifiv1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
 		realDecoder, err = admission.NewDecoder(scheme)
@@ -81,26 +81,26 @@ var _ = Describe("CF Route Validation", func() {
 		cfRouteJSON, err = json.Marshal(cfRoute)
 		Expect(err).NotTo(HaveOccurred())
 
-		cfDomain = &v1alpha1.CFDomain{
+		cfDomain = &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: testDomainGUID,
 			},
-			Spec: v1alpha1.CFDomainSpec{
+			Spec: korifiv1alpha1.CFDomainSpec{
 				Name: testDomainName,
 			},
 		}
 
-		cfApp = &v1alpha1.CFApp{}
+		cfApp = &korifiv1alpha1.CFApp{}
 
 		duplicateValidator = new(networkingfakes.NameValidator)
 		fakeClient = new(fake.Client)
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
-			case *v1alpha1.CFDomain:
+			case *korifiv1alpha1.CFDomain:
 				cfDomain.DeepCopyInto(obj)
 				return getDomainError
-			case *v1alpha1.CFApp:
+			case *korifiv1alpha1.CFApp:
 				cfApp.DeepCopyInto(obj)
 				return getAppError
 			default:
@@ -116,7 +116,7 @@ var _ = Describe("CF Route Validation", func() {
 	Describe("validating path", func() {
 		var (
 			invalidRoutePath   string
-			invalidCFRoute     *v1alpha1.CFRoute
+			invalidCFRoute     *korifiv1alpha1.CFRoute
 			invalidCFRouteJson []byte
 			err                error
 		)
@@ -418,7 +418,7 @@ var _ = Describe("CF Route Validation", func() {
 
 			When("the route has destinations", func() {
 				BeforeEach(func() {
-					cfRoute.Spec.Destinations = []v1alpha1.Destination{
+					cfRoute.Spec.Destinations = []korifiv1alpha1.Destination{
 						{
 							AppRef: v1.LocalObjectReference{
 								Name: "some-name",
@@ -486,21 +486,21 @@ var _ = Describe("CF Route Validation", func() {
 
 	Describe("Update", func() {
 		var (
-			updatedCFRoute   *v1alpha1.CFRoute
+			updatedCFRoute   *korifiv1alpha1.CFRoute
 			newTestRoutePath string
 		)
 
 		BeforeEach(func() {
 			newTestRoutePath = "/new-path"
-			updatedCFRoute = &v1alpha1.CFRoute{
+			updatedCFRoute = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testRouteGUID,
 					Namespace: testRouteNamespace,
 				},
-				Spec: v1alpha1.CFRouteSpec{
+				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     testRouteHost,
 					Path:     newTestRoutePath,
-					Protocol: v1alpha1.Protocol(testRouteProtocol),
+					Protocol: korifiv1alpha1.Protocol(testRouteProtocol),
 					DomainRef: v1.ObjectReference{
 						Name:      testDomainGUID,
 						Namespace: testDomainNamespace,
@@ -600,7 +600,7 @@ var _ = Describe("CF Route Validation", func() {
 
 		When("the route has destinations", func() {
 			BeforeEach(func() {
-				updatedCFRoute.Spec.Destinations = []v1alpha1.Destination{
+				updatedCFRoute.Spec.Destinations = []korifiv1alpha1.Destination{
 					{
 						AppRef: v1.LocalObjectReference{
 							Name: "some-name",
@@ -699,16 +699,16 @@ var _ = Describe("CF Route Validation", func() {
 	})
 })
 
-func initializeRouteCR(routeProtocol, routeHost, routePath, routeGUID, routeSpaceGUID, domainGUID, domainSpaceGUID string) *v1alpha1.CFRoute {
-	return &v1alpha1.CFRoute{
+func initializeRouteCR(routeProtocol, routeHost, routePath, routeGUID, routeSpaceGUID, domainGUID, domainSpaceGUID string) *korifiv1alpha1.CFRoute {
+	return &korifiv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      routeGUID,
 			Namespace: routeSpaceGUID,
 		},
-		Spec: v1alpha1.CFRouteSpec{
+		Spec: korifiv1alpha1.CFRouteSpec{
 			Host:     routeHost,
 			Path:     routePath,
-			Protocol: v1alpha1.Protocol(routeProtocol),
+			Protocol: korifiv1alpha1.Protocol(routeProtocol),
 			DomainRef: v1.ObjectReference{
 				Name:      domainGUID,
 				Namespace: domainSpaceGUID,

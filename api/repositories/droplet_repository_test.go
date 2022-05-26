@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,8 +20,8 @@ var _ = Describe("DropletRepository", func() {
 	var (
 		testCtx     context.Context
 		dropletRepo *repositories.DropletRepo
-		org         *v1alpha1.CFOrg
-		space       *v1alpha1.CFSpace
+		org         *korifiv1alpha1.CFOrg
+		space       *korifiv1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
@@ -37,7 +37,7 @@ var _ = Describe("DropletRepository", func() {
 	Describe("GetDroplet", func() {
 		var (
 			buildGUID string
-			build     *v1alpha1.CFBuild
+			build     *korifiv1alpha1.CFBuild
 
 			dropletRecord repositories.DropletRecord
 			fetchErr      error
@@ -55,12 +55,12 @@ var _ = Describe("DropletRepository", func() {
 
 		BeforeEach(func() {
 			buildGUID = generateGUID()
-			build = &v1alpha1.CFBuild{
+			build = &korifiv1alpha1.CFBuild{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      buildGUID,
 					Namespace: space.Name,
 				},
-				Spec: v1alpha1.CFBuildSpec{
+				Spec: korifiv1alpha1.CFBuildSpec{
 					PackageRef: corev1.LocalObjectReference{
 						Name: packageGUID,
 					},
@@ -69,9 +69,9 @@ var _ = Describe("DropletRepository", func() {
 					},
 					StagingMemoryMB: stagingMemory,
 					StagingDiskMB:   stagingDisk,
-					Lifecycle: v1alpha1.Lifecycle{
+					Lifecycle: korifiv1alpha1.Lifecycle{
 						Type: "buildpack",
-						Data: v1alpha1.LifecycleData{
+						Data: korifiv1alpha1.LifecycleData{
 							Buildpacks: []string{},
 							Stack:      "",
 						},
@@ -104,9 +104,9 @@ var _ = Describe("DropletRepository", func() {
 						Reason:  "Unknown",
 						Message: "Unknown",
 					})
-					build.Status.Droplet = &v1alpha1.BuildDropletStatus{
+					build.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
 						Stack: dropletStack,
-						Registry: v1alpha1.Registry{
+						Registry: korifiv1alpha1.Registry{
 							Image: registryImage,
 							ImagePullSecrets: []corev1.LocalObjectReference{
 								{
@@ -114,7 +114,7 @@ var _ = Describe("DropletRepository", func() {
 								},
 							},
 						},
-						ProcessTypes: []v1alpha1.ProcessType{
+						ProcessTypes: []korifiv1alpha1.ProcessType{
 							{
 								Type:    "rake",
 								Command: "bundle exec rake",
@@ -261,7 +261,7 @@ var _ = Describe("DropletRepository", func() {
 
 	Describe("ListDroplets", func() {
 		var (
-			build       *v1alpha1.CFBuild
+			build       *korifiv1alpha1.CFBuild
 			packageGUID string
 		)
 
@@ -276,12 +276,12 @@ var _ = Describe("DropletRepository", func() {
 
 		BeforeEach(func() {
 			packageGUID = prefixedGUID("package-")
-			build = &v1alpha1.CFBuild{
+			build = &korifiv1alpha1.CFBuild{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      prefixedGUID("build-"),
 					Namespace: space.Name,
 				},
-				Spec: v1alpha1.CFBuildSpec{
+				Spec: korifiv1alpha1.CFBuildSpec{
 					PackageRef: corev1.LocalObjectReference{
 						Name: packageGUID,
 					},
@@ -290,9 +290,9 @@ var _ = Describe("DropletRepository", func() {
 					},
 					StagingMemoryMB: stagingMemory,
 					StagingDiskMB:   stagingDisk,
-					Lifecycle: v1alpha1.Lifecycle{
+					Lifecycle: korifiv1alpha1.Lifecycle{
 						Type: "buildpack",
-						Data: v1alpha1.LifecycleData{
+						Data: korifiv1alpha1.LifecycleData{
 							Buildpacks: []string{},
 							Stack:      "",
 						},
@@ -312,9 +312,9 @@ var _ = Describe("DropletRepository", func() {
 				Reason:  "Unknown",
 				Message: "Unknown",
 			})
-			build.Status.Droplet = &v1alpha1.BuildDropletStatus{
+			build.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
 				Stack: dropletStack,
-				Registry: v1alpha1.Registry{
+				Registry: korifiv1alpha1.Registry{
 					Image: registryImage,
 					ImagePullSecrets: []corev1.LocalObjectReference{
 						{
@@ -322,7 +322,7 @@ var _ = Describe("DropletRepository", func() {
 						},
 					},
 				},
-				ProcessTypes: []v1alpha1.ProcessType{
+				ProcessTypes: []korifiv1alpha1.ProcessType{
 					{
 						Type:    "rake",
 						Command: "bundle exec rake",

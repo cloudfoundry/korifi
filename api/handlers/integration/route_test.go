@@ -11,7 +11,7 @@ import (
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,7 +25,7 @@ import (
 var _ = Describe("Route Handler", func() {
 	var (
 		apiHandler *RouteHandler
-		space      *v1alpha1.CFSpace
+		space      *korifiv1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
@@ -56,10 +56,10 @@ var _ = Describe("Route Handler", func() {
 			var (
 				domainGUID string
 				routeGUID1 string
-				cfDomain   *v1alpha1.CFDomain
-				cfRoute1   *v1alpha1.CFRoute
+				cfDomain   *korifiv1alpha1.CFDomain
+				cfRoute1   *korifiv1alpha1.CFRoute
 				routeGUID2 string
-				cfRoute2   *v1alpha1.CFRoute
+				cfRoute2   *korifiv1alpha1.CFRoute
 			)
 
 			BeforeEach(func() {
@@ -69,23 +69,23 @@ var _ = Describe("Route Handler", func() {
 				routeGUID1 = generateGUIDWithPrefix("route1")
 				routeGUID2 = generateGUIDWithPrefix("route2")
 
-				cfDomain = &v1alpha1.CFDomain{
+				cfDomain = &korifiv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      domainGUID,
 						Namespace: rootNamespace,
 					},
-					Spec: v1alpha1.CFDomainSpec{
+					Spec: korifiv1alpha1.CFDomainSpec{
 						Name: "foo.domain",
 					},
 				}
 				Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
 
-				cfRoute1 = &v1alpha1.CFRoute{
+				cfRoute1 = &korifiv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      routeGUID1,
 						Namespace: space.Name,
 					},
-					Spec: v1alpha1.CFRouteSpec{
+					Spec: korifiv1alpha1.CFRouteSpec{
 						Host:     "my-subdomain-1",
 						Path:     "",
 						Protocol: "http",
@@ -93,7 +93,7 @@ var _ = Describe("Route Handler", func() {
 							Name:      domainGUID,
 							Namespace: rootNamespace,
 						},
-						Destinations: []v1alpha1.Destination{
+						Destinations: []korifiv1alpha1.Destination{
 							{
 								GUID: "destination-guid",
 								Port: 8080,
@@ -108,12 +108,12 @@ var _ = Describe("Route Handler", func() {
 				}
 				Expect(k8sClient.Create(ctx, cfRoute1)).To(Succeed())
 
-				cfRoute2 = &v1alpha1.CFRoute{
+				cfRoute2 = &korifiv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      routeGUID2,
 						Namespace: space.Name,
 					},
-					Spec: v1alpha1.CFRouteSpec{
+					Spec: korifiv1alpha1.CFRouteSpec{
 						Host:     "my-subdomain-2",
 						Path:     "foo",
 						Protocol: "http",
@@ -121,7 +121,7 @@ var _ = Describe("Route Handler", func() {
 							Name:      domainGUID,
 							Namespace: rootNamespace,
 						},
-						Destinations: []v1alpha1.Destination{
+						Destinations: []korifiv1alpha1.Destination{
 							{
 								GUID: "destination-guid",
 								Port: 8080,
@@ -211,8 +211,8 @@ var _ = Describe("Route Handler", func() {
 			var (
 				routeGUID  string
 				domainGUID string
-				cfDomain   *v1alpha1.CFDomain
-				cfRoute    *v1alpha1.CFRoute
+				cfDomain   *korifiv1alpha1.CFDomain
+				cfRoute    *korifiv1alpha1.CFRoute
 			)
 
 			BeforeEach(func() {
@@ -221,23 +221,23 @@ var _ = Describe("Route Handler", func() {
 				routeGUID = generateGUIDWithPrefix("route")
 				domainGUID = generateGUIDWithPrefix("domain")
 
-				cfDomain = &v1alpha1.CFDomain{
+				cfDomain = &korifiv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      domainGUID,
 						Namespace: rootNamespace,
 					},
-					Spec: v1alpha1.CFDomainSpec{
+					Spec: korifiv1alpha1.CFDomainSpec{
 						Name: "foo.domain",
 					},
 				}
 				Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
 
-				cfRoute = &v1alpha1.CFRoute{
+				cfRoute = &korifiv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      routeGUID,
 						Namespace: space.Name,
 					},
-					Spec: v1alpha1.CFRouteSpec{
+					Spec: korifiv1alpha1.CFRouteSpec{
 						Host:     "my-subdomain-1",
 						Path:     "",
 						Protocol: "http",
@@ -245,7 +245,7 @@ var _ = Describe("Route Handler", func() {
 							Name:      domainGUID,
 							Namespace: rootNamespace,
 						},
-						Destinations: []v1alpha1.Destination{
+						Destinations: []korifiv1alpha1.Destination{
 							{
 								GUID: "destination-guid",
 								Port: 8080,
@@ -280,7 +280,7 @@ var _ = Describe("Route Handler", func() {
 				Expect(rr.Code).To(Equal(202))
 
 				Eventually(func() error {
-					route := &v1alpha1.CFRoute{}
+					route := &korifiv1alpha1.CFRoute{}
 					return k8sClient.Get(testCtx, client.ObjectKey{Namespace: space.Name, Name: routeGUID}, route)
 				}).Should(MatchError(ContainSubstring("not found")))
 			})
@@ -294,30 +294,30 @@ var _ = Describe("Route Handler", func() {
 
 		var (
 			domainGUID string
-			cfDomain   *v1alpha1.CFDomain
-			cfRoute    *v1alpha1.CFRoute
+			cfDomain   *korifiv1alpha1.CFDomain
+			cfRoute    *korifiv1alpha1.CFRoute
 		)
 
 		BeforeEach(func() {
 			domainGUID = generateGUIDWithPrefix("domain")
 
-			cfDomain = &v1alpha1.CFDomain{
+			cfDomain = &korifiv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      domainGUID,
 					Namespace: rootNamespace,
 				},
-				Spec: v1alpha1.CFDomainSpec{
+				Spec: korifiv1alpha1.CFDomainSpec{
 					Name: "foo.domain",
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
 
-			cfRoute = &v1alpha1.CFRoute{
+			cfRoute = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      generateGUIDWithPrefix("route"),
 					Namespace: space.Name,
 				},
-				Spec: v1alpha1.CFRouteSpec{
+				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
 					Path:     "",
 					Protocol: "http",
@@ -325,7 +325,7 @@ var _ = Describe("Route Handler", func() {
 						Name:      domainGUID,
 						Namespace: rootNamespace,
 					},
-					Destinations: []v1alpha1.Destination{
+					Destinations: []korifiv1alpha1.Destination{
 						{
 							GUID: "destination-guid",
 							Port: 8080,
@@ -407,7 +407,7 @@ var _ = Describe("Route Handler", func() {
 				Expect(rr).To(HaveHTTPBody(ContainSubstring(newDestinationAppGUID)), rr.Body.String())
 
 				cfRouteLookupKey := types.NamespacedName{Name: cfRoute.Name, Namespace: cfRoute.Namespace}
-				updatedCFRoute := new(v1alpha1.CFRoute)
+				updatedCFRoute := new(korifiv1alpha1.CFRoute)
 				Expect(k8sClient.Get(context.Background(), cfRouteLookupKey, updatedCFRoute)).To(Succeed())
 
 				Expect(updatedCFRoute.Spec.Destinations).To(ConsistOf(

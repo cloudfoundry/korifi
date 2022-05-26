@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
@@ -42,9 +42,9 @@ var _ = Describe("CFAppReconciler", func() {
 		cfBuildGUID   string
 		cfPackageGUID string
 
-		cfBuild       *v1alpha1.CFBuild
+		cfBuild       *korifiv1alpha1.CFBuild
 		cfBuildError  error
-		cfApp         *v1alpha1.CFApp
+		cfApp         *korifiv1alpha1.CFApp
 		cfAppError    error
 		cfAppPatchErr error
 
@@ -79,10 +79,10 @@ var _ = Describe("CFAppReconciler", func() {
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
 			switch obj := obj.(type) {
-			case *v1alpha1.CFBuild:
+			case *korifiv1alpha1.CFBuild:
 				cfBuild.DeepCopyInto(obj)
 				return cfBuildError
-			case *v1alpha1.CFApp:
+			case *korifiv1alpha1.CFApp:
 				cfApp.DeepCopyInto(obj)
 				return cfAppError
 			default:
@@ -94,15 +94,15 @@ var _ = Describe("CFAppReconciler", func() {
 		fakeStatusWriter = &fake.StatusWriter{}
 		fakeClient.StatusReturns(fakeStatusWriter)
 
-		cfProcessList := v1alpha1.CFProcessList{}
-		cfRouteList := v1alpha1.CFRouteList{
-			Items: []v1alpha1.CFRoute{
+		cfProcessList := korifiv1alpha1.CFProcessList{}
+		cfRouteList := korifiv1alpha1.CFRouteList{
+			Items: []korifiv1alpha1.CFRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "cfRouteGUID",
 						Namespace: defaultNamespace,
 					},
-					Spec: v1alpha1.CFRouteSpec{
+					Spec: korifiv1alpha1.CFRouteSpec{
 						Host:     "testRouteHost",
 						Path:     "",
 						Protocol: "http",
@@ -110,7 +110,7 @@ var _ = Describe("CFAppReconciler", func() {
 							Name:      "testDomainGUID",
 							Namespace: defaultNamespace,
 						},
-						Destinations: []v1alpha1.Destination{
+						Destinations: []korifiv1alpha1.Destination{
 							{
 								GUID: "destination-1-guid",
 								Port: 0,
@@ -137,10 +137,10 @@ var _ = Describe("CFAppReconciler", func() {
 
 		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
 			switch list := list.(type) {
-			case *v1alpha1.CFProcessList:
+			case *korifiv1alpha1.CFProcessList:
 				cfProcessList.DeepCopyInto(list)
 				return nil
-			case *v1alpha1.CFRouteList:
+			case *korifiv1alpha1.CFRouteList:
 				cfRouteList.DeepCopyInto(list)
 				return cfRouteListErr
 			default:
@@ -150,9 +150,9 @@ var _ = Describe("CFAppReconciler", func() {
 
 		fakeClient.PatchStub = func(ctx context.Context, object client.Object, patch client.Patch, option ...client.PatchOption) error {
 			switch object.(type) {
-			case *v1alpha1.CFRoute:
+			case *korifiv1alpha1.CFRoute:
 				return cfRoutePatchErr
-			case *v1alpha1.CFApp:
+			case *korifiv1alpha1.CFApp:
 				return cfAppPatchErr
 			default:
 				panic("TestClient Patch provided an unexpected object type")
@@ -160,7 +160,7 @@ var _ = Describe("CFAppReconciler", func() {
 		}
 
 		// configure a CFAppReconciler with the client
-		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfAppReconciler = NewCFAppReconciler(
 			fakeClient,
 			scheme.Scheme,
@@ -200,8 +200,8 @@ var _ = Describe("CFAppReconciler", func() {
 				// validate the inputs to Status.Update
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 				_, updatedCFApp, _ := fakeStatusWriter.UpdateArgsForCall(0)
-				cast, ok := updatedCFApp.(*v1alpha1.CFApp)
-				Expect(ok).To(BeTrue(), "Cast to v1alpha1.CFApp failed")
+				cast, ok := updatedCFApp.(*korifiv1alpha1.CFApp)
+				Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFApp failed")
 				Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRunning)).To(BeTrue(), "Status Condition "+StatusConditionRunning+" was not False as expected")
 				Expect(cast.Status.ObservedDesiredState).To(Equal(cast.Spec.DesiredState))
 			})
@@ -281,8 +281,8 @@ var _ = Describe("CFAppReconciler", func() {
 				// validate the inputs to Status.Update
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 				_, updatedCFApp, _ := fakeStatusWriter.UpdateArgsForCall(0)
-				cast, ok := updatedCFApp.(*v1alpha1.CFApp)
-				Expect(ok).To(BeTrue(), "Cast to v1alpha1.CFApp failed")
+				cast, ok := updatedCFApp.(*korifiv1alpha1.CFApp)
+				Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFApp failed")
 				Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRunning)).To(BeTrue(), "Status Condition "+StatusConditionRunning+" was not False as expected")
 			})
 		})
@@ -409,8 +409,8 @@ var _ = Describe("CFAppReconciler", func() {
 
 			It("removes the finalizer from the CFApp", func() {
 				_, requestObject, _, _ := fakeClient.PatchArgsForCall(1)
-				requestApp, ok := requestObject.(*v1alpha1.CFApp)
-				Expect(ok).To(BeTrue(), "Cast to v1alpha1.CFApp failed")
+				requestApp, ok := requestObject.(*korifiv1alpha1.CFApp)
+				Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFApp failed")
 				Expect(requestApp.ObjectMeta.Finalizers).To(HaveLen(0), "CFApp finalizer count mismatch")
 			})
 

@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/actions"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -117,19 +117,19 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 	})
 })
 
-func createAppWithGUID(space, guid, secretName string) *v1alpha1.CFApp {
-	cfApp := &v1alpha1.CFApp{
+func createAppWithGUID(space, guid, secretName string) *korifiv1alpha1.CFApp {
+	cfApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: space,
 		},
-		Spec: v1alpha1.CFAppSpec{
+		Spec: korifiv1alpha1.CFAppSpec{
 			DisplayName:   "name-for-" + guid,
 			EnvSecretName: secretName,
 			DesiredState:  "STOPPED",
-			Lifecycle: v1alpha1.Lifecycle{
+			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: "buildpack",
-				Data: v1alpha1.LifecycleData{
+				Data: korifiv1alpha1.LifecycleData{
 					Buildpacks: []string{"java"},
 				},
 			},

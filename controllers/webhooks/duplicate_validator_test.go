@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 
@@ -33,7 +33,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		ctx = context.Background()
 
 		scheme := runtime.NewScheme()
-		Expect(v1alpha1.AddToScheme(scheme)).To(Succeed())
+		Expect(korifiv1alpha1.AddToScheme(scheme)).To(Succeed())
 
 		nameRegistry = new(fake.NameRegistry)
 		duplicateValidator = webhooks.NewDuplicateValidator(nameRegistry)

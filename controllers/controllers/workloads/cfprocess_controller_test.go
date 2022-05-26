@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -41,11 +41,11 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		fakeClient *fake.Client
 		envBuilder *workloadsfakes.EnvBuilder
 
-		cfBuild   *v1alpha1.CFBuild
-		cfProcess *v1alpha1.CFProcess
-		cfApp     *v1alpha1.CFApp
+		cfBuild   *korifiv1alpha1.CFBuild
+		cfProcess *korifiv1alpha1.CFProcess
+		cfApp     *korifiv1alpha1.CFApp
 		lrp       *eiriniv1.LRP
-		routes    []v1alpha1.CFRoute
+		routes    []korifiv1alpha1.CFRoute
 
 		cfBuildError   error
 		cfAppError     error
@@ -81,13 +81,13 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		fakeClient.GetStub = func(_ context.Context, name types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
 			switch obj := obj.(type) {
-			case *v1alpha1.CFProcess:
+			case *korifiv1alpha1.CFProcess:
 				cfProcess.DeepCopyInto(obj)
 				return cfProcessError
-			case *v1alpha1.CFBuild:
+			case *korifiv1alpha1.CFBuild:
 				cfBuild.DeepCopyInto(obj)
 				return cfBuildError
-			case *v1alpha1.CFApp:
+			case *korifiv1alpha1.CFApp:
 				cfApp.DeepCopyInto(obj)
 				return cfAppError
 			case *eiriniv1.LRP:
@@ -109,8 +109,8 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				}
 				lrpList.DeepCopyInto(listObj)
 				return lrpListError
-			case *v1alpha1.CFRouteList:
-				routeList := v1alpha1.CFRouteList{Items: routes}
+			case *korifiv1alpha1.CFRouteList:
+				routeList := korifiv1alpha1.CFRouteList{Items: routes}
 
 				routeList.DeepCopyInto(listObj)
 				return routeListError
@@ -120,7 +120,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		}
 
 		// configure a CFProcessReconciler with the client
-		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfProcessReconciler = NewCFProcessReconciler(
 			fakeClient,
 			scheme.Scheme,
@@ -147,7 +147,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 		When("the CFApp is created with desired state stopped", func() {
 			BeforeEach(func() {
-				cfApp.Spec.DesiredState = v1alpha1.StoppedState
+				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
 			})
 
 			It("does not attempt to create any new LRPs", func() {
@@ -157,14 +157,14 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 		When("the CFApp is updated from desired state STARTED to STOPPED", func() {
 			BeforeEach(func() {
-				cfApp.Spec.DesiredState = v1alpha1.StoppedState
+				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
 				lrp = &eiriniv1.LRP{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:         testProcessGUID,
 						GenerateName: "",
 						Namespace:    testNamespace,
 						Labels: map[string]string{
-							v1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
+							korifiv1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
 						},
 					},
 					Spec: eiriniv1.LRPSpec{
@@ -193,18 +193,18 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 			const testPort = 1234
 
 			BeforeEach(func() {
-				cfApp.Spec.DesiredState = v1alpha1.StartedState
+				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 				lrpError = apierrors.NewNotFound(schema.GroupResource{}, "some-guid")
 
-				routes = []v1alpha1.CFRoute{
+				routes = []korifiv1alpha1.CFRoute{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							CreationTimestamp: metav1.Time{
 								Time: time.Now(),
 							},
 						},
-						Status: v1alpha1.CFRouteStatus{
-							Destinations: []v1alpha1.Destination{
+						Status: korifiv1alpha1.CFRouteStatus{
+							Destinations: []korifiv1alpha1.Destination{
 								{
 									GUID: "some-other-guid",
 									Port: testPort + 1000,
@@ -223,8 +223,8 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 								Time: time.Now().Add(-5 * time.Second),
 							},
 						},
-						Status: v1alpha1.CFRouteStatus{
-							Destinations: []v1alpha1.Destination{
+						Status: korifiv1alpha1.CFRouteStatus{
+							Destinations: []korifiv1alpha1.Destination{
 								{
 									GUID: "some-guid",
 									Port: testPort,
@@ -256,7 +256,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 		When("the app is started", func() {
 			BeforeEach(func() {
-				cfApp.Spec.DesiredState = v1alpha1.StartedState
+				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 			})
 
 			When("fetch CFProcess returns an error", func() {
@@ -333,7 +333,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 	When("generating LRP CPU weight parameters", func() {
 		BeforeEach(func() {
-			cfApp.Spec.DesiredState = v1alpha1.StartedState
+			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 			lrpError = apierrors.NewNotFound(schema.GroupResource{}, "")
 		})
 

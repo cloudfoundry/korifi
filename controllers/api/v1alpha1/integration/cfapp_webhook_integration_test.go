@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,19 +27,19 @@ var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 			testCtx := context.Background()
 			cfAppGUID = GenerateGUID()
 			cfAppName := cfAppGUID + "-app"
-			cfApp := &v1alpha1.CFApp{
+			cfApp := &korifiv1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
 					Namespace: namespace,
 				},
-				Spec: v1alpha1.CFAppSpec{
+				Spec: korifiv1alpha1.CFAppSpec{
 					DisplayName:  cfAppName,
 					DesiredState: "STOPPED",
-					Lifecycle: v1alpha1.Lifecycle{
+					Lifecycle: korifiv1alpha1.Lifecycle{
 						Type: "buildpack",
 					},
 				},
@@ -47,7 +47,7 @@ var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 			Expect(k8sClient.Create(testCtx, cfApp)).To(Succeed())
 
 			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespace}
-			createdCFApp := new(v1alpha1.CFApp)
+			createdCFApp := new(korifiv1alpha1.CFApp)
 
 			Eventually(func() map[string]string {
 				err := k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)
@@ -73,17 +73,17 @@ var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 
 		var (
 			cfAppGUID string
-			cfApp     *v1alpha1.CFApp
+			cfApp     *korifiv1alpha1.CFApp
 		)
 
 		BeforeEach(func() {
 			testCtx := context.Background()
 			cfAppGUID = GenerateGUID()
 			cfAppName := cfAppGUID + "-app"
-			cfApp = &v1alpha1.CFApp{
+			cfApp = &korifiv1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
@@ -92,10 +92,10 @@ var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 						cfAppRevisionKey: strconv.Itoa(revisionValue),
 					},
 				},
-				Spec: v1alpha1.CFAppSpec{
+				Spec: korifiv1alpha1.CFAppSpec{
 					DisplayName:  cfAppName,
 					DesiredState: "STARTED",
-					Lifecycle: v1alpha1.Lifecycle{
+					Lifecycle: korifiv1alpha1.Lifecycle{
 						Type: "buildpack",
 					},
 				},
@@ -106,7 +106,7 @@ var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 			Expect(k8sClient.Status().Update(testCtx, cfApp)).To(Succeed())
 
 			Eventually(func() string {
-				updatedCFApp := &v1alpha1.CFApp{}
+				updatedCFApp := &korifiv1alpha1.CFApp{}
 				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: namespace}, updatedCFApp)
 				if err != nil {
 					return ""
@@ -114,7 +114,7 @@ var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 				return string(updatedCFApp.Status.ObservedDesiredState)
 			}).Should(Equal(string(cfApp.Spec.DesiredState)))
 
-			cfApp.Spec.DesiredState = v1alpha1.StoppedState
+			cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
 			Expect(k8sClient.Update(testCtx, cfApp)).To(Succeed())
 		})
 
@@ -124,12 +124,12 @@ var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 
 		It("should eventually increment the rev annotation by 1", func() {
 			Eventually(func() string {
-				updatedCFApp := &v1alpha1.CFApp{}
+				updatedCFApp := &korifiv1alpha1.CFApp{}
 				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: namespace}, updatedCFApp)
 				if err != nil {
 					return ""
 				}
-				return getMapKeyValue(updatedCFApp.Annotations, v1alpha1.CFAppRevisionKey)
+				return getMapKeyValue(updatedCFApp.Annotations, korifiv1alpha1.CFAppRevisionKey)
 			}).Should(Equal(strconv.Itoa(revisionValue + 1)))
 		})
 	})

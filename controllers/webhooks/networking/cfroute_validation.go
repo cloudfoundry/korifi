@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/go-logr/logr"
@@ -81,8 +81,8 @@ func (v *CFRouteValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	var route, oldRoute v1alpha1.CFRoute
-	var domain v1alpha1.CFDomain
+	var route, oldRoute korifiv1alpha1.CFRoute
+	var domain korifiv1alpha1.CFDomain
 	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
 		err := v.decoder.Decode(req, &route)
 		if err != nil { // untested
@@ -199,11 +199,11 @@ func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) a
 	return admission.Allowed("")
 }
 
-func uniqueName(route v1alpha1.CFRoute) string {
+func uniqueName(route korifiv1alpha1.CFRoute) string {
 	return strings.Join([]string{strings.ToLower(route.Spec.Host), route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
 }
 
-func validatePath(route v1alpha1.CFRoute) error {
+func validatePath(route korifiv1alpha1.CFRoute) error {
 	var errStrings []string
 
 	if route.Spec.Path == "" {
@@ -308,10 +308,10 @@ func IsFQDN(host, domain string) (bool, error) {
 	return true, nil
 }
 
-func (v *CFRouteValidation) checkDestinationsExistInNamespace(ctx context.Context, route v1alpha1.CFRoute) error {
+func (v *CFRouteValidation) checkDestinationsExistInNamespace(ctx context.Context, route korifiv1alpha1.CFRoute) error {
 	for _, destination := range route.Spec.Destinations {
 		if err := v.Client.Get(
-			ctx, client.ObjectKey{Namespace: route.Namespace, Name: destination.AppRef.Name}, &v1alpha1.CFApp{},
+			ctx, client.ObjectKey{Namespace: route.Namespace, Name: destination.AppRef.Name}, &korifiv1alpha1.CFApp{},
 		); err != nil {
 			return err
 		}

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -50,7 +50,7 @@ func (v *CFOrgValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
 func (v *CFOrgValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
 	cfOrgLog.Info("Validate", "name", req.Name)
 
-	var cfOrg, oldCFOrg v1alpha1.CFOrg
+	var cfOrg, oldCFOrg korifiv1alpha1.CFOrg
 	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
 		err := v.decoder.Decode(req, &cfOrg)
 		if err != nil { // untested

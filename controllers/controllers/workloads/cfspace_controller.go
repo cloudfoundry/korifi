@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -72,7 +72,7 @@ func NewCFSpaceReconciler(client client.Client, scheme *runtime.Scheme, log logr
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	cfSpace := new(v1alpha1.CFSpace)
+	cfSpace := new(korifiv1alpha1.CFSpace)
 	err := r.client.Get(ctx, req.NamespacedName, cfSpace)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error when trying to fetch CFSpace %s/%s", req.Namespace, req.Name))
@@ -173,6 +173,6 @@ func (r *CFSpaceReconciler) createServiceAccountIfMissing(ctx context.Context, s
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFSpaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.CFSpace{}).
+		For(&korifiv1alpha1.CFSpace{}).
 		Complete(r)
 }

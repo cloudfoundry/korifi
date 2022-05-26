@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,7 +39,7 @@ func NewBuilder(client workloads.CFClient) *Builder {
 	return &Builder{client: client}
 }
 
-func (b *Builder) BuildEnv(ctx context.Context, cfApp *v1alpha1.CFApp) (map[string]string, error) {
+func (b *Builder) BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (map[string]string, error) {
 	if cfApp.Spec.EnvSecretName == "" {
 		return map[string]string{}, nil
 	}
@@ -77,8 +77,8 @@ func fromSecret(secret *corev1.Secret) map[string]string {
 }
 
 func fromServiceBinding(
-	serviceBinding v1alpha1.CFServiceBinding,
-	serviceInstance v1alpha1.CFServiceInstance,
+	serviceBinding korifiv1alpha1.CFServiceBinding,
+	serviceInstance korifiv1alpha1.CFServiceInstance,
 	serviceBindingSecret corev1.Secret,
 ) serviceDetails {
 	var serviceName string
@@ -111,8 +111,8 @@ func fromServiceBinding(
 	}
 }
 
-func buildVcapServicesEnvValue(ctx context.Context, k8sClient workloads.CFClient, cfApp *v1alpha1.CFApp) (string, error) {
-	serviceBindings := &v1alpha1.CFServiceBindingList{}
+func buildVcapServicesEnvValue(ctx context.Context, k8sClient workloads.CFClient, cfApp *korifiv1alpha1.CFApp) (string, error) {
+	serviceBindings := &korifiv1alpha1.CFServiceBindingList{}
 	err := k8sClient.List(ctx, serviceBindings,
 		client.InNamespace(cfApp.Namespace),
 		client.MatchingFields{shared.IndexServiceBindingAppGUID: cfApp.Name},
@@ -146,12 +146,12 @@ func buildVcapServicesEnvValue(ctx context.Context, k8sClient workloads.CFClient
 	return string(toReturn), nil
 }
 
-func buildSingleServiceEnv(ctx context.Context, k8sClient workloads.CFClient, serviceBinding v1alpha1.CFServiceBinding) (serviceDetails, error) {
+func buildSingleServiceEnv(ctx context.Context, k8sClient workloads.CFClient, serviceBinding korifiv1alpha1.CFServiceBinding) (serviceDetails, error) {
 	if serviceBinding.Status.Binding.Name == "" {
 		return serviceDetails{}, fmt.Errorf("service binding secret name is empty")
 	}
 
-	serviceInstance := v1alpha1.CFServiceInstance{}
+	serviceInstance := korifiv1alpha1.CFServiceInstance{}
 	err := k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Spec.Service.Name}, &serviceInstance)
 	if err != nil {
 		return serviceDetails{}, fmt.Errorf("error fetching CFServiceInstance: %w", err)

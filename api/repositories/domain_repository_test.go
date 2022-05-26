@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,30 +31,30 @@ var _ = Describe("DomainRepository", func() {
 	Describe("GetDomain", func() {
 		When("multiple CFDomain resources exist", func() {
 			var (
-				cfDomain1 *v1alpha1.CFDomain
-				cfDomain2 *v1alpha1.CFDomain
+				cfDomain1 *korifiv1alpha1.CFDomain
+				cfDomain2 *korifiv1alpha1.CFDomain
 			)
 
 			BeforeEach(func() {
 				beforeCtx := context.Background()
 
-				cfDomain1 = &v1alpha1.CFDomain{
+				cfDomain1 = &korifiv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "domain-id-1",
 						Namespace: rootNamespace,
 					},
-					Spec: v1alpha1.CFDomainSpec{
+					Spec: korifiv1alpha1.CFDomainSpec{
 						Name: "my-domain-1.com",
 					},
 				}
 				Expect(k8sClient.Create(beforeCtx, cfDomain1)).To(Succeed())
 
-				cfDomain2 = &v1alpha1.CFDomain{
+				cfDomain2 = &korifiv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "domain-id-2",
 						Namespace: rootNamespace,
 					},
-					Spec: v1alpha1.CFDomainSpec{
+					Spec: korifiv1alpha1.CFDomainSpec{
 						Name: "my-domain-2.com",
 					},
 				}
@@ -107,9 +107,9 @@ var _ = Describe("DomainRepository", func() {
 					domainGUID2 string
 					domainGUID3 string
 
-					cfDomain1 *v1alpha1.CFDomain
-					cfDomain2 *v1alpha1.CFDomain
-					cfDomain3 *v1alpha1.CFDomain
+					cfDomain1 *korifiv1alpha1.CFDomain
+					cfDomain2 *korifiv1alpha1.CFDomain
+					cfDomain3 *korifiv1alpha1.CFDomain
 				)
 
 				BeforeEach(func() {
@@ -117,12 +117,12 @@ var _ = Describe("DomainRepository", func() {
 					domainGUID2 = generateGUID()
 					domainGUID3 = generateGUID()
 
-					cfDomain1 = &v1alpha1.CFDomain{
+					cfDomain1 = &korifiv1alpha1.CFDomain{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      domainGUID1,
 							Namespace: rootNamespace,
 						},
-						Spec: v1alpha1.CFDomainSpec{
+						Spec: korifiv1alpha1.CFDomainSpec{
 							Name: domainName1,
 						},
 					}
@@ -130,12 +130,12 @@ var _ = Describe("DomainRepository", func() {
 						k8sClient.Create(testCtx, cfDomain1),
 					).To(Succeed())
 
-					cfDomain2 = &v1alpha1.CFDomain{
+					cfDomain2 = &korifiv1alpha1.CFDomain{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      domainGUID2,
 							Namespace: rootNamespace,
 						},
-						Spec: v1alpha1.CFDomainSpec{
+						Spec: korifiv1alpha1.CFDomainSpec{
 							Name: domainName2,
 						},
 					}
@@ -143,12 +143,12 @@ var _ = Describe("DomainRepository", func() {
 						k8sClient.Create(testCtx, cfDomain2),
 					).To(Succeed())
 
-					cfDomain3 = &v1alpha1.CFDomain{
+					cfDomain3 = &korifiv1alpha1.CFDomain{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      domainGUID3,
 							Namespace: rootNamespace,
 						},
-						Spec: v1alpha1.CFDomainSpec{
+						Spec: korifiv1alpha1.CFDomainSpec{
 							Name: domainName3,
 						},
 					}
@@ -209,8 +209,8 @@ var _ = Describe("DomainRepository", func() {
 					domainGUID1 string
 					domainGUID2 string
 
-					cfDomain1 *v1alpha1.CFDomain
-					cfDomain2 *v1alpha1.CFDomain
+					cfDomain1 *korifiv1alpha1.CFDomain
+					cfDomain2 *korifiv1alpha1.CFDomain
 				)
 
 				BeforeEach(func() {
@@ -222,12 +222,12 @@ var _ = Describe("DomainRepository", func() {
 						Names: []string{domainName1},
 					}
 
-					cfDomain1 = &v1alpha1.CFDomain{
+					cfDomain1 = &korifiv1alpha1.CFDomain{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      domainGUID1,
 							Namespace: rootNamespace,
 						},
-						Spec: v1alpha1.CFDomainSpec{
+						Spec: korifiv1alpha1.CFDomainSpec{
 							Name: domainName1,
 						},
 					}
@@ -235,12 +235,12 @@ var _ = Describe("DomainRepository", func() {
 						k8sClient.Create(ctx, cfDomain1),
 					).To(Succeed())
 
-					cfDomain2 = &v1alpha1.CFDomain{
+					cfDomain2 = &korifiv1alpha1.CFDomain{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      domainGUID2,
 							Namespace: rootNamespace,
 						},
-						Spec: v1alpha1.CFDomainSpec{
+						Spec: korifiv1alpha1.CFDomainSpec{
 							Name: domainName2,
 						},
 					}
@@ -349,8 +349,8 @@ var _ = Describe("DomainRepository", func() {
 				domainGUID1 string
 				domainGUID2 string
 
-				cfDomain1 *v1alpha1.CFDomain
-				cfDomain2 *v1alpha1.CFDomain
+				cfDomain1 *korifiv1alpha1.CFDomain
+				cfDomain2 *korifiv1alpha1.CFDomain
 			)
 
 			BeforeEach(func() {
@@ -368,12 +368,12 @@ var _ = Describe("DomainRepository", func() {
 					Names: []string{domainName1},
 				}
 
-				cfDomain1 = &v1alpha1.CFDomain{
+				cfDomain1 = &korifiv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      domainGUID1,
 						Namespace: tempRootNamespace.Name,
 					},
-					Spec: v1alpha1.CFDomainSpec{
+					Spec: korifiv1alpha1.CFDomainSpec{
 						Name: domainName1,
 					},
 				}
@@ -381,12 +381,12 @@ var _ = Describe("DomainRepository", func() {
 					k8sClient.Create(beforeCtx, cfDomain1),
 				).To(Succeed())
 
-				cfDomain2 = &v1alpha1.CFDomain{
+				cfDomain2 = &korifiv1alpha1.CFDomain{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      domainGUID2,
 						Namespace: tempRootNamespace.Name,
 					},
-					Spec: v1alpha1.CFDomainSpec{
+					Spec: korifiv1alpha1.CFDomainSpec{
 						Name: domainName2,
 					},
 				}
@@ -421,8 +421,8 @@ var _ = Describe("DomainRepository", func() {
 		)
 
 		var (
-			cfDomain   *v1alpha1.CFDomain
-			cfDomain2  *v1alpha1.CFDomain
+			cfDomain   *korifiv1alpha1.CFDomain
+			cfDomain2  *korifiv1alpha1.CFDomain
 			domainGUID string
 		)
 
@@ -430,12 +430,12 @@ var _ = Describe("DomainRepository", func() {
 			beforeCtx := context.Background()
 
 			domainGUID = generateGUID()
-			cfDomain = &v1alpha1.CFDomain{
+			cfDomain = &korifiv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      domainGUID,
 					Namespace: rootNamespace,
 				},
-				Spec: v1alpha1.CFDomainSpec{
+				Spec: korifiv1alpha1.CFDomainSpec{
 					Name: domainName,
 				},
 			}
@@ -443,12 +443,12 @@ var _ = Describe("DomainRepository", func() {
 				k8sClient.Create(beforeCtx, cfDomain),
 			).To(Succeed())
 
-			cfDomain2 = &v1alpha1.CFDomain{
+			cfDomain2 = &korifiv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      generateGUID(),
 					Namespace: rootNamespace,
 				},
-				Spec: v1alpha1.CFDomainSpec{
+				Spec: korifiv1alpha1.CFDomainSpec{
 					Name: "some-other-domain.com",
 				},
 			}

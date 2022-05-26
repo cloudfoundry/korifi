@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/random"
@@ -35,8 +35,8 @@ var _ = Describe("ImageRepository", func() {
 		imageRef  string
 		uploadErr error
 		ctx       context.Context
-		org       *v1alpha1.CFOrg
-		space     *v1alpha1.CFSpace
+		org       *korifiv1alpha1.CFOrg
+		space     *korifiv1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {

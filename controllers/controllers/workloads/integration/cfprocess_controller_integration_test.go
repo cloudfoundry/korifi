@@ -5,7 +5,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
@@ -27,10 +27,10 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		testAppGUID     string
 		testBuildGUID   string
 		testPackageGUID string
-		cfProcess       *v1alpha1.CFProcess
-		cfPackage       *v1alpha1.CFPackage
-		cfApp           *v1alpha1.CFApp
-		cfBuild         *v1alpha1.CFBuild
+		cfProcess       *korifiv1alpha1.CFProcess
+		cfPackage       *korifiv1alpha1.CFPackage
+		cfApp           *korifiv1alpha1.CFApp
+		cfBuild         *korifiv1alpha1.CFBuild
 	)
 
 	const (
@@ -103,14 +103,14 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 		It("eventually reconciles to set owner references on CFProcess", func() {
 			Eventually(func() []metav1.OwnerReference {
-				var createdCFProcess v1alpha1.CFProcess
+				var createdCFProcess korifiv1alpha1.CFProcess
 				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: testProcessGUID, Namespace: testNamespace}, &createdCFProcess)
 				if err != nil {
 					return nil
 				}
 				return createdCFProcess.GetOwnerReferences()
 			}).Should(ConsistOf(metav1.OwnerReference{
-				APIVersion: v1alpha1.GroupVersion.Identifier(),
+				APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				Kind:       "CFApp",
 				Name:       cfApp.Name,
 				UID:        cfApp.UID,
@@ -121,7 +121,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	When("the CFApp desired state is STARTED", func() {
 		JustBeforeEach(func() {
 			ctx := context.Background()
-			cfApp.Spec.DesiredState = v1alpha1.StartedState
+			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 			Expect(
 				k8sClient.Create(ctx, cfApp),
 			).To(Succeed())
@@ -139,7 +139,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				}
 
 				for _, currentLRP := range lrps.Items {
-					if getMapKeyValue(currentLRP.Labels, v1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+					if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
 						lrp = currentLRP
 						return lrp.GetName()
 					}
@@ -189,7 +189,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 
 					for _, currentLRP := range lrps.Items {
-						if getMapKeyValue(currentLRP.Labels, v1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+						if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
 							return currentLRP.GetName()
 						}
 					}
@@ -198,7 +198,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
 				originalCFApp := cfApp.DeepCopy()
-				cfApp.Spec.DesiredState = v1alpha1.StoppedState
+				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
 				Expect(k8sClient.Patch(ctx, cfApp, client.MergeFrom(originalCFApp))).To(Succeed())
 			})
 
@@ -213,7 +213,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 
 					for _, currentLRP := range lrps.Items {
-						if getMapKeyValue(currentLRP.Labels, v1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+						if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
 							return false
 						}
 					}
@@ -229,10 +229,10 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				secret2Data      map[string]string
 				secret1          *corev1.Secret
 				secret2          *corev1.Secret
-				serviceInstance1 *v1alpha1.CFServiceInstance
-				serviceInstance2 *v1alpha1.CFServiceInstance
-				serviceBinding1  *v1alpha1.CFServiceBinding
-				serviceBinding2  *v1alpha1.CFServiceBinding
+				serviceInstance1 *korifiv1alpha1.CFServiceInstance
+				serviceInstance2 *korifiv1alpha1.CFServiceInstance
+				serviceBinding1  *korifiv1alpha1.CFServiceBinding
+				serviceBinding2  *korifiv1alpha1.CFServiceBinding
 			)
 
 			BeforeEach(func() {
@@ -252,12 +252,12 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					k8sClient.Create(ctx, secret1),
 				).To(Succeed())
 
-				serviceInstance1 = &v1alpha1.CFServiceInstance{
+				serviceInstance1 = &korifiv1alpha1.CFServiceInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service-instance-1-guid",
 						Namespace: ns.Name,
 					},
-					Spec: v1alpha1.CFServiceInstanceSpec{
+					Spec: korifiv1alpha1.CFServiceInstanceSpec{
 						DisplayName: "service-instance-1-name",
 						SecretName:  secret1.Name,
 						Type:        "user-provided",
@@ -272,15 +272,15 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				).To(Succeed())
 
 				serviceBinding1Name := "service-binding-1-name"
-				serviceBinding1 = &v1alpha1.CFServiceBinding{
+				serviceBinding1 = &korifiv1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service-binding-1-guid",
 						Namespace: ns.Name,
 						Labels: map[string]string{
-							v1alpha1.CFAppGUIDLabelKey: testAppGUID,
+							korifiv1alpha1.CFAppGUIDLabelKey: testAppGUID,
 						},
 					},
-					Spec: v1alpha1.CFServiceBindingSpec{
+					Spec: korifiv1alpha1.CFServiceBindingSpec{
 						DisplayName: &serviceBinding1Name,
 						Service: corev1.ObjectReference{
 							Kind:       "ServiceInstance",
@@ -321,12 +321,12 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					k8sClient.Create(ctx, secret2),
 				).To(Succeed())
 
-				serviceInstance2 = &v1alpha1.CFServiceInstance{
+				serviceInstance2 = &korifiv1alpha1.CFServiceInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service-instance-2-guid",
 						Namespace: ns.Name,
 					},
-					Spec: v1alpha1.CFServiceInstanceSpec{
+					Spec: korifiv1alpha1.CFServiceInstanceSpec{
 						DisplayName: "service-instance-2-name",
 						SecretName:  secret2.Name,
 						Type:        "user-provided",
@@ -338,15 +338,15 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				).To(Succeed())
 
 				serviceBinding2Name := "service-binding-2-name"
-				serviceBinding2 = &v1alpha1.CFServiceBinding{
+				serviceBinding2 = &korifiv1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service-binding-2-guid",
 						Namespace: ns.Name,
 						Labels: map[string]string{
-							v1alpha1.CFAppGUIDLabelKey: testAppGUID,
+							korifiv1alpha1.CFAppGUIDLabelKey: testAppGUID,
 						},
 					},
-					Spec: v1alpha1.CFServiceBindingSpec{
+					Spec: korifiv1alpha1.CFServiceBindingSpec{
 						DisplayName: &serviceBinding2Name,
 						Service: corev1.ObjectReference{
 							Kind:       "ServiceInstance",
@@ -385,7 +385,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 
 					for _, currentLRP := range lrps.Items {
-						if getMapKeyValue(currentLRP.Labels, v1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+						if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
 							lrp = currentLRP
 							return lrp.Spec.Env
 						}
@@ -404,26 +404,26 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		var lrp eiriniv1.LRP
 
 		BeforeEach(func() {
-			wrongDestination := v1alpha1.Destination{
+			wrongDestination := korifiv1alpha1.Destination{
 				GUID:        "destination1-guid",
 				AppRef:      corev1.LocalObjectReference{Name: "some-other-guid"},
 				ProcessType: processTypeWeb,
 				Port:        12,
 				Protocol:    "http1",
 			}
-			destination := v1alpha1.Destination{
+			destination := korifiv1alpha1.Destination{
 				GUID:        "destination2-guid",
 				AppRef:      corev1.LocalObjectReference{Name: cfApp.Name},
 				ProcessType: processTypeWeb,
 				Port:        port9000,
 				Protocol:    "http1",
 			}
-			cfRoute := &v1alpha1.CFRoute{
+			cfRoute := &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      GenerateGUID(),
 					Namespace: testNamespace,
 				},
-				Spec: v1alpha1.CFRouteSpec{
+				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "test-host",
 					Path:     "",
 					Protocol: "http",
@@ -431,20 +431,20 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 						Name:      GenerateGUID(),
 						Namespace: testNamespace,
 					},
-					Destinations: []v1alpha1.Destination{wrongDestination, destination},
+					Destinations: []korifiv1alpha1.Destination{wrongDestination, destination},
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), cfRoute)).To(Succeed())
-			cfRoute.Status = v1alpha1.CFRouteStatus{
+			cfRoute.Status = korifiv1alpha1.CFRouteStatus{
 				CurrentStatus: "valid",
 				Description:   "ok",
-				Destinations:  []v1alpha1.Destination{wrongDestination, destination},
+				Destinations:  []korifiv1alpha1.Destination{wrongDestination, destination},
 			}
 			Expect(k8sClient.Status().Update(context.Background(), cfRoute)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
-			cfApp.Spec.DesiredState = v1alpha1.StartedState
+			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 			Expect(
 				k8sClient.Create(context.Background(), cfApp),
 			).To(Succeed())
@@ -459,7 +459,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				}
 
 				for _, currentLRP := range lrps.Items {
-					if getMapKeyValue(currentLRP.Labels, v1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+					if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
 						lrp = currentLRP
 						return lrp.GetName()
 					}
@@ -492,7 +492,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 
 					for _, currentLRP := range lrps.Items {
-						if getMapKeyValue(currentLRP.Labels, v1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+						if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
 							lrp = currentLRP
 							return currentLRP.GetName()
 						}
@@ -541,7 +541,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			// Set CFApp annotation.rev 0->1 & set state to started to trigger reconcile
 			newRevValue = "1"
 			cfApp.Annotations[cfAppRevisionKey] = newRevValue
-			cfApp.Spec.DesiredState = v1alpha1.StartedState
+			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 			Expect(
 				k8sClient.Create(ctx, cfApp),
 			).To(Succeed())
@@ -585,7 +585,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 				for _, currentLRP := range lrps.Items {
 					if processGUIDLabel, has := currentLRP.Labels[CFProcessGUIDLabelKey]; has && processGUIDLabel == testProcessGUID {
-						if revLabel, has := currentLRP.Labels[cfAppRevisionKey]; has && revLabel == v1alpha1.CFAppRevisionKeyDefault {
+						if revLabel, has := currentLRP.Labels[cfAppRevisionKey]; has && revLabel == korifiv1alpha1.CFAppRevisionKeyDefault {
 							return true
 						}
 					}
@@ -605,7 +605,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				k8sClient.Update(ctx, cfProcess),
 			).To(Succeed())
 
-			cfApp.Spec.DesiredState = v1alpha1.StartedState
+			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 			Expect(
 				k8sClient.Create(ctx, cfApp),
 			).To(Succeed())
@@ -623,7 +623,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				}
 
 				for _, currentLRP := range lrps.Items {
-					if getMapKeyValue(currentLRP.Labels, v1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+					if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
 						lrp = currentLRP
 						return currentLRP.GetName()
 					}
