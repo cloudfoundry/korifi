@@ -23,43 +23,61 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/go-logr/logr"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // CFOrgReconciler reconciles a CFOrg object
 type CFOrgReconciler struct {
-	client client.Client
-	scheme *runtime.Scheme
-	log    logr.Logger
+	client                    client.Client
+	scheme                    *runtime.Scheme
+	log                       logr.Logger
+	packageRegistrySecretName string
 }
 
-func NewCFOrgReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *CFOrgReconciler {
+func NewCFOrgReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger, packageRegistrySecretName string) *CFOrgReconciler {
 	return &CFOrgReconciler{
-		client: client,
-		scheme: scheme,
-		log:    log,
+		client:                    client,
+		scheme:                    scheme,
+		log:                       log,
+		packageRegistrySecretName: packageRegistrySecretName,
 	}
 }
 
 const (
-	StatusConditionReady  = "Ready"
-	OrgNameLabel          = "cloudfoundry.org/org-name"
-	hierarchyMetadataName = "hierarchy"
-	APIVersion            = "korifi.cloudfoundry.org/v1alpha1"
+	StatusConditionReady = "Ready"
+	orgFinalizerName     = "cfOrg.korifi.cloudfoundry.org"
 )
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cforgs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cforgs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cforgs/finalizers,verbs=update
 
-//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
-//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;create;delete;watch
-//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=hierarchyconfigurations,verbs=get;list;watch;update;patch
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=create;patch;delete;get;list;watch
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=create;patch;delete;get;list;watch
+
+//+kubebuilder:rbac:groups="",resources=events,verbs=create;update
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;patch
+//+kubebuilder:rbac:groups="",resources=pods/log,verbs=get
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=create;delete
+//+kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=create;patch
+//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=create;delete;deletecollection
+//+kubebuilder:rbac:groups="eirini.cloudfoundry.org",resources=lrps/status,verbs=patch
+//+kubebuilder:rbac:groups="eirini.cloudfoundry.org",resources=tasks/status,verbs=patch
+//+kubebuilder:rbac:groups="metrics.k8s.io",resources=pods,verbs=get;list;watch
+//+kubebuilder:rbac:groups="policy",resources=poddisruptionbudgets,verbs=create;deletecollection
+//+kubebuilder:rbac:groups="policy",resources=podsecuritypolicies,verbs=use
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -78,39 +96,29 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if cfOrg.ObjectMeta.DeletionTimestamp != nil && !cfOrg.ObjectMeta.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
+	readyCondition := getConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType)
+	if readyCondition == metav1.ConditionUnknown {
+		if err = r.client.Status().Update(ctx, cfOrg); err != nil {
+			r.log.Error(err, fmt.Sprintf("Error when trying to set status conditions on CFOrg %s/%s", req.Namespace, req.Name))
+			return ctrl.Result{}, err
+		}
 	}
 
-	var anchor v1alpha2.SubnamespaceAnchor
-	err = r.client.Get(ctx, req.NamespacedName, &anchor)
+	err = r.addFinalizer(ctx, cfOrg)
 	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			r.log.Error(err, fmt.Sprintf("Error getting SubnamespaceAnchor for CFOrg %s/%s", req.Namespace, req.Name))
-			return ctrl.Result{}, err
-		}
-
-		anchorLabels := map[string]string{
-			OrgNameLabel: cfOrg.Spec.DisplayName,
-		}
-		anchor, err = createSubnamespaceAnchor(ctx, r.client, req, cfOrg, anchorLabels)
-		if err != nil {
-			r.log.Error(err, fmt.Sprintf("Error creating SubnamespaceAnchor for CFOrg %s/%s", req.Namespace, req.Name))
-			return ctrl.Result{}, err
-		}
-
-		err = updateStatus(ctx, r.client, cfOrg, metav1.ConditionUnknown)
-		if err != nil {
-			r.log.Error(err, "unable to update CFOrg status")
-			return ctrl.Result{}, err
-		}
-
-		// Requeue to verify subnamespaceanchor is ready
-		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
+		r.log.Error(err, fmt.Sprintf("Error adding finalizer on CFOrg %s/%s", req.Namespace, req.Name))
+		return ctrl.Result{}, err
 	}
 
-	if anchor.Status.State != v1alpha2.Ok {
-		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
+	if isFinalizing(cfOrg) {
+		return finalize(ctx, r.client, r.log, cfOrg, orgFinalizerName)
+	}
+
+	labels := map[string]string{korifiv1alpha1.OrgNameLabel: cfOrg.Spec.DisplayName}
+	err = createOrPatchNamespace(ctx, r.client, r.log, cfOrg, labels)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error creating namespace for CFOrg %s/%s", req.Namespace, req.Name))
+		return ctrl.Result{}, err
 	}
 
 	namespace, ok := getNamespace(ctx, r.client, cfOrg.Name)
@@ -118,36 +126,49 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
-	err = setCascadingDelete(ctx, r.client, req.Name)
+	err = propagateSecrets(ctx, r.client, r.log, cfOrg, r.packageRegistrySecretName)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error updating HierarchyConfiguration for CFOrg %s/%s", req.Namespace, req.Name))
+		r.log.Error(err, fmt.Sprintf("Error propagating secrets into CFOrg %s/%s", req.Namespace, req.Name))
+		return ctrl.Result{}, err
+	}
+
+	err = propagateRoles(ctx, r.client, r.log, cfOrg)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error propagating roles into CFOrg %s/%s", req.Namespace, req.Name))
+		return ctrl.Result{}, err
+	}
+
+	err = propagateRoleBindings(ctx, r.client, r.log, cfOrg)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error propagating role-bindings into CFOrg %s/%s", req.Namespace, req.Name))
 		return ctrl.Result{}, err
 	}
 
 	cfOrg.Status.GUID = namespace.Name
 	err = updateStatus(ctx, r.client, cfOrg, metav1.ConditionTrue)
 	if err != nil {
-		r.log.Error(err, "unable to update CFOrg status")
+		r.log.Error(err, fmt.Sprintf("Error updating status on CFOrg %s/%s", req.Namespace, req.Name))
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func setCascadingDelete(ctx context.Context, userClient client.Client, orgGUID string) error {
-	oldHC := v1alpha2.HierarchyConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      hierarchyMetadataName,
-			Namespace: orgGUID,
-		},
-	}
-	newHC := oldHC
-	newHC.Spec.AllowCascadingDeletion = true
-
-	if err := userClient.Patch(ctx, &newHC, client.MergeFrom(&oldHC)); err != nil {
-		return fmt.Errorf("failed to update hierarchy configuration: %w", err)
+func (r *CFOrgReconciler) addFinalizer(ctx context.Context, cfOrg *korifiv1alpha1.CFOrg) error {
+	if controllerutil.ContainsFinalizer(cfOrg, orgFinalizerName) {
+		return nil
 	}
 
+	originalCFOrg := cfOrg.DeepCopy()
+	controllerutil.AddFinalizer(cfOrg, orgFinalizerName)
+
+	err := r.client.Patch(ctx, cfOrg, client.MergeFrom(originalCFOrg))
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error adding finalizer to CFOrg/%s", cfOrg.Name))
+		return err
+	}
+
+	r.log.Info(fmt.Sprintf("Finalizer added to CFOrg/%s", cfOrg.Name))
 	return nil
 }
 
@@ -155,5 +176,35 @@ func setCascadingDelete(ctx context.Context, userClient client.Client, orgGUID s
 func (r *CFOrgReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFOrg{}).
+		Watches(
+			&source.Kind{Type: &corev1.Secret{}},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueCFOrgRequests),
+		).
+		Watches(
+			&source.Kind{Type: &rbacv1.Role{}},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueCFOrgRequests),
+		).
+		Watches(
+			&source.Kind{Type: &rbacv1.RoleBinding{}},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueCFOrgRequests),
+		).
 		Complete(r)
+}
+
+func (r *CFOrgReconciler) enqueueCFOrgRequests(object client.Object) []reconcile.Request {
+	cfOrgList := &korifiv1alpha1.CFOrgList{}
+	err := r.client.List(context.Background(), cfOrgList, client.InNamespace(object.GetNamespace()))
+	if err != nil {
+		return []reconcile.Request{}
+	}
+	requests := make([]reconcile.Request, len(cfOrgList.Items))
+	for i, org := range cfOrgList.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      org.Name,
+				Namespace: org.Namespace,
+			},
+		}
+	}
+	return requests
 }

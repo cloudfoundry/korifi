@@ -16,17 +16,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	hncv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("SpaceRepository", func() {
 	var (
 		orgRepo   *repositories.OrgRepo
 		spaceRepo *repositories.SpaceRepo
-	)
-
-	const (
-		spaceLevel = "2"
 	)
 
 	BeforeEach(func() {
@@ -41,7 +36,6 @@ var _ = Describe("SpaceRepository", func() {
 			spaceName                   string
 			space                       repositories.SpaceRecord
 			doSpaceControllerSimulation bool
-			createRoleBindings          bool
 		)
 
 		waitForCFSpace := func(anchorNamespace string, spaceName string, done chan bool) (*korifiv1alpha1.CFSpace, error) {
@@ -76,7 +70,7 @@ var _ = Describe("SpaceRepository", func() {
 			}
 		}
 
-		simulateSpaceController := func(anchorNamespace string, spaceName string, createRoleBindings bool, depthLevel string, done chan bool) {
+		simulateSpaceController := func(anchorNamespace string, spaceName string, done chan bool) {
 			defer GinkgoRecover()
 
 			space, err := waitForCFSpace(anchorNamespace, spaceName, done)
@@ -84,13 +78,7 @@ var _ = Describe("SpaceRepository", func() {
 				return
 			}
 
-			createNamespace(ctx, anchorNamespace, space.Name, map[string]string{
-				rootNamespace + hncv1alpha2.LabelTreeDepthSuffix: depthLevel,
-			})
-
-			if createRoleBindings {
-				createRoleBinding(ctx, userName, adminRole.Name, space.Name)
-			}
+			createNamespace(ctx, anchorNamespace, space.Name, map[string]string{korifiv1alpha1.SpaceNameLabel: space.Spec.DisplayName})
 
 			meta.SetStatusCondition(&(space.Status.Conditions), metav1.Condition{
 				Type:    "Ready",
@@ -108,7 +96,6 @@ var _ = Describe("SpaceRepository", func() {
 			spaceName = prefixedGUID("space-name")
 			org := createOrgWithCleanup(ctx, prefixedGUID("org"))
 			orgGUID = org.Name
-			createRoleBindings = true
 		})
 
 		JustBeforeEach(func() {
@@ -116,7 +103,7 @@ var _ = Describe("SpaceRepository", func() {
 				done := make(chan bool, 1)
 				defer func(done chan bool) { done <- true }(done)
 
-				go simulateSpaceController(orgGUID, spaceName, createRoleBindings, spaceLevel, done)
+				go simulateSpaceController(orgGUID, spaceName, done)
 			}
 
 			space, createErr = spaceRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
@@ -180,16 +167,6 @@ var _ = Describe("SpaceRepository", func() {
 
 				It("returns an error", func() {
 					Expect(createErr).To(MatchError(ContainSubstring("cf space did not get Condition `Ready`: 'True'")))
-				})
-			})
-
-			When("CFSpaceController fails to propagate the role bindings in the timeout", func() {
-				BeforeEach(func() {
-					createRoleBindings = false
-				})
-
-				It("returns an error", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("failed establishing permissions in new namespace")))
 				})
 			})
 		})
@@ -474,8 +451,8 @@ var _ = Describe("SpaceRepository", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				anchor := &hncv1alpha2.SubnamespaceAnchor{}
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: cfOrg.Name, Name: cfSpace.Name}, anchor)
+				foundCFSpace := &korifiv1alpha1.CFSpace{}
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: cfOrg.Name, Name: cfSpace.Name}, foundCFSpace)
 				Expect(err).To(MatchError(ContainSubstring("not found")))
 			})
 

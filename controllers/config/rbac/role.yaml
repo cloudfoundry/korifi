@@ -12,22 +12,44 @@ rules:
   verbs:
   - create
   - patch
+  - update
 - apiGroups:
   - ""
   resources:
   - namespaces
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods/log
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:
   - secrets
   verbs:
+  - create
+  - delete
   - get
   - list
   - patch
+  - update
   - watch
 - apiGroups:
   - ""
@@ -49,6 +71,21 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - deletecollection
 - apiGroups:
   - coordination.k8s.io
   resources:
@@ -72,28 +109,47 @@ rules:
 - apiGroups:
   - eirini.cloudfoundry.org
   resources:
+  - lrps/status
+  verbs:
+  - patch
+- apiGroups:
+  - eirini.cloudfoundry.org
+  resources:
   - tasks
   verbs:
   - create
 - apiGroups:
-  - hnc.x-k8s.io
+  - eirini.cloudfoundry.org
   resources:
-  - hierarchyconfigurations
+  - tasks/status
   verbs:
+  - patch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - buildreconcilerinfos
+  verbs:
+  - create
+  - delete
   - get
   - list
   - patch
   - update
   - watch
 - apiGroups:
-  - hnc.x-k8s.io
+  - korifi.cloudfoundry.org
   resources:
-  - subnamespaceanchors
+  - buildreconcilerinfos/finalizers
   verbs:
-  - create
-  - delete
-  - list
-  - watch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - buildreconcilerinfos/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
@@ -399,6 +455,41 @@ rules:
   - patch
   - update
 - apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders/status
+  verbs:
+  - get
+- apiGroups:
+  - metrics.k8s.io
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - create
+  - deletecollection
+- apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+- apiGroups:
   - projectcontour.io
   resources:
   - httpproxies
@@ -422,6 +513,28 @@ rules:
   - httpproxies/status
   verbs:
   - get
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
 - apiGroups:
   - servicebinding.io
   resources:

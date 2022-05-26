@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"path/filepath"
 	"testing"
 	"time"
@@ -26,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	hncv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -57,7 +57,6 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
-			filepath.Join("fixtures", "vendor", "hierarchical-namespaces", "config", "crd", "bases"),
 			filepath.Join("fixtures", "vendor", "eirini-controller", "deployment", "helm", "templates", "core"),
 		},
 		ErrorIfCRDPathMissing: true,
@@ -71,10 +70,10 @@ var _ = BeforeSuite(func() {
 
 	// Add Eirini to Scheme
 	Expect(eiriniv1.AddToScheme(scheme.Scheme)).To(Succeed())
-	// Add hierarchical namespaces
-	Expect(hncv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	Expect(servicebindingv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
+
+	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
 
@@ -101,6 +100,7 @@ var _ = BeforeSuite(func() {
 		KorifiControllerNamespace: "korifi-controllers-system",
 		PackageRegistrySecretName: packageRegistrySecretName,
 		WorkloadsTLSSecretName:    "korifi-workloads-ingress-cert",
+		CFRootNamespace:           "cf",
 	}
 
 	err = (NewCFAppReconciler(
@@ -143,14 +143,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFOrg"),
-	).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = NewCFSpaceReconciler(
-		k8sManager.GetClient(),
-		k8sManager.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFSpace"),
-		packageRegistrySecretName,
+		controllerConfig.PackageRegistrySecretName,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -159,6 +152,14 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		k8sManager.GetEventRecorderFor("cftask-controller"),
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
+	).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = NewCFSpaceReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFSpace"),
+		controllerConfig.PackageRegistrySecretName,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -202,6 +203,53 @@ func createNamespace(ctx context.Context, k8sClient client.Client, name string) 
 	Expect(
 		k8sClient.Create(ctx, ns)).To(Succeed())
 	return ns
+}
+
+func createSecret(ctx context.Context, k8sClient client.Client, name string, namespace string) *corev1.Secret {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		StringData: map[string]string{
+			"foo": "bar",
+		},
+		Type: "Docker",
+	}
+	Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+	return secret
+}
+
+func createRole(ctx context.Context, k8sClient client.Client, name string, namespace string, rules []rbacv1.PolicyRule) *rbacv1.Role {
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Rules: rules,
+	}
+	Expect(k8sClient.Create(ctx, role)).To(Succeed())
+	return role
+}
+
+func createRoleBinding(ctx context.Context, k8sClient client.Client, roleBindingName, subjectName, roleReference, namespace string, labels map[string]string) rbacv1.RoleBinding {
+	roleBinding := rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleBindingName,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind: rbacv1.UserKind,
+			Name: subjectName,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "Role",
+			Name: roleReference,
+		},
+	}
+	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
+	return roleBinding
 }
 
 func createNamespaceWithCleanup(ctx context.Context, k8sClient client.Client, name string) *corev1.Namespace {

@@ -19,7 +19,13 @@ import (
 
 //+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfspace,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfspaces,verbs=create;update;delete,versions=v1alpha1,name=vcfspace.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
-const CFSpaceEntityType = "cfspace"
+const (
+	CFSpaceEntityType = "cfspace"
+	// Note: the cf cli expects the specfic text `Organization '.*' already exists.` in the error and ignores the error if it matches it.
+	DuplicateSpaceNameErrorType = "DuplicateSpaceNameError"
+	// Note: the cf cli expects the specific text `Name must be unique per organization` in the error and ignores the error if it matches it.
+	duplicateSpaceNameErrorMessage = "Space '%s' already exists. Name must be unique per organization."
+)
 
 var spaceLogger = logf.Log.WithName("cfspace-validate")
 
@@ -95,7 +101,7 @@ func (v *CFSpaceValidation) newHandler() (cfSpaceHandler, error) {
 		webhooks.ValidationError{Type: DuplicateSpaceNameErrorType, Message: duplicateSpaceNameErrorMessage},
 		v.duplicateSpaceValidator,
 		spaceLogger.WithValues("entityType", CFSpaceEntityType),
-		SpaceNameLabel,
+		korifiv1alpha1.SpaceNameLabel,
 		v.placementValidator,
 	), nil
 }

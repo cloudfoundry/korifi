@@ -107,11 +107,6 @@ var _ = BeforeSuite(func() {
 	).SetupWebhookWithManager(mgr)).To(Succeed())
 	Expect(networking.NewCFDomainValidation(mgr.GetClient()).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	Expect(workloads.NewSubnamespaceAnchorValidation(
-		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.OrgEntityType)),
-		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.SpaceEntityType)),
-	).SetupWebhookWithManager(mgr)).To(Succeed())
-
 	cfRootNamespace = "default"
 	Expect(networking.NewCFRouteValidation(
 		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType)),

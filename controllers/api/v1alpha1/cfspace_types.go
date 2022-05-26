@@ -20,6 +20,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	SpaceNameLabel = "cloudfoundry.org/space-name"
+)
+
 // CFSpaceSpec defines the desired state of CFSpace
 type CFSpaceSpec struct {
 	// DisplayName of the space displayed to the user

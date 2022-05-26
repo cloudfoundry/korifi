@@ -109,19 +109,12 @@ echo "*******************"
 kubectl apply -f "${DEP_DIR}/contour-1.19.1.yaml"
 
 echo "*******************"
-echo "Installing HNC"
-echo "*******************"
-
-kubectl apply -k ${DEP_DIR}/hnc/cf
-kubectl rollout status deployment/hnc-controller-manager --watch --namespace hnc-system
-while ! kubectl get hncconfigurations.hnc.x-k8s.io config; do
-  sleep 1
-done
-kubectl patch hncconfigurations.hnc.x-k8s.io config --type=merge -p '{"spec":{"resources":[{"mode":"Propagate", "resource": "secrets"}]}}'
-
-echo "*******************"
 echo "Installing Eirini"
 echo "*******************"
+
+"${SCRIPT_DIR}/generate-eirini-certs-secret.sh" "*.eirini-controller.svc"
+
+webhooks_ca_bundle="$(kubectl get secret -n eirini-controller eirini-webhooks-certs -o jsonpath="{.data['tls\.ca']}")"
 
 EIRINI_VERSION="0.3.0"
 cat <<EOF | kubectl apply -f -
@@ -132,6 +125,7 @@ metadata:
 EOF
 helm template eirini-controller "https://github.com/cloudfoundry/eirini-controller/releases/download/v$EIRINI_VERSION/eirini-controller-$EIRINI_VERSION.tgz" \
   --set "workloads.default_namespace=cf" \
+  --set "webhooks.ca_bundle=${webhooks_ca_bundle}" \
   --set "controller.registry_secret_name=image-registry-credentials" \
   --namespace "eirini-controller" | kubectl apply -f -
 

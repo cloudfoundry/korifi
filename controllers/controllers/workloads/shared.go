@@ -1,15 +1,18 @@
 package workloads
 
 import (
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,29 +41,171 @@ func setStatusConditionOnLocalCopy(conditions *[]metav1.Condition, conditionType
 	})
 }
 
-func createSubnamespaceAnchor(ctx context.Context, client client.Client, req ctrl.Request, object client.Object, labels map[string]string) (v1alpha2.SubnamespaceAnchor, error) {
-	anchor := v1alpha2.SubnamespaceAnchor{
+func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.Logger, object client.Object, labels map[string]string) error {
+	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.Name,
-			Namespace: req.Namespace,
-			Labels:    labels,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: APIVersion,
-					Kind:       object.GetObjectKind().GroupVersionKind().Kind,
-					Name:       object.GetName(),
-					UID:        object.GetUID(),
-				},
-			},
+			Name: object.GetName(),
 		},
 	}
 
-	err := client.Create(ctx, &anchor)
+	result, err := controllerutil.CreateOrPatch(ctx, client, namespace, func() error {
+		if namespace.ObjectMeta.Labels == nil {
+			namespace.ObjectMeta.Labels = make(map[string]string)
+		}
+
+		for key, value := range labels {
+			namespace.ObjectMeta.Labels[key] = value
+		}
+		return nil
+	})
+
 	if err != nil {
-		return anchor, err
+		return err
 	}
 
-	return anchor, nil
+	log.Info(fmt.Sprintf("Namespace/%s %s", object.GetName(), result))
+	return nil
+}
+
+func propagateSecrets(ctx context.Context, client client.Client, log logr.Logger, object client.Object, secretName string) error {
+	secret := new(corev1.Secret)
+	err := client.Get(ctx, types.NamespacedName{Namespace: object.GetNamespace(), Name: secretName}, secret)
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Error fetching secret  %s/%s", object.GetNamespace(), secretName))
+		return err
+	}
+
+	newSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secret.Name,
+			Namespace: object.GetName(),
+		},
+	}
+
+	result, err := controllerutil.CreateOrPatch(ctx, client, newSecret, func() error {
+		newSecret.ObjectMeta.Annotations = secret.Annotations
+		newSecret.ObjectMeta.Labels = secret.Labels
+		newSecret.Immutable = secret.Immutable
+		newSecret.Data = secret.Data
+		newSecret.StringData = secret.StringData
+		newSecret.Type = secret.Type
+		return nil
+	})
+
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Error creating/patching secret %s/%s", newSecret.Namespace, newSecret.Name))
+		return err
+	}
+
+	log.Info(fmt.Sprintf("Secret %s/%s %s", newSecret.Namespace, newSecret.Name, result))
+	return nil
+}
+
+func propagateRoles(ctx context.Context, kClient client.Client, log logr.Logger, object client.Object) error {
+	roles := new(rbacv1.RoleList)
+	err := kClient.List(ctx, roles, client.InNamespace(object.GetNamespace()))
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Error listing roles from namespace %s", object.GetNamespace()))
+		return err
+	}
+
+	for index, _ := range roles.Items {
+		newRole := &rbacv1.Role{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      roles.Items[index].Name,
+				Namespace: object.GetName(),
+			},
+		}
+		result, err := controllerutil.CreateOrPatch(ctx, kClient, newRole, func() error {
+			newRole.ObjectMeta.Labels = roles.Items[index].Labels
+			newRole.ObjectMeta.Annotations = roles.Items[index].Annotations
+			newRole.Rules = roles.Items[index].Rules
+			return nil
+		})
+
+		if err != nil {
+			log.Error(err, fmt.Sprintf("Error creating/patching role  %s/%s", newRole.Namespace, newRole.Name))
+			return err
+		}
+
+		log.Info(fmt.Sprintf("Role %s/%s %s", newRole.Namespace, newRole.Name, result))
+	}
+
+	return nil
+}
+
+func propagateRoleBindings(ctx context.Context, kClient client.Client, log logr.Logger, object client.Object) error {
+	roleBindings := new(rbacv1.RoleBindingList)
+	labelSelector, err := labels.Parse(repositories.PropagateCFRoleLabel + " notin (false)")
+	if err != nil {
+		return err
+	}
+
+	listOptions := client.ListOptions{
+		LabelSelector: labelSelector,
+		Namespace:     object.GetNamespace(),
+	}
+	err = kClient.List(ctx, roleBindings, &listOptions)
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Error listing role-bindings from namespace %s", object.GetName()))
+		return err
+	}
+
+	for index, _ := range roleBindings.Items {
+		newRoleBinding := &rbacv1.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      roleBindings.Items[index].Name,
+				Namespace: object.GetName(),
+			},
+		}
+		result, err := controllerutil.CreateOrPatch(ctx, kClient, newRoleBinding, func() error {
+			newRoleBinding.ObjectMeta.Labels = roleBindings.Items[index].Labels
+			newRoleBinding.ObjectMeta.Annotations = roleBindings.Items[index].Annotations
+			newRoleBinding.Subjects = roleBindings.Items[index].Subjects
+			newRoleBinding.RoleRef = roleBindings.Items[index].RoleRef
+			return nil
+		})
+
+		if err != nil {
+			log.Error(err, fmt.Sprintf("Error creating/patching role-bindings %s/%s", newRoleBinding.Namespace, newRoleBinding.Name))
+			return err
+		}
+
+		log.Info(fmt.Sprintf("Role Binding %s/%s %s", newRoleBinding.Namespace, newRoleBinding.Name, result))
+	}
+
+	return nil
+}
+
+func isFinalizing(object metav1.Object) bool {
+	if object.GetDeletionTimestamp() != nil && !object.GetDeletionTimestamp().IsZero() {
+		return true
+	}
+	return false
+}
+
+func finalize(ctx context.Context, kClient client.Client, log logr.Logger, object client.Object, finalizerName string) (ctrl.Result, error) {
+	log.Info(fmt.Sprintf("Reconciling deletion of %s", object.GetName()))
+
+	if !controllerutil.ContainsFinalizer(object, finalizerName) {
+		return ctrl.Result{}, nil
+	}
+
+	err := kClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: object.GetName()}})
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Failed to delete namespace %s/%s", object.GetNamespace(), object.GetName()))
+		return ctrl.Result{}, err
+	}
+
+	originalCFObject := object.DeepCopyObject().(client.Object)
+	controllerutil.RemoveFinalizer(object, finalizerName)
+
+	if err = kClient.Patch(ctx, object, client.MergeFrom(originalCFObject)); err != nil {
+		log.Error(err, fmt.Sprintf("Failed to remove finalizer on CFSpace %s/%s", object.GetNamespace(), object.GetName()))
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func updateStatus(ctx context.Context, client client.Client, object client.Object, conditionStatus metav1.ConditionStatus) error {

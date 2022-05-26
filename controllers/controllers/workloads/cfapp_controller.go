@@ -219,10 +219,6 @@ func (r *CFAppReconciler) addFinalizer(ctx context.Context, cfApp *korifiv1alpha
 	return nil
 }
 
-func isFinalizing(cfApp *korifiv1alpha1.CFApp) bool {
-	return cfApp.ObjectMeta.DeletionTimestamp != nil && !cfApp.ObjectMeta.DeletionTimestamp.IsZero()
-}
-
 func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling deletion of CFApp/%s", cfApp.Name))
 

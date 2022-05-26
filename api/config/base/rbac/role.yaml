@@ -30,19 +30,6 @@ rules:
   verbs:
   - create
 - apiGroups:
-  - hnc.x-k8s.io
-  resources:
-  - hierarchyconfigurations
-  verbs:
-  - get
-- apiGroups:
-  - hnc.x-k8s.io
-  resources:
-  - subnamespaceanchors
-  verbs:
-  - list
-  - watch
-- apiGroups:
   - korifi.cloudfoundry.org
   resources:
   - cfapps

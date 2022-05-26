@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	hncv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("OrgRepository", func() {
@@ -25,8 +24,6 @@ var _ = Describe("OrgRepository", func() {
 		ctx     context.Context
 		orgRepo *repositories.OrgRepo
 	)
-
-	const orgLevel = "1"
 
 	BeforeEach(func() {
 		ctx = context.Background()
@@ -38,7 +35,6 @@ var _ = Describe("OrgRepository", func() {
 			createErr                 error
 			orgName                   string
 			org                       repositories.OrgRecord
-			createRoleBindings        bool
 			done                      chan bool
 			doOrgControllerSimulation bool
 		)
@@ -74,7 +70,7 @@ var _ = Describe("OrgRepository", func() {
 			}
 		}
 
-		simulateOrgController := func(anchorNamespace string, orgName string, createRoleBindings bool, depthLevel string, done chan bool) {
+		simulateOrgController := func(anchorNamespace string, orgName string, done chan bool) {
 			defer GinkgoRecover()
 
 			org, err := waitForCFOrg(anchorNamespace, orgName, done)
@@ -82,13 +78,7 @@ var _ = Describe("OrgRepository", func() {
 				return
 			}
 
-			createNamespace(ctx, anchorNamespace, org.Name, map[string]string{
-				rootNamespace + hncv1alpha2.LabelTreeDepthSuffix: depthLevel,
-			})
-
-			if createRoleBindings {
-				createRoleBinding(ctx, userName, adminRole.Name, org.Name)
-			}
+			createNamespace(ctx, anchorNamespace, org.Name, map[string]string{korifiv1alpha1.OrgNameLabel: org.Spec.DisplayName})
 
 			meta.SetStatusCondition(&(org.Status.Conditions), metav1.Condition{
 				Type:    "Ready",
@@ -105,12 +95,11 @@ var _ = Describe("OrgRepository", func() {
 			doOrgControllerSimulation = true
 			done = make(chan bool, 1)
 			orgName = prefixedGUID("org-name")
-			createRoleBindings = true
 		})
 
 		JustBeforeEach(func() {
 			if doOrgControllerSimulation {
-				go simulateOrgController(rootNamespace, orgName, createRoleBindings, orgLevel, done)
+				go simulateOrgController(rootNamespace, orgName, done)
 			}
 			org, createErr = orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
 				Name: orgName,
@@ -142,16 +131,6 @@ var _ = Describe("OrgRepository", func() {
 				Expect(org.GUID).To(HavePrefix("cf-org-"))
 				Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 				Expect(org.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
-			})
-
-			When("CFOrgController fails to propagate the role bindings in the timeout", func() {
-				BeforeEach(func() {
-					createRoleBindings = false
-				})
-
-				It("returns an error", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("failed establishing permissions in new namespace")))
-				})
 			})
 
 			When("the org isn't ready in the timeout", func() {
@@ -352,7 +331,7 @@ var _ = Describe("OrgRepository", func() {
 			BeforeEach(func() {
 				beforeCtx := context.Background()
 				createRoleBinding(beforeCtx, userName, adminRole.Name, cfOrg.Namespace)
-				// As HNC Controllers don't exist in env-test environments, we manually copy role bindings to child ns.
+				//Controllers don't exist in env-test environments, we manually copy role bindings to child ns.
 				createRoleBinding(beforeCtx, userName, adminRole.Name, cfOrg.Name)
 			})
 

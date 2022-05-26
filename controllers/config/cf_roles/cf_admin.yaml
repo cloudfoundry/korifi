@@ -162,21 +162,6 @@ rules:
   - create
 
 - apiGroups:
-  - hnc.x-k8s.io
-  resources:
-  - subnamespaceanchors
-  verbs:
-  - create
-  - delete
-
-- apiGroups:
-  - hnc.x-k8s.io
-  resources:
-  - hierarchyconfigurations
-  verbs:
-  - patch
-
-- apiGroups:
   - metrics.k8s.io
   resources:
   - pods
