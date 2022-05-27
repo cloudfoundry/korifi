@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/integration/helpers"
 
 	"github.com/google/uuid"
@@ -21,7 +21,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		org2Guid string
 		org1Name string
 		org2Name string
-		org1     *v1alpha1.CFOrg
+		org1     *korifiv1alpha1.CFOrg
 	)
 
 	BeforeEach(func() {
@@ -116,7 +116,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 
 			It("should succeed", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
-				org1Actual := v1alpha1.CFOrg{}
+				org1Actual := korifiv1alpha1.CFOrg{}
 				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(org1), &org1Actual)).To(Succeed())
 				Expect(org1Actual.Spec.DisplayName).To(Equal(newName))
 			})
@@ -134,7 +134,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		When("not changing the name", func() {
 			It("should succeed", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
-				org1Actual := v1alpha1.CFOrg{}
+				org1Actual := korifiv1alpha1.CFOrg{}
 				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(org1), &org1Actual)).To(Succeed())
 			})
 		})

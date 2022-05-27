@@ -3,7 +3,7 @@ package integration_test
 import (
 	"context"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,9 +17,9 @@ var _ = Describe("CFPackageReconciler", func() {
 	var (
 		namespaceGUID string
 		ns            *corev1.Namespace
-		cfApp         *v1alpha1.CFApp
+		cfApp         *korifiv1alpha1.CFApp
 		cfAppGUID     string
-		cfPackage     *v1alpha1.CFPackage
+		cfPackage     *korifiv1alpha1.CFPackage
 		cfPackageGUID string
 	)
 
@@ -45,14 +45,14 @@ var _ = Describe("CFPackageReconciler", func() {
 
 		It("eventually reconciles to set the owner reference on the CFPackage", func() {
 			Eventually(func() []metav1.OwnerReference {
-				var createdCFPackage v1alpha1.CFPackage
+				var createdCFPackage korifiv1alpha1.CFPackage
 				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfPackageGUID, Namespace: namespaceGUID}, &createdCFPackage)
 				if err != nil {
 					return nil
 				}
 				return createdCFPackage.GetOwnerReferences()
 			}).Should(ConsistOf(metav1.OwnerReference{
-				APIVersion: v1alpha1.GroupVersion.Identifier(),
+				APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				Kind:       "CFApp",
 				Name:       cfApp.Name,
 				UID:        cfApp.UID,

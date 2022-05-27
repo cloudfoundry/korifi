@@ -1,7 +1,7 @@
 package v1alpha1_test
 
 import (
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -19,20 +19,20 @@ var _ = Describe("CFProcessMutatingWebhook Unit Tests", func() {
 		namespace             = "default"
 	)
 
-	var cfProcess *v1alpha1.CFProcess
+	var cfProcess *korifiv1alpha1.CFProcess
 
 	When("there are no existing labels on the CFProcess record", func() {
 		BeforeEach(func() {
-			cfProcess = &v1alpha1.CFProcess{
+			cfProcess = &korifiv1alpha1.CFProcess{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFProcess",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfProcessGUID,
 					Namespace: namespace,
 				},
-				Spec: v1alpha1.CFProcessSpec{
+				Spec: korifiv1alpha1.CFProcessSpec{
 					AppRef: v1.LocalObjectReference{
 						Name: cfAppGUID,
 					},
@@ -52,10 +52,10 @@ var _ = Describe("CFProcessMutatingWebhook Unit Tests", func() {
 
 	When("there are other existing labels on the CFProcess record", func() {
 		BeforeEach(func() {
-			cfProcess = &v1alpha1.CFProcess{
+			cfProcess = &korifiv1alpha1.CFProcess{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFProcess",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfProcessGUID,
@@ -64,7 +64,7 @@ var _ = Describe("CFProcessMutatingWebhook Unit Tests", func() {
 						"anotherLabel": "process-label",
 					},
 				},
-				Spec: v1alpha1.CFProcessSpec{},
+				Spec: korifiv1alpha1.CFProcessSpec{},
 			}
 		})
 

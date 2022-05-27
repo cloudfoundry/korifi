@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
@@ -56,7 +56,7 @@ func NewCFAppReconciler(client CFClient, scheme *runtime.Scheme, log logr.Logger
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	cfApp := &v1alpha1.CFApp{}
+	cfApp := &korifiv1alpha1.CFApp{}
 	err := r.Client.Get(ctx, req.NamespacedName, cfApp)
 	if err != nil {
 		r.Log.Error(err, "unable to fetch CFApp")
@@ -76,7 +76,7 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	if cfApp.Spec.CurrentDropletRef.Name != "" {
-		var cfBuild v1alpha1.CFBuild
+		var cfBuild korifiv1alpha1.CFBuild
 		err = r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfApp.Namespace}, &cfBuild)
 		if err != nil {
 			r.Log.Error(err, "Error when fetching CFBuild")
@@ -125,35 +125,35 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	return ctrl.Result{}, nil
 }
 
-func addWebIfMissing(processTypes []v1alpha1.ProcessType) []v1alpha1.ProcessType {
+func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1.ProcessType {
 	for _, p := range processTypes {
 		if p.Type == processTypeWeb {
 			return processTypes
 		}
 	}
-	return append([]v1alpha1.ProcessType{{Type: processTypeWeb}}, processTypes...)
+	return append([]korifiv1alpha1.ProcessType{{Type: processTypeWeb}}, processTypes...)
 }
 
-func (r *CFAppReconciler) createCFProcess(ctx context.Context, process v1alpha1.ProcessType, ports []int32, cfApp *v1alpha1.CFApp) error {
+func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1alpha1.ProcessType, ports []int32, cfApp *korifiv1alpha1.CFApp) error {
 	cfProcessGUID := repositories.GenerateProcessGUID()
 
-	desiredCFProcess := v1alpha1.CFProcess{
+	desiredCFProcess := korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfProcessGUID,
 			Namespace: cfApp.Namespace,
 			Labels: map[string]string{
-				v1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
-				v1alpha1.CFProcessGUIDLabelKey: cfProcessGUID,
-				v1alpha1.CFProcessTypeLabelKey: process.Type,
+				korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
+				korifiv1alpha1.CFProcessGUIDLabelKey: cfProcessGUID,
+				korifiv1alpha1.CFProcessTypeLabelKey: process.Type,
 			},
 		},
-		Spec: v1alpha1.CFProcessSpec{
+		Spec: korifiv1alpha1.CFProcessSpec{
 			AppRef:      corev1.LocalObjectReference{Name: cfApp.Name},
 			ProcessType: process.Type,
 			Command:     process.Command,
-			HealthCheck: v1alpha1.HealthCheck{
+			HealthCheck: korifiv1alpha1.HealthCheck{
 				Type: processHealthCheckType,
-				Data: v1alpha1.HealthCheckData{
+				Data: korifiv1alpha1.HealthCheckData{
 					InvocationTimeoutSeconds: 0,
 					TimeoutSeconds:           0,
 				},
@@ -176,15 +176,15 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process v1alpha1.
 
 func (r *CFAppReconciler) checkCFProcessExistsForType(ctx context.Context, appGUID string, namespace string, processType string) (bool, error) {
 	selector, err := labels.ValidatedSelectorFromSet(map[string]string{
-		v1alpha1.CFAppGUIDLabelKey:     appGUID,
-		v1alpha1.CFProcessTypeLabelKey: processType,
+		korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
+		korifiv1alpha1.CFProcessTypeLabelKey: processType,
 	})
 	if err != nil {
 		r.Log.Error(err, "Error initializing label selector")
 		return false, err
 	}
 
-	cfProcessList := v1alpha1.CFProcessList{}
+	cfProcessList := korifiv1alpha1.CFProcessList{}
 	err = r.Client.List(ctx, &cfProcessList, &client.ListOptions{LabelSelector: selector, Namespace: namespace})
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("Error fetching CFProcess for Type: %s", processType))
@@ -201,7 +201,7 @@ func getDesiredInstanceCount(processType string) int {
 	return 0
 }
 
-func (r *CFAppReconciler) addFinalizer(ctx context.Context, cfApp *v1alpha1.CFApp) error {
+func (r *CFAppReconciler) addFinalizer(ctx context.Context, cfApp *korifiv1alpha1.CFApp) error {
 	if controllerutil.ContainsFinalizer(cfApp, finalizerName) {
 		return nil
 	}
@@ -219,11 +219,11 @@ func (r *CFAppReconciler) addFinalizer(ctx context.Context, cfApp *v1alpha1.CFAp
 	return nil
 }
 
-func isFinalizing(cfApp *v1alpha1.CFApp) bool {
+func isFinalizing(cfApp *korifiv1alpha1.CFApp) bool {
 	return cfApp.ObjectMeta.DeletionTimestamp != nil && !cfApp.ObjectMeta.DeletionTimestamp.IsZero()
 }
 
-func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *v1alpha1.CFApp) (ctrl.Result, error) {
+func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling deletion of CFApp/%s", cfApp.Name))
 
 	if !controllerutil.ContainsFinalizer(cfApp, finalizerName) {
@@ -251,8 +251,8 @@ func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *v1alpha1.CFA
 	return ctrl.Result{}, nil
 }
 
-func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []v1alpha1.CFRoute) error {
-	var updatedDestinations []v1alpha1.Destination
+func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []korifiv1alpha1.CFRoute) error {
+	var updatedDestinations []korifiv1alpha1.Destination
 	for i := range cfRoutes {
 		originalCFRoute := cfRoutes[i].DeepCopy()
 		if cfRoutes[i].Spec.Destinations != nil {
@@ -274,12 +274,12 @@ func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID
 	return nil
 }
 
-func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfAppNamespace string) ([]v1alpha1.CFRoute, error) {
-	var foundRoutes v1alpha1.CFRouteList
+func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfAppNamespace string) ([]korifiv1alpha1.CFRoute, error) {
+	var foundRoutes korifiv1alpha1.CFRouteList
 	matchingFields := client.MatchingFields{IndexRouteDestinationAppName: cfAppGUID}
 	err := r.Client.List(context.Background(), &foundRoutes, client.InNamespace(cfAppNamespace), matchingFields)
 	if err != nil {
-		return []v1alpha1.CFRoute{}, err
+		return []korifiv1alpha1.CFRoute{}, err
 	}
 
 	return foundRoutes.Items, nil
@@ -288,6 +288,6 @@ func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfA
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFAppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.CFApp{}).
+		For(&korifiv1alpha1.CFApp{}).
 		Complete(r)
 }

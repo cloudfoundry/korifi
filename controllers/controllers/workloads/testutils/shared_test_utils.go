@@ -7,7 +7,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -47,8 +47,8 @@ func BuildSubNamespaceAnchorObject(hnsGUID string, spaceGUID string) *v1alpha2.S
 	}
 }
 
-func BuildCFAppCRObject(appGUID string, spaceGUID string) *v1alpha1.CFApp {
-	return &v1alpha1.CFApp{
+func BuildCFAppCRObject(appGUID string, spaceGUID string) *korifiv1alpha1.CFApp {
+	return &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
 			Namespace: spaceGUID,
@@ -59,12 +59,12 @@ func BuildCFAppCRObject(appGUID string, spaceGUID string) *v1alpha1.CFApp {
 				appFinalizerName,
 			},
 		},
-		Spec: v1alpha1.CFAppSpec{
+		Spec: korifiv1alpha1.CFAppSpec{
 			DisplayName:  "test-app-name",
 			DesiredState: "STOPPED",
-			Lifecycle: v1alpha1.Lifecycle{
+			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: "buildpack",
-				Data: v1alpha1.LifecycleData{
+				Data: korifiv1alpha1.LifecycleData{
 					Buildpacks: []string{},
 					Stack:      "",
 				},
@@ -74,25 +74,25 @@ func BuildCFAppCRObject(appGUID string, spaceGUID string) *v1alpha1.CFApp {
 	}
 }
 
-func BuildCFOrgObject(orgGUID string, spaceGUID string) *v1alpha1.CFOrg {
-	return &v1alpha1.CFOrg{
+func BuildCFOrgObject(orgGUID string, spaceGUID string) *korifiv1alpha1.CFOrg {
+	return &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      orgGUID,
 			Namespace: spaceGUID,
 		},
-		Spec: v1alpha1.CFOrgSpec{
+		Spec: korifiv1alpha1.CFOrgSpec{
 			DisplayName: "test-org-name",
 		},
 	}
 }
 
-func BuildCFSpaceObject(spaceGUID string, orgGUID string) *v1alpha1.CFSpace {
-	return &v1alpha1.CFSpace{
+func BuildCFSpaceObject(spaceGUID string, orgGUID string) *korifiv1alpha1.CFSpace {
+	return &korifiv1alpha1.CFSpace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      spaceGUID,
 			Namespace: orgGUID,
 		},
-		Spec: v1alpha1.CFSpaceSpec{
+		Spec: korifiv1alpha1.CFSpaceSpec{
 			DisplayName: "test-space-name",
 		},
 	}
@@ -108,19 +108,19 @@ func BuildCFAppEnvVarsSecret(appGUID, spaceGUID string, envVars map[string]strin
 	}
 }
 
-func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID string) *v1alpha1.CFPackage {
-	return &v1alpha1.CFPackage{
+func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID string) *korifiv1alpha1.CFPackage {
+	return &korifiv1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageGUID,
 			Namespace: namespaceGUID,
 		},
-		Spec: v1alpha1.CFPackageSpec{
+		Spec: korifiv1alpha1.CFPackageSpec{
 			Type: "bits",
 			AppRef: corev1.LocalObjectReference{
 				Name: appGUID,
 			},
-			Source: v1alpha1.PackageSource{
-				Registry: v1alpha1.Registry{
+			Source: korifiv1alpha1.PackageSource{
+				Registry: korifiv1alpha1.Registry{
 					Image:            "PACKAGE_IMAGE",
 					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "source-registry-image-pull-secret"}},
 				},
@@ -129,8 +129,8 @@ func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID string) *v1alpha
 	}
 }
 
-func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID string, cfAppGUID string) *v1alpha1.CFBuild {
-	return &v1alpha1.CFBuild{
+func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID string, cfAppGUID string) *korifiv1alpha1.CFBuild {
+	return &korifiv1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfBuildGUID,
 			Namespace: namespace,
@@ -139,7 +139,7 @@ func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID stri
 			Kind:       "CFBuild",
 			APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 		},
-		Spec: v1alpha1.CFBuildSpec{
+		Spec: korifiv1alpha1.CFBuildSpec{
 			PackageRef: corev1.LocalObjectReference{
 				Name: cfPackageGUID,
 			},
@@ -148,9 +148,9 @@ func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID stri
 			},
 			StagingMemoryMB: 1024,
 			StagingDiskMB:   1024,
-			Lifecycle: v1alpha1.Lifecycle{
+			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: "buildpack",
-				Data: v1alpha1.LifecycleData{
+				Data: korifiv1alpha1.LifecycleData{
 					Buildpacks: nil,
 					Stack:      "",
 				},
@@ -159,16 +159,16 @@ func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID stri
 	}
 }
 
-func BuildCFBuildDropletStatusObject(dropletProcessTypeMap map[string]string, dropletPorts []int32) *v1alpha1.BuildDropletStatus {
-	dropletProcessTypes := make([]v1alpha1.ProcessType, 0, len(dropletProcessTypeMap))
+func BuildCFBuildDropletStatusObject(dropletProcessTypeMap map[string]string, dropletPorts []int32) *korifiv1alpha1.BuildDropletStatus {
+	dropletProcessTypes := make([]korifiv1alpha1.ProcessType, 0, len(dropletProcessTypeMap))
 	for k, v := range dropletProcessTypeMap {
-		dropletProcessTypes = append(dropletProcessTypes, v1alpha1.ProcessType{
+		dropletProcessTypes = append(dropletProcessTypes, korifiv1alpha1.ProcessType{
 			Type:    k,
 			Command: v,
 		})
 	}
-	return &v1alpha1.BuildDropletStatus{
-		Registry: v1alpha1.Registry{
+	return &korifiv1alpha1.BuildDropletStatus{
+		Registry: korifiv1alpha1.Registry{
 			Image:            "image/registry/url",
 			ImagePullSecrets: nil,
 		},
@@ -208,8 +208,8 @@ func BuildServiceAccount(name, namespace, imagePullSecretName string) *corev1.Se
 	}
 }
 
-func BuildCFProcessCRObject(cfProcessGUID string, namespace string, cfAppGUID string, processType string, processCommand string) *v1alpha1.CFProcess {
-	return &v1alpha1.CFProcess{
+func BuildCFProcessCRObject(cfProcessGUID string, namespace string, cfAppGUID string, processType string, processCommand string) *korifiv1alpha1.CFProcess {
+	return &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfProcessGUID,
 			Namespace: namespace,
@@ -219,13 +219,13 @@ func BuildCFProcessCRObject(cfProcessGUID string, namespace string, cfAppGUID st
 				CFProcessTypeLabelKey: processType,
 			},
 		},
-		Spec: v1alpha1.CFProcessSpec{
+		Spec: korifiv1alpha1.CFProcessSpec{
 			AppRef:      corev1.LocalObjectReference{Name: cfAppGUID},
 			ProcessType: processType,
 			Command:     processCommand,
-			HealthCheck: v1alpha1.HealthCheck{
+			HealthCheck: korifiv1alpha1.HealthCheck{
 				Type: "process",
-				Data: v1alpha1.HealthCheckData{
+				Data: korifiv1alpha1.HealthCheckData{
 					InvocationTimeoutSeconds: 0,
 					TimeoutSeconds:           0,
 				},
@@ -247,14 +247,14 @@ func SetStatusCondition(conditions *[]metav1.Condition, conditionType string, st
 	})
 }
 
-func UpdateCFBuildWithDropletStatus(cfbuild *v1alpha1.CFBuild) {
-	cfbuild.Status.Droplet = &v1alpha1.BuildDropletStatus{
-		Registry: v1alpha1.Registry{
+func UpdateCFBuildWithDropletStatus(cfbuild *korifiv1alpha1.CFBuild) {
+	cfbuild.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
+		Registry: korifiv1alpha1.Registry{
 			Image:            "my-image",
 			ImagePullSecrets: nil,
 		},
 		Stack: "cflinuxfs3",
-		ProcessTypes: []v1alpha1.ProcessType{
+		ProcessTypes: []korifiv1alpha1.ProcessType{
 			{
 				Type:    "web",
 				Command: "web-command",
@@ -264,6 +264,6 @@ func UpdateCFBuildWithDropletStatus(cfbuild *v1alpha1.CFBuild) {
 	}
 }
 
-func UpdateCFAppWithCurrentDropletRef(cfApp *v1alpha1.CFApp, buildGUID string) {
+func UpdateCFAppWithCurrentDropletRef(cfApp *korifiv1alpha1.CFApp, buildGUID string) {
 	cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: buildGUID}
 }

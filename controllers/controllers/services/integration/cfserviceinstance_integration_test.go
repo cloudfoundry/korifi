@@ -9,7 +9,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,7 +35,7 @@ var _ = Describe("CFServiceInstance", func() {
 		var (
 			secretData        map[string]string
 			secret            *corev1.Secret
-			cfServiceInstance *v1alpha1.CFServiceInstance
+			cfServiceInstance *korifiv1alpha1.CFServiceInstance
 		)
 		BeforeEach(func() {
 			ctx := context.Background()
@@ -54,12 +54,12 @@ var _ = Describe("CFServiceInstance", func() {
 				k8sClient.Create(ctx, secret),
 			).To(Succeed())
 
-			cfServiceInstance = &v1alpha1.CFServiceInstance{
+			cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service-instance-guid",
 					Namespace: namespace.Name,
 				},
-				Spec: v1alpha1.CFServiceInstanceSpec{
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-name",
 					SecretName:  secret.Name,
 					Type:        "user-provided",
@@ -76,7 +76,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 		It("eventually adds a finalizer", func() {
 			Eventually(func() []string {
-				updatedCFServiceInstance := new(v1alpha1.CFServiceInstance)
+				updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 				Expect(
 					k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceInstance.Name, Namespace: cfServiceInstance.Namespace}, updatedCFServiceInstance),
 				).To(Succeed())
@@ -92,7 +92,7 @@ var _ = Describe("CFServiceInstance", func() {
 			})
 
 			It("eventually resolves the secretName and updates the CFServiceInstance status", func() {
-				updatedCFServiceInstance := new(v1alpha1.CFServiceInstance)
+				updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 				Eventually(func() string {
 					Expect(
 						k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceInstance.Name, Namespace: cfServiceInstance.Namespace}, updatedCFServiceInstance),
@@ -125,14 +125,14 @@ var _ = Describe("CFServiceInstance", func() {
 			})
 
 			It("updates the CFServiceInstance status", func() {
-				updatedCFServiceInstance := new(v1alpha1.CFServiceInstance)
-				Eventually(func() v1alpha1.CFServiceInstanceStatus {
+				updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
+				Eventually(func() korifiv1alpha1.CFServiceInstanceStatus {
 					Expect(
 						k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceInstance.Name, Namespace: cfServiceInstance.Namespace}, updatedCFServiceInstance),
 					).To(Succeed())
 
 					return updatedCFServiceInstance.Status
-				}).ShouldNot(Equal(v1alpha1.CFServiceInstanceStatus{}))
+				}).ShouldNot(Equal(korifiv1alpha1.CFServiceInstanceStatus{}))
 
 				Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal(""))
 				Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -152,7 +152,7 @@ var _ = Describe("CFServiceInstance", func() {
 				})
 
 				It("eventually resolves the secretName and updates the CFServiceInstance status", func() {
-					updatedCFServiceInstance := new(v1alpha1.CFServiceInstance)
+					updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 					Eventually(func() string {
 						Expect(
 							k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceInstance.Name, Namespace: cfServiceInstance.Namespace}, updatedCFServiceInstance),
@@ -174,7 +174,7 @@ var _ = Describe("CFServiceInstance", func() {
 	})
 
 	When(" a CFServiceInstance is Deleted", func() {
-		var cfServiceInstance *v1alpha1.CFServiceInstance
+		var cfServiceInstance *korifiv1alpha1.CFServiceInstance
 
 		BeforeEach(func() {
 			ctx := context.Background()
@@ -193,12 +193,12 @@ var _ = Describe("CFServiceInstance", func() {
 				k8sClient.Create(ctx, secret),
 			).To(Succeed())
 
-			cfServiceInstance = &v1alpha1.CFServiceInstance{
+			cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service-instance-guid",
 					Namespace: namespace.Name,
 				},
-				Spec: v1alpha1.CFServiceInstanceSpec{
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-name",
 					SecretName:  secret.Name,
 					Type:        "user-provided",
@@ -217,15 +217,15 @@ var _ = Describe("CFServiceInstance", func() {
 		})
 
 		When("a ServiceBinding exists for the CFServiceInstance", func() {
-			var cfServiceBinding *v1alpha1.CFServiceBinding
+			var cfServiceBinding *korifiv1alpha1.CFServiceBinding
 
 			BeforeEach(func() {
-				cfServiceBinding = &v1alpha1.CFServiceBinding{
+				cfServiceBinding = &korifiv1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      GenerateGUID(),
 						Namespace: namespace.Name,
 					},
-					Spec: v1alpha1.CFServiceBindingSpec{
+					Spec: korifiv1alpha1.CFServiceBindingSpec{
 						Service: corev1.ObjectReference{
 							Kind:       "ServiceInstance",
 							Name:       cfServiceInstance.Name,
@@ -240,12 +240,12 @@ var _ = Describe("CFServiceInstance", func() {
 					k8sClient.Create(context.Background(), cfServiceBinding),
 				).To(Succeed())
 
-				cfServiceBinding2 := &v1alpha1.CFServiceBinding{
+				cfServiceBinding2 := &korifiv1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      GenerateGUID(),
 						Namespace: namespace.Name,
 					},
-					Spec: v1alpha1.CFServiceBindingSpec{
+					Spec: korifiv1alpha1.CFServiceBindingSpec{
 						Service: corev1.ObjectReference{
 							Kind:       "ServiceInstance",
 							Name:       cfServiceInstance.Name,
@@ -260,14 +260,14 @@ var _ = Describe("CFServiceInstance", func() {
 					k8sClient.Create(context.Background(), cfServiceBinding2),
 				).To(Succeed())
 
-				Eventually(func() []v1alpha1.CFServiceBinding {
-					cfServiceBindingList := new(v1alpha1.CFServiceBindingList)
+				Eventually(func() []korifiv1alpha1.CFServiceBinding {
+					cfServiceBindingList := new(korifiv1alpha1.CFServiceBindingList)
 					Expect(k8sClient.List(context.Background(), cfServiceBindingList, client.InNamespace(namespace.Name))).To(Succeed())
 					return cfServiceBindingList.Items
 				}).Should(HaveLen(2))
 
 				Eventually(func() []string {
-					updatedCFServiceInstance := new(v1alpha1.CFServiceInstance)
+					updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 					Expect(
 						k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceInstance.Name, Namespace: cfServiceInstance.Namespace}, updatedCFServiceInstance),
 					).To(Succeed())
@@ -278,8 +278,8 @@ var _ = Describe("CFServiceInstance", func() {
 			})
 
 			It("eventually deletes associated ServiceBindings", func() {
-				Eventually(func() []v1alpha1.CFServiceBinding {
-					cfServiceBindingList := new(v1alpha1.CFServiceBindingList)
+				Eventually(func() []korifiv1alpha1.CFServiceBinding {
+					cfServiceBindingList := new(korifiv1alpha1.CFServiceBindingList)
 					Expect(k8sClient.List(context.Background(), cfServiceBindingList, client.InNamespace(namespace.Name))).To(Succeed())
 					return cfServiceBindingList.Items
 				}).Should(HaveLen(0))

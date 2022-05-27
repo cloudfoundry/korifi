@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/go-logr/logr"
@@ -56,7 +56,7 @@ func (v *CFAppValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
 func (v *CFAppValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
 	cfapplog.Info("Validate", "name", req.Name)
 
-	var cfApp, oldCFApp v1alpha1.CFApp
+	var cfApp, oldCFApp korifiv1alpha1.CFApp
 	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
 		err := v.decoder.Decode(req, &cfApp)
 		if err != nil { // untested

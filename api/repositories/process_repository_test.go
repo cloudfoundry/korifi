@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,8 +22,8 @@ var _ = Describe("ProcessRepo", func() {
 	var (
 		ctx          context.Context
 		processRepo  *repositories.ProcessRepo
-		org          *v1alpha1.CFOrg
-		space        *v1alpha1.CFSpace
+		org          *korifiv1alpha1.CFOrg
+		space        *korifiv1alpha1.CFSpace
 		app1GUID     string
 		process1GUID string
 	)
@@ -39,7 +39,7 @@ var _ = Describe("ProcessRepo", func() {
 
 	Describe("GetProcess", func() {
 		var (
-			cfProcess1     *v1alpha1.CFProcess
+			cfProcess1     *korifiv1alpha1.CFProcess
 			getProcessGUID string
 			processRecord  repositories.ProcessRecord
 			getErr         error
@@ -133,7 +133,7 @@ var _ = Describe("ProcessRepo", func() {
 		var (
 			app2GUID       string
 			process2GUID   string
-			space1, space2 *v1alpha1.CFSpace
+			space1, space2 *korifiv1alpha1.CFSpace
 
 			listProcessesMessage repositories.ListProcessesMessage
 			processes            []repositories.ProcessRecord
@@ -216,8 +216,8 @@ var _ = Describe("ProcessRepo", func() {
 
 	Describe("ScaleProcess", func() {
 		var (
-			space1              *v1alpha1.CFSpace
-			cfProcess           *v1alpha1.CFProcess
+			space1              *korifiv1alpha1.CFSpace
+			cfProcess           *korifiv1alpha1.CFProcess
 			scaleProcessMessage *repositories.ScaleProcessMessage
 
 			instanceScale int
@@ -291,7 +291,7 @@ var _ = Describe("ProcessRepo", func() {
 				_, err := processRepo.ScaleProcess(ctx, authInfo, *scaleProcessMessage)
 				Expect(err).ToNot(HaveOccurred())
 
-				var updatedCFProcess v1alpha1.CFProcess
+				var updatedCFProcess korifiv1alpha1.CFProcess
 				Expect(k8sClient.Get(
 					ctx,
 					client.ObjectKey{Name: process1GUID, Namespace: space1.Name},
@@ -342,19 +342,19 @@ var _ = Describe("ProcessRepo", func() {
 
 			It("creates a CFProcess resource", func() {
 				Expect(createErr).NotTo(HaveOccurred())
-				var list v1alpha1.CFProcessList
+				var list korifiv1alpha1.CFProcessList
 				Expect(k8sClient.List(ctx, &list, client.InNamespace(space.Name))).To(Succeed())
 				Expect(list.Items).To(HaveLen(1))
 
 				process := list.Items[0]
 				Expect(process.Name).To(HavePrefix("cf-proc-"))
-				Expect(process.Spec).To(Equal(v1alpha1.CFProcessSpec{
+				Expect(process.Spec).To(Equal(korifiv1alpha1.CFProcessSpec{
 					AppRef:      corev1.LocalObjectReference{Name: app1GUID},
 					ProcessType: "web",
 					Command:     "start-web",
-					HealthCheck: v1alpha1.HealthCheck{
+					HealthCheck: korifiv1alpha1.HealthCheck{
 						Type: "http",
-						Data: v1alpha1.HealthCheckData{
+						Data: korifiv1alpha1.HealthCheckData{
 							HTTPEndpoint:             "/healthz",
 							InvocationTimeoutSeconds: 20,
 							TimeoutSeconds:           10,
@@ -442,12 +442,12 @@ var _ = Describe("ProcessRepo", func() {
 	Describe("PatchProcess", func() {
 		When("the app already has a process with the given type", func() {
 			var (
-				cfProcess *v1alpha1.CFProcess
+				cfProcess *korifiv1alpha1.CFProcess
 				message   repositories.PatchProcessMessage
 			)
 
 			BeforeEach(func() {
-				cfProcess = &v1alpha1.CFProcess{
+				cfProcess = &korifiv1alpha1.CFProcess{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      process1GUID,
 						Namespace: space.Name,
@@ -455,15 +455,15 @@ var _ = Describe("ProcessRepo", func() {
 							cfAppGUIDLabelKey: app1GUID,
 						},
 					},
-					Spec: v1alpha1.CFProcessSpec{
+					Spec: korifiv1alpha1.CFProcessSpec{
 						AppRef: corev1.LocalObjectReference{
 							Name: app1GUID,
 						},
 						ProcessType: "web",
 						Command:     "original-command",
-						HealthCheck: v1alpha1.HealthCheck{
+						HealthCheck: korifiv1alpha1.HealthCheck{
 							Type: "process",
-							Data: v1alpha1.HealthCheckData{
+							Data: korifiv1alpha1.HealthCheckData{
 								InvocationTimeoutSeconds: 1,
 								TimeoutSeconds:           2,
 							},
@@ -535,15 +535,15 @@ var _ = Describe("ProcessRepo", func() {
 						Expect(updatedProcessRecord.MemoryMB).To(Equal(*message.MemoryMB))
 						Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(*message.DiskQuotaMB))
 
-						var process v1alpha1.CFProcess
+						var process korifiv1alpha1.CFProcess
 						Expect(k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: space.Name}, &process)).To(Succeed())
-						Expect(process.Spec).To(Equal(v1alpha1.CFProcessSpec{
+						Expect(process.Spec).To(Equal(korifiv1alpha1.CFProcessSpec{
 							AppRef:      corev1.LocalObjectReference{Name: app1GUID},
 							ProcessType: "web",
 							Command:     "start-web",
-							HealthCheck: v1alpha1.HealthCheck{
+							HealthCheck: korifiv1alpha1.HealthCheck{
 								Type: "http",
-								Data: v1alpha1.HealthCheckData{
+								Data: korifiv1alpha1.HealthCheckData{
 									HTTPEndpoint:             "/healthz",
 									InvocationTimeoutSeconds: 20,
 									TimeoutSeconds:           10,
@@ -583,16 +583,16 @@ var _ = Describe("ProcessRepo", func() {
 						Expect(updatedProcessRecord.MemoryMB).To(Equal(*message.MemoryMB))
 						Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(cfProcess.Spec.DiskQuotaMB))
 
-						var process v1alpha1.CFProcess
+						var process korifiv1alpha1.CFProcess
 						Expect(k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: space.Name}, &process)).To(Succeed())
 
-						Expect(process.Spec).To(Equal(v1alpha1.CFProcessSpec{
+						Expect(process.Spec).To(Equal(korifiv1alpha1.CFProcessSpec{
 							AppRef:      corev1.LocalObjectReference{Name: app1GUID},
 							ProcessType: "web",
 							Command:     "new-command",
-							HealthCheck: v1alpha1.HealthCheck{
+							HealthCheck: korifiv1alpha1.HealthCheck{
 								Type: "process",
-								Data: v1alpha1.HealthCheckData{
+								Data: korifiv1alpha1.HealthCheckData{
 									InvocationTimeoutSeconds: 1,
 									TimeoutSeconds:           42,
 								},

@@ -8,7 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -48,17 +48,17 @@ var _ = Describe("Build", func() {
 	})
 
 	Describe("get", func() {
-		var build *v1alpha1.CFBuild
+		var build *korifiv1alpha1.CFBuild
 
 		BeforeEach(func() {
 			buildGUID := generateGUID()
-			build = &v1alpha1.CFBuild{
+			build = &korifiv1alpha1.CFBuild{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      buildGUID,
 					Namespace: namespace.Name,
 				},
-				Spec: v1alpha1.CFBuildSpec{
-					Lifecycle: v1alpha1.Lifecycle{
+				Spec: korifiv1alpha1.CFBuildSpec{
+					Lifecycle: korifiv1alpha1.Lifecycle{
 						Type: "buildpack",
 					},
 				},
@@ -82,16 +82,16 @@ var _ = Describe("Build", func() {
 	})
 
 	Describe("create", func() {
-		var cfPackage *v1alpha1.CFPackage
+		var cfPackage *korifiv1alpha1.CFPackage
 
 		BeforeEach(func() {
 			packageGUID := generateGUID()
-			cfPackage = &v1alpha1.CFPackage{
+			cfPackage = &korifiv1alpha1.CFPackage{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      packageGUID,
 					Namespace: namespace.Name,
 				},
-				Spec: v1alpha1.CFPackageSpec{
+				Spec: korifiv1alpha1.CFPackageSpec{
 					Type: "bits",
 				},
 			}

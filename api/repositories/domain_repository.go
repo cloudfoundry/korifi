@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,7 +60,7 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 		return DomainRecord{}, fmt.Errorf("get-domain failed to create user client: %w", err)
 	}
 
-	domain := &v1alpha1.CFDomain{}
+	domain := &korifiv1alpha1.CFDomain{}
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: domainGUID}, domain)
 	if err != nil {
 		return DomainRecord{}, apierrors.NewForbiddenError(err, DomainResourceType)
@@ -75,7 +75,7 @@ func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Inf
 		return []DomainRecord{}, fmt.Errorf("list-domain failed to create user client: %w", err)
 	}
 
-	cfdomainList := &v1alpha1.CFDomainList{}
+	cfdomainList := &korifiv1alpha1.CFDomainList{}
 	err = userClient.List(ctx, cfdomainList, client.InNamespace(r.rootNamespace))
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
@@ -105,8 +105,8 @@ func (r *DomainRepo) GetDomainByName(ctx context.Context, authInfo authorization
 	return domainRecords[0], nil
 }
 
-func applyDomainListFilterAndOrder(domainList []v1alpha1.CFDomain, message ListDomainsMessage) []v1alpha1.CFDomain {
-	var filtered []v1alpha1.CFDomain
+func applyDomainListFilterAndOrder(domainList []korifiv1alpha1.CFDomain, message ListDomainsMessage) []korifiv1alpha1.CFDomain {
+	var filtered []korifiv1alpha1.CFDomain
 	if len(message.Names) > 0 {
 		for _, domain := range domainList {
 			for _, name := range message.Names {
@@ -128,7 +128,7 @@ func applyDomainListFilterAndOrder(domainList []v1alpha1.CFDomain, message ListD
 	return filtered
 }
 
-func returnDomainList(domainList []v1alpha1.CFDomain) []DomainRecord {
+func returnDomainList(domainList []korifiv1alpha1.CFDomain) []DomainRecord {
 	domainRecords := make([]DomainRecord, 0, len(domainList))
 
 	for i := range domainList {
@@ -137,7 +137,7 @@ func returnDomainList(domainList []v1alpha1.CFDomain) []DomainRecord {
 	return domainRecords
 }
 
-func cfDomainToDomainRecord(cfDomain *v1alpha1.CFDomain) DomainRecord {
+func cfDomainToDomainRecord(cfDomain *korifiv1alpha1.CFDomain) DomainRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfDomain.ObjectMeta)
 	return DomainRecord{
 		Name:      cfDomain.Spec.Name,

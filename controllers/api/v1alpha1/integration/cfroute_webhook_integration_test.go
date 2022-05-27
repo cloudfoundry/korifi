@@ -3,7 +3,7 @@ package integration_test
 import (
 	"context"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,27 +32,27 @@ var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
 			cfDomainGUID = GenerateGUID()
 			cfRouteGUID = GenerateGUID()
 
-			cfDomain := &v1alpha1.CFDomain{
+			cfDomain := &korifiv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfDomainGUID,
 					Namespace: namespace,
 				},
-				Spec: v1alpha1.CFDomainSpec{
+				Spec: korifiv1alpha1.CFDomainSpec{
 					Name: "example.com",
 				},
 			}
 			Expect(k8sClient.Create(testCtx, cfDomain)).To(Succeed())
 
-			cfRoute := &v1alpha1.CFRoute{
+			cfRoute := &korifiv1alpha1.CFRoute{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFRoute",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfRouteGUID,
 					Namespace: namespace,
 				},
-				Spec: v1alpha1.CFRouteSpec{
+				Spec: korifiv1alpha1.CFRouteSpec{
 					Host: "my-host",
 					DomainRef: v1.ObjectReference{
 						Name:      cfDomainGUID,
@@ -63,7 +63,7 @@ var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
 			Expect(k8sClient.Create(testCtx, cfRoute)).To(Succeed())
 
 			cfRouteLookupKey := types.NamespacedName{Name: cfRouteGUID, Namespace: namespace}
-			createdCFRoute := new(v1alpha1.CFRoute)
+			createdCFRoute := new(korifiv1alpha1.CFRoute)
 
 			Eventually(func() map[string]string {
 				err := k8sClient.Get(testCtx, cfRouteLookupKey, createdCFRoute)

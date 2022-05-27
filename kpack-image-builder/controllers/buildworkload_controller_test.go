@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 
 	"github.com/google/uuid"
@@ -31,8 +31,8 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		namespaceGUID string
 		cfBuildGUID   string
 		namespace     *corev1.Namespace
-		buildWorkload *v1alpha1.BuildWorkload
-		source        v1alpha1.PackageSource
+		buildWorkload *korifiv1alpha1.BuildWorkload
+		source        korifiv1alpha1.PackageSource
 		env           []corev1.EnvVar
 		services      []corev1.ObjectReference
 	)
@@ -80,8 +80,8 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			},
 		}
 
-		source = v1alpha1.PackageSource{
-			Registry: v1alpha1.Registry{
+		source = korifiv1alpha1.PackageSource{
+			Registry: korifiv1alpha1.Registry{
 				Image:            "PACKAGE_IMAGE",
 				ImagePullSecrets: []corev1.LocalObjectReference{{Name: wellFormedRegistryCredentialsSecret}},
 			},
@@ -109,7 +109,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 		It("sets the status condition on BuildWorkload", func() {
 			cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-			updatedBuildWorkload := new(v1alpha1.BuildWorkload)
+			updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(context.Background(), cfBuildLookupKey, updatedBuildWorkload)
 				g.Expect(err).NotTo(HaveOccurred())
@@ -148,7 +148,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 			It("sets the status condition on BuildWorkload", func() {
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-				updatedBuildWorkload := new(v1alpha1.BuildWorkload)
+				updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), cfBuildLookupKey, updatedBuildWorkload)
 					g.Expect(err).NotTo(HaveOccurred())
@@ -198,7 +198,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 			It("sets the Succeeded conditions to False", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-				updatedWorkload := new(v1alpha1.BuildWorkload)
+				updatedWorkload := new(korifiv1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), lookupKey, updatedWorkload)
 					g.Expect(err).NotTo(HaveOccurred())
@@ -214,13 +214,13 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			)
 
 			var (
-				returnedProcessTypes []v1alpha1.ProcessType
+				returnedProcessTypes []korifiv1alpha1.ProcessType
 				returnedPorts        []int32
 			)
 
 			BeforeEach(func() {
 				// Fill out fake ImageProcessFetcher
-				returnedProcessTypes = []v1alpha1.ProcessType{{Type: "web", Command: "my-command"}, {Type: "db", Command: "my-command2"}}
+				returnedProcessTypes = []korifiv1alpha1.ProcessType{{Type: "web", Command: "my-command"}, {Type: "db", Command: "my-command2"}}
 				returnedPorts = []int32{8080, 8443}
 				fakeImageProcessFetcher.Returns(returnedProcessTypes, returnedPorts, nil)
 
@@ -232,7 +232,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 			It("sets the Succeeded condition to True", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-				updatedWorkload := new(v1alpha1.BuildWorkload)
+				updatedWorkload := new(korifiv1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), lookupKey, updatedWorkload)
 					g.Expect(err).NotTo(HaveOccurred())
@@ -242,8 +242,8 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 			It("sets status.droplet", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-				updatedBuildWorkload := new(v1alpha1.BuildWorkload)
-				Eventually(func(g Gomega) *v1alpha1.BuildDropletStatus {
+				updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
+				Eventually(func(g Gomega) *korifiv1alpha1.BuildDropletStatus {
 					err := k8sClient.Get(context.Background(), lookupKey, updatedBuildWorkload)
 					g.Expect(err).NotTo(HaveOccurred())
 					return updatedBuildWorkload.Status.Droplet
@@ -308,13 +308,13 @@ func PrefixedGUID(prefix string) string {
 	return prefix + "-" + uuid.NewString()[:8]
 }
 
-func BuildWorkloadObject(cfBuildGUID string, namespace string, source v1alpha1.PackageSource, env []corev1.EnvVar, services []corev1.ObjectReference) *v1alpha1.BuildWorkload {
-	return &v1alpha1.BuildWorkload{
+func BuildWorkloadObject(cfBuildGUID string, namespace string, source korifiv1alpha1.PackageSource, env []corev1.EnvVar, services []corev1.ObjectReference) *korifiv1alpha1.BuildWorkload {
+	return &korifiv1alpha1.BuildWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfBuildGUID,
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.BuildWorkloadSpec{
+		Spec: korifiv1alpha1.BuildWorkloadSpec{
 			BuildRef: corev1.LocalObjectReference{
 				Name: cfBuildGUID,
 			},

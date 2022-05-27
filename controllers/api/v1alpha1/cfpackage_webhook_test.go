@@ -1,7 +1,7 @@
 package v1alpha1_test
 
 import (
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -19,16 +19,16 @@ var _ = Describe("CFPackageMutatingWebhook Unit Tests", func() {
 
 	When("there are no existing labels on the CFPackage record", func() {
 		It("should add a new label matching spec.AppRef.name", func() {
-			cfPackage := &v1alpha1.CFPackage{
+			cfPackage := &korifiv1alpha1.CFPackage{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFPackage",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfPackageGUID,
 					Namespace: namespace,
 				},
-				Spec: v1alpha1.CFPackageSpec{
+				Spec: korifiv1alpha1.CFPackageSpec{
 					Type: cfPackageType,
 					AppRef: v1.LocalObjectReference{
 						Name: cfAppGUID,
@@ -43,10 +43,10 @@ var _ = Describe("CFPackageMutatingWebhook Unit Tests", func() {
 
 	When("there are other existing labels on the CFPackage record", func() {
 		It("should add a new label matching spec.AppRef.name and preserve the other labels", func() {
-			cfPackage := &v1alpha1.CFPackage{
+			cfPackage := &korifiv1alpha1.CFPackage{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFPackage",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfPackageGUID,
@@ -55,7 +55,7 @@ var _ = Describe("CFPackageMutatingWebhook Unit Tests", func() {
 						"anotherLabel": "app-label",
 					},
 				},
-				Spec: v1alpha1.CFPackageSpec{
+				Spec: korifiv1alpha1.CFPackageSpec{
 					Type: cfPackageType,
 					AppRef: v1.LocalObjectReference{
 						Name: cfAppGUID,

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/networking"
 	"code.cloudfoundry.org/korifi/controllers/fake"
@@ -44,8 +44,8 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 		fakeClient       *fake.Client
 		fakeStatusWriter *fake.StatusWriter
 
-		cfDomain       *v1alpha1.CFDomain
-		cfRoute        *v1alpha1.CFRoute
+		cfDomain       *korifiv1alpha1.CFDomain
+		cfRoute        *korifiv1alpha1.CFRoute
 		httpProxyList  *contourv1.HTTPProxyList
 		fqdnHTTPProxy  *contourv1.HTTPProxy
 		routeHTTPProxy *contourv1.HTTPProxy
@@ -76,16 +76,16 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 	BeforeEach(func() {
 		fakeClient = new(fake.Client)
 
-		cfDomain = &v1alpha1.CFDomain{
+		cfDomain = &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: testDomainGUID,
 			},
-			Spec: v1alpha1.CFDomainSpec{
+			Spec: korifiv1alpha1.CFDomainSpec{
 				Name: testDomainName,
 			},
 		}
 
-		cfRoute = &v1alpha1.CFRoute{
+		cfRoute = &korifiv1alpha1.CFRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testRouteGUID,
 				Namespace: testNamespace,
@@ -93,13 +93,13 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					"cfRoute.korifi.cloudfoundry.org",
 				},
 			},
-			Spec: v1alpha1.CFRouteSpec{
+			Spec: korifiv1alpha1.CFRouteSpec{
 				Host: testRouteHost,
 				DomainRef: v1.ObjectReference{
 					Name:      testDomainGUID,
 					Namespace: testNamespace,
 				},
-				Destinations: []v1alpha1.Destination{
+				Destinations: []korifiv1alpha1.Destination{
 					{
 						GUID: testRouteDestinationGUID,
 						AppRef: v1.LocalObjectReference{
@@ -142,10 +142,10 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
-			case *v1alpha1.CFDomain:
+			case *korifiv1alpha1.CFDomain:
 				cfDomain.DeepCopyInto(obj)
 				return getDomainError
-			case *v1alpha1.CFRoute:
+			case *korifiv1alpha1.CFRoute:
 				cfRoute.DeepCopyInto(obj)
 				return getRouteError
 			case *contourv1.HTTPProxy:
@@ -192,7 +192,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 		fakeClient.PatchStub = func(ctx context.Context, obj client.Object, patch client.Patch, option ...client.PatchOption) error {
 			switch obj.(type) {
-			case *v1alpha1.CFRoute:
+			case *korifiv1alpha1.CFRoute:
 				return patchCFRouteError
 			case *contourv1.HTTPProxy:
 				return patchHTTPProxyError
@@ -203,7 +203,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 		fakeClient.UpdateStub = func(ctx context.Context, obj client.Object, option ...client.UpdateOption) error {
 			switch obj.(type) {
-			case *v1alpha1.CFRoute:
+			case *korifiv1alpha1.CFRoute:
 				return updateCFRouteError
 			default:
 				panic("TestClient Update provided an unexpected object type")
@@ -226,7 +226,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 			return updateCFRouteStatusError
 		}
 
-		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 		cfRouteReconciler = NewCFRouteReconciler(
 			fakeClient,
@@ -258,7 +258,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 				_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-				updatedCFRoute, ok := routeObj.(*v1alpha1.CFRoute)
+				updatedCFRoute, ok := routeObj.(*korifiv1alpha1.CFRoute)
 				Expect(ok).To(BeTrue())
 				expectCFRouteValidStatus(updatedCFRoute.Status, true, "Valid CFRoute", "Valid", "Valid CFRoute")
 			})
@@ -357,7 +357,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					Expect(reconcileErr).To(HaveOccurred())
 					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-					updatedCFRoute, ok := routeObj.(*v1alpha1.CFRoute)
+					updatedCFRoute, ok := routeObj.(*korifiv1alpha1.CFRoute)
 					Expect(ok).To(BeTrue())
 					expectCFRouteValidStatus(updatedCFRoute.Status, false)
 				})
@@ -374,7 +374,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					Expect(reconcileErr).To(HaveOccurred())
 					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-					updatedCFRoute, ok := routeObj.(*v1alpha1.CFRoute)
+					updatedCFRoute, ok := routeObj.(*korifiv1alpha1.CFRoute)
 					Expect(ok).To(BeTrue())
 					expectCFRouteValidStatus(updatedCFRoute.Status, false)
 				})
@@ -464,7 +464,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-					updatedCFRoute, ok := routeObj.(*v1alpha1.CFRoute)
+					updatedCFRoute, ok := routeObj.(*korifiv1alpha1.CFRoute)
 					Expect(ok).To(BeTrue())
 					expectCFRouteValidStatus(updatedCFRoute.Status, false)
 				})
@@ -492,7 +492,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-					updatedCFRoute, ok := routeObj.(*v1alpha1.CFRoute)
+					updatedCFRoute, ok := routeObj.(*korifiv1alpha1.CFRoute)
 					Expect(ok).To(BeTrue())
 					expectCFRouteValidStatus(updatedCFRoute.Status, false)
 				})
@@ -509,7 +509,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-					updatedCFRoute, ok := routeObj.(*v1alpha1.CFRoute)
+					updatedCFRoute, ok := routeObj.(*korifiv1alpha1.CFRoute)
 					Expect(ok).To(BeTrue())
 					expectCFRouteValidStatus(updatedCFRoute.Status, false)
 				})
@@ -526,7 +526,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 					_, routeObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-					updatedCFRoute, ok := routeObj.(*v1alpha1.CFRoute)
+					updatedCFRoute, ok := routeObj.(*korifiv1alpha1.CFRoute)
 					Expect(ok).To(BeTrue())
 					expectCFRouteValidStatus(updatedCFRoute.Status, false)
 				})
@@ -606,8 +606,8 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 				Expect(fakeClient.UpdateCallCount()).To(Equal(1), "Client.Update call count mismatch")
 
 				_, requestObject, _ := fakeClient.UpdateArgsForCall(0)
-				requestRoute, ok := requestObject.(*v1alpha1.CFRoute)
-				Expect(ok).To(BeTrue(), "Cast to v1alpha1.CFRoute failed")
+				requestRoute, ok := requestObject.(*korifiv1alpha1.CFRoute)
+				Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFRoute failed")
 				Expect(requestRoute.ObjectMeta.Finalizers).To(HaveLen(0), "CFRoute finalizer count mismatch")
 			})
 
@@ -632,8 +632,8 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					Expect(fakeClient.UpdateCallCount()).To(Equal(1), "Client.Update call count mismatch")
 
 					_, requestObject, _ := fakeClient.UpdateArgsForCall(0)
-					requestRoute, ok := requestObject.(*v1alpha1.CFRoute)
-					Expect(ok).To(BeTrue(), "Cast to v1alpha1.CFRoute failed")
+					requestRoute, ok := requestObject.(*korifiv1alpha1.CFRoute)
+					Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFRoute failed")
 					Expect(requestRoute.ObjectMeta.Finalizers).To(HaveLen(0), "CFRoute finalizer count mismatch")
 				})
 
@@ -728,7 +728,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 		When("a destination on CFRoute is removed", func() {
 			BeforeEach(func() {
-				cfRoute.Spec.Destinations = []v1alpha1.Destination{}
+				cfRoute.Spec.Destinations = []korifiv1alpha1.Destination{}
 			})
 
 			When("on the happy path", func() {

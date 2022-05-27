@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/controllers/config"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -44,14 +44,14 @@ var _ = Describe("CFBuildReconciler", func() {
 		cfBuildGUID       string
 		buildWorkloadName string
 
-		cfBuild        *v1alpha1.CFBuild
+		cfBuild        *korifiv1alpha1.CFBuild
 		cfBuildError   error
-		cfApp          *v1alpha1.CFApp
+		cfApp          *korifiv1alpha1.CFApp
 		cfAppError     error
-		cfPackage      *v1alpha1.CFPackage
+		cfPackage      *korifiv1alpha1.CFPackage
 		cfPackageError error
 
-		buildWorkload      *v1alpha1.BuildWorkload
+		buildWorkload      *korifiv1alpha1.BuildWorkload
 		buildWorkloadError error
 		cfBuildReconciler  *CFBuildReconciler
 		req                ctrl.Request
@@ -80,16 +80,16 @@ var _ = Describe("CFBuildReconciler", func() {
 
 		fakeClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
-			case *v1alpha1.CFBuild:
+			case *korifiv1alpha1.CFBuild:
 				cfBuild.DeepCopyInto(obj)
 				return cfBuildError
-			case *v1alpha1.CFApp:
+			case *korifiv1alpha1.CFApp:
 				cfApp.DeepCopyInto(obj)
 				return cfAppError
-			case *v1alpha1.CFPackage:
+			case *korifiv1alpha1.CFPackage:
 				cfPackage.DeepCopyInto(obj)
 				return cfPackageError
-			case *v1alpha1.BuildWorkload:
+			case *korifiv1alpha1.BuildWorkload:
 				buildWorkload.DeepCopyInto(obj)
 				return buildWorkloadError
 			default:
@@ -103,7 +103,7 @@ var _ = Describe("CFBuildReconciler", func() {
 		fakeEnvBuilder = new(workloadsfakes.EnvBuilder)
 		fakeEnvBuilder.BuildEnvReturns(map[string]string{"foo": "var"}, nil)
 
-		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfBuildReconciler = NewCFBuildReconciler(
 			fakeClient,
@@ -160,7 +160,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			It("sets the env vars on the BuildWorkload", func() {
 				Expect(fakeClient.CreateCallCount()).To(Equal(1))
 				_, obj, _ := fakeClient.CreateArgsForCall(0)
-				actualWorkload, ok := obj.(*v1alpha1.BuildWorkload)
+				actualWorkload, ok := obj.(*korifiv1alpha1.BuildWorkload)
 				Expect(ok).To(BeTrue(), "create wasn't passed a buildWorkload")
 
 				Expect(fakeEnvBuilder.BuildEnvCallCount()).To(Equal(1))
@@ -376,15 +376,15 @@ var _ = Describe("CFBuildReconciler", func() {
 	})
 })
 
-func mockBuildWorkloadResource(guid string, namespace string) *v1alpha1.BuildWorkload {
-	return &v1alpha1.BuildWorkload{
+func mockBuildWorkloadResource(guid string, namespace string) *korifiv1alpha1.BuildWorkload {
+	return &korifiv1alpha1.BuildWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.BuildWorkloadSpec{
-			Source: v1alpha1.PackageSource{
-				Registry: v1alpha1.Registry{
+		Spec: korifiv1alpha1.BuildWorkloadSpec{
+			Source: korifiv1alpha1.PackageSource{
+				Registry: korifiv1alpha1.Registry{
 					Image:            "image-path",
 					ImagePullSecrets: nil,
 				},
@@ -393,7 +393,7 @@ func mockBuildWorkloadResource(guid string, namespace string) *v1alpha1.BuildWor
 	}
 }
 
-func setBuildWorkloadStatus(workload *v1alpha1.BuildWorkload, conditionType string, conditionStatus metav1.ConditionStatus) {
+func setBuildWorkloadStatus(workload *korifiv1alpha1.BuildWorkload, conditionType string, conditionStatus metav1.ConditionStatus) {
 	meta.SetStatusCondition(&workload.Status.Conditions, metav1.Condition{
 		Type:   conditionType,
 		Status: conditionStatus,

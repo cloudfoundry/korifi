@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/services"
 	"code.cloudfoundry.org/korifi/controllers/fake"
 
@@ -32,11 +32,11 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 		fakeClient       *fake.Client
 		fakeStatusWriter *fake.StatusWriter
 
-		cfServiceBinding        *v1alpha1.CFServiceBinding
-		cfServiceInstance       *v1alpha1.CFServiceInstance
+		cfServiceBinding        *korifiv1alpha1.CFServiceBinding
+		cfServiceInstance       *korifiv1alpha1.CFServiceInstance
 		cfServiceInstanceSecret *corev1.Secret
 		sbServiceBinding        *servicebindingv1beta1.ServiceBinding
-		cfApp                   *v1alpha1.CFApp
+		cfApp                   *korifiv1alpha1.CFApp
 
 		getCFServiceBindingError          error
 		getCFServiceInstanceSecretError   error
@@ -81,18 +81,18 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 		fakeStatusWriter = new(fake.StatusWriter)
 		fakeClient.StatusReturns(fakeStatusWriter)
 
-		cfServiceBinding = new(v1alpha1.CFServiceBinding)
-		cfServiceInstance = new(v1alpha1.CFServiceInstance)
+		cfServiceBinding = new(korifiv1alpha1.CFServiceBinding)
+		cfServiceInstance = new(korifiv1alpha1.CFServiceInstance)
 		cfServiceInstanceSecret = new(corev1.Secret)
 		sbServiceBinding = new(servicebindingv1beta1.ServiceBinding)
-		cfApp = new(v1alpha1.CFApp)
+		cfApp = new(korifiv1alpha1.CFApp)
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
-			case *v1alpha1.CFServiceBinding:
+			case *korifiv1alpha1.CFServiceBinding:
 				cfServiceBinding.DeepCopyInto(obj)
 				return getCFServiceBindingError
-			case *v1alpha1.CFServiceInstance:
+			case *korifiv1alpha1.CFServiceInstance:
 				cfServiceInstance.Name = cfServiceInstanceName
 				cfServiceInstance.DeepCopyInto(obj)
 				return getCFServiceInstanceError
@@ -101,7 +101,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 					sbServiceBinding.DeepCopyInto(obj)
 				}
 				return getSBServiceBindingError
-			case *v1alpha1.CFApp:
+			case *korifiv1alpha1.CFApp:
 				cfApp.Name = cfAppName
 				cfApp.DeepCopyInto(obj)
 				return getCFAppError
@@ -119,7 +119,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 
 		fakeClient.PatchStub = func(ctx context.Context, obj client.Object, patch client.Patch, option ...client.PatchOption) error {
 			switch obj := obj.(type) {
-			case *v1alpha1.CFServiceBinding:
+			case *korifiv1alpha1.CFServiceBinding:
 				cfServiceBinding.DeepCopyInto(obj)
 				return patchCFServiceBindingError
 			case *servicebindingv1beta1.ServiceBinding:
@@ -130,8 +130,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 			}
 		}
 
-		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(servicebindingv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 		cfServiceBindingReconciler = NewCFServiceBindingReconciler(
@@ -167,7 +166,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 
 					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 					_, serviceBindingObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-					updatedCFServiceBinding, ok := serviceBindingObj.(*v1alpha1.CFServiceBinding)
+					updatedCFServiceBinding, ok := serviceBindingObj.(*korifiv1alpha1.CFServiceBinding)
 					Expect(ok).To(BeTrue())
 					Expect(updatedCFServiceBinding.Status.Binding.Name).To(Equal(cfServiceInstanceSecret.Name))
 					Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -221,7 +220,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 
 					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 					_, serviceBindingObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-					updatedCFServiceBinding, ok := serviceBindingObj.(*v1alpha1.CFServiceBinding)
+					updatedCFServiceBinding, ok := serviceBindingObj.(*korifiv1alpha1.CFServiceBinding)
 					Expect(ok).To(BeTrue())
 					Expect(updatedCFServiceBinding.Status.Binding.Name).To(Equal(cfServiceInstanceSecret.Name))
 					Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -265,7 +264,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 				_, serviceBindingObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-				updatedCFServiceBinding, ok := serviceBindingObj.(*v1alpha1.CFServiceBinding)
+				updatedCFServiceBinding, ok := serviceBindingObj.(*korifiv1alpha1.CFServiceBinding)
 				Expect(ok).To(BeTrue())
 				Expect(updatedCFServiceBinding.Status.Binding.Name).To(BeEmpty())
 				Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -287,7 +286,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 				_, serviceBindingObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-				updatedCFServiceBinding, ok := serviceBindingObj.(*v1alpha1.CFServiceBinding)
+				updatedCFServiceBinding, ok := serviceBindingObj.(*korifiv1alpha1.CFServiceBinding)
 				Expect(ok).To(BeTrue())
 				Expect(updatedCFServiceBinding.Status.Binding.Name).To(BeEmpty())
 				Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -308,7 +307,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 				_, serviceBindingObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
-				updatedCFServiceBinding, ok := serviceBindingObj.(*v1alpha1.CFServiceBinding)
+				updatedCFServiceBinding, ok := serviceBindingObj.(*korifiv1alpha1.CFServiceBinding)
 				Expect(ok).To(BeTrue())
 				Expect(updatedCFServiceBinding.Status.Binding.Name).To(BeEmpty())
 				Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{

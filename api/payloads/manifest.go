@@ -2,7 +2,7 @@ package payloads
 
 import (
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"code.cloudfoundry.org/bytefmt"
 )
@@ -42,9 +42,9 @@ func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.C
 		Name:      a.Name,
 		SpaceGUID: spaceGUID,
 		Lifecycle: repositories.Lifecycle{
-			Type: string(v1alpha1.BuildpackLifecycle),
+			Type: string(korifiv1alpha1.BuildpackLifecycle),
 		},
-		State:                repositories.DesiredState(v1alpha1.StoppedState),
+		State:                repositories.DesiredState(korifiv1alpha1.StoppedState),
 		EnvironmentVariables: a.Env,
 	}
 }
@@ -151,7 +151,7 @@ func normalizeHealthCheckType(healthCheckType string) string {
 
 	switch healthCheckType {
 	case NoneHealthCheckType:
-		return string(v1alpha1.ProcessHealthCheckType)
+		return string(korifiv1alpha1.ProcessHealthCheckType)
 	default:
 		return healthCheckType
 	}

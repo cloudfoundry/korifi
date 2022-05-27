@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -55,14 +55,14 @@ func NewCFPackageReconciler(client client.Client, scheme *runtime.Scheme, log lo
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CFPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var cfPackage v1alpha1.CFPackage
+	var cfPackage korifiv1alpha1.CFPackage
 	err := r.Client.Get(ctx, req.NamespacedName, &cfPackage)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFPackage")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	var cfApp v1alpha1.CFApp
+	var cfApp korifiv1alpha1.CFApp
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFApp")
@@ -88,6 +88,6 @@ func (r *CFPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFPackageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.CFPackage{}).
+		For(&korifiv1alpha1.CFPackage{}).
 		Complete(r)
 }

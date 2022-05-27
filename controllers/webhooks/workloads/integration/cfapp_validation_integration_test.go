@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/google/uuid"
@@ -24,7 +24,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		app2Guid   string
 		app1Name   string
 		app2Name   string
-		app1       *v1alpha1.CFApp
+		app1       *korifiv1alpha1.CFApp
 	)
 
 	BeforeEach(func() {
@@ -135,7 +135,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			It("should succeed", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 
-				app1Actual := v1alpha1.CFApp{}
+				app1Actual := korifiv1alpha1.CFApp{}
 				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(app1), &app1Actual)).To(Succeed())
 				Expect(app1Actual.Spec.DisplayName).To(Equal(newName))
 			})
@@ -152,15 +152,15 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 		When("not changing the name", func() {
 			BeforeEach(func() {
-				app1.Spec.DesiredState = v1alpha1.StartedState
+				app1.Spec.DesiredState = korifiv1alpha1.StartedState
 			})
 
 			It("should succeed", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 
-				app1Actual := v1alpha1.CFApp{}
+				app1Actual := korifiv1alpha1.CFApp{}
 				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(app1), &app1Actual)).To(Succeed())
-				Expect(app1Actual.Spec.DesiredState).To(Equal(v1alpha1.StartedState))
+				Expect(app1Actual.Spec.DesiredState).To(Equal(korifiv1alpha1.StartedState))
 			})
 		})
 
@@ -195,20 +195,20 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 	})
 })
 
-func makeCFApp(cfAppGUID string, namespace string, name string) *v1alpha1.CFApp {
-	return &v1alpha1.CFApp{
+func makeCFApp(cfAppGUID string, namespace string, name string) *korifiv1alpha1.CFApp {
+	return &korifiv1alpha1.CFApp{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "CFApp",
-			APIVersion: v1alpha1.GroupVersion.Identifier(),
+			APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfAppGUID,
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.CFAppSpec{
+		Spec: korifiv1alpha1.CFAppSpec{
 			DisplayName:  name,
 			DesiredState: "STOPPED",
-			Lifecycle: v1alpha1.Lifecycle{
+			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: "buildpack",
 			},
 		},

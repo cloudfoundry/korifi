@@ -23,7 +23,7 @@ import (
 	"time"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/services"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -75,9 +75,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 	// Add Eirini to Scheme

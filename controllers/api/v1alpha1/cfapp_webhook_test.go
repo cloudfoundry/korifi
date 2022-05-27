@@ -3,7 +3,7 @@ package v1alpha1_test
 import (
 	"strconv"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,19 +19,19 @@ var _ = Describe("CFAppMutatingWebhook Unit Tests", func() {
 
 	When("there are no existing labels on the CFAPP record", func() {
 		It("should add a new label matching metadata.name", func() {
-			cfApp := &v1alpha1.CFApp{
+			cfApp := &korifiv1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
 					Namespace: namespace,
 				},
-				Spec: v1alpha1.CFAppSpec{
+				Spec: korifiv1alpha1.CFAppSpec{
 					DisplayName:  "test-app",
 					DesiredState: "STOPPED",
-					Lifecycle: v1alpha1.Lifecycle{
+					Lifecycle: korifiv1alpha1.Lifecycle{
 						Type: "buildpack",
 					},
 				},
@@ -45,10 +45,10 @@ var _ = Describe("CFAppMutatingWebhook Unit Tests", func() {
 
 	When("there are other existing labels on the CFAPP record", func() {
 		It("should add a new label matching metadata.name and preserve the other labels", func() {
-			cfApp := &v1alpha1.CFApp{
+			cfApp := &korifiv1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
@@ -60,10 +60,10 @@ var _ = Describe("CFAppMutatingWebhook Unit Tests", func() {
 						"someAnnotation": "blah",
 					},
 				},
-				Spec: v1alpha1.CFAppSpec{
+				Spec: korifiv1alpha1.CFAppSpec{
 					DisplayName:  "test-app",
 					DesiredState: "STOPPED",
-					Lifecycle: v1alpha1.Lifecycle{
+					Lifecycle: korifiv1alpha1.Lifecycle{
 						Type: "buildpack",
 					},
 				},
@@ -81,12 +81,12 @@ var _ = Describe("CFAppMutatingWebhook Unit Tests", func() {
 			const (
 				revisionValue = 7
 			)
-			var cfApp *v1alpha1.CFApp
+			var cfApp *korifiv1alpha1.CFApp
 			BeforeEach(func() {
 				cfApp = initializeCFAppCR(cfAppGUID, namespace)
-				cfApp.Spec.DesiredState = v1alpha1.StoppedState
-				cfApp.Annotations[v1alpha1.CFAppRevisionKey] = strconv.Itoa(revisionValue)
-				cfApp.Status.ObservedDesiredState = v1alpha1.StartedState
+				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
+				cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = strconv.Itoa(revisionValue)
+				cfApp.Status.ObservedDesiredState = korifiv1alpha1.StartedState
 			})
 
 			It("should increment the rev", func() {
@@ -96,17 +96,17 @@ var _ = Describe("CFAppMutatingWebhook Unit Tests", func() {
 		})
 
 		When("rev is set to some non-integer value", func() {
-			var cfApp *v1alpha1.CFApp
+			var cfApp *korifiv1alpha1.CFApp
 			BeforeEach(func() {
 				cfApp = initializeCFAppCR(cfAppGUID, namespace)
-				cfApp.Spec.DesiredState = v1alpha1.StoppedState
-				cfApp.Annotations[v1alpha1.CFAppRevisionKey] = "some-weird-value"
-				cfApp.Status.ObservedDesiredState = v1alpha1.StartedState
+				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
+				cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = "some-weird-value"
+				cfApp.Status.ObservedDesiredState = korifiv1alpha1.StartedState
 			})
 
 			It("should set the rev to be the default value", func() {
 				cfApp.Default()
-				Expect(cfApp.ObjectMeta.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, v1alpha1.CFAppRevisionKeyDefault))
+				Expect(cfApp.ObjectMeta.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, korifiv1alpha1.CFAppRevisionKeyDefault))
 			})
 		})
 	})
@@ -116,12 +116,12 @@ var _ = Describe("CFAppMutatingWebhook Unit Tests", func() {
 			const (
 				revisionValue = 7
 			)
-			var cfApp *v1alpha1.CFApp
+			var cfApp *korifiv1alpha1.CFApp
 			BeforeEach(func() {
 				cfApp = initializeCFAppCR(cfAppGUID, namespace)
-				cfApp.Spec.DesiredState = v1alpha1.StartedState
-				cfApp.Annotations[v1alpha1.CFAppRevisionKey] = strconv.Itoa(revisionValue)
-				cfApp.Status.ObservedDesiredState = v1alpha1.StoppedState
+				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
+				cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = strconv.Itoa(revisionValue)
+				cfApp.Status.ObservedDesiredState = korifiv1alpha1.StoppedState
 			})
 
 			It("should leave the rev alone", func() {
@@ -134,12 +134,12 @@ var _ = Describe("CFAppMutatingWebhook Unit Tests", func() {
 			const (
 				weirdRevValue = "some-weird-value"
 			)
-			var cfApp *v1alpha1.CFApp
+			var cfApp *korifiv1alpha1.CFApp
 			BeforeEach(func() {
 				cfApp = initializeCFAppCR(cfAppGUID, namespace)
-				cfApp.Spec.DesiredState = v1alpha1.StartedState
-				cfApp.Annotations[v1alpha1.CFAppRevisionKey] = weirdRevValue
-				cfApp.Status.ObservedDesiredState = v1alpha1.StoppedState
+				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
+				cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = weirdRevValue
+				cfApp.Status.ObservedDesiredState = korifiv1alpha1.StoppedState
 			})
 
 			It("should leave the rev alone", func() {
@@ -149,26 +149,26 @@ var _ = Describe("CFAppMutatingWebhook Unit Tests", func() {
 		})
 
 		When("rev is not set", func() {
-			var cfApp *v1alpha1.CFApp
+			var cfApp *korifiv1alpha1.CFApp
 			BeforeEach(func() {
 				cfApp = initializeCFAppCR(cfAppGUID, namespace)
-				cfApp.Spec.DesiredState = v1alpha1.StartedState
-				cfApp.Status.ObservedDesiredState = v1alpha1.StoppedState
+				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
+				cfApp.Status.ObservedDesiredState = korifiv1alpha1.StoppedState
 			})
 
 			It("should set it to the default value", func() {
 				cfApp.Default()
-				Expect(cfApp.ObjectMeta.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, v1alpha1.CFAppRevisionKeyDefault))
+				Expect(cfApp.ObjectMeta.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, korifiv1alpha1.CFAppRevisionKeyDefault))
 			})
 		})
 	})
 })
 
-func initializeCFAppCR(appGUID, namespace string) *v1alpha1.CFApp {
-	return &v1alpha1.CFApp{
+func initializeCFAppCR(appGUID, namespace string) *korifiv1alpha1.CFApp {
+	return &korifiv1alpha1.CFApp{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "CFApp",
-			APIVersion: v1alpha1.GroupVersion.Identifier(),
+			APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        appGUID,
@@ -176,10 +176,10 @@ func initializeCFAppCR(appGUID, namespace string) *v1alpha1.CFApp {
 			Labels:      map[string]string{},
 			Annotations: map[string]string{},
 		},
-		Spec: v1alpha1.CFAppSpec{
+		Spec: korifiv1alpha1.CFAppSpec{
 			DisplayName:  "test-app",
 			DesiredState: "STOPPED",
-			Lifecycle: v1alpha1.Lifecycle{
+			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: "buildpack",
 			},
 		},

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/go-logr/logr"
@@ -45,7 +45,7 @@ func (v *CFSpaceValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
 func (v *CFSpaceValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
 	var handler cfSpaceHandler
 
-	cfSpace := &v1alpha1.CFSpace{}
+	cfSpace := &korifiv1alpha1.CFSpace{}
 	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
 		if err := v.decoder.Decode(req, cfSpace); err != nil {
 			spaceLogger.Error(err, "failed to decode CFSpace", "request", req)
@@ -60,7 +60,7 @@ func (v *CFSpaceValidation) Handle(ctx context.Context, req admission.Request) a
 
 	}
 
-	oldCFSpace := &v1alpha1.CFSpace{}
+	oldCFSpace := &korifiv1alpha1.CFSpace{}
 	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
 		if err := v.decoder.DecodeRaw(req.OldObject, oldCFSpace); err != nil {
 			spaceLogger.Error(err, "failed to decode old CFSpace", "request", req)
@@ -132,7 +132,7 @@ func NewCFSpaceHandler(
 	}
 }
 
-func (h cfSpaceHandler) handleCreate(ctx context.Context, cfSpace *v1alpha1.CFSpace) admission.Response {
+func (h cfSpaceHandler) handleCreate(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) admission.Response {
 	spaceName := strings.ToLower(cfSpace.Spec.DisplayName)
 	if err := h.duplicateValidator.ValidateCreate(ctx, h.logger, cfSpace.Namespace, spaceName); err != nil {
 		if errors.Is(err, webhooks.ErrorDuplicateName) {
@@ -149,7 +149,7 @@ func (h cfSpaceHandler) handleCreate(ctx context.Context, cfSpace *v1alpha1.CFSp
 	return admission.Allowed("")
 }
 
-func (h cfSpaceHandler) handleUpdate(ctx context.Context, oldCFSpace, newCFSpace *v1alpha1.CFSpace) admission.Response {
+func (h cfSpaceHandler) handleUpdate(ctx context.Context, oldCFSpace, newCFSpace *korifiv1alpha1.CFSpace) admission.Response {
 	newSpaceName := strings.ToLower(newCFSpace.Spec.DisplayName)
 	oldSpaceName := strings.ToLower(oldCFSpace.Spec.DisplayName)
 	if err := h.duplicateValidator.ValidateUpdate(ctx, h.logger, oldCFSpace.Namespace, oldSpaceName, newSpaceName); err != nil {
@@ -163,7 +163,7 @@ func (h cfSpaceHandler) handleUpdate(ctx context.Context, oldCFSpace, newCFSpace
 	return admission.Allowed("")
 }
 
-func (h cfSpaceHandler) handleDelete(ctx context.Context, oldCFSpace *v1alpha1.CFSpace) admission.Response {
+func (h cfSpaceHandler) handleDelete(ctx context.Context, oldCFSpace *korifiv1alpha1.CFSpace) admission.Response {
 	if err := h.duplicateValidator.ValidateDelete(ctx, h.logger, oldCFSpace.Namespace, oldCFSpace.Spec.DisplayName); err != nil {
 		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
 	}

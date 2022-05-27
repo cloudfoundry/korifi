@@ -3,7 +3,7 @@ package integration_test
 import (
 	"context"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,8 +23,8 @@ var _ = Describe("CFBuildMutatingWebhook Integration Tests", func() {
 		)
 
 		var (
-			cfBuild        *v1alpha1.CFBuild
-			createdCFBuild *v1alpha1.CFBuild
+			cfBuild        *korifiv1alpha1.CFBuild
+			createdCFBuild *korifiv1alpha1.CFBuild
 			cfAppGUID      string
 			cfPackageGUID  string
 			cfBuildGUID    string
@@ -35,25 +35,25 @@ var _ = Describe("CFBuildMutatingWebhook Integration Tests", func() {
 			cfAppGUID = GenerateGUID()
 			cfPackageGUID = GenerateGUID()
 			cfBuildGUID = GenerateGUID()
-			cfBuild = &v1alpha1.CFBuild{
+			cfBuild = &korifiv1alpha1.CFBuild{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFBuild",
-					APIVersion: v1alpha1.GroupVersion.Identifier(),
+					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfBuildGUID,
 					Namespace: namespace,
 				},
-				Spec: v1alpha1.CFBuildSpec{
+				Spec: korifiv1alpha1.CFBuildSpec{
 					PackageRef: v1.LocalObjectReference{
 						Name: cfPackageGUID,
 					},
 					AppRef: v1.LocalObjectReference{
 						Name: cfAppGUID,
 					},
-					Lifecycle: v1alpha1.Lifecycle{
+					Lifecycle: korifiv1alpha1.Lifecycle{
 						Type: lifeCycleType,
-						Data: v1alpha1.LifecycleData{
+						Data: korifiv1alpha1.LifecycleData{
 							Buildpacks: []string{"java-buildpack"},
 							Stack:      "cflinuxfs3",
 						},
@@ -64,7 +64,7 @@ var _ = Describe("CFBuildMutatingWebhook Integration Tests", func() {
 
 			// Fetching the created CFBuild resource
 			cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespace}
-			createdCFBuild = new(v1alpha1.CFBuild)
+			createdCFBuild = new(korifiv1alpha1.CFBuild)
 			Eventually(func() map[string]string {
 				err := k8sClient.Get(beforeCtx, cfBuildLookupKey, createdCFBuild)
 				if err != nil {

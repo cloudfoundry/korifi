@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
+	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -43,21 +43,21 @@ var _ = Describe("BuildpackRepository", func() {
 							Kind: "ClusterStore",
 							Name: "some-cluster-store",
 						},
-						Order: []buildv1alpha1.OrderEntry{
+						Order: []corev1alpha1.OrderEntry{
 							{
-								Group: []buildv1alpha1.BuildpackRef{
+								Group: []corev1alpha1.BuildpackRef{
 									newBuildpackRef("paketo-buildpacks/buildpack-1-1"),
 								},
 							},
 							{
-								Group: []buildv1alpha1.BuildpackRef{
+								Group: []corev1alpha1.BuildpackRef{
 									newBuildpackRef("paketo-buildpacks/buildpack-2-1"),
 									newBuildpackRef("paketo-buildpacks/buildpack-2-2"),
 									newBuildpackRef("paketo-buildpacks/buildpack-2-3"),
 								},
 							},
 							{
-								Group: []buildv1alpha1.BuildpackRef{
+								Group: []corev1alpha1.BuildpackRef{
 									newBuildpackRef("paketo-buildpacks/buildpack-3-1"),
 								},
 							},
@@ -72,28 +72,28 @@ var _ = Describe("BuildpackRepository", func() {
 
 			Expect(k8sClient.Create(beforeCtx, clusterBuilder)).To(Succeed())
 
-			clusterBuilderOrderStatus := []buildv1alpha1.OrderEntry{
+			clusterBuilderOrderStatus := []corev1alpha1.OrderEntry{
 				{
-					Group: []buildv1alpha1.BuildpackRef{
+					Group: []corev1alpha1.BuildpackRef{
 						newBuildpackRef("paketo-buildpacks/buildpack-1-1", "1.1"),
 					},
 				},
 				{
-					Group: []buildv1alpha1.BuildpackRef{
+					Group: []corev1alpha1.BuildpackRef{
 						newBuildpackRef("paketo-buildpacks/buildpack-2-1", "2.1"),
 						newBuildpackRef("paketo-buildpacks/buildpack-2-2", "2.2"),
 						newBuildpackRef("paketo-buildpacks/buildpack-2-3", "2.3"),
 					},
 				},
 				{
-					Group: []buildv1alpha1.BuildpackRef{
+					Group: []corev1alpha1.BuildpackRef{
 						newBuildpackRef("paketo-buildpacks/buildpack-3-1", "3.1"),
 					},
 				},
 			}
 			clusterBuilder.Status.Order = clusterBuilderOrderStatus
 
-			clusterBuilderStackStatus := buildv1alpha1.BuildStack{
+			clusterBuilderStackStatus := corev1alpha1.BuildStack{
 				ID:       "io.buildpacks.stacks.bionic",
 				RunImage: "index.docker.io/paketobuildpacks/run@sha256:79185c8427ebfed9b7df3e0fa12e101ec8b24aa899bbc541648d5923fb494084",
 			}
@@ -146,9 +146,9 @@ var _ = Describe("BuildpackRepository", func() {
 	})
 })
 
-func newBuildpackRef(id string, version ...string) buildv1alpha1.BuildpackRef {
-	toReturn := buildv1alpha1.BuildpackRef{
-		BuildpackInfo: buildv1alpha1.BuildpackInfo{
+func newBuildpackRef(id string, version ...string) corev1alpha1.BuildpackRef {
+	toReturn := corev1alpha1.BuildpackRef{
+		BuildpackInfo: corev1alpha1.BuildpackInfo{
 			Id: id,
 		},
 		Optional: true,

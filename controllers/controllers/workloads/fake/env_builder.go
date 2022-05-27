@@ -5,16 +5,16 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 )
 
 type EnvBuilder struct {
-	BuildEnvStub        func(context.Context, *v1alpha1.CFApp) (map[string]string, error)
+	BuildEnvStub        func(context.Context, *korifiv1alpha1.CFApp) (map[string]string, error)
 	buildEnvMutex       sync.RWMutex
 	buildEnvArgsForCall []struct {
 		arg1 context.Context
-		arg2 *v1alpha1.CFApp
+		arg2 *korifiv1alpha1.CFApp
 	}
 	buildEnvReturns struct {
 		result1 map[string]string
@@ -28,12 +28,12 @@ type EnvBuilder struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *EnvBuilder) BuildEnv(arg1 context.Context, arg2 *v1alpha1.CFApp) (map[string]string, error) {
+func (fake *EnvBuilder) BuildEnv(arg1 context.Context, arg2 *korifiv1alpha1.CFApp) (map[string]string, error) {
 	fake.buildEnvMutex.Lock()
 	ret, specificReturn := fake.buildEnvReturnsOnCall[len(fake.buildEnvArgsForCall)]
 	fake.buildEnvArgsForCall = append(fake.buildEnvArgsForCall, struct {
 		arg1 context.Context
-		arg2 *v1alpha1.CFApp
+		arg2 *korifiv1alpha1.CFApp
 	}{arg1, arg2})
 	stub := fake.BuildEnvStub
 	fakeReturns := fake.buildEnvReturns
@@ -54,13 +54,13 @@ func (fake *EnvBuilder) BuildEnvCallCount() int {
 	return len(fake.buildEnvArgsForCall)
 }
 
-func (fake *EnvBuilder) BuildEnvCalls(stub func(context.Context, *v1alpha1.CFApp) (map[string]string, error)) {
+func (fake *EnvBuilder) BuildEnvCalls(stub func(context.Context, *korifiv1alpha1.CFApp) (map[string]string, error)) {
 	fake.buildEnvMutex.Lock()
 	defer fake.buildEnvMutex.Unlock()
 	fake.BuildEnvStub = stub
 }
 
-func (fake *EnvBuilder) BuildEnvArgsForCall(i int) (context.Context, *v1alpha1.CFApp) {
+func (fake *EnvBuilder) BuildEnvArgsForCall(i int) (context.Context, *korifiv1alpha1.CFApp) {
 	fake.buildEnvMutex.RLock()
 	defer fake.buildEnvMutex.RUnlock()
 	argsForCall := fake.buildEnvArgsForCall[i]

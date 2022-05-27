@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	"github.com/google/uuid"
@@ -26,7 +26,7 @@ var _ = Describe("RoleRepository", func() {
 		ctx                 context.Context
 		roleCreateMessage   repositories.CreateRoleMessage
 		roleRepo            *repositories.RoleRepo
-		cfOrg               *v1alpha1.CFOrg
+		cfOrg               *korifiv1alpha1.CFOrg
 		createdRole         repositories.RoleRecord
 		authorizedInChecker *fake.AuthorizedInChecker
 		createErr           error
@@ -215,7 +215,7 @@ var _ = Describe("RoleRepository", func() {
 
 	Describe("Create Space Role", func() {
 		var (
-			cfSpace      *v1alpha1.CFSpace
+			cfSpace      *korifiv1alpha1.CFSpace
 			expectedName string
 		)
 

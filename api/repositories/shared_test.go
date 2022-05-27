@@ -4,7 +4,7 @@ import (
 	"context"
 
 	. "code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/gomega"
@@ -25,18 +25,18 @@ func prefixedGUID(prefix string) string {
 	return prefix + "-" + uuid.NewString()[:8]
 }
 
-func createAppCR(ctx context.Context, k8sClient client.Client, appName, appGUID, spaceGUID, desiredState string) *v1alpha1.CFApp {
-	toReturn := &v1alpha1.CFApp{
+func createAppCR(ctx context.Context, k8sClient client.Client, appName, appGUID, spaceGUID, desiredState string) *korifiv1alpha1.CFApp {
+	toReturn := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
 			Namespace: spaceGUID,
 		},
-		Spec: v1alpha1.CFAppSpec{
+		Spec: korifiv1alpha1.CFAppSpec{
 			DisplayName:  appName,
-			DesiredState: v1alpha1.DesiredState(desiredState),
-			Lifecycle: v1alpha1.Lifecycle{
+			DesiredState: korifiv1alpha1.DesiredState(desiredState),
+			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: "buildpack",
-				Data: v1alpha1.LifecycleData{
+				Data: korifiv1alpha1.LifecycleData{
 					Buildpacks: []string{},
 					Stack:      "",
 				},
@@ -49,13 +49,13 @@ func createAppCR(ctx context.Context, k8sClient client.Client, appName, appGUID,
 	return toReturn
 }
 
-func createPackageCR(ctx context.Context, k8sClient client.Client, packageGUID, appGUID, spaceGUID, srcRegistryImage string) *v1alpha1.CFPackage {
-	toReturn := &v1alpha1.CFPackage{
+func createPackageCR(ctx context.Context, k8sClient client.Client, packageGUID, appGUID, spaceGUID, srcRegistryImage string) *korifiv1alpha1.CFPackage {
+	toReturn := &korifiv1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageGUID,
 			Namespace: spaceGUID,
 		},
-		Spec: v1alpha1.CFPackageSpec{
+		Spec: korifiv1alpha1.CFPackageSpec{
 			Type: "bits",
 			AppRef: corev1.LocalObjectReference{
 				Name: appGUID,
@@ -73,21 +73,21 @@ func createPackageCR(ctx context.Context, k8sClient client.Client, packageGUID, 
 	return toReturn
 }
 
-func createBuild(ctx context.Context, k8sClient client.Client, namespace, buildGUID, packageGUID, appGUID string) *v1alpha1.CFBuild {
+func createBuild(ctx context.Context, k8sClient client.Client, namespace, buildGUID, packageGUID, appGUID string) *korifiv1alpha1.CFBuild {
 	const (
 		stagingMemory = 1024
 		stagingDisk   = 2048
 	)
 
-	record := &v1alpha1.CFBuild{
+	record := &korifiv1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      buildGUID,
 			Namespace: namespace,
 			Labels: map[string]string{
-				v1alpha1.CFAppGUIDLabelKey: appGUID,
+				korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
 			},
 		},
-		Spec: v1alpha1.CFBuildSpec{
+		Spec: korifiv1alpha1.CFBuildSpec{
 			PackageRef: corev1.LocalObjectReference{
 				Name: packageGUID,
 			},
@@ -96,9 +96,9 @@ func createBuild(ctx context.Context, k8sClient client.Client, namespace, buildG
 			},
 			StagingMemoryMB: stagingMemory,
 			StagingDiskMB:   stagingDisk,
-			Lifecycle: v1alpha1.Lifecycle{
+			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: "buildpack",
-				Data: v1alpha1.LifecycleData{
+				Data: korifiv1alpha1.LifecycleData{
 					Buildpacks: []string{},
 					Stack:      "",
 				},
@@ -111,8 +111,8 @@ func createBuild(ctx context.Context, k8sClient client.Client, namespace, buildG
 	return record
 }
 
-func createProcessCR(ctx context.Context, k8sClient client.Client, processGUID, spaceGUID, appGUID string) *v1alpha1.CFProcess {
-	toReturn := &v1alpha1.CFProcess{
+func createProcessCR(ctx context.Context, k8sClient client.Client, processGUID, spaceGUID, appGUID string) *korifiv1alpha1.CFProcess {
+	toReturn := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      processGUID,
 			Namespace: spaceGUID,
@@ -120,15 +120,15 @@ func createProcessCR(ctx context.Context, k8sClient client.Client, processGUID, 
 				cfAppGUIDLabelKey: appGUID,
 			},
 		},
-		Spec: v1alpha1.CFProcessSpec{
+		Spec: korifiv1alpha1.CFProcessSpec{
 			AppRef: corev1.LocalObjectReference{
 				Name: appGUID,
 			},
 			ProcessType: "web",
 			Command:     "",
-			HealthCheck: v1alpha1.HealthCheck{
+			HealthCheck: korifiv1alpha1.HealthCheck{
 				Type: "process",
-				Data: v1alpha1.HealthCheckData{
+				Data: korifiv1alpha1.HealthCheckData{
 					InvocationTimeoutSeconds: 0,
 					TimeoutSeconds:           0,
 				},
@@ -145,15 +145,15 @@ func createProcessCR(ctx context.Context, k8sClient client.Client, processGUID, 
 	return toReturn
 }
 
-func createDropletCR(ctx context.Context, k8sClient client.Client, dropletGUID, appGUID, spaceGUID string) *v1alpha1.CFBuild {
-	toReturn := &v1alpha1.CFBuild{
+func createDropletCR(ctx context.Context, k8sClient client.Client, dropletGUID, appGUID, spaceGUID string) *korifiv1alpha1.CFBuild {
+	toReturn := &korifiv1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dropletGUID,
 			Namespace: spaceGUID,
 		},
-		Spec: v1alpha1.CFBuildSpec{
+		Spec: korifiv1alpha1.CFBuildSpec{
 			AppRef: corev1.LocalObjectReference{Name: appGUID},
-			Lifecycle: v1alpha1.Lifecycle{
+			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: "buildpack",
 			},
 		},
@@ -164,13 +164,13 @@ func createDropletCR(ctx context.Context, k8sClient client.Client, dropletGUID, 
 	return toReturn
 }
 
-func createServiceInstanceCR(ctx context.Context, k8sClient client.Client, serviceInstanceGUID, spaceGUID, name, secretName string) *v1alpha1.CFServiceInstance {
-	toReturn := &v1alpha1.CFServiceInstance{
+func createServiceInstanceCR(ctx context.Context, k8sClient client.Client, serviceInstanceGUID, spaceGUID, name, secretName string) *korifiv1alpha1.CFServiceInstance {
+	toReturn := &korifiv1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceInstanceGUID,
 			Namespace: spaceGUID,
 		},
-		Spec: v1alpha1.CFServiceInstanceSpec{
+		Spec: korifiv1alpha1.CFServiceInstanceSpec{
 			DisplayName: name,
 			SecretName:  secretName,
 			Type:        "user-provided",
@@ -182,13 +182,13 @@ func createServiceInstanceCR(ctx context.Context, k8sClient client.Client, servi
 	return toReturn
 }
 
-func createServiceBindingCR(ctx context.Context, k8sClient client.Client, serviceBindingGUID, spaceGUID string, name *string, serviceInstanceName, appName string) *v1alpha1.CFServiceBinding {
-	toReturn := &v1alpha1.CFServiceBinding{
+func createServiceBindingCR(ctx context.Context, k8sClient client.Client, serviceBindingGUID, spaceGUID string, name *string, serviceInstanceName, appName string) *korifiv1alpha1.CFServiceBinding {
+	toReturn := &korifiv1alpha1.CFServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceBindingGUID,
 			Namespace: spaceGUID,
 		},
-		Spec: v1alpha1.CFServiceBindingSpec{
+		Spec: korifiv1alpha1.CFServiceBindingSpec{
 			DisplayName: name,
 			Service: corev1.ObjectReference{
 				Kind:       "ServiceInstance",

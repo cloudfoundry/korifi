@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
@@ -27,11 +27,11 @@ var _ = Describe("Builder", func() {
 		getAppSecretError            error
 		getServiceBindingSecretError error
 
-		serviceBinding       v1alpha1.CFServiceBinding
-		serviceInstance      v1alpha1.CFServiceInstance
+		serviceBinding       korifiv1alpha1.CFServiceBinding
+		serviceInstance      korifiv1alpha1.CFServiceInstance
 		serviceBindingSecret corev1.Secret
 		appSecret            corev1.Secret
-		cfApp                *v1alpha1.CFApp
+		cfApp                *korifiv1alpha1.CFApp
 
 		builder *env.Builder
 
@@ -48,28 +48,28 @@ var _ = Describe("Builder", func() {
 		getServiceBindingSecretError = nil
 
 		serviceBindingName := "my-service-binding"
-		serviceBinding = v1alpha1.CFServiceBinding{
+		serviceBinding = korifiv1alpha1.CFServiceBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "service-binding-ns",
 				Name:      "my-service-binding-guid",
 			},
-			Spec: v1alpha1.CFServiceBindingSpec{
+			Spec: korifiv1alpha1.CFServiceBindingSpec{
 				DisplayName: &serviceBindingName,
 				Service: corev1.ObjectReference{
 					Name: "bound-service",
 				},
 			},
-			Status: v1alpha1.CFServiceBindingStatus{
+			Status: korifiv1alpha1.CFServiceBindingStatus{
 				Binding: corev1.LocalObjectReference{
 					Name: "service-binding-secret",
 				},
 			},
 		}
-		serviceInstance = v1alpha1.CFServiceInstance{
+		serviceInstance = korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "my-service-instance-guid",
 			},
-			Spec: v1alpha1.CFServiceInstanceSpec{
+			Spec: korifiv1alpha1.CFServiceInstanceSpec{
 				DisplayName: "my-service-instance",
 				Tags:        []string{"t1", "t2"},
 			},
@@ -84,22 +84,22 @@ var _ = Describe("Builder", func() {
 				"app-secret": []byte("top-secret"),
 			},
 		}
-		cfApp = &v1alpha1.CFApp{
+		cfApp = &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "app-ns",
 				Name:      "app-guid",
 			},
-			Spec: v1alpha1.CFAppSpec{
+			Spec: korifiv1alpha1.CFAppSpec{
 				EnvSecretName: "app-env-secret",
 			},
 		}
 
 		cfClient.ListStub = func(_ context.Context, objList client.ObjectList, _ ...client.ListOption) error {
 			switch objList := objList.(type) {
-			case *v1alpha1.CFServiceBindingList:
-				resultBinding := v1alpha1.CFServiceBinding{}
+			case *korifiv1alpha1.CFServiceBindingList:
+				resultBinding := korifiv1alpha1.CFServiceBinding{}
 				serviceBinding.DeepCopyInto(&resultBinding)
-				objList.Items = []v1alpha1.CFServiceBinding{resultBinding}
+				objList.Items = []korifiv1alpha1.CFServiceBinding{resultBinding}
 				return listServiceBindingsError
 			default:
 				panic("CfClient List provided a weird obj")
@@ -108,7 +108,7 @@ var _ = Describe("Builder", func() {
 
 		cfClient.GetStub = func(_ context.Context, nsName types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
-			case *v1alpha1.CFServiceInstance:
+			case *korifiv1alpha1.CFServiceInstance:
 				serviceInstance.DeepCopyInto(obj)
 				return getServiceInstanceError
 			case *corev1.Secret:

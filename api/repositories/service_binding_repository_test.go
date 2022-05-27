@@ -6,7 +6,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,8 +21,8 @@ var _ = Describe("ServiceBindingRepo", func() {
 	var (
 		repo                *repositories.ServiceBindingRepo
 		testCtx             context.Context
-		org                 *v1alpha1.CFOrg
-		space               *v1alpha1.CFSpace
+		org                 *korifiv1alpha1.CFOrg
+		space               *korifiv1alpha1.CFSpace
 		appGUID             string
 		serviceInstanceGUID string
 	)
@@ -79,18 +79,18 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Expect(record.LastOperation.CreatedAt).To(Equal(record.CreatedAt))
 				Expect(record.LastOperation.UpdatedAt).To(Equal(record.UpdatedAt))
 
-				serviceBinding := new(v1alpha1.CFServiceBinding)
+				serviceBinding := new(korifiv1alpha1.CFServiceBinding)
 				Expect(
 					k8sClient.Get(testCtx, types.NamespacedName{Name: record.GUID, Namespace: space.Name}, serviceBinding),
 				).To(Succeed())
 
 				Expect(serviceBinding.Labels).To(HaveKeyWithValue("servicebinding.io/provisioned-service", "true"))
 				Expect(serviceBinding.Spec).To(Equal(
-					v1alpha1.CFServiceBindingSpec{
+					korifiv1alpha1.CFServiceBindingSpec{
 						DisplayName: nil,
 						Service: corev1.ObjectReference{
 							Kind:       "CFServiceInstance",
-							APIVersion: v1alpha1.GroupVersion.Identifier(),
+							APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 							Name:       serviceInstanceGUID,
 						},
 						AppRef: corev1.LocalObjectReference{
@@ -127,17 +127,17 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 		BeforeEach(func() {
 			serviceBindingGUID = prefixedGUID("binding")
-			app := &v1alpha1.CFApp{
+			app := &korifiv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      appGUID,
 					Namespace: space.Name,
 				},
-				Spec: v1alpha1.CFAppSpec{
+				Spec: korifiv1alpha1.CFAppSpec{
 					DisplayName:  "some-app",
-					DesiredState: v1alpha1.DesiredState(repositories.StoppedState),
-					Lifecycle: v1alpha1.Lifecycle{
+					DesiredState: korifiv1alpha1.DesiredState(repositories.StoppedState),
+					Lifecycle: korifiv1alpha1.Lifecycle{
 						Type: "buildpack",
-						Data: v1alpha1.LifecycleData{
+						Data: korifiv1alpha1.LifecycleData{
 							Buildpacks: []string{},
 							Stack:      "",
 						},
@@ -148,12 +148,12 @@ var _ = Describe("ServiceBindingRepo", func() {
 				k8sClient.Create(testCtx, app),
 			).To(Succeed())
 
-			serviceInstance := &v1alpha1.CFServiceInstance{
+			serviceInstance := &korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      appGUID,
 					Namespace: space.Name,
 				},
-				Spec: v1alpha1.CFServiceInstanceSpec{
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "some-instance",
 					SecretName:  "",
 					Type:        "user-provided",
@@ -163,15 +163,15 @@ var _ = Describe("ServiceBindingRepo", func() {
 				k8sClient.Create(testCtx, serviceInstance),
 			).To(Succeed())
 
-			serviceBinding := &v1alpha1.CFServiceBinding{
+			serviceBinding := &korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceBindingGUID,
 					Namespace: space.Name,
 				},
-				Spec: v1alpha1.CFServiceBindingSpec{
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
 						Kind:       "CFServiceInstance",
-						APIVersion: v1alpha1.GroupVersion.Identifier(),
+						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 						Name:       serviceInstanceGUID,
 					},
 					AppRef: corev1.LocalObjectReference{
@@ -230,17 +230,17 @@ var _ = Describe("ServiceBindingRepo", func() {
 		)
 
 		BeforeEach(func() {
-			app := &v1alpha1.CFApp{
+			app := &korifiv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      appGUID,
 					Namespace: space.Name,
 				},
-				Spec: v1alpha1.CFAppSpec{
+				Spec: korifiv1alpha1.CFAppSpec{
 					DisplayName:  "some-app",
-					DesiredState: v1alpha1.DesiredState(repositories.StoppedState),
-					Lifecycle: v1alpha1.Lifecycle{
+					DesiredState: korifiv1alpha1.DesiredState(repositories.StoppedState),
+					Lifecycle: korifiv1alpha1.Lifecycle{
 						Type: "buildpack",
-						Data: v1alpha1.LifecycleData{
+						Data: korifiv1alpha1.LifecycleData{
 							Buildpacks: []string{},
 							Stack:      "",
 						},
@@ -251,12 +251,12 @@ var _ = Describe("ServiceBindingRepo", func() {
 				k8sClient.Create(testCtx, app),
 			).To(Succeed())
 
-			serviceInstance := &v1alpha1.CFServiceInstance{
+			serviceInstance := &korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      appGUID,
 					Namespace: space.Name,
 				},
-				Spec: v1alpha1.CFServiceInstanceSpec{
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "some-instance",
 					SecretName:  "",
 					Type:        "user-provided",
@@ -278,15 +278,15 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			When("a ServiceBinding exists for the App and the ServiceInstance in the Space", func() {
 				BeforeEach(func() {
-					serviceBinding := &v1alpha1.CFServiceBinding{
+					serviceBinding := &korifiv1alpha1.CFServiceBinding{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      appGUID,
 							Namespace: space.Name,
 						},
-						Spec: v1alpha1.CFServiceBindingSpec{
+						Spec: korifiv1alpha1.CFServiceBindingSpec{
 							Service: corev1.ObjectReference{
 								Kind:       "CFServiceInstance",
-								APIVersion: v1alpha1.GroupVersion.Identifier(),
+								APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 								Name:       serviceInstanceGUID,
 							},
 							AppRef: corev1.LocalObjectReference{
@@ -307,15 +307,15 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			When("no ServiceBinding exists for the App and the ServiceInstance in the Space", func() {
 				BeforeEach(func() {
-					serviceBinding := &v1alpha1.CFServiceBinding{
+					serviceBinding := &korifiv1alpha1.CFServiceBinding{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      appGUID,
 							Namespace: space.Name,
 						},
-						Spec: v1alpha1.CFServiceBindingSpec{
+						Spec: korifiv1alpha1.CFServiceBindingSpec{
 							Service: corev1.ObjectReference{
 								Kind:       "CFServiceInstance",
-								APIVersion: v1alpha1.GroupVersion.Identifier(),
+								APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 								Name:       serviceInstanceGUID,
 							},
 							AppRef: corev1.LocalObjectReference{
@@ -344,9 +344,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 	Describe("ListServiceBindings", func() {
 		var (
-			serviceBinding1, serviceBinding2, serviceBinding3                *v1alpha1.CFServiceBinding
-			space2                                                           *v1alpha1.CFSpace
-			cfApp1, cfApp2, cfApp3                                           *v1alpha1.CFApp
+			serviceBinding1, serviceBinding2, serviceBinding3                *korifiv1alpha1.CFServiceBinding
+			space2                                                           *korifiv1alpha1.CFSpace
+			cfApp1, cfApp2, cfApp3                                           *korifiv1alpha1.CFApp
 			serviceInstance1GUID, serviceInstance2GUID, serviceInstance3GUID string
 
 			requestMessage          repositories.ListServiceBindingsMessage

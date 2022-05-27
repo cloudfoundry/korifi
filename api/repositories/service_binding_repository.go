@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -75,19 +75,19 @@ type ListServiceBindingsMessage struct {
 	ServiceInstanceGUIDs []string
 }
 
-func (m CreateServiceBindingMessage) toCFServiceBinding() v1alpha1.CFServiceBinding {
+func (m CreateServiceBindingMessage) toCFServiceBinding() korifiv1alpha1.CFServiceBinding {
 	guid := uuid.NewString()
-	return v1alpha1.CFServiceBinding{
+	return korifiv1alpha1.CFServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: m.SpaceGUID,
 			Labels:    map[string]string{LabelServiceBindingProvisionedService: "true"},
 		},
-		Spec: v1alpha1.CFServiceBindingSpec{
+		Spec: korifiv1alpha1.CFServiceBindingSpec{
 			DisplayName: m.Name,
 			Service: corev1.ObjectReference{
 				Kind:       "CFServiceInstance",
-				APIVersion: v1alpha1.GroupVersion.Identifier(),
+				APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				Name:       m.ServiceInstanceGUID,
 			},
 			AppRef: corev1.LocalObjectReference{Name: m.AppGUID},
@@ -121,7 +121,7 @@ func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo 
 		return err
 	}
 
-	binding := &v1alpha1.CFServiceBinding{}
+	binding := &korifiv1alpha1.CFServiceBinding{}
 
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: guid}, binding)
 	if err != nil {
@@ -141,7 +141,7 @@ func (r *ServiceBindingRepo) ServiceBindingExists(ctx context.Context, authInfo 
 		return false, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	serviceBindingList := new(v1alpha1.CFServiceBindingList)
+	serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
 	err = userClient.List(ctx, serviceBindingList, client.InNamespace(spaceGUID))
 	if err != nil {
 		return false, apierrors.FromK8sError(err, ServiceBindingResourceType)
@@ -157,7 +157,7 @@ func (r *ServiceBindingRepo) ServiceBindingExists(ctx context.Context, authInfo 
 	return false, nil
 }
 
-func cfServiceBindingToRecord(binding v1alpha1.CFServiceBinding) ServiceBindingRecord {
+func cfServiceBindingToRecord(binding korifiv1alpha1.CFServiceBinding) ServiceBindingRecord {
 	createdAt := binding.CreationTimestamp.UTC().Format(TimestampFormat)
 	updatedAt, _ := getTimeLastUpdatedTimestamp(&binding.ObjectMeta)
 	return ServiceBindingRecord{
@@ -190,9 +190,9 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 		return []ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	var filteredServiceBindings []v1alpha1.CFServiceBinding
+	var filteredServiceBindings []korifiv1alpha1.CFServiceBinding
 	for ns := range nsList {
-		serviceInstanceList := new(v1alpha1.CFServiceBindingList)
+		serviceInstanceList := new(korifiv1alpha1.CFServiceBindingList)
 		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns))
 		if k8serrors.IsForbidden(err) {
 			continue
@@ -209,8 +209,8 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 	return toServiceBindingRecords(filteredServiceBindings), nil
 }
 
-func applyServiceBindingListFilter(serviceBindingList []v1alpha1.CFServiceBinding, message ListServiceBindingsMessage) []v1alpha1.CFServiceBinding {
-	var filtered []v1alpha1.CFServiceBinding
+func applyServiceBindingListFilter(serviceBindingList []korifiv1alpha1.CFServiceBinding, message ListServiceBindingsMessage) []korifiv1alpha1.CFServiceBinding {
+	var filtered []korifiv1alpha1.CFServiceBinding
 	for _, serviceBinding := range serviceBindingList {
 		if matchesFilter(serviceBinding.Spec.Service.Name, message.ServiceInstanceGUIDs) &&
 			matchesFilter(serviceBinding.Spec.AppRef.Name, message.AppGUIDs) {
@@ -221,7 +221,7 @@ func applyServiceBindingListFilter(serviceBindingList []v1alpha1.CFServiceBindin
 	return filtered
 }
 
-func toServiceBindingRecords(serviceInstanceList []v1alpha1.CFServiceBinding) []ServiceBindingRecord {
+func toServiceBindingRecords(serviceInstanceList []korifiv1alpha1.CFServiceBinding) []ServiceBindingRecord {
 	serviceInstanceRecords := make([]ServiceBindingRecord, 0, len(serviceInstanceList))
 
 	for _, serviceInstance := range serviceInstanceList {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -24,7 +24,7 @@ import (
 var _ = Describe("CFServiceBinding", func() {
 	var namespace *corev1.Namespace
 	var cfAppGUID string
-	var desiredCFApp *v1alpha1.CFApp
+	var desiredCFApp *korifiv1alpha1.CFApp
 
 	BeforeEach(func() {
 		namespace = BuildNamespaceObject(GenerateGUID())
@@ -47,8 +47,8 @@ var _ = Describe("CFServiceBinding", func() {
 		var (
 			secretData           map[string]string
 			secret               *corev1.Secret
-			cfServiceInstance    *v1alpha1.CFServiceInstance
-			cfServiceBinding     *v1alpha1.CFServiceBinding
+			cfServiceInstance    *korifiv1alpha1.CFServiceInstance
+			cfServiceBinding     *korifiv1alpha1.CFServiceBinding
 			cfServiceBindingGUID string
 			secretName           string
 			secretType           string
@@ -75,12 +75,12 @@ var _ = Describe("CFServiceBinding", func() {
 				k8sClient.Create(ctx, secret),
 			).To(Succeed())
 
-			cfServiceInstance = &v1alpha1.CFServiceInstance{
+			cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service-instance-guid",
 					Namespace: namespace.Name,
 				},
-				Spec: v1alpha1.CFServiceInstanceSpec{
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-name",
 					SecretName:  secret.Name,
 					Type:        "user-provided",
@@ -92,12 +92,12 @@ var _ = Describe("CFServiceBinding", func() {
 			).To(Succeed())
 
 			cfServiceBindingGUID = GenerateGUID()
-			cfServiceBinding = &v1alpha1.CFServiceBinding{
+			cfServiceBinding = &korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfServiceBindingGUID,
 					Namespace: namespace.Name,
 				},
-				Spec: v1alpha1.CFServiceBindingSpec{
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
 						Kind:       "ServiceInstance",
 						Name:       cfServiceInstance.Name,
@@ -118,8 +118,8 @@ var _ = Describe("CFServiceBinding", func() {
 
 		When("and the secret exists", func() {
 			It("eventually resolves the secretName and updates the CFServiceBinding status", func() {
-				Eventually(func() v1alpha1.CFServiceBindingStatus {
-					updatedCFServiceBinding := new(v1alpha1.CFServiceBinding)
+				Eventually(func() korifiv1alpha1.CFServiceBindingStatus {
+					updatedCFServiceBinding := new(korifiv1alpha1.CFServiceBinding)
 					Expect(
 						k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding),
 					).To(Succeed())
@@ -149,7 +149,7 @@ var _ = Describe("CFServiceBinding", func() {
 						"Namespace": Equal(namespace.Name),
 						"Labels": MatchKeys(IgnoreExtras, Keys{
 							services.ServiceBindingGUIDLabel:           Equal(cfServiceBindingGUID),
-							v1alpha1.CFAppGUIDLabelKey:                 Equal(cfAppGUID),
+							korifiv1alpha1.CFAppGUIDLabelKey:           Equal(cfAppGUID),
 							services.ServiceCredentialBindingTypeLabel: Equal("app"),
 						}),
 						"OwnerReferences": ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -167,7 +167,7 @@ var _ = Describe("CFServiceBinding", func() {
 							"Kind":       Equal("StatefulSet"),
 							"Selector": PointTo(MatchFields(IgnoreExtras, Fields{
 								"MatchLabels": MatchKeys(IgnoreExtras, Keys{
-									v1alpha1.CFAppGUIDLabelKey: Equal(cfAppGUID),
+									korifiv1alpha1.CFAppGUIDLabelKey: Equal(cfAppGUID),
 								}),
 							})),
 						}),
@@ -183,14 +183,14 @@ var _ = Describe("CFServiceBinding", func() {
 
 		It("eventually reconciles to set the owner reference on the CFServiceBinding", func() {
 			Eventually(func() []metav1.OwnerReference {
-				var createdCFServiceBinding v1alpha1.CFServiceBinding
+				var createdCFServiceBinding korifiv1alpha1.CFServiceBinding
 				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceBindingGUID, Namespace: namespace.Name}, &createdCFServiceBinding)
 				if err != nil {
 					return nil
 				}
 				return createdCFServiceBinding.GetOwnerReferences()
 			}).Should(ConsistOf(metav1.OwnerReference{
-				APIVersion: v1alpha1.GroupVersion.Identifier(),
+				APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				Kind:       "CFApp",
 				Name:       desiredCFApp.Name,
 				UID:        desiredCFApp.UID,
@@ -208,12 +208,12 @@ var _ = Describe("CFServiceBinding", func() {
 						Namespace: namespace.Name,
 					},
 				}
-				instance := &v1alpha1.CFServiceInstance{
+				instance := &korifiv1alpha1.CFServiceInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "other-service-instance-guid",
 						Namespace: namespace.Name,
 					},
-					Spec: v1alpha1.CFServiceInstanceSpec{
+					Spec: korifiv1alpha1.CFServiceInstanceSpec{
 						DisplayName: "other-service-instance-name",
 						SecretName:  otherSecret.Name,
 						Type:        "user-provided",
@@ -228,8 +228,8 @@ var _ = Describe("CFServiceBinding", func() {
 			})
 
 			It("updates the CFServiceBinding status", func() {
-				Eventually(func() v1alpha1.CFServiceBindingStatus {
-					updatedCFServiceBinding := new(v1alpha1.CFServiceBinding)
+				Eventually(func() korifiv1alpha1.CFServiceBindingStatus {
+					updatedCFServiceBinding := new(korifiv1alpha1.CFServiceBinding)
 					Expect(
 						k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding),
 					).To(Succeed())
@@ -255,8 +255,8 @@ var _ = Describe("CFServiceBinding", func() {
 				})
 
 				It("eventually resolves the secretName and updates the CFServiceBinding status", func() {
-					Eventually(func() v1alpha1.CFServiceBindingStatus {
-						updatedCFServiceBinding := new(v1alpha1.CFServiceBinding)
+					Eventually(func() korifiv1alpha1.CFServiceBindingStatus {
+						updatedCFServiceBinding := new(korifiv1alpha1.CFServiceBinding)
 						Expect(
 							k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding),
 						).To(Succeed())

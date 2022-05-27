@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,27 +46,27 @@ var _ = Describe("Process", func() {
 	})
 
 	Describe("get", func() {
-		var process *v1alpha1.CFProcess
+		var process *korifiv1alpha1.CFProcess
 
 		BeforeEach(func() {
 			processGUID := generateGUID()
-			process = &v1alpha1.CFProcess{
+			process = &korifiv1alpha1.CFProcess{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      processGUID,
 					Namespace: namespace.Name,
 					Labels: map[string]string{
-						"v1alpha1.cloudfoundry.org/app-guid": appGUID,
+						"korifiv1alpha1.cloudfoundry.org/app-guid": appGUID,
 					},
 				},
-				Spec: v1alpha1.CFProcessSpec{
+				Spec: korifiv1alpha1.CFProcessSpec{
 					AppRef: corev1.LocalObjectReference{
 						Name: appGUID,
 					},
 					ProcessType: "web",
 					Command:     "",
-					HealthCheck: v1alpha1.HealthCheck{
+					HealthCheck: korifiv1alpha1.HealthCheck{
 						Type: "process",
-						Data: v1alpha1.HealthCheckData{
+						Data: korifiv1alpha1.HealthCheckData{
 							InvocationTimeoutSeconds: 0,
 							TimeoutSeconds:           0,
 						},

@@ -8,7 +8,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,8 +24,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		testCtx             context.Context
 		serviceInstanceRepo *repositories.ServiceInstanceRepo
 
-		org                 *v1alpha1.CFOrg
-		space               *v1alpha1.CFSpace
+		org                 *korifiv1alpha1.CFOrg
+		space               *korifiv1alpha1.CFSpace
 		serviceInstanceName string
 	)
 
@@ -160,8 +160,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	Describe("ListServiceInstances", func() {
 		var (
-			space2, space3                                             *v1alpha1.CFSpace
-			cfServiceInstance1, cfServiceInstance2, cfServiceInstance3 *v1alpha1.CFServiceInstance
+			space2, space3                                             *korifiv1alpha1.CFSpace
+			cfServiceInstance1, cfServiceInstance2, cfServiceInstance3 *korifiv1alpha1.CFServiceInstance
 			nonCFNamespace                                             string
 			filters                                                    repositories.ListServiceInstanceMessage
 
@@ -402,8 +402,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	Describe("GetServiceInstance", func() {
 		var (
-			space2          *v1alpha1.CFSpace
-			serviceInstance *v1alpha1.CFServiceInstance
+			space2          *korifiv1alpha1.CFSpace
+			serviceInstance *korifiv1alpha1.CFServiceInstance
 			record          repositories.ServiceInstanceRecord
 			getErr          error
 			getGUID         string
@@ -483,7 +483,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	Describe("DeleteServiceInstance", func() {
 		var (
-			serviceInstance *v1alpha1.CFServiceInstance
+			serviceInstance *korifiv1alpha1.CFServiceInstance
 			deleteMessage   repositories.DeleteServiceInstanceMessage
 			deleteErr       error
 		)
@@ -514,7 +514,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Namespace: space.Name,
 				}
 
-				err := k8sClient.Get(context.Background(), namespacedName, &v1alpha1.CFServiceInstance{})
+				err := k8sClient.Get(context.Background(), namespacedName, &korifiv1alpha1.CFServiceInstance{})
 				Expect(k8serrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("error: %+v", err))
 			})
 

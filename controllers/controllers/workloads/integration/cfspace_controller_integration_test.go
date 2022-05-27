@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
@@ -26,19 +26,19 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 		ctx          context.Context
 		orgNamespace *corev1.Namespace
 		spaceGUID    string
-		cfSpace      *v1alpha1.CFSpace
+		cfSpace      *korifiv1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		orgNamespace = createNamespaceWithCleanup(ctx, k8sClient, PrefixedGUID("cf-org"))
 		spaceGUID = PrefixedGUID("cf-space")
-		cfSpace = &v1alpha1.CFSpace{
+		cfSpace = &korifiv1alpha1.CFSpace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      spaceGUID,
 				Namespace: orgNamespace.Name,
 			},
-			Spec: v1alpha1.CFSpaceSpec{
+			Spec: korifiv1alpha1.CFSpaceSpec{
 				DisplayName: spaceName,
 			},
 		}
@@ -74,7 +74,7 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 
 		It("sets the status condition \"Ready\" to \"Unknown\"", func() {
 			Eventually(func(g Gomega) {
-				var createdCFSpace v1alpha1.CFSpace
+				var createdCFSpace korifiv1alpha1.CFSpace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdCFSpace)).To(Succeed())
 				g.Expect(meta.IsStatusConditionPresentAndEqual(createdCFSpace.Status.Conditions, "Ready", metav1.ConditionUnknown)).To(BeTrue())
 			}, 5*time.Second).Should(Succeed())
@@ -119,7 +119,7 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 
 				It("doesn't fail", func() {
 					Eventually(func(g Gomega) {
-						var createdCFSpace v1alpha1.CFSpace
+						var createdCFSpace korifiv1alpha1.CFSpace
 						g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdCFSpace)).To(Succeed())
 						g.Expect(meta.IsStatusConditionTrue(createdCFSpace.Status.Conditions, "Ready")).To(BeTrue())
 					}, 5*time.Second).Should(Succeed())
@@ -145,7 +145,7 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 
 				It("doesn't fail", func() {
 					Eventually(func(g Gomega) {
-						var createdCFSpace v1alpha1.CFSpace
+						var createdCFSpace korifiv1alpha1.CFSpace
 						g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdCFSpace)).To(Succeed())
 						g.Expect(meta.IsStatusConditionTrue(createdCFSpace.Status.Conditions, "Ready")).To(BeTrue())
 					}, 5*time.Second).Should(Succeed())
@@ -154,7 +154,7 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 
 			It("sets the CFSpace 'Ready' condition to 'True'", func() {
 				Eventually(func(g Gomega) {
-					var createdCFSpace v1alpha1.CFSpace
+					var createdCFSpace korifiv1alpha1.CFSpace
 					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdCFSpace)).To(Succeed())
 					g.Expect(meta.IsStatusConditionTrue(createdCFSpace.Status.Conditions, "Ready")).To(BeTrue())
 				}, 5*time.Second).Should(Succeed())
@@ -162,7 +162,7 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 
 			It("sets the CFSpace status GUID", func() {
 				Eventually(func(g Gomega) {
-					var createdCFSpace v1alpha1.CFSpace
+					var createdCFSpace korifiv1alpha1.CFSpace
 					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdCFSpace)).To(Succeed())
 					g.Expect(createdCFSpace.Status.GUID).To(Equal(spaceGUID))
 				}, 5*time.Second).Should(Succeed())
@@ -172,14 +172,14 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 		When("the subnamespace anchor never becomes ready", func() {
 			It("leaves the CFSpace 'Ready' condition as 'Unknown'", func() {
 				Eventually(func(g Gomega) {
-					var createdCFSpace v1alpha1.CFSpace
+					var createdCFSpace korifiv1alpha1.CFSpace
 					err := k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdCFSpace)
 					g.Expect(err).To(BeNil())
 					g.Expect(meta.IsStatusConditionPresentAndEqual(createdCFSpace.Status.Conditions, "Ready", metav1.ConditionUnknown)).To(BeTrue())
 				}).Should(Succeed())
 
 				Consistently(func(g Gomega) {
-					var createdCFSpace v1alpha1.CFSpace
+					var createdCFSpace korifiv1alpha1.CFSpace
 					err := k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdCFSpace)
 					g.Expect(err).To(BeNil())
 					g.Expect(meta.IsStatusConditionPresentAndEqual(createdCFSpace.Status.Conditions, "Ready", metav1.ConditionUnknown)).To(BeTrue())

@@ -7,7 +7,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/fake"
@@ -33,7 +33,7 @@ var _ = Describe("CFOrgReconciler", func() {
 
 		cfOrgGUID string
 
-		cfOrg              *v1alpha1.CFOrg
+		cfOrg              *korifiv1alpha1.CFOrg
 		subNamespaceAnchor *v1alpha2.SubnamespaceAnchor
 		namespace          *v1.Namespace
 
@@ -69,7 +69,7 @@ var _ = Describe("CFOrgReconciler", func() {
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
-			case *v1alpha1.CFOrg:
+			case *korifiv1alpha1.CFOrg:
 				cfOrg.DeepCopyInto(obj)
 				return cfOrgError
 			case *v1alpha2.SubnamespaceAnchor:
@@ -98,7 +98,7 @@ var _ = Describe("CFOrgReconciler", func() {
 		fakeClient.StatusReturns(fakeStatusWriter)
 
 		// configure a CFOrgReconciler with the client
-		Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfOrgReconciler = NewCFOrgReconciler(
 			fakeClient,
 			scheme.Scheme,
@@ -144,8 +144,8 @@ var _ = Describe("CFOrgReconciler", func() {
 		It("validates the condition on the CFOrg is set to Unknown", func() {
 			Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 			_, updatedCFOrg, _ := fakeStatusWriter.UpdateArgsForCall(0)
-			castCFOrg, ok := updatedCFOrg.(*v1alpha1.CFOrg)
-			Expect(ok).To(BeTrue(), "Cast to v1alpha1.CFOrg failed")
+			castCFOrg, ok := updatedCFOrg.(*korifiv1alpha1.CFOrg)
+			Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFOrg failed")
 			Expect(meta.IsStatusConditionPresentAndEqual(castCFOrg.Status.Conditions, StatusConditionReady, metav1.ConditionUnknown)).To(BeTrue(), "Status Condition "+StatusConditionReady+" was not True as expected")
 			Expect(castCFOrg.Status.GUID).To(Equal(""))
 		})
@@ -182,8 +182,8 @@ var _ = Describe("CFOrgReconciler", func() {
 			It("validates the condition on the CFOrg is set to Ready", func() {
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
 				_, updatedCFOrg, _ := fakeStatusWriter.UpdateArgsForCall(0)
-				castCFOrg, ok := updatedCFOrg.(*v1alpha1.CFOrg)
-				Expect(ok).To(BeTrue(), "Cast to v1alpha1.CFOrg failed")
+				castCFOrg, ok := updatedCFOrg.(*korifiv1alpha1.CFOrg)
+				Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFOrg failed")
 				Expect(meta.IsStatusConditionTrue(castCFOrg.Status.Conditions, StatusConditionReady)).To(BeTrue(), "Status Condition "+StatusConditionReady+" was not True as expected")
 				Expect(castCFOrg.Status.GUID).To(Equal(namespace.Name))
 			})
