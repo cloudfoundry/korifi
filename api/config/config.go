@@ -3,13 +3,15 @@ package config
 import (
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
-	"k8s.io/client-go/rest"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
+
+	"k8s.io/client-go/rest"
 )
 
 const (

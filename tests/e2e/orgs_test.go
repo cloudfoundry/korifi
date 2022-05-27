@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sync"
 
-	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
+	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

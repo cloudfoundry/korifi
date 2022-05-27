@@ -294,14 +294,14 @@ function deploy_kpack_image_builder() {
     IMG_KIB=${IMG_KIB:-"korifi-kpack-image-builder:$(uuidgen)"}
     export IMG_KIB
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-        make docker-build
+      make docker-build
     fi
     kind load docker-image --name "${cluster}" "${IMG_KIB}"
 
     if [[ -n "${use_local_registry}" ]]; then
-        make deploy-on-kind
+      make deploy-on-kind
     else
-        make deploy
+      make deploy
     fi
   }
   popd >/dev/null

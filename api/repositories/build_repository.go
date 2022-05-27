@@ -281,7 +281,6 @@ func (c *BuildLogsClient) GetImageLogs(ctx context.Context, writer io.Writer, im
 
 func (c *BuildLogsClient) getPodLogs(ctx context.Context, writer io.Writer, namespace string, listOptions metav1.ListOptions, follow bool) error {
 	readyContainers, err := c.getContainers(ctx, namespace, listOptions)
-
 	if err != nil {
 		return err
 	}

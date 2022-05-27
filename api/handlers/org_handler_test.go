@@ -275,7 +275,6 @@ var _ = Describe("OrgHandler", func() {
 		})
 
 		When("happy path", func() {
-
 			It("returns 200", func() {
 				Expect(rr.Result().StatusCode).To(Equal(http.StatusOK))
 			})

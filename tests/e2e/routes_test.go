@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
