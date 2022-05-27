@@ -109,7 +109,7 @@ function clean_up_img_refs() {
   cd "${ROOT_DIR}"
   unset IMG_CONTROLLERS
   unset IMG_API
-  make build-reference
+  make set-image-ref
 
   cd kpack-image-builder
   unset IMG_KIB
