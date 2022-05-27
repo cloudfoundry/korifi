@@ -13,7 +13,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/presenter"
-	"code.cloudfoundry.org/korifi/api/tests/e2e/helpers"
+	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 
 	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	"github.com/go-resty/resty/v2"

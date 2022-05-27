@@ -80,7 +80,7 @@ test-api: install-ginkgo fmt vet
 	cd api && ../scripts/run-tests.sh --skip-package=test
 
 test-e2e: install-ginkgo
-	cd api && ../scripts/run-tests.sh tests/e2e
+	./scripts/run-tests.sh tests/e2e
 
 test-kpack-image-builder: ## Run tests.
 	cd kpack-image-builder && make test
