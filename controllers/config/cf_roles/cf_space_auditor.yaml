@@ -11,10 +11,3 @@ rules:
   verbs:
   - get
   - list
-
-- apiGroups:
-  - kpack.io
-  resources:
-  - clusterbuilders
-  verbs:
-  - get

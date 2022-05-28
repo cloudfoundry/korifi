@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
-
 	"k8s.io/client-go/rest"
 )
 
@@ -29,7 +28,6 @@ type APIConfig struct {
 	RootNamespace                            string                 `yaml:"rootNamespace"`
 	PackageRegistryBase                      string                 `yaml:"packageRegistryBase"`
 	PackageRegistrySecretName                string                 `yaml:"packageRegistrySecretName"`
-	ClusterBuilderName                       string                 `yaml:"clusterBuilderName"`
 	DefaultDomainName                        string                 `yaml:"defaultDomainName"`
 	UserCertificateExpirationWarningDuration string                 `yaml:"userCertificateExpirationWarningDuration"`
 	DefaultLifecycleConfig                   DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`

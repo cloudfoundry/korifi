@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
@@ -22,26 +23,23 @@ const (
 
 //counterfeiter:generate -o fake -fake-name BuildpackRepository . BuildpackRepository
 type BuildpackRepository interface {
-	GetBuildpacksForBuilder(ctx context.Context, authInfo authorization.Info, builderName string) ([]repositories.BuildpackRecord, error)
+	ListBuildpacks(ctx context.Context, authInfo authorization.Info) ([]repositories.BuildpackRecord, error)
 }
 
 type BuildpackHandler struct {
-	handlerWrapper     *AuthAwareHandlerFuncWrapper
-	serverURL          url.URL
-	buildpackRepo      BuildpackRepository
-	clusterBuilderName string
+	handlerWrapper *AuthAwareHandlerFuncWrapper
+	serverURL      url.URL
+	buildpackRepo  BuildpackRepository
 }
 
 func NewBuildpackHandler(
 	serverURL url.URL,
 	buildpackRepo BuildpackRepository,
-	clusterBuilderName string,
 ) *BuildpackHandler {
 	return &BuildpackHandler{
-		handlerWrapper:     NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("BuildpackHandler")),
-		serverURL:          serverURL,
-		buildpackRepo:      buildpackRepo,
-		clusterBuilderName: clusterBuilderName,
+		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("BuildpackHandler")),
+		serverURL:      serverURL,
+		buildpackRepo:  buildpackRepo,
 	}
 }
 
@@ -74,7 +72,7 @@ func (h *BuildpackHandler) buildpackListHandler(ctx context.Context, logger logr
 		}
 	}
 
-	buildpacks, err := h.buildpackRepo.GetBuildpacksForBuilder(ctx, authInfo, h.clusterBuilderName)
+	buildpacks, err := h.buildpackRepo.ListBuildpacks(ctx, authInfo)
 	if err != nil {
 		logger.Error(err, "Failed to fetch buildpacks from Kubernetes")
 		return nil, err
