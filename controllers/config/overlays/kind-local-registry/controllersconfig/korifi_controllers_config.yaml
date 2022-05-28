@@ -1,4 +1,3 @@
-clusterBuilderName: cf-kpack-cluster-builder
 cfProcessDefaults:
   memoryMB: 1024
   diskQuotaMB: 1024

@@ -11,7 +11,6 @@ import (
 )
 
 type ControllerConfig struct {
-	ClusterBuilderName        string            `yaml:"clusterBuilderName"`
 	CFProcessDefaults         CFProcessDefaults `yaml:"cfProcessDefaults"`
 	CFRootNamespace           string            `yaml:"cfRootNamespace"`
 	KorifiControllerNamespace string            `yaml:"korifi_controller_namespace"`

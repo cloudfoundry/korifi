@@ -119,4 +119,14 @@ resources:
   kind: CFTask
   path: code.cloudfoundry.org/korifi/controllers/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloudfoundry.org
+  group: korifi.cloudfoundry.org
+  kind: BuildReconcilerInfo
+  path: code.cloudfoundry.org/korifi/controllers/apis/korifi.cloudfoundry.org/v1alpha1
+  plural: buildreconcilerinfos
+  version: v1alpha1
 version: "3"

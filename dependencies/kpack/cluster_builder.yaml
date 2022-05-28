@@ -22,6 +22,6 @@ spec:
   - group:
     - id: paketo-buildpacks/nodejs
   - group:
-      - id: paketo-buildpacks/ruby
+    - id: paketo-buildpacks/ruby
   - group:
-      - id: paketo-buildpacks/procfile
+    - id: paketo-buildpacks/procfile

@@ -61,12 +61,6 @@ var _ = BeforeSuite(func() {
 			filepath.Join("fixtures", "vendor", "eirini-controller", "deployment", "helm", "templates", "core"),
 		},
 		ErrorIfCRDPathMissing: true,
-		// TODO: Reconcile with CRDDirectoryPaths
-		CRDInstallOptions: envtest.CRDInstallOptions{
-			Paths: []string{
-				filepath.Join("..", "..", "..", "..", "dependencies", "kpack-release-0.5.2.yaml"),
-			},
-		},
 	}
 
 	cfg, err := testEnv.Start()
@@ -100,7 +94,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	controllerConfig := &config.ControllerConfig{
-		ClusterBuilderName: "cf-kpack-builder",
 		CFProcessDefaults: config.CFProcessDefaults{
 			MemoryMB:           500,
 			DefaultDiskQuotaMB: 512,

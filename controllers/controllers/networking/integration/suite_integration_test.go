@@ -86,7 +86,6 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFRoute"),
 		&config.ControllerConfig{
-			ClusterBuilderName: "cf-kpack-builder",
 			CFProcessDefaults: config.CFProcessDefaults{
 				MemoryMB:           500,
 				DefaultDiskQuotaMB: 512,
