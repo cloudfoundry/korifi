@@ -2,7 +2,6 @@ package networking_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -12,11 +11,9 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -27,14 +24,14 @@ var _ = Describe("CF Domain Validation", func() {
 	var (
 		ctx context.Context
 
-		realDecoder     *admission.Decoder
-		request         admission.Request
-		response        admission.Response
-		fakeClient      *fake.Client
-		existingDomains []korifiv1alpha1.CFDomain
-		listDomainsErr  error
+		fakeClient        *fake.Client
+		requestDomainCR   korifiv1alpha1.CFDomain
+		requestDomainName string
+		existingDomains   []korifiv1alpha1.CFDomain
+		listDomainsErr    error
+		retErr            error
 
-		validatingWebhook *networking.CFDomainValidation
+		validatingWebhook *networking.CFDomainValidator
 	)
 
 	BeforeEach(func() {
@@ -42,8 +39,6 @@ var _ = Describe("CF Domain Validation", func() {
 
 		scheme := runtime.NewScheme()
 		err := korifiv1alpha1.AddToScheme(scheme)
-		Expect(err).NotTo(HaveOccurred())
-		realDecoder, err = admission.NewDecoder(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
 		listDomainsErr = nil
@@ -62,90 +57,71 @@ var _ = Describe("CF Domain Validation", func() {
 			}
 		}
 
-		validatingWebhook = networking.NewCFDomainValidation(fakeClient)
-		Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
+		requestDomainName = "foo.example.com"
+
+		validatingWebhook = networking.NewCFDomainValidator(fakeClient)
 	})
 
-	Describe("Create", func() {
-		DescribeTable("returns validation",
-			func(requestDomainName string, existingDomainNames []string, allowed bool) {
-				existingDomains = make([]korifiv1alpha1.CFDomain, len(existingDomainNames))
-				for _, existingDomainName := range existingDomainNames {
-					existingDomains = append(existingDomains, createCFDomain(existingDomainName))
-				}
+	Describe("ValidateCreate", func() {
+		BeforeEach(func() {
+			requestDomainCR = createCFDomain(requestDomainName)
+		})
 
-				requestDomainCR := createCFDomain(requestDomainName)
-				cfDomainJSON, err := json.Marshal(requestDomainCR)
-				Expect(err).NotTo(HaveOccurred())
-				request = admission.Request{
-					AdmissionRequest: admissionv1.AdmissionRequest{
-						Name:      requestDomainCR.Name,
-						Namespace: requestDomainCR.Namespace,
-						Operation: admissionv1.Create,
-						Object: runtime.RawExtension{
-							Raw: cfDomainJSON,
-						},
-					},
-				}
+		JustBeforeEach(func() {
+			retErr = validatingWebhook.ValidateCreate(ctx, &requestDomainCR)
+		})
 
-				Expect(validatingWebhook.Handle(ctx, request).Allowed).To(Equal(allowed))
-			},
-			Entry("no domains exist", `foo.example.com`, []string{}, true),
-			Entry("an existing not-quite matching subdomain exists", `foo.example.com`, []string{"ample.com"}, true),
-			Entry("an existing matching domain exists", `foo.example.com`, []string{"bar.example.com"}, true),
-			Entry("an existing matching domain exists(2)", `foo.example.com`, []string{"foo.bar.example.com"}, true),
-			Entry("an existing matching subdomain exists", `foo.example.com`, []string{"example.com"}, false),
-			Entry("an existing matching subdomain exists(2)", `foo.example.com`, []string{"bar.foo.example.com"}, false),
-		)
+		It("does not return an error when no domains exist", func() {
+			Expect(retErr).NotTo(HaveOccurred())
+		})
 
-		When("there is an issue decoding the request", func() {
+		When("an existing not-quite matching subdomain exists", func() {
 			BeforeEach(func() {
-				cfDomain := createCFDomain("foo.example.com")
-				cfDomainJSON, err := json.Marshal(cfDomain)
-				Expect(err).NotTo(HaveOccurred())
-				badCFDomainJSON := []byte("}" + string(cfDomainJSON))
-
-				request = admission.Request{
-					AdmissionRequest: admissionv1.AdmissionRequest{
-						Name:      cfDomain.Name,
-						Namespace: cfDomain.Namespace,
-						Operation: admissionv1.Create,
-						Object: runtime.RawExtension{
-							Raw: badCFDomainJSON,
-						},
-					},
-				}
-
-				response = validatingWebhook.Handle(ctx, request)
+				existingDomains = []korifiv1alpha1.CFDomain{createCFDomain("ample.com")}
 			})
 
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
+			It("does not return an error", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
+
+		When("an existing matching top-level domain exists", func() {
+			BeforeEach(func() {
+				existingDomains = []korifiv1alpha1.CFDomain{createCFDomain("bar.example.com")}
+			})
+
+			It("does not return an error", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
+
+		When("the domain matches an existing top-level domain", func() {
+			BeforeEach(func() {
+				existingDomains = []korifiv1alpha1.CFDomain{createCFDomain("example.com")}
+			})
+
+			It("returns an error", func() {
+				Expect(retErr).To(MatchError(ContainSubstring("Overlapping domain exists")))
+			})
+		})
+
+		When("the domain matches an existing subdomain", func() {
+			BeforeEach(func() {
+				existingDomains = []korifiv1alpha1.CFDomain{createCFDomain("bar.foo.example.com")}
+			})
+
+			It("returns an error", func() {
+				Expect(retErr).To(MatchError(ContainSubstring("Overlapping domain exists")))
 			})
 		})
 
 		When("there is an issue listing shared CFDomains", func() {
 			BeforeEach(func() {
-				cfDomain := createCFDomain("foo.example.com")
-				cfDomainJSON, err := json.Marshal(cfDomain)
-				Expect(err).NotTo(HaveOccurred())
-
-				request = admission.Request{
-					AdmissionRequest: admissionv1.AdmissionRequest{
-						Name:      cfDomain.Name,
-						Namespace: cfDomain.Namespace,
-						Operation: admissionv1.Create,
-						Object: runtime.RawExtension{
-							Raw: cfDomainJSON,
-						},
-					},
-				}
 				listDomainsErr = errors.New("boom")
-				response = validatingWebhook.Handle(ctx, request)
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
+				Expect(retErr).To(MatchError(ContainSubstring("boom")))
 			})
 		})
 	})

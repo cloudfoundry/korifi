@@ -105,7 +105,7 @@ var _ = BeforeSuite(func() {
 	Expect(workloads.NewCFAppValidation(
 		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType)),
 	).SetupWebhookWithManager(mgr)).To(Succeed())
-	Expect(networking.NewCFDomainValidation(mgr.GetClient()).SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect(networking.NewCFDomainValidator(mgr.GetClient()).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	cfRootNamespace = "default"
 	Expect(networking.NewCFRouteValidation(

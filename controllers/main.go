@@ -283,7 +283,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = networking.NewCFDomainValidation(
+		if err = networking.NewCFDomainValidator(
 			mgr.GetClient(),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFDomain")
