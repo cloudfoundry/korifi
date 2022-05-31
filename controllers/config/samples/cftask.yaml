@@ -1,0 +1,10 @@
+apiVersion: korifi.cloudfoundry.org/v1alpha1
+kind: CFTask
+metadata:
+  name: 57c5b958-1822-4874-a428-e30251946a92
+spec:
+  command:
+    - echo
+    - hello
+  appRef:
+    name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a

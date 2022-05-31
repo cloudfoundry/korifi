@@ -9,3 +9,9 @@ directories:
           ref: master
         includePaths:
           - config/crd/bases/*
+      - path: eirini-controller
+        git:
+          url: https://github.com/cloudfoundry/eirini-controller
+          ref: master
+        includePaths:
+          - deployment/helm/templates/core/*-crd.yml

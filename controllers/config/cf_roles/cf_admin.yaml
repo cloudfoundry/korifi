@@ -135,6 +135,17 @@ rules:
   - watch
 
 - apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cftasks
+  verbs:
+  - get
+  - create
+  - delete
+  - list
+  - patch
+
+- apiGroups:
   - kpack.io
   resources:
   - clusterbuilders
