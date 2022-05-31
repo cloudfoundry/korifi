@@ -22,16 +22,75 @@ var _ = Describe("Service Bindings", func() {
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
-		instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"))
-		appGUID = createApp(spaceGUID, generateGUID("app"))
-		bindingGUID = createServiceBinding(appGUID, instanceGUID)
 	})
 
 	AfterEach(func() {
 		deleteSpace(spaceGUID)
 	})
 
+	Describe("Create", func() {
+		BeforeEach(func() {
+			appGUID = createApp(spaceGUID, generateGUID("app"))
+			instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"))
+		})
+
+		JustBeforeEach(func() {
+			httpResp, httpError = certClient.R().
+				SetBody(typedResource{
+					Type: "app",
+					resource: resource{
+						Relationships: relationships{"app": {Data: resource{GUID: appGUID}}, "service_instance": {Data: resource{GUID: instanceGUID}}},
+					},
+				}).
+				Post("/v3/service_credential_bindings")
+		})
+
+		It("returns a not found error when the user has no role in the space", func() {
+			Expect(httpError).NotTo(HaveOccurred())
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusForbidden))
+		})
+
+		When("the user has space manager role", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("returns a forbidden error", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusForbidden))
+			})
+		})
+
+		When("the user has space developer role", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			})
+
+			It("succeeds", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusCreated))
+			})
+
+			When("the user attempts to create a duplicate service binding", func() {
+				BeforeEach(func() {
+					_ = createServiceBinding(appGUID, instanceGUID)
+				})
+
+				It("returns an error", func() {
+					Expect(httpError).NotTo(HaveOccurred())
+					Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+				})
+			})
+		})
+	})
+
 	Describe("Delete", func() {
+		BeforeEach(func() {
+			appGUID = createApp(spaceGUID, generateGUID("app"))
+			instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"))
+			bindingGUID = createServiceBinding(appGUID, instanceGUID)
+		})
+
 		JustBeforeEach(func() {
 			httpResp, httpError = certClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID)
 		})
@@ -71,6 +130,10 @@ var _ = Describe("Service Bindings", func() {
 		)
 
 		BeforeEach(func() {
+			appGUID = createApp(spaceGUID, generateGUID("app"))
+			instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"))
+			bindingGUID = createServiceBinding(appGUID, instanceGUID)
+
 			queryString = ""
 			result = resourceListWithInclusion{}
 		})

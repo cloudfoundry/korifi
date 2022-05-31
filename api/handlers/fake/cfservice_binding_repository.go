@@ -54,23 +54,6 @@ type CFServiceBindingRepository struct {
 		result1 []repositories.ServiceBindingRecord
 		result2 error
 	}
-	ServiceBindingExistsStub        func(context.Context, authorization.Info, string, string, string) (bool, error)
-	serviceBindingExistsMutex       sync.RWMutex
-	serviceBindingExistsArgsForCall []struct {
-		arg1 context.Context
-		arg2 authorization.Info
-		arg3 string
-		arg4 string
-		arg5 string
-	}
-	serviceBindingExistsReturns struct {
-		result1 bool
-		result2 error
-	}
-	serviceBindingExistsReturnsOnCall map[int]struct {
-		result1 bool
-		result2 error
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -270,74 +253,6 @@ func (fake *CFServiceBindingRepository) ListServiceBindingsReturnsOnCall(i int, 
 	}{result1, result2}
 }
 
-func (fake *CFServiceBindingRepository) ServiceBindingExists(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 string, arg5 string) (bool, error) {
-	fake.serviceBindingExistsMutex.Lock()
-	ret, specificReturn := fake.serviceBindingExistsReturnsOnCall[len(fake.serviceBindingExistsArgsForCall)]
-	fake.serviceBindingExistsArgsForCall = append(fake.serviceBindingExistsArgsForCall, struct {
-		arg1 context.Context
-		arg2 authorization.Info
-		arg3 string
-		arg4 string
-		arg5 string
-	}{arg1, arg2, arg3, arg4, arg5})
-	stub := fake.ServiceBindingExistsStub
-	fakeReturns := fake.serviceBindingExistsReturns
-	fake.recordInvocation("ServiceBindingExists", []interface{}{arg1, arg2, arg3, arg4, arg5})
-	fake.serviceBindingExistsMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *CFServiceBindingRepository) ServiceBindingExistsCallCount() int {
-	fake.serviceBindingExistsMutex.RLock()
-	defer fake.serviceBindingExistsMutex.RUnlock()
-	return len(fake.serviceBindingExistsArgsForCall)
-}
-
-func (fake *CFServiceBindingRepository) ServiceBindingExistsCalls(stub func(context.Context, authorization.Info, string, string, string) (bool, error)) {
-	fake.serviceBindingExistsMutex.Lock()
-	defer fake.serviceBindingExistsMutex.Unlock()
-	fake.ServiceBindingExistsStub = stub
-}
-
-func (fake *CFServiceBindingRepository) ServiceBindingExistsArgsForCall(i int) (context.Context, authorization.Info, string, string, string) {
-	fake.serviceBindingExistsMutex.RLock()
-	defer fake.serviceBindingExistsMutex.RUnlock()
-	argsForCall := fake.serviceBindingExistsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
-}
-
-func (fake *CFServiceBindingRepository) ServiceBindingExistsReturns(result1 bool, result2 error) {
-	fake.serviceBindingExistsMutex.Lock()
-	defer fake.serviceBindingExistsMutex.Unlock()
-	fake.ServiceBindingExistsStub = nil
-	fake.serviceBindingExistsReturns = struct {
-		result1 bool
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFServiceBindingRepository) ServiceBindingExistsReturnsOnCall(i int, result1 bool, result2 error) {
-	fake.serviceBindingExistsMutex.Lock()
-	defer fake.serviceBindingExistsMutex.Unlock()
-	fake.ServiceBindingExistsStub = nil
-	if fake.serviceBindingExistsReturnsOnCall == nil {
-		fake.serviceBindingExistsReturnsOnCall = make(map[int]struct {
-			result1 bool
-			result2 error
-		})
-	}
-	fake.serviceBindingExistsReturnsOnCall[i] = struct {
-		result1 bool
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *CFServiceBindingRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -347,8 +262,6 @@ func (fake *CFServiceBindingRepository) Invocations() map[string][][]interface{}
 	defer fake.deleteServiceBindingMutex.RUnlock()
 	fake.listServiceBindingsMutex.RLock()
 	defer fake.listServiceBindingsMutex.RUnlock()
-	fake.serviceBindingExistsMutex.RLock()
-	defer fake.serviceBindingExistsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

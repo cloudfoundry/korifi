@@ -7,6 +7,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -104,6 +106,13 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 	cfServiceBinding := message.toCFServiceBinding()
 	err = userClient.Create(ctx, &cfServiceBinding)
 	if err != nil {
+		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
+			if validationError.Type == services.ServiceBindingErrorType {
+				return ServiceBindingRecord{}, apierrors.NewUniquenessError(err, validationError.Error())
+			}
+			return ServiceBindingRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())
+		}
+
 		return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 
@@ -133,28 +142,6 @@ func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo 
 		return apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 	return nil
-}
-
-func (r *ServiceBindingRepo) ServiceBindingExists(ctx context.Context, authInfo authorization.Info, spaceGUID, appGUID, serviceInstanceGUID string) (bool, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return false, fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
-	err = userClient.List(ctx, serviceBindingList, client.InNamespace(spaceGUID))
-	if err != nil {
-		return false, apierrors.FromK8sError(err, ServiceBindingResourceType)
-	}
-
-	for _, serviceBinding := range serviceBindingList.Items {
-		if serviceBinding.Spec.AppRef.Name == appGUID &&
-			serviceBinding.Spec.Service.Name == serviceInstanceGUID {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
 func cfServiceBindingToRecord(binding korifiv1alpha1.CFServiceBinding) ServiceBindingRecord {

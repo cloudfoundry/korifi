@@ -4,15 +4,15 @@ package fake
 import (
 	"sync"
 
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 )
 
 type PlacementValidator struct {
-	ValidateOrgCreateStub        func(korifiv1alpha1.CFOrg) error
+	ValidateOrgCreateStub        func(v1alpha1.CFOrg) error
 	validateOrgCreateMutex       sync.RWMutex
 	validateOrgCreateArgsForCall []struct {
-		arg1 korifiv1alpha1.CFOrg
+		arg1 v1alpha1.CFOrg
 	}
 	validateOrgCreateReturns struct {
 		result1 error
@@ -20,10 +20,10 @@ type PlacementValidator struct {
 	validateOrgCreateReturnsOnCall map[int]struct {
 		result1 error
 	}
-	ValidateSpaceCreateStub        func(korifiv1alpha1.CFSpace) error
+	ValidateSpaceCreateStub        func(v1alpha1.CFSpace) error
 	validateSpaceCreateMutex       sync.RWMutex
 	validateSpaceCreateArgsForCall []struct {
-		arg1 korifiv1alpha1.CFSpace
+		arg1 v1alpha1.CFSpace
 	}
 	validateSpaceCreateReturns struct {
 		result1 error
@@ -35,11 +35,11 @@ type PlacementValidator struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *PlacementValidator) ValidateOrgCreate(arg1 korifiv1alpha1.CFOrg) error {
+func (fake *PlacementValidator) ValidateOrgCreate(arg1 v1alpha1.CFOrg) error {
 	fake.validateOrgCreateMutex.Lock()
 	ret, specificReturn := fake.validateOrgCreateReturnsOnCall[len(fake.validateOrgCreateArgsForCall)]
 	fake.validateOrgCreateArgsForCall = append(fake.validateOrgCreateArgsForCall, struct {
-		arg1 korifiv1alpha1.CFOrg
+		arg1 v1alpha1.CFOrg
 	}{arg1})
 	stub := fake.ValidateOrgCreateStub
 	fakeReturns := fake.validateOrgCreateReturns
@@ -60,13 +60,13 @@ func (fake *PlacementValidator) ValidateOrgCreateCallCount() int {
 	return len(fake.validateOrgCreateArgsForCall)
 }
 
-func (fake *PlacementValidator) ValidateOrgCreateCalls(stub func(korifiv1alpha1.CFOrg) error) {
+func (fake *PlacementValidator) ValidateOrgCreateCalls(stub func(v1alpha1.CFOrg) error) {
 	fake.validateOrgCreateMutex.Lock()
 	defer fake.validateOrgCreateMutex.Unlock()
 	fake.ValidateOrgCreateStub = stub
 }
 
-func (fake *PlacementValidator) ValidateOrgCreateArgsForCall(i int) korifiv1alpha1.CFOrg {
+func (fake *PlacementValidator) ValidateOrgCreateArgsForCall(i int) v1alpha1.CFOrg {
 	fake.validateOrgCreateMutex.RLock()
 	defer fake.validateOrgCreateMutex.RUnlock()
 	argsForCall := fake.validateOrgCreateArgsForCall[i]
@@ -96,11 +96,11 @@ func (fake *PlacementValidator) ValidateOrgCreateReturnsOnCall(i int, result1 er
 	}{result1}
 }
 
-func (fake *PlacementValidator) ValidateSpaceCreate(arg1 korifiv1alpha1.CFSpace) error {
+func (fake *PlacementValidator) ValidateSpaceCreate(arg1 v1alpha1.CFSpace) error {
 	fake.validateSpaceCreateMutex.Lock()
 	ret, specificReturn := fake.validateSpaceCreateReturnsOnCall[len(fake.validateSpaceCreateArgsForCall)]
 	fake.validateSpaceCreateArgsForCall = append(fake.validateSpaceCreateArgsForCall, struct {
-		arg1 korifiv1alpha1.CFSpace
+		arg1 v1alpha1.CFSpace
 	}{arg1})
 	stub := fake.ValidateSpaceCreateStub
 	fakeReturns := fake.validateSpaceCreateReturns
@@ -121,13 +121,13 @@ func (fake *PlacementValidator) ValidateSpaceCreateCallCount() int {
 	return len(fake.validateSpaceCreateArgsForCall)
 }
 
-func (fake *PlacementValidator) ValidateSpaceCreateCalls(stub func(korifiv1alpha1.CFSpace) error) {
+func (fake *PlacementValidator) ValidateSpaceCreateCalls(stub func(v1alpha1.CFSpace) error) {
 	fake.validateSpaceCreateMutex.Lock()
 	defer fake.validateSpaceCreateMutex.Unlock()
 	fake.ValidateSpaceCreateStub = stub
 }
 
-func (fake *PlacementValidator) ValidateSpaceCreateArgsForCall(i int) korifiv1alpha1.CFSpace {
+func (fake *PlacementValidator) ValidateSpaceCreateArgsForCall(i int) v1alpha1.CFSpace {
 	fake.validateSpaceCreateMutex.RLock()
 	defer fake.validateSpaceCreateMutex.RUnlock()
 	argsForCall := fake.validateSpaceCreateArgsForCall[i]

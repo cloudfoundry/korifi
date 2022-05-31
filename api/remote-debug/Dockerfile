@@ -10,6 +10,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY controllers/api controllers/api/
 COPY controllers/webhooks controllers/webhooks/
 COPY api/actions api/actions/
+COPY api/correlation api/correlation/
 COPY api/handlers api/handlers/
 COPY api/apierrors api/apierrors
 COPY api/authorization api/authorization/

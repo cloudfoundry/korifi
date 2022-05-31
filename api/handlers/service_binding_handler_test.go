@@ -189,20 +189,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 			})
 		})
 
-		When("a binding already exists for the App and ServiceInstance", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.ServiceBindingExistsReturns(true, nil)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("The app is already bound to the service instance")
-			})
-
-			It("doesn't create the ServiceBinding", func() {
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
-			})
-		})
-
 		When("the App and the ServiceInstance are in different spaces", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{SpaceGUID: spaceGUID}, nil)
@@ -235,20 +221,6 @@ var _ = Describe("ServiceBindingHandler", func() {
 		When("getting the ServiceInstance errors", func() {
 			BeforeEach(func() {
 				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("boom"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-
-			It("doesn't create the ServiceBinding", func() {
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
-			})
-		})
-
-		When("checking for a duplicate ServiceBinding errors", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.ServiceBindingExistsReturns(false, errors.New("boom"))
 			})
 
 			It("returns an error", func() {

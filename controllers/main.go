@@ -277,6 +277,13 @@ func main() {
 			os.Exit(1)
 		}
 
+		if err = services.NewCFServiceBindingValidator(
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), services.ServiceBindingEntityType)),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceBinding")
+			os.Exit(1)
+		}
+
 		if err = networking.NewCFDomainValidation(
 			mgr.GetClient(),
 		).SetupWebhookWithManager(mgr); err != nil {
