@@ -124,6 +124,50 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-korifi-cloudfoundry-org-v1alpha1-cfservicebinding
+  failurePolicy: Fail
+  name: vcfservicebinding.korifi.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - korifi.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cfservicebindings
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance
+  failurePolicy: Fail
+  name: vcfserviceinstance.korifi.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - korifi.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cfserviceinstances
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-korifi-cloudfoundry-org-v1alpha1-cfapp
   failurePolicy: Fail
   name: vcfapp.korifi.cloudfoundry.org
@@ -246,26 +290,4 @@ webhooks:
     - DELETE
     resources:
     - cfroutes
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance
-  failurePolicy: Fail
-  name: vcfserviceinstance.korifi.cloudfoundry.org
-  rules:
-  - apiGroups:
-    - korifi.cloudfoundry.org
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    resources:
-    - cfserviceinstances
   sideEffects: None

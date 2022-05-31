@@ -35,7 +35,6 @@ type ServiceBindingHandler struct {
 type CFServiceBindingRepository interface {
 	CreateServiceBinding(context.Context, authorization.Info, repositories.CreateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
 	DeleteServiceBinding(context.Context, authorization.Info, string) error
-	ServiceBindingExists(ctx context.Context, info authorization.Info, spaceGUID, appGUID, serviceInsanceGUID string) (bool, error)
 	ListServiceBindings(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error)
 }
 
@@ -73,19 +72,9 @@ func (h *ServiceBindingHandler) createHandler(ctx context.Context, logger logr.L
 		return nil, apierrors.NewUnprocessableEntityError(err, "The service instance and the app are in different spaces")
 	}
 
-	bindingExists, err := h.serviceBindingRepo.ServiceBindingExists(ctx, authInfo, app.SpaceGUID, app.GUID, serviceInstance.GUID)
-	if err != nil {
-		logger.Error(err, "failed to get %s", repositories.ServiceBindingResourceType)
-		return nil, err
-	}
-	if bindingExists {
-		logger.Info("ServiceBinding already exists for App and ServiceInstance", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
-		return nil, apierrors.NewUnprocessableEntityError(err, "The app is already bound to the service instance")
-	}
-
 	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, payload.ToMessage(app.SpaceGUID))
 	if err != nil {
-		logger.Error(err, "failed to create %s", repositories.ServiceBindingResourceType)
+		logger.Error(err, "failed to create ServiceBinding", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
 		return nil, err
 	}
 

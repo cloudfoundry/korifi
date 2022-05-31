@@ -71,8 +71,6 @@ test: lint test-controllers-api test-e2e
 
 test-controllers-api: test-controllers test-api
 
-test-unit: test-controllers test-api-unit
-
 test-controllers: install-ginkgo manifests-controllers generate-controllers fmt vet ## Run tests.
 	cd controllers && GINKGO_NODES=$(CONTROLLERS_GINKGO_NODES) ../scripts/run-tests.sh
 
