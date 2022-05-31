@@ -43,7 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -80,13 +79,23 @@ func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface) RegistryAut
 //counterfeiter:generate -o fake -fake-name ImageProcessFetcher . ImageProcessFetcher
 type ImageProcessFetcher func(imageRef string, credsOption remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error)
 
+func NewBuildWorkloadReconciler(c client.Client, scheme *runtime.Scheme, log logr.Logger, config *config.ControllerConfig, registryAuthFetcher RegistryAuthFetcher, imageProcessFetcher ImageProcessFetcher) *BuildWorkloadReconciler {
+	return &BuildWorkloadReconciler{
+		Client:              c,
+		Scheme:              scheme,
+		Log:                 log,
+		ControllerConfig:    config,
+		RegistryAuthFetcher: registryAuthFetcher,
+		ImageProcessFetcher: imageProcessFetcher,
+	}
+}
+
 // BuildWorkloadReconciler reconciles a BuildWorkload object
 type BuildWorkloadReconciler struct {
 	client.Client
-	Scheme           *runtime.Scheme
-	ControllerConfig *config.ControllerConfig
-	Log              logr.Logger
-
+	Scheme              *runtime.Scheme
+	Log                 logr.Logger
+	ControllerConfig    *config.ControllerConfig
 	RegistryAuthFetcher RegistryAuthFetcher
 	ImageProcessFetcher ImageProcessFetcher
 }
@@ -108,8 +117,6 @@ type BuildWorkloadReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log = log.FromContext(ctx)
-
 	buildWorkload := new(korifiv1alpha1.BuildWorkload)
 	err := r.Client.Get(ctx, req.NamespacedName, buildWorkload)
 	if err != nil {
@@ -302,7 +309,7 @@ func (r *BuildWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.BuildWorkload{}).
 		Watches(
-			&source.Kind{Type: &buildv1alpha2.Image{}},
+			&source.Kind{Type: new(buildv1alpha2.Image)},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
 				var requests []reconcile.Request
 				requests = append(requests, reconcile.Request{

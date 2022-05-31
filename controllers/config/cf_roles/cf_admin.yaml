@@ -146,13 +146,13 @@ rules:
   - patch
 
 - apiGroups:
-  - kpack.io
+    - korifi.cloudfoundry.org
   resources:
-  - clusterbuilders
+    - buildreconcilerinfos
   verbs:
-  - get
-  - list
-  - watch
+    - get
+    - list
+    - watch
 
 - apiGroups:
   - rbac.authorization.k8s.io

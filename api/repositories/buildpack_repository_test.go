@@ -2,116 +2,42 @@ package repositories_test
 
 import (
 	"context"
+	"time"
+
+	"k8s.io/apimachinery/pkg/api/meta"
 
 	. "code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("BuildpackRepository", func() {
 	var (
-		beforeCtx     context.Context
+		ctx           context.Context
 		buildpackRepo *BuildpackRepository
 	)
 
 	BeforeEach(func() {
-		beforeCtx = context.Background()
+		ctx = context.Background()
+		buildpackRepo = NewBuildpackRepository(userClientFactory, rootNamespace)
 	})
 
-	Describe("GetBuildpacksForBuilder", func() {
-		var clusterBuilder *buildv1alpha2.ClusterBuilder
+	Describe("ListBuildpacks", func() {
+		When("there is exactly 1 BuildReconcilerInfo record", func() {
+			BeforeEach(func() {
+				createBuildReconcilerInfoWithCleanup(ctx, "ignored-name", "io.buildpacks.stacks.bionic", []buildpackInfo{
+					{name: "paketo-buildpacks/buildpack-1-1", version: "1.1"},
+					{name: "paketo-buildpacks/buildpack-2-1", version: "2.1"},
+					{name: "paketo-buildpacks/buildpack-3-1", version: "3.1"},
+				})
+			})
 
-		BeforeEach(func() {
-			clusterBuilder = &buildv1alpha2.ClusterBuilder{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: generateGUID(),
-				},
-				Spec: buildv1alpha2.ClusterBuilderSpec{
-					BuilderSpec: buildv1alpha2.BuilderSpec{
-						Tag: "registry/builder-image",
-						Stack: corev1.ObjectReference{
-							Kind: "ClusterStack",
-							Name: "some-cluster-stack",
-						},
-						Store: corev1.ObjectReference{
-							Kind: "ClusterStore",
-							Name: "some-cluster-store",
-						},
-						Order: []corev1alpha1.OrderEntry{
-							{
-								Group: []corev1alpha1.BuildpackRef{
-									newBuildpackRef("paketo-buildpacks/buildpack-1-1"),
-								},
-							},
-							{
-								Group: []corev1alpha1.BuildpackRef{
-									newBuildpackRef("paketo-buildpacks/buildpack-2-1"),
-									newBuildpackRef("paketo-buildpacks/buildpack-2-2"),
-									newBuildpackRef("paketo-buildpacks/buildpack-2-3"),
-								},
-							},
-							{
-								Group: []corev1alpha1.BuildpackRef{
-									newBuildpackRef("paketo-buildpacks/buildpack-3-1"),
-								},
-							},
-						},
-					},
-					ServiceAccountRef: corev1.ObjectReference{
-						Namespace: "some-namespace",
-						Name:      "some-service-account",
-					},
-				},
-			}
-
-			Expect(k8sClient.Create(beforeCtx, clusterBuilder)).To(Succeed())
-
-			clusterBuilderOrderStatus := []corev1alpha1.OrderEntry{
-				{
-					Group: []corev1alpha1.BuildpackRef{
-						newBuildpackRef("paketo-buildpacks/buildpack-1-1", "1.1"),
-					},
-				},
-				{
-					Group: []corev1alpha1.BuildpackRef{
-						newBuildpackRef("paketo-buildpacks/buildpack-2-1", "2.1"),
-						newBuildpackRef("paketo-buildpacks/buildpack-2-2", "2.2"),
-						newBuildpackRef("paketo-buildpacks/buildpack-2-3", "2.3"),
-					},
-				},
-				{
-					Group: []corev1alpha1.BuildpackRef{
-						newBuildpackRef("paketo-buildpacks/buildpack-3-1", "3.1"),
-					},
-				},
-			}
-			clusterBuilder.Status.Order = clusterBuilderOrderStatus
-
-			clusterBuilderStackStatus := corev1alpha1.BuildStack{
-				ID:       "io.buildpacks.stacks.bionic",
-				RunImage: "index.docker.io/paketobuildpacks/run@sha256:79185c8427ebfed9b7df3e0fa12e101ec8b24aa899bbc541648d5923fb494084",
-			}
-			clusterBuilder.Status.Stack = clusterBuilderStackStatus
-
-			Expect(k8sClient.Status().Update(beforeCtx, clusterBuilder)).To(Succeed())
-		})
-
-		AfterEach(func() {
-			Expect(k8sClient.Delete(context.Background(), clusterBuilder)).To(Succeed())
-		})
-
-		Describe("List", func() {
-			It("returns records matching the buildpacks of the ClusterBuilder and no error", func() {
-				buildpackRepo = NewBuildpackRepository(userClientFactory)
-				createClusterRoleBinding(beforeCtx, userName, spaceDeveloperRole.Name)
-
-				buildpackRecords, err := buildpackRepo.GetBuildpacksForBuilder(context.Background(), authInfo, clusterBuilder.Name)
+			It("lists the buildpacks in order", func() {
+				buildpackRecords, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(buildpackRecords).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
@@ -134,28 +60,75 @@ var _ = Describe("BuildpackRepository", func() {
 					}),
 				))
 			})
+		})
 
-			When("the user does not have permission to list ClusterBuilders", func() {
-				It("fails to retrieve buildpack records", func() {
-					buildpackRepo = NewBuildpackRepository(userClientFactory)
-					_, err := buildpackRepo.GetBuildpacksForBuilder(context.Background(), authInfo, clusterBuilder.Name)
-					Expect(err).To(HaveOccurred())
+		When("there are no BuildReconcilerInfo records", func() {
+			It("errors", func() {
+				_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo)
+				Expect(err).To(MatchError(ContainSubstring("no BuildReconcilerInfo resource found")))
+			})
+		})
+
+		When("there is more than 1 BuildReconcilerInfo records", func() {
+			BeforeEach(func() {
+				createBuildReconcilerInfoWithCleanup(ctx, "ignored-name1", "io.buildpacks.stacks.bionic", []buildpackInfo{
+					{name: "paketo-buildpacks/buildpack-1-1", version: "1.1"},
 				})
+				createBuildReconcilerInfoWithCleanup(ctx, "ignored-name2", "io.buildpacks.stacks.walrus", []buildpackInfo{
+					{name: "paketo-buildpacks/buildpack-2-1", version: "2.1"},
+				})
+			})
+
+			It("errors", func() {
+				_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo)
+				Expect(err).To(MatchError(ContainSubstring("more than 1 BuildReconcilerInfo resource found")))
 			})
 		})
 	})
 })
 
-func newBuildpackRef(id string, version ...string) corev1alpha1.BuildpackRef {
-	toReturn := corev1alpha1.BuildpackRef{
-		BuildpackInfo: corev1alpha1.BuildpackInfo{
-			Id: id,
+type buildpackInfo struct {
+	name    string
+	version string
+}
+
+func createBuildReconcilerInfoWithCleanup(ctx context.Context, name, stack string, buildpacks []buildpackInfo) *v1alpha1.BuildReconcilerInfo {
+	buildReconcilerInfo := &v1alpha1.BuildReconcilerInfo{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: rootNamespace,
 		},
-		Optional: true,
+	}
+	Expect(k8sClient.Create(ctx, buildReconcilerInfo)).To(Succeed())
+	DeferCleanup(func() {
+		Expect(k8sClient.Delete(ctx, buildReconcilerInfo)).To(Succeed())
+	})
+
+	creationTimestamp := metav1.Time{Time: time.Now().Add(-24 * time.Hour)}
+	updatedTimestamp := metav1.Time{Time: time.Now().Add(-30 * time.Second)}
+
+	buildReconcilerInfo.Status.Stacks = []v1alpha1.BuildReconcilerInfoStatusStack{
+		{
+			Name:              stack,
+			CreationTimestamp: metav1.Time{Time: time.Now()},
+			UpdatedTimestamp:  metav1.Time{Time: time.Now()},
+		},
+	}
+	for _, b := range buildpacks {
+		buildReconcilerInfo.Status.Buildpacks = append(buildReconcilerInfo.Status.Buildpacks, v1alpha1.BuildReconcilerInfoStatusBuildpack{
+			Name:              b.name,
+			Version:           b.version,
+			Stack:             stack,
+			CreationTimestamp: creationTimestamp,
+			UpdatedTimestamp:  updatedTimestamp,
+		})
 	}
 
-	if len(version) > 0 {
-		toReturn.BuildpackInfo.Version = version[0]
-	}
-	return toReturn
+	meta.SetStatusCondition(&buildReconcilerInfo.Status.Conditions, metav1.Condition{
+		Type:   "Ready",
+		Status: metav1.ConditionTrue,
+		Reason: "testing",
+	})
+	Expect(k8sClient.Status().Update(ctx, buildReconcilerInfo)).To(Succeed())
+	return buildReconcilerInfo
 }

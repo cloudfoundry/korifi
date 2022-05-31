@@ -9,6 +9,5 @@ defaultLifecycleConfig:
   stagingDiskMB: 1024
 packageRegistryBase: gcr.io/cf-relint-greengrass/korifi/kpack/beta
 packageRegistrySecretName: image-registry-credentials
-clusterBuilderName: cf-kpack-cluster-builder
 defaultDomainName: vcap.me
 userCertificateExpirationWarningDuration: 168h

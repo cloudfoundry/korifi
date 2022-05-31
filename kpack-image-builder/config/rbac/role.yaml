@@ -25,6 +25,32 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - buildreconcilerinfos
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - buildreconcilerinfos/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - buildreconcilerinfos/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
   - buildworkloads
   verbs:
   - create
@@ -48,6 +74,20 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kpack.io
+  resources:
+  - clusterbuilders/status
+  verbs:
+  - get
 - apiGroups:
   - kpack.io
   resources:

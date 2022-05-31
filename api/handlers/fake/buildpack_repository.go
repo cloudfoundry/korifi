@@ -11,18 +11,17 @@ import (
 )
 
 type BuildpackRepository struct {
-	GetBuildpacksForBuilderStub        func(context.Context, authorization.Info, string) ([]repositories.BuildpackRecord, error)
-	getBuildpacksForBuilderMutex       sync.RWMutex
-	getBuildpacksForBuilderArgsForCall []struct {
+	ListBuildpacksStub        func(context.Context, authorization.Info) ([]repositories.BuildpackRecord, error)
+	listBuildpacksMutex       sync.RWMutex
+	listBuildpacksArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 string
 	}
-	getBuildpacksForBuilderReturns struct {
+	listBuildpacksReturns struct {
 		result1 []repositories.BuildpackRecord
 		result2 error
 	}
-	getBuildpacksForBuilderReturnsOnCall map[int]struct {
+	listBuildpacksReturnsOnCall map[int]struct {
 		result1 []repositories.BuildpackRecord
 		result2 error
 	}
@@ -30,20 +29,19 @@ type BuildpackRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *BuildpackRepository) GetBuildpacksForBuilder(arg1 context.Context, arg2 authorization.Info, arg3 string) ([]repositories.BuildpackRecord, error) {
-	fake.getBuildpacksForBuilderMutex.Lock()
-	ret, specificReturn := fake.getBuildpacksForBuilderReturnsOnCall[len(fake.getBuildpacksForBuilderArgsForCall)]
-	fake.getBuildpacksForBuilderArgsForCall = append(fake.getBuildpacksForBuilderArgsForCall, struct {
+func (fake *BuildpackRepository) ListBuildpacks(arg1 context.Context, arg2 authorization.Info) ([]repositories.BuildpackRecord, error) {
+	fake.listBuildpacksMutex.Lock()
+	ret, specificReturn := fake.listBuildpacksReturnsOnCall[len(fake.listBuildpacksArgsForCall)]
+	fake.listBuildpacksArgsForCall = append(fake.listBuildpacksArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 string
-	}{arg1, arg2, arg3})
-	stub := fake.GetBuildpacksForBuilderStub
-	fakeReturns := fake.getBuildpacksForBuilderReturns
-	fake.recordInvocation("GetBuildpacksForBuilder", []interface{}{arg1, arg2, arg3})
-	fake.getBuildpacksForBuilderMutex.Unlock()
+	}{arg1, arg2})
+	stub := fake.ListBuildpacksStub
+	fakeReturns := fake.listBuildpacksReturns
+	fake.recordInvocation("ListBuildpacks", []interface{}{arg1, arg2})
+	fake.listBuildpacksMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -51,46 +49,46 @@ func (fake *BuildpackRepository) GetBuildpacksForBuilder(arg1 context.Context, a
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *BuildpackRepository) GetBuildpacksForBuilderCallCount() int {
-	fake.getBuildpacksForBuilderMutex.RLock()
-	defer fake.getBuildpacksForBuilderMutex.RUnlock()
-	return len(fake.getBuildpacksForBuilderArgsForCall)
+func (fake *BuildpackRepository) ListBuildpacksCallCount() int {
+	fake.listBuildpacksMutex.RLock()
+	defer fake.listBuildpacksMutex.RUnlock()
+	return len(fake.listBuildpacksArgsForCall)
 }
 
-func (fake *BuildpackRepository) GetBuildpacksForBuilderCalls(stub func(context.Context, authorization.Info, string) ([]repositories.BuildpackRecord, error)) {
-	fake.getBuildpacksForBuilderMutex.Lock()
-	defer fake.getBuildpacksForBuilderMutex.Unlock()
-	fake.GetBuildpacksForBuilderStub = stub
+func (fake *BuildpackRepository) ListBuildpacksCalls(stub func(context.Context, authorization.Info) ([]repositories.BuildpackRecord, error)) {
+	fake.listBuildpacksMutex.Lock()
+	defer fake.listBuildpacksMutex.Unlock()
+	fake.ListBuildpacksStub = stub
 }
 
-func (fake *BuildpackRepository) GetBuildpacksForBuilderArgsForCall(i int) (context.Context, authorization.Info, string) {
-	fake.getBuildpacksForBuilderMutex.RLock()
-	defer fake.getBuildpacksForBuilderMutex.RUnlock()
-	argsForCall := fake.getBuildpacksForBuilderArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+func (fake *BuildpackRepository) ListBuildpacksArgsForCall(i int) (context.Context, authorization.Info) {
+	fake.listBuildpacksMutex.RLock()
+	defer fake.listBuildpacksMutex.RUnlock()
+	argsForCall := fake.listBuildpacksArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *BuildpackRepository) GetBuildpacksForBuilderReturns(result1 []repositories.BuildpackRecord, result2 error) {
-	fake.getBuildpacksForBuilderMutex.Lock()
-	defer fake.getBuildpacksForBuilderMutex.Unlock()
-	fake.GetBuildpacksForBuilderStub = nil
-	fake.getBuildpacksForBuilderReturns = struct {
+func (fake *BuildpackRepository) ListBuildpacksReturns(result1 []repositories.BuildpackRecord, result2 error) {
+	fake.listBuildpacksMutex.Lock()
+	defer fake.listBuildpacksMutex.Unlock()
+	fake.ListBuildpacksStub = nil
+	fake.listBuildpacksReturns = struct {
 		result1 []repositories.BuildpackRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *BuildpackRepository) GetBuildpacksForBuilderReturnsOnCall(i int, result1 []repositories.BuildpackRecord, result2 error) {
-	fake.getBuildpacksForBuilderMutex.Lock()
-	defer fake.getBuildpacksForBuilderMutex.Unlock()
-	fake.GetBuildpacksForBuilderStub = nil
-	if fake.getBuildpacksForBuilderReturnsOnCall == nil {
-		fake.getBuildpacksForBuilderReturnsOnCall = make(map[int]struct {
+func (fake *BuildpackRepository) ListBuildpacksReturnsOnCall(i int, result1 []repositories.BuildpackRecord, result2 error) {
+	fake.listBuildpacksMutex.Lock()
+	defer fake.listBuildpacksMutex.Unlock()
+	fake.ListBuildpacksStub = nil
+	if fake.listBuildpacksReturnsOnCall == nil {
+		fake.listBuildpacksReturnsOnCall = make(map[int]struct {
 			result1 []repositories.BuildpackRecord
 			result2 error
 		})
 	}
-	fake.getBuildpacksForBuilderReturnsOnCall[i] = struct {
+	fake.listBuildpacksReturnsOnCall[i] = struct {
 		result1 []repositories.BuildpackRecord
 		result2 error
 	}{result1, result2}
@@ -99,8 +97,8 @@ func (fake *BuildpackRepository) GetBuildpacksForBuilderReturnsOnCall(i int, res
 func (fake *BuildpackRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getBuildpacksForBuilderMutex.RLock()
-	defer fake.getBuildpacksForBuilderMutex.RUnlock()
+	fake.listBuildpacksMutex.RLock()
+	defer fake.listBuildpacksMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

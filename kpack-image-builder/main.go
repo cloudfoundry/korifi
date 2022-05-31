@@ -21,26 +21,22 @@ import (
 	"fmt"
 	"os"
 
-	k8sclient "k8s.io/client-go/kubernetes"
-
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/imageprocessfetcher"
 
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	k8sclient "k8s.io/client-go/kubernetes"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-
-	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -108,14 +104,26 @@ func main() {
 		Log: ctrl.Log.WithName("controllers").WithName("CFBuildImageProcessFetcher"),
 	}
 
-	if err = (&controllers.BuildWorkloadReconciler{
-		Client:              mgr.GetClient(),
-		Scheme:              mgr.GetScheme(),
-		ControllerConfig:    controllerConfig,
-		RegistryAuthFetcher: controllers.NewRegistryAuthFetcher(k8sClient),
-		ImageProcessFetcher: cfBuildImageProcessFetcher.Fetch,
-	}).SetupWithManager(mgr); err != nil {
+	if err = controllers.NewBuildWorkloadReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("BuildWorkloadReconciler"),
+		controllerConfig,
+		controllers.NewRegistryAuthFetcher(k8sClient),
+		cfBuildImageProcessFetcher.Fetch,
+	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BuildWorkload")
+		os.Exit(1)
+	}
+
+	if err = controllers.NewBuildReconcilerInfoReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("BuildReconcilerInfoReconciler"),
+		controllerConfig.ClusterBuilderName,
+		controllerConfig.CFRootNamespace,
+	).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BuildReconcilerInfo")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

@@ -1,5 +1,8 @@
 generatorOptions:
-  disableNameSuffixHash: true
+  # The hash suffix triggers new pods when the config changes.
+  # This is necessary to pick up the correct buildpacks when `clusterBuilderName` changes.
+  # See https://github.com/cloudfoundry/korifi/issues/1054 for details
+  disableNameSuffixHash: false
 
 configMapGenerator:
   - files:

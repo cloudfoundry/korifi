@@ -246,24 +246,6 @@ func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole
 	return clusterRole
 }
 
-// TODO: We shouldn't be creating cluster role bindings, right?
-func createClusterRoleBinding(ctx context.Context, userName, roleName string) {
-	clusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: generateGUID(),
-		},
-		Subjects: []rbacv1.Subject{{
-			Kind: rbacv1.UserKind,
-			Name: userName,
-		}},
-		RoleRef: rbacv1.RoleRef{
-			Kind: "ClusterRole",
-			Name: roleName,
-		},
-	}
-	Expect(k8sClient.Create(ctx, &clusterRoleBinding)).To(Succeed())
-}
-
 func createRoleBinding(ctx context.Context, userName, roleName, namespace string) {
 	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{

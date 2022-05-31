@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"code.cloudfoundry.org/korifi/controllers/config"
-
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -14,7 +13,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -104,7 +102,6 @@ var _ = Describe("CFBuildReconciler", func() {
 		fakeEnvBuilder.BuildEnvReturns(map[string]string{"foo": "var"}, nil)
 
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-		Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfBuildReconciler = NewCFBuildReconciler(
 			fakeClient,
 			scheme.Scheme,

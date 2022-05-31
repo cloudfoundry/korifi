@@ -22,3 +22,12 @@ rules:
   - get
   - list
   - watch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - buildreconcilerinfos
+  verbs:
+  - get
+  - list
+  - watch

@@ -112,7 +112,7 @@ func main() {
 	packageRepo := repositories.NewPackageRepo(userClientFactory, namespaceRetriever, nsPermissions)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPermissions)
-	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory)
+	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory, config.RootNamespace)
 	roleRepo := repositories.NewRoleRepo(
 		userClientFactory,
 		spaceRepo,
@@ -250,7 +250,6 @@ func main() {
 		handlers.NewBuildpackHandler(
 			*serverURL,
 			buildpackRepo,
-			config.ClusterBuilderName,
 		),
 
 		handlers.NewServiceInstanceHandler(

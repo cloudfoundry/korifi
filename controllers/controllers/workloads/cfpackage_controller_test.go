@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -74,7 +73,6 @@ var _ = Describe("CFPackageReconciler", func() {
 		}
 
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-		Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfPackageReconciler = NewCFPackageReconciler(
 			fakeClient,
 			scheme.Scheme,

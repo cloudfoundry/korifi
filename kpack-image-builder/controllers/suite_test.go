@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	v1 "k8s.io/api/core/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -43,6 +44,10 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
+const (
+	clusterBuilderName = "my-amazing-cluster-builder"
+)
+
 var (
 	cancel                  context.CancelFunc
 	cfg                     *rest.Config
@@ -50,6 +55,7 @@ var (
 	testEnv                 *envtest.Environment
 	fakeImageProcessFetcher *fake.ImageProcessFetcher
 	buildWorkloadReconciler *controllers.BuildWorkloadReconciler
+	rootNamespace           *v1.Namespace
 )
 
 func TestAPIs(t *testing.T) {
@@ -100,28 +106,47 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	controllerConfig := &config.ControllerConfig{
-		KpackImageTag:      "image/registry/tag",
+		CFRootNamespace:    PrefixedGUID("cf"),
 		ClusterBuilderName: "cf-kpack-builder",
+		KpackImageTag:      "image/registry/tag",
 	}
 
 	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
 	Expect(err).NotTo(HaveOccurred())
 
-	buildWorkloadReconciler = &controllers.BuildWorkloadReconciler{
-		Client:              k8sManager.GetClient(),
-		Scheme:              k8sManager.GetScheme(),
-		Log:                 ctrl.Log.WithName("kpack-image-builder").WithName("BuildWorkload"),
-		ControllerConfig:    controllerConfig,
-		RegistryAuthFetcher: controllers.NewRegistryAuthFetcher(registryAuthFetcherClient),
-	}
+	buildWorkloadReconciler = controllers.NewBuildWorkloadReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("kpack-image-builder").WithName("BuildWorkload"),
+		controllerConfig,
+		controllers.NewRegistryAuthFetcher(registryAuthFetcherClient),
+		nil, // Overridden in a beforeEach below
+	)
 	err = (buildWorkloadReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
+
+	Expect(
+		controllers.NewBuildReconcilerInfoReconciler(
+			k8sManager.GetClient(),
+			k8sManager.GetScheme(),
+			ctrl.Log.WithName("kpack-image-builder").WithName("BuildReconcilerInfo"),
+			clusterBuilderName,
+			controllerConfig.CFRootNamespace,
+		).SetupWithManager(k8sManager),
+	).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	rootNamespace = &v1.Namespace{
+		ObjectMeta: ctrl.ObjectMeta{
+			Name: controllerConfig.CFRootNamespace,
+		},
+	}
+	Expect(k8sClient.Create(ctx, rootNamespace)).To(Succeed())
 
 	go func() {
 		defer GinkgoRecover()

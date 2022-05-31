@@ -21,11 +21,7 @@ var _ = Describe("BuildpackHandler", func() {
 	BeforeEach(func() {
 		buildpackRepo = new(fake.BuildpackRepository)
 
-		apiHandler := NewBuildpackHandler(
-			*serverURL,
-			buildpackRepo,
-			"cf-kpack-cluster-builder",
-		)
+		apiHandler := NewBuildpackHandler(*serverURL, buildpackRepo)
 		apiHandler.RegisterRoutes(router)
 	})
 
@@ -35,7 +31,7 @@ var _ = Describe("BuildpackHandler", func() {
 
 	Describe("the GET /v3/buildpacks endpoint", func() {
 		BeforeEach(func() {
-			buildpackRepo.GetBuildpacksForBuilderReturns([]repositories.BuildpackRecord{
+			buildpackRepo.ListBuildpacksReturns([]repositories.BuildpackRecord{
 				{
 					Name:      "paketo-foopacks/bar",
 					Position:  1,
@@ -59,8 +55,8 @@ var _ = Describe("BuildpackHandler", func() {
 			})
 
 			It("passes authInfo from context to GetApp", func() {
-				Expect(buildpackRepo.GetBuildpacksForBuilderCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := buildpackRepo.GetBuildpacksForBuilderArgsForCall(0)
+				Expect(buildpackRepo.ListBuildpacksCallCount()).To(Equal(1))
+				_, actualAuthInfo := buildpackRepo.ListBuildpacksArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
