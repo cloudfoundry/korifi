@@ -148,7 +148,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				Expect(err).NotTo(HaveOccurred())
 				Expect(body).To(BeEmpty())
 
-				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/space.apply_manifest-", space.Name)))
+				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/space.apply_manifest~", space.Name)))
 
 				var app1 korifiv1alpha1.CFApp
 				By("confirming that the app was created", func() {
@@ -605,7 +605,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 				Expect(err).NotTo(HaveOccurred())
 				Expect(body).To(BeEmpty())
 
-				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/space.apply_manifest-", space.Name)))
+				Expect(rr.Header().Get("Location")).To(Equal(serverURI("/v3/jobs/space.apply_manifest~", space.Name)))
 
 				var app1 korifiv1alpha1.CFApp
 				By("confirming that the app fields are unchanged", func() {

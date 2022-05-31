@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -236,7 +235,7 @@ func (h *RouteHandler) routeDeleteHandler(ctx context.Context, logger logr.Logge
 		return nil, err
 	}
 
-	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", fmt.Sprintf("%s/v3/jobs/route.delete-%s", h.serverURL.String(), routeGUID)), nil
+	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(routeGUID, presenter.RouteDeleteOperation, h.serverURL)), nil
 }
 
 func (h *RouteHandler) RegisterRoutes(router *mux.Router) {

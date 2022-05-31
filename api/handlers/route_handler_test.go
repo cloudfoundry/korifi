@@ -1675,7 +1675,7 @@ var _ = Describe("RouteHandler", func() {
 			})
 
 			It("responds with a job URL in a location header", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/route.delete-"+testRouteGUID))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/route.delete~"+testRouteGUID))
 			})
 
 			It("fetches the right route", func() {

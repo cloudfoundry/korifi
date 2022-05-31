@@ -397,7 +397,7 @@ var _ = Describe("OrgHandler", func() {
 			})
 
 			It("responds with a job URL in a location header", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/org.delete-"+orgGUID))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/org.delete~"+orgGUID))
 			})
 
 			It("deletes the K8s record via the repository", func() {
