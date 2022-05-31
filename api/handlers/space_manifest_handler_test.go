@@ -75,7 +75,8 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 			It("returns 202 with a Location header", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Location", Not(BeEmpty())))
+
+				Expect(rr).To(HaveHTTPHeaderWithValue("Location", ContainSubstring("space.apply_manifest~"+spaceGUID)))
 			})
 
 			It("calls applyManifestAction and passes it the authInfo from the context", func() {

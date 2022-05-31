@@ -225,7 +225,7 @@ var _ = Describe("Orgs", func() {
 		It("succeeds with a job redirect", func() {
 			Expect(resp).To(SatisfyAll(
 				HaveRestyStatusCode(http.StatusAccepted),
-				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/org.delete-"+orgGUID)),
+				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/org.delete~"+orgGUID)),
 			))
 
 			jobURL := resp.Header().Get("Location")
@@ -244,7 +244,7 @@ var _ = Describe("Orgs", func() {
 			It("can still delete the org and eventually returns a successful job redirect", func() {
 				Expect(resp).To(SatisfyAll(
 					HaveRestyStatusCode(http.StatusAccepted),
-					HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/org.delete-"+orgGUID)),
+					HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/org.delete~"+orgGUID)),
 				))
 
 				jobURL := resp.Header().Get("Location")

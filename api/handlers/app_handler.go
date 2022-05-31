@@ -398,7 +398,7 @@ func (h *AppHandler) appDeleteHandler(ctx context.Context, logger logr.Logger, a
 		return nil, err
 	}
 
-	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", fmt.Sprintf("%s/v3/jobs/app.delete-%s", h.serverURL.String(), appGUID)), nil
+	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(appGUID, presenter.AppDeleteOperation, h.serverURL)), nil
 }
 
 func (h *AppHandler) lookupAppRouteAndDomainList(ctx context.Context, authInfo authorization.Info, appGUID, spaceGUID string) ([]repositories.RouteRecord, error) {

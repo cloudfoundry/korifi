@@ -1,6 +1,19 @@
 package presenter
 
-import "net/url"
+import (
+	"fmt"
+	"net/url"
+)
+
+const (
+	JobGUIDDelimiter = "~"
+
+	AppDeleteOperation          = "app.delete"
+	OrgDeleteOperation          = "org.delete"
+	RouteDeleteOperation        = "route.delete"
+	SpaceApplyManifestOperation = "space.apply_manifest"
+	SpaceDeleteOperation        = "space.delete"
+)
 
 type JobResponse struct {
 	GUID      string   `json:"guid"`
@@ -13,7 +26,6 @@ type JobResponse struct {
 	Links     JobLinks `json:"links"`
 }
 
-// TODO: Generalize job links or just omit missing links for jobs that do not require them?
 type JobLinks struct {
 	Self  Link  `json:"self"`
 	Space *Link `json:"space,omitempty"`
@@ -24,7 +36,7 @@ func ForManifestApplyJob(jobGUID string, spaceGUID string, baseURL url.URL) JobR
 		GUID:      jobGUID,
 		Errors:    nil,
 		Warnings:  nil,
-		Operation: "space.apply_manifest",
+		Operation: SpaceApplyManifestOperation,
 		State:     "COMPLETE",
 		CreatedAt: "",
 		UpdatedAt: "",
@@ -54,4 +66,9 @@ func ForDeleteJob(jobGUID string, operation string, baseURL url.URL) JobResponse
 			},
 		},
 	}
+}
+
+func JobURLForRedirects(resourceName string, operation string, baseURL url.URL) string {
+	jobGUID := fmt.Sprintf("%s%s%s", operation, JobGUIDDelimiter, resourceName)
+	return buildURL(baseURL).appendPath("/v3/jobs", jobGUID).build()
 }

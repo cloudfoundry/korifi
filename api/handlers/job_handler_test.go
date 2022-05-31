@@ -38,7 +38,7 @@ var _ = Describe("JobHandler", func() {
 
 		When("getting an existing job", func() {
 			BeforeEach(func() {
-				jobGUID = "space.apply_manifest-" + resourceGUID
+				jobGUID = "space.apply_manifest~" + resourceGUID
 			})
 
 			It("returns status 200 OK", func() {
@@ -73,7 +73,7 @@ var _ = Describe("JobHandler", func() {
 
 			When("the existing job operation is app.delete", func() {
 				BeforeEach(func() {
-					jobGUID = "app.delete-" + resourceGUID
+					jobGUID = "app.delete~" + resourceGUID
 				})
 
 				It("returns the job", func() {
@@ -97,7 +97,7 @@ var _ = Describe("JobHandler", func() {
 			When("the existing job operation is org.delete", func() {
 				BeforeEach(func() {
 					resourceGUID = "cf-org-" + uuid.NewString()
-					jobGUID = "org.delete-" + resourceGUID
+					jobGUID = "org.delete~" + resourceGUID
 				})
 
 				It("returns the job", func() {
@@ -121,7 +121,7 @@ var _ = Describe("JobHandler", func() {
 			When("the existing job operation is space.delete", func() {
 				BeforeEach(func() {
 					resourceGUID = "cf-space-" + uuid.NewString()
-					jobGUID = "space.delete-" + resourceGUID
+					jobGUID = "space.delete~" + resourceGUID
 				})
 
 				It("returns the job", func() {
@@ -145,7 +145,7 @@ var _ = Describe("JobHandler", func() {
 			When("the existing job operation is route.delete", func() {
 				BeforeEach(func() {
 					resourceGUID = "cf-route-" + uuid.NewString()
-					jobGUID = "route.delete-" + resourceGUID
+					jobGUID = "route.delete~" + resourceGUID
 				})
 
 				It("returns the job", func() {
@@ -167,13 +167,35 @@ var _ = Describe("JobHandler", func() {
 			})
 		})
 
-		When("guid provided is not a valid job guid", func() {
-			BeforeEach(func() {
-				jobGUID = "some-guid"
+		Describe("job guid validation", func() {
+			When("the job guid provided does not have the expected delimiter", func() {
+				BeforeEach(func() {
+					jobGUID = "job.operation;some-resource-guid"
+				})
+
+				It("returns an error", func() {
+					expectNotFoundError("Job not found")
+				})
 			})
 
-			It("return an error", func() {
-				expectNotFoundError("Job not found")
+			When("the resource identifier portion has a prefixed guid", func() {
+				BeforeEach(func() {
+					jobGUID = "space.delete~cf-space-a4cd478b-0b02-452f-8498-ce87ec5c6649"
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK))
+				})
+			})
+
+			When("the resource identifier portion does not include a guid", func() {
+				BeforeEach(func() {
+					jobGUID = "space.apply_manifest~cf-space-staging-space"
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK))
+				})
 			})
 		})
 	})

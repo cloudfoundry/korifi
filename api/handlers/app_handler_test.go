@@ -2683,7 +2683,7 @@ var _ = Describe("AppHandler", func() {
 
 			It("responds with a job URL in a location header", func() {
 				locationHeader := rr.Header().Get("Location")
-				Expect(locationHeader).To(Equal("https://api.example.org/v3/jobs/app.delete-"+appGUID), "Matching Location header")
+				Expect(locationHeader).To(Equal("https://api.example.org/v3/jobs/app.delete~"+appGUID), "Matching Location header")
 			})
 
 			It("fetches the right App", func() {

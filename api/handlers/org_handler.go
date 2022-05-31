@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -84,7 +83,7 @@ func (h *OrgHandler) orgDeleteHandler(ctx context.Context, logger logr.Logger, a
 		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
-	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", fmt.Sprintf("%s/v3/jobs/org.delete-%s", h.apiBaseURL.String(), orgGUID)), nil
+	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(orgGUID, presenter.OrgDeleteOperation, h.apiBaseURL)), nil
 }
 
 func (h *OrgHandler) orgListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {

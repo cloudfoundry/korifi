@@ -340,7 +340,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("responds with a job URL in a location header", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/space.delete-"+spaceGUID))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/space.delete~"+spaceGUID))
 			})
 
 			It("fetches the right space", func() {

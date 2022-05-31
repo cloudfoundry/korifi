@@ -270,7 +270,7 @@ var _ = Describe("Spaces", func() {
 		It("succeeds with a job redirect", func() {
 			Expect(resp).To(SatisfyAll(
 				HaveRestyStatusCode(http.StatusAccepted),
-				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.delete-"+spaceGUID)),
+				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.delete~"+spaceGUID)),
 			))
 
 			jobURL := resp.Header().Get("Location")
@@ -354,7 +354,7 @@ var _ = Describe("Spaces", func() {
 				It("succeeds with a job redirect", func() {
 					Expect(resp).To(SatisfyAll(
 						HaveRestyStatusCode(http.StatusAccepted),
-						HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest-"+spaceGUID)),
+						HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest~"+spaceGUID)),
 					))
 
 					jobURL := resp.Header().Get("Location")
@@ -374,7 +374,7 @@ var _ = Describe("Spaces", func() {
 					It("succeeds with a job redirect", func() {
 						Expect(resp).To(SatisfyAll(
 							HaveRestyStatusCode(http.StatusAccepted),
-							HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest-"+spaceGUID)),
+							HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest~"+spaceGUID)),
 						))
 
 						jobURL := resp.Header().Get("Location")

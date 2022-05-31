@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -106,7 +104,7 @@ func (h *SpaceHandler) spaceDeleteHandler(ctx context.Context, logger logr.Logge
 		return nil, err
 	}
 
-	return NewHandlerResponse(http.StatusAccepted).WithHeader(headers.Location, fmt.Sprintf("%s/v3/jobs/space.delete-%s", h.apiBaseURL.String(), spaceGUID)), nil
+	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceDeleteOperation, h.apiBaseURL)), nil
 }
 
 func (h *SpaceHandler) RegisterRoutes(router *mux.Router) {

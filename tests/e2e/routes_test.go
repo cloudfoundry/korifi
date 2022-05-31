@@ -343,7 +343,7 @@ var _ = Describe("Routes", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
 			Expect(resp).To(HaveRestyHeaderWithValue("Location", SatisfyAll(
 				HavePrefix(apiServerRoot),
-				ContainSubstring("/v3/jobs/route.delete-"),
+				ContainSubstring("/v3/jobs/route.delete~"+routeGUID),
 			)))
 		})
 
