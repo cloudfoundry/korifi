@@ -130,9 +130,30 @@ spec:
                   - type
                   type: object
                 type: array
+              stacks:
+                items:
+                  properties:
+                    creationTimestamp:
+                      format: date-time
+                      type: string
+                    description:
+                      type: string
+                    name:
+                      type: string
+                    updatedTimestamp:
+                      format: date-time
+                      type: string
+                  required:
+                  - creationTimestamp
+                  - description
+                  - name
+                  - updatedTimestamp
+                  type: object
+                type: array
             required:
             - buildpacks
             - conditions
+            - stacks
             type: object
         type: object
     served: true

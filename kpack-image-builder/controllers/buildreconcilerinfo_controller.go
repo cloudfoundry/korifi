@@ -84,15 +84,16 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 	info := new(v1alpha1.BuildReconcilerInfo)
 	err := r.Client.Get(ctx, req.NamespacedName, info)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching BuildReconcilerInfo") // TODO: ensure we're using correct log format
+		r.Log.Error(err, "Error when fetching BuildReconcilerInfo")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	clusterBuilder := new(buildv1alpha2.ClusterBuilder)
 	err = r.Client.Get(ctx, types.NamespacedName{Name: r.ClusterBuilderName}, clusterBuilder)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching ClusterBuilder") // TODO: ensure we're using correct log format
+		r.Log.Error(err, "Error when fetching ClusterBuilder")
 
+		info.Status.Stacks = []v1alpha1.BuildReconcilerInfoStatusStack{}
 		info.Status.Buildpacks = []v1alpha1.BuildReconcilerInfoStatusBuildpack{}
 		meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
 			Type:    ReadyConditionType,
@@ -102,12 +103,14 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 		})
 		err = r.Client.Status().Update(ctx, info)
 		if err != nil {
-			r.Log.Error(err, "Error when updating BuildReconcilerInfo.status for failure") // TODO: ensure we're using correct log format
+			r.Log.Error(err, "Error when updating BuildReconcilerInfo.status for failure")
 		}
 		return ctrl.Result{}, err
 	}
 
-	info.Status.Buildpacks = clusterBuilderToBuildpacks(clusterBuilder)
+	updatedTimestamp := lastUpdatedTime(clusterBuilder.ObjectMeta)
+	info.Status.Stacks = clusterBuilderToStacks(clusterBuilder, updatedTimestamp)
+	info.Status.Buildpacks = clusterBuilderToBuildpacks(clusterBuilder, updatedTimestamp)
 	meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
 		Type:    ReadyConditionType,
 		Status:  metav1.ConditionTrue,
@@ -116,14 +119,29 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 	})
 	err = r.Client.Status().Update(ctx, info)
 	if err != nil {
-		r.Log.Error(err, "Error when updating BuildReconcilerInfo.status for success") // TODO: ensure we're using correct log format
+		r.Log.Error(err, "Error when updating BuildReconcilerInfo.status for success")
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func clusterBuilderToBuildpacks(builder *buildv1alpha2.ClusterBuilder) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
+func clusterBuilderToStacks(clusterBuilder *buildv1alpha2.ClusterBuilder, updatedTimestamp metav1.Time) []v1alpha1.BuildReconcilerInfoStatusStack {
+	if clusterBuilder.Status.Stack.ID == "" {
+		return []v1alpha1.BuildReconcilerInfoStatusStack{}
+	}
+
+	return []v1alpha1.BuildReconcilerInfoStatusStack{
+		{
+			Name:              clusterBuilder.Status.Stack.ID,
+			Description:       "",
+			CreationTimestamp: clusterBuilder.CreationTimestamp,
+			UpdatedTimestamp:  updatedTimestamp,
+		},
+	}
+}
+
+func clusterBuilderToBuildpacks(builder *buildv1alpha2.ClusterBuilder, updatedTimestamp metav1.Time) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
 	buildpackRecords := make([]v1alpha1.BuildReconcilerInfoStatusBuildpack, 0, len(builder.Status.Order))
 	for _, orderEntry := range builder.Status.Order {
 		buildpackRecords = append(buildpackRecords, v1alpha1.BuildReconcilerInfoStatusBuildpack{
@@ -131,7 +149,7 @@ func clusterBuilderToBuildpacks(builder *buildv1alpha2.ClusterBuilder) []v1alpha
 			Stack:             builder.Status.Stack.ID,
 			Version:           orderEntry.Group[0].Version,
 			CreationTimestamp: builder.CreationTimestamp,
-			UpdatedTimestamp:  lastUpdatedTime(builder.ObjectMeta),
+			UpdatedTimestamp:  updatedTimestamp,
 		})
 	}
 	return buildpackRecords

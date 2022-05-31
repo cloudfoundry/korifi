@@ -35,11 +35,15 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 
 	BeforeEach(func() {
 		info = nil
+		clusterBuilder = nil
 	})
 
 	AfterEach(func() {
 		if info != nil {
 			Expect(k8sClient.Delete(context.Background(), info)).To(Succeed())
+		}
+		if clusterBuilder != nil {
+			Expect(k8sClient.Delete(context.Background(), clusterBuilder)).To(Succeed())
 		}
 	})
 
@@ -70,10 +74,6 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 				},
 			}
 			Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
-		})
-
-		AfterEach(func() {
-			Expect(k8sClient.Delete(context.Background(), clusterBuilder)).To(Succeed())
 		})
 
 		When("the BuildReconcilerInfo is first created", func() {
@@ -118,6 +118,19 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 				Expect(readyCondition.Status).To(Equal(metav1.ConditionTrue))
 				Expect(readyCondition.Reason).To(Equal("cluster_builder_exists"))
 				Expect(readyCondition.Message).To(ContainSubstring(clusterBuilderName))
+			})
+
+			It("sets the stacks on the BuildReconcilerInfo", func() {
+				lookupKey := types.NamespacedName{
+					Name:      controllers.BuildReconcilerInfoName,
+					Namespace: rootNamespace.Name,
+				}
+				Eventually(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusStack {
+					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
+					return info.Status.Stacks
+				}).Should(HaveLen(1))
+
+				Expect(info.Status.Stacks[0]).To(HaveField("Name", Equal(stack)))
 			})
 		})
 
@@ -201,6 +214,17 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 					"Stack":   Equal(newStack),
 				}))
 				Expect(meta.IsStatusConditionTrue(info.Status.Conditions, "Ready")).To(BeTrue())
+			})
+
+			It("updates the stacks on the BuildReconcilerInfo", func() {
+				lookupKey := types.NamespacedName{
+					Name:      controllers.BuildReconcilerInfoName,
+					Namespace: rootNamespace.Name,
+				}
+				Eventually(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusStack {
+					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
+					return info.Status.Stacks
+				}).Should(ConsistOf(HaveField("Name", newStack)))
 			})
 		})
 
@@ -333,7 +357,6 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 					},
 				}
 				Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
-
 			})
 
 			It("sets the buildpacks on the BuildReconcilerInfo", func() {
@@ -352,6 +375,19 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 					"Stack":   Equal(stack),
 				}))
 				Expect(meta.IsStatusConditionTrue(info.Status.Conditions, "Ready")).To(BeTrue())
+			})
+
+			It("sets the stack", func() {
+				lookupKey := types.NamespacedName{
+					Name:      info.Name,
+					Namespace: info.Namespace,
+				}
+				Eventually(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusStack {
+					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
+					return info.Status.Stacks
+				}).Should(HaveLen(1))
+
+				Expect(info.Status.Stacks[0]).To(HaveField("Name", Equal(stack)))
 			})
 		})
 	})

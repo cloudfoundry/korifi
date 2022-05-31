@@ -34,8 +34,16 @@ type BuildReconcilerInfoStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	Stacks     []BuildReconcilerInfoStatusStack     `json:"stacks"`
 	Buildpacks []BuildReconcilerInfoStatusBuildpack `json:"buildpacks"`
 	Conditions []metav1.Condition                   `json:"conditions"`
+}
+
+type BuildReconcilerInfoStatusStack struct {
+	Name              string      `json:"name"`
+	Description       string      `json:"description"`
+	CreationTimestamp metav1.Time `json:"creationTimestamp"`
+	UpdatedTimestamp  metav1.Time `json:"updatedTimestamp"`
 }
 
 type BuildReconcilerInfoStatusBuildpack struct {
