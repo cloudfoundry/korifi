@@ -14,6 +14,7 @@ const (
 	CFProcessTypeLabelKey   = "korifi.cloudfoundry.org/process-type"
 	CFDomainGUIDLabelKey    = "korifi.cloudfoundry.org/domain-guid"
 	CFRouteGUIDLabelKey     = "korifi.cloudfoundry.org/route-guid"
+	CFTaskGUIDLabelKey      = "korifi.cloudfoundry.org/task-guid"
 
 	StagingConditionType   = "Staging"
 	ReadyConditionType     = "Ready"

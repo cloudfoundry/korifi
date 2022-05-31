@@ -8,6 +8,13 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
   - namespaces
   verbs:
   - get
@@ -62,6 +69,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - eirini.cloudfoundry.org
+  resources:
+  - tasks
+  verbs:
+  - create
 - apiGroups:
   - hnc.x-k8s.io
   resources:
@@ -355,6 +368,32 @@ rules:
   - korifi.cloudfoundry.org
   resources:
   - cfspaces/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cftasks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cftasks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cftasks/status
   verbs:
   - get
   - patch

@@ -58,13 +58,13 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
 			filepath.Join("fixtures", "vendor", "hierarchical-namespaces", "config", "crd", "bases"),
+			filepath.Join("fixtures", "vendor", "eirini-controller", "deployment", "helm", "templates", "core"),
 		},
 		ErrorIfCRDPathMissing: true,
 		// TODO: Reconcile with CRDDirectoryPaths
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
 				filepath.Join("..", "..", "..", "..", "dependencies", "kpack-release-0.5.2.yaml"),
-				filepath.Join("fixtures", "lrp-crd.yaml"),
 			},
 		},
 	}
@@ -158,6 +158,14 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
 		packageRegistrySecretName,
+	).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = NewCFTaskReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		k8sManager.GetEventRecorderFor("cftask-controller"),
+		ctrl.Log.WithName("controllers").WithName("CFSpace"),
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 

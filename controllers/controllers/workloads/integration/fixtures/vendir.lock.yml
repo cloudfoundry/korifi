@@ -2,10 +2,16 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'Merge pull request #109 from adrianludwin/readme...'
-      sha: a4fe5ce4534f43205e507b99790151255e3af133
+      commitTitle: 'Merge pull request #206 from erikgb/feat/readonly-client...'
+      sha: e3937b351d8cdc629f1063228236dd80413affe8
       tags:
-      - v0.9.0-rc1-12-ga4fe5ce4
+      - v1.0.0-rc1-38-ge3937b35
     path: hierarchical-namespaces
+  - git:
+      commitTitle: Bump go packages
+      sha: bc1a68c29e8d0c4928f8039827cce39d25829cea
+      tags:
+      - v0.3.0-2-gbc1a68c29
+    path: eirini-controller
   path: vendor
 kind: LockConfig

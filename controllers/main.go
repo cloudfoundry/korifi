@@ -71,6 +71,7 @@ func init() {
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 //counterfeiter:generate -o fake -fake-name Client sigs.k8s.io/controller-runtime/pkg/client.Client
+//counterfeiter:generate -o fake -fake-name EventRecorder k8s.io/client-go/tools/record.EventRecorder
 //counterfeiter:generate -o fake -fake-name StatusWriter sigs.k8s.io/controller-runtime/pkg/client.StatusWriter
 
 func main() {
@@ -184,6 +185,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
 		os.Exit(1)
 	}
+
 	if err = (servicescontrollers.NewCFServiceBindingReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
@@ -211,6 +213,17 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CFSpace")
 		os.Exit(1)
 	}
+
+	if err = workloadscontrollers.NewCFTaskReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		mgr.GetEventRecorderFor("cftask-controller"),
+		ctrl.Log.WithName("controllers").WithName("CFTask"),
+	).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFTask")
+		os.Exit(1)
+	}
+	//+kubebuilder:scaffold:builder
 
 	// Setup Index with Manager
 	err = shared.SetupIndexWithManager(mgr)
@@ -302,8 +315,6 @@ func main() {
 	} else {
 		setupLog.Info("Skipping webhook setup because ENABLE_WEBHOOKS set to false.")
 	}
-
-	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
