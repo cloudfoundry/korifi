@@ -48,7 +48,6 @@ var _ = Describe("Buildpacks", func() {
 
 			It("returns forbidden", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-				Expect(result.Resources).To(BeEmpty())
 			})
 		})
 	})
