@@ -44,6 +44,7 @@ spec:
             properties:
               name:
                 description: Domain name is required and conforms to RFC 1035
+                pattern: ^[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$
                 type: string
             required:
             - name

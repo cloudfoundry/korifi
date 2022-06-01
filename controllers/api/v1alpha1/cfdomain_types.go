@@ -29,6 +29,7 @@ type CFDomainSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Domain name is required and conforms to RFC 1035
+	// +kubebuilder:validation:Pattern="^[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$"
 	Name string `json:"name"`
 }
 
