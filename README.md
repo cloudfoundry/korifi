@@ -3,7 +3,9 @@
 </h1>
 
 <p align="center">
-  <img alt="Build Status" src="https://github.com/cloudfoundry/korifi/actions/workflows/test-build-push-main.yml/badge.svg" />
+  <a href="https://ci.korifi.cf-app.com/teams/main/pipelines/main">
+      <img alt="Build Status" src="https://ci.korifi.cf-app.com/api/v1/teams/main/pipelines/main/badge" />
+  </a>
   <a href="https://codeclimate.com/github/cloudfoundry/korifi/maintainability">
     <img alt="Maintainability" src="https://api.codeclimate.com/v1/badges/1112ab5cfa6a0654cfd2/maintainability" />
   </a>
