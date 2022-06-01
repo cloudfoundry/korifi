@@ -45,7 +45,7 @@ You will need to update the following configuration files:
         tag: us-east4-docker.pkg.dev/vigilant-card-347116/korifi/kpack
     ```
 
--   `korifi-kpack-image-builder.yaml`
+-   `korifi-kpack-image-builder.yml`
 
     Change the value of `kpackImageTag` in the `korifi-kpack-build-config` `ConfigMap`. `kpackImageTag` specifies the tag prefix used for the images built by Korifi. Its hostname should point to your container registry and its path should be made of 3 segments.
 
@@ -53,7 +53,7 @@ You will need to update the following configuration files:
     kpackImageTag: us-east4-docker.pkg.dev/vigilant-card-347116/korifi/droplets
     ```
 
--   `korifi-api.yaml`
+-   `korifi-api.yml`
 
     -   Change the following values in the `korifi-api-config-*` `ConfigMap`.
 
