@@ -25,7 +25,7 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
-	github.com/pivotal/kpack v0.5.3
+	github.com/pivotal/kpack v0.5.4
 	github.com/projectcontour/contour v1.21.0
 	golang.org/x/text v0.3.7
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -49,7 +49,6 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/stretchr/testify v1.7.1 // indirect
 	google.golang.org/genproto v0.0.0-20220422154200-b37d22cd5731 // indirect
 	google.golang.org/grpc v1.46.0 // indirect
 )
@@ -119,12 +118,12 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.21.0
-	golang.org/x/crypto v0.0.0-20220518034528-6f7dac969898 // indirect
+	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/net v0.0.0-20220517181318-183a9ca12b87 // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29 // indirect
-	golang.org/x/sys v0.0.0-20220519141025-dcacdad47464 // indirect
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/term v0.0.0-20220411215600-e5f449aeb171 // indirect
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
 	golang.org/x/tools v0.1.10 // indirect
