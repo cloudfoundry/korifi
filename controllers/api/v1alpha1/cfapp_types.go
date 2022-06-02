@@ -54,6 +54,9 @@ type CFAppStatus struct {
 	Conditions []metav1.Condition `json:"conditions"`
 
 	ObservedDesiredState DesiredState `json:"observedDesiredState"`
+
+	// VCAPServicesSecretName contains the name of the CFApp's VCAP_SERVICES Secret assumed to be in the same namespace
+	VCAPServicesSecretName string `json:"vcapServicesSecretName"`
 }
 
 //+kubebuilder:object:root=true

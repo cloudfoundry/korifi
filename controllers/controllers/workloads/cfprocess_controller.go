@@ -25,6 +25,8 @@ import (
 	"sort"
 	"strconv"
 
+	corev1 "k8s.io/api/core/v1"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
@@ -43,7 +45,7 @@ import (
 
 //counterfeiter:generate -o fake -fake-name EnvBuilder . EnvBuilder
 type EnvBuilder interface {
-	BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (map[string]string, error)
+	BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]corev1.EnvVar, error)
 }
 
 // CFProcessReconciler reconciles a CFProcess object
@@ -198,7 +200,7 @@ func lrpMutateFunction(actuallrp, desiredlrp *eiriniv1.LRP) controllerutil.Mutat
 	}
 }
 
-func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfBuild *korifiv1alpha1.CFBuild, appPort int, envVars map[string]string) (*eiriniv1.LRP, error) {
+func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfBuild *korifiv1alpha1.CFBuild, appPort int, envVars []corev1.EnvVar) (*eiriniv1.LRP, error) {
 	var desiredLRP eiriniv1.LRP
 	actualLRP.DeepCopyInto(&desiredLRP)
 
@@ -226,7 +228,7 @@ func (r *CFProcessReconciler) generateLRP(actualLRP *eiriniv1.LRP, cfApp *korifi
 	desiredLRP.Spec.Ports = cfProcess.Spec.Ports
 	desiredLRP.Spec.Instances = cfProcess.Spec.DesiredInstances
 
-	desiredLRP.Spec.Env = generateEnvMap(appPort, envVars)
+	desiredLRP.Spec.Environment = generateEnvVars(appPort, envVars)
 	desiredLRP.Spec.Health = eiriniv1.Healthcheck{
 		Type:      string(cfProcess.Spec.HealthCheck.Type),
 		Port:      int32(appPort),
@@ -304,16 +306,15 @@ func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess *korifiv1al
 	return 8080, nil
 }
 
-func generateEnvMap(port int, commonEnv map[string]string) map[string]string {
-	result := map[string]string{}
-	for k, v := range commonEnv {
-		result[k] = v
-	}
-
+func generateEnvVars(port int, commonEnv []corev1.EnvVar) []corev1.EnvVar {
+	var result []corev1.EnvVar
+	result = append(result, commonEnv...)
 	portString := strconv.Itoa(port)
-	result["VCAP_APP_HOST"] = "0.0.0.0"
-	result["VCAP_APP_PORT"] = portString
-	result["PORT"] = portString
+	result = append(result,
+		corev1.EnvVar{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
+		corev1.EnvVar{Name: "VCAP_APP_PORT", Value: portString},
+		corev1.EnvVar{Name: "PORT", Value: portString},
+	)
 
 	return result
 }

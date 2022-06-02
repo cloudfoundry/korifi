@@ -36,21 +36,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+//counterfeiter:generate -o fake -fake-name VCAPServicesSecretBuilder . VCAPServicesSecretBuilder
+type VCAPServicesSecretBuilder interface {
+	BuildVCAPServicesEnvValue(context.Context, *korifiv1alpha1.CFApp) (string, error)
+}
+
 // CFServiceBindingReconciler reconciles a CFServiceBinding object
 type CFServiceBindingReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
+	Scheme  *runtime.Scheme
+	Log     logr.Logger
+	Builder VCAPServicesSecretBuilder
 }
 
-func NewCFServiceBindingReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *CFServiceBindingReconciler {
-	return &CFServiceBindingReconciler{Client: client, Scheme: scheme, Log: log}
+func NewCFServiceBindingReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger, builder VCAPServicesSecretBuilder) *CFServiceBindingReconciler {
+	return &CFServiceBindingReconciler{Client: client, Scheme: scheme, Log: log, Builder: builder}
 }
 
 const (
-	BindingSecretAvailableCondition   = "BindingSecretAvailable"
-	ServiceBindingGUIDLabel           = "korifi.cloudfoundry.org/service-binding-guid"
-	ServiceCredentialBindingTypeLabel = "korifi.cloudfoundry.org/service-credential-binding-type"
+	BindingSecretAvailableCondition      = "BindingSecretAvailable"
+	VCAPServicesSecretAvailableCondition = "VCAPServicesSecretAvailable"
+	ServiceBindingGUIDLabel              = "korifi.cloudfoundry.org/service-binding-guid"
+	ServiceCredentialBindingTypeLabel    = "korifi.cloudfoundry.org/service-credential-binding-type"
 )
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings,verbs=get;list;watch;create;update;patch;delete
@@ -136,6 +144,7 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			result = ctrl.Result{RequeueAfter: 2 * time.Second}
 			err = nil
 		} else {
+			// Current status describes the presence of the service instance secret
 			meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
 				Type:    BindingSecretAvailableCondition,
 				Status:  metav1.ConditionFalse,
@@ -151,6 +160,76 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return result, err
 	} else {
 		cfServiceBinding.Status.Binding.Name = instance.Spec.SecretName
+		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+			Type:    BindingSecretAvailableCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  "SecretFound",
+			Message: "",
+		})
+
+		err = r.setStatus(ctx, cfServiceBinding)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if cfApp.Status.VCAPServicesSecretName == "" {
+		r.Log.Info("Did not find VCAPServiceSecret name on status of CFApp", "CFServiceBinding", cfServiceBinding.Name)
+		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+			Type:    VCAPServicesSecretAvailableCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  "SecretNotFound",
+			Message: "VCAPServicesSecret name absent from status of CFApp",
+		})
+
+		err = r.setStatus(ctx, cfServiceBinding)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+
+	vcapServicesData, err := r.Builder.BuildVCAPServicesEnvValue(ctx, cfApp)
+	if err != nil {
+		r.Log.Error(err, "failed to build vcap services secret", "CFServiceBinding", cfServiceBinding)
+	}
+
+	vcapServicesSecret := new(corev1.Secret)
+	// Note: is there a reason to fetch the secret name from the service instance spec?
+	err = r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Status.VCAPServicesSecretName, Namespace: req.Namespace}, vcapServicesSecret)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// Consider a follow up story to avoid this logical branch by creating and populating the secret when absent
+			meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+				Type:    VCAPServicesSecretAvailableCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "SecretNotFound",
+				Message: "Secret does not exist",
+			})
+		} else {
+			// Current status describes the presence of the service instance secret
+			meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+				Type:    VCAPServicesSecretAvailableCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "UnknownError",
+				Message: "Error occurred while fetching secret: " + err.Error(),
+			})
+		}
+		statusErr := r.setStatus(ctx, cfServiceBinding)
+		if statusErr != nil {
+			return ctrl.Result{}, statusErr
+		}
+		return ctrl.Result{}, err
+	} else {
+		updatedVcapServicesSecret := vcapServicesSecret.DeepCopy()
+		secretData := map[string][]byte{}
+		secretData["VCAP_SERVICES"] = []byte(vcapServicesData)
+		updatedVcapServicesSecret.Data = secretData
+		err = r.Client.Patch(ctx, updatedVcapServicesSecret, client.MergeFrom(vcapServicesSecret))
+		if err != nil {
+			r.Log.Error(err, "failed to patch vcap services secret", "CFServiceBinding", cfServiceBinding)
+		}
 		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
 			Type:    BindingSecretAvailableCondition,
 			Status:  metav1.ConditionTrue,

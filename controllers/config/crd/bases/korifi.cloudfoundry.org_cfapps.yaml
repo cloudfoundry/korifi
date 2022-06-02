@@ -177,9 +177,14 @@ spec:
                 - STOPPED
                 - STARTED
                 type: string
+              vcapServicesSecretName:
+                description: VCAPServicesSecretName contains the name of the CFApp's
+                  VCAP_SERVICES Secret assumed to be in the same namespace
+                type: string
             required:
             - conditions
             - observedDesiredState
+            - vcapServicesSecretName
             type: object
         type: object
     served: true

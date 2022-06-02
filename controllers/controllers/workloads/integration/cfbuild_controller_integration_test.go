@@ -35,7 +35,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 	)
 
 	eventuallyBuildWorkloadShould := func(assertion func(*korifiv1alpha1.BuildWorkload, Gomega)) {
-		Eventually(func(g Gomega) {
+		EventuallyWithOffset(1, func(g Gomega) {
 			workload := new(korifiv1alpha1.BuildWorkload)
 			lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 			g.Expect(k8sClient.Get(context.Background(), lookupKey, workload)).To(Succeed())
@@ -55,6 +55,15 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 
 		desiredCFApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
 		Expect(k8sClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
+
+		Eventually(func() string {
+			actualCFApp := &korifiv1alpha1.CFApp{}
+			err := k8sClient.Get(beforeCtx, types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}, actualCFApp)
+			if err != nil {
+				return ""
+			}
+			return actualCFApp.Status.VCAPServicesSecretName
+		}).ShouldNot(BeEmpty())
 
 		envVarSecret := BuildCFAppEnvVarsSecret(desiredCFApp.Name, namespaceGUID, map[string]string{
 			"a_key": "a-val",
@@ -105,11 +114,44 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 		})
 
 		It("creates a BuildWorkload with the env set on it", func() {
+			createdCFApp := &korifiv1alpha1.CFApp{}
+			Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}, createdCFApp)).To(Succeed())
+
 			eventuallyBuildWorkloadShould(func(workload *korifiv1alpha1.BuildWorkload, g Gomega) {
 				g.Expect(workload.Spec.Env).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("a_key"), "Value": Equal("a-val")}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("b_key"), "Value": Equal("b-val")}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("VCAP_SERVICES"), "Value": Not(BeEmpty())}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("a_key"),
+						"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+							"SecretKeyRef": PointTo(MatchFields(IgnoreExtras, Fields{
+								"LocalObjectReference": MatchFields(IgnoreExtras, Fields{
+									"Name": Equal(createdCFApp.Spec.EnvSecretName),
+								}),
+								"Key": Equal("a_key"),
+							})),
+						})),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("b_key"),
+						"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+							"SecretKeyRef": PointTo(MatchFields(IgnoreExtras, Fields{
+								"LocalObjectReference": MatchFields(IgnoreExtras, Fields{
+									"Name": Equal(createdCFApp.Spec.EnvSecretName),
+								}),
+								"Key": Equal("b_key"),
+							})),
+						})),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("VCAP_SERVICES"),
+						"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+							"SecretKeyRef": PointTo(MatchFields(IgnoreExtras, Fields{
+								"LocalObjectReference": MatchFields(IgnoreExtras, Fields{
+									"Name": Equal(createdCFApp.Status.VCAPServicesSecretName),
+								}),
+								"Key": Equal("VCAP_SERVICES"),
+							})),
+						})),
+					}),
 				))
 			})
 		})
@@ -310,28 +352,24 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			})
 
 			It("sets the VCAP_SERVICES env var in the image", func() {
+				createdCFApp := &korifiv1alpha1.CFApp{}
+				Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}, createdCFApp)).To(Succeed())
+
 				eventuallyBuildWorkloadShould(func(workload *korifiv1alpha1.BuildWorkload, g Gomega) {
 					g.Expect(workload.Spec.Env).To(ContainElements(
 						MatchFields(IgnoreExtras, Fields{
 							"Name": Equal("VCAP_SERVICES"),
-							"Value": SatisfyAll(
-								ContainSubstring(serviceInstance1.Spec.DisplayName),
-								ContainSubstring(serviceInstance2.Spec.DisplayName),
-							),
+							"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+								"SecretKeyRef": PointTo(MatchFields(IgnoreExtras, Fields{
+									"Key": Equal("VCAP_SERVICES"),
+									"LocalObjectReference": MatchFields(IgnoreExtras, Fields{
+										"Name": Equal(createdCFApp.Status.VCAPServicesSecretName),
+									}),
+								})),
+							})),
 						}),
 					))
 				})
-			})
-
-			It("sets the VCAP_SERVICES key in the env var secret", func() {
-				// TODO: this is incorrect behavior and should be removed by #1101
-				envVarSecret := new(corev1.Secret)
-				lookupKey := types.NamespacedName{Name: desiredCFApp.Spec.EnvSecretName, Namespace: namespaceGUID}
-
-				Eventually(func(g Gomega) map[string][]byte {
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, envVarSecret)).To(Succeed())
-					return envVarSecret.Data
-				}).Should(HaveKey("VCAP_SERVICES"))
 			})
 		})
 

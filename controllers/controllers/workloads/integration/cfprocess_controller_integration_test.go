@@ -11,8 +11,8 @@ import (
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -130,7 +130,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		It("eventually reconciles the CFProcess into an LRP", func() {
 			ctx := context.Background()
 			var lrp eiriniv1.LRP
-
 			Eventually(func() string {
 				var lrps eiriniv1.LRPList
 				err := k8sClient.List(ctx, &lrps, client.InNamespace(testNamespace))
@@ -147,6 +146,9 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 				return ""
 			}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
+
+			var updatedCFApp korifiv1alpha1.CFApp
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Name, Namespace: cfApp.Namespace}, &updatedCFApp)).To(Succeed())
 
 			Expect(lrp.OwnerReferences).To(HaveLen(1), "expected length of ownerReferences to be 1")
 			Expect(lrp.OwnerReferences[0].Name).To(Equal(cfProcess.Name))
@@ -168,11 +170,33 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			Expect(lrp.Spec.Instances).To(Equal(cfProcess.Spec.DesiredInstances), "lrp desired instances does not match CFApp")
 			Expect(lrp.Spec.CPUWeight).NotTo(BeZero(), "expected cpu to be nonzero")
 			Expect(lrp.Spec.Sidecars).To(BeNil(), "expected sidecars to always be nil")
-			Expect(lrp.Spec.Env).To(HaveKeyWithValue("test-env-key", "test-env-val"))
-			Expect(lrp.Spec.Env).To(HaveKeyWithValue("VCAP_APP_HOST", "0.0.0.0"))
-			Expect(lrp.Spec.Env).To(HaveKeyWithValue("VCAP_APP_PORT", "8080"))
-			Expect(lrp.Spec.Env).To(HaveKeyWithValue("VCAP_SERVICES", MatchJSON(`{}`)))
-			Expect(lrp.Spec.Env).To(HaveKeyWithValue("PORT", "8080"))
+			Expect(lrp.Spec.Environment).To(ConsistOf(
+				MatchFields(IgnoreExtras, Fields{
+					"Name": Equal("test-env-key"),
+					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+						"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: cfApp.Spec.EnvSecretName,
+							},
+							Key: "test-env-key",
+						})),
+					})),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name": Equal("VCAP_SERVICES"),
+					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+						"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: updatedCFApp.Status.VCAPServicesSecretName,
+							},
+							Key: "VCAP_SERVICES",
+						})),
+					})),
+				}),
+				Equal(corev1.EnvVar{Name: "VCAP_APP_HOST", Value: "0.0.0.0"}),
+				Equal(corev1.EnvVar{Name: "VCAP_APP_PORT", Value: "8080"}),
+				Equal(corev1.EnvVar{Name: "PORT", Value: "8080"}),
+			))
 			Expect(lrp.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", processTypeWebCommand))
 		})
 
@@ -220,182 +244,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 					return true
 				}).Should(BeTrue(), "Timed out waiting for deletion of LRP/%s in namespace %s to cause NotFound error", testProcessGUID, testNamespace)
-			})
-		})
-
-		When("the corresponding CFApp has multiple User-Provided CFServiceBindings", func() {
-			var (
-				secret1Data      map[string]string
-				secret2Data      map[string]string
-				secret1          *corev1.Secret
-				secret2          *corev1.Secret
-				serviceInstance1 *korifiv1alpha1.CFServiceInstance
-				serviceInstance2 *korifiv1alpha1.CFServiceInstance
-				serviceBinding1  *korifiv1alpha1.CFServiceBinding
-				serviceBinding2  *korifiv1alpha1.CFServiceBinding
-			)
-
-			BeforeEach(func() {
-				ctx := context.Background()
-
-				secret1Data = map[string]string{
-					"foo": "bar",
-				}
-				secret1 = &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "secret1",
-						Namespace: ns.Name,
-					},
-					StringData: secret1Data,
-				}
-				Expect(
-					k8sClient.Create(ctx, secret1),
-				).To(Succeed())
-
-				serviceInstance1 = &korifiv1alpha1.CFServiceInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "service-instance-1-guid",
-						Namespace: ns.Name,
-					},
-					Spec: korifiv1alpha1.CFServiceInstanceSpec{
-						DisplayName: "service-instance-1-name",
-						SecretName:  secret1.Name,
-						Type:        "user-provided",
-						Tags: []string{
-							"tag1",
-							"tag2",
-						},
-					},
-				}
-				Expect(
-					k8sClient.Create(ctx, serviceInstance1),
-				).To(Succeed())
-
-				serviceBinding1Name := "service-binding-1-name"
-				serviceBinding1 = &korifiv1alpha1.CFServiceBinding{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "service-binding-1-guid",
-						Namespace: ns.Name,
-						Labels: map[string]string{
-							korifiv1alpha1.CFAppGUIDLabelKey: testAppGUID,
-						},
-					},
-					Spec: korifiv1alpha1.CFServiceBindingSpec{
-						DisplayName: &serviceBinding1Name,
-						Service: corev1.ObjectReference{
-							Kind:       "ServiceInstance",
-							Name:       serviceInstance1.Name,
-							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-						},
-						AppRef: corev1.LocalObjectReference{
-							Name: testAppGUID,
-						},
-					},
-				}
-				Expect(
-					k8sClient.Create(ctx, serviceBinding1),
-				).To(Succeed())
-
-				createdServiceBinding1 := serviceBinding1.DeepCopy()
-				createdServiceBinding1.Status.Binding.Name = secret1.Name
-				meta.SetStatusCondition(&createdServiceBinding1.Status.Conditions, metav1.Condition{
-					Type:    "BindingSecretAvailable",
-					Status:  metav1.ConditionTrue,
-					Reason:  "SecretFound",
-					Message: "",
-				})
-				Expect(k8sClient.Status().Patch(ctx, createdServiceBinding1, client.MergeFrom(serviceBinding1))).To(Succeed())
-
-				secret2Data = map[string]string{
-					"key1": "value1",
-					"key2": "value2",
-				}
-				secret2 = &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "secret2",
-						Namespace: ns.Name,
-					},
-					StringData: secret2Data,
-				}
-				Expect(
-					k8sClient.Create(ctx, secret2),
-				).To(Succeed())
-
-				serviceInstance2 = &korifiv1alpha1.CFServiceInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "service-instance-2-guid",
-						Namespace: ns.Name,
-					},
-					Spec: korifiv1alpha1.CFServiceInstanceSpec{
-						DisplayName: "service-instance-2-name",
-						SecretName:  secret2.Name,
-						Type:        "user-provided",
-						Tags:        []string{},
-					},
-				}
-				Expect(
-					k8sClient.Create(ctx, serviceInstance2),
-				).To(Succeed())
-
-				serviceBinding2Name := "service-binding-2-name"
-				serviceBinding2 = &korifiv1alpha1.CFServiceBinding{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "service-binding-2-guid",
-						Namespace: ns.Name,
-						Labels: map[string]string{
-							korifiv1alpha1.CFAppGUIDLabelKey: testAppGUID,
-						},
-					},
-					Spec: korifiv1alpha1.CFServiceBindingSpec{
-						DisplayName: &serviceBinding2Name,
-						Service: corev1.ObjectReference{
-							Kind:       "ServiceInstance",
-							Name:       serviceInstance2.Name,
-							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-						},
-						AppRef: corev1.LocalObjectReference{
-							Name: testAppGUID,
-						},
-					},
-				}
-				Expect(
-					k8sClient.Create(ctx, serviceBinding2),
-				).To(Succeed())
-
-				createdServiceBinding2 := serviceBinding2.DeepCopy()
-				createdServiceBinding2.Status.Binding.Name = secret2.Name
-				meta.SetStatusCondition(&createdServiceBinding2.Status.Conditions, metav1.Condition{
-					Type:    "BindingSecretAvailable",
-					Status:  metav1.ConditionTrue,
-					Reason:  "SecretFound",
-					Message: "",
-				})
-				Expect(k8sClient.Status().Patch(ctx, createdServiceBinding2, client.MergeFrom(serviceBinding2))).To(Succeed())
-			})
-
-			It("eventually creates an LRP with VCAP_SERVICES environment variables", func() {
-				ctx := context.Background()
-				var lrp eiriniv1.LRP
-
-				Eventually(func() map[string]string {
-					var lrps eiriniv1.LRPList
-					err := k8sClient.List(ctx, &lrps, client.InNamespace(testNamespace))
-					if err != nil {
-						return nil
-					}
-
-					for _, currentLRP := range lrps.Items {
-						if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
-							lrp = currentLRP
-							return lrp.Spec.Env
-						}
-					}
-
-					return nil
-				}).Should(
-					HaveKeyWithValue("VCAP_SERVICES",
-						SatisfyAll(ContainSubstring(*serviceBinding1.Spec.DisplayName), ContainSubstring(*serviceBinding2.Spec.DisplayName)),
-					), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to get VCAP_SERVICES env vars", testProcessGUID, testNamespace))
 			})
 		})
 	})
@@ -468,8 +316,10 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				return ""
 			}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
-			Expect(lrp.Spec.Env).To(HaveKeyWithValue("VCAP_APP_PORT", "9000"))
-			Expect(lrp.Spec.Env).To(HaveKeyWithValue("PORT", "9000"))
+			Expect(lrp.Spec.Environment).To(ContainElements(
+				Equal(corev1.EnvVar{Name: "VCAP_APP_PORT", Value: "9000"}),
+				Equal(corev1.EnvVar{Name: "PORT", Value: "9000"}),
+			))
 		})
 
 		When("the process has a health check", func() {

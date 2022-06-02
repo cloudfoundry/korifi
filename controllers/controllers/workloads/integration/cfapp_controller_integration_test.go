@@ -34,13 +34,17 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 	})
 
 	When("a new CFApp resource is created", func() {
-		const (
-			cfAppGUID = "test-app-guid"
+		var (
+			ctx       context.Context
+			cfAppGUID string
+			cfApp     *korifiv1alpha1.CFApp
 		)
 
-		It("sets its status.conditions", func() {
-			ctx := context.Background()
-			cfApp := &korifiv1alpha1.CFApp{
+		BeforeEach(func() {
+			ctx = context.Background()
+			cfAppGUID = PrefixedGUID("create-app")
+
+			cfApp = &korifiv1alpha1.CFApp{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFApp",
 					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
@@ -57,8 +61,30 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+			Expect(
+				k8sClient.Create(ctx, cfApp),
+			).To(Succeed())
+		})
 
+		It("eventually sets status.vcapServicesSecretName and creates the corresponding secret", func() {
+			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}
+			createdCFApp := new(korifiv1alpha1.CFApp)
+
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)
+				if err != nil {
+					return ""
+				}
+				return string(createdCFApp.Status.VCAPServicesSecretName)
+			}).Should(Not(BeEmpty()))
+
+			vcapServicesSecretLookupKey := types.NamespacedName{Name: cfAppGUID + "-vcap-services", Namespace: namespaceGUID}
+			createdSecret := new(corev1.Secret)
+			Expect(k8sClient.Get(ctx, vcapServicesSecretLookupKey, createdSecret)).To(Succeed())
+			Expect(createdSecret.Data).To(HaveKeyWithValue("VCAP_SERVICES", []byte("{}")))
+		})
+
+		It("sets its status.conditions", func() {
 			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}
 			createdCFApp := new(korifiv1alpha1.CFApp)
 

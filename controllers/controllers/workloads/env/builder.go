@@ -8,17 +8,17 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type vcapServicesPresenter struct {
-	UserProvided []serviceDetails `json:"user-provided,omitempty"`
+	UserProvided []ServiceDetails `json:"user-provided,omitempty"`
 }
 
-type serviceDetails struct {
+type ServiceDetails struct {
 	Label          string            `json:"label"`
 	Name           string            `json:"name"`
 	Tags           []string          `json:"tags"`
@@ -39,81 +39,30 @@ func NewBuilder(client workloads.CFClient) *Builder {
 	return &Builder{client: client}
 }
 
-func (b *Builder) BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (map[string]string, error) {
-	if cfApp.Spec.EnvSecretName == "" {
-		return map[string]string{}, nil
+func (b *Builder) BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]corev1.EnvVar, error) {
+	var appEnvSecret, vcapServicesSecret corev1.Secret
+
+	if cfApp.Spec.EnvSecretName != "" {
+		err := b.client.Get(ctx, types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Spec.EnvSecretName}, &appEnvSecret)
+		if err != nil {
+			return nil, fmt.Errorf("error when trying to fetch app env Secret %s/%s: %w", cfApp.Namespace, cfApp.Spec.EnvSecretName, err)
+		}
 	}
 
-	appEnvSecret := corev1.Secret{}
-	err := b.client.Get(ctx, types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Spec.EnvSecretName}, &appEnvSecret)
-	if err != nil {
-		return nil, fmt.Errorf("error when trying to fetch app env Secret %s/%s: %w", cfApp.Namespace, cfApp.Spec.EnvSecretName, err)
+	if cfApp.Status.VCAPServicesSecretName != "" {
+		err := b.client.Get(ctx, types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Status.VCAPServicesSecretName}, &vcapServicesSecret)
+		if err != nil {
+			return nil, fmt.Errorf("error when trying to fetch app env Secret %s/%s: %w", cfApp.Namespace, cfApp.Status.VCAPServicesSecretName, err)
+		}
 	}
 
-	vcapServices, err := buildVcapServicesEnvValue(ctx, b.client, cfApp)
-	if err != nil {
-		return nil, err
-	}
-
-	updatedSecret := appEnvSecret.DeepCopy()
-	if updatedSecret.Data == nil {
-		updatedSecret.Data = map[string][]byte{}
-	}
-	updatedSecret.Data["VCAP_SERVICES"] = []byte(vcapServices)
-	err = b.client.Patch(ctx, updatedSecret, client.MergeFrom(&appEnvSecret))
-	if err != nil {
-		return nil, fmt.Errorf("failed to patch app env secret: %w", err)
-	}
-
-	return fromSecret(updatedSecret), nil
+	// We explicitly order the vcapServicesSecret last so that its "VCAP_SERVICES" contents win
+	return envVarsFromSecrets(appEnvSecret, vcapServicesSecret), nil
 }
 
-func fromSecret(secret *corev1.Secret) map[string]string {
-	convertedMap := make(map[string]string)
-	for k, v := range secret.Data {
-		convertedMap[k] = string(v)
-	}
-	return convertedMap
-}
-
-func fromServiceBinding(
-	serviceBinding korifiv1alpha1.CFServiceBinding,
-	serviceInstance korifiv1alpha1.CFServiceInstance,
-	serviceBindingSecret corev1.Secret,
-) serviceDetails {
-	var serviceName string
-	var bindingName *string
-
-	if serviceBinding.Spec.DisplayName != nil {
-		serviceName = *serviceBinding.Spec.DisplayName
-		bindingName = serviceBinding.Spec.DisplayName
-	} else {
-		serviceName = serviceInstance.Spec.DisplayName
-		bindingName = nil
-	}
-
-	tags := serviceInstance.Spec.Tags
-	if tags == nil {
-		tags = []string{}
-	}
-
-	return serviceDetails{
-		Label:          "user-provided",
-		Name:           serviceName,
-		Tags:           tags,
-		InstanceGUID:   serviceInstance.Name,
-		InstanceName:   serviceInstance.Spec.DisplayName,
-		BindingGUID:    serviceBinding.Name,
-		BindingName:    bindingName,
-		Credentials:    fromSecret(&serviceBindingSecret),
-		SyslogDrainURL: nil,
-		VolumeMounts:   []string{},
-	}
-}
-
-func buildVcapServicesEnvValue(ctx context.Context, k8sClient workloads.CFClient, cfApp *korifiv1alpha1.CFApp) (string, error) {
+func (b *Builder) BuildVCAPServicesEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (string, error) {
 	serviceBindings := &korifiv1alpha1.CFServiceBindingList{}
-	err := k8sClient.List(ctx, serviceBindings,
+	err := b.client.List(ctx, serviceBindings,
 		client.InNamespace(cfApp.Namespace),
 		client.MatchingFields{shared.IndexServiceBindingAppGUID: cfApp.Name},
 	)
@@ -125,10 +74,10 @@ func buildVcapServicesEnvValue(ctx context.Context, k8sClient workloads.CFClient
 		return "{}", nil
 	}
 
-	serviceEnvs := []serviceDetails{}
+	serviceEnvs := []ServiceDetails{}
 	for _, currentServiceBinding := range serviceBindings.Items {
-		var serviceEnv serviceDetails
-		serviceEnv, err = buildSingleServiceEnv(ctx, k8sClient, currentServiceBinding)
+		var serviceEnv ServiceDetails
+		serviceEnv, err = buildSingleServiceEnv(ctx, b.client, currentServiceBinding)
 		if err != nil {
 			return "", err
 		}
@@ -146,21 +95,82 @@ func buildVcapServicesEnvValue(ctx context.Context, k8sClient workloads.CFClient
 	return string(toReturn), nil
 }
 
-func buildSingleServiceEnv(ctx context.Context, k8sClient workloads.CFClient, serviceBinding korifiv1alpha1.CFServiceBinding) (serviceDetails, error) {
+func mapFromSecret(secret corev1.Secret) map[string]string {
+	convertedMap := make(map[string]string)
+	for k, v := range secret.Data {
+		convertedMap[k] = string(v)
+	}
+	return convertedMap
+}
+
+func envVarsFromSecrets(secrets ...corev1.Secret) []corev1.EnvVar {
+	var envVars []corev1.EnvVar
+	for _, secret := range secrets {
+		for k := range secret.Data {
+			envVars = append(envVars, corev1.EnvVar{
+				Name: k,
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
+						Key:                  k,
+					},
+				},
+			})
+		}
+	}
+	return envVars
+}
+
+func fromServiceBinding(
+	serviceBinding korifiv1alpha1.CFServiceBinding,
+	serviceInstance korifiv1alpha1.CFServiceInstance,
+	serviceBindingSecret corev1.Secret,
+) ServiceDetails {
+	var serviceName string
+	var bindingName *string
+
+	if serviceBinding.Spec.DisplayName != nil {
+		serviceName = *serviceBinding.Spec.DisplayName
+		bindingName = serviceBinding.Spec.DisplayName
+	} else {
+		serviceName = serviceInstance.Spec.DisplayName
+		bindingName = nil
+	}
+
+	tags := serviceInstance.Spec.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+
+	return ServiceDetails{
+		Label:          "user-provided",
+		Name:           serviceName,
+		Tags:           tags,
+		InstanceGUID:   serviceInstance.Name,
+		InstanceName:   serviceInstance.Spec.DisplayName,
+		BindingGUID:    serviceBinding.Name,
+		BindingName:    bindingName,
+		Credentials:    mapFromSecret(serviceBindingSecret),
+		SyslogDrainURL: nil,
+		VolumeMounts:   []string{},
+	}
+}
+
+func buildSingleServiceEnv(ctx context.Context, k8sClient workloads.CFClient, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, error) {
 	if serviceBinding.Status.Binding.Name == "" {
-		return serviceDetails{}, fmt.Errorf("service binding secret name is empty")
+		return ServiceDetails{}, fmt.Errorf("service binding secret name is empty")
 	}
 
 	serviceInstance := korifiv1alpha1.CFServiceInstance{}
 	err := k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Spec.Service.Name}, &serviceInstance)
 	if err != nil {
-		return serviceDetails{}, fmt.Errorf("error fetching CFServiceInstance: %w", err)
+		return ServiceDetails{}, fmt.Errorf("error fetching CFServiceInstance: %w", err)
 	}
 
 	secret := corev1.Secret{}
 	err = k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Status.Binding.Name}, &secret)
 	if err != nil {
-		return serviceDetails{}, fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
+		return ServiceDetails{}, fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
 	}
 
 	return fromServiceBinding(serviceBinding, serviceInstance, secret), nil
