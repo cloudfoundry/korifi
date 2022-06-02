@@ -132,6 +132,7 @@ func main() {
 		reporegistry.NewImageBuilder(),
 		reporegistry.NewImagePusher(remote.Write),
 	)
+	taskRepo := repositories.NewTaskRepo(userClientFactory)
 
 	scaleProcessAction := actions.NewScaleProcess(processRepo)
 	scaleAppProcessAction := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcessAction.Invoke)
@@ -264,6 +265,13 @@ func main() {
 			serviceBindingRepo,
 			appRepo,
 			serviceInstanceRepo,
+			decoderValidator,
+		),
+
+		handlers.NewTaskHandler(
+			*serverURL,
+			appRepo,
+			taskRepo,
 			decoderValidator,
 		),
 	}

@@ -43,6 +43,7 @@ func TestRepositories(t *testing.T) {
 }
 
 var (
+	ctx                   context.Context
 	testEnv               *envtest.Environment
 	k8sClient             client.WithWatch
 	namespaceRetriever    repositories.NamespaceRetriever
@@ -100,14 +101,13 @@ var _ = BeforeSuite(func() {
 	namespaceRetriever = repositories.NewNamespaceRetriver(dynamicClient)
 	Expect(namespaceRetriever).NotTo(BeNil())
 
-	ctx := context.Background()
-	adminRole = createClusterRole(ctx, "cf_admin")
-	orgManagerRole = createClusterRole(ctx, "cf_org_manager")
-	orgUserRole = createClusterRole(ctx, "cf_org_user")
-	spaceDeveloperRole = createClusterRole(ctx, "cf_space_developer")
-	spaceManagerRole = createClusterRole(ctx, "cf_space_manager")
-	spaceAuditorRole = createClusterRole(ctx, "cf_space_auditor")
-	rootNamespaceUserRole = createClusterRole(ctx, "cf_root_namespace_user")
+	adminRole = createClusterRole(context.Background(), "cf_admin")
+	orgManagerRole = createClusterRole(context.Background(), "cf_org_manager")
+	orgUserRole = createClusterRole(context.Background(), "cf_org_user")
+	spaceDeveloperRole = createClusterRole(context.Background(), "cf_space_developer")
+	spaceManagerRole = createClusterRole(context.Background(), "cf_space_manager")
+	spaceAuditorRole = createClusterRole(context.Background(), "cf_space_auditor")
+	rootNamespaceUserRole = createClusterRole(context.Background(), "cf_root_namespace_user")
 })
 
 var _ = AfterSuite(func() {
@@ -115,6 +115,7 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
+	ctx = context.Background()
 	userName = generateGUID()
 	cert, key := testhelpers.ObtainClientCert(testEnv, userName)
 	authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)

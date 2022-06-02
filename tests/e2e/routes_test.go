@@ -395,7 +395,10 @@ var _ = Describe("Routes", func() {
 				appClient := resty.New().SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 				Eventually(func(g Gomega) {
 					var err error
-					resp, err = appClient.R().Get(fmt.Sprintf("https://%s.%s", host, appFQDN))
+					resp, err = appClient.R().
+						SetPathParam("host", host).
+						SetPathParam("appFQDN", appFQDN).
+						Get("https://{host}.{appFQDN}")
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(resp.StatusCode()).To(Equal(http.StatusOK))
 				}).Should(Succeed())
