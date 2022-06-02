@@ -1,24 +1,17 @@
 package e2e_test
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
 
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
-	controllerruntime "sigs.k8s.io/controller-runtime"
-	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Routes", func() {
@@ -269,50 +262,6 @@ var _ = Describe("Routes", func() {
 					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 					Expect(createErr.Errors).To(ConsistOf(cfErr{
 						Detail: fmt.Sprintf("ValidationError-DuplicateRouteError: Route already exists with host '%s' for domain '%s'.", host, domainName),
-						Title:  "CF-UnprocessableEntity",
-						Code:   10008,
-					}))
-				})
-			})
-
-			When("the host on the route is invalid", func() {
-				const (
-					domainName = "inv@liddom@in"
-				)
-
-				// we need a K8s client for this test case for when the default domain name is not compliant
-				var k8sClient k8sclient.WithWatch
-
-				BeforeEach(func() {
-					config, err := controllerruntime.GetConfig()
-					Expect(err).NotTo(HaveOccurred())
-					Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-					k8sClient, err = k8sclient.NewWithWatch(config, k8sclient.Options{Scheme: scheme.Scheme})
-					Expect(err).NotTo(HaveOccurred())
-					domainGUID = uuid.NewString()
-					domain := &korifiv1alpha1.CFDomain{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      domainGUID,
-							Namespace: rootNamespace,
-						},
-						Spec: korifiv1alpha1.CFDomainSpec{
-							Name: domainName,
-						},
-					}
-					Expect(
-						k8sClient.Create(context.Background(), domain),
-					).To(Succeed())
-				})
-
-				AfterEach(func() {
-					Expect(
-						k8sClient.Delete(context.Background(), &korifiv1alpha1.CFDomain{ObjectMeta: metav1.ObjectMeta{Namespace: rootNamespace, Name: domainGUID}})).To(Succeed())
-				})
-
-				It("fails with a invalid route error", func() {
-					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-					Expect(createErr.Errors).To(ConsistOf(cfErr{
-						Detail: fmt.Sprintf("ValidationError-RouteFQDNValidationError: FQDN '%s.%s' does not comply with RFC 1035 standards", host, domainName),
 						Title:  "CF-UnprocessableEntity",
 						Code:   10008,
 					}))
