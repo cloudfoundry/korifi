@@ -23,7 +23,6 @@ import (
 
 var _ = Describe("RoleRepository", func() {
 	var (
-		ctx                 context.Context
 		roleCreateMessage   repositories.CreateRoleMessage
 		roleRepo            *repositories.RoleRepo
 		cfOrg               *korifiv1alpha1.CFOrg
@@ -33,7 +32,6 @@ var _ = Describe("RoleRepository", func() {
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		authorizedInChecker = new(fake.AuthorizedInChecker)
 		roleMappings := map[string]config.Role{
 			"space_developer":      {Name: spaceDeveloperRole.Name},

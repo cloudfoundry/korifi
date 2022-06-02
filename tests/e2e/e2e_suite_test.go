@@ -106,6 +106,11 @@ type appResource struct {
 	State    string `json:"state,omitempty"`
 }
 
+type taskResource struct {
+	resource `json:",inline"`
+	Command  string `json:"command,omitempty"`
+}
+
 type typedResource struct {
 	resource `json:",inline"`
 	Type     string `json:"type,omitempty"`
@@ -443,7 +448,8 @@ func setEnv(appName string, envVars map[string]interface{}) {
 				Var: envVars,
 			},
 		).
-		Patch(fmt.Sprintf("/v3/apps/%s/environment_variables", appName))
+		SetPathParam("appName", appName).
+		Patch("/v3/apps/{appName}/environment_variables")
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 }
@@ -453,7 +459,8 @@ func getEnv(appName string) map[string]interface{} {
 
 	resp, err := adminClient.R().
 		SetResult(&env).
-		Get(fmt.Sprintf("/v3/apps/%s/env", appName))
+		SetPathParam("appName", appName).
+		Get("/v3/apps/{appName}/env")
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 
