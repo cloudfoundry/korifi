@@ -1,18 +1,21 @@
 package workloads
 
 import (
-	"code.cloudfoundry.org/korifi/api/repositories"
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/api/repositories"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -109,17 +112,18 @@ func propagateRoles(ctx context.Context, kClient client.Client, log logr.Logger,
 		return err
 	}
 
-	for index, _ := range roles.Items {
+	for _, binding := range roles.Items {
 		newRole := &rbacv1.Role{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      roles.Items[index].Name,
+				Name:      binding.Name,
 				Namespace: object.GetName(),
 			},
 		}
+		b := binding
 		result, err := controllerutil.CreateOrPatch(ctx, kClient, newRole, func() error {
-			newRole.ObjectMeta.Labels = roles.Items[index].Labels
-			newRole.ObjectMeta.Annotations = roles.Items[index].Annotations
-			newRole.Rules = roles.Items[index].Rules
+			newRole.ObjectMeta.Labels = b.Labels
+			newRole.ObjectMeta.Annotations = b.Annotations
+			newRole.Rules = b.Rules
 			return nil
 		})
 
@@ -151,18 +155,19 @@ func propagateRoleBindings(ctx context.Context, kClient client.Client, log logr.
 		return err
 	}
 
-	for index, _ := range roleBindings.Items {
+	for _, binding := range roleBindings.Items {
 		newRoleBinding := &rbacv1.RoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      roleBindings.Items[index].Name,
+				Name:      binding.Name,
 				Namespace: object.GetName(),
 			},
 		}
+		b := binding
 		result, err := controllerutil.CreateOrPatch(ctx, kClient, newRoleBinding, func() error {
-			newRoleBinding.ObjectMeta.Labels = roleBindings.Items[index].Labels
-			newRoleBinding.ObjectMeta.Annotations = roleBindings.Items[index].Annotations
-			newRoleBinding.Subjects = roleBindings.Items[index].Subjects
-			newRoleBinding.RoleRef = roleBindings.Items[index].RoleRef
+			newRoleBinding.ObjectMeta.Labels = b.Labels
+			newRoleBinding.ObjectMeta.Annotations = b.Annotations
+			newRoleBinding.Subjects = b.Subjects
+			newRoleBinding.RoleRef = b.RoleRef
 			return nil
 		})
 
