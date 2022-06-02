@@ -38,7 +38,7 @@ You will need to update the following configuration files:
 
 -   `dependencies/kpack/cluster_builder.yaml`
 
-    `spec.tag` specifies the tag for the [CNB builder](https://buildpacks.io/docs/concepts/components/builder/) image used by Korifi. Its hostname should point to your container registry and its path should be made of 3 segments.
+    `spec.tag` specifies the tag for the [CNB builder](https://buildpacks.io/docs/concepts/components/builder/) image used by Korifi. Its hostname should point to your container registry and its path should be [valid for the registry](#image-registry-configuration).
 
     ```yaml
     spec:
@@ -47,7 +47,7 @@ You will need to update the following configuration files:
 
 -   `korifi-kpack-image-builder.yml`
 
-    Change the value of `kpackImageTag` in the `korifi-kpack-build-config` `ConfigMap`. `kpackImageTag` specifies the tag prefix used for the images built by Korifi. Its hostname should point to your container registry and its path should be made of 3 segments.
+    Change the value of `kpackImageTag` in the `korifi-kpack-build-config` `ConfigMap`. `kpackImageTag` specifies the tag prefix used for the images built by Korifi. Its hostname should point to your container registry and its path should be [valid for the registry](#image-registry-configuration).
 
     ```yaml
     kpackImageTag: us-east4-docker.pkg.dev/vigilant-card-347116/korifi/droplets
@@ -57,7 +57,7 @@ You will need to update the following configuration files:
 
     -   Change the following values in the `korifi-api-config-*` `ConfigMap`.
 
-        -   `packageRegistryBase` specifies the tag prefix used for the source packages uploaded to Korifi. Its hostname should point to your container registry and its path should be made of 3 segments.
+        -   `packageRegistryBase` specifies the tag prefix used for the source packages uploaded to Korifi. Its hostname should point to your container registry and its path should be [valid for the registry](#image-registry-configuration).
         -   `externalFQDN` is the domain name that will be used by the Korifi API, and is usually of the format `api.$BASE_DOMAIN`.
         -   `defaultDomainName` is the default base domain name for the apps deployed by Korifi, and is usually of the format `apps.$BASE_DOMAIN`.
 
@@ -82,6 +82,28 @@ You will need to update the following configuration files:
                 fqdn: api.korifi.example.org
                 # ...
         ```
+
+### Image Registry Configuration
+
+#### DockerHub
+
+- The cluster_builder.yaml `spec.tag` should be in the format `index.docker.io/<Username>/korifi-cluster-builder`.
+- The korifi-kpack-image-builder.yml `kpackImageTag` should be in the format `index.docker.io/<Username>`.
+  - It will be combined with the GUID of the Kpack Image resource to create the full URI of the droplet image for an application.
+- The korifi-api.yml `packageRegistryBase` should be in the format `index.docker.io/<Username>`.
+    - It will be combined with the GUID of the CFPackage resource to create the full URI of the package image for an application.
+
+Note: DockerHub does not support nested directories so `kpackImageTag` and `packageRegistryBase` must point to the user's directory
+
+#### GCR
+
+- The cluster_builder.yaml `spec.tag` should be in the format `gcr.io/<project-id>/korifi-cluster-builder`.
+- The korifi-kpack-image-builder.yml `kpackImageTag` should be in the format `gcr.io/<project-id>/droplets`.
+    - It will be combined with the GUID of the Kpack Image resource to create the full URI of the droplet image for an application.
+- The korifi-api.yml `packageRegistryBase` should be in the format `gcr.io/<project-id>/packages`.
+    - It will be combined with the GUID of the CFPackage resource to create the full URI of the package image for an application.
+
+Note: GCR supports nested directories, so you can organize your images as desired.
 
 ## Root namespace and admin role binding
 
@@ -110,6 +132,22 @@ kubectl create secret docker-registry image-registry-credentials \
 ```
 
 Make sure the value of `--docker-server` is a valid [URI authority](https://datatracker.ietf.org/doc/html/rfc3986#section-3.2).
+
+#### DockerHub
+
+When using DockerHub,
+
+- the docker-server should be https://index.docker.io/v1/
+- the docker-username should be your DockerHub user
+- the docker-password can be either your DockerHub password or a generated personal access token
+
+#### GCR
+
+When using GCR,
+
+- the docker-server should be gcr.io
+- the docker-username should be `"_json_key"`
+- the docker-password should be the JSON-formatted access token for a service account that has permission to manage images in GCR
 
 # Dependencies
 
