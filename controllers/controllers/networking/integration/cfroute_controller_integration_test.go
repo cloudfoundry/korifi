@@ -49,7 +49,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		Expect(k8sClient.Create(ctx, ns)).To(Succeed())
 
 		testDomainGUID = GenerateGUID()
-		testDomainName = GenerateGUID()
+		testDomainName = "a" + GenerateGUID() + ".com"
 		testRouteGUID = GenerateGUID()
 		testFQDN = fmt.Sprintf("%s.%s", testRouteHost, testDomainName)
 
