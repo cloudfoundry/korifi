@@ -10,11 +10,11 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/go-logr/logr"
-	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
@@ -27,84 +27,94 @@ type NameValidator interface {
 }
 
 const (
-	AppEntityType         = "app"
-	AppDecodingErrorType  = "AppDecodingError"
-	DuplicateAppErrorType = "DuplicateAppError"
+	AppEntityType                = "app"
+	AppDecodingErrorType         = "AppDecodingError"
+	DuplicateAppNameErrorType    = "DuplicateAppNameError"
+	duplicateAppNameErrorMessage = "App with the name '%s' already exists."
 )
 
 var cfapplog = logf.Log.WithName("cfapp-validate")
 
 //+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfapp,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfapps,verbs=create;update;delete,versions=v1alpha1,name=vcfapp.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
-type CFAppValidation struct {
-	decoder            *admission.Decoder
+type CFAppValidator struct {
 	duplicateValidator NameValidator
 }
 
-func NewCFAppValidation(duplicateValidator NameValidator) *CFAppValidation {
-	return &CFAppValidation{
+var _ webhook.CustomValidator = &CFAppValidator{}
+
+func NewCFAppValidator(duplicateValidator NameValidator) *CFAppValidator {
+	return &CFAppValidator{
 		duplicateValidator: duplicateValidator,
 	}
 }
 
-func (v *CFAppValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	mgr.GetWebhookServer().Register("/validate-korifi-cloudfoundry-org-v1alpha1-cfapp", &webhook.Admission{Handler: v})
+func (v *CFAppValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&korifiv1alpha1.CFApp{}).
+		WithValidator(v).
+		Complete()
+}
+
+func (v *CFAppValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	app, ok := obj.(*korifiv1alpha1.CFApp)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
+	}
+
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfapplog, app.Namespace, strings.ToLower(app.Spec.DisplayName))
+	if validationErr != nil {
+		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
+			errorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)
+			return errors.New(webhooks.ValidationError{
+				Type:    DuplicateAppNameErrorType,
+				Message: errorMessage,
+			}.Marshal())
+		}
+
+		return errors.New(webhooks.AdmissionUnknownErrorReason())
+	}
 
 	return nil
 }
 
-func (v *CFAppValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	cfapplog.Info("Validate", "name", req.Name)
-
-	var cfApp, oldCFApp korifiv1alpha1.CFApp
-	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
-		err := v.decoder.Decode(req, &cfApp)
-		if err != nil { // untested
-			errMessage := "Error while decoding CFApp object"
-			cfapplog.Error(err, errMessage)
-
-			return admission.Denied(webhooks.ValidationError{Type: AppDecodingErrorType, Message: errMessage}.Marshal())
-		}
-	}
-	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
-		err := v.decoder.DecodeRaw(req.OldObject, &oldCFApp)
-		if err != nil { // untested
-			errMessage := "Error while decoding old CFApp object"
-			cfapplog.Error(err, errMessage)
-
-			return admission.Denied(webhooks.ValidationError{Type: AppDecodingErrorType, Message: errMessage}.Marshal())
-		}
+func (v *CFAppValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
+	oldApp, ok := oldObj.(*korifiv1alpha1.CFApp)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", oldObj))
 	}
 
-	var validatorErr error
-
-	cfAppNameLeaseValue := strings.ToLower(cfApp.Spec.DisplayName)
-	switch req.Operation {
-	case admissionv1.Create:
-		validatorErr = v.duplicateValidator.ValidateCreate(ctx, cfapplog, cfApp.Namespace, cfAppNameLeaseValue)
-
-	case admissionv1.Update:
-		oldCFAppNameLeaseValue := strings.ToLower(oldCFApp.Spec.DisplayName)
-		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, cfapplog, cfApp.Namespace, oldCFAppNameLeaseValue, cfAppNameLeaseValue)
-
-	case admissionv1.Delete:
-		oldCFAppNameLeaseValue := strings.ToLower(oldCFApp.Spec.DisplayName)
-		validatorErr = v.duplicateValidator.ValidateDelete(ctx, cfapplog, oldCFApp.Namespace, oldCFAppNameLeaseValue)
+	app, ok := obj.(*korifiv1alpha1.CFApp)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
 	}
 
-	if validatorErr != nil {
-		if errors.Is(validatorErr, webhooks.ErrorDuplicateName) {
-			errorMessage := fmt.Sprintf("App with the name '%s' already exists.", cfApp.Spec.DisplayName)
-			return admission.Denied(webhooks.ValidationError{Type: DuplicateAppErrorType, Message: errorMessage}.Marshal())
+	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfapplog, app.Namespace, strings.ToLower(oldApp.Spec.DisplayName), strings.ToLower(app.Spec.DisplayName))
+	if validationErr != nil {
+		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
+			errorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)
+			return errors.New(webhooks.ValidationError{
+				Type:    DuplicateAppNameErrorType,
+				Message: errorMessage,
+			}.Marshal())
 		}
 
-		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(webhooks.AdmissionUnknownErrorReason())
 	}
 
-	return admission.Allowed("")
+	return nil
 }
 
-func (v *CFAppValidation) InjectDecoder(d *admission.Decoder) error {
-	v.decoder = d
+func (v *CFAppValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+	app, ok := obj.(*korifiv1alpha1.CFApp)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
+	}
+
+	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfapplog, app.Namespace, strings.ToLower(app.Spec.DisplayName))
+	if validationErr != nil {
+		return errors.New(webhooks.AdmissionUnknownErrorReason())
+	}
+
 	return nil
 }

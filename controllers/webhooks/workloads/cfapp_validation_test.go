@@ -2,7 +2,6 @@ package workloads_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -12,10 +11,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var _ = Describe("CFAppValidatingWebhook", func() {
@@ -28,12 +25,9 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 	var (
 		ctx                context.Context
 		duplicateValidator *fake.NameValidator
-		realDecoder        *admission.Decoder
-		app                *korifiv1alpha1.CFApp
-		request            admission.Request
-		validatingWebhook  *workloads.CFAppValidation
-		response           admission.Response
-		cfAppJSON          []byte
+		cfApp              *korifiv1alpha1.CFApp
+		validatingWebhook  *workloads.CFAppValidator
+		retErr             error
 	)
 
 	BeforeEach(func() {
@@ -43,10 +37,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		err := korifiv1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
-		realDecoder, err = admission.NewDecoder(scheme)
-		Expect(err).NotTo(HaveOccurred())
-
-		app = &korifiv1alpha1.CFApp{
+		cfApp = &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testAppGUID,
 				Namespace: testAppNamespace,
@@ -57,35 +48,17 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			},
 		}
 
-		cfAppJSON, err = json.Marshal(app)
-		Expect(err).NotTo(HaveOccurred())
-
 		duplicateValidator = new(fake.NameValidator)
-		validatingWebhook = workloads.NewCFAppValidation(duplicateValidator)
-
-		Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
+		validatingWebhook = workloads.NewCFAppValidator(duplicateValidator)
 	})
 
-	Describe("Create", func() {
+	Describe("ValidateCreate", func() {
 		JustBeforeEach(func() {
-			response = validatingWebhook.Handle(ctx, request)
-		})
-
-		BeforeEach(func() {
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      testAppGUID,
-					Namespace: testAppNamespace,
-					Operation: admissionv1.Create,
-					Object: runtime.RawExtension{
-						Raw: cfAppJSON,
-					},
-				},
-			}
+			retErr = validatingWebhook.ValidateCreate(ctx, cfApp)
 		})
 
 		It("allows the request", func() {
-			Expect(response.Allowed).To(BeTrue())
+			Expect(retErr).NotTo(HaveOccurred())
 		})
 
 		It("invokes the validator correctly", func() {
@@ -102,35 +75,10 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.DuplicateAppErrorType, Message: `App with the name '` + app.Spec.DisplayName + `' already exists.`}.Marshal()))
-			})
-		})
-
-		When("there is an issue decoding the request", func() {
-			BeforeEach(func() {
-				cfAppJSON, err := json.Marshal(app)
-				Expect(err).NotTo(HaveOccurred())
-				badCFAppJSON := []byte("}" + string(cfAppJSON))
-
-				request = admission.Request{
-					AdmissionRequest: admissionv1.AdmissionRequest{
-						Name:      testAppGUID,
-						Namespace: testAppNamespace,
-						Operation: admissionv1.Create,
-						Object: runtime.RawExtension{
-							Raw: badCFAppJSON,
-						},
-					},
-				}
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-			})
-
-			It("does not attempt to register a name", func() {
-				Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(0))
+				Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Type:    workloads.DuplicateAppNameErrorType,
+					Message: "App with the name '" + cfApp.Spec.DisplayName + "' already exists.",
+				}.Marshal()))
 			})
 		})
 
@@ -140,63 +88,34 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})
 
-	Describe("Update", func() {
-		var updatedApp *korifiv1alpha1.CFApp
+	Describe("ValidateUpdate", func() {
+		var updatedCFApp *korifiv1alpha1.CFApp
 
 		BeforeEach(func() {
-			updatedApp = &korifiv1alpha1.CFApp{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testAppGUID,
-					Namespace: testAppNamespace,
-				},
-				Spec: korifiv1alpha1.CFAppSpec{
-					DisplayName:  "the-new-name",
-					DesiredState: korifiv1alpha1.StoppedState,
-				},
-			}
+			updatedCFApp = cfApp.DeepCopy()
+			updatedCFApp.Spec.DisplayName = "the-new-name"
 		})
 
 		JustBeforeEach(func() {
-			appJSON, err := json.Marshal(app)
-			Expect(err).NotTo(HaveOccurred())
-
-			updatedAppJSON, err := json.Marshal(updatedApp)
-			Expect(err).NotTo(HaveOccurred())
-
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      testAppGUID,
-					Namespace: testAppNamespace,
-					Operation: admissionv1.Update,
-					Object: runtime.RawExtension{
-						Raw: updatedAppJSON,
-					},
-					OldObject: runtime.RawExtension{
-						Raw: appJSON,
-					},
-				},
-			}
-
-			response = validatingWebhook.Handle(ctx, request)
+			retErr = validatingWebhook.ValidateUpdate(ctx, cfApp, updatedCFApp)
 		})
 
 		It("allows the request", func() {
-			Expect(response.Allowed).To(BeTrue())
+			Expect(retErr).NotTo(HaveOccurred())
 		})
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
 			actualContext, _, namespace, oldName, newName := duplicateValidator.ValidateUpdateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(app.Namespace))
-			Expect(oldName).To(Equal(app.Spec.DisplayName))
-			Expect(newName).To(Equal(updatedApp.Spec.DisplayName))
+			Expect(namespace).To(Equal(cfApp.Namespace))
+			Expect(oldName).To(Equal(cfApp.Spec.DisplayName))
+			Expect(newName).To(Equal(updatedCFApp.Spec.DisplayName))
 		})
 
 		When("the new app name is a duplicate", func() {
@@ -205,8 +124,10 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.DuplicateAppErrorType, Message: `App with the name '` + updatedApp.Spec.DisplayName + `' already exists.`}.Marshal()))
+				Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Type:    workloads.DuplicateAppNameErrorType,
+					Message: "App with the name '" + updatedCFApp.Spec.DisplayName + "' already exists.",
+				}.Marshal()))
 			})
 		})
 
@@ -216,41 +137,26 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})
 
-	Describe("Delete", func() {
+	Describe("ValidateDelete", func() {
 		JustBeforeEach(func() {
-			appJSON, err := json.Marshal(app)
-			Expect(err).NotTo(HaveOccurred())
-
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      testAppGUID,
-					Namespace: testAppNamespace,
-					Operation: admissionv1.Delete,
-					OldObject: runtime.RawExtension{
-						Raw: appJSON,
-					},
-				},
-			}
-
-			response = validatingWebhook.Handle(ctx, request)
+			retErr = validatingWebhook.ValidateDelete(ctx, cfApp)
 		})
 
 		It("allows the request", func() {
-			Expect(response.Allowed).To(BeTrue())
+			Expect(retErr).NotTo(HaveOccurred())
 		})
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
 			actualContext, _, namespace, name := duplicateValidator.ValidateDeleteArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(app.Namespace))
-			Expect(name).To(Equal(app.Spec.DisplayName))
+			Expect(namespace).To(Equal(cfApp.Namespace))
+			Expect(name).To(Equal(cfApp.Spec.DisplayName))
 		})
 
 		When("delete validation fails", func() {
@@ -259,8 +165,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("disallows the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})
