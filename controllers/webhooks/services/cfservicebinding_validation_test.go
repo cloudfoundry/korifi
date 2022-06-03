@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services/fake"
 
@@ -62,7 +63,7 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 		validatingWebhook = services.NewCFServiceBindingValidator(duplicateValidator)
 	})
 
-	Describe("Create", func() {
+	Describe("ValidateCreate", func() {
 		JustBeforeEach(func() {
 			retErr = validatingWebhook.ValidateCreate(ctx, serviceBinding)
 		})
@@ -84,12 +85,22 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 			})
 
 			It("prevents the creation of the duplicate service binding", func() {
-				Expect(retErr).To(MatchError(ContainSubstring("An unknown error has occurred")))
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
+			})
+		})
+
+		When("validating the service binding fails", func() {
+			BeforeEach(func() {
+				duplicateValidator.ValidateCreateReturns(errors.New("boom"))
+			})
+
+			It("denies the request", func() {
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})
 
-	Describe("Update", func() {
+	Describe("ValidateUpdate", func() {
 		var updatedServiceBinding *korifiv1alpha1.CFServiceBinding
 
 		BeforeEach(func() {
@@ -137,7 +148,7 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 		})
 	})
 
-	Describe("Delete", func() {
+	Describe("ValidateDelete", func() {
 		JustBeforeEach(func() {
 			retErr = validatingWebhook.ValidateDelete(ctx, serviceBinding)
 		})
@@ -159,7 +170,7 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 			})
 
 			It("prevents the deletion of the service binding", func() {
-				Expect(retErr).To(MatchError(ContainSubstring("An unknown error has occurred")))
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})

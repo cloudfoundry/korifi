@@ -26,6 +26,8 @@ const (
 // log is for logging in this package.
 var cfservicebindinglog = logf.Log.WithName("cfservicebinding-validator")
 
+//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfservicebinding,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfservicebindings,verbs=create;update;delete,versions=v1alpha1,name=vcfservicebinding.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+
 func (v *CFServiceBindingValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(&korifiv1alpha1.CFServiceBinding{}).
@@ -37,15 +39,13 @@ type CFServiceBindingValidator struct {
 	duplicateValidator NameValidator
 }
 
+var _ webhook.CustomValidator = &CFServiceBindingValidator{}
+
 func NewCFServiceBindingValidator(duplicateValidator NameValidator) *CFServiceBindingValidator {
 	return &CFServiceBindingValidator{
 		duplicateValidator: duplicateValidator,
 	}
 }
-
-//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfservicebinding,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfservicebindings,verbs=create;update;delete,versions=v1alpha1,name=vcfservicebinding.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
-
-var _ webhook.CustomValidator = &CFServiceBindingValidator{}
 
 func (v *CFServiceBindingValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	serviceBinding, ok := obj.(*korifiv1alpha1.CFServiceBinding)
@@ -56,7 +56,6 @@ func (v *CFServiceBindingValidator) ValidateCreate(ctx context.Context, obj runt
 	lockName := generateServiceBindingLock(serviceBinding)
 
 	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfservicebindinglog, serviceBinding.Namespace, lockName)
-
 	if validationErr != nil {
 		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
 			errorMessage := fmt.Sprintf(duplicateServiceBindingErrorMessage, serviceBinding.Spec.AppRef.Name, serviceBinding.Spec.Service.Name)
@@ -69,23 +68,26 @@ func (v *CFServiceBindingValidator) ValidateCreate(ctx context.Context, obj runt
 	return nil
 }
 
-func (v *CFServiceBindingValidator) ValidateUpdate(ctx context.Context, oldObj, updatedObj runtime.Object) error {
+func (v *CFServiceBindingValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
 	oldServiceBinding, ok := oldObj.(*korifiv1alpha1.CFServiceBinding)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", oldObj))
 	}
-	updatedServiceBinding, ok := updatedObj.(*korifiv1alpha1.CFServiceBinding)
+
+	serviceBinding, ok := obj.(*korifiv1alpha1.CFServiceBinding)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", updatedObj))
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
 	}
 
-	if oldServiceBinding.Spec.AppRef.Name != updatedServiceBinding.Spec.AppRef.Name {
+	if oldServiceBinding.Spec.AppRef.Name != serviceBinding.Spec.AppRef.Name {
 		return webhooks.ValidationError{Type: ServiceBindingErrorType, Message: "AppRef.Name is immutable"}
 	}
-	if oldServiceBinding.Spec.Service.Name != updatedServiceBinding.Spec.Service.Name {
+
+	if oldServiceBinding.Spec.Service.Name != serviceBinding.Spec.Service.Name {
 		return webhooks.ValidationError{Type: ServiceBindingErrorType, Message: "Service.Name is immutable"}
 	}
-	if oldServiceBinding.Spec.Service.Namespace != updatedServiceBinding.Spec.Service.Namespace {
+
+	if oldServiceBinding.Spec.Service.Namespace != serviceBinding.Spec.Service.Namespace {
 		return webhooks.ValidationError{Type: ServiceBindingErrorType, Message: "Service.Namespace is immutable"}
 	}
 
@@ -101,7 +103,6 @@ func (v *CFServiceBindingValidator) ValidateDelete(ctx context.Context, obj runt
 	lockName := generateServiceBindingLock(serviceBinding)
 
 	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfservicebindinglog, serviceBinding.Namespace, lockName)
-
 	if validationErr != nil {
 		return errors.New(webhooks.AdmissionUnknownErrorReason())
 	}
