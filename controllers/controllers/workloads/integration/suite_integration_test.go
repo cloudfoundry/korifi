@@ -2,10 +2,11 @@ package integration_test
 
 import (
 	"context"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"path/filepath"
 	"testing"
 	"time"
+
+	rbacv1 "k8s.io/api/rbac/v1"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
@@ -232,12 +233,12 @@ func createRole(ctx context.Context, k8sClient client.Client, name string, names
 	return role
 }
 
-func createRoleBinding(ctx context.Context, k8sClient client.Client, roleBindingName, subjectName, roleReference, namespace string, labels map[string]string) rbacv1.RoleBinding {
+func createRoleBinding(ctx context.Context, k8sClient client.Client, roleBindingName, subjectName, roleReference, namespace string, annotations map[string]string) rbacv1.RoleBinding {
 	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      roleBindingName,
-			Namespace: namespace,
-			Labels:    labels,
+			Name:        roleBindingName,
+			Namespace:   namespace,
+			Annotations: annotations,
 		},
 		Subjects: []rbacv1.Subject{{
 			Kind: rbacv1.UserKind,

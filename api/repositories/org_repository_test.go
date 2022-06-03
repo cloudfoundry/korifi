@@ -331,7 +331,7 @@ var _ = Describe("OrgRepository", func() {
 			BeforeEach(func() {
 				beforeCtx := context.Background()
 				createRoleBinding(beforeCtx, userName, adminRole.Name, cfOrg.Namespace)
-				//Controllers don't exist in env-test environments, we manually copy role bindings to child ns.
+				// Controllers don't exist in env-test environments, we manually copy role bindings to child ns.
 				createRoleBinding(beforeCtx, userName, adminRole.Name, cfOrg.Name)
 			})
 

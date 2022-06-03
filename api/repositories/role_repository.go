@@ -7,17 +7,18 @@ import (
 	"strconv"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/apierrors"
-	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/config"
 	"github.com/google/uuid"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/config"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
 
 const (
-	PropagateCFRoleLabel  = "cloudfoundry.org/propagate-cf-role"
 	RoleGuidLabel         = "cloudfoundry.org/role-guid"
 	roleBindingNamePrefix = "cf"
 	cfUserRoleType        = "cf_user"
@@ -169,8 +170,10 @@ func createRoleBinding(namespace, roleType, roleKind, roleUser, roleGUID, roleCo
 			Namespace: namespace,
 			Name:      calculateRoleBindingName(roleType, roleUser),
 			Labels: map[string]string{
-				RoleGuidLabel:        roleGUID,
-				PropagateCFRoleLabel: strconv.FormatBool(propagateLabelValue),
+				RoleGuidLabel: roleGUID,
+			},
+			Annotations: map[string]string{
+				korifiv1alpha1.PropagateRoleBindingAnnotation: strconv.FormatBool(propagateLabelValue),
 			},
 		},
 		Subjects: []rbacv1.Subject{

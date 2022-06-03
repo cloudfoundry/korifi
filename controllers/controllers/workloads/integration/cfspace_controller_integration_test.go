@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -16,9 +14,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 )
 
-var _ = Describe("CFSpace Reconciler Integration Tests", func() {
+var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 	const (
 		spaceName = "my-space"
 	)
@@ -64,8 +65,8 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 		roleBinding = createRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding"), username, role1.Name, orgNamespace.Name, map[string]string{})
 
 		username2 := PrefixedGUID("user2")
-		labels := map[string]string{"cloudfoundry.org/propagate-cf-role": "false"}
-		roleBinding2 = createRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding2"), username2, role1.Name, orgNamespace.Name, labels)
+		annotations := map[string]string{"cloudfoundry.org/propagate-cf-role": "false"}
+		roleBinding2 = createRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding2"), username2, role1.Name, orgNamespace.Name, annotations)
 
 		spaceGUID = PrefixedGUID("cf-space")
 		cfSpace = &korifiv1alpha1.CFSpace{
@@ -148,7 +149,7 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
-		It("does not propagate role-bindings with label \"cloudfoundry.org/propagate-cf-role\" set to false ", func() {
+		It("does not propagate role-bindings with annotation \"cloudfoundry.org/propagate-cf-role\" set to false ", func() {
 			Consistently(func(g Gomega) bool {
 				var newRoleBinding rbacv1.RoleBinding
 				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Name, Name: roleBinding2.Name}, &newRoleBinding))
@@ -185,7 +186,6 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
 			}).Should(Succeed())
 		})
-
 	})
 
 	When("roles are added/updated in CFOrg namespace after CFSpace creation", func() {
@@ -249,9 +249,7 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 	})
 
 	When("role-bindings are added/updated in CFOrg namespace after CFSpace creation", func() {
-		var (
-			roleBinding3 rbacv1.RoleBinding
-		)
+		var roleBinding3 rbacv1.RoleBinding
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 			Eventually(func(g Gomega) {
@@ -302,13 +300,12 @@ var _ = Describe("CFSpace Reconciler Integration Tests", func() {
 		})
 
 		It("eventually deletes the namespace", func() {
-			//Envtests do not cleanup namespaces. For testing, we check for deletion timestamps on namespace.
+			// Envtests do not cleanup namespaces. For testing, we check for deletion timestamps on namespace.
 			Eventually(func(g Gomega) bool {
 				var spaceNamespace corev1.Namespace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: spaceGUID}, &spaceNamespace)).To(Succeed())
 				return spaceNamespace.GetDeletionTimestamp().IsZero()
 			}).Should(BeFalse(), "timed out waiting for deletion timestamps to be set on namespace")
 		})
-
 	})
 })

@@ -133,8 +133,8 @@ var _ = Describe("RoleRepository", func() {
 					})
 
 					It("enables the role binding propagation, but not for cf_user", func() {
-						Expect(getTheRoleBinding(expectedName, cfOrg.Name).Labels).To(HaveKeyWithValue(repositories.PropagateCFRoleLabel, "true"))
-						Expect(getTheRoleBinding(cfUserExpectedName, rootNamespace).Labels).To(HaveKeyWithValue(repositories.PropagateCFRoleLabel, "false"))
+						Expect(getTheRoleBinding(expectedName, cfOrg.Name).Annotations).To(HaveKeyWithValue(korifiv1alpha1.PropagateRoleBindingAnnotation, "true"))
+						Expect(getTheRoleBinding(cfUserExpectedName, rootNamespace).Annotations).To(HaveKeyWithValue(korifiv1alpha1.PropagateRoleBindingAnnotation, "false"))
 					})
 				})
 
@@ -147,8 +147,8 @@ var _ = Describe("RoleRepository", func() {
 
 					It("disables the role binding propagation", func() {
 						Expect(createErr).NotTo(HaveOccurred())
-						Expect(getTheRoleBinding(expectedName, cfOrg.Name).Labels).To(HaveKeyWithValue(repositories.PropagateCFRoleLabel, "false"))
-						Expect(getTheRoleBinding(cfUserExpectedName, rootNamespace).Labels).To(HaveKeyWithValue(repositories.PropagateCFRoleLabel, "false"))
+						Expect(getTheRoleBinding(expectedName, cfOrg.Name).Annotations).To(HaveKeyWithValue(korifiv1alpha1.PropagateRoleBindingAnnotation, "false"))
+						Expect(getTheRoleBinding(cfUserExpectedName, rootNamespace).Annotations).To(HaveKeyWithValue(korifiv1alpha1.PropagateRoleBindingAnnotation, "false"))
 					})
 				})
 			})

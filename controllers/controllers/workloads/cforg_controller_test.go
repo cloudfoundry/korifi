@@ -3,9 +3,10 @@ package workloads_test
 import (
 	"context"
 	"errors"
+	"time"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 
@@ -214,7 +215,6 @@ var _ = Describe("CFOrgReconciler", func() {
 				Expect(reconcileErr).To(MatchError("fetch secret failed"))
 			})
 		})
-
 	})
 
 	When("a CFOrg is being deleted", func() {
