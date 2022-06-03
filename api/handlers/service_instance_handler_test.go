@@ -25,6 +25,8 @@ var _ = Describe("ServiceInstanceHandler", func() {
 		serviceInstanceGUID             = "test-service-instance-guid"
 		serviceInstanceSpaceGUID        = "test-space-guid"
 		serviceInstanceTypeUserProvided = "user-provided"
+
+		spaceGUID = "test-space-guid"
 	)
 
 	var (

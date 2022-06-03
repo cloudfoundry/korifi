@@ -133,16 +133,11 @@ func main() {
 		reporegistry.NewImagePusher(remote.Write),
 	)
 	taskRepo := repositories.NewTaskRepo(userClientFactory)
+	manifestRepo := repositories.NewManifestRepo(spaceRepo, appRepo, domainRepo, processRepo, routeRepo)
 
 	scaleProcessAction := actions.NewScaleProcess(processRepo)
 	scaleAppProcessAction := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcessAction.Invoke)
 	fetchProcessStatsAction := actions.NewFetchProcessStats(processRepo, podRepo, appRepo)
-	applyManifestAction := actions.NewApplyManifest(
-		appRepo,
-		domainRepo,
-		processRepo,
-		routeRepo,
-	).Invoke
 	readAppLogsAction := actions.NewReadAppLogs(appRepo, buildRepo, podRepo)
 
 	decoderValidator, err := handlers.NewDefaultDecoderValidator()
@@ -235,9 +230,8 @@ func main() {
 		handlers.NewSpaceManifestHandler(
 			*serverURL,
 			config.DefaultDomainName,
-			applyManifestAction,
-			spaceRepo,
 			decoderValidator,
+			manifestRepo,
 		),
 
 		handlers.NewRoleHandler(

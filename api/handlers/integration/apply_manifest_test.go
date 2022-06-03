@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/actions"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -28,21 +27,23 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 	)
 
 	BeforeEach(func() {
-		appRepo := repositories.NewAppRepo(namespaceRetriever, clientFactory, nsPermissions)
-		domainRepo := repositories.NewDomainRepo(clientFactory, namespaceRetriever, rootNamespace)
-		processRepo := repositories.NewProcessRepo(namespaceRetriever, clientFactory, nsPermissions)
-		routeRepo := repositories.NewRouteRepo(namespaceRetriever, clientFactory, nsPermissions)
-		orgRepo := repositories.NewOrgRepo("cf", k8sClient, clientFactory, nsPermissions, time.Minute)
-		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, clientFactory, nsPermissions, time.Minute)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
+
+		orgRepo := repositories.NewOrgRepo("cf", k8sClient, clientFactory, nsPermissions, time.Minute)
+		manifestRepo := repositories.NewManifestRepo(
+			repositories.NewSpaceRepo(namespaceRetriever, orgRepo, clientFactory, nsPermissions, time.Minute),
+			repositories.NewAppRepo(namespaceRetriever, clientFactory, nsPermissions),
+			repositories.NewDomainRepo(clientFactory, namespaceRetriever, rootNamespace),
+			repositories.NewProcessRepo(namespaceRetriever, clientFactory, nsPermissions),
+			repositories.NewRouteRepo(namespaceRetriever, clientFactory, nsPermissions),
+		)
 
 		apiHandler := NewSpaceManifestHandler(
 			*serverURL,
 			domainName,
-			actions.NewApplyManifest(appRepo, domainRepo, processRepo, routeRepo).Invoke,
-			spaceRepo,
 			decoderValidator,
+			manifestRepo,
 		)
 		apiHandler.RegisterRoutes(router)
 	})

@@ -15,18 +15,12 @@ type CFProcessRepository interface {
 	GetProcess(context.Context, authorization.Info, string) (repositories.ProcessRecord, error)
 	ListProcesses(context.Context, authorization.Info, repositories.ListProcessesMessage) ([]repositories.ProcessRecord, error)
 	ScaleProcess(context.Context, authorization.Info, repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)
-	CreateProcess(context.Context, authorization.Info, repositories.CreateProcessMessage) error
-	GetProcessByAppTypeAndSpace(context.Context, authorization.Info, string, string, string) (repositories.ProcessRecord, error)
-	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
 
 type CFAppRepository interface {
 	GetApp(context.Context, authorization.Info, string) (repositories.AppRecord, error)
-	GetAppByNameAndSpace(context.Context, authorization.Info, string, string) (repositories.AppRecord, error)
-	CreateOrPatchAppEnvVars(context.Context, authorization.Info, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
-	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name CFBuildRepository . CFBuildRepository
@@ -41,18 +35,4 @@ type CFBuildRepository interface {
 type PodRepository interface {
 	ListPodStats(ctx context.Context, authInfo authorization.Info, message repositories.ListPodStatsMessage) ([]repositories.PodStatsRecord, error)
 	GetRuntimeLogsForApp(context.Context, logr.Logger, authorization.Info, repositories.RuntimeLogsMessage) ([]repositories.LogRecord, error)
-}
-
-//counterfeiter:generate -o fake -fake-name CFDomainRepository . CFDomainRepository
-
-type CFDomainRepository interface {
-	GetDomainByName(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
-}
-
-//counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository
-
-type CFRouteRepository interface {
-	GetOrCreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
-	ListRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
-	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
 }

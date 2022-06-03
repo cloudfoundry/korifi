@@ -21,13 +21,13 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const (
-	appGUID   = "test-app-guid"
-	appName   = "test-app"
-	spaceGUID = "test-space-guid"
-)
-
 var _ = Describe("AppHandler", func() {
+	const (
+		appGUID   = "test-app-guid"
+		appName   = "test-app"
+		spaceGUID = "test-space-guid"
+	)
+
 	var (
 		appRepo             *fake.CFAppRepository
 		dropletRepo         *fake.CFDropletRepository
