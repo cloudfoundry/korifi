@@ -12,14 +12,13 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/go-logr/logr"
-	admissionv1 "k8s.io/api/admission/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -59,188 +58,146 @@ var logger = logf.Log.WithName("route-validation")
 
 //+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfroute,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes,verbs=create;update;delete,versions=v1alpha1,name=vcfroute.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
-type CFRouteValidation struct {
-	decoder            *admission.Decoder
-	rootNamespace      string
+type CFRouteValidator struct {
 	duplicateValidator NameValidator
-	Client             client.Client
+	rootNamespace      string
+	client             client.Client
 }
 
-func NewCFRouteValidation(nameValidator NameValidator, rootNamespace string, client client.Client) *CFRouteValidation {
-	return &CFRouteValidation{
+var _ webhook.CustomValidator = &CFRouteValidator{}
+
+func NewCFRouteValidator(nameValidator NameValidator, rootNamespace string, client client.Client) *CFRouteValidator {
+	return &CFRouteValidator{
 		duplicateValidator: nameValidator,
 		rootNamespace:      rootNamespace,
-		Client:             client,
+		client:             client,
 	}
 }
 
-func (v *CFRouteValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	mgr.GetWebhookServer().Register("/validate-korifi-cloudfoundry-org-v1alpha1-cfroute", &webhook.Admission{Handler: v})
-
-	return nil
+func (v *CFRouteValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&korifiv1alpha1.CFRoute{}).
+		WithValidator(v).
+		Complete()
 }
 
-func (v *CFRouteValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	var route, oldRoute korifiv1alpha1.CFRoute
-	var domain korifiv1alpha1.CFDomain
-	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
-		err := v.decoder.Decode(req, &route)
-		if err != nil { // untested
-			errMessage := "Error while decoding CFRoute object"
-			logger.Error(err, errMessage)
-			return admission.Denied(webhooks.ValidationError{Type: RouteDecodingErrorType, Message: errMessage}.Marshal())
-		}
-
-		err = v.Client.Get(ctx, types.NamespacedName{Name: route.Spec.DomainRef.Name, Namespace: route.Spec.DomainRef.Namespace}, &domain)
-		if err != nil {
-			errMessage := "Error while retrieving CFDomain object"
-			logger.Error(err, errMessage)
-			validationError := webhooks.ValidationError{
-				Type:    webhooks.UnknownErrorType,
-				Message: errMessage,
-			}
-			return admission.Denied(validationError.Marshal())
-		}
-	}
-	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
-		err := v.decoder.DecodeRaw(req.OldObject, &oldRoute)
-		if err != nil { // untested
-			errMessage := "Error while decoding old CFRoute object"
-			logger.Error(err, errMessage)
-			return admission.Denied(webhooks.ValidationError{Type: RouteDecodingErrorType, Message: errMessage}.Marshal())
-		}
+func (v *CFRouteValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	route, ok := obj.(*korifiv1alpha1.CFRoute)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
 	}
 
-	var validatorErr error
-	switch req.Operation {
-	case admissionv1.Create:
-		if err := isHost(route.Spec.Host); err != nil {
-			return admission.Denied(err.Error())
-		}
-		if _, err := IsFQDN(route.Spec.Host, domain.Spec.Name); err != nil {
-			return admission.Denied(err.Error())
-		}
-		if err := validatePath(route); err != nil {
-			return admission.Denied(err.Error())
-		}
-
-		if err := v.checkDestinationsExistInNamespace(ctx, route); err != nil {
-			if k8serrors.IsNotFound(err) {
-				return admission.Denied(webhooks.ValidationError{Type: RouteDestinationNotInSpaceErrorType, Message: RouteDestinationNotInSpaceErrorMessage}.Marshal())
-			}
-			errMessage := "Error while checking Route Destinations in Namespace"
-			logger.Error(err, errMessage)
-			validationError := webhooks.ValidationError{
-				Type:    webhooks.UnknownErrorType,
-				Message: errMessage,
-			}
-			return admission.Denied(validationError.Marshal())
-		}
-
-		validatorErr = v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, uniqueName(route))
-
-	case admissionv1.Update:
-		if err := isHost(route.Spec.Host); err != nil {
-			return admission.Denied(err.Error())
-		}
-		if _, err := IsFQDN(route.Spec.Host, domain.Spec.Name); err != nil {
-			return admission.Denied(err.Error())
-		}
-		if err := validatePath(route); err != nil {
-			return admission.Denied(err.Error())
-		}
-
-		if err := v.checkDestinationsExistInNamespace(ctx, route); err != nil {
-			if k8serrors.IsNotFound(err) {
-				return admission.Denied(webhooks.ValidationError{Type: RouteDestinationNotInSpaceErrorType, Message: RouteDestinationNotInSpaceErrorMessage}.Marshal())
-			}
-			errMessage := "Error while checking Route Destinations in Namespace"
-			logger.Error(err, errMessage)
-			validationError := webhooks.ValidationError{
-				Type:    webhooks.UnknownErrorType,
-				Message: errMessage,
-			}
-			return admission.Denied(validationError.Marshal())
-		}
-
-		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, uniqueName(oldRoute), uniqueName(route))
-
-	case admissionv1.Delete:
-		validatorErr = v.duplicateValidator.ValidateDelete(ctx, logger, v.rootNamespace, uniqueName(oldRoute))
+	domain, err := v.validateRoute(ctx, route)
+	if err != nil {
+		return err
 	}
 
-	if validatorErr != nil {
-		logger.Info("duplicate validation failed", "error", validatorErr)
+	return generateDuplicateValidationError(route, domain, v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, uniqueName(*route)))
+}
 
-		if errors.Is(validatorErr, webhooks.ErrorDuplicateName) {
-			pathDetails := ""
-			if route.Spec.Path != "" {
-				pathDetails = fmt.Sprintf(" and path '%s'", route.Spec.Path)
-			}
-			errorDetail := fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
-				route.Spec.Host, pathDetails, domain.Spec.Name)
+func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
+	route, ok := obj.(*korifiv1alpha1.CFRoute)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
+	}
 
-			ve := webhooks.ValidationError{
-				Type:    DuplicateRouteErrorType,
-				Message: errorDetail,
-			}
-			return admission.Denied(ve.Marshal())
-		}
+	oldRoute, ok := oldObj.(*korifiv1alpha1.CFRoute)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
+	}
 
-		errMessage := "Unknown error while checking Route Name Duplicate"
-		logger.Error(validatorErr, errMessage)
+	domain, err := v.validateRoute(ctx, route)
+	if err != nil {
+		return err
+	}
+
+	return generateDuplicateValidationError(route, domain, v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, uniqueName(*oldRoute), uniqueName(*route)))
+}
+
+func (v *CFRouteValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+	route, ok := obj.(*korifiv1alpha1.CFRoute)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
+	}
+
+	return generateDuplicateValidationError(route, nil, v.duplicateValidator.ValidateDelete(ctx, logger, v.rootNamespace, uniqueName(*route)))
+}
+
+func (v *CFRouteValidator) validateRoute(ctx context.Context, route *korifiv1alpha1.CFRoute) (*korifiv1alpha1.CFDomain, error) {
+	domain := &korifiv1alpha1.CFDomain{}
+
+	err := v.client.Get(ctx, types.NamespacedName{Name: route.Spec.DomainRef.Name, Namespace: route.Spec.DomainRef.Namespace}, domain)
+	if err != nil {
+		errMessage := "Error while retrieving CFDomain object"
+		logger.Error(err, errMessage)
 		validationError := webhooks.ValidationError{
 			Type:    webhooks.UnknownErrorType,
 			Message: errMessage,
 		}
-		return admission.Denied(validationError.Marshal())
+		return nil, errors.New(validationError.Marshal())
 	}
 
-	return admission.Allowed("")
-}
-
-func uniqueName(route korifiv1alpha1.CFRoute) string {
-	return strings.Join([]string{strings.ToLower(route.Spec.Host), route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
-}
-
-func validatePath(route korifiv1alpha1.CFRoute) error {
-	var errStrings []string
-
-	if route.Spec.Path == "" {
-		return nil
+	if err := isHost(route.Spec.Host); err != nil {
+		return nil, err
+	}
+	if _, err := IsFQDN(route.Spec.Host, domain.Spec.Name); err != nil {
+		return nil, err
+	}
+	if err := validatePath(route.Spec.Path); err != nil {
+		return nil, err
 	}
 
-	_, err := url.ParseRequestURI(route.Spec.Path)
-	if err != nil {
-		errStrings = append(errStrings, InvalidURIError)
-	}
-	if route.Spec.Path == "/" {
-		errStrings = append(errStrings, PathIsSlashError)
-	}
-	if strings.Contains(route.Spec.Path, "?") {
-		errStrings = append(errStrings, PathHasQuestionMarkError)
-	}
-	if len(route.Spec.Path) > 128 {
-		errStrings = append(errStrings, PathLengthExceededError)
-	}
-	if len(errStrings) == 0 {
-		return nil
-	}
+	if err := v.checkDestinationsExistInNamespace(ctx, *route); err != nil {
+		validationError := webhooks.ValidationError{}
 
-	if len(errStrings) > 0 {
-		ve := webhooks.ValidationError{
-			Type:    RoutePathValidationErrorType,
-			Message: strings.Join(errStrings, ", "),
+		if apierrors.IsNotFound(err) {
+			validationError.Type = RouteDestinationNotInSpaceErrorType
+			validationError.Message = RouteDestinationNotInSpaceErrorMessage
+		} else {
+			validationError.Type = webhooks.UnknownErrorType
+			validationError.Message = "Error while checking Route Destinations in Namespace"
 		}
+
+		logger.Error(err, validationError.Message)
+		return nil, errors.New(validationError.Marshal())
+	}
+	return domain, nil
+}
+
+func generateDuplicateValidationError(route *korifiv1alpha1.CFRoute, domain *korifiv1alpha1.CFDomain, validationErr error) error {
+	if validationErr != nil {
+		logger.Info("duplicate validation failed", "error", validationErr)
+
+		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
+			pathDetails := ""
+			if route.Spec.Path != "" {
+				pathDetails = fmt.Sprintf(" and path '%s'", route.Spec.Path)
+			}
+			detail := fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
+				route.Spec.Host, pathDetails, domain.Spec.Name)
+
+			ve := webhooks.ValidationError{
+				Type:    DuplicateRouteErrorType,
+				Message: detail,
+			}
+			return errors.New(ve.Marshal())
+		}
+
+		detail := "Unknown error while checking Route Name Duplicate"
+		logger.Error(validationErr, detail)
+		ve := webhooks.ValidationError{
+			Type:    webhooks.UnknownErrorType,
+			Message: detail,
+		}
+
 		return errors.New(ve.Marshal())
 	}
 
 	return nil
 }
 
-func (v *CFRouteValidation) InjectDecoder(d *admission.Decoder) error {
-	v.decoder = d
-	return nil
+func uniqueName(route korifiv1alpha1.CFRoute) string {
+	return strings.Join([]string{strings.ToLower(route.Spec.Host), route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
 }
 
 func isHost(hostname string) error {
@@ -308,9 +265,44 @@ func IsFQDN(host, domain string) (bool, error) {
 	return true, nil
 }
 
-func (v *CFRouteValidation) checkDestinationsExistInNamespace(ctx context.Context, route korifiv1alpha1.CFRoute) error {
+func validatePath(path string) error {
+	var errStrings []string
+
+	if path == "" {
+		return nil
+	}
+
+	_, err := url.ParseRequestURI(path)
+	if err != nil {
+		errStrings = append(errStrings, InvalidURIError)
+	}
+	if path == "/" {
+		errStrings = append(errStrings, PathIsSlashError)
+	}
+	if strings.Contains(path, "?") {
+		errStrings = append(errStrings, PathHasQuestionMarkError)
+	}
+	if len(path) > 128 {
+		errStrings = append(errStrings, PathLengthExceededError)
+	}
+	if len(errStrings) == 0 {
+		return nil
+	}
+
+	if len(errStrings) > 0 {
+		ve := webhooks.ValidationError{
+			Type:    RoutePathValidationErrorType,
+			Message: strings.Join(errStrings, ", "),
+		}
+		return errors.New(ve.Marshal())
+	}
+
+	return nil
+}
+
+func (v *CFRouteValidator) checkDestinationsExistInNamespace(ctx context.Context, route korifiv1alpha1.CFRoute) error {
 	for _, destination := range route.Spec.Destinations {
-		if err := v.Client.Get(
+		if err := v.client.Get(
 			ctx, client.ObjectKey{Namespace: route.Namespace, Name: destination.AppRef.Name}, &korifiv1alpha1.CFApp{},
 		); err != nil {
 			return err

@@ -108,7 +108,7 @@ var _ = BeforeSuite(func() {
 	Expect(networking.NewCFDomainValidator(mgr.GetClient()).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	cfRootNamespace = "default"
-	Expect(networking.NewCFRouteValidation(
+	Expect(networking.NewCFRouteValidator(
 		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType)),
 		cfRootNamespace,
 		mgr.GetClient(),

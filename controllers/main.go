@@ -260,7 +260,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = networking.NewCFRouteValidation(
+		if err = networking.NewCFRouteValidator(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType)),
 			controllerConfig.CFRootNamespace,
 			mgr.GetClient(),
