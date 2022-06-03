@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("CFAppReconciler", func() {
+var _ = Describe("CFAppReconciler Integration Tests", func() {
 	var (
 		namespaceGUID string
 		ns            *corev1.Namespace
