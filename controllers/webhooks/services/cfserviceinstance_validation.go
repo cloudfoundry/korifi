@@ -7,12 +7,13 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+
 	"github.com/go-logr/logr"
-	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
@@ -37,69 +38,83 @@ var cfserviceinstancelog = logf.Log.WithName("cfserviceinstance-validate")
 
 //+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=create;update;delete,versions=v1alpha1,name=vcfserviceinstance.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
-type CFServiceInstanceValidation struct {
-	decoder            *admission.Decoder
+type CFServiceInstanceValidator struct {
 	duplicateValidator NameValidator
 }
 
-func NewCFServiceInstanceValidation(duplicateValidator NameValidator) *CFServiceInstanceValidation {
-	return &CFServiceInstanceValidation{
+var _ webhook.CustomValidator = &CFServiceInstanceValidator{}
+
+func NewCFServiceInstanceValidator(duplicateValidator NameValidator) *CFServiceInstanceValidator {
+	return &CFServiceInstanceValidator{
 		duplicateValidator: duplicateValidator,
 	}
 }
 
-func (v *CFServiceInstanceValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	mgr.GetWebhookServer().Register("/validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance", &webhook.Admission{Handler: v})
+func (v *CFServiceInstanceValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&korifiv1alpha1.CFServiceInstance{}).
+		WithValidator(v).
+		Complete()
+}
+
+func (v *CFServiceInstanceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	serviceInstance, ok := obj.(*korifiv1alpha1.CFServiceInstance)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", obj))
+	}
+
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfserviceinstancelog, serviceInstance.Namespace, serviceInstance.Spec.DisplayName)
+	if validationErr != nil {
+		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
+			errorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, serviceInstance.Spec.DisplayName)
+			return errors.New(webhooks.ValidationError{
+				Type:    DuplicateServiceInstanceNameErrorType,
+				Message: errorMessage,
+			}.Marshal())
+		}
+
+		return errors.New(webhooks.AdmissionUnknownErrorReason())
+	}
 
 	return nil
 }
 
-func (v *CFServiceInstanceValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	cfserviceinstancelog.Info("Validate", "name", req.Name)
-
-	var cfServiceInstance, oldCFServiceInstance korifiv1alpha1.CFServiceInstance
-	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
-		err := v.decoder.Decode(req, &cfServiceInstance)
-		if err != nil { // untested
-			errMessage := "Error while decoding CFServiceInstance object"
-			cfserviceinstancelog.Error(err, errMessage)
-			return admission.Denied(webhooks.ValidationError{Type: ServiceInstanceDecodingErrorType, Message: errMessage}.Marshal())
-		}
-	}
-	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
-		err := v.decoder.DecodeRaw(req.OldObject, &oldCFServiceInstance)
-		if err != nil { // untested
-			errMessage := "Error while decoding old CFServiceInstance object"
-			cfserviceinstancelog.Error(err, errMessage)
-			return admission.Denied(webhooks.ValidationError{Type: ServiceInstanceDecodingErrorType, Message: errMessage}.Marshal())
-		}
+func (v *CFServiceInstanceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
+	oldServiceInstance, ok := oldObj.(*korifiv1alpha1.CFServiceInstance)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", oldObj))
 	}
 
-	var validatorErr error
-	switch req.Operation {
-	case admissionv1.Create:
-		validatorErr = v.duplicateValidator.ValidateCreate(ctx, cfserviceinstancelog, cfServiceInstance.Namespace, cfServiceInstance.Spec.DisplayName)
-
-	case admissionv1.Update:
-		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, cfserviceinstancelog, cfServiceInstance.Namespace, oldCFServiceInstance.Spec.DisplayName, cfServiceInstance.Spec.DisplayName)
-
-	case admissionv1.Delete:
-		validatorErr = v.duplicateValidator.ValidateDelete(ctx, cfserviceinstancelog, oldCFServiceInstance.Namespace, oldCFServiceInstance.Spec.DisplayName)
+	serviceInstance, ok := obj.(*korifiv1alpha1.CFServiceInstance)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", obj))
 	}
 
-	if validatorErr != nil {
-		if errors.Is(validatorErr, webhooks.ErrorDuplicateName) {
-			errorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, cfServiceInstance.Spec.DisplayName)
-			return admission.Denied(webhooks.ValidationError{Type: DuplicateServiceInstanceNameErrorType, Message: errorMessage}.Marshal())
+	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfserviceinstancelog, serviceInstance.Namespace, oldServiceInstance.Spec.DisplayName, serviceInstance.Spec.DisplayName)
+	if validationErr != nil {
+		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
+			errorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, serviceInstance.Spec.DisplayName)
+			return errors.New(webhooks.ValidationError{
+				Type:    DuplicateServiceInstanceNameErrorType,
+				Message: errorMessage,
+			}.Marshal())
 		}
 
-		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(webhooks.AdmissionUnknownErrorReason())
 	}
-
-	return admission.Allowed("")
+	return nil
 }
 
-func (v *CFServiceInstanceValidation) InjectDecoder(d *admission.Decoder) error {
-	v.decoder = d
+func (v *CFServiceInstanceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+	serviceInstance, ok := obj.(*korifiv1alpha1.CFServiceInstance)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", obj))
+	}
+
+	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfserviceinstancelog, serviceInstance.Namespace, serviceInstance.Spec.DisplayName)
+	if validationErr != nil {
+		return errors.New(webhooks.AdmissionUnknownErrorReason())
+	}
+
 	return nil
 }

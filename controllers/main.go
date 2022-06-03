@@ -269,7 +269,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = services.NewCFServiceInstanceValidation(
+		if err = services.NewCFServiceInstanceValidator(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), services.ServiceInstanceEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceInstance")

@@ -2,7 +2,6 @@ package services_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -12,10 +11,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
@@ -24,16 +21,13 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 	)
 
 	var (
-		serviceInstanceGUID   string
-		serviceInstanceName   string
-		ctx                   context.Context
-		duplicateValidator    *fake.NameValidator
-		realDecoder           *admission.Decoder
-		serviceInstance       *korifiv1alpha1.CFServiceInstance
-		request               admission.Request
-		validatingWebhook     *services.CFServiceInstanceValidation
-		response              admission.Response
-		cfServiceInstanceJSON []byte
+		serviceInstanceGUID string
+		serviceInstanceName string
+		ctx                 context.Context
+		duplicateValidator  *fake.NameValidator
+		serviceInstance     *korifiv1alpha1.CFServiceInstance
+		validatingWebhook   *services.CFServiceInstanceValidator
+		retErr              error
 	)
 
 	BeforeEach(func() {
@@ -41,9 +35,6 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 		scheme := runtime.NewScheme()
 		err := korifiv1alpha1.AddToScheme(scheme)
-		Expect(err).NotTo(HaveOccurred())
-
-		realDecoder, err = admission.NewDecoder(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
 		serviceInstanceName = generateGUID("service-instance")
@@ -59,35 +50,17 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			},
 		}
 
-		cfServiceInstanceJSON, err = json.Marshal(serviceInstance)
-		Expect(err).NotTo(HaveOccurred())
-
 		duplicateValidator = new(fake.NameValidator)
-		validatingWebhook = services.NewCFServiceInstanceValidation(duplicateValidator)
-
-		Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
+		validatingWebhook = services.NewCFServiceInstanceValidator(duplicateValidator)
 	})
 
-	Describe("Create", func() {
+	Describe("ValidateCreate", func() {
 		JustBeforeEach(func() {
-			response = validatingWebhook.Handle(ctx, request)
-		})
-
-		BeforeEach(func() {
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      serviceInstanceGUID,
-					Namespace: defaultNamespace,
-					Operation: admissionv1.Create,
-					Object: runtime.RawExtension{
-						Raw: cfServiceInstanceJSON,
-					},
-				},
-			}
+			retErr = validatingWebhook.ValidateCreate(ctx, serviceInstance)
 		})
 
 		It("allows the request", func() {
-			Expect(response.Allowed).To(BeTrue())
+			Expect(retErr).NotTo(HaveOccurred())
 		})
 
 		It("invokes the validator correctly", func() {
@@ -104,35 +77,10 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: services.DuplicateServiceInstanceNameErrorType, Message: `The service instance name is taken: ` + serviceInstance.Spec.DisplayName}.Marshal()))
-			})
-		})
-
-		When("there is an issue decoding the request", func() {
-			BeforeEach(func() {
-				cfAppJSON, err := json.Marshal(serviceInstance)
-				Expect(err).NotTo(HaveOccurred())
-				badCFServiceInstanceJSON := []byte("}" + string(cfAppJSON))
-
-				request = admission.Request{
-					AdmissionRequest: admissionv1.AdmissionRequest{
-						Name:      serviceInstanceGUID,
-						Namespace: defaultNamespace,
-						Operation: admissionv1.Create,
-						Object: runtime.RawExtension{
-							Raw: badCFServiceInstanceJSON,
-						},
-					},
-				}
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-			})
-
-			It("does not attempt to register a name", func() {
-				Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(0))
+				Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Type:    services.DuplicateServiceInstanceNameErrorType,
+					Message: `The service instance name is taken: ` + serviceInstance.Spec.DisplayName,
+				}.Marshal()))
 			})
 		})
 
@@ -142,54 +90,25 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})
 
-	Describe("Update", func() {
+	Describe("ValidateUpdate", func() {
 		var updatedServiceInstance *korifiv1alpha1.CFServiceInstance
 
 		BeforeEach(func() {
-			updatedServiceInstance = &korifiv1alpha1.CFServiceInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceInstanceGUID,
-					Namespace: defaultNamespace,
-				},
-				Spec: korifiv1alpha1.CFServiceInstanceSpec{
-					DisplayName: "the-new-name",
-					Type:        korifiv1alpha1.UserProvidedType,
-				},
-			}
+			updatedServiceInstance = serviceInstance.DeepCopy()
+			updatedServiceInstance.Spec.DisplayName = "the-new-name"
 		})
 
 		JustBeforeEach(func() {
-			appJSON, err := json.Marshal(serviceInstance)
-			Expect(err).NotTo(HaveOccurred())
-
-			updatedAppJSON, err := json.Marshal(updatedServiceInstance)
-			Expect(err).NotTo(HaveOccurred())
-
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      serviceInstanceGUID,
-					Namespace: defaultNamespace,
-					Operation: admissionv1.Update,
-					Object: runtime.RawExtension{
-						Raw: updatedAppJSON,
-					},
-					OldObject: runtime.RawExtension{
-						Raw: appJSON,
-					},
-				},
-			}
-
-			response = validatingWebhook.Handle(ctx, request)
+			retErr = validatingWebhook.ValidateUpdate(ctx, serviceInstance, updatedServiceInstance)
 		})
 
 		It("allows the request", func() {
-			Expect(response.Allowed).To(BeTrue())
+			Expect(retErr).NotTo(HaveOccurred())
 		})
 
 		It("invokes the validator correctly", func() {
@@ -207,8 +126,10 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: services.DuplicateServiceInstanceNameErrorType, Message: `The service instance name is taken: ` + updatedServiceInstance.Spec.DisplayName}.Marshal()))
+				Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Type:    services.DuplicateServiceInstanceNameErrorType,
+					Message: `The service instance name is taken: ` + updatedServiceInstance.Spec.DisplayName,
+				}.Marshal()))
 			})
 		})
 
@@ -218,33 +139,18 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})
 
-	Describe("Delete", func() {
+	Describe("ValidateDelete", func() {
 		JustBeforeEach(func() {
-			appJSON, err := json.Marshal(serviceInstance)
-			Expect(err).NotTo(HaveOccurred())
-
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      serviceInstanceGUID,
-					Namespace: defaultNamespace,
-					Operation: admissionv1.Delete,
-					OldObject: runtime.RawExtension{
-						Raw: appJSON,
-					},
-				},
-			}
-
-			response = validatingWebhook.Handle(ctx, request)
+			retErr = validatingWebhook.ValidateDelete(ctx, serviceInstance)
 		})
 
 		It("allows the request", func() {
-			Expect(response.Allowed).To(BeTrue())
+			Expect(retErr).NotTo(HaveOccurred())
 		})
 
 		It("invokes the validator correctly", func() {
@@ -261,8 +167,7 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			})
 
 			It("disallows the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})
