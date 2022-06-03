@@ -290,7 +290,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = workloads.NewCFOrgValidation(
+		if err = workloads.NewCFOrgValidator(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFOrgEntityType)),
 			webhooks.NewPlacementValidator(mgr.GetClient(), controllerConfig.CFRootNamespace),
 		).SetupWebhookWithManager(mgr); err != nil {

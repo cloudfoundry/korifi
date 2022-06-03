@@ -2,7 +2,6 @@ package workloads_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -13,10 +12,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var _ = Describe("CFOrgValidatingWebhook", func() {
@@ -30,12 +27,9 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		ctx                context.Context
 		duplicateValidator *workloadsfake.NameValidator
 		placementValidator *workloadsfake.PlacementValidator
-		realDecoder        *admission.Decoder
-		org                *korifiv1alpha1.CFOrg
-		request            admission.Request
-		validatingWebhook  *workloads.CFOrgValidation
-		response           admission.Response
-		cfOrgJSON          []byte
+		cfOrg              *korifiv1alpha1.CFOrg
+		validatingWebhook  *workloads.CFOrgValidator
+		retErr             error
 	)
 
 	BeforeEach(func() {
@@ -45,10 +39,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		err := korifiv1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
-		realDecoder, err = admission.NewDecoder(scheme)
-		Expect(err).NotTo(HaveOccurred())
-
-		org = &korifiv1alpha1.CFOrg{
+		cfOrg = &korifiv1alpha1.CFOrg{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testOrgGUID,
 				Namespace: rootNamespace,
@@ -58,36 +49,18 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			},
 		}
 
-		cfOrgJSON, err = json.Marshal(org)
-		Expect(err).NotTo(HaveOccurred())
-
 		duplicateValidator = new(workloadsfake.NameValidator)
 		placementValidator = new(workloadsfake.PlacementValidator)
-		validatingWebhook = workloads.NewCFOrgValidation(duplicateValidator, placementValidator)
-
-		Expect(validatingWebhook.InjectDecoder(realDecoder)).To(Succeed())
+		validatingWebhook = workloads.NewCFOrgValidator(duplicateValidator, placementValidator)
 	})
 
-	Describe("Create", func() {
+	Describe("ValidateCreate", func() {
 		JustBeforeEach(func() {
-			response = validatingWebhook.Handle(ctx, request)
-		})
-
-		BeforeEach(func() {
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      testOrgGUID,
-					Namespace: rootNamespace,
-					Operation: admissionv1.Create,
-					Object: runtime.RawExtension{
-						Raw: cfOrgJSON,
-					},
-				},
-			}
+			retErr = validatingWebhook.ValidateCreate(ctx, cfOrg)
 		})
 
 		It("allows the request", func() {
-			Expect(response.Allowed).To(BeTrue())
+			Expect(retErr).NotTo(HaveOccurred())
 		})
 
 		It("invokes the validator correctly", func() {
@@ -104,56 +77,10 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.DuplicateOrgErrorType, Message: `Organization '` + org.Spec.DisplayName + `' already exists.`}.Marshal()))
-			})
-		})
-
-		When("the org placement validator passes", func() {
-			BeforeEach(func() {
-				placementValidator.ValidateOrgCreateReturns(nil)
-			})
-
-			It("allows the request", func() {
-				Expect(response.Allowed).To(BeTrue())
-			})
-		})
-
-		When("the org placement validator fails", func() {
-			BeforeEach(func() {
-				placementValidator.ValidateOrgCreateReturns(fmt.Errorf(webhooks.OrgPlacementErrorMessage, org.Spec.DisplayName))
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.OrgPlacementErrorType, Message: `Organization '` + org.Spec.DisplayName + `' must be placed in the root 'cf' namespace`}.Marshal()))
-			})
-		})
-
-		When("there is an issue decoding the request", func() {
-			BeforeEach(func() {
-				cfOrgJSON, err := json.Marshal(org)
-				Expect(err).NotTo(HaveOccurred())
-				badCFOrgJSON := []byte("}" + string(cfOrgJSON))
-
-				request = admission.Request{
-					AdmissionRequest: admissionv1.AdmissionRequest{
-						Name:      testOrgGUID,
-						Namespace: rootNamespace,
-						Operation: admissionv1.Create,
-						Object: runtime.RawExtension{
-							Raw: badCFOrgJSON,
-						},
-					},
-				}
-			})
-
-			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-			})
-
-			It("does not attempt to register a name", func() {
-				Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(0))
+				Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Type:    workloads.DuplicateOrgNameErrorType,
+					Message: "Organization '" + cfOrg.Spec.DisplayName + "' already exists.",
+				}.Marshal()))
 			})
 		})
 
@@ -163,62 +90,47 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
+			})
+		})
+
+		When("the org placement validator fails", func() {
+			BeforeEach(func() {
+				placementValidator.ValidateOrgCreateReturns(fmt.Errorf(webhooks.OrgPlacementErrorMessage, cfOrg.Spec.DisplayName))
+			})
+
+			It("denies the request", func() {
+				Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Type:    workloads.OrgPlacementErrorType,
+					Message: "Organization '" + cfOrg.Spec.DisplayName + "' must be placed in the root 'cf' namespace",
+				}.Marshal()))
 			})
 		})
 	})
 
-	Describe("Update", func() {
-		var updatedOrg *korifiv1alpha1.CFOrg
+	Describe("ValidateUpdate", func() {
+		var updatedCFOrg *korifiv1alpha1.CFOrg
 
 		BeforeEach(func() {
-			updatedOrg = &korifiv1alpha1.CFOrg{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testOrgGUID,
-					Namespace: rootNamespace,
-				},
-				Spec: korifiv1alpha1.CFOrgSpec{
-					DisplayName: "the-new-name",
-				},
-			}
+			updatedCFOrg = cfOrg.DeepCopy()
+			updatedCFOrg.Spec.DisplayName = "the-new-name"
 		})
 
 		JustBeforeEach(func() {
-			orgJSON, err := json.Marshal(org)
-			Expect(err).NotTo(HaveOccurred())
-
-			updatedOrgJSON, err := json.Marshal(updatedOrg)
-			Expect(err).NotTo(HaveOccurred())
-
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      testOrgGUID,
-					Namespace: rootNamespace,
-					Operation: admissionv1.Update,
-					Object: runtime.RawExtension{
-						Raw: updatedOrgJSON,
-					},
-					OldObject: runtime.RawExtension{
-						Raw: orgJSON,
-					},
-				},
-			}
-
-			response = validatingWebhook.Handle(ctx, request)
+			retErr = validatingWebhook.ValidateUpdate(ctx, cfOrg, updatedCFOrg)
 		})
 
 		It("allows the request", func() {
-			Expect(response.Allowed).To(BeTrue())
+			Expect(retErr).NotTo(HaveOccurred())
 		})
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
 			actualContext, _, namespace, oldName, newName := duplicateValidator.ValidateUpdateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(org.Namespace))
-			Expect(oldName).To(Equal(org.Spec.DisplayName))
-			Expect(newName).To(Equal(updatedOrg.Spec.DisplayName))
+			Expect(namespace).To(Equal(cfOrg.Namespace))
+			Expect(oldName).To(Equal(cfOrg.Spec.DisplayName))
+			Expect(newName).To(Equal(updatedCFOrg.Spec.DisplayName))
 		})
 
 		When("the new org name is a duplicate", func() {
@@ -227,8 +139,10 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.ValidationError{Type: workloads.DuplicateOrgErrorType, Message: `Organization '` + updatedOrg.Spec.DisplayName + `' already exists.`}.Marshal()))
+				Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Type:    workloads.DuplicateOrgNameErrorType,
+					Message: "Organization '" + updatedCFOrg.Spec.DisplayName + "' already exists.",
+				}.Marshal()))
 			})
 		})
 
@@ -238,41 +152,26 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})
 
-	Describe("Delete", func() {
+	Describe("ValidateDelete", func() {
 		JustBeforeEach(func() {
-			orgJSON, err := json.Marshal(org)
-			Expect(err).NotTo(HaveOccurred())
-
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      testOrgGUID,
-					Namespace: rootNamespace,
-					Operation: admissionv1.Delete,
-					OldObject: runtime.RawExtension{
-						Raw: orgJSON,
-					},
-				},
-			}
-
-			response = validatingWebhook.Handle(ctx, request)
+			retErr = validatingWebhook.ValidateDelete(ctx, cfOrg)
 		})
 
 		It("allows the request", func() {
-			Expect(response.Allowed).To(BeTrue())
+			Expect(retErr).NotTo(HaveOccurred())
 		})
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
 			actualContext, _, namespace, name := duplicateValidator.ValidateDeleteArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(org.Namespace))
-			Expect(name).To(Equal(org.Spec.DisplayName))
+			Expect(namespace).To(Equal(cfOrg.Namespace))
+			Expect(name).To(Equal(cfOrg.Spec.DisplayName))
 		})
 
 		When("delete validation fails", func() {
@@ -281,8 +180,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			})
 
 			It("disallows the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-				Expect(string(response.Result.Reason)).To(Equal(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
 			})
 		})
 	})

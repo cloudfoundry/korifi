@@ -9,101 +9,112 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
-	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
-	CFOrgEntityType          = "cforg"
-	OrgDecodingErrorType     = "OrgDecodingError"
-	DuplicateOrgErrorType    = "DuplicateOrgNameError"
-	OrgPlacementErrorType    = "OrgPlacementError"
-	OrgPlacementErrorMessage = "Organization '%s' must be placed in the root 'cf' namespace"
+	CFOrgEntityType           = "cforg"
+	OrgDecodingErrorType      = "OrgDecodingError"
+	DuplicateOrgNameErrorType = "DuplicateOrgNameError"
+	// Note: the cf cli expects the specfic text `Organization '.*' already exists.` in the error and ignores the error if it matches it.
+	duplicateOrgNameErrorMessage = "Organization '%s' already exists."
+	OrgPlacementErrorType        = "OrgPlacementError"
 )
 
 var cfOrgLog = logf.Log.WithName("cforg-validate")
 
 //+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cforg,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cforgs,verbs=create;update;delete,versions=v1alpha1,name=vcforg.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
-type CFOrgValidation struct {
-	decoder            *admission.Decoder
+type CFOrgValidator struct {
 	duplicateValidator NameValidator
 	placementValidator PlacementValidator
 }
 
-func NewCFOrgValidation(duplicateValidator NameValidator, placementValidator PlacementValidator) *CFOrgValidation {
-	return &CFOrgValidation{
+var _ webhook.CustomValidator = &CFOrgValidator{}
+
+func NewCFOrgValidator(duplicateValidator NameValidator, placementValidator PlacementValidator) *CFOrgValidator {
+	return &CFOrgValidator{
 		duplicateValidator: duplicateValidator,
 		placementValidator: placementValidator,
 	}
 }
 
-func (v *CFOrgValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	mgr.GetWebhookServer().Register("/validate-korifi-cloudfoundry-org-v1alpha1-cforg", &webhook.Admission{Handler: v})
+func (v *CFOrgValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&korifiv1alpha1.CFOrg{}).
+		WithValidator(v).
+		Complete()
+}
+
+func (v *CFOrgValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	org, ok := obj.(*korifiv1alpha1.CFOrg)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
+	}
+
+	err := v.placementValidator.ValidateOrgCreate(*org)
+	if err != nil {
+		cfOrgLog.Error(err, err.Error())
+		return errors.New(webhooks.ValidationError{Type: OrgPlacementErrorType, Message: err.Error()}.Marshal())
+	}
+
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfOrgLog, org.Namespace, strings.ToLower(org.Spec.DisplayName))
+	if validationErr != nil {
+		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
+			errorMessage := fmt.Sprintf(duplicateOrgNameErrorMessage, org.Spec.DisplayName)
+			return errors.New(webhooks.ValidationError{
+				Type:    DuplicateOrgNameErrorType,
+				Message: errorMessage,
+			}.Marshal())
+		}
+
+		return errors.New(webhooks.AdmissionUnknownErrorReason())
+	}
 
 	return nil
 }
 
-func (v *CFOrgValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	cfOrgLog.Info("Validate", "name", req.Name)
-
-	var cfOrg, oldCFOrg korifiv1alpha1.CFOrg
-	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
-		err := v.decoder.Decode(req, &cfOrg)
-		if err != nil { // untested
-			errMessage := "Error while decoding CFOrg object"
-			cfOrgLog.Error(err, errMessage)
-			return admission.Denied(webhooks.ValidationError{Type: OrgDecodingErrorType, Message: errMessage}.Marshal())
-		}
-	}
-	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
-		err := v.decoder.DecodeRaw(req.OldObject, &oldCFOrg)
-		if err != nil { // untested
-			errMessage := "Error while decoding old CFOrg object"
-			cfOrgLog.Error(err, errMessage)
-			return admission.Denied(webhooks.ValidationError{Type: OrgDecodingErrorType, Message: errMessage}.Marshal())
-		}
+func (v *CFOrgValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
+	oldOrg, ok := oldObj.(*korifiv1alpha1.CFOrg)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
 	}
 
-	if req.Operation == admissionv1.Create {
-		err := v.placementValidator.ValidateOrgCreate(cfOrg)
-		if err != nil {
-			cfOrgLog.Error(err, err.Error())
-			return admission.Denied(webhooks.ValidationError{Type: OrgPlacementErrorType, Message: err.Error()}.Marshal())
-		}
+	org, ok := obj.(*korifiv1alpha1.CFOrg)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
 	}
 
-	var validatorErr error
-	cfOrgNameLeaseValue := strings.ToLower(cfOrg.Spec.DisplayName)
-	switch req.Operation {
-	case admissionv1.Create:
-		validatorErr = v.duplicateValidator.ValidateCreate(ctx, cfOrgLog, cfOrg.Namespace, cfOrgNameLeaseValue)
-
-	case admissionv1.Update:
-		oldCFOrgNameLeaseValue := strings.ToLower(oldCFOrg.Spec.DisplayName)
-		validatorErr = v.duplicateValidator.ValidateUpdate(ctx, cfOrgLog, cfOrg.Namespace, oldCFOrgNameLeaseValue, cfOrgNameLeaseValue)
-
-	case admissionv1.Delete:
-		oldCFOrgNameLeaseValue := strings.ToLower(oldCFOrg.Spec.DisplayName)
-		validatorErr = v.duplicateValidator.ValidateDelete(ctx, cfOrgLog, oldCFOrg.Namespace, oldCFOrgNameLeaseValue)
-	}
-
-	if validatorErr != nil {
-		if errors.Is(validatorErr, webhooks.ErrorDuplicateName) {
-			errorMessage := fmt.Sprintf("Organization '%s' already exists.", cfOrg.Spec.DisplayName)
-			return admission.Denied(webhooks.ValidationError{Type: DuplicateOrgErrorType, Message: errorMessage}.Marshal())
+	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfOrgLog, org.Namespace, strings.ToLower(oldOrg.Spec.DisplayName), strings.ToLower(org.Spec.DisplayName))
+	if validationErr != nil {
+		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
+			errorMessage := fmt.Sprintf(duplicateOrgNameErrorMessage, org.Spec.DisplayName)
+			return errors.New(webhooks.ValidationError{
+				Type:    DuplicateOrgNameErrorType,
+				Message: errorMessage,
+			}.Marshal())
 		}
 
-		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(webhooks.AdmissionUnknownErrorReason())
 	}
 
-	return admission.Allowed("")
+	return nil
 }
 
-func (v *CFOrgValidation) InjectDecoder(d *admission.Decoder) error {
-	v.decoder = d
+func (v *CFOrgValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+	org, ok := obj.(*korifiv1alpha1.CFOrg)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
+	}
+
+	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfOrgLog, org.Namespace, strings.ToLower(org.Spec.DisplayName))
+	if validationErr != nil {
+		return errors.New(webhooks.AdmissionUnknownErrorReason())
+	}
+
 	return nil
 }
