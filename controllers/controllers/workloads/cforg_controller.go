@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -34,6 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
 
 // CFOrgReconciler reconciles a CFOrg object
@@ -67,6 +68,14 @@ const (
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=create;patch;delete;get;list;watch
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=create;patch;delete;get;list;watch
 
+/* These rbac annotations are not used directly by this controller.
+   However, the application's service account must have them to create roles and servicebindings for CF roles,
+   since a service account cannot grant permission that it itself does not have */
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildreconcilerinfos,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildreconcilerinfos/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildreconcilerinfos/finalizers,verbs=update
+//+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders,verbs=get;list;watch
+//+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders/status,verbs=get
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;update
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;patch
 //+kubebuilder:rbac:groups="",resources=pods/log,verbs=get

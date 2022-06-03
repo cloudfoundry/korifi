@@ -60,13 +60,6 @@ func NewCFBuildReconciler(client CFClient, scheme *runtime.Scheme, log logr.Logg
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/status,verbs=get
 
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildreconcilerinfos,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildreconcilerinfos/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildreconcilerinfos/finalizers,verbs=update
-
-//+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders,verbs=get;list;watch
-//+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders/status,verbs=get
-
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by

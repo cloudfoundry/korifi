@@ -44,20 +44,20 @@ func setStatusConditionOnLocalCopy(conditions *[]metav1.Condition, conditionType
 	})
 }
 
-func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.Logger, object client.Object, labels map[string]string) error {
+func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, labels map[string]string) error {
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: object.GetName(),
+			Name: orgOrSpace.GetName(),
 		},
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, client, namespace, func() error {
-		if namespace.ObjectMeta.Labels == nil {
-			namespace.ObjectMeta.Labels = make(map[string]string)
+		if namespace.Labels == nil {
+			namespace.Labels = make(map[string]string)
 		}
 
 		for key, value := range labels {
-			namespace.ObjectMeta.Labels[key] = value
+			namespace.Labels[key] = value
 		}
 		return nil
 	})
@@ -66,28 +66,28 @@ func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.
 		return err
 	}
 
-	log.Info(fmt.Sprintf("Namespace/%s %s", object.GetName(), result))
+	log.Info(fmt.Sprintf("Namespace/%s %s", orgOrSpace.GetName(), result))
 	return nil
 }
 
-func propagateSecrets(ctx context.Context, client client.Client, log logr.Logger, object client.Object, secretName string) error {
+func propagateSecrets(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, secretName string) error {
 	secret := new(corev1.Secret)
-	err := client.Get(ctx, types.NamespacedName{Namespace: object.GetNamespace(), Name: secretName}, secret)
+	err := client.Get(ctx, types.NamespacedName{Namespace: orgOrSpace.GetNamespace(), Name: secretName}, secret)
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Error fetching secret  %s/%s", object.GetNamespace(), secretName))
+		log.Error(err, fmt.Sprintf("Error fetching secret  %s/%s", orgOrSpace.GetNamespace(), secretName))
 		return err
 	}
 
 	newSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secret.Name,
-			Namespace: object.GetName(),
+			Namespace: orgOrSpace.GetName(),
 		},
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, client, newSecret, func() error {
-		newSecret.ObjectMeta.Annotations = secret.Annotations
-		newSecret.ObjectMeta.Labels = secret.Labels
+		newSecret.Annotations = secret.Annotations
+		newSecret.Labels = secret.Labels
 		newSecret.Immutable = secret.Immutable
 		newSecret.Data = secret.Data
 		newSecret.StringData = secret.StringData
@@ -104,11 +104,11 @@ func propagateSecrets(ctx context.Context, client client.Client, log logr.Logger
 	return nil
 }
 
-func propagateRoles(ctx context.Context, kClient client.Client, log logr.Logger, object client.Object) error {
+func propagateRoles(ctx context.Context, kClient client.Client, log logr.Logger, orgOrSpace client.Object) error {
 	roles := new(rbacv1.RoleList)
-	err := kClient.List(ctx, roles, client.InNamespace(object.GetNamespace()))
+	err := kClient.List(ctx, roles, client.InNamespace(orgOrSpace.GetNamespace()))
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Error listing roles from namespace %s", object.GetNamespace()))
+		log.Error(err, fmt.Sprintf("Error listing roles from namespace %s", orgOrSpace.GetNamespace()))
 		return err
 	}
 
@@ -116,13 +116,13 @@ func propagateRoles(ctx context.Context, kClient client.Client, log logr.Logger,
 		newRole := &rbacv1.Role{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      binding.Name,
-				Namespace: object.GetName(),
+				Namespace: orgOrSpace.GetName(),
 			},
 		}
 		b := binding
 		result, err := controllerutil.CreateOrPatch(ctx, kClient, newRole, func() error {
-			newRole.ObjectMeta.Labels = b.Labels
-			newRole.ObjectMeta.Annotations = b.Annotations
+			newRole.Labels = b.Labels
+			newRole.Annotations = b.Annotations
 			newRole.Rules = b.Rules
 			return nil
 		})
@@ -138,7 +138,7 @@ func propagateRoles(ctx context.Context, kClient client.Client, log logr.Logger,
 	return nil
 }
 
-func propagateRoleBindings(ctx context.Context, kClient client.Client, log logr.Logger, object client.Object) error {
+func propagateRoleBindings(ctx context.Context, kClient client.Client, log logr.Logger, orgOrSpace client.Object) error {
 	roleBindings := new(rbacv1.RoleBindingList)
 	labelSelector, err := labels.Parse(repositories.PropagateCFRoleLabel + " notin (false)")
 	if err != nil {
@@ -147,11 +147,11 @@ func propagateRoleBindings(ctx context.Context, kClient client.Client, log logr.
 
 	listOptions := client.ListOptions{
 		LabelSelector: labelSelector,
-		Namespace:     object.GetNamespace(),
+		Namespace:     orgOrSpace.GetNamespace(),
 	}
 	err = kClient.List(ctx, roleBindings, &listOptions)
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Error listing role-bindings from namespace %s", object.GetName()))
+		log.Error(err, fmt.Sprintf("Error listing role-bindings from namespace %s", orgOrSpace.GetName()))
 		return err
 	}
 
@@ -159,13 +159,13 @@ func propagateRoleBindings(ctx context.Context, kClient client.Client, log logr.
 		newRoleBinding := &rbacv1.RoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      binding.Name,
-				Namespace: object.GetName(),
+				Namespace: orgOrSpace.GetName(),
 			},
 		}
 		b := binding
 		result, err := controllerutil.CreateOrPatch(ctx, kClient, newRoleBinding, func() error {
-			newRoleBinding.ObjectMeta.Labels = b.Labels
-			newRoleBinding.ObjectMeta.Annotations = b.Annotations
+			newRoleBinding.Labels = b.Labels
+			newRoleBinding.Annotations = b.Annotations
 			newRoleBinding.Subjects = b.Subjects
 			newRoleBinding.RoleRef = b.RoleRef
 			return nil
@@ -182,39 +182,39 @@ func propagateRoleBindings(ctx context.Context, kClient client.Client, log logr.
 	return nil
 }
 
-func isFinalizing(object metav1.Object) bool {
-	if object.GetDeletionTimestamp() != nil && !object.GetDeletionTimestamp().IsZero() {
+func isFinalizing(orgOrSpace client.Object) bool {
+	if orgOrSpace.GetDeletionTimestamp() != nil && !orgOrSpace.GetDeletionTimestamp().IsZero() {
 		return true
 	}
 	return false
 }
 
-func finalize(ctx context.Context, kClient client.Client, log logr.Logger, object client.Object, finalizerName string) (ctrl.Result, error) {
-	log.Info(fmt.Sprintf("Reconciling deletion of %s", object.GetName()))
+func finalize(ctx context.Context, kClient client.Client, log logr.Logger, orgOrSpace client.Object, finalizerName string) (ctrl.Result, error) {
+	log.Info(fmt.Sprintf("Reconciling deletion of %s", orgOrSpace.GetName()))
 
-	if !controllerutil.ContainsFinalizer(object, finalizerName) {
+	if !controllerutil.ContainsFinalizer(orgOrSpace, finalizerName) {
 		return ctrl.Result{}, nil
 	}
 
-	err := kClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: object.GetName()}})
+	err := kClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: orgOrSpace.GetName()}})
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Failed to delete namespace %s/%s", object.GetNamespace(), object.GetName()))
+		log.Error(err, fmt.Sprintf("Failed to delete namespace %s/%s", orgOrSpace.GetNamespace(), orgOrSpace.GetName()))
 		return ctrl.Result{}, err
 	}
 
-	originalCFObject := object.DeepCopyObject().(client.Object)
-	controllerutil.RemoveFinalizer(object, finalizerName)
+	originalCFObject := orgOrSpace.DeepCopyObject().(client.Object)
+	controllerutil.RemoveFinalizer(orgOrSpace, finalizerName)
 
-	if err = kClient.Patch(ctx, object, client.MergeFrom(originalCFObject)); err != nil {
-		log.Error(err, fmt.Sprintf("Failed to remove finalizer on CFSpace %s/%s", object.GetNamespace(), object.GetName()))
+	if err = kClient.Patch(ctx, orgOrSpace, client.MergeFrom(originalCFObject)); err != nil {
+		log.Error(err, fmt.Sprintf("Failed to remove finalizer on CFSpace %s/%s", orgOrSpace.GetNamespace(), orgOrSpace.GetName()))
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func updateStatus(ctx context.Context, client client.Client, object client.Object, conditionStatus metav1.ConditionStatus) error {
-	switch obj := object.(type) {
+func updateStatus(ctx context.Context, client client.Client, orgOrSpace client.Object, conditionStatus metav1.ConditionStatus) error {
+	switch obj := orgOrSpace.(type) {
 	case *korifiv1alpha1.CFOrg:
 		cfOrg := new(korifiv1alpha1.CFOrg)
 		obj.DeepCopyInto(cfOrg)
