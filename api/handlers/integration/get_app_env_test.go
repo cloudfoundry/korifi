@@ -29,8 +29,7 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 		dropletRepo := repositories.NewDropletRepo(clientFactory, namespaceRetriever, nsPermissions)
 		orgRepo := repositories.NewOrgRepo("root-ns", k8sClient, clientFactory, nsPermissions, time.Minute)
 		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, clientFactory, nsPermissions, time.Minute)
-		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
-		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
+		processScaler := actions.NewProcessScaler(appRepo, processRepo)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -42,7 +41,7 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 			routeRepo,
 			domainRepo,
 			spaceRepo,
-			scaleAppProcess,
+			processScaler,
 			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)

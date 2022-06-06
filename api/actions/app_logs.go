@@ -12,24 +12,21 @@ import (
 	"github.com/go-logr/logr"
 )
 
-//counterfeiter:generate -o fake -fake-name ReadAppLogs . ReadAppLogsAction
-type ReadAppLogsAction func(ctx context.Context, authInfo authorization.Info, appGUID string, read payloads.LogRead) ([]repositories.LogRecord, error)
-
-type ReadAppLogs struct {
+type AppLogs struct {
 	appRepo   CFAppRepository
 	buildRepo CFBuildRepository
 	podRepo   PodRepository
 }
 
-func NewReadAppLogs(appRepo CFAppRepository, buildRepo CFBuildRepository, podRepo PodRepository) *ReadAppLogs {
-	return &ReadAppLogs{
+func NewAppLogs(appRepo CFAppRepository, buildRepo CFBuildRepository, podRepo PodRepository) *AppLogs {
+	return &AppLogs{
 		appRepo:   appRepo,
 		buildRepo: buildRepo,
 		podRepo:   podRepo,
 	}
 }
 
-func (a *ReadAppLogs) Invoke(ctx context.Context, logger logr.Logger, authInfo authorization.Info, appGUID string, read payloads.LogRead) ([]repositories.LogRecord, error) {
+func (a *AppLogs) Read(ctx context.Context, logger logr.Logger, authInfo authorization.Info, appGUID string, read payloads.LogRead) ([]repositories.LogRecord, error) {
 	const (
 		defaultLogLimit = 100
 	)

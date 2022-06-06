@@ -132,16 +132,15 @@ func main() {
 	)
 	taskRepo := repositories.NewTaskRepo(userClientFactory)
 
-	scaleProcessAction := actions.NewScaleProcess(processRepo)
-	scaleAppProcessAction := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcessAction.Invoke)
-	fetchProcessStatsAction := actions.NewFetchProcessStats(processRepo, podRepo, appRepo)
-	applyManifestAction := actions.NewApplyManifest(
+	processScaler := actions.NewProcessScaler(appRepo, processRepo)
+	processStats := actions.NewProcessStats(processRepo, podRepo, appRepo)
+	manifest := actions.NewManifest(
 		appRepo,
 		domainRepo,
 		processRepo,
 		routeRepo,
-	).Invoke
-	readAppLogsAction := actions.NewReadAppLogs(appRepo, buildRepo, podRepo)
+	)
+	appLogs := actions.NewAppLogs(appRepo, buildRepo, podRepo)
 
 	decoderValidator, err := handlers.NewDefaultDecoderValidator()
 	if err != nil {
@@ -162,7 +161,7 @@ func main() {
 			routeRepo,
 			domainRepo,
 			spaceRepo,
-			scaleAppProcessAction.Invoke,
+			processScaler,
 			decoderValidator,
 		),
 		handlers.NewRouteHandler(
@@ -199,8 +198,8 @@ func main() {
 		handlers.NewProcessHandler(
 			*serverURL,
 			processRepo,
-			fetchProcessStatsAction.Invoke,
-			scaleProcessAction.Invoke,
+			processStats,
+			processScaler,
 			decoderValidator,
 		),
 		handlers.NewDomainHandler(
@@ -213,7 +212,7 @@ func main() {
 		handlers.NewLogCacheHandler(
 			appRepo,
 			buildRepo,
-			readAppLogsAction.Invoke,
+			appLogs,
 		),
 		handlers.NewOrgHandler(
 			*serverURL,
@@ -233,7 +232,7 @@ func main() {
 		handlers.NewSpaceManifestHandler(
 			*serverURL,
 			config.DefaultDomainName,
-			applyManifestAction,
+			manifest,
 			spaceRepo,
 			decoderValidator,
 		),

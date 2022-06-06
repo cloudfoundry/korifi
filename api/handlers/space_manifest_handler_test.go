@@ -17,15 +17,15 @@ import (
 
 var _ = Describe("SpaceManifestHandler", func() {
 	var (
-		applyManifestAction *fake.ApplyManifestAction
-		spaceRepo           *fake.CFSpaceRepository
-		req                 *http.Request
-		defaultDomainName   string
-		requestBody         *strings.Reader
+		manifestApplier   *fake.ManifestApplier
+		spaceRepo         *fake.CFSpaceRepository
+		req               *http.Request
+		defaultDomainName string
+		requestBody       *strings.Reader
 	)
 
 	BeforeEach(func() {
-		applyManifestAction = new(fake.ApplyManifestAction)
+		manifestApplier = new(fake.ManifestApplier)
 		spaceRepo = new(fake.CFSpaceRepository)
 		defaultDomainName = "apps.example.org"
 
@@ -35,7 +35,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 		apiHandler := NewSpaceManifestHandler(
 			*serverURL,
 			defaultDomainName,
-			applyManifestAction.Spy,
+			manifestApplier,
 			spaceRepo,
 			decoderValidator,
 		)
@@ -80,14 +80,14 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 
 			It("calls applyManifestAction and passes it the authInfo from the context", func() {
-				Expect(applyManifestAction.CallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _, _ := applyManifestAction.ArgsForCall(0)
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(1))
+				_, actualAuthInfo, _, _, _ := manifestApplier.ApplyArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
 			It("passes the parsed manifest to the action", func() {
-				Expect(applyManifestAction.CallCount()).To(Equal(1))
-				_, _, _, _, payload := applyManifestAction.ArgsForCall(0)
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(1))
+				_, _, _, _, payload := manifestApplier.ApplyArgsForCall(0)
 
 				Expect(payload.Applications).To(HaveLen(1))
 				Expect(payload.Applications[0].Name).To(Equal("app1"))
@@ -123,8 +123,8 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 
 			It("calls applyManifestAction and passes it the authInfo from the context", func() {
-				Expect(applyManifestAction.CallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _, _ := applyManifestAction.ArgsForCall(0)
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(1))
+				_, actualAuthInfo, _, _, _ := manifestApplier.ApplyArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 		})
@@ -144,7 +144,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 
 			It("doesn't call applyManifestAction", func() {
-				Expect(applyManifestAction.CallCount()).To(Equal(0))
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
 			})
 		})
 
@@ -162,7 +162,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 
 			It("doesn't call applyManifestAction", func() {
-				Expect(applyManifestAction.CallCount()).To(Equal(0))
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
 			})
 		})
 
@@ -181,7 +181,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 
 			It("doesn't call applyManifestAction", func() {
-				Expect(applyManifestAction.CallCount()).To(Equal(0))
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
 			})
 		})
 
@@ -201,7 +201,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 
 			It("doesn't call applyManifestAction", func() {
-				Expect(applyManifestAction.CallCount()).To(Equal(0))
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
 			})
 		})
 
@@ -222,7 +222,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 
 			It("doesn't call applyManifestAction", func() {
-				Expect(applyManifestAction.CallCount()).To(Equal(0))
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
 			})
 		})
 
@@ -243,7 +243,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 
 			It("doesn't call applyManifestAction", func() {
-				Expect(applyManifestAction.CallCount()).To(Equal(0))
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
 			})
 		})
 
@@ -264,7 +264,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 
 			It("doesn't call applyManifestAction", func() {
-				Expect(applyManifestAction.CallCount()).To(Equal(0))
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
 			})
 		})
 
@@ -285,7 +285,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 
 			It("doesn't call applyManifestAction", func() {
-				Expect(applyManifestAction.CallCount()).To(Equal(0))
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
 			})
 		})
 
@@ -296,7 +296,7 @@ var _ = Describe("SpaceManifestHandler", func() {
                 applications:
                 - name: app1
                 `)
-				applyManifestAction.Returns(errors.New("boom"))
+				manifestApplier.ApplyReturns(errors.New("boom"))
 			})
 
 			It("respond with Unknown Error", func() {
@@ -311,7 +311,7 @@ var _ = Describe("SpaceManifestHandler", func() {
                 applications:
                 - name: app1
                 `)
-				applyManifestAction.Returns(apierrors.NewNotFoundError(errors.New("can't find"), repositories.DomainResourceType))
+				manifestApplier.ApplyReturns(apierrors.NewNotFoundError(errors.New("can't find"), repositories.DomainResourceType))
 			})
 
 			It("respond with NotFoundErr", func() {

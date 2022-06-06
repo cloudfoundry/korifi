@@ -29,14 +29,14 @@ const (
 
 var _ = Describe("AppHandler", func() {
 	var (
-		appRepo             *fake.CFAppRepository
-		dropletRepo         *fake.CFDropletRepository
-		processRepo         *fake.CFProcessRepository
-		routeRepo           *fake.CFRouteRepository
-		scaleAppProcessFunc *fake.ScaleAppProcess
-		domainRepo          *fake.CFDomainRepository
-		spaceRepo           *fake.SpaceRepository
-		req                 *http.Request
+		appRepo       *fake.CFAppRepository
+		dropletRepo   *fake.CFDropletRepository
+		processRepo   *fake.CFProcessRepository
+		routeRepo     *fake.CFRouteRepository
+		processScaler *fake.AppProcessScaler
+		domainRepo    *fake.CFDomainRepository
+		spaceRepo     *fake.SpaceRepository
+		req           *http.Request
 	)
 
 	BeforeEach(func() {
@@ -45,7 +45,7 @@ var _ = Describe("AppHandler", func() {
 		processRepo = new(fake.CFProcessRepository)
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
-		scaleAppProcessFunc = new(fake.ScaleAppProcess)
+		processScaler = new(fake.AppProcessScaler)
 		spaceRepo = new(fake.SpaceRepository)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
@@ -58,7 +58,7 @@ var _ = Describe("AppHandler", func() {
 			routeRepo,
 			domainRepo,
 			spaceRepo,
-			scaleAppProcessFunc.Spy,
+			processScaler,
 			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
@@ -1740,7 +1740,7 @@ var _ = Describe("AppHandler", func() {
 		}
 
 		BeforeEach(func() {
-			scaleAppProcessFunc.Returns(repositories.ProcessRecord{
+			processScaler.ScaleAppProcessReturns(repositories.ProcessRecord{
 				GUID:             processGUID,
 				SpaceGUID:        spaceGUID,
 				AppGUID:          appGUID,
@@ -1833,8 +1833,8 @@ var _ = Describe("AppHandler", func() {
 				})
 
 				It("invokes the scale function with only a subset of the scale fields", func() {
-					Expect(scaleAppProcessFunc.CallCount()).To(Equal(1), "did not call scaleProcess just once")
-					_, _, _, _, invokedProcessScale := scaleAppProcessFunc.ArgsForCall(0)
+					Expect(processScaler.ScaleAppProcessCallCount()).To(Equal(1), "did not call scaleProcess just once")
+					_, _, _, _, invokedProcessScale := processScaler.ScaleAppProcessArgsForCall(0)
 					Expect(invokedProcessScale.Instances).To(BeNil())
 					Expect(invokedProcessScale.DiskMB).To(BeNil())
 					Expect(*invokedProcessScale.MemoryMB).To(Equal(memoryInMB))
@@ -1926,7 +1926,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("there is an error scaling the app", func() {
 				BeforeEach(func() {
-					scaleAppProcessFunc.Returns(repositories.ProcessRecord{}, errors.New("unknown!"))
+					processScaler.ScaleAppProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
 				})
 
 				It("returns an error", func() {

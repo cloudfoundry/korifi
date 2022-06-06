@@ -31,9 +31,9 @@ var _ = Describe("ReadAppLogs", func() {
 		buildRepo *fake.CFBuildRepository
 		podRepo   *fake.PodRepository
 
-		readAppLogsAction *ReadAppLogs
+		appLogs *AppLogs
 
-		buildLogs, appLogs []repositories.LogRecord
+		buildLogs, logs []repositories.LogRecord
 
 		authInfo       authorization.Info
 		requestPayload payloads.LogRead
@@ -47,7 +47,7 @@ var _ = Describe("ReadAppLogs", func() {
 		buildRepo = new(fake.CFBuildRepository)
 		podRepo = new(fake.PodRepository)
 
-		readAppLogsAction = NewReadAppLogs(appRepo, buildRepo, podRepo)
+		appLogs = NewAppLogs(appRepo, buildRepo, podRepo)
 
 		appRepo.GetAppReturns(repositories.AppRecord{
 			GUID:      appGUID,
@@ -73,7 +73,7 @@ var _ = Describe("ReadAppLogs", func() {
 		}
 		buildRepo.GetBuildLogsReturns(buildLogs, nil)
 
-		appLogs = []repositories.LogRecord{
+		logs = []repositories.LogRecord{
 			{
 				Message:   "AppMessage1",
 				Timestamp: nowTime.Add(time.Nanosecond * 2).UnixNano(),
@@ -83,7 +83,7 @@ var _ = Describe("ReadAppLogs", func() {
 				Timestamp: nowTime.Add(time.Nanosecond * 3).UnixNano(),
 			},
 		}
-		podRepo.GetRuntimeLogsForAppReturns(appLogs, nil)
+		podRepo.GetRuntimeLogsForAppReturns(logs, nil)
 
 		requestPayload = payloads.LogRead{
 			StartTime:     nil,
@@ -96,7 +96,7 @@ var _ = Describe("ReadAppLogs", func() {
 	})
 
 	JustBeforeEach(func() {
-		returnedRecords, returnedErr = readAppLogsAction.Invoke(context.Background(), logf.Log.WithName("testlogger"), authInfo, appGUID, requestPayload)
+		returnedRecords, returnedErr = appLogs.Read(context.Background(), logf.Log.WithName("testlogger"), authInfo, appGUID, requestPayload)
 	})
 
 	It("sets the log limit to 100 when not specified", func() {
@@ -107,7 +107,7 @@ var _ = Describe("ReadAppLogs", func() {
 
 	It("returns the list of build and app records", func() {
 		Expect(returnedErr).NotTo(HaveOccurred())
-		Expect(returnedRecords).To(Equal(append(buildLogs, appLogs...)))
+		Expect(returnedRecords).To(Equal(append(buildLogs, logs...)))
 	})
 
 	When("the limit is lower than the total number of logs available", func() {
@@ -138,7 +138,7 @@ var _ = Describe("ReadAppLogs", func() {
 
 		When("the build and run logs are chronologically interleaved", func() {
 			BeforeEach(func() {
-				buildLogs[1].Timestamp, appLogs[0].Timestamp = appLogs[0].Timestamp, buildLogs[1].Timestamp
+				buildLogs[1].Timestamp, logs[0].Timestamp = logs[0].Timestamp, buildLogs[1].Timestamp
 			})
 			It("gives us the most recent logs up to the limit", func() {
 				Expect(returnedErr).NotTo(HaveOccurred())
@@ -177,7 +177,7 @@ var _ = Describe("ReadAppLogs", func() {
 
 	When("the start time is the same as the latest log entry", func() {
 		BeforeEach(func() {
-			startTime := appLogs[1].Timestamp
+			startTime := logs[1].Timestamp
 			requestPayload.StartTime = &startTime
 		})
 

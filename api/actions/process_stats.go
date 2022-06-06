@@ -7,21 +7,21 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
-type FetchProcessStats struct {
+type ProcessStats struct {
 	processRepo CFProcessRepository
 	podRepo     PodRepository
 	appRepo     CFAppRepository
 }
 
-func NewFetchProcessStats(processRepo CFProcessRepository, podRepo PodRepository, appRepo CFAppRepository) *FetchProcessStats {
-	return &FetchProcessStats{
+func NewProcessStats(processRepo CFProcessRepository, podRepo PodRepository, appRepo CFAppRepository) *ProcessStats {
+	return &ProcessStats{
 		processRepo,
 		podRepo,
 		appRepo,
 	}
 }
 
-func (a *FetchProcessStats) Invoke(ctx context.Context, authInfo authorization.Info, processGUID string) ([]repositories.PodStatsRecord, error) {
+func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.Info, processGUID string) ([]repositories.PodStatsRecord, error) {
 	processRecord, err := a.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
 		return nil, err

@@ -24,7 +24,7 @@ var _ = Describe("GetProcessStatsAction", func() {
 		appRepo     *fake.CFAppRepository
 		authInfo    authorization.Info
 
-		fetchProcessStatsAction *FetchProcessStats
+		fetchProcessStatsAction *ProcessStats
 
 		appGUID          string
 		appRevision      string
@@ -67,11 +67,11 @@ var _ = Describe("GetProcessStatsAction", func() {
 			Revision: appRevision,
 		}, nil)
 
-		fetchProcessStatsAction = NewFetchProcessStats(processRepo, podRepo, appRepo)
+		fetchProcessStatsAction = NewProcessStats(processRepo, podRepo, appRepo)
 	})
 
 	JustBeforeEach(func() {
-		responseRecords, responseErr = fetchProcessStatsAction.Invoke(context.Background(), authInfo, processGUID)
+		responseRecords, responseErr = fetchProcessStatsAction.FetchStats(context.Background(), authInfo, processGUID)
 	})
 
 	When("on the happy path", func() {
@@ -114,7 +114,7 @@ var _ = Describe("GetProcessStatsAction", func() {
 					AppGUID:   appGUID,
 					Type:      processType,
 				}, nil)
-				responseRecords, responseErr = fetchProcessStatsAction.Invoke(context.Background(), authInfo, processGUID)
+				responseRecords, responseErr = fetchProcessStatsAction.FetchStats(context.Background(), authInfo, processGUID)
 			})
 
 			It("calls the repo GetProcess to find the processType", func() {

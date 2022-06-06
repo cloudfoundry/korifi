@@ -22,24 +22,24 @@ var _ = Describe("ProcessHandler", func() {
 	)
 
 	var (
-		processRepo       *fake.CFProcessRepository
-		fetchProcessStats *fake.FetchProcessStats
-		scaleProcessFunc  *fake.ScaleProcess
-		req               *http.Request
+		processRepo         *fake.CFProcessRepository
+		processStatsFetcher *fake.ProcessStatsFetcher
+		processScaler       *fake.ProcessScaler
+		req                 *http.Request
 	)
 
 	BeforeEach(func() {
 		processRepo = new(fake.CFProcessRepository)
-		fetchProcessStats = new(fake.FetchProcessStats)
-		scaleProcessFunc = new(fake.ScaleProcess)
+		processStatsFetcher = new(fake.ProcessStatsFetcher)
+		processScaler = new(fake.ProcessScaler)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewProcessHandler(
 			*serverURL,
 			processRepo,
-			fetchProcessStats.Spy,
-			scaleProcessFunc.Spy,
+			processStatsFetcher,
+			processScaler,
 			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
@@ -275,7 +275,7 @@ var _ = Describe("ProcessHandler", func() {
 		}
 
 		BeforeEach(func() {
-			scaleProcessFunc.Returns(repositories.ProcessRecord{
+			processScaler.ScaleProcessReturns(repositories.ProcessRecord{
 				GUID:             processGUID,
 				SpaceGUID:        spaceGUID,
 				AppGUID:          appGUID,
@@ -303,8 +303,8 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("on the happy path and", func() {
 			It("passes the authorization.Info to the scale func", func() {
-				Expect(scaleProcessFunc.CallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _ := scaleProcessFunc.ArgsForCall(0)
+				Expect(processScaler.ScaleProcessCallCount()).To(Equal(1))
+				_, actualAuthInfo, _, _ := processScaler.ScaleProcessArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -374,8 +374,8 @@ var _ = Describe("ProcessHandler", func() {
 				})
 
 				It("invokes the scale function with only a subset of the scale fields", func() {
-					Expect(scaleProcessFunc.CallCount()).To(Equal(1), "did not call scaleProcess just once")
-					_, _, _, invokedProcessScale := scaleProcessFunc.ArgsForCall(0)
+					Expect(processScaler.ScaleProcessCallCount()).To(Equal(1), "did not call scaleProcess just once")
+					_, _, _, invokedProcessScale := processScaler.ScaleProcessArgsForCall(0)
 					Expect(invokedProcessScale.Instances).To(BeNil())
 					Expect(invokedProcessScale.DiskMB).To(BeNil())
 					Expect(*invokedProcessScale.MemoryMB).To(Equal(memoryInMB))
@@ -467,7 +467,7 @@ var _ = Describe("ProcessHandler", func() {
 
 			When("there is some other error fetching the process", func() {
 				BeforeEach(func() {
-					scaleProcessFunc.Returns(repositories.ProcessRecord{}, errors.New("unknown!"))
+					processScaler.ScaleProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
 				})
 
 				It("returns an error", func() {
@@ -510,7 +510,7 @@ var _ = Describe("ProcessHandler", func() {
 			process2Mem = 8
 			process1Disk = 50
 			process2Disk = 100
-			fetchProcessStats.Returns([]repositories.PodStatsRecord{
+			processStatsFetcher.FetchStatsReturns([]repositories.PodStatsRecord{
 				{
 					Type:  "web",
 					Index: 0,
@@ -546,8 +546,8 @@ var _ = Describe("ProcessHandler", func() {
 			})
 
 			It("passes the authorization.Info to the fetch process stats func", func() {
-				Expect(fetchProcessStats.CallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := fetchProcessStats.ArgsForCall(0)
+				Expect(processStatsFetcher.FetchStatsCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := processStatsFetcher.FetchStatsArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -602,7 +602,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the process is down", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns([]repositories.PodStatsRecord{
+				processStatsFetcher.FetchStatsReturns([]repositories.PodStatsRecord{
 					{
 						Type:  "web",
 						Index: 0,
@@ -635,7 +635,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("the process stats are not authorized", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, apierrors.NewForbiddenError(nil, repositories.ProcessStatsResourceType))
+				processStatsFetcher.FetchStatsReturns(nil, apierrors.NewForbiddenError(nil, repositories.ProcessStatsResourceType))
 			})
 
 			It("returns an error", func() {
@@ -645,7 +645,7 @@ var _ = Describe("ProcessHandler", func() {
 
 		When("fetching the process stats errors", func() {
 			BeforeEach(func() {
-				fetchProcessStats.Returns(nil, errors.New("boom"))
+				processStatsFetcher.FetchStatsReturns(nil, errors.New("boom"))
 			})
 
 			It("returns an error", func() {
