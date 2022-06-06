@@ -36,8 +36,8 @@ var _ = Describe("ApplyManifest", func() {
 		routeRepo   *fake.CFRouteRepository
 		authInfo    authorization.Info
 
-		applyManifestAction *ApplyManifest
-		applyErr            error
+		manifestAction *Manifest
+		applyErr       error
 	)
 
 	BeforeEach(func() {
@@ -65,11 +65,11 @@ var _ = Describe("ApplyManifest", func() {
 			},
 		}
 
-		applyManifestAction = NewApplyManifest(appRepo, domainRepo, processRepo, routeRepo)
+		manifestAction = NewManifest(appRepo, domainRepo, processRepo, routeRepo)
 	})
 
 	JustBeforeEach(func() {
-		applyErr = applyManifestAction.Invoke(context.Background(), authInfo, spaceGUID, defaultDomainName, manifest)
+		applyErr = manifestAction.Apply(context.Background(), authInfo, spaceGUID, defaultDomainName, manifest)
 	})
 
 	It("fetches the app correctly", func() {

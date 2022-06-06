@@ -35,35 +35,39 @@ type CFProcessRepository interface {
 	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)
 }
 
-//counterfeiter:generate -o fake -fake-name ScaleProcess . ScaleProcess
-type ScaleProcess func(ctx context.Context, authInfo authorization.Info, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
+//counterfeiter:generate -o fake -fake-name ProcessScaler . ProcessScaler
+type ProcessScaler interface {
+	ScaleProcess(ctx context.Context, authInfo authorization.Info, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
+}
 
-//counterfeiter:generate -o fake -fake-name FetchProcessStats . FetchProcessStats
-type FetchProcessStats func(context.Context, authorization.Info, string) ([]repositories.PodStatsRecord, error)
+//counterfeiter:generate -o fake -fake-name ProcessStatsFetcher . ProcessStatsFetcher
+type ProcessStatsFetcher interface {
+	FetchStats(context.Context, authorization.Info, string) ([]repositories.PodStatsRecord, error)
+}
 
 type ProcessHandler struct {
-	handlerWrapper    *AuthAwareHandlerFuncWrapper
-	serverURL         url.URL
-	processRepo       CFProcessRepository
-	fetchProcessStats FetchProcessStats
-	scaleProcess      ScaleProcess
-	decoderValidator  *DecoderValidator
+	handlerWrapper      *AuthAwareHandlerFuncWrapper
+	serverURL           url.URL
+	processRepo         CFProcessRepository
+	processStatsFetcher ProcessStatsFetcher
+	processScaler       ProcessScaler
+	decoderValidator    *DecoderValidator
 }
 
 func NewProcessHandler(
 	serverURL url.URL,
 	processRepo CFProcessRepository,
-	fetchProcessStats FetchProcessStats,
-	scaleProcessFunc ScaleProcess,
+	processStatsFetcher ProcessStatsFetcher,
+	scaleProcessFunc ProcessScaler,
 	decoderValidator *DecoderValidator,
 ) *ProcessHandler {
 	return &ProcessHandler{
-		handlerWrapper:    NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ProcessHandler")),
-		serverURL:         serverURL,
-		processRepo:       processRepo,
-		fetchProcessStats: fetchProcessStats,
-		scaleProcess:      scaleProcessFunc,
-		decoderValidator:  decoderValidator,
+		handlerWrapper:      NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ProcessHandler")),
+		serverURL:           serverURL,
+		processRepo:         processRepo,
+		processStatsFetcher: processStatsFetcher,
+		processScaler:       scaleProcessFunc,
+		decoderValidator:    decoderValidator,
 	}
 }
 
@@ -116,7 +120,7 @@ func (h *ProcessHandler) processScaleHandler(ctx context.Context, logger logr.Lo
 		return nil, err
 	}
 
-	processRecord, err := h.scaleProcess(ctx, authInfo, processGUID, payload.ToRecord())
+	processRecord, err := h.processScaler.ScaleProcess(ctx, authInfo, processGUID, payload.ToRecord())
 	if err != nil {
 		logger.Error(err, "Failed due to error from Kubernetes", "processGUID", processGUID)
 		return nil, err
@@ -129,7 +133,7 @@ func (h *ProcessHandler) processGetStatsHandler(ctx context.Context, logger logr
 	vars := mux.Vars(r)
 	processGUID := vars["guid"]
 
-	records, err := h.fetchProcessStats(ctx, authInfo, processGUID)
+	records, err := h.processStatsFetcher.FetchStats(ctx, authInfo, processGUID)
 	if err != nil {
 		logger.Error(err, "Failed to get process stats from Kubernetes", "ProcessGUID", processGUID)
 		return nil, apierrors.ForbiddenAsNotFound(err)

@@ -109,8 +109,7 @@ var _ = Describe("App Handler", func() {
 		domainRepo := repositories.NewDomainRepo(clientFactory, namespaceRetriever, rootNamespace)
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPermissions, time.Minute)
 		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, clientFactory, nsPermissions, time.Minute)
-		scaleProcess := actions.NewScaleProcess(processRepo).Invoke
-		scaleAppProcess := actions.NewScaleAppProcess(appRepo, processRepo, scaleProcess).Invoke
+		processScaler := actions.NewProcessScaler(appRepo, processRepo)
 		decoderValidator, err := handlers.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -122,7 +121,7 @@ var _ = Describe("App Handler", func() {
 			routeRepo,
 			domainRepo,
 			spaceRepo,
-			scaleAppProcess,
+			processScaler,
 			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)

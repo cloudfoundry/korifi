@@ -50,8 +50,10 @@ type CFAppRepository interface {
 	GetAppEnv(context.Context, authorization.Info, string) (map[string]string, error)
 }
 
-//counterfeiter:generate -o fake -fake-name ScaleAppProcess . ScaleAppProcess
-type ScaleAppProcess func(ctx context.Context, authInfo authorization.Info, appGUID string, processType string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
+//counterfeiter:generate -o fake -fake-name AppProcessScaler . AppProcessScaler
+type AppProcessScaler interface {
+	ScaleAppProcess(ctx context.Context, authInfo authorization.Info, appGUID string, processType string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
+}
 
 type AppHandler struct {
 	handlerWrapper   *AuthAwareHandlerFuncWrapper
@@ -62,7 +64,7 @@ type AppHandler struct {
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
 	spaceRepo        SpaceRepository
-	scaleAppProcess  ScaleAppProcess
+	appProcessScaler AppProcessScaler
 	decoderValidator *DecoderValidator
 }
 
@@ -74,7 +76,7 @@ func NewAppHandler(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	spaceRepo SpaceRepository,
-	scaleAppProcessFunc ScaleAppProcess,
+	appProcessScaler AppProcessScaler,
 	decoderValidator *DecoderValidator,
 ) *AppHandler {
 	return &AppHandler{
@@ -87,7 +89,7 @@ func NewAppHandler(
 		domainRepo:       domainRepo,
 		decoderValidator: decoderValidator,
 		spaceRepo:        spaceRepo,
-		scaleAppProcess:  scaleAppProcessFunc,
+		appProcessScaler: appProcessScaler,
 	}
 }
 
@@ -330,7 +332,7 @@ func (h *AppHandler) appScaleProcessHandler(ctx context.Context, logger logr.Log
 		return nil, err
 	}
 
-	processRecord, err := h.scaleAppProcess(ctx, authInfo, appGUID, processType, payload.ToRecord())
+	processRecord, err := h.appProcessScaler.ScaleAppProcess(ctx, authInfo, appGUID, processType, payload.ToRecord())
 	if err != nil {
 		logger.Error(err, "Failed due to error from Kubernetes", "appGUID", appGUID)
 		return nil, err

@@ -23,26 +23,30 @@ const (
 	logCacheVersion  = "2.11.4+cf-k8s"
 )
 
-//counterfeiter:generate -o fake -fake-name ReadAppLogs . ReadAppLogsAction
-type ReadAppLogsAction func(ctx context.Context, logger logr.Logger, authInfo authorization.Info, appGUID string, read payloads.LogRead) ([]repositories.LogRecord, error)
+//counterfeiter:generate -o fake -fake-name AppLogsReader . AppLogsReader
+type AppLogsReader interface {
+	Read(ctx context.Context, logger logr.Logger, authInfo authorization.Info, appGUID string, read payloads.LogRead) ([]repositories.LogRecord, error)
+}
 
 // LogCacheHandler implements the minimal set of log-cache API endpoints/features necessary
 // to support the "cf push" workfloh.handlerWrapper.
 type LogCacheHandler struct {
-	handlerWrapper    *AuthAwareHandlerFuncWrapper
-	appRepo           CFAppRepository
-	buildRepo         CFBuildRepository
-	readAppLogsAction ReadAppLogsAction
+	handlerWrapper *AuthAwareHandlerFuncWrapper
+	appRepo        CFAppRepository
+	buildRepo      CFBuildRepository
+	appLogsReader  AppLogsReader
 }
 
-func NewLogCacheHandler(appRepo CFAppRepository,
-	buildRepository CFBuildRepository, readAppLogsAction ReadAppLogsAction,
+func NewLogCacheHandler(
+	appRepo CFAppRepository,
+	buildRepository CFBuildRepository,
+	appLogsReader AppLogsReader,
 ) *LogCacheHandler {
 	return &LogCacheHandler{
-		handlerWrapper:    NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("LogCacheHandler")),
-		appRepo:           appRepo,
-		buildRepo:         buildRepository,
-		readAppLogsAction: readAppLogsAction,
+		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("LogCacheHandler")),
+		appRepo:        appRepo,
+		buildRepo:      buildRepository,
+		appLogsReader:  appLogsReader,
 	}
 }
 
@@ -91,7 +95,7 @@ func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.L
 	appGUID := vars["guid"]
 
 	var logs []repositories.LogRecord
-	logs, err = h.readAppLogsAction(ctx, logger, authInfo, appGUID, *logReadPayload)
+	logs, err = h.appLogsReader.Read(ctx, logger, authInfo, appGUID, *logReadPayload)
 	if err != nil {
 		return nil, err
 	}

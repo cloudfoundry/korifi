@@ -18,20 +18,20 @@ import (
 
 var _ = Describe("LogCacheHandler", func() {
 	var (
-		appRepo           *fake.CFAppRepository
-		buildRepo         *fake.CFBuildRepository
-		readAppLogsAction *fake.ReadAppLogs
-		req               *http.Request
+		appRepo       *fake.CFAppRepository
+		buildRepo     *fake.CFBuildRepository
+		appLogsReader *fake.AppLogsReader
+		req           *http.Request
 	)
 
 	BeforeEach(func() {
 		appRepo = new(fake.CFAppRepository)
 		buildRepo = new(fake.CFBuildRepository)
-		readAppLogsAction = new(fake.ReadAppLogs)
+		appLogsReader = new(fake.AppLogsReader)
 		handler := NewLogCacheHandler(
 			appRepo,
 			buildRepo,
-			readAppLogsAction.Spy,
+			appLogsReader,
 		)
 		handler.RegisterRoutes(router)
 	})
@@ -97,7 +97,7 @@ var _ = Describe("LogCacheHandler", func() {
 					Timestamp: time.Now().UnixNano(),
 				},
 			}
-			readAppLogsAction.Returns(append(buildLogs, appLogs...), nil)
+			appLogsReader.ReadReturns(append(buildLogs, appLogs...), nil)
 		})
 
 		It("returns status 200 OK", func() {
@@ -199,7 +199,7 @@ var _ = Describe("LogCacheHandler", func() {
 
 		When("the action returns a not-found error", func() {
 			BeforeEach(func() {
-				readAppLogsAction.Returns(nil, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
+				appLogsReader.ReadReturns(nil, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
 			})
 			It("elevates the error", func() {
 				expectNotFoundError("App not found")
@@ -208,7 +208,7 @@ var _ = Describe("LogCacheHandler", func() {
 
 		When("the action returns a random error", func() {
 			BeforeEach(func() {
-				readAppLogsAction.Returns(nil, errors.New("i-am-made-up"))
+				appLogsReader.ReadReturns(nil, errors.New("i-am-made-up"))
 			})
 			It("returns an Unknown error", func() {
 				expectUnknownError()
