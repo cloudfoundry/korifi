@@ -60,28 +60,27 @@ var _ = Describe("ReadAppLogs", func() {
 			AppGUID: appGUID,
 		}, nil)
 
+		nowTime := time.Now()
 		buildLogs = []repositories.LogRecord{
 			{
 				Message:   "BuildMessage1",
-				Timestamp: time.Now().UnixNano(),
+				Timestamp: nowTime.UnixNano(),
 			},
 			{
 				Message:   "BuildMessage2",
-				Timestamp: time.Now().UnixNano(),
+				Timestamp: nowTime.Add(time.Nanosecond).UnixNano(),
 			},
 		}
 		buildRepo.GetBuildLogsReturns(buildLogs, nil)
 
-		time.Sleep(5 * time.Millisecond)
-
 		appLogs = []repositories.LogRecord{
 			{
 				Message:   "AppMessage1",
-				Timestamp: time.Now().UnixNano(),
+				Timestamp: nowTime.Add(time.Nanosecond * 2).UnixNano(),
 			},
 			{
 				Message:   "AppMessage2",
-				Timestamp: time.Now().UnixNano(),
+				Timestamp: nowTime.Add(time.Nanosecond * 3).UnixNano(),
 			},
 		}
 		podRepo.GetRuntimeLogsForAppReturns(appLogs, nil)
@@ -111,6 +110,45 @@ var _ = Describe("ReadAppLogs", func() {
 		Expect(returnedRecords).To(Equal(append(buildLogs, appLogs...)))
 	})
 
+	When("the limit is lower than the total number of logs available", func() {
+		BeforeEach(func() {
+			limit := int64(2)
+			requestPayload.Limit = &limit
+		})
+
+		It("gives us the most recent logs up to the limit", func() {
+			Expect(returnedErr).NotTo(HaveOccurred())
+			Expect(returnedRecords).To(HaveLen(2))
+			Expect(returnedRecords[0].Message).To(Equal("AppMessage1"))
+			Expect(returnedRecords[1].Message).To(Equal("AppMessage2"))
+		})
+
+		When("the start time is set to the beginning of unix time according to the CF CLI", func() {
+			BeforeEach(func() {
+				theBigBang := int64(-6795364578871345152) // this is some date in 1754, which is what the CLI defaults to
+				requestPayload.StartTime = &theBigBang
+			})
+			It("gives us the latest logs up to the log limit", func() {
+				Expect(returnedErr).NotTo(HaveOccurred())
+				Expect(returnedRecords).To(HaveLen(2))
+				Expect(returnedRecords[0].Message).To(Equal("AppMessage1"))
+				Expect(returnedRecords[1].Message).To(Equal("AppMessage2"))
+			})
+		})
+
+		When("the build and run logs are chronologically interleaved", func() {
+			BeforeEach(func() {
+				buildLogs[1].Timestamp, appLogs[0].Timestamp = appLogs[0].Timestamp, buildLogs[1].Timestamp
+			})
+			It("gives us the most recent logs up to the limit", func() {
+				Expect(returnedErr).NotTo(HaveOccurred())
+				Expect(returnedRecords).To(HaveLen(2))
+				Expect(returnedRecords[0].Message).To(Equal("BuildMessage2"))
+				Expect(returnedRecords[1].Message).To(Equal("AppMessage2"))
+			})
+		})
+	})
+
 	When("the descending flag in the request is set to true", func() {
 		BeforeEach(func() {
 			descending := true
@@ -122,6 +160,30 @@ var _ = Describe("ReadAppLogs", func() {
 			Expect(returnedRecords).To(HaveLen(4))
 			Expect(returnedRecords[0].Message).To(Equal("AppMessage2"))
 			Expect(returnedRecords[3].Message).To(Equal("BuildMessage1"))
+		})
+	})
+
+	When("the start time is newer than any of the log entries", func() {
+		BeforeEach(func() {
+			startTime := time.Now().Add(time.Minute).UnixNano()
+			requestPayload.StartTime = &startTime
+		})
+
+		It("returns an empty list", func() {
+			Expect(returnedErr).NotTo(HaveOccurred())
+			Expect(returnedRecords).To(HaveLen(0))
+		})
+	})
+
+	When("the start time is the same as the latest log entry", func() {
+		BeforeEach(func() {
+			startTime := appLogs[1].Timestamp
+			requestPayload.StartTime = &startTime
+		})
+
+		It("returns only the latest entry", func() {
+			Expect(returnedErr).NotTo(HaveOccurred())
+			Expect(returnedRecords).To(HaveLen(1))
 		})
 	})
 

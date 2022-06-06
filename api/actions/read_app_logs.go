@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"sort"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -68,6 +69,22 @@ func (a *ReadAppLogs) Invoke(ctx context.Context, logger logr.Logger, authInfo a
 	}
 
 	logs := append(buildLogs, runtimeLogs...)
+
+	sort.Slice(logs, func(i, j int) bool {
+		return logs[i].Timestamp < logs[j].Timestamp
+	})
+
+	// ensure that we didn't exceed the log limit
+	if read.Limit != nil && int64(len(logs)) > *read.Limit {
+		first := int64(len(logs)) - *read.Limit
+		logs = logs[first:]
+	}
+
+	// filter any entries from before the start time
+	if read.StartTime != nil {
+		first := sort.Search(len(logs), func(i int) bool { return *read.StartTime <= logs[i].Timestamp })
+		logs = logs[first:]
+	}
 
 	if read.Descending != nil && *read.Descending {
 		for i, j := 0, len(logs)-1; i < j; i, j = i+1, j-1 {
