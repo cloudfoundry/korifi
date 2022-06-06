@@ -125,6 +125,15 @@ function ensure_kind_cluster() {
     cat <<EOF | kind create cluster --name "${cluster}" --wait 5m --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localregistry-docker-registry.default.svc.cluster.local:30050"]
+        endpoint = ["http://127.0.0.1:30050"]
+    [plugins."io.containerd.grpc.v1.cri".registry.configs]
+      [plugins."io.containerd.grpc.v1.cri".registry.configs."127.0.0.1:30050".tls]
+        insecure_skip_verify = true
 featureGates:
   EphemeralContainers: true
 nodes:
@@ -163,26 +172,9 @@ function ensure_local_registry() {
   if [[ -n "${api_only}" ]]; then return 0; fi
 
   helm repo add twuni https://helm.twun.io
-  helm upgrade --install localregistry twuni/docker-registry --set service.type=NodePort,service.nodePort=30050,service.port=30050
-
-  # reconfigure containerd to allow insecure connection to our local registry on localhost
-  docker cp "${cluster}-control-plane:/etc/containerd/config.toml" /tmp/config.toml
-  if ! grep -q localregistry-docker-registry\.default\.svc\.cluster\.local /tmp/config.toml; then
-    cat <<EOF >>/tmp/config.toml
-
-[plugins."io.containerd.grpc.v1.cri".registry]
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localregistry-docker-registry.default.svc.cluster.local:30050"]
-      endpoint = ["http://127.0.0.1:30050"]
-  [plugins."io.containerd.grpc.v1.cri".registry.configs]
-    [plugins."io.containerd.grpc.v1.cri".registry.configs."127.0.0.1:30050".tls]
-      insecure_skip_verify = true
-EOF
-    docker cp /tmp/config.toml "${cluster}-control-plane:/etc/containerd/config.toml"
-    docker exec "${cluster}-control-plane" bash -c "systemctl restart containerd"
-    echo "waiting for containerd to restart..."
-    sleep 10
-  fi
+  helm upgrade --install localregistry twuni/docker-registry \
+    --set service.type=NodePort,service.nodePort=30050,service.port=30050 \
+    --set persistence.enabled=true
 }
 
 function install_dependencies() {
