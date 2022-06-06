@@ -112,10 +112,6 @@ echo "*******************"
 echo "Installing Eirini"
 echo "*******************"
 
-"${SCRIPT_DIR}/generate-eirini-certs-secret.sh" "*.eirini-controller.svc"
-
-webhooks_ca_bundle="$(kubectl get secret -n eirini-controller eirini-webhooks-certs -o jsonpath="{.data['tls\.ca']}")"
-
 EIRINI_VERSION="0.3.0"
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
@@ -125,7 +121,6 @@ metadata:
 EOF
 helm template eirini-controller "https://github.com/cloudfoundry/eirini-controller/releases/download/v$EIRINI_VERSION/eirini-controller-$EIRINI_VERSION.tgz" \
   --set "workloads.default_namespace=cf" \
-  --set "webhooks.ca_bundle=${webhooks_ca_bundle}" \
   --set "controller.registry_secret_name=image-registry-credentials" \
   --namespace "eirini-controller" | kubectl apply -f -
 
