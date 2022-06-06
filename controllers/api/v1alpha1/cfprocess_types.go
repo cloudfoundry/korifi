@@ -17,9 +17,12 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const processNamePrefix = "cf-proc-"
 
 // CFProcessSpec defines the desired state of CFProcess
 type CFProcessSpec struct {
@@ -100,6 +103,14 @@ type CFProcessList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []CFProcess `json:"items"`
+}
+
+func (r *CFProcess) SetRandomName() {
+	r.Name = processNamePrefix + uuid.NewString()
+	if r.Labels == nil {
+		r.Labels = map[string]string{}
+	}
+	r.Labels[CFProcessGUIDLabelKey] = r.Name
 }
 
 func init() {

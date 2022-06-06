@@ -109,17 +109,6 @@ echo "*******************"
 kubectl apply -f "${DEP_DIR}/contour-1.19.1.yaml"
 
 echo "*******************"
-echo "Installing HNC"
-echo "*******************"
-
-kubectl apply -k ${DEP_DIR}/hnc/cf
-kubectl rollout status deployment/hnc-controller-manager --watch --namespace hnc-system
-while ! kubectl get hncconfigurations.hnc.x-k8s.io config; do
-  sleep 1
-done
-kubectl patch hncconfigurations.hnc.x-k8s.io config --type=merge -p '{"spec":{"resources":[{"mode":"Propagate", "resource": "secrets"}]}}'
-
-echo "*******************"
 echo "Installing Eirini"
 echo "*******************"
 

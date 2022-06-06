@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("CFBuildReconciler Integration", func() {
+var _ = Describe("CFBuildReconciler Integration Tests", func() {
 	const (
 		stagingConditionType                = "Staging"
 		succeededConditionType              = "Succeeded"

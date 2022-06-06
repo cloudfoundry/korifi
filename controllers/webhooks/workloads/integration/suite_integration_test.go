@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -72,7 +71,6 @@ var _ = BeforeSuite(func() {
 	Expect(korifiv1alpha1.AddToScheme(scheme)).To(Succeed())
 	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
 	Expect(corev1.AddToScheme(scheme)).To(Succeed())
-	Expect(hnsv1alpha2.AddToScheme(scheme)).To(Succeed())
 	Expect(coordinationv1.AddToScheme(scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
@@ -110,9 +108,6 @@ var _ = BeforeSuite(func() {
 	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType))
 	orgPlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
 	spacePlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
-
-	anchorValidationWebhook := workloads.NewSubnamespaceAnchorValidation(orgNameDuplicateValidator, spaceNameDuplicateValidator)
-	Expect(anchorValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
 	orgValidationWebhook := workloads.NewCFOrgValidation(orgNameDuplicateValidator, orgPlacementValidator)
 	Expect(orgValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())

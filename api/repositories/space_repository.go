@@ -17,11 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=subnamespaceanchors,verbs=list;watch
-//+kubebuilder:rbac:groups=hnc.x-k8s.io,resources=hierarchyconfigurations,verbs=get
-
 const (
-	SpaceNameLabel    = "cloudfoundry.org/space-name"
 	SpacePrefix       = "cf-space-"
 	SpaceResourceType = "Space"
 )
@@ -152,31 +148,6 @@ func (r *SpaceRepo) createSpaceCR(ctx context.Context,
 
 	if !conditionReady {
 		return nil, fmt.Errorf("cf space did not get Condition `Ready`: 'True' within timeout period %d ms", r.timeout.Milliseconds())
-	}
-
-	// wait for the namespace to be created and user to have permissions
-	timeoutChan := time.After(r.timeout)
-
-	t1 := time.Now()
-outer:
-	for {
-		select {
-		case <-timeoutChan:
-			// HNC is broken
-			return nil, fmt.Errorf("failed establishing permissions in new namespace after %s: %w", time.Since(t1), err)
-		default:
-			var authorizedNamespaces map[string]bool
-			authorizedNamespaces, err = r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, info)
-			if err != nil {
-				return nil, err
-			}
-
-			if _, ok := authorizedNamespaces[space.Name]; ok {
-				break outer
-			}
-
-			time.Sleep(500 * time.Millisecond)
-		}
 	}
 
 	return createdSpace, nil

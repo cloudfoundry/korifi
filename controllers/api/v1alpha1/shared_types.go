@@ -19,6 +19,8 @@ const (
 	StagingConditionType   = "Staging"
 	ReadyConditionType     = "Ready"
 	SucceededConditionType = "Succeeded"
+
+	PropagateRoleBindingAnnotation = "cloudfoundry.org/propagate-cf-role"
 )
 
 type Lifecycle struct {

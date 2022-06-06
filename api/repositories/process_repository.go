@@ -9,7 +9,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
-	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +17,6 @@ import (
 
 const (
 	ProcessResourceType = "Process"
-	processPrefix       = "cf-proc-"
 )
 
 func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory, namespacePermissions *authorization.NamespacePermissions) *ProcessRepo {
@@ -192,10 +190,8 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 		return fmt.Errorf("get-process: failed to build user k8s client: %w", err)
 	}
 
-	guid := GenerateProcessGUID()
-	err = userClient.Create(ctx, &korifiv1alpha1.CFProcess{
+	process := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      guid,
 			Namespace: message.SpaceGUID,
 		},
 		Spec: korifiv1alpha1.CFProcessSpec{
@@ -211,7 +207,9 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 			DiskQuotaMB:      message.DiskQuotaMB,
 			Ports:            []int32{},
 		},
-	})
+	}
+	process.SetRandomName()
+	err = userClient.Create(ctx, process)
 	return apierrors.FromK8sError(err, ProcessResourceType)
 }
 
@@ -349,8 +347,4 @@ func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord 
 		CreatedAt:   cfProcess.CreationTimestamp.UTC().Format(TimestampFormat),
 		UpdatedAt:   updatedAtTime,
 	}
-}
-
-func GenerateProcessGUID() string {
-	return processPrefix + uuid.NewString()
 }

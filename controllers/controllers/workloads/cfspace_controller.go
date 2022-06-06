@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;create
-
 package workloads
 
 import (
@@ -23,22 +21,28 @@ import (
 	"fmt"
 	"time"
 
+	rbacv1 "k8s.io/api/rbac/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 const (
-	SpaceNameLabel           = "cloudfoundry.org/space-name"
 	kpackServiceAccountName  = "kpack-service-account"
 	eiriniServiceAccountName = "eirini"
+	spaceFinalizerName       = "cfSpace.korifi.cloudfoundry.org"
 )
 
 // CFSpaceReconciler reconciles a CFSpace object
@@ -49,7 +53,12 @@ type CFSpaceReconciler struct {
 	packageRegistrySecretName string
 }
 
-func NewCFSpaceReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger, packageRegistrySecretName string) *CFSpaceReconciler {
+func NewCFSpaceReconciler(
+	client client.Client,
+	scheme *runtime.Scheme,
+	log logr.Logger,
+	packageRegistrySecretName string,
+) *CFSpaceReconciler {
 	return &CFSpaceReconciler{
 		client:                    client,
 		scheme:                    scheme,
@@ -61,6 +70,12 @@ func NewCFSpaceReconciler(client client.Client, scheme *runtime.Scheme, log logr
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfspaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfspaces/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfspaces/finalizers,verbs=update
+
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=create;patch;delete;get;list;watch
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=create;patch;delete;get;list;watch
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -79,39 +94,52 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	var anchor v1alpha2.SubnamespaceAnchor
-	err = r.client.Get(ctx, req.NamespacedName, &anchor)
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			r.log.Error(err, fmt.Sprintf("Error getting SubnamespaceAnchor for CFSpace %s/%s", req.Namespace, req.Name))
+	readyCondition := getConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType)
+	if readyCondition == metav1.ConditionUnknown {
+		if err = r.client.Status().Update(ctx, cfSpace); err != nil {
+			r.log.Error(err, fmt.Sprintf("Error when trying to set status conditions on CFSpace %s/%s", req.Namespace, req.Name))
 			return ctrl.Result{}, err
 		}
-
-		anchorLabels := map[string]string{
-			SpaceNameLabel: cfSpace.Spec.DisplayName,
-		}
-		anchor, err = createSubnamespaceAnchor(ctx, r.client, req, cfSpace, anchorLabels)
-		if err != nil {
-			r.log.Error(err, fmt.Sprintf("Error creating SubnamespaceAnchor for CFSpace %s/%s", req.Namespace, req.Name))
-			return ctrl.Result{}, err
-		}
-		err = updateStatus(ctx, r.client, cfSpace, metav1.ConditionUnknown)
-		if err != nil {
-			r.log.Error(err, "unable to update CFSpace status")
-			return ctrl.Result{}, err
-		}
-
-		// Requeue to verify subnamespaceanchor is ready
-		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
-	if anchor.Status.State != v1alpha2.Ok {
-		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
+	err = r.addFinalizer(ctx, cfSpace)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error adding finalizer on CFSpace %s/%s", req.Namespace, req.Name))
+		return ctrl.Result{}, err
+	}
+
+	if isFinalizing(cfSpace) {
+		return finalize(ctx, r.client, r.log, cfSpace, spaceFinalizerName)
+	}
+
+	labels := map[string]string{korifiv1alpha1.SpaceNameLabel: cfSpace.Spec.DisplayName}
+	err = createOrPatchNamespace(ctx, r.client, r.log, cfSpace, labels)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error creating namespace for CFSpace %s/%s", req.Namespace, req.Name))
+		return ctrl.Result{}, err
 	}
 
 	namespace, ok := getNamespace(ctx, r.client, cfSpace.Name)
 	if !ok {
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
+	}
+
+	err = propagateSecrets(ctx, r.client, r.log, cfSpace, r.packageRegistrySecretName)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error propagating secrets into CFSpace %s/%s", req.Namespace, req.Name))
+		return ctrl.Result{}, err
+	}
+
+	err = propagateRoles(ctx, r.client, r.log, cfSpace)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error propagating roles into CFSpace %s/%s", req.Namespace, req.Name))
+		return ctrl.Result{}, err
+	}
+
+	err = propagateRoleBindings(ctx, r.client, r.log, cfSpace)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error propagating role-bindings into CFSpace %s/%s", req.Namespace, req.Name))
+		return ctrl.Result{}, err
 	}
 
 	err = r.createServiceAccounts(ctx, namespace.Name)
@@ -122,7 +150,7 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	cfSpace.Status.GUID = namespace.Name
 	err = updateStatus(ctx, r.client, cfSpace, metav1.ConditionTrue)
 	if err != nil {
-		r.log.Error(err, "unable to update CFSpace status")
+		r.log.Error(err, fmt.Sprintf("Error updating status on CFSpace %s/%s", req.Namespace, req.Name))
 		return ctrl.Result{}, err
 	}
 
@@ -170,9 +198,57 @@ func (r *CFSpaceReconciler) createServiceAccountIfMissing(ctx context.Context, s
 	return err
 }
 
+func (r *CFSpaceReconciler) addFinalizer(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) error {
+	if controllerutil.ContainsFinalizer(cfSpace, spaceFinalizerName) {
+		return nil
+	}
+
+	originalCFSpace := cfSpace.DeepCopy()
+	controllerutil.AddFinalizer(cfSpace, spaceFinalizerName)
+
+	err := r.client.Patch(ctx, cfSpace, client.MergeFrom(originalCFSpace))
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error adding finalizer to CFSpace/%s", cfSpace.Name))
+		return err
+	}
+
+	r.log.Info(fmt.Sprintf("Finalizer added to CFSpace/%s", cfSpace.Name))
+	return nil
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFSpaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFSpace{}).
+		Watches(
+			&source.Kind{Type: &corev1.Secret{}},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueCFSpaceRequests),
+		).
+		Watches(
+			&source.Kind{Type: &rbacv1.Role{}},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueCFSpaceRequests),
+		).
+		Watches(
+			&source.Kind{Type: &rbacv1.RoleBinding{}},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueCFSpaceRequests),
+		).
 		Complete(r)
+}
+
+func (r *CFSpaceReconciler) enqueueCFSpaceRequests(object client.Object) []reconcile.Request {
+	cfSpaceList := &korifiv1alpha1.CFSpaceList{}
+	err := r.client.List(context.Background(), cfSpaceList, client.InNamespace(object.GetNamespace()))
+	if err != nil {
+		return []reconcile.Request{}
+	}
+	requests := make([]reconcile.Request, len(cfSpaceList.Items))
+	for i, space := range cfSpaceList.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      space.Name,
+				Namespace: space.Namespace,
+			},
+		}
+	}
+	return requests
 }

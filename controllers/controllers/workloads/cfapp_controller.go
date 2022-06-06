@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
@@ -135,15 +134,11 @@ func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1
 }
 
 func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1alpha1.ProcessType, ports []int32, cfApp *korifiv1alpha1.CFApp) error {
-	cfProcessGUID := repositories.GenerateProcessGUID()
-
-	desiredCFProcess := korifiv1alpha1.CFProcess{
+	desiredCFProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cfProcessGUID,
 			Namespace: cfApp.Namespace,
 			Labels: map[string]string{
 				korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
-				korifiv1alpha1.CFProcessGUIDLabelKey: cfProcessGUID,
 				korifiv1alpha1.CFProcessTypeLabelKey: process.Type,
 			},
 		},
@@ -164,14 +159,15 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1a
 			Ports:            ports,
 		},
 	}
+	desiredCFProcess.SetRandomName()
 
-	err := controllerutil.SetOwnerReference(cfApp, &desiredCFProcess, r.Scheme)
+	err := controllerutil.SetOwnerReference(cfApp, desiredCFProcess, r.Scheme)
 	if err != nil {
 		r.Log.Error(err, "failed to set OwnerRef on CFProcess")
 		return err
 	}
 
-	return r.Client.Create(ctx, &desiredCFProcess)
+	return r.Client.Create(ctx, desiredCFProcess)
 }
 
 func (r *CFAppReconciler) checkCFProcessExistsForType(ctx context.Context, appGUID string, namespace string, processType string) (bool, error) {
@@ -217,10 +213,6 @@ func (r *CFAppReconciler) addFinalizer(ctx context.Context, cfApp *korifiv1alpha
 
 	r.Log.Info(fmt.Sprintf("Finalizer added to CFApp/%s", cfApp.Name))
 	return nil
-}
-
-func isFinalizing(cfApp *korifiv1alpha1.CFApp) bool {
-	return cfApp.ObjectMeta.DeletionTimestamp != nil && !cfApp.ObjectMeta.DeletionTimestamp.IsZero()
 }
 
 func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (ctrl.Result, error) {

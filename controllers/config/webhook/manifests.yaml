@@ -119,6 +119,48 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-korifi-cloudfoundry-org-v1alpha1-cfdomain
+  failurePolicy: Fail
+  name: vcfdomain.korifi.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - korifi.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfdomains
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-korifi-cloudfoundry-org-v1alpha1-cfroute
+  failurePolicy: Fail
+  name: vcfroute.korifi.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - korifi.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - cfroutes
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
   - v1beta1
   clientConfig:
     service:
@@ -226,68 +268,4 @@ webhooks:
     - DELETE
     resources:
     - cfspaces
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-hnc-x-k8s-io-v1alpha2-subnamespaceanchor
-  failurePolicy: Fail
-  name: vsubns.korifi.cloudfoundry.org
-  rules:
-  - apiGroups:
-    - hnc.x-k8s.io
-    apiVersions:
-    - v1alpha2
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    resources:
-    - subnamespaceanchors
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-korifi-cloudfoundry-org-v1alpha1-cfdomain
-  failurePolicy: Fail
-  name: vcfdomain.korifi.cloudfoundry.org
-  rules:
-  - apiGroups:
-    - korifi.cloudfoundry.org
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - cfdomains
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-korifi-cloudfoundry-org-v1alpha1-cfroute
-  failurePolicy: Fail
-  name: vcfroute.korifi.cloudfoundry.org
-  rules:
-  - apiGroups:
-    - korifi.cloudfoundry.org
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    resources:
-    - cfroutes
   sideEffects: None

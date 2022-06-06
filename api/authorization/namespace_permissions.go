@@ -1,6 +1,7 @@
 package authorization
 
 import (
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"context"
 	"fmt"
 
@@ -8,18 +9,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=list
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=list
 
 //counterfeiter:generate -o fake -fake-name IdentityProvider . IdentityProvider
-
-const (
-	orgLevel   = "1"
-	spaceLevel = "2"
-)
 
 type IdentityProvider interface {
 	GetIdentity(context.Context, Info) (Identity, error)
@@ -40,14 +35,14 @@ func NewNamespacePermissions(privilegedClient client.Client, identityProvider Id
 }
 
 func (o *NamespacePermissions) GetAuthorizedOrgNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
-	return o.getAuthorizedNamespaces(ctx, info, orgLevel, "Org")
+	return o.getAuthorizedNamespaces(ctx, info, korifiv1alpha1.OrgNameLabel, "Org")
 }
 
 func (o *NamespacePermissions) GetAuthorizedSpaceNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
-	return o.getAuthorizedNamespaces(ctx, info, spaceLevel, "Space")
+	return o.getAuthorizedNamespaces(ctx, info, korifiv1alpha1.SpaceNameLabel, "Space")
 }
 
-func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info Info, orgSpaceLevel, resourceType string) (map[string]bool, error) {
+func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info Info, orgSpaceLabel, resourceType string) (map[string]bool, error) {
 	identity, err := o.identityProvider.GetIdentity(ctx, info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get identity: %w", err)
@@ -59,9 +54,7 @@ func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info
 	}
 
 	var cfOrgsOrSpaces corev1.NamespaceList
-	if err := o.privilegedClient.List(ctx, &cfOrgsOrSpaces, client.MatchingLabels{
-		o.rootNamespace + v1alpha2.LabelTreeDepthSuffix: orgSpaceLevel,
-	}); err != nil {
+	if err := o.privilegedClient.List(ctx, &cfOrgsOrSpaces, client.HasLabels([]string{orgSpaceLabel})); err != nil {
 		return nil, fmt.Errorf("failed to list namespaces: %w", apierrors.FromK8sError(err, resourceType))
 	}
 

@@ -3,8 +3,6 @@ package testutils
 import (
 	"encoding/base64"
 
-	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -34,15 +32,6 @@ func BuildNamespaceObject(name string) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
-		},
-	}
-}
-
-func BuildSubNamespaceAnchorObject(hnsGUID string, spaceGUID string) *v1alpha2.SubnamespaceAnchor {
-	return &v1alpha2.SubnamespaceAnchor{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      hnsGUID,
-			Namespace: spaceGUID,
 		},
 	}
 }

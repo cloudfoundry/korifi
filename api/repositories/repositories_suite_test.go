@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 const (
@@ -85,8 +84,6 @@ var _ = BeforeSuite(func() {
 	Expect(k8sConfig).NotTo(BeNil())
 
 	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = hnsv1alpha2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = buildv1alpha2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -163,7 +160,7 @@ func createOrgWithCleanup(ctx context.Context, name string) *korifiv1alpha1.CFOr
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cfOrg.Name,
 			Labels: map[string]string{
-				rootNamespace + hnsv1alpha2.LabelTreeDepthSuffix: "1",
+				korifiv1alpha1.OrgNameLabel: cfOrg.Spec.DisplayName,
 			},
 		},
 	}
@@ -203,7 +200,7 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cfSpace.Name,
 			Labels: map[string]string{
-				rootNamespace + hnsv1alpha2.LabelTreeDepthSuffix: "2",
+				korifiv1alpha1.SpaceNameLabel: cfSpace.Spec.DisplayName,
 			},
 		},
 	}
@@ -220,10 +217,7 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 func createNamespace(ctx context.Context, orgName, name string, labels map[string]string) *corev1.Namespace {
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Annotations: map[string]string{
-				hnsv1alpha2.SubnamespaceOf: orgName,
-			},
+			Name:   name,
 			Labels: labels,
 		},
 	}

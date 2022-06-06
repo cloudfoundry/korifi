@@ -1,6 +1,7 @@
 package authorization_test
 
 import (
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"context"
 	"errors"
 	"fmt"
@@ -14,7 +15,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("Namespace Permissions", func() {
@@ -119,8 +119,8 @@ var _ = Describe("Namespace Permissions", func() {
 
 	Describe("Get Authorized Org Namespaces", func() {
 		BeforeEach(func() {
-			org1NS = createNamespace("org1", map[string]string{rootNamespace + v1alpha2.LabelTreeDepthSuffix: "1"})
-			org2NS = createNamespace("org2", map[string]string{rootNamespace + v1alpha2.LabelTreeDepthSuffix: "1"})
+			org1NS = createNamespace("org1", map[string]string{korifiv1alpha1.OrgNameLabel: "org1"})
+			org2NS = createNamespace("org2", map[string]string{korifiv1alpha1.OrgNameLabel: "org2"})
 
 			createRoleBindingForUser(userName, roleName1, org1NS)
 			createRoleBindingForUser(userName, roleName2, org1NS)
@@ -185,8 +185,8 @@ var _ = Describe("Namespace Permissions", func() {
 
 	Describe("Get Authorized Space Namespaces", func() {
 		BeforeEach(func() {
-			space1NS = createNamespace("space1", map[string]string{rootNamespace + v1alpha2.LabelTreeDepthSuffix: "2"})
-			space2NS = createNamespace("space2", map[string]string{rootNamespace + v1alpha2.LabelTreeDepthSuffix: "2"})
+			space1NS = createNamespace("space1", map[string]string{korifiv1alpha1.SpaceNameLabel: "space1"})
+			space2NS = createNamespace("space2", map[string]string{korifiv1alpha1.SpaceNameLabel: "space2"})
 
 			createRoleBindingForUser(userName, roleName1, space1NS)
 			createRoleBindingForUser("some-other-user", roleName1, space2NS)
@@ -223,8 +223,8 @@ var _ = Describe("Namespace Permissions", func() {
 
 	Describe("Authorized In", func() {
 		BeforeEach(func() {
-			org1NS = createNamespace("org1", map[string]string{rootNamespace + v1alpha2.LabelTreeDepthSuffix: "1"})
-			org2NS = createNamespace("org2", map[string]string{rootNamespace + v1alpha2.LabelTreeDepthSuffix: "1"})
+			org1NS = createNamespace("org1", map[string]string{korifiv1alpha1.OrgNameLabel: "org1"})
+			org2NS = createNamespace("org2", map[string]string{korifiv1alpha1.OrgNameLabel: "org2"})
 
 			createRoleBindingForUser(userName, roleName1, org1NS)
 			createRoleBindingForUser("some-other-user", roleName1, org2NS)

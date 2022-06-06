@@ -4,17 +4,18 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/config"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
 
 const (
@@ -95,12 +96,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 		ns = role.Org
 	}
 
-	annotations := map[string]string{}
-	if !k8sRoleConfig.Propagate {
-		annotations[hnsv1alpha2.AnnotationNoneSelector] = "true"
-	}
-
-	roleBinding := createRoleBinding(ns, role.Type, role.Kind, role.User, role.GUID, k8sRoleConfig.Name, annotations)
+	roleBinding := createRoleBinding(ns, role.Type, role.Kind, role.User, role.GUID, k8sRoleConfig.Name, k8sRoleConfig.Propagate)
 
 	err = userClient.Create(ctx, &roleBinding)
 	if err != nil {
@@ -119,9 +115,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 		return RoleRecord{}, fmt.Errorf("invalid role type: %q", cfUserRoleType)
 	}
 
-	cfUserRoleBinding := createRoleBinding(r.rootNamespace, cfUserRoleType, role.Kind, role.User, uuid.NewString(), cfUserk8sRoleConfig.Name, map[string]string{
-		hnsv1alpha2.AnnotationNoneSelector: "true",
-	})
+	cfUserRoleBinding := createRoleBinding(r.rootNamespace, cfUserRoleType, role.Kind, role.User, uuid.NewString(), cfUserk8sRoleConfig.Name, false)
 	err = userClient.Create(ctx, &cfUserRoleBinding)
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
@@ -170,7 +164,7 @@ func calculateRoleBindingName(roleType, roleUser string) string {
 	return fmt.Sprintf("%s-%x", roleBindingNamePrefix, sum)
 }
 
-func createRoleBinding(namespace, roleType, roleKind, roleUser, roleGUID, roleConfigName string, annotations map[string]string) rbacv1.RoleBinding {
+func createRoleBinding(namespace, roleType, roleKind, roleUser, roleGUID, roleConfigName string, propagateLabelValue bool) rbacv1.RoleBinding {
 	return rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -178,7 +172,9 @@ func createRoleBinding(namespace, roleType, roleKind, roleUser, roleGUID, roleCo
 			Labels: map[string]string{
 				RoleGuidLabel: roleGUID,
 			},
-			Annotations: annotations,
+			Annotations: map[string]string{
+				korifiv1alpha1.PropagateRoleBindingAnnotation: strconv.FormatBool(propagateLabelValue),
+			},
 		},
 		Subjects: []rbacv1.Subject{
 			{

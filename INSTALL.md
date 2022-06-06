@@ -20,7 +20,7 @@ This document was tested on both [EKS](https://aws.amazon.com/eks/) and [GKE](ht
 
 The following environment variables will be needed throughout this guide:
 
--   `ROOT_NAMESPACE`: the namespace at the root of the Korifi org and space hierarchy. The default value is `cf`. If you use a different value, make sure it matches the [`included-namespace-regex` configuration in HNC](https://github.com/cloudfoundry/korifi/blob/11f02d4175a9f6d4e8e3e765219fdbf613cc394e/dependencies/hnc/cf/deployment.yaml#L13).
+-   `ROOT_NAMESPACE`: the namespace at the root of the Korifi org and space hierarchy. The default value is `cf`.
 -   `ADMIN_USERNAME`: the name of the Kubernetes user who will have admin privileges on the Korifi installation. For security reasons, you should create a dedicated user.
 -   `BASE_DOMAIN`: the base domain used by both the Korifi API and, by default, all apps running on Korifi.
 
@@ -201,21 +201,6 @@ helm install eirini-controller https://github.com/cloudfoundry/eirini-controller
   --set "controller.registry_secret_name=image-registry-credentials" \
   --create-namespace \
   --namespace "eirini-controller"
-```
-
-## Hierarchical Namespaces Controller
-
-[Hierarchical namespaces](https://github.com/kubernetes-sigs/hierarchical-namespaces#the-hierarchical-namespace-controller-hnc) allow us to build namespace hierarchies to replicate Cloud Foundry's structure, made of organisations and spaces.
-
-```sh
-kubectl apply -k dependencies/hnc/cf
-kubectl rollout status deployment/hnc-controller-manager -w -n hnc-system
-```
-
-Configure HNC to propagate secrets (in addition to the default roles and rolebindings):
-
-```sh
-kubectl patch hncconfigurations.hnc.x-k8s.io config --type=merge -p '{"spec":{"resources":[{"mode":"Propagate", "resource": "secrets"}]}}'
 ```
 
 ## Optional: Service Bindings Controller
