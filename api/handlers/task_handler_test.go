@@ -72,10 +72,6 @@ var _ = Describe("TaskHandler", func() {
               "name": "the-task-name",
               "guid": "the-task-guid",
               "command": "echo hello",
-              "state": "RUNNING",
-              "result": {
-                "failure_reason": null
-              },
               "relationships": {
                 "app": {
                   "data": {
