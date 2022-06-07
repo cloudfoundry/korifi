@@ -59,6 +59,9 @@ echo "*************************"
 
 # Install Cert Manager
 kubectl apply -f "${DEP_DIR}/cert-manager.yaml"
+kubectl -n cert-manager rollout status deployment/cert-manager --watch=true
+kubectl -n cert-manager rollout status deployment/cert-manager-webhook --watch=true
+kubectl -n cert-manager rollout status deployment/cert-manager-cainjector --watch=true
 
 echo "*******************"
 echo "Installing Kpack"
