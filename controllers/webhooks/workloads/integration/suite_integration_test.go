@@ -115,6 +115,8 @@ var _ = BeforeSuite(func() {
 	spaceValidationWebhook := workloads.NewCFSpaceValidation(spaceNameDuplicateValidator, spacePlacementValidator)
 	Expect(spaceValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
 
+	Expect(workloads.NewCFTaskValidator().SetupWebhookWithManager(mgr)).To(Succeed())
+
 	//+kubebuilder:scaffold:webhook
 
 	go func() {
