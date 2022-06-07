@@ -77,10 +77,10 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    services.DuplicateServiceInstanceNameErrorType,
 					Message: `The service instance name is taken: ` + serviceInstance.Spec.DisplayName,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -126,10 +126,10 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    services.DuplicateServiceInstanceNameErrorType,
 					Message: `The service instance name is taken: ` + updatedServiceInstance.Spec.DisplayName,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 

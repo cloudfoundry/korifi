@@ -77,10 +77,10 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    workloads.DuplicateOrgNameErrorType,
 					Message: "Organization '" + cfOrg.Spec.DisplayName + "' already exists.",
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -100,10 +100,10 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    workloads.OrgPlacementErrorType,
 					Message: "Organization '" + cfOrg.Spec.DisplayName + "' must be placed in the root 'cf' namespace",
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 	})
@@ -139,10 +139,10 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    workloads.DuplicateOrgNameErrorType,
 					Message: "Organization '" + updatedCFOrg.Spec.DisplayName + "' already exists.",
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 

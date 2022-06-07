@@ -138,10 +138,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.DuplicateRouteErrorType,
 					Message: "Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'.",
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -151,10 +151,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    webhooks.UnknownErrorType,
 					Message: "Unknown error while checking Route Name Duplicate",
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -164,10 +164,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RouteHostNameValidationErrorType,
 					Message: "host cannot be empty",
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -177,10 +177,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RouteHostNameValidationErrorType,
 					Message: `host must be either "*" or contain only alphanumeric characters, "_", or "-"`,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -190,10 +190,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RouteSubdomainValidationErrorType,
 					Message: "Subdomains must each be at most 63 characters",
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -203,10 +203,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RouteFQDNValidationErrorType,
 					Message: "FQDN 'my-host.foo..bar' does not comply with RFC 1035 standards",
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -216,10 +216,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RoutePathValidationErrorType,
 					Message: networking.InvalidURIError,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -229,10 +229,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RoutePathValidationErrorType,
 					Message: networking.PathIsSlashError,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -242,10 +242,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RoutePathValidationErrorType,
 					Message: networking.InvalidURIError,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -255,10 +255,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RoutePathValidationErrorType,
 					Message: networking.PathHasQuestionMarkError,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -268,10 +268,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RoutePathValidationErrorType,
 					Message: networking.PathLengthExceededError,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -296,10 +296,10 @@ var _ = Describe("CF Route Validation", func() {
 				})
 
 				It("denies the request", func() {
-					Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 						Type:    networking.RouteDestinationNotInSpaceErrorType,
 						Message: networking.RouteDestinationNotInSpaceErrorMessage,
-					}.Marshal()))
+					}.Marshal())))
 				})
 			})
 
@@ -309,10 +309,10 @@ var _ = Describe("CF Route Validation", func() {
 				})
 
 				It("denies the request", func() {
-					Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 						Type:    webhooks.UnknownErrorType,
 						Message: "Error while checking Route Destinations in Namespace",
-					}.Marshal()))
+					}.Marshal())))
 				})
 			})
 		})
@@ -369,10 +369,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.DuplicateRouteErrorType,
 					Message: "Route already exists with host 'my-host' and path '/new-path' for domain 'test.domain.name'.",
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -382,10 +382,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    webhooks.UnknownErrorType,
 					Message: "Unknown error while checking Route Name Duplicate",
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -395,10 +395,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RouteHostNameValidationErrorType,
 					Message: "host cannot be empty",
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -408,10 +408,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RoutePathValidationErrorType,
 					Message: networking.InvalidURIError,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -421,10 +421,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RoutePathValidationErrorType,
 					Message: networking.PathIsSlashError,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -434,10 +434,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RoutePathValidationErrorType,
 					Message: networking.InvalidURIError,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -447,10 +447,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RoutePathValidationErrorType,
 					Message: networking.PathHasQuestionMarkError,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -460,10 +460,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    networking.RoutePathValidationErrorType,
 					Message: networking.PathLengthExceededError,
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 
@@ -488,10 +488,10 @@ var _ = Describe("CF Route Validation", func() {
 				})
 
 				It("denies the request", func() {
-					Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 						Type:    networking.RouteDestinationNotInSpaceErrorType,
 						Message: networking.RouteDestinationNotInSpaceErrorMessage,
-					}.Marshal()))
+					}.Marshal())))
 				})
 			})
 
@@ -501,10 +501,10 @@ var _ = Describe("CF Route Validation", func() {
 				})
 
 				It("denies the request", func() {
-					Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 						Type:    webhooks.UnknownErrorType,
 						Message: "Error while checking Route Destinations in Namespace",
-					}.Marshal()))
+					}.Marshal())))
 				})
 			})
 		})
@@ -549,10 +549,10 @@ var _ = Describe("CF Route Validation", func() {
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
 					Type:    webhooks.UnknownErrorType,
 					Message: "Unknown error while checking Route Name Duplicate",
-				}.Marshal()))
+				}.Marshal())))
 			})
 		})
 	})
