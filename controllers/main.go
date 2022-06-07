@@ -298,7 +298,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = workloads.NewCFSpaceValidation(
+		if err = workloads.NewCFSpaceValidator(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType)),
 			webhooks.NewPlacementValidator(mgr.GetClient(), controllerConfig.CFRootNamespace),
 		).SetupWebhookWithManager(mgr); err != nil {

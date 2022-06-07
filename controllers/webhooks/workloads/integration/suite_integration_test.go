@@ -109,7 +109,7 @@ var _ = BeforeSuite(func() {
 
 	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType))
 	spacePlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
-	Expect(workloads.NewCFSpaceValidation(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect(workloads.NewCFTaskValidator().SetupWebhookWithManager(mgr)).To(Succeed())
 

@@ -2,7 +2,6 @@ package workloads_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -13,22 +12,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var _ = Describe("CFSpaceValidation", func() {
 	var (
 		ctx                     context.Context
-		validatingWebhook       *workloads.CFSpaceValidation
+		validatingWebhook       *workloads.CFSpaceValidator
 		namespace               string
 		cfSpace                 *korifiv1alpha1.CFSpace
 		orgDuplicateValidator   *fake.NameValidator
 		spaceDuplicateValidator *fake.NameValidator
 		spacePlacementValidator *fake.PlacementValidator
-		request                 admission.Request
-		response                admission.Response
+		retErr                  error
 	)
 
 	BeforeEach(func() {
@@ -38,39 +34,22 @@ var _ = Describe("CFSpaceValidation", func() {
 		spaceDuplicateValidator = new(fake.NameValidator)
 		spacePlacementValidator = new(fake.PlacementValidator)
 
-		validatingWebhook = workloads.NewCFSpaceValidation(spaceDuplicateValidator, spacePlacementValidator)
+		validatingWebhook = workloads.NewCFSpaceValidator(spaceDuplicateValidator, spacePlacementValidator)
 
 		scheme := runtime.NewScheme()
 		err := korifiv1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
-		decoder, err := admission.NewDecoder(scheme)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(validatingWebhook.InjectDecoder(decoder)).To(Succeed())
-
 		cfSpace = &korifiv1alpha1.CFSpace{}
 	})
 
-	Describe("Create", func() {
+	Describe("ValidateCreate", func() {
 		BeforeEach(func() {
 			cfSpace = helpers.MakeCFSpace(namespace, "my-space")
 		})
 
 		JustBeforeEach(func() {
-			cfSpaceJSON, err := json.Marshal(cfSpace)
-			Expect(err).NotTo(HaveOccurred())
-
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      cfSpace.Name,
-					Namespace: namespace,
-					Operation: admissionv1.Create,
-					Object: runtime.RawExtension{
-						Raw: cfSpaceJSON,
-					},
-				},
-			}
-			response = validatingWebhook.Handle(ctx, request)
+			retErr = validatingWebhook.ValidateCreate(ctx, cfSpace)
 		})
 
 		It("validates the space name", func() {
@@ -83,7 +62,7 @@ var _ = Describe("CFSpaceValidation", func() {
 
 		When("the space name is unique in the namespace", func() {
 			It("allows the request", func() {
-				Expect(response.Allowed).To(BeTrue())
+				Expect(retErr).NotTo(HaveOccurred())
 			})
 		})
 
@@ -93,7 +72,10 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+					Type:    workloads.DuplicateSpaceNameErrorType,
+					Message: "Space '" + cfSpace.Spec.DisplayName + "' already exists. Name must be unique per organization.",
+				}.Marshal())))
 			})
 		})
 
@@ -104,7 +86,7 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.AdmissionUnknownErrorReason())))
 			})
 		})
 
@@ -114,7 +96,7 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("allows the request", func() {
-				Expect(response.Allowed).To(BeTrue())
+				Expect(retErr).NotTo(HaveOccurred())
 			})
 		})
 
@@ -124,56 +106,40 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+					Type:    workloads.SpacePlacementErrorType,
+					Message: "some error",
+				}.Marshal())))
 			})
 		})
 	})
 
-	Describe("Update", func() {
-		var newCFSpace *korifiv1alpha1.CFSpace
+	Describe("ValidateUpdate", func() {
+		var updatedCFSpace *korifiv1alpha1.CFSpace
 
 		BeforeEach(func() {
 			cfSpace = helpers.MakeCFSpace(namespace, "my-space")
-			newCFSpace = helpers.MakeCFSpace(namespace, "another-space")
+			updatedCFSpace = helpers.MakeCFSpace(namespace, "another-space")
 		})
 
 		JustBeforeEach(func() {
-			cfSpaceJSON, err := json.Marshal(cfSpace)
-			Expect(err).NotTo(HaveOccurred())
-
-			newCFSpaceJSON, err := json.Marshal(newCFSpace)
-			Expect(err).NotTo(HaveOccurred())
-
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      cfSpace.Name,
-					Namespace: namespace,
-					Operation: admissionv1.Update,
-					Object: runtime.RawExtension{
-						Raw: newCFSpaceJSON,
-					},
-					OldObject: runtime.RawExtension{
-						Raw: cfSpaceJSON,
-					},
-				},
-			}
-			response = validatingWebhook.Handle(ctx, request)
+			retErr = validatingWebhook.ValidateUpdate(ctx, cfSpace, updatedCFSpace)
 		})
 
 		When("the space name hasn't changed", func() {
 			BeforeEach(func() {
-				newCFSpace.Labels["something"] = "else"
-				newCFSpace.Spec.DisplayName = "my-space"
+				updatedCFSpace.Labels["something"] = "else"
+				updatedCFSpace.Spec.DisplayName = "my-space"
 			})
 
 			It("succeeds", func() {
-				Expect(response.Allowed).To(BeTrue())
+				Expect(retErr).NotTo(HaveOccurred())
 			})
 		})
 
 		When("the new space name is unique in the namespace", func() {
 			It("allows the request", func() {
-				Expect(response.Allowed).To(BeTrue())
+				Expect(retErr).NotTo(HaveOccurred())
 			})
 		})
 
@@ -183,7 +149,10 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+					Type:    workloads.DuplicateSpaceNameErrorType,
+					Message: "Space '" + updatedCFSpace.Spec.DisplayName + "' already exists. Name must be unique per organization.",
+				}.Marshal())))
 			})
 		})
 
@@ -193,49 +162,22 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(response.Allowed).To(BeFalse())
-			})
-		})
-
-		Context("failures", func() {
-			When("decoding fails", func() {
-				It("denies the request", func() {
-					request.Object.Raw = []byte(`"[1,`)
-					response = validatingWebhook.Handle(ctx, request)
-					Expect(response.Allowed).To(BeFalse())
-				})
-
-				It("does not attempt to lock any names", func() {
-					// ignore the calls from the JustBeforeEach()
-					spaceValidateUpdateCount := spaceDuplicateValidator.ValidateUpdateCallCount()
-
-					request.Object.Raw = []byte(`"[1,`)
-					response = validatingWebhook.Handle(ctx, request)
-					Expect(spaceDuplicateValidator.ValidateUpdateCallCount()).To(Equal(spaceValidateUpdateCount))
-				})
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.AdmissionUnknownErrorReason())))
 			})
 		})
 	})
 
-	Describe("Deletion", func() {
+	Describe("ValidateDelete", func() {
 		BeforeEach(func() {
 			cfSpace = helpers.MakeCFSpace(namespace, "my-space")
 		})
 
 		JustBeforeEach(func() {
-			cfSpaceJSON, err := json.Marshal(cfSpace)
-			Expect(err).NotTo(HaveOccurred())
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      cfSpace.Name,
-					Namespace: namespace,
-					Operation: admissionv1.Delete,
-					OldObject: runtime.RawExtension{
-						Raw: cfSpaceJSON,
-					},
-				},
-			}
-			response = validatingWebhook.Handle(ctx, request)
+			retErr = validatingWebhook.ValidateDelete(ctx, cfSpace)
+		})
+
+		It("allows the request", func() {
+			Expect(retErr).NotTo(HaveOccurred())
 		})
 
 		It("removes the name from the registry", func() {
@@ -244,28 +186,15 @@ var _ = Describe("CFSpaceValidation", func() {
 			Expect(requestNamespace).To(Equal(namespace))
 			Expect(name).To(Equal("my-space"))
 		})
-	})
 
-	Describe("Request validation", func() {
-		BeforeEach(func() {
-			request = admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					Name:      cfSpace.Name,
-					Namespace: namespace,
-					Operation: admissionv1.Create,
-					Object: runtime.RawExtension{
-						Raw: []byte(`"[1,`),
-					},
-				},
-			}
-			response = validatingWebhook.Handle(ctx, request)
-		})
-		It("denies the request", func() {
-			Expect(response.Allowed).To(BeFalse())
-		})
+		When("delete validation fails", func() {
+			BeforeEach(func() {
+				spaceDuplicateValidator.ValidateDeleteReturns(errors.New("boom!"))
+			})
 
-		It("does not attempt to register any names", func() {
-			Expect(spaceDuplicateValidator.ValidateCreateCallCount()).To(Equal(0))
+			It("disallows the request", func() {
+				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
+			})
 		})
 	})
 })

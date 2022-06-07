@@ -9,15 +9,12 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
-	"github.com/go-logr/logr"
-	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
-
-//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfspace,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfspaces,verbs=create;update;delete,versions=v1alpha1,name=vcfspace.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 const (
 	CFSpaceEntityType = "cfspace"
@@ -25,159 +22,98 @@ const (
 	DuplicateSpaceNameErrorType = "DuplicateSpaceNameError"
 	// Note: the cf cli expects the specific text `Name must be unique per organization` in the error and ignores the error if it matches it.
 	duplicateSpaceNameErrorMessage = "Space '%s' already exists. Name must be unique per organization."
+	SpacePlacementErrorType        = "SpacePlacementError"
 )
 
 var spaceLogger = logf.Log.WithName("cfspace-validate")
 
-type CFSpaceValidation struct {
-	duplicateSpaceValidator NameValidator
-	decoder                 *admission.Decoder
-	placementValidator      PlacementValidator
-}
+//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfspace,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfspaces,verbs=create;update;delete,versions=v1alpha1,name=vcfspace.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
-func NewCFSpaceValidation(duplicateSpaceValidator NameValidator, placementValidator PlacementValidator) *CFSpaceValidation {
-	return &CFSpaceValidation{
-		duplicateSpaceValidator: duplicateSpaceValidator,
-		placementValidator:      placementValidator,
-	}
-}
-
-func (v *CFSpaceValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	mgr.GetWebhookServer().Register("/validate-korifi-cloudfoundry-org-v1alpha1-cfspace", &webhook.Admission{Handler: v})
-
-	return nil
-}
-
-func (v *CFSpaceValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	var handler cfSpaceHandler
-
-	cfSpace := &korifiv1alpha1.CFSpace{}
-	if req.Operation == admissionv1.Create || req.Operation == admissionv1.Update {
-		if err := v.decoder.Decode(req, cfSpace); err != nil {
-			spaceLogger.Error(err, "failed to decode CFSpace", "request", req)
-			return admission.Denied(webhooks.AdmissionUnknownErrorReason())
-		}
-
-		var err error
-		handler, err = v.newHandler()
-		if err != nil {
-			return admission.Denied(webhooks.AdmissionUnknownErrorReason())
-		}
-
-	}
-
-	oldCFSpace := &korifiv1alpha1.CFSpace{}
-	if req.Operation == admissionv1.Update || req.Operation == admissionv1.Delete {
-		if err := v.decoder.DecodeRaw(req.OldObject, oldCFSpace); err != nil {
-			spaceLogger.Error(err, "failed to decode old CFSpace", "request", req)
-			return admission.Denied(webhooks.AdmissionUnknownErrorReason())
-		}
-
-		var err error
-		handler, err = v.newHandler()
-		if err != nil {
-			return admission.Allowed("")
-		}
-
-	}
-
-	switch req.Operation {
-	case admissionv1.Create:
-		return handler.handleCreate(ctx, cfSpace)
-
-	case admissionv1.Update:
-		return handler.handleUpdate(ctx, oldCFSpace, cfSpace)
-
-	case admissionv1.Delete:
-		return handler.handleDelete(ctx, oldCFSpace)
-	}
-
-	spaceLogger.Info("unexpected operation", "operation", req.Operation)
-	return admission.Denied(webhooks.AdmissionUnknownErrorReason())
-}
-
-func (v *CFSpaceValidation) newHandler() (cfSpaceHandler, error) {
-	return NewCFSpaceHandler(
-		webhooks.ValidationError{Type: DuplicateSpaceNameErrorType, Message: duplicateSpaceNameErrorMessage},
-		v.duplicateSpaceValidator,
-		spaceLogger.WithValues("entityType", CFSpaceEntityType),
-		korifiv1alpha1.SpaceNameLabel,
-		v.placementValidator,
-	), nil
-}
-
-func (h *cfSpaceHandler) RenderDuplicateError(duplicateName string) string {
-	formattedDuplicateError := webhooks.ValidationError{
-		Type:    h.duplicateError.Type,
-		Message: fmt.Sprintf(h.duplicateError.Message, duplicateName),
-	}
-	return formattedDuplicateError.Marshal()
-}
-
-type cfSpaceHandler struct {
-	duplicateError     webhooks.ValidationError
+type CFSpaceValidator struct {
 	duplicateValidator NameValidator
-	logger             logr.Logger
-	nameLabel          string
 	placementValidator PlacementValidator
 }
 
-func NewCFSpaceHandler(
-	duplicateError webhooks.ValidationError,
-	duplicateValidator NameValidator,
-	logger logr.Logger,
-	nameLabel string,
-	placementValidator PlacementValidator,
-) cfSpaceHandler {
-	return cfSpaceHandler{
-		duplicateError:     duplicateError,
-		duplicateValidator: duplicateValidator,
-		logger:             logger,
-		nameLabel:          nameLabel,
+var _ webhook.CustomValidator = &CFSpaceValidator{}
+
+func NewCFSpaceValidator(duplicateSpaceValidator NameValidator, placementValidator PlacementValidator) *CFSpaceValidator {
+	return &CFSpaceValidator{
+		duplicateValidator: duplicateSpaceValidator,
 		placementValidator: placementValidator,
 	}
 }
 
-func (h cfSpaceHandler) handleCreate(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) admission.Response {
-	spaceName := strings.ToLower(cfSpace.Spec.DisplayName)
-	if err := h.duplicateValidator.ValidateCreate(ctx, h.logger, cfSpace.Namespace, spaceName); err != nil {
+func (v *CFSpaceValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&korifiv1alpha1.CFSpace{}).
+		WithValidator(v).
+		Complete()
+}
+
+func (v *CFSpaceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	space, ok := obj.(*korifiv1alpha1.CFSpace)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
+	}
+
+	err := v.duplicateValidator.ValidateCreate(ctx, spaceLogger, space.Namespace, strings.ToLower(space.Spec.DisplayName))
+	if err != nil {
 		if errors.Is(err, webhooks.ErrorDuplicateName) {
-			return admission.Denied(h.RenderDuplicateError(spaceName))
+			errorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)
+			return errors.New(webhooks.ValidationError{
+				Type:    DuplicateSpaceNameErrorType,
+				Message: errorMessage,
+			}.Marshal())
 		}
 
-		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(webhooks.AdmissionUnknownErrorReason())
 	}
 
-	if err := h.placementValidator.ValidateSpaceCreate(*cfSpace); err != nil {
-		return admission.Denied(err.Error())
+	err = v.placementValidator.ValidateSpaceCreate(*space)
+	if err != nil {
+		return errors.New(webhooks.ValidationError{Type: SpacePlacementErrorType, Message: err.Error()}.Marshal())
 	}
 
-	return admission.Allowed("")
+	return nil
 }
 
-func (h cfSpaceHandler) handleUpdate(ctx context.Context, oldCFSpace, newCFSpace *korifiv1alpha1.CFSpace) admission.Response {
-	newSpaceName := strings.ToLower(newCFSpace.Spec.DisplayName)
-	oldSpaceName := strings.ToLower(oldCFSpace.Spec.DisplayName)
-	if err := h.duplicateValidator.ValidateUpdate(ctx, h.logger, oldCFSpace.Namespace, oldSpaceName, newSpaceName); err != nil {
+func (v *CFSpaceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
+	oldSpace, ok := oldObj.(*korifiv1alpha1.CFSpace)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
+	}
+
+	space, ok := obj.(*korifiv1alpha1.CFSpace)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
+	}
+
+	err := v.duplicateValidator.ValidateUpdate(ctx, spaceLogger, oldSpace.Namespace, strings.ToLower(oldSpace.Spec.DisplayName), strings.ToLower(space.Spec.DisplayName))
+	if err != nil {
 		if errors.Is(err, webhooks.ErrorDuplicateName) {
-			return admission.Denied(h.RenderDuplicateError(newSpaceName))
+			errorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)
+			return errors.New(webhooks.ValidationError{
+				Type:    DuplicateSpaceNameErrorType,
+				Message: errorMessage,
+			}.Marshal())
 		}
 
-		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(webhooks.AdmissionUnknownErrorReason())
 	}
 
-	return admission.Allowed("")
+	return nil
 }
 
-func (h cfSpaceHandler) handleDelete(ctx context.Context, oldCFSpace *korifiv1alpha1.CFSpace) admission.Response {
-	if err := h.duplicateValidator.ValidateDelete(ctx, h.logger, oldCFSpace.Namespace, oldCFSpace.Spec.DisplayName); err != nil {
-		return admission.Denied(webhooks.AdmissionUnknownErrorReason())
+func (v *CFSpaceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+	space, ok := obj.(*korifiv1alpha1.CFSpace)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
-	return admission.Allowed("")
-}
+	err := v.duplicateValidator.ValidateDelete(ctx, spaceLogger, space.Namespace, space.Spec.DisplayName)
+	if err != nil {
+		return errors.New(webhooks.AdmissionUnknownErrorReason())
+	}
 
-func (v *CFSpaceValidation) InjectDecoder(d *admission.Decoder) error {
-	v.decoder = d
 	return nil
 }
