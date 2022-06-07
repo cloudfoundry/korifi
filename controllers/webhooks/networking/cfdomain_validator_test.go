@@ -20,7 +20,7 @@ const (
 	rootNamespace = "cf"
 )
 
-var _ = Describe("CF Domain Validation", func() {
+var _ = Describe("CFDomainValidator", func() {
 	var (
 		ctx context.Context
 
@@ -41,6 +41,7 @@ var _ = Describe("CF Domain Validation", func() {
 		err := korifiv1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
+		existingDomains = []korifiv1alpha1.CFDomain{}
 		listDomainsErr = nil
 
 		fakeClient = new(fake.Client)

@@ -17,9 +17,8 @@ import (
 )
 
 const (
-	CFOrgEntityType           = "cforg"
-	OrgDecodingErrorType      = "OrgDecodingError"
-	DuplicateOrgNameErrorType = "DuplicateOrgNameError"
+	CFOrgEntityType      = "cforg"
+	OrgDecodingErrorType = "OrgDecodingError"
 	// Note: the cf cli expects the specfic text `Organization '.*' already exists.` in the error and ignores the error if it matches it.
 	duplicateOrgNameErrorMessage = "Organization '%s' already exists."
 	OrgPlacementErrorType        = "OrgPlacementError"
@@ -62,17 +61,10 @@ func (v *CFOrgValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 		return errors.New(webhooks.ValidationError{Type: OrgPlacementErrorType, Message: err.Error()}.Marshal())
 	}
 
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfOrgLog, org.Namespace, strings.ToLower(org.Spec.DisplayName))
+	duplicateErrorMessage := fmt.Sprintf(duplicateOrgNameErrorMessage, org.Spec.DisplayName)
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfOrgLog, org.Namespace, strings.ToLower(org.Spec.DisplayName), duplicateErrorMessage)
 	if validationErr != nil {
-		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
-			errorMessage := fmt.Sprintf(duplicateOrgNameErrorMessage, org.Spec.DisplayName)
-			return errors.New(webhooks.ValidationError{
-				Type:    DuplicateOrgNameErrorType,
-				Message: errorMessage,
-			}.Marshal())
-		}
-
-		return errors.New(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(validationErr.Marshal())
 	}
 
 	return nil
@@ -89,17 +81,10 @@ func (v *CFOrgValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfOrgLog, org.Namespace, strings.ToLower(oldOrg.Spec.DisplayName), strings.ToLower(org.Spec.DisplayName))
+	duplicateErrorMessage := fmt.Sprintf(duplicateOrgNameErrorMessage, org.Spec.DisplayName)
+	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfOrgLog, org.Namespace, strings.ToLower(oldOrg.Spec.DisplayName), strings.ToLower(org.Spec.DisplayName), duplicateErrorMessage)
 	if validationErr != nil {
-		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
-			errorMessage := fmt.Sprintf(duplicateOrgNameErrorMessage, org.Spec.DisplayName)
-			return errors.New(webhooks.ValidationError{
-				Type:    DuplicateOrgNameErrorType,
-				Message: errorMessage,
-			}.Marshal())
-		}
-
-		return errors.New(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(validationErr.Marshal())
 	}
 
 	return nil
@@ -113,7 +98,7 @@ func (v *CFOrgValidator) ValidateDelete(ctx context.Context, obj runtime.Object)
 
 	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfOrgLog, org.Namespace, strings.ToLower(org.Spec.DisplayName))
 	if validationErr != nil {
-		return errors.New(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(validationErr.Marshal())
 	}
 
 	return nil

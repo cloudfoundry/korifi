@@ -74,7 +74,7 @@ var _ = Describe("Orgs", func() {
 			It("returns an unprocessable entity error", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 				Expect(resultErr.Errors).To(ConsistOf(cfErr{
-					Detail: fmt.Sprintf(`ValidationError-DuplicateOrgNameError: Organization '%s' already exists.`, orgName),
+					Detail: fmt.Sprintf(`ValidationError-DuplicateNameError: Organization '%s' already exists.`, orgName),
 					Title:  "CF-UnprocessableEntity",
 					Code:   10008,
 				}))

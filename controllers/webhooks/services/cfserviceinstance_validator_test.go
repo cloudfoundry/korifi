@@ -2,7 +2,6 @@ package services_test
 
 import (
 	"context"
-	"errors"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -65,20 +64,23 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
-			actualContext, _, namespace, name := duplicateValidator.ValidateCreateArgsForCall(0)
+			actualContext, _, actualNamespace, name, _ := duplicateValidator.ValidateCreateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(namespace))
-			Expect(name).To(Equal(serviceInstanceName))
+			Expect(actualNamespace).To(Equal(serviceInstance.Namespace))
+			Expect(name).To(Equal(serviceInstance.Spec.DisplayName))
 		})
 
 		When("the serviceInstance name is a duplicate", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(webhooks.ErrorDuplicateName)
+				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
+					Type:    webhooks.DuplicateNameErrorType,
+					Message: `The service instance name is taken: ` + serviceInstance.Spec.DisplayName,
+				})
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
-					Type:    services.DuplicateServiceInstanceNameErrorType,
+					Type:    webhooks.DuplicateNameErrorType,
 					Message: `The service instance name is taken: ` + serviceInstance.Spec.DisplayName,
 				}.Marshal())))
 			})
@@ -86,11 +88,17 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 		When("validating the serviceInstance name fails", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(errors.New("boom"))
+				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				})
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}.Marshal()))
 			})
 		})
 	})
@@ -113,33 +121,42 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
-			actualContext, _, namespace, oldName, newName := duplicateValidator.ValidateUpdateArgsForCall(0)
+			actualContext, _, actualNamespace, oldName, newName, _ := duplicateValidator.ValidateUpdateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(serviceInstance.Namespace))
+			Expect(actualNamespace).To(Equal(serviceInstance.Namespace))
 			Expect(oldName).To(Equal(serviceInstance.Spec.DisplayName))
 			Expect(newName).To(Equal(updatedServiceInstance.Spec.DisplayName))
 		})
 
 		When("the new serviceInstance name is a duplicate", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateUpdateReturns(webhooks.ErrorDuplicateName)
+				duplicateValidator.ValidateUpdateReturns(&webhooks.ValidationError{
+					Type:    webhooks.DuplicateNameErrorType,
+					Message: `The service instance name is taken: ` + updatedServiceInstance.Spec.DisplayName,
+				})
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
-					Type:    services.DuplicateServiceInstanceNameErrorType,
-					Message: `The service instance name is taken: ` + updatedServiceInstance.Spec.DisplayName,
+					Type:    webhooks.DuplicateNameErrorType,
+					Message: "The service instance name is taken: " + updatedServiceInstance.Spec.DisplayName,
 				}.Marshal())))
 			})
 		})
 
 		When("the update validation fails for another reason", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateUpdateReturns(errors.New("boom"))
+				duplicateValidator.ValidateUpdateReturns(&webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				})
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}.Marshal()))
 			})
 		})
 	})
@@ -155,19 +172,25 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
-			actualContext, _, namespace, name := duplicateValidator.ValidateDeleteArgsForCall(0)
+			actualContext, _, actualNamespace, name := duplicateValidator.ValidateDeleteArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(serviceInstance.Namespace))
+			Expect(actualNamespace).To(Equal(serviceInstance.Namespace))
 			Expect(name).To(Equal(serviceInstance.Spec.DisplayName))
 		})
 
 		When("delete validation fails", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateDeleteReturns(errors.New("boom"))
+				duplicateValidator.ValidateDeleteReturns(&webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				})
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}.Marshal()))
 			})
 		})
 	})

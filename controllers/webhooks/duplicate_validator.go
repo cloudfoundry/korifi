@@ -2,13 +2,12 @@ package webhooks
 
 import (
 	"context"
-	"errors"
 
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-var ErrorDuplicateName = errors.New("name already used in namespace")
+const DuplicateNameErrorType = "DuplicateNameError"
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 //counterfeiter:generate -o fake -fake-name NameRegistry . NameRegistry
@@ -30,25 +29,33 @@ func NewDuplicateValidator(nameRegistry NameRegistry) *DuplicateValidator {
 	}
 }
 
-func (v DuplicateValidator) ValidateCreate(ctx context.Context, logger logr.Logger, namespace, newName string) error {
+func (v DuplicateValidator) ValidateCreate(ctx context.Context, logger logr.Logger, namespace, newName, duplicateNameError string) *ValidationError {
 	logger = logger.WithName("duplicateValidator.ValidateCreate")
 	err := v.nameRegistry.RegisterName(ctx, namespace, newName)
-	if k8serrors.IsAlreadyExists(err) {
+	if err != nil {
 		logger.Info("failed to register name during create",
 			"error", err,
 			"name", newName,
 			"namespace", namespace,
 		)
-		return ErrorDuplicateName
-	}
-	if err != nil {
-		return err
+
+		if k8serrors.IsAlreadyExists(err) {
+			return &ValidationError{
+				Type:    DuplicateNameErrorType,
+				Message: duplicateNameError,
+			}
+		}
+
+		return &ValidationError{
+			Type:    UnknownErrorType,
+			Message: UnknownErrorMessage,
+		}
 	}
 
 	return nil
 }
 
-func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logger, namespace, oldName, newName string) error {
+func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logger, namespace, oldName, newName, duplicateNameError string) *ValidationError {
 	logger = logger.WithName("duplicateValidator.ValidateUpdate")
 	if oldName == newName {
 		return nil
@@ -61,7 +68,11 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 			"name", oldName,
 			"namespace", namespace,
 		)
-		return err
+
+		return &ValidationError{
+			Type:    UnknownErrorType,
+			Message: UnknownErrorMessage,
+		}
 	}
 
 	err = v.nameRegistry.RegisterName(ctx, namespace, newName)
@@ -83,10 +94,16 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 		)
 
 		if k8serrors.IsAlreadyExists(err) {
-			return ErrorDuplicateName
+			return &ValidationError{
+				Type:    DuplicateNameErrorType,
+				Message: duplicateNameError,
+			}
 		}
 
-		return err
+		return &ValidationError{
+			Type:    UnknownErrorType,
+			Message: UnknownErrorMessage,
+		}
 	}
 
 	err = v.nameRegistry.DeregisterName(ctx, namespace, oldName)
@@ -101,23 +118,24 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 	return nil
 }
 
-func (v DuplicateValidator) ValidateDelete(ctx context.Context, logger logr.Logger, namespace, oldName string) error {
+func (v DuplicateValidator) ValidateDelete(ctx context.Context, logger logr.Logger, namespace, oldName string) *ValidationError {
 	logger = logger.WithName("duplicateValidator.ValidateDelete")
 	err := v.nameRegistry.DeregisterName(ctx, namespace, oldName)
-	if k8serrors.IsNotFound(err) {
-		logger.Info("cannot deregister name: registry entry for name not found",
-			"namespace", namespace,
-			"name", oldName,
-		)
-		return nil
-	}
-
 	if err != nil {
-		logger.Error(err, "failed to deregister name during delete",
+		logger.Info("failed to deregister name during delete",
+			"error", err,
 			"namespace", namespace,
 			"name", oldName,
 		)
-		return err
+
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+
+		return &ValidationError{
+			Type:    UnknownErrorType,
+			Message: UnknownErrorMessage,
+		}
 	}
 
 	return nil

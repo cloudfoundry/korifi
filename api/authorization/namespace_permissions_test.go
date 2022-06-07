@@ -1,11 +1,12 @@
 package authorization_test
 
 import (
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"context"
 	"errors"
 	"fmt"
 	"time"
+
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"

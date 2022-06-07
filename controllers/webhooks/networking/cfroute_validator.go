@@ -49,9 +49,9 @@ const (
 //counterfeiter:generate -o fake -fake-name NameValidator . NameValidator
 
 type NameValidator interface {
-	ValidateCreate(ctx context.Context, logger logr.Logger, namespace, newName string) error
-	ValidateUpdate(ctx context.Context, logger logr.Logger, namespace, oldName, newName string) error
-	ValidateDelete(ctx context.Context, logger logr.Logger, namespace, oldName string) error
+	ValidateCreate(ctx context.Context, logger logr.Logger, namespace, newName, duplicateNameError string) *webhooks.ValidationError
+	ValidateUpdate(ctx context.Context, logger logr.Logger, namespace, oldName, newName, duplicateNameError string) *webhooks.ValidationError
+	ValidateDelete(ctx context.Context, logger logr.Logger, namespace, oldName string) *webhooks.ValidationError
 }
 
 var logger = logf.Log.WithName("route-validation")
@@ -92,7 +92,13 @@ func (v *CFRouteValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 		return err
 	}
 
-	return generateDuplicateValidationError(route, domain, v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, uniqueName(*route)))
+	duplicateErrorMessage := generateDuplicateErrorMessage(route, domain)
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, uniqueName(*route), duplicateErrorMessage)
+	if validationErr != nil {
+		return errors.New(validationErr.Marshal())
+	}
+
+	return nil
 }
 
 func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
@@ -111,7 +117,13 @@ func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 		return err
 	}
 
-	return generateDuplicateValidationError(route, domain, v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, uniqueName(*oldRoute), uniqueName(*route)))
+	duplicateErrorMessage := generateDuplicateErrorMessage(route, domain)
+	validationErr := v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, uniqueName(*oldRoute), uniqueName(*route), duplicateErrorMessage)
+	if validationErr != nil {
+		return errors.New(validationErr.Marshal())
+	}
+
+	return nil
 }
 
 func (v *CFRouteValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
@@ -120,7 +132,12 @@ func (v *CFRouteValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
 	}
 
-	return generateDuplicateValidationError(route, nil, v.duplicateValidator.ValidateDelete(ctx, logger, v.rootNamespace, uniqueName(*route)))
+	validationErr := v.duplicateValidator.ValidateDelete(ctx, logger, v.rootNamespace, uniqueName(*route))
+	if validationErr != nil {
+		return errors.New(validationErr.Marshal())
+	}
+
+	return nil
 }
 
 func (v *CFRouteValidator) validateRoute(ctx context.Context, route *korifiv1alpha1.CFRoute) (*korifiv1alpha1.CFDomain, error) {
@@ -155,7 +172,7 @@ func (v *CFRouteValidator) validateRoute(ctx context.Context, route *korifiv1alp
 			validationError.Message = RouteDestinationNotInSpaceErrorMessage
 		} else {
 			validationError.Type = webhooks.UnknownErrorType
-			validationError.Message = "Error while checking Route Destinations in Namespace"
+			validationError.Message = webhooks.UnknownErrorMessage
 		}
 
 		logger.Error(err, validationError.Message)
@@ -164,36 +181,13 @@ func (v *CFRouteValidator) validateRoute(ctx context.Context, route *korifiv1alp
 	return domain, nil
 }
 
-func generateDuplicateValidationError(route *korifiv1alpha1.CFRoute, domain *korifiv1alpha1.CFDomain, validationErr error) error {
-	if validationErr != nil {
-		logger.Info("duplicate validation failed", "error", validationErr)
-
-		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
-			pathDetails := ""
-			if route.Spec.Path != "" {
-				pathDetails = fmt.Sprintf(" and path '%s'", route.Spec.Path)
-			}
-			detail := fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
-				route.Spec.Host, pathDetails, domain.Spec.Name)
-
-			ve := webhooks.ValidationError{
-				Type:    DuplicateRouteErrorType,
-				Message: detail,
-			}
-			return errors.New(ve.Marshal())
-		}
-
-		detail := "Unknown error while checking Route Name Duplicate"
-		logger.Error(validationErr, detail)
-		ve := webhooks.ValidationError{
-			Type:    webhooks.UnknownErrorType,
-			Message: detail,
-		}
-
-		return errors.New(ve.Marshal())
+func generateDuplicateErrorMessage(route *korifiv1alpha1.CFRoute, domain *korifiv1alpha1.CFDomain) string {
+	pathDetails := ""
+	if route.Spec.Path != "" {
+		pathDetails = fmt.Sprintf(" and path '%s'", route.Spec.Path)
 	}
-
-	return nil
+	return fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
+		route.Spec.Host, pathDetails, domain.Spec.Name)
 }
 
 func uniqueName(route korifiv1alpha1.CFRoute) string {

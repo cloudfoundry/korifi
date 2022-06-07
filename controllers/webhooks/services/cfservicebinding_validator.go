@@ -16,10 +16,8 @@ import (
 )
 
 const (
-	ServiceBindingEntityType = "servicebinding"
-
+	ServiceBindingEntityType            = "servicebinding"
 	ServiceBindingErrorType             = "ServiceBindingValidationError"
-	DuplicateServiceBindingErrorType    = "DuplicateServiceBindingError"
 	duplicateServiceBindingErrorMessage = "Service binding already exists: App: %s Service Instance: %s"
 )
 
@@ -55,14 +53,10 @@ func (v *CFServiceBindingValidator) ValidateCreate(ctx context.Context, obj runt
 
 	lockName := generateServiceBindingLock(serviceBinding)
 
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfservicebindinglog, serviceBinding.Namespace, lockName)
+	duplicateErrorMessage := fmt.Sprintf(duplicateServiceBindingErrorMessage, serviceBinding.Spec.AppRef.Name, serviceBinding.Spec.Service.Name)
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfservicebindinglog, serviceBinding.Namespace, lockName, duplicateErrorMessage)
 	if validationErr != nil {
-		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
-			errorMessage := fmt.Sprintf(duplicateServiceBindingErrorMessage, serviceBinding.Spec.AppRef.Name, serviceBinding.Spec.Service.Name)
-			return errors.New(webhooks.ValidationError{Type: DuplicateServiceBindingErrorType, Message: errorMessage}.Marshal())
-		}
-
-		return errors.New(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(validationErr.Marshal())
 	}
 
 	return nil
@@ -104,7 +98,7 @@ func (v *CFServiceBindingValidator) ValidateDelete(ctx context.Context, obj runt
 
 	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfservicebindinglog, serviceBinding.Namespace, lockName)
 	if validationErr != nil {
-		return errors.New(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(validationErr.Marshal())
 	}
 
 	return nil

@@ -18,8 +18,6 @@ import (
 
 const (
 	CFSpaceEntityType = "cfspace"
-	// Note: the cf cli expects the specfic text `Organization '.*' already exists.` in the error and ignores the error if it matches it.
-	DuplicateSpaceNameErrorType = "DuplicateSpaceNameError"
 	// Note: the cf cli expects the specific text `Name must be unique per organization` in the error and ignores the error if it matches it.
 	duplicateSpaceNameErrorMessage = "Space '%s' already exists. Name must be unique per organization."
 	SpacePlacementErrorType        = "SpacePlacementError"
@@ -56,22 +54,18 @@ func (v *CFSpaceValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
-	err := v.duplicateValidator.ValidateCreate(ctx, spaceLogger, space.Namespace, strings.ToLower(space.Spec.DisplayName))
-	if err != nil {
-		if errors.Is(err, webhooks.ErrorDuplicateName) {
-			errorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)
-			return errors.New(webhooks.ValidationError{
-				Type:    DuplicateSpaceNameErrorType,
-				Message: errorMessage,
-			}.Marshal())
-		}
-
-		return errors.New(webhooks.AdmissionUnknownErrorReason())
+	duplicateErrorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, spaceLogger, space.Namespace, strings.ToLower(space.Spec.DisplayName), duplicateErrorMessage)
+	if validationErr != nil {
+		return errors.New(validationErr.Marshal())
 	}
 
-	err = v.placementValidator.ValidateSpaceCreate(*space)
+	err := v.placementValidator.ValidateSpaceCreate(*space)
 	if err != nil {
-		return errors.New(webhooks.ValidationError{Type: SpacePlacementErrorType, Message: err.Error()}.Marshal())
+		return errors.New(webhooks.ValidationError{
+			Type:    SpacePlacementErrorType,
+			Message: err.Error(),
+		}.Marshal())
 	}
 
 	return nil
@@ -88,17 +82,10 @@ func (v *CFSpaceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
-	err := v.duplicateValidator.ValidateUpdate(ctx, spaceLogger, oldSpace.Namespace, strings.ToLower(oldSpace.Spec.DisplayName), strings.ToLower(space.Spec.DisplayName))
-	if err != nil {
-		if errors.Is(err, webhooks.ErrorDuplicateName) {
-			errorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)
-			return errors.New(webhooks.ValidationError{
-				Type:    DuplicateSpaceNameErrorType,
-				Message: errorMessage,
-			}.Marshal())
-		}
-
-		return errors.New(webhooks.AdmissionUnknownErrorReason())
+	duplicateErrorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)
+	validationErr := v.duplicateValidator.ValidateUpdate(ctx, spaceLogger, oldSpace.Namespace, strings.ToLower(oldSpace.Spec.DisplayName), strings.ToLower(space.Spec.DisplayName), duplicateErrorMessage)
+	if validationErr != nil {
+		return errors.New(validationErr.Marshal())
 	}
 
 	return nil
@@ -110,9 +97,9 @@ func (v *CFSpaceValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
-	err := v.duplicateValidator.ValidateDelete(ctx, spaceLogger, space.Namespace, space.Spec.DisplayName)
-	if err != nil {
-		return errors.New(webhooks.AdmissionUnknownErrorReason())
+	validationErr := v.duplicateValidator.ValidateDelete(ctx, spaceLogger, space.Namespace, space.Spec.DisplayName)
+	if validationErr != nil {
+		return errors.New(validationErr.Marshal())
 	}
 
 	return nil

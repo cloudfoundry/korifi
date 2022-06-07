@@ -1,9 +1,10 @@
 package authorization
 
 import (
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"context"
 	"fmt"
+
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	corev1 "k8s.io/api/core/v1"

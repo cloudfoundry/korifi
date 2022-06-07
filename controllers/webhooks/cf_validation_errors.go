@@ -26,22 +26,20 @@ func (v ValidationError) Marshal() string {
 	if err != nil { // This (probably) can't fail, untested
 		return err.Error()
 	}
+
 	return string(bytes)
 }
 
 func WebhookErrorToValidationError(err error) (ValidationError, bool) {
-	statusError := new(k8serrors.StatusError)
-	if !errors.As(err, &statusError) {
+	statusErr := new(k8serrors.StatusError)
+	if !errors.As(err, &statusErr) {
 		return ValidationError{}, false
 	}
 
-	validationError := new(ValidationError)
-	if json.Unmarshal([]byte(statusError.Status().Reason), validationError) != nil {
+	validationErr := new(ValidationError)
+	if json.Unmarshal([]byte(statusErr.Status().Reason), validationErr) != nil {
 		return ValidationError{}, false
 	}
-	return *validationError, true
-}
 
-func AdmissionUnknownErrorReason() string {
-	return ValidationError{Type: UnknownErrorType, Message: UnknownErrorMessage}.Marshal()
+	return *validationErr, true
 }

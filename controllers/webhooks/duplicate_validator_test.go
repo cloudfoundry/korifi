@@ -17,16 +17,17 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var _ = Describe("CFAppValidatingWebhook", func() {
+var _ = Describe("DuplicateValidator", func() {
 	var (
-		ctx                context.Context
-		nameRegistry       *fake.NameRegistry
-		logger             logr.Logger
-		duplicateValidator *webhooks.DuplicateValidator
-		err                error
-		testName           string
-		testNewName        string
-		testNamespace      string
+		ctx                   context.Context
+		nameRegistry          *fake.NameRegistry
+		logger                logr.Logger
+		duplicateValidator    *webhooks.DuplicateValidator
+		validationErr         *webhooks.ValidationError
+		duplicateErrorMessage string
+		testName              string
+		testNewName           string
+		testNamespace         string
 	)
 
 	BeforeEach(func() {
@@ -39,18 +40,19 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		duplicateValidator = webhooks.NewDuplicateValidator(nameRegistry)
 		logger = logf.Log
 
-		testName = "test-app"
-		testNewName = "test-app-new"
+		testName = "test-resource"
+		testNewName = "test-resource-new"
 		testNamespace = "default"
+		duplicateErrorMessage = "Resource with the name 'test-resource' already exists."
 	})
 
 	Describe("ValidateCreate", func() {
 		JustBeforeEach(func() {
-			err = duplicateValidator.ValidateCreate(ctx, logger, testNamespace, testName)
+			validationErr = duplicateValidator.ValidateCreate(ctx, logger, testNamespace, testName, duplicateErrorMessage)
 		})
 
 		It("succeeds", func() {
-			Expect(err).NotTo(HaveOccurred())
+			Expect(validationErr).NotTo(HaveOccurred())
 		})
 
 		It("uses the name registry to register the name", func() {
@@ -67,7 +69,10 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("fails", func() {
-				Expect(err).To(Equal(webhooks.ErrorDuplicateName))
+				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
+					Type:    webhooks.DuplicateNameErrorType,
+					Message: duplicateErrorMessage,
+				}))
 			})
 		})
 
@@ -77,18 +82,21 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("returns the error", func() {
-				Expect(err).To(MatchError("register-err"))
+				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}))
 			})
 		})
 	})
 
-	Describe("Update", func() {
+	Describe("ValidateUpdate", func() {
 		JustBeforeEach(func() {
-			err = duplicateValidator.ValidateUpdate(ctx, logger, testNamespace, testName, testNewName)
+			validationErr = duplicateValidator.ValidateUpdate(ctx, logger, testNamespace, testName, testNewName, duplicateErrorMessage)
 		})
 
 		It("succeeds", func() {
-			Expect(err).NotTo(HaveOccurred())
+			Expect(validationErr).NotTo(HaveOccurred())
 		})
 
 		It("locks the old name", func() {
@@ -118,7 +126,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("is allowed without using the name registry", func() {
-				Expect(err).NotTo(HaveOccurred())
+				Expect(validationErr).NotTo(HaveOccurred())
 				Expect(nameRegistry.TryLockNameCallCount()).To(Equal(0))
 				Expect(nameRegistry.RegisterNameCallCount()).To(Equal(0))
 				Expect(nameRegistry.DeregisterNameCallCount()).To(Equal(0))
@@ -131,7 +139,10 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("fails", func() {
-				Expect(err).To(HaveOccurred())
+				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}))
 			})
 
 			It("does not register the new name", func() {
@@ -145,7 +156,10 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("fails", func() {
-				Expect(err).To(Equal(webhooks.ErrorDuplicateName))
+				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
+					Type:    webhooks.DuplicateNameErrorType,
+					Message: duplicateErrorMessage,
+				}))
 			})
 		})
 
@@ -155,7 +169,10 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(err).To(MatchError("register-err"))
+				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}))
 			})
 
 			It("releases the lock on the old name", func() {
@@ -171,7 +188,10 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 				})
 
 				It("fails with the register error", func() {
-					Expect(err).To(MatchError("register-err"))
+					Expect(*validationErr).To(MatchError(webhooks.ValidationError{
+						Type:    webhooks.UnknownErrorType,
+						Message: webhooks.UnknownErrorMessage,
+					}))
 				})
 			})
 		})
@@ -182,18 +202,18 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("continues anyway and allows the request", func() {
-				Expect(err).NotTo(HaveOccurred())
+				Expect(validationErr).NotTo(HaveOccurred())
 			})
 		})
 	})
 
-	Describe("Delete", func() {
+	Describe("ValidateDelete", func() {
 		JustBeforeEach(func() {
-			err = duplicateValidator.ValidateDelete(ctx, logger, testNamespace, testName)
+			validationErr = duplicateValidator.ValidateDelete(ctx, logger, testNamespace, testName)
 		})
 
 		It("succeeds", func() {
-			Expect(err).NotTo(HaveOccurred())
+			Expect(validationErr).NotTo(HaveOccurred())
 		})
 
 		It("deregisters the old name", func() {
@@ -209,7 +229,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("succeeds", func() {
-				Expect(err).NotTo(HaveOccurred())
+				Expect(validationErr).NotTo(HaveOccurred())
 			})
 		})
 
@@ -219,7 +239,10 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("fails", func() {
-				Expect(err).To(MatchError("deregister-err"))
+				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}))
 			})
 		})
 	})

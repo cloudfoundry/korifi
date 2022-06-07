@@ -2,7 +2,6 @@ package workloads_test
 
 import (
 	"context"
-	"errors"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -15,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-var _ = Describe("CFAppValidatingWebhook", func() {
+var _ = Describe("CFAppValidator", func() {
 	const (
 		testAppGUID      = "test-app-guid"
 		testAppName      = "test-app"
@@ -63,20 +62,23 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
-			actualContext, _, namespace, name := duplicateValidator.ValidateCreateArgsForCall(0)
+			actualContext, _, actualNamespace, name, _ := duplicateValidator.ValidateCreateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(testAppNamespace))
+			Expect(actualNamespace).To(Equal(testAppNamespace))
 			Expect(name).To(Equal(testAppName))
 		})
 
 		When("the app name is a duplicate", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(webhooks.ErrorDuplicateName)
+				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
+					Type:    webhooks.DuplicateNameErrorType,
+					Message: "App with the name '" + cfApp.Spec.DisplayName + "' already exists.",
+				})
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
-					Type:    workloads.DuplicateAppNameErrorType,
+					Type:    webhooks.DuplicateNameErrorType,
 					Message: "App with the name '" + cfApp.Spec.DisplayName + "' already exists.",
 				}.Marshal())))
 			})
@@ -84,11 +86,17 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 		When("validating the app name fails", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(errors.New("boom"))
+				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				})
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}.Marshal())))
 			})
 		})
 	})
@@ -111,21 +119,24 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
-			actualContext, _, namespace, oldName, newName := duplicateValidator.ValidateUpdateArgsForCall(0)
+			actualContext, _, actualNamespace, oldName, newName, _ := duplicateValidator.ValidateUpdateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(cfApp.Namespace))
+			Expect(actualNamespace).To(Equal(cfApp.Namespace))
 			Expect(oldName).To(Equal(cfApp.Spec.DisplayName))
 			Expect(newName).To(Equal(updatedCFApp.Spec.DisplayName))
 		})
 
 		When("the new app name is a duplicate", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateUpdateReturns(webhooks.ErrorDuplicateName)
+				duplicateValidator.ValidateUpdateReturns(&webhooks.ValidationError{
+					Type:    webhooks.DuplicateNameErrorType,
+					Message: "App with the name '" + updatedCFApp.Spec.DisplayName + "' already exists.",
+				})
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
-					Type:    workloads.DuplicateAppNameErrorType,
+					Type:    webhooks.DuplicateNameErrorType,
 					Message: "App with the name '" + updatedCFApp.Spec.DisplayName + "' already exists.",
 				}.Marshal())))
 			})
@@ -133,11 +144,17 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 		When("the update validation fails for another reason", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateUpdateReturns(errors.New("boom!"))
+				duplicateValidator.ValidateUpdateReturns(&webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				})
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}.Marshal())))
 			})
 		})
 	})
@@ -153,19 +170,25 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
-			actualContext, _, namespace, name := duplicateValidator.ValidateDeleteArgsForCall(0)
+			actualContext, _, actualNamespace, name := duplicateValidator.ValidateDeleteArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(cfApp.Namespace))
+			Expect(actualNamespace).To(Equal(cfApp.Namespace))
 			Expect(name).To(Equal(cfApp.Spec.DisplayName))
 		})
 
 		When("delete validation fails", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateDeleteReturns(errors.New("boom!"))
+				duplicateValidator.ValidateDeleteReturns(&webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				})
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(MatchError(webhooks.AdmissionUnknownErrorReason()))
+				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}.Marshal())))
 			})
 		})
 	})

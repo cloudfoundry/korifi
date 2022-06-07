@@ -21,15 +21,14 @@ import (
 //counterfeiter:generate -o fake -fake-name NameValidator . NameValidator
 
 type NameValidator interface {
-	ValidateCreate(ctx context.Context, logger logr.Logger, namespace, newName string) error
-	ValidateUpdate(ctx context.Context, logger logr.Logger, namespace, oldName, newName string) error
-	ValidateDelete(ctx context.Context, logger logr.Logger, namespace, oldName string) error
+	ValidateCreate(ctx context.Context, logger logr.Logger, namespace, newName, duplicateNameError string) *webhooks.ValidationError
+	ValidateUpdate(ctx context.Context, logger logr.Logger, namespace, oldName, duplicateNameError, newName string) *webhooks.ValidationError
+	ValidateDelete(ctx context.Context, logger logr.Logger, namespace, oldName string) *webhooks.ValidationError
 }
 
 const (
 	AppEntityType                = "app"
 	AppDecodingErrorType         = "AppDecodingError"
-	DuplicateAppNameErrorType    = "DuplicateAppNameError"
 	duplicateAppNameErrorMessage = "App with the name '%s' already exists."
 )
 
@@ -62,17 +61,10 @@ func (v *CFAppValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfapplog, app.Namespace, strings.ToLower(app.Spec.DisplayName))
+	duplicateErrorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfapplog, app.Namespace, strings.ToLower(app.Spec.DisplayName), duplicateErrorMessage)
 	if validationErr != nil {
-		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
-			errorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)
-			return errors.New(webhooks.ValidationError{
-				Type:    DuplicateAppNameErrorType,
-				Message: errorMessage,
-			}.Marshal())
-		}
-
-		return errors.New(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(validationErr.Marshal())
 	}
 
 	return nil
@@ -89,17 +81,10 @@ func (v *CFAppValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfapplog, app.Namespace, strings.ToLower(oldApp.Spec.DisplayName), strings.ToLower(app.Spec.DisplayName))
+	duplicateErrorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)
+	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfapplog, app.Namespace, strings.ToLower(oldApp.Spec.DisplayName), strings.ToLower(app.Spec.DisplayName), duplicateErrorMessage)
 	if validationErr != nil {
-		if errors.Is(validationErr, webhooks.ErrorDuplicateName) {
-			errorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)
-			return errors.New(webhooks.ValidationError{
-				Type:    DuplicateAppNameErrorType,
-				Message: errorMessage,
-			}.Marshal())
-		}
-
-		return errors.New(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(validationErr.Marshal())
 	}
 
 	return nil
@@ -113,7 +98,7 @@ func (v *CFAppValidator) ValidateDelete(ctx context.Context, obj runtime.Object)
 
 	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfapplog, app.Namespace, strings.ToLower(app.Spec.DisplayName))
 	if validationErr != nil {
-		return errors.New(webhooks.AdmissionUnknownErrorReason())
+		return errors.New(validationErr.Marshal())
 	}
 
 	return nil
