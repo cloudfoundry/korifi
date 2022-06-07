@@ -90,6 +90,18 @@ var _ = Describe("TaskHandler", func() {
             }`))
 		})
 
+		When("the task has no command", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/the-app-guid/tasks", strings.NewReader(`{}`))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an unprocessable entity error", func() {
+				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
+			})
+		})
+
 		When("the app does not exist", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.TaskResourceType))

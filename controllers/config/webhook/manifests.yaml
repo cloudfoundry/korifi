@@ -269,3 +269,23 @@ webhooks:
     resources:
     - cfspaces
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-korifi-cloudfoundry-org-v1alpha1-cftask
+  failurePolicy: Fail
+  name: vcftask.korifi.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - korifi.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    resources:
+    - cftasks
+  sideEffects: None
