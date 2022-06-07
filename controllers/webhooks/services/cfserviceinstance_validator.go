@@ -8,22 +8,12 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
-	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
-
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
-//counterfeiter:generate -o fake -fake-name NameValidator . NameValidator
-
-type NameValidator interface {
-	ValidateCreate(ctx context.Context, logger logr.Logger, namespace, newName, duplicateNameError string) *webhooks.ValidationError
-	ValidateUpdate(ctx context.Context, logger logr.Logger, namespace, oldName, newName, duplicateNameError string) *webhooks.ValidationError
-	ValidateDelete(ctx context.Context, logger logr.Logger, namespace, oldName string) *webhooks.ValidationError
-}
 
 const (
 	ServiceInstanceEntityType = "serviceinstance"
@@ -36,12 +26,12 @@ var cfserviceinstancelog = logf.Log.WithName("cfserviceinstance-validate")
 //+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=create;update;delete,versions=v1alpha1,name=vcfserviceinstance.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFServiceInstanceValidator struct {
-	duplicateValidator NameValidator
+	duplicateValidator webhooks.NameValidator
 }
 
 var _ webhook.CustomValidator = &CFServiceInstanceValidator{}
 
-func NewCFServiceInstanceValidator(duplicateValidator NameValidator) *CFServiceInstanceValidator {
+func NewCFServiceInstanceValidator(duplicateValidator webhooks.NameValidator) *CFServiceInstanceValidator {
 	return &CFServiceInstanceValidator{
 		duplicateValidator: duplicateValidator,
 	}

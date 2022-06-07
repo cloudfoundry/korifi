@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
 	"github.com/go-logr/logr"
 )
 
@@ -283,4 +282,4 @@ func (fake *NameValidator) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ services.NameValidator = new(NameValidator)
+var _ webhooks.NameValidator = new(NameValidator)

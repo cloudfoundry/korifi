@@ -6,8 +6,8 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/integration/helpers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +22,7 @@ var _ = Describe("CFSpaceValidation", func() {
 		namespace          string
 		cfSpace            *korifiv1alpha1.CFSpace
 		duplicateValidator *fake.NameValidator
-		placementValidator *fake.PlacementValidator
+		placementValidator *fake.NamespaceValidator
 		retErr             error
 	)
 
@@ -37,7 +37,7 @@ var _ = Describe("CFSpaceValidation", func() {
 		cfSpace = &korifiv1alpha1.CFSpace{}
 
 		duplicateValidator = new(fake.NameValidator)
-		placementValidator = new(fake.PlacementValidator)
+		placementValidator = new(fake.NamespaceValidator)
 		validatingWebhook = workloads.NewCFSpaceValidator(duplicateValidator, placementValidator)
 	})
 

@@ -34,12 +34,12 @@ func (v *CFServiceBindingValidator) SetupWebhookWithManager(mgr ctrl.Manager) er
 }
 
 type CFServiceBindingValidator struct {
-	duplicateValidator NameValidator
+	duplicateValidator webhooks.NameValidator
 }
 
 var _ webhook.CustomValidator = &CFServiceBindingValidator{}
 
-func NewCFServiceBindingValidator(duplicateValidator NameValidator) *CFServiceBindingValidator {
+func NewCFServiceBindingValidator(duplicateValidator webhooks.NameValidator) *CFServiceBindingValidator {
 	return &CFServiceBindingValidator{
 		duplicateValidator: duplicateValidator,
 	}

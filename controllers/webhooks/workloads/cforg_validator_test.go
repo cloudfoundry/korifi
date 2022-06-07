@@ -6,8 +6,8 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
-	workloadsfake "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,8 +24,8 @@ var _ = Describe("CFOrgValidator", func() {
 
 	var (
 		ctx                context.Context
-		duplicateValidator *workloadsfake.NameValidator
-		placementValidator *workloadsfake.PlacementValidator
+		duplicateValidator *fake.NameValidator
+		placementValidator *fake.NamespaceValidator
 		cfOrg              *korifiv1alpha1.CFOrg
 		validatingWebhook  *workloads.CFOrgValidator
 		retErr             error
@@ -48,8 +48,8 @@ var _ = Describe("CFOrgValidator", func() {
 			},
 		}
 
-		duplicateValidator = new(workloadsfake.NameValidator)
-		placementValidator = new(workloadsfake.PlacementValidator)
+		duplicateValidator = new(fake.NameValidator)
+		placementValidator = new(fake.NamespaceValidator)
 		validatingWebhook = workloads.NewCFOrgValidator(duplicateValidator, placementValidator)
 	})
 

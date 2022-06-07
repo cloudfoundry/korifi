@@ -11,7 +11,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
-	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -45,28 +44,19 @@ const (
 	PathLengthExceededError  = "Path cannot exceed 128 characters"
 )
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
-//counterfeiter:generate -o fake -fake-name NameValidator . NameValidator
-
-type NameValidator interface {
-	ValidateCreate(ctx context.Context, logger logr.Logger, namespace, newName, duplicateNameError string) *webhooks.ValidationError
-	ValidateUpdate(ctx context.Context, logger logr.Logger, namespace, oldName, newName, duplicateNameError string) *webhooks.ValidationError
-	ValidateDelete(ctx context.Context, logger logr.Logger, namespace, oldName string) *webhooks.ValidationError
-}
-
 var logger = logf.Log.WithName("route-validation")
 
 //+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfroute,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes,verbs=create;update;delete,versions=v1alpha1,name=vcfroute.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFRouteValidator struct {
-	duplicateValidator NameValidator
+	duplicateValidator webhooks.NameValidator
 	rootNamespace      string
 	client             client.Client
 }
 
 var _ webhook.CustomValidator = &CFRouteValidator{}
 
-func NewCFRouteValidator(nameValidator NameValidator, rootNamespace string, client client.Client) *CFRouteValidator {
+func NewCFRouteValidator(nameValidator webhooks.NameValidator, rootNamespace string, client client.Client) *CFRouteValidator {
 	return &CFRouteValidator{
 		duplicateValidator: nameValidator,
 		rootNamespace:      rootNamespace,

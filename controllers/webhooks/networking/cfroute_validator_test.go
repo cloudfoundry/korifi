@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/fake"
+	controllerfake "code.cloudfoundry.org/korifi/controllers/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
-	networkingfakes "code.cloudfoundry.org/korifi/controllers/webhooks/networking/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,8 +26,8 @@ import (
 var _ = Describe("CFRouteValidator", func() {
 	var (
 		ctx                context.Context
-		duplicateValidator *networkingfakes.NameValidator
-		fakeClient         *fake.Client
+		duplicateValidator *fake.NameValidator
+		fakeClient         *controllerfake.Client
 		cfRoute            *korifiv1alpha1.CFRoute
 		cfDomain           *korifiv1alpha1.CFDomain
 		cfApp              *korifiv1alpha1.CFApp
@@ -80,8 +80,8 @@ var _ = Describe("CFRouteValidator", func() {
 
 		cfApp = &korifiv1alpha1.CFApp{}
 
-		duplicateValidator = new(networkingfakes.NameValidator)
-		fakeClient = new(fake.Client)
+		duplicateValidator = new(fake.NameValidator)
+		fakeClient = new(controllerfake.Client)
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {

@@ -28,13 +28,13 @@ var spaceLogger = logf.Log.WithName("cfspace-validate")
 //+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfspace,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfspaces,verbs=create;update;delete,versions=v1alpha1,name=vcfspace.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFSpaceValidator struct {
-	duplicateValidator NameValidator
-	placementValidator PlacementValidator
+	duplicateValidator webhooks.NameValidator
+	placementValidator webhooks.NamespaceValidator
 }
 
 var _ webhook.CustomValidator = &CFSpaceValidator{}
 
-func NewCFSpaceValidator(duplicateSpaceValidator NameValidator, placementValidator PlacementValidator) *CFSpaceValidator {
+func NewCFSpaceValidator(duplicateSpaceValidator webhooks.NameValidator, placementValidator webhooks.NamespaceValidator) *CFSpaceValidator {
 	return &CFSpaceValidator{
 		duplicateValidator: duplicateSpaceValidator,
 		placementValidator: placementValidator,
