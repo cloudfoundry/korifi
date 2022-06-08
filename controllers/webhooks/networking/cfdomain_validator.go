@@ -18,7 +18,6 @@ package networking
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -72,15 +71,17 @@ func (v *CFDomainValidator) ValidateCreate(ctx context.Context, obj runtime.Obje
 	isOverlapping, err := v.domainIsOverlapping(ctx, domain.Spec.Name)
 	if err != nil {
 		log.Error(err, "Error checking for overlapping domain")
-		validationError := webhooks.ValidationError{
+		return webhooks.ValidationError{
 			Type:    webhooks.UnknownErrorType,
-			Message: err.Error(),
-		}
-		return errors.New(validationError.Marshal())
+			Message: webhooks.UnknownErrorMessage,
+		}.ExportJSONError()
 	}
 
 	if isOverlapping {
-		return errors.New(webhooks.ValidationError{Type: DuplicateDomainErrorType, Message: "Overlapping domain exists"}.Marshal())
+		return webhooks.ValidationError{
+			Type:    DuplicateDomainErrorType,
+			Message: "Overlapping domain exists",
+		}.ExportJSONError()
 	}
 
 	return nil

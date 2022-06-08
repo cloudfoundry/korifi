@@ -19,6 +19,6 @@ type NameValidator interface {
 //counterfeiter:generate -o fake -fake-name NamespaceValidator . NamespaceValidator
 
 type NamespaceValidator interface {
-	ValidateOrgCreate(org korifiv1alpha1.CFOrg) error
-	ValidateSpaceCreate(space korifiv1alpha1.CFSpace) error
+	ValidateOrgCreate(org korifiv1alpha1.CFOrg) *ValidationError
+	ValidateSpaceCreate(space korifiv1alpha1.CFSpace) *ValidationError
 }

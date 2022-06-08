@@ -6,6 +6,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -63,10 +64,10 @@ var _ = Describe("CFTaskValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    workloads.MissingRequredFieldErrorType,
 					Message: "task " + testTaskNamespace + ":" + testTaskGUID + " is missing required field 'Spec.Command'",
-				}.Marshal())))
+				}))
 			})
 		})
 	})

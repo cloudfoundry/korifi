@@ -2,7 +2,6 @@ package workloads
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -20,7 +19,6 @@ const (
 	CFSpaceEntityType = "cfspace"
 	// Note: the cf cli expects the specific text `Name must be unique per organization` in the error and ignores the error if it matches it.
 	duplicateSpaceNameErrorMessage = "Space '%s' already exists. Name must be unique per organization."
-	SpacePlacementErrorType        = "SpacePlacementError"
 )
 
 var spaceLogger = logf.Log.WithName("cfspace-validate")
@@ -57,15 +55,12 @@ func (v *CFSpaceValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 	duplicateErrorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)
 	validationErr := v.duplicateValidator.ValidateCreate(ctx, spaceLogger, space.Namespace, strings.ToLower(space.Spec.DisplayName), duplicateErrorMessage)
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	err := v.placementValidator.ValidateSpaceCreate(*space)
 	if err != nil {
-		return errors.New(webhooks.ValidationError{
-			Type:    SpacePlacementErrorType,
-			Message: err.Error(),
-		}.Marshal())
+		return err.ExportJSONError()
 	}
 
 	return nil
@@ -85,7 +80,7 @@ func (v *CFSpaceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 	duplicateErrorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)
 	validationErr := v.duplicateValidator.ValidateUpdate(ctx, spaceLogger, oldSpace.Namespace, strings.ToLower(oldSpace.Spec.DisplayName), strings.ToLower(space.Spec.DisplayName), duplicateErrorMessage)
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil
@@ -99,7 +94,7 @@ func (v *CFSpaceValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 
 	validationErr := v.duplicateValidator.ValidateDelete(ctx, spaceLogger, space.Namespace, space.Spec.DisplayName)
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil

@@ -2,7 +2,6 @@ package workloads
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -54,7 +53,7 @@ func (v *CFAppValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 	duplicateErrorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)
 	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfapplog, app.Namespace, strings.ToLower(app.Spec.DisplayName), duplicateErrorMessage)
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil
@@ -74,7 +73,7 @@ func (v *CFAppValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime
 	duplicateErrorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)
 	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfapplog, app.Namespace, strings.ToLower(oldApp.Spec.DisplayName), strings.ToLower(app.Spec.DisplayName), duplicateErrorMessage)
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil
@@ -88,7 +87,7 @@ func (v *CFAppValidator) ValidateDelete(ctx context.Context, obj runtime.Object)
 
 	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfapplog, app.Namespace, strings.ToLower(app.Spec.DisplayName))
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil

@@ -30,10 +30,10 @@ var _ = Describe("CFWebhookValidationError", func() {
 		})
 	})
 
-	Describe("Marshal", func() {
-		It("returns a Marshalled JSON string", func() {
+	Describe("ExportJSONError", func() {
+		It("returns an error with the JSON representation of the validation error", func() {
 			expectedBody := `{"validationErrorType":"` + validationErrorType + `","message":"` + validationErrorMessage + `"}`
-			Expect(validationErr.Marshal()).To(MatchJSON(expectedBody))
+			Expect(validationErr.ExportJSONError()).To(MatchError(MatchJSON(expectedBody)))
 		})
 	})
 })

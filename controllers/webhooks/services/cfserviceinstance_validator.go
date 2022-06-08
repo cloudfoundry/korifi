@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -53,7 +52,7 @@ func (v *CFServiceInstanceValidator) ValidateCreate(ctx context.Context, obj run
 	duplicateErrorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, serviceInstance.Spec.DisplayName)
 	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfserviceinstancelog, serviceInstance.Namespace, serviceInstance.Spec.DisplayName, duplicateErrorMessage)
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil
@@ -73,7 +72,7 @@ func (v *CFServiceInstanceValidator) ValidateUpdate(ctx context.Context, oldObj,
 	duplicateErrorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, serviceInstance.Spec.DisplayName)
 	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfserviceinstancelog, serviceInstance.Namespace, oldServiceInstance.Spec.DisplayName, serviceInstance.Spec.DisplayName, duplicateErrorMessage)
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil
@@ -87,7 +86,7 @@ func (v *CFServiceInstanceValidator) ValidateDelete(ctx context.Context, obj run
 
 	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfserviceinstancelog, serviceInstance.Namespace, serviceInstance.Spec.DisplayName)
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil

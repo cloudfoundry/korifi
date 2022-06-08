@@ -2,13 +2,13 @@ package workloads_test
 
 import (
 	"context"
-	"errors"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/integration/helpers"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -50,17 +50,15 @@ var _ = Describe("CFSpaceValidation", func() {
 			retErr = validatingWebhook.ValidateCreate(ctx, cfSpace)
 		})
 
+		It("allows the request", func() {
+			Expect(retErr).NotTo(HaveOccurred())
+		})
+
 		It("validates the space name", func() {
 			Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
 			_, _, actualNamespace, name, _ := duplicateValidator.ValidateCreateArgsForCall(0)
 			Expect(actualNamespace).To(Equal(namespace))
 			Expect(name).To(Equal("my-space"))
-		})
-
-		When("the space name is unique in the namespace", func() {
-			It("allows the request", func() {
-				Expect(retErr).NotTo(HaveOccurred())
-			})
 		})
 
 		When("the space name already exists in the namespace", func() {
@@ -72,10 +70,10 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.DuplicateNameErrorType,
 					Message: "Space '" + cfSpace.Spec.DisplayName + "' already exists. Name must be unique per organization.",
-				}.Marshal())))
+				}))
 			})
 		})
 
@@ -89,33 +87,26 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.UnknownErrorType,
 					Message: webhooks.UnknownErrorMessage,
-				}.Marshal())))
-			})
-		})
-
-		When("the placement validator passes", func() {
-			BeforeEach(func() {
-				placementValidator.ValidateSpaceCreateReturns(nil)
-			})
-
-			It("allows the request", func() {
-				Expect(retErr).NotTo(HaveOccurred())
+				}))
 			})
 		})
 
 		When("the placement validator throws an error", func() {
 			BeforeEach(func() {
-				placementValidator.ValidateSpaceCreateReturns(errors.New("some error"))
+				placementValidator.ValidateSpaceCreateReturns(&webhooks.ValidationError{
+					Type:    webhooks.SpacePlacementErrorType,
+					Message: "some error",
+				})
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
-					Type:    workloads.SpacePlacementErrorType,
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
+					Type:    webhooks.SpacePlacementErrorType,
 					Message: "some error",
-				}.Marshal())))
+				}))
 			})
 		})
 	})
@@ -154,10 +145,10 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.DuplicateNameErrorType,
 					Message: "Space '" + updatedCFSpace.Spec.DisplayName + "' already exists. Name must be unique per organization.",
-				}.Marshal())))
+				}))
 			})
 		})
 
@@ -170,10 +161,10 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.UnknownErrorType,
 					Message: webhooks.UnknownErrorMessage,
-				}.Marshal())))
+				}))
 			})
 		})
 	})
@@ -207,10 +198,10 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.UnknownErrorType,
 					Message: webhooks.UnknownErrorMessage,
-				}.Marshal()))
+				}))
 			})
 		})
 	})

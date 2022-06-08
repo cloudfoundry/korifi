@@ -6,7 +6,9 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/fake"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -102,7 +104,10 @@ var _ = Describe("CFDomainValidator", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(retErr).To(MatchError(ContainSubstring("Overlapping domain exists")))
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
+					Type:    networking.DuplicateDomainErrorType,
+					Message: "Overlapping domain exists",
+				}))
 			})
 		})
 
@@ -112,7 +117,10 @@ var _ = Describe("CFDomainValidator", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(retErr).To(MatchError(ContainSubstring("Overlapping domain exists")))
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
+					Type:    networking.DuplicateDomainErrorType,
+					Message: "Overlapping domain exists",
+				}))
 			})
 		})
 
@@ -122,7 +130,10 @@ var _ = Describe("CFDomainValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(ContainSubstring("boom")))
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}))
 			})
 		})
 	})

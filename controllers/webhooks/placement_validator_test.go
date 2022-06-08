@@ -2,6 +2,7 @@ package webhooks_test
 
 import (
 	"errors"
+	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/fake"
@@ -18,11 +19,9 @@ var _ = Describe("CFPlacementValidation", func() {
 	var (
 		fakeClient         *fake.Client
 		placementValidator *webhooks.PlacementValidator
-		err                error
-		testNamespace      string
+		validationErr      *webhooks.ValidationError
 		rootNamespace      string
 
-		org   korifiv1alpha1.CFOrg
 		space korifiv1alpha1.CFSpace
 	)
 
@@ -30,7 +29,6 @@ var _ = Describe("CFPlacementValidation", func() {
 		fakeClient = new(fake.Client)
 
 		rootNamespace = "cf"
-		testNamespace = "foo"
 
 		scheme := runtime.NewScheme()
 		Expect(korifiv1alpha1.AddToScheme(scheme)).To(Succeed())
@@ -39,11 +37,13 @@ var _ = Describe("CFPlacementValidation", func() {
 	})
 
 	Describe("ValidateOrgCreate", func() {
+		var org korifiv1alpha1.CFOrg
+
 		BeforeEach(func() {
 			org = korifiv1alpha1.CFOrg{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-org",
-					Namespace: testNamespace,
+					Namespace: rootNamespace,
 				},
 				Spec: korifiv1alpha1.CFOrgSpec{
 					DisplayName: "test-org-display-name",
@@ -51,9 +51,25 @@ var _ = Describe("CFPlacementValidation", func() {
 			}
 		})
 
-		It("fails if it is not in the root namespace", func() {
-			err = placementValidator.ValidateOrgCreate(org)
-			Expect(err).To(HaveOccurred())
+		JustBeforeEach(func() {
+			validationErr = placementValidator.ValidateOrgCreate(org)
+		})
+
+		It("succeeds", func() {
+			Expect(validationErr).NotTo(HaveOccurred())
+		})
+
+		When("the org is not in the root namespace", func() {
+			BeforeEach(func() {
+				org.ObjectMeta.Namespace = "foo"
+			})
+
+			It("fails", func() {
+				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
+					Type:    webhooks.OrgPlacementErrorType,
+					Message: fmt.Sprintf(webhooks.OrgPlacementErrorMessage, org.Spec.DisplayName),
+				}))
+			})
 		})
 	})
 
@@ -62,7 +78,7 @@ var _ = Describe("CFPlacementValidation", func() {
 			space = korifiv1alpha1.CFSpace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-space",
-					Namespace: testNamespace,
+					Namespace: "org-ns",
 				},
 				Spec: korifiv1alpha1.CFSpaceSpec{
 					DisplayName: "test-space-display-name",
@@ -70,10 +86,25 @@ var _ = Describe("CFPlacementValidation", func() {
 			}
 		})
 
-		It("fails if it is not placed in a namespace with a corresponding org", func() {
-			fakeClient.GetReturns(errors.New("I don't know what kind of error this normally returns"))
-			err = placementValidator.ValidateSpaceCreate(space)
-			Expect(err).To(HaveOccurred())
+		JustBeforeEach(func() {
+			validationErr = placementValidator.ValidateSpaceCreate(space)
+		})
+
+		It("succeeds", func() {
+			Expect(validationErr).NotTo(HaveOccurred())
+		})
+
+		When("the space is not placed in an org namespace", func() {
+			BeforeEach(func() {
+				fakeClient.GetReturns(errors.New("I don't know what kind of error this normally returns"))
+			})
+
+			It("fails", func() {
+				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
+					Type:    webhooks.SpacePlacementErrorType,
+					Message: fmt.Sprintf(webhooks.SpacePlacementErrorMessage, "org-ns", space.Spec.DisplayName),
+				}))
+			})
 		})
 	})
 })

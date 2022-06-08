@@ -2,7 +2,6 @@ package networking
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -85,7 +84,7 @@ func (v *CFRouteValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 	duplicateErrorMessage := generateDuplicateErrorMessage(route, domain)
 	validationErr := v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, uniqueName(*route), duplicateErrorMessage)
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil
@@ -110,7 +109,7 @@ func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 	duplicateErrorMessage := generateDuplicateErrorMessage(route, domain)
 	validationErr := v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, uniqueName(*oldRoute), uniqueName(*route), duplicateErrorMessage)
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil
@@ -124,7 +123,7 @@ func (v *CFRouteValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 
 	validationErr := v.duplicateValidator.ValidateDelete(ctx, logger, v.rootNamespace, uniqueName(*route))
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil
@@ -137,45 +136,49 @@ func (v *CFRouteValidator) validateRoute(ctx context.Context, route *korifiv1alp
 	if err != nil {
 		errMessage := "Error while retrieving CFDomain object"
 		logger.Error(err, errMessage)
-		validationError := webhooks.ValidationError{
+		return nil, webhooks.ValidationError{
 			Type:    webhooks.UnknownErrorType,
 			Message: errMessage,
-		}
-		return nil, errors.New(validationError.Marshal())
+		}.ExportJSONError()
 	}
 
 	if err := isHost(route.Spec.Host); err != nil {
 		return nil, err
 	}
+
 	if _, err := IsFQDN(route.Spec.Host, domain.Spec.Name); err != nil {
 		return nil, err
 	}
+
 	if err := validatePath(route.Spec.Path); err != nil {
 		return nil, err
 	}
 
 	if err := v.checkDestinationsExistInNamespace(ctx, *route); err != nil {
-		validationError := webhooks.ValidationError{}
+		validationErr := webhooks.ValidationError{}
 
 		if apierrors.IsNotFound(err) {
-			validationError.Type = RouteDestinationNotInSpaceErrorType
-			validationError.Message = RouteDestinationNotInSpaceErrorMessage
+			validationErr.Type = RouteDestinationNotInSpaceErrorType
+			validationErr.Message = RouteDestinationNotInSpaceErrorMessage
 		} else {
-			validationError.Type = webhooks.UnknownErrorType
-			validationError.Message = webhooks.UnknownErrorMessage
+			validationErr.Type = webhooks.UnknownErrorType
+			validationErr.Message = webhooks.UnknownErrorMessage
 		}
 
-		logger.Error(err, validationError.Message)
-		return nil, errors.New(validationError.Marshal())
+		logger.Error(err, validationErr.Message)
+		return nil, validationErr.ExportJSONError()
 	}
+
 	return domain, nil
 }
 
 func generateDuplicateErrorMessage(route *korifiv1alpha1.CFRoute, domain *korifiv1alpha1.CFDomain) string {
 	pathDetails := ""
+
 	if route.Spec.Path != "" {
 		pathDetails = fmt.Sprintf(" and path '%s'", route.Spec.Path)
 	}
+
 	return fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
 		route.Spec.Host, pathDetails, domain.Spec.Name)
 }
@@ -208,11 +211,10 @@ func isHost(hostname string) error {
 	}
 
 	if len(errStrings) > 0 {
-		ve := webhooks.ValidationError{
+		return webhooks.ValidationError{
 			Type:    RouteHostNameValidationErrorType,
 			Message: strings.Join(errStrings, ", "),
-		}
-		return errors.New(ve.Marshal())
+		}.ExportJSONError()
 	}
 
 	return nil
@@ -236,14 +238,20 @@ func IsFQDN(host, domain string) (bool, error) {
 	rxSubdomain := regexp.MustCompile(SUBDOMAIN_REGEX)
 
 	if !rxSubdomain.MatchString(fqdn) {
-		return false, errors.New(webhooks.ValidationError{Type: RouteSubdomainValidationErrorType, Message: RouteSubdomainValidationErrorMessage}.Marshal())
+		return false, webhooks.ValidationError{
+			Type:    RouteSubdomainValidationErrorType,
+			Message: RouteSubdomainValidationErrorMessage,
+		}.ExportJSONError()
 	}
 
 	rxDomain := regexp.MustCompile(DOMAIN_REGEX)
 	fqdnLength := len(fqdn)
 
 	if fqdnLength < MINIMUM_FQDN_DOMAIN_LENGTH || fqdnLength > MAXIMUM_FQDN_DOMAIN_LENGTH || !rxDomain.MatchString(fqdn) {
-		return false, errors.New(webhooks.ValidationError{Type: RouteFQDNValidationErrorType, Message: fmt.Sprintf(RouteFQDNValidationErrorMessage, fqdn)}.Marshal())
+		return false, webhooks.ValidationError{
+			Type:    RouteFQDNValidationErrorType,
+			Message: fmt.Sprintf(RouteFQDNValidationErrorMessage, fqdn),
+		}.ExportJSONError()
 	}
 
 	return true, nil
@@ -260,25 +268,28 @@ func validatePath(path string) error {
 	if err != nil {
 		errStrings = append(errStrings, InvalidURIError)
 	}
+
 	if path == "/" {
 		errStrings = append(errStrings, PathIsSlashError)
 	}
+
 	if strings.Contains(path, "?") {
 		errStrings = append(errStrings, PathHasQuestionMarkError)
 	}
+
 	if len(path) > 128 {
 		errStrings = append(errStrings, PathLengthExceededError)
 	}
+
 	if len(errStrings) == 0 {
 		return nil
 	}
 
 	if len(errStrings) > 0 {
-		ve := webhooks.ValidationError{
+		return webhooks.ValidationError{
 			Type:    RoutePathValidationErrorType,
 			Message: strings.Join(errStrings, ", "),
-		}
-		return errors.New(ve.Marshal())
+		}.ExportJSONError()
 	}
 
 	return nil
@@ -286,9 +297,8 @@ func validatePath(path string) error {
 
 func (v *CFRouteValidator) checkDestinationsExistInNamespace(ctx context.Context, route korifiv1alpha1.CFRoute) error {
 	for _, destination := range route.Spec.Destinations {
-		if err := v.client.Get(
-			ctx, client.ObjectKey{Namespace: route.Namespace, Name: destination.AppRef.Name}, &korifiv1alpha1.CFApp{},
-		); err != nil {
+		err := v.client.Get(ctx, client.ObjectKey{Namespace: route.Namespace, Name: destination.AppRef.Name}, &korifiv1alpha1.CFApp{})
+		if err != nil {
 			return err
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -79,10 +80,10 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.DuplicateNameErrorType,
 					Message: `The service instance name is taken: ` + serviceInstance.Spec.DisplayName,
-				}.Marshal())))
+				}))
 			})
 		})
 
@@ -95,10 +96,10 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.UnknownErrorType,
 					Message: webhooks.UnknownErrorMessage,
-				}.Marshal()))
+				}))
 			})
 		})
 	})
@@ -137,10 +138,10 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.DuplicateNameErrorType,
 					Message: "The service instance name is taken: " + updatedServiceInstance.Spec.DisplayName,
-				}.Marshal())))
+				}))
 			})
 		})
 
@@ -153,10 +154,10 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.UnknownErrorType,
 					Message: webhooks.UnknownErrorMessage,
-				}.Marshal()))
+				}))
 			})
 		})
 	})
@@ -187,10 +188,10 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.UnknownErrorType,
 					Message: webhooks.UnknownErrorMessage,
-				}.Marshal()))
+				}))
 			})
 		})
 	})

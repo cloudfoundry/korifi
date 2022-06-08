@@ -18,7 +18,6 @@ package workloads
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -38,6 +37,8 @@ var cftasklog = logf.Log.WithName("cftask-resource")
 //+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cftask,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cftasks,verbs=create,versions=v1alpha1,name=vcftask.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFTaskValidator struct{}
+
+var _ webhook.CustomValidator = &CFTaskValidator{}
 
 func NewCFTaskValidator() *CFTaskValidator {
 	return &CFTaskValidator{}
@@ -61,10 +62,10 @@ func (v *CFTaskValidator) ValidateCreate(ctx context.Context, obj runtime.Object
 	cftasklog.Info("validate task creation", "namespace", task.Namespace, "name", task.Name)
 
 	if len(task.Spec.Command) == 0 {
-		return errors.New(webhooks.ValidationError{
+		return webhooks.ValidationError{
 			Type:    MissingRequredFieldErrorType,
 			Message: fmt.Sprintf("task %s:%s is missing required field 'Spec.Command'", task.Namespace, task.Name),
-		}.Marshal())
+		}.ExportJSONError()
 	}
 
 	return nil

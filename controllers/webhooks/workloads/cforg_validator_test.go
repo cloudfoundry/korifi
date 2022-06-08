@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -79,10 +80,10 @@ var _ = Describe("CFOrgValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.DuplicateNameErrorType,
 					Message: "Organization '" + cfOrg.Spec.DisplayName + "' already exists.",
-				}.Marshal())))
+				}))
 			})
 		})
 
@@ -95,23 +96,26 @@ var _ = Describe("CFOrgValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.UnknownErrorType,
 					Message: webhooks.UnknownErrorMessage,
-				}.Marshal()))
+				}))
 			})
 		})
 
 		When("the org placement validator fails", func() {
 			BeforeEach(func() {
-				placementValidator.ValidateOrgCreateReturns(fmt.Errorf(webhooks.OrgPlacementErrorMessage, cfOrg.Spec.DisplayName))
+				placementValidator.ValidateOrgCreateReturns(&webhooks.ValidationError{
+					Type:    webhooks.OrgPlacementErrorType,
+					Message: fmt.Sprintf(webhooks.OrgPlacementErrorMessage, cfOrg.Spec.DisplayName),
+				})
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
-					Type:    workloads.OrgPlacementErrorType,
-					Message: "Organization '" + cfOrg.Spec.DisplayName + "' must be placed in the root 'cf' namespace",
-				}.Marshal())))
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
+					Type:    webhooks.OrgPlacementErrorType,
+					Message: fmt.Sprintf(webhooks.OrgPlacementErrorMessage, cfOrg.Spec.DisplayName),
+				}))
 			})
 		})
 	})
@@ -150,10 +154,10 @@ var _ = Describe("CFOrgValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(MatchJSON(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.DuplicateNameErrorType,
 					Message: "Organization '" + updatedCFOrg.Spec.DisplayName + "' already exists.",
-				}.Marshal())))
+				}))
 			})
 		})
 
@@ -166,10 +170,10 @@ var _ = Describe("CFOrgValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.UnknownErrorType,
 					Message: webhooks.UnknownErrorMessage,
-				}.Marshal()))
+				}))
 			})
 		})
 	})
@@ -200,10 +204,10 @@ var _ = Describe("CFOrgValidator", func() {
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(MatchError(webhooks.ValidationError{
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.UnknownErrorType,
 					Message: webhooks.UnknownErrorMessage,
-				}.Marshal()))
+				}))
 			})
 		})
 	})

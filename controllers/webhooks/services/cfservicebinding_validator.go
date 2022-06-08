@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -56,7 +55,7 @@ func (v *CFServiceBindingValidator) ValidateCreate(ctx context.Context, obj runt
 	duplicateErrorMessage := fmt.Sprintf(duplicateServiceBindingErrorMessage, serviceBinding.Spec.AppRef.Name, serviceBinding.Spec.Service.Name)
 	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfservicebindinglog, serviceBinding.Namespace, lockName, duplicateErrorMessage)
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil
@@ -98,7 +97,7 @@ func (v *CFServiceBindingValidator) ValidateDelete(ctx context.Context, obj runt
 
 	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfservicebindinglog, serviceBinding.Namespace, lockName)
 	if validationErr != nil {
-		return errors.New(validationErr.Marshal())
+		return validationErr.ExportJSONError()
 	}
 
 	return nil
