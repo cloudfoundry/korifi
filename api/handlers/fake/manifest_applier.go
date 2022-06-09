@@ -11,14 +11,13 @@ import (
 )
 
 type ManifestApplier struct {
-	ApplyStub        func(context.Context, authorization.Info, string, string, payloads.Manifest) error
+	ApplyStub        func(context.Context, authorization.Info, string, payloads.Manifest) error
 	applyMutex       sync.RWMutex
 	applyArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
 		arg3 string
-		arg4 string
-		arg5 payloads.Manifest
+		arg4 payloads.Manifest
 	}
 	applyReturns struct {
 		result1 error
@@ -30,22 +29,21 @@ type ManifestApplier struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ManifestApplier) Apply(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 string, arg5 payloads.Manifest) error {
+func (fake *ManifestApplier) Apply(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 payloads.Manifest) error {
 	fake.applyMutex.Lock()
 	ret, specificReturn := fake.applyReturnsOnCall[len(fake.applyArgsForCall)]
 	fake.applyArgsForCall = append(fake.applyArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
 		arg3 string
-		arg4 string
-		arg5 payloads.Manifest
-	}{arg1, arg2, arg3, arg4, arg5})
+		arg4 payloads.Manifest
+	}{arg1, arg2, arg3, arg4})
 	stub := fake.ApplyStub
 	fakeReturns := fake.applyReturns
-	fake.recordInvocation("Apply", []interface{}{arg1, arg2, arg3, arg4, arg5})
+	fake.recordInvocation("Apply", []interface{}{arg1, arg2, arg3, arg4})
 	fake.applyMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1
@@ -59,17 +57,17 @@ func (fake *ManifestApplier) ApplyCallCount() int {
 	return len(fake.applyArgsForCall)
 }
 
-func (fake *ManifestApplier) ApplyCalls(stub func(context.Context, authorization.Info, string, string, payloads.Manifest) error) {
+func (fake *ManifestApplier) ApplyCalls(stub func(context.Context, authorization.Info, string, payloads.Manifest) error) {
 	fake.applyMutex.Lock()
 	defer fake.applyMutex.Unlock()
 	fake.ApplyStub = stub
 }
 
-func (fake *ManifestApplier) ApplyArgsForCall(i int) (context.Context, authorization.Info, string, string, payloads.Manifest) {
+func (fake *ManifestApplier) ApplyArgsForCall(i int) (context.Context, authorization.Info, string, payloads.Manifest) {
 	fake.applyMutex.RLock()
 	defer fake.applyMutex.RUnlock()
 	argsForCall := fake.applyArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
 func (fake *ManifestApplier) ApplyReturns(result1 error) {

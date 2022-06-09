@@ -17,22 +17,24 @@ const (
 )
 
 type Manifest struct {
-	appRepo     CFAppRepository
-	domainRepo  CFDomainRepository
-	processRepo CFProcessRepository
-	routeRepo   CFRouteRepository
+	appRepo           CFAppRepository
+	domainRepo        CFDomainRepository
+	processRepo       CFProcessRepository
+	routeRepo         CFRouteRepository
+	defaultDomainName string
 }
 
-func NewManifest(appRepo CFAppRepository, domainRepo CFDomainRepository, processRepo CFProcessRepository, routeRepo CFRouteRepository) *Manifest {
+func NewManifest(appRepo CFAppRepository, domainRepo CFDomainRepository, processRepo CFProcessRepository, routeRepo CFRouteRepository, defaultDomainName string) *Manifest {
 	return &Manifest{
-		appRepo:     appRepo,
-		domainRepo:  domainRepo,
-		processRepo: processRepo,
-		routeRepo:   routeRepo,
+		appRepo:           appRepo,
+		domainRepo:        domainRepo,
+		processRepo:       processRepo,
+		routeRepo:         routeRepo,
+		defaultDomainName: defaultDomainName,
 	}
 }
 
-func (a *Manifest) Apply(ctx context.Context, authInfo authorization.Info, spaceGUID string, defaultDomainName string, manifest payloads.Manifest) error {
+func (a *Manifest) Apply(ctx context.Context, authInfo authorization.Info, spaceGUID string, manifest payloads.Manifest) error {
 	appInfo := manifest.Applications[0]
 	exists := true
 	appRecord, err := a.appRepo.GetAppByNameAndSpace(ctx, authInfo, appInfo.Name, spaceGUID)
@@ -70,7 +72,7 @@ func (a *Manifest) Apply(ctx context.Context, authInfo authorization.Info, space
 		return err
 	}
 
-	err = a.checkAndUpdateDefaultRoute(ctx, authInfo, appRecord, defaultDomainName, &appInfo)
+	err = a.checkAndUpdateDefaultRoute(ctx, authInfo, appRecord, a.defaultDomainName, &appInfo)
 	if err != nil {
 		return err
 	}
