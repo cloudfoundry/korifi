@@ -58,7 +58,7 @@ var _ = Describe("RootHandler", func() {
 					"cloud_controller_v2": nil,
 					"cloud_controller_v3": {
 						Link: presenter.Link{HREF: defaultServerURL + "/v3"},
-						Meta: presenter.APILinkMeta{Version: "3.111.0+cf-k8s"},
+						Meta: presenter.APILinkMeta{Version: presenter.V3APIVersion},
 					},
 					"network_policy_v0": nil,
 					"network_policy_v1": nil,

@@ -14,7 +14,7 @@ type RootResponse struct {
 	CFOnK8s bool                `json:"cf_on_k8s"`
 }
 
-const v3APIVersion = "3.111.0+cf-k8s"
+const V3APIVersion = "3.117.0+cf-k8s"
 
 func GetRootResponse(serverURL string) RootResponse {
 	return RootResponse{
@@ -22,7 +22,7 @@ func GetRootResponse(serverURL string) RootResponse {
 			"self":                {Link: Link{HREF: serverURL}},
 			"bits_service":        nil,
 			"cloud_controller_v2": nil,
-			"cloud_controller_v3": {Link: Link{HREF: serverURL + "/v3"}, Meta: APILinkMeta{Version: v3APIVersion}},
+			"cloud_controller_v3": {Link: Link{HREF: serverURL + "/v3"}, Meta: APILinkMeta{Version: V3APIVersion}},
 			"network_policy_v0":   nil,
 			"network_policy_v1":   nil,
 			"login":               nil,
