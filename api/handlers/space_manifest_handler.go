@@ -32,33 +32,30 @@ type CFSpaceRepository interface {
 }
 
 type SpaceManifestHandler struct {
-	handlerWrapper    *AuthAwareHandlerFuncWrapper
-	serverURL         url.URL
-	defaultDomainName string
-	manifestApplier   ManifestApplier
-	spaceRepo         CFSpaceRepository
-	decoderValidator  *DecoderValidator
+	handlerWrapper   *AuthAwareHandlerFuncWrapper
+	serverURL        url.URL
+	manifestApplier  ManifestApplier
+	spaceRepo        CFSpaceRepository
+	decoderValidator *DecoderValidator
 }
 
 //counterfeiter:generate -o fake -fake-name ManifestApplier . ManifestApplier
 type ManifestApplier interface {
-	Apply(ctx context.Context, authInfo authorization.Info, spaceGUID string, defaultDomainName string, manifest payloads.Manifest) error
+	Apply(ctx context.Context, authInfo authorization.Info, spaceGUID string, manifest payloads.Manifest) error
 }
 
 func NewSpaceManifestHandler(
 	serverURL url.URL,
-	defaultDomainName string,
 	manifestApplier ManifestApplier,
 	spaceRepo CFSpaceRepository,
 	decoderValidator *DecoderValidator,
 ) *SpaceManifestHandler {
 	return &SpaceManifestHandler{
-		handlerWrapper:    NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("SpaceManifestHandler")),
-		serverURL:         serverURL,
-		defaultDomainName: defaultDomainName,
-		manifestApplier:   manifestApplier,
-		spaceRepo:         spaceRepo,
-		decoderValidator:  decoderValidator,
+		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("SpaceManifestHandler")),
+		serverURL:        serverURL,
+		manifestApplier:  manifestApplier,
+		spaceRepo:        spaceRepo,
+		decoderValidator: decoderValidator,
 	}
 }
 
@@ -75,7 +72,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(ctx context.Context, logger 
 		return nil, err
 	}
 
-	if err := h.manifestApplier.Apply(ctx, authInfo, spaceGUID, h.defaultDomainName, manifest); err != nil {
+	if err := h.manifestApplier.Apply(ctx, authInfo, spaceGUID, manifest); err != nil {
 		logger.Error(err, "Error applying manifest")
 		return nil, err
 	}

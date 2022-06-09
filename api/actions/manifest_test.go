@@ -65,11 +65,11 @@ var _ = Describe("ApplyManifest", func() {
 			},
 		}
 
-		manifestAction = NewManifest(appRepo, domainRepo, processRepo, routeRepo)
+		manifestAction = NewManifest(appRepo, domainRepo, processRepo, routeRepo, defaultDomainName)
 	})
 
 	JustBeforeEach(func() {
-		applyErr = manifestAction.Apply(context.Background(), authInfo, spaceGUID, defaultDomainName, manifest)
+		applyErr = manifestAction.Apply(context.Background(), authInfo, spaceGUID, manifest)
 	})
 
 	It("fetches the app correctly", func() {

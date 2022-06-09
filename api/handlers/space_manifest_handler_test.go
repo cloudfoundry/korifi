@@ -17,24 +17,21 @@ import (
 
 var _ = Describe("SpaceManifestHandler", func() {
 	var (
-		manifestApplier   *fake.ManifestApplier
-		spaceRepo         *fake.CFSpaceRepository
-		req               *http.Request
-		defaultDomainName string
-		requestBody       *strings.Reader
+		manifestApplier *fake.ManifestApplier
+		spaceRepo       *fake.CFSpaceRepository
+		req             *http.Request
+		requestBody     *strings.Reader
 	)
 
 	BeforeEach(func() {
 		manifestApplier = new(fake.ManifestApplier)
 		spaceRepo = new(fake.CFSpaceRepository)
-		defaultDomainName = "apps.example.org"
 
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewSpaceManifestHandler(
 			*serverURL,
-			defaultDomainName,
 			manifestApplier,
 			spaceRepo,
 			decoderValidator,
@@ -81,13 +78,13 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 			It("calls applyManifestAction and passes it the authInfo from the context", func() {
 				Expect(manifestApplier.ApplyCallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _, _ := manifestApplier.ApplyArgsForCall(0)
+				_, actualAuthInfo, _, _ := manifestApplier.ApplyArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
 			It("passes the parsed manifest to the action", func() {
 				Expect(manifestApplier.ApplyCallCount()).To(Equal(1))
-				_, _, _, _, payload := manifestApplier.ApplyArgsForCall(0)
+				_, _, _, payload := manifestApplier.ApplyArgsForCall(0)
 
 				Expect(payload.Applications).To(HaveLen(1))
 				Expect(payload.Applications[0].Name).To(Equal("app1"))
@@ -124,7 +121,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 			It("calls applyManifestAction and passes it the authInfo from the context", func() {
 				Expect(manifestApplier.ApplyCallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _, _ := manifestApplier.ApplyArgsForCall(0)
+				_, actualAuthInfo, _, _ := manifestApplier.ApplyArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 		})

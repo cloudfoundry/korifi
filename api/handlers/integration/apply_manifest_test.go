@@ -39,8 +39,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 
 		apiHandler := NewSpaceManifestHandler(
 			*serverURL,
-			domainName,
-			actions.NewManifest(appRepo, domainRepo, processRepo, routeRepo),
+			actions.NewManifest(appRepo, domainRepo, processRepo, routeRepo, domainName),
 			spaceRepo,
 			decoderValidator,
 		)

@@ -139,6 +139,7 @@ func main() {
 		domainRepo,
 		processRepo,
 		routeRepo,
+		config.DefaultDomainName,
 	)
 	appLogs := actions.NewAppLogs(appRepo, buildRepo, podRepo)
 
@@ -231,7 +232,6 @@ func main() {
 
 		handlers.NewSpaceManifestHandler(
 			*serverURL,
-			config.DefaultDomainName,
 			manifest,
 			spaceRepo,
 			decoderValidator,
