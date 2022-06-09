@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
-	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 
 	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
@@ -133,8 +131,19 @@ type dropletResource struct {
 	Data resource `json:"data"`
 }
 
+type statsUsage struct {
+	Time *string  `json:"time,omitempty"`
+	CPU  *float64 `json:"cpu,omitempty"`
+	Mem  *int64   `json:"mem,omitempty"`
+	Disk *int64   `json:"disk,omitempty"`
+}
+
+type statsResource struct {
+	Usage statsUsage
+}
+
 type statsResourceList struct {
-	Resources []presenter.ProcessStatsResource `json:"resources"`
+	Resources []statsResource `json:"resources"`
 }
 
 type manifestResource struct {
@@ -376,7 +385,7 @@ func asyncCreateSpace(spaceName, orgGUID string, createdSpaceGUID *string, wg *s
 // createRole creates an org or space role
 // You should probably invoke this via createOrgRole or createSpaceRole
 func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) {
-	rolesURL := apiServerRoot + handlers.RolesPath
+	rolesURL := apiServerRoot + "/v3/roles"
 
 	userOrServiceAccount := "user"
 	if kind == rbacv1.ServiceAccountKind {

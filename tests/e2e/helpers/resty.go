@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
 	"github.com/go-http-utils/headers"
 	"github.com/go-resty/resty/v2"
 )
@@ -100,7 +99,7 @@ func NewCorrelatedRestyClient(apiServerRoot string, getCorrelationId func() stri
 
 func (c *CorrelatedRestyClient) R() *resty.Request {
 	request := c.Client.R()
-	request.SetHeader(handlers.CorrelationIDHeader, c.getCorrelationId())
+	request.SetHeader("X-Correlation-ID", c.getCorrelationId())
 
 	return request
 }

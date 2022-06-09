@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 
 	"github.com/go-resty/resty/v2"
@@ -466,7 +465,7 @@ var _ = Describe("Spaces", func() {
 			})
 
 			It("returns a Not-Found error", func() {
-				expectNotFoundError(resp, errResp, repositories.SpaceResourceType)
+				expectNotFoundError(resp, errResp, "Space")
 			})
 		})
 	})
