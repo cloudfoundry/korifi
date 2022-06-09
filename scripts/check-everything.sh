@@ -3,9 +3,6 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CF_K8S_CONTROLLERS_DIR="$SCRIPT_DIR/.."
-
 RED=1
 GREEN=2
 print_message() {

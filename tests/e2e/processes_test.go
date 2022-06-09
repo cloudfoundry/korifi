@@ -4,8 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/presenter"
-	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 
 	"github.com/go-resty/resty/v2"
@@ -143,7 +141,7 @@ var _ = Describe("Processes", func() {
 
 		When("we wait for the metrics to be ready", func() {
 			BeforeEach(func() {
-				Eventually(func() presenter.ProcessUsage {
+				Eventually(func() statsUsage {
 					var err error
 					resp, err = restyClient.R().
 						SetResult(&processStats).
@@ -152,7 +150,7 @@ var _ = Describe("Processes", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					return processStats.Resources[0].Usage
-				}, 60*time.Second).ShouldNot(Equal(presenter.ProcessUsage{}))
+				}, 60*time.Second).ShouldNot(Equal(statsUsage{}))
 			})
 
 			It("succeeds", func() {
@@ -212,8 +210,9 @@ var _ = Describe("Processes", func() {
 		})
 
 		It("returns not found for users with no role in the space", func() {
-			expectNotFoundError(resp, errResp, repositories.ProcessResourceType)
+			expectNotFoundError(resp, errResp, "Process")
 		})
+
 		When("the user is a space manager", func() {
 			BeforeEach(func() {
 				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)

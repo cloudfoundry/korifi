@@ -3,8 +3,6 @@ package e2e_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/repositories"
-
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -380,7 +378,7 @@ var _ = Describe("Apps", func() {
 			})
 
 			It("returns not found for users with no role in the space", func() {
-				expectNotFoundError(resp, errResp, repositories.AppResourceType)
+				expectNotFoundError(resp, errResp, "App")
 			})
 
 			When("the user is a space manager", func() {
