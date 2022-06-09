@@ -21,27 +21,25 @@ func (v ValidationError) Error() string {
 	return "ValidationError-" + v.Type + ": " + v.Message
 }
 
-func (v ValidationError) Marshal() string {
+func (v ValidationError) ExportJSONError() error {
 	bytes, err := json.Marshal(v)
 	if err != nil { // This (probably) can't fail, untested
-		return err.Error()
+		return err
 	}
-	return string(bytes)
+
+	return errors.New(string(bytes))
 }
 
 func WebhookErrorToValidationError(err error) (ValidationError, bool) {
-	statusError := new(k8serrors.StatusError)
-	if !errors.As(err, &statusError) {
+	statusErr := new(k8serrors.StatusError)
+	if !errors.As(err, &statusErr) {
 		return ValidationError{}, false
 	}
 
-	validationError := new(ValidationError)
-	if json.Unmarshal([]byte(statusError.Status().Reason), validationError) != nil {
+	validationErr := new(ValidationError)
+	if json.Unmarshal([]byte(statusErr.Status().Reason), validationErr) != nil {
 		return ValidationError{}, false
 	}
-	return *validationError, true
-}
 
-func AdmissionUnknownErrorReason() string {
-	return ValidationError{Type: UnknownErrorType, Message: UnknownErrorMessage}.Marshal()
+	return *validationErr, true
 }

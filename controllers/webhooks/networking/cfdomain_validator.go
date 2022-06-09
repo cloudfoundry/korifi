@@ -18,15 +18,15 @@ package networking
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
-	admissionv1 "k8s.io/api/admission/v1"
-
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -43,52 +43,59 @@ var log = logf.Log.WithName("domain-validation")
 
 //+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfdomain,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfdomains,verbs=create;update,versions=v1alpha1,name=vcfdomain.korifi.cloudfoundry.org,admissionReviewVersions=v1
 
-type CFDomainValidation struct {
-	client  client.Client
-	decoder *admission.Decoder
+type CFDomainValidator struct {
+	client client.Client
 }
 
-func NewCFDomainValidation(client client.Client) *CFDomainValidation {
-	return &CFDomainValidation{
+var _ webhook.CustomValidator = &CFDomainValidator{}
+
+func NewCFDomainValidator(client client.Client) *CFDomainValidator {
+	return &CFDomainValidator{
 		client: client,
 	}
 }
 
-func (v *CFDomainValidation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	mgr.GetWebhookServer().Register("/validate-korifi-cloudfoundry-org-v1alpha1-cfdomain", &webhook.Admission{Handler: v})
-	return nil
+func (v *CFDomainValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.CFDomain{}).
+		WithValidator(v).
+		Complete()
 }
 
-func (v *CFDomainValidation) Handle(ctx context.Context, req admission.Request) admission.Response {
-	var domain korifiv1alpha1.CFDomain
-	if req.Operation != admissionv1.Create {
-		return admission.Allowed("")
-	}
-
-	err := v.decoder.Decode(req, &domain)
-	if err != nil { // untested
-		errMessage := "Error while decoding CFDomain object"
-		log.Error(err, errMessage)
-		return admission.Denied(webhooks.ValidationError{Type: DomainDecodingErrorType, Message: errMessage}.Marshal())
+func (v *CFDomainValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	domain, ok := obj.(*korifiv1alpha1.CFDomain)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
 	}
 
 	isOverlapping, err := v.domainIsOverlapping(ctx, domain.Spec.Name)
 	if err != nil {
-		validationError := webhooks.ValidationError{
+		log.Error(err, "Error checking for overlapping domain")
+		return webhooks.ValidationError{
 			Type:    webhooks.UnknownErrorType,
-			Message: err.Error(),
-		}
-		return admission.Denied(validationError.Marshal())
+			Message: webhooks.UnknownErrorMessage,
+		}.ExportJSONError()
 	}
 
 	if isOverlapping {
-		return admission.Denied(webhooks.ValidationError{Type: DuplicateDomainErrorType, Message: "Overlapping domain exists"}.Marshal())
+		return webhooks.ValidationError{
+			Type:    DuplicateDomainErrorType,
+			Message: "Overlapping domain exists",
+		}.ExportJSONError()
 	}
 
-	return admission.Allowed("")
+	return nil
 }
 
-func (v *CFDomainValidation) domainIsOverlapping(ctx context.Context, domainName string) (bool, error) {
+func (v *CFDomainValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, obj runtime.Object) error {
+	return nil
+}
+
+func (v *CFDomainValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+	return nil
+}
+
+func (v *CFDomainValidator) domainIsOverlapping(ctx context.Context, domainName string) (bool, error) {
 	var existingDomainList korifiv1alpha1.CFDomainList
 	err := v.client.List(ctx, &existingDomainList)
 	if err != nil {
@@ -125,10 +132,6 @@ func isSubDomain(domainElements, existingDomainElements []string) bool {
 			return false
 		}
 	}
-	return true
-}
 
-func (v *CFDomainValidation) InjectDecoder(d *admission.Decoder) error {
-	v.decoder = d
-	return nil
+	return true
 }

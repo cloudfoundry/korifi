@@ -101,19 +101,15 @@ var _ = BeforeSuite(func() {
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	appNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType))
-	cfAppValidatingWebhook := workloads.NewCFAppValidation(appNameDuplicateValidator)
-	Expect(cfAppValidatingWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect(workloads.NewCFAppValidator(appNameDuplicateValidator).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFOrgEntityType))
-	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType))
 	orgPlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
+	Expect(workloads.NewCFOrgValidator(orgNameDuplicateValidator, orgPlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
+
+	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType))
 	spacePlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
-
-	orgValidationWebhook := workloads.NewCFOrgValidation(orgNameDuplicateValidator, orgPlacementValidator)
-	Expect(orgValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
-
-	spaceValidationWebhook := workloads.NewCFSpaceValidation(spaceNameDuplicateValidator, spacePlacementValidator)
-	Expect(spaceValidationWebhook.SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect(workloads.NewCFTaskValidator().SetupWebhookWithManager(mgr)).To(Succeed())
 

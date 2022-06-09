@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -208,7 +207,7 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 	err = userClient.Create(ctx, &cfApp)
 	if err != nil {
 		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
-			if validationError.Type == workloads.DuplicateAppErrorType {
+			if validationError.Type == webhooks.DuplicateNameErrorType {
 				return AppRecord{}, apierrors.NewUniquenessError(err, validationError.Error())
 			}
 			return AppRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())

@@ -13,5 +13,5 @@ func TestNetworking(t *testing.T) {
 	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Networking Suite")
+	RunSpecs(t, "Networking Validating Webhooks Unit Test Suite")
 }

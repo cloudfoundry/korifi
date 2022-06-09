@@ -2,12 +2,13 @@ package services_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/services/fake"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -62,7 +63,7 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 		validatingWebhook = services.NewCFServiceBindingValidator(duplicateValidator)
 	})
 
-	Describe("Create", func() {
+	Describe("ValidateCreate", func() {
 		JustBeforeEach(func() {
 			retErr = validatingWebhook.ValidateCreate(ctx, serviceBinding)
 		})
@@ -73,23 +74,45 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 
 		It("tries to create a lock for the service binding", func() {
 			Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
-			_, _, ns, lock := duplicateValidator.ValidateCreateArgsForCall(0)
-			Expect(ns).To(Equal(defaultNamespace))
+			_, _, actualNamespace, lock, _ := duplicateValidator.ValidateCreateArgsForCall(0)
+			Expect(actualNamespace).To(Equal(defaultNamespace))
 			Expect(lock).To(Equal(fmt.Sprintf("sb::%s::%s::%s", appGUID, defaultNamespace, serviceInstanceGUID)))
 		})
 
 		When("a duplicate service binding already exists", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(errors.New("dup"))
+				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
+					Type:    webhooks.DuplicateNameErrorType,
+					Message: "Service binding already exists: App: " + appGUID + " Service Instance: " + serviceInstanceGUID,
+				})
 			})
 
 			It("prevents the creation of the duplicate service binding", func() {
-				Expect(retErr).To(MatchError(ContainSubstring("An unknown error has occurred")))
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
+					Type:    webhooks.DuplicateNameErrorType,
+					Message: "Service binding already exists: App: " + appGUID + " Service Instance: " + serviceInstanceGUID,
+				}))
+			})
+		})
+
+		When("validating the service binding fails", func() {
+			BeforeEach(func() {
+				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				})
+			})
+
+			It("denies the request", func() {
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}))
 			})
 		})
 	})
 
-	Describe("Update", func() {
+	Describe("ValidateUpdate", func() {
 		var updatedServiceBinding *korifiv1alpha1.CFServiceBinding
 
 		BeforeEach(func() {
@@ -137,7 +160,7 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 		})
 	})
 
-	Describe("Delete", func() {
+	Describe("ValidateDelete", func() {
 		JustBeforeEach(func() {
 			retErr = validatingWebhook.ValidateDelete(ctx, serviceBinding)
 		})
@@ -148,18 +171,24 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 
 		It("tries to delete the lock for the service binding", func() {
 			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
-			_, _, ns, lock := duplicateValidator.ValidateDeleteArgsForCall(0)
-			Expect(ns).To(Equal(defaultNamespace))
+			_, _, actualNamespace, lock := duplicateValidator.ValidateDeleteArgsForCall(0)
+			Expect(actualNamespace).To(Equal(defaultNamespace))
 			Expect(lock).To(Equal(fmt.Sprintf("sb::%s::%s::%s", appGUID, defaultNamespace, serviceInstanceGUID)))
 		})
 
 		When("the lock resource cannot be deleted", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateDeleteReturns(errors.New("fail"))
+				duplicateValidator.ValidateDeleteReturns(&webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				})
 			})
 
 			It("prevents the deletion of the service binding", func() {
-				Expect(retErr).To(MatchError(ContainSubstring("An unknown error has occurred")))
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
+				}))
 			})
 		})
 	})

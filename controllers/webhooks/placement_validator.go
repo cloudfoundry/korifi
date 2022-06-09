@@ -13,6 +13,7 @@ import (
 const (
 	OrgPlacementErrorType      = "OrgPlacementError"
 	OrgPlacementErrorMessage   = "Organization '%s' must be placed in the root 'cf' namespace"
+	SpacePlacementErrorType    = "SpacePlacementError"
 	SpacePlacementErrorMessage = "Organization '%s' does not exist for Space '%s'"
 )
 
@@ -25,22 +26,27 @@ func NewPlacementValidator(client client.Client, rootNamespace string) *Placemen
 	return &PlacementValidator{client: client, rootNamespace: rootNamespace}
 }
 
-func (v PlacementValidator) ValidateOrgCreate(org korifiv1alpha1.CFOrg) error {
+func (v PlacementValidator) ValidateOrgCreate(org korifiv1alpha1.CFOrg) *ValidationError {
 	if org.Namespace != v.rootNamespace {
-		err := fmt.Errorf(OrgPlacementErrorMessage, org.Spec.DisplayName)
-		return err
+		return &ValidationError{
+			Type:    OrgPlacementErrorType,
+			Message: fmt.Sprintf(OrgPlacementErrorMessage, org.Spec.DisplayName),
+		}
 	}
 
 	return nil
 }
 
-func (v PlacementValidator) ValidateSpaceCreate(space korifiv1alpha1.CFSpace) error {
-	ctx := context.Background()
+func (v PlacementValidator) ValidateSpaceCreate(space korifiv1alpha1.CFSpace) *ValidationError {
 	cfOrg := korifiv1alpha1.CFOrg{}
-	err := v.client.Get(ctx, types.NamespacedName{Name: space.Namespace, Namespace: v.rootNamespace}, &cfOrg)
+
+	err := v.client.Get(context.Background(), types.NamespacedName{Name: space.Namespace, Namespace: v.rootNamespace}, &cfOrg)
 	if err != nil {
-		err = fmt.Errorf(SpacePlacementErrorMessage, space.Namespace, space.Spec.DisplayName)
-		return err
+		return &ValidationError{
+			Type:    SpacePlacementErrorType,
+			Message: fmt.Sprintf(SpacePlacementErrorMessage, space.Namespace, space.Spec.DisplayName),
+		}
 	}
+
 	return nil
 }

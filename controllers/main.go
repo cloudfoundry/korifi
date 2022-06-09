@@ -253,14 +253,14 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = workloads.NewCFAppValidation(
+		if err = workloads.NewCFAppValidator(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
 			os.Exit(1)
 		}
 
-		if err = networking.NewCFRouteValidation(
+		if err = networking.NewCFRouteValidator(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType)),
 			controllerConfig.CFRootNamespace,
 			mgr.GetClient(),
@@ -269,7 +269,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = services.NewCFServiceInstanceValidation(
+		if err = services.NewCFServiceInstanceValidator(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), services.ServiceInstanceEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceInstance")
@@ -283,14 +283,14 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = networking.NewCFDomainValidation(
+		if err = networking.NewCFDomainValidator(
 			mgr.GetClient(),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFDomain")
 			os.Exit(1)
 		}
 
-		if err = workloads.NewCFOrgValidation(
+		if err = workloads.NewCFOrgValidator(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFOrgEntityType)),
 			webhooks.NewPlacementValidator(mgr.GetClient(), controllerConfig.CFRootNamespace),
 		).SetupWebhookWithManager(mgr); err != nil {
@@ -298,7 +298,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = workloads.NewCFSpaceValidation(
+		if err = workloads.NewCFSpaceValidator(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType)),
 			webhooks.NewPlacementValidator(mgr.GetClient(), controllerConfig.CFRootNamespace),
 		).SetupWebhookWithManager(mgr); err != nil {

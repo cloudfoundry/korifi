@@ -14,26 +14,26 @@ import (
 var _ = Describe("CFWebhookValidationError", func() {
 	var (
 		validationErrorType, validationErrorMessage string
-		validationError                             ValidationError
+		validationErr                               ValidationError
 	)
 	BeforeEach(func() {
 		validationErrorType = "some-validation-error-type"
 		validationErrorMessage = "some validation error message"
-		validationError = ValidationError{
+		validationErr = ValidationError{
 			Type:    validationErrorType,
 			Message: validationErrorMessage,
 		}
 	})
 	Describe("Error", func() {
 		It("returns a formatted error string", func() {
-			Expect(validationError.Error()).To(Equal("ValidationError-" + validationError.Type + ": " + validationError.Message))
+			Expect(validationErr.Error()).To(Equal("ValidationError-" + validationErr.Type + ": " + validationErr.Message))
 		})
 	})
 
-	Describe("Marshal", func() {
-		It("returns a Marshalled JSON string", func() {
+	Describe("ExportJSONError", func() {
+		It("returns an error with the JSON representation of the validation error", func() {
 			expectedBody := `{"validationErrorType":"` + validationErrorType + `","message":"` + validationErrorMessage + `"}`
-			Expect(validationError.Marshal()).To(MatchJSON(expectedBody))
+			Expect(validationErr.ExportJSONError()).To(MatchError(MatchJSON(expectedBody)))
 		})
 	})
 })
@@ -42,7 +42,7 @@ var _ = Describe("WebhookErrorToValidationError", func() {
 	var (
 		validationErrorType, validationErrorMessage string
 		inputErr                                    error
-		validationError                             ValidationError
+		validationErr                               ValidationError
 		isValidationError                           bool
 	)
 
@@ -58,12 +58,12 @@ var _ = Describe("WebhookErrorToValidationError", func() {
 	})
 
 	JustBeforeEach(func() {
-		validationError, isValidationError = WebhookErrorToValidationError(inputErr)
+		validationErr, isValidationError = WebhookErrorToValidationError(inputErr)
 	})
 
 	It("unmarshals a K8s-wrapped validation error into a ValidationError, and returns true", func() {
 		Expect(isValidationError).To(BeTrue())
-		Expect(validationError).To(Equal(ValidationError{
+		Expect(validationErr).To(Equal(ValidationError{
 			Type:    validationErrorType,
 			Message: validationErrorMessage,
 		}))
@@ -76,7 +76,7 @@ var _ = Describe("WebhookErrorToValidationError", func() {
 
 		It("returns an empty ValidationError and false", func() {
 			Expect(isValidationError).To(BeFalse())
-			Expect(validationError).To(Equal(ValidationError{}))
+			Expect(validationErr).To(Equal(ValidationError{}))
 		})
 	})
 })

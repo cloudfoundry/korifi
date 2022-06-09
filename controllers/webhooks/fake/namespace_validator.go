@@ -5,37 +5,37 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
 )
 
-type PlacementValidator struct {
-	ValidateOrgCreateStub        func(v1alpha1.CFOrg) error
+type NamespaceValidator struct {
+	ValidateOrgCreateStub        func(v1alpha1.CFOrg) *webhooks.ValidationError
 	validateOrgCreateMutex       sync.RWMutex
 	validateOrgCreateArgsForCall []struct {
 		arg1 v1alpha1.CFOrg
 	}
 	validateOrgCreateReturns struct {
-		result1 error
+		result1 *webhooks.ValidationError
 	}
 	validateOrgCreateReturnsOnCall map[int]struct {
-		result1 error
+		result1 *webhooks.ValidationError
 	}
-	ValidateSpaceCreateStub        func(v1alpha1.CFSpace) error
+	ValidateSpaceCreateStub        func(v1alpha1.CFSpace) *webhooks.ValidationError
 	validateSpaceCreateMutex       sync.RWMutex
 	validateSpaceCreateArgsForCall []struct {
 		arg1 v1alpha1.CFSpace
 	}
 	validateSpaceCreateReturns struct {
-		result1 error
+		result1 *webhooks.ValidationError
 	}
 	validateSpaceCreateReturnsOnCall map[int]struct {
-		result1 error
+		result1 *webhooks.ValidationError
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *PlacementValidator) ValidateOrgCreate(arg1 v1alpha1.CFOrg) error {
+func (fake *NamespaceValidator) ValidateOrgCreate(arg1 v1alpha1.CFOrg) *webhooks.ValidationError {
 	fake.validateOrgCreateMutex.Lock()
 	ret, specificReturn := fake.validateOrgCreateReturnsOnCall[len(fake.validateOrgCreateArgsForCall)]
 	fake.validateOrgCreateArgsForCall = append(fake.validateOrgCreateArgsForCall, struct {
@@ -54,49 +54,49 @@ func (fake *PlacementValidator) ValidateOrgCreate(arg1 v1alpha1.CFOrg) error {
 	return fakeReturns.result1
 }
 
-func (fake *PlacementValidator) ValidateOrgCreateCallCount() int {
+func (fake *NamespaceValidator) ValidateOrgCreateCallCount() int {
 	fake.validateOrgCreateMutex.RLock()
 	defer fake.validateOrgCreateMutex.RUnlock()
 	return len(fake.validateOrgCreateArgsForCall)
 }
 
-func (fake *PlacementValidator) ValidateOrgCreateCalls(stub func(v1alpha1.CFOrg) error) {
+func (fake *NamespaceValidator) ValidateOrgCreateCalls(stub func(v1alpha1.CFOrg) *webhooks.ValidationError) {
 	fake.validateOrgCreateMutex.Lock()
 	defer fake.validateOrgCreateMutex.Unlock()
 	fake.ValidateOrgCreateStub = stub
 }
 
-func (fake *PlacementValidator) ValidateOrgCreateArgsForCall(i int) v1alpha1.CFOrg {
+func (fake *NamespaceValidator) ValidateOrgCreateArgsForCall(i int) v1alpha1.CFOrg {
 	fake.validateOrgCreateMutex.RLock()
 	defer fake.validateOrgCreateMutex.RUnlock()
 	argsForCall := fake.validateOrgCreateArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *PlacementValidator) ValidateOrgCreateReturns(result1 error) {
+func (fake *NamespaceValidator) ValidateOrgCreateReturns(result1 *webhooks.ValidationError) {
 	fake.validateOrgCreateMutex.Lock()
 	defer fake.validateOrgCreateMutex.Unlock()
 	fake.ValidateOrgCreateStub = nil
 	fake.validateOrgCreateReturns = struct {
-		result1 error
+		result1 *webhooks.ValidationError
 	}{result1}
 }
 
-func (fake *PlacementValidator) ValidateOrgCreateReturnsOnCall(i int, result1 error) {
+func (fake *NamespaceValidator) ValidateOrgCreateReturnsOnCall(i int, result1 *webhooks.ValidationError) {
 	fake.validateOrgCreateMutex.Lock()
 	defer fake.validateOrgCreateMutex.Unlock()
 	fake.ValidateOrgCreateStub = nil
 	if fake.validateOrgCreateReturnsOnCall == nil {
 		fake.validateOrgCreateReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 *webhooks.ValidationError
 		})
 	}
 	fake.validateOrgCreateReturnsOnCall[i] = struct {
-		result1 error
+		result1 *webhooks.ValidationError
 	}{result1}
 }
 
-func (fake *PlacementValidator) ValidateSpaceCreate(arg1 v1alpha1.CFSpace) error {
+func (fake *NamespaceValidator) ValidateSpaceCreate(arg1 v1alpha1.CFSpace) *webhooks.ValidationError {
 	fake.validateSpaceCreateMutex.Lock()
 	ret, specificReturn := fake.validateSpaceCreateReturnsOnCall[len(fake.validateSpaceCreateArgsForCall)]
 	fake.validateSpaceCreateArgsForCall = append(fake.validateSpaceCreateArgsForCall, struct {
@@ -115,49 +115,49 @@ func (fake *PlacementValidator) ValidateSpaceCreate(arg1 v1alpha1.CFSpace) error
 	return fakeReturns.result1
 }
 
-func (fake *PlacementValidator) ValidateSpaceCreateCallCount() int {
+func (fake *NamespaceValidator) ValidateSpaceCreateCallCount() int {
 	fake.validateSpaceCreateMutex.RLock()
 	defer fake.validateSpaceCreateMutex.RUnlock()
 	return len(fake.validateSpaceCreateArgsForCall)
 }
 
-func (fake *PlacementValidator) ValidateSpaceCreateCalls(stub func(v1alpha1.CFSpace) error) {
+func (fake *NamespaceValidator) ValidateSpaceCreateCalls(stub func(v1alpha1.CFSpace) *webhooks.ValidationError) {
 	fake.validateSpaceCreateMutex.Lock()
 	defer fake.validateSpaceCreateMutex.Unlock()
 	fake.ValidateSpaceCreateStub = stub
 }
 
-func (fake *PlacementValidator) ValidateSpaceCreateArgsForCall(i int) v1alpha1.CFSpace {
+func (fake *NamespaceValidator) ValidateSpaceCreateArgsForCall(i int) v1alpha1.CFSpace {
 	fake.validateSpaceCreateMutex.RLock()
 	defer fake.validateSpaceCreateMutex.RUnlock()
 	argsForCall := fake.validateSpaceCreateArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *PlacementValidator) ValidateSpaceCreateReturns(result1 error) {
+func (fake *NamespaceValidator) ValidateSpaceCreateReturns(result1 *webhooks.ValidationError) {
 	fake.validateSpaceCreateMutex.Lock()
 	defer fake.validateSpaceCreateMutex.Unlock()
 	fake.ValidateSpaceCreateStub = nil
 	fake.validateSpaceCreateReturns = struct {
-		result1 error
+		result1 *webhooks.ValidationError
 	}{result1}
 }
 
-func (fake *PlacementValidator) ValidateSpaceCreateReturnsOnCall(i int, result1 error) {
+func (fake *NamespaceValidator) ValidateSpaceCreateReturnsOnCall(i int, result1 *webhooks.ValidationError) {
 	fake.validateSpaceCreateMutex.Lock()
 	defer fake.validateSpaceCreateMutex.Unlock()
 	fake.ValidateSpaceCreateStub = nil
 	if fake.validateSpaceCreateReturnsOnCall == nil {
 		fake.validateSpaceCreateReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 *webhooks.ValidationError
 		})
 	}
 	fake.validateSpaceCreateReturnsOnCall[i] = struct {
-		result1 error
+		result1 *webhooks.ValidationError
 	}{result1}
 }
 
-func (fake *PlacementValidator) Invocations() map[string][][]interface{} {
+func (fake *NamespaceValidator) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.validateOrgCreateMutex.RLock()
@@ -171,7 +171,7 @@ func (fake *PlacementValidator) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *PlacementValidator) recordInvocation(key string, args []interface{}) {
+func (fake *NamespaceValidator) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -183,4 +183,4 @@ func (fake *PlacementValidator) recordInvocation(key string, args []interface{})
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ workloads.PlacementValidator = new(PlacementValidator)
+var _ webhooks.NamespaceValidator = new(NamespaceValidator)
