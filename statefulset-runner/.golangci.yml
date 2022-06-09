@@ -1,0 +1,252 @@
+run:
+  # increase timeout for cases when tests run in parallel with linters
+  timeout: 20m
+  # which dirs to skip: they won't be analyzed;
+  skip-dirs:
+    - vendor
+    - pkg
+  modules-download-mode: vendor
+
+linters-settings:
+  govet:
+    # report about shadowed variables
+    check-shadowing: true
+  gocyclo:
+    # minimal code complexity to report
+    min-complexity: 10
+  lll:
+    line-length: 512
+
+linters:
+  disable-all: true
+
+  intentionally-disabled:
+  # Here is a list of linters we explicitly don't want to enable
+  # Used for doc and ci purposes. Ignored by golangci-lint
+  - name: durationcheck
+    desc: |
+      durationcheck complains about *any* multiplication of time.Durations, as
+      *some* might be incorrect. Unfortunately we do need to perform some of
+      those multiplications.
+
+  - name: errname
+    desc: |
+      error types should be [xX]xxError. error vars should be errXxx.
+      nah.
+
+  - name: exhaustivestruct [deprecated]
+    desc: |
+      exhaustivestruct is meant for special checking only. It verifies that all
+      fields are set in struct construction, and so is not useful for us
+
+  - name: exhaustruct
+    desc: |
+      see exhaustivestruct
+
+  - name: funlen
+    desc: |
+      funlen is annoying
+
+  - name: godot
+    desc: |
+      godot requires that top-level comments end with a dot. This is useful for
+      documentation purposes when documentation is generated automatically.
+      However, we do not document our code and therefore this linter has no
+      value for us.
+
+  - name: goerr113
+    desc: |
+      goerr113 requires to not use errors.New, instead it wants us to define
+      package-level errors and wrap them. This feels to be an overkill so we
+      are skipping it for now.
+
+  - name: gofumpt
+    desc: |
+      gofumpt also includes gofumports. These are a stricter version of gofmt
+      and goimports respectively. By enabling them we also wanted to include
+      them in our vim configurations to be run on save. Unfortunately this
+      makes vim.coc report errors very slowly, or not at all. If we decide to
+      enable them back we should also make sure that they work in our vim
+      configs.
+
+  - name: gomoddirectives
+    desc: |
+      gomoddirectives allows only some or outright bans all replace directives
+      in the go.mod files. Since importing kubernetes packages is a nighmare we
+      actually need the replace directive.
+
+  - name: interfacer [deprecated]
+    desc: |
+      interfacer is deprecated
+
+  - name: maligned [deprecated]
+    desc: |
+      maligned is deprecated
+
+  - name: noctx
+    desc: |
+      noctx requires using a context when constructing an http.Request.
+      However, as for the time being we are not passing contexts to our
+      functions, so just using `context.Background` to make the linter happy
+      does not really make sense
+
+  - name: paralleltest
+    desc: |
+      paralleltest seems to think all tests should be parallel. We'll let
+      ginkgo decide that.
+
+  - name: scopelint [deprecated]
+    desc: |
+      scopelint is deprecated
+
+  - name: tagliatelle
+    desc: |
+      complains about our json and yaml tags not being in camel case. Changing
+      these would be a massive pain
+
+  - name: unparam
+    desc: |
+      Didn't like it complaining about always using port 8080 in a function
+
+  - name: wrapcheck
+    desc: |
+      we don't believe in wrapping all errors, especially from our interfaces
+
+  - name: golint [deprecated]
+    desc: |
+      deprecated as of 1.41.0, replaced by revive
+
+  - name: tenv
+    desc: |
+      this linter would only make sense if we were using gotest
+
+  - name: varnamelen
+    desc: |
+      the linter is too agressive
+
+  - name: ireturn
+    desc: |
+      lots of k8s libraries return interfaces so wrapping them is annoyingly reported by this linter
+
+  - name: nolintlint
+    desc: |
+      nilerr is disabled while linters catch up with go-1.18, and then nolintlint complains about
+      where we've ignored nilerr. So turn it off for now. Can be re-enabled when nilerr is no
+      longer ignored for go-1.18
+
+  - name: execinquery
+    desc: |
+      we don't use SQL
+
+  - name: nonamedreturns
+    desc: |
+      we use named returns sometimes
+
+  - name: nosprintfhostport
+    desc: |
+      we do not construct urls in the production code
+
+  enable:
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - cyclop
+    - deadcode
+    - decorder
+    - depguard
+    - dogsled
+    - dupl
+    - errcheck
+    - errchkjson
+    - errorlint
+    - exhaustive
+    - exportloopref
+    - forbidigo
+    - forcetypeassert
+    - gci
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godox
+    - gofmt
+    - goheader
+    - goimports
+    - gomnd
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - grouper
+    - ifshort
+    - importas
+    - ineffassign
+    - lll
+    - makezero
+    - maintidx
+    - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - nlreturn
+    - prealloc
+    - predeclared
+    - promlinter
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - structcheck
+    - stylecheck
+    - testpackage
+    - thelper
+    - tparallel
+    - typecheck
+    - unconvert
+    - unused
+    - varcheck
+    - wastedassign
+    - whitespace
+    - wsl
+
+issues:
+  exclude:
+    - "exported (method|function|type|const|var) (.+) should have comment"
+    - "comment on exported (method|function|type|const|var) (.+) should be of the form"
+  exclude-rules:
+    - path: _test\.go
+      linters:
+      - goconst
+      - dupl
+      - gomnd
+      - gochecknoglobals
+      - gosec
+      - forcetypeassert
+    - path: _suite_test\.go
+      linters:
+      - gochecknoglobals
+    - path: tests/.*\.go
+      linters:
+      - gomnd
+      - funlen
+      - gosec
+      - golint
+      - stylecheck
+      - revive
+    - path: util/lager_logr.go
+      linters:
+      - ireturn
+  # Maximum issues count per one linter. Set to 0 to disable.
+  max-per-linter: 0
+
+  # Maximum count of issues with the same text. Set to 0 to disable
+  max-same: 0
+
+  # Show only new issues
+  new: false

@@ -1,0 +1,59 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: eirini-integration-tests
+  namespace: eirini-test
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      serviceAccountName: eirini-integration-tests
+      containers:
+      - name: tests
+        image: eirini/ci
+        env:
+        envFrom:
+        - secretRef:
+            name: test-secret
+        - configMapRef:
+            name: test-config
+        command:
+        - /bin/bash
+        - -c
+        - "/eirini/scripts/assets/kinda-run-tests/prepare_test_run.sh"
+        volumeMounts:
+        - name: eirini-code
+          mountPath: /eirini
+        - name: go-cache
+          mountPath: /root/.cache/go-build
+      restartPolicy: Never
+      volumes:
+      - name: eirini-code
+        hostPath:
+          path: /eirini
+          type: Directory
+      - name: go-cache
+        persistentVolumeClaim:
+          claimName: go-cache
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eirini-integration-tests
+  namespace: eirini-test
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: make-cluster-admin
+  namespace: eirini-test
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: eirini-integration-tests
+  namespace: eirini-test
+

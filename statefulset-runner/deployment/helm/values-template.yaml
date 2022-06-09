@@ -1,0 +1,42 @@
+controller:
+  # registry_secret_name is the name of the secret containing the docker
+  # credentials to pull LRP images
+  registry_secret_name: app-registry-credentials
+
+  # unsafe_allow_automount_service_account_token when set to true causes
+  # Kubernetes to mount the service account token in the LRP and task
+  # containers. This gives the code running there access to the Kubernetes
+  # API with the privileges of the application service account.
+  #
+  # This should generally be left as the default false unless there is a
+  # good reason and the implications are understood. It is required when
+  # running cf-for-k8s in a kind cluster, for example.
+  unsafe_allow_automount_service_account_token: false
+
+  # prometheus_port is the port used to expose Prometheus metrics. When set
+  # to 0, the metrics endpoint is disabled.
+  prometheus_port: 8080
+
+  tasks:
+    # ttl_seconds is the number of seconds Eirini will wait before deleting the
+    # Job associated to a completed Task.
+    ttl_seconds: 5
+
+workloads:
+    # default_namespace is the namespace used by Eirini to deploy LRPs that do
+    # not specify their own namespace in the request.
+    default_namespace: cf-workloads
+
+    namespaces: []
+    create_namespaces: false
+
+webhooks:
+  # the name of the secret containing the certificate of the controller webhooks
+  certs_secret_name: eirini-webhooks-certs
+
+  # the CA of the webhooks certificate
+  # if empty, cert-manager injects the certificate instead
+  #ca_bundle:
+
+images:
+    eirini_controller: eirini/eirini-controller

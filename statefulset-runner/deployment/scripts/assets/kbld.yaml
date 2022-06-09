@@ -1,0 +1,15 @@
+---
+apiVersion: kbld.k14s.io/v1alpha1
+kind: Config
+searchRules:
+- keyMatcher:
+    path: [images, eirini_controller]
+sources:
+- image: eirini/eirini-controller
+  path: .
+  kubectlBuildkit:
+    build:
+      file: docker/eirini-controller/Dockerfile
+      rawOptions: ["--build-arg", "GIT_SHA=eirini-controller-dirty"]
+destinations:
+- image: eirini/eirini-controller

@@ -1,0 +1,9 @@
+{{- if .Values.workloads.create_namespaces }}
+{{- range prepend (.Values.workloads.namespaces | default list) .Values.workloads.default_namespace }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ . }}
+{{- end }}
+{{- end }}

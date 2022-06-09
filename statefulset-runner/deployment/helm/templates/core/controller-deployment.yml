@@ -1,0 +1,52 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eirini-controller
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: eirini-controller
+  template:
+    metadata:
+      labels:
+        name: eirini-controller
+      annotations:
+        {{ if .Values.controller.prometheus_port }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.controller.prometheus_port }}"
+        {{ end }}
+    spec:
+      dnsPolicy: ClusterFirst
+      serviceAccountName: eirini-controller
+      securityContext:
+        runAsNonRoot: true
+      containers:
+      - name: eirini-controller
+        image: {{ .Values.images.eirini_controller }}
+        args: [ "--config", "/etc/eirini/config/controller.yml" ]
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8443
+          name: https
+        resources:
+          requests:
+            cpu: 15m
+            memory: 15Mi
+          limits:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+        - name: config-map
+          mountPath: /etc/eirini/config
+        - name: certs
+          mountPath: /etc/eirini/certs
+      volumes:
+        - name: config-map
+          configMap:
+            name: eirini-controller
+        - name: certs
+          secret:
+            secretName: {{ .Values.webhooks.certs_secret_name }}

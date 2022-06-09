@@ -1,0 +1,20 @@
+#@ load("@ytt:data", "data")
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:yaml", "yaml")
+
+#@ if data.values.enable_automount_service_account_token:
+#! Patch service accounts to enable automount
+#!   - Kind does not support setting it to false right now
+
+#@ def update_eirini_config():
+#@overlay/match missing_ok=True
+#@overlay/replace
+unsafe_allow_automount_service_account_token: true
+#@ end
+
+#@overlay/match by=overlay.subset({"kind": "ConfigMap","metadata":{"name":"controller"}})
+---
+data:
+  #@overlay/replace via=lambda a,_: yaml.encode(overlay.apply(yaml.decode(a), update_eirini_config()))
+  controller.yml:
+#@ end

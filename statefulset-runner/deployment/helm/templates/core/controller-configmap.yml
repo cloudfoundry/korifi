@@ -1,0 +1,43 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eirini-controller
+  namespace: {{ .Release.Namespace }}
+data:
+  controller.yml: |
+    # application_service_account is name of the service account used by
+    # running LRPs and tasks. It must match the service account name in
+    # workloads/app-rbac.yml
+    application_service_account: eirini
+
+    # registry_secret_name is the name of the secret containing the docker
+    # credentials to pull LRP images
+    registry_secret_name: {{ .Values.controller.registry_secret_name }}
+
+    # allow_run_image_as_root will allow containers to run as root when set
+    # to true.  As kubernetes does not use user namespaces, this will be the
+    # same root user as on the kubernetes node, and so is a security concern.
+    # It should be generally left as false.
+    allow_run_image_as_root: false
+
+    # unsafe_allow_automount_service_account_token when set to true causes
+    # Kubernetes to mount the service account token in the LRP and task
+    # containers. This gives the code running there access to the Kubernetes
+    # API with the privileges of the application service account.
+    #
+    # This should generally be left as the default false unless there is a
+    # good reason and the implications are understood. It is required when
+    # running cf-for-k8s in a kind cluster, for example.
+    unsafe_allow_automount_service_account_token: {{ .Values.controller.unsafe_allow_automount_service_account_token }}
+
+    # prometheus_port is the port used to expose Prometheus metrics. When set
+    # to 0, the metrics endpoint is disabled.
+    prometheus_port: {{ .Values.controller.prometheus_port }}
+
+    # task_ttl_seconds is the number of seconds Eirini will wait before
+    # deleting the Job associated to a completed Task.
+    task_ttl_seconds: {{ .Values.controller.tasks.ttl_seconds }}
+
+    # webhook_port is the port at which webhooks will serve traffic
+    webhook_port: 8443

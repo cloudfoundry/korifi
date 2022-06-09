@@ -1,0 +1,80 @@
+{{- $releaseNamespace := .Release.Namespace }}
+{{- range prepend (.Values.workloads.namespaces | default list) .Values.workloads.default_namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eirini-controller-namespaced-role
+  namespace: {{ . }}
+rules:
+- apiGroups:
+  - eirini.cloudfoundry.org
+  resources:
+  - lrps/status
+  verbs:
+  - patch
+- apiGroups:
+  - eirini.cloudfoundry.org
+  resources:
+  - tasks/status
+  verbs:
+  - patch
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - deletecollection
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - create
+  - deletecollection
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - update
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eirini-controller-namespaced-rolebinding
+  namespace: {{ . }}
+roleRef:
+  kind: Role
+  name: eirini-controller-namespaced-role
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: eirini-controller
+  namespace: {{ $releaseNamespace }}
+{{- end }}

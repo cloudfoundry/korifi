@@ -1,0 +1,3 @@
+W0608 22:54:16.077389       1 client_config.go:617] Neither --kubeconfig nor --master was specified.  Using the inClusterConfig.  This might not work.
+{"timestamp":"2022-06-08T22:54:16.390336548Z","level":"info","source":"eirini-controller","message":"eirini-controller.Starting server","data":{"addr":{"IP":"::","Port":8080,"Zone":""},"kind":"metrics","path":"/metrics"}}
+I0608 22:54:16.491126       1 leaderelection.go:248] attempting to acquire leader lease eirini-controller/eirini-controller-leader...

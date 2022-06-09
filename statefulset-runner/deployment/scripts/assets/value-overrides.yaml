@@ -1,0 +1,3 @@
+workloads:
+    default_namespace: eirini-controller-workloads
+    create_namespaces: true

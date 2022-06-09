@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: eirini-integration-tests
+spec:
+  serviceAccountName: test-pod
+  containers:
+  - command:
+    - /bin/bash
+    - -c
+    - /eirini-code/eirini/scripts/run_integration_tests.sh
+    image: eirini/ci
+    name: tests
+    volumeMounts:
+    - mountPath: /eirini-code
+      name: eirini-code
+  initContainers:
+  - command:
+    - /bin/bash
+    - -c
+    - |
+
+        time (
+        while ! [ -f /eirini-code/tests-can-start ];do
+            echo 'eirini code is missing'
+            sleep 0.5
+        done
+        )
+    image: eirini/ci
+    name: wait-for-code
+    volumeMounts:
+    - mountPath: /eirini-code
+      name: eirini-code
+  restartPolicy: Never
+  volumes:
+  - emptyDir: {}
+    name: eirini-code
