@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Service Instances", func() {
@@ -36,7 +35,7 @@ var _ = Describe("Service Instances", func() {
 
 			BeforeEach(func() {
 				instanceName = generateGUID("service-instance")
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			JustBeforeEach(func() {
@@ -108,7 +107,7 @@ var _ = Describe("Service Instances", func() {
 
 		When("the user has permissions to delete service instances", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("succeeds", func() {
@@ -128,7 +127,7 @@ var _ = Describe("Service Instances", func() {
 
 		When("the user has read only permissions over service instances", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_manager", certUserName, spaceGUID)
 			})
 
 			It("fails with 403 Forbidden", func() {

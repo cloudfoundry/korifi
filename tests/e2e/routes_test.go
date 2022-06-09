@@ -11,7 +11,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Routes", func() {
@@ -49,7 +48,7 @@ var _ = Describe("Routes", func() {
 		)
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			createSpaceRole("space_developer", certUserName, spaceGUID)
 			routeGUID = createRoute(host, path, spaceGUID, domainGUID)
 		})
 
@@ -124,7 +123,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is authorized within one space, but not another", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("returns the list of routes in only the authorized spaces", func() {
@@ -192,7 +191,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is a space manager", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_manager", certUserName, spaceGUID)
 			})
 
 			It("returns an forbidden error", func() {
@@ -203,7 +202,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("can create a route", func() {
@@ -277,7 +276,7 @@ var _ = Describe("Routes", func() {
 		)
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			createSpaceRole("space_developer", certUserName, spaceGUID)
 			routeGUID = createRoute(host, path, spaceGUID, domainGUID)
 		})
 
@@ -335,7 +334,7 @@ var _ = Describe("Routes", func() {
 		When("the user is a space developer in the space", func() {
 			BeforeEach(func() {
 				appGUID = pushTestApp(spaceGUID, defaultAppBitsFile)
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("returns success and routes the host to the app", func() {
@@ -378,7 +377,7 @@ var _ = Describe("Routes", func() {
 		When("the user is a space manager in the space", func() {
 			BeforeEach(func() {
 				appGUID = createApp(spaceGUID, generateGUID("app"))
-				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_manager", certUserName, spaceGUID)
 			})
 
 			It("returns a forbidden response", func() {
@@ -425,7 +424,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is a space developer in the space", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("returns the destinations", func() {
@@ -474,7 +473,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is a space developer in the space", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("succeeds with 204 No Content", func() {
@@ -484,7 +483,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is a space manager in the space", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_manager", certUserName, spaceGUID)
 			})
 
 			It("fails with 403 Forbidden", func() {

@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	rbacv1 "k8s.io/api/rbac/v1"
 
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 )
@@ -121,9 +120,9 @@ var _ = Describe("Orgs", func() {
 			Expect(errChan).ToNot(Receive(&err), func() string { return fmt.Sprintf("unexpected error occurred while creating orgs: %v", err) })
 			close(errChan)
 
-			createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org1GUID)
-			createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org2GUID)
-			createOrgRole("organization_manager", rbacv1.UserKind, certUserName, org3GUID)
+			createOrgRole("organization_manager", certUserName, org1GUID)
+			createOrgRole("organization_manager", certUserName, org2GUID)
+			createOrgRole("organization_manager", certUserName, org3GUID)
 		})
 
 		AfterEach(func() {
@@ -188,7 +187,7 @@ var _ = Describe("Orgs", func() {
 		When("The client has a certificate with a long expiry date", func() {
 			BeforeEach(func() {
 				restyClient = longCertClient
-				createOrgRole("organization_manager", rbacv1.UserKind, longCertUserName, org3GUID)
+				createOrgRole("organization_manager", longCertUserName, org3GUID)
 			})
 			It("returns orgs that the client has a role in and sets an HTTP warning header", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
@@ -285,7 +284,7 @@ var _ = Describe("Orgs", func() {
 
 		BeforeEach(func() {
 			orgGUID = createOrg(generateGUID("org"))
-			createOrgRole("organization_user", rbacv1.UserKind, certUserName, orgGUID)
+			createOrgRole("organization_user", certUserName, orgGUID)
 			domainName = mustHaveEnv("APP_FQDN")
 		})
 

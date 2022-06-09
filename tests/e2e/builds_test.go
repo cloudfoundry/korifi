@@ -6,7 +6,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Builds", func() {
@@ -20,7 +19,7 @@ var _ = Describe("Builds", func() {
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
-		createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+		createSpaceRole("space_developer", certUserName, spaceGUID)
 		appGUID = createApp(spaceGUID, generateGUID("app"))
 		pkgGUID = createPackage(appGUID)
 	})

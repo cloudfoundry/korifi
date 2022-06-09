@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"gopkg.in/yaml.v3"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Spaces", func() {
@@ -167,16 +166,16 @@ var _ = Describe("Spaces", func() {
 			Expect(spaceErrChan).ToNot(Receive(&err), func() string { return fmt.Sprintf("unexpected error occurred while creating spaces: %v", err) })
 			close(spaceErrChan)
 
-			createOrgRole("organization_user", rbacv1.UserKind, certUserName, org1GUID)
-			createOrgRole("organization_user", rbacv1.UserKind, certUserName, org2GUID)
-			createOrgRole("organization_user", rbacv1.UserKind, certUserName, org3GUID)
+			createOrgRole("organization_user", certUserName, org1GUID)
+			createOrgRole("organization_user", certUserName, org2GUID)
+			createOrgRole("organization_user", certUserName, org3GUID)
 
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space12GUID)
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space11GUID)
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space21GUID)
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space22GUID)
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space31GUID)
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space32GUID)
+			createSpaceRole("space_developer", certUserName, space12GUID)
+			createSpaceRole("space_developer", certUserName, space11GUID)
+			createSpaceRole("space_developer", certUserName, space21GUID)
+			createSpaceRole("space_developer", certUserName, space22GUID)
+			createSpaceRole("space_developer", certUserName, space31GUID)
+			createSpaceRole("space_developer", certUserName, space32GUID)
 		})
 
 		AfterEach(func() {
@@ -347,7 +346,7 @@ var _ = Describe("Spaces", func() {
 
 			When("the user has space developer role in the space", func() {
 				BeforeEach(func() {
-					createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+					createSpaceRole("space_developer", certUserName, spaceGUID)
 				})
 
 				It("succeeds with a job redirect", func() {
@@ -388,7 +387,7 @@ var _ = Describe("Spaces", func() {
 
 			When("the user has space manager role in the space", func() {
 				BeforeEach(func() {
-					createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+					createSpaceRole("space_manager", certUserName, spaceGUID)
 				})
 
 				It("returns 403", func() {
@@ -445,7 +444,7 @@ var _ = Describe("Spaces", func() {
 
 		When("the user has space-developer permissions in the space", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("returns the diff response JSON", func() {
