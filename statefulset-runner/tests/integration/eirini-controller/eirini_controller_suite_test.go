@@ -1,18 +1,26 @@
 package eirini_controller_test
 
 import (
-	"encoding/json"
-	"os"
+	"context"
+	"path/filepath"
 	"testing"
-	"time"
 
-	eirinictrl "code.cloudfoundry.org/korifi/statefulset-runner"
-	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
-	"code.cloudfoundry.org/korifi/statefulset-runner/tests/integration"
+	"code.cloudfoundry.org/lager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	eirinictrl "code.cloudfoundry.org/korifi/statefulset-runner"
+	"code.cloudfoundry.org/korifi/statefulset-runner/cmd/wiring"
+	eirinischeme "code.cloudfoundry.org/korifi/statefulset-runner/pkg/generated/clientset/versioned/scheme"
+	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
+	"code.cloudfoundry.org/korifi/statefulset-runner/tests/integration"
 )
 
 func TestEiriniController(t *testing.T) {
@@ -21,34 +29,69 @@ func TestEiriniController(t *testing.T) {
 }
 
 var (
-	eiriniBins     integration.EiriniBinaries
-	fixture        *tests.Fixture
-	configFilePath string
-	session        *gexec.Session
-	config         *eirinictrl.ControllerConfig
+	config  *eirinictrl.ControllerConfig
+	fixture *tests.Fixture
+	cancel  context.CancelFunc
+	testEnv *envtest.Environment
 )
 
-var _ = SynchronizedBeforeSuite(func() []byte {
-	eiriniBins = integration.NewEiriniBinaries()
-	eiriniBins.EiriniController.Build()
+var _ = BeforeSuite(func() {
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	data, err := json.Marshal(eiriniBins)
+	ctx, cancelFunc := context.WithCancel(context.TODO())
+	cancel = cancelFunc
+
+	testEnv = &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "deployment", "helm", "templates", "core", "lrp-crd.yml"),
+			filepath.Join("..", "..", "..", "deployment", "helm", "templates", "core", "task-crd.yml"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+
+	cfg, err := testEnv.Start()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
+
+	Expect(eirinischeme.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
+
+	fixture = tests.NewFixture(cfg, GinkgoWriter)
+	//fixture.SetUp()
+
+	// start webhook server using Manager
+	webhookInstallOptions := &testEnv.WebhookInstallOptions
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:             scheme.Scheme,
+		Host:               webhookInstallOptions.LocalServingHost,
+		Port:               webhookInstallOptions.LocalServingPort,
+		CertDir:            webhookInstallOptions.LocalServingCertDir,
+		LeaderElection:     false,
+		MetricsBindAddress: "0",
+	})
 	Expect(err).NotTo(HaveOccurred())
 
-	return data
-}, func(data []byte) {
-	err := json.Unmarshal(data, &eiriniBins)
-	Expect(err).NotTo(HaveOccurred())
+	lagerLogger := lager.NewLogger("eirini-controller")
+	lagerLogger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.INFO))
 
-	fixture = tests.NewFixture(GinkgoWriter)
+	config = integration.DefaultControllerConfig(fixture.Namespace)
 
-	SetDefaultEventuallyTimeout(30 * time.Second)
+	Expect(wiring.LRPReconciler(lagerLogger, mgr, *config)).To(Succeed())
+	Expect(wiring.TaskReconciler(lagerLogger, mgr, *config)).To(Succeed())
+
+	go func() {
+		defer GinkgoRecover()
+		err = mgr.Start(ctx)
+		if err != nil {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}()
 })
 
-var _ = SynchronizedAfterSuite(func() {
+var _ = AfterSuite(func() {
 	fixture.Destroy()
-}, func() {
-	eiriniBins.TearDown()
+	cancel() // call the cancel function to stop the controller context
+	Expect(testEnv.Stop()).To(Succeed())
 })
 
 var _ = BeforeEach(func() {
@@ -56,13 +99,6 @@ var _ = BeforeEach(func() {
 	config = integration.DefaultControllerConfig(fixture.Namespace)
 })
 
-var _ = JustBeforeEach(func() {
-	session, configFilePath = eiriniBins.EiriniController.Run(config)
-})
-
 var _ = AfterEach(func() {
-	Expect(os.Remove(configFilePath)).To(Succeed())
-	session.Kill()
-
 	fixture.TearDown()
 })

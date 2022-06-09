@@ -4,19 +4,27 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"net/http"
-	"os"
+	"net"
+	"path/filepath"
 	"testing"
+	"time"
 
-	eirinictrl "code.cloudfoundry.org/korifi/statefulset-runner"
-	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
-	"code.cloudfoundry.org/korifi/statefulset-runner/tests/integration"
+	"code.cloudfoundry.org/lager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	arv1 "k8s.io/api/admissionregistration/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	eirinictrl "code.cloudfoundry.org/korifi/statefulset-runner"
+	"code.cloudfoundry.org/korifi/statefulset-runner/cmd/wiring"
+	eirinischeme "code.cloudfoundry.org/korifi/statefulset-runner/pkg/generated/clientset/versioned/scheme"
+	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
+	"code.cloudfoundry.org/korifi/statefulset-runner/tests/integration"
 )
 
 func TestInstanceIndexInjector(t *testing.T) {
@@ -31,97 +39,76 @@ var (
 	configFilePath string
 	hookSession    *gexec.Session
 	fingerprint    string
+	cancel         context.CancelFunc
+	testEnv        *envtest.Environment
 )
 
-var _ = SynchronizedBeforeSuite(func() []byte {
-	fixture = tests.NewFixture(GinkgoWriter)
+var _ = BeforeSuite(func() {
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	ctx, cancelFunc := context.WithCancel(context.TODO())
+	cancel = cancelFunc
+
+	testEnv = &envtest.Environment{
+		ErrorIfCRDPathMissing: true,
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{filepath.Join("..", "..", "..", "deployment", "helm", "templates", "core", "instance-index-env-injector-webhook.yml")},
+		},
+	}
+
+	cfg, err := testEnv.Start()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
+
+	scheme := runtime.NewScheme()
+	Expect(eirinischeme.AddToScheme(scheme)).To(Succeed())
+
+	fixture = tests.NewFixture(cfg, GinkgoWriter)
 	fixture.SetUp()
 
-	port := int32(tests.GetTelepresencePort())
-	telepresenceService := tests.GetTelepresenceServiceName()
-	telepresenceDomain := fmt.Sprintf("%s.default.svc", telepresenceService)
-	fingerprint = "instance-id-" + tests.GenerateGUID()[:8]
-
-	eiriniBins = integration.NewEiriniBinaries()
-	eiriniBins.EiriniController.Build()
-
-	sideEffects := arv1.SideEffectClassNone
-	scope := arv1.NamespacedScope
-
-	_, err := fixture.Clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.Background(),
-		&arv1.MutatingWebhookConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: fingerprint + "-mutating-hook",
-			},
-			Webhooks: []arv1.MutatingWebhook{
-				{
-					Name: fingerprint + "-mutating-webhook.cloudfoundry.org",
-					ClientConfig: arv1.WebhookClientConfig{
-						Service: &arv1.ServiceReference{
-							Namespace: "default",
-							Name:      telepresenceService,
-							Port:      &port,
-						},
-						CABundle: eiriniBins.CABundle,
-					},
-					SideEffects:             &sideEffects,
-					AdmissionReviewVersions: []string{"v1beta1"},
-					Rules: []arv1.RuleWithOperations{
-						{
-							Operations: []arv1.OperationType{arv1.Create},
-							Rule: arv1.Rule{
-								APIGroups:   []string{""},
-								APIVersions: []string{"v1"},
-								Resources:   []string{"pods"},
-								Scope:       &scope,
-							},
-						},
-					},
-				},
-			},
-		}, metav1.CreateOptions{})
+	// start webhook server using Manager
+	webhookInstallOptions := &testEnv.WebhookInstallOptions
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:             scheme,
+		Host:               webhookInstallOptions.LocalServingHost,
+		Port:               webhookInstallOptions.LocalServingPort,
+		CertDir:            webhookInstallOptions.LocalServingCertDir,
+		LeaderElection:     false,
+		MetricsBindAddress: "0",
+	})
 	Expect(err).NotTo(HaveOccurred())
 
-	config = integration.DefaultControllerConfig(fixture.Namespace)
-	config.WebhookPort = port
+	lagerLogger := lager.NewLogger("instance-index-env-injector")
+	lagerLogger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.INFO))
 
-	hookSession, configFilePath = eiriniBins.EiriniController.Run(config)
+	eiriniConfig := integration.DefaultControllerConfig(fixture.Namespace)
+	wiring.InstanceIndexEnvInjector(lagerLogger, mgr, *eiriniConfig)
 
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: tr}
-	Eventually(func() error {
-		resp, err := client.Get(fmt.Sprintf("https://%s:%d/", telepresenceDomain, port))
+	go func() {
+		defer GinkgoRecover()
+		err = mgr.Start(ctx)
 		if err != nil {
-			fmt.Fprintf(GinkgoWriter, "failed to call telepresence: %s", err.Error())
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}()
 
+	// wait for the webhook server to get ready
+	dialer := &net.Dialer{Timeout: time.Second}
+	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
+	Eventually(func() error {
+		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
+		if err != nil {
 			return err
 		}
-		resp.Body.Close()
-
+		conn.Close()
 		return nil
-	}, "2m", "500ms").Should(Succeed())
-
-	return []byte{}
-}, func(data []byte) {
-	fixture = tests.NewFixture(GinkgoWriter)
+	}).Should(Succeed())
 })
 
-var _ = SynchronizedAfterSuite(func() {
+var _ = AfterSuite(func() {
 	fixture.Destroy()
-}, func() {
-	if configFilePath != "" {
-		Expect(os.Remove(configFilePath)).To(Succeed())
-	}
-	if hookSession != nil {
-		Eventually(hookSession.Kill()).Should(gexec.Exit())
-	}
-	err := fixture.Clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), fingerprint+"-mutating-hook", metav1.DeleteOptions{})
-	Expect(err).NotTo(HaveOccurred())
-
-	eiriniBins.TearDown()
-	fixture.Destroy()
+	cancel() // call the cancel function to stop the controller context
+	Expect(testEnv.Stop()).To(Succeed())
 })
 
 var _ = BeforeEach(func() {

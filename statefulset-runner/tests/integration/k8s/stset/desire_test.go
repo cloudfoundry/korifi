@@ -3,9 +3,6 @@ package stset_test
 import (
 	"context"
 
-	"code.cloudfoundry.org/korifi/statefulset-runner/k8s/stset"
-	eiriniv1 "code.cloudfoundry.org/korifi/statefulset-runner/pkg/apis/eirini/v1"
-	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -13,6 +10,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"code.cloudfoundry.org/korifi/statefulset-runner/k8s/stset"
+	eiriniv1 "code.cloudfoundry.org/korifi/statefulset-runner/pkg/apis/eirini/v1"
+	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
 )
 
 var _ = Describe("Desire", func() {
@@ -57,28 +58,28 @@ var _ = Describe("Desire", func() {
 		Expect(statefulset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(corev1.EnvVar{Name: "FOO", Value: "BAR"}))
 	})
 
-	It("should create all associated pods", func() {
-		var podNames []string
-
-		Eventually(func() []string {
-			podNames = podNamesFromPods(listPods(lrp))
-
-			return podNames
-		}).Should(HaveLen(lrp.Spec.Instances))
-
-		for i := 0; i < lrp.Spec.Instances; i++ {
-			podIndex := i
-			Expect(podNames[podIndex]).To(ContainSubstring("odin-space-foo"))
-
-			Eventually(func() string {
-				return getPodPhase(podIndex, lrp)
-			}).Should(Equal("Ready"))
-		}
-
-		Eventually(func() int32 {
-			return getStatefulSetForLRP(lrp).Status.ReadyReplicas
-		}).Should(Equal(int32(2)))
-	})
+	//It("should create all associated pods", func() {
+	//	var podNames []string
+	//
+	//	Eventually(func() []string {
+	//		podNames = podNamesFromPods(listPods(lrp))
+	//
+	//		return podNames
+	//	}).Should(HaveLen(lrp.Spec.Instances))
+	//
+	//	for i := 0; i < lrp.Spec.Instances; i++ {
+	//		podIndex := i
+	//		Expect(podNames[podIndex]).To(ContainSubstring("odin-space-foo"))
+	//
+	//		Eventually(func() string {
+	//			return getPodPhase(podIndex, lrp)
+	//		}).Should(Equal("Ready"))
+	//	}
+	//
+	//	Eventually(func() int32 {
+	//		return getStatefulSetForLRP(lrp).Status.ReadyReplicas
+	//	}).Should(Equal(int32(2)))
+	//})
 
 	It("should create a pod disruption budget for the lrp", func() {
 		statefulset := getStatefulSetForLRP(lrp)
@@ -126,29 +127,29 @@ var _ = Describe("Desire", func() {
 		})
 	})
 
-	When("the app has more than one instances", func() {
-		BeforeEach(func() {
-			lrp.Spec.Instances = 2
-		})
-
-		It("should schedule app pods on different nodes", func() {
-			if getNodeCount() == 1 {
-				Skip("target cluster has only one node")
-			}
-
-			Eventually(func() []corev1.Pod {
-				return listPods(lrp)
-			}).Should(HaveLen(2))
-
-			var nodeNames []string
-			Eventually(func() []string {
-				nodeNames = nodeNamesFromPods(listPods(lrp))
-
-				return nodeNames
-			}).Should(HaveLen(2))
-			Expect(nodeNames[0]).ToNot(Equal(nodeNames[1]))
-		})
-	})
+	//When("the app has more than one instances", func() {
+	//	BeforeEach(func() {
+	//		lrp.Spec.Instances = 2
+	//	})
+	//
+	//	It("should schedule app pods on different nodes", func() {
+	//		if getNodeCount() == 1 {
+	//			Skip("target cluster has only one node")
+	//		}
+	//
+	//		Eventually(func() []corev1.Pod {
+	//			return listPods(lrp)
+	//		}).Should(HaveLen(2))
+	//
+	//		var nodeNames []string
+	//		Eventually(func() []string {
+	//			nodeNames = nodeNamesFromPods(listPods(lrp))
+	//
+	//			return nodeNames
+	//		}).Should(HaveLen(2))
+	//		Expect(nodeNames[0]).ToNot(Equal(nodeNames[1]))
+	//	})
+	//})
 
 	When("private docker registry credentials are provided", func() {
 		BeforeEach(func() {
@@ -170,18 +171,18 @@ var _ = Describe("Desire", func() {
 			Expect(secret).NotTo(BeNil())
 		})
 
-		It("sets the ImagePullSecret correctly in the pod template", func() {
-			Eventually(func() []corev1.Pod {
-				return listPods(lrp)
-			}).Should(HaveLen(lrp.Spec.Instances))
-
-			for i := 0; i < lrp.Spec.Instances; i++ {
-				podIndex := i
-				Eventually(func() string {
-					return getPodPhase(podIndex, lrp)
-				}).Should(Equal("Ready"))
-			}
-		})
+		//It("sets the ImagePullSecret correctly in the pod template", func() {
+		//	Eventually(func() []corev1.Pod {
+		//		return listPods(lrp)
+		//	}).Should(HaveLen(lrp.Spec.Instances))
+		//
+		//	for i := 0; i < lrp.Spec.Instances; i++ {
+		//		podIndex := i
+		//		Eventually(func() string {
+		//			return getPodPhase(podIndex, lrp)
+		//		}).Should(Equal("Ready"))
+		//	}
+		//})
 	})
 
 	When("we create the same StatefulSet again", func() {
@@ -191,37 +192,37 @@ var _ = Describe("Desire", func() {
 		})
 	})
 
-	When("using a docker image that needs root access", func() {
-		BeforeEach(func() {
-			allowRunImageAsRoot = true
-
-			lrp.Spec.Image = "eirini/nginx-integration"
-			lrp.Spec.Command = nil
-			lrp.Spec.Health.Type = "http"
-			lrp.Spec.Health.Port = 8080
-		})
-
-		It("should start all the pods", func() {
-			var podNames []string
-
-			Eventually(func() []string {
-				podNames = podNamesFromPods(listPods(lrp))
-
-				return podNames
-			}).Should(HaveLen(lrp.Spec.Instances))
-
-			for i := 0; i < lrp.Spec.Instances; i++ {
-				podIndex := i
-				Eventually(func() string {
-					return getPodPhase(podIndex, lrp)
-				}).Should(Equal("Ready"))
-			}
-
-			Eventually(func() int32 {
-				return getStatefulSetForLRP(lrp).Status.ReadyReplicas
-			}).Should(BeNumerically("==", lrp.Spec.Instances))
-		})
-	})
+	//When("using a docker image that needs root access", func() {
+	//	BeforeEach(func() {
+	//		allowRunImageAsRoot = true
+	//
+	//		lrp.Spec.Image = "eirini/nginx-integration"
+	//		lrp.Spec.Command = nil
+	//		lrp.Spec.Health.Type = "http"
+	//		lrp.Spec.Health.Port = 8080
+	//	})
+	//
+	//	It("should start all the pods", func() {
+	//		var podNames []string
+	//
+	//		Eventually(func() []string {
+	//			podNames = podNamesFromPods(listPods(lrp))
+	//
+	//			return podNames
+	//		}).Should(HaveLen(lrp.Spec.Instances))
+	//
+	//		for i := 0; i < lrp.Spec.Instances; i++ {
+	//			podIndex := i
+	//			Eventually(func() string {
+	//				return getPodPhase(podIndex, lrp)
+	//			}).Should(Equal("Ready"))
+	//		}
+	//
+	//		Eventually(func() int32 {
+	//			return getStatefulSetForLRP(lrp).Status.ReadyReplicas
+	//		}).Should(BeNumerically("==", lrp.Spec.Instances))
+	//	})
+	//})
 
 	When("the LRP has 0 target instances", func() {
 		BeforeEach(func() {

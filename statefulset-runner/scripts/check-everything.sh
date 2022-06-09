@@ -24,10 +24,8 @@ ensure_kind_cluster() {
     cat <<EOF >>"$kindConfig"
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-networking:
-  apiServerAddress: 172.17.0.1
 EOF
-    flock -x "$clusterLock" kind create cluster --name "$cluster_name" --config "$kindConfig" --wait 5m
+    kind create cluster --name "$cluster_name" --config "$kindConfig" --wait 5m
     rm -f "$kindConfig"
     if [[ -n "$current_cluster" ]]; then
       KUBECONFIG="$HOME/.kube/config" kind export kubeconfig --name "$cluster_name"
@@ -46,49 +44,12 @@ run_unit_tests() {
 }
 
 run_integration_tests() {
-  local cluster_name="integration-tests"
-  export KUBECONFIG="$HOME/.kube/$cluster_name.yml"
-  ensure_kind_cluster "$cluster_name"
-
   echo "#########################################"
-  echo "Running integration tests on $(kubectl config current-context)"
+  echo "Running integration tests"
   echo "#########################################"
   echo
 
-  local service_name
-  service_name=telepresence-$(uuidgen)
-
-  local src_dir
-  src_dir=$(mktemp -d)
-  cp -a "$EIRINI_CONTROLLER_DIR" "$src_dir"
-  cp "$KUBECONFIG" "$src_dir"
-  trap "rm -rf $src_dir" EXIT
-
-  kubectl apply -f "$EIRINI_CONTROLLER_DIR/deployment/helm/templates/core/lrp-crd.yml"
-  kubectl apply -f "$EIRINI_CONTROLLER_DIR/deployment/helm/templates/core/task-crd.yml"
-
-  telepresence \
-    --method container \
-    --new-deployment "$service_name" \
-    --expose 10000 \
-    --expose 10001 \
-    --expose 10002 \
-    --expose 10003 \
-    --expose 10004 \
-    --expose 10005 \
-    --expose 10006 \
-    --expose 10007 \
-    --docker-run \
-    --rm \
-    -v "$src_dir":/usr/src/app \
-    -v "$HOME"/.cache:/root/.cache \
-    -e INTEGRATION_KUBECONFIG="/usr/src/app/$(basename $KUBECONFIG)" \
-    -e EIRINIUSER_PASSWORD="$EIRINIUSER_PASSWORD" \
-    -e TELEPRESENCE_EXPOSE_PORT_START=10000 \
-    -e TELEPRESENCE_SERVICE_NAME="$service_name" \
-    -e NODES=8 \
-    eirini/ci \
-    /usr/src/app/scripts/run_integration_tests.sh "$@"
+  "${EIRINI_CONTROLLER_DIR}/scripts/run_integration_tests.sh"
 }
 
 run_eats() {
@@ -123,19 +84,16 @@ EOF
   cp "$KUBECONFIG" "$src_dir"
   trap "rm -rf $src_dir" EXIT
 
-  telepresence \
-    --method container \
-    --new-deployment "$service_name" \
-    --docker-run \
-    --rm \
-    -v "$src_dir":/usr/src/app \
-    -v "$HOME"/.cache:/root/.cache \
-    -e EIRINI_SYSTEM_NS=eirini-controller \
-    -e EIRINI_WORKLOADS_NS=eirini-controller-workloads \
-    -e EIRINIUSER_PASSWORD="$EIRINIUSER_PASSWORD" \
-    -e INTEGRATION_KUBECONFIG="/usr/src/app/$(basename $KUBECONFIG)" \
-    eirini/ci \
-    /usr/src/app/scripts/run_eats_tests.sh "$@"
+  export EIRINI_ADDRESS EIRINI_TLS_SECRET EIRINI_SYSTEM_NS EIRINI_WORKLOADS_NS INTEGRATION_KUBECONFIG TELEPRESENCE_SERVICE_NAME
+  EIRINI_TLS_SECRET="eirini-webhook-certs"
+  EIRINI_SYSTEM_NS="eirini-controller"
+  EIRINI_WORKLOADS_NS="eirini-controller-workloads"
+  INTEGRATION_KUBECONFIG="${src_dir}/$(basename "$KUBECONFIG")"
+  TELEPRESENCE_EXPOSE_PORT_START=${service_name}
+
+  KUBECONFIG="${INTEGRATION_KUBECONFIG}" telepresence --new-deployment "$service_name" \
+    --method vpn-tcp \
+    --run "${src_dir}/scripts/run_eats_tests.sh"
 }
 
 redeploy_prometheus() {

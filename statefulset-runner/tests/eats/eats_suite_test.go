@@ -4,12 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
 )
 
 func TestEats(t *testing.T) {
@@ -26,7 +27,7 @@ var _ = SynchronizedBeforeSuite(
 	},
 
 	func(_ []byte) {
-		baseFixture := tests.NewFixture(GinkgoWriter)
+		baseFixture := tests.NewFixture(nil, GinkgoWriter)
 		config, err := clientcmd.BuildConfigFromFlags("", baseFixture.KubeConfigPath)
 		Expect(err).NotTo(HaveOccurred(), "failed to build config from flags")
 

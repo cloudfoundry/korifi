@@ -4,19 +4,27 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"net/http"
-	"os"
+	"net"
+	"path/filepath"
 	"testing"
+	"time"
 
-	eirinictrl "code.cloudfoundry.org/korifi/statefulset-runner"
-	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
-	"code.cloudfoundry.org/korifi/statefulset-runner/tests/integration"
+	"code.cloudfoundry.org/lager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	arv1 "k8s.io/api/admissionregistration/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	eirinictrl "code.cloudfoundry.org/korifi/statefulset-runner"
+	"code.cloudfoundry.org/korifi/statefulset-runner/cmd/wiring"
+	eirinischeme "code.cloudfoundry.org/korifi/statefulset-runner/pkg/generated/clientset/versioned/scheme"
+	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
+	"code.cloudfoundry.org/korifi/statefulset-runner/tests/integration"
 )
 
 func TestResourceValidator(t *testing.T) {
@@ -31,103 +39,79 @@ var (
 	configFilePath string
 	fingerprint    string
 	hookSession    *gexec.Session
+	cancel         context.CancelFunc
+	testEnv        *envtest.Environment
 )
 
-var _ = SynchronizedBeforeSuite(func() []byte {
-	fixture = tests.NewFixture(GinkgoWriter)
+var _ = BeforeSuite(func() {
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	ctx, cancelFunc := context.WithCancel(context.TODO())
+	cancel = cancelFunc
+
+	testEnv = &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "deployment", "helm", "templates", "core", "lrp-crd.yml"),
+		},
+		ErrorIfCRDPathMissing: true,
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{filepath.Join("..", "..", "..", "deployment", "helm", "templates", "core", "resource-validator-webhook.yml")},
+		},
+	}
+
+	cfg, err := testEnv.Start()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
+
+	scheme := runtime.NewScheme()
+	Expect(eirinischeme.AddToScheme(scheme)).To(Succeed())
+
+	fixture = tests.NewFixture(cfg, GinkgoWriter)
 	fixture.SetUp()
 
-	port := int32(tests.GetTelepresencePort())
-	lrpsPath := "/lrps"
-	telepresenceService := tests.GetTelepresenceServiceName()
-	telepresenceDomain := fmt.Sprintf("%s.default.svc", telepresenceService)
-	fingerprint = "lrp-" + tests.GenerateGUID()[:8]
-
-	eiriniBins = integration.NewEiriniBinaries()
-	eiriniBins.EiriniController.Build()
-
-	sideEffects := arv1.SideEffectClassNone
-	scope := arv1.NamespacedScope
-
-	_, err := fixture.Clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(),
-		&arv1.ValidatingWebhookConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: fingerprint + "-validating-hook",
-			},
-			Webhooks: []arv1.ValidatingWebhook{
-				{
-					Name: fingerprint + "-validating-webhook.cloudfoundry.org",
-					ClientConfig: arv1.WebhookClientConfig{
-						Service: &arv1.ServiceReference{
-							Namespace: "default",
-							Name:      telepresenceService,
-							Port:      &port,
-							Path:      &lrpsPath,
-						},
-						CABundle: eiriniBins.CABundle,
-					},
-					SideEffects:             &sideEffects,
-					AdmissionReviewVersions: []string{"v1beta1"},
-					Rules: []arv1.RuleWithOperations{
-						{
-							Operations: []arv1.OperationType{arv1.Update},
-							Rule: arv1.Rule{
-								APIGroups:   []string{"eirini.cloudfoundry.org"},
-								APIVersions: []string{"v1"},
-								Resources:   []string{"lrps"},
-								Scope:       &scope,
-							},
-						},
-					},
-				},
-			},
-		}, metav1.CreateOptions{})
+	// start webhook server using Manager
+	webhookInstallOptions := &testEnv.WebhookInstallOptions
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:             scheme,
+		Host:               webhookInstallOptions.LocalServingHost,
+		Port:               webhookInstallOptions.LocalServingPort,
+		CertDir:            webhookInstallOptions.LocalServingCertDir,
+		LeaderElection:     false,
+		MetricsBindAddress: "0",
+	})
 	Expect(err).NotTo(HaveOccurred())
 
-	config = integration.DefaultControllerConfig(fixture.Namespace)
-	config.WebhookPort = port
+	lagerLogger := lager.NewLogger("resource-validator")
+	lagerLogger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.INFO))
 
-	hookSession, configFilePath = eiriniBins.EiriniController.Run(config)
+	eiriniConfig := integration.DefaultControllerConfig(fixture.Namespace)
+	wiring.ResourceValidator(lagerLogger, mgr, *eiriniConfig)
 
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: tr}
-	Eventually(func() error {
-		fmt.Fprintf(GinkgoWriter, "CHECKING: %s\n", telepresenceDomain)
-		resp, err := client.Get(fmt.Sprintf("https://%s:%d/lrps", telepresenceDomain, port))
+	go func() {
+		defer GinkgoRecover()
+		err = mgr.Start(ctx)
 		if err != nil {
-			fmt.Fprintf(GinkgoWriter, "failed to call telepresence: %s\n", err.Error())
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}()
 
+	// wait for the webhook server to get ready
+	dialer := &net.Dialer{Timeout: time.Second}
+	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
+	Eventually(func() error {
+		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
+		if err != nil {
 			return err
 		}
-		resp.Body.Close()
-
-		fmt.Fprintf(GinkgoWriter, "SUCCESS: %#v\n", resp)
-
+		conn.Close()
 		return nil
-	}, "2m", "500ms").Should(Succeed())
-
-	return []byte{}
-}, func(data []byte) {
-	fixture = tests.NewFixture(GinkgoWriter)
+	}).Should(Succeed())
 })
 
-var _ = SynchronizedAfterSuite(func() {
+var _ = AfterSuite(func() {
 	fixture.Destroy()
-}, func() {
-	if configFilePath != "" {
-		Expect(os.Remove(configFilePath)).To(Succeed())
-	}
-	if hookSession != nil {
-		Eventually(hookSession.Kill()).Should(gexec.Exit())
-	}
-	err := fixture.Clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), fingerprint+"-validating-hook", metav1.DeleteOptions{})
-	Expect(err).NotTo(HaveOccurred())
-
-	eiriniBins.TearDown()
-
-	fixture.Destroy()
+	cancel() // call the cancel function to stop the controller context
+	Expect(testEnv.Stop()).To(Succeed())
 })
 
 var _ = BeforeEach(func() {

@@ -10,7 +10,7 @@ fi
 
 main() {
   pushd "$BASEDIR"/tests/eats >/dev/null || exit 1
-  go run github.com/onsi/ginkgo/v2/ginkgo --mod=vendor -p -r --keep-going --randomize-all --randomize-suites --timeout=20m --slow-spec-threshold=30s "$@"
+  go run github.com/onsi/ginkgo/v2/ginkgo -p -r --keep-going --randomize-all --randomize-suites --timeout=20m --slow-spec-threshold=30s "$@"
   popd >/dev/null || exit 1
 }
 

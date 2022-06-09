@@ -3,10 +3,8 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: eirini-resource-validator-hook
-  {{- if not .Values.webhooks.ca_bundle }}
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/webhook-cert
-  {{- end }}
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/webhook-cert"
 webhooks:
 - name: resource-validator.eirini.cloudfoundry.org
   rules:
@@ -17,12 +15,9 @@ webhooks:
     scope: "Namespaced"
   clientConfig:
     service:
-      namespace: {{ .Release.Namespace }}
+      namespace: "{{ .Release.Namespace }}"
       name: eirini-webhooks
       path: "/lrps"
-    {{- if .Values.webhooks.ca_bundle }}
-    caBundle: {{ .Values.webhooks.ca_bundle }}
-    {{- end }}
   admissionReviewVersions: ["v1beta1"]
   sideEffects: None
   timeoutSeconds: 10

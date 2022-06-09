@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"code.cloudfoundry.org/korifi/statefulset-runner/k8s/stset"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +15,8 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"code.cloudfoundry.org/korifi/statefulset-runner/k8s/stset"
 )
 
 const DefaultApplicationServiceAccount = "eirini"

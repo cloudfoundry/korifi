@@ -10,8 +10,6 @@ import (
 	"os"
 	"sync"
 
-	eiriniclient "code.cloudfoundry.org/korifi/statefulset-runner/pkg/generated/clientset/versioned"
-	eirinischeme "code.cloudfoundry.org/korifi/statefulset-runner/pkg/generated/clientset/versioned/scheme"
 	"github.com/hashicorp/go-multierror"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,6 +20,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	eiriniclient "code.cloudfoundry.org/korifi/statefulset-runner/pkg/generated/clientset/versioned"
+	eirinischeme "code.cloudfoundry.org/korifi/statefulset-runner/pkg/generated/clientset/versioned/scheme"
 )
 
 const (
@@ -64,10 +65,14 @@ func makeKubeConfigCopy() string {
 	return tmpKubeConfig.Name()
 }
 
-func NewFixture(writer io.Writer) *Fixture {
-	kubeConfigPath := makeKubeConfigCopy()
-	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
-	Expect(err).NotTo(HaveOccurred(), "failed to build config from flags")
+func NewFixture(config *rest.Config, writer io.Writer) *Fixture {
+	var kubeConfigPath string
+	if config == nil {
+		kubeConfigPath = makeKubeConfigCopy()
+		var err error
+		config, err = clientcmd.BuildConfigFromFlags("", kubeConfigPath)
+		Expect(err).NotTo(HaveOccurred(), "failed to build config from flags")
+	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	Expect(err).NotTo(HaveOccurred(), "failed to create clientset")
@@ -123,7 +128,7 @@ func (f *Fixture) TearDown() {
 }
 
 func (f *Fixture) Destroy() {
-	Expect(os.RemoveAll(f.KubeConfigPath)).To(Succeed())
+	//Expect(os.RemoveAll(f.KubeConfigPath)).To(Succeed())
 }
 
 func (f *Fixture) CreateExtraNamespace() string {

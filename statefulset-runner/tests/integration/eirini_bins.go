@@ -8,13 +8,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	eirinictrl "code.cloudfoundry.org/korifi/statefulset-runner"
-	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
 	"github.com/gofrs/flock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"gopkg.in/yaml.v2"
+
+	eirinictrl "code.cloudfoundry.org/korifi/statefulset-runner"
+	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
 )
 
 type EiriniBinaries struct {
@@ -28,7 +29,7 @@ type EiriniBinaries struct {
 func NewEiriniBinaries() EiriniBinaries {
 	bins := EiriniBinaries{}
 
-	telepresenceService := tests.GetTelepresenceServiceName()
+	telepresenceService := "something-random"
 	telepresenceDomain := fmt.Sprintf("%s.default.svc", telepresenceService)
 
 	bins.CertsPath, bins.CABundle = tests.GenerateKeyPairDir("tls", telepresenceDomain)

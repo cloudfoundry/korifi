@@ -2,19 +2,25 @@ package cmd_test
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
-	"code.cloudfoundry.org/korifi/statefulset-runner/tests/integration"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"code.cloudfoundry.org/korifi/statefulset-runner/tests"
+	"code.cloudfoundry.org/korifi/statefulset-runner/tests/integration"
 )
 
 var (
 	fixture    *tests.Fixture
 	eiriniBins integration.EiriniBinaries
+	testEnv    *envtest.Environment
 )
 
 var _ = SynchronizedBeforeSuite(func() []byte {
@@ -29,13 +35,28 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(err).NotTo(HaveOccurred())
 	SetDefaultConsistentlyDuration(time.Second * 2)
 
-	fixture = tests.NewFixture(GinkgoWriter)
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	testEnv = &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "deployment", "helm", "templates", "core", "lrp-crd.yml"),
+			filepath.Join("..", "..", "..", "deployment", "helm", "templates", "core", "task-crd.yml"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+
+	cfg, err := testEnv.Start()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
+
+	fixture = tests.NewFixture(cfg, GinkgoWriter)
 })
 
 var _ = SynchronizedAfterSuite(func() {
 	fixture.Destroy()
 }, func() {
 	eiriniBins.TearDown()
+	Expect(testEnv.Stop()).To(Succeed())
 })
 
 var _ = BeforeEach(func() {
