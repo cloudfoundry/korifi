@@ -152,7 +152,6 @@ var _ = Describe("DomainRepository", func() {
 							Name: domainName3,
 						},
 					}
-					time.Sleep(1 * time.Second)
 					Expect(
 						k8sClient.Create(testCtx, cfDomain3),
 					).To(Succeed())
