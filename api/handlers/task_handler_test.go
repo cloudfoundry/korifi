@@ -106,21 +106,21 @@ var _ = Describe("TaskHandler", func() {
 
 		When("the app does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.TaskResourceType))
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
 			})
 
-			It("returns an Unprocessible Entity Error", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
+			It("returns a Not Found Error", func() {
+				expectNotFoundError("App not found")
 			})
 		})
 
 		When("the user cannot see the app", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.TaskResourceType))
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 			})
 
-			It("returns an Unprocessible Entity Error", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
+			It("returns a Not Found error", func() {
+				expectNotFoundError("App not found")
 			})
 		})
 
@@ -129,18 +129,18 @@ var _ = Describe("TaskHandler", func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
 			})
 
-			It("returns an internal server error", func() {
-				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+			It("returns an Internal Server Error", func() {
+				expectUnknownError()
 			})
 		})
 
-		When("the task creation fails with an api error", func() {
+		When("the user cannot create tasks", func() {
 			BeforeEach(func() {
 				taskRepo.CreateTaskReturns(repositories.TaskRecord{}, apierrors.NewForbiddenError(nil, repositories.TaskResourceType))
 			})
 
-			It("translates the error correctly", func() {
-				Expect(rr.Code).To(Equal(http.StatusForbidden))
+			It("returns a Forbidden error", func() {
+				expectNotAuthorizedError()
 			})
 		})
 
@@ -150,7 +150,7 @@ var _ = Describe("TaskHandler", func() {
 			})
 
 			It("returns an internal server error", func() {
-				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+				expectUnknownError()
 			})
 		})
 	})
