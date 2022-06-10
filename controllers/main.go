@@ -35,6 +35,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
+	"github.com/jonboulle/clockwork"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -218,6 +219,7 @@ func main() {
 		mgr.GetScheme(),
 		mgr.GetEventRecorderFor("cftask-controller"),
 		ctrl.Log.WithName("controllers").WithName("CFTask"),
+		workloadscontrollers.NewSequenceId(clockwork.NewRealClock()),
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFTask")
 		os.Exit(1)

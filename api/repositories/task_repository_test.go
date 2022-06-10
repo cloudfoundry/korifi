@@ -1,6 +1,8 @@
 package repositories_test
 
 import (
+	"time"
+
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -8,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("TaskRepository", func() {
@@ -19,7 +22,7 @@ var _ = Describe("TaskRepository", func() {
 	)
 
 	BeforeEach(func() {
-		taskRepo = repositories.NewTaskRepo(userClientFactory)
+		taskRepo = repositories.NewTaskRepo(userClientFactory, 2*time.Second)
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
@@ -29,12 +32,17 @@ var _ = Describe("TaskRepository", func() {
 
 	Describe("CreateTask", func() {
 		var (
-			createMessage repositories.CreateTaskMessage
-			taskRecord    repositories.TaskRecord
-			createErr     error
+			createMessage       repositories.CreateTaskMessage
+			taskRecord          repositories.TaskRecord
+			createErr           error
+			dummyTaskController func(*korifiv1alpha1.CFTask) error
 		)
 
 		BeforeEach(func() {
+			dummyTaskController = func(cft *korifiv1alpha1.CFTask) error {
+				cft.Status.SequenceID = 6
+				return k8sClient.Status().Update(ctx, cft)
+			}
 			createMessage = repositories.CreateTaskMessage{
 				Command:   "  echo    hello  ",
 				SpaceGUID: space.Name,
@@ -43,6 +51,29 @@ var _ = Describe("TaskRepository", func() {
 		})
 
 		JustBeforeEach(func() {
+			tasksWatch, err := k8sClient.Watch(ctx, &korifiv1alpha1.CFTaskList{}, client.InNamespace(space.Name))
+			Expect(err).NotTo(HaveOccurred())
+			defer tasksWatch.Stop()
+
+			go func() {
+				defer GinkgoRecover()
+
+				for {
+					select {
+					case e := <-tasksWatch.ResultChan():
+						cft, ok := e.Object.(*korifiv1alpha1.CFTask)
+						if !ok {
+							continue
+						}
+
+						Expect(dummyTaskController(cft)).To(Succeed())
+						return
+					case <-time.After(2 * time.Second):
+						return
+					}
+				}
+			}()
+
 			taskRecord, createErr = taskRepo.CreateTask(ctx, authInfo, createMessage)
 		})
 
@@ -61,6 +92,19 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.GUID).NotTo(BeEmpty())
 				Expect(taskRecord.Command).To(Equal("echo hello"))
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
+				Expect(taskRecord.SequenceID).NotTo(BeZero())
+			})
+
+			When("the task never becomes ready", func() {
+				BeforeEach(func() {
+					dummyTaskController = func(cft *korifiv1alpha1.CFTask) error {
+						return nil
+					}
+				})
+
+				It("returns an error", func() {
+					Expect(createErr).To(MatchError(ContainSubstring("did not become ready")))
+				})
 			})
 		})
 

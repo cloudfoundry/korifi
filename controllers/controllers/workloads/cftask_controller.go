@@ -34,20 +34,27 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
 
-// CFTaskReconciler reconciles a CFTask object
-type CFTaskReconciler struct {
-	k8sClient client.Client
-	scheme    *runtime.Scheme
-	recorder  record.EventRecorder
-	logger    logr.Logger
+//counterfeiter:generate -o fake -fake-name SeqIdGenerator . SeqIdGenerator
+type SeqIdGenerator interface {
+	Generate() (int64, error)
 }
 
-func NewCFTaskReconciler(client client.Client, scheme *runtime.Scheme, recorder record.EventRecorder, logger logr.Logger) *CFTaskReconciler {
+// CFTaskReconciler reconciles a CFTask object
+type CFTaskReconciler struct {
+	k8sClient      client.Client
+	scheme         *runtime.Scheme
+	recorder       record.EventRecorder
+	logger         logr.Logger
+	seqIdGenerator SeqIdGenerator
+}
+
+func NewCFTaskReconciler(client client.Client, scheme *runtime.Scheme, recorder record.EventRecorder, logger logr.Logger, seqIdGenerator SeqIdGenerator) *CFTaskReconciler {
 	return &CFTaskReconciler{
-		k8sClient: client,
-		scheme:    scheme,
-		recorder:  recorder,
-		logger:    logger,
+		k8sClient:      client,
+		scheme:         scheme,
+		recorder:       recorder,
+		logger:         logger,
+		seqIdGenerator: seqIdGenerator,
 	}
 }
 
@@ -68,6 +75,21 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 		r.logger.Info("error-getting-cftask", "error", err)
 		return ctrl.Result{}, err
+	}
+
+	if cfTask.Status.SequenceID == 0 {
+		cfTaskCopy := cfTask.DeepCopy()
+		cfTaskCopy.Status.SequenceID, err = r.seqIdGenerator.Generate()
+		if err != nil {
+			r.logger.Info("error-generating-sequence-id", "error", err)
+			return ctrl.Result{}, err
+		}
+
+		err = r.k8sClient.Status().Patch(ctx, cfTaskCopy, client.MergeFrom(cfTask))
+		if err != nil {
+			r.logger.Info("error-updating-status", "error", err)
+			return ctrl.Result{}, err
+		}
 	}
 
 	cfApp := new(korifiv1alpha1.CFApp)

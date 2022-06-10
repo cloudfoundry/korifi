@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -13,6 +14,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -20,10 +22,11 @@ const (
 )
 
 type TaskRecord struct {
-	Name    string
-	GUID    string
-	Command string
-	AppGUID string
+	Name       string
+	GUID       string
+	Command    string
+	AppGUID    string
+	SequenceID int64
 }
 
 type CreateTaskMessage struct {
@@ -51,11 +54,13 @@ func (m *CreateTaskMessage) toCFTask() korifiv1alpha1.CFTask {
 
 type TaskRepo struct {
 	userClientFactory authorization.UserK8sClientFactory
+	timeout           time.Duration
 }
 
-func NewTaskRepo(userClientFactory authorization.UserK8sClientFactory) *TaskRepo {
+func NewTaskRepo(userClientFactory authorization.UserK8sClientFactory, timeout time.Duration) *TaskRepo {
 	return &TaskRepo{
 		userClientFactory: userClientFactory,
+		timeout:           timeout,
 	}
 }
 
@@ -71,12 +76,42 @@ func (r *TaskRepo) CreateTask(ctx context.Context, authInfo authorization.Info, 
 		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
 	}
 
+	task, err = r.awaitSequenceID(ctx, userClient, task)
+	if err != nil {
+		return TaskRecord{}, fmt.Errorf("failed awaiting task being ready: %w", err)
+	}
+
 	return TaskRecord{
-		Name:    task.Name,
-		GUID:    task.Name,
-		Command: strings.Join(task.Spec.Command, " "),
-		AppGUID: task.Spec.AppRef.Name,
+		Name:       task.Name,
+		GUID:       task.Name,
+		Command:    strings.Join(task.Spec.Command, " "),
+		AppGUID:    task.Spec.AppRef.Name,
+		SequenceID: task.Status.SequenceID,
 	}, nil
+}
+
+func (r *TaskRepo) awaitSequenceID(ctx context.Context, userClient client.WithWatch, task korifiv1alpha1.CFTask) (korifiv1alpha1.CFTask, error) {
+	watch, err := userClient.Watch(ctx, &korifiv1alpha1.CFTaskList{}, client.InNamespace(task.Namespace), client.MatchingFields{"metadata.name": task.Name})
+	if err != nil {
+		return korifiv1alpha1.CFTask{}, apierrors.FromK8sError(err, TaskResourceType)
+	}
+	defer watch.Stop()
+
+	for {
+		select {
+		case e := <-watch.ResultChan():
+			task, ok := e.Object.(*korifiv1alpha1.CFTask)
+			if !ok {
+				continue
+			}
+
+			if task.Status.SequenceID != 0 {
+				return *task, nil
+			}
+		case <-time.After(r.timeout):
+			return korifiv1alpha1.CFTask{}, fmt.Errorf("task did not become ready within timeout period %d ms", r.timeout.Milliseconds())
+		}
+	}
 }
 
 func splitCommand(command string) []string {

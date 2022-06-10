@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
+	"github.com/jonboulle/clockwork"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
@@ -153,6 +154,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		k8sManager.GetEventRecorderFor("cftask-controller"),
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
+		NewSequenceId(clockwork.NewRealClock()),
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 

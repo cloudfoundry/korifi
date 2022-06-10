@@ -46,10 +46,11 @@ var _ = Describe("TaskHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			taskRepo.CreateTaskReturns(repositories.TaskRecord{
-				Name:    "the-task-name",
-				GUID:    "the-task-guid",
-				Command: "echo hello",
-				AppGUID: "the-app-guid",
+				Name:       "the-task-name",
+				GUID:       "the-task-guid",
+				Command:    "echo hello",
+				AppGUID:    "the-app-guid",
+				SequenceID: 123456,
 			}, nil)
 		})
 
@@ -72,6 +73,7 @@ var _ = Describe("TaskHandler", func() {
               "name": "the-task-name",
               "guid": "the-task-guid",
               "command": "echo hello",
+              "sequence_id": 123456,
               "relationships": {
                 "app": {
                   "data": {
