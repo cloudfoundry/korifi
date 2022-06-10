@@ -144,7 +144,7 @@ var _ = Describe("CFTask Controller", func() {
 			_, object, patch, _ := statusWriter.PatchArgsForCall(0)
 			patchBytes, patchErr := patch.Data(object)
 			Expect(patchErr).NotTo(HaveOccurred())
-			Expect(string(patchBytes)).To(MatchJSON(`{"status":{"sequence_id":314}}`))
+			Expect(string(patchBytes)).To(MatchJSON(`{"status":{"sequenceId":314}}`))
 		})
 
 		When("Status.SequenceID has been already set", func() {
