@@ -51,6 +51,12 @@ spec:
             type: object
           status:
             description: CFTaskStatus defines the observed state of CFTask
+            properties:
+              sequence_id:
+                format: int64
+                type: integer
+            required:
+            - sequence_id
             type: object
         type: object
     served: true

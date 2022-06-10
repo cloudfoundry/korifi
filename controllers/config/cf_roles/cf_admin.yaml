@@ -144,6 +144,7 @@ rules:
   - delete
   - list
   - patch
+  - watch
 
 - apiGroups:
     - korifi.cloudfoundry.org

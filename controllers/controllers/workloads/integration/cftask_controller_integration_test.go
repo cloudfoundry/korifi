@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -96,6 +97,34 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		JustBeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
+		})
+
+		It("sets Status.SequenceID in the CFTask", func() {
+			Eventually(func(g Gomega) {
+				var task korifiv1alpha1.CFTask
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, &task)).To(Succeed())
+				g.Expect(task.Status.SequenceID).NotTo(BeZero())
+			}).Should(Succeed())
+		})
+
+		It("SequenceID does not change on task update", func() {
+			var task korifiv1alpha1.CFTask
+
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, &task)).To(Succeed())
+				g.Expect(task.Status.SequenceID).NotTo(BeZero())
+			}).Should(Succeed())
+
+			seqId := task.Status.SequenceID
+
+			updatedTask := task.DeepCopy()
+			updatedTask.Spec.Command = []string{"foo", "bar"}
+			Expect(k8sClient.Patch(ctx, updatedTask, client.MergeFrom(&task))).To(Succeed())
+
+			Consistently(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, &task)).To(Succeed())
+				g.Expect(task.Status.SequenceID).To(Equal(seqId))
+			}).Should(Succeed())
 		})
 
 		It("creates an eirini.Task", func() {

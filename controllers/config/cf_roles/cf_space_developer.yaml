@@ -108,3 +108,4 @@ rules:
   - delete
   - list
   - patch
+  - watch

@@ -7,6 +7,7 @@ import (
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	workloadsfake "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	"code.cloudfoundry.org/korifi/controllers/fake"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,14 +26,21 @@ var _ = Describe("CFTask Controller", func() {
 	var (
 		taskReconciler workloads.CFTaskReconciler
 		k8sClient      *fake.Client
+		statusWriter   *fake.StatusWriter
 		eventRecorder  *fake.EventRecorder
+		seqIdGenerator *workloadsfake.SeqIdGenerator
 	)
 
 	BeforeEach(func() {
 		k8sClient = new(fake.Client)
+		statusWriter = new(fake.StatusWriter)
+		k8sClient.StatusReturns(statusWriter)
+
 		eventRecorder = new(fake.EventRecorder)
+		seqIdGenerator = new(workloadsfake.SeqIdGenerator)
+		seqIdGenerator.GenerateReturns(314, nil)
 		logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
-		taskReconciler = *workloads.NewCFTaskReconciler(k8sClient, scheme.Scheme, eventRecorder, logger)
+		taskReconciler = *workloads.NewCFTaskReconciler(k8sClient, scheme.Scheme, eventRecorder, logger, seqIdGenerator)
 	})
 
 	Describe("task creation", func() {
@@ -45,6 +53,7 @@ var _ = Describe("CFTask Controller", func() {
 			cfappGetError     error
 			cfdropletGetError error
 			droplet           *korifiv1alpha1.BuildDropletStatus
+			cfTask            korifiv1alpha1.CFTask
 		)
 
 		BeforeEach(func() {
@@ -57,6 +66,15 @@ var _ = Describe("CFTask Controller", func() {
 					Image: "the-image",
 				},
 			}
+			cfTask = korifiv1alpha1.CFTask{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "the-task-guid",
+				},
+				Spec: korifiv1alpha1.CFTaskSpec{
+					Command: []string{"echo", "hello"},
+					AppRef:  corev1.LocalObjectReference{Name: "the-app-guid"},
+				},
+			}
 			req = controllerruntime.Request{
 				NamespacedName: types.NamespacedName{
 					Namespace: "the-task-namespace",
@@ -66,16 +84,9 @@ var _ = Describe("CFTask Controller", func() {
 			k8sClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object) error {
 				switch t := obj.(type) {
 				case *korifiv1alpha1.CFTask:
-					*t = korifiv1alpha1.CFTask{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "the-task-guid",
-							Namespace: namespacedName.Namespace,
-						},
-						Spec: korifiv1alpha1.CFTaskSpec{
-							Command: []string{"echo", "hello"},
-							AppRef:  corev1.LocalObjectReference{Name: "the-app-guid"},
-						},
-					}
+					*t = *cfTask.DeepCopy()
+					t.Namespace = namespacedName.Namespace
+
 					return cftaskGetError
 				case *korifiv1alpha1.CFApp:
 					Expect(namespacedName.Name).To(Equal("the-app-guid"))
@@ -128,6 +139,24 @@ var _ = Describe("CFTask Controller", func() {
 			Expect(message).To(ContainSubstring("Created eirini task %s"))
 		})
 
+		It("initialises Status.SequenceID", func() {
+			Expect(statusWriter.PatchCallCount()).To(Equal(1))
+			_, object, patch, _ := statusWriter.PatchArgsForCall(0)
+			patchBytes, patchErr := patch.Data(object)
+			Expect(patchErr).NotTo(HaveOccurred())
+			Expect(string(patchBytes)).To(MatchJSON(`{"status":{"sequence_id":314}}`))
+		})
+
+		When("Status.SequenceID has been already set", func() {
+			BeforeEach(func() {
+				cfTask.Status.SequenceID = 5
+			})
+
+			It("does not update the sequence id", func() {
+				Expect(statusWriter.PatchCallCount()).To(BeZero())
+			})
+		})
+
 		When("getting the cftask returns an error", func() {
 			BeforeEach(func() {
 				cftaskGetError = errors.New("boom")
@@ -147,6 +176,26 @@ var _ = Describe("CFTask Controller", func() {
 					Expect(result.Requeue).To(BeFalse())
 					Expect(result.RequeueAfter).To(BeZero())
 				})
+			})
+		})
+
+		When("generating the sequence ID fails", func() {
+			BeforeEach(func() {
+				seqIdGenerator.GenerateReturns(0, errors.New("seq-id"))
+			})
+
+			It("returns the error", func() {
+				Expect(err).To(MatchError("seq-id"))
+			})
+		})
+
+		When("patching the CFTask status fails", func() {
+			BeforeEach(func() {
+				statusWriter.PatchReturns(errors.New("status-patch"))
+			})
+
+			It("returns the error", func() {
+				Expect(err).To(MatchError("status-patch"))
 			})
 		})
 
