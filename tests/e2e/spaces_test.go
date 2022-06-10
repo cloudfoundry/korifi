@@ -71,7 +71,7 @@ var _ = Describe("Spaces", func() {
 			Expect(result.GUID).NotTo(BeEmpty())
 		})
 
-		When("the space name already exists", Pending, func() {
+		When("the space name already exists", func() {
 			BeforeEach(func() {
 				createSpace(spaceName, commonTestOrgGUID)
 			})
