@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Processes", func() {
@@ -51,7 +50,7 @@ var _ = Describe("Processes", func() {
 
 		When("the user is authorized in the space", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 				requestAppGUID = appGUID
 			})
 
@@ -88,7 +87,7 @@ var _ = Describe("Processes", func() {
 		BeforeEach(func() {
 			list = resourceList{}
 
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -121,7 +120,7 @@ var _ = Describe("Processes", func() {
 		var processStats statsResourceList
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -180,7 +179,7 @@ var _ = Describe("Processes", func() {
 		var result resource
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -215,7 +214,7 @@ var _ = Describe("Processes", func() {
 
 		When("the user is a space manager", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_manager", certUserName, spaceGUID)
 			})
 
 			It("returns forbidden", func() {
@@ -225,7 +224,7 @@ var _ = Describe("Processes", func() {
 
 		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("succeeds, and returns the process", func() {
@@ -250,7 +249,7 @@ var _ = Describe("Processes", func() {
 
 		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("returns success", func() {
@@ -261,7 +260,7 @@ var _ = Describe("Processes", func() {
 
 		When("the user is a space manager", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_manager", certUserName, spaceGUID)
 			})
 
 			It("returns forbidden", func() {

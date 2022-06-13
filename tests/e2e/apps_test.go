@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Apps", func() {
@@ -37,8 +36,8 @@ var _ = Describe("Apps", func() {
 			space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
 			space3GUID = createSpace(generateGUID("space3"), commonTestOrgGUID)
 
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space3GUID)
+			createSpaceRole("space_developer", certUserName, space1GUID)
+			createSpaceRole("space_developer", certUserName, space3GUID)
 
 			app1GUID = createApp(space1GUID, generateGUID("app1"))
 			app2GUID = createApp(space1GUID, generateGUID("app2"))
@@ -102,7 +101,7 @@ var _ = Describe("Apps", func() {
 
 		When("the user has space developer role in the space", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+				createSpaceRole("space_developer", certUserName, space1GUID)
 			})
 
 			It("succeeds", func() {
@@ -123,7 +122,7 @@ var _ = Describe("Apps", func() {
 
 		When("the user cannot create apps in the space", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, space1GUID)
+				createSpaceRole("space_manager", certUserName, space1GUID)
 			})
 
 			It("fails", func() {
@@ -137,7 +136,7 @@ var _ = Describe("Apps", func() {
 		var result resource
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+			createSpaceRole("space_developer", certUserName, space1GUID)
 			appGUID = createApp(space1GUID, generateGUID("app1"))
 		})
 
@@ -157,7 +156,7 @@ var _ = Describe("Apps", func() {
 		var result resourceList
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+			createSpaceRole("space_developer", certUserName, space1GUID)
 			appGUID = createApp(space1GUID, generateGUID("app"))
 		})
 
@@ -197,7 +196,7 @@ var _ = Describe("Apps", func() {
 
 		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+				createSpaceRole("space_developer", certUserName, space1GUID)
 			})
 
 			It("successfully returns the process", func() {
@@ -211,7 +210,7 @@ var _ = Describe("Apps", func() {
 		var result resourceList
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+			createSpaceRole("space_developer", certUserName, space1GUID)
 			appGUID = createApp(space1GUID, generateGUID("app"))
 		})
 
@@ -241,7 +240,7 @@ var _ = Describe("Apps", func() {
 			buildGUID = createBuild(pkgGUID)
 			waitForDroplet(buildGUID)
 
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+			createSpaceRole("space_developer", certUserName, space1GUID)
 		})
 
 		Describe("Get app current droplet", func() {
@@ -383,7 +382,7 @@ var _ = Describe("Apps", func() {
 
 			When("the user is a space manager", func() {
 				BeforeEach(func() {
-					createSpaceRole("space_manager", rbacv1.UserKind, certUserName, space1GUID)
+					createSpaceRole("space_manager", certUserName, space1GUID)
 				})
 
 				It("returns forbidden", func() {
@@ -393,7 +392,7 @@ var _ = Describe("Apps", func() {
 
 			When("the user is a space developer", func() {
 				BeforeEach(func() {
-					createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space1GUID)
+					createSpaceRole("space_developer", certUserName, space1GUID)
 				})
 
 				It("succeeds, and returns the process", func() {

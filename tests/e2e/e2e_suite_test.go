@@ -18,7 +18,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rbacv1 "k8s.io/api/rbac/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -230,7 +229,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestSetup()
 
 	commonTestOrgGUID = createOrg(generateGUID("common-test-org"))
-	createOrgRole("organization_user", rbacv1.UserKind, certUserName, commonTestOrgGUID)
+	createOrgRole("organization_user", certUserName, commonTestOrgGUID)
 
 	return []byte(commonTestOrgGUID)
 }, func(commonOrgGUIDBytes []byte) {
@@ -384,20 +383,15 @@ func asyncCreateSpace(spaceName, orgGUID string, createdSpaceGUID *string, wg *s
 
 // createRole creates an org or space role
 // You should probably invoke this via createOrgRole or createSpaceRole
-func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) {
+func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) {
 	rolesURL := apiServerRoot + "/v3/roles"
-
-	userOrServiceAccount := "user"
-	if kind == rbacv1.ServiceAccountKind {
-		userOrServiceAccount = "kubernetesServiceAccount"
-	}
 
 	payload := typedResource{
 		Type: roleName,
 		resource: resource{
 			Relationships: relationships{
-				userOrServiceAccount: relationship{Data: resource{GUID: userName}},
-				orgSpaceType:         relationship{Data: resource{GUID: orgSpaceGUID}},
+				"user":       relationship{Data: resource{GUID: userName}},
+				orgSpaceType: relationship{Data: resource{GUID: orgSpaceGUID}},
 			},
 		},
 	}
@@ -412,12 +406,12 @@ func createRole(roleName, kind, orgSpaceType, userName, orgSpaceGUID string) {
 	ExpectWithOffset(2, resp).To(HaveRestyStatusCode(http.StatusCreated))
 }
 
-func createOrgRole(roleName, kind, userName, orgGUID string) {
-	createRole(roleName, kind, "organization", userName, orgGUID)
+func createOrgRole(roleName, userName, orgGUID string) {
+	createRole(roleName, "organization", userName, orgGUID)
 }
 
-func createSpaceRole(roleName, kind, userName, spaceGUID string) {
-	createRole(roleName, kind, "space", userName, spaceGUID)
+func createSpaceRole(roleName, userName, spaceGUID string) {
+	createRole(roleName, "space", userName, spaceGUID)
 }
 
 func obtainAdminUserCert() string {

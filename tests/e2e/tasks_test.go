@@ -6,7 +6,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Tasks", func() {
@@ -39,7 +38,7 @@ var _ = Describe("Tasks", func() {
 
 		When("the user has space developer role in the space", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("succeeds", func() {
@@ -49,7 +48,7 @@ var _ = Describe("Tasks", func() {
 
 		When("the user cannot create tasks in the space", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_manager", certUserName, spaceGUID)
 			})
 
 			It("fails", func() {

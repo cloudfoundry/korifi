@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Roles", func() {
@@ -68,7 +67,7 @@ var _ = Describe("Roles", func() {
 		var spaceGUID string
 
 		BeforeEach(func() {
-			createOrgRole("organization_user", rbacv1.UserKind, userName, commonTestOrgGUID)
+			createOrgRole("organization_user", userName, commonTestOrgGUID)
 			spaceGUID = createSpace(uuid.NewString(), commonTestOrgGUID)
 		})
 

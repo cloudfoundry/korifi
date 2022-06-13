@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var _ = Describe("Package", func() {
@@ -61,7 +60,7 @@ var _ = Describe("Package", func() {
 
 		When("the user is a SpaceDeveloper", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("succeeds", func() {
@@ -73,7 +72,7 @@ var _ = Describe("Package", func() {
 
 		When("the user is a SpaceManager (i.e. can get apps but cannot create packages)", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_manager", certUserName, spaceGUID)
 			})
 
 			It("fails with a forbidden error", func() {
@@ -104,7 +103,7 @@ var _ = Describe("Package", func() {
 
 		When("the user is a SpaceManager (i.e. can get apps but cannot update packages)", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_manager", certUserName, spaceGUID)
 			})
 
 			It("fails with a forbidden error", func() {
@@ -119,7 +118,7 @@ var _ = Describe("Package", func() {
 
 		When("the user is a SpaceDeveloper", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("succeeds", func() {
@@ -150,7 +149,7 @@ var _ = Describe("Package", func() {
 
 		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			It("can fetch the package", func() {
@@ -190,7 +189,7 @@ var _ = Describe("Package", func() {
 
 		When("the user is a space manager", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_manager", rbacv1.UserKind, certUserName, spaceGUID)
+				createSpaceRole("space_manager", certUserName, spaceGUID)
 			})
 
 			It("lists the droplet", func() {
@@ -215,8 +214,8 @@ var _ = Describe("Package", func() {
 			space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
 			space3GUID = createSpace(generateGUID("space3"), commonTestOrgGUID)
 
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, spaceGUID)
-			createSpaceRole("space_developer", rbacv1.UserKind, certUserName, space2GUID)
+			createSpaceRole("space_developer", certUserName, spaceGUID)
+			createSpaceRole("space_developer", certUserName, space2GUID)
 
 			package1GUID = createPackage(appGUID)
 			app2GUID := createApp(space2GUID, generateGUID("app2"))
