@@ -223,7 +223,7 @@ var _ = Describe("PackageRepository", func() {
 				createPackageCR(ctx, k8sClient, package1GUID, appGUID, space.Name, "")
 
 				// add a small delay to test ordering on created_by
-				time.Sleep(1 * time.Second)
+				time.Sleep(100 * time.Millisecond)
 
 				package2GUID = generateGUID()
 				createPackageCR(ctx, k8sClient, package2GUID, appGUID2, space2.Name, "my-image-url")

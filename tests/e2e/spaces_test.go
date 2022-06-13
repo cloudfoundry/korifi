@@ -70,7 +70,7 @@ var _ = Describe("Spaces", func() {
 			Expect(result.GUID).NotTo(BeEmpty())
 		})
 
-		When("the space name already exists", Pending, func() {
+		When("the space name already exists", func() {
 			BeforeEach(func() {
 				createSpace(spaceName, commonTestOrgGUID)
 			})
@@ -78,7 +78,7 @@ var _ = Describe("Spaces", func() {
 			It("returns an unprocessable entity error", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 				Expect(createErr.Errors).To(ConsistOf(cfErr{
-					Detail: fmt.Sprintf(`ValidationError-DuplicateSpaceNameError: Space '%s' already exists. Name must be unique per organization.`, spaceName),
+					Detail: fmt.Sprintf(`ValidationError-DuplicateNameError: Space '%s' already exists. Name must be unique per organization.`, spaceName),
 					Title:  "CF-UnprocessableEntity",
 					Code:   10008,
 				}))

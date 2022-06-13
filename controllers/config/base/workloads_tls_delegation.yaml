@@ -1,6 +1,3 @@
-#! Is there a way to configure the targetNamespaces list to refer to the namespace in which the delegation resource exists so that we can
-#! cascade permissions through HNC? That way we avoid pollution of or outright incompatibility with
-#! existing Contour configurations
 ---
 apiVersion: projectcontour.io/v1
 kind: TLSCertificateDelegation
