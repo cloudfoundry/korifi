@@ -98,10 +98,12 @@ const (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	fmt.Println("reconciling")
 	cfOrg := new(korifiv1alpha1.CFOrg)
 	err := r.client.Get(ctx, req.NamespacedName, cfOrg)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error when trying to fetch CFOrg %s/%s", req.Namespace, req.Name))
+		fmt.Println("no org")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -109,6 +111,7 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if readyCondition == metav1.ConditionUnknown {
 		if err = r.client.Status().Update(ctx, cfOrg); err != nil {
 			r.log.Error(err, fmt.Sprintf("Error when trying to set status conditions on CFOrg %s/%s", req.Namespace, req.Name))
+			fmt.Println("status update fail")
 			return ctrl.Result{}, err
 		}
 	}
@@ -116,6 +119,7 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	err = r.addFinalizer(ctx, cfOrg)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error adding finalizer on CFOrg %s/%s", req.Namespace, req.Name))
+		fmt.Println("adding finalizer failed")
 		return ctrl.Result{}, err
 	}
 
@@ -127,29 +131,34 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	err = createOrPatchNamespace(ctx, r.client, r.log, cfOrg, labels)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error creating namespace for CFOrg %s/%s", req.Namespace, req.Name))
+		fmt.Println("create ns failed")
 		return ctrl.Result{}, err
 	}
 
 	namespace, ok := getNamespace(ctx, r.client, cfOrg.Name)
 	if !ok {
+		fmt.Println("ns not there")
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
 	err = propagateSecrets(ctx, r.client, r.log, cfOrg, r.packageRegistrySecretName)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error propagating secrets into CFOrg %s/%s", req.Namespace, req.Name))
+		fmt.Println("secrets propagation failed")
 		return ctrl.Result{}, err
 	}
 
 	err = propagateRoles(ctx, r.client, r.log, cfOrg)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error propagating roles into CFOrg %s/%s", req.Namespace, req.Name))
+		fmt.Println("roles propagation failed")
 		return ctrl.Result{}, err
 	}
 
 	err = propagateRoleBindings(ctx, r.client, r.log, cfOrg)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error propagating role-bindings into CFOrg %s/%s", req.Namespace, req.Name))
+		fmt.Println("role bindings propagation failed")
 		return ctrl.Result{}, err
 	}
 
@@ -157,9 +166,11 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	err = updateStatus(ctx, r.client, cfOrg, metav1.ConditionTrue)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error updating status on CFOrg %s/%s", req.Namespace, req.Name))
+		fmt.Println("status update failed")
 		return ctrl.Result{}, err
 	}
 
+	fmt.Println("reconciled successfully")
 	return ctrl.Result{}, nil
 }
 

@@ -22,7 +22,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -113,9 +112,6 @@ var _ = BeforeSuite(func() {
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(registryAuthFetcherClient).NotTo(BeNil())
 	cfBuildReconciler := NewCFBuildReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),

@@ -30,7 +30,7 @@ const (
 type CFOrgRepository interface {
 	CreateOrg(context.Context, authorization.Info, repositories.CreateOrgMessage) (repositories.OrgRecord, error)
 	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
-	DeleteOrg(context.Context, authorization.Info, repositories.DeleteOrgMessage) error
+	DeleteOrg(context.Context, authorization.Info, repositories.DeleteOrgMessage) (string, error)
 	GetOrg(context.Context, authorization.Info, string) (repositories.OrgRecord, error)
 }
 
@@ -77,13 +77,13 @@ func (h *OrgHandler) orgDeleteHandler(ctx context.Context, logger logr.Logger, a
 	deleteOrgMessage := repositories.DeleteOrgMessage{
 		GUID: orgGUID,
 	}
-	err := h.orgRepo.DeleteOrg(ctx, authInfo, deleteOrgMessage)
+	deletionId, err := h.orgRepo.DeleteOrg(ctx, authInfo, deleteOrgMessage)
 	if err != nil {
 		logger.Error(err, "Failed to delete org", "OrgGUID", orgGUID)
 		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
-	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(orgGUID, presenter.OrgDeleteOperation, h.apiBaseURL)), nil
+	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirectsWithDeletionId(deletionId, h.apiBaseURL)), nil
 }
 
 func (h *OrgHandler) orgListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {

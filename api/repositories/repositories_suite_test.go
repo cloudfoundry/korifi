@@ -2,14 +2,19 @@ package repositories_test
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -42,7 +48,9 @@ func TestRepositories(t *testing.T) {
 }
 
 var (
-	ctx                   context.Context
+	ctx               context.Context
+	cancelControllers context.CancelFunc
+
 	testEnv               *envtest.Environment
 	k8sClient             client.WithWatch
 	namespaceRetriever    repositories.NamespaceRetriever
@@ -82,10 +90,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sConfig).NotTo(BeNil())
 
-	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = buildv1alpha2.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -112,6 +119,9 @@ var _ = AfterSuite(func() {
 
 var _ = BeforeEach(func() {
 	ctx = context.Background()
+
+	enableControllers()
+
 	userName = generateGUID()
 	cert, key := testhelpers.ObtainClientCert(testEnv, userName)
 	authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
@@ -132,7 +142,55 @@ var _ = BeforeEach(func() {
 
 var _ = AfterEach(func() {
 	Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
+	disableControllers()
 })
+
+func enableControllers() {
+	var controllersCtx context.Context
+	controllersCtx, cancelControllers = context.WithCancel(ctx)
+
+	webhookInstallOptions := &testEnv.WebhookInstallOptions
+	k8sManager, err := ctrl.NewManager(k8sConfig, ctrl.Options{
+		Scheme:             scheme.Scheme,
+		Host:               webhookInstallOptions.LocalServingHost,
+		Port:               webhookInstallOptions.LocalServingPort,
+		CertDir:            webhookInstallOptions.LocalServingCertDir,
+		LeaderElection:     false,
+		MetricsBindAddress: "0",
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	controllerConfig := &config.ControllerConfig{
+		CFProcessDefaults: config.CFProcessDefaults{
+			MemoryMB:           500,
+			DefaultDiskQuotaMB: 512,
+		},
+		KorifiControllerNamespace: "korifi-controllers-system",
+		PackageRegistrySecretName: "test-package-registry-secret",
+		WorkloadsTLSSecretName:    "korifi-workloads-ingress-cert",
+		CFRootNamespace:           "cf",
+	}
+
+	err = workloads.NewCFOrgReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFOrg"),
+		controllerConfig.PackageRegistrySecretName,
+	).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		err = k8sManager.Start(controllersCtx)
+		if err != nil {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}()
+}
+
+func disableControllers() {
+	cancelControllers()
+}
 
 func createOrgWithCleanup(ctx context.Context, name string) *korifiv1alpha1.CFOrg {
 	guid := uuid.NewString()
@@ -147,27 +205,14 @@ func createOrgWithCleanup(ctx context.Context, name string) *korifiv1alpha1.CFOr
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
 
-	meta.SetStatusCondition(&(cfOrg.Status.Conditions), metav1.Condition{
-		Type:    "Ready",
-		Status:  metav1.ConditionTrue,
-		Reason:  "cus",
-		Message: "cus",
-	})
-	Expect(k8sClient.Status().Update(ctx, cfOrg)).To(Succeed())
-
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: cfOrg.Name,
-			Labels: map[string]string{
-				korifiv1alpha1.OrgNameLabel: cfOrg.Spec.DisplayName,
-			},
-		},
-	}
-	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: rootNamespace, Name: guid}, cfOrg)).To(Succeed())
+		fmt.Printf("status conditions: \n %#v\n\n", cfOrg.Status.Conditions)
+		g.Expect(meta.IsStatusConditionTrue(cfOrg.Status.Conditions, "Ready")).To(BeTrue())
+	}, 2*time.Minute, time.Second).Should(Succeed())
 
 	DeferCleanup(func() {
 		_ = k8sClient.Delete(ctx, cfOrg)
-		_ = k8sClient.Delete(ctx, namespace)
 	})
 
 	return cfOrg

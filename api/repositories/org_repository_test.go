@@ -2,7 +2,6 @@ package repositories_test
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -19,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("OrgRepository", func() {
+var _ = FDescribe("OrgRepository", func() {
 	var (
 		ctx     context.Context
 		orgRepo *repositories.OrgRepo
@@ -27,87 +26,24 @@ var _ = Describe("OrgRepository", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
+		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, 2*time.Minute)
 	})
 
 	Describe("Create", func() {
 		var (
-			createErr                 error
-			orgName                   string
-			org                       repositories.OrgRecord
-			done                      chan bool
-			doOrgControllerSimulation bool
+			createErr error
+			orgName   string
+			org       repositories.OrgRecord
 		)
 
-		waitForCFOrg := func(anchorNamespace string, orgName string, done chan bool) (*korifiv1alpha1.CFOrg, error) {
-			for {
-				select {
-				case <-done:
-					return nil, fmt.Errorf("waitForCFOrg was 'signalled' to stop polling")
-				default:
-				}
-
-				var orgList korifiv1alpha1.CFOrgList
-				err := k8sClient.List(ctx, &orgList, client.InNamespace(anchorNamespace))
-				if err != nil {
-					return nil, fmt.Errorf("waitForCFOrg failed")
-				}
-
-				var matches []korifiv1alpha1.CFOrg
-				for _, org := range orgList.Items {
-					if org.Spec.DisplayName == orgName {
-						matches = append(matches, org)
-					}
-				}
-				if len(matches) > 1 {
-					return nil, fmt.Errorf("waitForCFOrg found multiple anchors")
-				}
-				if len(matches) == 1 {
-					return &matches[0], nil
-				}
-
-				time.Sleep(time.Millisecond * 100)
-			}
-		}
-
-		simulateOrgController := func(anchorNamespace string, orgName string, done chan bool) {
-			defer GinkgoRecover()
-
-			org, err := waitForCFOrg(anchorNamespace, orgName, done)
-			if err != nil {
-				return
-			}
-
-			createNamespace(ctx, anchorNamespace, org.Name, map[string]string{korifiv1alpha1.OrgNameLabel: org.Spec.DisplayName})
-
-			meta.SetStatusCondition(&(org.Status.Conditions), metav1.Condition{
-				Type:    "Ready",
-				Status:  metav1.ConditionTrue,
-				Reason:  "blah",
-				Message: "blah",
-			})
-			Expect(
-				k8sClient.Status().Update(ctx, org),
-			).To(Succeed())
-		}
-
 		BeforeEach(func() {
-			doOrgControllerSimulation = true
-			done = make(chan bool, 1)
 			orgName = prefixedGUID("org-name")
 		})
 
 		JustBeforeEach(func() {
-			if doOrgControllerSimulation {
-				go simulateOrgController(rootNamespace, orgName, done)
-			}
 			org, createErr = orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
 				Name: orgName,
 			})
-		})
-
-		AfterEach(func() {
-			done <- true
 		})
 
 		When("the user doesn't have the admin role", func() {
@@ -135,7 +71,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the org isn't ready in the timeout", func() {
 				BeforeEach(func() {
-					doOrgControllerSimulation = false
+					disableControllers()
 				})
 
 				It("returns an error", func() {
@@ -337,20 +273,22 @@ var _ = Describe("OrgRepository", func() {
 
 			When("on the happy path", func() {
 				It("deletes the CF Org resource", func() {
-					err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
+					deletionId, err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
 						GUID: cfOrg.Name,
 					})
 					Expect(err).NotTo(HaveOccurred())
+					Expect(deletionId).To(Equal("org.delete~" + cfOrg.Name))
 
-					foundCFOrg := &korifiv1alpha1.CFOrg{}
-					err = k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: cfOrg.Name}, foundCFOrg)
-					Expect(err).To(MatchError(ContainSubstring("not found")))
+					Eventually(func(g Gomega) {
+						err = k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: cfOrg.Name}, &korifiv1alpha1.CFOrg{})
+						g.Expect(err).To(MatchError(ContainSubstring("not found")))
+					}).Should(Succeed())
 				})
 			})
 
 			When("the org doesn't exist", func() {
 				It("errors", func() {
-					err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
+					_, err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
 						GUID: "non-existent-org",
 					})
 					Expect(err).To(MatchError(ContainSubstring("not found")))
@@ -360,7 +298,7 @@ var _ = Describe("OrgRepository", func() {
 
 		When("the user does not have permission to delete orgs", func() {
 			It("errors with forbidden", func() {
-				err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
+				_, err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
 					GUID: cfOrg.Name,
 				})
 				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
@@ -368,7 +306,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the org doesn't exist", func() {
 				It("errors with forbidden", func() {
-					err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
+					_, err := orgRepo.DeleteOrg(ctx, authInfo, repositories.DeleteOrgMessage{
 						GUID: "non-existent-org",
 					})
 					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))

@@ -72,3 +72,7 @@ func JobURLForRedirects(resourceName string, operation string, baseURL url.URL) 
 	jobGUID := fmt.Sprintf("%s%s%s", operation, JobGUIDDelimiter, resourceName)
 	return buildURL(baseURL).appendPath("/v3/jobs", jobGUID).build()
 }
+
+func JobURLForRedirectsWithDeletionId(deletionId string, baseURL url.URL) string {
+	return buildURL(baseURL).appendPath("/v3/jobs", deletionId).build()
+}

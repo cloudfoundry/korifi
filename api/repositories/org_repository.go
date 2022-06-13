@@ -208,10 +208,10 @@ func (r *OrgRepo) GetOrg(ctx context.Context, info authorization.Info, orgGUID s
 	return orgRecords[0], nil
 }
 
-func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, message DeleteOrgMessage) error {
+func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, message DeleteOrgMessage) (string, error) {
 	userClient, err := r.userClientFactory.BuildClient(info)
 	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
+		return "", fmt.Errorf("failed to build user client: %w", err)
 	}
 	err = userClient.Delete(ctx, &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
@@ -220,5 +220,6 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 		},
 	})
 
-	return apierrors.FromK8sError(err, OrgResourceType)
+	deletionId := fmt.Sprintf("%s%s%s", "org.delete", "~", message.GUID)
+	return deletionId, apierrors.FromK8sError(err, OrgResourceType)
 }

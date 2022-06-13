@@ -412,7 +412,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("invoking the delete org repository yields a forbidden error", func() {
 			BeforeEach(func() {
-				orgRepo.DeleteOrgReturns(apierrors.NewForbiddenError(errors.New("boom"), repositories.OrgResourceType))
+				orgRepo.DeleteOrgReturns("", apierrors.NewForbiddenError(errors.New("boom"), repositories.OrgResourceType))
 				router.ServeHTTP(rr, request)
 			})
 
@@ -423,7 +423,7 @@ var _ = Describe("OrgHandler", func() {
 
 		When("invoking the delete org repository fails", func() {
 			BeforeEach(func() {
-				orgRepo.DeleteOrgReturns(errors.New("unknown-error"))
+				orgRepo.DeleteOrgReturns("", errors.New("unknown-error"))
 				router.ServeHTTP(rr, request)
 			})
 
