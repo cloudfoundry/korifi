@@ -60,12 +60,7 @@ func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger,
 	appRecord, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
 		logger.Info("Error finding App", "App GUID", appGUID)
-		return nil, apierrors.AsUnprocessableEntity(
-			err,
-			"App is invalid. Ensure it exists and you have access to it.",
-			apierrors.NotFoundError{},
-			apierrors.ForbiddenError{},
-		)
+		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
 	taskRecord, err := h.taskRepo.CreateTask(ctx, authInfo, payload.ToMessage(appRecord))
