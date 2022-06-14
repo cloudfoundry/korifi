@@ -617,6 +617,34 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 		})
 
 		When("on the unhappy path", func() {
+			When("the CFDomain no longer exists", func() {
+				BeforeEach(func() {
+					getDomainError = apierrors.NewNotFound(schema.GroupResource{}, testDomainGUID)
+				})
+
+				JustBeforeEach(func() {
+					reconcileResult, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
+				})
+
+				It("returns an empty result and does not return error", func() {
+					Expect(reconcileResult).To(Equal(ctrl.Result{}))
+					Expect(reconcileErr).NotTo(HaveOccurred())
+				})
+
+				It("removes the finalizer from the CFRoute", func() {
+					Expect(fakeClient.UpdateCallCount()).To(Equal(1), "Client.Update call count mismatch")
+
+					_, requestObject, _ := fakeClient.UpdateArgsForCall(0)
+					requestRoute, ok := requestObject.(*korifiv1alpha1.CFRoute)
+					Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFRoute failed")
+					Expect(requestRoute.ObjectMeta.Finalizers).To(HaveLen(0), "CFRoute finalizer count mismatch")
+				})
+
+				It("does not attempt to create any resources", func() {
+					Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
+				})
+			})
+
 			When("the FQDN HTTPProxy was never created", func() {
 				BeforeEach(func() {
 					httpProxyList = &contourv1.HTTPProxyList{}

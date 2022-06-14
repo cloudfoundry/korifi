@@ -101,6 +101,13 @@ func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
 	}
 
+	if route.Spec.Host == oldRoute.Spec.Host &&
+		route.Spec.DomainRef.String() == oldRoute.Spec.DomainRef.String() &&
+		route.Spec.Path == oldRoute.Spec.Path &&
+		len(route.Finalizers) < len(oldRoute.Finalizers) {
+		return nil // we're removing a finalizer to delete this route, so we don't want to block deletion
+	}
+
 	domain, err := v.validateRoute(ctx, route)
 	if err != nil {
 		return err

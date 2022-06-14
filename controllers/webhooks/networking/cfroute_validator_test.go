@@ -521,6 +521,18 @@ var _ = Describe("CFRouteValidator", func() {
 				})
 			})
 		})
+
+		When("the route is being finalized", func() {
+			BeforeEach(func() {
+				updatedCFRoute = cfRoute.DeepCopy()
+				cfRoute.Finalizers = append(cfRoute.Finalizers, "some-finalizer-we-are-trying-to-remove")
+			})
+
+			It("skips validation and allows the request", func() {
+				Expect(duplicateValidator.ValidateUpdateCallCount()).To(BeZero())
+				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
 	})
 
 	Describe("ValidateDelete", func() {
