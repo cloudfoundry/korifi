@@ -22,11 +22,12 @@ const (
 )
 
 type TaskRecord struct {
-	Name       string
-	GUID       string
-	Command    string
-	AppGUID    string
-	SequenceID int64
+	Name              string
+	GUID              string
+	Command           string
+	AppGUID           string
+	SequenceID        int64
+	CreationTimestamp time.Time
 }
 
 type CreateTaskMessage struct {
@@ -82,11 +83,12 @@ func (r *TaskRepo) CreateTask(ctx context.Context, authInfo authorization.Info, 
 	}
 
 	return TaskRecord{
-		Name:       task.Name,
-		GUID:       task.Name,
-		Command:    strings.Join(task.Spec.Command, " "),
-		AppGUID:    task.Spec.AppRef.Name,
-		SequenceID: task.Status.SequenceID,
+		Name:              task.Name,
+		GUID:              task.Name,
+		Command:           strings.Join(task.Spec.Command, " "),
+		AppGUID:           task.Spec.AppRef.Name,
+		SequenceID:        task.Status.SequenceID,
+		CreationTimestamp: task.CreationTimestamp.Time,
 	}, nil
 }
 

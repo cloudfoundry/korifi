@@ -93,6 +93,7 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.Command).To(Equal("echo hello"))
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 				Expect(taskRecord.SequenceID).NotTo(BeZero())
+				Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), time.Second))
 			})
 
 			When("the task never becomes ready", func() {
