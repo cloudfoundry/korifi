@@ -38,7 +38,9 @@ type CFTaskStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	SequenceID int64 `json:"sequenceId"`
+	SequenceID  int64 `json:"sequenceId"`
+	MemoryMB    int64 `json:"memoryMB"`
+	DiskQuotaMB int64 `json:"diskQuotaMB"`
 }
 
 //+kubebuilder:object:root=true

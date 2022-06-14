@@ -6,6 +6,7 @@ import (
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	workloadsfake "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	"code.cloudfoundry.org/korifi/controllers/fake"
@@ -40,7 +41,17 @@ var _ = Describe("CFTask Controller", func() {
 		seqIdGenerator = new(workloadsfake.SeqIdGenerator)
 		seqIdGenerator.GenerateReturns(314, nil)
 		logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
-		taskReconciler = *workloads.NewCFTaskReconciler(k8sClient, scheme.Scheme, eventRecorder, logger, seqIdGenerator)
+		taskReconciler = *workloads.NewCFTaskReconciler(
+			k8sClient,
+			scheme.Scheme,
+			eventRecorder,
+			logger,
+			seqIdGenerator,
+			config.CFProcessDefaults{
+				MemoryMB:           256,
+				DefaultDiskQuotaMB: 128,
+			},
+		)
 	})
 
 	Describe("task creation", func() {
@@ -125,7 +136,9 @@ var _ = Describe("CFTask Controller", func() {
 			Expect(eiriniTask.Namespace).To(Equal("the-task-namespace"))
 			Expect(eiriniTask.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
 			Expect(eiriniTask.Spec.Command).To(ConsistOf("echo", "hello"))
-			Expect(eiriniTask.Spec.Image).To(Equal("the-image"))
+			Expect(eiriniTask.Spec.Command).To(ConsistOf("echo", "hello"))
+			Expect(eiriniTask.Spec.MemoryMB).To(BeNumerically("==", 256))
+			Expect(eiriniTask.Spec.DiskMB).To(BeNumerically("==", 128))
 		})
 
 		It("emits a normal event for successful reconciliation", func() {
@@ -139,12 +152,19 @@ var _ = Describe("CFTask Controller", func() {
 			Expect(message).To(ContainSubstring("Created eirini task %s"))
 		})
 
-		It("initialises Status.SequenceID", func() {
+		It("populates the CFTask Status", func() {
 			Expect(statusWriter.PatchCallCount()).To(Equal(1))
 			_, object, patch, _ := statusWriter.PatchArgsForCall(0)
 			patchBytes, patchErr := patch.Data(object)
 			Expect(patchErr).NotTo(HaveOccurred())
-			Expect(string(patchBytes)).To(MatchJSON(`{"status":{"sequenceId":314}}`))
+			Expect(string(patchBytes)).To(MatchJSON(`
+            {
+                "status": {
+                    "sequenceId": 314,
+                    "memoryMB": 256,
+                    "diskQuotaMB": 128
+                }
+            }`))
 		})
 
 		When("Status.SequenceID has been already set", func() {

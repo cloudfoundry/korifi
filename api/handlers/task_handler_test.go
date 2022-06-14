@@ -53,6 +53,8 @@ var _ = Describe("TaskHandler", func() {
 				AppGUID:           "the-app-guid",
 				SequenceID:        123456,
 				CreationTimestamp: time.Date(2022, 6, 14, 13, 22, 34, 0, time.UTC),
+				MemoryMB:          256,
+				DiskMB:            128,
 			}, nil)
 		})
 
@@ -78,6 +80,8 @@ var _ = Describe("TaskHandler", func() {
               "sequence_id": 123456,
               "created_at": "2022-06-14T13:22:34Z",
               "updated_at": "2022-06-14T13:22:34Z",
+              "memory_in_mb": 256,
+              "disk_in_mb": 128,
               "relationships": {
                 "app": {
                   "data": {
