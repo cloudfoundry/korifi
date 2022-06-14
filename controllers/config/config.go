@@ -19,8 +19,8 @@ type ControllerConfig struct {
 }
 
 type CFProcessDefaults struct {
-	MemoryMB           int64 `yaml:"memoryMB"`
-	DefaultDiskQuotaMB int64 `yaml:"diskQuotaMB"`
+	MemoryMB    int64 `yaml:"memoryMB"`
+	DiskQuotaMB int64 `yaml:"diskQuotaMB"`
 }
 
 func LoadFromPath(path string) (*ControllerConfig, error) {

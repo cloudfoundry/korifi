@@ -105,7 +105,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, &task)).To(Succeed())
 				g.Expect(task.Status.SequenceID).NotTo(BeZero())
 				g.Expect(task.Status.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
-				g.Expect(task.Status.DiskQuotaMB).To(Equal(cfProcessDefaults.DefaultDiskQuotaMB))
+				g.Expect(task.Status.DiskQuotaMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
 			}).Should(Succeed())
 		})
 
@@ -146,7 +146,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Expect(tasks.Items[0].Spec.Command).To(ConsistOf("echo", "hello"))
 			Expect(tasks.Items[0].Spec.Image).To(Equal("registry.io/my/image"))
 			Expect(tasks.Items[0].Spec.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
-			Expect(tasks.Items[0].Spec.DiskMB).To(Equal(cfProcessDefaults.DefaultDiskQuotaMB))
+			Expect(tasks.Items[0].Spec.DiskMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
 		})
 	})
 })
