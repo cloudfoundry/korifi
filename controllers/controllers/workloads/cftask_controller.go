@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
 )
 
 //counterfeiter:generate -o fake -fake-name SeqIdGenerator . SeqIdGenerator
@@ -41,20 +42,29 @@ type SeqIdGenerator interface {
 
 // CFTaskReconciler reconciles a CFTask object
 type CFTaskReconciler struct {
-	k8sClient      client.Client
-	scheme         *runtime.Scheme
-	recorder       record.EventRecorder
-	logger         logr.Logger
-	seqIdGenerator SeqIdGenerator
+	k8sClient         client.Client
+	scheme            *runtime.Scheme
+	recorder          record.EventRecorder
+	logger            logr.Logger
+	seqIdGenerator    SeqIdGenerator
+	cfProcessDefaults config.CFProcessDefaults
 }
 
-func NewCFTaskReconciler(client client.Client, scheme *runtime.Scheme, recorder record.EventRecorder, logger logr.Logger, seqIdGenerator SeqIdGenerator) *CFTaskReconciler {
+func NewCFTaskReconciler(
+	client client.Client,
+	scheme *runtime.Scheme,
+	recorder record.EventRecorder,
+	logger logr.Logger,
+	seqIdGenerator SeqIdGenerator,
+	cfProcessDefaults config.CFProcessDefaults,
+) *CFTaskReconciler {
 	return &CFTaskReconciler{
-		k8sClient:      client,
-		scheme:         scheme,
-		recorder:       recorder,
-		logger:         logger,
-		seqIdGenerator: seqIdGenerator,
+		k8sClient:         client,
+		scheme:            scheme,
+		recorder:          recorder,
+		logger:            logger,
+		seqIdGenerator:    seqIdGenerator,
+		cfProcessDefaults: cfProcessDefaults,
 	}
 }
 
@@ -77,7 +87,7 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	err = r.ensureSequenceId(ctx, cfTask)
+	err = r.updateStatus(ctx, cfTask)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -155,9 +165,11 @@ func (r *CFTaskReconciler) createEiriniTask(ctx context.Context, cfTask *korifiv
 			},
 		},
 		Spec: eiriniv1.TaskSpec{
-			GUID:    cfTask.Name,
-			Command: cfTask.Spec.Command,
-			Image:   cfDroplet.Status.Droplet.Registry.Image,
+			GUID:     cfTask.Name,
+			Command:  cfTask.Spec.Command,
+			Image:    cfDroplet.Status.Droplet.Registry.Image,
+			MemoryMB: r.cfProcessDefaults.MemoryMB,
+			DiskMB:   r.cfProcessDefaults.DefaultDiskQuotaMB,
 		},
 	}
 
@@ -174,7 +186,7 @@ func (r *CFTaskReconciler) createEiriniTask(ctx context.Context, cfTask *korifiv
 	return nil
 }
 
-func (r *CFTaskReconciler) ensureSequenceId(ctx context.Context, cfTask *korifiv1alpha1.CFTask) error {
+func (r *CFTaskReconciler) updateStatus(ctx context.Context, cfTask *korifiv1alpha1.CFTask) error {
 	if cfTask.Status.SequenceID == 0 {
 		cfTaskCopy := cfTask.DeepCopy()
 		var err error
@@ -183,6 +195,9 @@ func (r *CFTaskReconciler) ensureSequenceId(ctx context.Context, cfTask *korifiv
 			r.logger.Info("error-generating-sequence-id", "error", err)
 			return err
 		}
+
+		cfTaskCopy.Status.MemoryMB = r.cfProcessDefaults.MemoryMB
+		cfTaskCopy.Status.DiskQuotaMB = r.cfProcessDefaults.DefaultDiskQuotaMB
 
 		err = r.k8sClient.Status().Patch(ctx, cfTaskCopy, client.MergeFrom(cfTask))
 		if err != nil {

@@ -41,6 +41,8 @@ var _ = Describe("TaskRepository", func() {
 		BeforeEach(func() {
 			dummyTaskController = func(cft *korifiv1alpha1.CFTask) error {
 				cft.Status.SequenceID = 6
+				cft.Status.MemoryMB = 256
+				cft.Status.DiskQuotaMB = 128
 				return k8sClient.Status().Update(ctx, cft)
 			}
 			createMessage = repositories.CreateTaskMessage{
@@ -94,6 +96,8 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 				Expect(taskRecord.SequenceID).NotTo(BeZero())
 				Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), time.Second))
+				Expect(taskRecord.MemoryMB).To(BeNumerically("==", 256))
+				Expect(taskRecord.DiskMB).To(BeNumerically("==", 128))
 			})
 
 			When("the task never becomes ready", func() {

@@ -28,6 +28,8 @@ type TaskRecord struct {
 	AppGUID           string
 	SequenceID        int64
 	CreationTimestamp time.Time
+	MemoryMB          int64
+	DiskMB            int64
 }
 
 type CreateTaskMessage struct {
@@ -77,9 +79,13 @@ func (r *TaskRepo) CreateTask(ctx context.Context, authInfo authorization.Info, 
 		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
 	}
 
-	task, err = r.awaitSequenceID(ctx, userClient, task)
+	task, err = r.waitForStatusCondition(ctx, userClient, task, func(updatedTask *korifiv1alpha1.CFTask) bool {
+		return updatedTask.Status.SequenceID != 0 &&
+			updatedTask.Status.MemoryMB != 0 &&
+			updatedTask.Status.DiskQuotaMB != 0
+	})
 	if err != nil {
-		return TaskRecord{}, fmt.Errorf("failed awaiting task being ready: %w", err)
+		return TaskRecord{}, fmt.Errorf("failed waiting for status to get populated: %w", err)
 	}
 
 	return TaskRecord{
@@ -89,10 +95,17 @@ func (r *TaskRepo) CreateTask(ctx context.Context, authInfo authorization.Info, 
 		AppGUID:           task.Spec.AppRef.Name,
 		SequenceID:        task.Status.SequenceID,
 		CreationTimestamp: task.CreationTimestamp.Time,
+		MemoryMB:          task.Status.MemoryMB,
+		DiskMB:            task.Status.DiskQuotaMB,
 	}, nil
 }
 
-func (r *TaskRepo) awaitSequenceID(ctx context.Context, userClient client.WithWatch, task korifiv1alpha1.CFTask) (korifiv1alpha1.CFTask, error) {
+func (r *TaskRepo) waitForStatusCondition(
+	ctx context.Context,
+	userClient client.WithWatch,
+	task korifiv1alpha1.CFTask,
+	condition func(*korifiv1alpha1.CFTask) bool,
+) (korifiv1alpha1.CFTask, error) {
 	watch, err := userClient.Watch(ctx, &korifiv1alpha1.CFTaskList{}, client.InNamespace(task.Namespace), client.MatchingFields{"metadata.name": task.Name})
 	if err != nil {
 		return korifiv1alpha1.CFTask{}, apierrors.FromK8sError(err, TaskResourceType)
@@ -102,16 +115,16 @@ func (r *TaskRepo) awaitSequenceID(ctx context.Context, userClient client.WithWa
 	for {
 		select {
 		case e := <-watch.ResultChan():
-			task, ok := e.Object.(*korifiv1alpha1.CFTask)
+			updatedTask, ok := e.Object.(*korifiv1alpha1.CFTask)
 			if !ok {
 				continue
 			}
 
-			if task.Status.SequenceID != 0 {
-				return *task, nil
+			if condition(updatedTask) {
+				return *updatedTask, nil
 			}
 		case <-time.After(r.timeout):
-			return korifiv1alpha1.CFTask{}, fmt.Errorf("task did not become ready within timeout period %d ms", r.timeout.Milliseconds())
+			return korifiv1alpha1.CFTask{}, fmt.Errorf("task status did not get populated within timeout period %d ms", r.timeout.Milliseconds())
 		}
 	}
 }

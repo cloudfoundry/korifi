@@ -220,6 +220,7 @@ func main() {
 		mgr.GetEventRecorderFor("cftask-controller"),
 		ctrl.Log.WithName("controllers").WithName("CFTask"),
 		workloadscontrollers.NewSequenceId(clockwork.NewRealClock()),
+		controllerConfig.CFProcessDefaults,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFTask")
 		os.Exit(1)
