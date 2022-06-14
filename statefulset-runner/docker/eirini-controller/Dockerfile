@@ -6,7 +6,7 @@ FROM golang:1.18.3 as builder
 WORKDIR /eirini/
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux go build -mod vendor -trimpath -installsuffix cgo -o eirini-controller ./cmd
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -installsuffix cgo -o eirini-controller ./cmd
 ARG GIT_SHA
 RUN if [ -z "$GIT_SHA" ]; then echo "GIT_SHA not set"; exit 1; else : ; fi
 

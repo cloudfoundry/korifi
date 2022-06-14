@@ -4,4 +4,4 @@ set -eu
 
 export GO111MODULE=on
 
-go run github.com/onsi/ginkgo/v2/ginkgo --mod=vendor -p --keep-going --randomize-all --randomize-suites $@
+go run github.com/onsi/ginkgo/v2/ginkgo -p --keep-going --randomize-all --randomize-suites $@
