@@ -97,8 +97,8 @@ var _ = BeforeSuite(func() {
 
 	controllerConfig := &config.ControllerConfig{
 		CFProcessDefaults: config.CFProcessDefaults{
-			MemoryMB:           500,
-			DefaultDiskQuotaMB: 512,
+			MemoryMB:    500,
+			DiskQuotaMB: 512,
 		},
 		KorifiControllerNamespace: "korifi-controllers-system",
 		PackageRegistrySecretName: packageRegistrySecretName,
@@ -151,8 +151,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	cfProcessDefaults = config.CFProcessDefaults{
-		MemoryMB:           256,
-		DefaultDiskQuotaMB: 128,
+		MemoryMB:    256,
+		DiskQuotaMB: 128,
 	}
 	err = NewCFTaskReconciler(
 		k8sManager.GetClient(),

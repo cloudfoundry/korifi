@@ -87,8 +87,8 @@ var _ = BeforeSuite(func() {
 		ctrl.Log.WithName("controllers").WithName("CFRoute"),
 		&config.ControllerConfig{
 			CFProcessDefaults: config.CFProcessDefaults{
-				MemoryMB:           500,
-				DefaultDiskQuotaMB: 512,
+				MemoryMB:    500,
+				DiskQuotaMB: 512,
 			},
 			KorifiControllerNamespace: "korifi-controllers-system",
 			WorkloadsTLSSecretName:    "korifi-workloads-ingress-cert",

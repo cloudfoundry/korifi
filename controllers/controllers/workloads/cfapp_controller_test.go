@@ -167,8 +167,8 @@ var _ = Describe("CFAppReconciler", func() {
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
 			&config.ControllerConfig{
 				CFProcessDefaults: config.CFProcessDefaults{
-					MemoryMB:           0,
-					DefaultDiskQuotaMB: 0,
+					MemoryMB:    0,
+					DiskQuotaMB: 0,
 				},
 			},
 		)

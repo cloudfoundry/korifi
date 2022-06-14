@@ -48,8 +48,8 @@ var _ = Describe("CFTask Controller", func() {
 			logger,
 			seqIdGenerator,
 			config.CFProcessDefaults{
-				MemoryMB:           256,
-				DefaultDiskQuotaMB: 128,
+				MemoryMB:    256,
+				DiskQuotaMB: 128,
 			},
 		)
 	})

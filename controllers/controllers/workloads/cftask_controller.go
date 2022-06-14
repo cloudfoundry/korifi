@@ -169,7 +169,7 @@ func (r *CFTaskReconciler) createEiriniTask(ctx context.Context, cfTask *korifiv
 			Command:  cfTask.Spec.Command,
 			Image:    cfDroplet.Status.Droplet.Registry.Image,
 			MemoryMB: r.cfProcessDefaults.MemoryMB,
-			DiskMB:   r.cfProcessDefaults.DefaultDiskQuotaMB,
+			DiskMB:   r.cfProcessDefaults.DiskQuotaMB,
 		},
 	}
 
@@ -197,7 +197,7 @@ func (r *CFTaskReconciler) updateStatus(ctx context.Context, cfTask *korifiv1alp
 		}
 
 		cfTaskCopy.Status.MemoryMB = r.cfProcessDefaults.MemoryMB
-		cfTaskCopy.Status.DiskQuotaMB = r.cfProcessDefaults.DefaultDiskQuotaMB
+		cfTaskCopy.Status.DiskQuotaMB = r.cfProcessDefaults.DiskQuotaMB
 
 		err = r.k8sClient.Status().Patch(ctx, cfTaskCopy, client.MergeFrom(cfTask))
 		if err != nil {

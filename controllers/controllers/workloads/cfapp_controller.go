@@ -155,7 +155,7 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1a
 			},
 			DesiredInstances: getDesiredInstanceCount(process.Type),
 			MemoryMB:         r.ControllerConfig.CFProcessDefaults.MemoryMB,
-			DiskQuotaMB:      r.ControllerConfig.CFProcessDefaults.DefaultDiskQuotaMB,
+			DiskQuotaMB:      r.ControllerConfig.CFProcessDefaults.DiskQuotaMB,
 			Ports:            ports,
 		},
 	}
