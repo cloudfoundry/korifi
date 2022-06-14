@@ -153,6 +153,8 @@ type manifestResource struct {
 type applicationResource struct {
 	Name         string                               `yaml:"name"`
 	DefaultRoute bool                                 `yaml:"default-route"`
+	RandomRoute  bool                                 `yaml:"random-route"`
+	NoRoute      bool                                 `yaml:"no-route"`
 	Processes    []manifestApplicationProcessResource `yaml:"processes"`
 	Routes       []manifestRouteResource              `yaml:"routes"`
 }

@@ -16,6 +16,8 @@ type ManifestApplication struct {
 	Name         string                       `yaml:"name" validate:"required"`
 	Env          map[string]string            `yaml:"env"`
 	DefaultRoute bool                         `yaml:"default-route"`
+	RandomRoute  bool                         `yaml:"random-route"`
+	NoRoute      bool                         `yaml:"no-route"`
 	Memory       *string                      `yaml:"memory" validate:"megabytestring"`
 	Processes    []ManifestApplicationProcess `yaml:"processes" validate:"dive"`
 	Routes       []ManifestRoute              `yaml:"routes" validate:"dive"`

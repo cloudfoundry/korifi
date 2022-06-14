@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -72,12 +74,20 @@ func (a *Manifest) Apply(ctx context.Context, authInfo authorization.Info, space
 		return err
 	}
 
-	err = a.checkAndUpdateDefaultRoute(ctx, authInfo, appRecord, &appInfo)
-	if err != nil {
-		return err
-	}
+	if !appInfo.NoRoute {
+		err = a.checkAndUpdateDefaultRoute(ctx, authInfo, appRecord, &appInfo)
+		if err != nil {
+			return err
+		}
 
-	return a.createOrUpdateRoutes(ctx, authInfo, appRecord, appInfo.Routes)
+		err = a.checkAndUpdateRandomRoute(ctx, authInfo, appRecord, &appInfo)
+		if err != nil {
+			return err
+		}
+
+		return a.createOrUpdateRoutes(ctx, authInfo, appRecord, appInfo.Routes)
+	}
+	return nil
 }
 
 // checkAndUpdateDefaultRoute may set the default route on the manifest when DefaultRoute is true
@@ -108,6 +118,39 @@ func (a *Manifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo auth
 	}
 	// set the route field of the manifest with app-name . default domain
 	appInfo.Routes = append(appInfo.Routes, defaultRoute)
+
+	return nil
+}
+
+// checkAndUpdateRandomRoute may set the random route on the manifest when RandomRoute is true
+func (a *Manifest) checkAndUpdateRandomRoute(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, appInfo *payloads.ManifestApplication) error {
+	if !appInfo.RandomRoute || len(appInfo.Routes) > 0 {
+		return nil
+	}
+
+	existingRoutes, err := a.routeRepo.ListRoutesForApp(ctx, authInfo, appRecord.GUID, appRecord.SpaceGUID)
+	if err != nil {
+		return err
+	}
+	if len(existingRoutes) > 0 {
+		return nil
+	}
+
+	_, err = a.domainRepo.GetDomainByName(ctx, authInfo, a.defaultDomainName)
+	if err != nil {
+		return apierrors.AsUnprocessableEntity(
+			err,
+			fmt.Sprintf("The configured default domain %q was not found", a.defaultDomainName),
+			apierrors.NotFoundError{},
+		)
+	}
+	randomHostname := appInfo.Name + "-" + generateRandomRoute()
+	routeString := randomHostname + "." + a.defaultDomainName
+	randomRoute := payloads.ManifestRoute{
+		Route: &routeString,
+	}
+	// set the route field of the manifest with a randomly generated name . default domain
+	appInfo.Routes = append(appInfo.Routes, randomRoute)
 
 	return nil
 }
@@ -223,4 +266,219 @@ func splitRoute(route string) (string, string, string) {
 		path = "/" + parts[1]
 	}
 	return hostName, domain, path
+}
+
+func generateRandomRoute() string {
+	adjectives := getAdjectives()
+	nouns := getNouns()
+	rand.Seed(time.Now().Unix())
+	suffix := string('a'+rune(rand.Intn(26))) + string('a'+rune(rand.Intn(26)))
+	return adjectives[rand.Intn(len(adjectives))] + "-" + nouns[rand.Intn(len(nouns))] + "-" + suffix
+}
+
+func getAdjectives() []string {
+	return []string{
+		"accountable",
+		"active",
+		"agile",
+		"anxious",
+		"appreciative",
+		"balanced",
+		"bogus",
+		"boisterous",
+		"bold",
+		"boring",
+		"brash",
+		"brave",
+		"bright",
+		"busy",
+		"chatty",
+		"cheerful",
+		"chipper",
+		"comedic",
+		"courteous",
+		"daring",
+		"delightful",
+		"egregious",
+		"empathic",
+		"excellent",
+		"exhausted",
+		"fantastic",
+		"fearless",
+		"fluent",
+		"forgiving",
+		"friendly",
+		"funny",
+		"generous",
+		"grateful",
+		"grouchy",
+		"grumpy",
+		"happy",
+		"hilarious",
+		"humble",
+		"impressive",
+		"insightful",
+		"intelligent",
+		"industrious",
+		"interested",
+		"kind",
+		"lean",
+		"mediating",
+		"meditating",
+		"nice",
+		"noisy",
+		"optimistic",
+		"palm",
+		"patient",
+		"persistent",
+		"proud",
+		"quick",
+		"quiet",
+		"reflective",
+		"relaxed",
+		"reliable",
+		"resplendent",
+		"responsible",
+		"responsive",
+		"rested",
+		"restless",
+		"shiny",
+		"shy",
+		"silly",
+		"sleepy",
+		"smart",
+		"spontaneous",
+		"stellar",
+		"surprised",
+		"sweet",
+		"talkative",
+		"terrific",
+		"thankful",
+		"timely",
+		"tired",
+		"triumphant",
+		"turbulent",
+		"unexpected",
+		"wacky",
+		"wise",
+		"zany",
+	}
+}
+
+func getNouns() []string {
+	return []string{
+		"aardvark",
+		"alligator",
+		"antelope",
+		"armadillo",
+		"baboon",
+		"badger",
+		"bandicoot",
+		"bat",
+		"bear",
+		"bilby",
+		"bongo",
+		"buffalo",
+		"bushbuck",
+		"camel",
+		"capybara",
+		"cassowary",
+		"cat",
+		"cheetah",
+		"chimpanzee",
+		"chipmunk",
+		"civet",
+		"crane",
+		"crocodile",
+		"dingo",
+		"dog",
+		"dugong",
+		"duiker",
+		"echidna",
+		"eland",
+		"elephant",
+		"emu",
+		"fossa",
+		"fox",
+		"gazelle",
+		"gecko",
+		"gelada",
+		"genet",
+		"gerenuk",
+		"giraffe",
+		"gnu",
+		"gorilla",
+		"grysbok",
+		"guanaco",
+		"hartebeest",
+		"hedgehog",
+		"hippopotamus",
+		"hyena",
+		"hyrax",
+		"impala",
+		"jackal",
+		"jaguar",
+		"kangaroo",
+		"klipspringer",
+		"koala",
+		"kob",
+		"kookaburra",
+		"kudu",
+		"lemur",
+		"leopard",
+		"lion",
+		"lizard",
+		"llama",
+		"lynx",
+		"manatee",
+		"mandrill",
+		"marmot",
+		"meerkat",
+		"mongoose",
+		"mouse",
+		"numbat",
+		"nyala",
+		"okapi",
+		"oribi",
+		"oryx",
+		"ostrich",
+		"otter",
+		"panda",
+		"pangolin",
+		"panther",
+		"parrot",
+		"platypus",
+		"porcupine",
+		"possum",
+		"puku",
+		"quokka",
+		"quoll",
+		"rabbit",
+		"ratel",
+		"raven",
+		"reedbuck",
+		"rhinocerous",
+		"roan",
+		"sable",
+		"serval",
+		"shark",
+		"sitatunga",
+		"springhare",
+		"squirrel",
+		"swan",
+		"tiger",
+		"topi",
+		"toucan",
+		"turtle",
+		"vicuna",
+		"wallaby",
+		"warthog",
+		"waterbuck",
+		"whale",
+		"wildebeest",
+		"wolf",
+		"wolverine",
+		"wombat",
+		"zebra",
+	}
 }

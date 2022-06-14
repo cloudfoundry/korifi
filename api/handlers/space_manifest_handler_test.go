@@ -315,6 +315,22 @@ var _ = Describe("SpaceManifestHandler", func() {
 				expectNotFoundError("Domain")
 			})
 		})
+
+		When("The random-route and default-route flags are both set", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                version: 1
+                applications:
+                - name: app1
+                  default-route: true
+                  random-route: true
+                `)
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].defaultRoute' Error:Field validation for 'defaultRoute' failed on the 'Random-route and Default-route may not be used together' tag")
+			})
+		})
 	})
 
 	Describe("POST /v3/spaces/{spaceGUID}/manifest_diff", func() {
