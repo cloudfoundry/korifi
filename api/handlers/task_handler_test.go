@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/handlers"
@@ -46,11 +47,12 @@ var _ = Describe("TaskHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			taskRepo.CreateTaskReturns(repositories.TaskRecord{
-				Name:       "the-task-name",
-				GUID:       "the-task-guid",
-				Command:    "echo hello",
-				AppGUID:    "the-app-guid",
-				SequenceID: 123456,
+				Name:              "the-task-name",
+				GUID:              "the-task-guid",
+				Command:           "echo hello",
+				AppGUID:           "the-app-guid",
+				SequenceID:        123456,
+				CreationTimestamp: time.Date(2022, 6, 14, 13, 22, 34, 0, time.UTC),
 			}, nil)
 		})
 
@@ -74,6 +76,8 @@ var _ = Describe("TaskHandler", func() {
               "guid": "the-task-guid",
               "command": "echo hello",
               "sequence_id": 123456,
+              "created_at": "2022-06-14T13:22:34Z",
+              "updated_at": "2022-06-14T13:22:34Z",
               "relationships": {
                 "app": {
                   "data": {
