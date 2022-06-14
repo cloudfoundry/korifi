@@ -131,7 +131,10 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 		return nil, nil, err
 	}
 
+	v.RegisterStructValidation(checkRandomRouteAndDefaultRouteConflict, payloads.ManifestApplication{})
+
 	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
+
 	err = v.RegisterTranslation("cannot_have_both_org_and_space_set", trans, func(ut ut.Translator) error {
 		return ut.Add("cannot_have_both_org_and_space_set", "Cannot pass both 'organization' and 'space' in a create role request", false)
 	}, func(ut ut.Translator, fe validator.FieldError) string {
@@ -176,6 +179,14 @@ func registerDefaultTranslator(v *validator.Validate) (ut.Translator, error) {
 	}
 
 	return trans, nil
+}
+
+func checkRandomRouteAndDefaultRouteConflict(sl validator.StructLevel) {
+	manifestApplication := sl.Current().Interface().(payloads.ManifestApplication)
+
+	if manifestApplication.DefaultRoute && manifestApplication.RandomRoute {
+		sl.ReportError(manifestApplication.DefaultRoute, "defaultRoute", "DefaultRoute", "Random-route and Default-route may not be used together", "")
+	}
 }
 
 func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {

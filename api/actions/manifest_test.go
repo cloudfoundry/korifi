@@ -392,6 +392,131 @@ var _ = Describe("ApplyManifest", func() {
 			})
 		})
 
+		When("no route is specified for the app", func() {
+			BeforeEach(func() {
+				manifest.Applications[0].NoRoute = true
+			})
+
+			When("default route is set to true", func() {
+				BeforeEach(func() {
+					manifest.Applications[0].DefaultRoute = true
+				})
+
+				It("does not call GetOrCreateRoute, and does not return an error", func() {
+					Expect(applyErr).To(Succeed())
+					Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(0))
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+
+			When("random route is set to true", func() {
+				BeforeEach(func() {
+					manifest.Applications[0].RandomRoute = true
+				})
+
+				It("does not call GetOrCreateRoute, and does not return an error", func() {
+					Expect(applyErr).To(Succeed())
+					Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(0))
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+
+			When("routes are specified in the manifest", func() {
+				BeforeEach(func() {
+					manifest.Applications[0].Routes = []payloads.ManifestRoute{
+						{Route: stringPointer("my-app.my-domain.com/path")},
+					}
+				})
+
+				It("does not call GetOrCreateRoute, and does not return an error", func() {
+					Expect(applyErr).To(Succeed())
+					Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(0))
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+		})
+
+		When("random route is specified for the app, and no routes are specified", func() {
+			BeforeEach(func() {
+				manifest.Applications[0].RandomRoute = true
+			})
+
+			It("checks for existing routes correctly", func() {
+				Expect(routeRepo.ListRoutesForAppCallCount()).To(Equal(1))
+
+				_, actualAuthInfo, actualAppGUID, actualSpaceGUID := routeRepo.ListRoutesForAppArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualAppGUID).To(Equal(appGUID))
+				Expect(actualSpaceGUID).To(Equal(spaceGUID))
+			})
+
+			When("checking for existing routes fails", func() {
+				BeforeEach(func() {
+					routeRepo.ListRoutesForAppReturns(nil, errors.New("boom"))
+				})
+
+				It("returns the error", func() {
+					Expect(applyErr).To(MatchError("boom"))
+				})
+			})
+
+			When("the app has no existing route destinations", func() {
+				It("fetches the default domain, and calls create route for a random destination", func() {
+					Expect(applyErr).To(Succeed())
+					Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(1))
+					_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
+					Expect(createMessage.Host).To(HavePrefix(appName + "-"))
+					Expect(createMessage.Path).To(Equal(""))
+					Expect(createMessage.DomainGUID).To(Equal(defaultDomainGUID))
+
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
+					_, _, destinationsMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)
+					Expect(destinationsMessage.NewDestinations).To(HaveLen(1))
+					Expect(destinationsMessage.NewDestinations[0].AppGUID).To(Equal(appGUID))
+				})
+
+				When("fetching the default domain fails with a NotFound error", func() {
+					BeforeEach(func() {
+						domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, apierrors.NewNotFoundError(errors.New("boom"), repositories.DomainResourceType))
+					})
+
+					It("returns an UnprocessibleEntity error with a friendly message", func() {
+						Expect(applyErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+						var apierr apierrors.ApiError
+						ok := errors.As(applyErr, &apierr)
+						Expect(ok).To(BeTrue())
+						Expect(apierr.Detail()).To(Equal(
+							fmt.Sprintf("The configured default domain %q was not found", defaultDomainName),
+						))
+					})
+				})
+
+				When("fetching the default domain fails", func() {
+					BeforeEach(func() {
+						domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, errors.New("fail-on-purpose"))
+					})
+
+					It("returns an error", func() {
+						Expect(applyErr).To(MatchError("fail-on-purpose"))
+					})
+				})
+			})
+
+			When("the app already has a route destination", func() {
+				BeforeEach(func() {
+					routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{{
+						GUID: "some-other-route-guid",
+					}}, nil)
+				})
+
+				It("does not call GetOrCreateRoute, but does not return an error", func() {
+					Expect(applyErr).To(Succeed())
+					Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(0))
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				})
+			})
+		})
+
 		When("a route is specified for the app", func() {
 			BeforeEach(func() {
 				domainRepo.GetDomainByNameReturns(repositories.DomainRecord{
@@ -490,6 +615,28 @@ var _ = Describe("ApplyManifest", func() {
 				})
 
 				It("is ignored, and AddDestinationsToRoute is called without adding a default destination to the existing route list", func() {
+					Expect(applyErr).To(Succeed())
+					Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(len(manifest.Applications[0].Routes)))
+					_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
+					Expect(createMessage.Host).To(Equal("NOT-MY-APP"))
+					Expect(createMessage.Path).To(Equal("/path"))
+					Expect(createMessage.DomainGUID).To(Equal("my-domain-guid"))
+
+					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
+					_, _, destinationsMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)
+					Expect(destinationsMessage.NewDestinations).To(HaveLen(1))
+				})
+			})
+
+			When("randomRoute:true is set on the manifest along with the routes", func() {
+				BeforeEach(func() {
+					manifest.Applications[0].Routes = []payloads.ManifestRoute{
+						{Route: stringPointer("NOT-MY-APP.my-domain.com/path")},
+					}
+					manifest.Applications[0].RandomRoute = true
+				})
+
+				It("is ignored, and AddDestinationsToRoute is called without adding a random route to the existing route list", func() {
 					Expect(applyErr).To(Succeed())
 					Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(len(manifest.Applications[0].Routes)))
 					_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
