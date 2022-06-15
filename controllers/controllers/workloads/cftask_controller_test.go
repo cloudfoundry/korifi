@@ -135,7 +135,7 @@ var _ = Describe("CFTask Controller", func() {
 			Expect(eiriniTask.Name).To(Equal("the-task-guid"))
 			Expect(eiriniTask.Namespace).To(Equal("the-task-namespace"))
 			Expect(eiriniTask.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
-			Expect(eiriniTask.Spec.Command).To(ConsistOf("echo", "hello"))
+			Expect(eiriniTask.Spec.Image).To(Equal("the-image"))
 			Expect(eiriniTask.Spec.Command).To(ConsistOf("echo", "hello"))
 			Expect(eiriniTask.Spec.MemoryMB).To(BeNumerically("==", 256))
 			Expect(eiriniTask.Spec.DiskMB).To(BeNumerically("==", 128))
