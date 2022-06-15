@@ -73,14 +73,14 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	if isFinalizing(cfRoute) {
+		return r.finalizeCFRoute(ctx, cfRoute)
+	}
+
 	var cfDomain korifiv1alpha1.CFDomain
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, &cfDomain)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			if isFinalizing(cfRoute) {
-				r.Log.Info("Warning: CFDomain not found during CFRoute deletion; proceeding to finalize", "route", req.NamespacedName, "domain", cfRoute.Spec.DomainRef)
-				return r.finalizeCFRoute(ctx, cfRoute, nil)
-			}
 			return r.setRouteErrorStatusAndReturn(ctx, cfRoute, err, "CFDomain not found", "InvalidDomainRef")
 		}
 		return r.setRouteErrorStatusAndReturn(ctx, cfRoute, err, "Error fetching domain reference", "FetchDomainRef")
@@ -96,10 +96,6 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, statusErr
 		}
 		return ctrl.Result{}, err
-	}
-
-	if isFinalizing(cfRoute) {
-		return r.finalizeCFRoute(ctx, cfRoute, &cfDomain)
 	}
 
 	err = r.createOrPatchServices(ctx, cfRoute)
@@ -185,25 +181,23 @@ func (r *CFRouteReconciler) addFinalizer(ctx context.Context, cfRoute *korifiv1a
 	return nil
 }
 
-func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
+func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling deletion of CFRoute/%s", cfRoute.Name))
 
 	if !controllerutil.ContainsFinalizer(cfRoute, FinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
-	if cfDomain != nil {
-		fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, cfRoute.Spec.Host, cfDomain.Spec.Name, cfRoute.Namespace, false)
+	fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, cfRoute.Status.FQDN, cfRoute.Namespace, false)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Cleanup the FQDN HTTPProxy on delete
+	if foundFQDNProxy {
+		err := r.finalizeFQDNProxy(ctx, cfRoute.Name, fqdnHTTPProxy)
 		if err != nil {
 			return ctrl.Result{}, err
-		}
-
-		// Cleanup the FQDN HTTPProxy on delete
-		if foundFQDNProxy {
-			err := r.finalizeFQDNProxy(ctx, cfRoute.Name, fqdnHTTPProxy)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
 		}
 	}
 
@@ -327,14 +321,14 @@ func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, cfRoute
 }
 
 func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) error {
-	fqdnHTTPProxy, foundFQDNPRoxy, err := r.getFQDNProxy(ctx, cfRoute.Spec.Host, cfDomain.Spec.Name, cfRoute.Namespace, true)
+	fqdn := strings.ToLower(fmt.Sprintf("%s.%s", cfRoute.Spec.Host, cfDomain.Spec.Name))
+
+	fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, fqdn, cfRoute.Namespace, true)
 	if err != nil {
 		return err
 	}
 
-	fqdn := strings.ToLower(fmt.Sprintf("%s.%s", cfRoute.Spec.Host, cfDomain.Spec.Name))
-
-	if !foundFQDNPRoxy {
+	if !foundFQDNProxy {
 		fqdnHTTPProxy = &contourv1.HTTPProxy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fqdn,
@@ -383,9 +377,8 @@ func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, cfRoute 
 	return nil
 }
 
-func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, routeHostname, domainName, namespace string, checkAllNamespaces bool) (*contourv1.HTTPProxy, bool, error) {
+func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, fqdn, namespace string, checkAllNamespaces bool) (*contourv1.HTTPProxy, bool, error) {
 	var fqdnHTTPProxy contourv1.HTTPProxy
-	fqdn := fmt.Sprintf("%s.%s", routeHostname, domainName)
 
 	var proxies contourv1.HTTPProxyList
 	var listOptions client.ListOptions
