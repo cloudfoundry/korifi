@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-pushd "${SCRIPT_DIR}"
-{
-  cf api https://localhost --skip-ssl-validation
-  cf login <<EOF
-2
-2
-2
-EOF
-  SMOKE_TEST_APP_ROUTE_PROTOCOL="https" SMOKE_TEST_APPS_DOMAIN="vcap.me" go test
-}
-popd
+export SMOKE_TEST_USER=cf-admin
+export SMOKE_TEST_APPS_DOMAIN=vcap.me
+export SMOKE_TEST_APP_ROUTE_PROTOCOL=https
+export SMOKE_TEST_API_ENDPOINT=https://localhost
+export SMOKE_TEST_SKIP_SSL=true
+
+cd "${SCRIPT_DIR}"
+ginkgo
