@@ -19,10 +19,11 @@ This repository contains an experimental implementation of the [Cloud Foundry V3
 For more information about what we're building, check out the [_Vision for CF on Kubernetes_](https://docs.google.com/document/d/1rG814raI5UfGUsF_Ycrr8hKQMo1RH9TRMxuvkgHSdLg/edit) document.
 
 ## Differences with Cloud Foundry for VMs
+Korifi is very different from CF for VMs architecturally. Most core CF components have been replaced by more Kubernetes native equivalents. Check out our [architecture docs](docs/architecture.md) to learn more.
 
-Check our document about [differences between Korifi and CF-for-VMs](https://github.com/cloudfoundry/korifi/blob/main/docs/known-differences-with-cf-for-vms.md).
+Although we aim to preserve the core Cloud Foundry developer experience, there are some key behavior differences. We've listed some of these in our [differences between Korifi and CF-for-VMs](https://github.com/cloudfoundry/korifi/blob/main/docs/known-differences-with-cf-for-vms.md) doc.
 
-Our [API endpoint docs](docs/api.md) track the Cloud Foundry V3 API endpoints that we currently support.
+Additionally, we do not currently support all V3 CF APIs or filters. What we do support is tracked in our [API endpoint docs](docs/api.md).
 
 ## Installation
 
