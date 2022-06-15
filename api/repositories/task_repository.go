@@ -12,6 +12,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -79,13 +80,9 @@ func (r *TaskRepo) CreateTask(ctx context.Context, authInfo authorization.Info, 
 		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
 	}
 
-	task, err = r.waitForStatusCondition(ctx, userClient, task, func(updatedTask *korifiv1alpha1.CFTask) bool {
-		return updatedTask.Status.SequenceID != 0 &&
-			updatedTask.Status.MemoryMB != 0 &&
-			updatedTask.Status.DiskQuotaMB != 0
-	})
+	task, err = r.awaitInitialization(ctx, userClient, task)
 	if err != nil {
-		return TaskRecord{}, fmt.Errorf("failed waiting for status to get populated: %w", err)
+		return TaskRecord{}, fmt.Errorf("failed waiting for task to get initialized: %w", err)
 	}
 
 	return TaskRecord{
@@ -100,12 +97,7 @@ func (r *TaskRepo) CreateTask(ctx context.Context, authInfo authorization.Info, 
 	}, nil
 }
 
-func (r *TaskRepo) waitForStatusCondition(
-	ctx context.Context,
-	userClient client.WithWatch,
-	task korifiv1alpha1.CFTask,
-	condition func(*korifiv1alpha1.CFTask) bool,
-) (korifiv1alpha1.CFTask, error) {
+func (r *TaskRepo) awaitInitialization(ctx context.Context, userClient client.WithWatch, task korifiv1alpha1.CFTask) (korifiv1alpha1.CFTask, error) {
 	watch, err := userClient.Watch(ctx, &korifiv1alpha1.CFTaskList{}, client.InNamespace(task.Namespace), client.MatchingFields{"metadata.name": task.Name})
 	if err != nil {
 		return korifiv1alpha1.CFTask{}, apierrors.FromK8sError(err, TaskResourceType)
@@ -120,11 +112,11 @@ func (r *TaskRepo) waitForStatusCondition(
 				continue
 			}
 
-			if condition(updatedTask) {
+			if meta.IsStatusConditionTrue(updatedTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType) {
 				return *updatedTask, nil
 			}
 		case <-time.After(r.timeout):
-			return korifiv1alpha1.CFTask{}, fmt.Errorf("task status did not get populated within timeout period %d ms", r.timeout.Milliseconds())
+			return korifiv1alpha1.CFTask{}, fmt.Errorf("task did not get initialized within timeout period %d ms", r.timeout.Milliseconds())
 		}
 	}
 }

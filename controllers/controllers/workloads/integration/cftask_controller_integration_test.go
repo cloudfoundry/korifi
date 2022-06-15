@@ -32,7 +32,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		})).To(Succeed())
 	})
 
-	When("A CFTask is created", func() {
+	Describe("CFTask creation", func() {
 		var cfTask *korifiv1alpha1.CFTask
 		var cfApp *korifiv1alpha1.CFApp
 		var cfDroplet *korifiv1alpha1.CFBuild
@@ -99,14 +99,25 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
 		})
 
-		It("populates the Status of the CFTask", func() {
-			Eventually(func(g Gomega) {
-				var task korifiv1alpha1.CFTask
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, &task)).To(Succeed())
-				g.Expect(task.Status.SequenceID).NotTo(BeZero())
-				g.Expect(task.Status.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
-				g.Expect(task.Status.DiskQuotaMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
-			}).Should(Succeed())
+		When("the task gets initialized", func() {
+			var task *korifiv1alpha1.CFTask
+
+			BeforeEach(func() {
+				task = &korifiv1alpha1.CFTask{}
+			})
+
+			JustBeforeEach(func() {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, task)).To(Succeed())
+					g.Expect(meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue(), "task did not become initialized")
+				}).Should(Succeed())
+			})
+
+			It("populates the Status of the CFTask", func() {
+				Expect(task.Status.SequenceID).NotTo(BeZero())
+				Expect(task.Status.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
+				Expect(task.Status.DiskQuotaMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
+			})
 		})
 
 		It("SequenceID does not change on task update", func() {

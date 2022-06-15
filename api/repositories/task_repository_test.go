@@ -10,6 +10,8 @@ import (
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -40,6 +42,12 @@ var _ = Describe("TaskRepository", func() {
 
 		BeforeEach(func() {
 			dummyTaskController = func(cft *korifiv1alpha1.CFTask) error {
+				meta.SetStatusCondition(&cft.Status.Conditions, metav1.Condition{
+					Type:    korifiv1alpha1.TaskInitializedConditionType,
+					Status:  metav1.ConditionTrue,
+					Reason:  "foo",
+					Message: "bar",
+				})
 				cft.Status.SequenceID = 6
 				cft.Status.MemoryMB = 256
 				cft.Status.DiskQuotaMB = 128
@@ -95,12 +103,12 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.Command).To(Equal("echo hello"))
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 				Expect(taskRecord.SequenceID).NotTo(BeZero())
-				Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), time.Second))
+				Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), 5*time.Second))
 				Expect(taskRecord.MemoryMB).To(BeNumerically("==", 256))
 				Expect(taskRecord.DiskMB).To(BeNumerically("==", 128))
 			})
 
-			When("the task never becomes ready", func() {
+			When("the task never becomes initialized", func() {
 				BeforeEach(func() {
 					dummyTaskController = func(cft *korifiv1alpha1.CFTask) error {
 						return nil
@@ -108,7 +116,7 @@ var _ = Describe("TaskRepository", func() {
 				})
 
 				It("returns an error", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("did not become ready")))
+					Expect(createErr).To(MatchError(ContainSubstring("did not get initialized")))
 				})
 			})
 		})

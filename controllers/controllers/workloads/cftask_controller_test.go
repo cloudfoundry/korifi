@@ -2,6 +2,7 @@ package workloads_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
@@ -14,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -157,14 +159,16 @@ var _ = Describe("CFTask Controller", func() {
 			_, object, patch, _ := statusWriter.PatchArgsForCall(0)
 			patchBytes, patchErr := patch.Data(object)
 			Expect(patchErr).NotTo(HaveOccurred())
-			Expect(string(patchBytes)).To(MatchJSON(`
-            {
-                "status": {
-                    "sequenceId": 314,
-                    "memoryMB": 256,
-                    "diskQuotaMB": 128
-                }
-            }`))
+
+			taskStatus := map[string]korifiv1alpha1.CFTaskStatus{}
+			Expect(json.Unmarshal(patchBytes, &taskStatus)).To(Succeed())
+			Expect(taskStatus).To(HaveKey("status"))
+
+			status := taskStatus["status"]
+			Expect(status.DiskQuotaMB).To(BeNumerically("==", 128))
+			Expect(status.MemoryMB).To(BeNumerically("==", 256))
+			Expect(status.SequenceID).To(BeNumerically("==", 314))
+			Expect(meta.IsStatusConditionTrue(status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
 		})
 
 		When("Status.SequenceID has been already set", func() {
