@@ -539,6 +539,9 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 			cfRoute.ObjectMeta.DeletionTimestamp = &metav1.Time{
 				Time: time.Now(),
 			}
+			cfRoute.Status = korifiv1alpha1.CFRouteStatus{
+				FQDN: testFQDN,
+			}
 
 			httpProxyList = &contourv1.HTTPProxyList{
 				Items: []contourv1.HTTPProxy{
@@ -629,6 +632,15 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 				It("returns an empty result and does not return error", func() {
 					Expect(reconcileResult).To(Equal(ctrl.Result{}))
 					Expect(reconcileErr).NotTo(HaveOccurred())
+				})
+
+				It("updates the FQDN HTTPProxy to remove the route HTTPProxy from the includes list", func() {
+					Expect(fakeClient.PatchCallCount()).To(Equal(1), "Client.Patch call count mismatch")
+
+					_, requestObject, _, _ := fakeClient.PatchArgsForCall(0)
+					requestHTTPProxy, ok := requestObject.(*contourv1.HTTPProxy)
+					Expect(ok).To(BeTrue(), "Cast to contourv1.HTTPProxy failed")
+					Expect(requestHTTPProxy.Name).To(Equal(testFQDN))
 				})
 
 				It("removes the finalizer from the CFRoute", func() {
