@@ -441,8 +441,8 @@ github.com/clbanning/x2j v0.0.0-20191024224557-825249438eec/go.mod h1:jMjuTZXRI4
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cloudflare/cfssl v0.0.0-20180223231731-4e2dcbde5004/go.mod h1:yMWuSON2oQp+43nFtAV/uvKQIFpSPerB57DCt9t8sSA=
 github.com/cloudflare/cloudflare-go v0.20.0/go.mod h1:sPWL/lIC6biLEdyGZwBQ1rGQKF1FhM7N60fuNiFdYTI=
-github.com/cloudfoundry-incubator/cf-test-helpers v1.0.0 h1:vk4gthT4ime81HI16e8MLctmjZE4U5EMuM90vs1dO4E=
-github.com/cloudfoundry-incubator/cf-test-helpers v1.0.0/go.mod h1:I21tkmFwW9F06eYcQm5GTUzNV+pc1Q5NVZ1qhWOGGx0=
+github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74 h1:yr55FjD7Izo5FXR/jdQ1lKv/9y8xkwdwqmHN836iihM=
+github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74/go.mod h1:bKEHPrQ6kVJs/JnG/nAtWwOEdNOenRFoEcmvsYsS5BQ=
 github.com/cloudfoundry/dropsonde v1.0.0/go.mod h1:6zwvrWK5TpxBVYi1cdkE5WDsIO8E0n7qAJg3wR9B67c=
 github.com/cloudfoundry/gosteno v0.0.0-20150423193413-0c8581caea35/go.mod h1:3YBPUR85RIrvaUTdA1dL38YSp6s3OHu1xrWLkGt2Mog=
 github.com/cloudfoundry/loggregatorlib v0.0.0-20170823162133-36eddf15ef12/go.mod h1:ucj7+svyACshmxV3Zze2NAcEcdbBf9scZYR+QKCX9/w=
