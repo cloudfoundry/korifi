@@ -1791,8 +1791,8 @@ github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndr
 github.com/posener/complete v1.2.3/go.mod h1:WZIdtGGp+qx0sLrYKtIRAruyNpv6hFCicSgv7Sy7s/s=
 github.com/poy/eachers v0.0.0-20181020210610-23942921fe77/go.mod h1:x1vqpbcMW9T/KRcQ4b48diSiSVtYgvwQ5xzDByEg4WE=
 github.com/pquerna/cachecontrol v0.0.0-20171018203845-0dec1b30a021/go.mod h1:prYjPmNq4d1NPVmpShWobRqXY3q7Vp+80DqgxxUrUIA=
-github.com/projectcontour/contour v1.21.0 h1:aQefalBdiklHRI/6Drw1tKrKj6ciTzLYyuYAHd36myE=
-github.com/projectcontour/contour v1.21.0/go.mod h1:mKcAFprZFdH8KZWUFJe1ttQn6sxLWDj5xE6n+q4vAvs=
+github.com/projectcontour/contour v1.21.1 h1:Lg7zVoEcQJO/qOsWSBP7EEpgzNaMcZ3+LHoyjlZP3Pk=
+github.com/projectcontour/contour v1.21.1/go.mod h1:vSI1H0qtwmvVenPsGSsZVRn75aIXoFPf7TTvyjnoGOU=
 github.com/prometheus/client_golang v0.0.0-20180209125602-c332b6f63c06/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v0.9.0-pre1.0.20180209125602-c332b6f63c06/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
