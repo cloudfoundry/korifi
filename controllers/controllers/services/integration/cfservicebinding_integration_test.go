@@ -148,9 +148,9 @@ var _ = Describe("CFServiceBinding", func() {
 		})
 
 		It("eventually resolves the secretName and updates the CFServiceBinding status", func() {
-			Eventually(func() korifiv1alpha1.CFServiceBindingStatus {
+			Eventually(func(g Gomega) korifiv1alpha1.CFServiceBindingStatus {
 				updatedCFServiceBinding := new(korifiv1alpha1.CFServiceBinding)
-				Expect(
+				g.Expect(
 					k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding),
 				).To(Succeed())
 
@@ -214,8 +214,8 @@ var _ = Describe("CFServiceBinding", func() {
 			ctx := context.Background()
 			vcapServicesSecretLookupKey := types.NamespacedName{Name: desiredCFApp.Status.VCAPServicesSecretName, Namespace: namespace.Name}
 			updatedSecret := new(corev1.Secret)
-			Eventually(func() []byte {
-				Expect(
+			Eventually(func(g Gomega) []byte {
+				g.Expect(
 					k8sClient.Get(ctx, vcapServicesSecretLookupKey, updatedSecret),
 				).To(Succeed())
 				return updatedSecret.Data["VCAP_SERVICES"]
@@ -327,8 +327,8 @@ var _ = Describe("CFServiceBinding", func() {
 				ctx := context.Background()
 				vcapServicesSecretLookupKey := types.NamespacedName{Name: desiredCFApp.Status.VCAPServicesSecretName, Namespace: namespace.Name}
 				updatedSecret := new(corev1.Secret)
-				Eventually(func() []env.ServiceDetails {
-					Expect(
+				Eventually(func(g Gomega) []env.ServiceDetails {
+					g.Expect(
 						k8sClient.Get(ctx, vcapServicesSecretLookupKey, updatedSecret),
 					).To(Succeed())
 					return getUserProvidedServiceDetails(updatedSecret.Data["VCAP_SERVICES"])
@@ -388,9 +388,9 @@ var _ = Describe("CFServiceBinding", func() {
 			})
 
 			It("updates the CFServiceBinding status", func() {
-				Eventually(func() korifiv1alpha1.CFServiceBindingStatus {
+				Eventually(func(g Gomega) korifiv1alpha1.CFServiceBindingStatus {
 					updatedCFServiceBinding := new(korifiv1alpha1.CFServiceBinding)
-					Expect(
+					g.Expect(
 						k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding),
 					).To(Succeed())
 
@@ -415,9 +415,9 @@ var _ = Describe("CFServiceBinding", func() {
 				})
 
 				It("eventually resolves the secretName and updates the CFServiceBinding status", func() {
-					Eventually(func() korifiv1alpha1.CFServiceBindingStatus {
+					Eventually(func(g Gomega) korifiv1alpha1.CFServiceBindingStatus {
 						updatedCFServiceBinding := new(korifiv1alpha1.CFServiceBinding)
-						Expect(
+						g.Expect(
 							k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding),
 						).To(Succeed())
 

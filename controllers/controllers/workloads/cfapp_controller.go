@@ -75,7 +75,7 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if isFinalizing(cfApp) {
 		return r.finalizeCFApp(ctx, cfApp)
 	}
-	err = r.CreateVCAPServicesSecretForApp(ctx, cfApp)
+	err = r.createVCAPServicesSecretForApp(ctx, cfApp)
 	if err != nil {
 		r.Log.Error(err, "unable to create CFApp VCAP Services secret")
 		return ctrl.Result{}, err
@@ -291,7 +291,7 @@ func (r *CFAppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *CFAppReconciler) CreateVCAPServicesSecretForApp(ctx context.Context, cfApp *korifiv1alpha1.CFApp) error {
+func (r *CFAppReconciler) createVCAPServicesSecretForApp(ctx context.Context, cfApp *korifiv1alpha1.CFApp) error {
 	if cfApp.Status.VCAPServicesSecretName != "" {
 		return nil
 	}

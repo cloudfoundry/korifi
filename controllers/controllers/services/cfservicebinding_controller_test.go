@@ -249,7 +249,6 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 					Expect(fakeBuilder.BuildVCAPServicesEnvValueCallCount()).To(Equal(1))
 					_, appArg := fakeBuilder.BuildVCAPServicesEnvValueArgsForCall(0)
 					Expect(appArg.Name).To(Equal(cfAppName))
-					// Expect patch/update to be called on the VCAP Services Secret from CFApp Status
 				})
 			})
 		})
@@ -359,12 +358,11 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 				fakeClient.GetReturnsOnCall(4, apierrors.NewNotFound(schema.GroupResource{}, cfApp.Status.VCAPServicesSecretName))
 			})
 
-			// Do we actually want to requeue this request? A missing secret is a system consistency error that we
-			// may want to address in the reconciliation loop. For now assume the system will not reach this state.
 			It("requeues the request", func() {
 				Expect(reconcileResult).To(Equal(ctrl.Result{RequeueAfter: 2 * time.Second}))
 				Expect(reconcileErr).NotTo(HaveOccurred())
-
+			})
+			It("sets the VCAPServicesSecretAvailable condition to false", func() {
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(2))
 				_, serviceBindingObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
 				updatedCFServiceBinding, ok := serviceBindingObj.(*korifiv1alpha1.CFServiceBinding)

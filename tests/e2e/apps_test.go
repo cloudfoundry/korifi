@@ -302,13 +302,6 @@ var _ = Describe("Apps", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.State).To(Equal("STARTED"))
 			})
-
-			// TODO: Update the get app environment handler to return the vcap services secret ref. Negotiated as part
-			//       of the scope of issue #1146.
-			// Currently the env is populated on the runtime workload but no longer exposed as plaintext by the api
-			It("has the VCAP_SERVICES env var set", Pending, func() {
-				Expect(getEnv(appGUID)).To(HaveKeyWithValue("environment_variables", HaveKey("VCAP_SERVICES")))
-			})
 		})
 
 		Describe("Restart an app", func() {
