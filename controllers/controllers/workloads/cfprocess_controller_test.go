@@ -249,8 +249,10 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 			It("chooses the oldest matching route", func() {
 				_, obj, _ := fakeClient.CreateArgsForCall(0)
 				returnedLRP := obj.(*eiriniv1.LRP)
-				Expect(returnedLRP.Spec.Env).To(HaveKeyWithValue("PORT", strconv.Itoa(testPort)))
-				Expect(returnedLRP.Spec.Env).To(HaveKeyWithValue("VCAP_APP_PORT", strconv.Itoa(testPort)))
+				Expect(returnedLRP.Spec.Environment).To(ContainElements(
+					Equal(corev1.EnvVar{Name: "PORT", Value: strconv.Itoa(testPort)}),
+					Equal(corev1.EnvVar{Name: "VCAP_APP_PORT", Value: strconv.Itoa(testPort)}),
+				))
 			})
 		})
 

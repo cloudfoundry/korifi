@@ -7,28 +7,29 @@ import (
 
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	v1 "k8s.io/api/core/v1"
 )
 
 type EnvBuilder struct {
-	BuildEnvStub        func(context.Context, *v1alpha1.CFApp) (map[string]string, error)
+	BuildEnvStub        func(context.Context, *v1alpha1.CFApp) ([]v1.EnvVar, error)
 	buildEnvMutex       sync.RWMutex
 	buildEnvArgsForCall []struct {
 		arg1 context.Context
 		arg2 *v1alpha1.CFApp
 	}
 	buildEnvReturns struct {
-		result1 map[string]string
+		result1 []v1.EnvVar
 		result2 error
 	}
 	buildEnvReturnsOnCall map[int]struct {
-		result1 map[string]string
+		result1 []v1.EnvVar
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *EnvBuilder) BuildEnv(arg1 context.Context, arg2 *v1alpha1.CFApp) (map[string]string, error) {
+func (fake *EnvBuilder) BuildEnv(arg1 context.Context, arg2 *v1alpha1.CFApp) ([]v1.EnvVar, error) {
 	fake.buildEnvMutex.Lock()
 	ret, specificReturn := fake.buildEnvReturnsOnCall[len(fake.buildEnvArgsForCall)]
 	fake.buildEnvArgsForCall = append(fake.buildEnvArgsForCall, struct {
@@ -54,7 +55,7 @@ func (fake *EnvBuilder) BuildEnvCallCount() int {
 	return len(fake.buildEnvArgsForCall)
 }
 
-func (fake *EnvBuilder) BuildEnvCalls(stub func(context.Context, *v1alpha1.CFApp) (map[string]string, error)) {
+func (fake *EnvBuilder) BuildEnvCalls(stub func(context.Context, *v1alpha1.CFApp) ([]v1.EnvVar, error)) {
 	fake.buildEnvMutex.Lock()
 	defer fake.buildEnvMutex.Unlock()
 	fake.BuildEnvStub = stub
@@ -67,28 +68,28 @@ func (fake *EnvBuilder) BuildEnvArgsForCall(i int) (context.Context, *v1alpha1.C
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *EnvBuilder) BuildEnvReturns(result1 map[string]string, result2 error) {
+func (fake *EnvBuilder) BuildEnvReturns(result1 []v1.EnvVar, result2 error) {
 	fake.buildEnvMutex.Lock()
 	defer fake.buildEnvMutex.Unlock()
 	fake.BuildEnvStub = nil
 	fake.buildEnvReturns = struct {
-		result1 map[string]string
+		result1 []v1.EnvVar
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *EnvBuilder) BuildEnvReturnsOnCall(i int, result1 map[string]string, result2 error) {
+func (fake *EnvBuilder) BuildEnvReturnsOnCall(i int, result1 []v1.EnvVar, result2 error) {
 	fake.buildEnvMutex.Lock()
 	defer fake.buildEnvMutex.Unlock()
 	fake.BuildEnvStub = nil
 	if fake.buildEnvReturnsOnCall == nil {
 		fake.buildEnvReturnsOnCall = make(map[int]struct {
-			result1 map[string]string
+			result1 []v1.EnvVar
 			result2 error
 		})
 	}
 	fake.buildEnvReturnsOnCall[i] = struct {
-		result1 map[string]string
+		result1 []v1.EnvVar
 		result2 error
 	}{result1, result2}
 }

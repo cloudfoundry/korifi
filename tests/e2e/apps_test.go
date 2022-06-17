@@ -302,10 +302,6 @@ var _ = Describe("Apps", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.State).To(Equal("STARTED"))
 			})
-
-			It("has the VCAP_SERVICES env var set", func() {
-				Expect(getEnv(appGUID)).To(HaveKeyWithValue("environment_variables", HaveKey("VCAP_SERVICES")))
-			})
 		})
 
 		Describe("Restart an app", func() {

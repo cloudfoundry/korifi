@@ -43,13 +43,16 @@ var _ = Describe("CFAppReconciler", func() {
 		cfPackageGUID string
 
 		cfBuild       *korifiv1alpha1.CFBuild
-		cfBuildError  error
+		cfBuildErr    error
 		cfApp         *korifiv1alpha1.CFApp
 		cfAppError    error
 		cfAppPatchErr error
 
 		cfRoutePatchErr error
 		cfRouteListErr  error
+
+		secret    *v1.Secret
+		secretErr error
 
 		cfAppReconciler *CFAppReconciler
 		ctx             context.Context
@@ -71,20 +74,26 @@ var _ = Describe("CFAppReconciler", func() {
 		cfAppPatchErr = nil
 		cfBuild = BuildCFBuildObject(cfBuildGUID, defaultNamespace, cfPackageGUID, cfAppGUID)
 		UpdateCFBuildWithDropletStatus(cfBuild)
-		cfBuildError = nil
+		cfBuildErr = nil
 
 		cfRoutePatchErr = nil
 		cfRouteListErr = nil
+
+		secret = &v1.Secret{}
+		secretErr = nil
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFBuild:
 				cfBuild.DeepCopyInto(obj)
-				return cfBuildError
+				return cfBuildErr
 			case *korifiv1alpha1.CFApp:
 				cfApp.DeepCopyInto(obj)
 				return cfAppError
+			case *v1.Secret:
+				secret.DeepCopyInto(obj)
+				return secretErr
 			default:
 				panic("TestClient Get provided a weird obj")
 			}
@@ -192,7 +201,7 @@ var _ = Describe("CFAppReconciler", func() {
 				Expect(reconcileErr).NotTo(HaveOccurred())
 
 				// validate the inputs to Get
-				Expect(fakeClient.GetCallCount()).To(Equal(1))
+				Expect(fakeClient.GetCallCount()).To(BeNumerically(">=", 1))
 				_, testRequestNamespacedName, _ := fakeClient.GetArgsForCall(0)
 				Expect(testRequestNamespacedName.Namespace).To(Equal(defaultNamespace))
 				Expect(testRequestNamespacedName.Name).To(Equal(cfAppGUID))
@@ -240,6 +249,29 @@ var _ = Describe("CFAppReconciler", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
+
+			When("fetch vcap services Secret returns an error", func() {
+				BeforeEach(func() {
+					secretErr = errors.New(failsOnPurposeErrorMessage)
+					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
+				})
+
+				It("should return an error", func() {
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
+				})
+			})
+
+			When("fetch vcap services Secret returns a NotFoundError and create Secret returns an error", func() {
+				BeforeEach(func() {
+					secretErr = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
+					fakeClient.CreateReturns(errors.New(failsOnPurposeErrorMessage))
+					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
+				})
+
+				It("should return an error", func() {
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
+				})
+			})
 		})
 	})
 
@@ -258,7 +290,7 @@ var _ = Describe("CFAppReconciler", func() {
 				Expect(reconcileErr).NotTo(HaveOccurred())
 
 				// validate the inputs to Get
-				Expect(fakeClient.GetCallCount()).To(Equal(2))
+				Expect(fakeClient.GetCallCount()).To(Equal(3))
 
 				// Validate args to fetch CFApp
 				_, testRequestNamespacedName, _ := fakeClient.GetArgsForCall(0)
@@ -266,7 +298,7 @@ var _ = Describe("CFAppReconciler", func() {
 				Expect(testRequestNamespacedName.Name).To(Equal(cfAppGUID))
 
 				// Validate args to fetch CFBuild
-				_, testRequestNamespacedName, _ = fakeClient.GetArgsForCall(1)
+				_, testRequestNamespacedName, _ = fakeClient.GetArgsForCall(2)
 				Expect(testRequestNamespacedName.Namespace).To(Equal(defaultNamespace))
 				Expect(testRequestNamespacedName.Name).To(Equal(cfBuildGUID))
 
@@ -312,7 +344,7 @@ var _ = Describe("CFAppReconciler", func() {
 
 			When("fetch CFBuild returns an error", func() {
 				BeforeEach(func() {
-					cfBuildError = errors.New(failsOnPurposeErrorMessage)
+					cfBuildErr = errors.New(failsOnPurposeErrorMessage)
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
@@ -368,6 +400,17 @@ var _ = Describe("CFAppReconciler", func() {
 			When("update status conditions returns an error", func() {
 				BeforeEach(func() {
 					fakeStatusWriter.UpdateReturns(errors.New(failsOnPurposeErrorMessage))
+					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
+				})
+
+				It("should returns an error", func() {
+					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
+				})
+			})
+
+			When("patch status returns an error", func() {
+				BeforeEach(func() {
+					fakeStatusWriter.PatchReturns(errors.New(failsOnPurposeErrorMessage))
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 

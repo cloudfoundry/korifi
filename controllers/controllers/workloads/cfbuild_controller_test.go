@@ -13,6 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +49,7 @@ var _ = Describe("CFBuildReconciler", func() {
 		cfAppError     error
 		cfPackage      *korifiv1alpha1.CFPackage
 		cfPackageError error
+		buildEnv       []corev1.EnvVar
 
 		buildWorkload      *korifiv1alpha1.BuildWorkload
 		buildWorkloadError error
@@ -70,11 +72,13 @@ var _ = Describe("CFBuildReconciler", func() {
 		cfBuild = BuildCFBuildObject(cfBuildGUID, defaultNamespace, cfPackageGUID, cfAppGUID)
 		cfBuildError = nil
 		cfApp = BuildCFAppCRObject(cfAppGUID, defaultNamespace)
+		cfApp.Status.VCAPServicesSecretName = "cf-app-guid-vcap-services"
 		cfAppError = nil
 		cfPackage = BuildCFPackageCRObject(cfPackageGUID, defaultNamespace, cfAppGUID)
 		cfPackageError = nil
 		buildWorkload = mockBuildWorkloadResource(buildWorkloadName, defaultNamespace)
 		buildWorkloadError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
+		buildEnv = []corev1.EnvVar{{Name: "foo", Value: "var"}}
 
 		fakeClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
@@ -99,7 +103,7 @@ var _ = Describe("CFBuildReconciler", func() {
 		fakeClient.StatusReturns(fakeStatusWriter)
 
 		fakeEnvBuilder = new(workloadsfakes.EnvBuilder)
-		fakeEnvBuilder.BuildEnvReturns(map[string]string{"foo": "var"}, nil)
+		fakeEnvBuilder.BuildEnvReturns(buildEnv, nil)
 
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfBuildReconciler = NewCFBuildReconciler(
@@ -164,9 +168,7 @@ var _ = Describe("CFBuildReconciler", func() {
 				_, actualApp := fakeEnvBuilder.BuildEnvArgsForCall(0)
 				Expect(actualApp).To(Equal(cfApp))
 
-				Expect(actualWorkload.Spec.Env).To(HaveLen(1))
-				Expect(actualWorkload.Spec.Env[0].Name).To(Equal("foo"))
-				Expect(actualWorkload.Spec.Env[0].Value).To(Equal("var"))
+				Expect(actualWorkload.Spec.Env).To(Equal(buildEnv))
 			})
 		})
 

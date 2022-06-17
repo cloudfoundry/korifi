@@ -189,6 +189,7 @@ func main() {
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
+		env.NewBuilder(mgr.GetClient()),
 	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
 		os.Exit(1)
