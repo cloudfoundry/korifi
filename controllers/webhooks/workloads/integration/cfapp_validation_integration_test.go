@@ -197,10 +197,6 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 func makeCFApp(cfAppGUID string, namespace string, name string) *korifiv1alpha1.CFApp {
 	return &korifiv1alpha1.CFApp{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "CFApp",
-			APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfAppGUID,
 			Namespace: namespace,

@@ -315,7 +315,10 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = workloads.NewCFTaskValidator().SetupWebhookWithManager(mgr); err != nil {
+		if err = workloads.NewCFTaskValidator(
+			webhooks.NewAppExistsValidator(mgr.GetClient()),
+			mgr.GetEventRecorderFor("cftask-validator"),
+		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFTask")
 			os.Exit(1)
 		}
