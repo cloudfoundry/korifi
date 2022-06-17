@@ -104,6 +104,9 @@ func (r *TaskRepo) awaitInitialization(ctx context.Context, userClient client.Wi
 	}
 	defer watch.Stop()
 
+	timer := time.NewTimer(r.timeout)
+	defer timer.Stop()
+
 	for {
 		select {
 		case e := <-watch.ResultChan():
@@ -115,7 +118,7 @@ func (r *TaskRepo) awaitInitialization(ctx context.Context, userClient client.Wi
 			if meta.IsStatusConditionTrue(updatedTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType) {
 				return *updatedTask, nil
 			}
-		case <-time.After(r.timeout):
+		case <-timer.C:
 			return korifiv1alpha1.CFTask{}, fmt.Errorf("task did not get initialized within timeout period %d ms", r.timeout.Milliseconds())
 		}
 	}

@@ -38,6 +38,7 @@ var _ = Describe("TaskRepository", func() {
 			taskRecord          repositories.TaskRecord
 			createErr           error
 			dummyTaskController func(*korifiv1alpha1.CFTask) error
+			killController      chan bool
 		)
 
 		BeforeEach(func() {
@@ -53,6 +54,7 @@ var _ = Describe("TaskRepository", func() {
 				cft.Status.DiskQuotaMB = 128
 				return k8sClient.Status().Update(ctx, cft)
 			}
+			killController = make(chan bool)
 			createMessage = repositories.CreateTaskMessage{
 				Command:   "  echo    hello  ",
 				SpaceGUID: space.Name,
@@ -61,30 +63,48 @@ var _ = Describe("TaskRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			tasksWatch, err := k8sClient.Watch(ctx, &korifiv1alpha1.CFTaskList{}, client.InNamespace(space.Name))
+			tasksWatch, err := k8sClient.Watch(
+				ctx,
+				&korifiv1alpha1.CFTaskList{},
+				client.InNamespace(space.Name),
+			)
 			Expect(err).NotTo(HaveOccurred())
-			defer tasksWatch.Stop()
 
-			go func() {
+			defer tasksWatch.Stop()
+			watchChan := tasksWatch.ResultChan()
+
+			go func(killController chan bool) {
 				defer GinkgoRecover()
+
+				timer := time.NewTimer(2 * time.Second)
+				defer timer.Stop()
 
 				for {
 					select {
-					case e := <-tasksWatch.ResultChan():
+					case e := <-watchChan:
 						cft, ok := e.Object.(*korifiv1alpha1.CFTask)
 						if !ok {
+							time.Sleep(100 * time.Millisecond)
 							continue
 						}
 
 						Expect(dummyTaskController(cft)).To(Succeed())
 						return
-					case <-time.After(2 * time.Second):
+
+					case <-timer.C:
+						return
+
+					case <-killController:
 						return
 					}
 				}
-			}()
+			}(killController)
 
 			taskRecord, createErr = taskRepo.CreateTask(ctx, authInfo, createMessage)
+		})
+
+		AfterEach(func() {
+			close(killController)
 		})
 
 		It("returns forbidden error", func() {
