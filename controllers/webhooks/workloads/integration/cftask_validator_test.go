@@ -11,7 +11,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("CFTask Webhook", func() {
@@ -60,30 +59,17 @@ var _ = Describe("CFTask Webhook", func() {
 		})
 	})
 
-	When("the app does not exist", func() {
+	When("the app reference is not set", func() {
 		BeforeEach(func() {
-			cftask.Spec.AppRef.Name = "i-do-not-exist"
+			cftask.Spec.AppRef = corev1.LocalObjectReference{}
 		})
 
-		It("records an app missing event", func() {
-			eventList := corev1.EventList{}
-			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.List(context.Background(),
-					&eventList,
-					client.InNamespace(rootNamespace),
-					client.MatchingFields{
-						"involvedObject.namespace": cftask.Namespace,
-						"involvedObject.name":      cftask.Name,
-						"involvedObject.uid":       string(cftask.UID),
-					},
-				)).To(Succeed())
-				g.Expect(eventList.Items).To(HaveLen(1))
-			}).Should(Succeed())
+		It("returns a validation error", func() {
+			validationErr, ok := webhooks.WebhookErrorToValidationError(creationErr)
+			Expect(ok).To(BeTrue())
 
-			event := eventList.Items[0]
-			Expect(event.Type).To(Equal("Warning"))
-			Expect(event.Reason).To(Equal("appNotFound"))
-			Expect(event.Message).To(ContainSubstring("Did not find app"))
+			Expect(validationErr.Type).To(Equal(workloads.MissingRequredFieldErrorType))
+			Expect(validationErr.Message).To(ContainSubstring("missing required field 'Spec.AppRef.Name'"))
 		})
 	})
 })
