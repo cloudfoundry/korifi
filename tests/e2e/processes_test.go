@@ -2,7 +2,6 @@ package e2e_test
 
 import (
 	"net/http"
-	"time"
 
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 
@@ -149,7 +148,7 @@ var _ = Describe("Processes", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					return processStats.Resources[0].Usage
-				}, 60*time.Second).ShouldNot(Equal(statsUsage{}))
+				}).ShouldNot(Equal(statsUsage{}))
 			})
 
 			It("succeeds", func() {
