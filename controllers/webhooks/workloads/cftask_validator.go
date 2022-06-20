@@ -24,7 +24,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	runtime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -35,25 +34,14 @@ const MissingRequredFieldErrorType = "MissingRequiredFieldError"
 // log is for logging in this package.
 var cftasklog = logf.Log.WithName("cftask-resource")
 
-//counterfeiter:generate -o fake -fake-name CFAppExistsValidator . CFAppExistsValidator
-type CFAppExistsValidator interface {
-	EnsureCFApp(ctx context.Context, namespace, appGUID string) *webhooks.ValidationError
-}
-
 //+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cftask,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cftasks,verbs=create,versions=v1alpha1,name=vcftask.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
-type CFTaskValidator struct {
-	appExistsValidator CFAppExistsValidator
-	recorder           record.EventRecorder
-}
+type CFTaskValidator struct{}
 
 var _ webhook.CustomValidator = &CFTaskValidator{}
 
-func NewCFTaskValidator(appExistsValidator CFAppExistsValidator, recorder record.EventRecorder) *CFTaskValidator {
-	return &CFTaskValidator{
-		appExistsValidator: appExistsValidator,
-		recorder:           recorder,
-	}
+func NewCFTaskValidator() *CFTaskValidator {
+	return &CFTaskValidator{}
 }
 
 func (v *CFTaskValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -85,16 +73,6 @@ func (v *CFTaskValidator) ValidateCreate(ctx context.Context, obj runtime.Object
 			Type:    MissingRequredFieldErrorType,
 			Message: fmt.Sprintf("task %s:%s is missing required field 'Spec.AppRef.Name'", task.Namespace, task.Name),
 		}.ExportJSONError()
-	}
-
-	appExistenceErr := v.appExistsValidator.EnsureCFApp(ctx, task.Namespace, task.Spec.AppRef.Name)
-	if appExistenceErr != nil {
-		if appExistenceErr.Type == webhooks.AppDoesNotExistErrorType {
-			v.recorder.Eventf(task, "Warning", "appNotFound", "Did not find app with name %s in namespace %s", task.Spec.AppRef.Name, task.Namespace)
-			return nil
-		}
-
-		return appExistenceErr.ExportJSONError()
 	}
 
 	return nil
