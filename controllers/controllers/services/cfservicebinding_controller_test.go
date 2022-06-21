@@ -94,7 +94,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 			VCAPServicesSecretName: cfAppName + "-vcap-services",
 		}
 
-		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
+		fakeClient.GetStub = func(_ context.Context, ref types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFServiceBinding:
 				cfServiceBinding.DeepCopyInto(obj)
@@ -114,6 +114,9 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 				cfApp.DeepCopyInto(obj)
 				return getCFAppError
 			case *corev1.Secret:
+				if ref.Name == "unfindable" {
+					return apierrors.NewNotFound(schema.GroupResource{}, cfApp.Status.VCAPServicesSecretName)
+				}
 				cfServiceInstanceSecret.DeepCopyInto(obj)
 				return getCFServiceInstanceSecretError
 			default:
@@ -330,7 +333,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 					"Type":    Equal("BindingSecretAvailable"),
 					"Status":  Equal(metav1.ConditionFalse),
 					"Reason":  Equal("UnknownError"),
-					"Message": Equal("Error occurred while fetching secret: " + getCFServiceInstanceSecretError.Error()),
+					"Message": Equal("Error occurred while fetching binding secret: " + getCFServiceInstanceSecretError.Error()),
 				})))
 			})
 		})
@@ -355,7 +358,9 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 		})
 		When("the vcap services secret isn't found", func() {
 			BeforeEach(func() {
-				fakeClient.GetReturnsOnCall(4, apierrors.NewNotFound(schema.GroupResource{}, cfApp.Status.VCAPServicesSecretName))
+				cfAppStatus = korifiv1alpha1.CFAppStatus{
+					VCAPServicesSecretName: "unfindable",
+				}
 			})
 
 			It("requeues the request", func() {
