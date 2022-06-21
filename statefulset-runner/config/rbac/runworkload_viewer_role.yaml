@@ -1,0 +1,20 @@
+# permissions for end users to view runworkloads.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: runworkload-viewer-role
+rules:
+- apiGroups:
+  - ext.cloudfoundry.org
+  resources:
+  - runworkloads
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ext.cloudfoundry.org
+  resources:
+  - runworkloads/status
+  verbs:
+  - get

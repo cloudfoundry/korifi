@@ -15,6 +15,7 @@ resources:
 - bases/korifi.cloudfoundry.org_buildworkloads.yaml
 - bases/korifi.cloudfoundry.org_cftasks.yaml
 - bases/korifi.cloudfoundry.org_buildreconcilerinfos.yaml
+- bases/korifi.cloudfoundry.org_runworkloads.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

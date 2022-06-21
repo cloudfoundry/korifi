@@ -1,0 +1,43 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: runworkload-manager-role
+rules:
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - runworkloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - runworkloads/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - runworkloads/status
+  verbs:
+  - get
+  - patch
+  - update
