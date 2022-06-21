@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -29,12 +28,30 @@ type podContainerDescriptor struct {
 
 func E2EFailHandler(correlationId func() string) func(string, ...int) {
 	return func(message string, callerSkip ...int) {
-		fmt.Fprintf(ginkgo.GinkgoWriter, "Failure correlation ID: %q\n", correlationId())
+		fmt.Fprintf(ginkgo.GinkgoWriter, "Fail Handler: failure correlation ID: %q\n", correlationId())
+
+		if len(callerSkip) > 0 {
+			callerSkip[0] = callerSkip[0] + 1
+		} else {
+			callerSkip = []int{1}
+		}
+
+		defer func() {
+			fmt.Fprintln(ginkgo.GinkgoWriter, "Fail Handler: completed")
+			ginkgo.Fail(message, callerSkip...)
+		}()
+
 		config, err := controllerruntime.GetConfig()
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		if err != nil {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "failed to get kubernetes config: %v\n", err)
+			return
+		}
 
 		clientset, err := kubernetes.NewForConfig(config)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		if err != nil {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "failed to create clientset: %v\n", err)
+			return
+		}
 
 		printPodsLogs(clientset, []podContainerDescriptor{
 			{
@@ -51,14 +68,6 @@ func E2EFailHandler(correlationId func() string) func(string, ...int) {
 				Container:  "manager",
 			},
 		})
-
-		if len(callerSkip) > 0 {
-			callerSkip[0] = callerSkip[0] + 1
-		} else {
-			callerSkip = []int{1}
-		}
-
-		ginkgo.Fail(message, callerSkip...)
 	}
 }
 
