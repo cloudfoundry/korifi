@@ -27,6 +27,7 @@ type TaskRecord struct {
 	GUID              string
 	Command           string
 	AppGUID           string
+	DropletGUID       string
 	SequenceID        int64
 	CreationTimestamp time.Time
 	MemoryMB          int64
@@ -94,6 +95,7 @@ func (r *TaskRepo) CreateTask(ctx context.Context, authInfo authorization.Info, 
 		CreationTimestamp: task.CreationTimestamp.Time,
 		MemoryMB:          task.Status.MemoryMB,
 		DiskMB:            task.Status.DiskQuotaMB,
+		DropletGUID:       task.Status.DropletRef.Name,
 	}, nil
 }
 

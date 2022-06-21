@@ -88,17 +88,17 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	err = r.updateStatus(ctx, cfTask)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	cfApp, err := r.getApp(ctx, cfTask)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	cfDroplet, err := r.getDroplet(ctx, cfTask, cfApp)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = r.updateStatus(ctx, cfTask, cfDroplet)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -187,7 +187,7 @@ func (r *CFTaskReconciler) createEiriniTask(ctx context.Context, cfTask *korifiv
 	return nil
 }
 
-func (r *CFTaskReconciler) updateStatus(ctx context.Context, cfTask *korifiv1alpha1.CFTask) error {
+func (r *CFTaskReconciler) updateStatus(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) error {
 	if cfTask.Status.SequenceID == 0 {
 		cfTaskCopy := cfTask.DeepCopy()
 		var err error
@@ -199,6 +199,7 @@ func (r *CFTaskReconciler) updateStatus(ctx context.Context, cfTask *korifiv1alp
 
 		cfTaskCopy.Status.MemoryMB = r.cfProcessDefaults.MemoryMB
 		cfTaskCopy.Status.DiskQuotaMB = r.cfProcessDefaults.DiskQuotaMB
+		cfTaskCopy.Status.DropletRef.Name = cfDroplet.Name
 		meta.SetStatusCondition(&cfTaskCopy.Status.Conditions, metav1.Condition{
 			Type:    korifiv1alpha1.TaskInitializedConditionType,
 			Status:  metav1.ConditionTrue,

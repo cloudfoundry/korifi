@@ -117,6 +117,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Expect(task.Status.SequenceID).NotTo(BeZero())
 				Expect(task.Status.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
 				Expect(task.Status.DiskQuotaMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
+				Expect(task.Status.DropletRef.Name).To(Equal(cfDroplet.Name))
 			})
 		})
 
