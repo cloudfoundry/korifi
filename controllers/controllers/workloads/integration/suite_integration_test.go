@@ -158,7 +158,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		k8sManager.GetEventRecorderFor("cftask-controller"),
-		ctrl.Log.WithName("controllers").WithName("CFSpace"),
+		ctrl.Log.WithName("controllers").WithName("CFTask"),
 		NewSequenceId(clockwork.NewRealClock()),
 		cfProcessDefaults,
 	).SetupWithManager(k8sManager)
