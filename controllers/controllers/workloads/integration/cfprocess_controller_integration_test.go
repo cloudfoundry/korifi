@@ -128,76 +128,73 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		})
 
 		It("eventually reconciles the CFProcess into an LRP", func() {
-			ctx := context.Background()
-			var lrp eiriniv1.LRP
-			Eventually(func() string {
+			Eventually(func(g Gomega) {
+				ctx := context.Background()
 				var lrps eiriniv1.LRPList
 				err := k8sClient.List(ctx, &lrps, client.InNamespace(testNamespace))
-				if err != nil {
-					return ""
-				}
+				g.Expect(err).NotTo(HaveOccurred())
 
+				processLrps := []eiriniv1.LRP{}
 				for _, currentLRP := range lrps.Items {
-					if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
-						lrp = currentLRP
-						return lrp.GetName()
+					if valueForKey(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+						processLrps = append(processLrps, currentLRP)
 					}
 				}
+				g.Expect(processLrps).To(HaveLen(1))
+				lrp := processLrps[0]
 
-				return ""
-			}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
+				var updatedCFApp korifiv1alpha1.CFApp
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Name, Namespace: cfApp.Namespace}, &updatedCFApp)).To(Succeed())
 
-			var updatedCFApp korifiv1alpha1.CFApp
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Name, Namespace: cfApp.Namespace}, &updatedCFApp)).To(Succeed())
+				g.Expect(lrp.OwnerReferences).To(HaveLen(1), "expected length of ownerReferences to be 1")
+				g.Expect(lrp.OwnerReferences[0].Name).To(Equal(cfProcess.Name))
 
-			Expect(lrp.OwnerReferences).To(HaveLen(1), "expected length of ownerReferences to be 1")
-			Expect(lrp.OwnerReferences[0].Name).To(Equal(cfProcess.Name))
+				g.Expect(lrp.ObjectMeta.Labels).To(HaveKeyWithValue(CFAppGUIDLabelKey, testAppGUID))
+				g.Expect(lrp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppRevisionKey, cfApp.Annotations[cfAppRevisionKey]))
+				g.Expect(lrp.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessGUIDLabelKey, testProcessGUID))
+				g.Expect(lrp.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessTypeLabelKey, cfProcess.Spec.ProcessType))
 
-			Expect(lrp.ObjectMeta.Labels).To(HaveKeyWithValue(CFAppGUIDLabelKey, testAppGUID))
-			Expect(lrp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppRevisionKey, cfApp.Annotations[cfAppRevisionKey]))
-			Expect(lrp.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessGUIDLabelKey, testProcessGUID))
-			Expect(lrp.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessTypeLabelKey, cfProcess.Spec.ProcessType))
-
-			Expect(lrp.Spec.GUID).To(Equal(cfProcess.Name), "Expected lrp spec GUID to match cfProcess GUID")
-			Expect(lrp.Spec.Version).To(Equal(cfApp.Annotations[cfAppRevisionKey]), "Expected lrp version to match cfApp's app-rev annotation")
-			Expect(lrp.Spec.DiskMB).To(Equal(cfProcess.Spec.DiskQuotaMB), "lrp DiskMB does not match")
-			Expect(lrp.Spec.MemoryMB).To(Equal(cfProcess.Spec.MemoryMB), "lrp MemoryMB does not match")
-			Expect(lrp.Spec.Image).To(Equal(cfBuild.Status.Droplet.Registry.Image), "lrp Image does not match Droplet")
-			Expect(lrp.Spec.ProcessType).To(Equal(processTypeWeb), "lrp process type does not match")
-			Expect(lrp.Spec.AppName).To(Equal(cfApp.Spec.DisplayName), "lrp app name does not match CFApp")
-			Expect(lrp.Spec.AppGUID).To(Equal(cfApp.Name), "lrp app GUID does not match CFApp")
-			Expect(lrp.Spec.Ports).To(Equal(cfProcess.Spec.Ports), "lrp ports do not match")
-			Expect(lrp.Spec.Instances).To(Equal(cfProcess.Spec.DesiredInstances), "lrp desired instances does not match CFApp")
-			Expect(lrp.Spec.CPUWeight).NotTo(BeZero(), "expected cpu to be nonzero")
-			Expect(lrp.Spec.Sidecars).To(BeNil(), "expected sidecars to always be nil")
-			Expect(lrp.Spec.Environment).To(ConsistOf(
-				MatchFields(IgnoreExtras, Fields{
-					"Name": Equal("test-env-key"),
-					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
-						"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: cfApp.Spec.EnvSecretName,
-							},
-							Key: "test-env-key",
+				g.Expect(lrp.Spec.GUID).To(Equal(cfProcess.Name), "Expected lrp spec GUID to match cfProcess GUID")
+				g.Expect(lrp.Spec.Version).To(Equal(cfApp.Annotations[cfAppRevisionKey]), "Expected lrp version to match cfApp's app-rev annotation")
+				g.Expect(lrp.Spec.DiskMB).To(Equal(cfProcess.Spec.DiskQuotaMB), "lrp DiskMB does not match")
+				g.Expect(lrp.Spec.MemoryMB).To(Equal(cfProcess.Spec.MemoryMB), "lrp MemoryMB does not match")
+				g.Expect(lrp.Spec.Image).To(Equal(cfBuild.Status.Droplet.Registry.Image), "lrp Image does not match Droplet")
+				g.Expect(lrp.Spec.ProcessType).To(Equal(processTypeWeb), "lrp process type does not match")
+				g.Expect(lrp.Spec.AppName).To(Equal(cfApp.Spec.DisplayName), "lrp app name does not match CFApp")
+				g.Expect(lrp.Spec.AppGUID).To(Equal(cfApp.Name), "lrp app GUID does not match CFApp")
+				g.Expect(lrp.Spec.Ports).To(Equal(cfProcess.Spec.Ports), "lrp ports do not match")
+				g.Expect(lrp.Spec.Instances).To(Equal(cfProcess.Spec.DesiredInstances), "lrp desired instances does not match CFApp")
+				g.Expect(lrp.Spec.CPUWeight).NotTo(BeZero(), "expected cpu to be nonzero")
+				g.Expect(lrp.Spec.Sidecars).To(BeNil(), "expected sidecars to always be nil")
+				g.Expect(lrp.Spec.Environment).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("test-env-key"),
+						"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+							"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: cfApp.Spec.EnvSecretName,
+								},
+								Key: "test-env-key",
+							})),
 						})),
-					})),
-				}),
-				MatchFields(IgnoreExtras, Fields{
-					"Name": Equal("VCAP_SERVICES"),
-					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
-						"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: updatedCFApp.Status.VCAPServicesSecretName,
-							},
-							Key: "VCAP_SERVICES",
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("VCAP_SERVICES"),
+						"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+							"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: updatedCFApp.Status.VCAPServicesSecretName,
+								},
+								Key: "VCAP_SERVICES",
+							})),
 						})),
-					})),
-				}),
-				Equal(corev1.EnvVar{Name: "VCAP_APP_HOST", Value: "0.0.0.0"}),
-				Equal(corev1.EnvVar{Name: "VCAP_APP_PORT", Value: "8080"}),
-				Equal(corev1.EnvVar{Name: "PORT", Value: "8080"}),
-			))
-			Expect(lrp.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", processTypeWebCommand))
+					}),
+					Equal(corev1.EnvVar{Name: "VCAP_APP_HOST", Value: "0.0.0.0"}),
+					Equal(corev1.EnvVar{Name: "VCAP_APP_PORT", Value: "8080"}),
+					Equal(corev1.EnvVar{Name: "PORT", Value: "8080"}),
+				))
+				g.Expect(lrp.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", processTypeWebCommand))
+			}).Should(Succeed(), fmt.Sprintf("Timed out waiting for expected LRP/%s in namespace %s to be created", testProcessGUID, testNamespace))
 		})
 
 		When("a CFApp desired state is updated to STOPPED", func() {
@@ -213,7 +210,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 
 					for _, currentLRP := range lrps.Items {
-						if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+						if valueForKey(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
 							return currentLRP.GetName()
 						}
 					}
@@ -237,7 +234,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 
 					for _, currentLRP := range lrps.Items {
-						if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+						if valueForKey(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
 							return false
 						}
 					}
@@ -307,7 +304,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				}
 
 				for _, currentLRP := range lrps.Items {
-					if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+					if valueForKey(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
 						lrp = currentLRP
 						return lrp.GetName()
 					}
@@ -342,7 +339,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}
 
 					for _, currentLRP := range lrps.Items {
-						if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+						if valueForKey(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
 							lrp = currentLRP
 							return currentLRP.GetName()
 						}
@@ -473,7 +470,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				}
 
 				for _, currentLRP := range lrps.Items {
-					if getMapKeyValue(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
+					if valueForKey(currentLRP.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
 						lrp = currentLRP
 						return currentLRP.GetName()
 					}

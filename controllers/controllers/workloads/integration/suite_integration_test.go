@@ -284,7 +284,7 @@ func patchAppWithDroplet(ctx context.Context, k8sClient client.Client, appGUID, 
 	return baseCFApp
 }
 
-func getMapKeyValue(m map[string]string, k string) string {
+func valueForKey(m map[string]string, k string) string {
 	if m == nil {
 		return ""
 	}
