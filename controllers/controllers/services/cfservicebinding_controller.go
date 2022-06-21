@@ -158,19 +158,19 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, statusErr
 		}
 		return result, err
-	} else {
-		cfServiceBinding.Status.Binding.Name = instance.Spec.SecretName
-		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-			Type:    BindingSecretAvailableCondition,
-			Status:  metav1.ConditionTrue,
-			Reason:  "SecretFound",
-			Message: "",
-		})
+	}
 
-		err = r.setStatus(ctx, cfServiceBinding)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	cfServiceBinding.Status.Binding.Name = instance.Spec.SecretName
+	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+		Type:    BindingSecretAvailableCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  "SecretFound",
+		Message: "",
+	})
+
+	err = r.setStatus(ctx, cfServiceBinding)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if cfApp.Status.VCAPServicesSecretName == "" {
@@ -218,26 +218,26 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, statusErr
 		}
 		return ctrl.Result{}, err
-	} else {
-		updatedVcapServicesSecret := vcapServicesSecret.DeepCopy()
-		secretData := map[string][]byte{}
-		secretData["VCAP_SERVICES"] = []byte(vcapServicesData)
-		updatedVcapServicesSecret.Data = secretData
-		err = r.Client.Patch(ctx, updatedVcapServicesSecret, client.MergeFrom(vcapServicesSecret))
-		if err != nil {
-			r.log.Error(err, "failed to patch vcap services secret", "CFServiceBinding", cfServiceBinding)
-		}
-		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-			Type:    VCAPServicesSecretAvailableCondition,
-			Status:  metav1.ConditionTrue,
-			Reason:  "SecretFound",
-			Message: "",
-		})
+	}
 
-		err = r.setStatus(ctx, cfServiceBinding)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	updatedVcapServicesSecret := vcapServicesSecret.DeepCopy()
+	secretData := map[string][]byte{}
+	secretData["VCAP_SERVICES"] = []byte(vcapServicesData)
+	updatedVcapServicesSecret.Data = secretData
+	err = r.Client.Patch(ctx, updatedVcapServicesSecret, client.MergeFrom(vcapServicesSecret))
+	if err != nil {
+		r.log.Error(err, "failed to patch vcap services secret", "CFServiceBinding", cfServiceBinding)
+	}
+	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+		Type:    VCAPServicesSecretAvailableCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  "SecretFound",
+		Message: "",
+	})
+
+	err = r.setStatus(ctx, cfServiceBinding)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	actualSBServiceBinding := servicebindingv1beta1.ServiceBinding{
