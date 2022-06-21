@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps;cfbuilds;cfpackages;cfprocesses;cfspaces,verbs=list
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps;cfbuilds;cfpackages;cfprocesses;cfspaces;cftasks,verbs=list
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains;cfroutes,verbs=list
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings;cfserviceinstances,verbs=list
 
@@ -76,6 +76,12 @@ var (
 		Resource: "cfspaces",
 	}
 
+	CFTasksGVR = schema.GroupVersionResource{
+		Group:    "korifi.cloudfoundry.org",
+		Version:  "v1alpha1",
+		Resource: "cftasks",
+	}
+
 	ResourceMap = map[string]schema.GroupVersionResource{
 		AppResourceType:             CFAppsGVR,
 		BuildResourceType:           CFBuildsGVR,
@@ -87,6 +93,7 @@ var (
 		ServiceBindingResourceType:  CFServiceBindingsGVR,
 		ServiceInstanceResourceType: CFServiceInstancesGVR,
 		SpaceResourceType:           CFSpacesGVR,
+		TaskResourceType:            CFTasksGVR,
 	}
 )
 

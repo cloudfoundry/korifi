@@ -1,6 +1,7 @@
 package repositories_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,7 +27,7 @@ var _ = Describe("TaskRepository", func() {
 	)
 
 	BeforeEach(func() {
-		taskRepo = repositories.NewTaskRepo(userClientFactory, 2*time.Second)
+		taskRepo = repositories.NewTaskRepo(userClientFactory, namespaceRetriever, 2*time.Second)
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
@@ -131,8 +133,8 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 				Expect(taskRecord.SequenceID).NotTo(BeZero())
 				Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), 5*time.Second))
-				Expect(taskRecord.MemoryMB).To(BeNumerically("==", 256))
-				Expect(taskRecord.DiskMB).To(BeNumerically("==", 128))
+				Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
+				Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 				Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
 			})
 
@@ -156,6 +158,120 @@ var _ = Describe("TaskRepository", func() {
 
 			It("returns an error", func() {
 				Expect(createErr).To(MatchError(ContainSubstring("failed to build user client")))
+			})
+		})
+	})
+
+	Describe("GetTask", func() {
+		var (
+			taskRecord repositories.TaskRecord
+			getErr     error
+			taskGUID   string
+			cfTask     *korifiv1alpha1.CFTask
+		)
+
+		BeforeEach(func() {
+			taskGUID = generateGUID()
+			cfTask = &korifiv1alpha1.CFTask{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      taskGUID,
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFTaskSpec{
+					Command: []string{"echo", "hello"},
+					AppRef: corev1.LocalObjectReference{
+						Name: cfApp.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
+
+			cfTask.Status.Conditions = []metav1.Condition{}
+			cfTask.Status.SequenceID = 6
+			cfTask.Status.MemoryMB = 256
+			cfTask.Status.DiskQuotaMB = 128
+			cfTask.Status.DropletRef.Name = cfApp.Spec.CurrentDropletRef.Name
+			Expect(k8sClient.Status().Update(ctx, cfTask)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			taskRecord, getErr = taskRepo.GetTask(ctx, authInfo, taskGUID)
+		})
+
+		It("returns a forbidden error", func() {
+			Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("the user can get tasks", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			When("the task has not been initialized yet", func() {
+				It("returns a not found error", func() {
+					Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				})
+			})
+
+			When("the task has initialized condition false", func() {
+				BeforeEach(func() {
+					meta.SetStatusCondition(&(cfTask.Status.Conditions), metav1.Condition{
+						Type:    korifiv1alpha1.TaskInitializedConditionType,
+						Status:  metav1.ConditionFalse,
+						Reason:  "foo",
+						Message: "bar",
+					})
+					Expect(k8sClient.Status().Update(ctx, cfTask)).To(Succeed())
+				})
+
+				It("returns a not found error", func() {
+					Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				})
+			})
+
+			When("the task is ready", func() {
+				BeforeEach(func() {
+					meta.SetStatusCondition(&(cfTask.Status.Conditions), metav1.Condition{
+						Type:    korifiv1alpha1.TaskInitializedConditionType,
+						Status:  metav1.ConditionTrue,
+						Reason:  "foo",
+						Message: "bar",
+					})
+					Expect(k8sClient.Status().Update(ctx, cfTask)).To(Succeed())
+				})
+
+				It("returns the task", func() {
+					Expect(getErr).NotTo(HaveOccurred())
+					Expect(taskRecord.Name).To(Equal(taskGUID))
+					Expect(taskRecord.GUID).NotTo(BeEmpty())
+					Expect(taskRecord.Command).To(Equal("echo hello"))
+					Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
+					Expect(taskRecord.SequenceID).To(BeEquivalentTo(6))
+					Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), 5*time.Second))
+					Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
+					Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
+					Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
+				})
+			})
+		})
+
+		When("the task doesn't exist", func() {
+			BeforeEach(func() {
+				taskGUID = "does-not-exist"
+			})
+
+			It("returns a not found error", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+
+		When("unprivileged client creation fails", func() {
+			BeforeEach(func() {
+				authInfo = authorization.Info{}
+			})
+
+			It("returns an error", func() {
+				Expect(getErr).To(MatchError(ContainSubstring("failed to build user client")))
 			})
 		})
 	})

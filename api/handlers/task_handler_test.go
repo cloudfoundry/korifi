@@ -167,4 +167,84 @@ var _ = Describe("TaskHandler", func() {
 			})
 		})
 	})
+
+	Describe("GET /v3/tasks/:task-guid", func() {
+		BeforeEach(func() {
+			taskRepo.GetTaskReturns(repositories.TaskRecord{
+				Name:              "task-name",
+				GUID:              "task-guid",
+				Command:           "echo hello",
+				AppGUID:           "app-guid",
+				DropletGUID:       "droplet-guid",
+				SequenceID:        314,
+				CreationTimestamp: time.Date(2022, 6, 21, 11, 11, 55, 0, time.UTC),
+				MemoryMB:          123,
+				DiskMB:            234,
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/tasks/task-guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("gets the correct task", func() {
+			Expect(taskRepo.GetTaskCallCount()).To(Equal(1))
+			_, actualAuthInfo, taskGUID := taskRepo.GetTaskArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(taskGUID).To(Equal("task-guid"))
+		})
+
+		It("returns the task", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK))
+			Expect(rr.Body).To(MatchJSON(`{
+              "name": "task-name",
+              "guid": "task-guid",
+              "command": "echo hello",
+              "sequence_id": 314,
+              "created_at": "2022-06-21T11:11:55Z",
+              "updated_at": "2022-06-21T11:11:55Z",
+              "memory_in_mb": 123,
+              "disk_in_mb": 234,
+              "droplet_guid": "droplet-guid",
+              "relationships": {
+                "app": {
+                  "data": {
+                    "guid": "app-guid"
+                  }
+                }
+              },
+              "links": {
+                "self": {
+                  "href": "https://api.example.org/v3/tasks/task-guid"
+                },
+                "app": {
+                  "href": "https://api.example.org/v3/apps/app-guid"
+                },
+                "droplet": {
+                  "href": "https://api.example.org/v3/droplets/droplet-guid"
+                }
+              }
+            }`))
+		})
+
+		When("the task does not exist", func() {
+			BeforeEach(func() {
+				taskRepo.GetTaskReturns(repositories.TaskRecord{}, apierrors.NewNotFoundError(nil, "Task"))
+			})
+
+			It("returns a 404 Not Found", func() {
+				expectNotFoundError("Task")
+			})
+		})
+
+		When("the user is not authorized to get the task", func() {
+			BeforeEach(func() {
+				taskRepo.GetTaskReturns(repositories.TaskRecord{}, apierrors.NewForbiddenError(nil, "Task"))
+			})
+
+			It("returns a 404 Not Found", func() {
+				expectNotFoundError("Task")
+			})
+		})
+	})
 })
