@@ -26,6 +26,21 @@ type CFTaskRepository struct {
 		result1 repositories.TaskRecord
 		result2 error
 	}
+	GetTaskStub        func(context.Context, authorization.Info, string) (repositories.TaskRecord, error)
+	getTaskMutex       sync.RWMutex
+	getTaskArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	getTaskReturns struct {
+		result1 repositories.TaskRecord
+		result2 error
+	}
+	getTaskReturnsOnCall map[int]struct {
+		result1 repositories.TaskRecord
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -96,11 +111,79 @@ func (fake *CFTaskRepository) CreateTaskReturnsOnCall(i int, result1 repositorie
 	}{result1, result2}
 }
 
+func (fake *CFTaskRepository) GetTask(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.TaskRecord, error) {
+	fake.getTaskMutex.Lock()
+	ret, specificReturn := fake.getTaskReturnsOnCall[len(fake.getTaskArgsForCall)]
+	fake.getTaskArgsForCall = append(fake.getTaskArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.GetTaskStub
+	fakeReturns := fake.getTaskReturns
+	fake.recordInvocation("GetTask", []interface{}{arg1, arg2, arg3})
+	fake.getTaskMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFTaskRepository) GetTaskCallCount() int {
+	fake.getTaskMutex.RLock()
+	defer fake.getTaskMutex.RUnlock()
+	return len(fake.getTaskArgsForCall)
+}
+
+func (fake *CFTaskRepository) GetTaskCalls(stub func(context.Context, authorization.Info, string) (repositories.TaskRecord, error)) {
+	fake.getTaskMutex.Lock()
+	defer fake.getTaskMutex.Unlock()
+	fake.GetTaskStub = stub
+}
+
+func (fake *CFTaskRepository) GetTaskArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getTaskMutex.RLock()
+	defer fake.getTaskMutex.RUnlock()
+	argsForCall := fake.getTaskArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFTaskRepository) GetTaskReturns(result1 repositories.TaskRecord, result2 error) {
+	fake.getTaskMutex.Lock()
+	defer fake.getTaskMutex.Unlock()
+	fake.GetTaskStub = nil
+	fake.getTaskReturns = struct {
+		result1 repositories.TaskRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFTaskRepository) GetTaskReturnsOnCall(i int, result1 repositories.TaskRecord, result2 error) {
+	fake.getTaskMutex.Lock()
+	defer fake.getTaskMutex.Unlock()
+	fake.GetTaskStub = nil
+	if fake.getTaskReturnsOnCall == nil {
+		fake.getTaskReturnsOnCall = make(map[int]struct {
+			result1 repositories.TaskRecord
+			result2 error
+		})
+	}
+	fake.getTaskReturnsOnCall[i] = struct {
+		result1 repositories.TaskRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFTaskRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.createTaskMutex.RLock()
 	defer fake.createTaskMutex.RUnlock()
+	fake.getTaskMutex.RLock()
+	defer fake.getTaskMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

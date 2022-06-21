@@ -18,11 +18,13 @@ import (
 
 const (
 	TasksPath = "/v3/apps/{appGUID}/tasks"
+	TaskPath  = "/v3/tasks/{taskGUID}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFTaskRepository . CFTaskRepository
 type CFTaskRepository interface {
 	CreateTask(context.Context, authorization.Info, repositories.CreateTaskMessage) (repositories.TaskRecord, error)
+	GetTask(context.Context, authorization.Info, string) (repositories.TaskRecord, error)
 }
 
 type TaskHandler struct {
@@ -46,6 +48,18 @@ func NewTaskHandler(
 		appRepo:          appRepo,
 		decoderValidator: decoderValidator,
 	}
+}
+
+func (h *TaskHandler) taskGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	vars := mux.Vars(r)
+	taskGUID := vars["taskGUID"]
+
+	taskRecord, err := h.taskRepo.GetTask(ctx, authInfo, taskGUID)
+	if err != nil {
+		return nil, apierrors.ForbiddenAsNotFound(err)
+	}
+
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
 }
 
 func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
@@ -73,5 +87,6 @@ func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger,
 }
 
 func (h *TaskHandler) RegisterRoutes(router *mux.Router) {
+	router.Path(TaskPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.taskGetHandler))
 	router.Path(TasksPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.taskCreateHandler))
 }

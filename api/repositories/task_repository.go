@@ -14,6 +14,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -58,14 +59,16 @@ func (m *CreateTaskMessage) toCFTask() korifiv1alpha1.CFTask {
 }
 
 type TaskRepo struct {
-	userClientFactory authorization.UserK8sClientFactory
-	timeout           time.Duration
+	userClientFactory  authorization.UserK8sClientFactory
+	namespaceRetriever NamespaceRetriever
+	timeout            time.Duration
 }
 
-func NewTaskRepo(userClientFactory authorization.UserK8sClientFactory, timeout time.Duration) *TaskRepo {
+func NewTaskRepo(userClientFactory authorization.UserK8sClientFactory, nsRetriever NamespaceRetriever, timeout time.Duration) *TaskRepo {
 	return &TaskRepo{
-		userClientFactory: userClientFactory,
-		timeout:           timeout,
+		userClientFactory:  userClientFactory,
+		namespaceRetriever: nsRetriever,
+		timeout:            timeout,
 	}
 }
 
@@ -86,17 +89,33 @@ func (r *TaskRepo) CreateTask(ctx context.Context, authInfo authorization.Info, 
 		return TaskRecord{}, fmt.Errorf("failed waiting for task to get initialized: %w", err)
 	}
 
-	return TaskRecord{
-		Name:              task.Name,
-		GUID:              task.Name,
-		Command:           strings.Join(task.Spec.Command, " "),
-		AppGUID:           task.Spec.AppRef.Name,
-		SequenceID:        task.Status.SequenceID,
-		CreationTimestamp: task.CreationTimestamp.Time,
-		MemoryMB:          task.Status.MemoryMB,
-		DiskMB:            task.Status.DiskQuotaMB,
-		DropletGUID:       task.Status.DropletRef.Name,
-	}, nil
+	return taskToRecord(task), nil
+}
+
+func (r *TaskRepo) GetTask(ctx context.Context, authInfo authorization.Info, taskGUID string) (TaskRecord, error) {
+	taskNamespace, err := r.namespaceRetriever.NamespaceFor(ctx, taskGUID, TaskResourceType)
+	if err != nil {
+		return TaskRecord{}, err
+	}
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return TaskRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	cfTask := korifiv1alpha1.CFTask{}
+	err = userClient.Get(ctx, types.NamespacedName{Namespace: taskNamespace, Name: taskGUID}, &cfTask)
+	if err != nil {
+		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
+	}
+
+	// We cannot use IsStatusConditionFalse, because it would return false if
+	// the condition were not present
+	if !meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType) {
+		return TaskRecord{}, apierrors.NewNotFoundError(fmt.Errorf("task %s not initialized yet", taskGUID), TaskResourceType)
+	}
+
+	return taskToRecord(cfTask), nil
 }
 
 func (r *TaskRepo) awaitInitialization(ctx context.Context, userClient client.WithWatch, task korifiv1alpha1.CFTask) (korifiv1alpha1.CFTask, error) {
@@ -130,4 +149,18 @@ func splitCommand(command string) []string {
 	whitespace := regexp.MustCompile(`\s+`)
 	trimmedCommand := strings.TrimSpace(whitespace.ReplaceAllString(command, " "))
 	return strings.Split(trimmedCommand, " ")
+}
+
+func taskToRecord(task korifiv1alpha1.CFTask) TaskRecord {
+	return TaskRecord{
+		Name:              task.Name,
+		GUID:              task.Name,
+		Command:           strings.Join(task.Spec.Command, " "),
+		AppGUID:           task.Spec.AppRef.Name,
+		SequenceID:        task.Status.SequenceID,
+		CreationTimestamp: task.CreationTimestamp.Time,
+		MemoryMB:          task.Status.MemoryMB,
+		DiskMB:            task.Status.DiskQuotaMB,
+		DropletGUID:       task.Status.DropletRef.Name,
+	}
 }

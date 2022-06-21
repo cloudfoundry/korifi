@@ -37,6 +37,7 @@ rules:
   - cfpackages
   - cfprocesses
   - cfspaces
+  - cftasks
   verbs:
   - list
 - apiGroups:
