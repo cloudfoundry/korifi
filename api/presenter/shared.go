@@ -31,7 +31,7 @@ type Metadata struct {
 }
 
 type Link struct {
-	HREF   string `json:"href,omitempty"`
+	HRef   string `json:"href,omitempty"`
 	Method string `json:"method,omitempty"`
 }
 

@@ -58,7 +58,7 @@ func toOrgResponse(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
 		Relationships: Relationships{},
 		Links: OrgLinks{
 			Self: &Link{
-				HREF: buildURL(apiBaseURL).appendPath(orgsBase, org.GUID).build(),
+				HRef: buildURL(apiBaseURL).appendPath(orgsBase, org.GUID).build(),
 			},
 		},
 	}

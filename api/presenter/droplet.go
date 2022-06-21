@@ -66,16 +66,16 @@ func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL) Dropl
 		},
 		Links: map[string]*Link{
 			"self": {
-				HREF: buildURL(baseURL).appendPath(dropletsBase, dropletRecord.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(dropletsBase, dropletRecord.GUID).build(),
 			},
 			"package": {
-				HREF: buildURL(baseURL).appendPath(packagesBase, dropletRecord.PackageGUID).build(),
+				HRef: buildURL(baseURL).appendPath(packagesBase, dropletRecord.PackageGUID).build(),
 			},
 			"app": {
-				HREF: buildURL(baseURL).appendPath(appsBase, dropletRecord.AppGUID).build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, dropletRecord.AppGUID).build(),
 			},
 			"assign_current_droplet": {
-				HREF:   buildURL(baseURL).appendPath(appsBase, dropletRecord.AppGUID, "relationships/current_droplet").build(),
+				HRef:   buildURL(baseURL).appendPath(appsBase, dropletRecord.AppGUID, "relationships/current_droplet").build(),
 				Method: "PATCH",
 			},
 			"download": nil,

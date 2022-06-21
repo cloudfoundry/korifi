@@ -93,16 +93,16 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 		},
 		Links: routeLinks{
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath(routesBase, route.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(routesBase, route.GUID).build(),
 			},
 			Space: Link{
-				HREF: buildURL(baseURL).appendPath(spacesBase, route.SpaceGUID).build(),
+				HRef: buildURL(baseURL).appendPath(spacesBase, route.SpaceGUID).build(),
 			},
 			Domain: Link{
-				HREF: buildURL(baseURL).appendPath(domainsBase, route.Domain.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(domainsBase, route.Domain.GUID).build(),
 			},
 			Destinations: Link{
-				HREF: buildURL(baseURL).appendPath(routesBase, route.GUID, "destinations").build(),
+				HRef: buildURL(baseURL).appendPath(routesBase, route.GUID, "destinations").build(),
 			},
 		},
 	}
@@ -141,10 +141,10 @@ func ForRouteDestinations(route repositories.RouteRecord, baseURL url.URL) Route
 		Destinations: destinations,
 		Links: routeDestinationsLinks{
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath(routesBase, route.GUID, "destinations").build(),
+				HRef: buildURL(baseURL).appendPath(routesBase, route.GUID, "destinations").build(),
 			},
 			Route: Link{
-				HREF: buildURL(baseURL).appendPath(routesBase, route.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(routesBase, route.GUID).build(),
 			},
 		},
 	}

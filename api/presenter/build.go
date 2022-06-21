@@ -61,10 +61,10 @@ func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL) BuildRespon
 		},
 		Links: map[string]Link{
 			"self": {
-				HREF: buildURL(baseURL).appendPath(buildsBase, buildRecord.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(buildsBase, buildRecord.GUID).build(),
 			},
 			"app": {
-				HREF: buildURL(baseURL).appendPath(appsBase, buildRecord.AppGUID).build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, buildRecord.AppGUID).build(),
 			},
 		},
 	}
@@ -75,7 +75,7 @@ func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL) BuildRespon
 		}
 
 		toReturn.Links["droplet"] = Link{
-			HREF: buildURL(baseURL).appendPath(dropletsBase, buildRecord.DropletGUID).build(),
+			HRef: buildURL(baseURL).appendPath(dropletsBase, buildRecord.DropletGUID).build(),
 		}
 	}
 
