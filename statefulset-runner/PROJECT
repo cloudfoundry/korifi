@@ -1,0 +1,16 @@
+domain: cloudfoundry.org
+layout:
+- go.kubebuilder.io/v3
+projectName: statefulset-runner
+repo: code.cloudfoundry.org/korifi/statefulset-runner
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloudfoundry.org
+  group: korifi
+  kind: RunWorkload
+  path: code.cloudfoundry.org/korifi/statefulset-runner/api/v1alpha1
+  version: v1alpha1
+version: "3"
