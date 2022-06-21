@@ -125,20 +125,20 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 		UpdatedAt: responseProcess.UpdatedAt,
 		Links: ProcessLinks{
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID).build(),
 			},
 			Scale: Link{
-				HREF:   buildURL(baseURL).appendPath(processesBase, responseProcess.GUID, "actions", "scale").build(),
+				HRef:   buildURL(baseURL).appendPath(processesBase, responseProcess.GUID, "actions", "scale").build(),
 				Method: http.MethodPost,
 			},
 			App: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, responseProcess.AppGUID).build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, responseProcess.AppGUID).build(),
 			},
 			Space: Link{
-				HREF: buildURL(baseURL).appendPath(spacesBase, responseProcess.SpaceGUID).build(),
+				HRef: buildURL(baseURL).appendPath(spacesBase, responseProcess.SpaceGUID).build(),
 			},
 			Stats: Link{
-				HREF: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID, "stats").build(),
+				HRef: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID, "stats").build(),
 			},
 		},
 	}

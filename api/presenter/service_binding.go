@@ -57,16 +57,16 @@ func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL
 		},
 		Links: ServiceBindingLinks{
 			App: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, record.AppGUID).build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, record.AppGUID).build(),
 			},
 			ServiceInstance: Link{
-				HREF: buildURL(baseURL).appendPath(serviceInstancesBase, record.ServiceInstanceGUID).build(),
+				HRef: buildURL(baseURL).appendPath(serviceInstancesBase, record.ServiceInstanceGUID).build(),
 			},
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath(serviceCredentialBindingsBase, record.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(serviceCredentialBindingsBase, record.GUID).build(),
 			},
 			Details: Link{
-				HREF: buildURL(baseURL).appendPath(serviceCredentialBindingsBase, record.GUID, "details").build(),
+				HRef: buildURL(baseURL).appendPath(serviceCredentialBindingsBase, record.GUID, "details").build(),
 			},
 		},
 		Metadata: Metadata{

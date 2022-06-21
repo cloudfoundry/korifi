@@ -42,10 +42,10 @@ func ForManifestApplyJob(jobGUID string, spaceGUID string, baseURL url.URL) JobR
 		UpdatedAt: "",
 		Links: JobLinks{
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath("/v3/jobs", jobGUID).build(),
+				HRef: buildURL(baseURL).appendPath("/v3/jobs", jobGUID).build(),
 			},
 			Space: &Link{
-				HREF: buildURL(baseURL).appendPath("/v3/spaces", spaceGUID).build(),
+				HRef: buildURL(baseURL).appendPath("/v3/spaces", spaceGUID).build(),
 			},
 		},
 	}
@@ -62,7 +62,7 @@ func ForDeleteJob(jobGUID string, operation string, baseURL url.URL) JobResponse
 		UpdatedAt: "",
 		Links: JobLinks{
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath("/v3/jobs", jobGUID).build(),
+				HRef: buildURL(baseURL).appendPath("/v3/jobs", jobGUID).build(),
 			},
 		},
 	}

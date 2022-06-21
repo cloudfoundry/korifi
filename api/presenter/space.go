@@ -59,10 +59,10 @@ func toSpaceResponse(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceRe
 		},
 		Links: SpaceLinks{
 			Self: &Link{
-				HREF: buildURL(apiBaseURL).appendPath(spacesBase, space.GUID).build(),
+				HRef: buildURL(apiBaseURL).appendPath(spacesBase, space.GUID).build(),
 			},
 			Organization: &Link{
-				HREF: buildURL(apiBaseURL).appendPath(orgsBase, space.OrganizationGUID).build(),
+				HRef: buildURL(apiBaseURL).appendPath(orgsBase, space.OrganizationGUID).build(),
 			},
 		},
 	}

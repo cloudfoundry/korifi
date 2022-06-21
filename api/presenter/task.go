@@ -49,10 +49,10 @@ func ForTask(responseTask repositories.TaskRecord, baseURL url.URL) TaskResponse
 		},
 		Links: TaskLinks{
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath(tasksBase, responseTask.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(tasksBase, responseTask.GUID).build(),
 			},
 			App: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, responseTask.AppGUID).build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, responseTask.AppGUID).build(),
 			},
 		},
 	}

@@ -67,10 +67,10 @@ func ForDomain(responseDomain repositories.DomainRecord, baseURL url.URL) Domain
 		},
 		Links: DomainLinks{
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath(domainsBase, responseDomain.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(domainsBase, responseDomain.GUID).build(),
 			},
 			RouteReservations: Link{
-				HREF: buildURL(baseURL).appendPath(domainsBase, responseDomain.GUID, "route_reservations").build(),
+				HRef: buildURL(baseURL).appendPath(domainsBase, responseDomain.GUID, "route_reservations").build(),
 			},
 			RouterGroup: nil,
 		},

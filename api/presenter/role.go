@@ -44,7 +44,7 @@ func toRoleResponse(role repositories.RoleRecord, apiBaseURL url.URL) RoleRespon
 		},
 		Links: RoleLinks{
 			Self: &Link{
-				HREF: buildURL(apiBaseURL).appendPath(rolesBase, role.GUID).build(),
+				HRef: buildURL(apiBaseURL).appendPath(rolesBase, role.GUID).build(),
 			},
 		},
 	}
@@ -52,14 +52,14 @@ func toRoleResponse(role repositories.RoleRecord, apiBaseURL url.URL) RoleRespon
 	if role.Org != "" {
 		resp.Relationships["organization"] = Relationship{Data: &RelationshipData{GUID: role.Org}}
 		resp.Links.Organization = &Link{
-			HREF: buildURL(apiBaseURL).appendPath(orgsBase, role.Org).build(),
+			HRef: buildURL(apiBaseURL).appendPath(orgsBase, role.Org).build(),
 		}
 	}
 
 	if role.Space != "" {
 		resp.Relationships["space"] = Relationship{Data: &RelationshipData{GUID: role.Space}}
 		resp.Links.Space = &Link{
-			HREF: buildURL(apiBaseURL).appendPath(spacesBase, role.Space).build(),
+			HRef: buildURL(apiBaseURL).appendPath(spacesBase, role.Space).build(),
 		}
 	}
 

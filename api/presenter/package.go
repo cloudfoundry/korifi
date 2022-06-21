@@ -47,18 +47,18 @@ func ForPackage(record repositories.PackageRecord, baseURL url.URL) PackageRespo
 		},
 		Links: PackageLinks{
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath(packagesBase, record.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(packagesBase, record.GUID).build(),
 			},
 			Upload: Link{
-				HREF:   buildURL(baseURL).appendPath(packagesBase, record.GUID, "upload").build(),
+				HRef:   buildURL(baseURL).appendPath(packagesBase, record.GUID, "upload").build(),
 				Method: "POST",
 			},
 			Download: Link{
-				HREF:   buildURL(baseURL).appendPath(packagesBase, record.GUID, "download").build(),
+				HRef:   buildURL(baseURL).appendPath(packagesBase, record.GUID, "download").build(),
 				Method: "GET",
 			},
 			App: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, record.AppGUID).build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, record.AppGUID).build(),
 			},
 		},
 		Metadata: Metadata{

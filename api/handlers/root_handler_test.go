@@ -52,12 +52,12 @@ var _ = Describe("RootHandler", func() {
 			Expect(resp).To(gstruct.MatchAllFields(gstruct.Fields{
 				"Links": Equal(map[string]*presenter.APILink{
 					"self": {
-						Link: presenter.Link{HREF: defaultServerURL},
+						Link: presenter.Link{HRef: defaultServerURL},
 					},
 					"bits_service":        nil,
 					"cloud_controller_v2": nil,
 					"cloud_controller_v3": {
-						Link: presenter.Link{HREF: defaultServerURL + "/v3"},
+						Link: presenter.Link{HRef: defaultServerURL + "/v3"},
 						Meta: presenter.APILinkMeta{Version: presenter.V3APIVersion},
 					},
 					"network_policy_v0": nil,
@@ -68,7 +68,7 @@ var _ = Describe("RootHandler", func() {
 					"routing":           nil,
 					"logging":           nil,
 					"log_cache": {
-						Link: presenter.Link{HREF: defaultServerURL},
+						Link: presenter.Link{HRef: defaultServerURL},
 					},
 					"log_stream": nil,
 					"app_ssh":    nil,

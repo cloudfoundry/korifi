@@ -66,45 +66,45 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 		},
 		Links: AppLinks{
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, responseApp.GUID).build(),
 			},
 			Space: Link{
-				HREF: buildURL(baseURL).appendPath(spacesBase, responseApp.SpaceGUID).build(),
+				HRef: buildURL(baseURL).appendPath(spacesBase, responseApp.SpaceGUID).build(),
 			},
 			Processes: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "processes").build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "processes").build(),
 			},
 			Packages: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "packages").build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "packages").build(),
 			},
 			EnvironmentVariables: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "environment_variables").build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "environment_variables").build(),
 			},
 			CurrentDroplet: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "droplets/current").build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "droplets/current").build(),
 			},
 			Droplets: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "droplets").build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "droplets").build(),
 			},
 			Tasks: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "tasks").build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "tasks").build(),
 			},
 			StartAction: Link{
-				HREF:   buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "actions/start").build(),
+				HRef:   buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "actions/start").build(),
 				Method: "POST",
 			},
 			StopAction: Link{
-				HREF:   buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "actions/stop").build(),
+				HRef:   buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "actions/stop").build(),
 				Method: "POST",
 			},
 			Revisions: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "revisions").build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "revisions").build(),
 			},
 			DeployedRevisions: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "revisions/deployed").build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "revisions/deployed").build(),
 			},
 			Features: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "features").build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, responseApp.GUID, "features").build(),
 			},
 		},
 	}
@@ -138,10 +138,10 @@ func ForCurrentDroplet(record repositories.CurrentDropletRecord, baseURL url.URL
 		},
 		Links: CurrentDropletLinks{
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, record.AppGUID, "relationships/current_droplet").build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, record.AppGUID, "relationships/current_droplet").build(),
 			},
 			Related: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, record.AppGUID, "droplets/current").build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, record.AppGUID, "droplets/current").build(),
 			},
 		},
 	}
@@ -162,10 +162,10 @@ func ForAppEnvVars(record repositories.AppEnvVarsRecord, baseURL url.URL) AppEnv
 		Var: record.EnvironmentVariables,
 		Links: AppEnvVarsLinks{
 			Self: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, record.AppGUID, "environment_variables").build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, record.AppGUID, "environment_variables").build(),
 			},
 			App: Link{
-				HREF: buildURL(baseURL).appendPath(appsBase, record.AppGUID).build(),
+				HRef: buildURL(baseURL).appendPath(appsBase, record.AppGUID).build(),
 			},
 		},
 	}
