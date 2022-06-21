@@ -54,6 +54,7 @@ var _ = Describe("TaskRepository", func() {
 				cft.Status.SequenceID = 6
 				cft.Status.MemoryMB = 256
 				cft.Status.DiskQuotaMB = 128
+				cft.Status.DropletRef.Name = cfApp.Spec.CurrentDropletRef.Name
 				return k8sClient.Status().Update(ctx, cft)
 			}
 			controllerSync = &sync.WaitGroup{}
@@ -132,6 +133,7 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), 5*time.Second))
 				Expect(taskRecord.MemoryMB).To(BeNumerically("==", 256))
 				Expect(taskRecord.DiskMB).To(BeNumerically("==", 128))
+				Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
 			})
 
 			When("the task never becomes initialized", func() {

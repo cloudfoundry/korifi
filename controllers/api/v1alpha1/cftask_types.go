@@ -41,9 +41,10 @@ type CFTaskStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 	Conditions []metav1.Condition `json:"conditions"`
 
-	SequenceID  int64 `json:"sequenceId"`
-	MemoryMB    int64 `json:"memoryMB"`
-	DiskQuotaMB int64 `json:"diskQuotaMB"`
+	SequenceID  int64                       `json:"sequenceId"`
+	MemoryMB    int64                       `json:"memoryMB"`
+	DiskQuotaMB int64                       `json:"diskQuotaMB"`
+	DropletRef  corev1.LocalObjectReference `json:"dropletRef"`
 }
 
 //+kubebuilder:object:root=true

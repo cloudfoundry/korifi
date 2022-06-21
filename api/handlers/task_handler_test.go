@@ -51,6 +51,7 @@ var _ = Describe("TaskHandler", func() {
 				GUID:              "the-task-guid",
 				Command:           "echo hello",
 				AppGUID:           "the-app-guid",
+				DropletGUID:       "the-droplet-guid",
 				SequenceID:        123456,
 				CreationTimestamp: time.Date(2022, 6, 14, 13, 22, 34, 0, time.UTC),
 				MemoryMB:          256,
@@ -82,6 +83,7 @@ var _ = Describe("TaskHandler", func() {
               "updated_at": "2022-06-14T13:22:34Z",
               "memory_in_mb": 256,
               "disk_in_mb": 128,
+              "droplet_guid": "the-droplet-guid",
               "relationships": {
                 "app": {
                   "data": {
@@ -95,6 +97,9 @@ var _ = Describe("TaskHandler", func() {
                 },
                 "app": {
                   "href": "https://api.example.org/v3/apps/the-app-guid"
+                },
+                "droplet": {
+                  "href": "https://api.example.org/v3/droplets/the-droplet-guid"
                 }
               }
             }`))

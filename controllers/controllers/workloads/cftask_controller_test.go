@@ -112,6 +112,10 @@ var _ = Describe("CFTask Controller", func() {
 				case *korifiv1alpha1.CFBuild:
 					Expect(namespacedName.Name).To(Equal(dropletRef))
 					*t = korifiv1alpha1.CFBuild{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      namespacedName.Name,
+							Namespace: namespacedName.Namespace,
+						},
 						Status: korifiv1alpha1.CFBuildStatus{
 							Droplet: droplet,
 						},
@@ -168,6 +172,7 @@ var _ = Describe("CFTask Controller", func() {
 			Expect(status.DiskQuotaMB).To(BeNumerically("==", 128))
 			Expect(status.MemoryMB).To(BeNumerically("==", 256))
 			Expect(status.SequenceID).To(BeNumerically("==", 314))
+			Expect(status.DropletRef.Name).To(Equal("the-droplet-guid"))
 			Expect(meta.IsStatusConditionTrue(status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
 		})
 
