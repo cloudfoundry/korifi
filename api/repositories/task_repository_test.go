@@ -1,6 +1,7 @@
 package repositories_test
 
 import (
+	"sync"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -39,6 +40,7 @@ var _ = Describe("TaskRepository", func() {
 			createErr           error
 			dummyTaskController func(*korifiv1alpha1.CFTask) error
 			killController      chan bool
+			controllerSync      *sync.WaitGroup
 		)
 
 		BeforeEach(func() {
@@ -54,6 +56,8 @@ var _ = Describe("TaskRepository", func() {
 				cft.Status.DiskQuotaMB = 128
 				return k8sClient.Status().Update(ctx, cft)
 			}
+			controllerSync = &sync.WaitGroup{}
+			controllerSync.Add(1)
 			killController = make(chan bool)
 			createMessage = repositories.CreateTaskMessage{
 				Command:   "  echo    hello  ",
@@ -73,8 +77,9 @@ var _ = Describe("TaskRepository", func() {
 			defer tasksWatch.Stop()
 			watchChan := tasksWatch.ResultChan()
 
-			go func(killController chan bool) {
+			go func() {
 				defer GinkgoRecover()
+				defer controllerSync.Done()
 
 				timer := time.NewTimer(2 * time.Second)
 				defer timer.Stop()
@@ -98,13 +103,14 @@ var _ = Describe("TaskRepository", func() {
 						return
 					}
 				}
-			}(killController)
+			}()
 
 			taskRecord, createErr = taskRepo.CreateTask(ctx, authInfo, createMessage)
 		})
 
 		AfterEach(func() {
 			close(killController)
+			controllerSync.Wait()
 		})
 
 		It("returns forbidden error", func() {
