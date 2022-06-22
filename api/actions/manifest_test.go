@@ -240,7 +240,6 @@ var _ = Describe("ApplyManifest", func() {
 				Expect(processMessage.HealthCheck.Type).To(Equal("http"))
 			})
 		})
-
 	})
 
 	When("the app does not exist", func() {

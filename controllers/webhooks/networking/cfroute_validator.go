@@ -101,14 +101,31 @@ func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
 	}
 
-	if route.Spec.Host == oldRoute.Spec.Host &&
-		route.Spec.DomainRef.String() == oldRoute.Spec.DomainRef.String() &&
-		route.Spec.Path == oldRoute.Spec.Path &&
-		len(route.Finalizers) < len(oldRoute.Finalizers) {
-		return nil // we're removing a finalizer to delete this route, so we don't want to block deletion
+	immutableError := webhooks.ValidationError{
+		Type: webhooks.ImmutableFieldErrorType,
 	}
 
-	domain, err := v.validateRoute(ctx, route)
+	if route.Spec.Host != oldRoute.Spec.Host {
+		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "Host")
+		return immutableError.ExportJSONError()
+	}
+
+	if route.Spec.Path != oldRoute.Spec.Path {
+		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "Path")
+		return immutableError.ExportJSONError()
+	}
+
+	if route.Spec.Protocol != oldRoute.Spec.Protocol {
+		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "Protocol")
+		return immutableError.ExportJSONError()
+	}
+
+	if route.Spec.DomainRef.Name != oldRoute.Spec.DomainRef.Name {
+		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "DomainRef.Name")
+		return immutableError.ExportJSONError()
+	}
+
+	domain, err := v.validateDestinations(ctx, route)
 	if err != nil {
 		return err
 	}
@@ -137,8 +154,28 @@ func (v *CFRouteValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 }
 
 func (v *CFRouteValidator) validateRoute(ctx context.Context, route *korifiv1alpha1.CFRoute) (*korifiv1alpha1.CFDomain, error) {
-	domain := &korifiv1alpha1.CFDomain{}
+	domain, err := v.validateDestinations(ctx, route)
+	if err != nil {
+		return domain, err
+	}
 
+	if err = isHost(route.Spec.Host); err != nil {
+		return nil, err
+	}
+
+	if _, err = IsFQDN(route.Spec.Host, domain.Spec.Name); err != nil {
+		return nil, err
+	}
+
+	if err = validatePath(route.Spec.Path); err != nil {
+		return nil, err
+	}
+
+	return domain, nil
+}
+
+func (v *CFRouteValidator) fetchDomain(ctx context.Context, route *korifiv1alpha1.CFRoute) (*korifiv1alpha1.CFDomain, error) {
+	domain := &korifiv1alpha1.CFDomain{}
 	err := v.client.Get(ctx, types.NamespacedName{Name: route.Spec.DomainRef.Name, Namespace: route.Spec.DomainRef.Namespace}, domain)
 	if err != nil {
 		errMessage := "Error while retrieving CFDomain object"
@@ -148,20 +185,15 @@ func (v *CFRouteValidator) validateRoute(ctx context.Context, route *korifiv1alp
 			Message: errMessage,
 		}.ExportJSONError()
 	}
+	return domain, err
+}
 
-	if err := isHost(route.Spec.Host); err != nil {
-		return nil, err
+func (v *CFRouteValidator) validateDestinations(ctx context.Context, route *korifiv1alpha1.CFRoute) (*korifiv1alpha1.CFDomain, error) {
+	domain, err := v.fetchDomain(ctx, route)
+	if err != nil {
+		return domain, err
 	}
-
-	if _, err := IsFQDN(route.Spec.Host, domain.Spec.Name); err != nil {
-		return nil, err
-	}
-
-	if err := validatePath(route.Spec.Path); err != nil {
-		return nil, err
-	}
-
-	if err := v.checkDestinationsExistInNamespace(ctx, *route); err != nil {
+	if err = v.checkDestinationsExistInNamespace(ctx, *route); err != nil {
 		validationErr := webhooks.ValidationError{}
 
 		if apierrors.IsNotFound(err) {
@@ -173,9 +205,8 @@ func (v *CFRouteValidator) validateRoute(ctx context.Context, route *korifiv1alp
 		}
 
 		logger.Error(err, validationErr.Message)
-		return nil, validationErr.ExportJSONError()
+		return domain, validationErr.ExportJSONError()
 	}
-
 	return domain, nil
 }
 
