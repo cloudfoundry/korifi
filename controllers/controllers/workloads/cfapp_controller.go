@@ -166,7 +166,7 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1a
 			Ports:            ports,
 		},
 	}
-	desiredCFProcess.SetRandomName()
+	desiredCFProcess.SetStableName(cfApp.Name)
 
 	err := controllerutil.SetOwnerReference(cfApp, desiredCFProcess, r.Scheme)
 	if err != nil {
