@@ -147,7 +147,7 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	err = propagateRoleBindings(ctx, r.client, r.log, cfOrg)
+	err = reconcileRoleBindings(ctx, r.client, r.log, cfOrg)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error propagating role-bindings into CFOrg %s/%s", req.Namespace, req.Name))
 		return ctrl.Result{}, err

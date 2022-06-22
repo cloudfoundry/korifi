@@ -281,6 +281,26 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		})
 	})
 
+	When("role bindings are deleted in the CFOrg namespace after CFSpace creation", func() {
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+			Eventually(func(g Gomega) {
+				var createdSpace korifiv1alpha1.CFSpace
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdSpace)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
+			}, 20*time.Second).Should(Succeed())
+
+			Expect(k8sClient.Delete(ctx, &roleBinding)).To(Succeed())
+		})
+
+		It("deletes the corresponding role binding in CFSpace", func() {
+			Eventually(func() bool {
+				var deletedRoleBinding rbacv1.RoleBinding
+				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: roleBinding.Name, Namespace: cfSpace.Name}, &deletedRoleBinding))
+			}).Should(BeTrue(), "timed out waiting for role binding to be deleted")
+		})
+	})
+
 	When("the CFSpace is deleted", func() {
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())

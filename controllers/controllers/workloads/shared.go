@@ -4,19 +4,18 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
-	rbacv1 "k8s.io/api/rbac/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
@@ -132,30 +131,43 @@ func propagateRoles(ctx context.Context, kClient client.Client, log logr.Logger,
 	return nil
 }
 
-func propagateRoleBindings(ctx context.Context, kClient client.Client, log logr.Logger, orgOrSpace client.Object) error {
+func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.Logger, orgOrSpace client.Object) error {
+	var (
+		result controllerutil.OperationResult
+		err    error
+	)
+
 	roleBindings := new(rbacv1.RoleBindingList)
-	err := kClient.List(ctx, roleBindings, client.InNamespace(orgOrSpace.GetNamespace()))
+	err = kClient.List(ctx, roleBindings, client.InNamespace(orgOrSpace.GetNamespace()))
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Error listing role-bindings from namespace %s", orgOrSpace.GetName()))
+		log.Error(err, fmt.Sprintf("Error listing role-bindings from namespace %s", orgOrSpace.GetNamespace()))
 		return err
 	}
 
+	parentRoleBindingMap := make(map[string]struct{})
 	for _, binding := range roleBindings.Items {
 		if binding.Annotations[korifiv1alpha1.PropagateRoleBindingAnnotation] == "false" {
 			continue
 		}
+
+		parentRoleBindingMap[binding.Name] = struct{}{}
+
 		newRoleBinding := &rbacv1.RoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      binding.Name,
 				Namespace: orgOrSpace.GetName(),
 			},
 		}
-		b := binding
-		result, err := controllerutil.CreateOrPatch(ctx, kClient, newRoleBinding, func() error {
-			newRoleBinding.Labels = b.Labels
-			newRoleBinding.Annotations = b.Annotations
-			newRoleBinding.Subjects = b.Subjects
-			newRoleBinding.RoleRef = b.RoleRef
+
+		result, err = controllerutil.CreateOrPatch(ctx, kClient, newRoleBinding, func() error {
+			newRoleBinding.Labels = binding.Labels
+			if newRoleBinding.Labels == nil {
+				newRoleBinding.Labels = map[string]string{}
+			}
+			newRoleBinding.Labels[korifiv1alpha1.PropagatedFromLabel] = orgOrSpace.GetNamespace()
+			newRoleBinding.Annotations = binding.Annotations
+			newRoleBinding.Subjects = binding.Subjects
+			newRoleBinding.RoleRef = binding.RoleRef
 			return nil
 		})
 		if err != nil {
@@ -166,6 +178,28 @@ func propagateRoleBindings(ctx context.Context, kClient client.Client, log logr.
 		log.Info(fmt.Sprintf("Role Binding %s/%s %s", newRoleBinding.Namespace, newRoleBinding.Name, result))
 	}
 
+	propagatedRoleBindings := new(rbacv1.RoleBindingList)
+	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
+		korifiv1alpha1.PropagatedFromLabel: orgOrSpace.GetNamespace(),
+	})
+	if err != nil {
+		return err
+	}
+
+	err = kClient.List(ctx, propagatedRoleBindings, &client.ListOptions{Namespace: orgOrSpace.GetName(), LabelSelector: labelSelector})
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Error listing role-bindings from namespace %s", orgOrSpace.GetName()))
+		return err
+	}
+
+	for _, propagatedBinding := range propagatedRoleBindings.Items {
+		if _, ok := parentRoleBindingMap[propagatedBinding.Name]; !ok {
+			err = kClient.Delete(ctx, &propagatedBinding)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
