@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -105,8 +104,8 @@ type CFProcessList struct {
 	Items           []CFProcess `json:"items"`
 }
 
-func (r *CFProcess) SetRandomName() {
-	r.Name = processNamePrefix + uuid.NewString()
+func (r *CFProcess) SetStableName(appGUID string) {
+	r.Name = processNamePrefix + appGUID + r.Spec.ProcessType
 	if r.Labels == nil {
 		r.Labels = map[string]string{}
 	}

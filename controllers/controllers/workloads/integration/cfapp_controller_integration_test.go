@@ -96,8 +96,8 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				return string(createdCFApp.Status.ObservedDesiredState)
 			}).Should(Equal(string(cfApp.Spec.DesiredState)))
 
-			runningConditionFalse := meta.IsStatusConditionFalse(createdCFApp.Status.Conditions, "Running")
-			Expect(runningConditionFalse).To(BeTrue())
+			runningConditionFalse := meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, "Running")
+			Expect(runningConditionFalse).To(BeFalse())
 			Expect(createdCFApp.Status.ObservedDesiredState).To(Equal(createdCFApp.Spec.DesiredState))
 		})
 	})

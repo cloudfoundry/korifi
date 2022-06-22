@@ -208,7 +208,7 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 			Ports:            []int32{},
 		},
 	}
-	process.SetRandomName()
+	process.SetStableName(message.AppGUID)
 	err = userClient.Create(ctx, process)
 	return apierrors.FromK8sError(err, ProcessResourceType)
 }
