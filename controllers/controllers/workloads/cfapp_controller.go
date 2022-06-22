@@ -20,11 +20,15 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
 	StatusConditionRestarting = "Restarting"
 	StatusConditionRunning    = "Running"
+	StatusConditionStaged     = "Staged"
 	processHealthCheckType    = "process"
 	processTypeWeb            = "web"
 	finalizerName             = "cfApp.korifi.cloudfoundry.org"
@@ -75,46 +79,19 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if isFinalizing(cfApp) {
 		return r.finalizeCFApp(ctx, cfApp)
 	}
+
 	err = r.createVCAPServicesSecretForApp(ctx, cfApp)
 	if err != nil {
 		r.Log.Error(err, "unable to create CFApp VCAP Services secret")
 		return ctrl.Result{}, err
 	}
 
-	// CreateIfNotExist CFProcesses when Droplet is set on the App
-	if cfApp.Spec.CurrentDropletRef.Name != "" {
-		var cfBuild korifiv1alpha1.CFBuild
-		err = r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfApp.Namespace}, &cfBuild)
-		if err != nil {
-			r.Log.Error(err, "Error when fetching CFBuild")
-			return ctrl.Result{}, err
-		}
-
-		if cfBuild.Status.Droplet == nil {
-			err = errors.New("status field CFBuildDropletStatus is nil on CFBuild")
-			r.Log.Error(err, "CFBuildDropletStatus is nil on CFBuild.Status, check if referenced Build/Droplet was successfully staged")
-			return ctrl.Result{}, err
-		}
-
-		droplet := cfBuild.Status.Droplet
-
-		for _, process := range addWebIfMissing(droplet.ProcessTypes) {
-			var processExistsForType bool
-			processExistsForType, err = r.checkCFProcessExistsForType(ctx, cfApp.Name, cfApp.Namespace, process.Type)
-			if err != nil {
-				r.Log.Error(err, "Error when checking if CFProcess exists")
-				return ctrl.Result{}, err
-			}
-
-			if !processExistsForType {
-				err = r.createCFProcess(ctx, process, droplet.Ports, cfApp)
-				if err != nil {
-					r.Log.Error(err, fmt.Sprintf("Error creating CFProcess for Type: %s", process.Type))
-					return ctrl.Result{}, err
-				}
-			}
-		}
-	}
+	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+		Type:    StatusConditionStaged,
+		Status:  metav1.ConditionFalse,
+		Reason:  "appStaged",
+		Message: "",
+	})
 
 	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
 		Type:    StatusConditionRunning,
@@ -123,12 +100,73 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		Message: "",
 	})
 
+	if cfApp.Spec.CurrentDropletRef.Name == "" {
+		if statusErr := r.Client.Status().Update(ctx, cfApp); statusErr != nil {
+			r.Log.Error(statusErr, "unable to update CFApp status")
+			r.Log.Info(fmt.Sprintf("CFApps status: %+v", cfApp.Status))
+			return ctrl.Result{}, statusErr
+		}
+		return ctrl.Result{}, nil
+	}
+
+	droplet, err := r.getDroplet(ctx, cfApp)
+	if err != nil {
+		if statusErr := r.Client.Status().Update(ctx, cfApp); statusErr != nil {
+			r.Log.Error(statusErr, "unable to update CFApp status")
+			r.Log.Info(fmt.Sprintf("CFApps status: %+v", cfApp.Status))
+			return ctrl.Result{}, statusErr
+		}
+		return ctrl.Result{}, err
+	}
+
+	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+		Type:    StatusConditionStaged,
+		Status:  metav1.ConditionTrue,
+		Reason:  "appStaged",
+		Message: "",
+	})
+
+	for _, process := range addWebIfMissing(droplet.ProcessTypes) {
+		var processExistsForType bool
+		processExistsForType, err = r.checkCFProcessExistsForType(ctx, cfApp.Name, cfApp.Namespace, process.Type)
+		if err != nil {
+			r.Log.Error(err, "Error when checking if CFProcess exists")
+			return ctrl.Result{}, err
+		}
+
+		if !processExistsForType {
+			err = r.createCFProcess(ctx, process, droplet.Ports, cfApp)
+			if err != nil {
+				r.Log.Error(err, fmt.Sprintf("Error creating CFProcess for Type: %s", process.Type))
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
 	if statusErr := r.Client.Status().Update(ctx, cfApp); statusErr != nil {
 		r.Log.Error(statusErr, "unable to update CFApp status")
 		r.Log.Info(fmt.Sprintf("CFApps status: %+v", cfApp.Status))
 		return ctrl.Result{}, statusErr
 	}
+
 	return ctrl.Result{}, nil
+}
+
+func (r *CFAppReconciler) getDroplet(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (*korifiv1alpha1.BuildDropletStatus, error) {
+	var cfBuild korifiv1alpha1.CFBuild
+	err := r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfApp.Namespace}, &cfBuild)
+	if err != nil {
+		r.Log.Error(err, "Error when fetching CFBuild")
+		return nil, err
+	}
+
+	if cfBuild.Status.Droplet == nil {
+		err = errors.New("status field CFBuildDropletStatus is nil on CFBuild")
+		r.Log.Error(err, "CFBuildDropletStatus is nil on CFBuild.Status, check if referenced Build/Droplet was successfully staged")
+		return nil, err
+	}
+
+	return cfBuild.Status.Droplet, nil
 }
 
 func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1.ProcessType {
@@ -288,7 +326,24 @@ func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfA
 func (r *CFAppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFApp{}).
+		Watches(&source.Kind{Type: &korifiv1alpha1.CFBuild{}}, handler.EnqueueRequestsFromMapFunc(buildToApp)).
 		Complete(r)
+}
+
+func buildToApp(o client.Object) []reconcile.Request {
+	cfBuild, ok := o.(*korifiv1alpha1.CFBuild)
+	if !ok {
+		return nil
+	}
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      cfBuild.Spec.AppRef.Name,
+				Namespace: o.GetNamespace(),
+			},
+		},
+	}
 }
 
 func (r *CFAppReconciler) createVCAPServicesSecretForApp(ctx context.Context, cfApp *korifiv1alpha1.CFApp) error {

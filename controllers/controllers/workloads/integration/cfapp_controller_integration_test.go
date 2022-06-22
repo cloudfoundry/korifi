@@ -5,6 +5,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -67,11 +68,8 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		})
 
 		It("eventually sets status.vcapServicesSecretName and creates the corresponding secret", func() {
-			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}
-			createdCFApp := new(korifiv1alpha1.CFApp)
-
 			Eventually(func() string {
-				err := k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)
+				createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
 				if err != nil {
 					return ""
 				}
@@ -85,20 +83,39 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		})
 
 		It("sets its status.conditions", func() {
-			cfAppLookupKey := types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}
-			createdCFApp := new(korifiv1alpha1.CFApp)
+			Eventually(func(g Gomega) {
+				createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
+				g.Expect(err).NotTo(HaveOccurred())
 
-			Eventually(func() string {
-				err := k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)
-				if err != nil {
-					return ""
-				}
-				return string(createdCFApp.Status.ObservedDesiredState)
-			}).Should(Equal(string(cfApp.Spec.DesiredState)))
+				g.Expect(createdCFApp.Status.ObservedDesiredState).To(Equal(cfApp.Spec.DesiredState))
+				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeFalse())
+				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionRunning)).To(BeFalse())
+			}).Should(Succeed())
+		})
+	})
 
-			runningConditionFalse := meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, "Running")
-			Expect(runningConditionFalse).To(BeFalse())
-			Expect(createdCFApp.Status.ObservedDesiredState).To(Equal(createdCFApp.Spec.DesiredState))
+	When("the app references a non-existing droplet", func() {
+		var (
+			cfAppGUID string
+			cfApp     *korifiv1alpha1.CFApp
+		)
+
+		BeforeEach(func() {
+			cfAppGUID = GenerateGUID()
+
+			cfApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
+			cfApp.Spec.CurrentDropletRef.Name = "droplet-that-does-not-exist"
+			Expect(
+				k8sClient.Create(context.Background(), cfApp),
+			).To(Succeed())
+		})
+
+		It("sets the staged condition to false", func() {
+			Consistently(func(g Gomega) {
+				createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeFalse())
+			}, "1s").Should(Succeed())
 		})
 	})
 
@@ -327,6 +344,33 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				}
 			})
 		})
+
+		It("sets the staged condition to true", func() {
+			Eventually(func(g Gomega) {
+				createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeTrue())
+			}).Should(Succeed())
+		})
+
+		When("the droplet disappears", func() {
+			JustBeforeEach(func() {
+				Eventually(func(g Gomega) {
+					createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeTrue())
+				}).Should(Succeed())
+				Expect(k8sClient.Delete(context.Background(), cfBuild)).To(Succeed())
+			})
+
+			It("unsets the staged condition", func() {
+				Eventually(func(g Gomega) {
+					createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeFalse())
+				}).Should(Succeed())
+			})
+		})
 	})
 
 	When("a CFApp resource is deleted", func() {
@@ -413,3 +457,10 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		})
 	})
 })
+
+func getApp(nsGUID, appGUID string) (*korifiv1alpha1.CFApp, error) {
+	cfAppLookupKey := types.NamespacedName{Name: appGUID, Namespace: nsGUID}
+	createdCFApp := &korifiv1alpha1.CFApp{}
+	err := k8sClient.Get(context.Background(), cfAppLookupKey, createdCFApp)
+	return createdCFApp, err
+}

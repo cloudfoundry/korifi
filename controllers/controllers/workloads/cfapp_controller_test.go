@@ -211,6 +211,7 @@ var _ = Describe("CFAppReconciler", func() {
 				_, updatedCFApp, _ := fakeStatusWriter.UpdateArgsForCall(0)
 				cast, ok := updatedCFApp.(*korifiv1alpha1.CFApp)
 				Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFApp failed")
+				Expect(meta.IsStatusConditionTrue(cast.Status.Conditions, StatusConditionStaged)).To(BeFalse())
 				Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRunning)).To(BeTrue(), "Status Condition "+StatusConditionRunning+" was not False as expected")
 				Expect(cast.Status.ObservedDesiredState).To(Equal(cast.Spec.DesiredState))
 			})
@@ -315,6 +316,7 @@ var _ = Describe("CFAppReconciler", func() {
 				_, updatedCFApp, _ := fakeStatusWriter.UpdateArgsForCall(0)
 				cast, ok := updatedCFApp.(*korifiv1alpha1.CFApp)
 				Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFApp failed")
+				Expect(meta.IsStatusConditionTrue(cast.Status.Conditions, StatusConditionStaged)).To(BeTrue())
 				Expect(meta.IsStatusConditionFalse(cast.Status.Conditions, StatusConditionRunning)).To(BeTrue(), "Status Condition "+StatusConditionRunning+" was not False as expected")
 			})
 		})
@@ -351,6 +353,14 @@ var _ = Describe("CFAppReconciler", func() {
 				It("should returns an error", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
+
+				It("should unset the staged condition", func() {
+					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+					_, updatedCFApp, _ := fakeStatusWriter.UpdateArgsForCall(0)
+					cast, ok := updatedCFApp.(*korifiv1alpha1.CFApp)
+					Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFApp failed")
+					Expect(meta.IsStatusConditionTrue(cast.Status.Conditions, StatusConditionStaged)).To(BeFalse())
+				})
 			})
 
 			When("Droplet status on CFBuild is nil", func() {
@@ -361,6 +371,14 @@ var _ = Describe("CFAppReconciler", func() {
 
 				It("should returns an error", func() {
 					Expect(reconcileErr).To(MatchError(ContainSubstring(buildDropletStatusErrorMessage)))
+				})
+
+				It("should unset the staged condition", func() {
+					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+					_, updatedCFApp, _ := fakeStatusWriter.UpdateArgsForCall(0)
+					cast, ok := updatedCFApp.(*korifiv1alpha1.CFApp)
+					Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFApp failed")
+					Expect(meta.IsStatusConditionTrue(cast.Status.Conditions, StatusConditionStaged)).To(BeFalse())
 				})
 			})
 
