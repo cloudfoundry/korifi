@@ -9,12 +9,14 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -84,6 +86,46 @@ var _ = Describe("AppRepository", func() {
 						Stack:      cfApp.Spec.Lifecycle.Data.Stack,
 					},
 				}))
+				Expect(app.IsStaged).To(BeTrue())
+			})
+
+			When("the app has no staged condition", func() {
+				BeforeEach(func() {
+					cfApp.Status.Conditions = []metav1.Condition{}
+					Expect(k8sClient.Status().Update(testCtx, cfApp)).To(Succeed())
+					Eventually(func(g Gomega) {
+						app := korifiv1alpha1.CFApp{}
+						g.Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
+						g.Expect(app.Status.Conditions).To(BeEmpty())
+					}).Should(Succeed())
+				})
+
+				It("sets IsStaged to false", func() {
+					Expect(getErr).ToNot(HaveOccurred())
+					Expect(app.IsStaged).To(BeFalse())
+				})
+			})
+
+			When("the app has staged condition false", func() {
+				BeforeEach(func() {
+					meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+						Type:    workloads.StatusConditionStaged,
+						Status:  metav1.ConditionFalse,
+						Reason:  "appStaged",
+						Message: "",
+					})
+					Expect(k8sClient.Status().Update(testCtx, cfApp)).To(Succeed())
+					Eventually(func(g Gomega) {
+						app := korifiv1alpha1.CFApp{}
+						g.Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
+						g.Expect(meta.IsStatusConditionFalse(app.Status.Conditions, workloads.StatusConditionStaged)).To(BeTrue())
+					}).Should(Succeed())
+				})
+
+				It("sets IsStaged to false", func() {
+					Expect(getErr).ToNot(HaveOccurred())
+					Expect(app.IsStaged).To(BeFalse())
+				})
 			})
 		})
 
@@ -981,6 +1023,15 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 		},
 	}
 	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+
+	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+		Type:    workloads.StatusConditionStaged,
+		Status:  metav1.ConditionTrue,
+		Reason:  "appStaged",
+		Message: "",
+	})
+	cfApp.Status.ObservedDesiredState = "STOPPED"
+	Expect(k8sClient.Status().Update(context.Background(), cfApp)).To(Succeed())
 
 	return cfApp
 }
