@@ -7,6 +7,12 @@ import (
 	"code.cloudfoundry.org/bytefmt"
 )
 
+const (
+	processTypeWeb         = "web"
+	processHealthCheckType = "process"
+	portHealthCheckType    = "port"
+)
+
 type Manifest struct {
 	Version      int                   `yaml:"version"`
 	Applications []ManifestApplication `yaml:"applications" validate:"max=1,dive"`
@@ -51,7 +57,7 @@ func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.C
 	}
 }
 
-func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID string) repositories.CreateProcessMessage {
+func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID string, hasRoutes bool) repositories.CreateProcessMessage {
 	var (
 		command                      string
 		healthCheckType              string
@@ -63,12 +69,14 @@ func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID st
 		memoryQuotaMB                uint64
 	)
 
-	if p.Type == "web" {
+	healthCheckType = processHealthCheckType
+	if p.Type == processTypeWeb {
 		instances = 1
-		healthCheckType = "port"
+		if hasRoutes {
+			healthCheckType = portHealthCheckType
+		}
 	} else {
 		instances = 0
-		healthCheckType = "process"
 	}
 
 	if p.Command != nil {

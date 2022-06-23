@@ -90,6 +90,21 @@ func (a *Manifest) Apply(ctx context.Context, authInfo authorization.Info, space
 	return nil
 }
 
+func (a *Manifest) hasRoutes(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, appInfo payloads.ManifestApplication) (bool, error) {
+	if len(appInfo.Routes) > 0 || appInfo.DefaultRoute || appInfo.RandomRoute {
+		return true, nil
+	}
+	existingRoutes, err := a.routeRepo.ListRoutesForApp(ctx, authInfo, appRecord.GUID, appRecord.SpaceGUID)
+	if err != nil {
+		return false, err
+	}
+	if len(existingRoutes) > 0 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 // checkAndUpdateDefaultRoute may set the default route on the manifest when DefaultRoute is true
 func (a *Manifest) checkAndUpdateDefaultRoute(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, appInfo *payloads.ManifestApplication) error {
 	if !appInfo.DefaultRoute || len(appInfo.Routes) > 0 {
@@ -182,7 +197,12 @@ func (a *Manifest) updateApp(ctx context.Context, authInfo authorization.Info, a
 		if exists {
 			_, err = a.processRepo.PatchProcess(ctx, authInfo, processInfo.ToProcessPatchMessage(process.GUID, appRecord.SpaceGUID))
 		} else {
-			err = a.processRepo.CreateProcess(ctx, authInfo, processInfo.ToProcessCreateMessage(appRecord.GUID, appRecord.SpaceGUID))
+			hasRoutes, err := a.hasRoutes(ctx, authInfo, appRecord, appInfo)
+			if err != nil {
+				return err
+			}
+
+			err = a.processRepo.CreateProcess(ctx, authInfo, processInfo.ToProcessCreateMessage(appRecord.GUID, appRecord.SpaceGUID, hasRoutes))
 		}
 		if err != nil {
 			return err
@@ -199,7 +219,11 @@ func (a *Manifest) createApp(ctx context.Context, authInfo authorization.Info, s
 	}
 
 	for _, processInfo := range appInfo.Processes {
-		message := processInfo.ToProcessCreateMessage(appRecord.GUID, spaceGUID)
+		hasRoutes, err := a.hasRoutes(ctx, authInfo, appRecord, appInfo)
+		if err != nil {
+			return appRecord, err
+		}
+		message := processInfo.ToProcessCreateMessage(appRecord.GUID, spaceGUID, hasRoutes)
 		err = a.processRepo.CreateProcess(ctx, authInfo, message)
 		if err != nil {
 			return appRecord, err
@@ -244,7 +268,7 @@ func (a *Manifest) createOrUpdateRoutes(ctx context.Context, authInfo authorizat
 		NewDestinations: []repositories.DestinationMessage{
 			{
 				AppGUID:     appRecord.GUID,
-				ProcessType: "web",
+				ProcessType: processTypeWeb,
 				Port:        8080,
 				Protocol:    "http1",
 			},

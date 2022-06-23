@@ -30,6 +30,7 @@ const (
 	StatusConditionRunning    = "Running"
 	StatusConditionStaged     = "Staged"
 	processHealthCheckType    = "process"
+	portHealthCheckType       = "port"
 	processTypeWeb            = "web"
 	finalizerName             = "cfApp.korifi.cloudfoundry.org"
 )
@@ -150,7 +151,18 @@ func (r *CFAppReconciler) startApp(ctx context.Context, cfApp *korifiv1alpha1.CF
 		}
 
 		if !processExistsForType {
-			err = r.createCFProcess(ctx, process, droplet.Ports, cfApp)
+			cfRoutes, err := r.getCFRoutes(ctx, cfApp.Name, cfApp.Namespace)
+			if err != nil {
+				return err
+			}
+			// TODO: Determine if there is a timing issue regarding routes being present
+			r.Log.Info(fmt.Sprintf("CFRoute count %d", len(cfRoutes)))
+			var healthCheckType korifiv1alpha1.HealthCheckType
+			healthCheckType = processHealthCheckType
+			if process.Type == processTypeWeb && len(cfRoutes) > 0 {
+				healthCheckType = portHealthCheckType
+			}
+			err = r.createCFProcess(ctx, process, droplet.Ports, cfApp, healthCheckType)
 			if err != nil {
 				r.Log.Error(err, fmt.Sprintf("Error creating CFProcess for Type: %s", process.Type))
 				return err
@@ -170,7 +182,7 @@ func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1
 	return append([]korifiv1alpha1.ProcessType{{Type: processTypeWeb}}, processTypes...)
 }
 
-func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1alpha1.ProcessType, ports []int32, cfApp *korifiv1alpha1.CFApp) error {
+func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1alpha1.ProcessType, ports []int32, cfApp *korifiv1alpha1.CFApp, healthCheckType korifiv1alpha1.HealthCheckType) error {
 	desiredCFProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfApp.Namespace,
@@ -184,7 +196,7 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1a
 			ProcessType: process.Type,
 			Command:     process.Command,
 			HealthCheck: korifiv1alpha1.HealthCheck{
-				Type: processHealthCheckType,
+				Type: healthCheckType,
 				Data: korifiv1alpha1.HealthCheckData{
 					InvocationTimeoutSeconds: 0,
 					TimeoutSeconds:           0,
