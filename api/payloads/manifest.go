@@ -10,7 +10,6 @@ import (
 const (
 	processTypeWeb         = "web"
 	processHealthCheckType = "process"
-	portHealthCheckType    = "port"
 )
 
 type Manifest struct {
@@ -57,7 +56,7 @@ func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.C
 	}
 }
 
-func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID string, hasRoutes bool) repositories.CreateProcessMessage {
+func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID string) repositories.CreateProcessMessage {
 	var (
 		command                      string
 		healthCheckType              string
@@ -72,9 +71,6 @@ func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID st
 	healthCheckType = processHealthCheckType
 	if p.Type == processTypeWeb {
 		instances = 1
-		if hasRoutes {
-			healthCheckType = portHealthCheckType
-		}
 	} else {
 		instances = 0
 	}

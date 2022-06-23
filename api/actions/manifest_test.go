@@ -164,12 +164,90 @@ var _ = Describe("ApplyManifest", func() {
 			Expect(processMessage.Type).To(Equal("web"))
 			Expect(processMessage.MemoryMB).To(Equal(int64(256)))
 		})
+
+		When("default route is set to true in the manifest", func() {
+			BeforeEach(func() {
+				manifest.Applications[0].DefaultRoute = true
+			})
+
+			It("sets the health check type to port", func() {
+				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+				Expect(processMessage.HealthCheck.Type).To(Equal("port"))
+			})
+		})
+
+		When("random route is set to true in the manifest", func() {
+			BeforeEach(func() {
+				manifest.Applications[0].RandomRoute = true
+			})
+
+			It("sets the health check type to port", func() {
+				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+				Expect(processMessage.HealthCheck.Type).To(Equal("port"))
+			})
+		})
+
+		When("routes are specified in the manifest", func() {
+			BeforeEach(func() {
+				route := "my-route.mydomain.org"
+				manifest.Applications[0].Routes = []payloads.ManifestRoute{{Route: &route}}
+			})
+
+			It("sets the health check type to port", func() {
+				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+				Expect(processMessage.HealthCheck.Type).To(Equal("port"))
+			})
+		})
+
+		When("routes exist for the app", func() {
+			BeforeEach(func() {
+				routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{{
+					GUID: "route-guid",
+				}}, nil)
+			})
+
+			It("sets the health check type to port", func() {
+				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+				Expect(processMessage.HealthCheck.Type).To(Equal("port"))
+			})
+		})
+
+		When("no-route is set to true in the manifest", func() {
+			BeforeEach(func() {
+				manifest.Applications[0].NoRoute = true
+			})
+
+			It("sets the health check type to process", func() {
+				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+				Expect(processMessage.HealthCheck.Type).To(Equal("process"))
+			})
+		})
+
+		When("health check type is specified in the manifest", func() {
+			BeforeEach(func() {
+				healthCheckTypeHttp := "http"
+				manifest.Applications[0].Processes[0].HealthCheckType = &healthCheckTypeHttp
+			})
+
+			It("sets the health check type to http", func() {
+				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+				Expect(processMessage.HealthCheck.Type).To(Equal("http"))
+			})
+		})
+
 	})
 
 	When("the app does not exist", func() {
 		BeforeEach(func() {
 			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
 			appRepo.CreateAppReturns(repositories.AppRecord{GUID: appGUID}, nil)
+			manifest.Applications[0].DefaultRoute = true
 		})
 
 		It("creates the app and its processes", func() {
@@ -186,6 +264,7 @@ var _ = Describe("ApplyManifest", func() {
 			Expect(processMessage.AppGUID).To(Equal(appGUID))
 			Expect(processMessage.SpaceGUID).To(Equal(spaceGUID))
 			Expect(processMessage.Type).To(Equal("bob"))
+			Expect(processMessage.HealthCheck.Type).To(Equal("process"))
 		})
 
 		When("creating the app errors", func() {

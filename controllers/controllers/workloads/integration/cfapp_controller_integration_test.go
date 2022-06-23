@@ -198,6 +198,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					Expect(createdCFProcess.Spec.Command).To(Equal(process.Command), "cfprocess command does not match with droplet command")
 					Expect(createdCFProcess.Spec.AppRef.Name).To(Equal(cfAppGUID), "cfprocess app ref does not match app-guid")
 					Expect(createdCFProcess.Spec.Ports).To(Equal(droplet.Ports), "cfprocess ports does not match ports on droplet")
+					Expect(createdCFProcess.Spec.HealthCheck.Type).To(Equal(korifiv1alpha1.HealthCheckType("process")))
 
 					Expect(createdCFProcess.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 						{
@@ -207,6 +208,77 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 							UID:        cfApp.GetUID(),
 						},
 					}))
+				}
+			})
+		})
+
+		When("routes exist and CFProcesses do not exist for the app", func() {
+			var (
+				cfRouteGUID string
+				cfRoute     *korifiv1alpha1.CFRoute
+			)
+
+			BeforeEach(func() {
+				cfRouteGUID = GenerateGUID()
+				cfRoute = &korifiv1alpha1.CFRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      cfRouteGUID,
+						Namespace: namespaceGUID,
+					},
+					Spec: korifiv1alpha1.CFRouteSpec{
+						Host:     "testRouteHost",
+						Path:     "",
+						Protocol: "http",
+						DomainRef: corev1.ObjectReference{
+							Name:      "testDomainGUID",
+							Namespace: namespaceGUID,
+						},
+						Destinations: []korifiv1alpha1.Destination{
+							{
+								GUID: "destination-1-guid",
+								Port: 0,
+								AppRef: corev1.LocalObjectReference{
+									Name: cfAppGUID,
+								},
+								ProcessType: "web",
+								Protocol:    "http1",
+							},
+							{
+								GUID: "destination-2-guid",
+								Port: 0,
+								AppRef: corev1.LocalObjectReference{
+									Name: "some-other-app-guid",
+								},
+								ProcessType: "worked",
+								Protocol:    "http1",
+							},
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), cfRoute)).To(Succeed())
+			})
+
+			It("eventually creates CFProcess for each process with the correct health check type", func() {
+				testCtx := context.Background()
+				droplet := cfBuild.Status.Droplet
+				processTypes := droplet.ProcessTypes
+				for _, process := range processTypes {
+					cfProcessList := korifiv1alpha1.CFProcessList{}
+					Eventually(func() []korifiv1alpha1.CFProcess {
+						Expect(
+							k8sClient.List(testCtx, &cfProcessList, &client.ListOptions{
+								LabelSelector: labelSelectorForAppAndProcess(cfAppGUID, process.Type),
+								Namespace:     cfApp.Namespace,
+							}),
+						).To(Succeed())
+						return cfProcessList.Items
+					}).Should(HaveLen(1), "expected CFProcess to eventually be created")
+					createdCFProcess := cfProcessList.Items[0]
+					if process.Type == "web" {
+						Expect(createdCFProcess.Spec.HealthCheck.Type).To(Equal(korifiv1alpha1.HealthCheckType("port")))
+					} else {
+						Expect(createdCFProcess.Spec.HealthCheck.Type).To(Equal(korifiv1alpha1.HealthCheckType("process")))
+					}
 				}
 			})
 		})

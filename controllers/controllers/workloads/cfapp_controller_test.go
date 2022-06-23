@@ -278,7 +278,7 @@ var _ = Describe("CFAppReconciler", func() {
 		})
 	})
 
-	When("a CFApp is updated to set currentDropletRef and Reconcile function is called", func() {
+	When("a CFApp is updated to set currentDropletRef which has a web process and Reconcile function is called", func() {
 		BeforeEach(func() {
 			cfApp.Spec.CurrentDropletRef = v1.LocalObjectReference{Name: cfBuildGUID}
 		})
@@ -305,13 +305,16 @@ var _ = Describe("CFAppReconciler", func() {
 				Expect(testRequestNamespacedName.Namespace).To(Equal(defaultNamespace))
 				Expect(testRequestNamespacedName.Name).To(Equal(cfBuildGUID))
 
-				// Validate call count to fetch CFProcess
-				Expect(fakeClient.ListCallCount()).To(Equal(1))
+				// Validate call count to fetch CFProcess and CFRoutes
+				Expect(fakeClient.ListCallCount()).To(Equal(2))
 
 				// Validate call count to create CFProcess
 				Expect(fakeClient.CreateCallCount()).To(Equal(1))
 				_, desiredProcess, _ := fakeClient.CreateArgsForCall(0)
 				Expect(desiredProcess.GetName()).To(HavePrefix("cf-proc-"))
+				desiredProcessObject, ok := desiredProcess.(*korifiv1alpha1.CFProcess)
+				Expect(ok).To(BeTrue())
+				Expect(desiredProcessObject.Spec.HealthCheck.Type).To(Equal(korifiv1alpha1.HealthCheckType("port")))
 
 				// validate the inputs to Status.Update
 				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
