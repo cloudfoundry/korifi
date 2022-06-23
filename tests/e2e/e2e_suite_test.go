@@ -11,13 +11,15 @@ import (
 	"testing"
 	"time"
 
+	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 
-	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
