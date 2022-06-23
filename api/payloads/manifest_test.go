@@ -99,7 +99,7 @@ var _ = Describe("ManifestApplicationProcess", func() {
 						Command:          "",
 						DiskQuotaMB:      1024,
 						HealthCheck: repositories.HealthCheck{
-							Type: "port",
+							Type: "process",
 							Data: repositories.HealthCheckData{
 								HTTPEndpoint:             "",
 								TimeoutSeconds:           0, // this isn't nullable

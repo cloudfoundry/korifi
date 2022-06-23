@@ -30,6 +30,7 @@ const (
 	StatusConditionRunning    = "Running"
 	StatusConditionStaged     = "Staged"
 	processHealthCheckType    = "process"
+	portHealthCheckType       = "port"
 	processTypeWeb            = "web"
 	finalizerName             = "cfApp.korifi.cloudfoundry.org"
 )
@@ -171,6 +172,10 @@ func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1
 }
 
 func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1alpha1.ProcessType, ports []int32, cfApp *korifiv1alpha1.CFApp) error {
+	healthCheckType, err := r.getHealthCheckType(ctx, process.Type, cfApp)
+	if err != nil {
+		return err
+	}
 	desiredCFProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfApp.Namespace,
@@ -184,7 +189,7 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1a
 			ProcessType: process.Type,
 			Command:     process.Command,
 			HealthCheck: korifiv1alpha1.HealthCheck{
-				Type: processHealthCheckType,
+				Type: korifiv1alpha1.HealthCheckType(healthCheckType),
 				Data: korifiv1alpha1.HealthCheckData{
 					InvocationTimeoutSeconds: 0,
 					TimeoutSeconds:           0,
@@ -198,13 +203,27 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1a
 	}
 	desiredCFProcess.SetStableName(cfApp.Name)
 
-	err := controllerutil.SetOwnerReference(cfApp, desiredCFProcess, r.Scheme)
+	err = controllerutil.SetOwnerReference(cfApp, desiredCFProcess, r.Scheme)
 	if err != nil {
 		r.Log.Error(err, "failed to set OwnerRef on CFProcess")
 		return err
 	}
 
 	return r.Client.Create(ctx, desiredCFProcess)
+}
+
+func (r *CFAppReconciler) getHealthCheckType(ctx context.Context, processType string, cfApp *korifiv1alpha1.CFApp) (string, error) {
+	if processType == processTypeWeb {
+		cfRoutes, err := r.getCFRoutes(ctx, cfApp.Name, cfApp.Namespace)
+		if err != nil {
+			return "", err
+		}
+		if len(cfRoutes) > 0 {
+			return portHealthCheckType, nil
+		}
+	}
+
+	return processHealthCheckType, nil
 }
 
 func (r *CFAppReconciler) checkCFProcessExistsForType(ctx context.Context, appGUID string, namespace string, processType string) (bool, error) {
@@ -308,6 +327,7 @@ func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfA
 	matchingFields := client.MatchingFields{IndexRouteDestinationAppName: cfAppGUID}
 	err := r.Client.List(context.Background(), &foundRoutes, client.InNamespace(cfAppNamespace), matchingFields)
 	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("failed to List CFRoutes for CFApp %s/%s", cfAppNamespace, cfAppGUID))
 		return []korifiv1alpha1.CFRoute{}, err
 	}
 
