@@ -189,8 +189,9 @@ func (a *Manifest) updateApp(ctx context.Context, authInfo authorization.Info, a
 		return err
 	}
 
-	for _, processInfo := range appInfo.Processes {
+	for index := range appInfo.Processes {
 		exists := true
+		processInfo := appInfo.Processes[index]
 
 		var process repositories.ProcessRecord
 		process, err = a.processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, appRecord.GUID, processInfo.Type, appRecord.SpaceGUID)
@@ -228,7 +229,8 @@ func (a *Manifest) createApp(ctx context.Context, authInfo authorization.Info, s
 		return appRecord, err
 	}
 
-	for _, processInfo := range appInfo.Processes {
+	for index := range appInfo.Processes {
+		processInfo := appInfo.Processes[index]
 		if processInfo.Type == processTypeWeb && processInfo.HealthCheckType == nil {
 			err = a.setHealthCheckType(ctx, authInfo, appRecord, appInfo, &processInfo)
 			if err != nil {
