@@ -5,6 +5,16 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
+getTestDir() {
+  for arg in "$@"; do
+    if [[ -d "$arg" ]]; then
+      echo "$arg"
+      return
+    fi
+  done
+  echo "."
+}
+
 ENVTEST_ASSETS_DIR="${SCRIPT_DIR}/../testbin"
 mkdir -p "${ENVTEST_ASSETS_DIR}"
 
@@ -14,10 +24,16 @@ if [[ -n "$GINKGO_NODES" ]]; then
 fi
 
 if ! egrep -q e2e <(echo "$@"); then
-  test -f "${ENVTEST_ASSETS_DIR}/setup-envtest.sh" || curl -sSLo "${ENVTEST_ASSETS_DIR}/setup-envtest.sh" https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh
-  source "${ENVTEST_ASSETS_DIR}/setup-envtest.sh"
-  fetch_envtest_tools "${ENVTEST_ASSETS_DIR}"
-  setup_envtest_env "${ENVTEST_ASSETS_DIR}"
+  grepFlags="-sq"
+  if [[ -z "$NON_RECURSIVE_TEST" ]]; then
+    grepFlags+="r"
+  fi
+  if grep "$grepFlags" sigs.k8s.io/controller-runtime/pkg/envtest -- "$(getTestDir "$@")"/*; then
+    test -f "${ENVTEST_ASSETS_DIR}/setup-envtest.sh" || curl -sSLo "${ENVTEST_ASSETS_DIR}/setup-envtest.sh" https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh
+    source "${ENVTEST_ASSETS_DIR}/setup-envtest.sh"
+    fetch_envtest_tools "${ENVTEST_ASSETS_DIR}"
+    setup_envtest_env "${ENVTEST_ASSETS_DIR}"
+  fi
   extra_args+=("--skip-package=e2e" "--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/korifi/...")
 
 else
