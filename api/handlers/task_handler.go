@@ -77,6 +77,11 @@ func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger,
 		return nil, apierrors.ForbiddenAsNotFound(err)
 	}
 
+	if !appRecord.IsStaged {
+		logger.Info("App is not staged", "App GUID", appGUID)
+		return nil, apierrors.NewUnprocessableEntityError(nil, "Task must have a droplet. Assign current droplet to app.")
+	}
+
 	taskRecord, err := h.taskRepo.CreateTask(ctx, authInfo, payload.ToMessage(appRecord))
 	if err != nil {
 		logger.Error(err, "Failed to create task")

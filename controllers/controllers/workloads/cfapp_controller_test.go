@@ -48,8 +48,9 @@ var _ = Describe("CFAppReconciler", func() {
 		cfAppError    error
 		cfAppPatchErr error
 
-		cfRoutePatchErr error
-		cfRouteListErr  error
+		cfRoutePatchErr  error
+		cfRouteListErr   error
+		cfProcessListErr error
 
 		secret    *v1.Secret
 		secretErr error
@@ -104,6 +105,7 @@ var _ = Describe("CFAppReconciler", func() {
 		fakeClient.StatusReturns(fakeStatusWriter)
 
 		cfProcessList := korifiv1alpha1.CFProcessList{}
+		cfProcessListErr = nil
 		cfRouteList := korifiv1alpha1.CFRouteList{
 			Items: []korifiv1alpha1.CFRoute{
 				{
@@ -148,7 +150,7 @@ var _ = Describe("CFAppReconciler", func() {
 			switch list := list.(type) {
 			case *korifiv1alpha1.CFProcessList:
 				cfProcessList.DeepCopyInto(list)
-				return nil
+				return cfProcessListErr
 			case *korifiv1alpha1.CFRouteList:
 				cfRouteList.DeepCopyInto(list)
 				return cfRouteListErr
@@ -395,12 +397,20 @@ var _ = Describe("CFAppReconciler", func() {
 
 			When("fetch matching CFProcess returns error", func() {
 				BeforeEach(func() {
-					fakeClient.ListReturns(errors.New(failsOnPurposeErrorMessage))
+					cfProcessListErr = errors.New(failsOnPurposeErrorMessage)
 					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
+				})
+
+				It("has a staged true condition", func() {
+					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+					_, updatedCFApp, _ := fakeStatusWriter.UpdateArgsForCall(0)
+					cast, ok := updatedCFApp.(*korifiv1alpha1.CFApp)
+					Expect(ok).To(BeTrue())
+					Expect(meta.IsStatusConditionTrue(cast.Status.Conditions, StatusConditionStaged)).To(BeTrue())
 				})
 			})
 
@@ -412,6 +422,14 @@ var _ = Describe("CFAppReconciler", func() {
 
 				It("should returns an error", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
+				})
+
+				It("has a staged true condition", func() {
+					Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
+					_, updatedCFApp, _ := fakeStatusWriter.UpdateArgsForCall(0)
+					cast, ok := updatedCFApp.(*korifiv1alpha1.CFApp)
+					Expect(ok).To(BeTrue())
+					Expect(meta.IsStatusConditionTrue(cast.Status.Conditions, StatusConditionStaged)).To(BeTrue())
 				})
 			})
 

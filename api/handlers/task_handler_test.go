@@ -30,6 +30,7 @@ var _ = Describe("TaskHandler", func() {
 		appRepo.GetAppReturns(repositories.AppRecord{
 			GUID:      "the-app-guid",
 			SpaceGUID: "the-space-guid",
+			IsStaged:  true,
 		}, nil)
 
 		taskHandler := handlers.NewTaskHandler(*serverURL, appRepo, taskRepo, decoderValidator)
@@ -144,6 +145,20 @@ var _ = Describe("TaskHandler", func() {
 
 			It("returns an Internal Server Error", func() {
 				expectUnknownError()
+			})
+		})
+
+		When("the app is not staged", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{
+					GUID:      "the-app-guid",
+					SpaceGUID: "the-space-guid",
+					IsStaged:  false,
+				}, nil)
+			})
+
+			It("returns an Unprocessable Entity error", func() {
+				expectUnprocessableEntityError("Task must have a droplet. Assign current droplet to app.")
 			})
 		})
 

@@ -8,7 +8,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
 COPY controllers/api controllers/api/
+COPY controllers/config controllers/config/
 COPY controllers/webhooks controllers/webhooks/
+COPY controllers/controllers/shared controllers/controllers/shared/
+COPY controllers/controllers/workloads controllers/controllers/workloads/
 COPY api/actions api/actions/
 COPY api/handlers api/handlers/
 COPY api/apierrors api/apierrors

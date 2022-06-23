@@ -10,11 +10,13 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -61,6 +63,7 @@ type AppRecord struct {
 	Lifecycle     Lifecycle
 	CreatedAt     string
 	UpdatedAt     string
+	IsStaged      bool
 	envSecretName string
 }
 
@@ -532,6 +535,7 @@ func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
 		},
 		CreatedAt:     cfApp.CreationTimestamp.UTC().Format(TimestampFormat),
 		UpdatedAt:     updatedAtTime,
+		IsStaged:      meta.IsStatusConditionTrue(cfApp.Status.Conditions, workloads.StatusConditionStaged),
 		envSecretName: cfApp.Spec.EnvSecretName,
 	}
 }
