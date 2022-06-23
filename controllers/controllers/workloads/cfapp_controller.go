@@ -101,22 +101,12 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	})
 
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
-		if statusErr := r.Client.Status().Update(ctx, cfApp); statusErr != nil {
-			r.Log.Error(statusErr, "unable to update CFApp status")
-			r.Log.Info(fmt.Sprintf("CFApps status: %+v", cfApp.Status))
-			return ctrl.Result{}, statusErr
-		}
-		return ctrl.Result{}, nil
+		return r.updateStatusAndReturn(ctx, cfApp, nil)
 	}
 
 	droplet, err := r.getDroplet(ctx, cfApp)
 	if err != nil {
-		if statusErr := r.Client.Status().Update(ctx, cfApp); statusErr != nil {
-			r.Log.Error(statusErr, "unable to update CFApp status")
-			r.Log.Info(fmt.Sprintf("CFApps status: %+v", cfApp.Status))
-			return ctrl.Result{}, statusErr
-		}
-		return ctrl.Result{}, err
+		return r.updateStatusAndReturn(ctx, cfApp, err)
 	}
 
 	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
@@ -143,13 +133,7 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 	}
 
-	if statusErr := r.Client.Status().Update(ctx, cfApp); statusErr != nil {
-		r.Log.Error(statusErr, "unable to update CFApp status")
-		r.Log.Info(fmt.Sprintf("CFApps status: %+v", cfApp.Status))
-		return ctrl.Result{}, statusErr
-	}
-
-	return ctrl.Result{}, nil
+	return r.updateStatusAndReturn(ctx, cfApp, nil)
 }
 
 func (r *CFAppReconciler) getDroplet(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (*korifiv1alpha1.BuildDropletStatus, error) {
@@ -395,4 +379,13 @@ func (r *CFAppReconciler) createVCAPServicesSecretForApp(ctx context.Context, cf
 		return statusErr
 	}
 	return nil
+}
+
+func (r *CFAppReconciler) updateStatusAndReturn(ctx context.Context, cfApp *korifiv1alpha1.CFApp, err error) (ctrl.Result, error) {
+	if statusErr := r.Client.Status().Update(ctx, cfApp); statusErr != nil {
+		r.Log.Error(statusErr, "unable to update CFApp status")
+		r.Log.Info(fmt.Sprintf("CFApps status: %+v", cfApp.Status))
+		return ctrl.Result{}, statusErr
+	}
+	return ctrl.Result{}, err
 }
