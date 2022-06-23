@@ -394,8 +394,8 @@ github.com/buildpacks/imgutil v0.0.0-20220527150729-7a271a852e31/go.mod h1:SI90c
 github.com/buildpacks/lifecycle v0.13.5/go.mod h1:+X6d6xoEhNitwvSbpTcnw/mvKNTYAx2ZeR9GDPbbsds=
 github.com/buildpacks/lifecycle v0.14.1 h1:CkMsUbotZvru+VOTn08BWPbJRZnAx6Xx2yQYoqVLOW8=
 github.com/buildpacks/lifecycle v0.14.1/go.mod h1:l8p/hrNzwq1Dr9JEblxC8ZHOLhJPCBFOPCwyo0Z66/Y=
-github.com/buildpacks/pack v0.26.0 h1:R0yPwTz58MfcqYSA0B2Q8ksOhp2Rz5kE/hO2BVys2y4=
-github.com/buildpacks/pack v0.26.0/go.mod h1:6y/OxdE5ewaBuazvO4FKHvs2wEjA6DKI6e00WwZBuwM=
+github.com/buildpacks/pack v0.27.0 h1:diMvn/aR0wbfs0ke7DOBtrkFzJqDw+moJPTWLdUTuhE=
+github.com/buildpacks/pack v0.27.0/go.mod h1:ifPVxBoY2EKbSrA8Hkyy0YFfSGCzyYnzlyjrLsxxAIY=
 github.com/butuzov/ireturn v0.1.1/go.mod h1:Wh6Zl3IMtTpaIKbmwzqi6olnM9ptYQxxVacMsOEFPoc=
 github.com/bytecodealliance/wasmtime-go v0.28.0/go.mod h1:q320gUxqyI8yB+ZqRuaJOEnGkAnHh6WtJjMaT2CW4wI=
 github.com/c2h5oh/datasize v0.0.0-20171227191756-4eba002a5eae/go.mod h1:S/7n9copUssQ56c7aAgHqftWO4LTf4xY6CGWt8Bc+3M=
