@@ -136,7 +136,7 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	err = propagateRoleBindings(ctx, r.client, r.log, cfSpace)
+	err = reconcileRoleBindings(ctx, r.client, r.log, cfSpace)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error propagating role-bindings into CFSpace %s/%s", req.Namespace, req.Name))
 		return ctrl.Result{}, err

@@ -273,6 +273,26 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		})
 	})
 
+	When("role bindings are deleted in the root-ns after CFOrg creation", func() {
+		BeforeEach(func() {
+			Expect(k8sClient.Create(testCtx, &cfOrg)).To(Succeed())
+			Eventually(func(g Gomega) {
+				var createdOrg korifiv1alpha1.CFOrg
+				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Namespace: rootNamespace.Name, Name: orgGUID}, &createdOrg)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(createdOrg.Status.Conditions, "Ready")).To(BeTrue())
+			}, 20*time.Second).Should(Succeed())
+
+			Expect(k8sClient.Delete(testCtx, &roleBinding)).To(Succeed())
+		})
+
+		It("deletes the corresponding role binding in CFOrg", func() {
+			Eventually(func() bool {
+				var deletedRoleBinding rbacv1.RoleBinding
+				return apierrors.IsNotFound(k8sClient.Get(testCtx, types.NamespacedName{Name: roleBinding.Name, Namespace: cfOrg.Name}, &deletedRoleBinding))
+			}).Should(BeTrue(), "timed out waiting for role binding to be deleted")
+		})
+	})
+
 	When("the CFOrg is deleted", func() {
 		BeforeEach(func() {
 			Expect(k8sClient.Create(testCtx, &cfOrg)).To(Succeed())
