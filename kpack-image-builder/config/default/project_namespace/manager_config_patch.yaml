@@ -14,6 +14,14 @@ spec:
         - name: manager-config
           mountPath: /controller_manager_config.yaml
           subPath: controller_manager_config.yaml
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
       volumes:
       - name: manager-config
         configMap:
