@@ -192,9 +192,10 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 		return err
 	}
 
-	for _, propagatedBinding := range propagatedRoleBindings.Items {
-		if _, ok := parentRoleBindingMap[propagatedBinding.Name]; !ok {
-			err = kClient.Delete(ctx, &propagatedBinding)
+	for index := range propagatedRoleBindings.Items {
+		propagatedRoleBinding := propagatedRoleBindings.Items[index]
+		if _, found := parentRoleBindingMap[propagatedRoleBinding.Name]; !found {
+			err = kClient.Delete(ctx, &propagatedRoleBinding)
 			if err != nil {
 				return err
 			}
