@@ -115,17 +115,17 @@ echo "*******************"
 echo "Installing Eirini"
 echo "*******************"
 
-EIRINI_VERSION="0.4.0"
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: eirini-controller
-EOF
-helm template eirini-controller "https://github.com/cloudfoundry/eirini-controller/releases/download/v$EIRINI_VERSION/eirini-controller-$EIRINI_VERSION.tgz" \
+kubectl create secret docker-registry buildkit --docker-username=eiriniuser --docker-password="$(pass eirini/docker-hub)"
+EIRINI_DIR="$(cd "$(dirname "$0")/../../eirini-controller" && pwd)"
+"$EIRINI_DIR"/deployment/scripts/deploy.sh \
   --set "workloads.default_namespace=cf" \
-  --set "controller.registry_secret_name=image-registry-credentials" \
-  --namespace "eirini-controller" | kubectl apply -f -
+  --set "controller.registry_secret_name=image-registry-credentials"
+
+# EIRINI_VERSION="0.4.0"
+# helm template eirini-controller "https://github.com/cloudfoundry/eirini-controller/releases/download/v$EIRINI_VERSION/eirini-controller-$EIRINI_VERSION.tgz" \
+#   --set "workloads.default_namespace=cf" \
+#   --set "controller.registry_secret_name=image-registry-credentials" \
+#   --namespace "eirini-controller" | kubectl apply -f -
 
 echo "**************************************"
 echo "Installing Service Binding Controller"
