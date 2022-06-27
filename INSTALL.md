@@ -122,6 +122,14 @@ Create the root namespace:
 kubectl create namespace $ROOT_NAMESPACE
 ```
 
+All korifi namespaces are created with the [restricted Pod Security labels](https://kubernetes.io/docs/tasks/configure-pod-container/enforce-standards-namespace-labels/). For consistency, apply these to the root namespace:
+
+```sh
+kubectl label namespaces $ROOT_NAMESPACE \
+  pod-security.kubernetes.io/enforce=restricted \
+  pod-security.kubernetes.io/warn=restricted
+```
+
 Bind `$ADMIN_USERNAME` to the admin role:
 
 ```sh

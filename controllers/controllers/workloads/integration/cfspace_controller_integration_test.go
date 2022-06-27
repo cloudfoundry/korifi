@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/pod-security-admission/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -184,6 +185,15 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Namespace, Name: cfSpace.Name}, &createdSpace)).To(Succeed())
 				g.Expect(createdSpace.Status.GUID).To(Equal(cfSpace.Name))
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
+			}).Should(Succeed())
+		})
+
+		It("sets restricted pod security labels on the namespace", func() {
+			Eventually(func(g Gomega) {
+				var ns corev1.Namespace
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cfSpace.Name}, &ns)).To(Succeed())
+				g.Expect(ns.Labels).To(HaveKeyWithValue(api.EnforceLevelLabel, string(api.LevelRestricted)))
+				g.Expect(ns.Labels).To(HaveKeyWithValue(api.EnforceLevelLabel, string(api.LevelRestricted)))
 			}).Should(Succeed())
 		})
 	})
