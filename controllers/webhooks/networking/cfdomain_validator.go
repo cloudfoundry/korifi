@@ -101,7 +101,7 @@ func (v *CFDomainValidator) ValidateUpdate(ctx context.Context, oldObj runtime.O
 	if oldDomain.Spec.Name != domain.Spec.Name {
 		return webhooks.ValidationError{
 			Type:    webhooks.ImmutableFieldErrorType,
-			Message: fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "Domain.Name"),
+			Message: fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "CFDomain.Spec.Name"),
 		}.ExportJSONError()
 	}
 

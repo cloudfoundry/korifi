@@ -106,22 +106,22 @@ func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 	}
 
 	if route.Spec.Host != oldRoute.Spec.Host {
-		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "Host")
+		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "CFRoute.Spec.Host")
 		return immutableError.ExportJSONError()
 	}
 
 	if route.Spec.Path != oldRoute.Spec.Path {
-		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "Path")
+		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "CFRoute.Spec.Path")
 		return immutableError.ExportJSONError()
 	}
 
 	if route.Spec.Protocol != oldRoute.Spec.Protocol {
-		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "Protocol")
+		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "CFRoute.Spec.Protocol")
 		return immutableError.ExportJSONError()
 	}
 
 	if route.Spec.DomainRef.Name != oldRoute.Spec.DomainRef.Name {
-		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "DomainRef.Name")
+		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "CFRoute.Spec.DomainRef.Name")
 		return immutableError.ExportJSONError()
 	}
 

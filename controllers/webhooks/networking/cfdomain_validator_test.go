@@ -156,7 +156,7 @@ var _ = Describe("CFDomainValidator", func() {
 		It("returns an error", func() {
 			Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 				Type:    webhooks.ImmutableFieldErrorType,
-				Message: "'Domain.Name' field is immutable",
+				Message: "'CFDomain.Spec.Name' field is immutable",
 			}))
 		})
 	})

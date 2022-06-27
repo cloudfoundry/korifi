@@ -363,7 +363,7 @@ var _ = Describe("CFRouteValidator", func() {
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.ImmutableFieldErrorType,
-					Message: "'Host' field is immutable",
+					Message: "'CFRoute.Spec.Host' field is immutable",
 				}))
 			})
 		})
@@ -400,7 +400,7 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 		})
 
-		When("the hostname is updated", func() {
+		When("the hostname is cleared", func() {
 			BeforeEach(func() {
 				updatedCFRoute.Spec.Host = ""
 			})
@@ -408,7 +408,7 @@ var _ = Describe("CFRouteValidator", func() {
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.ImmutableFieldErrorType,
-					Message: "'Host' field is immutable",
+					Message: "'CFRoute.Spec.Host' field is immutable",
 				}))
 			})
 		})
@@ -421,7 +421,7 @@ var _ = Describe("CFRouteValidator", func() {
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.ImmutableFieldErrorType,
-					Message: "'Path' field is immutable",
+					Message: "'CFRoute.Spec.Path' field is immutable",
 				}))
 			})
 		})
@@ -434,7 +434,7 @@ var _ = Describe("CFRouteValidator", func() {
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.ImmutableFieldErrorType,
-					Message: "'Protocol' field is immutable",
+					Message: "'CFRoute.Spec.Protocol' field is immutable",
 				}))
 			})
 		})
@@ -447,7 +447,7 @@ var _ = Describe("CFRouteValidator", func() {
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
 					Type:    webhooks.ImmutableFieldErrorType,
-					Message: "'DomainRef.Name' field is immutable",
+					Message: "'CFRoute.Spec.DomainRef.Name' field is immutable",
 				}))
 			})
 		})
