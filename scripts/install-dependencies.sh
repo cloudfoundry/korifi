@@ -115,7 +115,7 @@ echo "*******************"
 echo "Installing Eirini"
 echo "*******************"
 
-EIRINI_VERSION="0.4.0"
+EIRINI_VERSION="0.5.0"
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Namespace
