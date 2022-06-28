@@ -8,8 +8,10 @@ import (
 )
 
 const (
-	UnknownErrorType    = "UnknownError"
-	UnknownErrorMessage = "An unknown error has occurred"
+	UnknownErrorType                   = "UnknownError"
+	UnknownErrorMessage                = "An unknown error has occurred"
+	ImmutableFieldErrorType            = "ImmutableFieldError"
+	ImmutableFieldErrorMessageTemplate = "'%s' field is immutable"
 )
 
 type ValidationError struct {

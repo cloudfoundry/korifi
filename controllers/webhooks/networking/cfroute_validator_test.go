@@ -326,15 +326,17 @@ var _ = Describe("CFRouteValidator", func() {
 	})
 
 	Describe("ValidateUpdate", func() {
-		var (
-			updatedCFRoute   *korifiv1alpha1.CFRoute
-			newTestRoutePath string
-		)
+		var updatedCFRoute *korifiv1alpha1.CFRoute
 
 		BeforeEach(func() {
-			newTestRoutePath = "/new-path"
 			updatedCFRoute = cfRoute.DeepCopy()
-			updatedCFRoute.Spec.Path = newTestRoutePath
+			updatedCFRoute.Spec.Destinations = []korifiv1alpha1.Destination{
+				{
+					AppRef: v1.LocalObjectReference{
+						Name: "some-name",
+					},
+				},
+			}
 		})
 
 		JustBeforeEach(func() {
@@ -347,26 +349,22 @@ var _ = Describe("CFRouteValidator", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
-			actualContext, _, actualNamespace, oldName, newName, _ := duplicateValidator.ValidateUpdateArgsForCall(0)
+			actualContext, _, actualNamespace, oldName, _, _ := duplicateValidator.ValidateUpdateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(actualNamespace).To(Equal(rootNamespace))
 			Expect(oldName).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
-			Expect(newName).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + newTestRoutePath))
 		})
 
-		When("the new hostname contains upper-case characters", func() {
+		When("the hostname is updated", func() {
 			BeforeEach(func() {
 				updatedCFRoute.Spec.Host = "vAlidnAme"
 			})
 
-			It("allows the request", func() {
-				Expect(retErr).NotTo(HaveOccurred())
-			})
-
-			It("invokes the validator with lower-case host correctly", func() {
-				Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
-				_, _, _, _, newName, _ := duplicateValidator.ValidateUpdateArgsForCall(0)
-				Expect(newName).To(Equal(strings.ToLower(updatedCFRoute.Spec.Host) + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + newTestRoutePath))
+			It("denies the request", func() {
+				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
+					Type:    webhooks.ImmutableFieldErrorType,
+					Message: "'CFRoute.Spec.Host' field is immutable",
+				}))
 			})
 		})
 
@@ -402,135 +400,81 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 		})
 
-		When("the new hostname is empty on the route", func() {
+		When("the hostname is cleared", func() {
 			BeforeEach(func() {
 				updatedCFRoute.Spec.Host = ""
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RouteHostNameValidationErrorType,
-					Message: "host cannot be empty",
+					Type:    webhooks.ImmutableFieldErrorType,
+					Message: "'CFRoute.Spec.Host' field is immutable",
 				}))
 			})
 		})
 
-		When("the path is invalid", func() {
+		When("the path is updated", func() {
 			BeforeEach(func() {
 				updatedCFRoute.Spec.Path = "/%"
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RoutePathValidationErrorType,
-					Message: networking.InvalidURIError,
+					Type:    webhooks.ImmutableFieldErrorType,
+					Message: "'CFRoute.Spec.Path' field is immutable",
 				}))
 			})
 		})
 
-		When("the path is a single slash", func() {
+		When("the protocol is updated", func() {
 			BeforeEach(func() {
-				updatedCFRoute.Spec.Path = "/"
+				updatedCFRoute.Spec.Protocol = "https"
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RoutePathValidationErrorType,
-					Message: networking.PathIsSlashError,
+					Type:    webhooks.ImmutableFieldErrorType,
+					Message: "'CFRoute.Spec.Protocol' field is immutable",
 				}))
 			})
 		})
 
-		When("the path lacks a leading slash", func() {
+		When("the DomainRef is updated", func() {
 			BeforeEach(func() {
-				updatedCFRoute.Spec.Path = "foo/bar"
+				updatedCFRoute.Spec.DomainRef = v1.ObjectReference{Name: "newDomainRef"}
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RoutePathValidationErrorType,
-					Message: networking.InvalidURIError,
+					Type:    webhooks.ImmutableFieldErrorType,
+					Message: "'CFRoute.Spec.DomainRef.Name' field is immutable",
 				}))
 			})
 		})
 
-		When("the path contains a '?'", func() {
+		When("the destination contains an app not found in the route's namespace", func() {
 			BeforeEach(func() {
-				updatedCFRoute.Spec.Path = "/foo?/bar"
+				getAppError = k8serrors.NewNotFound(schema.GroupResource{}, "foo")
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RoutePathValidationErrorType,
-					Message: networking.PathHasQuestionMarkError,
+					Type:    networking.RouteDestinationNotInSpaceErrorType,
+					Message: networking.RouteDestinationNotInSpaceErrorMessage,
 				}))
 			})
 		})
 
-		When("the path is longer than 128 characters", func() {
+		When("getting the destination app fails for another reason", func() {
 			BeforeEach(func() {
-				updatedCFRoute.Spec.Path = fmt.Sprintf("/%s", strings.Repeat("a", 128))
+				getAppError = errors.New("foo")
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RoutePathValidationErrorType,
-					Message: networking.PathLengthExceededError,
+					Type:    webhooks.UnknownErrorType,
+					Message: webhooks.UnknownErrorMessage,
 				}))
-			})
-		})
-
-		When("the route has destinations", func() {
-			BeforeEach(func() {
-				updatedCFRoute.Spec.Destinations = []korifiv1alpha1.Destination{
-					{
-						AppRef: v1.LocalObjectReference{
-							Name: "some-name",
-						},
-					},
-				}
-			})
-
-			It("allows the request", func() {
-				Expect(retErr).NotTo(HaveOccurred())
-			})
-
-			When("the destination contains an app not found in the route's namespace", func() {
-				BeforeEach(func() {
-					getAppError = k8serrors.NewNotFound(schema.GroupResource{}, "foo")
-				})
-
-				It("denies the request", func() {
-					Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-						Type:    networking.RouteDestinationNotInSpaceErrorType,
-						Message: networking.RouteDestinationNotInSpaceErrorMessage,
-					}))
-				})
-			})
-
-			When("getting the destination app fails for another reason", func() {
-				BeforeEach(func() {
-					getAppError = errors.New("foo")
-				})
-
-				It("denies the request", func() {
-					Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-						Type:    webhooks.UnknownErrorType,
-						Message: webhooks.UnknownErrorMessage,
-					}))
-				})
-			})
-		})
-
-		When("the route is being finalized", func() {
-			BeforeEach(func() {
-				updatedCFRoute = cfRoute.DeepCopy()
-				cfRoute.Finalizers = append(cfRoute.Finalizers, "some-finalizer-we-are-trying-to-remove")
-			})
-
-			It("skips validation and allows the request", func() {
-				Expect(duplicateValidator.ValidateUpdateCallCount()).To(BeZero())
-				Expect(retErr).NotTo(HaveOccurred())
 			})
 		})
 	})

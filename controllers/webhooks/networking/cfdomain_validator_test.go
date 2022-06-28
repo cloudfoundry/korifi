@@ -137,6 +137,29 @@ var _ = Describe("CFDomainValidator", func() {
 			})
 		})
 	})
+
+	Describe("ValidateUpdate", func() {
+		var (
+			updatedDomain *korifiv1alpha1.CFDomain
+			oldDomainCR   korifiv1alpha1.CFDomain
+		)
+		BeforeEach(func() {
+			oldDomainCR = createCFDomain(requestDomainName)
+			updatedDomain = oldDomainCR.DeepCopy()
+			updatedDomain.Spec.Name = "this-is-updated-domain-name"
+		})
+
+		JustBeforeEach(func() {
+			retErr = validatingWebhook.ValidateUpdate(ctx, &oldDomainCR, updatedDomain)
+		})
+
+		It("returns an error", func() {
+			Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
+				Type:    webhooks.ImmutableFieldErrorType,
+				Message: "'CFDomain.Spec.Name' field is immutable",
+			}))
+		})
+	})
 })
 
 func createCFDomain(name string) korifiv1alpha1.CFDomain {
