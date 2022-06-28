@@ -1,7 +1,6 @@
 package registry
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -25,8 +24,8 @@ func NewImagePusher(imageWriter ImageWriter) *ImagePusher {
 	}
 }
 
-func (r *ImagePusher) Push(ctx context.Context, imageRef string, image v1.Image, credentials remote.Option) (string, error) {
-	ref, err := r.uploadImage(image, imageRef, credentials)
+func (r *ImagePusher) Push(imageRef string, image v1.Image, credentials remote.Option, transport remote.Option) (string, error) {
+	ref, err := r.uploadImage(image, imageRef, credentials, transport)
 	if err != nil {
 		return "", err
 	}
@@ -34,13 +33,13 @@ func (r *ImagePusher) Push(ctx context.Context, imageRef string, image v1.Image,
 	return buildRefWithDigest(image, ref)
 }
 
-func (r *ImagePusher) uploadImage(image v1.Image, imageRef string, credentials remote.Option) (name.Reference, error) {
+func (r *ImagePusher) uploadImage(image v1.Image, imageRef string, credentials remote.Option, transport remote.Option) (name.Reference, error) {
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing reference %s: %w", imageRef, err)
 	}
 
-	err = r.imageWriter(ref, image, credentials)
+	err = r.imageWriter(ref, image, credentials, transport)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload image: %w", err)
 	}

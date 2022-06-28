@@ -57,6 +57,7 @@ var (
 	fakeImageProcessFetcher *fake.ImageProcessFetcher
 	buildWorkloadReconciler *controllers.BuildWorkloadReconciler
 	rootNamespace           *v1.Namespace
+	registryCAPath          string
 )
 
 func TestAPIs(t *testing.T) {
@@ -118,12 +119,15 @@ var _ = BeforeSuite(func() {
 	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
 	Expect(err).NotTo(HaveOccurred())
 
+	registryCAPath = ""
+
 	buildWorkloadReconciler = controllers.NewBuildWorkloadReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("kpack-image-builder").WithName("BuildWorkload"),
 		controllerConfig,
 		controllers.NewRegistryAuthFetcher(registryAuthFetcherClient),
+		registryCAPath,
 		nil, // Overridden in a beforeEach below
 	)
 	err = (buildWorkloadReconciler).SetupWithManager(k8sManager)

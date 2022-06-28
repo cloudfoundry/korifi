@@ -108,6 +108,12 @@ Note: DockerHub does not support nested directories so `kpackImageTag` and `pack
 
 Note: GCR supports nested directories, so you can organize your images as desired.
 
+#### Registry with Custom CA
+
+- See instruction in [Using container registry signed by custom CA](docs/using-container-registry-signed-by-custom-ca.md) doc.
+
+
+
 ## Root namespace and admin role binding
 
 Create the root namespace:

@@ -2,16 +2,22 @@ package repositories
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"os"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
+
 	registryv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
 	kpackregistry "github.com/pivotal/kpack/pkg/registry"
+
 	authv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
@@ -30,7 +36,7 @@ type ImageBuilder interface {
 }
 
 type ImagePusher interface {
-	Push(ctx context.Context, imageRef string, image registryv1.Image, credentials remote.Option) (string, error)
+	Push(imageRef string, image registryv1.Image, credentials remote.Option, transport remote.Option) (string, error)
 }
 
 type ImageRepository struct {
@@ -38,6 +44,7 @@ type ImageRepository struct {
 	userClientFactory   authorization.UserK8sClientFactory
 	rootNamespace       string
 	registrySecretName  string
+	registryCAPath      string
 
 	builder ImageBuilder
 	pusher  ImagePusher
@@ -48,6 +55,7 @@ func NewImageRepository(
 	userClientFactory authorization.UserK8sClientFactory,
 	rootNamespace,
 	registrySecretName string,
+	registryCAPath string,
 	builder ImageBuilder,
 	pusher ImagePusher,
 ) *ImageRepository {
@@ -56,6 +64,7 @@ func NewImageRepository(
 		userClientFactory:   userClientFactory,
 		rootNamespace:       rootNamespace,
 		registrySecretName:  registrySecretName,
+		registryCAPath:      registryCAPath,
 		builder:             builder,
 		pusher:              pusher,
 	}
@@ -81,7 +90,12 @@ func (r *ImageRepository) UploadSourceImage(ctx context.Context, authInfo author
 		return "", fmt.Errorf("getting push credentials for image ref '%s' failed: %w", imageRef, err)
 	}
 
-	pushedRef, err := r.pusher.Push(ctx, imageRef, image, credentials)
+	transport, err := configureTransport(r.registryCAPath)
+	if err != nil {
+		return "", fmt.Errorf("configuring transport for image ref '%s' failed: %w", imageRef, err)
+	}
+
+	pushedRef, err := r.pusher.Push(imageRef, image, credentials, transport)
 	if err != nil {
 		return "", fmt.Errorf("pushing image ref '%s' failed: %w", imageRef, err)
 	}
@@ -126,4 +140,28 @@ func (r *ImageRepository) getCredentials(ctx context.Context) (remote.Option, er
 	}
 
 	return remote.WithAuthFromKeychain(keychain), nil
+}
+
+func configureTransport(caCertPath string) (remote.Option, error) {
+	pool, err := x509.SystemCertPool()
+	if err != nil {
+		pool = x509.NewCertPool()
+	}
+
+	if caCertPath != "" {
+		var pemCerts []byte
+		if pemCerts, err = os.ReadFile(caCertPath); err != nil {
+			return nil, err
+		} else if ok := pool.AppendCertsFromPEM(pemCerts); !ok {
+			return nil, errors.New("failed to append k8s cert bundle to cert pool")
+		}
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		RootCAs:    pool,
+	}
+
+	return remote.WithTransport(transport), nil
 }
