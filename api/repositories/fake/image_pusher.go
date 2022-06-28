@@ -2,7 +2,6 @@
 package fake
 
 import (
-	"context"
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -11,12 +10,12 @@ import (
 )
 
 type ImagePusher struct {
-	PushStub        func(context.Context, string, v1.Image, remote.Option) (string, error)
+	PushStub        func(string, v1.Image, remote.Option, remote.Option) (string, error)
 	pushMutex       sync.RWMutex
 	pushArgsForCall []struct {
-		arg1 context.Context
-		arg2 string
-		arg3 v1.Image
+		arg1 string
+		arg2 v1.Image
+		arg3 remote.Option
 		arg4 remote.Option
 	}
 	pushReturns struct {
@@ -31,13 +30,13 @@ type ImagePusher struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ImagePusher) Push(arg1 context.Context, arg2 string, arg3 v1.Image, arg4 remote.Option) (string, error) {
+func (fake *ImagePusher) Push(arg1 string, arg2 v1.Image, arg3 remote.Option, arg4 remote.Option) (string, error) {
 	fake.pushMutex.Lock()
 	ret, specificReturn := fake.pushReturnsOnCall[len(fake.pushArgsForCall)]
 	fake.pushArgsForCall = append(fake.pushArgsForCall, struct {
-		arg1 context.Context
-		arg2 string
-		arg3 v1.Image
+		arg1 string
+		arg2 v1.Image
+		arg3 remote.Option
 		arg4 remote.Option
 	}{arg1, arg2, arg3, arg4})
 	stub := fake.PushStub
@@ -59,13 +58,13 @@ func (fake *ImagePusher) PushCallCount() int {
 	return len(fake.pushArgsForCall)
 }
 
-func (fake *ImagePusher) PushCalls(stub func(context.Context, string, v1.Image, remote.Option) (string, error)) {
+func (fake *ImagePusher) PushCalls(stub func(string, v1.Image, remote.Option, remote.Option) (string, error)) {
 	fake.pushMutex.Lock()
 	defer fake.pushMutex.Unlock()
 	fake.PushStub = stub
 }
 
-func (fake *ImagePusher) PushArgsForCall(i int) (context.Context, string, v1.Image, remote.Option) {
+func (fake *ImagePusher) PushArgsForCall(i int) (string, v1.Image, remote.Option, remote.Option) {
 	fake.pushMutex.RLock()
 	defer fake.pushMutex.RUnlock()
 	argsForCall := fake.pushArgsForCall[i]

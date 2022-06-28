@@ -10,11 +10,12 @@ import (
 )
 
 type ImageProcessFetcher struct {
-	Stub        func(string, remote.Option) ([]v1alpha1.ProcessType, []int32, error)
+	Stub        func(string, remote.Option, remote.Option) ([]v1alpha1.ProcessType, []int32, error)
 	mutex       sync.RWMutex
 	argsForCall []struct {
 		arg1 string
 		arg2 remote.Option
+		arg3 remote.Option
 	}
 	returns struct {
 		result1 []v1alpha1.ProcessType
@@ -30,19 +31,20 @@ type ImageProcessFetcher struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ImageProcessFetcher) Spy(arg1 string, arg2 remote.Option) ([]v1alpha1.ProcessType, []int32, error) {
+func (fake *ImageProcessFetcher) Spy(arg1 string, arg2 remote.Option, arg3 remote.Option) ([]v1alpha1.ProcessType, []int32, error) {
 	fake.mutex.Lock()
 	ret, specificReturn := fake.returnsOnCall[len(fake.argsForCall)]
 	fake.argsForCall = append(fake.argsForCall, struct {
 		arg1 string
 		arg2 remote.Option
-	}{arg1, arg2})
+		arg3 remote.Option
+	}{arg1, arg2, arg3})
 	stub := fake.Stub
 	returns := fake.returns
-	fake.recordInvocation("ImageProcessFetcher", []interface{}{arg1, arg2})
+	fake.recordInvocation("ImageProcessFetcher", []interface{}{arg1, arg2, arg3})
 	fake.mutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2, ret.result3
@@ -56,16 +58,16 @@ func (fake *ImageProcessFetcher) CallCount() int {
 	return len(fake.argsForCall)
 }
 
-func (fake *ImageProcessFetcher) Calls(stub func(string, remote.Option) ([]v1alpha1.ProcessType, []int32, error)) {
+func (fake *ImageProcessFetcher) Calls(stub func(string, remote.Option, remote.Option) ([]v1alpha1.ProcessType, []int32, error)) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.Stub = stub
 }
 
-func (fake *ImageProcessFetcher) ArgsForCall(i int) (string, remote.Option) {
+func (fake *ImageProcessFetcher) ArgsForCall(i int) (string, remote.Option, remote.Option) {
 	fake.mutex.RLock()
 	defer fake.mutex.RUnlock()
-	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2
+	return fake.argsForCall[i].arg1, fake.argsForCall[i].arg2, fake.argsForCall[i].arg3
 }
 
 func (fake *ImageProcessFetcher) Returns(result1 []v1alpha1.ProcessType, result2 []int32, result3 error) {

@@ -104,12 +104,18 @@ func main() {
 		Log: ctrl.Log.WithName("controllers").WithName("CFBuildImageProcessFetcher"),
 	}
 
+	registryCAPath, found := os.LookupEnv("REGISTRY_CA_FILE")
+	if !found {
+		registryCAPath = ""
+	}
+
 	if err = controllers.NewBuildWorkloadReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("BuildWorkloadReconciler"),
 		controllerConfig,
 		controllers.NewRegistryAuthFetcher(k8sClient),
+		registryCAPath,
 		cfBuildImageProcessFetcher.Fetch,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BuildWorkload")

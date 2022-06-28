@@ -1,7 +1,6 @@
 package registry_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -18,6 +17,7 @@ var _ = Describe("ImagePusher", func() {
 	var (
 		imageWriter *fake.ImageWriter
 		credentials remote.Option
+		transport   remote.Option
 		imageRef    string
 		image       v1.Image
 
@@ -31,6 +31,8 @@ var _ = Describe("ImagePusher", func() {
 
 		credentials = remote.WithAuth(nil)
 
+		transport = remote.WithTransport(nil)
+
 		imageWriter = new(fake.ImageWriter)
 
 		var err error
@@ -41,7 +43,7 @@ var _ = Describe("ImagePusher", func() {
 	})
 
 	JustBeforeEach(func() {
-		pushedImageRef, pushErr = imagePusher.Push(context.Background(), imageRef, image, credentials)
+		pushedImageRef, pushErr = imagePusher.Push(imageRef, image, credentials, transport)
 	})
 
 	It("pushes the image to the registry", func() {
@@ -51,8 +53,9 @@ var _ = Describe("ImagePusher", func() {
 		actualRef, actualImage, actualOptions := imageWriter.ArgsForCall(0)
 		Expect(actualRef.Name()).To(Equal("index.docker.io/library/my-image-ref:latest"))
 		Expect(actualImage).To(Equal(image))
-		Expect(actualOptions).To(HaveLen(1))
+		Expect(actualOptions).To(HaveLen(2))
 		Expect(fmt.Sprintf("%#v", actualOptions[0])).To(Equal(fmt.Sprintf("%#v", credentials)))
+		Expect(fmt.Sprintf("%#v", actualOptions[1])).To(Equal(fmt.Sprintf("%#v", transport)))
 
 		Expect(pushedImageRef).To(HavePrefix("index.docker.io/library/my-image-ref"))
 	})
