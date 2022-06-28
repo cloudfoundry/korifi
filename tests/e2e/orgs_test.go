@@ -191,7 +191,7 @@ var _ = Describe("Orgs", func() {
 			})
 			It("returns orgs that the client has a role in and sets an HTTP warning header", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(resp).To(HaveRestyHeaderWithValue("X-Cf-Warnings", "Warning: Client certificate has an unsafe expiry date. Please use a short-lived certificate"))
+				Expect(resp).To(HaveRestyHeaderWithValue("X-Cf-Warnings", HavePrefix("Warning: Client certificate has an unsafe expiry date")))
 				Expect(result.Resources).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(org3Name)}),
 				))

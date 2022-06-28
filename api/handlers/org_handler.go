@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -96,8 +97,10 @@ func (h *OrgHandler) orgListHandler(ctx context.Context, logger logr.Logger, aut
 	}
 
 	resp := NewHandlerResponse(http.StatusOK).WithBody(presenter.ForOrgList(orgs, h.apiBaseURL, *r.URL))
-	if !isExpirationValid(authInfo.CertData, h.userCertificateExpirationWarningDuration) {
-		resp = resp.WithHeader("X-Cf-Warnings", "Warning: Client certificate has an unsafe expiry date. Please use a short-lived certificate")
+	notAfter, certParsed := decodePEMNotAfter(authInfo.CertData)
+
+	if !isExpirationValid(notAfter, h.userCertificateExpirationWarningDuration, certParsed) {
+		resp = resp.WithHeader("X-Cf-Warnings", fmt.Sprintf("Warning: Client certificate has an unsafe expiry date (%s). Please use a short-lived certificate less than %s.", notAfter.Format(time.RFC3339), h.userCertificateExpirationWarningDuration))
 	}
 	return resp, nil
 }
@@ -154,16 +157,20 @@ func (h *OrgHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(OrgDomainsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.orgListDomainHandler))
 }
 
-func isExpirationValid(certPEM []byte, maxDuration time.Duration) bool {
+func decodePEMNotAfter(certPEM []byte) (time.Time, bool) {
 	certBlock, _ := pem.Decode(certPEM)
 	if certBlock == nil {
-		return true
+		return time.Now(), false
 	}
 
 	cert, err := x509.ParseCertificate(certBlock.Bytes)
 	if err != nil {
-		return true
+		return time.Now(), false
 	}
 
-	return time.Until(cert.NotAfter) < maxDuration
+	return cert.NotAfter, true
+}
+
+func isExpirationValid(notAfter time.Time, maxDuration time.Duration, certParsed bool) bool {
+	return (certParsed && time.Until(notAfter) < maxDuration) || !certParsed
 }
