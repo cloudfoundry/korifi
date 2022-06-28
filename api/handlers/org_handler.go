@@ -100,7 +100,7 @@ func (h *OrgHandler) orgListHandler(ctx context.Context, logger logr.Logger, aut
 	notAfter, certParsed := decodePEMNotAfter(authInfo.CertData)
 
 	if !isExpirationValid(notAfter, h.userCertificateExpirationWarningDuration, certParsed) {
-		resp = resp.WithHeader("X-Cf-Warnings", fmt.Sprintf("Warning: Client certificate has an unsafe expiry date (%s). Please use a short-lived certificate less than %s.", notAfter.Format(time.RFC3339), h.userCertificateExpirationWarningDuration))
+		resp = resp.WithHeader("X-Cf-Warnings", fmt.Sprintf("Warning: Client certificate has an unsafe expiry date (%s). Please use a short-lived certificate that expires in less than %s.", notAfter.Format(time.RFC3339), h.userCertificateExpirationWarningDuration))
 	}
 	return resp, nil
 }
