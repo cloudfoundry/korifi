@@ -25,18 +25,21 @@ import (
 	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/imageprocessfetcher"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/podsecurity"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -132,6 +135,9 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "BuildReconcilerInfo")
 		os.Exit(1)
 	}
+
+	mgr.GetWebhookServer().Register("/mutate-kpack-build-pod", &webhook.Admission{Handler: podsecurity.NewPodSecurityAdder()})
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
