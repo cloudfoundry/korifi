@@ -263,7 +263,7 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 			SecurityContext: &corev1.SecurityContext{
 				AllowPrivilegeEscalation: &allowPrivilegeEscalation,
 			},
-			Resources:      getContainerResources(runWorkload.Spec.CPUWeight, runWorkload.Spec.MemoryMB, runWorkload.Spec.DiskMB),
+			Resources:      getContainerResources(runWorkload.Spec.CPUWeight, runWorkload.Spec.MemoryMiB, runWorkload.Spec.DiskMiB),
 			LivenessProbe:  livenessProbe,
 			ReadinessProbe: readinessProbe,
 		},
@@ -372,10 +372,10 @@ func StatefulSetLabelSelector(runWorkload *korifiv1alpha1.RunWorkload) *metav1.L
 	}
 }
 
-func getContainerResources(cpuWeight uint8, memoryMB, diskMB int64) corev1.ResourceRequirements {
-	memory := MebibyteQuantity(memoryMB)
+func getContainerResources(cpuWeight uint8, memoryMiB, diskMiB int64) corev1.ResourceRequirements {
+	memory := MebibyteQuantity(memoryMiB)
 	cpu := ToCPUMillicores(cpuWeight)
-	ephemeralStorage := MebibyteQuantity(diskMB)
+	ephemeralStorage := MebibyteQuantity(diskMiB)
 
 	return corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{

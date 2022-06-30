@@ -42,10 +42,10 @@ type RunWorkloadSpec struct {
 	Ports            []int32                       `json:"ports,omitempty"`
 	// +kubebuilder:default:=1
 	Instances int32 `json:"instances"`
-	MemoryMB  int64 `json:"memoryMB"`
+	MemoryMiB int64 `json:"memoryMiB"`
 	// +kubebuilder:validation:Minimum:=1
 	// +kubebuilder:validation:Required
-	DiskMB int64 `json:"diskMB"`
+	DiskMiB int64 `json:"diskMiB"`
 	// +kubebuilder:validation:Format:=uint8
 	CPUWeight uint8 `json:"cpuWeight"`
 }

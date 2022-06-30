@@ -46,7 +46,7 @@ spec:
               cpuWeight:
                 format: uint8
                 type: integer
-              diskMB:
+              diskMiB:
                 format: int64
                 minimum: 1
                 type: integer
@@ -189,7 +189,7 @@ spec:
                 default: 1
                 format: int32
                 type: integer
-              memoryMB:
+              memoryMiB:
                 format: int64
                 type: integer
               ports:
@@ -205,12 +205,12 @@ spec:
             - GUID
             - appGUID
             - cpuWeight
-            - diskMB
+            - diskMiB
             - health
             - image
             - imagePullSecrets
             - instances
-            - memoryMB
+            - memoryMiB
             - processType
             - version
             type: object
