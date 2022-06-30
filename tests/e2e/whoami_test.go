@@ -42,6 +42,7 @@ var _ = Describe("WhoAmI", func() {
 		})
 
 		It("returns the user identity", func() {
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Name).To(Equal(serviceAccountName))
 			Expect(result.Kind).To(Equal(rbacv1.ServiceAccountKind))
 		})
@@ -63,6 +64,7 @@ var _ = Describe("WhoAmI", func() {
 		})
 
 		It("returns the user identity", func() {
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Name).To(Equal(certUserName))
 			Expect(result.Kind).To(Equal(rbacv1.UserKind))
 		})
