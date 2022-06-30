@@ -112,8 +112,6 @@ Note: GCR supports nested directories, so you can organize your images as desire
 
 - See instruction in [Using container registry signed by custom CA](docs/using-container-registry-signed-by-custom-ca.md) doc.
 
-
-
 ## Root namespace and admin role binding
 
 Create the root namespace:
@@ -266,7 +264,7 @@ kubectl -n korifi-api-system create secret tls korifi-api-ingress-cert --cert=<y
 kubectl -n korifi-controllers-system create secret tls korifi-workloads-ingress-cert --cert=<your-workloads-tls-cert-file> --key=<your-workloads-tls-key-file>
 ```
 
-The [`create_tls_secret` function in `scripts/common.sh`](https://github.com/cloudfoundry/korifi/blob/fd1aed6a8f406cb8d67cb5c214280e55db59901e/scripts/common.sh#L48-L91) shows how we do this on our development environments.
+The [`create_tls_secret` function in `scripts/common.sh`](https://github.com/cloudfoundry/korifi/blob/fd1aed6a8f406cb8d67cb5c214280e55db59901e/scripts/common.sh#L48-L91) shows how we do this for our development environments.
 
 ## Default CF Domain
 
