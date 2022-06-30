@@ -442,6 +442,12 @@ func createApp(spaceGUID, name string) string {
 
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
+	Expect(app.GUID).NotTo(BeEmpty())
+	Expect(app.Name).To(Equal(name))
+	Expect(app.CreatedAt).NotTo(BeEmpty())
+	Expect(app.Relationships).NotTo(BeNil())
+	Expect(app.Relationships).To(HaveKey("space"))
+	Expect(app.Relationships["space"].Data.GUID).To(Equal(spaceGUID))
 
 	return app.GUID
 }
