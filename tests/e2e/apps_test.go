@@ -132,6 +132,28 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
+	Describe("Delete an app", func() {
+		var err error
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, space1GUID)
+			appName := generateGUID("app")
+			appGUID = createApp(space1GUID, appName)
+			resp, err = certClient.R().Delete("/v3/apps/" + appGUID)
+		})
+
+		It("successfully deletes the app", func() {
+			var result resource
+			Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(func(g Gomega) {
+				resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID)
+				g.Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+				g.Expect(err).NotTo(HaveOccurred())
+			}).Should(Succeed())
+		})
+	})
+
 	Describe("Fetch an app", func() {
 		var result resource
 
