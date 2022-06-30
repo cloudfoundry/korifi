@@ -43,8 +43,8 @@ var _ = Describe("RunWorkloadsController", func() {
 				Health:           korifiv1alpha1.Healthcheck{},
 				Ports:            []int32{8080},
 				Instances:        5,
-				MemoryMB:         5,
-				DiskMB:           100,
+				MemoryMiB:        5,
+				DiskMiB:          100,
 				CPUWeight:        2,
 			},
 		}
@@ -105,13 +105,17 @@ var _ = Describe("RunWorkloadsController", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulsetName, Namespace: namespaceName}, statefulset)).To(Succeed())
 			}).Should(Succeed())
-
-			runWorkload.Spec.Instances = 2
-			runWorkload.Spec.MemoryMB = 10
 		})
 
 		JustBeforeEach(func() {
-			Expect(k8sClient.Update(ctx, runWorkload)).To(Succeed())
+			actualRunWorkload := new(korifiv1alpha1.RunWorkload)
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: runWorkload.Name, Namespace: namespaceName}, actualRunWorkload)).To(Succeed())
+
+				actualRunWorkload.Spec.Instances = 2
+				actualRunWorkload.Spec.MemoryMiB = 10
+				g.Expect(k8sClient.Update(ctx, actualRunWorkload)).To(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("updates the StatefulSet", func() {

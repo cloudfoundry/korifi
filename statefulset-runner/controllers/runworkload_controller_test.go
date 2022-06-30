@@ -259,19 +259,13 @@ var _ = Describe("RunWorkload to StatefulSet Converter", func() {
 
 var _ = Describe("RunWorkload Reconcile", func() {
 	var (
-		fakeClient       *fake.Client
-		fakeStatusWriter *fake.StatusWriter
-
-		// statefulSet *appsv1.StatefulSet
-		// runWorkload *korifiv1alpha1.RunWorkload
-		reconciler *controllers.RunWorkloadReconciler
-
-		reconcileResult ctrl.Result
-		reconcileErr    error
-
-		ctx context.Context
-		req ctrl.Request
-
+		fakeClient                   *fake.Client
+		fakeStatusWriter             *fake.StatusWriter
+		reconciler                   *controllers.RunWorkloadReconciler
+		reconcileResult              ctrl.Result
+		reconcileErr                 error
+		ctx                          context.Context
+		req                          ctrl.Request
 		runworkload                  *korifiv1alpha1.RunWorkload
 		statefulSet                  *v1.StatefulSet
 		getRunworkloadError          error
@@ -396,8 +390,8 @@ var _ = Describe("RunWorkload Reconcile", func() {
 					GUID:      "test-sts",
 					Version:   "1",
 					Instances: 2,
-					MemoryMB:  10,
-					DiskMB:    10,
+					MemoryMiB: 10,
+					DiskMiB:   10,
 					CPUWeight: 4,
 				},
 			}

@@ -42,8 +42,8 @@ func createRunWorkload(namespace, name string) *korifiv1alpha1.RunWorkload {
 			},
 			Ports:     []int32{8888, 9999},
 			Instances: 1,
-			MemoryMB:  1024,
-			DiskMB:    2048,
+			MemoryMiB: 1024,
+			DiskMiB:   2048,
 			CPUWeight: 2,
 		},
 	}

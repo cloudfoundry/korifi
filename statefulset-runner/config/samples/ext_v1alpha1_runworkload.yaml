@@ -1,6 +1,0 @@
-apiVersion: ext.cloudfoundry.org/v1alpha1
-kind: RunWorkload
-metadata:
-  name: runworkload-sample
-spec:
-  # TODO(user): Add fields here

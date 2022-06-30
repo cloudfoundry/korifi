@@ -1,5 +1,4 @@
 ---
-# Defines a CFProcess for a given app. Results in an Eirini LRP.
 apiVersion: korifi.cloudfoundry.org/v1alpha1
 kind: RunWorkload
 metadata:
@@ -26,7 +25,7 @@ spec:
   image: ubuntu
   imagePullSecrets:
   - name: image-registry-credentials
-  memoryMB: 50
-  diskMB: 50
+  memoryMiB: 50
+  diskMiB: 50
   cpuWeight: 2
   processType: web
