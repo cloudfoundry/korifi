@@ -39,6 +39,8 @@ func NewWhoAmI(identityProvider IdentityProvider, apiBaseURL url.URL) *WhoAmIHan
 func (h *WhoAmIHandler) whoAmIHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	identity, err := h.identityProvider.GetIdentity(r.Context(), authInfo)
 	if err != nil {
+		logger.Info("failed to get identity", "err", err)
+
 		return nil, err
 	}
 
