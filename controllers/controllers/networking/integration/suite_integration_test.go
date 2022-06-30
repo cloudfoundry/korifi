@@ -90,8 +90,8 @@ var _ = BeforeSuite(func() {
 				MemoryMB:    500,
 				DiskQuotaMB: 512,
 			},
-			KorifiControllerNamespace: "korifi-controllers-system",
-			WorkloadsTLSSecretName:    "korifi-workloads-ingress-cert",
+			WorkloadsTLSSecretName:      "korifi-workloads-ingress-cert",
+			WorkloadsTLSSecretNamespace: "korifi-controllers-system",
 		},
 	)).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())

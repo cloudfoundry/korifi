@@ -11,11 +11,11 @@ import (
 )
 
 type ControllerConfig struct {
-	CFProcessDefaults         CFProcessDefaults `yaml:"cfProcessDefaults"`
-	CFRootNamespace           string            `yaml:"cfRootNamespace"`
-	KorifiControllerNamespace string            `yaml:"korifi_controller_namespace"`
-	PackageRegistrySecretName string            `yaml:"packageRegistrySecretName"`
-	WorkloadsTLSSecretName    string            `yaml:"workloads_tls_secret_name"`
+	CFProcessDefaults           CFProcessDefaults `yaml:"cfProcessDefaults"`
+	CFRootNamespace             string            `yaml:"cfRootNamespace"`
+	PackageRegistrySecretName   string            `yaml:"packageRegistrySecretName"`
+	WorkloadsTLSSecretName      string            `yaml:"workloads_tls_secret_name"`
+	WorkloadsTLSSecretNamespace string            `yaml:"workloads_tls_secret_namespace"`
 }
 
 type CFProcessDefaults struct {
@@ -56,5 +56,5 @@ func (c ControllerConfig) WorkloadsTLSSecretNameWithNamespace() string {
 	if c.WorkloadsTLSSecretName == "" {
 		return ""
 	}
-	return filepath.Join(c.KorifiControllerNamespace, c.WorkloadsTLSSecretName)
+	return filepath.Join(c.WorkloadsTLSSecretNamespace, c.WorkloadsTLSSecretName)
 }

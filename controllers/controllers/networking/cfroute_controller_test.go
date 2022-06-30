@@ -27,16 +27,16 @@ import (
 )
 
 const (
-	testNamespace             = "test-ns"
-	testDomainGUID            = "test-domain-guid"
-	testDomainName            = "test.domain.name"
-	testRouteGUID             = "test-route-guid"
-	testRouteHost             = "test-route-host"
-	testRouteDestinationGUID  = "test-route-destination-guid"
-	testFQDN                  = testRouteHost + "." + testDomainName
-	testServiceGUID           = "s-" + testRouteDestinationGUID
-	routeGUIDLabelKey         = "korifi.cloudfoundry.org/route-guid"
-	korifiControllerNamespace = "korifi-controllers-system"
+	testNamespace               = "test-ns"
+	testDomainGUID              = "test-domain-guid"
+	testDomainName              = "test.domain.name"
+	testRouteGUID               = "test-route-guid"
+	testRouteHost               = "test-route-host"
+	testRouteDestinationGUID    = "test-route-destination-guid"
+	testFQDN                    = testRouteHost + "." + testDomainName
+	testServiceGUID             = "s-" + testRouteDestinationGUID
+	routeGUIDLabelKey           = "korifi.cloudfoundry.org/route-guid"
+	workloadsTLSSecretNamespace = "korifi-controllers-system"
 )
 
 var _ = Describe("CFRouteReconciler.Reconcile", func() {
@@ -233,7 +233,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 			scheme.Scheme,
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
 			&config.ControllerConfig{
-				KorifiControllerNamespace: korifiControllerNamespace,
+				WorkloadsTLSSecretNamespace: workloadsTLSSecretNamespace,
 			},
 		)
 
@@ -318,7 +318,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 					Expect(fqdnProxy).NotTo(BeNil())
 
 					Expect(fqdnProxy.Spec.VirtualHost.TLS).To(PointTo(Equal(contourv1.TLS{
-						SecretName: korifiControllerNamespace + "/the-tls-secret",
+						SecretName: workloadsTLSSecretNamespace + "/the-tls-secret",
 					})))
 				})
 			})
