@@ -27,9 +27,7 @@ spec:
       securityContext:
         runAsNonRoot: true
       containers:
-      - command:
-        - /manager
-        args:
+      - args:
         - --leader-elect
         image: cloudfoundry/statefulset-runner:latest
         imagePullPolicy: IfNotPresent
