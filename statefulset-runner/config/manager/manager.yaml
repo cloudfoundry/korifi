@@ -31,7 +31,7 @@ spec:
         - /manager
         args:
         - --leader-elect
-        image: controller:latest
+        image: cloudfoundry/statefulset-runner:latest
         imagePullPolicy: IfNotPresent
         name: manager
         securityContext:
