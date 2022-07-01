@@ -59,7 +59,7 @@ generate-fakes:
 
 fmt: install-gofumpt install-shfmt
 	$(GOFUMPT) -w .
-	$(SHFMT) -w -i 2 .
+	$(SHFMT) -w -i 2 -ci .
 
 vet: ## Run go vet against code.
 	go vet ./...

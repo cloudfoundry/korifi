@@ -52,8 +52,9 @@ generate-fakes:
 	go generate ./...
 
 .PHONY: fmt
-fmt: ## Run go fmt against code.
-	go fmt ./...
+fmt: install-gofumpt install-shfmt
+	$(GOFUMPT) -w .
+	$(SHFMT) -w -i 2 -ci .
 
 .PHONY: vet
 vet: ## Run go vet against code.
@@ -119,6 +120,14 @@ ENVTEST = $(shell pwd)/bin/setup-envtest
 .PHONY: envtest
 envtest: ## Download envtest-setup locally if necessary.
 	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+
+GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
+install-gofumpt:
+	go install mvdan.cc/gofumpt@latest
+
+SHFMT = $(shell go env GOPATH)/bin/shfmt
+install-shfmt:
+	go install mvdan.cc/sh/v3/cmd/shfmt@latest
 
 install-ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo

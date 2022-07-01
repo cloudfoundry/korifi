@@ -426,7 +426,6 @@ var _ = Describe("RunWorkload Reconcile", func() {
 					},
 				},
 			}
-
 		})
 
 		It("scales instances", func() {
