@@ -54,7 +54,7 @@ func TestRunWorkloadsController(t *testing.T) {
 	SetDefaultEventuallyTimeout(10 * time.Second)
 	SetDefaultEventuallyPollingInterval(200 * time.Millisecond)
 
-	RunSpecs(t, "Controller Suite")
+	RunSpecs(t, "Controller Integration Suite")
 }
 
 var _ = BeforeSuite(func() {
