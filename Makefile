@@ -83,6 +83,9 @@ test-e2e: install-ginkgo
 test-kpack-image-builder: ## Run tests.
 	cd kpack-image-builder && make test
 
+test-stset-runner:
+	cd statefulset-runner && make test
+
 ##@ Build
 
 build: generate-controllers fmt vet ## Build manager binary.
