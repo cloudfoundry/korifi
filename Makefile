@@ -193,7 +193,7 @@ install-shfmt:
 	go install mvdan.cc/sh/v3/cmd/shfmt@latest
 
 install-ginkgo:
-	go install github.com/onsi/ginkgo/v2/ginkgo@latest
+	go install github.com/onsi/ginkgo/v2/ginkgo
 
 # go-install-tool will 'go get' any package $2 and install it to $1.
 define go-install-tool
