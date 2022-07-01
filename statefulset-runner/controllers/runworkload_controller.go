@@ -19,12 +19,14 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
 	"regexp"
+	"strings"
+
+	"k8s.io/apimachinery/pkg/types"
+
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"

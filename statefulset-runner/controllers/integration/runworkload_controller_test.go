@@ -2,14 +2,15 @@ package integration_test
 
 import (
 	"context"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -126,7 +127,6 @@ var _ = Describe("RunWorkloadsController", func() {
 				g.Expect(*statefulSet.Spec.Replicas).To(Equal(int32(2)))
 				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("10Mi"))
 			}).Should(Succeed())
-
 		})
 	})
 })
