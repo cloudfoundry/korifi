@@ -6,6 +6,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("Tasks", func() {
@@ -73,6 +74,7 @@ var _ = Describe("Tasks", func() {
 				SetPathParam("appGUID", appGUID).
 				SetResult(&createdTask).
 				Post("/v3/apps/{appGUID}/tasks")
+			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -92,11 +94,15 @@ var _ = Describe("Tasks", func() {
 	})
 
 	Describe("Listing tasks", func() {
-		var list resourceList
+		var (
+			list  resourceList
+			guids []string
+		)
 
 		BeforeEach(func() {
 			createSpaceRole("space_developer", certUserName, spaceGUID)
 
+			guids = nil
 			var err error
 			for i := 0; i < 2; i++ {
 				resp, err = certClient.R().
@@ -104,8 +110,11 @@ var _ = Describe("Tasks", func() {
 						Command: "echo hello",
 					}).
 					SetPathParam("appGUID", appGUID).
+					SetResult(&createdTask).
 					Post("/v3/apps/{appGUID}/tasks")
 				Expect(err).NotTo(HaveOccurred())
+				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+				guids = append(guids, createdTask.GUID)
 			}
 		})
 
@@ -118,7 +127,10 @@ var _ = Describe("Tasks", func() {
 		})
 
 		It("lists the 2 tasks", func() {
-			Expect(list.Resources).To(HaveLen(2))
+			Expect(list.Resources).To(ContainElements(
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(guids[0])}),
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(guids[1])}),
+			))
 		})
 	})
 })
