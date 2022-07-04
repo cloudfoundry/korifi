@@ -90,4 +90,35 @@ var _ = Describe("Tasks", func() {
 			}).Should(Succeed())
 		})
 	})
+
+	Describe("Listing tasks", func() {
+		var list resourceList
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, spaceGUID)
+
+			var err error
+			for i := 0; i < 2; i++ {
+				resp, err = certClient.R().
+					SetBody(taskResource{
+						Command: "echo hello",
+					}).
+					SetPathParam("appGUID", appGUID).
+					Post("/v3/apps/{appGUID}/tasks")
+				Expect(err).NotTo(HaveOccurred())
+			}
+		})
+
+		JustBeforeEach(func() {
+			listResp, err := certClient.R().
+				SetResult(&list).
+				Get("/v3/tasks")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listResp).To(HaveRestyStatusCode(http.StatusOK))
+		})
+
+		It("lists the 2 tasks", func() {
+			Expect(list.Resources).To(HaveLen(2))
+		})
+	})
 })

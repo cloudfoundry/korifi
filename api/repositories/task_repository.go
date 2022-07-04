@@ -12,6 +12,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -64,16 +65,23 @@ func (m *CreateTaskMessage) toCFTask() korifiv1alpha1.CFTask {
 }
 
 type TaskRepo struct {
-	userClientFactory  authorization.UserK8sClientFactory
-	namespaceRetriever NamespaceRetriever
-	timeout            time.Duration
+	userClientFactory    authorization.UserK8sClientFactory
+	namespaceRetriever   NamespaceRetriever
+	namespacePermissions *authorization.NamespacePermissions
+	timeout              time.Duration
 }
 
-func NewTaskRepo(userClientFactory authorization.UserK8sClientFactory, nsRetriever NamespaceRetriever, timeout time.Duration) *TaskRepo {
+func NewTaskRepo(
+	userClientFactory authorization.UserK8sClientFactory,
+	nsRetriever NamespaceRetriever,
+	namespacePermissions *authorization.NamespacePermissions,
+	timeout time.Duration,
+) *TaskRepo {
 	return &TaskRepo{
-		userClientFactory:  userClientFactory,
-		namespaceRetriever: nsRetriever,
-		timeout:            timeout,
+		userClientFactory:    userClientFactory,
+		namespaceRetriever:   nsRetriever,
+		namespacePermissions: namespacePermissions,
+		timeout:              timeout,
 	}
 }
 
@@ -148,6 +156,38 @@ func (r *TaskRepo) awaitInitialization(ctx context.Context, userClient client.Wi
 			return korifiv1alpha1.CFTask{}, fmt.Errorf("task did not get initialized within timeout period %d ms", r.timeout.Milliseconds())
 		}
 	}
+}
+
+func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info) ([]TaskRecord, error) {
+	nsList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+	}
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	var tasks []korifiv1alpha1.CFTask
+	for ns := range nsList {
+		taskList := &korifiv1alpha1.CFTaskList{}
+		err := userClient.List(ctx, taskList, client.InNamespace(ns))
+		if k8serrors.IsForbidden(err) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to list tasks in namespace %s: %w", ns, apierrors.FromK8sError(err, TaskResourceType))
+		}
+		tasks = append(tasks, taskList.Items...)
+	}
+
+	taskRecords := []TaskRecord{}
+	for _, t := range tasks {
+		taskRecords = append(taskRecords, taskToRecord(t))
+	}
+
+	return taskRecords, nil
 }
 
 func splitCommand(command string) []string {
