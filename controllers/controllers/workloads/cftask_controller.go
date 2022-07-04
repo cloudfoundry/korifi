@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -72,7 +73,7 @@ func NewCFTaskReconciler(
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks/finalizers,verbs=update
-//+kubebuilder:rbac:groups=eirini.cloudfoundry.org,resources=tasks,verbs=create
+//+kubebuilder:rbac:groups=eirini.cloudfoundry.org,resources=tasks,verbs=get;list;create;watch;patch
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -98,17 +99,52 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	err = r.updateStatus(ctx, cfTask, cfDroplet)
+	err = r.ensureInitialized(ctx, cfTask, cfDroplet)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, r.createEiriniTask(ctx, cfTask, cfDroplet)
+	eiriniTask, err := r.createOrPatchEiriniTask(ctx, cfTask, cfDroplet)
+	if err != nil {
+		return r.updateStatusAndReturn(ctx, cfTask, err)
+	}
+
+	r.setTaskStatus(cfTask, eiriniTask.Status.Conditions)
+
+	return r.updateStatusAndReturn(ctx, cfTask, nil)
+}
+
+func (r *CFTaskReconciler) setTaskStatus(cfTask *korifiv1alpha1.CFTask, eiriniConditions []metav1.Condition) {
+	for eiriniCond, korifiCond := range map[string]string{
+		eiriniv1.TaskStartedConditionType:   korifiv1alpha1.TaskStartedConditionType,
+		eiriniv1.TaskSucceededConditionType: korifiv1alpha1.TaskSucceededConditionType,
+		eiriniv1.TaskFailedConditionType:    korifiv1alpha1.TaskFailedConditionType,
+	} {
+		if cond := translateEiriniCondition(eiriniConditions, eiriniCond, korifiCond); cond != nil {
+			meta.SetStatusCondition(&cfTask.Status.Conditions, *cond)
+		}
+	}
+}
+
+func translateEiriniCondition(eiriniConditions []metav1.Condition, eiriniTaskCondition, targetCondition string) *metav1.Condition {
+	cond := meta.FindStatusCondition(eiriniConditions, eiriniTaskCondition)
+	if cond == nil || cond.Status != metav1.ConditionTrue {
+		return nil
+	}
+
+	return &metav1.Condition{
+		Type:               targetCondition,
+		Status:             metav1.ConditionTrue,
+		LastTransitionTime: cond.LastTransitionTime,
+		Reason:             cond.Reason,
+		Message:            cond.Message,
+	}
 }
 
 func (r *CFTaskReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFTask{}).
+		Owns(&eiriniv1.Task{}).
 		Complete(r)
 }
 
@@ -156,63 +192,78 @@ func (r *CFTaskReconciler) getDroplet(ctx context.Context, cfTask *korifiv1alpha
 	return cfDroplet, nil
 }
 
-func (r *CFTaskReconciler) createEiriniTask(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) error {
+func (r *CFTaskReconciler) createOrPatchEiriniTask(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) (*eiriniv1.Task, error) {
 	eiriniTask := &eiriniv1.Task{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfTask.Name,
 			Namespace: cfTask.Namespace,
-			Labels: map[string]string{
-				korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name,
-			},
-		},
-		Spec: eiriniv1.TaskSpec{
-			GUID:     cfTask.Name,
-			Command:  cfTask.Spec.Command,
-			Image:    cfDroplet.Status.Droplet.Registry.Image,
-			MemoryMB: r.cfProcessDefaults.MemoryMB,
-			DiskMB:   r.cfProcessDefaults.DiskQuotaMB,
 		},
 	}
 
-	err := r.k8sClient.Create(ctx, eiriniTask)
-	if err != nil {
-		r.logger.Info("error-creating-eirini-task", "error", err)
-		if k8serrors.IsAlreadyExists(err) {
-			return nil
+	opResult, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, eiriniTask, func() error {
+		if eiriniTask.Labels == nil {
+			eiriniTask.Labels = map[string]string{}
 		}
-		return err
-	}
-	r.recorder.Eventf(cfTask, "Normal", "taskCreated", "Created eirini task %s", eiriniTask.Name)
+		eiriniTask.Labels[korifiv1alpha1.CFTaskGUIDLabelKey] = cfTask.Name
 
-	return nil
+		eiriniTask.Spec.GUID = cfTask.Name
+		eiriniTask.Spec.Command = cfTask.Spec.Command
+		eiriniTask.Spec.Image = cfDroplet.Status.Droplet.Registry.Image
+		eiriniTask.Spec.MemoryMB = r.cfProcessDefaults.MemoryMB
+		eiriniTask.Spec.DiskMB = r.cfProcessDefaults.DiskQuotaMB
+
+		if err := ctrl.SetControllerReference(cfTask, eiriniTask, r.scheme); err != nil {
+			r.logger.Error(err, "failed to set owner ref")
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		r.logger.Info("error-creating-or-pathcing-eirini-task", "error", err, "opResult", opResult)
+		return nil, err
+	}
+
+	if opResult == controllerutil.OperationResultCreated {
+		r.recorder.Eventf(cfTask, "Normal", "taskCreated", "Created eirini task %s", eiriniTask.Name)
+	}
+
+	return eiriniTask, nil
 }
 
-func (r *CFTaskReconciler) updateStatus(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) error {
+func (r *CFTaskReconciler) ensureInitialized(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) error {
 	if cfTask.Status.SequenceID == 0 {
-		cfTaskCopy := cfTask.DeepCopy()
 		var err error
-		cfTaskCopy.Status.SequenceID, err = r.seqIdGenerator.Generate()
+		cfTask.Status.SequenceID, err = r.seqIdGenerator.Generate()
 		if err != nil {
 			r.logger.Info("error-generating-sequence-id", "error", err)
 			return err
 		}
 
-		cfTaskCopy.Status.MemoryMB = r.cfProcessDefaults.MemoryMB
-		cfTaskCopy.Status.DiskQuotaMB = r.cfProcessDefaults.DiskQuotaMB
-		cfTaskCopy.Status.DropletRef.Name = cfDroplet.Name
-		meta.SetStatusCondition(&cfTaskCopy.Status.Conditions, metav1.Condition{
+		cfTask.Status.MemoryMB = r.cfProcessDefaults.MemoryMB
+		cfTask.Status.DiskQuotaMB = r.cfProcessDefaults.DiskQuotaMB
+		cfTask.Status.DropletRef.Name = cfDroplet.Name
+		meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
 			Type:    korifiv1alpha1.TaskInitializedConditionType,
 			Status:  metav1.ConditionTrue,
 			Reason:  "taskInitialized",
 			Message: "taskInitialized",
 		})
-
-		err = r.k8sClient.Status().Patch(ctx, cfTaskCopy, client.MergeFrom(cfTask))
-		if err != nil {
-			r.logger.Info("error-updating-status", "error", err)
-			return err
-		}
 	}
 
 	return nil
+}
+
+func (r *CFTaskReconciler) updateStatusAndReturn(ctx context.Context, cfTask *korifiv1alpha1.CFTask, reconcileErr error) (ctrl.Result, error) {
+	orig := &korifiv1alpha1.CFTask{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfTask.Name,
+			Namespace: cfTask.Namespace,
+		},
+	}
+	if statusErr := r.k8sClient.Status().Patch(ctx, cfTask, client.MergeFrom(orig)); statusErr != nil {
+		r.logger.Error(statusErr, "unable to patch CFTask status")
+		return ctrl.Result{}, statusErr
+	}
+	return ctrl.Result{}, reconcileErr
 }

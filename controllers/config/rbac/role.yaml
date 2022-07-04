@@ -118,6 +118,10 @@ rules:
   - tasks
   verbs:
   - create
+  - get
+  - list
+  - patch
+  - watch
 - apiGroups:
   - eirini.cloudfoundry.org
   resources:
