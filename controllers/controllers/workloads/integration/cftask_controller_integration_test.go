@@ -160,5 +160,39 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Expect(tasks.Items[0].Spec.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
 			Expect(tasks.Items[0].Spec.DiskMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
 		})
+
+		When("the eirini task status condition changes", func() {
+			JustBeforeEach(func() {
+				var tasks eiriniv1.TaskList
+				Eventually(func() ([]eiriniv1.Task, error) {
+					err := k8sClient.List(
+						ctx,
+						&tasks,
+						client.InNamespace(ns),
+						client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
+					)
+					return tasks.Items, err
+				}).Should(HaveLen(1))
+
+				modifiedEiriniTask := tasks.Items[0].DeepCopy()
+				meta.SetStatusCondition(&modifiedEiriniTask.Status.Conditions, metav1.Condition{
+					Type:    eiriniv1.TaskStartedConditionType,
+					Status:  metav1.ConditionTrue,
+					Reason:  "task_started",
+					Message: "task started",
+				})
+
+				Expect(k8sClient.Status().Patch(ctx, modifiedEiriniTask, client.MergeFrom(&tasks.Items[0]))).To(Succeed())
+			})
+
+			It("reflects the status in the korifi task", func() {
+				Eventually(func(g Gomega) {
+					var task korifiv1alpha1.CFTask
+
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, &task)).To(Succeed())
+					g.Expect(meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskStartedConditionType)).To(BeTrue())
+				}).Should(Succeed())
+			})
+		})
 	})
 })

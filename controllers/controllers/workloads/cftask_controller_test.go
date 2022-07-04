@@ -2,7 +2,6 @@ package workloads_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
@@ -20,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/pointer"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -43,6 +43,7 @@ var _ = Describe("CFTask Controller", func() {
 		seqIdGenerator = new(workloadsfake.SeqIdGenerator)
 		seqIdGenerator.GenerateReturns(314, nil)
 		logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
+		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		taskReconciler = *workloads.NewCFTaskReconciler(
 			k8sClient,
 			scheme.Scheme,
@@ -56,23 +57,35 @@ var _ = Describe("CFTask Controller", func() {
 		)
 	})
 
+	taskWithPatchedStatus := func() *korifiv1alpha1.CFTask {
+		ExpectWithOffset(1, statusWriter.PatchCallCount()).To(Equal(1))
+		_, object, _, _ := statusWriter.PatchArgsForCall(0)
+		task, ok := object.(*korifiv1alpha1.CFTask)
+		ExpectWithOffset(1, ok).To(BeTrue())
+
+		return task
+	}
+
 	Describe("task creation", func() {
 		var (
-			result            controllerruntime.Result
-			err               error
-			req               controllerruntime.Request
-			dropletRef        string
-			cftaskGetError    error
-			cfappGetError     error
-			cfdropletGetError error
-			droplet           *korifiv1alpha1.BuildDropletStatus
-			cfTask            korifiv1alpha1.CFTask
+			result             controllerruntime.Result
+			err                error
+			req                controllerruntime.Request
+			dropletRef         string
+			cftaskGetError     error
+			cfappGetError      error
+			cfdropletGetError  error
+			droplet            *korifiv1alpha1.BuildDropletStatus
+			cfTask             korifiv1alpha1.CFTask
+			eiriniTask         eiriniv1.Task
+			eiriniTaskGetError error
 		)
 
 		BeforeEach(func() {
 			cftaskGetError = nil
 			cfappGetError = nil
 			cfdropletGetError = nil
+			eiriniTaskGetError = k8serrors.NewNotFound(schema.GroupResource{}, "not-found")
 			dropletRef = "the-droplet-guid"
 			droplet = &korifiv1alpha1.BuildDropletStatus{
 				Registry: korifiv1alpha1.Registry{
@@ -86,6 +99,15 @@ var _ = Describe("CFTask Controller", func() {
 				Spec: korifiv1alpha1.CFTaskSpec{
 					Command: []string{"echo", "hello"},
 					AppRef:  corev1.LocalObjectReference{Name: "the-app-guid"},
+				},
+			}
+			eiriniTask = eiriniv1.Task{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "the-task-namespace",
+					Name:      cfTask.Name,
+				},
+				Spec: eiriniv1.TaskSpec{
+					Name: cfTask.Name,
 				},
 			}
 			req = controllerruntime.Request{
@@ -121,6 +143,11 @@ var _ = Describe("CFTask Controller", func() {
 						},
 					}
 					return cfdropletGetError
+				case *eiriniv1.Task:
+					Expect(namespacedName.Name).To(Equal("the-task-guid"))
+					*t = eiriniTask
+
+					return eiriniTaskGetError
 				}
 
 				return nil
@@ -145,6 +172,139 @@ var _ = Describe("CFTask Controller", func() {
 			Expect(eiriniTask.Spec.Command).To(ConsistOf("echo", "hello"))
 			Expect(eiriniTask.Spec.MemoryMB).To(BeNumerically("==", 256))
 			Expect(eiriniTask.Spec.DiskMB).To(BeNumerically("==", 128))
+
+			eiriniTaskOwner := metav1.GetControllerOf(eiriniTask)
+			Expect(eiriniTaskOwner).NotTo(BeNil())
+			Expect(eiriniTaskOwner.UID).To(Equal(cfTask.UID))
+		})
+
+		When("setting the owner reference fails", func() {
+			BeforeEach(func() {
+				// setting controller reference on object that is already owned by a controller yields an error
+				eiriniTask.OwnerReferences = []metav1.OwnerReference{{
+					Controller: pointer.Bool(true),
+				}}
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		When("the eirini task exists", func() {
+			BeforeEach(func() {
+				eiriniTaskGetError = nil
+			})
+
+			It("patches the task", func() {
+				Expect(k8sClient.PatchCallCount()).To(Equal(1))
+				_, actualObject, _, _ := k8sClient.PatchArgsForCall(0)
+				actualEiriniTask, ok := actualObject.(*eiriniv1.Task)
+				Expect(ok).To(BeTrue())
+
+				Expect(actualEiriniTask.Name).To(Equal("the-task-guid"))
+				Expect(actualEiriniTask.Namespace).To(Equal("the-task-namespace"))
+				Expect(actualEiriniTask.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
+				Expect(actualEiriniTask.Spec.Image).To(Equal("the-image"))
+				Expect(actualEiriniTask.Spec.Command).To(ConsistOf("echo", "hello"))
+				Expect(actualEiriniTask.Spec.MemoryMB).To(BeNumerically("==", 256))
+				Expect(actualEiriniTask.Spec.DiskMB).To(BeNumerically("==", 128))
+			})
+
+			It("does not record task created event", func() {
+				Expect(eventRecorder.EventfCallCount()).To(BeZero())
+			})
+
+			When("a label exists", func() {
+				BeforeEach(func() {
+					eiriniTask.Labels = map[string]string{"foo": "bar"}
+				})
+
+				It("preserves existing labels", func() {
+					Expect(k8sClient.PatchCallCount()).To(Equal(1))
+					_, actualObject, _, _ := k8sClient.PatchArgsForCall(0)
+					actualEiriniTask, ok := actualObject.(*eiriniv1.Task)
+					Expect(ok).To(BeTrue())
+
+					Expect(actualEiriniTask.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
+					Expect(actualEiriniTask.Labels).To(HaveKeyWithValue("foo", "bar"))
+				})
+			})
+
+			When("the eirini task has started", func() {
+				var now metav1.Time
+
+				BeforeEach(func() {
+					now = metav1.Now()
+
+					meta.SetStatusCondition(&eiriniTask.Status.Conditions, metav1.Condition{
+						Type:               eiriniv1.TaskStartedConditionType,
+						Status:             metav1.ConditionTrue,
+						Reason:             "eirini-task-started",
+						Message:            "eirini task started",
+						LastTransitionTime: now,
+					})
+				})
+
+				It("sets the started condition on the korifi task", func() {
+					startedCondition := meta.FindStatusCondition(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskStartedConditionType)
+					Expect(startedCondition).NotTo(BeNil())
+					Expect(startedCondition.Status).To(Equal(metav1.ConditionTrue))
+					Expect(startedCondition.Reason).To(Equal("eirini-task-started"))
+					Expect(startedCondition.Message).To(Equal("eirini task started"))
+					Expect(startedCondition.LastTransitionTime).To(Equal(now))
+				})
+			})
+
+			When("the eirini task has succeeded", func() {
+				var now metav1.Time
+
+				BeforeEach(func() {
+					now = metav1.Now()
+
+					meta.SetStatusCondition(&eiriniTask.Status.Conditions, metav1.Condition{
+						Type:               eiriniv1.TaskSucceededConditionType,
+						Status:             metav1.ConditionTrue,
+						Reason:             "eirini-task-succeeded",
+						Message:            "eirini task succeeded",
+						LastTransitionTime: now,
+					})
+				})
+
+				It("sets the succeeded condition on the korifi task", func() {
+					succeededCondition := meta.FindStatusCondition(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskSucceededConditionType)
+					Expect(succeededCondition).NotTo(BeNil())
+					Expect(succeededCondition.Status).To(Equal(metav1.ConditionTrue))
+					Expect(succeededCondition.Reason).To(Equal("eirini-task-succeeded"))
+					Expect(succeededCondition.Message).To(Equal("eirini task succeeded"))
+					Expect(succeededCondition.LastTransitionTime).To(Equal(now))
+				})
+			})
+
+			When("the eirini task has failed", func() {
+				var now metav1.Time
+
+				BeforeEach(func() {
+					now = metav1.Now()
+
+					meta.SetStatusCondition(&eiriniTask.Status.Conditions, metav1.Condition{
+						Type:               eiriniv1.TaskFailedConditionType,
+						Status:             metav1.ConditionTrue,
+						Reason:             "eirini-task-failed",
+						Message:            "eirini task failed",
+						LastTransitionTime: now,
+					})
+				})
+
+				It("sets the failed condition on the korifi task", func() {
+					failedCondition := meta.FindStatusCondition(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskFailedConditionType)
+					Expect(failedCondition).NotTo(BeNil())
+					Expect(failedCondition.Status).To(Equal(metav1.ConditionTrue))
+					Expect(failedCondition.Reason).To(Equal("eirini-task-failed"))
+					Expect(failedCondition.Message).To(Equal("eirini task failed"))
+					Expect(failedCondition.LastTransitionTime).To(Equal(now))
+				})
+			})
 		})
 
 		It("emits a normal event for successful reconciliation", func() {
@@ -159,21 +319,27 @@ var _ = Describe("CFTask Controller", func() {
 		})
 
 		It("populates the CFTask Status", func() {
-			Expect(statusWriter.PatchCallCount()).To(Equal(1))
-			_, object, patch, _ := statusWriter.PatchArgsForCall(0)
-			patchBytes, patchErr := patch.Data(object)
-			Expect(patchErr).NotTo(HaveOccurred())
+			task := taskWithPatchedStatus()
 
-			taskStatus := map[string]korifiv1alpha1.CFTaskStatus{}
-			Expect(json.Unmarshal(patchBytes, &taskStatus)).To(Succeed())
-			Expect(taskStatus).To(HaveKey("status"))
+			Expect(task.Status.DiskQuotaMB).To(BeNumerically("==", 128))
+			Expect(task.Status.MemoryMB).To(BeNumerically("==", 256))
+			Expect(task.Status.SequenceID).To(BeNumerically("==", 314))
+			Expect(task.Status.DropletRef.Name).To(Equal("the-droplet-guid"))
+			Expect(meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+		})
 
-			status := taskStatus["status"]
-			Expect(status.DiskQuotaMB).To(BeNumerically("==", 128))
-			Expect(status.MemoryMB).To(BeNumerically("==", 256))
-			Expect(status.SequenceID).To(BeNumerically("==", 314))
-			Expect(status.DropletRef.Name).To(Equal("the-droplet-guid"))
-			Expect(meta.IsStatusConditionTrue(status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+		When("creating the eirini task fails", func() {
+			BeforeEach(func() {
+				k8sClient.CreateReturns(errors.New("create-eirini-task-failure"))
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("still sets the initialized task status condition", func() {
+				Expect(meta.IsStatusConditionTrue(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+			})
 		})
 
 		When("Status.SequenceID has been already set", func() {
@@ -182,7 +348,8 @@ var _ = Describe("CFTask Controller", func() {
 			})
 
 			It("does not update the sequence id", func() {
-				Expect(statusWriter.PatchCallCount()).To(BeZero())
+				task := taskWithPatchedStatus()
+				Expect(task.Status.SequenceID).To(BeEquivalentTo(5))
 			})
 		})
 
@@ -317,18 +484,6 @@ var _ = Describe("CFTask Controller", func() {
 				Expect(eventType).To(Equal("Warning"))
 				Expect(reason).To(Equal("dropletBuildStatusNotSet"))
 				Expect(message).To(ContainSubstring("Current droplet %s from app %s does not have a droplet image"))
-			})
-		})
-
-		When("eirini task already exists with expected metadata.name", func() {
-			BeforeEach(func() {
-				k8sClient.CreateReturns(k8serrors.NewAlreadyExists(schema.GroupResource{}, ""))
-			})
-
-			It("does not requeue", func() {
-				Expect(err).NotTo(HaveOccurred())
-				Expect(result.Requeue).To(BeFalse())
-				Expect(result.RequeueAfter).To(BeZero())
 			})
 		})
 	})

@@ -3,9 +3,9 @@ directories:
 - contents:
   - git:
       commitTitle: Bump go packages
-      sha: 8dfe7187819e59b83b2beee64257cc6a5546c8cb
+      sha: bc26c2f6a16ad7cdb59d4945408cdb9b7f2c2bef
       tags:
-      - v0.3.0-4-g8dfe71878
+      - v0.6.0
     path: eirini-controller
   path: vendor
 kind: LockConfig

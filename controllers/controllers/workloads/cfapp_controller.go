@@ -412,7 +412,6 @@ func (r *CFAppReconciler) createVCAPServicesSecretForApp(ctx context.Context, cf
 func (r *CFAppReconciler) updateStatusAndReturn(ctx context.Context, cfApp *korifiv1alpha1.CFApp, err error) (ctrl.Result, error) {
 	if statusErr := r.Client.Status().Update(ctx, cfApp); statusErr != nil {
 		r.Log.Error(statusErr, "unable to update CFApp status")
-		r.Log.Info(fmt.Sprintf("CFApps status: %+v", cfApp.Status))
 		return ctrl.Result{}, statusErr
 	}
 	return ctrl.Result{}, err
