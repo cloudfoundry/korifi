@@ -295,9 +295,11 @@ var _ = Describe("TaskRepository", func() {
 
 	Describe("List Tasks", func() {
 		var (
-			task1  *korifiv1alpha1.CFTask
-			task2  *korifiv1alpha1.CFTask
-			space2 *korifiv1alpha1.CFSpace
+			cfApp2      *korifiv1alpha1.CFApp
+			task1       *korifiv1alpha1.CFTask
+			task2       *korifiv1alpha1.CFTask
+			space2      *korifiv1alpha1.CFSpace
+			listTaskMsg repositories.ListTaskMessage
 
 			listedTasks []repositories.TaskRecord
 			listErr     error
@@ -305,6 +307,8 @@ var _ = Describe("TaskRepository", func() {
 
 		BeforeEach(func() {
 			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
+			cfApp2 = createApp(space2.Name)
+			listTaskMsg = repositories.ListTaskMessage{}
 
 			task1 = &korifiv1alpha1.CFTask{
 				ObjectMeta: metav1.ObjectMeta{
@@ -328,7 +332,7 @@ var _ = Describe("TaskRepository", func() {
 				Spec: korifiv1alpha1.CFTaskSpec{
 					Command: []string{"echo", "hello"},
 					AppRef: corev1.LocalObjectReference{
-						Name: cfApp.Name,
+						Name: cfApp2.Name,
 					},
 				},
 			}
@@ -336,7 +340,7 @@ var _ = Describe("TaskRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			listedTasks, listErr = taskRepo.ListTasks(ctx, authInfo)
+			listedTasks, listErr = taskRepo.ListTasks(ctx, authInfo, listTaskMsg)
 		})
 
 		It("returs an empty list due to no permissions", func() {
@@ -364,6 +368,47 @@ var _ = Describe("TaskRepository", func() {
 					Expect(listErr).NotTo(HaveOccurred())
 					Expect(listedTasks).To(HaveLen(1))
 					Expect(listedTasks[0].Name).To(Equal(task2.Name))
+				})
+			})
+
+			When("filtering tasks by apps with permissions for both", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+				})
+
+				When("the app1 guid is passed as a filter", func() {
+					BeforeEach(func() {
+						listTaskMsg.AppGUIDs = []string{cfApp.Name}
+					})
+
+					It("lists tasks for that app", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(listedTasks).To(HaveLen(1))
+						Expect(listedTasks[0].Name).To(Equal(task1.Name))
+					})
+				})
+
+				When("the app2 guid is passed as a filter", func() {
+					BeforeEach(func() {
+						listTaskMsg.AppGUIDs = []string{cfApp2.Name}
+					})
+
+					It("lists tasks for that app", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(listedTasks).To(HaveLen(1))
+						Expect(listedTasks[0].Name).To(Equal(task2.Name))
+					})
+				})
+
+				When("filtering by a non-existant app guid", func() {
+					BeforeEach(func() {
+						listTaskMsg.AppGUIDs = []string{"does-not-exist"}
+					})
+
+					It("returns an empty list", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(listedTasks).To(BeEmpty())
+					})
 				})
 			})
 		})

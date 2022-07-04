@@ -47,6 +47,10 @@ type CreateTaskMessage struct {
 	AppGUID   string
 }
 
+type ListTaskMessage struct {
+	AppGUIDs []string
+}
+
 func (m *CreateTaskMessage) toCFTask() korifiv1alpha1.CFTask {
 	guid := uuid.NewString()
 
@@ -158,7 +162,7 @@ func (r *TaskRepo) awaitInitialization(ctx context.Context, userClient client.Wi
 	}
 }
 
-func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info) ([]TaskRecord, error) {
+func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, msg ListTaskMessage) ([]TaskRecord, error) {
 	nsList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
@@ -179,7 +183,7 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to list tasks in namespace %s: %w", ns, apierrors.FromK8sError(err, TaskResourceType))
 		}
-		tasks = append(tasks, taskList.Items...)
+		tasks = append(tasks, filter(taskList.Items, msg.AppGUIDs)...)
 	}
 
 	taskRecords := []TaskRecord{}
@@ -188,6 +192,26 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info) (
 	}
 
 	return taskRecords, nil
+}
+
+func filter(tasks []korifiv1alpha1.CFTask, appGUIDs []string) []korifiv1alpha1.CFTask {
+	if len(appGUIDs) == 0 {
+		return tasks
+	}
+
+	guidMap := map[string]bool{}
+	for _, g := range appGUIDs {
+		guidMap[g] = true
+	}
+
+	var res []korifiv1alpha1.CFTask
+	for _, t := range tasks {
+		if guidMap[t.Spec.AppRef.Name] {
+			res = append(res, t)
+		}
+	}
+
+	return res
 }
 
 func splitCommand(command string) []string {

@@ -26,7 +26,7 @@ const (
 type CFTaskRepository interface {
 	CreateTask(context.Context, authorization.Info, repositories.CreateTaskMessage) (repositories.TaskRecord, error)
 	GetTask(context.Context, authorization.Info, string) (repositories.TaskRecord, error)
-	ListTasks(context.Context, authorization.Info) ([]repositories.TaskRecord, error)
+	ListTasks(context.Context, authorization.Info, repositories.ListTaskMessage) ([]repositories.TaskRecord, error)
 }
 
 type TaskHandler struct {
@@ -65,7 +65,7 @@ func (h *TaskHandler) taskGetHandler(ctx context.Context, logger logr.Logger, au
 }
 
 func (h *TaskHandler) taskListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	tasks, err := h.taskRepo.ListTasks(ctx, authInfo)
+	tasks, err := h.taskRepo.ListTasks(ctx, authInfo, repositories.ListTaskMessage{})
 	if err != nil {
 		logger.Error(err, "failed to list tasks")
 		return nil, err
@@ -103,8 +103,24 @@ func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger,
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
 }
 
+func (h *TaskHandler) appTaskListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	vars := mux.Vars(r)
+	appGUID := vars["appGUID"]
+
+	tasks, err := h.taskRepo.ListTasks(ctx, authInfo, repositories.ListTaskMessage{
+		AppGUIDs: []string{appGUID},
+	})
+	if err != nil {
+		logger.Error(err, "failed to list tasks")
+		return nil, err
+	}
+
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTaskList(tasks, h.serverURL, *r.URL)), nil
+}
+
 func (h *TaskHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(TaskPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.taskGetHandler))
 	router.Path(TaskRoot).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.taskListHandler))
 	router.Path(TasksPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.taskCreateHandler))
+	router.Path(TasksPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.appTaskListHandler))
 }
