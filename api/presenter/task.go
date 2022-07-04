@@ -22,6 +22,7 @@ type TaskResponse struct {
 	UpdatedAt     string        `json:"updated_at"`
 	MemoryMB      int64         `json:"memory_in_mb"`
 	DiskMB        int64         `json:"disk_in_mb"`
+	State         string        `json:"state"`
 }
 
 type TaskLinks struct {
@@ -43,6 +44,7 @@ func ForTask(responseTask repositories.TaskRecord, baseURL url.URL) TaskResponse
 		UpdatedAt:   creationTimestamp,
 		MemoryMB:    responseTask.MemoryMB,
 		DiskMB:      responseTask.DiskMB,
+		State:       responseTask.State,
 		Relationships: Relationships{
 			"app": Relationship{
 				Data: &RelationshipData{

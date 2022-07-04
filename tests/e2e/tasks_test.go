@@ -10,9 +10,10 @@ import (
 
 var _ = Describe("Tasks", func() {
 	var (
-		spaceGUID string
-		appGUID   string
-		resp      *resty.Response
+		spaceGUID   string
+		appGUID     string
+		resp        *resty.Response
+		createdTask taskResource
 	)
 
 	BeforeEach(func() {
@@ -32,6 +33,7 @@ var _ = Describe("Tasks", func() {
 					Command: "echo hello",
 				}).
 				SetPathParam("appGUID", appGUID).
+				SetResult(&createdTask).
 				Post("/v3/apps/{appGUID}/tasks")
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -43,6 +45,7 @@ var _ = Describe("Tasks", func() {
 
 			It("succeeds", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+				Expect(createdTask.State).ToNot(BeEmpty())
 			})
 		})
 
@@ -59,13 +62,9 @@ var _ = Describe("Tasks", func() {
 	})
 
 	Describe("Get a task", func() {
-		var (
-			createdTask resource
-			task        resource
-		)
-
 		BeforeEach(func() {
 			var err error
+
 			createSpaceRole("space_developer", certUserName, spaceGUID)
 			resp, err = certClient.R().
 				SetBody(taskResource{
@@ -77,18 +76,18 @@ var _ = Describe("Tasks", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		JustBeforeEach(func() {
-			var err error
-			resp, err = certClient.R().
-				SetPathParam("taskGUID", createdTask.GUID).
-				SetResult(&task).
-				Get("/v3/tasks/{taskGUID}")
-			Expect(err).NotTo(HaveOccurred())
-		})
-
 		It("succeeds", func() {
-			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-			Expect(task.GUID).To(Equal(createdTask.GUID))
+			Eventually(func(g Gomega) {
+				var task taskResource
+				getResp, err := certClient.R().
+					SetPathParam("taskGUID", createdTask.GUID).
+					SetResult(&task).
+					Get("/v3/tasks/{taskGUID}")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(getResp).To(HaveRestyStatusCode(http.StatusOK))
+				g.Expect(task.GUID).To(Equal(createdTask.GUID))
+				g.Expect(task.State).To(Equal("SUCCEEDED"))
+			}).Should(Succeed())
 		})
 	})
 })
