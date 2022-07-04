@@ -1,0 +1,19 @@
+name: Flake Chore
+description: Log a flake
+title: "[Chore]: "
+labels: [chore,flake]
+body:
+  - type: textarea
+    id: url
+    attributes:
+      label: Build URL
+      description: Paste one or more links to builds that flaked with the new symptom
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Paste test failure logs and/or other information that may help debug the issue.
+    validations:
+      required: true
