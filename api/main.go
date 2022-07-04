@@ -138,7 +138,7 @@ func main() {
 		reporegistry.NewImageBuilder(),
 		reporegistry.NewImagePusher(remote.Write),
 	)
-	taskRepo := repositories.NewTaskRepo(userClientFactory, namespaceRetriever, createTimeout)
+	taskRepo := repositories.NewTaskRepo(userClientFactory, namespaceRetriever, nsPermissions, createTimeout)
 
 	processScaler := actions.NewProcessScaler(appRepo, processRepo)
 	processStats := actions.NewProcessStats(processRepo, podRepo, appRepo)

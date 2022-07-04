@@ -18,13 +18,15 @@ import (
 
 const (
 	TasksPath = "/v3/apps/{appGUID}/tasks"
-	TaskPath  = "/v3/tasks/{taskGUID}"
+	TaskRoot  = "/v3/tasks"
+	TaskPath  = TaskRoot + "/{taskGUID}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFTaskRepository . CFTaskRepository
 type CFTaskRepository interface {
 	CreateTask(context.Context, authorization.Info, repositories.CreateTaskMessage) (repositories.TaskRecord, error)
 	GetTask(context.Context, authorization.Info, string) (repositories.TaskRecord, error)
+	ListTasks(context.Context, authorization.Info) ([]repositories.TaskRecord, error)
 }
 
 type TaskHandler struct {
@@ -62,6 +64,16 @@ func (h *TaskHandler) taskGetHandler(ctx context.Context, logger logr.Logger, au
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
 }
 
+func (h *TaskHandler) taskListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	tasks, err := h.taskRepo.ListTasks(ctx, authInfo)
+	if err != nil {
+		logger.Error(err, "failed to list tasks")
+		return nil, err
+	}
+
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTaskList(tasks, h.serverURL, *r.URL)), nil
+}
+
 func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	vars := mux.Vars(r)
 	appGUID := vars["appGUID"]
@@ -93,5 +105,6 @@ func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger,
 
 func (h *TaskHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(TaskPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.taskGetHandler))
+	router.Path(TaskRoot).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.taskListHandler))
 	router.Path(TasksPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.taskCreateHandler))
 }

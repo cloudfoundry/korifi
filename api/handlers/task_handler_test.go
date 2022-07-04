@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -94,6 +95,9 @@ var _ = Describe("TaskHandler", func() {
                   }
                 }
               },
+              "result": {
+                "failure_reason": null
+              },
               "links": {
                 "self": {
                   "href": "https://api.example.org/v3/tasks/the-task-guid"
@@ -185,6 +189,135 @@ var _ = Describe("TaskHandler", func() {
 		})
 	})
 
+	Describe("GET /v3/tasks", func() {
+		BeforeEach(func() {
+			taskRepo.ListTasksReturns([]repositories.TaskRecord{
+				{
+					Name:              "task-1",
+					GUID:              "guid-1",
+					SequenceID:        3,
+					State:             "SUCCEEDED",
+					MemoryMB:          1024,
+					DiskMB:            1024,
+					DropletGUID:       "droplet-1",
+					CreationTimestamp: time.Date(2016, time.May, 4, 17, 0, 41, 0, time.UTC),
+					AppGUID:           "app1",
+				}, {
+					Name:              "task-2",
+					GUID:              "guid-2",
+					SequenceID:        33,
+					State:             "FAILED",
+					MemoryMB:          1024,
+					DiskMB:            1024,
+					DropletGUID:       "droplet-2",
+					CreationTimestamp: time.Date(2016, time.May, 4, 17, 0, 41, 0, time.UTC),
+					AppGUID:           "app2",
+				},
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/tasks", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the tasks", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK))
+
+			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`
+                {
+                  "pagination": {
+                    "total_results": 2,
+                    "total_pages": 1,
+                    "first": {
+                      "href": "%[1]s/v3/tasks"
+                    },
+                    "last": {
+                      "href": "%[1]s/v3/tasks"
+                    },
+                    "next": null,
+                    "previous": null
+                  },
+                  "resources": [
+                    {
+                      "guid": "guid-1",
+                      "sequence_id": 3,
+                      "name": "task-1",
+                      "state": "SUCCEEDED",
+                      "memory_in_mb": 1024,
+                      "disk_in_mb": 1024,
+                      "result": {
+                        "failure_reason": null
+                      },
+                      "droplet_guid": "droplet-1",
+                      "created_at": "2016-05-04T17:00:41Z",
+                      "updated_at": "2016-05-04T17:00:41Z",
+                      "relationships": {
+                        "app": {
+                          "data": {
+                            "guid": "app1"
+                          }
+                        }
+                      },
+                      "links": {
+                        "self": {
+                          "href": "%[1]s/v3/tasks/guid-1"
+                        },
+                        "app": {
+                          "href": "%[1]s/v3/apps/app1"
+                        },
+                        "droplet": {
+                          "href": "%[1]s/v3/droplets/droplet-1"
+                        }
+                      }
+                    },
+                    {
+                      "guid": "guid-2",
+                      "sequence_id": 33,
+                      "name": "task-2",
+                      "state": "FAILED",
+                      "memory_in_mb": 1024,
+                      "disk_in_mb": 1024,
+                      "result": {
+                        "failure_reason": null
+                      },
+                      "droplet_guid": "droplet-2",
+                      "created_at": "2016-05-04T17:00:41Z",
+                      "updated_at": "2016-05-04T17:00:41Z",
+                      "relationships": {
+                        "app": {
+                          "data": {
+                            "guid": "app2"
+                          }
+                        }
+                      },
+                      "links": {
+                        "self": {
+                          "href": "%[1]s/v3/tasks/guid-2"
+                        },
+                        "app": {
+                          "href": "%[1]s/v3/apps/app2"
+                        },
+                        "droplet": {
+                          "href": "%[1]s/v3/droplets/droplet-2"
+                        }
+                      }
+                    }
+                  ]
+                }
+            `, defaultServerURL)))
+		})
+
+		When("listing tasks fails", func() {
+			BeforeEach(func() {
+				taskRepo.ListTasksReturns(nil, errors.New("list-err"))
+			})
+
+			It("returns an Internal Server Error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
 	Describe("GET /v3/tasks/:task-guid", func() {
 		BeforeEach(func() {
 			taskRepo.GetTaskReturns(repositories.TaskRecord{
@@ -231,6 +364,9 @@ var _ = Describe("TaskHandler", func() {
                     "guid": "app-guid"
                   }
                 }
+              },
+              "result": {
+                "failure_reason": null
               },
               "links": {
                 "self": {

@@ -39,7 +39,7 @@ var _ = Describe("TaskRepository", func() {
 	}
 
 	BeforeEach(func() {
-		taskRepo = repositories.NewTaskRepo(userClientFactory, namespaceRetriever, 2*time.Second)
+		taskRepo = repositories.NewTaskRepo(userClientFactory, namespaceRetriever, nsPerms, 2*time.Second)
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
@@ -289,6 +289,82 @@ var _ = Describe("TaskRepository", func() {
 
 			It("returns an error", func() {
 				Expect(getErr).To(MatchError(ContainSubstring("failed to build user client")))
+			})
+		})
+	})
+
+	Describe("List Tasks", func() {
+		var (
+			task1  *korifiv1alpha1.CFTask
+			task2  *korifiv1alpha1.CFTask
+			space2 *korifiv1alpha1.CFSpace
+
+			listedTasks []repositories.TaskRecord
+			listErr     error
+		)
+
+		BeforeEach(func() {
+			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
+
+			task1 = &korifiv1alpha1.CFTask{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      prefixedGUID("task1"),
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFTaskSpec{
+					Command: []string{"echo", "hello"},
+					AppRef: corev1.LocalObjectReference{
+						Name: cfApp.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), task1)).To(Succeed())
+
+			task2 = &korifiv1alpha1.CFTask{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      prefixedGUID("task2"),
+					Namespace: space2.Name,
+				},
+				Spec: korifiv1alpha1.CFTaskSpec{
+					Command: []string{"echo", "hello"},
+					AppRef: corev1.LocalObjectReference{
+						Name: cfApp.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), task2)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			listedTasks, listErr = taskRepo.ListTasks(ctx, authInfo)
+		})
+
+		It("returs an empty list due to no permissions", func() {
+			Expect(listErr).NotTo(HaveOccurred())
+			Expect(listedTasks).To(BeEmpty())
+		})
+
+		When("the user has the space developer role in space2", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
+			})
+
+			It("lists tasks from that namespace only", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(listedTasks).To(HaveLen(1))
+				Expect(listedTasks[0].Name).To(Equal(task2.Name))
+			})
+
+			When("the user has a useless binding in space1", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, rootNamespaceUserRole.Name, space.Name)
+				})
+
+				It("still lists tasks from that namespace only", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(listedTasks).To(HaveLen(1))
+					Expect(listedTasks[0].Name).To(Equal(task2.Name))
+				})
 			})
 		})
 	})
