@@ -20,6 +20,11 @@ import (
 
 const (
 	TaskResourceType string = "Task"
+
+	TaskStatePending   = "PENDING"
+	TaskStateRunning   = "RUNNING"
+	TaskStateSucceeded = "SUCCEEDED"
+	TaskStateFailed    = "FAILED"
 )
 
 type TaskRecord struct {
@@ -32,6 +37,7 @@ type TaskRecord struct {
 	CreationTimestamp time.Time
 	MemoryMB          int64
 	DiskMB            int64
+	State             string
 }
 
 type CreateTaskMessage struct {
@@ -161,5 +167,19 @@ func taskToRecord(task korifiv1alpha1.CFTask) TaskRecord {
 		MemoryMB:          task.Status.MemoryMB,
 		DiskMB:            task.Status.DiskQuotaMB,
 		DropletGUID:       task.Status.DropletRef.Name,
+		State:             toRecordState(task),
+	}
+}
+
+func toRecordState(task korifiv1alpha1.CFTask) string {
+	switch {
+	case meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskSucceededConditionType):
+		return TaskStateSucceeded
+	case meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskFailedConditionType):
+		return TaskStateFailed
+	case meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskStartedConditionType):
+		return TaskStateRunning
+	default:
+		return TaskStatePending
 	}
 }

@@ -26,6 +26,18 @@ var _ = Describe("TaskRepository", func() {
 		cfApp    *korifiv1alpha1.CFApp
 	)
 
+	setStatusAndUpdate := func(task *korifiv1alpha1.CFTask, conditionTypes ...string) {
+		for _, cond := range conditionTypes {
+			meta.SetStatusCondition(&(task.Status.Conditions), metav1.Condition{
+				Type:    cond,
+				Status:  metav1.ConditionTrue,
+				Reason:  "foo",
+				Message: "bar",
+			})
+		}
+		ExpectWithOffset(1, k8sClient.Status().Update(ctx, task)).To(Succeed())
+	}
+
 	BeforeEach(func() {
 		taskRepo = repositories.NewTaskRepo(userClientFactory, namespaceRetriever, 2*time.Second)
 
@@ -40,24 +52,18 @@ var _ = Describe("TaskRepository", func() {
 			createMessage       repositories.CreateTaskMessage
 			taskRecord          repositories.TaskRecord
 			createErr           error
-			dummyTaskController func(*korifiv1alpha1.CFTask) error
+			dummyTaskController func(*korifiv1alpha1.CFTask)
 			killController      chan bool
 			controllerSync      *sync.WaitGroup
 		)
 
 		BeforeEach(func() {
-			dummyTaskController = func(cft *korifiv1alpha1.CFTask) error {
-				meta.SetStatusCondition(&cft.Status.Conditions, metav1.Condition{
-					Type:    korifiv1alpha1.TaskInitializedConditionType,
-					Status:  metav1.ConditionTrue,
-					Reason:  "foo",
-					Message: "bar",
-				})
+			dummyTaskController = func(cft *korifiv1alpha1.CFTask) {
 				cft.Status.SequenceID = 6
 				cft.Status.MemoryMB = 256
 				cft.Status.DiskQuotaMB = 128
 				cft.Status.DropletRef.Name = cfApp.Spec.CurrentDropletRef.Name
-				return k8sClient.Status().Update(ctx, cft)
+				setStatusAndUpdate(cft, korifiv1alpha1.TaskInitializedConditionType)
 			}
 			controllerSync = &sync.WaitGroup{}
 			controllerSync.Add(1)
@@ -96,7 +102,7 @@ var _ = Describe("TaskRepository", func() {
 							continue
 						}
 
-						Expect(dummyTaskController(cft)).To(Succeed())
+						dummyTaskController(cft)
 						return
 
 					case <-timer.C:
@@ -136,13 +142,12 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
 				Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 				Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
+				Expect(taskRecord.State).To(Equal(repositories.TaskStatePending))
 			})
 
 			When("the task never becomes initialized", func() {
 				BeforeEach(func() {
-					dummyTaskController = func(cft *korifiv1alpha1.CFTask) error {
-						return nil
-					}
+					dummyTaskController = func(cft *korifiv1alpha1.CFTask) {}
 				})
 
 				It("returns an error", func() {
@@ -191,7 +196,7 @@ var _ = Describe("TaskRepository", func() {
 			cfTask.Status.MemoryMB = 256
 			cfTask.Status.DiskQuotaMB = 128
 			cfTask.Status.DropletRef.Name = cfApp.Spec.CurrentDropletRef.Name
-			Expect(k8sClient.Status().Update(ctx, cfTask)).To(Succeed())
+			setStatusAndUpdate(cfTask)
 		})
 
 		JustBeforeEach(func() {
@@ -213,31 +218,9 @@ var _ = Describe("TaskRepository", func() {
 				})
 			})
 
-			When("the task has initialized condition false", func() {
-				BeforeEach(func() {
-					meta.SetStatusCondition(&(cfTask.Status.Conditions), metav1.Condition{
-						Type:    korifiv1alpha1.TaskInitializedConditionType,
-						Status:  metav1.ConditionFalse,
-						Reason:  "foo",
-						Message: "bar",
-					})
-					Expect(k8sClient.Status().Update(ctx, cfTask)).To(Succeed())
-				})
-
-				It("returns a not found error", func() {
-					Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
-				})
-			})
-
 			When("the task is ready", func() {
 				BeforeEach(func() {
-					meta.SetStatusCondition(&(cfTask.Status.Conditions), metav1.Condition{
-						Type:    korifiv1alpha1.TaskInitializedConditionType,
-						Status:  metav1.ConditionTrue,
-						Reason:  "foo",
-						Message: "bar",
-					})
-					Expect(k8sClient.Status().Update(ctx, cfTask)).To(Succeed())
+					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType)
 				})
 
 				It("returns the task", func() {
@@ -251,6 +234,40 @@ var _ = Describe("TaskRepository", func() {
 					Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
 					Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 					Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
+					Expect(taskRecord.State).To(Equal(repositories.TaskStatePending))
+				})
+			})
+
+			When("the task is running", func() {
+				BeforeEach(func() {
+					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
+				})
+
+				It("returns the running task", func() {
+					Expect(getErr).NotTo(HaveOccurred())
+					Expect(taskRecord.State).To(Equal(repositories.TaskStateRunning))
+				})
+			})
+
+			When("the task has succeeded", func() {
+				BeforeEach(func() {
+					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType, korifiv1alpha1.TaskSucceededConditionType)
+				})
+
+				It("returns the succeeded task", func() {
+					Expect(getErr).NotTo(HaveOccurred())
+					Expect(taskRecord.State).To(Equal(repositories.TaskStateSucceeded))
+				})
+			})
+
+			When("the task has failed", func() {
+				BeforeEach(func() {
+					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType, korifiv1alpha1.TaskFailedConditionType)
+				})
+
+				It("returns the failed task", func() {
+					Expect(getErr).NotTo(HaveOccurred())
+					Expect(taskRecord.State).To(Equal(repositories.TaskStateFailed))
 				})
 			})
 		})

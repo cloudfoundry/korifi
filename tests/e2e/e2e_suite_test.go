@@ -108,6 +108,7 @@ type appResource struct {
 type taskResource struct {
 	resource `json:",inline"`
 	Command  string `json:"command,omitempty"`
+	State    string `json:"state,omitempty"`
 }
 
 type typedResource struct {

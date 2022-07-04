@@ -57,6 +57,7 @@ var _ = Describe("TaskHandler", func() {
 				CreationTimestamp: time.Date(2022, 6, 14, 13, 22, 34, 0, time.UTC),
 				MemoryMB:          256,
 				DiskMB:            128,
+				State:             "task-created",
 			}, nil)
 		})
 
@@ -85,6 +86,7 @@ var _ = Describe("TaskHandler", func() {
               "memory_in_mb": 256,
               "disk_in_mb": 128,
               "droplet_guid": "the-droplet-guid",
+              "state": "task-created",
               "relationships": {
                 "app": {
                   "data": {
@@ -195,6 +197,7 @@ var _ = Describe("TaskHandler", func() {
 				CreationTimestamp: time.Date(2022, 6, 21, 11, 11, 55, 0, time.UTC),
 				MemoryMB:          123,
 				DiskMB:            234,
+				State:             "stateful",
 			}, nil)
 
 			var err error
@@ -221,6 +224,7 @@ var _ = Describe("TaskHandler", func() {
               "memory_in_mb": 123,
               "disk_in_mb": 234,
               "droplet_guid": "droplet-guid",
+              "state": "stateful",
               "relationships": {
                 "app": {
                   "data": {
