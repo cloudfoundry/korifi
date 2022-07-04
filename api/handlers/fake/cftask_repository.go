@@ -41,11 +41,12 @@ type CFTaskRepository struct {
 		result1 repositories.TaskRecord
 		result2 error
 	}
-	ListTasksStub        func(context.Context, authorization.Info) ([]repositories.TaskRecord, error)
+	ListTasksStub        func(context.Context, authorization.Info, repositories.ListTaskMessage) ([]repositories.TaskRecord, error)
 	listTasksMutex       sync.RWMutex
 	listTasksArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
+		arg3 repositories.ListTaskMessage
 	}
 	listTasksReturns struct {
 		result1 []repositories.TaskRecord
@@ -191,19 +192,20 @@ func (fake *CFTaskRepository) GetTaskReturnsOnCall(i int, result1 repositories.T
 	}{result1, result2}
 }
 
-func (fake *CFTaskRepository) ListTasks(arg1 context.Context, arg2 authorization.Info) ([]repositories.TaskRecord, error) {
+func (fake *CFTaskRepository) ListTasks(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListTaskMessage) ([]repositories.TaskRecord, error) {
 	fake.listTasksMutex.Lock()
 	ret, specificReturn := fake.listTasksReturnsOnCall[len(fake.listTasksArgsForCall)]
 	fake.listTasksArgsForCall = append(fake.listTasksArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-	}{arg1, arg2})
+		arg3 repositories.ListTaskMessage
+	}{arg1, arg2, arg3})
 	stub := fake.ListTasksStub
 	fakeReturns := fake.listTasksReturns
-	fake.recordInvocation("ListTasks", []interface{}{arg1, arg2})
+	fake.recordInvocation("ListTasks", []interface{}{arg1, arg2, arg3})
 	fake.listTasksMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -217,17 +219,17 @@ func (fake *CFTaskRepository) ListTasksCallCount() int {
 	return len(fake.listTasksArgsForCall)
 }
 
-func (fake *CFTaskRepository) ListTasksCalls(stub func(context.Context, authorization.Info) ([]repositories.TaskRecord, error)) {
+func (fake *CFTaskRepository) ListTasksCalls(stub func(context.Context, authorization.Info, repositories.ListTaskMessage) ([]repositories.TaskRecord, error)) {
 	fake.listTasksMutex.Lock()
 	defer fake.listTasksMutex.Unlock()
 	fake.ListTasksStub = stub
 }
 
-func (fake *CFTaskRepository) ListTasksArgsForCall(i int) (context.Context, authorization.Info) {
+func (fake *CFTaskRepository) ListTasksArgsForCall(i int) (context.Context, authorization.Info, repositories.ListTaskMessage) {
 	fake.listTasksMutex.RLock()
 	defer fake.listTasksMutex.RUnlock()
 	argsForCall := fake.listTasksArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CFTaskRepository) ListTasksReturns(result1 []repositories.TaskRecord, result2 error) {

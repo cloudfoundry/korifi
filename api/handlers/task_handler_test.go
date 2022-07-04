@@ -189,7 +189,12 @@ var _ = Describe("TaskHandler", func() {
 		})
 	})
 
-	Describe("GET /v3/tasks", func() {
+	Describe("Listing tasks", func() {
+		var (
+			expectedBody string
+			reqPath      string
+		)
+
 		BeforeEach(func() {
 			taskRepo.ListTasksReturns([]repositories.TaskRecord{
 				{
@@ -214,25 +219,19 @@ var _ = Describe("TaskHandler", func() {
 					AppGUID:           "app2",
 				},
 			}, nil)
-
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/tasks", nil)
-			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns the tasks", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK))
-
-			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`
+		JustBeforeEach(func() {
+			expectedBody = fmt.Sprintf(`
                 {
                   "pagination": {
                     "total_results": 2,
                     "total_pages": 1,
                     "first": {
-                      "href": "%[1]s/v3/tasks"
+                      "href": "%[1]s%[2]s"
                     },
                     "last": {
-                      "href": "%[1]s/v3/tasks"
+                      "href": "%[1]s%[2]s"
                     },
                     "next": null,
                     "previous": null
@@ -304,16 +303,66 @@ var _ = Describe("TaskHandler", func() {
                     }
                   ]
                 }
-            `, defaultServerURL)))
+            `, defaultServerURL, reqPath)
 		})
 
-		When("listing tasks fails", func() {
+		Describe("GET /v3/tasks", func() {
 			BeforeEach(func() {
-				taskRepo.ListTasksReturns(nil, errors.New("list-err"))
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/tasks", nil)
+				Expect(err).NotTo(HaveOccurred())
+				reqPath = "/v3/tasks"
 			})
 
-			It("returns an Internal Server Error", func() {
-				expectUnknownError()
+			It("returns the tasks", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK))
+				Expect(rr.Body.String()).To(MatchJSON(expectedBody))
+			})
+
+			It("provides an empty list task message to the repository", func() {
+				Expect(taskRepo.ListTasksCallCount()).To(Equal(1))
+				_, _, listMsg := taskRepo.ListTasksArgsForCall(0)
+				Expect(listMsg).To(Equal(repositories.ListTaskMessage{}))
+			})
+
+			When("listing tasks fails", func() {
+				BeforeEach(func() {
+					taskRepo.ListTasksReturns(nil, errors.New("list-err"))
+				})
+
+				It("returns an Internal Server Error", func() {
+					expectUnknownError()
+				})
+			})
+		})
+
+		Describe("GET /v3/apps/{app-guid}/tasks", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/the-app-guid/tasks", nil)
+				Expect(err).NotTo(HaveOccurred())
+				reqPath = "/v3/apps/the-app-guid/tasks"
+			})
+
+			It("returns the tasks", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK))
+				Expect(rr.Body.String()).To(MatchJSON(expectedBody))
+			})
+
+			It("provides a list task message with the app guid to the repository", func() {
+				Expect(taskRepo.ListTasksCallCount()).To(Equal(1))
+				_, _, listMsg := taskRepo.ListTasksArgsForCall(0)
+				Expect(listMsg.AppGUIDs).To(ConsistOf("the-app-guid"))
+			})
+
+			When("listing tasks fails", func() {
+				BeforeEach(func() {
+					taskRepo.ListTasksReturns(nil, errors.New("list-err"))
+				})
+
+				It("returns an Internal Server Error", func() {
+					expectUnknownError()
+				})
 			})
 		})
 	})
