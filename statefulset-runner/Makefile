@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= cloudfoundry/statefulset-runner:latest
+IMG_SSR ?= cloudfoundry/korifi-statefulset-runner:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.23
 
@@ -76,12 +76,12 @@ run: manifests generate fmt vet ## Run a controller from your host.
 
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
-	docker buildx build --load -f ./Dockerfile -t ${IMG} ..
+	docker buildx build --load -f ./Dockerfile -t ${IMG_SSR} ..
 
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
-	docker push ${IMG}
+	docker push ${IMG_SSR}
 
 ##@ Deployment
 
@@ -99,7 +99,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/statefulset-runner=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-statefulset-runner=${IMG_SSR}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy
