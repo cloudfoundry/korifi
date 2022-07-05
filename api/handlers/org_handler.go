@@ -58,6 +58,7 @@ func NewOrgHandler(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDom
 func (h *OrgHandler) orgCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.OrgCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		logger.Info("invalid-payload-for-create-org", "err", err)
 		return nil, err
 	}
 
