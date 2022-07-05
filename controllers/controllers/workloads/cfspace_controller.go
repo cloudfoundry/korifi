@@ -73,7 +73,6 @@ func NewCFSpaceReconciler(
 
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=create;patch;delete;get;list;watch
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=create;patch;delete;get;list;watch
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;create
 
@@ -127,12 +126,6 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	err = propagateSecrets(ctx, r.client, r.log, cfSpace, r.packageRegistrySecretName)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error propagating secrets into CFSpace %s/%s", req.Namespace, req.Name))
-		return ctrl.Result{}, err
-	}
-
-	err = propagateRoles(ctx, r.client, r.log, cfSpace)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error propagating roles into CFSpace %s/%s", req.Namespace, req.Name))
 		return ctrl.Result{}, err
 	}
 
@@ -222,10 +215,6 @@ func (r *CFSpaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&korifiv1alpha1.CFSpace{}).
 		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
-			handler.EnqueueRequestsFromMapFunc(r.enqueueCFSpaceRequests),
-		).
-		Watches(
-			&source.Kind{Type: &rbacv1.Role{}},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueCFSpaceRequests),
 		).
 		Watches(
