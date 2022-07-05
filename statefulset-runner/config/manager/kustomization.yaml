@@ -11,6 +11,6 @@ configMapGenerator:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-- name: cloudfoundry/statefulset-runner
-  newName: cloudfoundry/statefulset-runner
+- name: cloudfoundry/korifi-statefulset-runner
+  newName: cloudfoundry/korifi-statefulset-runner
   newTag: latest
