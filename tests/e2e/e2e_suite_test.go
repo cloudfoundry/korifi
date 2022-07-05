@@ -305,7 +305,7 @@ func createOrgRaw(orgName string) (string, error) {
 		return "", err
 	}
 	if resp.StatusCode() != http.StatusCreated {
-		return "", fmt.Errorf("expected status code %d, got %d", http.StatusCreated, resp.StatusCode())
+		return "", fmt.Errorf("expected status code %d, got %d\n%s", http.StatusCreated, resp.StatusCode(), string(resp.Body()))
 	}
 
 	return org.GUID, nil
