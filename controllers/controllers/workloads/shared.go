@@ -102,39 +102,6 @@ func propagateSecrets(ctx context.Context, client client.Client, log logr.Logger
 	return nil
 }
 
-func propagateRoles(ctx context.Context, kClient client.Client, log logr.Logger, orgOrSpace client.Object) error {
-	roles := new(rbacv1.RoleList)
-	err := kClient.List(ctx, roles, client.InNamespace(orgOrSpace.GetNamespace()))
-	if err != nil {
-		log.Error(err, fmt.Sprintf("Error listing roles from namespace %s", orgOrSpace.GetNamespace()))
-		return err
-	}
-
-	for _, binding := range roles.Items {
-		newRole := &rbacv1.Role{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      binding.Name,
-				Namespace: orgOrSpace.GetName(),
-			},
-		}
-		b := binding
-		result, err := controllerutil.CreateOrPatch(ctx, kClient, newRole, func() error {
-			newRole.Labels = b.Labels
-			newRole.Annotations = b.Annotations
-			newRole.Rules = b.Rules
-			return nil
-		})
-		if err != nil {
-			log.Error(err, fmt.Sprintf("Error creating/patching role  %s/%s", newRole.Namespace, newRole.Name))
-			return err
-		}
-
-		log.Info(fmt.Sprintf("Role %s/%s %s", newRole.Namespace, newRole.Name, result))
-	}
-
-	return nil
-}
-
 func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.Logger, orgOrSpace client.Object) error {
 	var (
 		result controllerutil.OperationResult

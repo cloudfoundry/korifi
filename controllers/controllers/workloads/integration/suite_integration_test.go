@@ -229,11 +229,10 @@ func createSecret(ctx context.Context, k8sClient client.Client, name string, nam
 	return secret
 }
 
-func createRole(ctx context.Context, k8sClient client.Client, name string, namespace string, rules []rbacv1.PolicyRule) *rbacv1.Role {
-	role := &rbacv1.Role{
+func createClusterRole(ctx context.Context, k8sClient client.Client, name string, rules []rbacv1.PolicyRule) *rbacv1.ClusterRole {
+	role := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name: name,
 		},
 		Rules: rules,
 	}
@@ -241,7 +240,7 @@ func createRole(ctx context.Context, k8sClient client.Client, name string, names
 	return role
 }
 
-func createRoleBinding(ctx context.Context, k8sClient client.Client, roleBindingName, subjectName, roleReference, namespace string, annotations map[string]string) rbacv1.RoleBinding {
+func createClusterRoleBinding(ctx context.Context, k8sClient client.Client, roleBindingName, subjectName, roleReference, namespace string, annotations map[string]string) rbacv1.RoleBinding {
 	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        roleBindingName,
@@ -253,7 +252,7 @@ func createRoleBinding(ctx context.Context, k8sClient client.Client, roleBinding
 			Name: subjectName,
 		}},
 		RoleRef: rbacv1.RoleRef{
-			Kind: "Role",
+			Kind: "ClusterRole",
 			Name: roleReference,
 		},
 	}

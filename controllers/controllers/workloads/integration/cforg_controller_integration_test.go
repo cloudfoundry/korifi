@@ -30,8 +30,8 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		orgGUID             string
 		cfOrg               korifiv1alpha1.CFOrg
 		imageRegistrySecret *v1.Secret
-		role1               *rbacv1.Role
-		role2               *rbacv1.Role
+		role1               *rbacv1.ClusterRole
+		role2               *rbacv1.ClusterRole
 		rules1              []rbacv1.PolicyRule
 		rules2              []rbacv1.PolicyRule
 		username            string
@@ -51,7 +51,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				ResourceNames: []string{"eirini-workloads-app-psp"},
 			},
 		}
-		role1 = createRole(testCtx, k8sClient, PrefixedGUID("role"), rootNamespace.Name, rules1)
+		role1 = createClusterRole(testCtx, k8sClient, PrefixedGUID("clusterrole"), rules1)
 		rules2 = []rbacv1.PolicyRule{
 			{
 				Verbs:     []string{"patch"},
@@ -59,14 +59,14 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				Resources: []string{"lrps/status"},
 			},
 		}
-		role2 = createRole(testCtx, k8sClient, PrefixedGUID("role"), rootNamespace.Name, rules2)
+		role2 = createClusterRole(testCtx, k8sClient, PrefixedGUID("role"), rules2)
 
 		username = PrefixedGUID("user")
-		roleBinding = createRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding"), username, role1.Name, rootNamespace.Name, map[string]string{})
+		roleBinding = createClusterRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding"), username, role1.Name, rootNamespace.Name, map[string]string{})
 
 		username2 := PrefixedGUID("user2")
 		annotations := map[string]string{"cloudfoundry.org/propagate-cf-role": "false"}
-		roleBinding2 = createRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding2"), username2, role1.Name, rootNamespace.Name, annotations)
+		roleBinding2 = createClusterRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding2"), username2, role1.Name, rootNamespace.Name, annotations)
 
 		orgGUID = PrefixedGUID("cf-org")
 		cfOrg = korifiv1alpha1.CFOrg{
@@ -118,27 +118,6 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
-		It("propagates the roles from root-ns to org namespace", func() {
-			Eventually(func(g Gomega) {
-				var createdRoles rbacv1.RoleList
-				g.Expect(k8sClient.List(testCtx, &createdRoles, client.InNamespace(cfOrg.Name))).To(Succeed())
-				g.Expect(createdRoles.Items).To(ContainElements(
-					MatchFields(IgnoreExtras, Fields{
-						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
-							"Name": Equal(role1.Name),
-						}),
-						"Rules": Equal(rules1),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
-							"Name": Equal(role2.Name),
-						}),
-						"Rules": Equal(rules2),
-					}),
-				))
-			}).Should(Succeed())
-		})
-
 		It("propagates the role-bindings from root-ns to org namespace", func() {
 			Eventually(func(g Gomega) error {
 				var createdRoleBinding rbacv1.RoleBinding
@@ -181,75 +160,6 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		})
 	})
 
-	When("roles are added/updated in root-ns after CFOrg creation", func() {
-		var (
-			rules3      []rbacv1.PolicyRule
-			role3       *rbacv1.Role
-			updatedRole *rbacv1.Role
-		)
-		BeforeEach(func() {
-			Expect(k8sClient.Create(testCtx, &cfOrg)).To(Succeed())
-			Eventually(func(g Gomega) {
-				var createdOrg korifiv1alpha1.CFOrg
-				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Namespace: rootNamespace.Name, Name: orgGUID}, &createdOrg)).To(Succeed())
-				g.Expect(meta.IsStatusConditionTrue(createdOrg.Status.Conditions, "Ready")).To(BeTrue())
-			}, 20*time.Second).Should(Succeed())
-
-			rules3 = []rbacv1.PolicyRule{
-				{
-					Verbs:     []string{"update"},
-					APIGroups: []string{"eirini.cloudfoundry.org"},
-					Resources: []string{"lrps/status"},
-				},
-			}
-			role3 = createRole(testCtx, k8sClient, PrefixedGUID("role"), rootNamespace.Name, rules3)
-
-			updatedRole = role2.DeepCopy()
-			updatedRole.Rules = append(updatedRole.Rules, rbacv1.PolicyRule{
-				Verbs:     []string{"create"},
-				APIGroups: []string{"eirini.cloudfoundry.org"},
-				Resources: []string{"lrps"},
-			})
-			Expect(k8sClient.Patch(testCtx, updatedRole, client.MergeFrom(role2)))
-		})
-
-		It("sets the CFOrg status GUID", func() {
-			Eventually(func(g Gomega) {
-				var latestOrg korifiv1alpha1.CFOrg
-				err := k8sClient.Get(testCtx, types.NamespacedName{Namespace: rootNamespace.Name, Name: orgGUID}, &latestOrg)
-				g.Expect(err).To(BeNil())
-				g.Expect(latestOrg.Status.GUID).To(Equal(cfOrg.ObjectMeta.Name))
-			}, 5*time.Second).Should(Succeed())
-		})
-
-		It("propagates the role changes to org namespace", func() {
-			Eventually(func(g Gomega) {
-				var createdRoles rbacv1.RoleList
-				g.Expect(k8sClient.List(testCtx, &createdRoles, client.InNamespace(cfOrg.Name))).To(Succeed())
-				g.Expect(createdRoles.Items).To(ContainElements(
-					MatchFields(IgnoreExtras, Fields{
-						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
-							"Name": Equal(role1.Name),
-						}),
-						"Rules": Equal(rules1),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
-							"Name": Equal(role2.Name),
-						}),
-						"Rules": Equal(updatedRole.Rules),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
-							"Name": Equal(role3.Name),
-						}),
-						"Rules": Equal(rules3),
-					}),
-				))
-			}).Should(Succeed())
-		})
-	})
-
 	When("role-bindings are added/updated in root-ns after CFOrg creation", func() {
 		var roleBinding3 rbacv1.RoleBinding
 		BeforeEach(func() {
@@ -260,7 +170,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				g.Expect(meta.IsStatusConditionTrue(createdOrg.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
-			roleBinding3 = createRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding"), username, role2.Name, rootNamespace.Name, map[string]string{})
+			roleBinding3 = createClusterRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding"), username, role2.Name, rootNamespace.Name, map[string]string{})
 		})
 
 		It("propagates the new role-binding to org namespace", func() {

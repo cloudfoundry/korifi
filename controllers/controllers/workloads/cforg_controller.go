@@ -65,7 +65,6 @@ const (
 
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=create;patch;delete;get;list;watch
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=create;patch;delete;get;list;watch
 
 /* These rbac annotations are not used directly by this controller.
@@ -141,12 +140,6 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	err = propagateRoles(ctx, r.client, r.log, cfOrg)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error propagating roles into CFOrg %s/%s", req.Namespace, req.Name))
-		return ctrl.Result{}, err
-	}
-
 	err = reconcileRoleBindings(ctx, r.client, r.log, cfOrg)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error propagating role-bindings into CFOrg %s/%s", req.Namespace, req.Name))
@@ -187,10 +180,6 @@ func (r *CFOrgReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&korifiv1alpha1.CFOrg{}).
 		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
-			handler.EnqueueRequestsFromMapFunc(r.enqueueCFOrgRequests),
-		).
-		Watches(
-			&source.Kind{Type: &rbacv1.Role{}},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueCFOrgRequests),
 		).
 		Watches(
