@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/onsi/ginkgo/v2"
@@ -71,6 +72,10 @@ func E2EFailHandler(correlationId func() string) func(string, ...int) {
 	}
 }
 
+func fullLogOnErr() bool {
+	return os.Getenv("FULL_LOG_ON_ERR") != ""
+}
+
 func printPodsLogs(clientset kubernetes.Interface, podContainerDescriptors []podContainerDescriptor) {
 	for _, desc := range podContainerDescriptors {
 		pods, err := getPods(clientset, desc.Namespace, desc.LabelKey, desc.LabelValue)
@@ -94,7 +99,7 @@ func printPodsLogs(clientset kubernetes.Interface, podContainerDescriptors []pod
 				pod.Name,
 				logTailLines,
 			)
-			if desc.CorrelationId != "" {
+			if !fullLogOnErr() && desc.CorrelationId != "" {
 				logHeader = fmt.Sprintf(
 					"Logs for pod %q with correlation ID %q (last %d lines)",
 					pod.Name,
@@ -136,7 +141,7 @@ func getSinglePodLog(clientset kubernetes.Interface, pod corev1.Pod, container, 
 	logScanner := bufio.NewScanner(logStream)
 
 	for logScanner.Scan() {
-		if strings.Contains(logScanner.Text(), correlationId) {
+		if fullLogOnErr() || strings.Contains(logScanner.Text(), correlationId) {
 			logBuf.WriteString(logScanner.Text() + "\n")
 		}
 	}
