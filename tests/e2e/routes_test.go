@@ -333,7 +333,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is a space developer in the space", func() {
 			BeforeEach(func() {
-				appGUID = pushTestApp(spaceGUID, defaultAppBitsFile)
+				appGUID = pushTestApp(spaceGUID, appBitsFile)
 				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
