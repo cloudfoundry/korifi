@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -10,6 +11,7 @@ import (
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,7 +27,6 @@ import (
 const (
 	CFAppRevisionKey   = "korifi.cloudfoundry.org/app-rev"
 	CFAppRevisionValue = "1"
-	CFAppStoppedState  = "STOPPED"
 )
 
 var _ = Describe("AppRepository", func() {
@@ -559,9 +560,8 @@ var _ = Describe("AppRepository", func() {
 
 	Describe("CreateOrPatchAppEnvVars", func() {
 		const (
-			testAppName = "some-app-name"
-			key1        = "KEY1"
-			key2        = "KEY2"
+			key1 = "KEY1"
+			key2 = "KEY2"
 		)
 
 		var (
@@ -907,7 +907,7 @@ var _ = Describe("AppRepository", func() {
 			envVars      map[string]string
 			secretName   string
 			appGUID      string
-			appEnv       map[string]string
+			appEnvRecord AppEnvRecord
 			getAppEnvErr error
 		)
 
@@ -928,36 +928,140 @@ var _ = Describe("AppRepository", func() {
 				StringData: envVars,
 			}
 
-			Expect(
-				k8sClient.Create(testCtx, secret),
-			).To(Succeed())
+			Expect(k8sClient.Create(testCtx, secret)).To(Succeed())
 
 			appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms)
 		})
 
 		JustBeforeEach(func() {
-			ogCFApp := cfApp.DeepCopy()
-			cfApp.Spec.EnvSecretName = secretName
-			Expect(
-				k8sClient.Patch(testCtx, cfApp, client.MergeFrom(ogCFApp)),
-			).To(Succeed())
-
-			appEnv, getAppEnvErr = appRepo.GetAppEnv(testCtx, authInfo, appGUID)
+			appEnvRecord, getAppEnvErr = appRepo.GetAppEnv(testCtx, authInfo, appGUID)
 		})
 
 		When("the user can read secrets in the space", func() {
 			BeforeEach(func() {
+				ogCFApp := cfApp.DeepCopy()
+				cfApp.Spec.EnvSecretName = secretName
+				Expect(k8sClient.Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("returns the env vars stored on the secret", func() {
 				Expect(getAppEnvErr).NotTo(HaveOccurred())
-				Expect(appEnv).To(Equal(envVars))
+				Expect(appEnvRecord.AppGUID).To(Equal(cfApp.Name))
+				Expect(appEnvRecord.SpaceGUID).To(Equal(cfApp.Namespace))
+				Expect(appEnvRecord.EnvironmentVariables).To(Equal(envVars))
+				Expect(appEnvRecord.SystemEnv).To(BeEmpty())
+			})
+
+			When("the app has a service-binding secret", func() {
+				var (
+					vcapServiceSecretDataByte map[string][]byte
+					vcapServiceSecretData     map[string]string
+					vcapServiceDataPresenter  *env.VcapServicesPresenter
+					err                       error
+				)
+
+				BeforeEach(func() {
+					vcapServicesSecretName := prefixedGUID("vcap-secret")
+					vcapServiceSecretDataByte, err = generateVcapServiceSecretDataByte()
+					Expect(err).NotTo(HaveOccurred())
+					vcapServiceSecretData = asMapOfStrings(vcapServiceSecretDataByte)
+					vcapServiceDataPresenter = new(env.VcapServicesPresenter)
+					err = json.Unmarshal(vcapServiceSecretDataByte["VCAP_SERVICES"], vcapServiceDataPresenter)
+					Expect(err).NotTo(HaveOccurred())
+
+					vcapSecret := &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      vcapServicesSecretName,
+							Namespace: space.Name,
+						},
+						StringData: vcapServiceSecretData,
+					}
+					Expect(k8sClient.Create(testCtx, vcapSecret)).To(Succeed())
+
+					ogCFApp := cfApp.DeepCopy()
+					cfApp.Status.VCAPServicesSecretName = vcapServicesSecretName
+					Expect(k8sClient.Status().Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+				})
+
+				It("returns the env vars stored on the secret", func() {
+					Expect(getAppEnvErr).NotTo(HaveOccurred())
+					Expect(appEnvRecord.EnvironmentVariables).To(Equal(envVars))
+
+					Expect(appEnvRecord.SystemEnv).NotTo(BeEmpty())
+					Expect(appEnvRecord.SystemEnv["VCAP_SERVICES"]).To(Equal(vcapServiceDataPresenter))
+				})
+			})
+
+			When("the app has a service-binding secret with empty VCAP_SERVICES data", func() {
+				BeforeEach(func() {
+					vcapServicesSecretName := prefixedGUID("vcap-secret")
+					vcapSecret := &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      vcapServicesSecretName,
+							Namespace: space.Name,
+						},
+						StringData: map[string]string{
+							"VCAP_SERVICES": "{}",
+						},
+					}
+					Expect(k8sClient.Create(testCtx, vcapSecret)).To(Succeed())
+
+					ogCFApp := cfApp.DeepCopy()
+					cfApp.Status.VCAPServicesSecretName = vcapServicesSecretName
+					Expect(k8sClient.Status().Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+				})
+
+				It("return an empty record for system env variables", func() {
+					Expect(getAppEnvErr).NotTo(HaveOccurred())
+					Expect(appEnvRecord.SystemEnv).To(BeEmpty())
+				})
+			})
+
+			When("the app has a service-binding secret with missing VCAP_SERVICES data", func() {
+				BeforeEach(func() {
+					vcapServicesSecretName := prefixedGUID("vcap-secret")
+					vcapSecret := &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      vcapServicesSecretName,
+							Namespace: space.Name,
+						},
+					}
+					Expect(k8sClient.Create(testCtx, vcapSecret)).To(Succeed())
+
+					ogCFApp := cfApp.DeepCopy()
+					cfApp.Status.VCAPServicesSecretName = vcapServicesSecretName
+					Expect(k8sClient.Status().Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+				})
+
+				It("return an empty record for system env variables", func() {
+					Expect(getAppEnvErr).NotTo(HaveOccurred())
+					Expect(appEnvRecord.SystemEnv).To(BeEmpty())
+				})
 			})
 
 			When("the EnvSecret doesn't exist", func() {
 				BeforeEach(func() {
 					secretName = "doIReallyExist"
+
+					ogCFApp := cfApp.DeepCopy()
+					cfApp.Spec.EnvSecretName = secretName
+					Expect(k8sClient.Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+				})
+
+				It("errors", func() {
+					Expect(getAppEnvErr).To(MatchError(ContainSubstring("Secret")))
+				})
+			})
+
+			When("the VCAPService secret doesn't exist", func() {
+				BeforeEach(func() {
+					vcapServicesSecretName := "doIReallyExist"
+
+					ogCFApp := cfApp.DeepCopy()
+					cfApp.Status.VCAPServicesSecretName = vcapServicesSecretName
+					Expect(k8sClient.Status().Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
 				})
 
 				It("errors", func() {
@@ -969,10 +1073,14 @@ var _ = Describe("AppRepository", func() {
 		When("EnvSecretName is blank", func() {
 			BeforeEach(func() {
 				secretName = ""
+
+				ogCFApp := cfApp.DeepCopy()
+				cfApp.Spec.EnvSecretName = secretName
+				Expect(k8sClient.Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
 			})
 
 			It("returns an empty map", func() {
-				Expect(appEnv).To(BeEmpty())
+				Expect(appEnvRecord.EnvironmentVariables).To(BeEmpty())
 			})
 		})
 
@@ -987,9 +1095,8 @@ var _ = Describe("AppRepository", func() {
 				appGUID = "i don't exist"
 			})
 			It("returns an error", func() {
-				_, err := appRepo.GetAppEnv(testCtx, authInfo, "i don't exist")
-				Expect(err).To(HaveOccurred())
-				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				Expect(getAppEnvErr).To(HaveOccurred())
+				Expect(getAppEnvErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})
@@ -1034,6 +1141,37 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 	Expect(k8sClient.Status().Update(context.Background(), cfApp)).To(Succeed())
 
 	return cfApp
+}
+
+func generateVcapServiceSecretDataByte() (map[string][]byte, error) {
+	serviceDetails := env.ServiceDetails{
+		Label:        "user-provided",
+		Name:         "myupsi",
+		Tags:         nil,
+		InstanceGUID: "9779c01b-4b03-4a72-93c2-aae2ad4c75b2",
+		InstanceName: "myupsi",
+		BindingGUID:  "73f68d28-4602-47a3-8110-74ca991d5032",
+		BindingName:  nil,
+		Credentials: map[string]string{
+			"foo": "bar",
+		},
+		SyslogDrainURL: nil,
+		VolumeMounts:   nil,
+	}
+
+	vcapServicesData, err := json.Marshal(env.VcapServicesPresenter{
+		UserProvided: []env.ServiceDetails{
+			serviceDetails,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	secretData := map[string][]byte{}
+	secretData["VCAP_SERVICES"] = vcapServicesData
+
+	return secretData, nil
 }
 
 func asMapOfStrings(data map[string][]byte) map[string]string {

@@ -2723,7 +2723,13 @@ var _ = Describe("AppHandler", func() {
 
 	Describe("the GET /v3/apps/:guid/env endpoint", func() {
 		BeforeEach(func() {
-			appRepo.GetAppEnvReturns(map[string]string{"VAR": "VAL"}, nil)
+			appEnvRecord := repositories.AppEnvRecord{
+				AppGUID:              appGUID,
+				SpaceGUID:            spaceGUID,
+				EnvironmentVariables: map[string]string{"VAR": "VAL"},
+				SystemEnv:            map[string]interface{}{},
+			}
+			appRepo.GetAppEnvReturns(appEnvRecord, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/env", nil)
@@ -2757,7 +2763,7 @@ var _ = Describe("AppHandler", func() {
 
 		When("there is an error fetching the app env", func() {
 			BeforeEach(func() {
-				appRepo.GetAppEnvReturns(nil, errors.New("unknown!"))
+				appRepo.GetAppEnvReturns(repositories.AppEnvRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {

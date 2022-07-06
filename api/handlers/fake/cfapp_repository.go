@@ -54,7 +54,7 @@ type CFAppRepository struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
-	GetAppEnvStub        func(context.Context, authorization.Info, string) (map[string]string, error)
+	GetAppEnvStub        func(context.Context, authorization.Info, string) (repositories.AppEnvRecord, error)
 	getAppEnvMutex       sync.RWMutex
 	getAppEnvArgsForCall []struct {
 		arg1 context.Context
@@ -62,11 +62,11 @@ type CFAppRepository struct {
 		arg3 string
 	}
 	getAppEnvReturns struct {
-		result1 map[string]string
+		result1 repositories.AppEnvRecord
 		result2 error
 	}
 	getAppEnvReturnsOnCall map[int]struct {
-		result1 map[string]string
+		result1 repositories.AppEnvRecord
 		result2 error
 	}
 	ListAppsStub        func(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
@@ -328,7 +328,7 @@ func (fake *CFAppRepository) GetAppReturnsOnCall(i int, result1 repositories.App
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) GetAppEnv(arg1 context.Context, arg2 authorization.Info, arg3 string) (map[string]string, error) {
+func (fake *CFAppRepository) GetAppEnv(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.AppEnvRecord, error) {
 	fake.getAppEnvMutex.Lock()
 	ret, specificReturn := fake.getAppEnvReturnsOnCall[len(fake.getAppEnvArgsForCall)]
 	fake.getAppEnvArgsForCall = append(fake.getAppEnvArgsForCall, struct {
@@ -355,7 +355,7 @@ func (fake *CFAppRepository) GetAppEnvCallCount() int {
 	return len(fake.getAppEnvArgsForCall)
 }
 
-func (fake *CFAppRepository) GetAppEnvCalls(stub func(context.Context, authorization.Info, string) (map[string]string, error)) {
+func (fake *CFAppRepository) GetAppEnvCalls(stub func(context.Context, authorization.Info, string) (repositories.AppEnvRecord, error)) {
 	fake.getAppEnvMutex.Lock()
 	defer fake.getAppEnvMutex.Unlock()
 	fake.GetAppEnvStub = stub
@@ -368,28 +368,28 @@ func (fake *CFAppRepository) GetAppEnvArgsForCall(i int) (context.Context, autho
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFAppRepository) GetAppEnvReturns(result1 map[string]string, result2 error) {
+func (fake *CFAppRepository) GetAppEnvReturns(result1 repositories.AppEnvRecord, result2 error) {
 	fake.getAppEnvMutex.Lock()
 	defer fake.getAppEnvMutex.Unlock()
 	fake.GetAppEnvStub = nil
 	fake.getAppEnvReturns = struct {
-		result1 map[string]string
+		result1 repositories.AppEnvRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) GetAppEnvReturnsOnCall(i int, result1 map[string]string, result2 error) {
+func (fake *CFAppRepository) GetAppEnvReturnsOnCall(i int, result1 repositories.AppEnvRecord, result2 error) {
 	fake.getAppEnvMutex.Lock()
 	defer fake.getAppEnvMutex.Unlock()
 	fake.GetAppEnvStub = nil
 	if fake.getAppEnvReturnsOnCall == nil {
 		fake.getAppEnvReturnsOnCall = make(map[int]struct {
-			result1 map[string]string
+			result1 repositories.AppEnvRecord
 			result2 error
 		})
 	}
 	fake.getAppEnvReturnsOnCall[i] = struct {
-		result1 map[string]string
+		result1 repositories.AppEnvRecord
 		result2 error
 	}{result1, result2}
 }
