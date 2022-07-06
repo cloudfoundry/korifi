@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,10 +18,16 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	reporegistry "code.cloudfoundry.org/korifi/api/repositories/registry"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/sdk/resource"
+	tracesdk "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
@@ -295,6 +302,24 @@ func main() {
 		).Middleware,
 	)
 
+	tp, err := jaegerTracerProvider("jaeger:4317")
+	if err != nil {
+		log.Fatal(err)
+	}
+	otel.SetTracerProvider(tp)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Cleanly shutdown and flush telemetry when the application exits.
+	defer func(ctx context.Context) {
+		// Do not make the application hang when it is shutdown.
+		ctx, cancel = context.WithTimeout(ctx, time.Second*5)
+		defer cancel()
+		if err := tp.Shutdown(ctx); err != nil {
+			log.Fatal(err)
+		}
+	}(ctx)
+
 	portString := fmt.Sprintf(":%v", config.InternalPort)
 	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")
 	if tlsFound {
@@ -302,7 +327,7 @@ func main() {
 		log.Fatal(http.ListenAndServeTLS(portString, path.Join(tlsPath, "tls.crt"), path.Join(tlsPath, "tls.key"), router))
 	} else {
 		log.Println("Listening without TLS on ", portString)
-		log.Fatal(http.ListenAndServe(portString, router))
+		log.Fatal(http.ListenAndServe(portString, otelhttp.NewHandler(router, "server")))
 	}
 }
 
@@ -310,4 +335,24 @@ func wireIdentityProvider(client client.Client, restConfig *rest.Config) authori
 	tokenReviewer := authorization.NewTokenReviewer(client)
 	certInspector := authorization.NewCertInspector(restConfig)
 	return authorization.NewCertTokenIdentityProvider(tokenReviewer, certInspector)
+}
+
+func jaegerTracerProvider(url string) (*tracesdk.TracerProvider, error) {
+	// Create the Jaeger exporter
+	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(url)))
+	if err != nil {
+		return nil, err
+	}
+	tp := tracesdk.NewTracerProvider(
+		// Always be sure to batch in production.
+		tracesdk.WithBatcher(exp),
+		// Record information about this application in a Resource.
+		tracesdk.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("korifi-api"),
+			attribute.String("environment", "kieron"),
+			attribute.Int64("ID", 1),
+		)),
+	)
+	return tp, nil
 }
