@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -57,13 +58,13 @@ func (h *ServiceBindingHandler) createHandler(ctx context.Context, logger logr.L
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
-		logger.Error(err, "failed to get %s", repositories.AppResourceType)
+		logger.Error(err, fmt.Sprintf("failed to get %s", repositories.AppResourceType))
 		return nil, err
 	}
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, payload.Relationships.ServiceInstance.Data.GUID)
 	if err != nil {
-		logger.Error(err, "failed to get %s", repositories.ServiceInstanceResourceType)
+		logger.Error(err, fmt.Sprintf("failed to get %s", repositories.ServiceInstanceResourceType))
 		return nil, err
 	}
 
@@ -114,7 +115,7 @@ func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Log
 
 	serviceBindingList, err := h.serviceBindingRepo.ListServiceBindings(ctx, authInfo, listFilter.ToMessage())
 	if err != nil {
-		logger.Error(err, "failed to list %s", repositories.ServiceBindingResourceType)
+		logger.Error(err, fmt.Sprintf("failed to list %s", repositories.ServiceBindingResourceType))
 		return nil, err
 	}
 
@@ -128,7 +129,7 @@ func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Log
 
 		appRecords, err = h.appRepo.ListApps(ctx, authInfo, listAppsMessage)
 		if err != nil {
-			logger.Error(err, "failed to list %s", repositories.AppResourceType)
+			logger.Error(err, fmt.Sprintf("failed to list %s", repositories.AppResourceType))
 			return nil, err
 		}
 	}
