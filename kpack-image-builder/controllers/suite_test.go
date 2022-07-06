@@ -83,7 +83,7 @@ var _ = BeforeSuite(func() {
 		ErrorIfCRDPathMissing: true,
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
-				filepath.Join("..", "..", "dependencies", "kpack-release-0.5.2.yaml"),
+				filepath.Join("..", "..", "dependencies", "kpack-release-0.6.0.yaml"),
 			},
 		},
 	}

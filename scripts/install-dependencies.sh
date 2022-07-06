@@ -67,7 +67,7 @@ echo "*******************"
 echo "Installing Kpack"
 echo "*******************"
 
-kubectl apply -f "${DEP_DIR}/kpack-release-0.5.2.yaml"
+kubectl apply -f "${DEP_DIR}/kpack-release-0.6.0.yaml"
 
 echo "*******************"
 echo "Configuring Kpack"

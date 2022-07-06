@@ -8,4 +8,4 @@ spec:
   - image: gcr.io/paketo-buildpacks/nodejs:0.13
   - image: gcr.io/paketo-buildpacks/ruby
   - image: gcr.io/paketo-buildpacks/procfile
-  - image: gcr.io/paketo-buildpacks/go:1.5.0
+  - image: gcr.io/paketo-buildpacks/go
