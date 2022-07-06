@@ -177,7 +177,7 @@ kubectl apply -f dependencies/cert-manager.yaml
 [kpack](https://github.com/pivotal/kpack) powers our source-to-image build process.
 
 ```sh
-kubectl apply -f dependencies/kpack-release-0.5.2.yaml
+kubectl apply -f dependencies/kpack-release-0.6.0.yaml
 ```
 
 Ensure the kpack CRDs are ready:
