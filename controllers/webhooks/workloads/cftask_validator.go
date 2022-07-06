@@ -23,18 +23,22 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-const MissingRequredFieldErrorType = "MissingRequiredFieldError"
+const (
+	MissingRequredFieldErrorType    = "MissingRequiredFieldError"
+	CancelationNotPossibleErrorType = "CancelaionNotPossibleError"
+)
 
 // log is for logging in this package.
 var cftasklog = logf.Log.WithName("cftask-resource")
 
-//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cftask,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cftasks,verbs=create,versions=v1alpha1,name=vcftask.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cftask,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cftasks,verbs=create;update,versions=v1alpha1,name=vcftask.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFTaskValidator struct{}
 
@@ -79,6 +83,32 @@ func (v *CFTaskValidator) ValidateCreate(ctx context.Context, obj runtime.Object
 }
 
 func (v *CFTaskValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, obj runtime.Object) error {
+	newTask, ok := obj.(*v1alpha1.CFTask)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", obj))
+	}
+
+	cftasklog.Info("validate task update", "namespace", newTask.Namespace, "name", newTask.Name)
+
+	oldTask, ok := oldObj.(*v1alpha1.CFTask)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", oldObj))
+	}
+
+	if !newTask.Spec.Canceled || oldTask.Spec.Canceled {
+		return nil
+	}
+
+	taskSucceeded := meta.IsStatusConditionTrue(newTask.Status.Conditions, v1alpha1.TaskSucceededConditionType)
+	taskFailed := meta.IsStatusConditionTrue(newTask.Status.Conditions, v1alpha1.TaskFailedConditionType)
+
+	if taskSucceeded || taskFailed {
+		return webhooks.ValidationError{
+			Type:    CancelationNotPossibleErrorType,
+			Message: fmt.Sprintf("task %s:%s cannot be canceled, because it has already terminated", newTask.Namespace, newTask.Name),
+		}.ExportJSONError()
+	}
+
 	return nil
 }
 

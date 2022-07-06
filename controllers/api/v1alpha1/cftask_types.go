@@ -26,6 +26,7 @@ const (
 	TaskStartedConditionType     = "Started"
 	TaskSucceededConditionType   = "Succeeded"
 	TaskFailedConditionType      = "Failed"
+	TaskCanceledConditionType    = "Canceled"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -36,8 +37,9 @@ type CFTaskSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Command []string                    `json:"command,omitempty"`
-	AppRef  corev1.LocalObjectReference `json:"appRef,omitempty"`
+	Command  []string                    `json:"command,omitempty"`
+	AppRef   corev1.LocalObjectReference `json:"appRef,omitempty"`
+	Canceled bool                        `json:"canceled"`
 }
 
 // CFTaskStatus defines the observed state of CFTask

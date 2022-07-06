@@ -20,6 +20,10 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 	var (
 		ctx context.Context
 		ns  string
+
+		cfTask    *korifiv1alpha1.CFTask
+		cfApp     *korifiv1alpha1.CFApp
+		cfDroplet *korifiv1alpha1.CFBuild
 	)
 
 	BeforeEach(func() {
@@ -30,71 +34,65 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Name: ns,
 			},
 		})).To(Succeed())
+
+		cfDroplet = &korifiv1alpha1.CFBuild{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: ns,
+				Name:      testutils.PrefixedGUID("droplet"),
+			},
+			Spec: korifiv1alpha1.CFBuildSpec{
+				Lifecycle: korifiv1alpha1.Lifecycle{Type: "buildpack"},
+			},
+		}
+		Expect(k8sClient.Create(ctx, cfDroplet)).To(Succeed())
+
+		cfDropletCopy := cfDroplet.DeepCopy()
+		cfDropletCopy.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
+			Registry: korifiv1alpha1.Registry{Image: "registry.io/my/image"},
+			ProcessTypes: []korifiv1alpha1.ProcessType{{
+				Type:    "web",
+				Command: "cmd",
+			}},
+			Ports: []int32{8080},
+		}
+		meta.SetStatusCondition(&cfDropletCopy.Status.Conditions, metav1.Condition{
+			Type:   "type",
+			Status: "Unknown",
+			Reason: "reason",
+		})
+		Expect(k8sClient.Status().Patch(ctx, cfDropletCopy, client.MergeFrom(cfDroplet))).To(Succeed())
+
+		cfApp = &korifiv1alpha1.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: ns,
+				Name:      testutils.PrefixedGUID("app"),
+			},
+			Spec: korifiv1alpha1.CFAppSpec{
+				Lifecycle: korifiv1alpha1.Lifecycle{Type: "buildpack"},
+				CurrentDropletRef: corev1.LocalObjectReference{
+					Name: cfDroplet.Name,
+				},
+				DesiredState: "STOPPED",
+				DisplayName:  "app",
+			},
+		}
+		Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+
+		cfTask = &korifiv1alpha1.CFTask{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: ns,
+				Name:      testutils.PrefixedGUID("cftask"),
+			},
+			Spec: korifiv1alpha1.CFTaskSpec{
+				Command: []string{"echo", "hello"},
+				AppRef: corev1.LocalObjectReference{
+					Name: cfApp.Name,
+				},
+			},
+		}
 	})
 
 	Describe("CFTask creation", func() {
-		var cfTask *korifiv1alpha1.CFTask
-		var cfApp *korifiv1alpha1.CFApp
-		var cfDroplet *korifiv1alpha1.CFBuild
-
-		BeforeEach(func() {
-			cfDroplet = &korifiv1alpha1.CFBuild{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: ns,
-					Name:      testutils.PrefixedGUID("droplet"),
-				},
-				Spec: korifiv1alpha1.CFBuildSpec{
-					Lifecycle: korifiv1alpha1.Lifecycle{Type: "buildpack"},
-				},
-			}
-			Expect(k8sClient.Create(ctx, cfDroplet)).To(Succeed())
-
-			cfDropletCopy := cfDroplet.DeepCopy()
-			cfDropletCopy.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
-				Registry: korifiv1alpha1.Registry{Image: "registry.io/my/image"},
-				ProcessTypes: []korifiv1alpha1.ProcessType{{
-					Type:    "web",
-					Command: "cmd",
-				}},
-				Ports: []int32{8080},
-			}
-			meta.SetStatusCondition(&cfDropletCopy.Status.Conditions, metav1.Condition{
-				Type:   "type",
-				Status: "Unknown",
-				Reason: "reason",
-			})
-			Expect(k8sClient.Status().Patch(ctx, cfDropletCopy, client.MergeFrom(cfDroplet))).To(Succeed())
-
-			cfApp = &korifiv1alpha1.CFApp{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: ns,
-					Name:      testutils.PrefixedGUID("app"),
-				},
-				Spec: korifiv1alpha1.CFAppSpec{
-					Lifecycle: korifiv1alpha1.Lifecycle{Type: "buildpack"},
-					CurrentDropletRef: corev1.LocalObjectReference{
-						Name: cfDroplet.Name,
-					},
-					DesiredState: "STOPPED",
-					DisplayName:  "app",
-				},
-			}
-			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
-
-			cfTask = &korifiv1alpha1.CFTask{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: ns,
-					Name:      testutils.PrefixedGUID("cftask"),
-				},
-				Spec: korifiv1alpha1.CFTaskSpec{
-					Command: []string{"echo", "hello"},
-					AppRef: corev1.LocalObjectReference{
-						Name: cfApp.Name,
-					},
-				},
-			}
-		})
-
 		JustBeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
 		})
@@ -192,6 +190,26 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, &task)).To(Succeed())
 					g.Expect(meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskStartedConditionType)).To(BeTrue())
 				}).Should(Succeed())
+			})
+		})
+	})
+
+	Describe("CFTask Cancellation", func() {
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
+		})
+
+		When("spec.canceled is set to true", func() {
+			BeforeEach(func() {
+				cfTask.Spec.Canceled = true
+				Expect(k8sClient.Update(ctx, cfTask)).To(Succeed())
+			})
+
+			It("sets the canceled status condition", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+					g.Expect(meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskCanceledConditionType)).To(BeTrue())
+				})
 			})
 		})
 	})

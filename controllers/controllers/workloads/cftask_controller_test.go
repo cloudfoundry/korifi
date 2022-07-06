@@ -27,11 +27,22 @@ import (
 
 var _ = Describe("CFTask Controller", func() {
 	var (
-		taskReconciler workloads.CFTaskReconciler
-		k8sClient      *fake.Client
-		statusWriter   *fake.StatusWriter
-		eventRecorder  *fake.EventRecorder
-		seqIdGenerator *workloadsfake.SeqIdGenerator
+		taskReconciler     workloads.CFTaskReconciler
+		k8sClient          *fake.Client
+		statusWriter       *fake.StatusWriter
+		eventRecorder      *fake.EventRecorder
+		seqIdGenerator     *workloadsfake.SeqIdGenerator
+		result             controllerruntime.Result
+		err                error
+		req                controllerruntime.Request
+		dropletRef         string
+		cftaskGetError     error
+		cfappGetError      error
+		cfdropletGetError  error
+		droplet            *korifiv1alpha1.BuildDropletStatus
+		cfTask             korifiv1alpha1.CFTask
+		eiriniTask         eiriniv1.Task
+		eiriniTaskGetError error
 	)
 
 	BeforeEach(func() {
@@ -55,6 +66,81 @@ var _ = Describe("CFTask Controller", func() {
 				DiskQuotaMB: 128,
 			},
 		)
+
+		cftaskGetError = nil
+		cfappGetError = nil
+		cfdropletGetError = nil
+		eiriniTaskGetError = k8serrors.NewNotFound(schema.GroupResource{}, "not-found")
+		dropletRef = "the-droplet-guid"
+		droplet = &korifiv1alpha1.BuildDropletStatus{
+			Registry: korifiv1alpha1.Registry{
+				Image: "the-image",
+			},
+		}
+		cfTask = korifiv1alpha1.CFTask{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "the-task-guid",
+			},
+			Spec: korifiv1alpha1.CFTaskSpec{
+				Command: []string{"echo", "hello"},
+				AppRef:  corev1.LocalObjectReference{Name: "the-app-guid"},
+			},
+		}
+		eiriniTask = eiriniv1.Task{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "the-task-namespace",
+				Name:      cfTask.Name,
+			},
+			Spec: eiriniv1.TaskSpec{
+				Name: cfTask.Name,
+			},
+		}
+		req = controllerruntime.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "the-task-namespace",
+				Name:      "the-task-name",
+			},
+		}
+		k8sClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object) error {
+			switch t := obj.(type) {
+			case *korifiv1alpha1.CFTask:
+				*t = *cfTask.DeepCopy()
+				t.Namespace = namespacedName.Namespace
+
+				return cftaskGetError
+			case *korifiv1alpha1.CFApp:
+				Expect(namespacedName.Name).To(Equal("the-app-guid"))
+				*t = korifiv1alpha1.CFApp{
+					Spec: korifiv1alpha1.CFAppSpec{
+						CurrentDropletRef: corev1.LocalObjectReference{Name: dropletRef},
+					},
+				}
+				return cfappGetError
+			case *korifiv1alpha1.CFBuild:
+				Expect(namespacedName.Name).To(Equal(dropletRef))
+				*t = korifiv1alpha1.CFBuild{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      namespacedName.Name,
+						Namespace: namespacedName.Namespace,
+					},
+					Status: korifiv1alpha1.CFBuildStatus{
+						Droplet: droplet,
+					},
+				}
+				return cfdropletGetError
+			case *eiriniv1.Task:
+				Expect(namespacedName.Name).To(Equal("the-task-guid"))
+				*t = eiriniTask
+
+				return eiriniTaskGetError
+			}
+
+			return nil
+		}
+	})
+
+	JustBeforeEach(func() {
+		result, err = taskReconciler.Reconcile(context.Background(), req)
 	})
 
 	taskWithPatchedStatus := func() *korifiv1alpha1.CFTask {
@@ -67,97 +153,6 @@ var _ = Describe("CFTask Controller", func() {
 	}
 
 	Describe("task creation", func() {
-		var (
-			result             controllerruntime.Result
-			err                error
-			req                controllerruntime.Request
-			dropletRef         string
-			cftaskGetError     error
-			cfappGetError      error
-			cfdropletGetError  error
-			droplet            *korifiv1alpha1.BuildDropletStatus
-			cfTask             korifiv1alpha1.CFTask
-			eiriniTask         eiriniv1.Task
-			eiriniTaskGetError error
-		)
-
-		BeforeEach(func() {
-			cftaskGetError = nil
-			cfappGetError = nil
-			cfdropletGetError = nil
-			eiriniTaskGetError = k8serrors.NewNotFound(schema.GroupResource{}, "not-found")
-			dropletRef = "the-droplet-guid"
-			droplet = &korifiv1alpha1.BuildDropletStatus{
-				Registry: korifiv1alpha1.Registry{
-					Image: "the-image",
-				},
-			}
-			cfTask = korifiv1alpha1.CFTask{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "the-task-guid",
-				},
-				Spec: korifiv1alpha1.CFTaskSpec{
-					Command: []string{"echo", "hello"},
-					AppRef:  corev1.LocalObjectReference{Name: "the-app-guid"},
-				},
-			}
-			eiriniTask = eiriniv1.Task{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "the-task-namespace",
-					Name:      cfTask.Name,
-				},
-				Spec: eiriniv1.TaskSpec{
-					Name: cfTask.Name,
-				},
-			}
-			req = controllerruntime.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: "the-task-namespace",
-					Name:      "the-task-name",
-				},
-			}
-			k8sClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object) error {
-				switch t := obj.(type) {
-				case *korifiv1alpha1.CFTask:
-					*t = *cfTask.DeepCopy()
-					t.Namespace = namespacedName.Namespace
-
-					return cftaskGetError
-				case *korifiv1alpha1.CFApp:
-					Expect(namespacedName.Name).To(Equal("the-app-guid"))
-					*t = korifiv1alpha1.CFApp{
-						Spec: korifiv1alpha1.CFAppSpec{
-							CurrentDropletRef: corev1.LocalObjectReference{Name: dropletRef},
-						},
-					}
-					return cfappGetError
-				case *korifiv1alpha1.CFBuild:
-					Expect(namespacedName.Name).To(Equal(dropletRef))
-					*t = korifiv1alpha1.CFBuild{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      namespacedName.Name,
-							Namespace: namespacedName.Namespace,
-						},
-						Status: korifiv1alpha1.CFBuildStatus{
-							Droplet: droplet,
-						},
-					}
-					return cfdropletGetError
-				case *eiriniv1.Task:
-					Expect(namespacedName.Name).To(Equal("the-task-guid"))
-					*t = eiriniTask
-
-					return eiriniTaskGetError
-				}
-
-				return nil
-			}
-		})
-
-		JustBeforeEach(func() {
-			result, err = taskReconciler.Reconcile(context.Background(), req)
-		})
-
 		It("creates an eirini.Task correctly", func() {
 			Expect(k8sClient.CreateCallCount()).To(Equal(1))
 
@@ -484,6 +479,98 @@ var _ = Describe("CFTask Controller", func() {
 				Expect(eventType).To(Equal("Warning"))
 				Expect(reason).To(Equal("dropletBuildStatusNotSet"))
 				Expect(message).To(ContainSubstring("Current droplet %s from app %s does not have a droplet image"))
+			})
+		})
+	})
+
+	Describe("task cancellation", func() {
+		BeforeEach(func() {
+			cfTask.Spec.Canceled = true
+		})
+
+		It("deletes the underlying eirini task", func() {
+			Expect(k8sClient.DeleteCallCount()).To(Equal(1))
+			_, actualObject, _ := k8sClient.DeleteArgsForCall(0)
+			actualEiriniTask, ok := actualObject.(*eiriniv1.Task)
+			Expect(ok).To(BeTrue())
+
+			Expect(actualEiriniTask.Namespace).To(Equal("the-task-namespace"))
+			Expect(actualEiriniTask.Name).To(Equal("the-task-guid"))
+		})
+
+		When("processing cancellation and the eirini task does not exist", func() {
+			BeforeEach(func() {
+				eiriniTaskGetError = k8serrors.NewNotFound(schema.GroupResource{}, "eirini-task")
+			})
+
+			It("does not attempt to create the eirini task", func() {
+				Expect(k8sClient.CreateCallCount()).To(BeZero())
+			})
+		})
+
+		It("sets the canceled condition on the korifi task", func() {
+			canceledCondition := meta.FindStatusCondition(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskCanceledConditionType)
+			Expect(canceledCondition).NotTo(BeNil())
+			Expect(canceledCondition.Status).To(Equal(metav1.ConditionTrue))
+			Expect(canceledCondition.Reason).To(Equal("task_canceled"))
+		})
+
+		When("the task is not completed", func() {
+			BeforeEach(func() {
+				meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+					Type:    korifiv1alpha1.TaskStartedConditionType,
+					Status:  metav1.ConditionTrue,
+					Reason:  "foo",
+					Message: "bar",
+				})
+			})
+
+			It("sets the failed condition", func() {
+				failedCondition := meta.FindStatusCondition(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskFailedConditionType)
+				Expect(failedCondition).NotTo(BeNil())
+				Expect(failedCondition.Status).To(Equal(metav1.ConditionTrue))
+				Expect(failedCondition.Reason).To(Equal("task_canceled"))
+			})
+		})
+
+		When("the task has succeeded", func() {
+			BeforeEach(func() {
+				meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+					Type:    korifiv1alpha1.TaskSucceededConditionType,
+					Status:  metav1.ConditionTrue,
+					Reason:  "foo",
+					Message: "bar",
+				})
+			})
+
+			It("does not set the failed condition", func() {
+				failedCondition := meta.FindStatusCondition(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskFailedConditionType)
+				Expect(failedCondition).To(BeNil())
+			})
+		})
+
+		When("deleting of the underlying eirini task fails", func() {
+			BeforeEach(func() {
+				k8sClient.DeleteReturns(errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(MatchError("boom"))
+			})
+
+			It("does not set the canceled condition on the korifi task", func() {
+				canceledCondition := meta.FindStatusCondition(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskCanceledConditionType)
+				Expect(canceledCondition).To(BeNil())
+			})
+		})
+
+		When("underlying eirini task does not exist", func() {
+			BeforeEach(func() {
+				k8sClient.DeleteReturns(k8serrors.NewNotFound(schema.GroupResource{}, "eirini-task"))
+			})
+
+			It("sets the canceled condition on the korifi task", func() {
+				Expect(meta.IsStatusConditionTrue(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskCanceledConditionType)).To(BeTrue())
 			})
 		})
 	})
