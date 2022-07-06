@@ -47,7 +47,7 @@ type CFAppRepository interface {
 	SetCurrentDroplet(context.Context, authorization.Info, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
 	SetAppDesiredState(context.Context, authorization.Info, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 	DeleteApp(context.Context, authorization.Info, repositories.DeleteAppMessage) error
-	GetAppEnv(context.Context, authorization.Info, string) (map[string]string, error)
+	GetAppEnv(context.Context, authorization.Info, string) (repositories.AppEnvRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name AppProcessScaler . AppProcessScaler
@@ -460,13 +460,13 @@ func (h *AppHandler) appGetEnvHandler(ctx context.Context, logger logr.Logger, a
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
-	envVars, err := h.appRepo.GetAppEnv(ctx, authInfo, appGUID)
+	appEnvRecord, err := h.appRepo.GetAppEnv(ctx, authInfo, appGUID)
 	if err != nil {
 		logger.Error(err, "Failed to fetch app environment variables", "AppGUID", appGUID)
 		return nil, err
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForAppEnv(envVars)), nil
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForAppEnv(appEnvRecord)), nil
 }
 
 func (h *AppHandler) getProcessByTypeForAppHander(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {

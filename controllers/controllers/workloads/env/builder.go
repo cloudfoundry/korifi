@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type vcapServicesPresenter struct {
+type VcapServicesPresenter struct {
 	UserProvided []ServiceDetails `json:"user-provided,omitempty"`
 }
 
@@ -85,7 +85,7 @@ func (b *Builder) BuildVCAPServicesEnvValue(ctx context.Context, cfApp *korifiv1
 		serviceEnvs = append(serviceEnvs, serviceEnv)
 	}
 
-	toReturn, err := json.Marshal(vcapServicesPresenter{
+	toReturn, err := json.Marshal(VcapServicesPresenter{
 		UserProvided: serviceEnvs,
 	})
 	if err != nil {

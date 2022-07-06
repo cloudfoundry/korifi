@@ -1,7 +1,9 @@
 package repositories
 
 import (
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -50,20 +52,21 @@ func NewAppRepo(namespaceRetriever NamespaceRetriever, userClientFactory authori
 }
 
 type AppRecord struct {
-	Name          string
-	GUID          string
-	EtcdUID       types.UID
-	Revision      string
-	SpaceGUID     string
-	DropletGUID   string
-	Labels        map[string]string
-	Annotations   map[string]string
-	State         DesiredState
-	Lifecycle     Lifecycle
-	CreatedAt     string
-	UpdatedAt     string
-	IsStaged      bool
-	envSecretName string
+	Name                  string
+	GUID                  string
+	EtcdUID               types.UID
+	Revision              string
+	SpaceGUID             string
+	DropletGUID           string
+	Labels                map[string]string
+	Annotations           map[string]string
+	State                 DesiredState
+	Lifecycle             Lifecycle
+	CreatedAt             string
+	UpdatedAt             string
+	IsStaged              bool
+	envSecretName         string
+	vcapServiceSecretName string
 }
 
 type DesiredState string
@@ -83,6 +86,13 @@ type AppEnvVarsRecord struct {
 	AppGUID              string
 	SpaceGUID            string
 	EnvironmentVariables map[string]string
+}
+
+type AppEnvRecord struct {
+	AppGUID              string
+	SpaceGUID            string
+	EnvironmentVariables map[string]string
+	SystemEnv            map[string]interface{}
 }
 
 type CurrentDropletRecord struct {
@@ -456,32 +466,64 @@ func (f *AppRepo) DeleteApp(ctx context.Context, authInfo authorization.Info, me
 	return apierrors.FromK8sError(userClient.Delete(ctx, cfApp), AppResourceType)
 }
 
-func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, appGUID string) (map[string]string, error) {
+func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, appGUID string) (AppEnvRecord, error) {
 	app, err := f.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		return nil, err
-	}
-
-	if app.envSecretName == "" {
-		return nil, nil
+		return AppEnvRecord{}, err
 	}
 
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build user client: %w", err)
+		return AppEnvRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	key := client.ObjectKey{Name: app.envSecretName, Namespace: app.SpaceGUID}
-	secret := new(corev1.Secret)
-	err = userClient.Get(ctx, key, secret)
-	if err != nil {
-		return nil, fmt.Errorf("error finding environment variable Secret %q for App %q: %w",
-			app.envSecretName,
-			app.GUID,
-			apierrors.FromK8sError(err, AppEnvResourceType),
-		)
+	appEnvVarMap := map[string]string{}
+	if app.envSecretName != "" {
+		appEnvVarSecret := new(corev1.Secret)
+		err = userClient.Get(ctx, types.NamespacedName{Name: app.envSecretName, Namespace: app.SpaceGUID}, appEnvVarSecret)
+		if err != nil {
+			return AppEnvRecord{}, fmt.Errorf("error finding environment variable Secret %q for App %q: %w",
+				app.envSecretName,
+				app.GUID,
+				apierrors.FromK8sError(err, AppEnvResourceType))
+		}
+		appEnvVarMap = convertByteSliceValuesToStrings(appEnvVarSecret.Data)
 	}
-	return convertByteSliceValuesToStrings(secret.Data), nil
+
+	systemEnvMap := map[string]interface{}{}
+	if app.vcapServiceSecretName != "" {
+		vcapServiceSecret := new(corev1.Secret)
+		err = userClient.Get(ctx, types.NamespacedName{Name: app.vcapServiceSecretName, Namespace: app.SpaceGUID}, vcapServiceSecret)
+		if err != nil {
+			return AppEnvRecord{}, fmt.Errorf("error finding VCAP Service Secret %q for App %q: %w",
+				app.vcapServiceSecretName,
+				app.GUID,
+				apierrors.FromK8sError(err, AppEnvResourceType))
+		}
+
+		if vcapServicesData, ok := vcapServiceSecret.Data["VCAP_SERVICES"]; ok {
+			vcapServicesPresenter := new(env.VcapServicesPresenter)
+			if err = json.Unmarshal(vcapServicesData, &vcapServicesPresenter); err != nil {
+				return AppEnvRecord{}, fmt.Errorf("error unmarshalling VCAP Service Secret %q for App %q: %w",
+					app.vcapServiceSecretName,
+					app.GUID,
+					apierrors.FromK8sError(err, AppEnvResourceType))
+			}
+
+			if len(vcapServicesPresenter.UserProvided) > 0 {
+				systemEnvMap["VCAP_SERVICES"] = vcapServicesPresenter
+			}
+		}
+	}
+
+	appEnvRecord := AppEnvRecord{
+		AppGUID:              appGUID,
+		SpaceGUID:            app.SpaceGUID,
+		EnvironmentVariables: appEnvVarMap,
+		SystemEnv:            systemEnvMap,
+	}
+
+	return appEnvRecord, nil
 }
 
 func GenerateEnvSecretName(appGUID string) string {
@@ -532,10 +574,11 @@ func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
 				Stack:      cfApp.Spec.Lifecycle.Data.Stack,
 			},
 		},
-		CreatedAt:     cfApp.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:     updatedAtTime,
-		IsStaged:      meta.IsStatusConditionTrue(cfApp.Status.Conditions, workloads.StatusConditionStaged),
-		envSecretName: cfApp.Spec.EnvSecretName,
+		CreatedAt:             cfApp.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt:             updatedAtTime,
+		IsStaged:              meta.IsStatusConditionTrue(cfApp.Status.Conditions, workloads.StatusConditionStaged),
+		envSecretName:         cfApp.Spec.EnvSecretName,
+		vcapServiceSecretName: cfApp.Status.VCAPServicesSecretName,
 	}
 }
 

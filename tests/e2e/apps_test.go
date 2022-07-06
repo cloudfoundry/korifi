@@ -420,4 +420,55 @@ var _ = Describe("Apps", func() {
 			})
 		})
 	})
+
+	Describe("Fetch app env", func() {
+		var (
+			result       map[string]interface{}
+			instanceGUID string
+			instanceName string
+			bindingGUID  string
+		)
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, space1GUID)
+			appGUID = createApp(space1GUID, generateGUID("app1"))
+			setEnv(appGUID, map[string]interface{}{
+				"foo": "var",
+			})
+			instanceName = generateGUID("service-instance")
+			instanceGUID = createServiceInstance(space1GUID, instanceName)
+			bindingGUID = createServiceBinding(appGUID, instanceGUID)
+		})
+
+		JustBeforeEach(func() {
+			Eventually(func() (*resty.Response, error) {
+				return certClient.R().
+					SetResult(&result).
+					Get("/v3/apps/" + appGUID + "/env")
+			}).Should(HaveRestyStatusCode(http.StatusOK), BeNil())
+		})
+
+		It("returns the app environment", func() {
+			Expect(result).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
+			Expect(result).To(HaveKeyWithValue("system_env_json", HaveKeyWithValue("VCAP_SERVICES", map[string]interface{}{
+				"user-provided": []interface{}{
+					map[string]interface{}{
+						"syslog_drain_url": nil,
+						"tags":             []interface{}{},
+						"instance_name":    instanceName,
+						"binding_guid":     bindingGUID,
+						"credentials": map[string]interface{}{
+							"type": "user-provided",
+						},
+						"volume_mounts": []interface{}{},
+						"label":         "user-provided",
+						"name":          instanceName,
+						"instance_guid": instanceGUID,
+						"binding_name":  nil,
+					},
+				},
+			})))
+		})
+
+	})
 })
