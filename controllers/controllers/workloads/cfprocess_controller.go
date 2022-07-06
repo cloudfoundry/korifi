@@ -129,7 +129,7 @@ func (r *CFProcessReconciler) createOrPatchLRP(ctx context.Context, cfApp *korif
 
 	envVars, err := r.EnvBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
-		r.Log.Error(err, "error when trying build the process environment for app: %s/%s", cfProcess.Namespace, cfApp.Spec.DisplayName)
+		r.Log.Error(err, fmt.Sprintf("error when trying build the process environment for app: %s/%s", cfProcess.Namespace, cfApp.Spec.DisplayName))
 		return err
 	}
 

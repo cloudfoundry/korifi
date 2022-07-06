@@ -58,7 +58,7 @@ func (h *JobHandler) jobGetHandler(ctx context.Context, logger logr.Logger, auth
 	case appDeletePrefix, orgDeletePrefix, spaceDeletePrefix, routeDeletePrefix:
 		jobResponse = presenter.ForDeleteJob(jobGUID, jobType, h.serverURL)
 	default:
-		logger.Info("Invalid Job type: %s", jobType)
+		logger.Info(fmt.Sprintf("Invalid Job type: %s", jobType))
 		return nil, apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", jobType), JobResourceType)
 	}
 
