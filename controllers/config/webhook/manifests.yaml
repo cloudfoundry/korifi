@@ -286,6 +286,7 @@ webhooks:
     - v1alpha1
     operations:
     - CREATE
+    - UPDATE
     resources:
     - cftasks
   sideEffects: None

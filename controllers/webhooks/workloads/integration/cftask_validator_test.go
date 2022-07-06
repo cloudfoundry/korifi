@@ -2,20 +2,23 @@ package integration_test
 
 import (
 	"context"
+	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("CFTask Webhook", func() {
+var _ = Describe("CFTask Creation", func() {
 	var (
-		cftask      v1alpha1.CFTask
+		cftask      korifiv1alpha1.CFTask
 		creationErr error
 	)
 
@@ -23,12 +26,12 @@ var _ = Describe("CFTask Webhook", func() {
 		cfApp := makeCFApp(testutils.PrefixedGUID("cfapp"), rootNamespace, testutils.PrefixedGUID("appName"))
 		Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
-		cftask = v1alpha1.CFTask{
+		cftask = korifiv1alpha1.CFTask{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testutils.GenerateGUID(),
 				Namespace: rootNamespace,
 			},
-			Spec: v1alpha1.CFTaskSpec{
+			Spec: korifiv1alpha1.CFTaskSpec{
 				Command: []string{"echo", "hello"},
 				AppRef: corev1.LocalObjectReference{
 					Name: cfApp.Name,
@@ -73,3 +76,114 @@ var _ = Describe("CFTask Webhook", func() {
 		})
 	})
 })
+
+var _ = Describe("CFTask Update", func() {
+	var (
+		cftask    korifiv1alpha1.CFTask
+		updateErr error
+	)
+
+	BeforeEach(func() {
+		cfApp := makeCFApp(testutils.PrefixedGUID("cfapp"), rootNamespace, testutils.PrefixedGUID("appName"))
+		Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+
+		cftask = korifiv1alpha1.CFTask{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testutils.GenerateGUID(),
+				Namespace: rootNamespace,
+			},
+			Spec: korifiv1alpha1.CFTaskSpec{
+				Command: []string{"echo", "hello"},
+				AppRef: corev1.LocalObjectReference{
+					Name: cfApp.Name,
+				},
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), &cftask)).To(Succeed())
+	})
+
+	JustBeforeEach(func() {
+		updateErr = k8sClient.Update(context.Background(), &cftask)
+	})
+
+	When("canceled is not changed", func() {
+		BeforeEach(func() {
+			cftask.Spec.Command = []string{"echo", "ok"}
+		})
+
+		It("succeeds", func() {
+			Expect(updateErr).NotTo(HaveOccurred())
+		})
+	})
+
+	When("the task gets canceled", func() {
+		BeforeEach(func() {
+			cftask.Spec.Canceled = true
+		})
+
+		It("succeeds", func() {
+			Expect(updateErr).NotTo(HaveOccurred())
+		})
+
+		When("the cftask has a succeeded contdition", func() {
+			BeforeEach(func() {
+				setStatusCondition(&cftask, korifiv1alpha1.TaskSucceededConditionType)
+			})
+
+			It("fails", func() {
+				Expect(updateErr).To(HaveOccurred())
+				fmt.Printf("updateErr = %+v\n", updateErr)
+				validationErr, ok := webhooks.WebhookErrorToValidationError(updateErr)
+				Expect(ok).To(BeTrue())
+
+				Expect(validationErr.Type).To(Equal(workloads.CancelationNotPossibleErrorType))
+				Expect(validationErr.Message).To(ContainSubstring("it has already terminated"))
+			})
+		})
+
+		When("the cftask has a failed contdition", func() {
+			BeforeEach(func() {
+				setStatusCondition(&cftask, korifiv1alpha1.TaskFailedConditionType)
+			})
+
+			It("fails", func() {
+				Expect(updateErr).To(HaveOccurred())
+				validationErr, ok := webhooks.WebhookErrorToValidationError(updateErr)
+				Expect(ok).To(BeTrue())
+
+				Expect(validationErr.Type).To(Equal(workloads.CancelationNotPossibleErrorType))
+				Expect(validationErr.Message).To(ContainSubstring("it has already terminated"))
+			})
+		})
+
+		When("the task is already canceled before an update", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Update(context.Background(), &cftask)).To(Succeed())
+				setStatusCondition(&cftask, korifiv1alpha1.TaskSucceededConditionType)
+				cftask.Spec.Command = []string{"echo", "foo"}
+			})
+
+			It("succeeds", func() {
+				Expect(updateErr).NotTo(HaveOccurred())
+			})
+		})
+	})
+})
+
+func setStatusCondition(cftask *korifiv1alpha1.CFTask, conditionType string) {
+	clone := cftask.DeepCopy()
+	meta.SetStatusCondition(&cftask.Status.Conditions, metav1.Condition{
+		Type:    conditionType,
+		Status:  metav1.ConditionTrue,
+		Reason:  "foo",
+		Message: "bar",
+	})
+	cftask.Status.MemoryMB = 1
+	cftask.Status.DiskQuotaMB = 2
+	cftask.Status.DropletRef = corev1.LocalObjectReference{Name: "bob"}
+	cftask.Status.SequenceID = 3
+	Expect(k8sClient.Status().Patch(context.Background(), cftask, client.MergeFrom(clone))).To(Succeed())
+
+	// the status update clears any unapplied changes to the rest of the object, so reset spec changes:
+	cftask.Spec = clone.Spec
+}

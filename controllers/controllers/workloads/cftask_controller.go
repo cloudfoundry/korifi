@@ -73,20 +73,24 @@ func NewCFTaskReconciler(
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks/finalizers,verbs=update
-//+kubebuilder:rbac:groups=eirini.cloudfoundry.org,resources=tasks,verbs=get;list;create;watch;patch
+//+kubebuilder:rbac:groups=eirini.cloudfoundry.org,resources=tasks,verbs=get;list;create;watch;patch;delete
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	cfTask := new(korifiv1alpha1.CFTask)
-	err := r.k8sClient.Get(ctx, req.NamespacedName, cfTask)
-	if err != nil {
+	if err := r.k8sClient.Get(ctx, req.NamespacedName, cfTask); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 		r.logger.Info("error-getting-cftask", "error", err)
 		return ctrl.Result{}, err
+	}
+
+	if cfTask.Spec.Canceled {
+		err := r.handleCancelation(ctx, cfTask)
+		return r.updateStatusAndReturn(ctx, cfTask, err)
 	}
 
 	cfApp, err := r.getApp(ctx, cfTask)
@@ -248,6 +252,37 @@ func (r *CFTaskReconciler) ensureInitialized(ctx context.Context, cfTask *korifi
 			Status:  metav1.ConditionTrue,
 			Reason:  "taskInitialized",
 			Message: "taskInitialized",
+		})
+
+	}
+
+	return nil
+}
+
+func (r *CFTaskReconciler) handleCancelation(ctx context.Context, cfTask *korifiv1alpha1.CFTask) error {
+	eiriniTask := &eiriniv1.Task{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfTask.Name,
+			Namespace: cfTask.Namespace,
+		},
+	}
+	err := r.k8sClient.Delete(ctx, eiriniTask)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		r.logger.Info("error-deleting-eirini-task", "error", err)
+		return err
+	}
+
+	meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+		Type:   korifiv1alpha1.TaskCanceledConditionType,
+		Status: metav1.ConditionTrue,
+		Reason: "task_canceled",
+	})
+
+	if !meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskSucceededConditionType) {
+		meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+			Type:   korifiv1alpha1.TaskFailedConditionType,
+			Status: metav1.ConditionTrue,
+			Reason: "task_canceled",
 		})
 	}
 
