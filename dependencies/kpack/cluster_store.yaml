@@ -5,7 +5,7 @@ metadata:
 spec:
   sources:
   - image: gcr.io/paketo-buildpacks/java
-  - image: gcr.io/paketo-buildpacks/nodejs:0.13
+  - image: gcr.io/paketo-buildpacks/nodejs:0.17.1
   - image: gcr.io/paketo-buildpacks/ruby
   - image: gcr.io/paketo-buildpacks/procfile
   - image: gcr.io/paketo-buildpacks/go
