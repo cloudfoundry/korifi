@@ -21,6 +21,8 @@ import (
 	"os"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+
+	v1 "code.cloudfoundry.org/korifi/statefulset-runner/api/v1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -54,9 +56,12 @@ func init() {
 //counterfeiter:generate -o fake -fake-name StatusWriter sigs.k8s.io/controller-runtime/pkg/client.StatusWriter
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
+	var (
+		metricsAddr          string
+		enableLeaderElection bool
+		probeAddr            string
+	)
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -89,6 +94,10 @@ func main() {
 		ctrl.Log.WithName("controllers").WithName("RunWorkloadReconciler"),
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RunWorkload")
+		os.Exit(1)
+	}
+	if err = v1.NewSTSPodDefaulter().SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

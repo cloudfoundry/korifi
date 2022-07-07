@@ -40,8 +40,15 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: manifest-configs kustomize-webhook-config
+
+.PHONY: manifest-configs
+manifest-configs: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=runworkload-manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+.PHONY: kustomize-webhook-config
+kustomize-webhook-config: kustomize
+	$(KUSTOMIZE) build config/webhook -o config/webhook/generated/envtest-webhook-config.yaml
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.

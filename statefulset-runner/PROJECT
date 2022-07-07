@@ -13,4 +13,11 @@ resources:
   kind: RunWorkload
   path: code.cloudfoundry.org/korifi/statefulset-runner/api/v1alpha1
   version: v1alpha1
+- group: ""
+  kind: Pod
+  path: k8s.io/api/core/v1
+  version: v1
+  webhooks:
+    defaulting: true
+    webhookVersion: v1
 version: "3"
