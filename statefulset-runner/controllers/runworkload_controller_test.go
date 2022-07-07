@@ -82,7 +82,20 @@ var _ = Describe("RunWorkload to StatefulSet Converter", func() {
 	})
 
 	It("should deny privilegeEscalation", func() {
+		Expect(statefulSet.Spec.Template.Spec.Containers[0].SecurityContext.AllowPrivilegeEscalation).NotTo(BeNil())
 		Expect(*statefulSet.Spec.Template.Spec.Containers[0].SecurityContext.AllowPrivilegeEscalation).To(Equal(false))
+	})
+
+	It("should drop all capabilities", func() {
+		Expect(statefulSet.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities).NotTo(BeNil())
+		Expect(*statefulSet.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities).To(Equal(corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		}))
+	})
+
+	It("should set the seccomp profile", func() {
+		Expect(statefulSet.Spec.Template.Spec.Containers[0].SecurityContext.SeccompProfile).NotTo(BeNil())
+		Expect(*statefulSet.Spec.Template.Spec.Containers[0].SecurityContext.SeccompProfile).To(Equal(corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault}))
 	})
 
 	It("should set the liveness probe", func() {
@@ -144,6 +157,11 @@ var _ = Describe("RunWorkload to StatefulSet Converter", func() {
 	It("should set version as a label", func() {
 		Expect(statefulSet.Labels).To(HaveKeyWithValue(controllers.LabelVersion, "version_1234"))
 		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(controllers.LabelVersion, "version_1234"))
+	})
+
+	It("should set statefulset-runner-index as a label", func() {
+		Expect(statefulSet.Labels).To(HaveKeyWithValue(controllers.LabelStatefulSetRunnerIndex, "true"))
+		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(controllers.LabelStatefulSetRunnerIndex, "true"))
 	})
 
 	It("should set guid as a label selector", func() {

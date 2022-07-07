@@ -57,17 +57,17 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			{
 				Verbs:     []string{"patch"},
 				APIGroups: []string{"eirini.cloudfoundry.org"},
-				Resources: []string{"lrps/status"},
+				Resources: []string{"tasks/status"},
 			},
 		}
 		role2 = createClusterRole(ctx, k8sClient, PrefixedGUID("clusterrole"), rules2)
 
 		username = PrefixedGUID("user")
-		roleBinding = createClusterRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding"), username, role1.Name, orgNamespace.Name, map[string]string{})
+		roleBinding = createRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding"), username, role1.Name, orgNamespace.Name, map[string]string{})
 
 		username2 := PrefixedGUID("user2")
 		annotations := map[string]string{"cloudfoundry.org/propagate-cf-role": "false"}
-		roleBinding2 = createClusterRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding2"), username2, role1.Name, orgNamespace.Name, annotations)
+		roleBinding2 = createRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding2"), username2, role1.Name, orgNamespace.Name, annotations)
 
 		spaceGUID = PrefixedGUID("cf-space")
 		cfSpace = &korifiv1alpha1.CFSpace{
@@ -187,7 +187,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
-			roleBinding3 = createClusterRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding"), username, role2.Name, orgNamespace.Name, map[string]string{})
+			roleBinding3 = createRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding"), username, role2.Name, orgNamespace.Name, map[string]string{})
 		})
 
 		It("propagates the new role-binding to CFSpace namespace", func() {

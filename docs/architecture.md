@@ -83,5 +83,5 @@ We typically use ADRs to record context about decisions that were already made o
 | Service Instance               | CFServiceInstance ([ProvisionedService](https://github.com/servicebinding/spec#provisioned-service))       |
 | Service Binding                | CFServiceBinding + [ServiceBinding for Kubernetes](https://github.com/servicebinding/spec#service-binding) |
 | Service credentials            | Kubernetes Secret                                                                                          |
-| Diego Desired LRP              | RunWorkload (and Eirini LRP) + StatefulSet                                                                 |
+| Diego Desired LRP              | RunWorkload + StatefulSet                                                                                  |
 | Diego Actual LRP               | Kubernetes Pod                                                                                             |

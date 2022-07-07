@@ -59,11 +59,12 @@ const (
 	AnnotationAppID       = "korifi.cloudfoundry.org/application-id"
 	AnnotationProcessGUID = "korifi.cloudfoundry.org/process-guid"
 
-	LabelGUID            = "korifi.cloudfoundry.org/guid"
-	LabelVersion         = "korifi.cloudfoundry.org/version"
-	LabelAppGUID         = "korifi.cloudfoundry.org/app-guid"
-	LabelRunWorkloadGUID = "korifi.cloudfoundry.org/run-workload-guid"
-	LabelProcessType     = "korifi.cloudfoundry.org/process-type"
+	LabelGUID                   = "korifi.cloudfoundry.org/guid"
+	LabelVersion                = "korifi.cloudfoundry.org/version"
+	LabelAppGUID                = "korifi.cloudfoundry.org/app-guid"
+	LabelRunWorkloadGUID        = "korifi.cloudfoundry.org/run-workload-guid"
+	LabelProcessType            = "korifi.cloudfoundry.org/process-type"
+	LabelStatefulSetRunnerIndex = "korifi.cloudfoundry.org/add-stsr-index"
 
 	ApplicationContainerName = "application"
 
@@ -265,6 +266,12 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 			Ports:           ports,
 			SecurityContext: &corev1.SecurityContext{
 				AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
 			},
 			Resources:      getContainerResources(runWorkload.Spec.CPUWeight, runWorkload.Spec.MemoryMiB, runWorkload.Spec.DiskMiB),
 			LivenessProbe:  livenessProbe,
@@ -319,11 +326,12 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 	}
 
 	labels := map[string]string{
-		LabelGUID:            runWorkload.Spec.GUID,
-		LabelProcessType:     runWorkload.Spec.ProcessType,
-		LabelVersion:         runWorkload.Spec.Version,
-		LabelAppGUID:         runWorkload.Spec.AppGUID,
-		LabelRunWorkloadGUID: runWorkload.Name,
+		LabelGUID:                   runWorkload.Spec.GUID,
+		LabelProcessType:            runWorkload.Spec.ProcessType,
+		LabelVersion:                runWorkload.Spec.Version,
+		LabelAppGUID:                runWorkload.Spec.AppGUID,
+		LabelRunWorkloadGUID:        runWorkload.Name,
+		LabelStatefulSetRunnerIndex: "true",
 	}
 
 	statefulSet.Spec.Template.Labels = labels

@@ -27,12 +27,12 @@ import (
 //+kubebuilder:rbac:groups="metrics.k8s.io",resources=pods,verbs=get
 
 const (
-	workloadsContainerName = "opi"
-	cfInstanceIndexKey     = "CF_INSTANCE_INDEX"
-	eiriniLabelVersionKey  = "korifi.cloudfoundry.org/version"
-	cfProcessGuidKey       = "korifi.cloudfoundry.org/guid"
-	RunningState           = "RUNNING"
-	pendingState           = "STARTING"
+	ApplicationContainerName = "application"
+	EnvCFInstanceIndex       = "CF_INSTANCE_INDEX"
+	LabelVersion             = "korifi.cloudfoundry.org/version"
+	LabelGUID                = "korifi.cloudfoundry.org/guid"
+	RunningState             = "RUNNING"
+	pendingState             = "STARTING"
 	// All below statuses changed to "DOWN" until we decide what statuses we want to support in the future
 	crashedState             = "DOWN"
 	unknownState             = "DOWN"
@@ -84,8 +84,8 @@ type ListPodStatsMessage struct {
 func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info, message ListPodStatsMessage) ([]PodStatsRecord, error) {
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
 		korifiv1alpha1.CFAppGUIDLabelKey: message.AppGUID,
-		eiriniLabelVersionKey:            message.AppRevision,
-		cfProcessGuidKey:                 message.ProcessGUID,
+		LabelVersion:                     message.AppRevision,
+		LabelGUID:                        message.ProcessGUID,
 	})
 	if err != nil {
 		return nil, err
@@ -172,11 +172,11 @@ func (r *PodRepo) ListPods(ctx context.Context, authInfo authorization.Info, lis
 
 func extractProcessContainer(containers []corev1.Container) (*corev1.Container, error) {
 	for i, c := range containers {
-		if c.Name == workloadsContainerName {
+		if c.Name == ApplicationContainerName {
 			return &containers[i], nil
 		}
 	}
-	return nil, fmt.Errorf("container %q not found", workloadsContainerName)
+	return nil, fmt.Errorf("container %q not found", ApplicationContainerName)
 }
 
 func extractEnvVarFromContainer(container corev1.Container, envVar string) (string, error) {
@@ -195,18 +195,18 @@ func extractIndex(pod corev1.Pod) (int, error) {
 		return 0, err
 	}
 
-	indexString, err := extractEnvVarFromContainer(*container, cfInstanceIndexKey)
+	indexString, err := extractEnvVarFromContainer(*container, EnvCFInstanceIndex)
 	if err != nil {
 		return 0, err
 	}
 
 	index, err := strconv.Atoi(indexString)
 	if err != nil {
-		return 0, fmt.Errorf("%s is not a valid index: %w", cfInstanceIndexKey, err)
+		return 0, fmt.Errorf("%s is not a valid index: %w", EnvCFInstanceIndex, err)
 	}
 
 	if index < 0 {
-		return 0, fmt.Errorf("%s is not a valid index: instance indexes can't be negative", cfInstanceIndexKey)
+		return 0, fmt.Errorf("%s is not a valid index: instance indexes can't be negative", EnvCFInstanceIndex)
 	}
 
 	return index, nil

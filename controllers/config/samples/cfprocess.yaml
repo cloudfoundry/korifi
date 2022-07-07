@@ -1,5 +1,5 @@
 ---
-# Defines a CFProcess for a given app. Results in an Eirini LRP.
+# Defines a CFProcess for a given app. Results in a RunWorkload.
 apiVersion: korifi.cloudfoundry.org/v1alpha1
 kind: CFProcess
 metadata:  # korifi.cloudfoundry.org/ labels are all managed by a mutating webhook based on appRef and its droplet

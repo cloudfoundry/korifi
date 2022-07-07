@@ -56,17 +56,17 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 			{
 				Verbs:     []string{"patch"},
 				APIGroups: []string{"eirini.cloudfoundry.org"},
-				Resources: []string{"lrps/status"},
+				Resources: []string{"tasks/status"},
 			},
 		}
 		role2 = createClusterRole(testCtx, k8sClient, PrefixedGUID("role"), rules2)
 
 		username = PrefixedGUID("user")
-		roleBinding = createClusterRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding"), username, role1.Name, rootNamespace.Name, map[string]string{})
+		roleBinding = createRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding"), username, role1.Name, rootNamespace.Name, map[string]string{})
 
 		username2 := PrefixedGUID("user2")
 		annotations := map[string]string{"cloudfoundry.org/propagate-cf-role": "false"}
-		roleBinding2 = createClusterRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding2"), username2, role1.Name, rootNamespace.Name, annotations)
+		roleBinding2 = createRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding2"), username2, role1.Name, rootNamespace.Name, annotations)
 
 		orgGUID = PrefixedGUID("cf-org")
 		cfOrg = korifiv1alpha1.CFOrg{
@@ -170,7 +170,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				g.Expect(meta.IsStatusConditionTrue(createdOrg.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
-			roleBinding3 = createClusterRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding"), username, role2.Name, rootNamespace.Name, map[string]string{})
+			roleBinding3 = createRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding"), username, role2.Name, rootNamespace.Name, map[string]string{})
 		})
 
 		It("propagates the new role-binding to org namespace", func() {

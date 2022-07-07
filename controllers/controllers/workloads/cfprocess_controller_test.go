@@ -12,7 +12,6 @@ import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/fake"
 
-	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -41,18 +40,18 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		fakeClient *fake.Client
 		envBuilder *workloadsfakes.EnvBuilder
 
-		cfBuild   *korifiv1alpha1.CFBuild
-		cfProcess *korifiv1alpha1.CFProcess
-		cfApp     *korifiv1alpha1.CFApp
-		lrp       *eiriniv1.LRP
-		routes    []korifiv1alpha1.CFRoute
+		cfBuild     *korifiv1alpha1.CFBuild
+		cfProcess   *korifiv1alpha1.CFProcess
+		cfApp       *korifiv1alpha1.CFApp
+		runWorkload *korifiv1alpha1.RunWorkload
+		routes      []korifiv1alpha1.CFRoute
 
-		cfBuildError   error
-		cfAppError     error
-		cfProcessError error
-		lrpError       error
-		lrpListError   error
-		routeListError error
+		cfBuildError         error
+		cfAppError           error
+		cfProcessError       error
+		runWorkloadError     error
+		runWorkloadListError error
+		routeListError       error
 
 		cfProcessReconciler *CFProcessReconciler
 		ctx                 context.Context
@@ -74,9 +73,9 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		cfProcess = BuildCFProcessCRObject(testProcessGUID, testNamespace, testAppGUID, testProcessType, testProcessCommand)
 		cfProcessError = nil
 
-		lrp = nil
-		lrpError = nil
-		lrpListError = nil
+		runWorkload = nil
+		runWorkloadError = nil
+		runWorkloadListError = nil
 
 		fakeClient.GetStub = func(_ context.Context, name types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
@@ -90,11 +89,11 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 			case *korifiv1alpha1.CFApp:
 				cfApp.DeepCopyInto(obj)
 				return cfAppError
-			case *eiriniv1.LRP:
-				if lrp != nil && lrpError == nil {
-					lrp.DeepCopyInto(obj)
+			case *korifiv1alpha1.RunWorkload:
+				if runWorkload != nil && runWorkloadError == nil {
+					runWorkload.DeepCopyInto(obj)
 				}
-				return lrpError
+				return runWorkloadError
 			default:
 				panic("TestClient Get provided a weird obj")
 			}
@@ -102,13 +101,13 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
 			switch listObj := list.(type) {
-			case *eiriniv1.LRPList:
-				lrpList := eiriniv1.LRPList{Items: []eiriniv1.LRP{}}
-				if lrp != nil {
-					lrpList.Items = append(lrpList.Items, *lrp)
+			case *korifiv1alpha1.RunWorkloadList:
+				runWorkloadList := korifiv1alpha1.RunWorkloadList{Items: []korifiv1alpha1.RunWorkload{}}
+				if runWorkload != nil {
+					runWorkloadList.Items = append(runWorkloadList.Items, *runWorkload)
 				}
-				lrpList.DeepCopyInto(listObj)
-				return lrpListError
+				runWorkloadList.DeepCopyInto(listObj)
+				return runWorkloadListError
 			case *korifiv1alpha1.CFRouteList:
 				routeList := korifiv1alpha1.CFRouteList{Items: routes}
 
@@ -150,7 +149,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
 			})
 
-			It("does not attempt to create any new LRPs", func() {
+			It("does not attempt to create any new RunWorkloads", func() {
 				Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
 			})
 		})
@@ -158,7 +157,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		When("the CFApp is updated from desired state STARTED to STOPPED", func() {
 			BeforeEach(func() {
 				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
-				lrp = &eiriniv1.LRP{
+				runWorkload = &korifiv1alpha1.RunWorkload{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:         testProcessGUID,
 						GenerateName: "",
@@ -167,24 +166,23 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 							korifiv1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
 						},
 					},
-					Spec: eiriniv1.LRPSpec{
+					Spec: korifiv1alpha1.RunWorkloadSpec{
 						GUID:        testProcessGUID,
 						ProcessType: testProcessType,
-						AppName:     cfApp.Spec.DisplayName,
 						AppGUID:     testAppGUID,
 						Image:       "test-image-ref",
 						Instances:   0,
-						MemoryMB:    100,
-						DiskMB:      100,
+						MemoryMiB:   100,
+						DiskMiB:     100,
 						CPUWeight:   0,
 					},
-					Status: eiriniv1.LRPStatus{
-						Replicas: 0,
+					Status: korifiv1alpha1.RunWorkloadStatus{
+						ReadyReplicas: 0,
 					},
 				}
 			})
 
-			It("deletes any existing LRPs for the CFApp", func() {
+			It("deletes any existing RunWorkloads for the CFApp", func() {
 				Expect(fakeClient.DeleteCallCount()).To(Equal(1), "Client.Delete call count mismatch")
 			})
 		})
@@ -194,7 +192,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 			BeforeEach(func() {
 				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-				lrpError = apierrors.NewNotFound(schema.GroupResource{}, "some-guid")
+				runWorkloadError = apierrors.NewNotFound(schema.GroupResource{}, "some-guid")
 
 				routes = []korifiv1alpha1.CFRoute{
 					{
@@ -248,8 +246,8 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 			It("chooses the oldest matching route", func() {
 				_, obj, _ := fakeClient.CreateArgsForCall(0)
-				returnedLRP := obj.(*eiriniv1.LRP)
-				Expect(returnedLRP.Spec.Environment).To(ContainElements(
+				returnedRunWorkload := obj.(*korifiv1alpha1.RunWorkload)
+				Expect(returnedRunWorkload.Spec.Env).To(ContainElements(
 					Equal(corev1.EnvVar{Name: "PORT", Value: strconv.Itoa(testPort)}),
 					Equal(corev1.EnvVar{Name: "VCAP_APP_PORT", Value: strconv.Itoa(testPort)}),
 				))
@@ -311,7 +309,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				})
 			})
 
-			When("building the LRP environment fails", func() {
+			When("building the RunWorkload environment fails", func() {
 				BeforeEach(func() {
 					envBuilder.BuildEnvReturns(nil, errors.New("build-env-err"))
 				})
@@ -321,9 +319,9 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				})
 			})
 
-			When("fetch LRPList returns an error", func() {
+			When("fetch RunWorkloadList returns an error", func() {
 				BeforeEach(func() {
-					lrpListError = errors.New(failsOnPurposeErrorMessage)
+					runWorkloadListError = errors.New(failsOnPurposeErrorMessage)
 				})
 
 				It("returns an error", func() {
@@ -333,10 +331,10 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		})
 	})
 
-	When("generating LRP CPU weight parameters", func() {
+	When("generating RunWorkload CPU weight parameters", func() {
 		BeforeEach(func() {
 			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-			lrpError = apierrors.NewNotFound(schema.GroupResource{}, "")
+			runWorkloadError = apierrors.NewNotFound(schema.GroupResource{}, "")
 		})
 
 		DescribeTable("matches expected output",
@@ -348,9 +346,9 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 				Expect(fakeClient.CreateCallCount()).To(BeNumerically(">=", 1))
 				_, createObj, _ := fakeClient.CreateArgsForCall(0)
-				createdLRP, ok := createObj.(*eiriniv1.LRP)
-				Expect(ok).To(BeTrue(), "client Create() object cooerce to eirini.LRP failed")
-				Expect(createdLRP.Spec.CPUWeight).To(Equal(outputCTPUWeight))
+				createdRunWorkload, ok := createObj.(*korifiv1alpha1.RunWorkload)
+				Expect(ok).To(BeTrue(), "client Create() object cooerce to eirini.RunWorkload failed")
+				Expect(createdRunWorkload.Spec.CPUWeight).To(Equal(outputCTPUWeight))
 			},
 			Entry("Memory is zero", int64(0), uint8(100*128/8192)),
 			Entry("Memory is less than 8192", int64(4096), uint8(100*4096/8192)),

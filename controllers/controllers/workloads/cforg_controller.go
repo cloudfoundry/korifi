@@ -81,6 +81,7 @@ const (
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=create;delete
 //+kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=create;patch
 //+kubebuilder:rbac:groups="batch",resources=jobs,verbs=create;delete;deletecollection
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runworkloads/status,verbs=patch
 //+kubebuilder:rbac:groups="eirini.cloudfoundry.org",resources=lrps/status,verbs=patch
 //+kubebuilder:rbac:groups="eirini.cloudfoundry.org",resources=tasks/status,verbs=patch
 //+kubebuilder:rbac:groups="metrics.k8s.io",resources=pods,verbs=get;list;watch
