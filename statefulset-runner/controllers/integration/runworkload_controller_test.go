@@ -12,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("RunWorkloadsController", func() {
@@ -83,9 +84,10 @@ var _ = Describe("RunWorkloadsController", func() {
 					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulsetName, Namespace: namespaceName}, statefulset)).To(Succeed())
 				}).Should(Succeed())
 
+				ogStatefulset := statefulset.DeepCopy()
 				statefulset.Status.ReadyReplicas = runWorkload.Spec.Instances
 				statefulset.Status.Replicas = runWorkload.Spec.Instances
-				Expect(k8sClient.Status().Update(ctx, statefulset)).To(Succeed())
+				Expect(k8sClient.Status().Patch(ctx, statefulset, client.MergeFrom(ogStatefulset))).To(Succeed())
 			})
 
 			It("eventually updates status.readyReplicas to the same value as the desired number of instances", func() {
