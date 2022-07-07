@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 )
@@ -446,6 +447,13 @@ var _ = Describe("Apps", func() {
 					SetResult(&result).
 					Get("/v3/apps/" + appGUID + "/env")
 			}).Should(HaveRestyStatusCode(http.StatusOK), BeNil())
+
+			Eventually(func(g gomega.Gomega) {
+				resp, err := certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/env")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				g.Expect(result).To(HaveKeyWithValue("system_env_json", HaveKey("VCAP_SERVICES")))
+			}).Should(Succeed())
 		})
 
 		It("returns the app environment", func() {
@@ -469,6 +477,5 @@ var _ = Describe("Apps", func() {
 				},
 			})))
 		})
-
 	})
 })
