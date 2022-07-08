@@ -1,6 +1,7 @@
 package presenter
 
 import (
+	"net/http"
 	"net/url"
 	"time"
 
@@ -35,6 +36,7 @@ type TaskLinks struct {
 	Self    Link `json:"self"`
 	App     Link `json:"app"`
 	Droplet Link `json:"droplet"`
+	Cancel  Link `json:"cancel"`
 }
 
 func ForTask(responseTask repositories.TaskRecord, baseURL url.URL) TaskResponse {
@@ -65,6 +67,10 @@ func ForTask(responseTask repositories.TaskRecord, baseURL url.URL) TaskResponse
 			},
 			Droplet: Link{
 				HRef: buildURL(baseURL).appendPath(dropletsBase, responseTask.DropletGUID).build(),
+			},
+			Cancel: Link{
+				HRef:   buildURL(baseURL).appendPath(tasksBase, responseTask.GUID, "actions", "cancel").build(),
+				Method: http.MethodPost,
 			},
 		},
 	}

@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,6 +27,7 @@ const (
 	TaskStateRunning   = "RUNNING"
 	TaskStateSucceeded = "SUCCEEDED"
 	TaskStateFailed    = "FAILED"
+	TaskStateCanceling = "CANCELING"
 )
 
 type TaskRecord struct {
@@ -51,10 +53,10 @@ type ListTaskMessage struct {
 	AppGUIDs []string
 }
 
-func (m *CreateTaskMessage) toCFTask() korifiv1alpha1.CFTask {
+func (m *CreateTaskMessage) toCFTask() *korifiv1alpha1.CFTask {
 	guid := uuid.NewString()
 
-	return korifiv1alpha1.CFTask{
+	return &korifiv1alpha1.CFTask{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: m.SpaceGUID,
@@ -96,12 +98,12 @@ func (r *TaskRepo) CreateTask(ctx context.Context, authInfo authorization.Info, 
 	}
 
 	task := createMessage.toCFTask()
-	err = userClient.Create(ctx, &task)
+	err = userClient.Create(ctx, task)
 	if err != nil {
 		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
 	}
 
-	task, err = r.awaitInitialization(ctx, userClient, task)
+	task, err = r.awaitCondition(ctx, userClient, task, korifiv1alpha1.TaskInitializedConditionType)
 	if err != nil {
 		return TaskRecord{}, fmt.Errorf("failed waiting for task to get initialized: %w", err)
 	}
@@ -120,8 +122,8 @@ func (r *TaskRepo) GetTask(ctx context.Context, authInfo authorization.Info, tas
 		return TaskRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	cfTask := korifiv1alpha1.CFTask{}
-	err = userClient.Get(ctx, types.NamespacedName{Namespace: taskNamespace, Name: taskGUID}, &cfTask)
+	cfTask := &korifiv1alpha1.CFTask{}
+	err = userClient.Get(ctx, types.NamespacedName{Namespace: taskNamespace, Name: taskGUID}, cfTask)
 	if err != nil {
 		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
 	}
@@ -135,10 +137,10 @@ func (r *TaskRepo) GetTask(ctx context.Context, authInfo authorization.Info, tas
 	return taskToRecord(cfTask), nil
 }
 
-func (r *TaskRepo) awaitInitialization(ctx context.Context, userClient client.WithWatch, task korifiv1alpha1.CFTask) (korifiv1alpha1.CFTask, error) {
+func (r *TaskRepo) awaitCondition(ctx context.Context, userClient client.WithWatch, task *korifiv1alpha1.CFTask, conditionType string) (*korifiv1alpha1.CFTask, error) {
 	watch, err := userClient.Watch(ctx, &korifiv1alpha1.CFTaskList{}, client.InNamespace(task.Namespace), client.MatchingFields{"metadata.name": task.Name})
 	if err != nil {
-		return korifiv1alpha1.CFTask{}, apierrors.FromK8sError(err, TaskResourceType)
+		return nil, apierrors.FromK8sError(err, TaskResourceType)
 	}
 	defer watch.Stop()
 
@@ -153,11 +155,11 @@ func (r *TaskRepo) awaitInitialization(ctx context.Context, userClient client.Wi
 				continue
 			}
 
-			if meta.IsStatusConditionTrue(updatedTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType) {
-				return *updatedTask, nil
+			if meta.IsStatusConditionTrue(updatedTask.Status.Conditions, conditionType) {
+				return updatedTask, nil
 			}
 		case <-timer.C:
-			return korifiv1alpha1.CFTask{}, fmt.Errorf("task did not get initialized within timeout period %d ms", r.timeout.Milliseconds())
+			return nil, fmt.Errorf("task did not get the %s condition within timeout period %d ms", conditionType, r.timeout.Milliseconds())
 		}
 	}
 }
@@ -188,10 +190,46 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, m
 
 	taskRecords := []TaskRecord{}
 	for _, t := range tasks {
-		taskRecords = append(taskRecords, taskToRecord(t))
+		taskRecords = append(taskRecords, taskToRecord(&t))
 	}
 
 	return taskRecords, nil
+}
+
+func (r *TaskRepo) CancelTask(ctx context.Context, authInfo authorization.Info, taskGUID string) (TaskRecord, error) {
+	taskNamespace, err := r.namespaceRetriever.NamespaceFor(ctx, taskGUID, TaskResourceType)
+	if err != nil {
+		return TaskRecord{}, err
+	}
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return TaskRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	originalTask := &korifiv1alpha1.CFTask{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: taskNamespace,
+			Name:      taskGUID,
+		},
+	}
+	task := originalTask.DeepCopy()
+	task.Spec.Canceled = true
+
+	err = userClient.Patch(ctx, task, client.MergeFrom(originalTask))
+	if err != nil {
+		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
+			return TaskRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.GetMessage())
+		}
+		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
+	}
+
+	task, err = r.awaitCondition(ctx, userClient, task, korifiv1alpha1.TaskCanceledConditionType)
+	if err != nil {
+		return TaskRecord{}, fmt.Errorf("failed waiting for task to get canceled: %w", err)
+	}
+
+	return taskToRecord(task), nil
 }
 
 func filter(tasks []korifiv1alpha1.CFTask, appGUIDs []string) []korifiv1alpha1.CFTask {
@@ -220,7 +258,7 @@ func splitCommand(command string) []string {
 	return strings.Split(trimmedCommand, " ")
 }
 
-func taskToRecord(task korifiv1alpha1.CFTask) TaskRecord {
+func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
 	return TaskRecord{
 		Name:              task.Name,
 		GUID:              task.Name,
@@ -235,12 +273,14 @@ func taskToRecord(task korifiv1alpha1.CFTask) TaskRecord {
 	}
 }
 
-func toRecordState(task korifiv1alpha1.CFTask) string {
+func toRecordState(task *korifiv1alpha1.CFTask) string {
 	switch {
 	case meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskSucceededConditionType):
 		return TaskStateSucceeded
 	case meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskFailedConditionType):
 		return TaskStateFailed
+	case meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskCanceledConditionType):
+		return TaskStateCanceling
 	case meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskStartedConditionType):
 		return TaskStateRunning
 	default:

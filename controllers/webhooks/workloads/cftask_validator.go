@@ -32,7 +32,7 @@ import (
 
 const (
 	MissingRequredFieldErrorType    = "MissingRequiredFieldError"
-	CancelationNotPossibleErrorType = "CancelaionNotPossibleError"
+	CancelationNotPossibleErrorType = "CancelationNotPossibleError"
 )
 
 // log is for logging in this package.
@@ -95,17 +95,21 @@ func (v *CFTaskValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Obj
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", oldObj))
 	}
 
-	if !newTask.Spec.Canceled || oldTask.Spec.Canceled {
+	if oldTask.Spec.Canceled || !newTask.Spec.Canceled {
 		return nil
 	}
 
-	taskSucceeded := meta.IsStatusConditionTrue(newTask.Status.Conditions, v1alpha1.TaskSucceededConditionType)
-	taskFailed := meta.IsStatusConditionTrue(newTask.Status.Conditions, v1alpha1.TaskFailedConditionType)
+	state := ""
+	if meta.IsStatusConditionTrue(newTask.Status.Conditions, v1alpha1.TaskSucceededConditionType) {
+		state = "SUCCEEDED"
+	} else if meta.IsStatusConditionTrue(newTask.Status.Conditions, v1alpha1.TaskFailedConditionType) {
+		state = "FAILED"
+	}
 
-	if taskSucceeded || taskFailed {
+	if state != "" {
 		return webhooks.ValidationError{
 			Type:    CancelationNotPossibleErrorType,
-			Message: fmt.Sprintf("task %s:%s cannot be canceled, because it has already terminated", newTask.Namespace, newTask.Name),
+			Message: fmt.Sprintf("Task state is %s and therefore cannot be canceled", state),
 		}.ExportJSONError()
 	}
 
