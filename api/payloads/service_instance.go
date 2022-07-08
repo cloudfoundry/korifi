@@ -46,6 +46,6 @@ func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessag
 	}
 }
 
-func (l *ServiceInstanceList) SupportedFilterKeys() []string {
+func (l *ServiceInstanceList) SupportedKeys() []string {
 	return []string{"names", "space_guids", "fields", "order_by", "per_page"}
 }

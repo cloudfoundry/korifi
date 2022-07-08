@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/gorilla/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -149,25 +148,10 @@ func (h *ProcessHandler) processListHandler(ctx context.Context, logger logr.Log
 	}
 
 	processListFilter := new(payloads.ProcessList)
-	err := schema.NewDecoder().Decode(processListFilter, r.Form)
+	err := payloads.Decode(processListFilter, r.Form)
 	if err != nil {
-		switch err.(type) {
-		case schema.MultiError:
-			multiError := err.(schema.MultiError)
-			for _, v := range multiError {
-				_, ok := v.(schema.UnknownKeyError)
-				if ok {
-					logger.Info("Unknown key used in Process filter")
-					return nil, apierrors.NewUnknownKeyError(err, processListFilter.SupportedFilterKeys())
-				}
-			}
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-
-		default:
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		}
+		logger.Error(err, "Unable to decode request query parameters")
+		return nil, err
 	}
 
 	processList, err := h.processRepo.ListProcesses(ctx, authInfo, processListFilter.ToMessage())

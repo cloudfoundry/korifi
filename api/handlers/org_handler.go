@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -121,25 +120,10 @@ func (h *OrgHandler) orgListDomainHandler(ctx context.Context, logger logr.Logge
 	}
 
 	domainListFilter := new(payloads.DomainList)
-	err := schema.NewDecoder().Decode(domainListFilter, r.Form)
+	err := payloads.Decode(domainListFilter, r.Form)
 	if err != nil {
-		switch err.(type) {
-		case schema.MultiError:
-			multiError := err.(schema.MultiError)
-			for _, v := range multiError {
-				_, ok := v.(schema.UnknownKeyError)
-				if ok {
-					logger.Info("Unknown key used in Organization Domain filter")
-					return nil, apierrors.NewUnknownKeyError(err, domainListFilter.SupportedFilterKeys())
-				}
-			}
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-
-		default:
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		}
+		logger.Error(err, "Unable to decode request query parameters")
+		return nil, err
 	}
 
 	domainList, err := h.domainRepo.ListDomains(ctx, authInfo, domainListFilter.ToMessage())

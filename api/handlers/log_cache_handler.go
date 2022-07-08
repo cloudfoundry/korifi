@@ -14,7 +14,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
 )
 
 const (
@@ -64,25 +63,10 @@ func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.L
 	}
 
 	logReadPayload := new(payloads.LogRead)
-	err := schema.NewDecoder().Decode(logReadPayload, r.Form)
+	err := payloads.Decode(logReadPayload, r.Form)
 	if err != nil {
-		switch err.(type) {
-		case schema.MultiError:
-			multiError := err.(schema.MultiError)
-			for _, v := range multiError {
-				_, ok := v.(schema.UnknownKeyError)
-				if ok {
-					logger.Info("Unknown key used in log read payload")
-					return nil, apierrors.NewUnknownKeyError(err, logReadPayload.SupportedFilterKeys())
-				}
-			}
-
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		default:
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		}
+		logger.Error(err, "Unable to decode request query parameters")
+		return nil, err
 	}
 
 	v := validator.New()

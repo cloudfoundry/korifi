@@ -16,7 +16,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
 )
 
 const (
@@ -93,24 +92,10 @@ func (h PackageHandler) packageListHandler(ctx context.Context, logger logr.Logg
 	}
 
 	packageListQueryParameters := new(payloads.PackageListQueryParameters)
-	err := schema.NewDecoder().Decode(packageListQueryParameters, r.Form)
+	err := payloads.Decode(packageListQueryParameters, r.Form)
 	if err != nil {
-		switch err.(type) {
-		case schema.MultiError:
-			multiError := err.(schema.MultiError)
-			for _, v := range multiError {
-				_, ok := v.(schema.UnknownKeyError)
-				if ok {
-					logger.Info("Unknown key used in Package filter")
-					return nil, apierrors.NewUnknownKeyError(err, packageListQueryParameters.SupportedQueryParameters())
-				}
-			}
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		default:
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		}
+		logger.Error(err, "Unable to decode request query parameters")
+		return nil, err
 	}
 
 	records, err := h.packageRepo.ListPackages(ctx, authInfo, packageListQueryParameters.ToMessage())
@@ -202,24 +187,10 @@ func (h PackageHandler) packageListDropletsHandler(ctx context.Context, logger l
 	}
 
 	packageListDropletsQueryParams := new(payloads.PackageListDropletsQueryParameters)
-	err := schema.NewDecoder().Decode(packageListDropletsQueryParams, r.Form)
+	err := payloads.Decode(packageListDropletsQueryParams, r.Form)
 	if err != nil {
-		switch err.(type) {
-		case schema.MultiError:
-			multiError := err.(schema.MultiError)
-			for _, v := range multiError {
-				_, ok := v.(schema.UnknownKeyError)
-				if ok {
-					logger.Info("Unknown key used in Package filter")
-					return nil, apierrors.NewUnknownKeyError(err, packageListDropletsQueryParams.SupportedQueryParameters())
-				}
-			}
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		default:
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		}
+		logger.Error(err, "Unable to decode request query parameters")
+		return nil, err
 	}
 
 	packageGUID := mux.Vars(r)["guid"]

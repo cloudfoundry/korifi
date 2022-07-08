@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -102,15 +101,10 @@ func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Log
 	}
 
 	listFilter := new(payloads.ServiceBindingList)
-	err := schema.NewDecoder().Decode(listFilter, r.Form)
+	err := payloads.Decode(listFilter, r.Form)
 	if err != nil {
-		if isUnknownKeyError(err) {
-			logger.Info("Unknown key used in ServiceInstance query parameters")
-			return nil, apierrors.NewUnknownKeyError(err, listFilter.SupportedFilterKeys())
-		} else {
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		}
+		logger.Error(err, "Unable to decode request query parameters")
+		return nil, err
 	}
 
 	serviceBindingList, err := h.serviceBindingRepo.ListServiceBindings(ctx, authInfo, listFilter.ToMessage())
@@ -141,20 +135,4 @@ func (h *ServiceBindingHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(ServiceBindingsPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.createHandler))
 	router.Path(ServiceBindingsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.listHandler))
 	router.Path(ServiceBindingPath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.deleteHandler))
-}
-
-// TODO: Separate commit/PR to move this function into shared.go and refactor all the handlers
-// https://github.com/cloudfoundry/korifi/issues/698
-func isUnknownKeyError(err error) bool {
-	switch err.(type) {
-	case schema.MultiError:
-		multiError := err.(schema.MultiError)
-		for _, v := range multiError {
-			_, ok := v.(schema.UnknownKeyError)
-			if ok {
-				return true
-			}
-		}
-	}
-	return false
 }

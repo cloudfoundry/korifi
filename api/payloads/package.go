@@ -55,7 +55,7 @@ func (p *PackageListQueryParameters) ToMessage() repositories.ListPackagesMessag
 	}
 }
 
-func (p *PackageListQueryParameters) SupportedQueryParameters() []string {
+func (p *PackageListQueryParameters) SupportedKeys() []string {
 	return []string{"app_guids", "order_by", "per_page", "states"}
 }
 
@@ -71,6 +71,6 @@ func (p *PackageListDropletsQueryParameters) ToMessage(packageGUIDs []string) re
 	}
 }
 
-func (p *PackageListDropletsQueryParameters) SupportedQueryParameters() []string {
+func (p *PackageListDropletsQueryParameters) SupportedKeys() []string {
 	return []string{"states", "per_page"}
 }
