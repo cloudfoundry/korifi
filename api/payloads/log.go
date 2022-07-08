@@ -8,6 +8,6 @@ type LogRead struct {
 	Descending    *bool    `schema:"descending"`
 }
 
-func (l *LogRead) SupportedFilterKeys() []string {
+func (l *LogRead) SupportedKeys() []string {
 	return []string{"start_time", "end_time", "envelope_types", "limit", "descending"}
 }

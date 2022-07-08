@@ -47,6 +47,6 @@ func (p *RouteList) ToMessage() repositories.ListRoutesMessage {
 	}
 }
 
-func (p *RouteList) SupportedFilterKeys() []string {
+func (p *RouteList) SupportedKeys() []string {
 	return []string{"app_guids", "space_guids", "domain_guids", "hosts", "paths"}
 }

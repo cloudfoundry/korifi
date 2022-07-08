@@ -38,6 +38,6 @@ func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage
 	}
 }
 
-func (l *ServiceBindingList) SupportedFilterKeys() []string {
+func (l *ServiceBindingList) SupportedKeys() []string {
 	return []string{"app_guids, service_instance_guids, include, type"}
 }

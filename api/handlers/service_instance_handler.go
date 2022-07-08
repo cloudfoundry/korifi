@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/gorilla/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -95,25 +94,10 @@ func (h *ServiceInstanceHandler) serviceInstanceListHandler(ctx context.Context,
 	}
 
 	listFilter := new(payloads.ServiceInstanceList)
-	err := schema.NewDecoder().Decode(listFilter, r.Form)
+	err := payloads.Decode(listFilter, r.Form)
 	if err != nil {
-		switch err.(type) {
-		case schema.MultiError:
-			multiError := err.(schema.MultiError)
-			for _, v := range multiError {
-				_, ok := v.(schema.UnknownKeyError)
-				if ok {
-					logger.Info("Unknown key used in ServiceInstance filter")
-					return nil, apierrors.NewUnknownKeyError(err, listFilter.SupportedFilterKeys())
-				}
-			}
-
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		default:
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		}
+		logger.Error(err, "Unable to decode request query parameters")
+		return nil, err
 	}
 
 	serviceInstanceList, err := h.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, listFilter.ToMessage())

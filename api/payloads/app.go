@@ -69,7 +69,7 @@ func (a *AppList) ToMessage() repositories.ListAppsMessage {
 	}
 }
 
-func (a *AppList) SupportedFilterKeys() []string {
+func (a *AppList) SupportedKeys() []string {
 	return []string{"names", "guids", "space_guids", "order_by"}
 }
 

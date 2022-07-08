@@ -14,7 +14,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -136,25 +135,10 @@ func (h *AppHandler) appListHandler(ctx context.Context, logger logr.Logger, aut
 	}
 
 	appListFilter := new(payloads.AppList)
-	err := schema.NewDecoder().Decode(appListFilter, r.Form)
+	err := payloads.Decode(appListFilter, r.Form)
 	if err != nil {
-		switch err.(type) {
-		case schema.MultiError:
-			multiError := err.(schema.MultiError)
-			for _, v := range multiError {
-				_, ok := v.(schema.UnknownKeyError)
-				if ok {
-					logger.Info("Unknown key used in Apps filter")
-					return nil, apierrors.NewUnknownKeyError(err, appListFilter.SupportedFilterKeys())
-				}
-			}
-
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		default:
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		}
+		logger.Error(err, "Unable to decode request query parameters")
+		return nil, err
 	}
 
 	appList, err := h.appRepo.ListApps(ctx, authInfo, appListFilter.ToMessage())

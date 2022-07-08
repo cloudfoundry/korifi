@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -49,27 +47,11 @@ func (h *BuildpackHandler) buildpackListHandler(ctx context.Context, logger logr
 		return nil, err
 	}
 
-	// TODO: interface for supported keys list so we can turn this block into a helper function to reduce code duplication
 	buildpackListFilter := new(payloads.BuildpackList)
-	err := schema.NewDecoder().Decode(buildpackListFilter, r.Form)
+	err := payloads.Decode(buildpackListFilter, r.Form)
 	if err != nil {
-		switch err.(type) {
-		case schema.MultiError:
-			multiError := err.(schema.MultiError)
-			for _, v := range multiError {
-				_, ok := v.(schema.UnknownKeyError)
-				if ok {
-					logger.Info("Unknown key used in Buildpacks")
-					return nil, apierrors.NewUnknownKeyError(err, buildpackListFilter.SupportedQueryParams())
-				}
-			}
-
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		default:
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		}
+		logger.Error(err, "Unable to decode request query parameters")
+		return nil, err
 	}
 
 	buildpacks, err := h.buildpackRepo.ListBuildpacks(ctx, authInfo)

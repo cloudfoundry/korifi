@@ -14,7 +14,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
 )
 
 const (
@@ -84,24 +83,10 @@ func (h *RouteHandler) routeGetListHandler(ctx context.Context, logger logr.Logg
 	}
 
 	routeListFilter := new(payloads.RouteList)
-	err := schema.NewDecoder().Decode(routeListFilter, r.Form)
+	err := payloads.Decode(routeListFilter, r.Form)
 	if err != nil {
-		switch err.(type) {
-		case schema.MultiError:
-			multiError := err.(schema.MultiError)
-			for _, v := range multiError {
-				_, ok := v.(schema.UnknownKeyError)
-				if ok {
-					logger.Info("Unknown key used in Route filter")
-					return nil, apierrors.NewUnknownKeyError(err, routeListFilter.SupportedFilterKeys())
-				}
-			}
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		default:
-			logger.Error(err, "Unable to decode request query parameters")
-			return nil, err
-		}
+		logger.Error(err, "Unable to decode request query parameters")
+		return nil, err
 	}
 
 	routes, err := h.lookupRouteAndDomainList(ctx, authInfo, routeListFilter.ToMessage())

@@ -44,7 +44,7 @@ func (p *ProcessList) ToMessage() repositories.ListProcessesMessage {
 	}
 }
 
-func (p *ProcessList) SupportedFilterKeys() []string {
+func (p *ProcessList) SupportedKeys() []string {
 	return []string{"app_guids"}
 }
 
