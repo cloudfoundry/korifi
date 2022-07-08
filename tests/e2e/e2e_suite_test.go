@@ -305,7 +305,7 @@ func createOrgRaw(orgName string) (string, error) {
 		return "", err
 	}
 	if resp.StatusCode() != http.StatusCreated {
-		return "", fmt.Errorf("expected status code %d, got %d\n%s", http.StatusCreated, resp.StatusCode(), string(resp.Body()))
+		return "", fmt.Errorf("expected status code %d, got %d, body: %s", http.StatusCreated, resp.StatusCode(), string(resp.Body()))
 	}
 
 	return org.GUID, nil
@@ -348,7 +348,7 @@ func createSpaceRaw(spaceName, orgGUID string) (string, error) {
 	}
 
 	if resp.StatusCode() != http.StatusCreated {
-		return "", fmt.Errorf("expected status code %d, got %d", http.StatusCreated, resp.StatusCode())
+		return "", fmt.Errorf("expected status code %d, got %d, body: %s", http.StatusCreated, resp.StatusCode(), string(resp.Body()))
 	}
 
 	return space.GUID, nil
